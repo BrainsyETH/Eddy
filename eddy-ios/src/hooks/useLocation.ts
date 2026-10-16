@@ -4,7 +4,7 @@
 // ── The permission is never spent on launch ─────────────────────────────────
 // iOS gives an app ONE chance at the location prompt. Firing it at startup asks
 // for something before the user has any idea what it buys them, and a decline
-// is permanent short of a trip to Settings. So nothing here runs until an
+// is permanent short of a trip to Settings. New permission is asked only on an
 // explicit tap — the locate button on the map, the "Near me" chip in River
 // Reports — at which point the ask has a visible reason attached to it. Same
 // discipline as PushPrimer, for the same reason.
@@ -14,11 +14,11 @@
 // in miles. Balanced accuracy resolves that fine, gets a fix faster, and costs
 // far less battery than the precision used for turn-by-turn navigation.
 //
-// ── It never leaves the phone ───────────────────────────────────────────────
-// No coordinate here is sent anywhere — including the one now written to disk,
-// which lives in this app's own sandboxed storage. Distances are computed on
-// device against data the app already holds, which is why the permission copy
-// in app.json can say so plainly.
+// ── Local storage and approximate requests ────────────────────────────────
+// This hook stores its remembered fix locally. Distance sorting is on device.
+// Today sends approximate coordinates to Eddy for weather; Find a Route sends
+// them as `near` when Search is tapped, including an automatic Near you choice.
+// Filling that choice alone sends no route search. See README.md for the policy.
 //
 // ── Why the last fix is remembered ──────────────────────────────────────────
 // "Allow Once" is a SESSION grant. iOS hands it back on relaunch as though
@@ -147,7 +147,7 @@ function writeLastFix(coords: Coords): void {
   });
 }
 
-export function useLocation(): LocationValue {
+export function useLocation({ refreshGranted = false }: { refreshGranted?: boolean } = {}): LocationValue {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');
 
@@ -159,7 +159,11 @@ export function useLocation(): LocationValue {
   /** When the live fix in `coords` was observed. Null for a remembered one. */
   const fixTime = useRef<TimedFix | null>(null);
   const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  const acquisition = useRef(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const request = useCallback(async (options?: { force?: boolean }): Promise<Coords | null> => {
     const force = options?.force ?? false;
@@ -177,11 +181,14 @@ export function useLocation(): LocationValue {
     if (status === 'denied') return null;
     if (inFlight.current && (inFlight.current.force || !force)) return inFlight.current.run;
 
+    const generation = ++acquisition.current;
+    const current = () => mounted.current && acquisition.current === generation;
     const slot: { run: Promise<Coords | null>; force: boolean } = { run: Promise.resolve(null), force };
     slot.run = (async (): Promise<Coords | null> => {
       setStatus('locating');
       try {
         const { status: permission } = await Location.requestForegroundPermissionsAsync();
+        if (!current()) return null;
         if (permission !== Location.PermissionStatus.GRANTED) {
           setStatus('denied');
           return null;
@@ -198,7 +205,7 @@ export function useLocation(): LocationValue {
             FIX_DEADLINE_MS,
           ));
 
-        if (!mounted.current) return null;
+        if (!current()) return null;
         if (!position || position === DEADLINE_EXCEEDED) {
           // Any older position stays in `coords` for callers that want a rough
           // answer, but it is no longer marked live.
@@ -217,7 +224,7 @@ export function useLocation(): LocationValue {
       } catch {
         // Permission held but no fix — indoors, airplane mode, a cold GPS.
         // Distinct from 'denied' because it is worth trying again later.
-        if (mounted.current) setStatus('unavailable');
+        if (current()) setStatus('unavailable');
         return null;
       } finally {
         // Only this request's own slot: a forced request may have replaced it.
@@ -239,6 +246,8 @@ export function useLocation(): LocationValue {
   // trade the `request`-on-tap design above already makes.
   useEffect(() => {
     let cancelled = false;
+    const generation = acquisition.current;
+    const superseded = () => cancelled || generation !== acquisition.current;
     (async () => {
       try {
         const { status: permission } = await Location.getForegroundPermissionsAsync();
@@ -249,28 +258,34 @@ export function useLocation(): LocationValue {
           // of storing one: the map can open where the user is, and nothing
           // prompts, because nothing had to ask.
           const remembered = await readLastFix();
-          if (cancelled || !remembered) return;
+          if (superseded() || !remembered) return;
           setCoords(remembered);
           setStatus('remembered');
           return;
         }
-        // Cached only. A cold GPS fix is a multi-second wait, and nothing here
-        // was asked for — this is opportunistic, so it either has an answer to
-        // hand or it stays quiet.
+        if (superseded()) return;
+        // Prefer a recent cached fix; nearby search can refresh an existing grant.
         const cached = await Location.getLastKnownPositionAsync({ maxAge: lastKnownMaxAge(false) });
-        if (cancelled) return;
-        if (!cached) {
+        if (superseded()) return;
+        // An explicit nearby-search screen may acquire a fresh fix with an
+        // existing grant. This path never requests permission or uses an old
+        // remembered position as the current search origin.
+        const fresh = cached ?? (refreshGranted ? await withDeadline(
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), FIX_DEADLINE_MS,
+        ) : null);
+        if (superseded()) return;
+        if (!fresh || fresh === DEADLINE_EXCEEDED) {
           // Permission held and no recent fix — the phone has been indoors, or
           // just booted. The remembered position still beats no position, and
           // it is not marked 'ready' because there is no live fix behind it.
           const remembered = await readLastFix();
-          if (cancelled || !remembered) return;
+          if (superseded() || !remembered) return;
           setCoords(remembered);
           setStatus('remembered');
           return;
         }
-        const next = { lat: cached.coords.latitude, lng: cached.coords.longitude };
-        fixTime.current = { at: cached.timestamp };
+        const next = { lat: fresh.coords.latitude, lng: fresh.coords.longitude };
+        fixTime.current = { at: fresh.timestamp };
         setCoords(next);
         setStatus('ready');
         writeLastFix(next);
@@ -281,7 +296,7 @@ export function useLocation(): LocationValue {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshGranted]);
 
   // A Settings link must recover within this session. Read permission on
   // return, without spending another prompt or requesting GPS automatically.

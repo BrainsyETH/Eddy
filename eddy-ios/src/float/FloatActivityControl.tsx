@@ -12,7 +12,7 @@ export function FloatActivityControl() {
   const [busy, setBusy] = useState(false);
   if (availability === 'unavailable') return null;
   if (availability === 'active') {
-    return <Text style={[styles.note, { color: colors.textMuted }]}>Float progress is on your Lock Screen. Tap it to return here.</Text>;
+    return <Text style={[styles.note, { color: colors.textMuted }]}>On your Lock Screen · Tap to return to your float.</Text>;
   }
   const disabled = availability === 'disabled';
   const show = async () => {
@@ -34,12 +34,12 @@ export function FloatActivityControl() {
           ? 'Live Activities are off for Eddy. You can enable them in Settings.'
           : availability === 'error'
             ? 'The Lock Screen card couldn’t update. Your float is still running.'
-            : 'See float progress without keeping Eddy open. Tracking permissions still apply.'}
+            : 'See your float on the Lock Screen and Dynamic Island.'}
       </Text>
       <Pressable onPress={() => void show()} disabled={busy} accessibilityRole="button"
         style={[styles.button, { borderColor: colors.border, opacity: busy ? 0.5 : 1 }]}>
         <Text style={[styles.label, { color: colors.interactive }]}>
-          {disabled ? 'Open Settings' : busy ? 'Showing…' : 'Show on Lock Screen'}
+          {disabled ? 'Open Settings' : busy ? 'Showing…' : 'Show Live Activity'}
         </Text>
       </Pressable>
     </View>

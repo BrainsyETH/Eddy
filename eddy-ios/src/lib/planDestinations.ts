@@ -2,6 +2,7 @@ import type { CampsiteAvailabilitySummary, MapAccessPoint } from '@eddy/types';
 import { nightBars } from '../components/map-sheet/availability';
 
 export type PlanDetailDestination =
+  | { pathname: '/'; params: { focusRiver: string; planPutIn: string; planTakeOut: string; planVesselTypeId?: string; openPlan: string; planPresentation: string; planRequest: string } }
   | { pathname: '/float-mode' }
   | { pathname: '/river/[slug]/access/[accessSlug]'; params: { slug: string; accessSlug: string } }
   | { pathname: '/camping'; params: { facility: string; river: string; night: string } }

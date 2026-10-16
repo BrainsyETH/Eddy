@@ -61,7 +61,9 @@ import { useAppConfig } from '@/hooks/useAppConfig';
 interface Props {
   visible: boolean;
   /** 'started' when the sheet closed because a float started from it. */
-  onClose: (reason?: 'started') => void;
+  onClose: (reason?: 'started' | 'map') => void;
+  /** Existing Map planner can reveal its own route without navigating/recalculating. */
+  onViewMap?: () => void;
   /** Standalone planners pop only after the native sheet finishes dismissing. */
   onClosed?: () => void;
   replaceOnStart?: boolean;
@@ -92,6 +94,7 @@ export function PlanSheet({
   onClose,
   onClosed,
   replaceOnStart = false,
+  onViewMap,
   rivers,
   riversLoading,
   riversError,
@@ -138,6 +141,16 @@ export function PlanSheet({
     const destination = detailNavigation.dismissed();
     if (!destination) return;
     if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
+    if (destination.pathname === '/') {
+      if (onViewMap) onViewMap();
+      else {
+        if (replaceOnStart && router.canGoBack()) router.back();
+        router.navigate(destination);
+      }
+      onClose('map');
+      detailNavigation.reset();
+      return;
+    }
     const openingFloat = destination.pathname === '/float-start' || destination.pathname === '/float-mode';
     if (destination.pathname === '/float-mode' && replaceOnStart) {
       router.back();
@@ -147,7 +160,7 @@ export function PlanSheet({
     // A started float is where the paddler is going, not a detail to come
     // back from: the planner does not reopen over the map afterwards.
     if (openingFloat) onClose('started');
-  }, [detailNavigation, router, visible, resultReady, focused, onClose, replaceOnStart]);
+  }, [detailNavigation, router, visible, resultReady, focused, onClose, replaceOnStart, onViewMap]);
   // iOS waits for the native dismissal callback. Other platforms remove the
   // modal when visible becomes false and do not emit that callback.
   useEffect(() => {

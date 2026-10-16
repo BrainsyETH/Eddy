@@ -1,3 +1,4 @@
+import { floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel } from '../../../eddy-ios/src/lib/floatDisplay';
 import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { matchesSetupDownload, restoreSetupDownload } from '../../../eddy-ios/src/lib/floatSetupDownload';
@@ -432,6 +433,8 @@ test('away from the river with GPS working says so and holds the last spot, howe
   assert.ok(started.ok);
   let session = float(started.session, index, 1_000, T0, 60, 1);
   const held = session.position;
+  const totals = session.totals;
+  const samples = session.samples;
   // Ten minutes on a bank 400 m from the line, fixes every 20 s.
   let t = T0 + 60_000;
   for (let s = 0; s < 30; s += 1) {
@@ -442,6 +445,10 @@ test('away from the river with GPS working says so and holds the last spot, howe
   assert.equal(view.status, 'off-route');
   assert.match(statusCopy(view, t), /away from the river/);
   assert.deepEqual(session.position, held);
+  assert.deepEqual(session.gpsPosition?.lngLat, at(1_060, 400));
+  assert.equal(floatDisplayPosition(session, t)?.dimmed, false);
+  assert.equal(session.totals, totals, 'off-river display never advances recorded distance');
+  assert.equal(session.samples, samples, 'off-river display never changes pace');
   assert.equal(view.lastFixAt, t);
   // Not "left the river": 400 m is a bank, not the road home.
   assert.equal(session.awaySince ?? null, null);
@@ -985,4 +992,58 @@ test('changing a starting point preserves a downstream take-out and clears one b
     { riverSlug: 'current', putInId: undefined, takeOutId: 'pulltite' });
   assert.equal(chooseStartAccess(picker, 'round-spring', 30, 20).takeOutId, undefined);
   assert.equal(chooseStartAccess(picker, undefined, null, 20).takeOutId, 'pulltite', 'Unknown GPS must not guess at an upstream take-out');
+});
+
+
+test('usable off-river GPS appears before river acquisition; rejected fixes cannot replace the dot', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'display', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const good = { lngLat: at(1_000, 400), accuracyMeters: 10, timestamp: T0 + 10_000 };
+  const session = applyFix(started.session, index, good, good.timestamp);
+  assert.equal(session.position, null);
+  assert.deepEqual(floatDisplayPosition(session, good.timestamp)?.lngLat, good.lngLat);
+  for (const bad of [
+    { ...good, timestamp: T0 },
+    { ...good, timestamp: T0 + 20_000, accuracyMeters: null },
+    { ...good, timestamp: T0 + 20_000, accuracyMeters: 1000 },
+    { ...good, timestamp: T0 + 40_000 },
+  ]) assert.equal(applyFix(session, index, bad, T0 + 30_000), session);
+  assert.equal(floatDisplayPosition(session, T0 + 600_000)?.dimmed, true);
+  const restored = restoreSession(JSON.stringify(session))!;
+  assert.equal(floatDisplayPosition(restored, good.timestamp)?.dimmed, true);
+  const resumed = applyFix(restored, index, { ...good, timestamp: T0 + 20_000 }, T0 + 20_000);
+  assert.equal(floatDisplayPosition(resumed, T0 + 20_000)?.dimmed, false, 'fresh off-river GPS recovers the dot without inventing river progress');
+  assert.equal(resumed.position, null);
+  assert.ok(!('gpsPosition' in recapFloat(resumed, T0 + 30_000)));
+});
+
+test('route framing includes actual off-line landings and overview keeps a usable scale at arrival', () => {
+  assert.deepEqual(floatRouteBounds([[-91, 37], [-90.9, 37.1]], [-91.01, 36.99], [-90.88, 37.12]), [-91.01, 36.99, -90.88, 37.12]);
+  assert.equal(floatRouteBounds([], null, null), null);
+  const box = floatOverviewBounds([-91, 37], [-91, 37]);
+  assert.ok(box[2] - box[0] >= 0.0059);
+  assert.ok(box[3] - box[1] >= 0.0059);
+  const distant = floatOverviewBounds([-92, 38], [-91, 37]);
+  assert.ok(distant[0] <= -92 && distant[2] >= -91);
+  assert.ok(distant[1] <= 37 && distant[3] >= 38);
+});
+
+test('GPS age and Live Activity status distinguish waiting, fresh, delayed, disabled and unsupported', () => {
+  assert.equal(fixAgeLabel(null, T0), 'Finding GPS…');
+  assert.equal(fixAgeLabel(T0, T0 + 1000), 'Updated just now');
+  assert.equal(fixAgeLabel(T0, T0 + 15_000), 'Updated 15s ago');
+  assert.equal(fixAgeLabel(T0, T0 + 120_000), 'Updated 2 min ago');
+  assert.equal(activityLabel('active'), 'Live Activity on your Lock Screen');
+  assert.equal(activityLabel('disabled'), 'Live Activity is off');
+  assert.equal(activityLabel('unavailable'), null);
+});
+
+test('recap backup reflects this row and actual sync state, independently of a subscription', () => {
+  assert.deepEqual(recapBackupStatus('guest', { dirty: true }, false, null), { label: 'Saved on this phone', retry: false });
+  assert.equal(recapBackupStatus('account', { dirty: false }, false, 'Another row failed').label, 'Backed up to your account');
+  assert.equal(recapBackupStatus('account', { dirty: true }, true, null).label, 'Syncing to your account…');
+  assert.equal(recapBackupStatus('account', { dirty: true }, false, null).label, 'Saved on this phone · Waiting to sync');
+  assert.equal(recapBackupStatus('account', { dirty: true }, false, 'Offline').retry, true);
+  assert.equal(recapBackupStatus('account', { dirty: false, backupError: 'Rejected' }, true, null).retry, true);
 });

@@ -166,6 +166,7 @@ import {
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { LayerZoomHint } from '@/components/LayerZoomHint';
+import { MapPlanSheet } from '@/components/MapPlanSheet';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
@@ -446,7 +447,7 @@ function MapContent() {
   // Planner data is tagged separately from what the map is drawing. The map
   // deliberately keeps the previous river visible during a switch; the planner
   // must never pair that river's access points with the newly selected river.
-  const [plannerAccess, setPlannerAccess] = useState<RiverScoped<MapAccessPoint> | null>(null);
+  const [plannerAccess, setPlannerAccess] = useState<(RiverScoped<MapAccessPoint> & { settled: boolean }) | null>(null);
   // The hazard, dam, service and gauge DATA all live in their own hooks now —
   // see the "Layer data, fetched on demand" section below, and each hook's
   // header for the fetch posture it carries (all four moved verbatim).
@@ -699,6 +700,9 @@ function MapContent() {
    */
   const pinSurvivesSelection = useRef<string | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
+  const [mapPlanRiver, setMapPlanRiver] = useState<string | null>(null);
+  const mapPlanIntent = useRef<{ token: string; gestures: number } | null>(null);
+  const pendingMapPlanFrame = useRef<{ from: string; to: string; gestures: number } | null>(null);
 
   const network = useStatewideNetwork();
   // Every river's put-ins and hazards, off the launch bundle already on disk.
@@ -893,7 +897,7 @@ function MapContent() {
     // replace it with the live response when it lands.
     const cachedAccess = readRiver(slug).then((stored) => {
       const points = stored?.payload.accessPoints;
-      if (live && !liveAccessLanded && points) setPlannerAccess({ slug, items: points });
+      if (live && !liveAccessLanded && points) setPlannerAccess({ slug, items: points, settled: false });
       return points;
     });
 
@@ -901,7 +905,7 @@ function MapContent() {
       .then((points) => {
         if (!live) return points;
         liveAccessLanded = true;
-        setPlannerAccess({ slug, items: points });
+        setPlannerAccess({ slug, items: points, settled: true });
         return points;
       })
       .catch(async (err) => {
@@ -910,7 +914,7 @@ function MapContent() {
         // put-ins change monthly. No error surfaces for the same reason the
         // network's own geometry failure does not: the map is still working.
         const points = (await cachedAccess) ?? [];
-        if (live) setPlannerAccess({ slug, items: points });
+        if (live) setPlannerAccess({ slug, items: points, settled: true });
         return points;
       })
       .then((points) => {
@@ -1502,6 +1506,7 @@ function MapContent() {
     focusAccess?: string;
     focusRiver?: string;
     openPlan?: string;
+    planPresentation?: string;
     planPutIn?: string;
     planTakeOut?: string;
     planVesselTypeId?: string;
@@ -1591,21 +1596,22 @@ function MapContent() {
   // full-resolution geometry. RiverListItem already carries that ID, so the
   // planner becomes usable as soon as cached access points arrive.
   const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
+  const mapPlanning = mapPlanRiver === selectedSlug && planner.putIn != null;
 
   /**
    * Legacy callers of the Map URL can request a return destination. Today
    * and Floats now use their own lightweight planner route.
    */
   const planReturnTo = useRef<string | null>(null);
-  useFocusEffect(useCallback(() => () => { planReturnTo.current = null; }, []));
-  const closePlanner = useCallback((reason?: 'started') => {
+  useFocusEffect(useCallback(() => () => { planReturnTo.current = null; pendingMapPlanFrame.current = null; }, []));
+  const closePlanner = useCallback((reason?: 'started' | 'map') => {
     setPlanOpen(false);
     const back = planReturnTo.current;
     planReturnTo.current = null;
-    if (back === 'find-float' && reason !== 'started') {
+    if (back === 'find-float' && !reason) {
       router.navigate('/find-float');
     }
-    if (back === 'floats' && reason !== 'started') router.navigate('/float-home');
+    if (back === 'floats' && !reason) router.navigate('/float-home');
   }, [router]);
 
   /**
@@ -1625,33 +1631,47 @@ function MapContent() {
       planReturnTo.current = focusParams.planReturnTo ?? null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- explicit navigation from Saved floats opens the planner.
       setPlanOpen(true);
-      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planVesselTypeId: undefined, planReturnTo: undefined, planRequest: undefined });
+      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planVesselTypeId: undefined, planReturnTo: undefined, planRequest: undefined, planPresentation: undefined });
       return;
     }
-    const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}:${focusParams.planVesselTypeId ?? ''}`;
+    const token = `${request ?? ''}:${focusParams.planPresentation ?? ''}:${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}:${focusParams.planVesselTypeId ?? ''}`;
     if (planIntentConsumed.current === token) return;
+    if (mapPlanIntent.current?.token !== token) mapPlanIntent.current = { token, gestures: gestureCount.current };
 
     if (selectedSlug !== focusRiver) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- route intent synchronizes the kept-alive map tab.
       selectRiver(focusRiver, { camera: 'fitRiver' });
       return;
     }
     if (plannerAccess?.slug !== focusRiver) return;
 
+    let showOnMap = false;
     if (focusParams.planPutIn && focusParams.planTakeOut) {
       const putIn = plannerAccessPoints.find((point) => point.id === focusParams.planPutIn);
       const takeOut = plannerAccessPoints.find((point) => point.id === focusParams.planTakeOut);
       // A cached editorial pick can outlive an access-point edit. Preserve the
       // handoff by opening the river's planner even if one old ID no longer
       // resolves; the user can then choose the current endpoints explicitly.
-      if (putIn && takeOut) planner.planFloat(putIn, takeOut, focusParams.planVesselTypeId);
+      if (putIn && takeOut && putIn.isFloatEndpoint !== false && takeOut.isFloatEndpoint !== false && takeOut.riverMile > putIn.riverMile) {
+        planner.planFloat(putIn, takeOut, focusParams.planVesselTypeId);
+        showOnMap = focusParams.planPresentation === 'map';
+        if (showOnMap) {
+          setSelectedPin(null);
+          setMapPlanRiver(focusRiver);
+          pendingMapPlanFrame.current = { from: putIn.id, to: takeOut.id, gestures: mapPlanIntent.current.gestures };
+        }
+      } else {
+        // Give a cached list one chance to refresh before declaring old IDs unavailable.
+        if (!plannerAccess.settled) return;
+        planner.reset();
+      }
     }
 
     planIntentConsumed.current = token;
     if (request) planRequestsDone.current.add(request);
     planReturnTo.current = focusParams.planReturnTo ?? null;
-    setPlanOpen(true);
+    setPlanOpen(!showOnMap);
     router.setParams({
+      planPresentation: undefined,
       focusRiver: undefined,
       openPlan: undefined,
       planPutIn: undefined,
@@ -1661,6 +1681,7 @@ function MapContent() {
     });
   }, [
     focusParams.openPlan,
+    focusParams.planPresentation,
     focusParams.planPutIn,
     focusParams.planTakeOut,
     focusParams.planVesselTypeId,
@@ -1669,6 +1690,7 @@ function MapContent() {
     focusRiver,
     planner,
     plannerAccess?.slug,
+    plannerAccess?.settled,
     plannerAccessPoints,
     router,
     selectRiver,
@@ -1679,8 +1701,9 @@ function MapContent() {
   // re-rendering the endpoint markers' shape sources with unchanged contents.
   const planEndpoints = useMemo(
     () =>
-      planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null,
-    [planner.plan],
+      planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut }
+        : mapPlanning && planner.putIn ? { putIn: planner.putIn, takeOut: null } : null,
+    [planner.plan, planner.putIn, mapPlanning],
   );
 
   const plannerDistances = useMemo(() => {
@@ -1899,7 +1922,8 @@ function MapContent() {
    */
   const sheetKey = mapSearchOpen ? null
     : selectedPin ? `pin:${selectedPin.id}`
-      : riverSheetData ? `river:${riverSheetData.slug}` : null;
+      : mapPlanning ? `plan:${selectedSlug}:${planner.putIn?.id}:${planner.step === 'result' ? planner.takeOut?.id : 'choose'}`
+        : riverSheetData ? `river:${riverSheetData.slug}` : null;
   const sheetOpen = sheetKey !== null;
   const [sheet, setSheet] = useState<{ key: string | null; detent: string; height: number; ready: boolean }>({
     key: sheetKey,
@@ -2494,6 +2518,20 @@ function MapContent() {
     planFrameCommandId.current = issueCameraCommand({ type: 'planRouteFramed', bounds });
   }, [planOpen, planGeometry, issueCameraCommand]);
 
+  useEffect(() => {
+    const pending = pendingMapPlanFrame.current;
+    if (!pending || !isFocused || !mapPlanning || planOpen || selectedPin || !sheet.ready) return;
+    if (gestureCount.current !== pending.gestures) { pendingMapPlanFrame.current = null; return; }
+    if (!planGeometry || planner.plan?.putIn.id !== pending.from || planner.plan?.takeOut.id !== pending.to) return;
+    const route = planner.plan;
+    const bounds = boundsForLine([...planGeometry.coordinates,
+      [route.putIn.coordinates.lng, route.putIn.coordinates.lat],
+      [route.takeOut.coordinates.lng, route.takeOut.coordinates.lat]]);
+    if (!bounds) return;
+    pendingMapPlanFrame.current = null;
+    issueCameraCommand({ type: 'planRouteFramed', bounds });
+  }, [isFocused, mapPlanning, planOpen, selectedPin, sheet.ready, planGeometry, planner.plan, issueCameraCommand]);
+
   const onCameraCommandConsumed = useCallback((id: number) => {
     // Dropped so a REMOUNT cannot replay it. RiverMap's applied-id is a ref and
     // dies with the component; this state does not, and the map is unmounted for
@@ -2550,6 +2588,8 @@ function MapContent() {
    * whatever the user was actually looking at.
    */
   const clearRiver = useCallback(() => {
+    setMapPlanRiver(null);
+    pendingMapPlanFrame.current = null;
     selectRiver(null, { camera: 'hold' });
     setSelectedPin(null);
     pendingAccessSelection.current = null;
@@ -2719,6 +2759,7 @@ function MapContent() {
    */
   const onSelectPin = useCallback(
     (pin: MapPin) => {
+      pendingMapPlanFrame.current = null;
       // Exit search before selecting: an empty query can still have focus,
       // and mapSearchOpen hides the pin sheet until that focus is cleared.
       cancelMapSearch();
@@ -3167,7 +3208,14 @@ function MapContent() {
             thing that appeared was a header chip whose one action was to leave
             the screen. */}
         <View style={[styles.sheetHost, { top: geometry.sheetTop, bottom: geometry.bottomInset, left: insets.left, right: insets.right }]} pointerEvents="box-none">
-          {riverSheetData && !selectedPin && !mapSearchOpen ? (
+          {mapPlanning && !selectedPin && !mapSearchOpen ? <MapPlanSheet
+            riverName={selected?.name ?? 'Your river'} state={planner} metrics={sheetMetrics}
+            onDetentChange={onSheetDetentChange}
+            onClose={() => { setMapPlanRiver(null); pendingMapPlanFrame.current = null; }}
+            onOpenList={() => { planner.goToStep('take-out'); setPlanOpen(true); }}
+            onOpenPlan={() => setPlanOpen(true)}
+          /> : null}
+          {riverSheetData && !selectedPin && !mapSearchOpen && !mapPlanning ? (
             <RiverSheetPanel
               river={riverSheetData}
               width={geometry.sheetWidth}
@@ -3205,9 +3253,7 @@ function MapContent() {
               pin={selectedPin}
               accessPoint={pinAccessPoint}
               canSetTakeOut={
-                Boolean(planner.putIn) &&
-                pinAccessPoint != null &&
-                pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
+                pinAccessPoint != null && planner.takeOutOptions.some(point => point.id === pinAccessPoint.id)
               }
               riverHasGauges={riverHasGauges}
               gauges={gauges ?? []}
@@ -3215,12 +3261,19 @@ function MapContent() {
               onSetPutIn={() => {
                 if (!pinAccessPoint) return;
                 planner.choosePutIn(pinAccessPoint);
-                setPlanOpen(true);
+                setMapPlanRiver(selectedSlug);
+                setSelectedPin(null);
+                setPlanOpen(false);
               }}
               onSetTakeOut={() => {
                 if (!pinAccessPoint) return;
                 planner.chooseTakeOut(pinAccessPoint);
-                setPlanOpen(true);
+                setMapPlanRiver(selectedSlug);
+                setSelectedPin(null);
+                setPlanOpen(false);
+                if (planner.putIn) pendingMapPlanFrame.current = {
+                  from: planner.putIn.id, to: pinAccessPoint.id, gestures: gestureCount.current,
+                };
               }}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}
               onOpenGauge={onOpenGauge}
@@ -3372,6 +3425,13 @@ function MapContent() {
           keeps drawing the route after this closes. */}
       <PlanSheet
         visible={planOpen}
+        onViewMap={() => {
+          setSelectedPin(null);
+          setMapPlanRiver(selectedSlug);
+          if (planner.putIn && planner.takeOut) pendingMapPlanFrame.current = {
+            from: planner.putIn.id, to: planner.takeOut.id, gestures: gestureCount.current,
+          };
+        }}
         onClose={closePlanner}
         rivers={plannerRivers}
         riversLoading={riversLoading}

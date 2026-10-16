@@ -128,8 +128,17 @@ function apply(action, current = state) {
     // real StackRouter for its history as well.
     return { ...next, routes: next.routes.map(route => {
       const child = node.children.find(child => child.route === route.name);
-      if (!child.children.length || route.state) return route;
+      if (!child.children.length) return route;
       const params = route.params;
+      if (route.state) {
+        const previous = current.routes.find(item => item.key === route.key);
+        // useNavigationBuilder delivers a changed nested screen/params payload
+        // to an already-mounted navigator through its real router as well.
+        if (!params?.screen || previous?.params === params) return route;
+        return { ...route, state: apply({ type: 'NAVIGATE', target: route.state.key, payload: {
+          name: params.screen, params: params.params, path: params.path, merge: params.merge, pop: params.pop,
+        } }, route.state) };
+      }
       return { ...route, state: mount(child, params?.screen ? {
         routes: [{ name: params.screen, params: params.params }], index: 0,
       } : undefined) };
@@ -416,7 +425,7 @@ console.log('Historical recaps stay in each tab, preserve History on Back, and c
 
 // Floats planners live in their originating stack. The kept-alive Map route
 // never receives their selected river/endpoints or their dismissal state.
-const { floatPlanDestination } = require('../src/lib/planRequest.ts');
+const { floatPlanDestination, floatMapDestination } = require('../src/lib/planRequest.ts');
 launch(redirectSystemPath({ path: '/', initial: true }));
 const todayBeforePlan = activeStack();
 const mapBeforeTodayPlan = tabsState().routes.find(route => route.name === '(map)').state;
@@ -480,3 +489,30 @@ for (const origin of Object.keys(roots)) {
   }
 }
 console.log('Starting and resuming from standalone planners preserve all tab origins.');
+
+
+// Explicit View on Map leaves no empty standalone planner and reuses Map's root.
+for (const origin of Object.keys(roots)) {
+  launch(`/(tabs)/(${origin})/${origin === 'map' ? '' : roots[origin]}`);
+  push('/floats');
+  const collectionKey = activeStack().routes.at(-1).key;
+  push(floatPlanDestination());
+  back(); // PlanSheet removes its standalone host after native dismissal.
+  const destination = floatMapDestination({ focusRiver: 'current', planPutIn: 'akers', planTakeOut: 'pulltite', planVesselTypeId: 'kayak' });
+  state = apply(getNavigateAction(resolveHref(destination), {}, 'NAVIGATE'));
+  assert.equal(activeTab(), '(map)');
+  assert.equal(activeStack().routes.at(-1).name, 'index');
+  assert.equal(activeStack().routes.at(-1).params.planPresentation, 'map');
+  assert.equal(activeStack().routes.at(-1).params.planPutIn, 'akers');
+  assert.equal(activeStack().routes.at(-1).params.planTakeOut, 'pulltite');
+  assert.equal(activeStack().routes.at(-1).params.planVesselTypeId, 'kayak');
+  const mapRootKey = activeStack().routes.at(-1).key;
+  state = apply(getNavigateAction(resolveHref(floatMapDestination({ focusRiver: 'current', planPutIn: 'akers', planTakeOut: 'pulltite' })), {}, 'NAVIGATE'));
+  assert.equal(activeStack().routes.at(-1).key, mapRootKey, 'A repeated map handoff must reuse its root');
+  if (origin !== 'map') {
+    selectTab(origin);
+    assert.equal(activeStack().routes.at(-1).key, collectionKey, 'Returning to the originating tab must restore its caller');
+  }
+  assert.ok(tabsState().routes.every(tab => !tab.state?.routes.some(route => route.name === 'plan-route')), 'No dismissed standalone planner remains');
+}
+console.log('View on Map reuses Map, preserves exact route intent and removes dismissed standalone planners.');

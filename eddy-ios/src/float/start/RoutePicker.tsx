@@ -74,7 +74,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
             <ControlIcon name="chevron-back" size={22} color={colors.interactive} />
           </Pressable> : null}
         <Text accessibilityRole="header" style={[local.title, local.grow, { color: colors.text }]}>
-          {picker.page === 'rivers' ? 'Choose a river' : field === 'from' ? 'Starting point' : 'Take-out'}
+          {field === 'to' ? 'Choose your take-out' : field === 'from' ? 'Choose your put-in' : 'Choose a river'}
         </Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Close selection" onPress={close}
           style={[local.close, { backgroundColor: colors.cardRaised }]}>
@@ -90,8 +90,8 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
           }} /> : <>
           <Pressable accessibilityRole="button" accessibilityLabel={`Change river${route ? `, ${route.riverName}` : ''}`}
             onPress={changeRiver} style={local.river}>
-            <ControlIcon name="map-outline" size={20} color={colors.interactive} />
-            <Text style={[t.base, local.grow, { color: colors.text }]}>{route?.riverName ?? 'River'}</Text>
+            <ControlIcon name="water-outline" size={18} color={colors.textMuted} />
+            <Text style={[t.sm, local.grow, { color: colors.textMuted }]} numberOfLines={1}>{route?.riverName ?? 'River'}</Text>
             <Text style={[t.sm, { color: colors.interactive }]}>Change</Text>
             <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
           </Pressable>
@@ -117,10 +117,9 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
               </Shell> : <PlanAccessPicker selectedId={(field === 'from' ? picker.draft.putInId : picker.draft.takeOutId) ?? null}
                 points={visiblePoints} fromPoint={field === 'to' ? points.find(point => point.id === picker.draft.putInId) : null}
                 fromMile={field === 'to' ? startMile : null}
-                header={currentLocation ?? (startMile == null ? <Text style={[t.sm, { color: colors.textMuted }]}>
-                  Distances show river miles until Eddy knows your start.
-                </Text> : undefined)}
-                emptyMessage={needle ? 'No access points match your search.' : 'No take-outs downstream of your start. Change the river or starting point.'}
+                header={currentLocation}
+                emptyMessage={needle ? 'No access points match your search.' : field === 'to' && startMile != null
+                  ? 'No take-outs downstream of your start. Change the river or starting point.' : 'No float access points available. Try another river.'}
                 onSelect={point => chooseAccess(point.id)} />}
             </>}
         </>}
@@ -133,9 +132,9 @@ const local = StyleSheet.create({
   screen: { flex: 1 },
   grow: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: 8 },
-  title: { ...t.xl, fontFamily: fonts.semibold },
+  title: { ...t['2xl'], fontFamily: fonts.heading },
   close: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  river: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 48, paddingVertical: 10 },
+  river: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 44, paddingVertical: 6 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
   searchContainer: { paddingHorizontal: 16, paddingBottom: 8 },
   search: { minHeight: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },

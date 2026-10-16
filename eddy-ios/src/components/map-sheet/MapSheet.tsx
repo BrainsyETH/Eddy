@@ -55,12 +55,14 @@ import { sheetTransition } from './sheetTransition';
 interface Props {
   /**
    * Identity of what is being shown. When it changes the sheet returns to its
-   * smallest detent — a new selection is a new question, and inheriting the
+   * initial detent (peek by default) — inheriting the
    * previous one's height would answer it before it was asked. rail.tsx:219.
    *
    * THE ONLY THING THAT RESETS THE SHEET. See the header.
    */
   resetKey: string;
+  /** Used only on a new selection; later content never overrides a dragged detent. */
+  initialDetent?: Detent;
   onClose: () => void;
   /**
    * Fired on SETTLE only, never during a drag. The map reads this to decide how
@@ -159,6 +161,7 @@ export function MapSheet(props: Props) {
 
 function MeasuredMapSheet({
   resetKey,
+  initialDetent = 'peek',
   onClose,
   onDetentChange,
   peek,
@@ -244,7 +247,8 @@ function MeasuredMapSheet({
     if (transition === 'wait') return;
     const next = transition === 'follow'
       ? (detents.order.includes(detent) ? detent : detents.order[detents.order.length - 1])
-      : detents.order[0];
+      : detents.order.includes(initialDetent) ? initialDetent
+        : initialDetent === 'peek' ? detents.order[0] : detents.order[detents.order.length - 1];
     if (transition !== 'follow') {
       openedSelection.current = resetKey;
       scrollY.value = 0;
@@ -262,7 +266,7 @@ function MeasuredMapSheet({
     commit(next);
     // A gesture commits detent separately; do not restart its spring here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, detents, available, peekHeight, layoutReady, reducedMotion]);
+  }, [resetKey, initialDetent, detents, available, peekHeight, layoutReady, reducedMotion]);
 
   const pan = useMemo(
     () =>

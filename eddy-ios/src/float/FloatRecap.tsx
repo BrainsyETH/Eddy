@@ -1,3 +1,8 @@
+import { useState } from 'react';
+import { ControlIcon } from '@/components/ControlIcon';
+import { Otter } from '@/components/Otter';
+import { FloatInfoTip } from './FloatInfoTip';
+import { recapBackupStatus } from '@/lib/floatDisplay';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
@@ -6,15 +11,16 @@ import { floatArchive } from '@/lib/floatArchive';
 import { deleteFloatTrack } from '@/float/floatTracks';
 import { formatDuration } from '@/lib/floatSession';
 import { useTheme } from '@/theme/ThemeProvider';
-import { textStyles, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 
 /** Shared presentation; each route owns its Back/Close destination. */
 export function FloatRecap({ id, showHistory }: { id: string; showHistory: () => void }) {
   const archive = useFloatArchive();
+  const [retrying, setRetrying] = useState(false);
   const { colors } = useTheme();
   const row = archive.rows.find((r) => r.id === id && r.kind === 'completed' && !r.deleted);
   const trip = row?.payload as CompletedFloat | undefined;
-  const duration = (ms: number) => (ms > 0 && ms < 60000 ? 'Less than 1 min' : formatDuration(Math.round(ms / 60000)));
+  const duration = (ms: number) => (ms > 0 && ms < 60000 ? '<1 min' : formatDuration(Math.round(ms / 60000)));
   const remove = () =>
     Alert.alert(
       'Delete this float?',
@@ -49,90 +55,140 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
         },
       ],
     );
+  const backup = row ? recapBackupStatus(archive.owner, row, archive.syncing, archive.error) : null;
+  const retry = async () => {
+    if (retrying || archive.syncing) return;
+    setRetrying(true);
+    try {
+      if (row?.backupError) await archive.retryRejected();
+      else await archive.refresh();
+    } catch { Alert.alert('Couldn’t sync', 'Your float is saved on this phone. Try again when you have a connection.'); }
+    finally { setRetrying(false); }
+  };
+  // These are aggregate durations, not an invented chronological GPS trace.
+  const parts = trip ? [
+    { label: 'Moving', ms: trip.movingMs, color: colors.interactive },
+    { label: 'Breaks', ms: trip.stoppedMs, color: colors.warm },
+    { label: 'GPS gaps', ms: trip.unknownMs, color: colors.textSubtle },
+  ] : [];
+  const measuredTime = parts.reduce((sum, part) => sum + part.ms, 0);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['left', 'right']}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-        <Text style={[textStyles.pageTitle, { color: colors.text }]}>
-          {trip ? 'Your float recap' : archive.ready ? 'Recap unavailable' : 'Loading recap…'}
-        </Text>
-        {trip ? (
-          <>
-            <Text style={[textStyles.sectionTitle, { color: colors.text }]}>{trip.riverName}</Text>
-            <Text style={[t.base, { color: colors.textMuted }]}>{new Date(trip.startedAt).toLocaleString()}</Text>
-            <Text style={[t.base, { color: colors.text }]}>
-              {trip.putInName ?? 'On-river start'} → {trip.takeOutName}
-            </Text>
-            {trip.startNote ? <Text style={[t.sm, { color: colors.textMuted }]}>{trip.startNote}</Text> : null}
-            <Text style={[t.sm, { color: colors.textMuted }]}>
-              {trip.reachedTakeOut ? 'Reached the take-out' : 'Tracking ended; arrival was not confirmed'}
-              {trip.boatType ? ` · ${trip.boatType}` : null}
-            </Text>
-            <View style={[styles.card, { borderColor: colors.border }]}>
-              {[
-                ['Tracked distance', `${trip.distanceMiles.toFixed(1)} mi`],
-                ['Total time', duration(trip.elapsedMs)],
-                ['Moving', duration(trip.movingMs)],
-                ['Stopped', duration(trip.stoppedMs)],
-                ['Not observed', duration(trip.unknownMs)],
-                [
-                  'Average moving pace',
-                  trip.movingMph == null ? 'Not enough data' : `${trip.movingMph.toFixed(1)} mph`,
-                ],
-              ].map(([label, value]) => (
-                <View key={label} style={styles.row}>
-                  <Text style={[t.base, styles.grow, { color: colors.textMuted }]}>{label}</Text>
-                  <Text style={[textStyles.data, { color: colors.text }]}>{value}</Text>
-                </View>
-              ))}
+        {trip ? <>
+          <View style={styles.row}>
+            <View style={styles.grow}>
+              <Text style={[t.sm, { color: colors.textMuted }]}>YOUR FLOAT</Text>
+              <Text style={[textStyles.pageTitle, { color: colors.text }]}>{trip.riverName}</Text>
+              <Text style={[t.sm, { color: colors.textMuted }]}>
+                {new Date(trip.startedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                {trip.boatType ? ` · ${trip.boatType.charAt(0).toUpperCase()}${trip.boatType.slice(1)}` : ''}
+              </Text>
+            </View>
+            <Otter size={72} />
+          </View>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.routeStop}>
+              <ControlIcon name="radio-button-on-outline" size={18} color={colors.interactive} />
+              <Text style={[t.base, styles.grow, { color: colors.text }]}>{trip.putInName ?? 'On-river start'}</Text>
+              {trip.startNote ? <FloatInfoTip title="Recorded start" message={trip.startNote} /> : null}
+            </View>
+            <View style={styles.routeStop}>
+              <ControlIcon name="flag-outline" size={18} color={colors.warm} />
+              <Text style={[t.base, styles.grow, { color: colors.text }]}>{trip.takeOutName}</Text>
             </View>
             <Text style={[t.sm, { color: colors.textMuted }]}>
-              Times and distance are estimates from confirmed river positions. GPS gaps and brief movements Eddy
-              couldn’t classify are shown as not observed. Missing distance is not filled in.
+              {trip.reachedTakeOut ? 'Reached the take-out' : 'Ended before arrival was confirmed'}
             </Text>
-            <Text style={[textStyles.cardTitle, { color: colors.text }]}>Water near the start</Text>
-            {trip.water ? (
-              <Text style={[t.base, { color: colors.textMuted }]}>
-                {trip.water.gaugeName}: {trip.water.heightFt == null ? '' : `${trip.water.heightFt.toFixed(2)} ft`}
-                {trip.water.dischargeCfs == null ? '' : ` · ${Math.round(trip.water.dischargeCfs)} cfs`}
-                {'\n'}Observed {new Date(trip.water.observedAt).toLocaleString()}. An upstream gauge reading, not a
-                measurement along your whole route.
-              </Text>
-            ) : (
-              <Text style={[t.base, { color: colors.textMuted }]}>
-                {row?.dirty || row?.backupError
-                  ? 'A historical gauge reading can be added after account backup.'
-                  : 'No suitable historical reading was available near your start time.'}
-              </Text>
-            )}
-            <Text style={[t.sm, { color: colors.textMuted }]}>
-              {archive.owner === 'guest'
-                ? 'Saved on this phone.'
-                : row?.backupError
-                  ? `Not backed up. ${row.backupError}`
-                : row?.dirty
-                  ? 'Saved on this phone. Account backup pending.'
-                  : 'Backed up to your account.'}
-            </Text>
-            <Pressable accessibilityRole="button" onPress={remove} style={styles.button}>
-              <Text style={[t.base, { color: colors.error }]}>Delete float</Text>
-            </Pressable>
-          </>
-        ) : (
-          <Text style={[t.base, { color: colors.textMuted }]}>
-            If saving was interrupted, Eddy will retry. Check your history again in a moment.
-          </Text>
-        )}
-        <Pressable accessibilityRole="button" onPress={showHistory} style={styles.button}>
-          <Text style={[t.base, { color: colors.interactive }]}>View history and backup</Text>
-        </Pressable>
+          </View>
+          <View style={styles.stats}>
+            <View style={[styles.stat, { backgroundColor: colors.selectionBg }]}>
+              <Text style={[styles.bigNumber, { color: colors.text }]}>{trip.distanceMiles.toFixed(1)}<Text style={t.base}> mi</Text></Text>
+              <Text style={[t.sm, { color: colors.textMuted }]}>Tracked distance</Text>
+            </View>
+            <View style={[styles.stat, { backgroundColor: colors.card }]}>
+              <Text style={[styles.timeNumber, { color: colors.text }]}>{duration(trip.elapsedMs)}</Text>
+              <Text style={[t.sm, { color: colors.textMuted }]}>Total time</Text>
+            </View>
+          </View>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.row}>
+              <Text style={[textStyles.cardTitle, styles.grow, { color: colors.text }]}>How you spent your time</Text>
+              <FloatInfoTip title="Time and distance" message="Time and distance are estimated from confirmed river positions. GPS gaps include missing fixes and movement Eddy couldn’t classify. Missing distance isn’t filled in. The bar compares total durations; it doesn’t show when each break happened." />
+            </View>
+            {measuredTime > 0 ? <View style={styles.timeBar} accessible accessibilityRole="image"
+              accessibilityLabel={parts.map(part => `${part.label}: ${duration(part.ms)}`).join(', ')}>
+              {parts.filter(part => part.ms > 0).map(part => <View key={part.label}
+                style={{ flex: part.ms / measuredTime, backgroundColor: part.color }} />)}
+            </View> : <Text style={[t.sm, { color: colors.textMuted }]}>No tracked time yet</Text>}
+            <View style={styles.legend}>
+              {parts.map(part => <View key={part.label} style={styles.legendItem}>
+                <View style={styles.routeStop}>
+                  <View style={[styles.dot, { backgroundColor: part.color }]} />
+                  <Text style={[t.sm, { color: colors.textMuted }]}>{part.label}</Text>
+                </View>
+                <Text style={[styles.duration, { color: colors.text }]}>{duration(part.ms)}</Text>
+              </View>)}
+            </View>
+            <View style={[styles.speed, { borderColor: colors.border }]}>
+              <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Average moving speed</Text>
+              <Text style={[textStyles.data, { color: colors.text }]}>{trip.movingMph == null ? '—' : `${trip.movingMph.toFixed(1)} mph`}</Text>
+            </View>
+          </View>
+          {trip.water ? <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.row}>
+              <Text style={[textStyles.cardTitle, styles.grow, { color: colors.text }]}>Water at the start</Text>
+              <FloatInfoTip title="Water reading" message={`An upstream gauge reading near your start time, not a measurement along the whole route. Observed ${new Date(trip.water.observedAt).toLocaleString()}.`} />
+            </View>
+            <Text style={[textStyles.data, { color: colors.text }]}>{[
+              trip.water.heightFt == null ? null : `${trip.water.heightFt.toFixed(2)} ft`,
+              trip.water.dischargeCfs == null ? null : `${Math.round(trip.water.dischargeCfs).toLocaleString()} cfs`,
+            ].filter(Boolean).join(' · ')}</Text>
+            <Text style={[t.sm, { color: colors.textMuted }]}>{trip.water.gaugeName}</Text>
+          </View> : null}
+          {backup ? <View style={styles.row}>
+            <ControlIcon name={archive.owner === 'guest' || archive.owner == null ? 'phone-portrait-outline' : row?.dirty || row?.backupError ? 'cloud-upload-outline' : 'cloud-done-outline'} size={18} color={colors.textMuted} />
+            <Text accessibilityLiveRegion="polite" style={[t.sm, styles.grow, { color: colors.textMuted }]}>{backup.label}</Text>
+            {backup.retry ? <Pressable onPress={() => void retry()} disabled={retrying || archive.syncing}
+              accessibilityRole="button" accessibilityState={{ busy: retrying, disabled: retrying || archive.syncing }} style={styles.button}>
+              <Text style={[t.sm, { color: colors.interactive }]}>{retrying ? 'Retrying…' : 'Retry'}</Text>
+            </Pressable> : null}
+            {row?.backupError || (row?.dirty && archive.error) ? <FloatInfoTip title="Account backup" message={row.backupError ?? archive.error!} /> : null}
+          </View> : null}
+          <Pressable accessibilityRole="button" onPress={showHistory} style={[styles.history, { backgroundColor: colors.accentFill }]}>
+            <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>Your float history</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={remove} style={styles.delete}>
+            <Text style={[t.sm, { color: colors.error }]}>Delete float</Text>
+          </Pressable>
+        </> : <>
+          <Text style={[textStyles.pageTitle, { color: colors.text }]}>{archive.ready ? 'Recap unavailable' : 'Loading recap…'}</Text>
+          <Text style={[t.base, { color: colors.textMuted }]}>Eddy is finishing your recap. Check your history in a moment.</Text>
+          <Pressable accessibilityRole="button" onPress={showHistory} style={styles.button}>
+            <Text style={[t.base, { color: colors.interactive }]}>Your float history</Text>
+          </Pressable>
+        </>}
       </ScrollView>
     </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
-  content: { padding: 20, gap: 16, paddingBottom: 40 },
-  card: { padding: 16, gap: 16, borderWidth: 1, borderRadius: 16 },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  content: { padding: 20, gap: 18, paddingBottom: 40 },
+  card: { padding: 16, gap: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 20 },
+  row: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  routeStop: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   grow: { flex: 1 },
-  button: { paddingVertical: 12, minHeight: 44 },
+  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  stat: { flex: 1, minWidth: 130, padding: 18, borderRadius: 20, justifyContent: 'center', gap: 6 },
+  bigNumber: { ...t['3xl'], fontFamily: fonts.display },
+  timeNumber: { ...t['2xl'], fontFamily: fonts.display },
+  timeBar: { flexDirection: 'row', gap: 3, height: 18, borderRadius: 9, overflow: 'hidden' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  legendItem: { flexGrow: 1, gap: 4 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  duration: { ...t.base, fontFamily: fonts.monoMedium },
+  speed: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  button: { paddingHorizontal: 8, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
+  history: { minHeight: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  delete: { minHeight: 44, alignSelf: 'center', justifyContent: 'center' },
 });

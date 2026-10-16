@@ -1,3 +1,6 @@
+import { useRouter } from 'expo-router';
+import { useNavigationAction } from '@/hooks/useNavigationAction';
+import { floatMapDestination } from '@/lib/planRequest';
 import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import type { ReactNode } from 'react';
 import { logisticsWarnings } from '@/lib/savedFloatLogistics';
@@ -15,8 +18,12 @@ export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }:
   header?: ReactNode;
 }) {
   const { colors } = useTheme();
+  const router = useRouter();
+  const navigate = useNavigationAction();
   const { showDirections, directionsMenu } = useDirectionsMenu();
   const details = saved.logistics;
+  const putInId = saved.putInId ?? details?.putIn.id;
+  const takeOutId = saved.takeOutId ?? details?.takeOut.id;
   const open = (url: string) => void Linking.openURL(url).catch(() => {
     Alert.alert('Could not open Maps', 'The access coordinates are shown here so you can still use your saved maps.');
   });
@@ -29,6 +36,9 @@ export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }:
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
       {header}
       {directionsMenu}
+      {putInId && takeOutId ? button('View on Map', () => navigate(() => router.navigate(floatMapDestination({
+        focusRiver: saved.riverSlug, planPutIn: putInId, planTakeOut: takeOutId,
+      })))) : null}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.heading, { color: colors.text }]}>Saved trip details</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>

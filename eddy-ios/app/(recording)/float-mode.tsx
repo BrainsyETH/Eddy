@@ -19,16 +19,20 @@
 // scrolled under a list of switches.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useNavigation, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { ControlIcon } from '@/components/ControlIcon';
+import { FloatStatusDot } from '@/float/FloatStatusDot';
+import { floatDisplayPosition, fixAgeLabel, activityLabel } from '@/lib/floatDisplay';
+import { useFloatActivity } from '@/float/liveActivity';
 import { FloatMap } from '@/float/FloatMap';
 import { HazardReportSheet } from '@/float/HazardReportSheet';
 import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { useTrackingLine } from '@/float/useTrackingLine';
 import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { cancelUnstartedFloat, endFloat } from '@/lib/floatSessionStore';
 import {
   arrivalAnchor,
@@ -47,9 +51,6 @@ import { hazardTypeLabel } from '@eddy/hazards';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
-/** Re-read the clock this often so "last position N min ago" stays true. */
-const TICK_MS = 15_000;
-
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function FloatModeScreen() {
@@ -57,8 +58,8 @@ export default function FloatModeScreen() {
   const router = useRouter();
   const root = useNavigation('/');
   const { colors, elevation } = useTheme();
-  const [now, setNow] = useState(() => Date.now());
   const tracking = useTrackingLine();
+  const activity = useFloatActivity();
   const [keepAwake] = useKeepAwakePreference();
   const [reporting, setReporting] = useState(false);
   // Finish is applying the last of the recorded track before saving.
@@ -70,16 +71,12 @@ export default function FloatModeScreen() {
   // active, not the session object, which changes with every GPS fix and used
   // to release and re-acquire the wake lock each time.
   const floatActive = session != null;
+  const now = useFloatDisplayClock(focused && floatActive);
   useEffect(() => {
     if (!keepAwake || !focused || !floatActive) return;
     void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
     return () => void deactivateKeepAwake(KEEP_AWAKE_TAG);
   }, [keepAwake, focused, floatActive]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(timer);
-  }, []);
 
   // Recomputed when a fix lands or the clock ticks. A fix newer than the last
   // tick is itself the latest known time, so a fresh position never reads as
@@ -133,7 +130,7 @@ export default function FloatModeScreen() {
 
   if (!session || !view || !ends) {
     return (
-      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['left', 'right', 'bottom']}>
         <Text style={[styles.emptyTitle, { color: colors.text }]}>No float in progress</Text>
         <Pressable onPress={() => {
           if (root.canGoBack()) root.goBack();
@@ -145,7 +142,11 @@ export default function FloatModeScreen() {
     );
   }
 
-  const position = session.position?.lngLat ?? null;
+  const displayed = floatDisplayPosition(session, clock);
+  const position = displayed?.lngLat ?? null;
+  const recording = tracking.tracker.status === 'recording' && !tracking.tracker.servicesOff && !tracking.tracker.denied && !tracking.tracker.preciseOff && !tracking.tracker.notInUse;
+  const fresh = recording && displayed != null && !displayed.dimmed;
+  const activityCopy = activityLabel(activity);
   const currentMile = view.confirmed ? (session.samples[session.samples.length - 1]?.riverMile ?? null) : null;
   const time = remainingCopy(view.estimate, view.takeOutBeyondMeters != null);
   const anchor = arrivalAnchor(view, clock);
@@ -217,7 +218,7 @@ export default function FloatModeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right', 'bottom']}>
       <View style={styles.map}>
         <FloatMap
           line={session.route.line}
@@ -227,12 +228,22 @@ export default function FloatModeScreen() {
           start={ends.start}
           takeOut={ends.takeOut}
           position={position}
-          positionDimmed={!live}
+          positionDimmed={!fresh}
           currentMile={currentMile}
         />
       </View>
 
       <View style={[styles.panel, { backgroundColor: colors.card, borderColor: colors.border }, elevation(2)]}>
+        <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelContent} showsVerticalScrollIndicator>
+        <View style={styles.freshness}>
+          <FloatStatusDot at={displayed?.at ?? null} fresh={fresh} />
+          <Text style={[styles.caption, { color: colors.textMuted }]}>
+            {fresh ? `Tracking · ${fixAgeLabel(displayed?.at ?? null, clock)}`
+              : tracking.tracker.status === 'starting' ? 'Starting GPS…'
+              : !recording ? 'Tracking needs attention'
+              : displayed ? `Location delayed · ${fixAgeLabel(displayed.at, clock)}` : 'Finding GPS…'}
+          </Text>
+        </View>
         <Text style={[styles.route, { color: colors.textMuted }]} numberOfLines={1}>
           {view.riverName} · to {view.takeOutName}
         </Text>
@@ -310,7 +321,7 @@ export default function FloatModeScreen() {
 
         {tracking.line ? (
           tracking.line.action === 'info' ? (
-            <Text style={[styles.caption, { color: colors.textMuted }]}>{tracking.line.text}</Text>
+            !recording ? <Text style={[styles.caption, { color: colors.textMuted }]}>{tracking.line.text}</Text> : null
           ) : (
             <Notice label={tracking.line.text} onPress={tracking.act} />
           )
@@ -320,6 +331,13 @@ export default function FloatModeScreen() {
           <Notice label={`Not on the ${view.riverName}? Tap to choose another river.`} onPress={changeRiver} />
         ) : null}
 
+        {activityCopy ? <Pressable accessibilityRole="button" accessibilityLabel={activityCopy}
+          onPress={() => router.push('/float-options')} style={styles.activityLink}>
+          <ControlIcon name="phone-portrait-outline" size={15} color={colors.textMuted} />
+          <Text style={[styles.caption, { color: colors.textMuted }]}>{activityCopy}</Text>
+          <ControlIcon name="chevron-forward" size={12} color={colors.textMuted} />
+        </Pressable> : null}
+        </ScrollView>
         <View style={styles.actions}>
           <ActionButton icon="ellipsis-horizontal" label="Options" onPress={() => router.push('/float-options')} />
           <ActionButton icon="warning-outline" label="Hazard" onPress={() => setReporting(true)} accessibilityLabel="Report a hazard here" />
@@ -385,8 +403,13 @@ const KEEP_AWAKE_TAG = 'float-mode';
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  map: { flex: 1 },
+  map: { flex: 1, minHeight: 120 },
+  panelScroll: { flexShrink: 1 },
+  panelContent: { gap: 8 },
+  freshness: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  activityLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
   panel: {
+    maxHeight: '58%',
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingTop: 14,
