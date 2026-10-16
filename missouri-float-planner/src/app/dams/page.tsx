@@ -12,7 +12,7 @@ import { publicPageMetadata } from '@/lib/seo';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
-import DamStateCard from '@/components/dam/DamStateCard';
+import DamListCard from '@/components/dam/DamListCard';
 import { fetchAllDamSummaries } from '@/lib/data/dams';
 import { groupDamsForIndex } from '@/lib/data/dam-grouping';
 
@@ -28,6 +28,7 @@ export const metadata: Metadata = publicPageMetadata(
 export default async function DamsPage() {
   const dams = await fetchAllDamSummaries();
   const groups = groupDamsForIndex(dams);
+  const now = Date.now();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
@@ -35,26 +36,27 @@ export default async function DamsPage() {
         className="relative overflow-hidden py-8 text-white md:py-10"
         style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
       >
-        <div className="mx-auto max-w-5xl px-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <h1
             className="mb-1 text-2xl font-bold md:text-4xl"
             style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
           >
-            Lake Levels &amp; Dam Releases
+            Lakes &amp; dams
           </h1>
           <p className="max-w-2xl text-sm text-white/80 md:text-base">
-            Below a dam, the Corps decides what the river does — not the weather.
-            Live levels and releases, plus the hourly generation schedule posted
-            each afternoon.
+            Check water releases, temperatures, and generation before you head out.
+            Choose a dam for the full picture.
           </p>
         </div>
       </section>
 
-      <main className="mx-auto max-w-5xl px-4 pb-16 pt-8">
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        <p className="mb-6 text-xs text-neutral-500">
+          Schedules show planned changes at the dam and can change. Water downstream takes time to rise or fall.
+        </p>
         {dams.length === 0 ? (
           <p className="rounded-xl border-2 border-neutral-300 bg-white p-5 text-neutral-600">
-            Dam data is unavailable right now. The Corps&rsquo; data service may be
-            down — try again shortly.
+            Dam readings are unavailable right now. Please try again shortly.
           </p>
         ) : (
           <>
@@ -66,14 +68,14 @@ export default async function DamsPage() {
                 >
                   {group.label}
                 </h2>
-                <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   {group.dams.map((dam) => (
                     <Link
                       key={dam.id}
                       href={`/dams/${dam.id}`}
-                      className="block transition-transform hover:-translate-y-0.5"
+                      className="group block min-w-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"
                     >
-                      <DamStateCard dam={dam} />
+                      <DamListCard dam={dam} now={now} />
                     </Link>
                   ))}
                 </div>
@@ -83,14 +85,12 @@ export default async function DamsPage() {
         )}
 
         <p className="mt-8 text-xs text-neutral-500">
-          Lake levels and releases from the USACE Corps Water Management System.
-          Generation schedules from Southwestern Power Administration. Both can
-          change without notice — never wade or anchor below a dam without
-          checking the horn and posted warnings.
+          Readings from USACE and Ameren; schedules from SWPA. Releases can change
+          without notice. Follow warning sirens and posted signs below every dam.
         </p>
-      </main>
+      </div>
 
-      <SiteFooter maxWidth="max-w-5xl" />
+      <SiteFooter maxWidth="max-w-7xl" />
     </div>
   );
 }

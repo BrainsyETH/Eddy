@@ -198,6 +198,7 @@ function storedDetail(now: number, overrides?: Partial<DamSnapshot>): DamSnapsho
         release: reading(now, 4_200, 'cfs'),
         generationFlow: reading(now, 3_100, 'cfs'),
         tailwaterElevation: reading(now, 704.2, 'ft'),
+        tailwaterTempF: reading(now, 56, 'F'),
         // Detail-only: must not survive into a summary.
         poolElevation: reading(now, 917.3, 'ft'),
       } satisfies Partial<Record<UsaceMetric, DamMetricValue>>,
@@ -211,6 +212,8 @@ test('a summary carries only what a list shows', () => {
   const now = Date.parse('2026-08-31T12:00:00Z');
   const summary = summaryOf(storedDetail(now));
   assert.ok(summary, 'a registry dam must project');
+  assert.deepEqual(summary.metrics.tailwaterTempF, storedDetail(now).metrics.tailwaterTempF,
+    'water temperature and its original timestamp must survive into the list');
 
   // SUMMARY_METRICS, and nothing beyond them. Pool elevation is the detail
   // page's number and would be ~20 extra readings on a twenty-row list.
