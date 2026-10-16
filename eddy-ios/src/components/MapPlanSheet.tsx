@@ -1,73 +1,102 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
 import { ControlIcon } from './ControlIcon';
+import { PlanRouteFields } from './PlanRouteFields';
 import { MapSheet, type SheetMetrics } from './map-sheet/MapSheet';
 import { SheetBody } from './map-sheet/SheetPager';
 import type { Detent } from './map-sheet/sheetGeometry';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
-/** Planning stays on the map; the full planner remains available by explicit tap. */
-export function MapPlanSheet({ riverName, state, onClose, onOpenList, onOpenPlan, onDetentChange, metrics }: {
+/** The same route controls as Build a Route, with endpoint selection on the map. */
+export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChooseStep, onOpenList, onOpenPlan, onDetentChange, metrics }: {
   riverName: string;
   state: FloatPlanState;
   onClose: () => void;
+  onChooseRiver: () => void;
+  onChooseStep: (step: 'put-in' | 'take-out') => void;
   onOpenList: () => void;
   onOpenPlan: () => void;
   onDetentChange: (detent: Detent, height: number) => void;
   metrics: SharedValue<SheetMetrics>;
 }) {
   const { colors } = useTheme();
-  const { putIn, plan, calculating, error } = state;
-  const takeOut = state.step === 'result' ? state.takeOut : null;
-  const title = takeOut ? 'Your float plan' : 'Choose your take-out';
-  const button = (label: string, action: () => void) => <Pressable onPress={action} accessibilityRole="button"
-    style={[styles.button, { backgroundColor: colors.selectionBg }]}>
-    <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.interactive }]}>{label}</Text>
-    <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
-  </Pressable>;
-  return <MapSheet resetKey={`plan:${putIn?.id}:${takeOut?.id ?? 'choose'}`}
-    initialDetent={takeOut ? 'half' : 'peek'} label={title} onClose={onClose} metrics={metrics} onDetentChange={onDetentChange}
-    peek={<View style={styles.peek}>
-      <View style={styles.row}>
-        <View style={styles.grow}>
-          <Text accessibilityRole="header" style={[textStyles.cardTitle, { color: colors.text }]}>{title}</Text>
-          <Text style={[t.sm, { color: colors.textMuted }]}>{riverName}</Text>
-        </View>
+  const { fontScale, height } = useWindowDimensions();
+  // Keep the fields scrollable at large text sizes and on short screens.
+  const scrollingFields = fontScale > 1.3 || height < 600;
+  const [fieldsHeight, setFieldsHeight] = useState(0);
+  const { putIn, takeOut, plan, calculating, error, step } = state;
+  const showingResult = step === 'result' && takeOut != null;
+  const title = showingResult ? 'Your float plan' : 'Build a Route';
+  const choosingPutIn = step === 'put-in';
+  const hasOptions = (choosingPutIn ? state.putInOptions : state.takeOutOptions).length > 0;
+  const fields = <View style={styles.fields}>
+    <PlanRouteFields state={state} riverName={riverName} onChooseRiver={onChooseRiver}
+      onChooseStep={onChooseStep} stacked={fontScale > 1.3} />
+    {!showingResult ? <View style={[styles.hintRow, fontScale > 1.3 && styles.stacked]}>
+      <Text style={[t.sm, fontScale <= 1.3 && styles.grow, { color: colors.textMuted }]}>
+        {choosingPutIn ? 'Tap a put-in on the map.' : hasOptions
+          ? 'Tap a downstream take-out on the map.' : 'No take-outs downstream. Change your put-in.'}
+      </Text>
+      {hasOptions ? <Pressable onPress={onOpenList} accessibilityRole="button"
+        accessibilityLabel={`Choose ${choosingPutIn ? 'put-in' : 'take-out'} from list`}
+        style={({ pressed }) => [styles.listButton, { opacity: pressed ? 0.6 : 1 }]}>
+        <ControlIcon name="list" size={18} color={colors.interactive} />
+        <Text style={[t.sm, { fontFamily: fonts.semibold, color: colors.interactive }]}>List</Text>
+      </Pressable> : null}
+    </View> : null}
+  </View>;
+
+  return <MapSheet resetKey={`plan:${putIn?.id}:${showingResult ? takeOut.id : 'choose'}`}
+    initialDetent={showingResult ? 'half' : 'peek'} label={title} onClose={onClose}
+    metrics={metrics} onDetentChange={onDetentChange} peekPadding={0}
+    previewReady={!scrollingFields || fieldsHeight > 0}
+    peekExtraHeight={scrollingFields ? fieldsHeight : 0}
+    peek={<>
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={[styles.title, styles.grow, { color: colors.text }]}>{title}</Text>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close map planner" style={styles.close}>
-          <ControlIcon name="close" size={22} color={colors.textMuted} />
+          <ControlIcon name="close" size={24} color={colors.textMuted} />
         </Pressable>
       </View>
-      <Text style={[t.base, { color: colors.text }]}>{putIn?.name}{takeOut ? ` → ${takeOut.name}` : ''}</Text>
-      {!takeOut ? <>
-        <Text style={[t.sm, { color: colors.textMuted }]}>Tap a downstream access point on the map.</Text>
-        {button('Choose from list', onOpenList)}
-      </> : null}
-    </View>}
+      {!scrollingFields ? fields : null}
+    </>}
   >
-    <SheetBody><View style={styles.body}>
-      {calculating ? <View style={styles.row}><ActivityIndicator color={colors.interactive} />
-        <Text style={[t.sm, { color: colors.textMuted }]}>Building your plan…</Text></View> : null}
-      {error ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.text }]}>{error}</Text> : null}
-      {takeOut && plan && !calculating && !error ? <>
-        <Text style={[textStyles.sectionTitle, { color: colors.text }]}>{plan.distance.formatted}</Text>
-        {plan.floatTime ? <Text style={[t.base, { color: colors.text }]}>{plan.floatTime.formatted}</Text>
-          : <Text style={[t.sm, { color: colors.textMuted }]}>Float time unavailable</Text>}
-        {plan.warnings.map(warning => <Text key={warning} style={[t.sm, { color: colors.text }]}>{warning}</Text>)}
-        {button('View full plan', onOpenPlan)}
-      </> : null}
-      {takeOut && error ? button('Try again', state.retry) : null}
-      {takeOut ? button('Change take-out', onOpenList) : null}
-      {button('Change put-in', () => { state.goToStep('put-in'); onOpenPlan(); })}
-    </View></SheetBody>
+    <SheetBody>
+      {scrollingFields ? <View onLayout={event => setFieldsHeight(Math.round(event.nativeEvent.layout.height))}>{fields}</View> : null}
+      {showingResult ? <View style={styles.body}>
+        {calculating ? <View style={styles.row}><ActivityIndicator color={colors.interactive} />
+          <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Building your plan…</Text></View> : null}
+        {error ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.text }]}>{error}</Text> : null}
+        {plan && !calculating && !error ? <>
+          <Text style={[textStyles.sectionTitle, { color: colors.text }]}>{plan.distance.formatted}</Text>
+          <Text style={[t.base, { color: colors.text }]}>{plan.floatTime?.formatted ?? 'Float time unavailable'}</Text>
+          {plan.warnings.map(warning => <Text key={warning} style={[t.sm, { color: colors.text }]}>{warning}</Text>)}
+          <Pressable onPress={onOpenPlan} accessibilityRole="button"
+            style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 }]}>
+            <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>View full plan</Text>
+          </Pressable>
+        </> : null}
+        {error ? <Pressable onPress={state.retry} accessibilityRole="button" style={styles.listButton}>
+          <Text style={[t.base, { color: colors.interactive }]}>Try again</Text>
+        </Pressable> : null}
+      </View> : null}
+    </SheetBody>
   </MapSheet>;
 }
+
 const styles = StyleSheet.create({
-  peek: { gap: 10 },
-  body: { paddingTop: 8, gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 10 },
+  title: { ...t['2xl'], fontFamily: fonts.display },
+  fields: { paddingHorizontal: 20, paddingBottom: 12, gap: 6 },
+  body: { paddingHorizontal: 20, paddingTop: 4, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  grow: { flex: 1 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stacked: { flexDirection: 'column', alignItems: 'stretch' },
+  grow: { flex: 1, minWidth: 0 },
   close: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
-  button: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 48, padding: 12, borderRadius: 12 },
+  listButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8 },
+  primaryButton: { alignItems: 'center', justifyContent: 'center', minHeight: 48, padding: 12, borderRadius: 24 },
 });
