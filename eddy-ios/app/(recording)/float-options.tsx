@@ -33,8 +33,9 @@ export default function FloatOptionsScreen() {
   }, [session, router]);
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 20 }]} >
+    // Keep the scroll view directly under the native sheet's content wrapper.
+    // A coloured flex wrapper can interfere with fixed-detent sheet sizing.
+    <ScrollView style={[styles.screen, { backgroundColor: colors.bg }]} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 20 }]} >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
             Float options
@@ -83,8 +84,7 @@ export default function FloatOptionsScreen() {
           <Switch value={keepAwake} onValueChange={setKeepAwake} accessibilityLabel="Keep screen awake" />
         </View>
 
-      </ScrollView>
-    </View>
+    </ScrollView>
   );
 }
 
