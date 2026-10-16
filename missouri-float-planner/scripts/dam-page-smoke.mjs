@@ -31,6 +31,9 @@ const dam = {
 };
 const variants = {
   normal: dam,
+  noReference: { ...dam, generationReference: undefined },
+  idle: { ...dam, generating: false, metrics: { ...dam.metrics, generationFlow: metric(20) } },
+  noTemp: { ...dam, metrics: { ...dam.metrics, tailwaterTempF: undefined } },
   stale: { ...dam, metrics: { ...dam.metrics, generationFlow: { ...dam.metrics.generationFlow, at: '2026-10-15T10:00:00Z' } }, schedule: dam.schedule.map(d => ({ ...d, retrievedAt: '2026-10-14T10:00:00Z' })) },
   scheduleOnly: { ...dam, metrics: {}, generating: null, pattern: [] },
   gate: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: metric(2200) } },
@@ -60,12 +63,23 @@ try {
   await mkdir(out, { recursive: true });
   await writeFile(`${route}/page.tsx`, `import { notFound } from 'next/navigation';
 import DamDetail from '@/components/dam/DamDetail';
+import SiteFooter from '@/components/ui/SiteFooter';
 const variants = ${JSON.stringify(variants)};
 export default async function Page({ searchParams }: { searchParams: Promise<{ variant?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
   const { variant = 'normal' } = await searchParams;
   const dam = variants[variant as keyof typeof variants] as import('@shared/dam-types').DamSnapshot;
-  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1 className="mb-6 text-3xl font-bold">{dam.name}</h1><DamDetail dam={dam} renderedAt={${now}} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Fixture availability explanation.' }} /></div>;
+  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1 className="mb-6 text-3xl font-bold">{dam.name}</h1><DamDetail dam={dam} renderedAt={${now}} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Fixture availability explanation.' }} /></div><SiteFooter maxWidth="max-w-7xl" /></div>;
+}
+`);
+  await mkdir(`${route}/list`, { recursive: true });
+  await writeFile(`${route}/list/page.tsx`, `import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import DamListCard from '@/components/dam/DamListCard';
+const variants = ${JSON.stringify(variants)};
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <Link key={key} data-variant={key} href="/dam-layout-check" className="group block min-w-0 rounded-2xl"><DamListCard dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></Link>)}</div></div>;
 }
 `);
   const ignored = spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]);
@@ -103,7 +117,42 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
+    await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
+    const list = page.locator('a[data-variant]');
+    assert.equal(await list.locator('button, a, input, select').count(), 0, 'whole-card links have no nested controls');
+    assert(!(await list.allTextContents()).join(' ').includes('Tailwater fishery'), 'fishery stays off list cards');
+    const normal = page.locator('[data-variant="normal"]');
+    assert((await normal.innerText()).includes('50%'), 'list shows measured generation scale');
+    assert((await normal.innerText()).includes('56.0 °F'), 'list shows water temperature');
+    assert((await normal.innerText()).includes('estimated from flow'), 'rack remains an estimate');
+    assert(!(await page.locator('[data-variant="noTemp"]').innerText()).includes('°F'), 'missing temperature is not fabricated');
+    assert(!(await page.locator('[data-variant="noReference"]').innerText()).includes('%'), 'no reference means no percentage');
+    assert((await page.locator('[data-variant="stale"]').innerText()).includes('Last observed generating'), 'old readings do not claim now');
+    assert((await page.locator('[data-variant="stale"]').innerText()).includes('may have been revised'), 'old schedule retains its provenance');
+    assert(!(await page.locator('[data-variant="scheduleOnly"]').innerText()).includes('No turbine generation observed'), 'missing readings are not idle');
+    assert((await page.locator('[data-variant="gateDaily"]').innerText()).includes('daily avg'), 'daily release is labelled');
+    assert(!(await page.locator('[data-variant="gate"]').innerText()).includes('generation'), 'gate-only dam has no generation visual');
+    assert((await page.locator('[data-variant="idle"]').innerText()).includes('No turbine generation observed'), 'idle generation uses the published floor');
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: list has no horizontal overflow`);
+    const first = await list.nth(0).boundingBox();
+    const second = await list.nth(1).boundingBox();
+    assert(width >= 768 ? second.x > first.x : second.y >= first.y + first.height, `${name}: list uses available width`);
+    await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+    await page.screenshot({ path: `${out}/list-${name}.png`, fullPage: false });
+    const lastCard = page.locator('a[href="/dam-layout-check"]').last();
+    await lastCard.scrollIntoViewIfNeeded();
+    const listScroll = await page.evaluate(() => scrollY);
+    assert(listScroll > 200, `navigation starts down the list (${listScroll}px)`);
+    if (width < 900) await lastCard.tap();
+    else await lastCard.click();
+    await page.waitForURL(url);
+    await page.waitForLoadState('networkidle');
+    assert(await page.evaluate(() => scrollY < 100), `${name}: opening a dam starts at the top`);
+    await page.goBack({ waitUntil: 'networkidle' });
+    await page.waitForFunction(expected => Math.abs(scrollY - expected) < 5, listScroll, { timeout: 5000 });
+    console.log(`PASS ${name}: list cards, opening at top, Back restoration`);
     await page.goto(url, { waitUntil: 'networkidle' });
+    assert(await page.evaluate(() => scrollY < 100), `${name}: direct load starts at the top`);
     const detail = page.locator('[data-dam-detail]');
     assert(await detail.isVisible());
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: horizontal page overflow`);

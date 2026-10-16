@@ -13,7 +13,17 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 River pages place “Find a float on this river” near the bottom, after the river
 guide and before the feedback link, when float search is enabled for the web.
 
-## Dam detail pages
+## Dam pages
+
+The lakes and dams index uses compact cards with generation estimates, release,
+water temperature, and below-dam elevation where readings are available. Wider
+screens use two columns. Fishery and equipment descriptions stay on the detail
+page. The summary payload includes water temperature with its original timestamp;
+missing measurements never become zeroes or invented readings. The schedule
+change and downstream travel-time note appears once above the list.
+
+The root HTML declares the site's smooth-scroll behavior to Next so route
+changes can reset immediately instead of retaining the bottom of the old page.
 
 Dam pages keep measured generation and the posted schedule in one card, with
 separate labelled sections. Desktop and landscape phones place the reading
@@ -32,8 +42,8 @@ Hidden tabs do not poll. Original measurement timestamps are never replaced by
 page refresh times. The dam API and iOS app contracts are unchanged.
 
 `npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
-portrait, and landscape sizes, including disclosure/dialog controls, freshness,
-and missing-data states. Install the browser with `npx playwright install chromium`
+portrait, and landscape sizes, including list cards, list-to-detail navigation,
+disclosure/dialog controls, freshness, and missing-data states. Install the browser with `npx playwright install chromium`
 (or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
 removes its temporary fixture route on exit or SIGINT/SIGTERM. The route is
 ignored by Git and returns not-found unless the smoke script's development-only

@@ -4,6 +4,7 @@
 
 import { Zap } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
+import DamGeneratorRack from './DamGeneratorRack';
 import {
   relativeAge,
   readingStaleness,
@@ -23,22 +24,6 @@ import {
 
 function cfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
-}
-
-function GeneratorCell({ fill }: { fill: number }) {
-  const pct = Math.round(fill * 100);
-  return (
-    <span
-      className="relative inline-block h-8 w-5 min-w-0 rounded-[3px] border-2 border-primary-700"
-      style={{
-        background: `linear-gradient(to top, var(--color-primary-700) ${pct}%, var(--color-primary-50) ${pct}%)`,
-      }}
-    >
-      {/* The rotor channel. Decorative, and the only thing separating this from
-          a plain bar chart of eight identical columns. */}
-      <span className="absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-primary-200/70" />
-    </span>
-  );
 }
 
 export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now: number }) {
@@ -77,10 +62,8 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
           drawing that exists only for people who can see it is half a feature. */}
       <div className={dim ? 'opacity-60' : undefined}>
         {rack && (
-          <div className="mt-3 flex items-center gap-1.5" aria-hidden="true">
-            {rack.cells.map((cell, i) => (
-              <GeneratorCell key={i} fill={cell.fill} />
-            ))}
+          <div className="mt-3">
+            <DamGeneratorRack rack={rack} />
           </div>
         )}
 

@@ -1,14 +1,7 @@
 // src/components/dam/DamStateCard.tsx
-// A dam's current state — the row on /dams, and the supporting measurements
-// below the generation console on /dams/[damId]. The detail page supplies its
-// live display clock; list callers retain server rendering.
-//
-// ── What moved out of this file ────────────────────────────────────────────
-// The generation hero. It is now DamGenerationHero, rendered on the DETAIL page
-// only, because a rack of eight generator cells repeated down a twenty-dam
-// index is not scannable — and the index wraps this component in a `<Link>`, so
-// it can gain no interactive descendants either. What is left here is the
-// one-line now → next sentence, which is what a list surface actually needs.
+// Supporting measurements below the generation console on /dams/[damId].
+// The detail page supplies its live display clock. The /dams index uses the
+// smaller DamListCard, with flow estimates and only its summary measurements.
 //
 // The copy discipline this file enforces is the whole point:
 //

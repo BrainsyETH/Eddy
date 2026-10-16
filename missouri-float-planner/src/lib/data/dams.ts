@@ -51,10 +51,8 @@ import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
  * What a LIST surface needs, and nothing else.
  *
  * The hierarchy a tailwater angler scans a list by: is it generating, what
- * happens next, how much is coming out, is the water below moving. Pool level,
- * flood pool, temperature and inflow answer none of those and belong behind the
- * tap — a twenty-dam index that repeats a detail page twenty times is not
- * scannable.
+ * happens next, how much is coming out, and the level and temperature below
+ * the dam. Lake level, flood pool and inflow stay on the detail page.
  *
  * ── generationFlow is load-bearing, not display ────────────────────────────
  * `DamSnapshot.generating` is DERIVED from it (turbine flow above the dam's
@@ -67,6 +65,7 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
   'release',
   'generationFlow',
   'tailwaterElevation',
+  'tailwaterTempF',
 ];
 
 /**
@@ -79,7 +78,6 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
  */
 export const DETAIL_METRICS: UsaceMetric[] = [
   ...SUMMARY_METRICS,
-  'tailwaterTempF',
   'poolElevation',
   'pctFloodPool',
   'inflow',
@@ -850,10 +848,8 @@ export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSn
 /**
  * Every dam, for the index and /api/dams.
  *
- * Reads three metrics rather than seven. Measured against the registry, that is
- * 19 declared timeseries reads and 35 unresolved slots instead of 43 and 81 —
- * The difference is paid on the first render of each bucket; repeat reads of
- * the same series now share a URL (see bucketedNow in cda.ts).
+ * Reads four metrics rather than seven. Lake level, flood pool and inflow stay
+ * detail-only; repeat reads of the same series share a bucketed URL (see cda.ts).
  */
 export async function fetchAllDamSummaries(): Promise<DamSnapshot[]> {
   return fetchDamSummaries(Object.keys(USACE_DAMS));
