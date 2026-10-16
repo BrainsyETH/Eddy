@@ -809,10 +809,17 @@ from a previous session are marked remembered, never treated as a fresh grant
 or a live GPS fix. A newer explicit request supersedes a pending initial read. A denial is not re-prompted; iOS would suppress the dialog anyway, so
 the only effect would be a silent retry behind a spinner.
 
-Precise coordinates are used on the device for distance sorting. Today also
-requests local weather from Eddy using coordinates rounded to 0.05 degrees.
-The location permission discloses that approximate coordinates are sent for
-the forecast; do not describe location as never leaving the device.
+Precise coordinates are used on the device for distance sorting. Today sends
+coordinates rounded to 0.05 degrees to Eddy for local weather. Find a Route
+uses the same rounding for the `near` coordinates sent to Eddy when Search is
+tapped, including when the finder automatically selected Near you under an
+existing grant. Acquiring a fix and filling Near you alone sends no route
+search; selecting a river instead omits `near`. Do not describe location as
+never leaving the device.
+
+The native permission text currently names approximate weather requests only.
+Before the next store build, update it to also name nearby route searches.
+That `app.json` permission change requires a new binary, not an OTA update.
 
 The planner's put-in list gains a **nearest-first** ordering (headwaters-first
 stays the default — that is the order a river runs in). Search's distance sort
@@ -1254,7 +1261,10 @@ initially keeps the user and take-out in view; a manual gesture stops following.
 Recenter follows the user; Show route fits the complete stretch and actual
 landings even while off-route. A restored or stale fix is visibly dimmed until
 fresh GPS arrives. The tracking indicator pulses once per actual fix, respects
-Reduce Motion, and shows the last update age. Live Activity status reflects
+Reduce Motion, and shows the last update age. The five-second display clock
+runs only while Float Mode is focused, the app is foregrounded and a float is
+active; it refreshes immediately on return. This clock does not request GPS
+fixes or control recording. Live Activity status reflects
 its real availability rather than promising an active Lock Screen display.
 Options expands to full height and scrolls, with hazard reporting before
 reminders. Details and limitations use info buttons.

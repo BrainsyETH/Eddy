@@ -14,10 +14,11 @@
 // in miles. Balanced accuracy resolves that fine, gets a fix faster, and costs
 // far less battery than the precision used for turn-by-turn navigation.
 //
-// ── Local storage and approximate forecasts ───────────────────────────────
-// This hook stores its remembered fix locally. Nearby distances are computed
-// on device. Callers that request a forecast use approximate coordinates;
-// see the location policy in README.md.
+// ── Local storage and approximate requests ────────────────────────────────
+// This hook stores its remembered fix locally. Distance sorting is on device.
+// Today sends approximate coordinates to Eddy for weather; Find a Route sends
+// them as `near` when Search is tapped, including an automatic Near you choice.
+// Filling that choice alone sends no route search. See README.md for the policy.
 //
 // ── Why the last fix is remembered ──────────────────────────────────────────
 // "Allow Once" is a SESSION grant. iOS hands it back on relaunch as though

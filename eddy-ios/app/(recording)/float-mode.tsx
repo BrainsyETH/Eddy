@@ -32,6 +32,7 @@ import { HazardReportSheet } from '@/float/HazardReportSheet';
 import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { useTrackingLine } from '@/float/useTrackingLine';
 import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { cancelUnstartedFloat, endFloat } from '@/lib/floatSessionStore';
 import {
   arrivalAnchor,
@@ -50,9 +51,6 @@ import { hazardTypeLabel } from '@eddy/hazards';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
-/** Re-read the clock this often so "last position N min ago" stays true. */
-const TICK_MS = 5_000;
-
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function FloatModeScreen() {
@@ -60,7 +58,6 @@ export default function FloatModeScreen() {
   const router = useRouter();
   const root = useNavigation('/');
   const { colors, elevation } = useTheme();
-  const [now, setNow] = useState(() => Date.now());
   const tracking = useTrackingLine();
   const activity = useFloatActivity();
   const [keepAwake] = useKeepAwakePreference();
@@ -74,16 +71,12 @@ export default function FloatModeScreen() {
   // active, not the session object, which changes with every GPS fix and used
   // to release and re-acquire the wake lock each time.
   const floatActive = session != null;
+  const now = useFloatDisplayClock(focused && floatActive);
   useEffect(() => {
     if (!keepAwake || !focused || !floatActive) return;
     void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
     return () => void deactivateKeepAwake(KEEP_AWAKE_TAG);
   }, [keepAwake, focused, floatActive]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(timer);
-  }, []);
 
   // Recomputed when a fix lands or the clock ticks. A fix newer than the last
   // tick is itself the latest known time, so a fresh position never reads as

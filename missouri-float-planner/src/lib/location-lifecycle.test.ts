@@ -282,3 +282,137 @@ test('finder never acquires GPS or prompts automatically without an existing gra
   assert.equal(hook.render().status, 'idle');
   assert.equal(accesses, 0);
 });
+
+/** Exercise the real display hook with a manual clock and native app events. */
+function floatDisplayClock(initialAppState = 'active') {
+  let now = NOW;
+  let value: number | undefined;
+  let dependencies: readonly unknown[] | undefined;
+  let cleanup: (() => void) | void;
+  let pending: (() => (() => void) | void) | undefined;
+  let nextTimer = 0;
+  const timers = new Map<number, { fire: () => void; every: number; next: number }>();
+  const listeners = new Set<(state: string) => void>();
+  const appState = {
+    currentState: initialAppState,
+    addEventListener: (_event: string, listener: (state: string) => void) => {
+      listeners.add(listener);
+      return { remove: () => listeners.delete(listener) };
+    },
+  };
+  const exports: { useFloatDisplayClock?: (enabled: boolean) => number } = {};
+  const source = readFileSync(new URL('../../../eddy-ios/src/hooks/useFloatDisplayClock.ts', import.meta.url), 'utf8');
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
+    exports,
+    Date: { now: () => now },
+    setInterval: (fire: () => void, every: number) => {
+      const id = ++nextTimer;
+      timers.set(id, { fire, every, next: now + every });
+      return id;
+    },
+    clearInterval: (id: number) => timers.delete(id),
+    require: (name: string) => {
+      if (name === 'react') return {
+        useState: (initial: () => number) => {
+          value ??= initial();
+          return [value, (next: number) => { value = next; }];
+        },
+        useEffect: (effect: () => (() => void) | void, next: readonly unknown[]) => {
+          if (!dependencies || next.some((item, i) => !Object.is(item, dependencies![i]))) {
+            dependencies = next;
+            pending = effect;
+          }
+        },
+      };
+      if (name === 'react-native') return { AppState: appState };
+      throw new Error(`Unexpected display clock dependency: ${name}`);
+    },
+  });
+  return {
+    get value() { return value; },
+    get timerCount() { return timers.size; },
+    get listenerCount() { return listeners.size; },
+    render(enabled: boolean) {
+      exports.useFloatDisplayClock!(enabled);
+      if (pending) {
+        cleanup?.();
+        cleanup = pending();
+        pending = undefined;
+      }
+    },
+    appState(state: string) {
+      appState.currentState = state;
+      for (const listener of listeners) listener(state);
+    },
+    advance(ms: number) {
+      const until = now + ms;
+      while (true) {
+        const timer = [...timers.values()].sort((a, b) => a.next - b.next)[0];
+        if (!timer || timer.next > until) break;
+        now = timer.next;
+        timer.next += timer.every;
+        timer.fire();
+      }
+      now = until;
+    },
+    unmount() { cleanup?.(); },
+  };
+}
+
+test('Float display clock ticks only while visible and refreshes immediately on returning', () => {
+  const clock = floatDisplayClock();
+  clock.render(true);
+  clock.advance(5_000);
+  assert.equal(clock.value, NOW + 5_000);
+  clock.render(true); // A GPS render must not add or restart a timer.
+  clock.advance(2_000);
+  clock.render(false); // Options, another screen, or no active float.
+  assert.equal(clock.timerCount, 0);
+  assert.equal(clock.listenerCount, 0);
+  clock.advance(60_000);
+  assert.equal(clock.value, NOW + 5_000, 'Hidden screen does not tick');
+  clock.render(true);
+  assert.equal(clock.value, NOW + 67_000, 'Focus refreshes without waiting five seconds');
+  assert.equal(clock.timerCount, 1);
+  clock.unmount();
+  assert.equal(clock.timerCount, 0);
+  assert.equal(clock.listenerCount, 0);
+});
+
+test('Float display clock stops on inactive/background and refreshes on foreground', () => {
+  const clock = floatDisplayClock();
+  clock.render(true);
+  clock.advance(1_000);
+  clock.appState('inactive');
+  assert.equal(clock.timerCount, 0);
+  clock.appState('background');
+  clock.advance(60_000);
+  assert.equal(clock.value, NOW);
+  clock.appState('active');
+  assert.equal(clock.value, NOW + 61_000);
+  clock.appState('active');
+  assert.equal(clock.timerCount, 1, 'Duplicate foreground events do not multiply timers');
+  clock.advance(5_000);
+  assert.equal(clock.value, NOW + 66_000);
+  clock.render(false);
+  clock.appState('background');
+  clock.appState('active');
+  assert.equal(clock.timerCount, 0, 'Foreground cannot restart a hidden screen');
+  clock.unmount();
+});
+
+test('Float display clock waits for both an enabled screen and an active app', () => {
+  const clock = floatDisplayClock('background');
+  clock.render(false);
+  assert.equal(clock.timerCount, 0);
+  assert.equal(clock.listenerCount, 0);
+  clock.render(true);
+  assert.equal(clock.timerCount, 0);
+  clock.advance(60_000);
+  clock.appState('active');
+  assert.equal(clock.value, NOW + 60_000);
+  assert.equal(clock.timerCount, 1);
+  clock.unmount();
+  clock.appState('active');
+  assert.equal(clock.timerCount, 0, 'Unmount releases the native event listener');
+});
