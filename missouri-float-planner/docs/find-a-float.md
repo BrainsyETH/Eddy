@@ -1,6 +1,6 @@
 # Find a Float
 
-Find a Float is available directly at `/find-float`. Discovery links in the web header and production iOS builds are off by default until the release checks pass. Development and EAS preview iOS builds always show its Floats-tab and river-page buttons for QA, matching Float Mode. River links open it with that river selected. It searches the active river/access catalog, not only featured editorial floats.
+Find a Float is available directly at `/find-float`. Discovery links in the web header and production iOS builds are off by default until the release checks pass. Development and EAS preview iOS builds always show its Floats-tab and river-page buttons for QA, matching River Mode. River links open it with that river selected. It searches the active river/access catalog, not only featured editorial floats.
 
 ## Rollout
 

@@ -95,7 +95,7 @@ export default function PrivacyPage() {
               completed summaries so you can recover them. Summaries include route endpoints,
               first and last tracked river mile, date and times, boat type if supplied, tracked
               distance, moving, stopped and unobserved time, pace, and a historical water reading
-              when available. These records are linked to your account. Raw Float Mode GPS
+              when available. These records are linked to your account. Raw River Mode GPS
               positions and traces are not uploaded. If local history becomes unreadable,
               Eddy preserves a recovery copy on your phone before starting fresh. That
               copy is not uploaded and is removed when you delete a trip or your account.
