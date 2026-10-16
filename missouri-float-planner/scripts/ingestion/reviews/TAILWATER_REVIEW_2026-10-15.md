@@ -1,7 +1,8 @@
 # Tailwater review — October 15, 2026
 
 Evidence review by Codex, authorized by Evan's “lets do all 4”. This records
-research and prepared corrections, **not river activation approval**. All three
+research and data corrections (applied 2026-10-16; see *Applying the prepared
+corrections*), **not river activation approval**. All three
 rivers remain inactive. No device acceptance is claimed.
 
 ## Dam recovery and monitoring
@@ -141,11 +142,22 @@ successful preview, the authorized apply changes only the final statement to
 `COMMIT`; rerun and verify the resulting rows. It does not activate a river or
 change condition thresholds.
 
-Two connector attempts to run the rollback preview returned `Invalid or expired
-requestState`; a subsequent read confirmed the original 4.87-mile Norfork and all
-three inactive flags. **No production correction is claimed.** The independent
-read-only geometry preview and the source research succeeded. Full transaction
-execution/post-write checks are still required when the write connection works.
+**Applied 2026-10-16 01:45:58 UTC** from the Supabase SQL editor, after the
+connector repeatedly stalled on write requests carrying the new prose (component
+probes inside aborted transactions each ran in milliseconds). Post-write checks
+on the primary:
+
+| Check | Result |
+| --- | --- |
+| Rivers | All three still inactive; valid, simple geometry; endpoint equals `downstream_point` |
+| Norfork | 5.01 mi, 16 vertices, corrected description |
+| Norfork Access | Mile 5.01, 66.44 m snap, east-bank description, AGFC lower-White map link |
+| Float endpoints | Norfork 2, White 22, Taneycomo 5; the four exclusions above are `false` |
+| `river_characteristics` | One row per river: `cold_water`, `fluctuating_flow`, one-sentence note |
+| Links | Dam-Quarry Campground, Bill Ackerman, Norfork Access and both hatchery rows updated |
+
+This applies data corrections only. Activation and the acceptance evidence
+listed above remain outstanding.
 
 ## Primary sources checked
 
