@@ -716,10 +716,14 @@ with the same PlanSheet and planning hook, without mounting a map. Closing
 those cancels their calculation and leaves the Map tab unchanged, except for
 the explicit View on Map handoff.
 
-Use as put-in on a Map POI opens a peek sheet with Choose your take-out. The map
-stays interactive: tap a downstream access point, or use Choose from list.
-Selecting a take-out expands the compact summary; View full plan opens the
-full planner explicitly. A new route frames only while that map interaction
+Use as put-in on a Map POI opens a compact Build a Route peek with the same
+River / Put-in / Take-out controls as the full planner. Tapping an eligible
+downstream access pin chooses the take-out immediately, including a campground
+or boat-ramp mark for that access. Tap either endpoint control to change it on
+the map, or List to use the current endpoint picker. Other POIs still open their
+details. Selecting a take-out expands the compact summary; View full plan opens
+the full planner explicitly. Large-text route controls scroll within the sheet.
+A new route frames only while that map interaction
 is still current; panning, picking another POI or leaving Map cancels a pending
 frame. Changing sheet content does not override a detent the user has dragged.
 

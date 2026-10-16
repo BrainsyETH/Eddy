@@ -167,6 +167,7 @@ import {
 } from '@/components/GaugeFilterBar';
 import { LayerZoomHint } from '@/components/LayerZoomHint';
 import { MapPlanSheet } from '@/components/MapPlanSheet';
+import { mapPlanSelection } from '@/map/planSelection';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
@@ -2763,6 +2764,29 @@ function MapContent() {
       // Exit search before selecting: an empty query can still have focus,
       // and mapSearchOpen hides the pin sheet until that focus is cleared.
       cancelMapSearch();
+      // While choosing an endpoint, an eligible map tap completes that step.
+      // Resolve against the planner's own options, never a pin's display layer.
+      const endpoint = mapPlanSelection({
+        active: mapPlanning && !planOpen,
+        riverSlug: selectedSlug,
+        step: planner.step,
+        putIn: planner.putIn,
+        putInOptions: planner.putInOptions,
+        takeOutOptions: planner.takeOutOptions,
+        pin,
+      });
+      if (endpoint) {
+        pendingAccessSelection.current = null;
+        setSelectedPin(null);
+        if (endpoint.step === 'put-in') planner.choosePutIn(endpoint.point);
+        else if (planner.putIn) {
+          planner.chooseTakeOut(endpoint.point);
+          pendingMapPlanFrame.current = {
+            from: planner.putIn.id, to: endpoint.point.id, gestures: gestureCount.current,
+          };
+        }
+        return;
+      }
       // A dot from the zoomed-out index has no name or station uuid to open a
       // callout with — the index leaves both out to stay one request. Treat
       // it the way a cluster is treated: zoom toward it. Past the floor the
@@ -2803,7 +2827,7 @@ function MapContent() {
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, cancelMapSearch, selectedSlug, selectRiver, issueCameraCommand, onZoomToCluster],
+    [accessPointForPin, cancelMapSearch, selectedSlug, selectRiver, issueCameraCommand, onZoomToCluster, mapPlanning, planOpen, planner],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -3212,7 +3236,16 @@ function MapContent() {
             riverName={selected?.name ?? 'Your river'} state={planner} metrics={sheetMetrics}
             onDetentChange={onSheetDetentChange}
             onClose={() => { setMapPlanRiver(null); pendingMapPlanFrame.current = null; }}
-            onOpenList={() => { planner.goToStep('take-out'); setPlanOpen(true); }}
+            onChooseRiver={() => {
+              pendingMapPlanFrame.current = null;
+              setMapPlanRiver(null);
+              planner.reset();
+              selectRiver(null, { camera: 'hold' });
+              setPlannerAccess(null);
+              setPlanOpen(true);
+            }}
+            onChooseStep={step => { pendingMapPlanFrame.current = null; planner.goToStep(step); }}
+            onOpenList={() => setPlanOpen(true)}
             onOpenPlan={() => setPlanOpen(true)}
           /> : null}
           {riverSheetData && !selectedPin && !mapSearchOpen && !mapPlanning ? (
