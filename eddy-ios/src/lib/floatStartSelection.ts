@@ -1,5 +1,11 @@
 import type { FloatSetup } from './floatStart';
 
+/** Pass named selections to planning, never GPS coordinates through navigation. */
+export function startPlannerParams(draft: FloatSetup, boatType: string) {
+  return { focusRiver: draft.riverSlug, planPutIn: draft.putInId,
+    planTakeOut: draft.takeOutId, planBoatType: boatType };
+}
+
 export type StartField = 'river' | 'from' | 'to';
 export interface StartPicker {
   field: StartField;

@@ -7,7 +7,7 @@
 // shown only when tripReadiness says so (src/lib/tripDownload.ts): package
 // saved, current map style, every chunk complete, and the style pack
 // POSITIVELY confirmed by the SDK's own counts (modules/eddy-style-pack; ADR
-// 0011). Without that evidence the best it shows is "Trip and map tiles saved".
+// 0011). Without that evidence it shows "Download incomplete".
 // Re-read from storage each time, never remembered.
 //
 // Downloads run while Eddy is open; iOS pauses them in the background. The
@@ -28,6 +28,7 @@ import {
   type TripReadiness,
 } from '@/lib/tripDownload';
 import { getOfflineManager } from '@/map/runtime';
+import { warn } from '@/lib/monitoring';
 import { readStylePackStatus } from '../../modules/eddy-style-pack';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -91,8 +92,10 @@ export function TripDownloadCard({
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  const starting = useRef(false);
   /** When the tiles were first seen complete with the style still pending. */
   const tilesDoneAt = useRef<number | null>(null);
+  const styleWaitReported = useRef(false);
   useEffect(() => {
     // Set on every mount, not only at creation: a remount (React's dev
     // double-mount, or a screen restored from the stack) must be able to
@@ -115,11 +118,22 @@ export function TripDownloadCard({
     if (next.kind === 'ready') {
       tilesDoneAt.current = null;
       setDownloading(false);
+      setError(null);
     } else if (next.kind === 'tiles-saved') {
       // Still downloading until the style follows, or until it plainly is not
-      // going to without a nudge; then Finish download offers that nudge.
+      // going to without a nudge; then Retry download offers that nudge.
       tilesDoneAt.current ??= Date.now();
-      if (Date.now() - tilesDoneAt.current > STYLE_WAIT_MS) setDownloading(false);
+      if (Date.now() - tilesDoneAt.current > STYLE_WAIT_MS) {
+        if (!styleWaitReported.current) {
+          styleWaitReported.current = true;
+          warn('float', 'offline map style unconfirmed', {
+            chunks: packs.length,
+            styleRequired: style?.requiredResourceCount ?? null,
+            styleCompleted: style?.completedResourceCount ?? null,
+          });
+        }
+        setDownloading(false);
+      }
     }
   }, [tripKey, fallbackChunks]);
 
@@ -137,51 +151,59 @@ export function TripDownloadCard({
   }, [downloading, refresh]);
 
   const start = useCallback(async () => {
-    setError(null);
-    // The package first: an offline start depends on it, tiles or not. A
-    // package already saved keeps its route, so a resume downloads exactly
-    // what it planned.
-    let pkg = await readTripPackage(tripKey);
-    if (!pkg || pkg.styleURL !== TRIP_STYLE_URL) {
-      pkg = {
-        version: TRIP_PACKAGE_VERSION,
-        tripKey,
-        route,
-        fromId,
-        ...(fromLngLat ? { fromLngLat } : {}),
-        toId,
-        styleURL: TRIP_STYLE_URL,
-        chunkNames: fallbackChunks.map((c) => c.name),
-        savedAt: new Date().toISOString(),
-      };
+    // Block a second tap before the first asynchronous package read completes.
+    if (starting.current || downloading) return;
+    starting.current = true;
+    try {
+      setError(null);
+      // The package first: an offline start depends on it, tiles or not. A
+      // package already saved keeps its route, so a resume downloads exactly
+      // what it planned.
+      let pkg = await readTripPackage(tripKey);
+      if (!pkg || pkg.styleURL !== TRIP_STYLE_URL) {
+        pkg = {
+          version: TRIP_PACKAGE_VERSION,
+          tripKey,
+          route,
+          fromId,
+          ...(fromLngLat ? { fromLngLat } : {}),
+          toId,
+          styleURL: TRIP_STYLE_URL,
+          chunkNames: fallbackChunks.map((c) => c.name),
+          savedAt: new Date().toISOString(),
+        };
+        try {
+          await saveTripPackage(pkg);
+        } catch {
+          setError('Eddy couldn’t save this trip on your phone. Free up some storage and try again.');
+          return;
+        }
+      }
       try {
-        await saveTripPackage(pkg);
+        await onPackageSaved?.(pkg);
       } catch {
-        setError('Eddy couldn’t save this trip on your phone. Free up some storage and try again.');
+        setError('Your route was saved, but Eddy couldn’t remember this setup. Try again.');
         return;
       }
-    }
-    try {
-      await onPackageSaved?.(pkg);
-    } catch {
-      setError('Your route was saved, but Eddy couldn’t remember this setup. Try again.');
-      return;
-    }
-    const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId, pkg.fromLngLat);
-    tilesDoneAt.current = null;
-    setDownloading(true);
-    try {
-      await startTripDownload(chunks, (message) => {
-        if (!mounted.current) return;
-        setError(message);
+      const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId, pkg.fromLngLat);
+      tilesDoneAt.current = null;
+      styleWaitReported.current = false;
+      setDownloading(true);
+      try {
+        await startTripDownload(chunks, (message) => {
+          if (!mounted.current) return;
+          setError(message);
+          setDownloading(false);
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Download could not start.');
         setDownloading(false);
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Download could not start.');
-      setDownloading(false);
+      }
+      void refresh();
+    } finally {
+      starting.current = false;
     }
-    void refresh();
-  }, [tripKey, route, fromId, fromLngLat, toId, fallbackChunks, refresh, onPackageSaved]);
+  }, [tripKey, route, fromId, fromLngLat, toId, fallbackChunks, refresh, onPackageSaved, downloading]);
 
   const remove = useCallback(() => {
     if (protectedByActiveFloat) {
@@ -234,7 +256,7 @@ export function TripDownloadCard({
         </>
       ) : state.kind === 'tiles-saved' ? (
         <>
-          <Text style={[styles.body, { color: colors.text }]}>Trip and map tiles saved · {formatBytes(state.bytes)}</Text>
+          <Text style={[styles.body, { color: colors.text }]}>{downloading ? 'Finishing download' : 'Download incomplete'} · {formatBytes(state.bytes)}</Text>
           {downloading ? (
             <View style={styles.row}>
               <ActivityIndicator color={colors.interactive} />
@@ -243,10 +265,10 @@ export function TripDownloadCard({
           ) : (
             <>
               <Text style={[styles.note, { color: colors.textMuted }]}>
-                The map’s style and labels aren’t confirmed saved yet, so this isn’t marked Ready offline.
+                Your route is saved. Finish the map download before going offline.
               </Text>
               <Pressable onPress={() => void start()} accessibilityRole="button" style={styles.link}>
-                <Text style={[styles.linkText, { color: colors.interactive }]}>Finish download</Text>
+                <Text style={[styles.linkText, { color: colors.interactive }]}>Retry download</Text>
               </Pressable>
             </>
           )}

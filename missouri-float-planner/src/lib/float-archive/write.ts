@@ -25,7 +25,7 @@ export async function writeArchiveBatch(
   const existing = new Set<string>();
   if (ids.length) {
     const { data, error } = await db.from('float_archive').select('id').eq('user_id', userId).in('id', ids);
-    if (error) throw new Error('Could not check existing floats');
+    if (error) throw Object.assign(new Error('Could not check existing floats'), { code: error.code });
     for (const row of data ?? []) existing.add(row.id);
   }
   const enriched = await Promise.all(rows.map(async (row) => {
@@ -36,6 +36,6 @@ export async function writeArchiveBatch(
   // Still pass existing IDs through the RPC: it protects immutable summaries,
   // deletion tombstones and consent against races with this read.
   const { error } = await db.rpc('write_float_archive', { p_user: userId, p_rows: enriched });
-  if (error) throw new Error('Archive write failed');
+  if (error) throw Object.assign(new Error('Archive write failed'), { code: error.code });
   return results;
 }

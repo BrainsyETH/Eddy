@@ -46,9 +46,10 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { PlanRouteFields } from '@/components/PlanRouteFields';
 import { PlanAccessPicker } from '@/components/PlanAccessPicker';
 import { Otter } from '@/components/Otter';
+import { SavedTripDownload } from '@/float/SavedTripDownload';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
-import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { matchesPlan, useSavedFloats } from '@/hooks/useSavedFloats';
 import type { Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
@@ -171,6 +172,7 @@ export function PlanSheet({
     if (Platform.OS !== 'ios' && !visible) onClosed?.();
   }, [visible, onClosed]);
   const saved = plan ? isSaved(plan) : false;
+  const keptPlan = plan ? floats.find(f => matchesPlan(f, plan)) : undefined;
   const actionState = plan ? actions.stateFor(plan) : null;
   const saving = actionState?.saving ?? false;
   const sharing = actions.isSharing();
@@ -345,7 +347,15 @@ export function PlanSheet({
             onOpenDetail={openDetail}
             accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
             header={contentHeader}
-            actions={
+            actions={<>
+              {features.floatMode && keptPlan ? <SavedTripDownload key={keptPlan.shortCode} riverSlug={plan.river.slug} shortCode={keptPlan.shortCode}
+                putInId={plan.putIn.id} takeOutId={plan.takeOut.id} /> : features.floatMode ? <View>
+                <Text style={[styles.subtitle, { color: colors.textMuted }]}>Save this route to download its offline map.</Text>
+                <Pressable accessibilityRole="button" disabled={saving || !savedFloatsReady} onPress={() => void onToggleSave()}
+                  style={styles.secondaryButton}>
+                  <Text style={[styles.link, { color: colors.interactive }]}>{saving ? 'Saving…' : 'Save route for offline'}</Text>
+                </Pressable>
+              </View> : null}
               <Pressable
                 onPress={state.reset}
                 style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
@@ -353,7 +363,7 @@ export function PlanSheet({
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>Plan a different stretch</Text>
               </Pressable>
-            }
+            </>}
           />
         )}
         {resultReady ? (

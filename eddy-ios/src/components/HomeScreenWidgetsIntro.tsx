@@ -214,7 +214,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             <View style={[styles.note, { borderColor: colors.border }]}>
               <ControlIcon name="information-circle-outline" size={18} color={colors.textMuted} />
               <Text style={[styles.noteText, { color: colors.textMuted }]}>
-                Widgets are not push notifications. iOS decides when their readings refresh, so always check the observation time. You don&apos;t need an account or notification permission to add one.
+                Widgets are not push notifications. iOS decides when their readings refresh, so always check the observation time. You don’t need an account or notification permission to add one.
               </Text>
             </View>
           </ScrollView>

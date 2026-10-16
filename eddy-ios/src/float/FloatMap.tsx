@@ -339,7 +339,7 @@ function MapboxFloatMap({
       {preview ? null : (
         <View style={styles.controls}>
           {bounds ? <MapButton icon="map-outline" label="Show route" onPress={showRoute} accessibilityLabel="Show the whole route" /> : null}
-          {position ? (
+          {position && following !== 'position' ? (
             <MapButton icon="locate" label="Recenter" onPress={recenter} accessibilityLabel="Recenter on your position" />
           ) : null}
         </View>

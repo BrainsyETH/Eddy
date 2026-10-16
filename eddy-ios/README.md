@@ -1223,7 +1223,12 @@ it obtains a preview fix without prompting, and with an empty river it fills
 the river only when GPS sits on a mapped river line
 (closest line at a confluence; "Found from your location", Change one tap
 away), with the put-in as Current location. A nearby river alone is never
-selected automatically. So at the water the usual setup is two
+selected automatically. Detection retries on fresh GPS and at most every 30 seconds
+until its first match, while the fix is usable, serializing requests and ignoring
+cancelled answers. The 150 m line limit remains unchanged. Opening and cancelling
+a picker only pauses detection; typing in river search or selecting a river or
+endpoint stops it for this visit. A matched river and its endpoints stay put as
+later GPS fixes arrive. So at the water the usual setup is two
 taps: a take-out and Start tracking. With a known start and no take-out, the
 next three downstream take-outs are listed inline with distance and moving time,
 then a See All row when there are more. Without a known start, Choose a take-out
@@ -1231,9 +1236,9 @@ still opens all eligible endpoints; no downstream distances or “next” choice
 are invented. Choosing a named put-in enables downstream suggestions.
 The picker leads with Choose your take-out, then a compact river/change row,
 search and results. Its task title stays visible while choosing a river.
-Without a river the card is a
-single "Where are you floating?" prompt; a river chosen in the sheet continues
-to its take-outs there. Once chosen, Put-in and Take-out read as one connected
+Without a river, search and nearby/all river choices appear directly in Ready
+to float. Choosing a river reveals its route fields and downstream suggestions.
+Changing a river in the sheet continues to its take-outs there. Once chosen, Put-in and Take-out read as one connected
 stretch with river miles on each stop and the leg's distance and time between
 them. Location status is a small badge on the put-in; Start tracking stays fixed
 below the scrolling content. River
@@ -1258,7 +1263,11 @@ directly, without another confirmation screen. Setup is removed on success.
 River Mode, options and the just-finished recap live in one root full-screen
 presentation above all tabs. Historical recaps use the same content in a normal
 tab detail (`float-history-recap`), with Back restoring the History list.
-Constant navigation identities prevent duplicate recording views.
+Constant navigation identities prevent duplicate recording views. Options (also
+opened by Live Activity) uses a root ScrollView in its native form sheet;
+physical-device verification of the blank-sheet fix remains unconfirmed.
+Recenter is hidden while the map follows the paddler and reappears after a pan
+or Show route.
 River Mode shows the recorder’s usable GPS position, including off-river fixes.
 Only confirmed river positions advance progress, distance or ETA. The map
 initially keeps the user and take-out in view; a manual gesture stops following.
@@ -1334,23 +1343,28 @@ The map, distance, estimate and offline section derive from the same draft.
 Changing the river clears both ends; moving the start beyond the selected
 take-out clears that take-out. Pickers share the planner's photo cards and label
 river miles separately from miles from the put-in or current location. The
-Offline map section is always present, with a reason when the stretch isn't
-known. Only the original, unchanged stretch reuses its saved plan's download
-and share code. Edited stretches and changed GPS origins get separate local
-packages; an old download cannot be labelled ready for a new stretch (up to
-75 m of GPS drift at the same launch may reuse its padded tiles). Downloading
-also saves a reference to the unfinished setup outside the river cache. A fresh
-Start a Float recovers that package, route and boat; deleting the package
-invalidates recovery. A saved location only defines tile coverage, never GPS
-readiness or recorded origin. Each recording has a new id independent of the
-package, which Storage protects while in use. Starting clears the pending setup.
+Offline map section is always present. It shows **Offline map ready** only for
+an existing matching download that passes the complete tile and style checks.
+Otherwise it says “For an offline map, build a route and download it before you
+go,” with **Build a Route** carrying the river, any named endpoints and the boat.
+A location start carries its take-out but asks for a named put-in in the planner;
+GPS coordinates never travel through navigation. The planner offers saving the
+route and then its download card; saved-route details retain the same controls.
+Only the original, unchanged stretch reuses its saved plan's download and share
+code. An old download cannot be labelled ready for an edited stretch. Existing
+unfinished packages from older app versions still recover on a fresh Start a
+Float (up to 75 m of GPS drift at the same launch may reuse their padded tiles).
+Deleting the package invalidates recovery. A saved location only defines tile
+coverage, never GPS readiness or recorded origin. Each recording has a new id
+independent of the package, which Storage protects while in use. Starting clears
+the legacy pending setup.
 Persisting dated estimates with downloads remains a separate change.
 
 `app/(tabs)/(today,map,floats,favorites,alerts)/float-start.tsx` owns the draft;
 `src/float/start/` owns river selection, permissions, estimates and committing.
 Device verification of presentation, Back/swipe and permission transitions is
 unconfirmed. Native QA must include all five tab origins, saved and unsaved
-starts, both From choices, edits during an estimate/download, offline starts,
+starts, both From choices, edits during an estimate, planner download handoff, offline starts,
 large text, GPS timeout, and permission changes in Settings.
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both

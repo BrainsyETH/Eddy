@@ -263,7 +263,7 @@ are pending checks, not evidence of a device pass.
 - [ ] **Unified Ready to float:** from Today, Map, Floats, Favorites and Alerts,
       open a plan and a fresh Start a Float. Confirm the same editable River,
       From, Take-out and Vessel, photo rows, labelled distances, moving-time copy,
-      offline section and permission card. Edit while an estimate/download is
+      offline section and permission card. Edit while an estimate is
       running; an old result must not appear for the edited stretch. Check large
       text, GPS timeout and permission changes in Settings.
 - [ ] **Ready vessel menu:** tap the compact Vessel row, see the current
@@ -277,8 +277,13 @@ are pending checks, not evidence of a device pass.
       open Start a Float and see Current location populate without another tap
       or permission-card flash. Leave Ready open for over two minutes and verify
       GPS refreshes; repeat after a timeout and after returning from Settings.
-      With no river selected, tap Take-out: see river search immediately, choose
-      a river, then its take-out in the same sheet. With a river selected, open
+      With no river selected, see river search and choices directly on Ready;
+      choose a river in one tap, then its take-out. Improve a poor GPS fix and
+      verify detection retries without a tap. After its first match, wait for
+      later fixes near a confluence: the river and endpoints must stay put.
+      Cancel an untouched picker and verify detection resumes. Type in river
+      search (then clear it or cancel), or make a selection: late detection must
+      not replace the draft or hide the search list. With a river selected, open
       take-outs directly. Change river inside that sheet and close: the previous
       route and download remain. Search with the keyboard open and select in
       one tap. Check light/dark, large text, VoiceOver, Reduce Motion and that
@@ -309,6 +314,33 @@ are pending checks, not evidence of a device pass.
       options return correctly, and manual/automatic ending shows one recap.
       Closing returns to the page underneath; a cold recording link returns to
       Floats. A standalone planner must not leave a blank page behind.
+- [ ] **Options sheet and recenter:** open Options and Live Activity repeatedly
+      during River Mode, expand/collapse the sheet, and dismiss it. Verify content
+      in light/dark and large text on a physical iPhone. Recenter hides while
+      following; a pan or Show route makes it available again.
+- [ ] **Planner offline handoff:** Build a Route retains river, vessel and any
+      named endpoints. A current-location start retains take-out and asks for
+      put-in. Save and download there; return to Ready with the unchanged saved
+      route and see Offline map ready only after complete tile/style verification.
+      The planner requires Save before Download; verify returning to Ready finds
+      that saved stretch, including after a relaunch, and that changing an end
+      does not borrow its ready status.
+      **Use a new iOS binary containing `withSerialMapboxOffline` (not an OTA).**
+      Download a multi-chunk route and a second route while the first runs:
+      only one chunk's tile/style load may be active. Double-tap Download,
+      interrupt/retry, remove queued work, relaunch and test in airplane mode.
+      Force a style failure after tiles reach 100% and verify it is reported;
+      completion must wait for both loads, and retries must not overlap them.
+      If “group load with same identifier” recurs, record exact native wording,
+      build/runtime version, create vs resume, chunk counts and style status from
+      diagnostics. Confirm completed state clears old errors; do not treat the
+      byte count alone as success or unique disk usage.
+- [ ] **Backup and sharing recovery:** reproduce Sync now on an affected account;
+      correlate client method/status and server `[float-archive]` stage/code.
+      Confirm pending floats become backed up and restore on another installation.
+      Sharing errors stay inline; failed opt-in stays off, failed opt-out stays
+      locally off and retries. Verify account-linked summary disclosure, raw GPS
+      staying local, and backups continuing independently of optional sharing.
 - [ ] **Historical recaps:** open last month's float from History, including
       while a different float is active. Keep the tab bar and ordinary Back;
       return to the same History list. Resume the active float from another
@@ -320,8 +352,8 @@ are pending checks, not evidence of a device pass.
       and backup pending (no permanent refusal or lost note). Upgrade the API,
       sync, and restore on a clean installation: launch fields remain null and
       the descriptive note survives. Old recaps retain their original names.
-- [ ] **Unfinished offline setup:** download a location-start route, leave
-      Ready, clear ordinary saved river data, quit Eddy, enable airplane mode,
+- [ ] **Legacy unfinished offline setup:** use a location-start package saved
+      by the earlier app, clear ordinary saved river data, quit Eddy, enable airplane mode,
       and reopen Start a Float. Confirm the downloaded river, take-out and boat
       recover. With fresh GPS at that launch, its own download is recognized;
       without GPS, show the reason and never use the saved position as a fix.

@@ -62,7 +62,7 @@ export interface FloatPlanState {
   retry: () => void;
 }
 
-export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoint[]): FloatPlanState {
+export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoint[], boatType?: string): FloatPlanState {
   const [step, setStep] = useState<PlanStep>('put-in');
   const [putIn, setPutIn] = useState<MapAccessPoint | null>(null);
   const [takeOut, setTakeOut] = useState<MapAccessPoint | null>(null);
@@ -137,7 +137,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
       setError(null);
       setStep('result');
       try {
-        const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id, vesselTypeId: vesselTypeId.current }, request.signal);
+        const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id, vesselTypeId: vesselTypeId.current, boatType }, request.signal);
         if (!request.isCurrent()) return;
         if (result.river.id !== riverId || result.putIn.id !== start.id || result.takeOut.id !== end.id) {
           throw new Error('The river or access points changed. Please try this float again.');
@@ -160,7 +160,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
         if (request.isCurrent()) setCalculating(false);
       }
     },
-    [riverId, invalidate],
+    [riverId, invalidate, boatType],
   );
 
   const choosePutIn = useCallback((point: MapAccessPoint) => {
@@ -176,8 +176,9 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     // here is what keeps takeOutOptions and the selection from disagreeing.
     setTakeOut((current) => (current && current.riverMile > point.riverMile ? current : null));
     setPlan(null);
-    setStep('take-out');
-  }, [invalidate]);
+    if (takeOut && takeOut.riverMile > point.riverMile) void calculate(point, takeOut);
+    else setStep('take-out');
+  }, [invalidate, takeOut, calculate]);
 
   // The take-out is the last thing anyone has to say. Picking one goes straight
   // to the answer rather than through a boat nobody wanted to choose.

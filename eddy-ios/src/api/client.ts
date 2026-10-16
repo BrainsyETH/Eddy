@@ -1223,7 +1223,7 @@ export async function fetchRiverServices(
  * Find a Float can supply a boat; ordinary planning still defaults to canoe.
  */
 export async function fetchFloatPlan(
-  params: { riverId: string; startId: string; endId: string; vesselTypeId?: string },
+  params: { riverId: string; startId: string; endId: string; vesselTypeId?: string; boatType?: string },
   signal?: AbortSignal,
 ): Promise<FloatPlan> {
   const query = new URLSearchParams({
@@ -1231,7 +1231,14 @@ export async function fetchFloatPlan(
     startId: params.startId,
     endId: params.endId,
   });
-  if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
+  let vesselId = params.vesselTypeId;
+  if (!vesselId && params.boatType) {
+    const vessels = await loadStartVessels();
+    if (signal?.aborted) throw new ApiError('Request cancelled');
+    vesselId = vessels.find(vessel => vessel.slug === params.boatType)?.id;
+    if (!vesselId) throw new Error('Vessel unavailable');
+  }
+  if (vesselId) query.set('vesselTypeId', vesselId);
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
   return data.plan;
 }
@@ -2564,6 +2571,10 @@ async function archiveRequest<T>(path: string, token: string, init?: { method?: 
   try {
     return await authed<T>(path, token, init);
   } catch (error) {
+    if (error instanceof ApiError) warn('float', 'float backup request failed', {
+      method: init?.method ?? 'GET', status: error.status,
+      capabilityCheck: path.includes('capabilities=1'),
+    });
     if (error instanceof ApiError && (error.status === 404 || (error.status ?? 0) >= 500))
       throw new Error('Float backup is temporarily unavailable. Your floats are saved on this phone. Try again later.');
     throw error;

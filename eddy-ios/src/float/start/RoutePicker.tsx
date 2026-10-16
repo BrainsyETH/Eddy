@@ -18,9 +18,10 @@ import { Row, Shell, TextButton, styles } from './ui';
  * A single sheet continues River → Access, and on to Take-out while the stretch
  * still lacks one, committing only a finished choice.
  */
-export function RoutePicker({ field: openedField, draft, loaded: currentRoute, location, onSelect, onClose, onRetryCurrent }: {
+export function RoutePicker({ field: openedField, draft, loaded: currentRoute, location, onSelect, onClose, onRetryCurrent, onSearchChange }: {
   field: StartField; draft: FloatSetup; loaded: LoadedRoute | null; location: StartLocation;
   onSelect: (draft: FloatSetup) => void; onClose: () => void; onRetryCurrent: () => void;
+  onSearchChange?: () => void;
 }) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
@@ -82,7 +83,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
         </Pressable>
       </View>
       <KeyboardAvoidingView style={local.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {picker.page === 'rivers' ? <RiverPicker location={location} selectedSlug={picker.draft.riverSlug}
+        {picker.page === 'rivers' ? <RiverPicker location={location} selectedSlug={picker.draft.riverSlug} onSearchChange={onSearchChange}
           header={currentLocation} onChoose={river => {
             const next = chooseStartRiver(picker, river.slug);
             if (field === 'river') finish(next.draft);
