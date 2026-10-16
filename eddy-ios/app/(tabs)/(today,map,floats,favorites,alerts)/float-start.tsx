@@ -11,6 +11,7 @@ import { routeProblemCopy } from '@/float/loadFloatRoute';
 import { LocationGate } from '@/float/start/LocationGate';
 import { RoutePicker } from '@/float/start/RoutePicker';
 import { RouteCard } from '@/float/start/RouteCard';
+import { useGpsRiver } from '@/float/start/useGpsRiver';
 import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
@@ -22,12 +23,15 @@ import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession,
 import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
 import { completedFloatRoutes } from '@/lib/floatNavigation';
+import { nextTakeOuts } from '@/lib/floatStartSelection';
 import { matchesSetupDownload } from '@/lib/floatSetupDownload';
 import { readPendingFloatSetup, savePendingFloatSetup } from '@/float/pendingFloatSetup';
 import type { TripPackage } from '@/lib/tripDownload';
 
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const isBoat = (value?: string | null): value is FloatBoat => FLOAT_BOATS.includes(value as FloatBoat);
+const movingMinutes = (miles: number, mph: number | null) => miles > 0 && mph != null
+  ? Math.max(5, Math.round(miles / mph * 12) * 5) : null;
 
 export default function FloatStartScreen() {
   const params = useLocalSearchParams<Params>();
@@ -83,6 +87,22 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const [boat, setBoat] = useState<FloatBoat>(() => isBoat(initial.boatType) ? initial.boatType : 'kayak');
   const boatChosen = useRef(isBoat(initial.boatType));
   const [picker, setPicker] = useState<'river' | 'from' | 'to' | null>(null);
+  // Tracking needs location, so the screen asks once on arrival instead of
+  // waiting for a tap; a declined prompt falls back to the Location card.
+  const askedLocation = useRef(false);
+  const { state: locationState, act: locationAct } = location;
+  useEffect(() => {
+    if (locationState !== 'request' || askedLocation.current) return;
+    askedLocation.current = true;
+    void locationAct();
+  }, [locationState, locationAct]);
+  // An empty river is filled from GPS until the paddler makes any choice.
+  const [autoEligible, setAutoEligible] = useState(!initial.riverSlug);
+  const [autoRiver, setAutoRiver] = useState<string | null>(null);
+  const gpsRiver = useGpsRiver(autoEligible && !draft.riverSlug, location, slug => {
+    setDraft(current => current.riverSlug ? current : { riverSlug: slug, putInId: undefined, takeOutId: undefined });
+    setAutoRiver(slug);
+  });
   useEffect(() => {
     let current = true;
     void AsyncStorage.getItem(FLOAT_BOAT_STORAGE_KEY).then(value => {
@@ -120,14 +140,17 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   }, [id, packages, stretchKey, shortCode, reusablePackage]);
   const miles = takeOut && startMile != null ? takeOut.mile - startMile : null;
   const upstream = miles != null && miles <= 0;
+  const upcoming = takeOut ? null : nextTakeOuts(choices, startMile);
+  // Before a take-out is chosen, the nearest suggestion stands in so each
+  // suggestion can show its time.
+  const estimateEnd = takeOut ?? upcoming?.next[0];
   const startId = route ? estimateStartId(route, draft.putInId, startMile) : null;
-  const estimate = useStartEstimate(loaded?.ok && loaded.riverId && startId && takeOut && !upstream &&
+  const estimate = useStartEstimate(loaded?.ok && loaded.riverId && startId && estimateEnd && !upstream &&
     (!draft.putInId || putIn) ? {
-      riverId: loaded.riverId, startId, endId: takeOut.id, boatType: boat,
+      riverId: loaded.riverId, startId, endId: estimateEnd.id, boatType: boat,
       ...(draft.putInId || startMile == null ? {} : { startRiverMile: startMile }),
     } : null, location.checkedAt);
-  const minutes = miles != null && miles > 0 && estimate.speed != null
-    ? Math.max(5, Math.round(miles / estimate.speed * 12) * 5) : null;
+  const minutes = miles != null ? movingMinutes(miles, estimate.speed) : null;
   const outlook = takeOut ? arrivalOutlook(minutes, location.checkedAt, takeOut.lngLat) : null;
   const arrival = outlook ? arrivalCopy(outlook, clockTime) : null;
   const start = useStart({ ...draft, boatType: boat, shortCode,
@@ -158,7 +181,23 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
     : !takeOut ? 'Choose a take-out to prepare an offline map.'
     : upstream ? 'Choose a take-out downstream of your start.'
     : !fromPoint ? 'Available once Eddy knows where you’re starting.' : null;
-  const openPicker = (next: typeof picker) => { if (!start.busy) setPicker(next); };
+  const openPicker = (next: typeof picker) => { if (!start.busy) { setAutoEligible(false); setPicker(next); } };
+  const riverNote = draft.riverSlug
+    ? autoRiver === draft.riverSlug ? { label: 'Found from your location' } : undefined
+    : gpsRiver.searching ? { label: 'Looking for a river near you…', busy: true } : undefined;
+  const suggestions = upcoming?.next.length ? {
+    items: upcoming.next.map(point => {
+      const away = point.mile - (startMile ?? point.mile);
+      const time = movingMinutes(away, estimate.speed);
+      const photoPoint = points.find(item => item.id === point.id);
+      return { id: point.id, name: point.name,
+        detail: `${away.toFixed(1)} mi${time != null ? ` · about ${formatDuration(time)}` : ''}`,
+        photo: photoPoint ? <PlanAccessPhoto point={photoPoint} style={local.photo} /> : undefined };
+    }),
+    more: upcoming.more,
+    onPick: (takeOutId: string) => { if (!start.busy) { setAutoEligible(false); setDraft(current => ({ ...current, takeOutId })); } },
+    onSeeAll: () => openPicker('to'),
+  } : undefined;
   const selectFrom = (putInId?: string) => {
     const mile = putInId ? choices.find(p => p.id === putInId)?.mile : located?.riverMile;
     setDraft(current => ({ ...current, putInId,
@@ -177,6 +216,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
       </>}>
         {restoredPackage ? <Text style={[styles.caption, { color: colors.textMuted }]}>Your downloaded setup · edit any field below</Text> : null}
         <RouteCard river={draft.riverSlug ? route?.riverName ?? (loaded ? null : 'loading') : null}
+          riverNote={riverNote} suggestions={suggestions}
           disabled={start.busy} onRiver={() => openPicker('river')} onFrom={() => openPicker('from')} onTo={() => openPicker('to')}
           from={{ value: putIn?.name ?? (draft.putInId ? null : 'My location'),
             detail: startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,

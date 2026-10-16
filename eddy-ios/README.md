@@ -1191,14 +1191,19 @@ river, named put-in, take-out and boat; the Floats button starts with an empty
 river and take-out unless an unfinished downloaded setup is recovered. River,
 From and Take-out are editable fields. Pickers are
 searchable sheets over the same draft, and cancelling one leaves the draft intact.
-Above the map, one route card holds them: before a river is chosen it is a
-single "Where are you floating?" prompt, because neither endpoint can be chosen
-without one. After that the river heads the card with a Change link, and Put-in
-and Take-out read as one connected stretch (dot, rail, pin) with river miles on
-each stop and the distance and moving time on the leg between them. Location
-status is a small badge on the put-in; Start tracking stays fixed below the
-scrolling content. A River or Put-in choice that leaves no take-out continues
-straight to the take-out list in the same sheet. River
+Above the map, one route card holds them. The screen asks for location on
+arrival (a declined prompt falls back to the Location card), and with an empty
+river it fills the river from GPS when the fix sits on a mapped river line
+(closest line at a confluence; "Found from your location", Change one tap
+away), with the put-in as My location. So at the water the usual setup is two
+taps: a take-out and Start tracking. With a known start and no take-out, the
+next three downstream take-outs are listed inline with distance and moving time,
+then a See All row that opens the full sheet. Without a river the card is a
+single "Where are you floating?" prompt; a river chosen in the sheet continues
+to its take-outs there. Once chosen, Put-in and Take-out read as one connected
+stretch with river miles on each stop and the leg's distance and time between
+them. Location status is a small badge on the put-in; Start tracking stays fixed
+below the scrolling content. River
 selection shows search and nearby/all river rows immediately; tapping a row is
 the selection, with no separate confirmation card. If Take-out or From still
 needs a river, its sheet opens the river list directly and continues to access
