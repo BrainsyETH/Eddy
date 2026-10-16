@@ -126,6 +126,9 @@ of uncached fan-out per revalidation.
 
 ## 1. Travel-time lag — learn it, do not assume it
 
+Local ballpark estimates (guides, resorts, AGFC) for Bull Shoals, Norfork and
+Taneycomo, with sources: [TAILWATER_LOCAL_TIMING_2026-10-16.md](TAILWATER_LOCAL_TIMING_2026-10-16.md).
+
 **The gap:** SWPA says the units run 7–11 AM *at the dam*. Nothing says when
 that water reaches the access someone is standing at. Every wade/float window
 downstream of the dam face is wrong without this, and a hand-tuned celerity per
