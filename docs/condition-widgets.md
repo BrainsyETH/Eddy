@@ -15,6 +15,26 @@ unstarred; resolving that choice never adds it back to Favorites or the picker.
 Additional widget sizes and condition Lock Screen accessories are separate work.
 The existing River Mode Live Activity is unchanged.
 
+## Discovering widgets in Alerts
+
+The **Mine** segment of Alerts includes an optional widget setup invitation
+for installed iOS binaries that expose the widget native bridge. An older
+binary, Expo Go or Android never advertises unavailable Home Screen widgets.
+The invitation is shown once per device until dismissed or opened; afterward
+a compact **Home Screen widgets** row remains so people can reopen the guide.
+The device-only `eddy.widgets.setup-guide.seen.v1` key records seeing the
+guide, never falsely asserts that a widget was installed.
+
+The sheet previews **River level** (small, edited to select a gauge) and
+**Your rivers** (medium, first three distinct river/gauge favorites), with
+illustrative readings explicitly marked as sample data. It teaches Apple's
+Home Screen **touch and hold → Edit → Add Widget → search Eddy** flow, followed
+by the widget-specific customization. iOS owns the widget gallery: no button
+claims that Eddy can install a widget on the user's behalf. Widget discovery
+needs no account, location, or notification permission. Unlike alert rules,
+widgets are not push notifications; their data refresh cadence is controlled
+by iOS, and observation time remains visible.
+
 ## Display and previews
 
 Widgets use semantic text styles (at least caption2 for small labels), with

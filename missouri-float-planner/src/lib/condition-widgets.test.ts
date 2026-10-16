@@ -7,6 +7,10 @@ import { CONDITION_SYSTEM } from '../../shared/condition-system';
 import { STALE_READING_MS } from '../../shared/reading-staleness';
 import type { ChartReadingLike } from '../../shared/chart-model';
 import { widgetConfiguration, widgetGaugeCatalog } from '../../../eddy-ios/src/lib/conditionWidgets';
+import {
+  WIDGET_GUIDE, WIDGET_ONBOARDING_KEY, widgetGuideSteps,
+  hasSeenWidgetGuide, markWidgetGuideSeen,
+} from '../../../eddy-ios/src/lib/widgetOnboarding';
 import type { MapGauge } from '../../../packages/eddy-types';
 
 const NOW = Date.parse('2026-10-15T12:00:00Z');
@@ -29,6 +33,41 @@ const readings = (hours = 24): ChartReadingLike[] => Array.from({ length: hours 
   timestamp: new Date(NOW - (hours - index) * 3_600_000).toISOString(),
   dischargeCfs: 200 + index * 10, gaugeHeightFt: 2 + index / 10,
 }));
+
+test('widget discovery is a local acknowledgement, not an install or an account setting', async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: async (key: string) => values.get(key) ?? null,
+    setItem: async (key: string, value: string) => { values.set(key, value); },
+  };
+  assert.equal(await hasSeenWidgetGuide(storage), false);
+  await markWidgetGuideSeen(storage);
+  assert.equal(await hasSeenWidgetGuide(storage), true);
+  assert.equal(values.get(WIDGET_ONBOARDING_KEY), 'seen');
+
+  // A native-store failure should show the invitation again, not block Alerts.
+  assert.equal(await hasSeenWidgetGuide({
+    getItem: async () => { throw Error('unavailable'); },
+    setItem: storage.setItem,
+  }), false);
+});
+
+test('widget guide follows the real small-versus-medium configuration rules', () => {
+  assert.equal(WIDGET_GUIDE.river.size, 'Small');
+  assert.equal(WIDGET_GUIDE.favorites.size, 'Medium');
+  assert.match(WIDGET_GUIDE.river.personalize, /Edit Widget/);
+  assert.match(WIDGET_GUIDE.favorites.personalize, /first three/);
+  const smallSteps = widgetGuideSteps('river');
+  const mediumSteps = widgetGuideSteps('favorites');
+  assert.equal(smallSteps.length, 3);
+  assert.deepEqual(smallSteps.map(step => step.title), mediumSteps.map(step => step.title));
+  assert.match(smallSteps[0].detail, /Edit, then Add Widget/);
+  assert.match(smallSteps[1].detail, /River level/);
+  assert.match(mediumSteps[1].detail, /Your rivers/);
+  assert.match(mediumSteps[2].detail, /Favorites/);
+  const alerts = readFileSync(new URL('../../../eddy-ios/app/(tabs)/(alerts)/alerts.tsx', import.meta.url), 'utf8');
+  assert.match(alerts, /<HomeScreenWidgetsIntro \/>/);
+});
 
 test('widget verdicts use the canonical ladder/colors and preserve observation expiration', () => {
   const result = widgetGaugeSnapshot(gauge, NOW);

@@ -1206,6 +1206,16 @@ require a new binary; do not deliver the native changes as an OTA update.
       `eddy.guide.app` and `eddy.guide.app.FloatActivity`. Verify the installed
       build reads the same shared defaults from the app and extension. Inspect
       the signed entitlements, not only the generated project.
+- [ ] In Alerts → Mine, confirm widget discovery appears once on a supported
+      iOS binary for signed-in and signed-out users, with no permission prompt.
+      Dismiss the invitation and confirm it becomes a compact, always-reopenable
+      Home Screen widgets row across app restarts. Verify old binaries without
+      widget support and Expo Go do not advertise a widget they cannot add.
+      Open the setup guide and switch between River level (small, Edit Widget
+      station picker) and Your rivers (medium, first three starred rivers/gauges).
+      Check Apple Home Screen steps, illustrative sample-data labeling,
+      non-notification/freshness copy, and VoiceOver, large text, light/dark,
+      sheet swipe dismissal and scrolling on a small phone.
 - [ ] On a physical iPhone, add/edit River level, add Your rivers, and verify
       light, dark, tinted Home Screen, smallest supported screen, large text,
       and VoiceOver. Names, units, status and observation age must remain legible.
