@@ -1,5 +1,5 @@
 // eddy-ios/src/float/HazardReportSheet.tsx
-// "Report a hazard here" from Float Mode (#1448 Phase 5, #1453).
+// "Report a hazard here" from River Mode (#1448 Phase 5, #1453).
 //
 // One question (what is it?), an optional note, and the position it will be
 // reported at, shown before sending so the paddler can confirm it: river mile

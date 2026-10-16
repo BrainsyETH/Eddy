@@ -1,5 +1,5 @@
 // eddy-ios/src/float/FloatHazardReports.tsx
-// Report a hazard from Float Mode, and what became of the ones you reported
+// Report a hazard from River Mode, and what became of the ones you reported
 // on this river: waiting on the phone, sent for review, or not accepted (with
 // the server's reason). Kept small on purpose: this is a float screen, not a
 // hazard dashboard (#1448).

@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name = 'EddyStylePack'
   s.version = '1.0.0'
-  s.summary = 'Reads Mapbox offline style pack completeness for Float Mode'
+  s.summary = 'Reads Mapbox offline style pack completeness for River Mode'
   s.description = s.summary
   s.license = { :type => 'Proprietary' }
   s.author = 'Eddy'

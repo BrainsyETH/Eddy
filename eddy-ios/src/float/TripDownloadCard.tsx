@@ -280,7 +280,7 @@ export function TripDownloadCard({
       ) : compactOffer ? null : (
         <>
           <Text style={[styles.note, { color: colors.textMuted }]}>
-            Save this trip and its map so both work with no signal. Optional: Float Mode tracks without it.
+            Save this trip and its map so both work with no signal. Optional: River Mode tracks without it.
           </Text>
           <Pressable
             onPress={() => void start()}
