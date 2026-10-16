@@ -271,6 +271,7 @@ async function _GET(
 
   const { siteId: rawSiteId } = await params;
   const siteId = rawSiteId.trim();
+  const widgetOnly = request.nextUrl.searchParams.get('widget') === '1';
   if (!siteId) {
     return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
   }
@@ -365,6 +366,7 @@ async function _GET(
     // A reading borrowed this way is stamped with the station that produced
     // it. An unattributed number would read as this gauge's own.
     const waterQuality: { siteId: string; name?: string } | null = (() => {
+      if (widgetOnly) return null; // WidgetKit needs conditions/NWS, not slow quality enrichment.
       if (provider === 'usgs') return { siteId };
       const tw = getUsaceDam(siteId)?.tailwater;
       if (!tw?.waterQualitySiteId) return null;
@@ -505,6 +507,24 @@ async function _GET(
     // survived. orderRiverLinks breaks the tie on distance, which is what puts
     // the gauge on the Huzzah where it physically sits.
     const orderedThresholds = orderRiverLinks(thresholds);
+
+    // Opt-in compact payload: same trusted observation, server-side river
+    // ladder and NWS warnings as the full response, but no slow water-quality,
+    // percentile or dam enrichment. Old clients never send ?widget=1.
+    if (widgetOnly) {
+      const widgetInput = {
+        siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect: suspect,
+        thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
+        floodAlerts: await floodAlertsPromise,
+      };
+      return NextResponse.json(
+        {
+          gauge: { siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect: suspect },
+          widget: widgetGaugeSnapshot(widgetInput),
+        },
+        { headers: cdnCacheHeaders(60, 120) },
+      );
+    }
 
     // ── The NWS stages ──────────────────────────────────────────────────────
     // Precedence (station nwps_* columns win, curated pairing is the fallback,
