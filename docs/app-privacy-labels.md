@@ -172,7 +172,7 @@ it is not a separate purpose option in Apple's questionnaire.
 **Collected, linked to identity. Purposes: App Functionality; Analytics for
 opted-in completed-float summaries. No tracking.**
 
-- Nearby sorting and Float Mode use GPS on the device. Float Mode requests
+- Nearby sorting and River Mode use GPS on the device. River Mode requests
   When In Use permission only; Eddy never requests Always. While a float is
   running, a Core Location background activity session keeps recording with
   the phone locked and shows the blue location indicator (ADR 0014).
@@ -180,7 +180,7 @@ opted-in completed-float summaries. No tracking.**
   stops recording. If iOS ends Eddy mid-float, iOS relaunches it to resume the
   session (device-unconfirmed). A float left running ends itself an hour after
   reaching the take-out or 45 minutes after leaving the river.
-- Raw Float Mode positions stay on the phone: each float's GPS track is kept
+- Raw River Mode positions stay on the phone: each float's GPS track is kept
   in a local file, excluded from iCloud and device backups, never uploaded,
   and deleted with that float's recap or with the account (ADR 0014). Pace
   samples, tracker state and the river-line copy are removed when ending is
@@ -224,7 +224,7 @@ is introduced by these features.
 > makes Restore Purchases work across reinstalls and devices. Restore Purchases
 > is available on the paywall and in Profile.
 >
-> **Location is requested in context, never on launch.** Float Mode uses
+> **Location is requested in context, never on launch.** River Mode uses
 > location to show progress to a chosen take-out. It asks for When In Use
 > permission only; a float continues while the phone is locked in a dry bag
 > through a background activity session, shown by the blue location
@@ -235,7 +235,7 @@ is introduced by these features.
 > estimates. Hazard reports send the location and time of the submitted hazard;
 > weather requests send rounded coordinates.
 >
-> **To review Float Mode:** open Floats › Start Float, select a supported river
+> **To review River Mode:** open Floats › Start Float, select a supported river
 > from the full list (nearby suggestions are optional), choose a take-out, and
 > start. Precise location is required for tracking; no other permission is
 > requested. Away from a

@@ -1,6 +1,6 @@
-# Float Mode: Lock Screen and Dynamic Island
+# River Mode: Lock Screen and Dynamic Island
 
-Follow-up to merged #1468 and the core Float Mode plan in #1448.
+Follow-up to merged #1468 and the core River Mode plan in #1448.
 The native implementation is on `codex/float-live-activity`. Swift compilation,
 signing, rendered layouts and physical-device release gates remain pending.
 
@@ -185,7 +185,7 @@ background stream is confirmed running. Permission alone
 is not proof that `startLocationUpdatesAsync` succeeded. If background startup
 fails, expose the screen-on fallback and explain the actual mode.
 
-The fallback works only while the Float Mode screen is visible. Preserve its
+The fallback works only while the River Mode screen is visible. Preserve its
 opt-in preference; release it on screen exit, session end, and transition to
 working background tracking. Permission changes in Settings refresh on return.
 Keep-awake/native failure must not interrupt the float.

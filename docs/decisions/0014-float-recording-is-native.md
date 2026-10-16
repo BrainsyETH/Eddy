@@ -1,7 +1,7 @@
 # 0014 — Float recording is native: Core Location sessions, an on-phone journal, iOS 18
 
 Status: active. Implemented; device verification and release status
-unconfirmed. Gates are in `docs/ios-release-runbook.md` (Float Mode release
+unconfirmed. Gates are in `docs/ios-release-runbook.md` (River Mode release
 gates).
 
 ## Decision
@@ -36,13 +36,13 @@ A float's GPS track is recorded by native code, not by JavaScript:
   as live batches, and only then takes the recap (`floatRecorderSync.ts:
   finish`). A float finished while its journal was still being replayed is
   not saved short. If the journal cannot be read to its end, nothing is
-  saved: the float stays active, recording restarts, and Float Mode says
+  saved: the float stays active, recording restarts, and River Mode says
   saving failed so Finish can be tried again.
 - **Precise location is asked for in Eddy.** With Precise Location off,
   Start shows Apple's temporary full-accuracy prompt (purpose key
   `FloatTracking`) and starts once it is allowed; Settings is offered only
   after it is declined (`floatPermissions.ts: preciseLocationAction`).
-- **Status is reported.** Float Mode's tracking line comes from Core
+- **Status is reported.** River Mode's tracking line comes from Core
   Location's own diagnostics on updates and on the service session (Location
   Services off, denied, Precise Location off, not in use), not from a
   permission read (`floatRecording.ts: trackerState`).
