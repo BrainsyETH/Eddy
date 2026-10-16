@@ -93,6 +93,7 @@ import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { QuietHoursRow } from '@/components/QuietHoursRow';
+import { HomeScreenWidgetsIntro } from '@/components/HomeScreenWidgetsIntro';
 import { SwipeRow } from '@/components/SwipeRow';
 import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
@@ -542,6 +543,10 @@ function AlertsContent() {
             <>
               {header}
               <QuietHoursRow />
+              {/* A one-time, dismissible widget discovery card, then a small
+                  permanent setup row. Only Mine: widgets show personal
+                  favorites, not live statewide alerts or agency notices. */}
+              <HomeScreenWidgetsIntro />
             </>
           }
           ListEmptyComponent={
