@@ -1,6 +1,6 @@
 // missouri-float-planner/src/lib/hazard-report-queue.test.ts
 //
-// Covers eddy-ios/src/lib/hazardReportQueue.ts: hazard reports from Float Mode
+// Covers eddy-ios/src/lib/hazardReportQueue.ts: hazard reports from River Mode
 // are saved on the phone first, sent when there is signal, and sent once.
 
 import assert from 'node:assert/strict';
@@ -135,11 +135,11 @@ test('a report that cannot be saved is an error the sheet shows, not a silent lo
 test('what a moderator reads, and ids that are valid UUIDs', () => {
   assert.equal(
     reportDescription({ kind: 'strainer', note: 'River left', riverMile: 23.44, accuracyMeters: 11.6 }),
-    'Strainer or downed tree. River left. Reported from Float Mode (near river mile 23.4, GPS ±12 m).',
+    'Strainer or downed tree. River left. Reported from River Mode (near river mile 23.4, GPS ±12 m).',
   );
   assert.equal(
     reportDescription({ kind: 'other', note: '', riverMile: null, accuracyMeters: null }),
-    'Something else. Reported from Float Mode.',
+    'Something else. Reported from River Mode.',
   );
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   for (let i = 0; i < 50; i += 1) assert.match(newReportId(), uuid);

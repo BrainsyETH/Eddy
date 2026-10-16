@@ -1,7 +1,7 @@
 // missouri-float-planner/src/lib/float-permissions.test.ts
 //
 // Covers eddy-ios/src/lib/floatPermissions.ts (whether a float can start)
-// and floatTrackerStatus.ts (what Float Mode says about tracking, from the
+// and floatTrackerStatus.ts (what River Mode says about tracking, from the
 // native recorder's own diagnostics), and that the screen never promises more
 // than the recorder reports.
 
