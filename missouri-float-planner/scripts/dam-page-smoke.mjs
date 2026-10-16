@@ -1,7 +1,8 @@
-// Fixture-only browser check. Creates a temporary local route, removes it in finally.
+// Fixture-only browser check. The ignored route is gated to this dev process;
+// normal exit and SIGINT/SIGTERM remove it (SIGKILL cannot run cleanup).
 // Run: npm run test:dam-page (no production credentials or requests).
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -41,14 +42,47 @@ const variants = {
     { startUtc: '2026-10-17T12:00:00Z', endUtc: '2026-10-18T12:00:00Z', generating: true, peakCfs: 13200 },
   ] } },
 };
-let server, browser;
+let server, browser, cleanupPromise;
 assert(!existsSync(route), 'temporary QA route already exists; refusing to overwrite');
+function cleanup() {
+  return cleanupPromise ??= (async () => {
+    try { await rm(route, { recursive: true, force: true }); }
+    finally { server?.kill('SIGTERM'); await browser?.close(); }
+  })();
+}
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    void cleanup().catch(console.error).finally(() => process.exit(signal === 'SIGINT' ? 130 : 143));
+  });
+}
 try {
   await mkdir(route, { recursive: true });
   await mkdir(out, { recursive: true });
-  await writeFile(`${route}/page.tsx`, `import DamDetail from '@/components/dam/DamDetail';\nconst variants = ${JSON.stringify(variants)};\nexport default async function Page({ searchParams }: { searchParams: Promise<{ variant?: string }> }) { const { variant = 'normal' } = await searchParams; const dam = variants[variant as keyof typeof variants] as import('@shared/dam-types').DamSnapshot; return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1 className="mb-6 text-3xl font-bold">{dam.name}</h1><DamDetail dam={dam} renderedAt={${now}} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Fixture availability explanation.' }} /></div>; }\n`);
+  await writeFile(`${route}/page.tsx`, `import { notFound } from 'next/navigation';
+import DamDetail from '@/components/dam/DamDetail';
+const variants = ${JSON.stringify(variants)};
+export default async function Page({ searchParams }: { searchParams: Promise<{ variant?: string }> }) {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  const { variant = 'normal' } = await searchParams;
+  const dam = variants[variant as keyof typeof variants] as import('@shared/dam-types').DamSnapshot;
+  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1 className="mb-6 text-3xl font-bold">{dam.name}</h1><DamDetail dam={dam} renderedAt={${now}} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Fixture availability explanation.' }} /></div>;
+}
+`);
+  const ignored = spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]);
+  assert.equal(ignored.status, 0, 'fixture page must be ignored by Git');
+  // Exercise the generated route itself: neither an ordinary dev process nor
+  // production (even with an accidentally copied flag) may render fixture data.
+  for (const [mode, flag] of [['development', ''], ['production', '1']]) {
+    const check = spawnSync(process.execPath, ['--import', 'tsx', '-e', `
+      const assert = require('node:assert/strict');
+      const Page = require(${JSON.stringify(`${route}/page.tsx`)}).default;
+      assert.rejects(() => Page({ searchParams: Promise.resolve({}) }), { digest: 'NEXT_HTTP_ERROR_FALLBACK;404' }).catch(error => { console.error(error); process.exitCode = 1; });
+    `], { encoding: 'utf8', env: { ...process.env, NODE_ENV: mode, EDDY_DAM_SMOKE: flag, TSX_TSCONFIG_PATH: resolve('tsconfig.json') } });
+    assert.equal(check.status, 0, `fixture route must be unavailable in ${mode}: ${check.stderr}`);
+  }
+  console.log('PASS fixture Git exclusion and dev/production guards');
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
+    env: { ...process.env, EDDY_DAM_SMOKE: '1', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let log = '';
@@ -108,6 +142,15 @@ try {
       await page.waitForTimeout(1500);
       assert.equal(refreshes, 1, 'focus refreshes are coalesced');
       assert.equal(await days.nth(1).getAttribute('open'), '', 'refresh preserves open dates');
+      assert.match(await detail.getByRole('img', { name: /^Today:/ }).getAttribute('aria-label'), /of 11 hours/);
+      // Move wall time across noon without firing interval callbacks. A return
+      // to the tab must advance both charts immediately from the page clock.
+      await page.clock.setFixedTime(new Date('2026-10-16T17:00:00Z'));
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await detail.getByRole('img', { name: /^Today:.*of 12 hours/ }).waitFor();
+      const scheduleMarker = days.first().getByRole('img').locator('.pointer-events-none[style]');
+      assert.equal(await scheduleMarker.evaluate(el => el.style.left), '50%', 'schedule and history advance together on focus');
+      console.log('PASS shared clock across an hour boundary');
     }
     const chart = days.first().getByRole('img');
     await chart.focus();
@@ -149,7 +192,5 @@ try {
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');
   console.log(`Screenshots: ${out}`);
 } finally {
-  await browser?.close();
-  server?.kill('SIGTERM');
-  await rm(route, { recursive: true, force: true });
+  await cleanup();
 }

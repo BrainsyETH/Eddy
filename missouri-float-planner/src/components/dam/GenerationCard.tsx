@@ -37,7 +37,7 @@ export default function GenerationCard({ dam, now, availability }: {
           <p className="mt-1 text-xs text-neutral-500">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
         </div>}</div>}
         <div className="min-w-0 p-5 sm:p-6">
-          {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} renderedAt={now} /> : (
+          {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} /> : (
             <div className="flex min-h-28 flex-col justify-center">
               <h2 className="text-base font-bold text-neutral-900">{availability.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600">{availability.detail}</p>

@@ -8,6 +8,7 @@
 
 # testing
 /coverage
+/src/app/dam-layout-check/
 
 # next.js
 /.next/

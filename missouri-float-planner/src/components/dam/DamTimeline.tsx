@@ -11,12 +11,8 @@
 // megawatts over the project's scheduling capacity, identical on every day and
 // every dam page.
 //
-// ── Why this is the feature's first client component ───────────────────────
-// Two things need the reader's own clock rather than the server's: the "now"
-// marker, and the per-hour readout. The pages are ISR'd at 300 seconds, so a
-// server-rendered marker can be five minutes wrong. The clock is therefore
-// SEEDED from the page's render time and replaced on mount — see `renderedAt`
-// for why neither calling Date.now() here nor waiting for the effect works.
+// The page supplies one server-seeded display clock to this chart and the
+// history strip, so they advance together on timer ticks and tab focus.
 //
 // ── Why there are no per-bar touch targets ─────────────────────────────────
 // Twenty-four bars across a phone is about 14pt each, far under the 44pt floor.
@@ -25,7 +21,7 @@
 // The bars themselves are hidden from assistive technology and the row carries
 // a composed sentence, the pattern NightStrip established.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { DamScheduleDay, ScheduledHour } from '@/lib/data/dams';
 import { hourEndingLabel, scheduleHoursElapsed } from '@shared/dam-schedule-copy';
 import {
@@ -67,41 +63,15 @@ function hourReadout(hour: ScheduledHour, ref: GenerationReference | null | unde
 export default function DamTimeline({
   day,
   reference,
-  renderedAt,
+  now,
 }: {
   day: DamScheduleDay;
   reference?: GenerationReference | null;
-  /**
-   * The server's render instant, handed down as a prop.
-   *
-   * ── Why not just call Date.now() here ────────────────────────────────────
-   * Because this is a client component inside a server-rendered page, and the
-   * two renders must agree or React throws the server HTML away. Calling the
-   * clock independently on each side puts them milliseconds to minutes apart,
-   * and if an hour boundary falls in that gap the bars change shape.
-   *
-   * ── Why not leave it null until mount ────────────────────────────────────
-   * That is what this did first, and it meant the marker — and, in the pattern
-   * strip, the whole section — was absent from the server HTML: nothing for a
-   * crawler, and a visible pop-in for everyone else. Seeding from the page's
-   * own render time gives correct markup immediately, and the effect below
-   * replaces it with the reader's real clock a frame later. The page is ISR'd
-   * at 300 seconds, so the seeded marker can be up to five minutes behind —
-   * the same staleness the clock-times-never-countdowns rule already accepts,
-   * and it corrects itself on mount.
-   */
-  renderedAt: number;
+  /** Shared display instant; identical on the server and first client render. */
+  now: number;
 }) {
-  const [now, setNow] = useState(renderedAt);
   const [hovered, setHovered] = useState<number | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
-
-  // The reader's own clock, once there is one.
-  useEffect(() => {
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
 
   const elapsed = scheduleHoursElapsed(day.scheduleDate, now);
   const summary = useMemo(() => scheduleDayVoiceOver(day, reference), [day, reference]);

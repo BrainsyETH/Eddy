@@ -54,7 +54,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
 
   const project = getUsaceDam(dam.id);
   const availability = project?.amerenMetrics === 'osage'
-    ? { title: 'No hourly schedule published', detail: 'Ameren operates this dam. Releases can begin at any time; the recorded operations line provides current information.' }
+    ? { title: 'No hourly schedule published', detail: 'Ameren operates this dam. Releases can begin at any time, and the dam sounds a warning siren before starting or stopping generators. The recorded operations line provides current information.' }
     : !dam.hasTurbines
       ? { title: 'Gate-operated releases', detail: 'This dam has no powerhouse. Releases are controlled by gate operation, so there is no generation schedule.' }
       : !project?.swpaCode

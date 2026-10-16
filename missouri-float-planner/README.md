@@ -24,7 +24,8 @@ scheduled hours. Missing observations remain gaps and retain the full day axis.
 
 Info buttons hold reference/methodology explanations. Reading age, schedule
 check age, stale provenance, and release differences stay visible. The HTML
-snapshot renders on the server, with a shared display clock on the client.
+snapshot renders on the server, with one shared display clock for readings,
+the hourly schedule and the history strip on the client.
 Visible pages refresh that same cached server snapshot every five minutes and
 on focus/return after at least one minute, preserving chart and disclosure state.
 Hidden tabs do not poll. Original measurement timestamps are never replaced by
@@ -34,7 +35,10 @@ page refresh times. The dam API and iOS app contracts are unchanged.
 portrait, and landscape sizes, including disclosure/dialog controls, freshness,
 and missing-data states. Install the browser with `npx playwright install chromium`
 (or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
-removes its temporary fixture route on exit. Screenshots go to
+removes its temporary fixture route on exit or SIGINT/SIGTERM. The route is
+ignored by Git and returns not-found unless the smoke script's development-only
+flag is set; an uncatchable kill cannot leave a publicly usable fixture page.
+Screenshots go to
 `/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
 
 ## Supported Rivers

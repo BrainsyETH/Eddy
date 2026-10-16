@@ -21,7 +21,7 @@
 // idle treatment. A gap drawn as an empty bar says the units were off, which is
 // a claim about the river during an outage.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import DamInfoTip from './DamInfoTip';
 import type { DamPatternDay, DamScheduleDay } from '@/lib/data/dams';
@@ -43,23 +43,15 @@ export default function DamPatternStrip({
   schedule,
   reference,
   generationFloorCfs,
-  /** The page's render instant. See DamTimeline's `renderedAt` for the why. */
-  renderedAt,
+  now,
 }: {
   pattern: DamPatternDay[];
   schedule: DamScheduleDay[];
   reference?: GenerationReference | null;
   generationFloorCfs?: number;
-  renderedAt: number;
+  /** The same server-seeded display clock used by the hourly schedule. */
+  now: number;
 }) {
-  const [now, setNow] = useState(renderedAt);
-  // The reader's own clock, once there is one.
-  useEffect(() => {
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
   const [showUpcoming, setShowUpcoming] = useState(false);
   const allRows = useMemo<Row[]>(
     () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
