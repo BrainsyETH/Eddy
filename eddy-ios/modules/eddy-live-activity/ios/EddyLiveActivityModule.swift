@@ -3,6 +3,22 @@ import ExpoModulesCore
 import UIKit
 import WidgetKit
 
+// Foreground requests use a durable throttle so rapid app switching cannot
+// burn WidgetKit's background budget. Configuration changes always bypass it.
+private enum ConditionsWidgetReloader {
+  private static let key = "eddy.conditions.foregroundReload.v1"
+  private static let minimumInterval: TimeInterval = 15 * 60
+  static func request(force: Bool) -> String {
+    let now = Date().timeIntervalSince1970
+    let defaults = UserDefaults.standard
+    if !force && now - defaults.double(forKey: key) < minimumInterval { return "throttled" }
+    defaults.set(now, forKey: key)
+    WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.riverKind)
+    WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.favoritesKind)
+    return "requested"
+  }
+}
+
 private struct Snapshot: Decodable {
   var sessionId: String
   var state: FloatActivityAttributes.ContentState
@@ -18,10 +34,15 @@ public final class EddyLiveActivityModule: Module {
     AsyncFunction("readWidgetConfiguration") { () -> String? in
       ConditionsWidgetStore.configurationJSON()
     }
+    AsyncFunction("readWidgetDiagnostics") { () -> String in
+      ConditionsWidgetDiagnostics.json()
+    }
+    AsyncFunction("refreshConditionsWidgets") { () -> String in
+      ConditionsWidgetReloader.request(force: false)
+    }
     AsyncFunction("setWidgetConfiguration") { (json: String) in
       if try ConditionsWidgetStore.setConfiguration(json) {
-        WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.riverKind)
-        WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.favoritesKind)
+        _ = ConditionsWidgetReloader.request(force: true)
       }
     }
     OnDestroy {

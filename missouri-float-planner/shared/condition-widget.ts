@@ -64,6 +64,19 @@ export function widgetGaugeSnapshot(gauge: WidgetGaugeInput, now = Date.now()) {
     }),
   };
 }
+/**
+ * Single source for the public minimal gauge envelope and the widget snapshot.
+ * Both compact and full gauge-detail routes reuse `widget`, so we cannot
+ * silently change ladder/flood/freshness presentation in just one branch.
+ */
+export function widgetGaugeResponse(gauge: WidgetGaugeInput, now = Date.now()) {
+  const { siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect } = gauge;
+  return {
+    gauge: { siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect },
+    widget: widgetGaugeSnapshot(gauge, now),
+  };
+}
+
 export type WidgetGaugeSnapshot = ReturnType<typeof widgetGaugeSnapshot>;
 
 function seriesForUnit(readings: readonly ChartReadingLike[], unit: ReadingUnit, now: number) {

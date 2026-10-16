@@ -1195,13 +1195,23 @@ See [condition-widgets.md](condition-widgets.md) for the contract. These gates
 require a new binary; do not deliver the native changes as an OTA update.
 
 - [ ] Deploy the additive gauge `widget` and history `widgetSeries` API fields
-      before distributing the binary. Confirm an older app still reads both APIs.
+      before distributing the binary. Deploy and validate
+      `GET /api/gauges/:siteId?widget=1` on production BEFORE a build containing
+      the new widget request ships. Confirm its compact payload includes the
+      same observation, unit-specific river rating, suspect flag and NWS
+      warning as the full endpoint; old binaries and a new binary against an
+      older server must still decode the full response.
 - [ ] Run `expo prebuild --platform ios --no-install` and
       `node scripts/check-float-activity.cjs` from `eddy-ios`, then compile/archive
       both targets in Xcode or EAS. Inspect the archive for all three widget
       bundle members, both otter assets, `ConditionsPreview.json`, and the
       extension privacy manifest. Run the Mac Foundation contract checks in
       [condition-widgets.md](condition-widgets.md#build-and-acceptance).
+      Confirm `ConditionWidgetData.swift` compiles in BOTH the Expo native
+      module and the WidgetKit extension; `refreshConditionsWidgets` and
+      `readWidgetDiagnostics` must be callable in the installed native build,
+      and the extension must be signed and archived. JS checks do not compile
+      Swift; an OTA-only update cannot deliver these methods.
 - [ ] Register/provision `group.eddy.guide.app.widgets` for BOTH
       `eddy.guide.app` and `eddy.guide.app.FloatActivity`. Verify the installed
       build reads the same shared defaults from the app and extension. Inspect
@@ -1234,6 +1244,20 @@ require a new binary; do not deliver the native changes as an OTA update.
 - [ ] Verify each row/card deep link with Eddy cold, warm, and already on a
       different tab. For Huzzah/Courtois, verify the widget uses its selected
       river's ladder while opening the correct shared physical gauge.
+- [ ] With a previously stale small and medium widget on a physical iPhone,
+      open Eddy and verify a foreground reload is requested and newer readings
+      appear when the API has them (iOS controls actual scheduling). Repeat
+      within 15 minutes and verify the persistent throttle; changing a river
+      or gauge favorite must force a reload despite the throttle. Test cold
+      app launch, relaunch, background-to-foreground, and both widget sizes.
+- [ ] Exercise airplane mode, a slow detail response, HTTP 429 and 5xx, a
+      deleted station (404), and a new binary against an old full-response-only
+      API. Read the per-station detail/history diagnostics to distinguish
+      skipped timelines from attempted failures and successful fetches of old
+      observations. A failure must retain the original cached timestamp and
+      must not reset flood-warning or condition freshness deadlines. Confirm
+      30-day diagnostic pruning, no account/location data, and NWS alerts
+      when compact and full snapshots agree.
 - [ ] Verify cached/offline, failed and 404 requests, missing CFS/stage, zero,
       future/invalid observation times, suspect readings, and six-hour expiry.
       Color expires without a network refresh; each row retains its own age.
