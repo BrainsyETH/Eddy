@@ -1,101 +1,67 @@
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
 import { FLOAT_BOATS, type FloatBoat } from '@eddy/conditions/float-search';
-import { VesselIcon } from './VesselIcon';
-import { ControlIcon } from './ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-const PACE: Record<FloatBoat, { label: string; level: number }> = {
-  tube: { label: 'Drifting', level: 1 },
-  raft: { label: 'Relaxed', level: 2 },
-  kayak: { label: 'Paddling', level: 3 },
-  canoe: { label: 'Paddling', level: 3 },
-};
-// Keep the shared inventory, ordered by pace with the default Kayak first in its tier.
-const VESSELS = [...FLOAT_BOATS].sort(
-  (a, b) => PACE[a].level - PACE[b].level || Number(b === 'kayak') - Number(a === 'kayak'),
-);
-
-export function VesselPicker({
-  value,
-  onChange,
-}: {
+/** Shared by route discovery and readiness; the native menu owns selection and dismissal. */
+export function VesselPicker({ value, onChange, disabled = false }: {
   value: FloatBoat;
-  onChange: (vessel: FloatBoat) => void;
+  onChange: (value: FloatBoat) => void;
+  disabled?: boolean;
 }) {
-  const { colors } = useTheme();
-  const { fontScale, width } = useWindowDimensions();
-  const columns = fontScale > 1.8 ? 1 : fontScale > 1.15 || width < 360 ? 2 : 4;
-  return (
-    <View style={styles.group}>
-      <View style={styles.options} accessibilityRole="radiogroup" accessibilityLabel="Vessel">
-        {VESSELS.map((vessel) => {
-          const selected = value === vessel;
-          const ink = selected ? colors.selectionText : colors.textMuted;
-          return (
-            <Pressable
-              key={vessel}
-              onPress={() => onChange(vessel)}
-              accessibilityRole="radio"
-              accessibilityLabel={`${vessel[0].toUpperCase() + vessel.slice(1)}, ${PACE[vessel].label.toLowerCase()}`}
-              accessibilityState={{ checked: selected }}
-              style={({ pressed }) => [
-                styles.option,
-                {
-                  width: columns === 4 ? '23%' : columns === 2 ? '48%' : '100%',
-                  backgroundColor: selected ? colors.selectionBg : colors.bg,
-                  borderColor: selected ? colors.interactive : colors.border,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-            >
-              <VesselIcon vessel={vessel} color={ink} />
-              <Text style={[styles.label, { color: ink }]}>{vessel[0].toUpperCase() + vessel.slice(1)}</Text>
-              <View style={styles.pace} accessible={false}>
-                {[1, 2, 3].map((level) => (
-                  <View
-                    key={level}
-                    style={[
-                      styles.paceMark,
-                      {
-                        backgroundColor: level <= PACE[vessel].level ? ink : colors.border,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-              <Text style={[t.xs, { color: ink }]}>{PACE[vessel].label}</Text>
-              {selected ? (
-                <View style={styles.check}>
-                  <ControlIcon name="checkmark" size={11} color={ink} />
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
+  const { colors, isDark } = useTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 360 || fontScale > 1.3;
+  const label = value[0].toUpperCase() + value.slice(1);
+  const row = (
+    <View
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={`Vessel, ${label}`}
+      accessibilityHint="Choose a vessel to help estimate your float time"
+      accessibilityState={{ disabled }}
+      style={[local.row, stacked && local.stacked, { opacity: disabled ? 0.5 : 1 }]}
+    >
+      <View style={[local.copy, stacked && local.stackedCopy]}>
+        <Text style={[local.label, { color: colors.text }]}>Vessel</Text>
+        <Text style={[t.xs, { color: colors.textMuted }]}>Helps estimate your float time</Text>
+      </View>
+      <View style={local.selection}>
+        <Text style={[local.value, { color: colors.interactive }]}>{label}</Text>
+        <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
       </View>
     </View>
   );
+  // Removing the native trigger also disables VoiceOver activation during start.
+  if (disabled) return row;
+  return (
+    <MenuView
+      themeVariant={isDark ? 'dark' : 'light'}
+      shouldOpenOnLongPress={false}
+      title="Vessel"
+      actions={FLOAT_BOATS.map(boat => ({
+        id: boat,
+        title: boat[0].toUpperCase() + boat.slice(1),
+        state: boat === value ? 'on' : 'off',
+      }))}
+      onPressAction={({ nativeEvent }) => {
+        const boat = nativeEvent.event as FloatBoat;
+        if (!disabled && FLOAT_BOATS.includes(boat)) onChange(boat);
+      }}
+    >
+      {row}
+    </MenuView>
+  );
 }
-const styles = StyleSheet.create({
-  group: { gap: 10 },
-  pace: { flexDirection: 'row', gap: 3 },
-  paceMark: { width: 12, height: 4, borderRadius: 2 },
-  options: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 8,
-  },
-  option: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    minHeight: 82,
-    padding: 10,
-    borderWidth: 1,
-    borderRadius: 12,
-  },
-  label: { ...t.sm, fontFamily: fonts.semibold },
-  check: { position: 'absolute', top: 5, right: 5 },
+
+const local = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, padding: 16 },
+  stacked: { flexDirection: 'column', alignItems: 'stretch', gap: 8 },
+  copy: { flex: 1, gap: 2 },
+  stackedCopy: { flex: 0 },
+  label: { ...t.base, fontFamily: fonts.medium },
+  selection: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  value: { ...t.base, fontFamily: fonts.medium, flexShrink: 1 },
 });

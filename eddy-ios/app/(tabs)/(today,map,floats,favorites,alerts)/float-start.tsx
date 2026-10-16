@@ -12,7 +12,7 @@ import { LocationGate } from '@/float/start/LocationGate';
 import { RoutePicker } from '@/float/start/RoutePicker';
 import { RouteCard } from '@/float/start/RouteCard';
 import { useGpsRiver } from '@/float/start/useGpsRiver';
-import { WatercraftPicker } from '@/float/start/WatercraftPicker';
+import { VesselPicker } from '@/components/VesselPicker';
 import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
@@ -226,7 +226,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
           leg={miles != null && miles > 0 ? `${miles.toFixed(1)} mi${minutes != null ? ` · about ${formatDuration(minutes)}` : ''}` : null} />
         <Card padded={false}>
-          <WatercraftPicker value={boat} disabled={start.busy} onChange={value => {
+          <VesselPicker value={boat} disabled={start.busy} onChange={value => {
             boatChosen.current = true; setBoat(value);
             void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
           }} />

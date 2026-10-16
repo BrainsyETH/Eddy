@@ -431,8 +431,7 @@ export default function FindFloatScreen() {
             onChange={(targetHours) => update({ targetHours })}
           />
         </View>
-        <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>
-          {label('Vessel & pace')}
+        <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
           <VesselPicker value={input.vesselType} onChange={(vesselType) => update({ vesselType })} />
         </View>
         <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>

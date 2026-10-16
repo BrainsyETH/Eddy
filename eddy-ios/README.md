@@ -344,12 +344,14 @@ Search details hold the proximity explanation and freshness context, while
 partial-search status remains visible. The native finder header is opaque so
 content scrolling underneath cannot obscure its title or Back control.
 
-Kayak is the initial vessel, then an explicit choice is remembered. The picker
-uses the shared `FLOAT_BOATS` inventory, ordered by pace with Kayak first in
-the paddling tier. Labelled vessel glyphs carry neutral pace indicators
-(drifting, relaxed, paddling); canoe and kayak share the paddling tier, not a
-claim that one is universally faster.
-Large text reflows the choices. Public access only is visible on the form and
+Kayak is the initial vessel, then an explicit choice is remembered. Find a Route
+and Ready to float share one compact Vessel row with the caption "Helps estimate
+your float time". Its native menu uses the shared `FLOAT_BOATS` inventory, checks
+the current choice, and applies a selection without a confirmation step. There
+are no vessel tiles or pace bars. Large text stacks the label and selected value.
+Changing the finder's vessel still cancels an in-flight search and clears its
+old results; dismissing the menu leaves them intact.
+Public access only is visible on the form and
 on by default; switching it off can include private or unconfirmed endpoints.
 Estimate info explains published and modeled times without claiming every
 estimate comes directly from CFS. A retry retains the finder’s chosen vessel.
@@ -1210,14 +1212,14 @@ needs a river, its sheet opens the river list directly and continues to access
 points after selection. Changing rivers inside an access sheet is provisional
 until the endpoint is chosen; closing discards those edits. Access search keeps
 the existing photos and river-distance labels. From
-can be **From my location** or a named access in either path. Watercraft is one
+can be **From my location** or a named access in either path. Vessel is one
 compact row below the route card, beside its timing context, with the caption
 "Helps estimate your float time". Tapping the row opens a native selection menu
 with the current choice checked; choosing an item applies it and closes the menu.
 The plan wins, otherwise the last Find a Route/readiness choice wins, with kayak
 as the default. It is never a separate required step. Moving-time and arrival
 details share the card once the route is valid, and the field is disabled while
-starting. Readiness has no vessel tiles or pace bars; Find a Route keeps its picker.
+starting. The same compact picker is used by Find a Route.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float

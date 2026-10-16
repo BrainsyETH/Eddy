@@ -196,8 +196,10 @@ These are pending device and release checks, not evidence of a device pass.
       duration, river miles, condition, and access status at a glance. Check
       typical estimates, private/unconfirmed access, visible cautions, and
       expanded route/search details. Test failed photos, maximum Dynamic Type,
-      and VoiceOver on the time-info and disclosure controls. Vessel pace labels
-      remain visible without an explanatory paragraph below the picker.
+      and VoiceOver on the time-info and disclosure controls. The compact Vessel
+      row opens a native menu with the current choice checked; selection updates
+      the row, cancels any in-flight search and clears old results. Dismissing
+      without selecting preserves results. There are no pace bars or tile grid.
 - [ ] **Saved Floats:** a fast online open has no saved-details flash; airplane
       mode shows saved logistics as soon as connectivity reports offline; a
       stalled connection exposes them after the 1.2-second grace period while
@@ -260,17 +262,17 @@ are pending checks, not evidence of a device pass.
       are backed up, and explicit hazard reports transmit their captured location.
 - [ ] **Unified Ready to float:** from Today, Map, Floats, Favorites and Alerts,
       open a plan and a fresh Start a Float. Confirm the same editable River,
-      From, Take-out and Watercraft, photo rows, labelled distances, moving-time copy,
+      From, Take-out and Vessel, photo rows, labelled distances, moving-time copy,
       offline section and permission card. Edit while an estimate/download is
       running; an old result must not appear for the edited stretch. Check large
       text, GPS timeout and permission changes in Settings.
-- [ ] **Ready watercraft menu:** tap the compact Watercraft row, see the current
+- [ ] **Ready vessel menu:** tap the compact Vessel row, see the current
       choice checked, and choose each of canoe, kayak, raft and tube in one tap.
       The menu closes, the row updates, and any previous moving-time estimate
       clears while the new estimate loads. Dismissing without choosing preserves
       the draft. Check the remembered choice on a fresh start and the plan's
       choice when opening a plan. Check light/dark, largest text and VoiceOver;
-      the field must be disabled while starting. Find a Route keeps its picker.
+      the field must be disabled while starting. Both screens use the same picker.
 - [ ] **Ready selection and automatic location:** with location already allowed,
       open Start a Float and see Current location populate without another tap
       or permission-card flash. Leave Ready open for over two minutes and verify
