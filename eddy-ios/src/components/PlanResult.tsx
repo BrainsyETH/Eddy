@@ -1,3 +1,4 @@
+import { floatMapDestination } from '@/lib/planRequest';
 import { openExternalLink } from '@/lib/openExternalLink';
 import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
@@ -100,7 +101,8 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
     // Saved/shared floats have no modal to dismiss. Consume the destination
     // immediately, but keep the same repeat-tap guard until Back restores focus.
     const pending = detailNavigation.dismissed();
-    if (pending) router.push(pending);
+    if (pending?.pathname === '/') router.navigate(pending);
+    else if (pending) router.push(pending);
   });
   // A new native scroll view restores the saved offset once. Subsequent scroll
   // events must not change this prop and fight the reader's gesture.
@@ -181,6 +183,13 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
             {plan.distance.formatted}
           </Text>
         </View>
+
+        <Pressable onPress={() => openDetail(floatMapDestination({ focusRiver: plan.river.slug,
+          planPutIn: plan.putIn.id, planTakeOut: plan.takeOut.id, planVesselTypeId: plan.vessel.id }))}
+          accessibilityRole="button" accessibilityLabel="View this float route on the map" style={styles.mapButton}>
+          <ControlIcon name="map-outline" size={18} color={colors.interactive} />
+          <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.interactive }]}>View on Map</Text>
+        </Pressable>
 
         <CurrentPlanValue unverified={unverified} label={verification?.state === 'checking' ? 'Updating float time…' : 'Float time needs current conditions.'}>
         {plan.floatTime ? (
@@ -488,6 +497,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
 }
 
 const styles = StyleSheet.create({
+  mapButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
   verification: { marginBottom: 12, minHeight: 48 },
   verificationLabel: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   verificationText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },

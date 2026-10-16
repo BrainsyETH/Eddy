@@ -312,8 +312,10 @@ originating tab's stack. This lightweight screen loads the river index and
 access points into the shared PlanSheet; it never mounts a Mapbox map, map
 layers, or statewide geometry. Cached picker data appears while fresh data
 loads, missing data has a retry action, and leaving cancels outstanding loads.
-Rivers are ordered by favorites, condition, then name. These planners never
-change the kept-alive Map tab's selection, pins, camera, or existing plan.
+Rivers are ordered by favorites, condition, then name. These planners preserve
+the kept-alive Map tab until the user explicitly chooses View on Map. That
+action hands the exact river, endpoints and vessel to Map, highlights the
+route beneath its POI symbols, and opens a compact interactive plan summary.
 Closing cancels any calculation immediately. Native sheet dismissal finishes
 before Back returns to the caller, which stays visible behind the sheet, with
 no second stack animation. The tab navigator sets the planner's transparent
@@ -327,9 +329,12 @@ new-plan isolation, and preserved Map stack.
 
 Find a Route is a shared detail in every tab: opening it from a river page
 preserves that page and its tab, so Back returns to the same river. Cold finder
-links still belong to Floats. It uses one Where? picker for rivers and towns,
-with Use my location on the main form. River choices work without a location
-permission; only an explicit location tap asks. Selecting a river clears the
+links still belong to Floats. Its Where? picker contains Current location,
+rivers and towns. With an existing location grant and a recent fix, an untouched
+finder defaults to Near you. An intentional river or town selection always wins,
+including while GPS is loading. Current location is checked when selected;
+there is no redundant location action on the main form. River choices work
+without a location permission; only an explicit location tap asks. Selecting a river clears the
 previous nearby point, and selecting a location clears the river. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
@@ -708,7 +713,15 @@ endpoints from it. Closing `PlanSheet` therefore does not discard the plan:
 people plan a float directly on Map and then dismiss the sheet to look at the
 water between the two ends. Floats entry points use a fresh `/plan-route` screen
 with the same PlanSheet and planning hook, without mounting a map. Closing
-those cancels their calculation and leaves the Map tab unchanged.
+those cancels their calculation and leaves the Map tab unchanged, except for
+the explicit View on Map handoff.
+
+Use as put-in on a Map POI opens a peek sheet with Choose your take-out. The map
+stays interactive: tap a downstream access point, or use Choose from list.
+Selecting a take-out expands the compact summary; View full plan opens the
+full planner explicitly. A new route frames only while that map interaction
+is still current; panning, picking another POI or leaving Map cancels a pending
+frame. Changing sheet content does not override a detent the user has dragged.
 
 **Two questions, not four.** There used to be a boat picker between the take-out
 and the answer, and a nights-on-the-river control under it. Both are gone. The
@@ -789,10 +802,11 @@ the saved-float collection, including queued writes and in-flight sync results.
 
 ### Location is never requested on launch
 
-iOS gives an app one shot at the location prompt. `useLocation` therefore does
-nothing until an explicit tap — the locate button on the map, the compass in
-the Search tab's search field — so the ask always arrives with a visible reason
-attached. A denial is not re-prompted; iOS would suppress the dialog anyway, so
+`useLocation` asks for new location permission only after an explicit location
+action. Reading an existing grant does not prompt: it can reuse a recent OS fix,
+and Find a Route can request fresh GPS under that grant. Stored coordinates
+from a previous session are marked remembered, never treated as a fresh grant
+or a live GPS fix. A newer explicit request supersedes a pending initial read. A denial is not re-prompted; iOS would suppress the dialog anyway, so
 the only effect would be a silent retry behind a spinner.
 
 Precise coordinates are used on the device for distance sorting. Today also
@@ -1193,14 +1207,20 @@ river, named put-in, take-out and boat; the Floats button starts with an empty
 river and take-out unless an unfinished downloaded setup is recovered. River,
 From and Take-out are editable fields. Pickers are
 searchable sheets over the same draft, and cancelling one leaves the draft intact.
-Above the map, one route card holds them. The screen asks for location on
-arrival (a declined prompt falls back to the Location card), and with an empty
-river it fills the river from GPS when the fix sits on a mapped river line
+Above the map, one route card holds them. With existing location permission
+it obtains a preview fix without prompting, and with an empty river it fills
+the river only when GPS sits on a mapped river line
 (closest line at a confluence; "Found from your location", Change one tap
-away), with the put-in as My location. So at the water the usual setup is two
+away), with the put-in as Current location. A nearby river alone is never
+selected automatically. So at the water the usual setup is two
 taps: a take-out and Start tracking. With a known start and no take-out, the
 next three downstream take-outs are listed inline with distance and moving time,
-then a See All row that opens the full sheet. Without a river the card is a
+then a See All row when there are more. Without a known start, Choose a take-out
+still opens all eligible endpoints; no downstream distances or “next” choices
+are invented. Choosing a named put-in enables downstream suggestions.
+The picker leads with Choose your take-out, then a compact river/change row,
+search and results. Its task title stays visible while choosing a river.
+Without a river the card is a
 single "Where are you floating?" prompt; a river chosen in the sheet continues
 to its take-outs there. Once chosen, Put-in and Take-out read as one connected
 stretch with river miles on each stop and the leg's distance and time between
@@ -1228,6 +1248,17 @@ Float Mode, options and the just-finished recap live in one root full-screen
 presentation above all tabs. Historical recaps use the same content in a normal
 tab detail (`float-history-recap`), with Back restoring the History list.
 Constant navigation identities prevent duplicate recording views.
+Float Mode shows the recorder’s usable GPS position, including off-river fixes.
+Only confirmed river positions advance progress, distance or ETA. The map
+initially keeps the user and take-out in view; a manual gesture stops following.
+Recenter follows the user; Show route fits the complete stretch and actual
+landings even while off-route. A restored or stale fix is visibly dimmed until
+fresh GPS arrives. The tracking indicator pulses once per actual fix, respects
+Reduce Motion, and shows the last update age. Live Activity status reflects
+its real availability rather than promising an active Lock Screen display.
+Options expands to full height and scrolls, with hazard reporting before
+reminders. Details and limitations use info buttons.
+
 Closing returns to the actual origin and recording continues; a cold recording
 link closes to Floats.
 Standalone planners are removed when handing off, so Back cannot reopen an
@@ -1350,6 +1381,14 @@ The default-off “Help improve float estimates” setting permits internal revi
 of newly completed floats. Backup works independently. See ADR 0012 for
 measurement gaps, immutable completed summaries, deletion markers, revocation
 and the end journal. Device and release checks live in the release runbook.
+
+Recaps lead with the route, tracked distance and total time. The branded duration
+bar compares totals for Moving, Breaks and GPS gaps; it is not a chronological
+trace. Measurement details are available through an info button. Backup status
+comes from the recap row and the account sync state: local, syncing, backed up,
+waiting or failed with Retry. A subscription is not required for backup, and
+sign-in copy is shown only for guests. Raw display coordinates remain local and
+are excluded from recap uploads.
 
 ### The purchase flow
 

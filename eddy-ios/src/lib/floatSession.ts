@@ -164,8 +164,10 @@ export interface FloatSession {
   boatType?: string | null;
   /** The most recent tracker verdict, for the status line. */
   last: { result: TrackResult; at: number; nearPutIn?: boolean } | null;
-  /** The last confirmed position, on the line, for the map dot. */
+  /** The last confirmed position on the line; legacy display fallback. */
   position: { lngLat: LngLat; at: number } | null;
+  /** Latest usable GPS fix for display, even off-river. Never used for progress or ETA. */
+  gpsPosition?: { lngLat: LngLat; at: number; accuracyMeters: number; restored?: true } | null;
   /**
    * Restored after a relaunch and not yet re-confirmed. Progress is kept, but
    * nothing is live until fresh fixes confirm a position again.
@@ -400,6 +402,7 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
   const atLaunch = Boolean(putIn && nearLaunch(fix.lngLat, fix.accuracyMeters, putIn.lngLat));
   const next: FloatSession = { ...session, track: step.state,
+    gpsPosition: { lngLat: fix.lngLat, at: fix.timestamp, accuracyMeters: fix.accuracyMeters! },
     last: { result: step.result, at: fix.timestamp, nearPutIn: atLaunch } };
   // Three accurate fixes, with no gap over thirty seconds, like river acquisition.
   // A lone outlier, preview GPS, or passing the snapped river point is not a launch.
@@ -723,6 +726,7 @@ export function restoreSession(raw: string | null): FloatSession | null {
     return {
       ...parsed,
       position: parsed.position ?? null,
+      gpsPosition: parsed.gpsPosition ? { ...parsed.gpsPosition, restored: true } : null,
       awaitingFix: true,
       // A handover interrupted by the app ending may or may not have shown;
       // it becomes eligible again rather than silently lost (floatReminders.ts).
@@ -785,7 +789,7 @@ export function remainingCopy(
   takeOutOffLine = false,
 ): { headline: string; note: string } {
   if (estimate.minutes == null) {
-    return { headline: 'Learning your pace', note: 'Time left appears after a few minutes on the water.' };
+    return { headline: 'Learning your pace', note: '' };
   }
   if (estimate.minutes === 0) return { headline: takeOutOffLine ? 'At the river’s closest point' : 'At the take-out', note: '' };
   const time = `About ${formatDuration(estimate.minutes)}`;

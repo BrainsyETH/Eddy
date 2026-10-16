@@ -1,11 +1,9 @@
 // eddy-ios/src/float/FloatMap.tsx
 // The map on the Float Mode screen: the river, both ends, and where you are.
 //
-// ── Following without fighting ──────────────────────────────────────────────
-// The camera follows your confirmed position until you pan. Then it stays put
-// until you tap Recenter. Nothing else, a reconnection included, moves it.
-// Show route frames the whole stretch at any time and stops following;
-// Recenter then zooms back in to tracking level.
+// The first GPS fix frames you and the take-out. Panning stops following;
+// Recenter follows your position and Show route fits the complete stretch.
+// A location dot is display-only: confirmed river progress owns the estimates.
 //
 // ── Markers say what they are ───────────────────────────────────────────────
 // The put-in and take-out are labelled and drawn differently (the take-out as
@@ -18,10 +16,8 @@
 // The start summary shows the same map, framed on the stretch, with no
 // position, no following and no gestures, so it scrolls with its screen.
 //
-// ── Your position is the session's, not the map's ──────────────────────────
-// No Mapbox UserLocation puck: it would open a second GPS stream (FloatTracker
-// owns the only one) and would show raw fixes the tracker has not confirmed.
-// The dot is the last committed position, the same one the numbers use.
+// Position comes from the existing recorder, including usable off-river fixes.
+// No Mapbox UserLocation component: that would open a second GPS stream.
 //
 // ── The chosen stretch, not the whole river ─────────────────────────────────
 // The river line is the whole river (it calibrates the miles), but the float
@@ -44,11 +40,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { boundsForLine, type LngLat } from '@eddy/geo';
+import { type LngLat } from '@eddy/geo';
 import { hazardConditionCode, hazardTypeLabel } from '@eddy/hazards';
 import { markerDistance, type FloatMapFeatures, type RouteHazard } from '@/lib/floatSession';
 import { conditionColor } from '@/theme/conditions';
 import { loadMapbox, STYLE_URL } from '@/map/runtime';
+import { floatOverviewBounds, floatRouteBounds } from '@/lib/floatDisplay';
 import { networkHintsOffline } from '@/lib/networkHint';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -117,7 +114,8 @@ function MapboxFloatMap({
 }: FloatMapProps & { Mapbox: NonNullable<ReturnType<typeof loadMapbox>> }) {
   const { colors } = useTheme();
   const camera = useRef<CameraRef | null>(null);
-  const [following, setFollowing] = useState(!preview);
+  const [following, setFollowing] = useState<'overview' | 'position' | false>(preview ? false : 'overview');
+  const [mapReady, setMapReady] = useState(false);
   const [neutral, setNeutral] = useState(false);
   const [selected, setSelected] = useState<Selected | null>(null);
 
@@ -140,46 +138,37 @@ function MapboxFloatMap({
   }, [neutral]);
 
   // Framed on the stretch, so the float starts looking at the float.
-  const bounds = useMemo(() => boundsForLine(section ?? line), [section, line]);
-  const [defaultSettings] = useState(() =>
-    position && !preview
-      ? { centerCoordinate: position, zoomLevel: FOLLOW_ZOOM }
-      : bounds
-        ? {
-            bounds: {
-              sw: [bounds[0], bounds[1]],
-              ne: [bounds[2], bounds[3]],
-              paddingTop: FRAME_PADDING,
-              paddingBottom: FRAME_PADDING,
-              paddingLeft: FRAME_PADDING,
-              paddingRight: FRAME_PADDING,
-            },
-          }
-        : { centerCoordinate: takeOut?.lngLat ?? line[0], zoomLevel: 12 },
-  );
-
-  // Follow the confirmed position while following is on. The first position
-  // also zooms in to tracking level (a float starts fitted to its stretch,
-  // before GPS); after that only the centre moves, so a zoom the paddler chose
-  // is kept, Recenter included, unless Show route zoomed out since.
+  const bounds = useMemo(() => floatRouteBounds(section ?? line, start?.lngLat ?? null, takeOut?.lngLat ?? null), [section, line, start, takeOut]);
+  const [defaultSettings] = useState(() => {
+    const frame = !preview && position ? floatOverviewBounds(position, takeOut?.lngLat ?? null) : bounds;
+    return frame ? { bounds: { sw: [frame[0], frame[1]], ne: [frame[2], frame[3]],
+      paddingTop: FRAME_PADDING, paddingBottom: FRAME_PADDING, paddingLeft: FRAME_PADDING, paddingRight: FRAME_PADDING } }
+      : { centerCoordinate: takeOut?.lngLat ?? line[0], zoomLevel: 12 };
+  });
   const lng = position?.[0];
   const lat = position?.[1];
-  const zoomedToTrack = useRef(position != null);
+  const endLng = takeOut?.lngLat[0];
+  const endLat = takeOut?.lngLat[1];
   useEffect(() => {
-    if (preview || !following || lng == null || lat == null) return;
-    if (!zoomedToTrack.current) {
-      zoomedToTrack.current = true;
-      camera.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: FOLLOW_ZOOM, animationDuration: 800 });
-      return;
+    if (preview || !following || !mapReady || lng == null || lat == null) return;
+    if (following === 'overview') {
+      // Follow actual coordinate changes only. A manual gesture stops following.
+      const frame = floatOverviewBounds([lng, lat], endLng != null && endLat != null ? [endLng, endLat] : null);
+      if (frame) camera.current?.fitBounds([frame[2], frame[3]], [frame[0], frame[1]], FRAME_PADDING, 600);
+    } else {
+      camera.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: FOLLOW_ZOOM, animationDuration: 600 });
     }
-    camera.current?.setCamera({ centerCoordinate: [lng, lat], animationDuration: 600 });
-  }, [preview, following, lng, lat]);
+  }, [preview, following, mapReady, lng, lat, endLng, endLat]);
 
   const showRoute = () => {
     if (!bounds) return;
     setFollowing(false);
-    zoomedToTrack.current = false;
     camera.current?.fitBounds([bounds[2], bounds[3]], [bounds[0], bounds[1]], FRAME_PADDING, 700);
+  };
+  const recenter = () => {
+    setFollowing('position');
+    // Repeated taps work even if following was already selected.
+    if (position) camera.current?.setCamera({ centerCoordinate: position, zoomLevel: FOLLOW_ZOOM, animationDuration: 600 });
   };
 
   const routeShape = useMemo(
@@ -272,6 +261,7 @@ function MapboxFloatMap({
         rotateEnabled={false}
         pitchEnabled={false}
         onDidFailLoadingMap={() => setNeutral(true)}
+        onDidFinishLoadingStyle={() => setMapReady(true)}
         onPress={() => setSelected(null)}
         onCameraChanged={(state: { gestures?: { isGestureActive?: boolean } }) => {
           if (state?.gestures?.isGestureActive) setFollowing(false);
@@ -349,8 +339,8 @@ function MapboxFloatMap({
       {preview ? null : (
         <View style={styles.controls}>
           {bounds ? <MapButton icon="map-outline" label="Show route" onPress={showRoute} accessibilityLabel="Show the whole route" /> : null}
-          {!following && position ? (
-            <MapButton icon="locate" label="Recenter" onPress={() => setFollowing(true)} accessibilityLabel="Recenter on your position" />
+          {position ? (
+            <MapButton icon="locate" label="Recenter" onPress={recenter} accessibilityLabel="Recenter on your position" />
           ) : null}
         </View>
       )}
@@ -410,7 +400,7 @@ function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position,
   };
 
   // Fitted to the stretch; the rest of the river runs off the edges, faint.
-  const drawing = useMemo(() => (size ? fit(section ?? line, size.width, size.height, 24) : null), [section, line, size]);
+  const drawing = useMemo(() => (size ? fit([...(section ?? line), ...(start ? [start.lngLat] : []), ...(takeOut ? [takeOut.lngLat] : []), ...(!preview && position ? [position] : [])], size.width, size.height, 24) : null), [section, line, size, start, takeOut, preview, position]);
   const sectionPath = useMemo(() => (drawing && section ? drawing.pathOf(section) : null), [drawing, section]);
 
   return (
@@ -418,7 +408,7 @@ function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position,
       {drawing && size ? (
         <Svg width={size.width} height={size.height}>
           <Path
-            d={sectionPath ? drawing.pathOf(line) : drawing.path}
+            d={drawing.pathOf(line)}
             stroke={colors.interactive}
             strokeOpacity={sectionPath ? 0.3 : 1}
             strokeWidth={sectionPath ? 3 : 5}

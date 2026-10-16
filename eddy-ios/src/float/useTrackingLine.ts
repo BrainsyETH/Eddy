@@ -8,9 +8,9 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Linking } from 'react-native';
 import * as Location from 'expo-location';
 import { onForeground } from '@/lib/foreground';
-import { trackerStatus, trackingLine, type TrackingLine } from '@/lib/floatTrackerStatus';
+import { trackerStatus, trackingLine, type TrackingLine, type TrackerState } from '@/lib/floatTrackerStatus';
 
-export function useTrackingLine(): { line: TrackingLine | null; act: () => void } {
+export function useTrackingLine(): { line: TrackingLine | null; tracker: TrackerState; act: () => void } {
   const tracker = useSyncExternalStore(trackerStatus.subscribe, trackerStatus.get, trackerStatus.get);
   const [canAskAgain, setCanAskAgain] = useState(false);
   const denied = tracker.denied;
@@ -45,5 +45,5 @@ export function useTrackingLine(): { line: TrackingLine | null; act: () => void 
         return;
     }
   };
-  return { line, act };
+  return { line, tracker, act };
 }

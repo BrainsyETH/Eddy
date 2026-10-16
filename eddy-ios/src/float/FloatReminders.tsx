@@ -22,6 +22,7 @@ import {
   reminderStops,
   remindersOf,
 } from '@/lib/floatReminders';
+import { FloatInfoTip } from './FloatInfoTip';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -30,6 +31,7 @@ type NotificationAccess = 'unknown' | 'granted' | 'ask' | 'settings';
 export function FloatReminders({ session }: { session: FloatSession }) {
   const { colors } = useTheme();
   const settings = remindersOf(session);
+  const [showStops, setShowStops] = useState(false);
   const fired = new Set(settings.fired);
   const pending = new Set(settings.pending ?? []);
   // The same calibrated line the reminders are measured on.
@@ -53,7 +55,10 @@ export function FloatReminders({ session }: { session: FloatSession }) {
 
   return (
     <View style={[styles.section, { borderColor: colors.border }]}>
-      <Text style={[styles.heading, { color: colors.text }]} accessibilityRole="header">Reminders</Text>
+      <View style={styles.row}>
+        <Text style={[styles.heading, styles.rowText, { color: colors.text }]} accessibilityRole="header">Reminders</Text>
+        <FloatInfoTip title="Float reminders" message={`Take-out reminders arrive about ${TAKE_OUT_LEAD_MILES} river miles ahead. Stop reminders arrive about ${STOP_LEAD_MILES} miles ahead. They work without cell service, using a confirmed river position, and are sent once per stop. A GPS gap can delay or prevent a reminder. Eddy also notifies you near the take-out.`} />
+      </View>
 
       {anyOn && access.state === 'ask' ? (
         <Pressable onPress={access.request} style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]} accessibilityRole="button">
@@ -67,16 +72,16 @@ export function FloatReminders({ session }: { session: FloatSession }) {
       ) : null}
 
       <ReminderRow
-        title={`Before ${session.takeOut.name}`}
-        note={stateOf(TAKE_OUT_REMINDER_ID, `About ${TAKE_OUT_LEAD_MILES} mi ahead, along the river.`)}
+        title="Take-out reminder"
+        note={stateOf(TAKE_OUT_REMINDER_ID, 'Receive a notification when you’re close to the take-out.')}
         value={settings.takeOut}
         onChange={(on) => setFloatReminders((current) => ({ ...current, takeOut: on }))}
       />
 
       {seriousHazards > 0 ? (
         <ReminderRow
-          title="Before serious hazards"
-          note={`Low-water dams, required portages and other serious hazards. About ${HAZARD_LEAD_MILES} mi ahead.`}
+          title="Hazard reminders"
+          note={`Dams, portages and serious hazards · ${HAZARD_LEAD_MILES} mi ahead.`}
           value={hazardsOn}
           onChange={(on) => setFloatReminders((current) => ({ ...current, hazards: on }))}
         />
@@ -84,8 +89,11 @@ export function FloatReminders({ session }: { session: FloatSession }) {
 
       {stops.length > 0 ? (
         <>
-          <Text style={[styles.subheading, { color: colors.textMuted }]}>Stops along the way</Text>
-          {stops.map(({ anchor }) => (
+          <Pressable onPress={() => setShowStops(value => !value)} accessibilityRole="button"
+            accessibilityState={{ expanded: showStops }} style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text style={[styles.subheading, { color: colors.interactive }]}>{showStops ? 'Hide' : 'Choose'} stop reminders ({settings.stops.length} selected)</Text>
+          </Pressable>
+          {showStops && stops.map(({ anchor }) => (
             <ReminderRow
               key={anchor.id}
               title={anchor.name}
@@ -96,11 +104,6 @@ export function FloatReminders({ session }: { session: FloatSession }) {
           ))}
         </>
       ) : null}
-
-      <Text style={[styles.note, { color: colors.textMuted }]}>
-        Work without cell service. Only from a confirmed position on the river, and once each. Eddy also tells you
-        when you reach the take-out, and ends a float left running long after.
-      </Text>
     </View>
   );
 }

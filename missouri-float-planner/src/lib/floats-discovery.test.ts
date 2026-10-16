@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { floatPlanDestination } from '../../../eddy-ios/src/lib/planRequest';
+import { floatMapDestination, floatPlanDestination } from '../../../eddy-ios/src/lib/planRequest';
 import { createNavigationGate } from '../../../eddy-ios/src/lib/navigationGate';
 import {
   floatCollectionStatus,
   floatRiverChoices,
   visibleFloats,
 } from '../../../eddy-ios/src/lib/floatCollection';
-import { selectSearchLocation, selectSearchRiver } from '../../../eddy-ios/src/lib/floatSearchSelection';
+import { canDefaultToCurrentLocation, selectSearchLocation, selectSearchRiver } from '../../../eddy-ios/src/lib/floatSearchSelection';
 import type { FloatSearchInput } from '../../shared/float-search';
 import { loadPlannerResource } from '../../../eddy-ios/src/lib/plannerResource';
 
@@ -206,4 +206,25 @@ test('offline planners keep cached endpoints, including a valid empty list, and 
     });
     assert.deepEqual(seen, [{ value: cached, error: cached === null ? 'Unavailable' : null }]);
   }
+});
+
+
+test('nearby defaults require a live grant and never replace an intentional selection', () => {
+  assert.equal(canDefaultToCurrentLocation({}, 'ready', false), true);
+  for (const status of ['idle', 'remembered', 'locating', 'denied', 'unavailable']) {
+    assert.equal(canDefaultToCurrentLocation({}, status, false), false);
+  }
+  assert.equal(canDefaultToCurrentLocation({}, 'ready', true), false);
+  assert.equal(canDefaultToCurrentLocation({ river: 'current' }, 'ready', false), false);
+  assert.equal(canDefaultToCurrentLocation({ near: { lat: 37, lng: -91 } }, 'ready', false), false);
+});
+
+test('View on Map targets the existing Map tab with exact endpoints and a fresh request each time', () => {
+  const route = { focusRiver: 'current', planPutIn: 'akers', planTakeOut: 'pulltite', planVesselTypeId: 'kayak' };
+  const first = floatMapDestination(route);
+  assert.equal(first.pathname, '/');
+  assert.equal(first.params.planPresentation, 'map');
+  assert.equal(first.params.openPlan, '1');
+  for (const [key, value] of Object.entries(route)) assert.equal(first.params[key as keyof typeof first.params], value);
+  assert.notEqual(first.params.planRequest, floatMapDestination(route).params.planRequest);
 });

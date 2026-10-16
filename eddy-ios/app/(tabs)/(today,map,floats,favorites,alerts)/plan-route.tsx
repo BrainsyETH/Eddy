@@ -33,8 +33,8 @@ export default function PlanRouteScreen() {
     if (putIn && takeOut) planner.planFloat(putIn, takeOut, params.planVesselTypeId);
   }, [data.river, data.slug, data.accessPoints, data.accessLoading, data.accessError, params, planner]);
   const close = useCallback(
-    (reason?: 'started') => {
-      closing.current = reason !== 'started';
+    (reason?: 'started' | 'map') => {
+      closing.current = reason === undefined;
       consumed.current = true;
       planner.reset(); // Abort a calculation immediately, including during dismissal.
       setVisible(false);

@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import * as freshness from '../../../eddy-ios/src/lib/locationFreshness';
 import { readStartPreview, shouldRefreshStartFix } from '../../../eddy-ios/src/lib/floatStartLocation';
 import { START_FIX_MAX_AGE_MS, type StartFix } from '../../../eddy-ios/src/lib/floatStart';
 // missouri-float-planner/src/lib/location-lifecycle.test.ts
@@ -175,4 +179,106 @@ test('Ready refreshes expired GPS without another tap and bounds retry frequency
   assert.equal(shouldRefreshStartFix('ready', true, old, NOW, NOW - 60_000), false);
   for (const state of ['checking', 'request', 'settings', 'services', 'precise'] as const)
     assert.equal(shouldRefreshStartFix(state, false, old, NOW, NOW - 60_000), false);
+});
+
+
+type HookFix = { coords: { latitude: number; longitude: number }; timestamp: number };
+function locationHook(os: {
+  getForegroundPermissionsAsync: () => Promise<{ status: string }>;
+  requestForegroundPermissionsAsync: () => Promise<{ status: string }>;
+  getLastKnownPositionAsync: () => Promise<HookFix | null>;
+  getCurrentPositionAsync: () => Promise<HookFix>;
+}) {
+  const slots: unknown[] = [];
+  const effects: Array<() => unknown> = [];
+  let cursor = 0;
+  let mounted = false;
+  type Value = { coords: { lat: number; lng: number } | null; status: string; request: (options?: { force: boolean }) => Promise<unknown> };
+  const exports: { useLocation?: (options: { refreshGranted: boolean }) => Value } = {};
+  const source = readFileSync(new URL('../../../eddy-ios/src/hooks/useLocation.ts', import.meta.url), 'utf8');
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, {
+    exports, Date,
+    require: (name: string) => {
+      if (name === 'react') return {
+        useState: (initial: unknown) => {
+          const index = cursor++;
+          if (index === slots.length) slots.push(initial);
+          return [slots[index], (next: unknown) => { slots[index] = next; }];
+        },
+        useRef: (initial: unknown) => {
+          const index = cursor++;
+          if (index === slots.length) slots.push({ current: initial });
+          return slots[index];
+        },
+        useCallback: (callback: unknown) => callback,
+        useEffect: (effect: () => unknown) => { if (!mounted) effects.push(effect); },
+      };
+      if (name === 'expo-location') return { ...os, PermissionStatus: { GRANTED: 'granted' }, Accuracy: { Balanced: 3 } };
+      if (name === '@react-native-async-storage/async-storage') return { getItem: async () => null, setItem: async () => {} };
+      if (name === '@/lib/locationFreshness') return freshness;
+      if (name === '@/lib/foreground') return { onForeground: () => () => {} };
+      if (name === '@/lib/monitoring') return { warn: () => {} };
+      if (name === '@eddy/geo') return {};
+      throw new Error(`Unexpected location dependency: ${name}`);
+    },
+  });
+  const render = () => {
+    cursor = 0;
+    const value = exports.useLocation!({ refreshGranted: true });
+    if (!mounted) { mounted = true; effects.forEach(effect => effect()); }
+    return value;
+  };
+  return { render };
+}
+const flushLocation = () => new Promise<void>(resolve => setImmediate(resolve));
+
+test('finder refreshes an existing location grant without asking for permission', async () => {
+  let prompts = 0;
+  let fresh = 0;
+  const hook = locationHook({
+    getForegroundPermissionsAsync: async () => ({ status: 'granted' }),
+    requestForegroundPermissionsAsync: async () => { prompts++; return { status: 'granted' }; },
+    getLastKnownPositionAsync: async () => null,
+    getCurrentPositionAsync: async () => { fresh++; return { coords: { latitude: 37, longitude: -91 }, timestamp: Date.now() }; },
+  });
+  hook.render();
+  await flushLocation();
+  assert.equal(hook.render().status, 'ready');
+  assert.equal(hook.render().coords?.lat, 37);
+  assert.equal(fresh, 1);
+  assert.equal(prompts, 0);
+});
+
+test('a delayed startup GPS fix cannot overwrite an explicit newer location request', async () => {
+  let deliver!: (fix: HookFix) => void;
+  const initial = new Promise<HookFix>(resolve => { deliver = resolve; });
+  let acquisitions = 0;
+  const hook = locationHook({
+    getForegroundPermissionsAsync: async () => ({ status: 'granted' }),
+    requestForegroundPermissionsAsync: async () => ({ status: 'granted' }),
+    getLastKnownPositionAsync: async () => null,
+    getCurrentPositionAsync: () => ++acquisitions === 1 ? initial : Promise.resolve({ coords: { latitude: 38, longitude: -92 }, timestamp: Date.now() }),
+  });
+  hook.render();
+  await flushLocation();
+  await hook.render().request({ force: true });
+  assert.equal(hook.render().coords?.lat, 38);
+  deliver({ coords: { latitude: 37, longitude: -91 }, timestamp: Date.now() - 1000 });
+  await flushLocation();
+  assert.equal(hook.render().coords?.lat, 38);
+  assert.equal(hook.render().status, 'ready');
+});
+
+test('finder never acquires GPS or prompts automatically without an existing grant', async () => {
+  let accesses = 0;
+  const hook = locationHook({
+    getForegroundPermissionsAsync: async () => ({ status: 'undetermined' }),
+    requestForegroundPermissionsAsync: async () => { accesses++; return { status: 'granted' }; },
+    getLastKnownPositionAsync: async () => { accesses++; return null; },
+    getCurrentPositionAsync: async () => { accesses++; return { coords: { latitude: 37, longitude: -91 }, timestamp: Date.now() }; },
+  });
+  hook.render();
+  await flushLocation();
+  assert.equal(hook.render().status, 'idle');
+  assert.equal(accesses, 0);
 });

@@ -899,7 +899,7 @@ interface Props {
   showUserLocation?: boolean;
   /** The planned float, drawn over the river line. */
   planRoute?: RiverGeometry | null;
-  planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint } | null;
+  planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint | null } | null;
   /** The open callout's pin, used only to give its map mark a selected state. */
   selectedPinId?: string | null;
   onSelectPin?: (pin: MapPin) => void;
@@ -1495,7 +1495,7 @@ export function RiverMap({
       type: 'FeatureCollection' as const,
       features: [
         { point: planEndpoints.putIn, role: 'Put-in' },
-        { point: planEndpoints.takeOut, role: 'Take-out' },
+        ...(planEndpoints.takeOut ? [{ point: planEndpoints.takeOut, role: 'Take-out' }] : []),
       ].map(({ point, role }) => ({
         type: 'Feature' as const,
         id: `${role}:${point.id}`,
@@ -2574,18 +2574,19 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
 
-      {routeFeature ? (
-        <Mapbox.ShapeSource id="plan-route" shape={routeFeature}>
-          <Mapbox.LineLayer
-            id="plan-route-casing"
-            style={{ lineColor: 'rgba(0,0,0,0.4)', lineWidth: 10, lineCap: 'round', lineJoin: 'round' }}
-          />
-          <Mapbox.LineLayer
-            id="plan-route-fill"
-            style={{ lineColor: colors.accent, lineWidth: 6, lineCap: 'round', lineJoin: 'round' }}
-          />
-        </Mapbox.ShapeSource>
-      ) : null}
+      {/* Persistent route layers stay below POI art even when a plan arrives late. */}
+      <Mapbox.ShapeSource id="plan-route" shape={routeFeature ?? EMPTY_COLLECTION}>
+        <Mapbox.LineLayer
+          id="plan-route-casing"
+          aboveLayerID="river-line-fill"
+          style={{ lineColor: 'rgba(0,0,0,0.4)', lineWidth: 10, lineCap: 'round', lineJoin: 'round' }}
+        />
+        <Mapbox.LineLayer
+          id="plan-route-fill"
+          aboveLayerID="plan-route-casing"
+          style={{ lineColor: colors.accent, lineWidth: 6, lineCap: 'round', lineJoin: 'round' }}
+        />
+      </Mapbox.ShapeSource>
 
       {/* ── Mile posts ─────────────────────────────────────────────────────
           Over the river lines, under every pin: a mile number is context for

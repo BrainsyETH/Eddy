@@ -5,6 +5,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter }
 import { CommonActions, useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
+import { useSession } from '@/hooks/useSession';
 import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy } from '@/float/loadFloatRoute';
@@ -82,6 +83,7 @@ function ResumeActiveFloat() {
 function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredPackage?: TripPackage }) {
   const { colors } = useTheme();
   const location = useFloatStartLocation();
+  const account = useSession();
   const [id] = useState(newSessionId);
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
   const [boat, setBoat] = useState<FloatBoat>(() => isBoat(initial.boatType) ? initial.boatType : 'kayak');
@@ -212,13 +214,14 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
       <Shell footer={<>
         <PrimaryButton label="Start tracking" busy={start.busy} disabled={!valid || location.state !== 'ready'} onPress={() => void start.run()} />
         {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
-        <Text style={[styles.caption, local.backup, { color: colors.textMuted }]}>Sign in to back up your float summary</Text>
+        {account.ready && (!account.session || account.isAnonymous) ? <Text style={[styles.caption, local.backup, { color: colors.textMuted }]}>Sign in to back up your float summary</Text> : null}
       </>}>
         {restoredPackage ? <Text style={[styles.caption, { color: colors.textMuted }]}>Your downloaded setup · edit any field below</Text> : null}
         <RouteCard river={draft.riverSlug ? route?.riverName ?? (loaded ? null : 'loading') : null}
           riverNote={riverNote} suggestions={suggestions}
+          takeOutHint={!takeOut && route && startMile == null ? 'Choose a put-in to see downstream suggestions.' : undefined}
           disabled={start.busy} onRiver={() => openPicker('river')} onFrom={() => openPicker('from')} onTo={() => openPicker('to')}
-          from={{ value: putIn?.name ?? (draft.putInId ? null : 'My location'),
+          from={{ value: putIn?.name ?? (draft.putInId ? null : 'Current location'),
             detail: startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
             status: { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
             photo: putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined }}

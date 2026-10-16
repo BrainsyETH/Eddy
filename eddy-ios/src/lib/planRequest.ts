@@ -20,3 +20,13 @@ export function floatPlanDestination(params: Record<string, string> = {}) {
     params: { ...params, openPlan: '1', planRequest: newPlanRequest() },
   };
 }
+
+/** Explicit handoff to the existing Map tab, with a compact interactive summary. */
+export function floatMapDestination(params: {
+  focusRiver: string; planPutIn: string; planTakeOut: string; planVesselTypeId?: string;
+}) {
+  return {
+    pathname: '/' as const,
+    params: { ...params, openPlan: '1', planPresentation: 'map', planRequest: newPlanRequest() },
+  };
+}

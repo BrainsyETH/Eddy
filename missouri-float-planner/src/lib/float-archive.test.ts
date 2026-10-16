@@ -158,7 +158,7 @@ test('recap has no trace, and a legacy session is unknown instead of inferred fr
   const trip = recapFloat(active, active.startedAt + 60000);
   assert.equal(trip.unknownMs, 60000);
   assert.equal(trip.distanceMiles, 0);
-  for (const field of ['route', 'samples', 'position', 'track', 'coordinates']) assert.ok(!(field in trip));
+  for (const field of ['route', 'samples', 'position', 'gpsPosition', 'track', 'coordinates']) assert.ok(!(field in trip));
   assert.equal(trip.reachedTakeOut, false);
 });
 

@@ -51,11 +51,12 @@ import { fonts, type as t } from '@/theme/typography';
 import { floatPlanDestination } from '@/lib/planRequest';
 import { useNavigationAction } from '@/hooks/useNavigationAction';
 import { readBestIndex } from '@/lib/riverCache';
-import { selectSearchRiver, selectSearchLocation } from '@/lib/floatSearchSelection';
+import { selectSearchRiver, selectSearchLocation, canDefaultToCurrentLocation } from '@/lib/floatSearchSelection';
 
 type State = {
   input: FloatSearchInput;
   location: string;
+  locationSource?: 'current' | 'place';
   result: FloatSearchResponse | null;
 };
 // Only the boat preference is persisted. Search location and results stay in this session.
@@ -73,7 +74,8 @@ export default function FindFloatScreen() {
   const navigate = useNavigationAction();
   const { colors, isDark } = useTheme();
   const reducedMotion = useReducedMotion();
-  const location = useLocation();
+  const location = useLocation({ refreshGranted: true });
+  const locationChosen = useRef(false);
   const [state, setState] = useState<State>(() =>
     previous && (!initialRiver || previous.river === initialRiver)
       ? {
@@ -211,7 +213,16 @@ export default function FindFloatScreen() {
       };
     }, [state.result]),
   );
+  useEffect(() => {
+    if (!location.coords || !canDefaultToCurrentLocation(state.input, location.status, locationChosen.current)) return;
+    locationChosen.current = true;
+    const near = approximateLocation(location.coords);
+    setState((current) => ({ ...current, location: 'Near you', locationSource: 'current',
+      input: { ...current.input, ...selectSearchLocation(near) }, result: null }));
+  }, [location.coords, location.status, state.input]);
+
   const update = (patch: Partial<FloatSearchInput>) => {
+    if ('river' in patch || 'near' in patch) locationChosen.current = true;
     request.current?.abort();
     locationAttempt.current++;
     setBusy(null);
@@ -226,6 +237,7 @@ export default function FindFloatScreen() {
   };
   async function run() {
     if (request.current && !request.current.signal.aborted) return;
+    locationChosen.current = true; // Search commits the geographic scope shown.
     boatChosen.current = true; // Search commits the vessel currently shown, even if storage is slow.
     setExpired(false);
     locationAttempt.current++;
@@ -253,6 +265,7 @@ export default function FindFloatScreen() {
     }
   }
   async function locate() {
+    locationChosen.current = true;
     request.current?.abort();
     const attempt = ++locationAttempt.current;
     setBusy('location');
@@ -264,7 +277,8 @@ export default function FindFloatScreen() {
       setExpired(false);
       setState((s) => ({
         ...s,
-        location: 'Your approximate location',
+        location: 'Near you',
+        locationSource: 'current',
         input: { ...s.input, ...selectSearchLocation(approximateLocation(point)) },
         result: null,
       }));
@@ -347,6 +361,7 @@ export default function FindFloatScreen() {
         <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
           <Pressable
             onPress={() => {
+              locationChosen.current = true;
               setQuery('');
               setWherePicker(true);
             }}
@@ -366,24 +381,6 @@ export default function FindFloatScreen() {
             </View>
             <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
           </Pressable>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy !== null}
-            accessibilityState={{ disabled: busy !== null }}
-            onPress={() => void locate()}
-            style={styles.fieldRow}
-          >
-            <ControlIcon name="locate-outline" size={20} color={colors.interactive} />
-            <Text style={[t.base, { color: colors.interactive }]}>
-              {busy === 'location' ? 'Finding your location…' : 'Use my location'}
-            </Text>
-          </Pressable>
-          {locationError ? (
-            <Text accessibilityRole="alert" style={[styles.groupPadding, t.sm, { color: colors.text }]}>
-              {locationError}
-            </Text>
-          ) : null}
           {input.near && !input.river ? (
             <>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -558,6 +555,13 @@ export default function FindFloatScreen() {
                 keyboardDismissMode="on-drag"
                 contentContainerStyle={styles.content}
               >
+                <SearchButton
+                  label={busy === 'location' ? 'Finding your location…' : 'Current location'}
+                  selected={state.locationSource === 'current' && !!input.near && !input.river}
+                  disabled={busy !== null}
+                  onPress={() => void locate()}
+                />
+                {locationError ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.text }]}>{locationError}</Text> : null}
                 <TextInput
                   accessibilityLabel="Search for a river or town"
                   placeholder="River or town and state"
@@ -580,7 +584,7 @@ export default function FindFloatScreen() {
                     selected={input.river === river.slug}
                     onPress={() => {
                       update(selectSearchRiver(river.slug));
-                      setState((s) => ({ ...s, location: '' }));
+                      setState((s) => ({ ...s, location: '', locationSource: undefined }));
                       closePicker();
                     }}
                   />
@@ -616,7 +620,7 @@ export default function FindFloatScreen() {
                         label={place.name}
                         onPress={() => {
                           update(selectSearchLocation(place.near));
-                          setState((s) => ({ ...s, location: place.name }));
+                          setState((s) => ({ ...s, location: place.name, locationSource: 'place' }));
                           closePicker();
                         }}
                       />

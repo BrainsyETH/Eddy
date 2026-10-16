@@ -7,6 +7,8 @@
 import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FloatInfoTip } from '@/float/FloatInfoTip';
 import { FloatActivityControl } from '@/float/FloatActivityControl';
 import { FloatHazardReports } from '@/float/FloatHazardReports';
 import { FloatReminders } from '@/float/FloatReminders';
@@ -21,6 +23,7 @@ export default function FloatOptionsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const tracking = useTrackingLine();
+  const insets = useSafeAreaInsets();
   const [keepAwake, setKeepAwake] = useKeepAwakePreference();
 
   // The float ended (automatically, say) while this sheet was open: go back,
@@ -30,13 +33,13 @@ export default function FloatOptionsScreen() {
   }, [session, router]);
 
   return (
-    <>
-      <ScrollView contentContainerStyle={styles.content} style={{ backgroundColor: colors.bg }}>
+    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
+      <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 20 }]} >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
             Float options
           </Text>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+          <Pressable onPress={() => router.back()} style={styles.doneButton} accessibilityRole="button" accessibilityLabel="Close float options">
             <Text style={[styles.done, { color: colors.interactive }]}>Done</Text>
           </Pressable>
         </View>
@@ -45,10 +48,12 @@ export default function FloatOptionsScreen() {
           <View style={styles.section}>
             <Text style={[styles.heading, { color: colors.text }]}>Tracking</Text>
             {tracking.line.action === 'info' ? (
-              <Text style={[styles.note, { color: colors.textMuted }]}>
-                {tracking.line.text}
-                {tracking.line.detail ? ` ${tracking.line.detail}` : ''}
-              </Text>
+              <View style={styles.trackingRow}>
+                <Text style={[styles.note, styles.grow, { color: colors.textMuted }]}>
+                  {tracking.tracker.status === 'recording' ? 'GPS recording' : tracking.line.text}
+                </Text>
+                {tracking.line.detail ? <FloatInfoTip title="Background tracking" message={tracking.line.detail} /> : null}
+              </View>
             ) : (
               <Pressable
                 onPress={tracking.act}
@@ -62,27 +67,32 @@ export default function FloatOptionsScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={[styles.heading, { color: colors.text }]}>Lock Screen</Text>
+          <Text style={[styles.heading, { color: colors.text }]}>Live Activity</Text>
           <FloatActivityControl />
         </View>
+
+        {session ? <FloatHazardReports session={session} /> : null}
 
         {session ? <FloatReminders session={session} /> : null}
 
         <View style={[styles.toggleRow, { borderColor: colors.border }]}>
           <View style={styles.toggleText}>
             <Text style={[styles.toggleTitle, { color: colors.text }]}>Keep screen awake</Text>
-            <Text style={[styles.note, { color: colors.textMuted }]}>While Float Mode is open. Uses more battery.</Text>
+            <Text style={[styles.note, { color: colors.textMuted }]}>Uses more battery while this screen is open.</Text>
           </View>
           <Switch value={keepAwake} onValueChange={setKeepAwake} accessibilityLabel="Keep screen awake" />
         </View>
 
-        {session ? <FloatHazardReports session={session} /> : null}
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  grow: { flex: 1 },
+  trackingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  doneButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { ...t.lg, fontFamily: fonts.heading },

@@ -22,13 +22,14 @@ export interface RouteStop {
 
 export interface TakeOutSuggestion { id: string; name: string; detail: string; photo?: React.ReactNode }
 
-export function RouteCard({ river, riverNote, from, to, suggestions, leg, disabled, onRiver, onFrom, onTo }: {
+export function RouteCard({ river, riverNote, from, to, suggestions, takeOutHint, leg, disabled, onRiver, onFrom, onTo }: {
   /** null before a river is chosen; 'loading' while the chosen river loads. */
   river: string | 'loading' | null;
   /** Under the river name, or the prompt's subtitle while there is no river. */
   riverNote?: { label: string; busy?: boolean };
   /** Shown in place of the take-out row while none is chosen. */
   suggestions?: { items: TakeOutSuggestion[]; more: number; onPick: (id: string) => void; onSeeAll: () => void };
+  takeOutHint?: string;
   from: RouteStop;
   to: RouteStop;
   leg: string | null;
@@ -77,7 +78,10 @@ export function RouteCard({ river, riverNote, from, to, suggestions, leg, disabl
         </View>
         {suggestions && !to.value && suggestions.items.length
           ? <Suggestions {...suggestions} disabled={disabled} />
-          : <Stop kind="end" label="Take-out" stop={to} disabled={disabled} onPress={onTo} />}
+          : <View style={local.grow}>
+            <Stop kind="end" label="Take-out" stop={to} disabled={disabled} onPress={onTo} />
+            {takeOutHint ? <Text style={[t.sm, { color: colors.textMuted, paddingLeft: 32, paddingTop: 4 }]}>{takeOutHint}</Text> : null}
+          </View>}
       </View>
     </View>
   );
