@@ -6,9 +6,15 @@ the gauge-based study in [TAILWATER_PLAN.md §1](TAILWATER_PLAN.md#1-travel-time
 
 **What these numbers mean.** Local sources almost always describe when the
 water **starts to rise** at a spot after generation begins at the dam. The
-Bull Shoals gauge study measured the delay of the **biggest matching change**,
-which comes later. Expect local times to be shorter than the gauge-study lags
-for the same place.
+Bull Shoals gauge study measured something different: the delay that best
+lined up hour-to-hour changes at the dam with changes at a gauge, across many
+hours. It did not pick out individual arrivals or peaks, so its lags cannot
+be compared one-to-one with a first-rise time.
+
+**Not for Eddy's AI context as written.** These numbers stay in this document
+until a version for `EDDY_KNOWLEDGE.md` carries each figure's source,
+operating conditions and limits with it. The knowledge-file tests check
+parsing and coverage, not whether a claim is supported.
 
 Every source that gives a reason says the same thing: **more generators means
 faster water.** Every guide or resort source with a full page also says its
@@ -45,18 +51,27 @@ out. Example: Cotter, 18 miles → about 9 hours.
 
 ### How this compares with the gauge study
 
-| Gauge | Gauge study (biggest change) | Local estimate (first rise) | Implied speed |
-| --- | --- | --- | --- |
-| White River near Norfork, ~44 mi | 12 h (training fit) | ~14 h | study ~3.7 mph; local ~3.1 mph |
-| Calico Rock, 60–62 mi | 17 h (training fit) | 15 h or 24 h | study ~3.6 mph; local 2.5–4 mph |
+| Gauge | Gauge study (best-aligned lag) | Local estimate (first rise) |
+| --- | --- | --- |
+| White River near Norfork | 12 h on training data; **failed validation** on later data | ~14 h at Norfork (forum table, unverified) |
+| Calico Rock | 17 h on training data; **failed validation** on later data | 15 h or 24 h |
 
-They broadly agree: about 3–4 mph, or roughly half a day to Norfork and
-two-thirds of a day to Calico Rock. There is one oddity: the local Norfork
-estimate is *later* than the gauge study's biggest-change delay, but
-first-rise times should come earlier. The forum table may assume low
-generation. It is also the oldest source. The gauge study's holdout result
-(later delays at low release) fits the "fewer generators, slower water"
-pattern every local source describes.
+The figures land in the same general range, about half a day to the Norfork
+area and most of a day to Calico Rock. That is as far as the comparison goes:
+
+- Both fixed delays from the gauge study **failed** the held-out check. Neither
+  is an accepted travel time.
+- In the later, lower-release weeks the best-aligned lags were longer. That
+  fits the "fewer generators, slower water" pattern the local sources
+  describe, but the study does not prove flow dependence. It is one plausible
+  explanation among several the study lists.
+- The study **neither validates nor disproves** the guides' first-rise
+  estimates. It measured a different quantity.
+- **Mileage still needs reconciling.** The upstream gauge (USGS 07057370, above
+  the North Fork confluence), Norfork Access (Eddy mile 42.5) and the
+  confluence itself are three different locations. The White River section of
+  `EDDY_KNOWLEDGE.md` currently puts the confluence about 35 river miles below
+  the dam, which does not match Eddy's access data.
 
 ## Norfork Dam → North Fork River
 
@@ -66,7 +81,11 @@ pattern every local source describes.
 | Calico Rock (White River, 18 river miles) | ~5 h | Jenkins Fishing Service via AGFC report (June 13, 2024) |
 
 The whole tailwater is only about 4.8 miles. Dally's notes that **you cannot hear
-the generation horn at the lower accesses**. A forum rule of thumb (secondary,
+the generation horn at the lower accesses**. The 45 minutes is for an unnamed
+location and should not be applied to every lower access. The same article
+calls the generation announcements unpredictable, and SWPA says schedules can
+change and releases can happen for reasons other than power generation. A
+posted schedule does not confirm conditions at an access. A forum rule of thumb (secondary,
 not directly verified) is 4 mph rising and 2 mph falling. No source gives a
 specific time for Quarry Park, Ackerman or McClellan's.
 
@@ -93,12 +112,18 @@ ask Lilleys' Landing or the MDC Shepherd of the Hills Hatchery directly.
 
 ## If Eddy uses this
 
-- Show a **range by access point** ("water usually starts rising at Cotter
-  4–6 hours after generation starts"), never a single minute-level time.
-- Say plainly that it is slower with fewer generators and faster with more.
+- Show a **range by access point**, never a single minute-level time.
+- It is fine to tie the range to today's posted release, as long as it is
+  labelled as an estimate: for example, "Estimated from today's release:
+  water may start rising at Cotter around 1–3 PM. Subject to change."
+- Say what the estimate leaves out: water already in the river from earlier
+  releases, tributary runoff, Norfork's release below the confluence, and
+  schedule changes or off-schedule releases.
+- Don't present an access as currently "low" or "high" from timing alone.
+- Prefer local reports where they exist. Treat a speed-table range at an
+  access with no report as a calculation to test, not an established time.
 - Keep the existing rule: no wading or safe-departure window is inferred
   from these numbers. Every primary source says the same.
-- Use the gauge data to sanity-check the ranges per reach, not to replace them.
 
 ## Sources
 
