@@ -20,6 +20,7 @@
 // relative for that reason — sibling files in this package resolve on both
 // sides; anything outside it does not.
 
+import { stationDate, stationNoon } from './chart-calendar';
 import type { ReadingUnit } from './reading-unit';
 import { isReadingStale } from './reading-staleness';
 
@@ -68,10 +69,10 @@ export function valueForUnit(reading: ChartReadingLike, unit: ReadingUnit): numb
  * gauge was not reporting. Dropping them here is what lets splitAtGaps() show
  * the outage as an outage.
  */
-export function chartPoints(readings: ChartReadingLike[], unit: ReadingUnit): ChartPoint[] {
+export function chartPoints(readings: ChartReadingLike[], unit: ReadingUnit, timeZone?: string): ChartPoint[] {
   return readings
     .flatMap((reading) => {
-      const t = new Date(reading.timestamp).getTime();
+      const t = timeZone && /^\d{4}-\d{2}-\d{2}$/.test(reading.timestamp) ? stationNoon(reading.timestamp, timeZone) : new Date(reading.timestamp).getTime();
       const v = valueForUnit(reading, unit);
       return Number.isFinite(t) && v !== null
         ? [{ t, v, timestamp: reading.timestamp, qualifiers: reading.qualifiers ?? [], breakBefore: reading.gapBefore?.includes(unit) }]
@@ -687,7 +688,8 @@ export function localCalendarDate(ms: number): string {
 }
 
 /** Local noon of a calendar date, in epoch ms. */
-export function calendarDateTime(date: string): number {
+export function calendarDateTime(date: string, timeZone?: string): number {
+  if (timeZone) return stationNoon(date, timeZone);
   const [year, month, day] = date.split('-').map(Number);
   return new Date(year, month - 1, day, 12).getTime();
 }
@@ -713,11 +715,11 @@ export interface CalendarDates {
 
 /** The device-local calendar dates an instant window covers. Callers that
  *  know the dates the reader picked pass those instead. */
-export function windowCalendarDates(window: { from: string; to: string }): CalendarDates | null {
+export function windowCalendarDates(window: { from: string; to: string }, timeZone?: string): CalendarDates | null {
   const start = Date.parse(window.from);
   const end = Date.parse(window.to);
   if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-  return { from: localCalendarDate(start), to: localCalendarDate(end) };
+  return { from: timeZone ? stationDate(start, timeZone) : localCalendarDate(start), to: timeZone ? stationDate(end, timeZone) : localCalendarDate(end) };
 }
 
 /** The same calendar dates one year back, as the history endpoint's
@@ -750,6 +752,7 @@ export function alignPriorYear(
   unit: ReadingUnit,
   dates: CalendarDates,
   bounds?: { from: string; to: string } | null,
+  timeZone?: string,
 ): PriorYearPoint[] {
   const low = bounds ? Date.parse(bounds.from) : -Infinity;
   const high = bounds ? Date.parse(bounds.to) : Infinity;
@@ -772,7 +775,7 @@ export function alignPriorYear(
     }
     carriedBreak = false;
     if (alignedDate < dates.from || alignedDate > dates.to) continue;
-    const noon = calendarDateTime(alignedDate);
+    const noon = calendarDateTime(alignedDate, timeZone);
     const t = Math.min(Math.max(noon, Number.isFinite(low) ? low : noon), Number.isFinite(high) ? high : noon);
     out.push({ t, v, timestamp: reading.timestamp, qualifiers: reading.qualifiers ?? [], breakBefore, sourceDate, alignedDate });
   }
@@ -787,8 +790,8 @@ export function alignPriorYear(
  * point's date follows the convention above: as written for a daily value,
  * device-local for an instantaneous one.
  */
-export function priorYearPointFor(points: readonly PriorYearPoint[], primary: ChartPoint): PriorYearPoint | null {
-  const date = DATE_ONLY.test(primary.timestamp) ? primary.timestamp : localCalendarDate(primary.t);
+export function priorYearPointFor(points: readonly PriorYearPoint[], primary: ChartPoint, timeZone?: string): PriorYearPoint | null {
+  const date = DATE_ONLY.test(primary.timestamp) ? primary.timestamp : timeZone ? stationDate(primary.t, timeZone) : localCalendarDate(primary.t);
   let low = 0;
   let high = points.length - 1;
   while (low <= high) {

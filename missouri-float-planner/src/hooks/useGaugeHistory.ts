@@ -36,8 +36,9 @@ export async function fetchHistory(
   days: number,
   window?: HistoryWindowRequest | null,
   signal?: AbortSignal,
+  stationCalendar = true,
 ): Promise<NormalizedGaugeHistory | null> {
-  const params = new URLSearchParams({ days: String(days) });
+  const params = new URLSearchParams({ days: String(days), ...(stationCalendar ? { calendar: 'station' } : {}) });
   if (window?.from) params.set('from', window.from);
   if (window?.to) params.set('to', window.to);
   if (window?.resolution && window.resolution !== 'auto') {

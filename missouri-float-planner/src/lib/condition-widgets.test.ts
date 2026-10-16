@@ -224,7 +224,7 @@ test('native widget foreground refresh is throttled and keeps configuration relo
 });
 
 test('widget detail requests opt in to compact server response without bypassing trusted values or flood alerts', () => {
-  const source = readFileSync(new URL('../app/api/gauges/[siteId]/route.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('./gauges/detail-response.ts', import.meta.url), 'utf8');
   const native = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift', import.meta.url), 'utf8');
   assert.match(source, /request\.nextUrl\.searchParams\.get\('widget'\)\s*===\s*'1'/);
   assert.match(source, /if \(widgetOnly\) return null;/);

@@ -44,9 +44,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
 import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
 import {
-  alignPriorYear,
-  chartDomain,
-  chartPoints,
   chartSegments,
   latestObservedPoint,
   nearestChartPoint,
@@ -60,6 +57,9 @@ import {
   type ChartPoint,
   type ChartReadingLike,
 } from '@shared/chart-model';
+import { chartView, chartReferences } from '@shared/chart-view';
+import { chartStamp } from '@shared/chart-calendar';
+import type { ChartScaleMode } from '@shared/chart-share';
 import {
   FLOOD_STAGE_ORDER,
   FLOOD_STAGE_SYSTEM,
@@ -189,6 +189,8 @@ export interface ChartFloodStages {
 
 interface FlowTrendChartProps {
   gaugeSiteId: string;
+  scaleMode?: ChartScaleMode;
+  showMedian?: boolean;
   days: number;
   thresholds?: ChartThresholdLines | null;
   /**
@@ -281,6 +283,8 @@ export default function FlowTrendChart({
   displayUnit = 'cfs',
   chartClassName,
   showTypical = false,
+  showMedian = showTypical,
+  scaleMode = 'loaded',
   showProvenance = false,
   interactive = true,
   window: requestWindow,
@@ -330,58 +334,14 @@ export default function FlowTrendChart({
   const chartData = useMemo(() => {
     if (!history) return null;
 
-    const inZoom = (point: { t: number }) =>
-      !zoomWindow || (point.t >= zoomWindow.t0 && point.t <= zoomWindow.t1);
-    const observed = chartPoints(history.readings, displayUnit).filter(inZoom);
-
-    // Forecast points share the reading shape, so the same reader applies —
-    // including its refusal to invent a value for the unit that is absent.
-    const forecast = chartPoints(history.forecast, displayUnit).filter(inZoom);
-
-    // ONE READING PLUS A FORECAST IS A CHART. This guard used to run before the
-    // forecast was read and to demand two OBSERVED points, so a gauge with one
-    // recent reading and three days of official forecast rendered "trend data
-    // unavailable" — throwing away the half of the picture that was about the
-    // weekend.
-    //
-    // Zero observations is still nothing, on purpose. A forecast-only chart
-    // needs `current` (below) to become nullable — it feeds the now-line, the
-    // current dot and the header's "Current:" — and it needs the endpoint to
-    // stop 404ing a station whose only data is ahead of it. Measured against
-    // production before writing this: of 6,855 stations carrying an NWS LID,
-    // none had exactly one reading in a 14-day window in either unit, and the
-    // 6,830 with no stored readings at all take the live-upstream fallback or
-    // the 404. So the cheap half ships and the expensive half waits for a
-    // station that needs it, which starts as a route change, not a chart one.
-    // A chart is constructible from observed points, forecast points, or
-    // both. ZERO observed with a real forecast is a served response now —
-    // the endpoint stopped 404ing forecast-only stations — so `current`
-    // (the newest observed reading) is nullable and everything downstream
-    // says so instead of assuming.
-    if (!observed.length && !forecast.length) return null;
-    if (!forecast.length && observed.length < 2) return null;
-
-    // Percentiles are a discharge statistic; there is no stage equivalent in
-    // usgs_daily_percentiles, so a foot axis simply has no typical range.
-    const typical = showTypical && !isFt
-      ? history.typical.flatMap((row) => {
-          const t = new Date(`${row.date}T12:00:00`).getTime();
-          return Number.isFinite(t) && row.p50Cfs !== null && inZoom({ t })
-            ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
-            : [];
-        })
-      : [];
-
-    const priorPoints =
-      lastYear && !isFt
-        ? alignPriorYear(lastYear.readings, displayUnit, lastYear.dates, history.requestedWindow).filter(inZoom)
-        : [];
-
-    const thresholdValues = activeThresholds
-      ? THRESHOLD_LINE_CONFIG.map((config) => activeThresholds[config.key]).filter(
-          (value): value is number => value !== null
-        )
-      : [];
+    if (!history.requestedWindow) return null;
+    const view = chartView({ readings: history.readings, forecast: history.forecast, typical: history.typical,
+      prior: lastYear?.readings, loaded: history.requestedWindow, unit: displayUnit, timeZone: history.timeZone ?? 'UTC',
+      layers: [...(showTypical ? ['typical' as const] : []), ...(showMedian ? ['median' as const] : []), ...(lastYear ? ['lastYear' as const] : [])],
+      scale: scaleMode, references: chartReferences(displayUnit, activeThresholds, floodStages),
+      visible: zoomWindow ? { start: zoomWindow.t0, end: zoomWindow.t1 } : null });
+    const { observed, forecast, prior: priorPoints, typical, domain } = view;
+    if (!domain || (!forecast.length && observed.length < 2)) return null;
 
     // NWS stages exist only in feet; on a cfs axis this is empty by
     // construction, so the JSX below cannot get it wrong.
@@ -398,22 +358,6 @@ export default function FlowTrendChart({
             return value != null && Number.isFinite(value) && value > 0 ? [{ key, value }] : [];
           })
         : [];
-
-    const typicalPoints: ChartPoint[] = typical.flatMap((row) =>
-      [row.low, row.median, row.high].flatMap((value) =>
-        value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }]
-      )
-    );
-
-    const spanning = [...observed, ...forecast, ...priorPoints, ...typicalPoints].sort((a, b) => a.t - b.t);
-    // Stage values ride along as domain context the same way thresholds do:
-    // chartDomain only stretches toward a context value within reach of the
-    // data, so a 25ft major-flood line cannot flatten a 3ft series.
-    const domain = chartDomain(spanning, displayUnit, [
-      ...thresholdValues,
-      ...stageLevels.map((stage) => stage.value),
-    ]);
-    if (!domain) return null;
 
     const spanT = domain.t1 - domain.t0 || 1;
     const spanV = domain.max - domain.min || 1;
@@ -438,7 +382,7 @@ export default function FlowTrendChart({
     // is separate and covers every row regardless.
     const bandRows = typical.filter((row) => row.low !== null && row.high !== null);
     const typicalArea =
-      bandRows.length > 1
+      showTypical && bandRows.length > 1
         ? `${pathFor(bandRows.map((row) => ({ t: row.t, v: row.high! })))} ${bandRows
             .slice()
             .reverse()
@@ -493,10 +437,13 @@ export default function FlowTrendChart({
       }
     }
 
-    const current = latestObservedPoint(observed);
+    const inViewport = (p: ChartPoint) => !zoomWindow || (p.t >= zoomWindow.t0 && p.t <= zoomWindow.t1);
+    const visibleObserved = observed.filter(inViewport);
+    const visibleForecast = forecast.filter(inViewport);
+    const current = latestObservedPoint(visibleObserved);
     return {
-      observed,
-      forecast,
+      observed: visibleObserved,
+      forecast: visibleForecast,
       domain,
       x,
       y,
@@ -505,12 +452,12 @@ export default function FlowTrendChart({
       observedAreas: observedSplit.lines.map(areaFor),
       // The newest reading is excluded because it already has the current-value
       // dot; drawing both would stack two circles of different radii.
-      observedDots: observedSplit.isolated.filter((point) => point.t !== current?.t),
+      observedDots: observedSplit.isolated.filter((point) => point.t !== current?.t && inViewport(point)),
       // Every instant a keyboard can land on, in order. Stepping by POINT rather
       // than by a fraction of the width is what makes arrow keys usable: a 14-day
       // window is ~340 points across ~700px, so a pixel step would sometimes move
       // two readings and sometimes none.
-      scrubTimes: [...observed.map((point) => point.t), ...forecast.map((point) => point.t)].sort(
+      scrubTimes: [...visibleObserved.map((point) => point.t), ...visibleForecast.map((point) => point.t)].sort(
         (a, b) => a - b
       ),
       // Split on the same terms as the observed series. It used to be one path
@@ -518,13 +465,13 @@ export default function FlowTrendChart({
       // any hole in the forecast and dropped a single-point forecast entirely —
       // while the legend went on naming a series that was not on the plot.
       forecastPaths: forecastSplit.lines.map(pathFor),
-      forecastDots: forecastSplit.isolated,
+      forecastDots: forecastSplit.isolated.filter(inViewport),
       priorPoints,
       priorPaths: priorSplit.lines.map(pathFor),
-      priorDots: priorSplit.isolated,
+      priorDots: priorSplit.isolated.filter(inViewport),
       typicalArea,
       typicalPath:
-        typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
+        showMedian && typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
       // Label budget by surface: the expanded chart is the one with the pixel
       // height to seat five labels; the inline card gets three with headroom
       // for a fourth, same as the phone. (`showGridlines` is the expanded
@@ -541,7 +488,7 @@ export default function FlowTrendChart({
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx, lastYear]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx, lastYear, showMedian, scaleMode]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -663,11 +610,11 @@ export default function FlowTrendChart({
 
   const formatAxisTime = (ms: number) =>
     days <= 2
-      ? new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric' })
-      : new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      ? new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', timeZone: history?.timeZone ?? 'UTC' })
+      : new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: history?.timeZone ?? 'UTC' });
 
   const formatTooltipDate = (ms: number) =>
-    new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    chartStamp(ms, history?.timeZone ?? 'UTC');
 
   const unitLabel = isFt ? 'ft' : 'cfs';
   const chartLabel = isFt ? 'Stage (ft)' : 'Flow (cfs)';
@@ -691,7 +638,7 @@ export default function FlowTrendChart({
   // The same date last year, or nothing — never a neighbouring day.
   const showsLastYear = chartData.priorPoints.length > 0;
   const hoveredPrior =
-    showsLastYear && hovered?.kind === 'observed' ? priorYearPointFor(chartData.priorPoints, hovered.point) : null;
+    showsLastYear && hovered?.kind === 'observed' ? priorYearPointFor(chartData.priorPoints, hovered.point, history?.timeZone ?? 'UTC') : null;
   const formatPriorDate = (date: string) => {
     const [year, month, day] = date.split('-').map(Number);
     return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -888,7 +835,7 @@ export default function FlowTrendChart({
               Last year · daily average
             </span>
           )}
-          {chartData.typicalPath && (
+          {(chartData.typicalArea || chartData.typicalPath) && (
             <span
               className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
               style={{ color: TYPICAL_COLOR }}
@@ -900,7 +847,7 @@ export default function FlowTrendChart({
                 // teal under the median's solid edge.
                 style={{ backgroundColor: `${TYPICAL_COLOR}2e`, borderTop: `1px solid ${TYPICAL_COLOR}` }}
               />
-              Typical 25–75%
+              {showTypical ? 'Typical 25–75%' : 'Historical median'}
             </span>
           )}
           {currentDisplay != null && (
@@ -945,7 +892,7 @@ export default function FlowTrendChart({
           <svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            className="w-full h-full"
+            className="w-full h-full overflow-hidden"
             {...(interactive
               ? { 'aria-hidden': true }
               : {

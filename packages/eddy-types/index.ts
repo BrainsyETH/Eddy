@@ -1191,6 +1191,13 @@ export interface GaugeDetailThreshold {
   levelOptimalMax: number | null;
   levelHigh: number | null;
   levelDangerous: number | null;
+  /** Reviewed thresholds in the opposite unit from thresholdUnit, when available. */
+  altLevelTooLow?: number | null;
+  altLevelLow?: number | null;
+  altLevelOptimalMin?: number | null;
+  altLevelOptimalMax?: number | null;
+  altLevelHigh?: number | null;
+  altLevelDangerous?: number | null;
   /** NWS flood stage in feet. Outranks the ladder above when reached. */
   floodStageFt: number | null;
 }
@@ -1262,6 +1269,7 @@ export interface GaugeFloodAlert {
 }
 
 export interface GaugeDetail {
+  timeZone?: string;
   /** gauge_stations.id — the key stars are stored under. */
   id: string;
   /** The provider-native site id, and what every per-gauge route keys off. */
@@ -1405,6 +1413,7 @@ export interface GaugeForecastReading {
 }
 
 export interface GaugeHistoryResponse {
+  timeZone?: string;
   siteId: string;
   siteName: string;
   /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */

@@ -24,8 +24,9 @@
 // missouri-float-planner/src/lib/navigation/apple-app-site-association.ts, and
 // its test asserts every claimed path has a mapping here. Claiming a path
 // without adding one here is the 404 above; adding one here without claiming it
-// is dead code.
+// can ship first while the dedicated sharing paths remain behind the release gate (ADR 0015).
 
+import { sharedGaugeDestination } from '../src/lib/chartSharing';
 import { coldDetailPath } from '../src/lib/tabRoutes';
 
 /** `/plan/<shortCode>` on the web is `/float/<shortCode>` in the app. */
@@ -39,7 +40,7 @@ export function redirectSystemPath({ path, initial }: { path: string; initial: b
     if (url && url.protocol !== 'eddy:' && !['eddy.guide', 'www.eddy.guide'].includes(url.hostname)) return path;
     const local = url ? `${url.protocol === 'eddy:' && url.hostname ? `/${url.hostname}` : ''}${url.pathname}${url.search}${url.hash}` : path;
     const plan = local.match(PLAN_LINK);
-    const destination = plan ? local.replace(PLAN_LINK, `/float/${plan[1]}`) : local;
+    const destination = sharedGaugeDestination(local) ?? (plan ? local.replace(PLAN_LINK, `/float/${plan[1]}`) : local);
     return initial ? coldDetailPath(destination) : destination;
   } catch {
     // Never throw from here. This runs on the cold-start path, and a throw

@@ -22,6 +22,8 @@
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
 
+import { gaugeSharePath, shareLink } from '@/lib/share';
+
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -432,6 +434,7 @@ export default function DamDetailScreen() {
       <Stack.Screen options={{ title: dam.name }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button icon="square.and.arrow.up" accessibilityLabel={`Share ${dam.name}`} onPress={() => { const path = gaugeSharePath('usace', damId); if (path) void shareLink(dam.name, path); }}>Share</Stack.Toolbar.Button>
         <Stack.Toolbar.Button
           icon={starred ? 'star.fill' : 'star'}
           selected={starred}

@@ -247,6 +247,7 @@ export function GaugeHistoryTab({ facts, detail, title }: GaugeTabProps & { titl
 
   return (
     <GaugeChart
+      riverId={primary?.riverId}
       siteId={facts.siteId}
       title={title}
       provider={detail?.provider}

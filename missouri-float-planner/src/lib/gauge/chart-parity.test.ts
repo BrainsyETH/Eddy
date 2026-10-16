@@ -80,16 +80,17 @@ const REQUIRED_MODEL_CALLS = [
 const DETAIL_MODEL_CALLS = ['nearestChartPoint', 'qualifierText'];
 
 test('every chart draws from the shared chart model', () => {
-  for (const [name, source] of ALL_RENDERERS) {
-    for (const call of REQUIRED_MODEL_CALLS) {
-      assert.match(source, new RegExp(`\\b${call}\\b`), `${name} does not use ${call}`);
-    }
-    assert.match(source, /chart-model/, `${name} does not import the chart model at all`);
+  const view = readFileSync(join(process.cwd(), 'shared/chart-view.ts'), 'utf8');
+  assert.match(web, /chartView\(/);
+  assert.match(app, /nativeChartView\(/);
+  assert.match(readFileSync(join(process.cwd(), '../eddy-ios/src/lib/chartSharing.ts'), 'utf8'), /chartView as nativeChartView/);
+  for (const call of REQUIRED_MODEL_CALLS) {
+    assert.match(embed, new RegExp(`\\b${call}\\b`), `embed does not use ${call}`);
+    assert.match(web + view, new RegExp(`\\b${call}\\b`), `web preparation does not use ${call}`);
+    assert.match(app + view, new RegExp(`\\b${call}\\b`), `native preparation does not use ${call}`);
   }
-  for (const [name, source] of RENDERERS) {
-    for (const call of DETAIL_MODEL_CALLS) {
-      assert.match(source, new RegExp(`\\b${call}\\b`), `${name} does not use ${call}`);
-    }
+  for (const [name, source] of RENDERERS) for (const call of DETAIL_MODEL_CALLS) {
+    assert.match(source, new RegExp(`\\b${call}\\b`), `${name} does not use ${call}`);
   }
 });
 

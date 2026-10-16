@@ -1566,6 +1566,20 @@ always retains its full-window value scale. Closing and reopening the expanded
 chart retains the fitting choice for the same zoomed range. Fitting and the
 Compare panel's full threshold scale are mutually exclusive choices.
 
+Expanded USGS charts offer Share chart: either a fixed-date web link or a
+server-rendered PNG. Image preparation requires internet, presents the actual
+attachment as a preview, and sends the same cached file through the native
+share sheet. Station sharing uses dedicated USGS and USACE share paths; ordinary
+gauge and dam website URLs keep their existing behavior. See
+[ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for the versioned
+state contract, shared scale/calendar rules and outstanding device gates.
+Deploy the additive web routes and timezone fields before distributing the
+app build. Charts use station time rather than device time. Missing coordinates
+or older web responses without `timeZone` use UTC, with a visible UTC note on
+the chart; skipping the deployment order therefore produces UTC labels.
+App-opening associations remain off until the ADR's store and
+compatibility gates are recorded; shipping the handlers does not enable them.
+
 The app config permits native rotation. The local `eddy-orientation` Expo
 module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run

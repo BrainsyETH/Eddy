@@ -5,6 +5,7 @@
 // daily average and cannot say "the units run 7-11 AM"; SWPA's hourly schedule
 // can, and that is what a wading angler plans around.
 
+import StationShareButton from '@/components/gauge/StationShareButton';
 import { publicPageMetadata } from '@/lib/seo';
 import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
@@ -78,7 +79,8 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h1>
             <p className="mt-1 text-sm text-neutral-500">{dam.lakeName ?? 'Dam conditions'} · {dam.state}</p>
           </div>
-          <nav aria-label="Dam sections" className="flex gap-2 text-sm">
+          <nav aria-label="Dam sections" className="flex flex-wrap items-center gap-2 text-sm">
+            <StationShareButton station={{ provider: 'usace', siteId: damId }} />
             <a href="#generation" className="inline-flex min-h-11 items-center rounded-full bg-primary-100 px-4 font-medium text-primary-800">{dam.hasTurbines ? 'Generation' : 'Releases'}</a>
             <a href="#dam-resources" className="inline-flex min-h-11 items-center rounded-full px-4 text-neutral-600 hover:bg-neutral-100">Useful links</a>
           </nav>
