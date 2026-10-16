@@ -37,7 +37,7 @@ script.
 | Colors, type, brand, CTAs | README *Theming*, *Condition colours and labels*; `docs/decisions/0007` |
 | Map, search, layers, the plan sheet | README *Maps (Mapbox)*, *Search, layers, and the float plan*; `docs/decisions/0008` |
 | Adding a screen or route | README *Adding a screen, and the generated route types* |
-| Float Mode, trip downloads, Live Activity | README *Current state*; `docs/decisions/0011-float-mode-offline-maps-use-tile-regions.md`; `docs/float-live-activity-plan.md` |
+| River Mode, trip downloads, Live Activity | README *Current state*; `docs/decisions/0011-float-mode-offline-maps-use-tile-regions.md`; `docs/float-live-activity-plan.md` |
 | Alerts and push | README *Push*; `docs/decisions/0005`, `0006` |
 | Purchases, accounts, entitlement | README *Accounts, purchases and deletion* |
 | Splash hangs, launch crashes | README *Launch path*, *Diagnosing a launch that stops at the splash* |

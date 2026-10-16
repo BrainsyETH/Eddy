@@ -306,7 +306,7 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 The Floats hub leads with Start a Float, or Resume Float while tracking.
 Build a Route (choose endpoints) and Find a Route (suggestions for a time and
 location) share a secondary row. Build a Route takes the accent styling when
-Float Mode is disabled. Both use the same planner and result actions.
+River Mode is disabled. Both use the same planner and result actions.
 Today recommendations and Floats push new planners to `/plan-route` in the
 originating tab's stack. This lightweight screen loads the river index and
 access points into the shared PlanSheet; it never mounts a Mapbox map, map
@@ -851,14 +851,14 @@ star/unstar them and confirm they remain eligible. Check the access distance,
 no-location statewide picks, a location outside 100 miles, and an older response
 without access coordinates. Recommendations no longer wait on the gauge feed.
 
-### The per-river map download was removed (Float Mode trip downloads are separate)
+### The per-river map download was removed (River Mode trip downloads are separate)
 
 Two different features have downloaded map tiles, and they must not be
 confused:
 
 - **The per-river download — removed.** Described below. Its packs are named
   `river:<id>:<n>` and `src/map/packSweep.ts` deletes them.
-- **Float Mode trip downloads — implemented; device verification and release
+- **River Mode trip downloads — implemented; device verification and release
   status unconfirmed.** A user-started
   download of a padded corridor along one saved float's route, plus a route
   package so the float can start with no signal. Packs are named
@@ -892,7 +892,7 @@ The stronger version — computing a float time on the phone from the cached riv
 mile and last reading — is genuinely feasible and was scoped. It was not worth
 the maintenance surface for one person, so the feature went instead of growing.
 
-What this leaves, outside Float Mode: the basemap is blank with no signal, and
+What this leaves, outside River Mode: the basemap is blank with no signal, and
 every other part of a river screen still renders. `src/map/packSweep.ts` deletes the tile packs left
 on phones that downloaded one, once per install.
 
@@ -1160,7 +1160,7 @@ connection. The basemap does not; with no signal it renders blank while the rest
 of the river screen still works. There are no user waypoints and no Apple Watch
 app.
 
-**Float Mode (#1448) — implemented; device verification and release status
+**River Mode (#1448) — implemented; device verification and release status
 unconfirmed.** Three states, kept apart on purpose because they are easy to
 blur:
 
@@ -1197,10 +1197,10 @@ blur:
   Whether that flag is on in production is a live setting — check
   `/api/app-config`, do not infer it from this file.
 - *Device-verified and released — unconfirmed:* the "Prove on a device" list
-  in ADR 0011 and the Float Mode gates in `docs/ios-release-runbook.md` are
+  in ADR 0011 and the River Mode gates in `docs/ios-release-runbook.md` are
   unticked. That proves the evidence is not recorded, not that the checks
   never happened or that nothing shipped. Until someone records them (or
-  confirms the store build and flag), describe Float Mode as implemented,
+  confirms the store build and flag), describe River Mode as implemented,
   with verification and release status unconfirmed.
 
 **The only entitlement gate is Eddy's written read.** Conditions, gauge
@@ -1251,18 +1251,18 @@ starting. The same compact picker is used by Find a Route.
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
 directly, without another confirmation screen. Setup is removed on success.
-Float Mode, options and the just-finished recap live in one root full-screen
+River Mode, options and the just-finished recap live in one root full-screen
 presentation above all tabs. Historical recaps use the same content in a normal
 tab detail (`float-history-recap`), with Back restoring the History list.
 Constant navigation identities prevent duplicate recording views.
-Float Mode shows the recorder’s usable GPS position, including off-river fixes.
+River Mode shows the recorder’s usable GPS position, including off-river fixes.
 Only confirmed river positions advance progress, distance or ETA. The map
 initially keeps the user and take-out in view; a manual gesture stops following.
 Recenter follows the user; Show route fits the complete stretch and actual
 landings even while off-route. A restored or stale fix is visibly dimmed until
 fresh GPS arrives. The tracking indicator pulses once per actual fix, respects
 Reduce Motion, and shows the last update age. The five-second display clock
-runs only while Float Mode is focused, the app is foregrounded and a float is
+runs only while River Mode is focused, the app is foregrounded and a float is
 active; it refreshes immediately on return. This clock does not request GPS
 fixes or control recording. Live Activity status reflects
 its real availability rather than promising an active Lock Screen display.

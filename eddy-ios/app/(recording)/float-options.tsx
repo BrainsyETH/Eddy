@@ -1,6 +1,6 @@
 // eddy-ios/app/(recording)/float-options.tsx
 // Float options: the settings a float needs now and then, kept off the Float
-// Mode panel so End stays in reach. A sheet over Float Mode: tracking detail,
+// Mode panel so End stays in reach. A sheet over River Mode: tracking detail,
 // the Lock Screen card, reminders, hazard reports sent from this river, and
 // keep-awake. Closing it returns to the float; nothing here ends it.
 
@@ -27,7 +27,7 @@ export default function FloatOptionsScreen() {
   const [keepAwake, setKeepAwake] = useKeepAwakePreference();
 
   // The float ended (automatically, say) while this sheet was open: go back,
-  // and Float Mode shows the recap.
+  // and River Mode shows the recap.
   useEffect(() => {
     if (!session && router.canGoBack()) router.back();
   }, [session, router]);

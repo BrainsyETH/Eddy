@@ -26,7 +26,7 @@ export default function RecordingLayout() {
   return <SafeAreaProvider><Stack screenOptions={{ orientation: 'portrait',
     headerBackButtonDisplayMode: 'generic', contentStyle: { backgroundColor: colors.bg } }}>
     <Stack.Screen name="float-mode" dangerouslySingular={recordingScreenId}
-      options={{ title: 'Float Mode', headerLeft: closeButton }} />
+      options={{ title: 'River Mode', headerLeft: closeButton }} />
     <Stack.Screen name="float-options" dangerouslySingular={recordingScreenId} options={{ title: 'Float options', presentation: 'formSheet',
         sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: true, headerShown: false }} />
     <Stack.Screen name="float-recap" dangerouslySingular={recordingScreenId}

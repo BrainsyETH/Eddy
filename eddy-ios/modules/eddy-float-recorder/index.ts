@@ -2,7 +2,7 @@
 // The native float recorder (ios/FloatRecorder.swift, ios/FloatJournal.swift).
 // See docs/decisions/0014-float-recording-is-native.md.
 //
-// Null in builds without the module (Expo Go, web): Float Mode then says
+// Null in builds without the module (Expo Go, web): River Mode then says
 // tracking is unavailable in this build rather than pretending.
 
 import { requireOptionalNativeModule } from 'expo';

@@ -1,5 +1,5 @@
 // eddy-ios/app/(recording)/float-mode.tsx
-// Float Mode: "how much farther?" while you are on the water.
+// River Mode: "how much farther?" while you are on the water.
 //
 // Everything on this screen is derived from the active session in
 // src/lib/floatSessionStore.ts by viewSession(); nothing here is stored. The

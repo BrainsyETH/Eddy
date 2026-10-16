@@ -23,7 +23,7 @@ import Foundation
 /// Every update and every service-session diagnostic carries Core Location's
 /// own flags (denied, Location Services off, Precise Location off, not in
 /// use, location unavailable, stationary). They are passed to JS as they
-/// arrive; Float Mode says what they say.
+/// arrive; River Mode says what they say.
 @MainActor
 final class FloatRecorder {
   static let shared = FloatRecorder()

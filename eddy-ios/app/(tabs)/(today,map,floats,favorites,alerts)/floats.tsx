@@ -184,7 +184,7 @@ export default function SavedFloatsScreen() {
                 <Text style={[t.base, styles.center, { color: colors.textMuted }]}>
                   {view === 'saved'
                     ? 'Build a route or find one you like, then tap Save.'
-                    : 'Finish a float in Float Mode to see its recap here.'}
+                    : 'Finish a float in River Mode to see its recap here.'}
                 </Text>
                 {selectedRiver ? (
                   <Pressable accessibilityRole="button" onPress={() => setRiver('')} style={styles.button}>
