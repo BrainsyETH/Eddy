@@ -1210,9 +1210,14 @@ needs a river, its sheet opens the river list directly and continues to access
 points after selection. Changing rivers inside an access sheet is provisional
 until the endpoint is chosen; closing discards those edits. Access search keeps
 the existing photos and river-distance labels. From
-can be **From my location** or a named access in either path. Boat is editable
-inline: the plan wins, otherwise the last Find a Route/readiness choice wins,
-with kayak as the default. It is never a separate required step.
+can be **From my location** or a named access in either path. Watercraft is one
+compact row below the route card, beside its timing context, with the caption
+"Helps estimate your float time". Tapping the row opens a native selection menu
+with the current choice checked; choosing an item applies it and closes the menu.
+The plan wins, otherwise the last Find a Route/readiness choice wins, with kayak
+as the default. It is never a separate required step. Moving-time and arrival
+details share the card once the route is valid, and the field is disabled while
+starting. Readiness has no vessel tiles or pace bars; Find a Route keeps its picker.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float

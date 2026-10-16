@@ -12,13 +12,13 @@ import { LocationGate } from '@/float/start/LocationGate';
 import { RoutePicker } from '@/float/start/RoutePicker';
 import { RouteCard } from '@/float/start/RouteCard';
 import { useGpsRiver } from '@/float/start/useGpsRiver';
+import { WatercraftPicker } from '@/float/start/WatercraftPicker';
 import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
 import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
-import { VesselPicker } from '@/components/VesselPicker';
 import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
 import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -225,6 +225,19 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
           leg={miles != null && miles > 0 ? `${miles.toFixed(1)} mi${minutes != null ? ` · about ${formatDuration(minutes)}` : ''}` : null} />
+        <Card padded={false}>
+          <WatercraftPicker value={boat} disabled={start.busy} onChange={value => {
+            boatChosen.current = true; setBoat(value);
+            void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
+          }} />
+          {valid ? <View style={[local.timing, { borderTopColor: colors.border }]}>
+            <Text style={[styles.body, { color: colors.textMuted }]}>{minutes != null
+              ? 'Moving time · stops not included' : estimate.loading ? 'Checking moving time…' : 'Eddy will learn your pace'}</Text>
+            {arrival ? <Text style={[styles.body, { color: colors.textMuted }]}>If you start now: {arrival.line}</Text> : null}
+            {arrival?.warning ? <Text style={[styles.body, { color: colors.error }]}>{arrival.warning}</Text> : null}
+          </View> : null}
+        </Card>
+        {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
           <Text style={[styles.body, { color: colors.textMuted }]}>Tracking will begin where GPS finds you. The route preview still starts at {putIn?.name}.</Text>
@@ -243,20 +256,6 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             position={null} positionDimmed={false} />
         </View> : null}
         {loaded && !loaded.ok ? <Text style={[styles.body, { color: colors.error }]}>{routeProblemCopy(loaded.reason)}</Text> : null}
-        <View style={styles.group} pointerEvents={start.busy ? 'none' : 'auto'}>
-          <Text style={[styles.label, { color: colors.text }]}>Boat</Text>
-          <VesselPicker value={boat} onChange={value => {
-            boatChosen.current = true; setBoat(value);
-            void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
-          }} />
-        </View>
-        <View style={styles.group}>
-          <Text style={[styles.body, { color: colors.textMuted }]}>{minutes != null
-            ? 'Moving time · stops not included' : estimate.loading ? 'Checking moving time…' : 'Eddy will learn your pace'}</Text>
-          {arrival ? <Text style={[styles.body, { color: colors.textMuted }]}>If you start now: {arrival.line}</Text> : null}
-          {arrival?.warning ? <Text style={[styles.body, { color: colors.error }]}>{arrival.warning}</Text> : null}
-          {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
-        </View>
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
@@ -277,6 +276,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
 }
 
 const local = StyleSheet.create({
+  timing: { borderTopWidth: StyleSheet.hairlineWidth, marginHorizontal: 16, paddingVertical: 12, gap: 4 },
   map: { height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   photo: { width: 44, height: 44, borderRadius: 10, alignSelf: 'center' },
   backup: { textAlign: 'center' },
