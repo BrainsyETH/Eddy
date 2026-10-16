@@ -106,9 +106,11 @@ export const TRIP_STYLE_URL = STYLE_URL;
 
 /**
  * Download every chunk, resuming any that already exist. Resolves once all
- * are requested; completion is read back with readTripDownload, because the
+ * are requested; completion is read back from tile/style counts, because the
  * native module reports progress per pack and keeps working after this
- * returns. Rejects on the first native error.
+ * returns. Start failures reject; later native failures call onError.
+ * iOS serializes actual tile + style work in withSerialMapboxOffline; awaiting
+ * createPack/resume here alone would only serialize the start requests.
  */
 export async function startTripDownload(chunks: readonly TripChunk[], onError: (message: string) => void): Promise<void> {
   const manager = getOfflineManager();
@@ -155,7 +157,12 @@ export async function removeTripDownload(tripKey: string): Promise<void> {
   const manager = getOfflineManager();
   if (manager) {
     for (const pack of await packs()) {
-      if (isTripPack(pack.name, tripKey)) await manager.deletePack(pack.name);
+      if (isTripPack(pack.name, tripKey)) {
+        // Removal cancels native work; that intentional cancellation is not a
+        // download failure to show on the card being cleared.
+        manager.unsubscribe(pack.name);
+        await manager.deletePack(pack.name);
+      }
     }
   }
   await AsyncStorage.removeItem(tripPackageKey(tripKey)).catch(() => {});

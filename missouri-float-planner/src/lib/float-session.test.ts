@@ -1084,7 +1084,7 @@ test('river detection retries a newer fix without overlapping or accepting a can
   assert.deepEqual(calls, [T0, T0 + 2]);
 });
 
-test('manual river selection cancels late detection; a failed lookup does not prevent a retry', async () => {
+test('a superseded lookup or failed request does not prevent a retry', async () => {
   const fix = { point: at(0), accuracy: 10, timestamp: T0 };
   let finish!: (value: string) => void;
   let attempt = 0;
@@ -1098,7 +1098,34 @@ test('manual river selection cancels late detection; a failed lookup does not pr
   const pending = lookup.run(fix);
   await Promise.resolve();
   lookup.cancel();
-  finish('detected-after-selection');
+  finish('detected-after-cancel');
   assert.equal(await pending, null);
-  assert.equal(await lookup.run(fix), 'current', 'A cancelled picker can enable detection again');
+  assert.equal(await lookup.run(fix), 'current', 'A cancelled request can retry with a better fix');
+});
+
+test('river detection retries a miss but its first match survives later GPS fixes', async () => {
+  const fix = { point: at(0), accuracy: 80, timestamp: T0 };
+  let calls = 0;
+  const lookup = createGpsRiverLookup(async () => [null, 'current', 'jacks-fork'][calls++] ?? null);
+  assert.equal(await lookup.run(fix), null);
+  assert.equal(await lookup.run({ ...fix, accuracy: 10 }), 'current');
+  assert.equal(await lookup.run({ ...fix, timestamp: T0 + 30_000 }), null);
+  assert.equal(calls, 2, 'No later lookup may switch a matched river or clear its endpoints');
+});
+
+test('typing or choosing a river permanently stops detection, including a late answer', async () => {
+  const fix = { point: at(0), accuracy: 10, timestamp: T0 };
+  let finish!: (value: string) => void;
+  let calls = 0;
+  const lookup = createGpsRiverLookup(async () => {
+    calls++;
+    return new Promise<string>(resolve => { finish = resolve; });
+  });
+  const pending = lookup.run(fix);
+  await Promise.resolve();
+  lookup.stop();
+  finish('current');
+  assert.equal(await pending, null, 'A search must not disappear when a native/cache answer arrives');
+  assert.equal(await lookup.run({ ...fix, timestamp: T0 + 30_000 }), null);
+  assert.equal(calls, 1, 'Clearing search or cancelling the picker must not restart detection');
 });

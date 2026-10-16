@@ -132,7 +132,7 @@ export default function FloatBackupScreen() {
             </Text>
             {failedSharingChoice != null && failedSharingChoice !== archive.preference.enabled && !archive.pendingConsentOff ? (
               <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>{failedSharingChoice
-                ? 'Sharing is still off. Try again when connected.'
+                ? 'Couldn’t turn sharing on. Try again later.'
                 : 'Eddy couldn’t turn sharing off. Please try again.'}</Text>
             ) : null}
             {archive.pendingConsentOff ? (

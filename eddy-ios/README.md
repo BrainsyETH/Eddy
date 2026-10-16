@@ -1220,9 +1220,11 @@ the river only when GPS sits on a mapped river line
 (closest line at a confluence; "Found from your location", Change one tap
 away), with the put-in as Current location. A nearby river alone is never
 selected automatically. Detection retries on fresh GPS and at most every 30 seconds
-while detection remains automatic and the fix is usable, serializing requests and ignoring cancelled
-answers. The 150 m line limit remains unchanged. Opening and cancelling a picker
-only pauses detection; a manual river or endpoint selection stops it. So at the water the usual setup is two
+until its first match, while the fix is usable, serializing requests and ignoring
+cancelled answers. The 150 m line limit remains unchanged. Opening and cancelling
+a picker only pauses detection; typing in river search or selecting a river or
+endpoint stops it for this visit. A matched river and its endpoints stay put as
+later GPS fixes arrive. So at the water the usual setup is two
 taps: a take-out and Start tracking. With a known start and no take-out, the
 next three downstream take-outs are listed inline with distance and moving time,
 then a See All row when there are more. Without a known start, Choose a take-out

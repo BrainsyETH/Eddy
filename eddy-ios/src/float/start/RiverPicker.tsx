@@ -11,8 +11,9 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { StartLocation } from './useStart';
 
-export function RiverPicker({ location, selectedSlug, header, inline = false, onChoose }: {
+export function RiverPicker({ location, selectedSlug, header, inline = false, onChoose, onSearchChange }: {
   inline?: boolean; location: StartLocation; selectedSlug?: string; header?: ReactNode; onChoose: (river: RiverListItem) => void;
+  onSearchChange?: () => void;
 }) {
   const { colors } = useTheme();
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
@@ -90,7 +91,7 @@ export function RiverPicker({ location, selectedSlug, header, inline = false, on
       <View style={[local.search, { backgroundColor: colors.cardRaised }]}>
         <ControlIcon name="search-outline" size={20} color={colors.textMuted} />
         <TextInput accessibilityLabel="Search rivers" placeholder="Search rivers" placeholderTextColor={colors.textMuted}
-          value={query} onChangeText={setQuery} autoCorrect={false} autoCapitalize="none" maxLength={120}
+          value={query} onChangeText={value => { onSearchChange?.(); setQuery(value); }} autoCorrect={false} autoCapitalize="none" maxLength={120}
           clearButtonMode="while-editing" returnKeyType="search" style={[local.input, { color: colors.text }]} />
       </View>
     </View>

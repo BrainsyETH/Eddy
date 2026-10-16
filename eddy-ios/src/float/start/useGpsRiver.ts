@@ -48,6 +48,7 @@ export function useGpsRiver(enabled: boolean, location: StartLocation, onFound: 
     return () => { current = false; lookup.cancel(); };
   }, [enabled, key, lookup]);
   return {
+    stop: lookup.stop,
     searching: enabled && ((key != null && settledKey !== key) || location.state === 'checking' || location.busy),
   };
 }

@@ -103,13 +103,16 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
     askedLocation.current = true;
     void locationAct();
   }, [locationState, locationAct]);
-  // An empty river is filled from GPS until the paddler makes any choice.
+  // GPS may fill an empty river once. A match, typing or selection settles it.
   const [autoEligible, setAutoEligible] = useState(!initial.riverSlug);
   const manuallySelected = useRef(false);
-  const stopDetection = () => { manuallySelected.current = true; setAutoEligible(false); };
+  const stopDetection = () => {
+    manuallySelected.current = true; setAutoEligible(false); gpsRiver.stop();
+  };
   const [autoRiver, setAutoRiver] = useState<string | null>(null);
   const gpsRiver = useGpsRiver(focused && autoEligible && !picker, location, slug => {
     if (manuallySelected.current) return;
+    setAutoEligible(false);
     setDraft(current => current.riverSlug === slug ? current : { riverSlug: slug, putInId: undefined, takeOutId: undefined });
     setAutoRiver(slug);
   });
@@ -220,7 +223,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             <Text style={[styles.cardTitle, { color: colors.text }]}>Choose your river</Text>
             {gpsRiver.searching ? <Text style={[styles.body, { color: colors.textMuted }]}>Looking for your river…</Text> : null}
           </View>
-          <RiverPicker inline location={location} onChoose={river => {
+          <RiverPicker inline location={location} onSearchChange={stopDetection} onChoose={river => {
             stopDetection(); setAutoRiver(null);
             setDraft({ riverSlug: river.slug, putInId: undefined, takeOutId: undefined });
           }} />
@@ -273,6 +276,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           onBuild={() => router.push({ pathname: '/plan-route', params: startPlannerParams(draft, boat) })} />
       </Shell>
       {picker ? <RoutePicker field={picker} draft={draft} loaded={loaded} location={location}
+        onSearchChange={stopDetection}
         onRetryCurrent={() => setRouteReload(value => value + 1)}
         onClose={() => setPicker(null)} onSelect={next => {
           stopDetection(); setAutoRiver(null);

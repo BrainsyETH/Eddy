@@ -1,0 +1,209 @@
+// @rnmapbox/maps 10.3.5 RNMBXOfflineModule.swift — lifecycle excerpts (trailing whitespace removed).
+/*
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+  @objc
+  func getPackStatus(_ name: String,
+                     resolver: @escaping RCTPromiseResolveBlock,
+                     rejecter: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      guard self.tileRegionPacks[name] != nil else {
+        rejecter("RNMBXOfflineModule.getPackStatus", "pack \(name) not found", nil)
+        return
+      }
+
+      self.tileStore.tileRegion(forId: name) { result in
+        switch result {
+        case .success(let region):
+          self.tileStore.tileRegionMetadata(forId: name) { result in
+            DispatchQueue.main.async {
+              switch result {
+              case .success(let metadata):
+                let pack = TileRegionPack(
+                  name: name,
+                  progress: self.toProgress(region: region),
+                  metadata: logged("RNMBXOfflineModule.getPackStatus") { metadata as? [String:Any] } ?? [:]
+                )
+                self.tileRegionPacks[name] = pack
+                resolver(self._makeRegionStatusPayload(pack: pack))
+              case .failure(let error):
+                Logger.log(level:.error, message: "Unable to fetch metadata for \(name)")
+                rejecter("RNMBXOfflineModule.getPackStatus", error.localizedDescription, error)
+              }
+            }
+          }
+        case .failure(let error):
+          Logger.log(level:.error, message: "Unable to fetch region for \(name)")
+          rejecter("RNMBXOfflineModule.getPackStatus", error.localizedDescription, error)
+        }
+      }
+    }
+  }
+
+  @objc
+  func resumePackDownload(_ name: String, resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock)
+  {
+    DispatchQueue.main.async {
+      if let pack = self.tileRegionPacks[name] {
+        self.startLoading(pack: pack)
+        resolver(nil)
+      } else {
+        rejecter("resumePackDownload", "Unknown offline pack: \(name)", nil)
+      }
+    }
+  }
+
+  @objc
+  func pausePackDownload(_ name: String, resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock)
+  {
+    DispatchQueue.main.async {
+      if let pack = self.tileRegionPacks[name] {
+        pack.cancelables.forEach { $0.cancel() }
+        resolver(nil)
+      } else {
+        rejecter("pausePackDownload", "Unknown offline region: \(name)", nil)
+      }
+    }
+  }
+
+
+  @objc
+  func deletePack(_ name: String,
+                  resolver: @escaping RCTPromiseResolveBlock,
+                  rejecter: @escaping RCTPromiseRejectBlock)
+  {
+    DispatchQueue.main.async {
+      guard let pack = self.tileRegionPacks[name] else {
+        return resolver(nil)
+      }
+
+      guard pack.state != .invalid else {
+        return rejecter("deletePack", "Pack: \(name) has already been deleted", nil)
+      }
+
+      self.tileStore.removeTileRegion(forId: name)
+      self.tileRegionPacks[name]!.state = .invalid
+      resolver(nil)
+    }
+  }
+
+
+  func startLoading(pack: TileRegionPack) {
+    let id = pack.name
+    let metadata = pack.metadata
+    let taskGroup = DispatchGroup()
+
+    guard let bounds = pack.bounds else {
+      RNMBXLogError("RNMBXOfflineModule.startLoading failed as there are no bounds in pack")
+      return
+    }
+    guard let zoomRange = pack.zoomRange else {
+      RNMBXLogError("RNMBXOfflineModule.startLoading failed as there is no zoom range in pack")
+      return
+    }
+    guard let styleURI = pack.styleURI else {
+      RNMBXLogError("RNMBXOfflineModule.startLoading failed as there is no styleURI in pack")
+      return
+    }
+
+    var downloadError = false
+
+    let stylePackLoadOptions = StylePackLoadOptions(glyphsRasterizationMode: .ideographsRasterizedLocally, metadata: pack.metadata)!
+
+    let threadedOfflineManager = OfflineManager()
+    taskGroup.enter()
+    let stylePackTask = threadedOfflineManager.loadStylePack(for: styleURI, loadOptions: stylePackLoadOptions) { progress in
+      // progress callbacks arrive on SDK background threads; tileRegionPacks
+      // is main-thread state (see #4252)
+      DispatchQueue.main.async {
+        self.tileRegionPacks[id]!.state = .active
+      }
+    } completion: { result in
+      DispatchQueue.main.async {
+        defer {
+          taskGroup.leave()
+        }
+
+        switch result {
+        case let .success(stylePack): break
+        case let .failure(error):
+          Logger.log(level: .warn,
+                     message: "RNMBXOfflineModule: startLoading: error loading style pack: " + error.localizedDescription)
+          downloadError = true
+          self.offlinePackDidReceiveError(name: id, error: error)
+        }
+      }
+    }
+    let descriptorOptions = TilesetDescriptorOptions(
+      styleURI: styleURI,
+      zoomRange: zoomRange,
+      tilesets: pack.tilesets
+    )
+    let tilesetDescriptor = threadedOfflineManager.createTilesetDescriptor(for: descriptorOptions)
+    let descriptors = [tilesetDescriptor]
+
+    let loadOptions = TileRegionLoadOptions(
+      geometry: bounds, // RNMBXFeatureUtils.geometryToGeometry(bounds),
+      descriptors: descriptors,
+      metadata: metadata,
+      acceptExpired: true,
+      networkRestriction: .none,
+      averageBytesPerSecond: nil)
+
+    var lastProgress : TileRegionLoadProgress? = nil
+
+    taskGroup.enter()
+    let task = self.tileStore.loadTileRegion(forId: id, loadOptions: loadOptions!, progress: {
+      progress in
+      // delivered on the "MB TileStore RW" thread; mutating tileRegionPacks
+      // here races the main thread and corrupts the dictionary (#4252)
+      DispatchQueue.main.async {
+        lastProgress = progress
+        self.tileRegionPacks[id]!.progress = progress
+        self.tileRegionPacks[id]!.state = .active
+        self.offlinePackProgressDidChange(progress: progress, metadata: metadata, state: .active)
+      }
+    }) { result in
+        DispatchQueue.main.async {
+            defer {
+                taskGroup.leave()
+            }
+            switch result {
+            case .success(let _):
+                if let progess = lastProgress {
+                    self.offlinePackProgressDidChange(progress: progess, metadata: metadata, state: .complete)
+                } else {
+                    Logger.log(level: .warn,
+                               message: "RNMBXOfflineModule: startLoading: tile region completed, but got no progress information")
+                }
+                self.tileRegionPacks[id]!.state = .complete
+            case .failure(let error):
+                Logger.log(level: .warn,
+                           message: "RNMBXOfflineModule: startLoading: error loading tile region: " + error.localizedDescription)
+
+                self.tileRegionPacks[id]!.state = .inactive
+                self.offlinePackDidReceiveError(name: id, error: error)
+            }
+        }
+    }
+
+    taskGroup.notify(queue: .main) {
+      self.tileRegionPacks[id]!.cancelables = []
+      self.tileRegionPacks[id]!.state = downloadError ? .inactive : .complete
+      // the style pack load and the tileset descriptor are tied to this
+      // manager; it must outlive the in-flight work (#4252)
+      withExtendedLifetime(threadedOfflineManager) {}
+    }
+
+    self.tileRegionPacks[id]!.cancelables = [task, stylePackTask]
+  }
+
+
+
+  func makeProgressEvent(_ name: String, progress: TileRegionLoadProgress, state: State) -> RNMBXEvent {
+    RNMBXEvent(type: .offlineProgress, payload: self._makeRegionStatusPayload(name, progress: progress, state: state, metadata: nil))
+  }

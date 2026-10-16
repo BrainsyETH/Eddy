@@ -36,6 +36,15 @@ there is none.
      beyond the take-out.
    - One style only: `STYLE_URL` (`mapbox://styles/mapbox/outdoors-v12`). No
      satellite, no user-drawn areas, no zoom choices.
+   - Run one chunk at a time, across trips as well as within a trip. Each
+     rnmapbox chunk starts a load of that same style; overlapping loads can
+     collide. `plugins/withSerialMapboxOffline.js` queues create/resume work
+     at the native `DispatchGroup` boundary, after both tile and style callbacks
+     finish (including failures/cancellation). Duplicate active/queued requests
+     do not start another load; pause/remove also removes pending work.
+     `createPack` and `resume` resolve at start, so awaiting those JavaScript
+     calls alone does not serialize downloads. This patch needs a new iOS
+     binary and fails prebuild if the pinned native source no longer matches.
 
 3. **Pack names are `float:<trip-key>:<chunk>`**, where the trip key is the
    saved float's short code or the quick-start session id. This must never
@@ -90,7 +99,7 @@ there is none.
   already has, so an interrupted download resumes rather than restarts, also
   after a relaunch (`getPacks` re-lists regions from `TileStore`). The UI
   must say "Paused, keep Eddy open to finish", never imply completion.
-- **Completeness covers tiles, not the style pack.** `getPacks()` reports
+- **Upstream completeness covers tiles, not the style pack.** `getPacks()` reports
   resource counts per tile region. Nothing exposes the style pack: the
   TileStore module offers only `setOption`; the one "complete" progress event
   fires when the TILES finish; the step that waits for both style and tiles
@@ -100,6 +109,11 @@ there is none.
   Hence the native module in decision 4. It links whatever `MapboxMaps`
   rnmapbox pins (no version of its own) and asks the default `OfflineManager`,
   the same store rnmapbox downloads into.
+  Our config plugin also keeps progress events active at 100% tiles and emits
+  the terminal event after both loads settle, so the JS wrapper keeps listening
+  for late style errors. It preserves cancellation handles during status polls
+  and counts tile failures in the final state. Readiness still needs the
+  independently verified resource counts in decision 4.
 - **`createPack` throws if the name exists in this process.** Updates use new
   names (decision 5), which also avoids that.
 

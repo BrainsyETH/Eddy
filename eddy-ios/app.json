@@ -39,6 +39,7 @@
     "plugins": [
       "expo-router",
       "@rnmapbox/maps",
+      "./plugins/withSerialMapboxOffline",
       "expo-font",
       [
         "expo-splash-screen",

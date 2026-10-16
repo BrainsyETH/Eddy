@@ -279,8 +279,11 @@ are pending checks, not evidence of a device pass.
       GPS refreshes; repeat after a timeout and after returning from Settings.
       With no river selected, see river search and choices directly on Ready;
       choose a river in one tap, then its take-out. Improve a poor GPS fix and
-      verify detection retries without a tap. Cancel a picker and verify it
-      resumes; make a manual selection and verify late detection cannot replace it. With a river selected, open
+      verify detection retries without a tap. After its first match, wait for
+      later fixes near a confluence: the river and endpoints must stay put.
+      Cancel an untouched picker and verify detection resumes. Type in river
+      search (then clear it or cancel), or make a selection: late detection must
+      not replace the draft or hide the search list. With a river selected, open
       take-outs directly. Change river inside that sheet and close: the previous
       route and download remain. Search with the keyboard open and select in
       one tap. Check light/dark, large text, VoiceOver, Reduce Motion and that
@@ -319,7 +322,15 @@ are pending checks, not evidence of a device pass.
       named endpoints. A current-location start retains take-out and asks for
       put-in. Save and download there; return to Ready with the unchanged saved
       route and see Offline map ready only after complete tile/style verification.
-      Double-tap Download, interrupt/retry, relaunch and test in airplane mode.
+      The planner requires Save before Download; verify returning to Ready finds
+      that saved stretch, including after a relaunch, and that changing an end
+      does not borrow its ready status.
+      **Use a new iOS binary containing `withSerialMapboxOffline` (not an OTA).**
+      Download a multi-chunk route and a second route while the first runs:
+      only one chunk's tile/style load may be active. Double-tap Download,
+      interrupt/retry, remove queued work, relaunch and test in airplane mode.
+      Force a style failure after tiles reach 100% and verify it is reported;
+      completion must wait for both loads, and retries must not overlap them.
       If “group load with same identifier” recurs, record exact native wording,
       build/runtime version, create vs resume, chunk counts and style status from
       diagnostics. Confirm completed state clears old errors; do not treat the
