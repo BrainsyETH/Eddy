@@ -10,13 +10,12 @@ import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ArrowUpRight, Phone, Smartphone } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
-import DamStateCard from '@/components/dam/DamStateCard';
-import DamGenerationHero from '@/components/dam/DamGenerationHero';
-import DamPatternStrip from '@/components/dam/DamPatternStrip';
-import GenerationForecast from '@/components/dam/GenerationForecast';
-import GenerationSchedule from '@/components/dam/GenerationSchedule';
+import DamDetail from '@/components/dam/DamDetail';
+import AppLink from '@/components/AppLink';
+import { getRiverContext } from '@/lib/rivers/context';
+import { riverPath } from '@/lib/navigation/river-path';
 import { listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 
@@ -53,156 +52,48 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
   const dam = await pageDam(damId);
   if (!dam) notFound();
 
-  // One instant for the whole page, minted here and handed to every client
-  // section. Letting each of them call the clock would let the timeline and the
-  // pattern strip disagree about which hour is "now" on the same screen.
+  const project = getUsaceDam(dam.id);
+  const availability = project?.amerenMetrics === 'osage'
+    ? { title: 'No hourly schedule published', detail: 'Ameren operates this dam. Releases can begin at any time, and the dam sounds a warning siren before starting or stopping generators. The recorded operations line provides current information.' }
+    : !dam.hasTurbines
+      ? { title: 'Gate-operated releases', detail: 'This dam has no powerhouse. Releases are controlled by gate operation, so there is no generation schedule.' }
+      : !project?.swpaCode
+        ? { title: 'No hourly schedule published', detail: dam.generationForecast ? 'The operating forecast below provides the forward view for this dam.' : 'Eddy shows observed readings for this dam. No public hourly loading schedule is available.' }
+        : { title: 'Schedule currently unavailable', detail: 'SWPA posts upcoming schedules each afternoon. Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.' };
+
+  // Only offer a river destination that is active. Catalog failure must not
+  // prevent the dam readings from rendering.
+  const river = dam.tailwater ? await getRiverContext(dam.tailwater.riverSlug).catch(() => null) : null;
+  const riverHref = river ? `${riverPath(river.state, river.slug)}${dam.tailwater?.sectionSlug ? `?section=${encodeURIComponent(dam.tailwater.sectionSlug)}` : ''}` : null;
   const renderedAt = Date.now();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
-      <div className="mx-auto max-w-3xl px-4 pb-16 pt-6">
-        <Link
-          href="/dams"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-primary-700 hover:text-primary-800"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          All lakes &amp; dams
+    <div className="min-h-screen bg-neutral-50">
+      <div className="mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+        <Link href="/dams" className="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-primary-700 hover:text-primary-800">
+          <ChevronLeft className="size-4" aria-hidden="true" /> All lakes &amp; dams
         </Link>
-
-        {/* The order is the hierarchy a fisherman reads in: what the powerhouse
-            is doing now, when it changes, today and the days ahead, the rhythm
-            it has kept all week — and only then the lake, the temperature and
-            the rest of the project. Everything above the pattern strip answers
-            a question somebody is asking before they load the truck. */}
-        <h1 className="text-2xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-          {dam.name}
-        </h1>
-        <p className="mb-4 text-xs text-neutral-500">
-          {dam.lakeName ?? 'USACE project'} · {dam.state}
-        </p>
-
-        <DamGenerationHero dam={dam} />
-
-        <div className="mt-6">
-          <GenerationSchedule
-            schedule={dam.schedule}
-            reference={dam.generationReference}
-            renderedAt={renderedAt}
-          />
-        </div>
-
-        {/* The forecast sits where the schedule would: it answers the same
-            "today and the days ahead" question, from a different kind of
-            source — a district's operating forecast rather than a power
-            marketer's loading schedule. No dam currently has both. */}
-        {dam.generationForecast && (
-          <div className="mt-6">
-            <GenerationForecast forecast={dam.generationForecast} renderedAt={renderedAt} />
+        <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h1>
+            <p className="mt-1 text-sm text-neutral-500">{dam.lakeName ?? 'Dam conditions'} · {dam.state}</p>
           </div>
-        )}
-
-        {dam.pattern && dam.pattern.length > 0 && (
-          <div className="mt-6">
-            <DamPatternStrip
-              pattern={dam.pattern}
-              schedule={dam.schedule}
-              reference={dam.generationReference}
-              generationFloorCfs={dam.generationFloorCfs}
-              renderedAt={renderedAt}
-            />
-          </div>
-        )}
-
-        <div className="mt-6">
-          <DamStateCard dam={dam} secondary />
+          <nav aria-label="Dam sections" className="flex gap-2 text-sm">
+            <a href="#generation" className="inline-flex min-h-11 items-center rounded-full bg-primary-100 px-4 font-medium text-primary-800">{dam.hasTurbines ? 'Generation' : 'Releases'}</a>
+            <a href="#dam-resources" className="inline-flex min-h-11 items-center rounded-full px-4 text-neutral-600 hover:bg-neutral-100">Useful links</a>
+          </nav>
+        </header>
+        <div id="generation" className="scroll-mt-24">
+          <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} />
         </div>
-
-        {/* An empty schedule means one of two very different things, and
-            conflating them produced a live factual error: Table Rock has a
-            four-unit powerhouse, but whenever SWPA's file for that weekday had
-            not refreshed yet the fail-closed date check dropped it, and this
-            page then announced the plant did not exist — while the index card
-            beside it read "Generating". hasTurbines is the registry's answer
-            and does not depend on today's fetch succeeding. */}
-        {dam.schedule.length === 0 && (
-          <p className="mt-6 rounded-xl border-2 border-neutral-300 bg-white p-5 text-sm text-neutral-600">
-            {/* Four states, not two. "SWPA hasn't refreshed yet" is a claim
-                about a dam SWPA schedules — on a Nashville project, whose
-                power SEPA markets with no public loading page, it would
-                promise a schedule that is never coming; on Bagnell, which is
-                not federal at all, even the SEPA sentence would name the
-                wrong operator. The registry separates them, and this is a
-                server component, so it can ask it directly. */}
-            {getUsaceDam(dam.id)?.amerenMetrics === 'osage' ? (
-              <>
-                Bagnell Dam is operated by Ameren Missouri under a FERC
-                license, and no hourly generation schedule is published —
-                releases can begin at any time, and the dam sounds a warning
-                siren before starting or stopping generators. The readings
-                above are observed at the dam.
-                {dam.infoPhone && (
-                  <>
-                    {' '}
-                    For Ameren&rsquo;s recorded daily operations report, call{' '}
-                    <a
-                      href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}
-                      className="font-medium text-primary-700 hover:text-primary-800"
-                    >
-                      {dam.infoPhone}
-                    </a>
-                    .
-                  </>
-                )}
-              </>
-            ) : dam.hasTurbines && !getUsaceDam(dam.id)?.swpaCode ? (
-              dam.generationForecast ? (
-                <>
-                  No public hourly loading schedule exists for this project —
-                  its power is marketed by the Southeastern Power
-                  Administration, which does not post one. The Corps&rsquo; own
-                  operating forecast above is the forward view.
-                </>
-              ) : (
-                <>
-                  No public hourly loading schedule exists for this project —
-                  its power is marketed by the Southeastern Power
-                  Administration, which does not post one. Everything Eddy shows
-                  for this dam is measured at the dam, not scheduled.
-                </>
-              )
-            ) : dam.hasTurbines ? (
-              <>
-                The generation schedule for this project isn&rsquo;t available
-                right now — Southwestern Power Administration posts the next
-                day&rsquo;s each afternoon, and Eddy will only show one it can
-                confirm is current.
-                {dam.infoPhone && (
-                  <>
-                    {' '}
-                    For releases right now, call{' '}
-                    <a href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} className="font-medium text-primary-700 hover:text-primary-800">
-                      {dam.infoPhone}
-                    </a>
-                    .
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                This project has no powerhouse, so there is no generation
-                schedule — its release is set by gate operation rather than
-                power demand, and tends to hold steady for days at a time.
-              </>
-            )}
-          </p>
-        )}
-
-        {dam.sources.length > 0 && (
-          <p className="mt-6 text-xs text-neutral-500">Source: {dam.sources.join(' · ')}</p>
-        )}
+        <div id="dam-resources" className="mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
+          {riverHref && river && <Link href={riverHref} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900">View {river.name} below the dam <ArrowUpRight className="size-4" aria-hidden="true" /></Link>}
+          {dam.infoPhone && <a href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700"><Phone className="size-4" aria-hidden="true" /> Recorded release line · {dam.infoPhone}</a>}
+          <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-primary-700"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>
+        </div>
+        {dam.sources.length > 0 && <p className="mt-5 text-xs text-neutral-500">Sources: {dam.sources.join(' · ')}</p>}
       </div>
-
-      <SiteFooter maxWidth="max-w-3xl" />
+      <SiteFooter maxWidth="max-w-7xl" />
     </div>
   );
 }
