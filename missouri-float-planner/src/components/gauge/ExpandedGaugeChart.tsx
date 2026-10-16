@@ -22,7 +22,7 @@
 //   · Focus is trapped while open, Escape closes, and focus returns to the
 //     trigger (useFocusTrap owns all three).
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, ZoomOut } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -35,6 +35,11 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
 import { selectedWindowDays, useLastYearComparison } from '@/hooks/useLastYearComparison';
 import { lastYearAvailable } from '@shared/chart-model';
+import ChartShareControls from '@/components/gauge/ChartShareControls';
+import { captureChart } from '@shared/chart-snapshot';
+import { chartView, chartReferences } from '@shared/chart-view';
+import { chartStamp, stationDayWindow } from '@shared/chart-calendar';
+import { chartStatisticForUnit, resolutionNotice, type ChartShareState, type ChartScaleMode } from '@shared/chart-share';
 import ChartCompare from '@/components/gauge/ChartCompare';
 
 interface HistoryCapabilitiesLike {
@@ -44,6 +49,10 @@ interface HistoryCapabilitiesLike {
 }
 
 interface ExpandedGaugeChartProps {
+  initialShareState?: ChartShareState;
+  riverId?: string;
+  provider?: string;
+  timeZone?: string;
   open: boolean;
   onClose: () => void;
   siteId: string;
@@ -63,13 +72,15 @@ interface ExpandedGaugeChartProps {
   onLastYearChange: (on: boolean) => void;
 }
 
+const subscribeToHydration = () => () => {};
+
 const FALLBACK_CAPABILITIES: HistoryCapabilitiesLike = {
   maxInstantDays: 30,
   supportsDaily: false,
   supportsCustomRange: false,
 };
 
-type RangeChoice = { kind: 'days'; days: number } | { kind: 'custom'; from: string; to: string };
+type RangeChoice = { kind: 'days'; days: number } | { kind: 'shared'; from: string; to: string } | { kind: 'custom'; from: string; to: string };
 
 function csvEscape(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -77,6 +88,7 @@ function csvEscape(value: string): string {
 
 export default function ExpandedGaugeChart({
   open,
+  initialShareState, riverId, provider, timeZone,
   onClose,
   siteId,
   siteName,
@@ -89,12 +101,17 @@ export default function ExpandedGaugeChart({
   onLastYearChange,
 }: ExpandedGaugeChartProps) {
   const caps = capabilities ?? FALLBACK_CAPABILITIES;
-  const dialogRef = useFocusTrap<HTMLDivElement>(open, onClose);
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const dialogRef = useFocusTrap<HTMLDivElement>(open && hydrated, onClose);
 
-  const [range, setRange] = useState<RangeChoice>({ kind: 'days', days: 90 });
+  const [range, setRange] = useState<RangeChoice>(initialShareState ? { kind: 'shared', ...initialShareState.loaded } : { kind: 'days', days: 90 });
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const [zoom, setZoom] = useState<{ t0: number; t1: number } | null>(null);
+  const [zoom, setZoom] = useState<{ t0: number; t1: number } | null>(initialShareState ? { t0: Date.parse(initialShareState.visible.from), t1: Date.parse(initialShareState.visible.to) } : null);
+
+  const [scale, setScale] = useState<ChartScaleMode>(initialShareState?.scale ?? 'loaded');
+  const [typicalOn, setTypicalOn] = useState(initialShareState ? initialShareState.layers.includes('typical') : showTypical);
+  const [medianOn, setMedianOn] = useState(initialShareState ? initialShareState.layers.includes('median') : showTypical);
 
   // A new range is a new question; a zoom into the old one must not survive it,
   // and neither does a Last year layer the new range cannot carry.
@@ -126,8 +143,8 @@ export default function ExpandedGaugeChart({
 
   const requestDays = range.kind === 'days' ? range.days : 30;
   const requestWindow: HistoryWindowRequest | null =
-    range.kind === 'custom'
-      ? { from: `${range.from}T00:00:00Z`, to: `${range.to}T23:59:59Z`, resolution: 'auto' }
+    range.kind === 'shared' ? { ...range, resolution: initialShareState?.statistic === 'instantaneous' ? 'auto' : 'daily' } : range.kind === 'custom'
+      ? { ...stationDayWindow(range.from, range.to, timeZone ?? 'UTC'), resolution: 'auto' }
       : null;
 
   // The same query the chart below runs — React Query dedupes them — so the
@@ -220,11 +237,21 @@ export default function ExpandedGaugeChart({
   }, [history, siteId, siteName]);
 
   const rangeLabel = useMemo(() => {
+    if (range.kind === 'shared') return `${chartStamp(range.from, initialShareState?.timeZone ?? 'UTC')} to ${chartStamp(range.to, initialShareState?.timeZone ?? 'UTC')}`;
     if (range.kind === 'custom') return `${range.from} to ${range.to}`;
     return range.days === 365 ? 'Last year' : `Last ${range.days} days`;
-  }, [range]);
+  }, [range, initialShareState]);
 
-  if (!open) return null;
+  const layers = displayUnit === 'cfs' ? [...(typicalOn ? ['typical' as const] : []), ...(medianOn ? ['median' as const] : []), ...(lastYearOn ? ['lastYear' as const] : [])] : [];
+  const model = history?.requestedWindow ? chartView({ ...history, prior: lastYear.comparison?.readings,
+    loaded: history.requestedWindow, unit: displayUnit, timeZone: history.timeZone ?? 'UTC', layers,
+    scale, references: chartReferences(displayUnit, thresholds, floodStages), visible: zoom ? { start: zoom.t0, end: zoom.t1 } : null }) : null;
+  const shareState = captureChart({ siteId, provider, unit: displayUnit, history: history ?? null,
+    matchesRequest: !!history, comparisonPending: lastYearOn && ['loading', 'failed'].includes(lastYear.status),
+    layers, scale, domain: model?.domain ?? null, riverId: chartReferences(displayUnit, thresholds).length ? riverId : undefined });
+  const notice = range.kind === 'shared' && initialShareState && history ? resolutionNotice(initialShareState.statistic, chartStatisticForUnit(history.statistic, displayUnit)) : null;
+
+  if (!open || !hydrated) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
@@ -243,6 +270,7 @@ export default function ExpandedGaugeChart({
             <h2 className="text-base font-bold text-neutral-900">{siteName}</h2>
             <p className="text-xs text-neutral-500">
               {rangeLabel}
+              {notice && <span> · {notice}</span>}
               {history?.statistic && history.statistic !== 'instantaneous' && (
                 <span> · daily values, one point per day</span>
               )}
@@ -259,6 +287,14 @@ export default function ExpandedGaugeChart({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 px-5 pt-3">
+          <label className="text-xs">Value scale <select aria-label="Value scale" value={scale} onChange={e => setScale(e.target.value as ChartScaleMode)}>
+            <option value="loaded">Loaded window</option><option value="visible">Visible values</option><option value="full">Full scale</option>
+          </select></label>
+          {displayUnit === 'cfs' && <>
+            <label className="text-xs"><input type="checkbox" checked={typicalOn} onChange={e => setTypicalOn(e.target.checked)} /> Typical range</label>
+            <label className="text-xs"><input type="checkbox" checked={medianOn} onChange={e => setMedianOn(e.target.checked)} /> Historical median</label>
+          </>}
+          {range.kind === 'shared' && <Button size="sm" variant="outline" onClick={() => chooseRange({ kind: 'days', days: 7 })}>Show latest</Button>}
           {/* A custom range presses nothing: 0 matches no preset. */}
           <Segmented
             aria-label="History range"
@@ -349,12 +385,16 @@ export default function ExpandedGaugeChart({
             floodStages={floodStages}
             displayUnit={displayUnit}
             chartClassName="h-72 md:h-96"
-            showTypical={showTypical}
+            showTypical={typicalOn}
+            showMedian={medianOn}
+            scaleMode={scale}
             showProvenance
             showGridlines
             lastYear={lastYear.comparison}
           />
         </div>
+
+        {provider === 'usgs' && <ChartShareControls state={shareState} />}
 
         {/* The tabular view behind the keyboard scrub (ADR 0010): the same
             series, as data a screen reader can walk row by row and anyone can
@@ -380,12 +420,7 @@ export default function ExpandedGaugeChart({
                   {history.readings.map((reading) => (
                     <tr key={reading.timestamp} className="border-t border-neutral-100 text-neutral-700">
                       <td className="py-1 pr-3 whitespace-nowrap">
-                        {new Date(reading.timestamp).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
+                        {chartStamp(reading.timestamp, history.timeZone ?? 'UTC')}
                       </td>
                       <td className="py-1 pr-3">{reading.gaugeHeightFt ?? '—'}</td>
                       <td className="py-1 pr-3">{reading.dischargeCfs ?? '—'}</td>

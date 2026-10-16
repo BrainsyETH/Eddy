@@ -3,6 +3,8 @@
 // src/components/gauge/GaugeDetailView.tsx
 // Full-page gauge detail view for individual gauges (fallback when no river association)
 
+import { thresholdsForUnit } from '@shared/chart-view';
+import { gaugeSharePath, type ChartShareState } from '@shared/chart-share';
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -51,15 +53,17 @@ import {
 
 interface GaugeDetailViewProps {
   siteId: string;
+  initialShareState?: ChartShareState;
+  shareUnavailable?: boolean;
 }
 
-export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
+export default function GaugeDetailView({ siteId, initialShareState, shareUnavailable }: GaugeDetailViewProps) {
   // Seven days, and not restored from another gauge's prior selection.
   const [dateRange, setDateRange] = useState(7);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
-  const [expandedOpen, setExpandedOpen] = useState(false);
-  const [lastYearFor, setLastYearFor] = useState<string | null>(null);
-  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
+  const [expandedOpen, setExpandedOpen] = useState(!!initialShareState);
+  const [lastYearFor, setLastYearFor] = useState<string | null>(initialShareState?.layers.includes('lastYear') ? siteId : null);
+  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(initialShareState?.unit ?? null);
 
   // Eddy AI update
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
@@ -80,12 +84,12 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
       const listed = listGauge?.thresholds?.find(l => l.riverId === link.riverId);
       return { ...listed, ...link,
         riverState: listed?.riverState ?? null,
-        altLevelTooLow: listed?.altLevelTooLow ?? null,
-        altLevelLow: listed?.altLevelLow ?? null,
-        altLevelOptimalMin: listed?.altLevelOptimalMin ?? null,
-        altLevelOptimalMax: listed?.altLevelOptimalMax ?? null,
-        altLevelHigh: listed?.altLevelHigh ?? null,
-        altLevelDangerous: listed?.altLevelDangerous ?? null,
+        altLevelTooLow: link.altLevelTooLow ?? listed?.altLevelTooLow ?? null,
+        altLevelLow: link.altLevelLow ?? listed?.altLevelLow ?? null,
+        altLevelOptimalMin: link.altLevelOptimalMin ?? listed?.altLevelOptimalMin ?? null,
+        altLevelOptimalMax: link.altLevelOptimalMax ?? listed?.altLevelOptimalMax ?? null,
+        altLevelHigh: link.altLevelHigh ?? listed?.altLevelHigh ?? null,
+        altLevelDangerous: link.altLevelDangerous ?? listed?.altLevelDangerous ?? null,
       };
     }) ?? null,
   } : null;
@@ -93,7 +97,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
   // happened to order first. See shared/primary-river-link.ts.
-  const primaryRiver = pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
+  const primaryRiver = initialShareState ? gauge?.thresholds?.find(r => r.riverId === initialShareState.riverId) : pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || (gauge?.dischargeCfs != null ? 'cfs' : 'ft');
 
@@ -107,14 +111,14 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Initialize displayUnit from threshold
   useEffect(() => {
-    if (!primaryRiver) return;
+    if (!primaryRiver || initialShareState) return;
     const stored = localStorage.getItem(`gauge-unit-${siteId}`);
     if (stored === 'ft' || stored === 'cfs') {
       setDisplayUnit(stored);
     } else {
       setDisplayUnit(primaryRiver.thresholdUnit);
     }
-  }, [primaryRiver, siteId]);
+  }, [primaryRiver, siteId, initialShareState]);
 
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
@@ -186,10 +190,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Share handler
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/gauges/${siteId}`;
+    const shareUrl = `${window.location.origin}${gaugeSharePath({ provider: 'usgs', siteId })}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.share) {
-      try { await navigator.share({ url: shareUrl }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ url: shareUrl }); return; } catch (error) { if (error instanceof Error && error.name === 'AbortError') return; }
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -299,6 +303,11 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     on: lastYearOn,
   });
 
+  if (initialShareState && gaugeDetail && (gaugeDetail.provider !== 'usgs' || (gaugeDetail.timeZone && gaugeDetail.timeZone !== initialShareState.timeZone))) return <GaugeDetailView siteId={siteId} shareUnavailable />;
+  if (initialShareState?.riverId && gaugeDetail && !thresholdsForUnit(gaugeDetail.thresholds?.find(r => r.riverId === initialShareState.riverId), initialShareState.unit)) {
+    return <GaugeDetailView siteId={siteId} shareUnavailable />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
@@ -337,6 +346,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      {shareUnavailable && <p role="status" className="mx-auto max-w-5xl p-4">This chart link could not be restored. Showing the station’s latest conditions.</p>}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
         {/* Back link */}
         <Link
@@ -498,6 +508,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           </Card>
 
           <ExpandedGaugeChart
+            initialShareState={initialShareState}
+            riverId={primaryRiver?.riverId}
+            provider={gaugeDetail?.provider}
+            timeZone={gaugeDetail?.timeZone}
             open={expandedOpen}
             onClose={() => setExpandedOpen(false)}
             siteId={gauge.usgsSiteId}

@@ -586,6 +586,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           </Card>
 
         <ExpandedGaugeChart
+          key={activeGauge.usgsSiteId}
+          provider={gaugeDetail?.provider}
+            timeZone={gaugeDetail?.timeZone}
+          riverId={activeThreshold?.riverId}
           open={expandedOpen}
           onClose={() => setExpandedOpen(false)}
           siteId={activeGauge.usgsSiteId}

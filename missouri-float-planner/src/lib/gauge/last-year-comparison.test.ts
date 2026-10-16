@@ -236,7 +236,8 @@ const EXPANDED = read('src/components/gauge/ExpandedGaugeChart.tsx');
 
 test('both renderers align and read out the comparison through the shared model', () => {
   for (const [name, source] of [['app', APP_CHART], ['web', WEB_CHART]] as const) {
-    assert.match(source, /alignPriorYear\(/, `${name} chart no longer aligns through the model`);
+    assert.match(source, /(?:nativeChartView|chartView)\(/, `${name} chart no longer prepares through the shared model`);
+    assert.match(readFileSync(join(process.cwd(), 'shared/chart-view.ts'), 'utf8'), /alignPriorYear\(/);
     assert.match(source, /priorYearPointFor\(/, `${name} readout no longer matches by date`);
     assert.match(source, /Last year · daily average/, `${name} legend lost its label`);
   }

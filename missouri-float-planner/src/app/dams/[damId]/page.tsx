@@ -5,6 +5,7 @@
 // daily average and cannot say "the units run 7-11 AM"; SWPA's hourly schedule
 // can, and that is what a wading angler plans around.
 
+import StationShareButton from '@/components/gauge/StationShareButton';
 import { publicPageMetadata } from '@/lib/seo';
 import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
@@ -68,6 +69,8 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           <ChevronLeft className="h-4 w-4" />
           All lakes &amp; dams
         </Link>
+
+        <StationShareButton station={{ provider: 'usace', siteId: damId }} />
 
         {/* The order is the hierarchy a fisherman reads in: what the powerhouse
             is doing now, when it changes, today and the days ahead, the rhythm

@@ -48,6 +48,7 @@ export interface SeasonalRangeRow {
 }
 
 export interface NormalizedGaugeHistory {
+  timeZone?: string;
   siteId: string;
   siteName: string;
   readings: GaugeHistoryReadingLike[];
@@ -98,6 +99,7 @@ export function normalizeGaugeHistory(
   return {
     siteId: raw.siteId ?? '',
     siteName: raw.siteName ?? '',
+    timeZone: raw.timeZone,
     readings,
     observedThrough:
       raw.observedThrough ?? readings[readings.length - 1]?.timestamp ?? null,

@@ -107,10 +107,10 @@ const EMPTY: GaugeHistoryState = {
   historyDays: null,
 };
 
-export function useGaugeHistory(siteId: string | null, days: number, window?: { from: string; to: string }): GaugeHistory {
+export function useGaugeHistory(siteId: string | null, days: number, window?: { from: string; to: string }, resolution: 'auto' | 'daily' = 'auto'): GaugeHistory {
   const from = window?.from;
   const to = window?.to;
-  const requestKey = `${siteId}:${days}:${from ?? ''}:${to ?? ''}`;
+  const requestKey = `${siteId}:${days}:${from ?? ''}:${to ?? ''}:${resolution}`;
   const [heldKey, setHeldKey] = useState<string | null>(null);
   const [state, setState] = useState<GaugeHistoryState>(EMPTY);
 
@@ -157,7 +157,7 @@ export function useGaugeHistory(siteId: string | null, days: number, window?: { 
 
     setState((prev) => ({ ...prev, loading: true, failed: false }));
 
-    const result = await fetchGaugeHistory(site, window, controller.signal, from && to ? { from, to } : undefined);
+    const result = await fetchGaugeHistory(site, window, controller.signal, from && to ? { from, to } : undefined, resolution);
     // Aborted covers the ordinary supersede; the key check makes it true by
     // CONSTRUCTION rather than by the abort above happening to have fired.
     // Dropped rather than cached: the cache is written below from one place,
@@ -209,7 +209,7 @@ export function useGaugeHistory(siteId: string | null, days: number, window?: { 
       historyDays: usable ? window : null,
     });
     if (inFlight.current === controller) inFlight.current = null;
-  }, [from, to]);
+  }, [from, to, resolution]);
 
   useEffect(() => {
     if (!siteId) {

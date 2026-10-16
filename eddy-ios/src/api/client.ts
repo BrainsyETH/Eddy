@@ -1113,8 +1113,9 @@ export async function fetchGaugeHistory(
   signal?: AbortSignal,
   window?: { from: string; to: string },
   resolution: 'auto' | 'daily' = 'auto',
+  stationCalendar = true,
 ): Promise<GaugeHistoryResponse | null | undefined> {
-  const query = new URLSearchParams({ days: String(days), resolution, ...window });
+  const query = new URLSearchParams({ days: String(days), resolution, ...window, ...(stationCalendar ? { calendar: 'station' } : {}) });
   try {
     const raw = await get<GaugeHistoryResponse>(
       `/api/gauges/${encodeURIComponent(siteId)}/history?${query}`,

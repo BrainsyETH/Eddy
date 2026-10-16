@@ -1,3 +1,5 @@
+import { thresholdsForUnit } from '@eddy/conditions/chart-view';
+import { parseChartShare } from '@eddy/conditions/chart-share';
 import { openExternalLink } from '@/lib/openExternalLink';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
@@ -30,7 +32,7 @@ import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observa
 // the ordinary loading path, which is why that path is the plain one rather
 // than the exception.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -175,12 +177,15 @@ function readingValue(gauge: GaugeSeed, unit: 'ft' | 'cfs' | null): number | nul
 }
 
 export default function GaugeDetailScreen() {
-  const { siteId, alertId, alertSource } = useLocalSearchParams<{
+  const { siteId, alertId, alertSource, chart, shareUnavailable } = useLocalSearchParams<{
     siteId: string;
+    chart?: string;
+    shareUnavailable?: string;
     /** Set only by a push-notification tap — see routeTo in usePush. */
     alertId?: string;
     alertSource?: string;
   }>();
+  const candidateShareState = useMemo(() => typeof chart === 'string' ? parseChartShare('usgs', siteId, new URLSearchParams(chart)) : null, [chart, siteId]);
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
@@ -302,7 +307,8 @@ export default function GaugeDetailScreen() {
   // it — so `find` returned whichever row the API happened to list first, and
   // this screen could name a different river than the map did in the same
   // session. See @eddy/conditions/primary-river-link.
-  const link = gauge ? pickPrimaryRiverLink(gauge.thresholds) : null;
+  const initialShareState = candidateShareState && (!gauge?.timeZone || gauge.timeZone === candidateShareState.timeZone) && (!candidateShareState.riverId || (gauge && thresholdsForUnit(gauge.thresholds?.find(r => r.riverId === candidateShareState.riverId), candidateShareState.unit))) ? candidateShareState : null;
+  const link = gauge ? initialShareState ? gauge.thresholds?.find(r => r.riverId === initialShareState.riverId) ?? null : pickPrimaryRiverLink(gauge.thresholds) : null;
   const rated = Boolean(link && hasLadder(link));
 
   /**
@@ -749,13 +755,16 @@ export default function GaugeDetailScreen() {
             river screen's pads 16, and a margin inside the component was added
             to both. */}
         <View style={styles.inset}>
+          {(shareUnavailable || (chart && !initialShareState)) && <Text style={{ color: colors.textMuted }}>This chart link could not be restored. Showing the station’s latest conditions.</Text>}
           <GaugeChart
+            initialShareState={initialShareState ?? undefined}
+            riverId={link?.riverId}
             siteId={gauge.siteId}
             title={gauge.name}
             recentSummary={!rated ? peakLine : null}
             provider={gauge.provider}
             unit={unit ?? 'cfs'}
-            thresholds={rated ? link : null}
+            thresholds={initialShareState ? thresholdsForUnit(link, initialShareState.unit) : rated ? link : null}
             // Passed for BOTH tiers. A rated river gets bands from a human's
             // judgement and these from the Weather Service, and the two are
             // different claims that can usefully sit on one plot — the chart

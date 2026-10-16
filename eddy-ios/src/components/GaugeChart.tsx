@@ -1,6 +1,11 @@
 // Compact hydrograph shared by River, Gauge and map history.
 // Data geometry, gaps and reading identity come from the shared chart model.
 
+import { chartValueDomain } from '@eddy/conditions/chart-view';
+import { chartStamp } from '@eddy/conditions/chart-calendar';
+import { chartStatisticForUnit, resolutionNotice, type ChartShareState } from '@eddy/conditions/chart-share';
+import { captureNativeChart, nativeChartView } from '@/lib/chartSharing';
+import { ChartShareControl } from '@/components/ChartShareControl';
 import { ControlIcon } from '@/components/ControlIcon';
 import { chartDateRange } from '@/lib/chartDateRange';
 import { Component, useCallback, useMemo, useState, useRef, useLayoutEffect, useId, type ReactNode } from 'react';
@@ -34,12 +39,8 @@ import Svg, {
 } from 'react-native-svg';
 import type { GaugeFloodStages } from '@eddy/types';
 import {
-  chartDomain,
-  chartForecastWindow,
-  chartPoints,
   chartSegments,
   splitAtGaps,
-  alignPriorYear,
   lastYearAvailable,
   priorYearPointFor,
   priorYearWindow,
@@ -51,7 +52,6 @@ import {
   stepScrubTime,
   timeTicks,
   type ChartPoint,
-  type PriorYearPoint,
 } from '@eddy/conditions/chart-model';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
 import { computeTrend } from '@eddy/conditions/gauge-trend';
@@ -74,7 +74,7 @@ import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 import { GaugeChartReadout, GaugeChartFixedReadout } from '@/components/GaugeChartReadout';
 import { GaugeChartFullscreen } from '@/components/GaugeChartFullscreen';
-import { pinchChartWindow, chartZoomKey, visibleChartTimes, visibleChartGeometry } from '@/lib/gaugeChartZoom';
+import { pinchChartWindow, chartZoomKey, visibleChartTimes } from '@/lib/gaugeChartZoom';
 import { chartTimeAtX, expandedChartHeight, type ChartSelection } from '@/lib/gaugeChartExpansion';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
 import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
@@ -90,7 +90,7 @@ const RANGES = [
 
 // Plot includes axes and in-plot context labels; surrounding controls add ~100pt.
 const CHART_HEIGHT = 208;
-const NEAR_THRESHOLD_FRACTION = 0.28;
+
 
 /**
  * Break the line when the gap between samples exceeds this multiple of the
@@ -134,6 +134,8 @@ const SCRUB_FAIL_Y = 8;
 interface Props {
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
+  riverId?: string;
+  initialShareState?: ChartShareState;
   /** Station identity remains visible when the page is behind the chart. */
   title?: string;
   /** Recent history belongs with the chart, not the current-reading card. */
@@ -169,24 +171,16 @@ interface Props {
   initialWindow?: { from: string; to: string };
 }
 
-/** One day of the day-of-year typical range, at the instant it is drawn at. */
-interface TypicalRow {
-  t: number;
-  median: number;
-  low: number | null;
-  high: number | null;
-}
-
 /** What the scrub is sitting on. A forecast must never read as a measurement. */
 type ScrubbedPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
 
 /** "Tue 2pm" for a short window, "Jul 12" for a long one. */
-function axisTime(ms: number, days: number): string {
+function axisTime(ms: number, days: number, timeZone = 'UTC'): string {
   const d = new Date(ms);
   if (days <= 1) {
-    return d.toLocaleString(undefined, { weekday: 'short', hour: 'numeric' });
+    return d.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', timeZone });
   }
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone });
 }
 
 /**
@@ -218,13 +212,7 @@ function priorDate(date: string): string {
 }
 
 /** The scrub readout wants the full moment, not an axis tick. */
-function scrubTime(ms: number): string {
-  const d = new Date(ms);
-  return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(
-    undefined,
-    { hour: 'numeric', minute: '2-digit' },
-  )}`;
-}
+function scrubTime(ms: number, timeZone = 'UTC'): string { return chartStamp(ms, timeZone); }
 
 /** The narrow rail uses the category; details retain the full NWS name. */
 function stageRailLabel(key: FloodStageKey): string {
@@ -234,12 +222,15 @@ function stageRailLabel(key: FloodStageKey): string {
 
 /** One controller owns the settings, request and eight-window cache throughout
  * expansion. Both presentations draw from it; neither fetches on mount. */
-function useGaugeChartController({ siteId, unit, provider, historyCapabilities, initialDays = 30, initialWindow }: Props) {
+function useGaugeChartController({ siteId, unit, provider, historyCapabilities, initialDays: givenDays = 30, initialWindow: givenWindow, initialShareState }: Props) {
+  const initialWindow = initialShareState?.loaded ?? givenWindow;
+  const initialDays = initialShareState ? Math.max(1, Math.round((Date.parse(initialShareState.loaded.to) - Date.parse(initialShareState.loaded.from)) / 86_400_000)) : givenDays;
+  const initialZoomKey = initialShareState ? chartZoomKey(siteId, initialShareState.unit, initialDays, initialShareState.loaded, initialShareState.loaded, initialDays) : null;
   const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | null>(null);
-  const [showTypical, setShowTypical] = useState(false);
-  const [showMedian, setShowMedian] = useState(false);
-  const [showLastYear, setShowLastYear] = useState(false);
-  const [fullScale, setFullScale] = useState(false);
+  const [showTypical, setShowTypical] = useState(initialShareState?.layers.includes('typical') ?? false);
+  const [showMedian, setShowMedian] = useState(initialShareState?.layers.includes('median') ?? false);
+  const [showLastYear, setShowLastYear] = useState(initialShareState?.layers.includes('lastYear') ?? false);
+  const [fullScale, setFullScale] = useState(initialShareState?.scale === 'full');
   const [fromDate, setFromDate] = useState(() => {
     const date = initialWindow ? new Date(initialWindow.from) : new Date();
     if (!initialWindow) date.setDate(date.getDate() - 29);
@@ -250,8 +241,8 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   const [dateErrors, setDateErrors] = useState<ChartDateErrors>({});
   const [days, setDays] = useState<number>(initialDays);
   const [selection, setSelection] = useState<ChartSelection | null>(null);
-  const [zoom, setZoom] = useState<{ key: string; start: number; end: number } | null>(null);
-  const [fitValuesKey, setFitValuesKey] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<{ key: string; start: number; end: number } | null>(initialShareState && initialZoomKey ? { key: initialZoomKey, start: Date.parse(initialShareState.visible.from), end: Date.parse(initialShareState.visible.to) } : null);
+  const [fitValuesKey, setFitValuesKey] = useState<string | null>(initialShareState?.scale === 'visible' ? initialZoomKey : null);
   /**
    * The unit being drawn, once the reader has chosen one.
    *
@@ -261,15 +252,15 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
    * charted in cfs cannot show them at all, so a reader looking at a creek with
    * an official flood line needs a way to get to the axis it lives on.
    */
-  const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(null);
+  const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(initialShareState?.unit ?? null);
 
-  const historyState = useGaugeHistory(siteId, days, customWindow);
+  const historyState = useGaugeHistory(siteId, days, customWindow, initialShareState && customWindow === initialShareState.loaded && initialShareState.statistic !== 'instantaneous' ? 'daily' : 'auto');
 
   // Fetched here so expansion and rotation keep the layer and its data.
   const lastYearEligible = lastYearAvailable(unitOverride ?? unit, resolveHistoryCapabilities(provider, historyCapabilities), days);
   const selectedWindow = historyState.matchesRequest ? historyState.history?.requestedWindow ?? null : null;
   // Custom windows are sent as local midnight, so local dates are the picked dates.
-  const lastYearDates = useMemo(() => selectedWindow ? windowCalendarDates(selectedWindow) : null, [selectedWindow]);
+  const lastYearDates = useMemo(() => selectedWindow ? windowCalendarDates(selectedWindow, historyState.history?.timeZone ?? 'UTC') : null, [selectedWindow, historyState.history?.timeZone]);
   const lastYearWindow = useMemo(
     () => showLastYear && lastYearEligible && lastYearDates ? priorYearWindow(lastYearDates) : null,
     [showLastYear, lastYearEligible, lastYearDates],
@@ -289,7 +280,7 @@ type ChartController = ReturnType<typeof useGaugeChartController>;
 
 function GaugeChartInner(props: Props) {
   const controller = useGaugeChartController(props);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!props.initialShareState);
   const close = useCallback(() => setExpanded(false), []);
   if (!props.siteId) return null;
   return <>
@@ -301,7 +292,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, riverId, initialShareState,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -324,7 +315,7 @@ function GaugeChartView({
   const { colors, isDark } = useTheme();
   const {
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
-    showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
+    showLastYear, setShowLastYear, lastYearEligible, lastYear,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
     selection, setSelection, zoom, setZoom, fitValuesKey, setFitValuesKey, unitOverride, setUnitOverride, historyState,
@@ -453,135 +444,41 @@ function GaugeChartView({
     };
     return FLOOD_STAGE_ORDER.flatMap((key) => {
       const value = byKey[key];
-      return value != null && Number.isFinite(value) ? [{ key, value }] : [];
+      return value != null && Number.isFinite(value) && value > 0 ? [{ key, value }] : [];
     });
   }, [floodStages, drawnUnit]);
 
-  const points = useMemo(
-    () => (history ? chartPoints(history.readings, drawnUnit) : []),
-    [history, drawnUnit],
-  );
-
-  /**
-   * The official forecast, ahead of the last reading.
-   *
-   * The endpoint has sent this since NWPS replaced AHPS, and this chart ignored
-   * it — so the app drew a week of history next to an EddyTake paragraph quoting
-   * a forecast the plot did not contain. Same reader as the observed series,
-   * which means the same refusal to invent a value for an absent unit: NWPS
-   * publishes stage, and its secondary flow field is often empty, so a cfs axis
-   * frequently has no forecast to draw. That is a fact to show or omit, never to
-   * fill in.
-   */
-  const allForecastPoints = useMemo(
-    () => (history?.forecast?.length ? chartPoints(history.forecast, drawnUnit) : []),
-    [history, drawnUnit],
-  );
-
-  // A short forecast is unreadable against a full year. Exclude it from the
-  // plot, its domain and scrubbing; the unmodified history stays in details.
-  const forecastPoints = useMemo(() => drawnDays >= 365 ? [] : chartForecastWindow(
-    allForecastPoints,
-    Date.parse(history?.requestedWindow?.to ?? history?.observedThrough ?? ''),
-    drawnDays,
-  ), [allForecastPoints, history, drawnDays]);
-
-  /**
-   * "What this river normally does on this date", from the USGS day-of-year
-   * percentiles.
-   *
-   * DISCHARGE ONLY, because usgs_daily_percentiles is snapshotted for discharge
-   * and there is no stage equivalent — the same guard the web chart makes. A foot
-   * axis simply has no typical range, and inventing one from stage would be
-   * comparing a gauge's arbitrary datum against a national statistic.
-   */
-  const typical = useMemo<TypicalRow[]>(() => {
-    if (drawnUnit !== 'cfs' || !history?.typical?.length) return [];
-    return history.typical.flatMap((row) => {
-      const t = new Date(`${row.date}T12:00:00`).getTime();
-      const start = Date.parse(history.requestedWindow?.from ?? '');
-      const end = Date.parse(history.requestedWindow?.to ?? '');
-      if ((Number.isFinite(start) && t < start) || (Number.isFinite(end) && t > end)) return [];
-      return Number.isFinite(t) && row.p50Cfs !== null
-        ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
-        : [];
-    });
-  }, [history, drawnUnit]);
-
-  /** Last year's daily averages on this year's calendar, for this window only. */
   const lastYearShown = showLastYear && lastYearEligible;
-  const priorPoints = useMemo<PriorYearPoint[]>(
-    () => lastYearShown && matchesRequest && lastYear.readings && lastYearDates
-      ? alignPriorYear(lastYear.readings, 'cfs', lastYearDates, history?.requestedWindow) : [],
-    [lastYearShown, matchesRequest, lastYear.readings, lastYearDates, history],
-  );
-
   const domainContext = useMemo(() => [
     ...stageLines.map((line) => line.value),
     ...zones.flatMap((zone) => zone.openEnded ? [zone.min] : [zone.min, zone.max]),
   ], [stageLines, zones]);
-  const domainOptions = useMemo(() => ({
-    minimumSpan: drawnUnit === 'cfs' ? 80 : 0.3,
-    minimumSpanFraction: drawnUnit === 'cfs' ? 0.18 : 0.08,
-    includeAllContext: fullScale,
-  }), [drawnUnit, fullScale]);
-
-  /**
-   * The axis, from shared/chart-model.ts rather than from a loop in this file.
-   *
-   * This is the divergence that made the model worth extracting and then outlived
-   * the extraction: the copy that lived here had no floor, so a low-water
-   * discharge axis could label its bottom gridline below zero — negative flow,
-   * on a chart of a river. chartDomain() clamps cfs at zero and pointedly does
-   * NOT clamp stage, because gauge height is relative to a datum and Ozark
-   * stations do read below theirs. There is a test pinning both; it only guards
-   * the renderers that call this.
-   */
-  const fullDomain = useMemo(() => {
-    const spanning = [
-      ...points,
-      ...forecastPoints,
-      ...priorPoints,
-      ...typical.flatMap((row) =>
-        [showTypical ? row.low : null, showMedian ? row.median : null, showTypical ? row.high : null].flatMap((value) =>
-          value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }],
-        ),
-      ),
-    ].sort((a, b) => a.t - b.t);
-
-    // Band edges and stage lines are context the axis may stretch to include —
-    // only the EDGES, since a band boundary is the number someone needs to see
-    // their line approaching, and a band's far side is not.
-    return chartDomain(spanning, drawnUnit, domainContext, NEAR_THRESHOLD_FRACTION, domainOptions);
-  }, [points, forecastPoints, priorPoints, typical, domainContext, domainOptions, drawnUnit, showTypical, showMedian]);
-
-  // Keep zoom within the loaded data. Changing station, measurement or loaded
-  // range restores the full window, including when a request finishes later.
+  const prepared = useMemo(() => nativeChartView({
+    readings: history?.readings ?? [], forecast: history?.forecast ?? [], typical: history?.typical ?? [],
+    prior: lastYearShown && matchesRequest ? lastYear.readings ?? [] : [],
+    loaded: history?.requestedWindow ?? { from: '', to: '' }, timeZone: history?.timeZone ?? 'UTC', unit: drawnUnit,
+    layers: [...(showTypical ? ['typical' as const] : []), ...(showMedian ? ['median' as const] : []), ...(lastYearShown ? ['lastYear' as const] : [])],
+    scale: fullScale ? 'full' : 'loaded', references: domainContext,
+  }), [history, lastYearShown, matchesRequest, lastYear.readings, drawnUnit, showTypical, showMedian, fullScale, domainContext]);
+  const { observed: points, forecast: forecastPoints, prior: priorPoints, typical } = prepared;
+  const modelSeries = useMemo(() => {
+    const point = (t: number, v: number): ChartPoint => ({ t, v, timestamp: '', qualifiers: [] });
+    const band = typical.filter(row => row.low !== null && row.high !== null);
+    return [...splitAtGaps(points), ...splitAtGaps(forecastPoints), ...splitAtGaps(priorPoints),
+      ...(showTypical ? [band.map(row => point(row.t, row.low!)), band.map(row => point(row.t, row.high!))] : []),
+      ...(showMedian ? [typical.map(row => point(row.t, row.median))] : [])];
+  }, [points, forecastPoints, priorPoints, typical, showTypical, showMedian]);
+  const fullDomain = useMemo(() => chartValueDomain(modelSeries, drawnUnit, domainContext, fullScale ? 'full' : 'loaded'), [modelSeries, drawnUnit, domainContext, fullScale]);
   const zoomKey = chartZoomKey(siteId, drawnUnit, days, customWindow, history?.requestedWindow, drawnDays);
   const viewport = zoom?.key === zoomKey ? zoom : null;
-  // Keep the original value scale by default and in the compact presentation.
-  // Fitting is an explicit expanded-chart choice, scoped to the loaded window.
   const fitVisibleValues = expanded && !!viewport && fitValuesKey === zoomKey;
-  const fittingSegments = useMemo(() => {
-    if (!fitVisibleValues) return [];
-    const band = typical.filter(row => row.low !== null && row.high !== null);
-    return [
-      ...splitAtGaps(points, GAP_BREAK_MULTIPLE),
-      ...splitAtGaps(forecastPoints, GAP_BREAK_MULTIPLE),
-      ...splitAtGaps(priorPoints, GAP_BREAK_MULTIPLE),
-      ...(showTypical && band.length > 1 ? [band.map(row => ({ t: row.t, v: row.low! })), band.map(row => ({ t: row.t, v: row.high! }))] : []),
-      ...(showMedian && typical.length > 1 ? [typical.map(row => ({ t: row.t, v: row.median }))] : []),
-    ];
-  }, [fitVisibleValues, points, forecastPoints, priorPoints, typical, showTypical, showMedian]);
-  const fittedDomain = useMemo(() => {
-    if (!fitVisibleValues || !viewport) return null;
-    const visible = visibleChartGeometry(fittingSegments, viewport);
-    // No visible data (for example inside an outage) retains the original axis.
-    return chartDomain(visible, drawnUnit, domainContext, NEAR_THRESHOLD_FRACTION, domainOptions);
-  }, [fitVisibleValues, viewport, fittingSegments, drawnUnit, domainContext, domainOptions]);
-  const domain = useMemo(() => fullDomain && viewport
-    ? { ...(fittedDomain ?? fullDomain), t0: viewport.start, t1: viewport.end }
-    : fullDomain, [fullDomain, fittedDomain, viewport]);
+  const scaleMode = fullScale ? 'full' : fitVisibleValues ? 'visible' : 'loaded';
+  const domain = useMemo(() => chartValueDomain(modelSeries, drawnUnit, domainContext, scaleMode, viewport), [modelSeries, drawnUnit, domainContext, scaleMode, viewport]);
+  const shareState = captureNativeChart({ siteId: siteId ?? '', provider, unit: drawnUnit, history,
+    matchesRequest, comparisonPending: lastYearShown && !['ready', 'empty'].includes(lastYear.status),
+    layers: [...(showTypical ? ['typical' as const] : []), ...(showMedian ? ['median' as const] : []), ...(lastYearShown ? ['lastYear' as const] : [])],
+    scale: scaleMode, domain, riverId: zones.length ? riverId : undefined });
+  const sharedNotice = initialShareState && customWindow === initialShareState.loaded && history ? resolutionNotice(initialShareState.statistic, chartStatisticForUnit(history.statistic, drawnUnit)) : null;
   const currentDomain = useRef(domain);
   useLayoutEffect(() => { currentDomain.current = domain; }, [domain]);
   const pinchStart = useRef<{ start: number; end: number; anchor: number; left: number; width: number } | null>(null);
@@ -880,7 +777,7 @@ function GaugeChartView({
   const readoutZone = readoutPoint?.kind === 'observed'
     ? zones.find(zone => readoutPoint.point.v <= zone.max || zone.openEnded) : null;
   /** The same date last year, or nothing — never a neighbouring day. */
-  const priorFor = (at: ScrubbedPoint | null) => at?.kind === 'observed' ? priorYearPointFor(priorPoints, at.point) : null;
+  const priorFor = (at: ScrubbedPoint | null) => at?.kind === 'observed' ? priorYearPointFor(priorPoints, at.point, history?.timeZone ?? 'UTC') : null;
   const priorText = (at: ScrubbedPoint | null) => {
     const prior = priorFor(at);
     return prior ? `Last year · ${formatReading(prior.v, 'cfs')} · ${priorDate(prior.sourceDate)}` : 'Last year · —';
@@ -923,7 +820,7 @@ function GaugeChartView({
    * stepped-to reading is announced through accessibilityValue below.
    */
   const plotSummary = (() => {
-    const window = history?.requestedWindow ? `${new Date(history.requestedWindow.from).toLocaleDateString()} to ${new Date(history.requestedWindow.to).toLocaleDateString()}` : drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
+    const window = history?.requestedWindow ? `${chartStamp(history.requestedWindow.from, history.timeZone ?? 'UTC')} to ${chartStamp(history.requestedWindow.to, history.timeZone ?? 'UTC')}` : drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
     const measure = drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height';
     const bits = [
       newest
@@ -958,7 +855,7 @@ function GaugeChartView({
   const spokenValue = (() => {
     const at = readoutPoint;
     if (!at) return null;
-    const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t)}`];
+    const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t, history?.timeZone ?? 'UTC')}`];
     if (at.kind === 'forecast') bits.push('NWS forecast');
     else {
       if (history?.resolution === 'daily') bits.push(observedLabel);
@@ -1042,7 +939,7 @@ function GaugeChartView({
     setDateErrors({});
   };
   const applyDates = () => {
-    const result = validateChartDates(fromDate, toDate, Date.now());
+    const result = validateChartDates(fromDate, toDate, Date.now(), history?.timeZone ?? 'UTC');
     if (result.errors) { setDateErrors(result.errors); return; }
     setDateErrors({}); clearScrub(); chooseDays(result.days);
     setCustomWindow(result.window); closeSheet();
@@ -1118,7 +1015,7 @@ function GaugeChartView({
         {history && !matchesRequest ? <View style={styles.rangeStatus}>
           <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
             {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}
-            Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to) : drawnRangeLabel.toLowerCase()}.
+            Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to, history.timeZone ?? 'UTC') : drawnRangeLabel.toLowerCase()}.
           </Text>
           {!loading ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
             <Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text>
@@ -1128,7 +1025,7 @@ function GaugeChartView({
           compact={width > availableHeight && fontScale <= 1.5}
           value={readoutPoint ? formatReading(readoutPoint.point.v, drawnUnit) : '—'}
           band={readoutPoint?.kind === 'observed' ? readoutZone?.label : undefined}
-          time={readoutPoint ? scrubTime(readoutPoint.point.t) : 'Touch the chart to explore'}
+          time={readoutPoint ? scrubTime(readoutPoint.point.t, history?.timeZone ?? 'UTC') : 'Touch the chart to explore'}
           source={readoutPoint?.kind === 'forecast' ? 'NWS forecast' : observedLabel}
           quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null}
           comparison={priorPoints.length ? priorText(readoutPoint) : null} /> : null}
@@ -1192,12 +1089,12 @@ function GaugeChartView({
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
                 {nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
-              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, viewport ? (viewport.end - viewport.start) / 86_400_000 : drawnDays)}</SvgText>)}
+              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, viewport ? (viewport.end - viewport.start) / 86_400_000 : drawnDays, history?.timeZone ?? 'UTC')}</SvgText>)}
             </Svg>
             {scrubbed && !expanded && active ? <GaugeChartReadout key={`${drawnUnit}-${fontScale}`} width={width} height={chartHeight}
               point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
               finger={finger}
-              value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t)}
+              value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t, history?.timeZone ?? 'UTC')}
               source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers}
               comparison={priorPoints.length && scrubbed.kind === 'observed' ? priorText(scrubbed) : null} /> : null}
           </View>
@@ -1210,6 +1107,9 @@ function GaugeChartView({
       </View>
       <View style={[styles.actions, { borderTopColor: colors.border }]}
         onLayout={expanded ? event => setActionsHeight(event.nativeEvent.layout.height) : undefined}>
+        {expanded && provider === 'usgs' && <ChartShareControl state={shareState} />}
+        {expanded && initialShareState && customWindow === initialShareState.loaded && <Pressable accessibilityRole="button" onPress={() => { setCustomWindow(undefined); setDays(7); setZoom(null); setFitValuesKey(null); }} style={styles.toolbarAction}><Text style={[styles.actionText, { color: colors.interactive }]}>Show latest</Text></Pressable>}
+        {sharedNotice && <Text style={[styles.caption, { color: colors.textMuted }]}>{sharedNotice}</Text>}
         <Pressable accessibilityRole="button" accessibilityLabel="Compare chart layers" onPress={() => { clearScrub(); setSheet('compare'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="options-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Compare{comparisonCount ? ` · ${comparisonCount}` : ''}</Text>
         </Pressable>
@@ -1346,7 +1246,7 @@ export function GaugeChart(props: Props) {
         </View>
       }
     >
-      <GaugeChartInner key={props.siteId} {...props} />
+      <GaugeChartInner key={`${props.siteId}:${JSON.stringify(props.initialShareState ?? null)}`} {...props} />
     </ChartBoundary>
   );
 }

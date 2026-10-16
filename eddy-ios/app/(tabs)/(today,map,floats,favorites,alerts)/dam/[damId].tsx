@@ -1,3 +1,4 @@
+import { gaugeSharePath, shareLink } from '@/lib/share';
 // eddy-ios/app/dam/[damId].tsx
 // One USACE project: what it is releasing, what the lake is doing, and when the
 // units are scheduled to run.
@@ -432,6 +433,7 @@ export default function DamDetailScreen() {
       <Stack.Screen options={{ title: dam.name }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button icon="square.and.arrow.up" accessibilityLabel={`Share ${dam.name}`} onPress={() => { const path = gaugeSharePath('usace', damId); if (path) void shareLink(dam.name, path); }}>Share</Stack.Toolbar.Button>
         <Stack.Toolbar.Button
           icon={starred ? 'star.fill' : 'star'}
           selected={starred}
