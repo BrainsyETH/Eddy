@@ -1,4 +1,4 @@
-// Pure presentation and serialized delivery for Float Mode's native card.
+// Pure presentation and serialized delivery for River Mode's native card.
 // It shares the float screen's distance/pace model; it never tracks location.
 import { formatBeyond, remainingCopy, STALE_POSITION_MS, viewSession, type FloatSession, type FloatStatus } from './floatSession';
 import type { FloatSessionStore } from './floatSessionStoreCore';

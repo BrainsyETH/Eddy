@@ -1,5 +1,5 @@
 // eddy-ios/src/lib/floatModeFeature.ts
-// Whether this build shows Float Mode (#1448).
+// Whether this build shows River Mode (#1448).
 //
 // Development and preview (internal) builds always do, so the feature can be
 // tested on real phones and on a river before release. Store builds show it

@@ -608,7 +608,7 @@ export function viewSession(session: FloatSession, now: number): FloatView {
   };
 }
 
-/** What the Float Mode map draws: the stretch, the access points along it, its hazards. */
+/** What the River Mode map draws: the stretch, the access points along it, its hazards. */
 export interface FloatMapFeatures {
   /** Null until a quick start knows where it began; the map then shows the whole river. */
   section: LngLat[] | null;

@@ -1,8 +1,8 @@
 // eddy-ios/src/float/useTrackingLine.ts
-// What Float Mode says about tracking, and what tapping it does: the native
+// What River Mode says about tracking, and what tapping it does: the native
 // recorder's own report (floatTrackerStatus.ts), plus whether iOS will still
 // show its location prompt, which only the permission read can say. Shared by
-// Float Mode and Float options.
+// River Mode and Float options.
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Linking } from 'react-native';

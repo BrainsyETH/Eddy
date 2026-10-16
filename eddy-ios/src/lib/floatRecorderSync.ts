@@ -10,7 +10,7 @@
 // every fix to the float's journal, and resumes by itself when iOS relaunches
 // Eddy mid-float, before any JavaScript exists. This only reads: it applies
 // journal fixes to the session, in order, exactly once (floatRecording.ts:
-// planIngest), and turns the recorder's status reports into Float Mode's
+// planIngest), and turns the recorder's status reports into River Mode's
 // tracking line (trackerState).
 //
 // ── When it asks the recorder to start ──────────────────────────────────────
