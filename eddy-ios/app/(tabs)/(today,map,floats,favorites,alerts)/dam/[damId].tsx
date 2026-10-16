@@ -1,4 +1,3 @@
-import { gaugeSharePath, shareLink } from '@/lib/share';
 // eddy-ios/app/dam/[damId].tsx
 // One USACE project: what it is releasing, what the lake is doing, and when the
 // units are scheduled to run.
@@ -22,6 +21,8 @@ import { gaugeSharePath, shareLink } from '@/lib/share';
 // Imply a release is a promise. The Corps changes schedules for power demand,
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
+
+import { gaugeSharePath, shareLink } from '@/lib/share';
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

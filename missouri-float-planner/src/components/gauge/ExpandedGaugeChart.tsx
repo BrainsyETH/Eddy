@@ -242,6 +242,8 @@ export default function ExpandedGaugeChart({
     return range.days === 365 ? 'Last year' : `Last ${range.days} days`;
   }, [range, initialShareState]);
 
+  if (!open || !hydrated) return null;
+
   const layers = displayUnit === 'cfs' ? [...(typicalOn ? ['typical' as const] : []), ...(medianOn ? ['median' as const] : []), ...(lastYearOn ? ['lastYear' as const] : [])] : [];
   const model = history?.requestedWindow ? chartView({ ...history, prior: lastYear.comparison?.readings,
     loaded: history.requestedWindow, unit: displayUnit, timeZone: history.timeZone ?? 'UTC', layers,
@@ -250,8 +252,6 @@ export default function ExpandedGaugeChart({
     matchesRequest: !!history, comparisonPending: lastYearOn && ['loading', 'failed'].includes(lastYear.status),
     layers, scale, domain: model?.domain ?? null, riverId: chartReferences(displayUnit, thresholds).length ? riverId : undefined });
   const notice = range.kind === 'shared' && initialShareState && history ? resolutionNotice(initialShareState.statistic, chartStatisticForUnit(history.statistic, displayUnit)) : null;
-
-  if (!open || !hydrated) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">

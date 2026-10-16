@@ -15,7 +15,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : await gaugeMetadata({ params: Promise.resolve({ slug: siteId }) });
   const asset = linkPreviewAsset(provider === 'usace' ? 'dam' : 'gauge', siteId);
   const images = [{ url: `/share/${asset.file}`, width: 1200, height: 630, alt: asset.alt }];
-  return { ...metadata, alternates: { canonical: gaugeSharePath(station) }, robots: { index: false, follow: true },
+  const canonical = station.provider === 'usace' ? `/dams/${station.siteId}` : `/gauges/${station.siteId}`;
+  return { ...metadata, alternates: { canonical }, robots: { index: false, follow: true },
     openGraph: { ...metadata.openGraph, url: gaugeSharePath(station), images }, twitter: { ...metadata.twitter, card: 'summary_large_image', images } };
 
 }

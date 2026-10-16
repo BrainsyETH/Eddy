@@ -4,7 +4,7 @@
 // Full-page gauge detail view for individual gauges (fallback when no river association)
 
 import { thresholdsForUnit } from '@shared/chart-view';
-import { gaugeSharePath, type ChartShareState } from '@shared/chart-share';
+import { chartSharePageRiver, gaugeSharePath, type ChartShareState } from '@shared/chart-share';
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -34,7 +34,6 @@ import { stateName } from '@/lib/navigation/states';
 import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
-import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
@@ -97,7 +96,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
   // happened to order first. See shared/primary-river-link.ts.
-  const primaryRiver = initialShareState ? gauge?.thresholds?.find(r => r.riverId === initialShareState.riverId) : pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
+  const primaryRiver = chartSharePageRiver(gauge?.thresholds, initialShareState?.riverId) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || (gauge?.dischargeCfs != null ? 'cfs' : 'ft');
 
@@ -516,7 +515,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
             onClose={() => setExpandedOpen(false)}
             siteId={gauge.usgsSiteId}
             siteName={gauge.name}
-            thresholds={chartThresholds}
+            thresholds={initialShareState && !initialShareState.riverId ? null : chartThresholds}
             floodStages={gaugeDetail?.floodStages ?? null}
             displayUnit={effectiveUnit}
             showTypical={tier !== 'rated'}

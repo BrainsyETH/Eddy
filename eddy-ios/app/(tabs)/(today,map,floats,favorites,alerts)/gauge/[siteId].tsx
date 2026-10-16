@@ -1,8 +1,3 @@
-import { thresholdsForUnit } from '@eddy/conditions/chart-view';
-import { parseChartShare } from '@eddy/conditions/chart-share';
-import { openExternalLink } from '@/lib/openExternalLink';
-import { NativeHeaderHome } from '@/components/NativeHeaderHome';
-import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/app/gauge/[siteId].tsx
 // One gauge: what it reads, what that means, and how it got there.
 //
@@ -31,6 +26,12 @@ import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observa
 // paints immediately and refines in place; a deep link has no seed and takes
 // the ordinary loading path, which is why that path is the plain one rather
 // than the exception.
+
+import { thresholdsForUnit } from '@eddy/conditions/chart-view';
+import { chartSharePageRiver, parseChartShare } from '@eddy/conditions/chart-share';
+import { openExternalLink } from '@/lib/openExternalLink';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
+import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -308,7 +309,7 @@ export default function GaugeDetailScreen() {
   // this screen could name a different river than the map did in the same
   // session. See @eddy/conditions/primary-river-link.
   const initialShareState = candidateShareState && (!gauge?.timeZone || gauge.timeZone === candidateShareState.timeZone) && (!candidateShareState.riverId || (gauge && thresholdsForUnit(gauge.thresholds?.find(r => r.riverId === candidateShareState.riverId), candidateShareState.unit))) ? candidateShareState : null;
-  const link = gauge ? initialShareState ? gauge.thresholds?.find(r => r.riverId === initialShareState.riverId) ?? null : pickPrimaryRiverLink(gauge.thresholds) : null;
+  const link = chartSharePageRiver(gauge?.thresholds, initialShareState?.riverId);
   const rated = Boolean(link && hasLadder(link));
 
   /**
@@ -764,7 +765,7 @@ export default function GaugeDetailScreen() {
             recentSummary={!rated ? peakLine : null}
             provider={gauge.provider}
             unit={unit ?? 'cfs'}
-            thresholds={initialShareState ? thresholdsForUnit(link, initialShareState.unit) : rated ? link : null}
+            thresholds={initialShareState ? thresholdsForUnit(initialShareState.riverId ? link : null, initialShareState.unit) : rated ? link : null}
             // Passed for BOTH tiers. A rated river gets bands from a human's
             // judgement and these from the Weather Service, and the two are
             // different claims that can usefully sit on one plot — the chart

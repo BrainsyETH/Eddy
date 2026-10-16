@@ -8,17 +8,40 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { captureNativeChart, nativeChartView, sharedGaugeDestination } from '../../../../eddy-ios/src/lib/chartSharing';
 import { redirectSystemPath } from '../../../../eddy-ios/app/+native-intent';
-import { parseChartShare, chartSharePath, chartShareQuery, resolutionNotice, chartStatisticForUnit, gaugeSharePath } from '@shared/chart-share';
-import { chartView, thresholdsForUnit } from '@shared/chart-view';
+import { parseChartShare, chartSharePath, chartShareQuery, chartImagePath, chartSharePageRiver, resolutionNotice, chartStatisticForUnit, gaugeSharePath } from '@shared/chart-share';
+import { chartView, chartReferences, thresholdsForUnit } from '@shared/chart-view';
+import { hasLadder } from '@shared/condition-ladder';
 import { chartGeometry } from '@shared/chart-geometry';
 import { stationDate, stationNoon, chartStamp, stationDayWindow } from '@shared/chart-calendar';
 import { chartPoints, alignPriorYear, priorYearPointFor } from '@shared/chart-model';
 import { stationTimeZone, stationTimeZoneFromGeometry } from './station-time-zone';
 import { appleAppSiteAssociation } from '../navigation/apple-app-site-association';
-import { fixtureState, fixtureHistory, fixtureView, fixtureImageData } from './__fixtures__/chart-share';
+import { fixtureState, fixtureHistory, fixtureView, fixtureImageData, fixtureThresholds } from './__fixtures__/chart-share';
 import { ChartShareImage } from '../og/chart-share-image';
 import { loadOgFonts } from '../og/fonts';
 import { GET as imageRoute } from '../../app/api/share/chart/[provider]/[siteId]/image/route';
+import { GET as detailRoute } from '../../app/api/gauges/[siteId]/route';
+import { gaugeDetailResponse } from './detail-response';
+
+test('a stage share without a ladder keeps the page river and rated vocabulary on both platforms', () => {
+  const captured = captureNativeChart({ siteId: fixtureState.siteId, provider: 'usgs', unit: 'ft',
+    history: fixtureHistory, matchesRequest: true, comparisonPending: false, layers: [], scale: 'full',
+    domain: chartView(fixtureView({ ...fixtureState, unit: 'ft', layers: [], riverId: undefined })).domain });
+  assert.ok(captured);
+  assert.equal(captured.riverId, undefined);
+  const restored = parseChartShare('usgs', captured.siteId, new URLSearchParams(chartShareQuery(captured)))!;
+  const secondary = { ...fixtureThresholds, riverId: '22222222-2222-2222-2222-222222222222', isPrimary: false };
+  // Both screens use this shared selection rule, independently of chart units.
+  const pageRiver = chartSharePageRiver([secondary, fixtureThresholds], restored.riverId);
+  assert.equal(pageRiver, fixtureThresholds);
+  assert.equal(pageRiver.riverSlug, 'fixture');
+  assert.equal(pageRiver.thresholdUnit, 'cfs');
+  assert.equal(hasLadder(pageRiver), true);
+  assert.equal(thresholdsForUnit(pageRiver, restored.unit), null);
+  assert.deepEqual(chartReferences('ft', null, { actionFt: 8, floodFt: 10, moderateFt: 12, majorFt: 15 }), [8, 10, 12, 15]);
+  assert.equal(chartSharePageRiver([secondary, fixtureThresholds], secondary.riverId), secondary);
+  assert.equal(chartSharePageRiver([fixtureThresholds], secondary.riverId), null, 'a missing explicit river must not silently substitute another ladder');
+});
 
 test('a zoomed native view round-trips into web dates, comparisons, geometry and each scale', () => {
   const maxima = new Map<string, number>();
@@ -110,6 +133,9 @@ test('cold and warm links keep the chart and both station providers; association
   assert.deepEqual(parseChartShare('usgs', '07067000', new URLSearchParams(new URL(warm, 'https://eddy.guide').searchParams.get('chart')!)), fixtureState);
   assert.equal(sharedGaugeDestination(gaugeSharePath({ provider: 'usace', siteId: 'bull-shoals' })), '/dam/bull-shoals');
   assert.equal(sharedGaugeDestination(gaugeSharePath({ provider: 'usgs', siteId: '07067000' })), '/gauge/07067000');
+  const invalidStation = '/share/gauge/usgs/not-a-station';
+  assert.equal(sharedGaugeDestination(invalidStation), invalidStation);
+  assert.equal(redirectSystemPath({ path: invalidStation, initial: true }), invalidStation, 'invalid stations reach the unmatched-link explanation, not Today');
   assert.equal(redirectSystemPath({ path: url.replace('eddy.guide', 'evil.example'), initial: false }), url.replace('eddy.guide', 'evil.example'));
   const paths = (enabled: boolean) => appleAppSiteAssociation(enabled).applinks.details[0].components.map(c => c['/']);
   assert.deepEqual(paths(false), ['/plan/*']);
@@ -121,6 +147,51 @@ test('invalid image requests are rejected before any upstream fetch and cannot b
   const response = await imageRoute(new NextRequest('https://eddy.guide/api/share/chart/usgs/07067000/image?v=99'), { params: Promise.resolve({ provider: 'usgs', siteId: '07067000' }) });
   assert.equal(response.status, 400); assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('image query variants redirect to one cache key without fetching or rendering', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('Must not fetch'); });
+  const canonical = new URL(chartImagePath(fixtureState), 'https://eddy.guide');
+  const reordered = new URL(canonical);
+  reordered.search = new URLSearchParams([...canonical.searchParams].reverse()).toString();
+  for (const url of [canonical.href + '&utm_source=slack', reordered.href, canonical.href.replace('%3A', '%3a')]) {
+    const response = await imageRoute(new NextRequest(url), { params: Promise.resolve({ provider: 'usgs', siteId: fixtureState.siteId }) });
+    assert.equal(response.status, 308);
+    assert.equal(response.headers.get('location'), canonical.href);
+  }
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('public detail and image quotas are separate, with no crawler bypass or cached limiter failure', async t => {
+  const previous = { url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN };
+  process.env.UPSTASH_REDIS_REST_URL = 'https://limiter.example';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'test';
+  const keys: string[] = [];
+  let unavailable = false;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, init?: RequestInit) => {
+    keys.push(JSON.parse(String(init?.body))[0][1]);
+    return unavailable ? new Response('', { status: 503 }) : Response.json([{ result: 61 }, { result: 1 }, { result: 60_000 }]);
+  });
+  try {
+    const headers = { 'x-real-ip': '192.0.2.1', 'user-agent': 'Slackbot-LinkExpanding 1.0' };
+    const request = new NextRequest('https://eddy.guide/api/gauges/empty', { headers });
+    const context = { params: Promise.resolve({ siteId: '' }) };
+    assert.equal((await detailRoute(request, context)).status, 429);
+    assert.equal((await gaugeDetailResponse(request, context)).status, 400, 'the internal handler must not spend the public quota');
+    const imageRequest = new NextRequest(new URL(chartImagePath(fixtureState), 'https://eddy.guide'), { headers });
+    const imageContext = { params: Promise.resolve({ provider: 'usgs', siteId: fixtureState.siteId }) };
+    const limited = await imageRoute(imageRequest, imageContext);
+    assert.equal(limited.status, 429);
+    assert.equal(limited.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(keys, ['rl:gauge-detail:192.0.2.1', 'rl:chart-image:192.0.2.1']);
+    unavailable = true;
+    const failure = await imageRoute(imageRequest, imageContext);
+    assert.equal(failure.status, 503);
+    assert.equal(failure.headers.get('cache-control'), 'no-store');
+  } finally {
+    if (previous.url === undefined) delete process.env.UPSTASH_REDIS_REST_URL; else process.env.UPSTASH_REDIS_REST_URL = previous.url;
+    if (previous.token === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN; else process.env.UPSTASH_REDIS_REST_TOKEN = previous.token;
+  }
 });
 
 test('the real Satori renderer produces a PNG from the shared chart geometry', async () => {

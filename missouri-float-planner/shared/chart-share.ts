@@ -1,9 +1,17 @@
 import { stationDate } from './chart-calendar';
+import { pickPrimaryRiverLink, type PrimaryRiverCandidate } from './primary-river-link';
 /** Public, versioned view specification. Contains no readings or paid content. */
 export type ChartScaleMode = 'loaded' | 'visible' | 'full';
 export type ChartLayer = 'typical' | 'median' | 'lastYear';
 export type ChartStatistic = 'instantaneous' | 'daily_mean' | 'daily_selected';
 export interface ShareStation { provider: 'usgs' | 'usace'; siteId: string }
+/** A chart without a ladder still belongs to the station's ordinary river page. */
+export function chartSharePageRiver<T extends PrimaryRiverCandidate & { riverId: string }>(
+  links: readonly T[] | null | undefined,
+  riverId?: string,
+): T | null {
+  return riverId ? links?.find(link => link.riverId === riverId) ?? null : pickPrimaryRiverLink(links);
+}
 export interface ChartShareState {
   version: 1;
   provider: 'usgs';

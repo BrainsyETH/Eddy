@@ -40,7 +40,6 @@ import { gaugeFreshness, isCurrentWaterMeasurement } from '@shared/gauge-freshne
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { DEFAULT_PROVIDER_ID, getFlowProvider } from '@/lib/flow-providers';
-import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { maxReadingAgeHours } from '@/lib/alerts/gate';
@@ -267,14 +266,11 @@ function ageHoursOf(timestamp: string | null): number | null {
   return (Date.now() - parsed) / 3_600_000;
 }
 
+/** Public callers enforce their own route quota before entering this shared read handler. */
 export async function gaugeDetailResponse(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
 ) {
-  // 60/min, matching /api/gauges. This is a screen open, not a pan.
-  const limited = await rateLimit(`gauge-detail:${getClientIp(request)}`, 60, 60 * 1000);
-  if (limited) return limited;
-
   const { siteId: rawSiteId } = await params;
   const siteId = rawSiteId.trim();
   const widgetOnly = request.nextUrl.searchParams.get('widget') === '1';

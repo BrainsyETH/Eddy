@@ -16,7 +16,11 @@ layers, original statistic, scale mode, and optional river threshold identity.
 An invalid field or unknown version restores none of the chart state and opens
 latest conditions with an explanation. Daily dates retain the publisher's day;
 labels and comparison alignment use the station zone. Missing coordinates use
-UTC explicitly. Geographic timezone resolution is server-only (`tz-lookup`).
+UTC explicitly, with a visible UTC note on native charts. An older web response
+without `timeZone` also uses UTC; deploy the web before distributing the build.
+Geographic timezone resolution is server-only (`tz-lookup`). A missing river
+threshold identity suppresses the chart ladder, not the page's ordinary river
+association, condition vocabulary, or navigation.
 
 The three value scales are `loaded` (all loaded values), `visible` (visible
 values including line intersections at viewport edges), and `full` (all values
@@ -34,9 +38,20 @@ An image request freezes the selection, loads coherent public history, and
 renders SVG through `next/og`. It contains no paid Eddy Read. The user previews
 the resulting PNG and shares those same bytes. Image preparation requires
 internet; link sharing does not wait for it. Render errors remain retryable and
-are never cached. The route has an independent rate limit and bounded parameter
-size/window; successful images have five-minute CDN freshness, not immutable
-parameter-only caching. No new native sharing dependency is needed.
+are never cached. The route has its own 60-render-per-minute IP limit and bounded
+parameter size/window; it does not consume the public gauge-detail quota.
+Crawler user agents receive the same limit. A configured limiter outage still
+fails closed to bound rendering work. Noncanonical image queries redirect before
+upstream work, removing tracking keys and normalizing encodings into one cache
+key. Successful images have five-minute CDN freshness and one-minute browser
+freshness, not immutable parameter-only caching. No new native sharing dependency
+is needed.
+
+The public API remains additive. History dispatch now explicitly sends `daily`
+when the route's existing `auto` decision selects daily data, for every caller;
+this agrees with the provider's existing selection. Typical calendar dates use
+UTC rather than server-local fields (equivalent on the UTC production runtime).
+Station-local daily request bounds remain opt-in through `calendar=station`.
 
 ## Delivery and activation
 

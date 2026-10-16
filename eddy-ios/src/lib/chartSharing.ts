@@ -9,7 +9,9 @@ export function sharedGaugeDestination(local: string): string | null {
   const match = url.pathname.match(/^\/share\/(gauge|chart)\/([^/]+)\/([^/]+)\/?$/);
   if (!match) return null;
   const station = shareStation(match[2], match[3]);
-  if (!station) return '/reports';
+  // Preserve the invalid path so Expo Router explains that the link was not
+  // found, instead of silently sending the user to an unrelated Today screen.
+  if (!station) return local;
   const destination = station.provider === 'usace' ? `/dam/${station.siteId}` : `/gauge/${station.siteId}`;
   if (match[1] === 'gauge') return destination;
   const state = parseChartShare(station.provider, station.siteId, url.searchParams);

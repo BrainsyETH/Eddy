@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
-import { parseChartShare } from '@shared/chart-share';
+import { chartImagePath, parseChartShare } from '@shared/chart-share';
 import { loadChartShareData } from '@/lib/gauges/chart-share-data';
 import { ChartShareImage } from '@/lib/og/chart-share-image';
 import { loadOgFonts } from '@/lib/og/fonts';
@@ -12,7 +12,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { provider, siteId } = await params;
   const state = parseChartShare(provider, siteId, request.nextUrl.searchParams);
   if (!state) return NextResponse.json({ error: 'Invalid chart link' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
-  const limited = await rateLimit(`chart-image:${getClientIp(request)}`, 12, 60_000, { failClosed: true });
+  // Tracking keys, ordering and alternate encodings must not buy another render.
+  // Normalize before any upstream work, so all variants share one image cache key.
+  const canonical = new URL(chartImagePath(state), request.url);
+  if (request.nextUrl.search !== canonical.search) {
+    return NextResponse.redirect(canonical, { status: 308, headers: { 'Cache-Control': 'public, max-age=300' } });
+  }
+  // Shared crawler IPs need room for bursts; user agents never bypass this limit.
+  const limited = await rateLimit(`chart-image:${getClientIp(request)}`, 60, 60_000, { failClosed: true });
   if (limited) { limited.headers.set('Cache-Control', 'no-store'); return limited; }
   try {
     const data = await loadChartShareData(state, request.headers);

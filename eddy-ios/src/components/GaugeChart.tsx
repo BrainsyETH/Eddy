@@ -1012,6 +1012,9 @@ function GaugeChartView({
             <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Last year · daily average</Text>
           </View> : null}
         </View> : null}
+        {history && (!history.timeZone || history.timeZone === 'UTC') ? (
+          <Text style={[styles.caption, { color: colors.textMuted }]}>Times shown in UTC</Text>
+        ) : null}
         {history && !matchesRequest ? <View style={styles.rangeStatus}>
           <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
             {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}

@@ -1191,13 +1191,14 @@ export interface GaugeDetailThreshold {
   levelOptimalMax: number | null;
   levelHigh: number | null;
   levelDangerous: number | null;
-  /** NWS flood stage in feet. Outranks the ladder above when reached. */
+  /** Reviewed thresholds in the opposite unit from thresholdUnit, when available. */
   altLevelTooLow?: number | null;
   altLevelLow?: number | null;
   altLevelOptimalMin?: number | null;
   altLevelOptimalMax?: number | null;
   altLevelHigh?: number | null;
   altLevelDangerous?: number | null;
+  /** NWS flood stage in feet. Outranks the ladder above when reached. */
   floodStageFt: number | null;
 }
 

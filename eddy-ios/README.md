@@ -1574,7 +1574,10 @@ gauge and dam website URLs keep their existing behavior. See
 [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for the versioned
 state contract, shared scale/calendar rules and outstanding device gates.
 Deploy the additive web routes and timezone fields before distributing the
-app build. App-opening associations remain off until the ADR's store and
+app build. Charts use station time rather than device time. Missing coordinates
+or older web responses without `timeZone` use UTC, with a visible UTC note on
+the chart; skipping the deployment order therefore produces UTC labels.
+App-opening associations remain off until the ADR's store and
 compatibility gates are recorded; shipping the handlers does not enable them.
 
 The app config permits native rotation. The local `eddy-orientation` Expo
