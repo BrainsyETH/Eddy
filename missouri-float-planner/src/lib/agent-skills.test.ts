@@ -61,3 +61,18 @@ test('repository paths a skill names exist', () => {
     }
   }
 });
+
+test('the documented iOS development loop launches the installed dev client', () => {
+  const makefile = readFileSync(join(REPO, 'Makefile'), 'utf8');
+  assert.match(makefile, /^dev: guard-node[^\n]*\n\tcd \$\(MOBILE\) && npx expo start --dev-client$/m);
+
+  const readme = readFileSync(join(REPO, 'eddy-ios/README.md'), 'utf8');
+  const introStart = readme.indexOf('## Running it');
+  const introEnd = readme.indexOf('### `react-native-svg', introStart);
+  assert.ok(introStart >= 0 && introEnd > introStart, 'README quick start must be present');
+  const quickstart = readme.slice(introStart, introEnd);
+  assert.match(quickstart, /make run-ios/);
+  assert.match(quickstart, /make dev/);
+  assert.match(quickstart, /--dev-client/);
+  assert.doesNotMatch(quickstart, /open in \*\*Expo Go\*\*/);
+});

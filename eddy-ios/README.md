@@ -5,13 +5,52 @@ headless API.
 
 ## Running it
 
+Eddy's normal iOS workflow uses an **Expo development build**, not Expo Go.
+Mapbox, background Float Mode, and Eddy's local native modules require a binary
+with the app's native dependencies. Once installed, keep the development
+client and Metro running for quick JavaScript/TypeScript and UI iteration.
+
+### First-time setup or after a native change
+
+From the repository root:
+
 ```bash
-cd eddy-ios
-npm install
-npx expo start
+./bootstrap.sh mobile  # Node 20 + dependencies; do not use --legacy-peer-deps
+make run-ios           # Build/install the iOS simulator development client
 ```
 
-Then scan the QR code with the Camera app and open in **Expo Go**.
+`make run-ios` runs Expo's native build and normally starts Metro. **Use that
+Metro process if it is already running**; do not launch a second one on the
+same port. For local API/auth/map configuration, provide the required
+variables as described in `eddy-ios/.env.example`; do not put secrets in git.
+`make env-pull` is an explicitly chosen production-environment pull, not a
+routine setup step.
+
+### Day-to-day edits (no native rebuild)
+
+After the development client is installed, from the repository root:
+
+```bash
+make dev
+```
+
+This runs Metro as `npx expo start --dev-client` with the Node 20 guard.
+Press **i** to open the installed Eddy client in the simulator, or open the
+dev build on an iPhone using its Metro URL. Fast Refresh handles ordinary
+TypeScript, copy, layout, theme, and route changes without recompiling Swift.
+Keep this terminal open while iterating. **Do not press s to switch to Expo
+Go**; Expo Go cannot validate Eddy's custom native functionality.
+
+Re-run `make run-ios` if the development build is absent, a native dependency
+or local Swift module changes, a config plugin or native permission changes,
+or the existing native client is otherwise out of date. A Metro reload never
+adds native code, and an EAS Update cannot replace a required native binary.
+
+Before merging iOS code, use `make check-mobile`, `make bundle-mobile`, and
+`make check-web` from the root. They check types/lint, the production Metro
+bundle, and pure iOS logic tested with the web suite; they do **not** compile
+Swift or replace device QA. TestFlight/App Store builds use the release
+commands described in `docs/ios-release-runbook.md`.
 
 Two things that are not optional:
 
@@ -32,7 +71,7 @@ Two things that are not optional:
   will fetch the latest Expo from the registry instead of using this project's
   pinned SDK 57.
 
-`npx expo start --ios` needs Xcode plus an installed iOS simulator runtime. If
+Pressing **i** from Metro (or running `npx expo start --ios`) needs Xcode plus an installed iOS simulator runtime. If
 you see `No iOS devices available`, either the runtime is missing
 (`xcodebuild -downloadPlatform iOS`) or Xcode is not the selected developer
 directory (`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`).
@@ -53,8 +92,9 @@ npx expo run:ios          # local rebuild, or
 eas build --profile development --platform ios
 ```
 
-Expo Go bundles `react-native-svg` itself, so the charts work there — but Expo
-Go cannot run the Map tab, which is why the dev client exists.
+Expo Go includes some common native libraries, but it cannot run Eddy's full
+Mapbox or local native functionality. Use the installed development client
+for realistic testing, even when a particular screen renders in Expo Go.
 
 ### `Unimplemented component: <RNSVGSvgView>` on a build you did not just make
 
@@ -79,13 +119,17 @@ render that *throws*, which is what the New Architecture does here; the old
 architecture renders a placeholder view instead and throws nothing, so a boundary
 can never be the whole answer. The runtime version is.
 
-### Three ways to run this, and when each applies
+### Development, native rebuild, and distribution
 
-| Command | Needs | Use it for |
+| Command (from repository root) | Needs | Use it for |
 |---|---|---|
-| `npx expo start` | Expo Go on a device | everything except the Map tab |
-| `npx expo run:ios` | Xcode + CocoaPods, locally | native modules, i.e. the Map tab |
-| `eas build` | an Expo account | builds for testers and the App Store |
+| `make dev` | Installed Eddy development client | Most daily TS/UI edits via Fast Refresh; no new native compile |
+| `make run-ios` | Xcode, CocoaPods and an iOS simulator | First install and rebuild when native code/config changes |
+| `make build-ios` / `make testflight` | EAS account/signing | Internal tester and App Store/TestFlight distribution |
+
+Expo Go is a limited debugging option, **not** the standard way to test Eddy.
+The root `Makefile` keeps local native build artifacts for incremental work;
+cloud build targets deliberately clean those artifacts before packaging.
 
 `run:ios` prebuilds — it generates the native project and resolves every entry in
 `app.json`'s `plugins` before Xcode ever starts. Which leads to the one rule that

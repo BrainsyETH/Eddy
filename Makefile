@@ -98,11 +98,12 @@ check: check-web check-mobile bundle-mobile ## Everything CI gates on
 
 # ── Running and shipping the app ────────────────────────────────────────────
 #
-# Three commands, and they are the whole interface. See
-# docs/ios-release-runbook.md for what each one assumes.
+# Day-to-day Metro (`make dev`), local native builds (`make run-ios`), and
+# cloud builds are separate. See eddy-ios/README.md for development and
+# docs/ios-release-runbook.md for distribution.
 
-dev: guard-node ## Run the app locally (then press s for Expo Go, then i)
-	cd $(MOBILE) && npx expo start
+dev: guard-node ## Start Metro for the installed iOS development client (press i)
+	cd $(MOBILE) && npx expo start --dev-client
 
 # THE ARTIFACT TRAP THIS CLOSES:
 #

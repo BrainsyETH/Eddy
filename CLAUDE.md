@@ -71,7 +71,7 @@ scripts and mirror CI exactly:
   `scripts/lib/client-access-contract.ts` under the web app. New public definer
   functions require an explicit allowlist review; report writes remain server-only.
 - `make check` — all of the above
-- `make dev` — run the app locally on a simulator
+- `make dev` — run Metro for an installed iOS development client (Fast Refresh); `make run-ios` builds/installs that client when native code changes
 - `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps
 - `make check-eas-env` — compare EAS variable *names* across `preview` and `production`
 
@@ -88,8 +88,10 @@ failing for reasons that name anything but Node.
 
 Repeatable workflows are skills in `.agents/skills/<name>/SKILL.md` (Codex
 reads them there); `.claude/skills/<name>` is a symlink to the same directory
-for Claude Code. Edit the `.agents/` copy only. `eddy-review` reviews a branch
-or PR; `eddy-ios-release-prep` assesses an iOS release and writes its
+for Claude Code. Edit the `.agents/` copy only. `eddy-ios-feature` implements
+a scoped iOS change and self-reviews its behavior; `eddy-ios-ui` adds Eddy's
+native UI, accessibility, and interaction checklist. `eddy-review` reviews
+a branch or PR; `eddy-ios-release-prep` assesses an iOS release and writes its
 readiness record. Skills route to the authoritative docs rather than restate
 them; `missouri-float-planner/src/lib/agent-skills.test.ts` checks the links
 and that every path a skill names exists.
