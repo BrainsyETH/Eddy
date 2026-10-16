@@ -1393,3 +1393,16 @@ h1, h2, h3, h4, h5, h6 {
   outline-offset: 3px;
   border-radius: 9999px;
 }
+
+/* Dam detail: wide charts on desktop and landscape phones, stacked in portrait. */
+.dam-generation-layout { display: grid; }
+.dam-observed { border-bottom: 1px solid var(--color-neutral-200); }
+.dam-support-layout { display: grid; gap: 1.25rem; align-items: start; }
+@media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
+  .dam-generation-layout { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr); }
+  .dam-observed { border-bottom: 0; border-right: 1px solid var(--color-neutral-200); }
+}
+@media (min-width: 1100px) {
+  .dam-support-layout { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
+  .dam-support-layout > :only-child { grid-column: 1 / -1; }
+}

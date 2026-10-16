@@ -122,10 +122,10 @@ export default function DamTimeline({
 
   return (
     <div>
-      {/* One readout line, above the bars, replacing per-bar tooltips. It holds
-          the day summary until something is selected so the space never jumps. */}
-      <p className="mb-1 min-h-[1.25rem] text-xs tabular-nums text-neutral-600">
-        {hoveredHour ? hourReadout(hoveredHour, reference) : summary}
+      {/* The date disclosure already summarizes the day. Keep the full summary
+          on the chart's accessible label and reserve this line for exploration. */}
+      <p aria-live="polite" className="mb-1 min-h-[1.25rem] text-xs tabular-nums text-neutral-600">
+        {hoveredHour ? hourReadout(hoveredHour, reference) : 'Select an hour for details'}
       </p>
 
       <div
@@ -134,8 +134,9 @@ export default function DamTimeline({
         aria-label={summary}
         tabIndex={0}
         className="relative flex h-11 items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
-        onPointerLeave={() => setHovered(null)}
+        onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
         onBlur={() => setHovered(null)}
         onKeyDown={(e) => {
           if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

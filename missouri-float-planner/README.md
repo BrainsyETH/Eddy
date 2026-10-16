@@ -13,6 +13,30 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 River pages place “Find a float on this river” near the bottom, after the river
 guide and before the feedback link, when float search is enabled for the web.
 
+## Dam detail pages
+
+Dam pages keep measured generation and the posted schedule in one card, with
+separate labelled sections. Desktop and landscape phones place the reading
+beside the wider hourly chart; portrait phones stack them. The first available
+schedule day is expanded, and later days can be opened individually. History
+shows completed observations by default; an explicit toggle includes upcoming
+scheduled hours. Missing observations remain gaps and retain the full day axis.
+
+Info buttons hold reference/methodology explanations. Reading age, schedule
+check age, stale provenance, and release differences stay visible. The HTML
+snapshot renders on the server, with a shared display clock on the client.
+Visible pages refresh that same cached server snapshot every five minutes and
+on focus/return after at least one minute, preserving chart and disclosure state.
+Hidden tabs do not poll. Original measurement timestamps are never replaced by
+page refresh times. The dam API and iOS app contracts are unchanged.
+
+`npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
+portrait, and landscape sizes, including disclosure/dialog controls, freshness,
+and missing-data states. Install the browser with `npx playwright install chromium`
+(or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
+removes its temporary fixture route on exit. Screenshots go to
+`/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
+
 ## Supported Rivers
 
 The launch set was eight Missouri rivers (Meramec, Current, Eleven Point,

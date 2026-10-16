@@ -14,6 +14,7 @@
 // the source's number, not a conversion to hedge. That is why spans render a
 // plain peak figure where the schedule page refuses one on ramp hours.
 
+import DamInfoTip from './DamInfoTip';
 import { CalendarClock } from 'lucide-react';
 import type { DamGenerationForecast } from '@shared/dam-types';
 import {
@@ -44,34 +45,26 @@ export default function GenerationForecast({
   const planStale = forecastPlanStale(forecast.windows, renderedAt);
 
   return (
-    <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">
+    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-center gap-2">
         <CalendarClock className="h-4 w-4 text-primary-700" aria-hidden="true" />
         <h2
-          className="text-lg font-bold text-neutral-900"
+          className="flex-1 text-lg font-bold text-neutral-900"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           Generation forecast
         </h2>
+        <DamInfoTip title="Generation forecast"><p>The operating forecast comes from {forecast.source}. It is a plan, refreshed daily, and may change as power demand, inflow, outages and operating needs change.</p><p>A change at the dam reaches downstream locations later. Check local operating information and posted warnings before entering the water.</p></DamInfoTip>
       </div>
-      <p className="mt-1 text-sm text-neutral-600">
-        The operating forecast published by {forecast.source} — a plan, refreshed
-        daily, not a commitment.
-      </p>
-
-      {/* The one sentence a reader came for, when the forecast can support
-          it. Null renders nothing: a gap at the present hour means the
-          forecast cannot say what the dam is doing now, and this line
-          anchors on that claim. */}
       {nextChange && (
         <p className="mt-3 text-sm font-bold text-neutral-900">{nextChange}</p>
       )}
 
-      <div className="mt-4">
+      <div className="mt-4 grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3">
         {days.map((day) => (
           <div
             key={day.dayKey}
-            className="border-t border-neutral-200 py-3 first:border-t-0 first:pt-0"
+            className="border-t border-neutral-200 py-3"
           >
             <h3 className="text-sm font-bold text-neutral-900">{day.dayLabel}</h3>
             <ul className="mt-1.5 space-y-1">
@@ -120,10 +113,7 @@ export default function GenerationForecast({
             .{' '}
           </span>
         )}
-        Forecasts change without notice — power demand, transmission constraints,
-        generator outages and inflow all move them. A change at the dam does not
-        reach every downstream location at the same time. Never wade or anchor
-        below a dam without checking the horn and posted warnings.
+        Times at the dam · Downstream timing varies · Subject to change.
       </p>
     </section>
   );

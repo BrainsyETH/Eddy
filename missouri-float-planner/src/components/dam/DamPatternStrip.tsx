@@ -23,6 +23,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
+import DamInfoTip from './DamInfoTip';
 import type { DamPatternDay, DamScheduleDay } from '@/lib/data/dams';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
@@ -31,6 +32,7 @@ import {
   patternRowLabel as rowLabel,
   patternRowVoiceOver as rowVoiceOver,
   patternRows,
+  generationHistoryRows,
   patternSpanLabel,
   type GenerationReference,
   type PatternRow as Row,
@@ -58,10 +60,15 @@ export default function DamPatternStrip({
     return () => clearInterval(id);
   }, []);
 
-  const rows = useMemo<Row[]>(
+  const [showUpcoming, setShowUpcoming] = useState(false);
+  const allRows = useMemo<Row[]>(
     () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
     [now, pattern, schedule, reference, generationFloorCfs]
   );
+
+  const rows = showUpcoming ? allRows : generationHistoryRows(allRows);
+  const canShowUpcoming = allRows.some((row) => row.scheduled);
+  const slots = new Map(allRows.map((row) => [row.dayKey, row.cells.length]));
 
   if (rows.length === 0) return null;
 
@@ -74,15 +81,19 @@ export default function DamPatternStrip({
   const hasScheduled = rows.some((r) => r.cells.some((c) => c.kind === 'scheduled'));
 
   return (
-    <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">
+    <section className="min-w-0 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex items-center gap-2">
         <Activity className="h-4 w-4 text-primary-700" aria-hidden="true" />
         <h2
-          className="text-lg font-bold text-neutral-900"
+          className="flex-1 text-lg font-bold text-neutral-900"
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          Generation pattern
+          {showUpcoming ? 'Generation pattern' : 'Generation history'}
         </h2>
+        <DamInfoTip title="Generation history">
+          <p>Solid bars are measured generation. Outlined bars show the posted schedule when upcoming hours are included. Missing readings are gaps, not evidence that generation stopped.</p>
+          <p>Today includes completed hours only in the history view. All times are Central time at the dam. Past generation does not predict future releases.</p>
+        </DamInfoTip>
       </div>
       {/* WHICH DAYS. The hour axis under the rows has always said what a column
           is; nothing said what the stack of rows adds up to, so a reader had to
@@ -142,11 +153,11 @@ export default function DamPatternStrip({
 
               <div
                 role="img"
-                aria-label={rowVoiceOver(row)}
-                className="relative flex h-5 flex-1 items-end"
+                aria-label={row.today && row.cells.length === 0 ? 'Today: no completed hours yet.' : rowVoiceOver(row)}
+                className="relative flex h-6 min-w-0 flex-1 items-end sm:h-7"
               >
                 {row.cells.map((cell, i) => (
-                  <div key={i} className="flex h-full flex-1 items-end px-[0.5px]">
+                  <div key={i} className="flex h-full shrink-0 items-end px-[0.5px]" style={{ width: `${100 / (slots.get(row.dayKey) || 24)}%` }}>
                     {cell.kind === 'missing' ? (
                       <div className="h-full w-full rounded-[1px] border border-dashed border-neutral-300" />
                     ) : cell.kind === 'future' ? (
@@ -189,7 +200,7 @@ export default function DamPatternStrip({
                 {row.splitIndex !== null && (
                   <div
                     className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary-900"
-                    style={{ left: `${(row.splitIndex / row.cells.length) * 100}%` }}
+                    style={{ left: `${(row.splitIndex / (slots.get(row.dayKey) || 24)) * 100}%` }}
                   />
                 )}
               </div>
@@ -212,11 +223,12 @@ export default function DamPatternStrip({
         <span>midnight</span>
       </div>
 
-      <p className="mt-4 border-t border-neutral-200 pt-3 text-xs text-neutral-500">
-        Central time, at the dam. A pattern is a habit, not a promise — schedules
-        change without notice, and a change at the dam does not reach every
-        downstream location at the same time.
-      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2">
+        <span className="text-xs text-neutral-500">Central time · At the dam</span>
+        {canShowUpcoming && <button type="button" aria-pressed={showUpcoming} onClick={() => setShowUpcoming(!showUpcoming)} className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600">
+          {showUpcoming ? 'Hide upcoming schedule' : 'Include upcoming schedule'}
+        </button>}
+      </div>
     </section>
   );
 }
