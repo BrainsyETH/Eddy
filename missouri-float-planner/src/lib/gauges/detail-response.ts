@@ -58,7 +58,7 @@ import { flowBand, type FlowBand } from '@shared/flow-band';
 import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { orderRiverLinks } from '@shared/primary-river-link';
-import { widgetGaugeSnapshot, type WidgetGaugeSnapshot } from '@shared/condition-widget';
+import { widgetGaugeResponse, type WidgetGaugeSnapshot } from '@shared/condition-widget';
 import { fetchNWSAlertsAtPoint } from '@/lib/nws/alerts';
 
 
@@ -277,6 +277,7 @@ export async function gaugeDetailResponse(
 
   const { siteId: rawSiteId } = await params;
   const siteId = rawSiteId.trim();
+  const widgetOnly = request.nextUrl.searchParams.get('widget') === '1';
   if (!siteId) {
     return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
   }
@@ -377,6 +378,7 @@ export async function gaugeDetailResponse(
     // A reading borrowed this way is stamped with the station that produced
     // it. An unattributed number would read as this gauge's own.
     const waterQuality: { siteId: string; name?: string } | null = (() => {
+      if (widgetOnly) return null; // WidgetKit needs conditions/NWS, not slow quality enrichment.
       if (provider === 'usgs') return { siteId };
       const tw = getUsaceDam(siteId)?.tailwater;
       if (!tw?.waterQualitySiteId) return null;
@@ -530,6 +532,18 @@ export async function gaugeDetailResponse(
     // the gauge on the Huzzah where it physically sits.
     const orderedThresholds = orderRiverLinks(thresholds);
 
+    // Both responses carry one identical, canonical widget presentation. Only
+    // the compact response bypasses optional full-screen enrichment.
+    const floodAlerts = await floodAlertsPromise;
+    const widgetResponse = widgetGaugeResponse({
+      siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect: suspect,
+      thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
+      floodAlerts,
+    });
+    if (widgetOnly) {
+      return NextResponse.json(widgetResponse, { headers: cdnCacheHeaders(60, 120) });
+    }
+
     // ── The NWS stages ──────────────────────────────────────────────────────
     // Precedence (station nwps_* columns win, curated pairing is the fallback,
     // no minor flood → not published) lives in src/lib/gauges/flood-stages.ts,
@@ -560,7 +574,6 @@ export async function gaugeDetailResponse(
 
     const waterTemperature = await waterTemperaturePromise;
     const dissolvedOxygen = await dissolvedOxygenPromise;
-    const floodAlerts = await floodAlertsPromise;
 
     // The seasonal comparison, published only when the policy allows it: the
     // band vocabulary is shared/flow-band.ts, the eligibility gate (record
@@ -638,7 +651,7 @@ export async function gaugeDetailResponse(
     // Short CDN window: this is a live reading, and the stale path above means
     // a cached response can outlive the refresh it just paid for.
     return NextResponse.json<GaugeDetailResponse>(
-      { gauge, widget: widgetGaugeSnapshot(gauge) },
+      { gauge, widget: widgetResponse.widget },
       { headers: cdnCacheHeaders(120, 600) }
     );
   } catch (err) {

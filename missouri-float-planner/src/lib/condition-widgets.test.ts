@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { widgetGaugeSnapshot, widgetHistorySeries, WIDGET_ALERT_LIFETIME_MS, WIDGET_UNDATED_WARNING_LIFETIME_MS } from '../../shared/condition-widget';
+import { widgetGaugeSnapshot, widgetGaugeResponse, widgetHistorySeries, WIDGET_ALERT_LIFETIME_MS, WIDGET_UNDATED_WARNING_LIFETIME_MS } from '../../shared/condition-widget';
 import { conditionWidgetPreview } from '../../shared/condition-widget-preview';
 import { CONDITION_SYSTEM } from '../../shared/condition-system';
 import { STALE_READING_MS } from '../../shared/reading-staleness';
 import type { ChartReadingLike } from '../../shared/chart-model';
 import { widgetConfiguration, widgetGaugeCatalog } from '../../../eddy-ios/src/lib/conditionWidgets';
+import {
+  WIDGET_GUIDE, WIDGET_ONBOARDING_KEY, widgetGuideSteps,
+  hasSeenWidgetGuide, markWidgetGuideSeen,
+} from '../../../eddy-ios/src/lib/widgetOnboarding';
 import type { MapGauge } from '../../../packages/eddy-types';
 
 const NOW = Date.parse('2026-10-15T12:00:00Z');
@@ -29,6 +33,41 @@ const readings = (hours = 24): ChartReadingLike[] => Array.from({ length: hours 
   timestamp: new Date(NOW - (hours - index) * 3_600_000).toISOString(),
   dischargeCfs: 200 + index * 10, gaugeHeightFt: 2 + index / 10,
 }));
+
+test('widget discovery is a local acknowledgement, not an install or an account setting', async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: async (key: string) => values.get(key) ?? null,
+    setItem: async (key: string, value: string) => { values.set(key, value); },
+  };
+  assert.equal(await hasSeenWidgetGuide(storage), false);
+  await markWidgetGuideSeen(storage);
+  assert.equal(await hasSeenWidgetGuide(storage), true);
+  assert.equal(values.get(WIDGET_ONBOARDING_KEY), 'seen');
+
+  // A native-store failure should show the invitation again, not block Alerts.
+  assert.equal(await hasSeenWidgetGuide({
+    getItem: async () => { throw Error('unavailable'); },
+    setItem: storage.setItem,
+  }), false);
+});
+
+test('widget guide follows the real small-versus-medium configuration rules', () => {
+  assert.equal(WIDGET_GUIDE.river.size, 'Small');
+  assert.equal(WIDGET_GUIDE.favorites.size, 'Medium');
+  assert.match(WIDGET_GUIDE.river.personalize, /Edit Widget/);
+  assert.match(WIDGET_GUIDE.favorites.personalize, /first three/);
+  const smallSteps = widgetGuideSteps('river');
+  const mediumSteps = widgetGuideSteps('favorites');
+  assert.equal(smallSteps.length, 3);
+  assert.deepEqual(smallSteps.map(step => step.title), mediumSteps.map(step => step.title));
+  assert.match(smallSteps[0].detail, /Edit, then Add Widget/);
+  assert.match(smallSteps[1].detail, /River level/);
+  assert.match(mediumSteps[1].detail, /Your rivers/);
+  assert.match(mediumSteps[2].detail, /Favorites/);
+  const alerts = readFileSync(new URL('../../../eddy-ios/app/(tabs)/(alerts)/alerts.tsx', import.meta.url), 'utf8');
+  assert.match(alerts, /<HomeScreenWidgetsIntro \/>/);
+});
 
 test('widget verdicts use the canonical ladder/colors and preserve observation expiration', () => {
   const result = widgetGaugeSnapshot(gauge, NOW);
@@ -169,4 +208,67 @@ test('favorites preserve order, deduplicate, exclude dams, cap at three and clea
   assert.ok(config.catalog.some(item => item.siteId === 'national-0'));
   assert.deepEqual(widgetConfiguration(config.catalog, []).favorites, []);
   assert.deepEqual(widgetConfiguration([], [{ kind: 'river', entityId: 'missing', name: 'Missing', slug: 'missing' }]).favorites, []);
+});
+
+
+test('native widget foreground refresh is throttled and keeps configuration reloads independent', () => {
+  const native = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/EddyLiveActivityModule.swift', import.meta.url), 'utf8');
+  const sync = readFileSync(new URL('../../../eddy-ios/src/components/ConditionsWidgetSync.tsx', import.meta.url), 'utf8');
+  assert.match(native, /minimumInterval:\s*TimeInterval\s*=\s*15\s*\*\s*60/);
+  assert.match(native, /AsyncFunction\("refreshConditionsWidgets"\)/);
+  assert.match(native, /AsyncFunction\("readWidgetDiagnostics"\)/);
+  assert.match(native, /ConditionsWidgetReloader\.request\(force: true\)/);
+  assert.match(sync, /return onForeground\(refresh\)/);
+  assert.match(sync, /\brefresh\(\);/);
+  assert.match(sync, /if \(AppState\.currentState !== 'active'\) return/);
+});
+
+test('widget detail requests opt in to compact server response without bypassing trusted values or flood alerts', () => {
+  const source = readFileSync(new URL('./gauges/detail-response.ts', import.meta.url), 'utf8');
+  const native = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift', import.meta.url), 'utf8');
+  assert.match(source, /request\.nextUrl\.searchParams\.get\('widget'\)\s*===\s*'1'/);
+  assert.match(source, /if \(widgetOnly\) return null;/);
+  assert.match(source, /const widgetResponse = widgetGaugeResponse\(/);
+  assert.match(source, /NextResponse\.json\(widgetResponse,/);
+  assert.match(source, /widget: widgetResponse\.widget/);
+  assert.match(source, /floodAlerts: await floodAlertsPromise|const floodAlerts = await floodAlertsPromise/);
+  assert.match(source, /thresholds: orderedThresholds\.length > 0/);
+  assert.match(native, /URLQueryItem\(name: "widget", value: "1"\)/);
+  assert.match(native, /timeout: 12/);
+  assert.match(native, /timeout: 8/);
+});
+
+test('compact and full responses reuse the same condition, warning, and observation snapshot', () => {
+  const alerts = [{ event: 'Flash Flood Warning', expires: new Date(NOW + 3_600_000).toISOString() }];
+  const cases = [
+    { ...gauge, floodAlerts: alerts },
+    { ...gauge, readingSuspect: true, floodAlerts: alerts },
+    { ...gauge, readingTimestamp: new Date(NOW - STALE_READING_MS - 1).toISOString(), floodAlerts: alerts },
+    { ...gauge, dischargeCfs: 0, floodAlerts: null },
+    { ...gauge, dischargeCfs: null, floodAlerts: [] },
+  ];
+  for (const raw of cases) {
+    // The full API envelope has additional metadata; presentation must depend
+    // only on the public gauge inputs used by the compact endpoint.
+    const fullGauge = { ...raw, name: 'Huzzah Creek', provider: 'usgs', seasonalContext: { percentile: 50 } };
+    const compact = widgetGaugeResponse(raw, NOW);
+    assert.deepEqual(compact.widget, widgetGaugeSnapshot(fullGauge, NOW));
+    assert.deepEqual(compact.gauge, {
+      siteId: raw.siteId, gaugeHeightFt: raw.gaugeHeightFt, dischargeCfs: raw.dischargeCfs,
+      readingTimestamp: raw.readingTimestamp, readingSuspect: raw.readingSuspect,
+    });
+    assert.equal(compact.widget.observedAt, Date.parse(raw.readingTimestamp!));
+  }
+  assert.equal(widgetGaugeResponse({ ...gauge, dischargeCfs: 0 }, NOW).widget.dischargeCfs, 0);
+});
+
+test('widget request failures preserve cache and record structured diagnostics', () => {
+  const source = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift', import.meta.url), 'utf8');
+  for (const expected of ['attemptedAt', 'finishedAt', 'succeededAt', 'observedAt', 'httpStatus',
+    'oversized_response', 'site_mismatch', 'invalid_response', 'request_failed', 'http_404',
+    'ConditionsWidgetStore.save(value, siteId: siteId)', 'pruneRecords']) {
+    assert.ok(source.includes(expected), 'missing widget diagnostics or cache contract: ' + expected);
+  }
+  assert.match(source, /catch \{[\s\S]*?WidgetRequestError\.invalidJSON/);
+  assert.match(source, /case \.timedOut:\s*return \("timeout", nil\)/);
 });

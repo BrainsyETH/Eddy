@@ -15,6 +15,26 @@ unstarred; resolving that choice never adds it back to Favorites or the picker.
 Additional widget sizes and condition Lock Screen accessories are separate work.
 The existing River Mode Live Activity is unchanged.
 
+## Discovering widgets in Alerts
+
+The **Mine** segment of Alerts includes an optional widget setup invitation
+for installed iOS binaries that expose the widget native bridge. An older
+binary, Expo Go or Android never advertises unavailable Home Screen widgets.
+The invitation is shown once per device until dismissed or opened; afterward
+a compact **Home Screen widgets** row remains so people can reopen the guide.
+The device-only `eddy.widgets.setup-guide.seen.v1` key records seeing the
+guide, never falsely asserts that a widget was installed.
+
+The sheet previews **River level** (small, edited to select a gauge) and
+**Your rivers** (medium, first three distinct river/gauge favorites), with
+illustrative readings explicitly marked as sample data. It teaches Apple's
+Home Screen **touch and hold → Edit → Add Widget → search Eddy** flow, followed
+by the widget-specific customization. iOS owns the widget gallery: no button
+claims that Eddy can install a widget on the user's behalf. Widget discovery
+needs no account, location, or notification permission. Unlike alert rules,
+widgets are not push notifications; their data refresh cadence is controlled
+by iOS, and observation time remains visible.
+
 ## Display and previews
 
 Widgets use semantic text styles (at least caption2 for small labels), with
@@ -45,6 +65,28 @@ checks that the packaged example matches the canonical presentation.
   `group.<bundleIdentifier>.widgets`. It waits for star hydration, preserves
   cached catalog metadata offline, and serializes writes so unstars/deletion
   cannot be undone by an earlier save. Old binaries and Expo Go skip the bridge.
+- When Eddy becomes active, `ConditionsWidgetSync` asks the native bridge to
+  reload both widget timelines, throttled to once per 15 minutes across app
+  relaunches. A favorite or station configuration change always reloads. This
+  is a request to WidgetKit, not a guarantee of network access or a 15-minute
+  cadence; standalone widget timelines retain their OS-controlled policy.
+- WidgetKit records the last detail/history request attempt, success, response
+  status or sanitized failure reason, and the detail observation time by public
+  site ID in the shared App Group. The optional native
+  `readWidgetDiagnostics()` bridge exposes the last 30 entries to local QA;
+  the app logs a snapshot on foreground in development only. Diagnostics are
+  pruned after 30 days without changing the separately cached readings. On device, widget
+  network failures also emit `[Eddy widgets]` console messages. No account,
+  GPS, response body, or request URL is stored. To diagnose a stale widget:
+  compare last attempt against last success; no recent attempt suggests a
+  deferred timeline, while a recent failed attempt identifies network, HTTP,
+  timeout or decoding failure. A successful response with an old observation
+  means the upstream station itself hasn't supplied a newer reading.
+- `GET /api/gauges/:siteId?widget=1` returns the widget's minimal gauge
+  fields plus the exact canonical `widget` snapshot. It keeps NWS point alerts
+  and river-specific rating/observation freshness, and skips non-widget
+  water-quality, seasonal comparison and other full-detail enrichment.
+  Normal gauge-detail clients continue to receive the full response.
 - `GET /api/gauges/:siteId` adds a versioned `widget` presentation snapshot.
   Its condition labels/colors and strict-unit ratings come from
   `shared/condition-widget.ts` and the canonical condition system. Every linked

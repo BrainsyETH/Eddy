@@ -49,7 +49,8 @@
     "promo:capture": "cd remotion && node scripts/capture-promo.mjs",
     "promo:render": "cd remotion && bash scripts/render-promo.sh",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "db:readiness": "tsx scripts/ingestion/audit-readiness.ts"
+    "db:readiness": "tsx scripts/ingestion/audit-readiness.ts",
+    "test:dam-page": "node scripts/dam-page-smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

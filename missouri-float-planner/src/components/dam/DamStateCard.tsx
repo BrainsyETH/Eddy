@@ -1,14 +1,7 @@
 // src/components/dam/DamStateCard.tsx
-// A dam's current state — the row on /dams, and the supporting measurements
-// below the generation console on /dams/[damId]. Server component: everything
-// here is read-through data with no interaction, so there is nothing to hydrate.
-//
-// ── What moved out of this file ────────────────────────────────────────────
-// The generation hero. It is now DamGenerationHero, rendered on the DETAIL page
-// only, because a rack of eight generator cells repeated down a twenty-dam
-// index is not scannable — and the index wraps this component in a `<Link>`, so
-// it can gain no interactive descendants either. What is left here is the
-// one-line now → next sentence, which is what a list surface actually needs.
+// Supporting measurements below the generation console on /dams/[damId].
+// The detail page supplies its live display clock. The /dams index uses the
+// smaller DamListCard, with flow estimates and only its summary measurements.
 //
 // The copy discipline this file enforces is the whole point:
 //
@@ -45,8 +38,8 @@ function formatCfs(value: number): string {
  * assembles the snapshot and then frozen, so a payload held on a device keeps
  * claiming to be fresh as it ages. See readingStaleness in shared/.
  */
-function isStale(metric: { at: string }): boolean {
-  return readingStaleness(metric.at) === 'stale';
+function isStale(metric: { at: string }, now: number): boolean {
+  return readingStaleness(metric.at, now) === 'stale';
 }
 
 function Stat({
@@ -90,8 +83,8 @@ export default function DamStateCard({
   /**
    * This card is NOT the top of the page.
    *
-   * Set on the detail page, where DamGenerationHero sits above it and already
-   * carries the dam's name, the generation summary and the release figure. Two
+   * Set on the detail page, where GenerationCard sits above it and already
+   * carries the generation summary and the release figure. Two
    * copies of one fact on one screen read as two facts, and a second <h2> with
    * the same name reads as a second dam.
    *
@@ -100,9 +93,11 @@ export default function DamStateCard({
    * component is for once generation has moved out of it.
    */
   secondary,
+  now = Date.now(),
 }: {
   dam: DamSnapshot;
   secondary?: boolean;
+  now?: number;
 }) {
   const { metrics } = dam;
   const release = metrics.release;
@@ -130,14 +125,14 @@ export default function DamStateCard({
   // Without it every such row on the index led with "This project has no
   // powerhouse", which is both noise and a contradiction of this card's own
   // rule that a null generating state renders nothing.
-  const state = generationNow(dam);
+  const state = generationNow(dam, now);
   const clauses =
     secondary || generationStatusLabel(state) === null
       ? null
-      : nowNextClauses(state, dam.schedule, dam.generationReference);
+      : nowNextClauses(state, dam.schedule, dam.generationReference, now);
 
   return (
-    <div className="rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]">
+    <div className={secondary ? "min-w-0 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6" : "rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]"}>
       {secondary ? (
         <h2
           className="text-lg font-bold text-neutral-900"
@@ -203,23 +198,20 @@ export default function DamStateCard({
 
       {/* Tailwater facts lead, lake facts follow. The water below the dam is
           what someone is standing in; the pool is context. */}
-      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {/* Hidden only when the hero above ACTUALLY carried it. A flood-control
-            project renders no hero at all — DamGenerationHero returns null for
-            a dam with no powerhouse — so on Clearwater this is the only place
-            total release appears, and suppressing it on `secondary` alone
-            deleted the one live number that page has. */}
-        {release && !(secondary && dam.hasTurbines) && (
+      <div className={secondary ? "mt-4 grid grid-cols-2 gap-x-4 gap-y-5" : "mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"}>
+        {/* GenerationCard carries total release for turbine AND gate-operated
+            dams on the detail page. The index still needs its own figure. */}
+        {release && !secondary && (
           <Stat
             icon={<Waves className="h-3.5 w-3.5" />}
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}
             value={formatCfs(release.value)}
             sub={
               release.dailyMean
-                ? ['daily average', relativeAge(release.at)].filter(Boolean).join(', ')
-                : relativeAge(release.at)
+                ? ['daily average', relativeAge(release.at, now)].filter(Boolean).join(', ')
+                : relativeAge(release.at, now)
             }
-            dim={isStale(release)}
+            dim={isStale(release, now)}
           />
         )}
         {/* Level below the dam, with how far it moved in three hours.
@@ -240,8 +232,8 @@ export default function DamStateCard({
             label="Water level below dam"
             value={`${tailwaterStage.value.toFixed(2)} ft`}
             suffix="elevation"
-            sub={tailwaterMovementSentence(tailwaterStage)}
-            dim={isStale(tailwaterStage)}
+            sub={tailwaterMovementSentence(tailwaterStage, now)}
+            dim={isStale(tailwaterStage, now)}
           />
         )}
         {tailwaterTemp && (
@@ -250,7 +242,7 @@ export default function DamStateCard({
             label="Tailwater temp"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
-            dim={isStale(tailwaterTemp)}
+            dim={isStale(tailwaterTemp, now)}
           />
         )}
         {pool && (
@@ -258,8 +250,8 @@ export default function DamStateCard({
             icon={<Droplets className="h-3.5 w-3.5" />}
             label="Lake level"
             value={`${pool.value.toFixed(2)} ft`}
-            sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at)}
-            dim={isStale(pool)}
+            sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at, now)}
+            dim={isStale(pool, now)}
           />
         )}
         {/* Inflow against release is what says whether the lake is filling, and
@@ -276,10 +268,10 @@ export default function DamStateCard({
             // shipped with only "into the lake" beneath it and no indication of
             // when it was measured, which on the two St. Louis dams is a daily
             // mean about a day in arrears.
-            sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at)]
+            sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at, now)]
               .filter(Boolean)
               .join(' · ')}
-            dim={isStale(inflow)}
+            dim={isStale(inflow, now)}
           />
         )}
         {/* Declared in the registry, not inferred from the temperature reading.
@@ -307,7 +299,7 @@ export default function DamStateCard({
           number for the same plant — 340 installed against 391 scheduled at
           Bull Shoals. Two bare megawatt figures on one page read as a
           contradiction; two labelled ones read as what they are. */}
-      {dam.nameplate && (
+      {dam.nameplate && !secondary && (
         <p className="mt-3 text-xs text-neutral-500">
           {dam.nameplate.units} generating {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
           {dam.nameplate.megawatts} MW nameplate
@@ -319,7 +311,7 @@ export default function DamStateCard({
         // publishes no timeseries at all, so there are no levels to show.
         <p className="mt-3 text-sm text-neutral-500">
           The Corps does not publish live levels for this project. The generation
-          schedule below is the available data.
+          schedule is the available data.
         </p>
       )}
     </div>
