@@ -1,7 +1,7 @@
 # River level and Favorites widgets
 
 The Home Screen widgets share the `EddyFloatActivity` WidgetKit extension with
-the existing Float Mode Live Activity. River level is a configurable small
+the existing River Mode Live Activity. River level is a configurable small
 widget; Your rivers is a medium widget with the first three distinct starred
 rivers/gauges in the app's existing order. Dams are not included. A river uses
 its primary gauge; a gauge star uses its physical primary river association.
@@ -13,7 +13,7 @@ national gauge through Edit Widget. Open Eddy once to populate the picker.
 Its public river/station names are retained separately when a gauge is
 unstarred; resolving that choice never adds it back to Favorites or the picker.
 Additional widget sizes and condition Lock Screen accessories are separate work.
-The existing Float Mode Live Activity is unchanged.
+The existing River Mode Live Activity is unchanged.
 
 ## Display and previews
 

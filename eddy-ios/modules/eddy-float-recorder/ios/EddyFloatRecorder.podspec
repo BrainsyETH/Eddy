@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name = 'EddyFloatRecorder'
   s.version = '1.0.0'
-  s.summary = 'Native GPS recording for Float Mode'
+  s.summary = 'Native GPS recording for River Mode'
   s.description = s.summary
   s.license = { :type => 'Proprietary' }
   s.author = 'Eddy'

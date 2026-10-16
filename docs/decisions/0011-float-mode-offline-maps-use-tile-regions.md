@@ -1,9 +1,9 @@
-# 0011 — Float Mode offline maps are Mapbox tile regions along the route, with a river-only fallback
+# 0011 — River Mode offline maps are Mapbox tile regions along the route, with a river-only fallback
 
 Status: active · 2026-10 · decisions verified against `@rnmapbox/maps` 10.3.5
 source; the items under "Prove on a device" are not yet verified.
 
-Float Mode ([#1448](https://github.com/BrainsyETH/Eddy/issues/1448)) must work
+River Mode ([#1448](https://github.com/BrainsyETH/Eddy/issues/1448)) must work
 at a put-in with no signal. The essential data (river line, access points,
 calibration) is already copied into the float session at start and never
 needs the network (`eddy-ios/src/lib/floatSession.ts`). This record is about
@@ -69,7 +69,7 @@ there is none.
 
 6. **When there is no usable background map, keep the same map and draw the
    river anyway.** When Mapbox cannot load its style (no download, no signal,
-   nothing cached), the Float Mode map switches to a built-in neutral style
+   nothing cached), the River Mode map switches to a built-in neutral style
    with no sources, which needs no network. It is the same map instance, so
    the route, ends, position, camera, following, pan, zoom and Recenter all
    continue, with a quiet "Background map unavailable" label. While neutral,
@@ -107,7 +107,7 @@ there is none.
 
 1. One representative trip: download → the card reaches Ready offline (the
    style-pack module compiled and answered) → airplane mode → cold launch →
-   Float Mode map renders the downloaded area, with labels → start and resume.
+   River Mode map renders the downloaded area, with labels → start and resume.
 2. No download, cleared ambient cache, airplane mode: the river-only view
    appears and tracking works.
 3. Background the app mid-download, return: progress resumes; nothing claims

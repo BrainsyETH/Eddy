@@ -1,5 +1,5 @@
 // eddy-ios/src/lib/floatTrackerStatus.ts
-// What tracking is doing for the active float, and the one line Float Mode
+// What tracking is doing for the active float, and the one line River Mode
 // says about it.
 //
 // The state comes from the native recorder's own report (floatRecording.ts:
@@ -43,7 +43,7 @@ export function createTrackerStatusStore() {
 export const trackerStatus = createTrackerStatusStore();
 
 export interface TrackingLine {
-  /** Short enough for the Float Mode panel. */
+  /** Short enough for the River Mode panel. */
   text: string;
   /** More, for Float options. */
   detail?: string;
@@ -52,7 +52,7 @@ export interface TrackingLine {
 }
 
 /**
- * The one line Float Mode shows about tracking. Whatever blocks tracking wins,
+ * The one line River Mode shows about tracking. Whatever blocks tracking wins,
  * most fundamental first, since nothing below it can work until it is fixed;
  * then what the recorder is doing. Locked-phone tracking is promised only
  * while the recorder reports recording with nothing blocking it.

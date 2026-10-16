@@ -80,6 +80,6 @@ export function routeProblemCopy(reason: RouteProblem | 'offline'): string {
     case 'anchor-off-line':
     case 'anchors-out-of-order':
     case 'length-disagreement':
-      return 'Eddy’s map data for this stretch doesn’t line up well enough to track progress honestly, so Float Mode isn’t available here yet.';
+      return 'Eddy’s map data for this stretch doesn’t line up well enough to track progress honestly, so River Mode isn’t available here yet.';
   }
 }

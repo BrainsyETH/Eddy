@@ -1,7 +1,7 @@
 // packages/eddy-geo/river-progress.ts
 // Where a paddler is on a river, in river miles, and how far is left.
 //
-// Float Mode's core question is "how much farther?", and the answer has to be
+// River Mode's core question is "how much farther?", and the answer has to be
 // in the same miles the planner quoted. This file is the pure half of that:
 // snap a GPS fix to the river line, then convert its place on the line into
 // river miles. No React, no GPS, no storage; the iOS session layer owns those.

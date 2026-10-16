@@ -109,7 +109,7 @@ function session() {
   return made.session;
 }
 
-test('published total pace never seeds Float Mode; moving model remains condition aware', () => {
+test('published total pace never seeds River Mode; moving model remains condition aware', () => {
   const result = calculateTripDuration({
     miles: 6,
     speeds: { speedLowWater: 1, speedNormal: 3, speedHighWater: 4 },

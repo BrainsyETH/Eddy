@@ -1,5 +1,5 @@
 // eddy-ios/src/float/FloatMap.tsx
-// The map on the Float Mode screen: the river, both ends, and where you are.
+// The map on the River Mode screen: the river, both ends, and where you are.
 //
 // The first GPS fix frames you and the take-out. Panning stops following;
 // Recenter follows your position and Show route fits the complete stretch.

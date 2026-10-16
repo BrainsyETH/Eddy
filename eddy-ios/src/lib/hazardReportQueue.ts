@@ -92,7 +92,7 @@ export function reportDescription(report: Pick<HazardReport, 'kind' | 'note' | '
     report.riverMile != null ? `near river mile ${report.riverMile.toFixed(1)}` : null,
     report.accuracyMeters != null ? `GPS ±${Math.round(report.accuracyMeters)} m` : null,
   ].filter(Boolean);
-  return [`${label}.`, note ? `${note}${/[.!?]$/.test(note) ? '' : '.'}` : null, `Reported from Float Mode${where.length ? ` (${where.join(', ')})` : ''}.`]
+  return [`${label}.`, note ? `${note}${/[.!?]$/.test(note) ? '' : '.'}` : null, `Reported from River Mode${where.length ? ` (${where.join(', ')})` : ''}.`]
     .filter(Boolean)
     .join(' ');
 }

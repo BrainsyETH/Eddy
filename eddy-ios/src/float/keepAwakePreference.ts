@@ -1,7 +1,7 @@
 // eddy-ios/src/float/keepAwakePreference.ts
 // "Keep screen awake" during a float, remembered between floats. Off unless
 // chosen. Module state, because the switch lives in Float options while the
-// wake lock belongs to the Float Mode screen underneath it: both must see the
+// wake lock belongs to the River Mode screen underneath it: both must see the
 // same value without either remounting.
 
 import { useEffect, useSyncExternalStore } from 'react';

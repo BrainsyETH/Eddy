@@ -92,7 +92,7 @@ otherwise list them under *What was not verified*.
 
 Gather every unticked item from the runbook's sections for this version and
 the ones carried from earlier versions, the "Prove on a device" lists in
-ADRs touched by the delta (e.g. ADR 0011 for Float Mode), and the previous
+ADRs touched by the delta (e.g. ADR 0011 for River Mode), and the previous
 report's open gates. Sort each into:
 
 1. **Before the build is distributed** (deploy order, universal links,

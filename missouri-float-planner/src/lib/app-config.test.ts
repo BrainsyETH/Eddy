@@ -79,7 +79,7 @@ test('failed launch config stays fail-open for that session; an existing launch 
   assert.equal(receiveAppConfig(gatedLaunch, null, '1.0.0').upgradeRequired, true);
 });
 
-test('Float Mode is on for internal builds and off in store builds until the server says so', () => {
+test('River Mode is on for internal builds and off in store builds until the server says so', () => {
   assert.equal(floatModeEnabled(undefined, 'development'), true);
   assert.equal(floatModeEnabled({ floatMode: false }, 'preview'), true);
   assert.equal(floatModeEnabled(undefined, 'production'), false);

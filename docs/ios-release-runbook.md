@@ -19,7 +19,7 @@ to touch this section. It cannot check the store line; that one is on you.
 See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the current
 submission verdict and release order. The shipped-build baseline is unconfirmed.
 The 1.2 report's gates below stay unticked until evidence closes them; a later
-version number does not close them. The 1.4, Float Mode, and history sections
+version number does not close them. The 1.4, River Mode, and history sections
 below remain the device checklist.
 
 ### October 13 freshness update candidate
@@ -48,7 +48,7 @@ the migration workflow; an app/OTA release cannot close direct database access.
 - [ ] Apply the reviewed archive migration, reconcile its recorded version and
       deploy the API/policy before distributing the new build. Read-only check:
       both archive tables are absent and `/api/me/float-archive` returns 404.
-- [ ] Enable Float Mode for the release **after device acceptance** and verify
+- [ ] Enable River Mode for the release **after device acceptance** and verify
       it in the production-profile binary. Public config currently returns
       `floatMode: false`; preview visibility does not prove reviewer visibility.
 - [ ] Publish the matching policy and complete App Store Connect privacy answers.
@@ -229,9 +229,9 @@ remain necessary. The plan-status line's automatic announcements still use the
 Android-only `accessibilityLiveRegion`; explicit VoiceOver status announcements
 remain a non-blocking follow-up.
 
-### Float Mode release gates (#1448)
+### River Mode release gates (#1448)
 
-Float Mode (Phases 2–4 of #1448) adds native code and a background mode. These
+River Mode (Phases 2–4 of #1448) adds native code and a background mode. These
 are pending checks, not evidence of a device pass.
 
 - [ ] **Ship a new binary.** Native float recording (ADR 0014) adds the
@@ -248,13 +248,13 @@ are pending checks, not evidence of a device pass.
       Xcode build. Build a development client, fix anything the compiler
       reports, and record the Xcode version used.
 - [ ] **Do not submit a binary that declares background location the reviewer
-      cannot see used.** Store builds show Float Mode only when the server
+      cannot see used.** Store builds show River Mode only when the server
       flag is on (`FLOAT_MODE_ENABLED=true` on Vercel; see
       `eddy-ios/src/lib/floatModeFeature.ts`). Either turn the flag on for the
       release, or hold this binary back. Development and preview builds show
-      Float Mode regardless.
+      River Mode regardless.
 - [ ] **Reviewer notes** (append to the block in `docs/app-privacy-labels.md`):
-      Float Mode (Floats tab → Start Float) tracks progress to a take-out
+      River Mode (Floats tab → Start Float) tracks progress to a take-out
       during a river float. It asks for When In Use location only; a Core
       Location background activity session keeps tracking with the phone
       locked in a dry bag, the blue location indicator shows while it runs,
@@ -305,7 +305,7 @@ are pending checks, not evidence of a device pass.
       the launch. Waiting at the actual launch must not trigger away ending.
 - [ ] **One recording presentation:** start from each tab; close, switch tabs,
       and Resume. Repeat Resume taps and a reminder deep link. Confirm one
-      Float Mode/map, recording continues when closed, keep-awake releases,
+      River Mode/map, recording continues when closed, keep-awake releases,
       options return correctly, and manual/automatic ending shows one recap.
       Closing returns to the page underneath; a cold recording link returns to
       Floats. A standalone planner must not leave a blank page behind.
@@ -326,7 +326,7 @@ are pending checks, not evidence of a device pass.
       recover. With fresh GPS at that launch, its own download is recognized;
       without GPS, show the reason and never use the saved position as a fix.
       Edit the start/take-out and verify the old tiles are not labelled ready
-      for the new stretch. Start, close Float Mode and verify Storage cannot
+      for the new stretch. Start, close River Mode and verify Storage cannot
       delete its package. Finish; another start must have a new recording id.
 - [ ] **Permission states on a device:** While Using (tracks with the phone
       locked; no Always prompt ever appears), Allow Once, Precise Location off
@@ -346,8 +346,8 @@ are pending checks, not evidence of a device pass.
       no cell service: the take-out reminder arrives about half a mile out,
       once; a chosen stop's arrives a quarter mile out; nothing arrives while
       paddling upstream, off the river, or before a relaunched float re-finds
-      its position; tapping one opens Float Mode. With notifications denied,
-      Float Mode says reminders can't appear. Pure rules:
+      its position; tapping one opens River Mode. With notifications denied,
+      River Mode says reminders can't appear. Pure rules:
       `src/lib/float-reminders.test.ts` in the web suite.
 
 - [ ] **Arrival, hazards and ending (#1448 follow-up)** on a physical iPhone,
@@ -380,7 +380,7 @@ are pending checks, not evidence of a device pass.
       it (ADR 0014). Open Eddy afterwards: the path while it was closed is in
       the recap, replayed from the journal. Record how long the gap was, with
       and without cell coverage, and repeat after a reboot mid-float. Until
-      this passes, Float Mode tells people to leave Eddy open in the
+      this passes, River Mode tells people to leave Eddy open in the
       background; only change that copy (`floatTrackerStatus.ts`) with this
       evidence recorded.
 - [ ] **Journal durability:** mid-float, force a termination from Xcode
@@ -396,7 +396,7 @@ are pending checks, not evidence of a device pass.
       including the smallest supported screen at the largest text size, with
       several warnings showing at once (a tracking line, a sunset warning and
       the next hazard). The start summary shows the
-      route preview with both ends (also with no signal). In Float Mode,
+      route preview with both ends (also with no signal). In River Mode,
       Options, Hazard and End/Finish are all visible without scrolling, and
       Options opens reminders, the Lock Screen card and keep-awake as a sheet.
       Show route frames the stretch, and Recenter then zooms back in. Access,
@@ -413,7 +413,7 @@ For the Lock Screen/Dynamic Island follow-up, use
 [`float-live-activity-plan.md`](float-live-activity-plan.md). Native implementation
 and device gates remain separate from the preparation fixes.
 
-- [ ] **Hazard reports from Float Mode (Phase 5, #1453).** Migration
+- [ ] **Hazard reports from River Mode (Phase 5, #1453).** Migration
       `20261011022115_report_client_ids.sql` was applied to production on
       2026-10-11; the column and unique index were verified. Device check
       still required: report with no signal → "Saved on your phone"; signal returns
@@ -444,7 +444,7 @@ See ADR 0012 for scope, consent, storage and measurement semantics.
       Recover old saved routes as well as completed summaries. Verify offline
       history and the explicit pending/error backup states.
 - [ ] Exercise corrupt current and legacy local history: a recovery copy remains,
-      Float Mode can start, and cloud history restores. Check temporary read/write
+      River Mode can start, and cloud history restores. Check temporary read/write
       failures retry without resetting valid data. Refuse one trip in a backup
       larger than 20 rows: later trips and restores continue, the refused trip
       stays visible, and manual retry works. Verify a missing endpoint shows
@@ -474,7 +474,7 @@ as the freshness and photo-ban work if the runtime fingerprint matches.
 - [ ] End during start: start a float and tap End
       immediately. The blue location indicator disappears and stays gone;
       repeat with the phone locked straight after End.
-- [ ] Float Mode with keep-awake on: the screen stays awake through several GPS
+- [ ] River Mode with keep-awake on: the screen stays awake through several GPS
       fixes and sleeps normally after leaving the screen or ending the float.
 
 ### Photo submitter bans (Guideline 1.2) — October 14, 2026
@@ -1238,7 +1238,7 @@ require a new binary; do not deliver the native changes as an OTA update.
       that deadline; a successful empty lookup must clear the unavailable state.
       Watches/advisories must not acquire warning weight. Verify these local
       transitions with networking disabled and that tapping opens the gauge.
-- [ ] Confirm the existing Float Mode Live Activity still starts, updates,
+- [ ] Confirm the existing River Mode Live Activity still starts, updates,
       expires, deep-links and ends on Lock Screen and Dynamic Island.
 
 Record the build/device and evidence before marking these verified or released.

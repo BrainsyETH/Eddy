@@ -21,7 +21,7 @@ node eddy-ios/scripts/build-float-action-icons.cjs
 
 `FloatActionIcon` applies the current semantic foreground color, so the same
 artwork supports light, dark, and increased contrast without duplicated shapes:
-white `onAccent` for the Start button (and Build when Float Mode is disabled),
+white `onAccent` for the Start button (and Build when River Mode is disabled),
 and `interactive` for Build/Find cards. Transparent cutouts keep Eddy's glasses,
 smile, and map legible on each background. Icons are decorative; the surrounding
 buttons supply the accessible text. Resume Float keeps its navigation arrow.
@@ -32,5 +32,5 @@ It is an asset appearance reference, not a simulator screenshot. Solid icon
 foregrounds clear 5:1 contrast against their surfaces in all shown states.
 
 Appearance checks: inspect the hub in light/dark and increased contrast, with
-Float Mode on/off and with an active float. Confirm face/map details, an open
+River Mode on/off and with an active float. Confirm face/map details, an open
 magnifier lens, no stretching/clipping, and large-text label wrapping.

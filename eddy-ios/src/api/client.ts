@@ -2479,7 +2479,7 @@ export async function submitRiverVisual(
   }
 }
 
-/** A hazard report from Float Mode; see src/lib/hazardReportQueue.ts. */
+/** A hazard report from River Mode; see src/lib/hazardReportQueue.ts. */
 export interface HazardReportSubmission {
   riverId: string;
   latitude: number;

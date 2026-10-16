@@ -81,7 +81,7 @@ export type LogTag =
   // that device. Without a tag naming which pane it chose, "I was not prompted"
   // is a report with nothing behind it — see resetFirstRun in onboarding.ts.
   | 'onboarding'
-  // Float Mode's session store and location stream. Never carries a position.
+  // River Mode's session store and location stream. Never carries a position.
   | 'float';
 
 /**

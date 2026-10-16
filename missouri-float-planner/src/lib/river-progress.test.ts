@@ -1,7 +1,7 @@
 // missouri-float-planner/src/lib/river-progress.test.ts
 //
 // Covers packages/eddy-geo/river-progress.ts and float-pace.ts, the pure core
-// of Float Mode (#1448). eddy-ios has no test runner; see route-preview.test.ts
+// of River Mode (#1448). eddy-ios has no test runner; see route-preview.test.ts
 // for the same arrangement.
 //
 // Geometry is built in local metres and converted to lng/lat near the Current

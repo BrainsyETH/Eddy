@@ -1,6 +1,6 @@
 // eddy-ios/src/float/recorder.ts
 // The native float recorder (modules/eddy-float-recorder, ADR 0014) wired to
-// the session store, the app state and Float Mode's tracking line. The logic
+// the session store, the app state and River Mode's tracking line. The logic
 // is src/lib/floatRecorderSync.ts; this supplies the real dependencies and
 // attaches the listeners, once per process, from the root layout.
 

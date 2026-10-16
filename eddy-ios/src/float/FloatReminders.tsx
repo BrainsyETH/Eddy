@@ -1,5 +1,5 @@
 // eddy-ios/src/float/FloatReminders.tsx
-// Per-float reminder controls on the Float Mode screen (#1448 Phase 5).
+// Per-float reminder controls on the River Mode screen (#1448 Phase 5).
 //
 // For this float only, and separate from gauge alerts on purpose: alerts are
 // about a river's conditions, these are about where you are on it. The rules

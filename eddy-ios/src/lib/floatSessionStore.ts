@@ -4,7 +4,7 @@
 // ── Why a module and not a context ──────────────────────────────────────────
 // Fixes arrive from the native recorder (src/float/recorder.ts, ADR 0014)
 // whether or not any screen is mounted, including with the phone locked. The
-// recorder wiring and the Float Mode screen must feed and read the SAME
+// recorder wiring and the River Mode screen must feed and read the SAME
 // session, so it lives here, in plain module state, and React subscribes to it
 // (useFloatSession). Nothing about a float depends on a
 // component staying mounted: switching tabs or opening another screen leaves
@@ -50,9 +50,9 @@ function stopRecording(sessionId: string | null): void {
 /**
  * A reminder is a local notification: scheduled on the phone, so it needs no
  * cell service, and shown even while locked (Phase 4 keeps fixes coming with
- * the screen off). Tapping it opens Float Mode. Resolves with the reminders
+ * the screen off). Tapping it opens River Mode. Resolves with the reminders
  * the phone accepted; without notification permission none are, so they stay
- * eligible and still fire if permission is given in time. The Float Mode
+ * eligible and still fire if permission is given in time. The River Mode
  * screen says when notifications are off.
  */
 async function deliverReminders(due: DueReminder[]): Promise<string[]> {

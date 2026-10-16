@@ -1,4 +1,4 @@
-// Internal builds expose Find a Float for QA, just like Float Mode.
+// Internal builds expose Find a Float for QA, just like River Mode.
 // Production and unidentified builds still require the server discovery flag.
 export function floatSearchEnabled(features: unknown, environment: string): boolean {
   if (environment === 'development' || environment === 'preview') return true;

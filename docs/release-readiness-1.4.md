@@ -6,7 +6,7 @@
 
 **Verdict: ready to continue release preparation, not ready for App Store submission.**
 The feature PR has passing CI, but production lacks its database/API/policy,
-Float Mode is disabled for production builds, and the native/device/privacy
+River Mode is disabled for production builds, and the native/device/privacy
 verification below has not been completed.
 
 ## Release identity and measured delta
@@ -45,7 +45,7 @@ release as an OTA update. The JS bundle check is not a native compilation check.
 
 | Area | Implemented | Device verified | Released |
 | --- | --- | --- | --- |
-| Float Mode, offline downloads, reminders, hazard queue, Live Activity | On main | Unconfirmed | Unconfirmed; production Float Mode flag off |
+| River Mode, offline downloads, reminders, hazard queue, Live Activity | On main | Unconfirmed | Unconfirmed; production River Mode flag off |
 | Floats/start-flow refresh, camping/weather, in-app browser | On main | Unconfirmed | Unconfirmed |
 | Recap/history, saved-route and recap backup, optional contributions | PR #1488; not merged | Unconfirmed | New API and tables absent |
 | Moving-speed separation and updated privacy/disclosures | PR #1488; not merged | Unconfirmed | Live policy still October 6 |

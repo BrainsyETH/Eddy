@@ -1,7 +1,7 @@
 // eddy-ios/src/float/useOfflineBadges.ts
 // Offline status lines for a list of saved floats, re-read whenever the screen
 // comes back into view (a download may have finished, or been removed, on the
-// float's own page). Empty while Float Mode is off: downloads live there.
+// float's own page). Empty while River Mode is off: downloads live there.
 
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';

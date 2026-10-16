@@ -1,7 +1,7 @@
 import ExpoModulesCore
 import MapboxMaps
 
-// Float Mode's "Ready offline" needs positive evidence that the map STYLE
+// River Mode's "Ready offline" needs positive evidence that the map STYLE
 // (style JSON, sprites, glyphs) is on the phone, not only the tiles.
 // @rnmapbox/maps exposes no style-pack status to JavaScript, so this reads it
 // straight from the Maps SDK. See docs/decisions/0011.

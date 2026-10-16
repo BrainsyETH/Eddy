@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name = 'EddyLiveActivity'
   s.version = '1.0.0'
-  s.summary = 'Local Float Mode Live Activity'
+  s.summary = 'Local River Mode Live Activity'
   s.description = s.summary
   s.license = { :type => 'Proprietary' }
   s.author = 'Eddy'

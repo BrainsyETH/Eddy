@@ -1,5 +1,5 @@
 // packages/eddy-geo/sun.ts
-// Sunset at a place, for Float Mode's "you'd reach the take-out after dark".
+// Sunset at a place, for River Mode's "you'd reach the take-out after dark".
 //
 // The standard sunrise equation (NOAA's simplified form): good to a minute or
 // two at Ozark latitudes, which is far tighter than any float-time estimate it

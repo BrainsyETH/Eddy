@@ -2,7 +2,7 @@
 // Whether the location permission lets a float start, and what to ask for.
 //
 // Pure, so the web suite tests it. This decides whether a float can START;
-// what Float Mode says once one is running comes from the native recorder's
+// what River Mode says once one is running comes from the native recorder's
 // own diagnostics (floatTrackerStatus.ts). No prompt loops.
 
 export interface ForegroundPermission {
