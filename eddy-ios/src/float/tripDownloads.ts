@@ -9,6 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STYLE_URL, getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
+import { redactText } from '@/lib/redact';
 import { readStylePackStatus } from '../../modules/eddy-style-pack';
 import {
   MAX_ZOOM,
@@ -105,30 +106,46 @@ export const TRIP_STYLE_URL = STYLE_URL;
 
 /**
  * Download every chunk, resuming any that already exist. Resolves once all
- * are requested; completion is read back with readTripDownload, because the
+ * are requested; completion is read back from tile/style counts, because the
  * native module reports progress per pack and keeps working after this
- * returns. Rejects on the first native error.
+ * returns. Start failures reject; later native failures call onError.
+ * iOS serializes actual tile + style work in withSerialMapboxOffline; awaiting
+ * createPack/resume here alone would only serialize the start requests.
  */
 export async function startTripDownload(chunks: readonly TripChunk[], onError: (message: string) => void): Promise<void> {
   const manager = getOfflineManager();
   if (!manager) throw new Error('Maps are unavailable in this build.');
   const existing = new Map((await packs()).map((pack) => [pack.name, pack]));
-  for (const chunk of chunks) {
+  for (const [index, chunk] of chunks.entries()) {
     const pack = existing.get(chunk.name);
-    if (pack) {
-      // A pack found after a relaunch has no listener in this process;
-      // attach one first, or its errors would go unheard.
-      await manager.subscribe(chunk.name, () => {}, (_pack: unknown, error: { message?: string }) =>
-        onError(error?.message ?? 'Download stopped.'),
+    const operation = pack ? 'resume' : 'create';
+    const failure = (error: unknown) => {
+      const message = error instanceof Error ? error.message
+        : error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Download stopped.';
+      // Preserve the native wording and operation, but never route geometry or
+      // request credentials. Sentry adds the installed app's release/build.
+      warn('float', 'offline map download failed', {
+        operation, chunk: index + 1, chunks: chunks.length, detail: redactText(message),
+      });
+      return 'The map download stopped.';
+    };
+    const onNativeError = (_pack: unknown, error: unknown) => onError(failure(error));
+    try {
+      if (pack) {
+        // A pack found after a relaunch has no listener in this process;
+        // attach one first, or its errors would go unheard.
+        await manager.subscribe(chunk.name, () => {}, onNativeError);
+        await pack.resume();
+        continue;
+      }
+      await manager.createPack(
+        { name: chunk.name, styleURL: STYLE_URL, bounds: chunk.bounds, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM },
+        () => {},
+        onNativeError,
       );
-      await pack.resume();
-      continue;
+    } catch (error) {
+      throw new Error(failure(error));
     }
-    await manager.createPack(
-      { name: chunk.name, styleURL: STYLE_URL, bounds: chunk.bounds, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM },
-      () => {},
-      (_pack: unknown, error: { message?: string }) => onError(error?.message ?? 'Download stopped.'),
-    );
   }
 }
 
@@ -140,7 +157,12 @@ export async function removeTripDownload(tripKey: string): Promise<void> {
   const manager = getOfflineManager();
   if (manager) {
     for (const pack of await packs()) {
-      if (isTripPack(pack.name, tripKey)) await manager.deletePack(pack.name);
+      if (isTripPack(pack.name, tripKey)) {
+        // Removal cancels native work; that intentional cancellation is not a
+        // download failure to show on the card being cleared.
+        manager.unsubscribe(pack.name);
+        await manager.deletePack(pack.name);
+      }
     }
   }
   await AsyncStorage.removeItem(tripPackageKey(tripKey)).catch(() => {});

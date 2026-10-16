@@ -10,15 +10,18 @@ export default function FloatBackupScreen() {
   const archive = useFloatArchive();
   const { colors } = useTheme();
   const [changing, setChanging] = useState(false);
+  const [failedSharingChoice, setFailedSharingChoice] = useState<boolean | null>(null);
+  const [sharingDetails, setSharingDetails] = useState(false);
   const guest = archive.owner === 'guest';
   const pending = archive.rows.some((row) => row.dirty);
   const refused = archive.rows.filter((row) => row.backupError);
   const consent = async (enabled: boolean) => {
     setChanging(true);
+    setFailedSharingChoice(null);
     try {
       await archive.setConsent(enabled);
-    } catch (e) {
-      Alert.alert('Sharing change not confirmed', e instanceof Error ? e.message : 'Reconnect and retry.');
+    } catch {
+      setFailedSharingChoice(enabled);
     } finally {
       setChanging(false);
     }
@@ -37,8 +40,7 @@ export default function FloatBackupScreen() {
         }
       >
         <Text style={[t.base, { color: colors.textMuted }]}>
-          Back up saved routes and completed trips to your account. You can separately choose whether Eddy
-          uses trip summaries to improve float-time estimates.
+          Keep your saved routes and finished floats in your account.
         </Text>
         {archive.recovered ? (
           <Text accessibilityRole="alert" style={[t.base, { color: colors.textMuted }]}>
@@ -126,18 +128,27 @@ export default function FloatBackupScreen() {
               />
             </View>
             <Text style={[t.base, { color: colors.textMuted }]}>
-              Optional. Let Eddy use the summaries of floats you finish while this is on to study trip times.
-              These summaries are linked to your account; raw GPS traces stay on your phone.
+              Share future trip summaries linked to your account. Your GPS track stays on this phone.
             </Text>
+            {failedSharingChoice != null && failedSharingChoice !== archive.preference.enabled && !archive.pendingConsentOff ? (
+              <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>{failedSharingChoice
+                ? 'Couldn’t turn sharing on. Try again later.'
+                : 'Eddy couldn’t turn sharing off. Please try again.'}</Text>
+            ) : null}
             {archive.pendingConsentOff ? (
               <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>
-                Turning off sharing is waiting to be confirmed. Eddy will retry when connected.
+                Sharing is off on this phone. Eddy will confirm it with your account when connected.
               </Text>
             ) : null}
-            <Text style={[t.sm, { color: colors.textMuted }]}>
-              Turning this off excludes your floats from future analysis. Your backup stays available. Changes
-              require a connection.
-            </Text>
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: sharingDetails }}
+              onPress={() => setSharingDetails(value => !value)} style={styles.button}>
+              <Text style={[t.sm, { color: colors.interactive }]}>{sharingDetails ? 'Less about sharing' : 'About sharing'}</Text>
+            </Pressable>
+            {sharingDetails ? <Text style={[t.sm, { color: colors.textMuted }]}>
+              Sharing is optional and off by default. Summaries are linked to your account and help improve
+              float-time estimates. Turning sharing off excludes your floats from future analysis.
+              Your backups stay available. Account changes need a connection.
+            </Text> : null}
           </View>
         ) : null}
       </ScrollView>

@@ -13,11 +13,12 @@ export default function PlanRouteScreen() {
     planPutIn?: string;
     planTakeOut?: string;
     planVesselTypeId?: string;
+    planBoatType?: string;
   }>();
   const router = useRouter();
   const data = usePlannerData(params.focusRiver);
   const location = useLocation();
-  const planner = useFloatPlan(data.river?.id ?? null, data.accessPoints);
+  const planner = useFloatPlan(data.river?.id ?? null, data.accessPoints, params.planBoatType);
   const [visible, setVisible] = useState(true);
   const closing = useRef(false);
   const consumed = useRef(false);
@@ -28,9 +29,11 @@ export default function PlanRouteScreen() {
     const takeOut = data.accessPoints.find((point) => point.id === params.planTakeOut);
     // A cached list may predate these endpoints; let the fresh response finish
     // the handoff unless the user has already chosen a different river.
-    if (params.planPutIn && params.planTakeOut && (!putIn || !takeOut)) return;
+    if ((params.planPutIn && !putIn) || (params.planTakeOut && !takeOut)) return;
     consumed.current = true;
     if (putIn && takeOut) planner.planFloat(putIn, takeOut, params.planVesselTypeId);
+    else if (putIn) planner.choosePutIn(putIn);
+    else if (takeOut) planner.chooseTakeOut(takeOut);
   }, [data.river, data.slug, data.accessPoints, data.accessLoading, data.accessError, params, planner]);
   const close = useCallback(
     (reason?: 'started' | 'map') => {

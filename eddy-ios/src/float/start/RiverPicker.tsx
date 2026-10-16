@@ -11,8 +11,9 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { StartLocation } from './useStart';
 
-export function RiverPicker({ location, selectedSlug, header, onChoose }: {
-  location: StartLocation; selectedSlug?: string; header?: ReactNode; onChoose: (river: RiverListItem) => void;
+export function RiverPicker({ location, selectedSlug, header, inline = false, onChoose, onSearchChange }: {
+  inline?: boolean; location: StartLocation; selectedSlug?: string; header?: ReactNode; onChoose: (river: RiverListItem) => void;
+  onSearchChange?: () => void;
 }) {
   const { colors } = useTheme();
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
@@ -49,18 +50,7 @@ export function RiverPicker({ location, selectedSlug, header, onChoose }: {
     ];
   }, [rivers, nearby, query]);
   const count = sections.reduce((sum, section) => sum + section.data.length, 0);
-  return <View style={local.fill}>
-    <View style={local.searchContainer}>
-      <View style={[local.search, { backgroundColor: colors.cardRaised }]}>
-        <ControlIcon name="search-outline" size={20} color={colors.textMuted} />
-        <TextInput accessibilityLabel="Search rivers" placeholder="Search rivers" placeholderTextColor={colors.textMuted}
-          value={query} onChangeText={setQuery} autoCorrect={false} autoCapitalize="none" maxLength={120}
-          clearButtonMode="while-editing" returnKeyType="search" style={[local.input, { color: colors.text }]} />
-      </View>
-    </View>
-    <SectionList sections={sections} keyExtractor={river => river.slug} stickySectionHeadersEnabled={false}
-      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={local.list}
-      ListHeaderComponent={<View>
+  const listHeader = <View>
         {header}
         {location.busy && !location.fix ? <View style={local.status}>
           <ActivityIndicator color={colors.interactive} />
@@ -70,10 +60,16 @@ export function RiverPicker({ location, selectedSlug, header, onChoose }: {
         {rivers != null && count === 0 ? <Text style={[local.empty, t.base, { color: colors.textMuted }]}>
           {rivers.length ? 'No rivers match your search.' : 'Connect to load the river list.'}
         </Text> : null}
-      </View>}
-      renderSectionHeader={({ section }) => section.data.length ? <Text accessibilityRole="header"
-        style={[local.section, { color: colors.textMuted }]}>{section.title}</Text> : null}
-      renderItem={({ item, index, section }) => {
+      </View>;
+  const listFooter = error ? <View style={local.retry}>
+        <Text style={[t.sm, { color: colors.textMuted }]}>{rivers?.length ? 'Showing rivers saved on this phone.' : 'Couldn’t load rivers.'}</Text>
+        <Pressable onPress={() => setReload(value => value + 1)} accessibilityRole="button" style={local.retryButton}>
+          <Text style={[t.base, { color: colors.interactive }]}>Retry</Text>
+        </Pressable>
+      </View> : null;
+  const sectionHeader = (section: { title: string; data: RiverListItem[] }) => section.data.length ? <Text accessibilityRole="header"
+    style={[local.section, { color: colors.textMuted }]}>{section.title}</Text> : null;
+  const renderRiver = ({ item, index, section }: { item: RiverListItem; index: number; section: { data: RiverListItem[] } }) => {
         const distance = nearby.find(river => river.slug === item.slug)?.miles;
         const selected = selectedSlug === item.slug;
         return <Pressable onPress={() => { Keyboard.dismiss(); onChoose(item); }} accessibilityRole="button"
@@ -89,13 +85,27 @@ export function RiverPicker({ location, selectedSlug, header, onChoose }: {
           </View>
           {selected ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
         </Pressable>;
-      }}
-      ListFooterComponent={error ? <View style={local.retry}>
-        <Text style={[t.sm, { color: colors.textMuted }]}>{rivers?.length ? 'Showing rivers saved on this phone.' : 'Couldn’t load rivers.'}</Text>
-        <Pressable onPress={() => setReload(value => value + 1)} accessibilityRole="button" style={local.retryButton}>
-          <Text style={[t.base, { color: colors.interactive }]}>Retry</Text>
-        </Pressable>
-      </View> : null} />
+      };
+  return <View style={inline ? undefined : local.fill}>
+    <View style={local.searchContainer}>
+      <View style={[local.search, { backgroundColor: colors.cardRaised }]}>
+        <ControlIcon name="search-outline" size={20} color={colors.textMuted} />
+        <TextInput accessibilityLabel="Search rivers" placeholder="Search rivers" placeholderTextColor={colors.textMuted}
+          value={query} onChangeText={value => { onSearchChange?.(); setQuery(value); }} autoCorrect={false} autoCapitalize="none" maxLength={120}
+          clearButtonMode="while-editing" returnKeyType="search" style={[local.input, { color: colors.text }]} />
+      </View>
+    </View>
+    {inline ? <View style={local.list}>
+      {listHeader}
+      {sections.map(section => <View key={section.title}>
+        {sectionHeader(section)}
+        {section.data.map((item, index) => <View key={item.slug}>{renderRiver({ item, index, section })}</View>)}
+      </View>)}
+      {listFooter}
+    </View> : <SectionList sections={sections} keyExtractor={river => river.slug} stickySectionHeadersEnabled={false}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={local.list}
+      ListHeaderComponent={listHeader} ListFooterComponent={listFooter}
+      renderSectionHeader={({ section }) => sectionHeader(section)} renderItem={renderRiver} />}
   </View>;
 }
 

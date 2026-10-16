@@ -204,7 +204,7 @@ export function offlineBadge(readiness: TripReadiness | null, hasPackage: boolea
     case 'ready':
       return 'Ready offline';
     case 'tiles-saved':
-      return 'Map saved';
+      return 'Download incomplete';
     case 'partial':
       return 'Map partly saved';
     case 'outdated':
