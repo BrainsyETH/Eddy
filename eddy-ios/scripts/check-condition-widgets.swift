@@ -91,6 +91,28 @@ import Foundation
     precondition(memory.choice(national.id) == national)
     precondition(memory.choice("different-id") == nil)
     precondition(ConditionsWidgetConfiguration.empty.favorites.isEmpty)
-    print("Widget preview, freshness, warning fallback, old snapshots and retained station names verified.")
+    // Diagnostics must preserve the last success across a failure and never
+    // keep retired stations indefinitely in the shared defaults.
+    ConditionsWidgetDiagnostics.started("07014000", endpoint: .detail, defaults: defaults)
+    ConditionsWidgetDiagnostics.succeeded("07014000", endpoint: .detail, observedAt: ms, defaults: defaults)
+    ConditionsWidgetDiagnostics.started("07014000", endpoint: .detail, defaults: defaults)
+    ConditionsWidgetDiagnostics.failed("07014000", endpoint: .detail, code: "timeout", defaults: defaults)
+    let diagnostic = ConditionsWidgetDiagnostics.read("07014000", defaults: defaults)
+    precondition(diagnostic.detail.succeededAt != nil)
+    precondition(diagnostic.detail.observedAt == ms)
+    precondition(diagnostic.detail.error == "timeout")
+    let retired = "eddy.conditions.requests.v1.example.retired"
+    var ancient = WidgetStationDiagnostics(siteId: "retired")
+    ancient.detail.start(at: ms - 40 * 86_400_000)
+    defaults.set(try JSONEncoder().encode(ancient), forKey: retired)
+    ConditionsWidgetDiagnostics.pruneRecords(defaults: defaults, now: ms)
+    precondition(defaults.data(forKey: retired) == nil)
+    let current = "eddy.conditions.requests.v1.example.current"
+    var recent = WidgetStationDiagnostics(siteId: "current")
+    recent.detail.start(at: ms - 29 * 86_400_000)
+    defaults.set(try JSONEncoder().encode(recent), forKey: current)
+    ConditionsWidgetDiagnostics.pruneRecords(defaults: defaults, now: ms)
+    precondition(defaults.data(forKey: current) != nil)
+    print("Widget preview, freshness, warning fallback, old snapshots, diagnostics retention and retained station names verified.")
   }
 }

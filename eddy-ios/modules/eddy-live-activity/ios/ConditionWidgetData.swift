@@ -200,6 +200,9 @@ struct WidgetStationDiagnostics: Codable {
 enum ConditionsWidgetDiagnostics {
   private static let prefix = "eddy.conditions.requests.v1."
   private static let lock = NSLock()
+  private static let retentionMs: Double = 30 * 24 * 60 * 60 * 1000
+  private static let pruneIntervalMs: Double = 24 * 60 * 60 * 1000
+  private static let lastPrunedKey = "eddy.conditions.requests.lastPruned.v1"
   private struct Snapshot: Encodable {
     var version = 1
     var stations: [WidgetStationDiagnostics]
@@ -213,11 +216,31 @@ enum ConditionsWidgetDiagnostics {
       value.siteId == siteId else { return WidgetStationDiagnostics(siteId: siteId) }
     return value
   }
+  // Kept independently of the reading cache: old station names and offline
+  // observations survive diagnostics pruning. Bounded to 30 days per API base.
+  static func pruneRecords(defaults: UserDefaults, now: Double) {
+    let cutoff = now - retentionMs
+    for (key, value) in defaults.dictionaryRepresentation() where key.hasPrefix(prefix) {
+      guard let data = value as? Data,
+        let entry = try? JSONDecoder().decode(WidgetStationDiagnostics.self, from: data),
+        entry.latestAttemptAt >= cutoff else {
+        defaults.removeObject(forKey: key)
+        continue
+      }
+    }
+  }
+  private static func pruneIfNeeded(defaults: UserDefaults) {
+    let now = Date().timeIntervalSince1970 * 1000
+    guard now - defaults.double(forKey: lastPrunedKey) >= pruneIntervalMs else { return }
+    pruneRecords(defaults: defaults, now: now)
+    defaults.set(now, forKey: lastPrunedKey)
+  }
   private static func modify(_ siteId: String, endpoint: WidgetEndpoint, defaults: UserDefaults?,
     _ update: (inout WidgetEndpointDiagnostics) -> Void) {
     lock.lock()
     defer { lock.unlock() }
     guard let defaults else { return }
+    pruneIfNeeded(defaults: defaults)
     var record = read(siteId, defaults: defaults)
     switch endpoint {
     case .detail: update(&record.detail)
@@ -403,14 +426,14 @@ enum ConditionsWidgetLoader {
       let envelope = try await detail
       guard envelope.gauge.siteId == siteId else {
         ConditionsWidgetDiagnostics.failed(siteId, endpoint: .detail, code: "site_mismatch")
-        ConditionsWidgetDiagnostics.failed(siteId, endpoint: .history, code: "cancelled_site_mismatch")
+        ConditionsWidgetDiagnostics.failed(siteId, endpoint: .history, code: "ignored_site_mismatch")
         return value
       }
       ConditionsWidgetDiagnostics.succeeded(siteId, endpoint: .detail, observedAt: envelope.snapshot.observedAt)
       value.snapshot = envelope.snapshot.preservingUnavailableAlerts(from: value.snapshot)
     } catch WidgetRequestError.removed {
       ConditionsWidgetDiagnostics.failed(siteId, endpoint: .detail, code: "http_404", status: 404)
-      ConditionsWidgetDiagnostics.failed(siteId, endpoint: .history, code: "cancelled_site_removed")
+      ConditionsWidgetDiagnostics.failed(siteId, endpoint: .history, code: "ignored_site_removed")
       value = WidgetStationData(snapshot: nil, history: nil)
       ConditionsWidgetStore.save(value, siteId: siteId)
       return value

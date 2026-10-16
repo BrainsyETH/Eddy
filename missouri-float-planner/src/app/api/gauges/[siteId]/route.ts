@@ -58,7 +58,7 @@ import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 import { orderRiverLinks } from '@shared/primary-river-link';
-import { widgetGaugeSnapshot, type WidgetGaugeSnapshot } from '@shared/condition-widget';
+import { widgetGaugeResponse, type WidgetGaugeSnapshot } from '@shared/condition-widget';
 import { fetchNWSAlertsAtPoint } from '@/lib/nws/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -508,22 +508,16 @@ async function _GET(
     // the gauge on the Huzzah where it physically sits.
     const orderedThresholds = orderRiverLinks(thresholds);
 
-    // Opt-in compact payload: same trusted observation, server-side river
-    // ladder and NWS warnings as the full response, but no slow water-quality,
-    // percentile or dam enrichment. Old clients never send ?widget=1.
+    // Both responses carry one identical, canonical widget presentation. Only
+    // the compact response bypasses optional full-screen enrichment.
+    const floodAlerts = await floodAlertsPromise;
+    const widgetResponse = widgetGaugeResponse({
+      siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect: suspect,
+      thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
+      floodAlerts,
+    });
     if (widgetOnly) {
-      const widgetInput = {
-        siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect: suspect,
-        thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
-        floodAlerts: await floodAlertsPromise,
-      };
-      return NextResponse.json(
-        {
-          gauge: { siteId, gaugeHeightFt, dischargeCfs, readingTimestamp, readingSuspect: suspect },
-          widget: widgetGaugeSnapshot(widgetInput),
-        },
-        { headers: cdnCacheHeaders(60, 120) },
-      );
+      return NextResponse.json(widgetResponse, { headers: cdnCacheHeaders(60, 120) });
     }
 
     // ── The NWS stages ──────────────────────────────────────────────────────
@@ -556,7 +550,6 @@ async function _GET(
 
     const waterTemperature = await waterTemperaturePromise;
     const dissolvedOxygen = await dissolvedOxygenPromise;
-    const floodAlerts = await floodAlertsPromise;
 
     // The seasonal comparison, published only when the policy allows it: the
     // band vocabulary is shared/flow-band.ts, the eligibility gate (record
@@ -633,7 +626,7 @@ async function _GET(
     // Short CDN window: this is a live reading, and the stale path above means
     // a cached response can outlive the refresh it just paid for.
     return NextResponse.json<GaugeDetailResponse>(
-      { gauge, widget: widgetGaugeSnapshot(gauge) },
+      { gauge, widget: widgetResponse.widget },
       { headers: cdnCacheHeaders(120, 600) }
     );
   } catch (err) {

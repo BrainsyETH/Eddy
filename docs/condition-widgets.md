@@ -54,7 +54,8 @@ checks that the packaged example matches the canonical presentation.
   status or sanitized failure reason, and the detail observation time by public
   site ID in the shared App Group. The optional native
   `readWidgetDiagnostics()` bridge exposes the last 30 entries to local QA;
-  the app logs a snapshot on foreground in development only. On device, widget
+  the app logs a snapshot on foreground in development only. Diagnostics are
+  pruned after 30 days without changing the separately cached readings. On device, widget
   network failures also emit `[Eddy widgets]` console messages. No account,
   GPS, response body, or request URL is stored. To diagnose a stale widget:
   compare last attempt against last success; no recent attempt suggests a
