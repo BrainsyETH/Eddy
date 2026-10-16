@@ -170,3 +170,40 @@ test('favorites preserve order, deduplicate, exclude dams, cap at three and clea
   assert.deepEqual(widgetConfiguration(config.catalog, []).favorites, []);
   assert.deepEqual(widgetConfiguration([], [{ kind: 'river', entityId: 'missing', name: 'Missing', slug: 'missing' }]).favorites, []);
 });
+
+
+test('native widget foreground refresh is throttled and keeps configuration reloads independent', () => {
+  const native = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/EddyLiveActivityModule.swift', import.meta.url), 'utf8');
+  const sync = readFileSync(new URL('../../../eddy-ios/src/components/ConditionsWidgetSync.tsx', import.meta.url), 'utf8');
+  assert.match(native, /minimumInterval:\s*TimeInterval\s*=\s*15\s*\*\s*60/);
+  assert.match(native, /AsyncFunction\("refreshConditionsWidgets"\)/);
+  assert.match(native, /AsyncFunction\("readWidgetDiagnostics"\)/);
+  assert.match(native, /ConditionsWidgetReloader\.request\(force: true\)/);
+  assert.match(sync, /return onForeground\(refresh\)/);
+  assert.match(sync, /refresh\(\);\s*\/\/ an already-active cold launch/);
+  assert.match(sync, /if \(AppState\.currentState !== 'active'\) return/);
+});
+
+test('widget detail requests opt in to compact server response without bypassing trusted values or flood alerts', () => {
+  const source = readFileSync(new URL('../app/api/gauges/[siteId]/route.ts', import.meta.url), 'utf8');
+  const native = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift', import.meta.url), 'utf8');
+  assert.match(source, /request\.nextUrl\.searchParams\.get\('widget'\)\s*===\s*'1'/);
+  assert.match(source, /if \(widgetOnly\) return null;\s*\/\/ WidgetKit needs conditions/);
+  assert.match(source, /if \(widgetOnly\) \{[\s\S]*?widgetGaugeSnapshot\(widgetInput\)/);
+  assert.match(source, /floodAlerts: await floodAlertsPromise/);
+  assert.match(source, /thresholds: orderedThresholds\.length > 0/);
+  assert.match(native, /URLQueryItem\(name: "widget", value: "1"\)/);
+  assert.match(native, /timeout: 12/);
+  assert.match(native, /timeout: 8/);
+});
+
+test('widget request failures preserve cache and record structured diagnostics', () => {
+  const source = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift', import.meta.url), 'utf8');
+  for (const expected of ['attemptedAt', 'finishedAt', 'succeededAt', 'observedAt', 'httpStatus',
+    'oversized_response', 'site_mismatch', 'invalid_response', 'request_failed', 'http_404',
+    'ConditionsWidgetStore.save(value, siteId: siteId)']) {
+    assert.ok(source.includes(expected), 'missing widget diagnostics or cache contract: ' + expected);
+  }
+  assert.match(source, /catch \{[\s\S]*?WidgetRequestError\.invalidJSON/);
+  assert.match(source, /case \.timedOut:\s*return \("timeout", nil\)/);
+});
