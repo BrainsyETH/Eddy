@@ -2,7 +2,7 @@
 // One saved float, re-read against today's river.
 //
 // Current conditions always come from the server. The saved logistics view is
-// available offline or during slow requests, with historical cautions dated.
+// available offline or after a failed request, with historical cautions dated.
 // Foreground refresh keeps the plan mounted without claiming old water is current.
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
