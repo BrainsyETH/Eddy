@@ -17,6 +17,7 @@
 // live read is kept as the fallback for a row that is missing, stale, or a
 // table not yet migrated. See src/lib/data/dam-snapshot-store.ts.
 
+import { damWidgetSnapshot } from '../../../../../shared/dam-widget';
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchDamDetail, refreshStaleness } from '@/lib/data/dams';
@@ -27,7 +28,7 @@ import { withX402Route } from '@/lib/x402-config';
 export const dynamic = 'force-dynamic';
 
 async function _GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ damId: string }> }
 ) {
   try {
@@ -52,7 +53,7 @@ async function _GET(
       return NextResponse.json({ error: 'Dam not found' }, { status: 404 });
     }
 
-    return NextResponse.json(dam, { headers: cdnCacheHeaders(900, 3600) });
+    return NextResponse.json(request.nextUrl.searchParams.get('widget') === '1' ? damWidgetSnapshot(dam, now) : dam, { headers: cdnCacheHeaders(900, 3600) });
   } catch (error) {
     console.error('[api/dams/:damId] failed:', error);
     return NextResponse.json({ error: 'Failed to fetch dam' }, { status: 500 });

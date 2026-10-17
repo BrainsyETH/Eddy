@@ -39,9 +39,7 @@ struct RiverGaugeQuery: EntityStringQuery {
     let ids = Set(config.favorites.map(\.id))
     return (config.favorites + config.catalog.filter { !ids.contains($0.id) }).map { RiverGaugeEntity(choice: $0) }
   }
-  func defaultResult() async -> RiverGaugeEntity? {
-    ConditionsWidgetStore.configuration().favorites.first.map { RiverGaugeEntity(choice: $0) }
-  }
+
 }
 struct RiverGaugeIntent: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "River level"
@@ -83,9 +81,12 @@ struct ConditionsEntry: TimelineEntry {
   }
   var timeline: Timeline<Self> {
     let now = date.timeIntervalSince1970 * 1000
-    let expirations = stations.values.flatMap { data in
+    var expirations = stations.values.flatMap { data in
       [data.snapshot?.validUntil, data.history?.cfs.trendValidUntil, data.history?.ft.trendValidUntil].compactMap { $0 }
         + (data.snapshot?.floodAlerts?.transitionDates ?? [])
+    }
+    if let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: date)) {
+      expirations.append(midnight.timeIntervalSince1970 * 1000)
     }
     // Local transitions remove stale colors/trends even if the next network
     // refresh fails. Fifteen minutes is a request; iOS controls the budget.
@@ -112,20 +113,28 @@ struct RiverLevelProvider: AppIntentTimelineProvider {
     await ConditionsEntry.load(choices(configuration)).timeline
   }
 }
-struct FavoritesProvider: TimelineProvider {
-  func placeholder(in context: Context) -> ConditionsEntry { .preview() }
-  func getSnapshot(in context: Context, completion: @escaping (ConditionsEntry) -> Void) {
-    completion(context.isPreview ? .preview() : .cached(Array(ConditionsWidgetStore.configuration().favorites.prefix(3))))
+struct FavoritesIntent: WidgetConfigurationIntent {
+  static var title: LocalizedStringResource = "Your rivers"
+  static var description = IntentDescription("Choose up to three stations. Empty slots follow your Favorites in Eddy.")
+  @Parameter(title: "First station") var first: RiverGaugeEntity?
+  @Parameter(title: "Second station") var second: RiverGaugeEntity?
+  @Parameter(title: "Third station") var third: RiverGaugeEntity?
+}
+struct FavoritesProvider: AppIntentTimelineProvider {
+  private func choices(_ intent: FavoritesIntent) -> [WidgetGaugeChoice] {
+    let selected = [intent.first?.choice, intent.second?.choice, intent.third?.choice]
+    selected.compactMap { $0 }.forEach { ConditionsWidgetStore.remember($0) }
+    return widgetFavoriteChoices(selected: selected, favorites: ConditionsWidgetStore.configuration().favorites)
   }
-  func getTimeline(in context: Context, completion: @escaping (Timeline<ConditionsEntry>) -> Void) {
-    Task {
-      let choices = Array(ConditionsWidgetStore.configuration().favorites.prefix(3))
-      let entry = await ConditionsEntry.load(choices)
-      // An unstar/account deletion while requests were in flight wins over
-      // an older timeline completion.
-      let latest = Array(ConditionsWidgetStore.configuration().favorites.prefix(3))
-      completion((latest == choices ? entry : ConditionsEntry.cached(latest)).timeline)
-    }
+  func placeholder(in context: Context) -> ConditionsEntry { .preview() }
+  func snapshot(for configuration: FavoritesIntent, in context: Context) async -> ConditionsEntry {
+    context.isPreview ? .preview() : .cached(choices(configuration))
+  }
+  func timeline(for configuration: FavoritesIntent, in context: Context) async -> Timeline<ConditionsEntry> {
+    let selected = choices(configuration)
+    let entry = await ConditionsEntry.load(selected)
+    let latest = choices(configuration)
+    return (latest == selected ? entry : ConditionsEntry.cached(latest)).timeline
   }
 }
 
@@ -143,18 +152,18 @@ struct EddyRiverLevelWidget: Widget {
 }
 struct EddyFavoritesWidget: Widget {
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: ConditionsWidgetStore.favoritesKind, provider: FavoritesProvider()) { entry in
+    AppIntentConfiguration(kind: ConditionsWidgetStore.favoritesKind, intent: FavoritesIntent.self, provider: FavoritesProvider()) { entry in
       FavoritesCard(entry: entry)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .containerBackground(for: .widget) { WidgetCanvas() }
     }
     .configurationDisplayName("Your rivers")
-    .description("Readings for your first three starred rivers or gauges in Eddy. Tap a row for the station.")
+    .description("Choose three river gauges, or follow your Favorites in Eddy. Touch and hold to edit.")
     .supportedFamilies([.systemMedium])
   }
 }
 
-private struct WidgetCanvas: View {
+struct WidgetCanvas: View {
   @Environment(\.colorScheme) private var scheme
   var body: some View { Color(hex: scheme == .dark ? "#1A1814" : "#FAF8F4") }
 }
@@ -164,7 +173,7 @@ private extension Color {
     self.init(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
   }
 }
-private struct GaugeDisplay {
+struct GaugeDisplay {
   var choice: WidgetGaugeChoice
   var data: WidgetStationData?
   var date: Date
@@ -227,6 +236,17 @@ private struct RiverLevelCard: View {
   let entry: ConditionsEntry
   @Environment(\.colorScheme) private var scheme
   @Environment(\.dynamicTypeSize) private var typeSize
+  private func reading(_ display: GaugeDisplay, compact: Bool, showSecondary: Bool) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 4) {
+      Text(display.reading).font(.system(compact ? .title2 : .title, design: .rounded).weight(.semibold))
+        .monospacedDigit().minimumScaleFactor(0.8)
+        .foregroundStyle(display.current ? Color.primary : Color.secondary)
+      Text(display.unit).font(.caption).foregroundStyle(.secondary)
+      if showSecondary, let secondary = display.secondary {
+        Text("· " + secondary).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+      }
+    }.lineLimit(1)
+  }
   var body: some View {
     if let choice = entry.choices.first {
       let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
@@ -241,30 +261,23 @@ private struct RiverLevelCard: View {
             Spacer(minLength: 0)
             if !compact { GaugeOtter().frame(width: 28, height: 28) }
           }
-          HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(display.reading).font(.system(compact ? .title2 : .title, design: .rounded).weight(.semibold))
-              .monospacedDigit().minimumScaleFactor(0.8)
-              .foregroundStyle(display.current ? Color.primary : Color.secondary)
-            Text(display.unit).font(.caption).foregroundStyle(.secondary)
-          }.lineLimit(1)
-          HStack(spacing: 3) {
-            StatusPill(display: display).layoutPriority(1)
-            if !compact, let secondary = display.secondary {
-              Spacer(minLength: 0)
-              Text(secondary).font(.caption2).monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
-            }
+          ViewThatFits(in: .horizontal) {
+            reading(display, compact: compact, showSecondary: !compact).fixedSize(horizontal: true, vertical: false)
+            reading(display, compact: compact, showSecondary: false)
           }
+          StatusPill(display: display)
           Spacer(minLength: 0)
           if !compact, display.current, let series = display.series, series.points.count > 1 {
             HStack(spacing: 4) {
               WidgetSparkline(series: series).stroke(display.color(dark: scheme == .dark), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                .frame(height: 15).accessibilityLabel("Observed gauge history, last 24 hours")
+                .frame(width: 42, height: 15).accessibilityLabel("Observed gauge history, last 24 hours")
               if let trend = display.trend {
-                Text(trend).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text(widgetShortTrend(trend)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                  .fixedSize(horizontal: true, vertical: false).layoutPriority(1).accessibilityLabel(trend)
               }
             }
           }
-          ObservationTime(snapshot: display.snapshot, isPreview: entry.isPreview)
+          ObservationTime(snapshot: display.snapshot, isPreview: entry.isPreview, now: entry.date)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }
@@ -344,12 +357,12 @@ private struct FavoriteRow: View {
         Spacer(minLength: 0)
         StatusText(display: display).foregroundStyle(display.statusColor(dark: scheme == .dark))
           .fixedSize(horizontal: true, vertical: false).layoutPriority(1)
-        ObservationTime(snapshot: display.snapshot, isPreview: isPreview).layoutPriority(2)
+        ObservationTime(snapshot: display.snapshot, isPreview: isPreview, now: display.date).layoutPriority(2)
       }.font(.caption2)
     }.accessibilityElement(children: .combine)
   }
 }
-private struct GaugeOtter: View {
+struct GaugeOtter: View {
   var body: some View {
     Image("GaugeOtter").resizable().widgetAccentedRenderingMode(.desaturated)
       .scaledToFit().accessibilityHidden(true)
@@ -364,7 +377,7 @@ private struct StatusText: View {
     }
   }
 }
-private struct StatusPill: View {
+struct StatusPill: View {
   let display: GaugeDisplay
   @Environment(\.colorScheme) private var scheme
   var body: some View {
@@ -375,30 +388,23 @@ private struct StatusPill: View {
       .background(display.statusColor(dark: scheme == .dark).opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
   }
 }
-private struct ObservationTime: View {
+struct ObservationTime: View {
   let snapshot: WidgetGaugeSnapshot?
   var isPreview = false
+  var now = Date()
   var body: some View {
     Group {
       if isPreview {
         Text("Sample data")
       } else if let observed = snapshot?.observedDate {
-        ViewThatFits(in: .horizontal) {
-          HStack(spacing: 2) {
-            Text(observed, style: .relative).monospacedDigit()
-            Text("ago")
-          }.fixedSize(horizontal: true, vertical: false)
-          // Very old readings may have long relative strings. Keep a dated
-          // observation instead of shrinking or clipping the age beside status.
-          Text(observed, format: .dateTime.month(.abbreviated).day().year())
-            .fixedSize(horizontal: true, vertical: false)
-        }
+        Text(widgetObservationStamp(observed, now: now))
+          .monospacedDigit().fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel("Observed \(observed.formatted(date: .complete, time: .shortened))\(snapshot?.suspect == true ? ", flagged reading" : "")")
       } else { Text("No time").accessibilityLabel("Observation time unavailable") }
     }.font(.caption2).foregroundStyle(.secondary).lineLimit(1)
   }
 }
-private struct WidgetEmptyState: View {
+struct WidgetEmptyState: View {
   var title: String
   var detail: String
   var body: some View {

@@ -11,6 +11,8 @@ struct EddyFloatActivityBundle: WidgetBundle {
     EddyFloatActivity()
     EddyRiverLevelWidget()
     EddyFavoritesWidget()
+    EddyDamGenerationWidget()
+    EddyDailyRiverReportWidget()
   }
 }
 

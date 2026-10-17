@@ -1,9 +1,11 @@
-# River level and Favorites widgets
+# Home Screen widgets
 
 The Home Screen widgets share the `EddyFloatActivity` WidgetKit extension with
 the existing River Mode Live Activity. River level is a configurable small
-widget; Your rivers is a medium widget with the first three distinct starred
-rivers/gauges in the app's existing order. Dams are not included. A river uses
+widget; Your rivers is a configurable medium widget with three optional station
+pickers. Empty slots follow the first three distinct starred rivers/gauges in
+the app’s existing order, skipping stations explicitly chosen in another slot.
+Duplicate selections render once. Dams have their own widget. A river uses
 its primary gauge; a gauge star uses its physical primary river association.
 The station name stays visible, including when one station rates two rivers.
 Each card/row opens the gauge detail screen. Empty states open Favorites.
@@ -26,7 +28,8 @@ The device-only `eddy.widgets.setup-guide.seen.v1` key records seeing the
 guide, never falsely asserts that a widget was installed.
 
 The sheet previews **River level** (small, edited to select a gauge) and
-**Your rivers** (medium, first three distinct river/gauge favorites), with
+**Your rivers** (medium, three station pickers with Favorites defaults),
+**Dam generation** and **Daily river report** (medium), with
 illustrative readings explicitly marked as sample data. It teaches Apple's
 Home Screen **touch and hold → Edit → Add Widget → search Eddy** flow, followed
 by the widget-specific customization. iOS owns the widget gallery: no button
@@ -41,8 +44,11 @@ Widgets use semantic text styles (at least caption2 for small labels), with
 Dynamic Type growth capped at xxLarge for the fixed widget bounds. The small
 card drops the otter, secondary reading and history details on tight layouts.
 Your rivers shows fewer, roomier rows at larger text sizes, with a link stating
-how many remain in Eddy. Observation time has its own space; very long relative
-ages fall back to a dated observation, with the full timestamp in VoiceOver.
+how many remain in Eddy. Observation time has its own space: today shows a
+local clock time; older readings show their calendar date, with the full
+timestamp in VoiceOver. Small-widget trend labels use “Steady”, “Slow rise”,
+“Fast rise”, “Slow fall” and “Fast fall”; VoiceOver retains the full trend.
+The secondary measurement sits beside the primary reading, separate from status.
 No status or age label is shrunk to fit. Otter images use desaturated accented
 rendering to preserve their detail on a tinted Home Screen.
 
@@ -66,7 +72,7 @@ checks that the packaged example matches the canonical presentation.
   cached catalog metadata offline, and serializes writes so unstars/deletion
   cannot be undone by an earlier save. Old binaries and Expo Go skip the bridge.
 - When Eddy becomes active, `ConditionsWidgetSync` asks the native bridge to
-  reload both widget timelines, throttled to once per 15 minutes across app
+  reload all four widget timelines, throttled to once per 15 minutes across app
   relaunches. A favorite or station configuration change always reloads. This
   is a request to WidgetKit, not a guarantee of network access or a 15-minute
   cadence; standalone widget timelines retain their OS-controlled policy.
@@ -145,7 +151,7 @@ SwiftUI/WidgetKit):
 
 ```sh
 cd eddy-ios
-swiftc modules/eddy-live-activity/ios/ConditionWidgetData.swift scripts/check-condition-widgets.swift -o /tmp/eddy-widget-check
+swiftc modules/eddy-live-activity/ios/ConditionWidgetData.swift modules/eddy-live-activity/ios/SupplementaryWidgetData.swift scripts/check-condition-widgets.swift -o /tmp/eddy-widget-check
 /tmp/eddy-widget-check modules/eddy-live-activity/widget/ConditionsPreview.json
 ```
 
@@ -153,3 +159,38 @@ Device verification and release status are unconfirmed until the widget gates
 in [the release runbook](ios-release-runbook.md#home-screen-widget-release-gates)
 have recorded evidence. In particular, a successful Metro bundle is not evidence
 that the extension compiles or that its App Group is provisioned.
+
+## Dam generation and daily river report
+
+Both are configurable medium widgets in the same extension. Dam generation
+uses a bundled public powerhouse catalog generated from `USACE_DAMS` by the
+preview generator. An installed unconfigured dam widget asks for a selection;
+tapping a configured widget opens `/dam/:damId`. Its compact public
+`GET /api/dams/:damId?widget=1` response projects the existing snapshot using
+canonical `dam-generation` logic, without adding database queries or changing
+the normal detail response. It labels turbine flow separately from the next
+scheduled change (Central Time); this is not total release or downstream flow.
+Missing, negative, daily-mean and invalid/future measurements are unavailable,
+not zero. Cached timelines carry hourly and exact observation/schedule expiry
+transitions: after two hours observations lose present-tense language; after
+90 minutes (or unknown check time) the schedule asks to check Eddy. The final
+entry remains stale indefinitely during an outage. Network failures preserve
+original timestamps; 404 clears the selected dam’s cache.
+
+Daily river report selects a curated river’s primary gauge, defaulting to the
+first eligible river in Favorites. It reuses the existing gauge snapshot,
+including flood-warning precedence, and the public river weather forecast.
+Weather is labelled forecast, with location and Fahrenheit units; retrieval
+is a cache deadline, never an observation timestamp. Cached weather is hidden
+after three hours and only the current Central calendar date can render.
+Gauge and weather requests fail independently. Tapping opens `/river/:slug`.
+This widget does not fetch Premium Eddy Read prose, credentials or account data.
+
+The optional synchronous `widgetLayoutVersion()` native bridge returns 2 for
+these layouts. In-app setup guidance only advertises the added widgets/editable
+medium layout on that binary; older widget binaries retain their original
+Favorites instructions. This change requires a new native iOS binary. Deploy
+the additive dam widget API before distributing that binary; against an older
+API, the dam widget remains unavailable rather than interpreting an incompatible
+payload. Simulator compilation, static-to-configurable widget upgrade migration,
+and device layout/timeline checks remain release gates, not proven by JS tests.
