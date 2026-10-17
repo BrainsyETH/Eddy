@@ -6,7 +6,7 @@ import { FeaturedFloatCard } from '@/components/FeaturedFloatCard';
 import { FloatCollectionControls } from '@/components/FloatCollectionControls';
 import { useCachedRiverPhotos } from '@/hooks/useCachedRiverPhotos';
 import { useNavigationAction } from '@/hooks/useNavigationAction';
-import { visibleFloats } from '@/lib/floatCollection';
+import { visibleFeaturedFloats } from '@/lib/floatCollection';
 import { useRouter } from 'expo-router';
 import type { FavoriteFloatSummary } from '@eddy/types';
 import { ApiError, fetchFavoriteFloats } from '@/api/client';
@@ -60,7 +60,7 @@ export default function FavoriteFloatsScreen() {
   }, [load]);
 
   const selectedRiver = floats?.some((item) => item.riverSlug === river) ? river : '';
-  const displayed = visibleFloats(floats ?? [], selectedRiver, sort);
+  const displayed = visibleFeaturedFloats(floats ?? [], selectedRiver, sort);
   const plan = useCallback(
     (item: FavoriteFloatSummary) => {
       navigate(() =>

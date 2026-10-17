@@ -2255,6 +2255,8 @@ export interface FavoriteFloatSummary {
   bestForTags: string[];
   guideSlug: string;
   photoUrl: string | null;
+  /** Route-specific alternatives; optional for cached/older API responses. */
+  photoFallbackUrls?: string[];
 }
 
 export interface FavoriteFloatsResponse {
