@@ -7,7 +7,11 @@ constraints; this file only routes iOS work. `CLAUDE.md` in this directory
 imports this file, so edit only this one.
 
 [`README.md`](README.md) is the authoritative dev guide but is long. Read the
-sections for the task, not all of it.
+sections for the task, not all of it. For iOS implementation use the
+`eddy-ios-feature` skill; add `eddy-ios-ui` for screens, navigation, and polish.
+Their canonical sources are in `.agents/skills/` and their Claude entries are
+symlinks. For daily development use the installed dev client (`make dev`);
+rebuild native code with `make run-ios` only when needed.
 
 ## Rules that break builds
 
@@ -32,7 +36,7 @@ script.
 
 | Task | Read |
 | --- | --- |
-| Setup, dev client vs Expo Go, build errors | README *Running it*, *Three ways to run this* |
+| Setup, dev-client daily loop vs native rebuild, build errors | README *Running it*, *Development, native rebuild, and distribution* |
 | Why no workspace, `@eddy/*` packages | README *Why this is a monorepo without an npm workspace*; `docs/decisions/0001`–`0003` |
 | Colors, type, brand, CTAs | README *Theming*, *Condition colours and labels*; `docs/decisions/0007` |
 | Map, search, layers, the plan sheet | README *Maps (Mapbox)*, *Search, layers, and the float plan*; `docs/decisions/0008` |
