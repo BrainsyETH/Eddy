@@ -122,8 +122,18 @@ there is none.
 Ready to float offers **Build a Route**, preserving named selections and vessel,
 or a compact ready status for a verified matching download. Download/resume/remove
 controls live in the planner result (after saving the route) and saved-route
-details. “Finishing download” or “Download incomplete” replaces the old tile-only
-“saved” claim; the readiness checks above remain strict. A synchronous guard blocks
+details. After tiles finish, the card says “Checking offline map”; an absent native
+verifier, timeout or exception stops that indicator and explains that readiness
+is unconfirmed. A pack that is not yet readable keeps the bounded recheck window
+so a style finishing just after its tiles can become ready automatically.
+A check is capped at 20 seconds, native style reads
+at 8 seconds, and the finishing indicator at 30 seconds independently of reads.
+Only one check runs at a time; chunk statuses are read in parallel so queued
+chunks cannot each add another timeout. Check again verifies saved data without
+starting downloads. Focus/foreground rechecks completion. Storage uses the same
+readiness rules and labels incomplete maps, even when they occupy space. Queued
+chunks with zero counts contribute zero progress. The readiness checks above
+remain strict. A synchronous guard blocks
 repeat start taps while saving the route package. Native failures record the
 create/resume operation, chunk number/count and redacted native wording through
 existing monitoring, which supplies release/build context. They never include

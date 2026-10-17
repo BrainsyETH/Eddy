@@ -7,6 +7,7 @@
 
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
+import { inspectStylePack } from '../../src/lib/stylePackRead';
 
 export interface StylePackStatus {
   requiredResourceCount: number;
@@ -19,25 +20,11 @@ interface NativeStylePack {
 
 const native = Platform.OS === 'ios' ? requireOptionalNativeModule<NativeStylePack>('EddyStylePack') : null;
 
-/** A native answer that never comes reads as "cannot confirm", not a spinner. */
-const STATUS_TIMEOUT_MS = 8_000;
+export function readStylePackInspection(styleURL: string) {
+  return inspectStylePack(native ? () => native.status(styleURL) : null);
+}
 
 export async function readStylePackStatus(styleURL: string): Promise<StylePackStatus | null> {
-  if (!native) return null;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      native.status(styleURL),
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => {
-          console.warn('[EddyStylePack] status did not answer in time');
-          resolve(null);
-        }, STATUS_TIMEOUT_MS);
-      }),
-    ]);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const result = await readStylePackInspection(styleURL);
+  return result.kind === 'counts' ? result.counts : null;
 }

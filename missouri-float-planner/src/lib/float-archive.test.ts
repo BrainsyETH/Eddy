@@ -587,11 +587,11 @@ test('SQL isolates accounts, serializes opt-out, preserves tombstones and cascad
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
       create schema auth; grant usage on schema auth to authenticated,service_role;
-      create table auth.users(id uuid primary key,is_anonymous boolean default false);
-      grant select on auth.users to service_role;
+      create table auth.users(id uuid primary key,is_anonymous boolean default false,
+        email text, encrypted_password text);
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid',true),'')::uuid $$;
       create function public.is_permanent_user() returns boolean language sql stable as $$ select coalesce(current_setting('test.guest',true),'false') <> 'true' $$;
-      insert into auth.users values ('${user}',false),('${other}',false),('${guest}',true);`);
+      insert into auth.users(id,is_anonymous) values ('${user}',false),('${other}',false),('${guest}',true);`);
     const path = new URL('../../supabase/migrations/', import.meta.url);
     const file = readdirSync(path).find((f) => f.endsWith('_float_archive.sql'))!;
     await db.exec(readFileSync(new URL(file, path), 'utf8'));
@@ -623,6 +623,22 @@ test('SQL isolates accounts, serializes opt-out, preserves tombstones and cascad
       deleted: false,
       contributionVersion: null,
     };
+    // Reproduce the deployed permissions, rather than quietly supplying a
+    // broad auth.users grant only in the test fixture.
+    await assert.rejects(call([row]), { code: '42501' });
+    await assert.rejects(consent(true), { code: '42501' });
+    const grant = readdirSync(path).find(f => f.endsWith('_float_archive_account_read_grant.sql'))!;
+    await db.exec(readFileSync(new URL(grant, path), 'utf8'));
+    await db.exec('set role service_role');
+    await db.query('select id,is_anonymous from auth.users');
+    await assert.rejects(db.query('select email from auth.users'), { code: '42501' });
+    await assert.rejects(db.query('select encrypted_password from auth.users'), { code: '42501' });
+    await db.exec('reset role');
+    for (const role of ['anon', 'authenticated']) {
+      const access = await db.query<{ allowed: boolean }>(
+        `select has_any_column_privilege('${role}', 'auth.users', 'SELECT') allowed`);
+      assert.equal(access.rows[0].allowed, false);
+    }
     await call([row]);
     await call([{ ...row, id: 'other', payload: summary('other') }], other);
     await assert.rejects(call([row], guest));

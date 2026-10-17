@@ -309,7 +309,7 @@ are pending checks, not evidence of a device pass.
       closest mapped river point: the recap must not claim Buffalo City as
       the launch. Waiting at the actual launch must not trigger away ending.
 - [ ] **One recording presentation:** start from each tab; close, switch tabs,
-      and Resume. Repeat Resume taps and a reminder deep link. Confirm one
+      and Return to float. Repeat Return to float taps and a reminder deep link. Confirm one
       River Mode/map, recording continues when closed, keep-awake releases,
       options return correctly, and manual/automatic ending shows one recap.
       Closing returns to the page underneath; a cold recording link returns to
@@ -335,8 +335,16 @@ are pending checks, not evidence of a device pass.
       build/runtime version, create vs resume, chunk counts and style status from
       diagnostics. Confirm completed state clears old errors; do not treat the
       byte count alone as success or unique disk usage.
+      A missing verifier or failed check must show an explanation, not a
+      finishing spinner. A slow check must end within 20 seconds; the finishing
+      indicator must end within 30 seconds. Check again must not start native
+      downloads. Return from Storage and foreground Eddy to recheck completion;
+      Storage must label partial/unconfirmed maps separately from Ready offline.
 - [ ] **Backup and sharing recovery:** reproduce Sync now on an affected account;
       correlate client method/status and server `[float-archive]` stage/code.
+      Apply the reviewed account-read grant migration only with authorization;
+      verify `service_role` can read `auth.users.id`/`is_anonymous` while client
+      roles and unrelated account columns remain restricted.
       Confirm pending floats become backed up and restore on another installation.
       Sharing errors stay inline; failed opt-in stays off, failed opt-out stays
       locally off and retries. Verify account-linked summary disclosure, raw GPS

@@ -126,12 +126,12 @@ export default function SavedFloatScreen() {
           style={({ pressed }) => [styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
           accessibilityRole="button"
         >
-          <Text style={[styles.startText, { color: colors.onAccent }]}>{activeFloat ? 'Resume float' : 'Float this route'}</Text>
+          <Text style={[styles.startText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
         </Pressable>
       ) : null}
       {canStart && shortCode ? (
         <View style={styles.download}>
-          <SavedTripDownload riverSlug={riverSlug!} shortCode={shortCode} putInId={putInId!} takeOutId={takeOutId!} />
+          <SavedTripDownload key={shortCode} riverSlug={riverSlug!} shortCode={shortCode} putInId={putInId!} takeOutId={takeOutId!} />
         </View>
       ) : null}
     </View>

@@ -155,7 +155,7 @@ export default function StorageScreen() {
           <View style={[styles.card, styles.tripCard, { backgroundColor: colors.card }, elevation(1)]}>
             <Text style={[styles.rowTitle, { color: colors.text }]}>Trip maps</Text>
             <Text style={[styles.note, { color: colors.textMuted }]}>
-              Map backgrounds you downloaded for floats, so they show with no signal.
+              Maps saved on this phone. Check for Ready offline before you go.
             </Text>
             {trips.map((trip) => {
               const saved = floats.find((f) => f.shortCode === trip.tripKey);
@@ -164,7 +164,7 @@ export default function StorageScreen() {
                 <View key={trip.tripKey} style={styles.tripRow}>
                   <View style={styles.tripText}>
                     <Text style={[styles.note, { color: colors.text }]} numberOfLines={1}>{label}</Text>
-                    <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{formatBytes(trip.bytes)}</Text>
+                    <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{trip.status} · {formatBytes(trip.bytes)}</Text>
                   </View>
                   <Pressable
                     onPress={() => confirmRemoveTrip(trip.tripKey, label)}

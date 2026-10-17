@@ -9,8 +9,8 @@
 // list stays exactly where links expect it.
 //
 // ── What it deliberately does not show ────────────────────────────────────
-// No float times on saved cards (see SavedFloatRow). Start Float and Resume
-// Float appear only where the floatMode flag is on (development and preview
+// No float times on saved cards (see SavedFloatRow). Start a Float and Return
+// to float appear only where the floatMode flag is on (development and preview
 // builds, or the server flag; see floatModeFeature.ts), and so do the offline
 // lines on saved floats, read from the same rules as each trip's own card. Featured Floats are the first three of the
 // curated picks in the same daily rotation Today used, swiped one at a time.
@@ -151,7 +151,7 @@ function FloatHomeContent() {
               )}
               <View style={styles.welcomeText}>
                 <Text style={[styles.findTitle, { color: colors.onAccent }]}>
-                  {activeFloat ? 'Resume Float' : 'Start a Float'}
+                  {activeFloat ? 'Return to float' : 'Start a Float'}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.onAccent }]}>
                   {activeFloat
