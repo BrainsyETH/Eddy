@@ -55,6 +55,8 @@ REQUIRED = [
     "eddy-ios/modules/eddy-live-activity/widget/EddyReportWidgets.swift",
     "eddy-ios/modules/eddy-live-activity/widget/DamWidgetCatalog.json",
     "eddy-ios/assets/eddy/eddy-checking-gauge.png",
+    "eddy-ios/assets/eddy/eddy-dam.png",
+    "eddy-ios/assets/eddy/eddy-river.png",
     "eddy-ios/assets/otter/standard.png",
     "packages/eddy-types/index.ts",
     "packages/eddy-geo/index.ts",

@@ -9,7 +9,7 @@ export const WIDGET_GUIDE = {
   river: {
     title: 'River level',
     size: 'Small',
-    summary: 'Keep one river gauge in view. Choose the station after adding it.',
+    summary: 'One clear reading in CFS or FT, using the river’s rating unit.',
     personalize: 'Touch and hold the widget, tap Edit Widget, then choose the gauge or river you want to see.',
   },
   favorites: {
@@ -21,18 +21,26 @@ export const WIDGET_GUIDE = {
   dam: {
     title: 'Dam generation',
     size: 'Medium',
-    summary: 'See observed turbine flow and the next posted schedule change at a dam.',
+    summary: 'See turbine flow beside today’s hourly generation schedule.',
     personalize: 'Touch and hold the widget, tap Edit Widget, then choose a dam. Schedule times are Central Time and can change.',
   },
   report: {
-    title: 'Daily river report',
+    title: 'Daily River Report',
     size: 'Medium',
     summary: 'See a river’s current condition, observed trend and today’s weather forecast.',
     personalize: 'Touch and hold the widget, tap Edit Widget, then choose a river. Tap the report to open its river page.',
   },
 } as const;
 
-export function widgetGuide(kind: WidgetGuideKind, layoutVersion = 2) {
+export function widgetGuide(kind: WidgetGuideKind, layoutVersion = 3) {
+  if (kind === 'dam' && layoutVersion < 3) return {
+    ...WIDGET_GUIDE.dam,
+    summary: 'See observed turbine flow and the next posted schedule change at a dam.',
+  };
+  if (kind === 'river' && layoutVersion < 3) return {
+    ...WIDGET_GUIDE.river,
+    summary: 'Keep one river gauge in view. Choose the station after adding it.',
+  };
   if (kind === 'favorites' && layoutVersion < 2) return {
     ...WIDGET_GUIDE.favorites,
     summary: 'See readings for the first three rivers or gauges you star in Favorites.',
@@ -41,7 +49,7 @@ export function widgetGuide(kind: WidgetGuideKind, layoutVersion = 2) {
   return WIDGET_GUIDE[kind];
 }
 
-export function widgetGuideSteps(kind: WidgetGuideKind, layoutVersion = 2) {
+export function widgetGuideSteps(kind: WidgetGuideKind, layoutVersion = 3) {
   const widget = widgetGuide(kind, layoutVersion);
   return [
     {

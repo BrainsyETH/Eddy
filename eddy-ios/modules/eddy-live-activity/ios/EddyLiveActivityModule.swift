@@ -33,7 +33,7 @@ public final class EddyLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("EddyLiveActivity")
     Events("onActivityState")
-    Function("widgetLayoutVersion") { 2 }
+    Function("widgetLayoutVersion") { 3 }
     AsyncFunction("readWidgetConfiguration") { () -> String? in
       ConditionsWidgetStore.configurationJSON()
     }

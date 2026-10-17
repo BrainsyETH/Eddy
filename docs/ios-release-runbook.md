@@ -1243,8 +1243,9 @@ require a new binary; do not deliver the native changes as an OTA update.
       older server must still decode the full response.
 - [ ] Run `expo prebuild --platform ios --no-install` and
       `node scripts/check-float-activity.cjs` from `eddy-ios`, then compile/archive
-      both targets in Xcode or EAS. Inspect the archive for all three widget
-      bundle members, both otter assets, `ConditionsPreview.json`, and the
+      both targets in Xcode or EAS. Inspect the archive for all five bundle
+      members (four condition widgets and the Live Activity), both otter assets,
+      `DamMark`/`RiverMark`, `ConditionsPreview.json`, and the
       extension privacy manifest. Run the Mac Foundation contract checks in
       [condition-widgets.md](condition-widgets.md#build-and-acceptance).
       Confirm `ConditionWidgetData.swift` compiles in BOTH the Expo native
@@ -1259,7 +1260,7 @@ require a new binary; do not deliver the native changes as an OTA update.
 - [ ] In Alerts → Mine, confirm widget discovery appears once on a supported
       iOS binary for signed-in and signed-out users, with no permission prompt.
       Dismiss the invitation and confirm it becomes a compact, always-reopenable
-      Home Screen widgets row across app restarts. Verify old binaries without
+      River Widgets row across app restarts. Verify old binaries without
       widget support and Expo Go do not advertise a widget they cannot add.
       Open the setup guide and switch between River level (small, Edit Widget
       station picker), Your rivers (medium, three station pickers), Dam generation
@@ -1270,13 +1271,23 @@ require a new binary; do not deliver the native changes as an OTA update.
       sheet swipe dismissal and scrolling on a small phone.
 - [ ] Compile `SupplementaryWidgetData.swift` in both host and extension, and
       `EddyReportWidgets.swift` in the extension. Verify `widgetLayoutVersion()`
-      returns 2 and all four widgets appear. Deploy the additive dam `?widget=1`
+      returns 3 and all four widgets appear. Deploy the additive dam `?widget=1`
       API before distributing the binary; old API responses must remain unavailable.
 - [ ] Upgrade a device with an existing static Your rivers widget. Confirm it
       keeps Favorites defaults and now offers Edit Widget with three pickers.
       Check explicit choices, cleared slots, duplicates, unstarred choices and
       independent configurations on two medium widgets. Check small-widget
-      “Steady”/“Slow rise” labels and secondary feet beside the main reading.
+      “Steady”/“Slow rise” labels and one large CFS or FT reading, matching the
+      river's rating unit. Check six-digit CFS, negative/decimal feet and long
+      station names; no second unit should appear or crowd the reading.
+- [ ] Verify the dam's 24 posted-MW bars, current-hour pointer and Central-time
+      axis against its detail schedule, including zero and missing hours,
+      a late-night phone in another timezone, Central midnight and DST.
+      Stale schedules must stop drawing and yesterday must never become today.
+      Confirm Daily River Report shows its title/river/condition once, uses the
+      river artwork and weather icons, and preserves flood warnings and gauge
+      observation time. Inspect all three layouts on small phones and at xxLarge
+      text in light, dark and tinted appearances. These are native visual gates.
 - [ ] Add/edit Dam generation and Daily river report. Check compact and large
       text, light/dark/tinted, VoiceOver, gallery sample labels, no selection,
       cold/warm deep links, offline cache and 404 removal. Exercise two-hour

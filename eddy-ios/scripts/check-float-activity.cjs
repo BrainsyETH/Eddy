@@ -33,6 +33,10 @@ const hostEntitlements = plist.parse(fs.readFileSync(path.join(root, 'ios/Eddy/E
 assert.deepEqual(hostEntitlements['com.apple.security.application-groups'], [group]);
 assert.deepEqual({ ...plist.parse(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity/EddyFloatActivity.entitlements'), 'utf8')) }, entitlements);
 assert.ok(fs.existsSync(path.join(root, 'ios/EddyFloatActivity/Assets.xcassets/GaugeOtter.imageset/otter.png')));
+for (const [name, file] of [['DamMark', 'eddy-dam.png'], ['RiverMark', 'eddy-river.png']]) {
+  assert.deepEqual(fs.readFileSync(path.join(root, `ios/EddyFloatActivity/Assets.xcassets/${name}.imageset/otter.png`)),
+    fs.readFileSync(path.join(root, 'assets/eddy', file)), 'widget embeds the existing brand asset');
+}
 const widgetPrivacy = plist.parse(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity/PrivacyInfo.xcprivacy'), 'utf8'));
 assert.deepEqual(widgetPrivacy.NSPrivacyAccessedAPITypes.map((type) => ({ ...type })), [{ NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults', NSPrivacyAccessedAPITypeReasons: ['1C8F.1'] }]);
 const hostPrivacy = plist.parse(fs.readFileSync(path.join(root, 'ios/Eddy/PrivacyInfo.xcprivacy'), 'utf8'));

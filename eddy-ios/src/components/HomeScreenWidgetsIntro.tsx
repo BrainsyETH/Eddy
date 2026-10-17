@@ -230,6 +230,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
 function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
   const { colors } = useTheme();
   const isSmall = kind === 'river';
+  const visual = nativeWidgetLayoutVersion >= 3;
 
   return (
     <View style={[styles.previewStage, { backgroundColor: colors.selectionBg }]}>
@@ -246,10 +247,12 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
       >
         <View style={styles.previewHeader}>
           <Text style={[styles.previewHeading, { color: colors.text }]}>
-            {isSmall ? 'Current River' : WIDGET_GUIDE[kind].title}
+            {isSmall ? 'Current River' : visual && kind === 'dam' ? 'Bull Shoals Dam' : WIDGET_GUIDE[kind].title}
           </Text>
           <Image
-            source={require('../../assets/eddy/eddy-checking-gauge.png')}
+            source={visual && kind === 'dam' ? require('../../assets/eddy/eddy-dam.png')
+              : visual && kind === 'report' ? require('../../assets/eddy/eddy-river.png')
+                : require('../../assets/eddy/eddy-checking-gauge.png')}
             style={styles.previewOtter}
             accessible={false}
           />
@@ -257,9 +260,49 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         {isSmall ? (
           <>
             <Text style={[t.xs, { color: colors.textMuted }]}>Akers, MO</Text>
-            <Text style={[styles.previewNumber, { color: colors.text }]}>123 <Text style={t.xs}>cfs</Text></Text>
+            <Text style={[styles.previewNumber, visual && styles.previewHero, { color: colors.text }]}>123 <Text style={t.xs}>CFS</Text></Text>
             <Text style={[t.xs, { color: colors.textMuted }]}>Sample data</Text>
           </>
+        ) : visual && kind === 'dam' ? (
+          <View style={styles.previewVisualRow}>
+            <View style={styles.previewMetric}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Turbine flow</Text>
+              <Text style={[styles.previewNumber, { color: colors.text }]}>6,600</Text>
+              <Text style={[t.xs, { color: colors.textMuted }]}>CFS · Generating</Text>
+            </View>
+            <View style={styles.previewChart}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Today · CT · MW</Text>
+              <View style={styles.previewBars}>
+                {Array.from({ length: 24 }, (_, hour) => (
+                  <View key={hour} style={{ flex: 1, height: hour >= 7 && hour < 18 ? (hour >= 13 ? 34 : 18) : 3,
+                    backgroundColor: hour >= 7 && hour < 18 ? colors.accentFill : colors.border, borderRadius: 2 }} />
+                ))}
+              </View>
+              <View style={styles.previewAxis}>
+                {['12a', '6a', '12p', '6p', '12a'].map((label, index) => <Text key={index} style={[t.xs, { color: colors.textMuted }]}>{label}</Text>)}
+              </View>
+            </View>
+          </View>
+        ) : visual && kind === 'report' ? (
+          <View style={styles.previewVisualRow}>
+            <View style={styles.previewMetric}>
+              <Text style={[styles.previewHeading, { color: colors.text }]}>Current River</Text>
+              <Text style={[styles.previewNumber, { color: colors.text }]}>250 <Text style={t.xs}>CFS</Text></Text>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Akers, MO</Text>
+            </View>
+            <View style={[styles.previewWeather, { backgroundColor: colors.selectionBg }]}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Forecast · °F</Text>
+              <View style={styles.previewAxis}>
+                <ControlIcon name="partly-sunny-outline" size={24} color={colors.text} />
+                <Text style={[styles.previewNumber, { color: colors.text }]}>74°</Text>
+              </View>
+              <View style={styles.previewAxis}>
+                <Text style={[t.xs, { color: colors.textMuted }]}>↓51°</Text>
+                <ControlIcon name="water" size={12} color={colors.textMuted} />
+                <Text style={[t.xs, { color: colors.textMuted }]}>20%</Text>
+              </View>
+            </View>
+          </View>
         ) : (
           <>
             {(kind === 'dam' ? [
@@ -339,6 +382,13 @@ const styles = StyleSheet.create({
   previewHeading: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   previewOtter: { width: 26, height: 26 },
   previewNumber: { ...t['2xl'], fontFamily: fonts.semibold },
+  previewHero: { ...t['3xl'], fontFamily: fonts.monoMedium },
+  previewVisualRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginTop: 8 },
+  previewMetric: { flex: 1, gap: 3 },
+  previewChart: { flex: 1.4, gap: 4 },
+  previewBars: { flexDirection: 'row', alignItems: 'flex-end', height: 40, gap: 2 },
+  previewAxis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 2 },
+  previewWeather: { flex: 1, borderRadius: 12, padding: 8, gap: 3 },
   previewReading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   previewReadingText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1 },
   previewCaption: { ...t.xs, marginTop: 10, textAlign: 'center' },

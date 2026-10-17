@@ -28,6 +28,34 @@ func widgetObservationStamp(_ observed: Date, now: Date) -> String {
   return observed.formatted(.dateTime.month(.abbreviated).day().year())
 }
 
+// Keep the station identifiable without printing the river name twice.
+// VoiceOver still gets the full public station name from the view.
+func widgetStationLabel(_ choice: WidgetGaugeChoice) -> String {
+  let station = choice.stationName.trimmingCharacters(in: .whitespacesAndNewlines)
+  guard station.count > choice.riverName.count,
+    station.lowercased().hasPrefix(choice.riverName.lowercased()) else { return station }
+  let suffix = String(station.dropFirst(choice.riverName.count))
+  // Only strip a complete river prefix, never a substring of another name.
+  guard suffix.first?.isWhitespace == true else { return station }
+  let detail = suffix.trimmingCharacters(in: .whitespacesAndNewlines)
+  for prefix in ["at ", "near "] where detail.lowercased().hasPrefix(prefix) {
+    return String(detail.dropFirst(prefix.count))
+  }
+  return station
+}
+
+func widgetWeatherSymbol(_ condition: String) -> String {
+  let text = condition.lowercased()
+  if text.contains("thunder") || text.contains("storm") { return "cloud.bolt.rain.fill" }
+  if text.contains("snow") || text.contains("sleet") || text.contains("ice") { return "cloud.snow.fill" }
+  if text.contains("rain") || text.contains("drizzle") || text.contains("shower") { return "cloud.rain.fill" }
+  if text.contains("fog") || text.contains("mist") || text.contains("haze") { return "cloud.fog.fill" }
+  if text.contains("partly") || text.contains("mostly sunny") { return "cloud.sun.fill" }
+  if text.contains("cloud") || text.contains("overcast") { return "cloud.fill" }
+  if text.contains("clear") || text.contains("sun") || text.contains("fair") { return "sun.max.fill" }
+  return "thermometer.medium"
+}
+
 struct WidgetDamChoice: Codable, Hashable, Identifiable {
   var id: String
   var name: String
@@ -48,14 +76,51 @@ struct WidgetDamMoment: Codable {
   var scheduleSummary: String
   var scheduleCurrent: Bool
   var scheduleCheckedAt: Double?
+  var generationKind: String? = nil
+  var scheduleDate: String? = nil
+  var scheduleHour: Int? = nil
+  var compactStatus: String {
+    guard current else { return turbineCfs == nil ? "Unavailable" : "Older reading" }
+    switch generationKind {
+    case "generating": return "Generating"
+    case "not-generating": return "No generation"
+    default: return status
+    }
+  }
+}
+struct WidgetDamScheduleHour: Codable, Identifiable {
+  var hourEnding: Int
+  var label: String
+  var megawatts: Double?
+  var id: Int { hourEnding }
+}
+struct WidgetDamScheduleDay: Codable {
+  var date: String
+  var hours: [WidgetDamScheduleHour]
+  var peak: Double { hours.compactMap(\.megawatts).max() ?? 0 }
+  var valid: Bool {
+    hours.map(\.hourEnding) == Array(1...24)
+      && hours.allSatisfy { $0.megawatts == nil || ($0.megawatts!.isFinite && $0.megawatts! >= 0) }
+  }
 }
 struct WidgetDamPacket: Codable {
   var version: Int
   var id: String
   var name: String
   var entries: [WidgetDamMoment]
+  var scheduleDays: [WidgetDamScheduleDay]? = nil
   func moment(at date: Date) -> WidgetDamMoment? {
     entries.last { $0.date <= date.timeIntervalSince1970 * 1000 }
+  }
+  func todaySchedule(at date: Date) -> WidgetDamScheduleDay? {
+    guard let moment = moment(at: date), moment.scheduleCurrent,
+      let day = moment.scheduleDate else { return nil }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "America/Chicago")
+    formatter.dateFormat = "yyyy-MM-dd"
+    guard day == formatter.string(from: date) else { return nil }
+    return scheduleDays?.first { $0.date == day && $0.valid }
   }
   func valid(for id: String) -> Bool {
     version == 1 && self.id == id && !entries.isEmpty && entries.count <= 30
