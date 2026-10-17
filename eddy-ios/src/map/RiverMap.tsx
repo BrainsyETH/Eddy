@@ -60,8 +60,6 @@ import type {
   RiverService,
 } from '@eddy/types';
 import {
-  accessPointTypes,
-  accessTypeLabel,
   hasCoordinates,
   PUBLIC_LAND_ACCESS_STYLE,
 } from '@eddy/types';
@@ -85,6 +83,7 @@ import {
 import type { NetworkCollection } from '@/lib/statewideNetwork';
 import type { MilePost } from '@eddy/geo';
 import { loadMapbox, STYLE_URL } from './runtime';
+import { mapAccessPointPin } from './accessPin';
 import {
   GAUGE_DETAIL_ZOOM,
   MAP_LAYERS,
@@ -108,6 +107,8 @@ import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
 import { cameraAnimation, type MapBounds, type MapCameraCommand } from '@/map/cameraBehavior';
 import type { MapCameraPadding } from './mapLayout';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+
+export { mapAccessPointPin } from './accessPin';
 
 /**
  * Ink for text drawn ON the map, in either app appearance.
@@ -458,21 +459,6 @@ export interface MapPin {
 }
 
 /**
- * One quiet type cue for an access label.
- *
- * A point may be six things at once, so six pin silhouettes would turn the map
- * into a legend test. This picks the most decision-useful non-generic role and
- * writes it into the close-zoom label instead: “Campground · Cedar Grove”. The
- * callout still lists every role after selection.
- */
-function accessLabel(point: MapAccessPoint): string {
-  const cueOrder = ['campground', 'boat_ramp', 'gravel_bar', 'bridge', 'park'];
-  const types = accessPointTypes(point);
-  const cue = cueOrder.find((type) => types.includes(type));
-  return cue ? `${accessTypeLabel(cue)} · ${point.name}` : point.name;
-}
-
-/**
  * The selected river, as this component uses it.
  *
  * `geometry` is optional and usually unnecessary: the statewide network already
@@ -500,43 +486,6 @@ export interface MapPinAccessPoint {
   point: MapAccessPoint;
   /** Null means "whichever river is drawn", for a per-river response. */
   riverSlug?: string | null;
-}
-
-/**
- * The canonical presentation object for an access point.
- *
- * Exported because a search result needs to open the exact callout RiverMap
- * would create after the river-scoped access response arrives. Keeping this in
- * one builder prevents search and tap selection from drifting apart.
- */
-export function mapAccessPointPin(
-  point: MapAccessPoint,
-  riverSlug: string | null,
-  /**
-   * WHICH ICON THE FINGER LANDED ON, when the caller knows.
-   *
-   * Defaults to the generic access layer, which is right for a search result or
-   * a row in a list — neither came from an icon. It is NOT right for a
-   * re-selection: the campgrounds and access layers draw the same access point
-   * under different marks, and `layer` is the only record of which one was
-   * tapped. Rebuilding a tapped tent as an `access` pin silently changes the
-   * sheet's mark (placeSymbol), the tab it opens on (initialTabKey) and the fact
-   * its glance reserves room for (decisionSlot) — all three read this field.
-   */
-  layer: LayerKey = 'access',
-): MapPin {
-  return {
-    id: `access:${point.id}`,
-    name: point.name,
-    label: accessLabel(point),
-    layer,
-    subtitle: `Mile ${point.riverMile.toFixed(1)}`,
-    coordinates: point.coordinates,
-    privateAccess: !point.isPublic,
-    imageUrl: point.imageUrls?.[0] ?? null,
-    detailRoute:
-      riverSlug && point.slug ? `/river/${riverSlug}/access/${point.slug}` : null,
-  };
 }
 
 /**

@@ -694,3 +694,27 @@ test('closing the presentation resets entrance for a later opening', async () =>
   assert.equal(sheetTransition(null, 'A', true, false), 'enter');
   assert.equal(sheetTransition(null, 'A', true, true), 'replace');
 });
+
+test('a plan peek grows from loading to the complete result, including its button and bottom gap', () => {
+  const identity = 160;
+  for (const available of [480, 700, 820]) {
+    for (const summary of [44, 180, 220]) {
+      const preview = summary + CONTENT_BOTTOM_PAD;
+      const peek = scrollingPeekHeight(available, identity, preview);
+      const detents = resolveDetents(available, identity + Math.min(preview, pageBudget(available, identity)), peek);
+      assert.equal(detents.height.peek, identity + preview);
+      assert.ok(detents.height.peek <= available - ORNAMENT_BAND);
+    }
+  }
+});
+
+test('a large-text plan caps its preview and leaves the full result reachable by scrolling', () => {
+  const available = 480, identity = 76, summary = 720 + CONTENT_BOTTOM_PAD;
+  const budget = pageBudget(available, identity);
+  const peek = scrollingPeekHeight(available, identity, summary);
+  const detents = resolveDetents(available, identity + budget, peek);
+  assert.equal(detents.order.length, 1);
+  assert.equal(detents.height.peek, identity + budget);
+  assert.ok(detents.height.peek <= available - ORNAMENT_BAND);
+  assert.ok(summary > budget, 'the remaining result scrolls in the full-height body');
+});
