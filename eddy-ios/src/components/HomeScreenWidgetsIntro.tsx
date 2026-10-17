@@ -67,7 +67,7 @@ export function HomeScreenWidgetsIntro() {
         <Pressable
           onPress={open}
           accessibilityRole="button"
-          accessibilityLabel="Home Screen widgets. How to add Eddy's widgets"
+          accessibilityLabel="River Widgets. Set up a river level widget."
           style={({ pressed }) => [
             styles.compactRow,
             { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -75,8 +75,8 @@ export function HomeScreenWidgetsIntro() {
         >
           <ControlIcon name="grid-outline" size={20} color={colors.interactive} />
           <View style={styles.compactCopy}>
-            <Text style={[styles.compactTitle, { color: colors.text }]}>Home Screen widgets</Text>
-            <Text style={[t.xs, { color: colors.textMuted }]}>Set up River level or Your rivers</Text>
+            <Text style={[styles.compactTitle, { color: colors.text }]}>River Widgets</Text>
+            <Text style={[t.xs, { color: colors.textMuted }]}>Set up a river level widget.</Text>
           </View>
           <ControlIcon name="chevron-forward" size={17} color={colors.textMuted} />
         </Pressable>
