@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: October 14, 2026</p>
+          <p className="text-white/80">Last updated: October 16, 2026</p>
         </div>
       </section>
 
@@ -63,7 +63,8 @@ export default function PrivacyPage() {
               <strong>Sign in with Apple.</strong> If you choose to sign in, Apple provides a
               user identifier and, at your option, a name and an email address. Apple lets you
               hide your real address behind a private relay; Eddy works either way and does not
-              require you to reveal it.
+              require you to reveal it. When Apple supplies a name, Eddy saves it as your
+              account display name.
             </li>
             <li>
               <strong>Push notification tokens.</strong> If you enable notifications, Eddy stores
@@ -84,8 +85,13 @@ export default function PrivacyPage() {
             <li>
               <strong>Precise location in the app.</strong> If you allow it, the app may use your
               device&apos;s location to show where you are relative to a river. Precise location is used
-              on the device for map and distance features. During an active float, background location can keep progress working while your phone is locked; ending the float stops tracking. For local weather, the app sends
-              coordinates rounded to 0.05 degrees to Eddy&apos;s forecast endpoint. Location
+              on the device for map and distance features. Starting a float records a GPS track,
+              including position, time, accuracy, and available speed, direction and altitude.
+              Eddy asks for While Using the App permission; an active float can continue recording
+              while your phone is locked, with iOS showing its location indicator. Finishing the
+              float stops recording. For local weather and nearby route searches, the app sends
+              coordinates rounded to 0.05 degrees to Eddy. Find a Route sends these coordinates
+              when you tap Search with Near you selected; choosing a river instead omits them. Location
               is not shared with third parties for advertising. You can decline, and the app remains usable;
               you can revoke the permission at any time in iOS Settings.
             </li>
@@ -96,23 +102,35 @@ export default function PrivacyPage() {
               first and last tracked river mile, date and times, boat type if supplied, tracked
               distance, moving, stopped and unobserved time, pace, and a historical water reading
               when available. These records are linked to your account. Raw River Mode GPS
-              positions and traces are not uploaded. If local history becomes unreadable,
+              positions and traces are not uploaded to Eddy. The raw track stays on this phone
+              after the float ends and is excluded from iCloud and device backups. Deleting the
+              float from History deletes its local track too; if track deletion fails, Eddy shows
+              that it is pending and retries when the app opens or returns to the foreground.
+              Restoring an account backup restores the summary, not the raw track. If local history becomes unreadable,
               Eddy preserves a recovery copy on your phone before starting fresh. That
               copy is not uploaded and is removed when you delete a trip or your account.
             </li>
             <li>
               <strong>Helping improve estimates.</strong> An optional setting under Floats
-              &rsaquo; Float history &amp; backup lets Eddy study summaries of floats you finish
+              &rsaquo; Saved Floats &amp; History &rsaquo; Backup &rsaquo; Help improve float estimates lets Eddy study summaries of floats you finish
               while sharing is enabled. It is off by default. Turning it off excludes your
               trips from future analysis without removing your backup. Setting changes need
               a connection; the app retries a pending withdrawal. We do not provide these
               trips to outfitters or use them for advertising.
             </li>
             <li>
+              <strong>Lock Screen and Dynamic Island.</strong> During a float, a Live Activity
+              can show the river, take-out, progress and estimated time remaining without
+              unlocking your phone. These updates are generated on your device and do not
+              share your live location with other people. You can dismiss the Live Activity
+              or turn off Live Activities for Eddy in iOS Settings. Dismissing it does not
+              stop recording; finish the float in Eddy to stop recording.
+            </li>
+            <li>
               <strong>On-device storage.</strong> River data (access points, hazards, courses,
               and last known readings), saved rivers, and app preferences are stored on your
               device so the app works without a signal. You can clear the river data at any time
-              from Profile &rsaquo; Storage, Deleting the app removes its local data; account backups require separate deletion. Authentication credentials may remain in the iOS Keychain.
+              from Profile &rsaquo; Offline storage. Deleting the app removes its local data; account backups require separate deletion. Authentication credentials may remain in the iOS Keychain.
             </li>
             <li>
               <strong>Feedback and correspondence.</strong> Email address (required when you
@@ -146,7 +164,8 @@ export default function PrivacyPage() {
             <li>
               <strong>Location you choose to use.</strong> If you use a “nearest me” feature,
               your browser may ask for location permission. The feature uses the coordinates
-              needed to calculate nearby results; Eddy does not continuously track your device.
+              needed to calculate nearby results. Browsing the website does not start a
+              continuous location recording; recording in the app begins when you start a float.
             </li>
           </ul>
         </section>
@@ -178,8 +197,9 @@ export default function PrivacyPage() {
         <section>
           <h2 className={heading}>Service Providers and External Links</h2>
           <p className={`${body} mb-3`}>
-            Eddy uses service providers to operate the site. They process information under their
-            own terms and our configuration:
+            Eddy uses service providers to operate the website and app. Providers processing
+            personal information for Eddy must protect it to the same or an equivalent standard
+            described in this policy and use it only for the services described here:
           </p>
           <ul className={list}>
             <li><strong>Vercel</strong> for hosting, delivery, logs, and site analytics.</li>
@@ -187,7 +207,7 @@ export default function PrivacyPage() {
             <li><strong>Google Analytics/Tag Manager</strong> for usage measurement when configured.</li>
             <li><strong>Resend</strong> for subscription, inbound email, and reply delivery.</li>
             <li><strong>USGS and weather providers</strong> for river and forecast data. Gauge requests are generally made server-side.</li>
-            <li><strong>Mapbox</strong> for map tiles. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access. The iOS app switches Mapbox&rsquo;s own usage telemetry off at startup, so it sends Mapbox nothing beyond the tile requests needed to draw the map.</li>
+            <li><strong>Mapbox</strong> for maps, place search and routing. Map requests disclose your IP address and the area you are viewing or downloading, which may approximate your location. Place searches and shuttle estimates send the search or route details needed for that request. The iOS app switches Mapbox&rsquo;s optional usage telemetry off at startup.</li>
             <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, a stack trace, and an SDK installation identifier used to connect diagnostics from the same installation. Eddy filters likely tokens, email addresses, account UUIDs, and coordinate pairs from JavaScript error text and custom diagnostic extras before sending. Diagnostic reports are not used for advertising.</li>
             <li><strong>RevenueCat</strong> for subscription purchases and their status. RevenueCat receives your Eddy account identifier and the purchase records Apple returns. Eddy never receives your payment details — those stay with Apple.</li>
             <li><strong>Expo</strong> for delivering push notifications to the iOS app. Expo receives a device push token and the contents of each notification, which name the river and its condition.</li>
@@ -205,7 +225,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className={heading}>Retention and Public Information</h2>
           <p className={body}>
-            Subscription information is kept until you unsubscribe or request deletion. Feedback,
+            Email subscription information is kept until you unsubscribe or request deletion. Feedback,
             correspondence, security logs, and community reports are retained while needed to
             respond, moderate, maintain an audit trail, prevent abuse, and meet legal obligations.
             Private float summaries and saved-route collections remain until you delete
@@ -235,13 +255,27 @@ export default function PrivacyPage() {
           <h2 className={heading}>Your Choices</h2>
           <ul className={list}>
             <li>Do not grant browser location permission if you do not want to use location features.</li>
+            <li>
+              In the app, finish your float to stop recording. You can also revoke Eddy&rsquo;s
+              location permission in iOS Settings. Browsing and planning remain available
+              without location permission.
+            </li>
+            <li>
+              Delete individual floats from Floats &rsaquo; Saved Floats &amp; History &rsaquo; History. For a signed-in account,
+              deletion is also sent to your account backup; offline changes wait for a connection.
+              Turn off Help improve float estimates under Floats &rsaquo; Saved Floats &amp; History &rsaquo; Backup to withdraw
+              from future estimate analysis without deleting your backup.
+            </li>
             <li>Use an unlisted shared-plan link only with people you trust.</li>
             <li>Do not include faces, license plates, children, or private details in community photos.</li>
             <li>Use the unsubscribe option in an email or contact us to stop email updates.</li>
             <li>
               <strong>Delete your account in the app.</strong> In the iOS app, open Profile and
               choose Delete account, or Delete my data when using Eddy without signing in. Deletion happens immediately and removes your account, your
-              saved float plans, favorites, alert rules, and registered devices. It does not
+              saved float plans, completed-float summaries, estimate-sharing preference,
+              favorites, alert rules, and registered devices. The app also stops an active
+              float and removes local float records and raw tracks. If local cleanup fails,
+              the app asks you to retry. Deleting a server account requires a connection. It does not
               cancel an active subscription &mdash; Apple manages billing, so cancel there first
               if you want it stopped.
             </li>

@@ -40,6 +40,8 @@ const REDACTIONS: Array<[RegExp, string]> = [
   // fix — so a pair of gauge readings survives and a position does not.
   // Mirrored in eddy-ios/src/lib/redact.ts; redact.test.ts pins the two.
   [/-?\b\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g, '[redacted-coords]'],
+  // Named coordinates in weather URLs or quoted JSON, including coarse values.
+  [/(\b(?:lat|latitude|lon|lng|longitude)["']?\s*[:=]\s*["']?)-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi, '$1[redacted-coord]'],
 ];
 
 export function redactText(input: string): string {
