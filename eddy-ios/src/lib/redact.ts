@@ -44,9 +44,12 @@ const REDACTIONS: [RegExp, string][] = [
   // carries five or six. Roughly, three decimals is 100 m — below any precision
   // this app has reason to print about anything but a person.
   [/-?\b\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g, '[redacted-coords]'],
+  // Named coordinates in weather URLs or quoted JSON are not comma pairs.
+  // Even rounded (two-decimal) weather coordinates are personal location data.
+  [/(\b(?:lat|latitude|lon|lng|longitude)["']?\s*[:=]\s*["']?)-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi, '$1[redacted-coord]'],
 ];
 
-/** Longest single value we will carry. Keeps a huge body out of a report. */
+/** Maximum single diagnostic value. Keeps a huge body out of a report. */
 const VALUE_LIMIT = 500;
 
 export function redactText(input: string): string {

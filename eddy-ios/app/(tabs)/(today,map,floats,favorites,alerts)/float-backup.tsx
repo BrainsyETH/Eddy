@@ -3,6 +3,8 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
+import { PRIVACY_URL } from '@/lib/legal';
+import { openExternalLink } from '@/lib/openExternalLink';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles, type as t } from '@/theme/typography';
 
@@ -41,6 +43,9 @@ export default function FloatBackupScreen() {
       >
         <Text style={[t.base, { color: colors.textMuted }]}>
           Keep your saved routes and finished floats in your account.
+        </Text>
+        <Text style={[t.sm, { color: colors.textMuted }]}>
+          Backups save your route, times and pace. GPS tracks stay on this phone until you delete the float.
         </Text>
         {archive.recovered ? (
           <Text accessibilityRole="alert" style={[t.base, { color: colors.textMuted }]}>
@@ -151,6 +156,13 @@ export default function FloatBackupScreen() {
             </Text> : null}
           </View>
         ) : null}
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => void openExternalLink(PRIVACY_URL)}
+          style={styles.button}
+        >
+          <Text style={[t.base, { color: colors.interactive }]}>Privacy Policy</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

@@ -29,6 +29,8 @@ const CORPUS = [
   'password="hunter2"',
   'token=abc123def456',
   'at 37.15412, -91.56231 when it threw',
+  'GET /api/weather/forecast?lat=37.15&lon=-91.55 failed',
+  '{"latitude":37.15412,"longitude":-91.56231}',
   'gauge read 3.40, 2.80 at the time',
   'no secrets in this one at all',
   '',
@@ -88,6 +90,20 @@ test("the coordinate rule does not eat the app's own two-decimal readings", () =
   assert.equal(appRedact(readings), readings);
   // River mile and distance, the other pairing that shows up in this app.
   assert.equal(appRedact('mile 12.75, 4.20 away'), 'mile 12.75, 4.20 away');
+});
+
+test('named coordinates are removed from errors even when rounded for weather', () => {
+  for (const redact of [appRedact, webRedact]) {
+    assert.equal(
+      redact('GET /api/weather/forecast?lat=37.15&lon=-91.55 failed'),
+      'GET /api/weather/forecast?lat=[redacted-coord]&lon=[redacted-coord] failed',
+    );
+    assert.equal(
+      redact('{"latitude":37.15412,"longitude":-91.56231}'),
+      '{"latitude":[redacted-coord],"longitude":[redacted-coord]}',
+    );
+    assert.equal(redact('longitude=-9.156e1'), 'longitude=[redacted-coord]');
+  }
 });
 
 test('redactValue leaves non-strings that cannot carry a secret alone', () => {

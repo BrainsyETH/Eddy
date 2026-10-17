@@ -843,9 +843,9 @@ existing grant. Acquiring a fix and filling Near you alone sends no route
 search; selecting a river instead omits `near`. Do not describe location as
 never leaving the device.
 
-The native permission text currently names approximate weather requests only.
-Before the next store build, update it to also name nearby route searches.
-That `app.json` permission change requires a new binary, not an OTA update.
+The native permission text names approximate location sent for weather and
+nearby searches. Any `app.json` permission text change requires a new binary,
+not an OTA update.
 
 The planner's put-in list gains a **nearest-first** ordering (headwaters-first
 stays the default — that is the order a river runs in). Search's distance sort
