@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Generate the iOS icon and splash assets from the Eddy favicon artwork.
+"""Generate iOS icon variants and splashes from the Eddy source artwork.
 
 Run from anywhere:  python3 eddy-ios/scripts/build-icons.py
 
-WHY THIS IS A SCRIPT AND NOT JUST CHECKED-IN PNGS: the source artwork lives in
-remotion/public/eddy at video resolution and is the same mark the website and
-the social pipeline use. When it changes, the icon has to change with it, and a
-hand-exported icon is exactly the kind of asset that silently drifts. Everything
-below is derived — nothing is hand-placed.
+WHY THIS IS A SCRIPT AND NOT JUST CHECKED-IN PNGS: the legacy source lives in
+remotion/public/eddy, while assets/icon-polished-light.png is the active polished
+source. Derive their dark, tinted and splash variants here so exports preserve
+the artwork and positioning instead of silently drifting.
 
 Three iOS-specific rules are encoded here:
 
@@ -41,9 +40,9 @@ SIZE = 1024
 # mark reads the same in the App Store listing as it does in a browser tab.
 LIGHT_BG = "#FFFFFF"
 
-# Dark appearance is Deep River Teal, the DESIGN.md primary. Not black: the
-# otter's outline is near-black itself and would dissolve into it.
-DARK_BG = "#0A1F26"
+# Dark appearance uses a neutral black field, with the existing Eddy artwork
+# supplying the color. Keep the legacy and active polished variants in sync.
+DARK_BG = "#000000"
 
 # How much of the icon's width the mark spans. 0.84 keeps ~8% clear on each side,
 # which survives the superellipse corner mask without the mark looking inset.
@@ -137,9 +136,17 @@ def main() -> None:
     # The App Store icon is the newer polished rendering, but it is opaque by
     # requirement. Cut only its edge-connected white card so one polished RGBA
     # asset can sit on both splash backgrounds without a white square.
-    polished_splash().save(OUT / "splash-icon-polished.png", optimize=True)
+    polished = polished_splash()
+    polished.save(OUT / "splash-icon-polished.png", optimize=True)
 
-    for name in ("icon", "icon-dark", "icon-tinted", "splash-icon", "splash-icon-polished"):
+    # ios.icon.dark points at this polished asset, not the legacy icon-dark.
+    # Reuse the same cutout at its original size and position, then flatten it
+    # onto black so the installed icon is opaque and preserves Eddy's artwork.
+    polished_dark = Image.new("RGBA", polished.size, DARK_BG)
+    polished_dark.alpha_composite(polished)
+    polished_dark.convert("RGB").save(OUT / "icon-polished-dark.png", optimize=True)
+
+    for name in ("icon", "icon-dark", "icon-polished-dark", "icon-tinted", "splash-icon", "splash-icon-polished"):
         im = Image.open(OUT / f"{name}.png")
         print(f"{name + '.png':20} {im.size[0]}x{im.size[1]}  {im.mode}")
 

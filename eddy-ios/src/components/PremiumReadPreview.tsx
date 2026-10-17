@@ -7,13 +7,18 @@ import { useSession } from '@/hooks/useSession';
 import { premiumExcerpt } from '@/lib/todayPresentation';
 import { writtenAge } from '@/lib/eddySays';
 import { useTheme } from '@/theme/ThemeProvider';
+import { lightPalette } from '@/theme/palette';
+import { highContrastLightPalette } from '@/theme/contrast';
 import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Parent mounts only for Premium and keys by user: no cross-user prose cache. */
 export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: string; revision: string; onPhoto?: boolean }) {
   const theme = useTheme();
-  const colors = onPhoto ? { ...theme.colors, text: '#ffffff', textMuted: '#e2eee8', textSubtle: '#cbded5', interactive: '#ffffff' } : theme.colors;
+  // Photo excerpts keep a warm white surface in either appearance. Pair every
+  // state with light-surface ink so timestamps, loading and Retry stay readable.
+  const photoColors = theme.increaseContrast ? highContrastLightPalette : lightPalette;
+  const colors = onPhoto ? { ...photoColors, text: photoColors.anchorSurface } : theme.colors;
   const { getAccessToken } = useSession();
   const key = JSON.stringify([slug]);
   const [result, setResult] = useState<{ key: string; data: PremiumEddyRead | null; error: boolean } | null>(null);
@@ -53,7 +58,7 @@ export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: 
     }
   }, [revision, refresh]);
   const current = result?.key === key ? result : null;
-  return <View style={{ marginTop: 10, minHeight: 126, gap: 6, ...(onPhoto ? { backgroundColor: 'rgba(7, 28, 32, 0.86)', borderRadius: radii.inset, marginHorizontal: -8, paddingHorizontal: 8, paddingVertical: 10 } : {}) }}>
+  return <View style={{ marginTop: 10, minHeight: 126, gap: 6, ...(onPhoto ? { backgroundColor: colors.cardRaised, borderRadius: radii.inset, marginHorizontal: -8, paddingHorizontal: 8, paddingVertical: 10 } : {}) }}>
     {!current ? <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
       <ActivityIndicator size="small" color={colors.interactive} /><Text style={{ ...t.xs, color: colors.textMuted }}>Loading your Read…</Text>
     </View> : <>
