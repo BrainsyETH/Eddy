@@ -275,6 +275,12 @@ with primary > secondary > tertiary contrast. Warm Stone 550 and 350 fill the
 accessible intermediate steps recorded in DESIGN.md; they are not new brand
 hues. High-contrast variants resolve through ThemeProvider while Mapbox colors remain strings.
 
+Photo-backed Eddy’s Read cards use an opaque warm-white excerpt panel in both
+appearances, with deep teal report text and muted gray timestamps. The panel
+uses the light palette (including its Increase Contrast variant) for loading,
+empty and retry states too. River names and the footer action stay white over
+the photo; the condition badge keeps its canonical colors.
+
 ### Translating, not transcribing
 
 `DESIGN.md`'s signature is a hard-edged offset shadow (`3px 3px 0 #A49C8E`,
@@ -973,21 +979,24 @@ themes. Keep facial and map details transparent and preserve the aspect ratio.
 Return to float retains its navigation control. Regenerate with
 `node eddy-ios/scripts/build-float-action-icons.cjs` after installing web dependencies.
 
-The app icon and splash are generated from the Eddy favicon artwork:
+The active app icon uses the polished Eddy artwork in `assets/icon-polished-light.png`.
+The asset script derives its transparent splash and black dark-appearance icon,
+and generates the legacy and tinted variants from the Eddy favicon artwork:
 
 ```bash
 python3 eddy-ios/scripts/build-icons.py    # needs Pillow
 ```
 
-Light appearance is white, matching the website's favicon so the mark reads the
-same in the App Store listing as it does in a browser tab. iOS 18's dark and
-tinted variants are generated alongside it and wired through `ios.icon` — dark
-is Deep River Teal rather than black, because the otter's outline is near-black
-itself and dissolves into a black field.
+Light appearance is white. The active dark variant (`icon-polished-dark.png`)
+uses the same polished Eddy cutout on solid black, preserving its size and
+position. The legacy `icon-dark.png` also uses black. The dark and tinted
+variants are wired through `ios.icon`; icon asset changes require a new iOS
+binary, not an OTA update.
 
 The rule that bites: **the App Store icon must have no alpha channel.** Apple
-rejects it at upload rather than at review, so `icon.png` is flattened while the
-splash and tinted assets keep their alpha (the OS composites those itself).
+rejects it at upload rather than at review, so the light and dark icon assets
+are opaque RGB while splash and tinted assets keep their alpha (the OS
+composites those itself).
 
 ## Home Screen widgets
 
