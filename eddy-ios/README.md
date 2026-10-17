@@ -722,7 +722,14 @@ downstream access pin chooses the take-out immediately, including a campground
 or boat-ramp mark for that access. Tap either endpoint control to change it on
 the map, or List to use the current endpoint picker. Other POIs still open their
 details. Selecting a take-out expands the compact summary; View full plan opens
-the full planner explicitly. Large-text route controls scroll within the sheet.
+the full planner explicitly. The compact result measures its estimate and View
+full plan button as part of the peek, including after calculation completes;
+long results and large-text route controls scroll within the sheet.
+Closing the compact planner returns directly to the map, retaining the river,
+endpoints and calculated route. Dismissing a POI while planning returns to Your
+route; outside planning it returns to the map. Only an access opened from the
+river sheet offers Back to that river. A selected river is data context, not
+an instruction to reopen its details. Dismissal never reframes the camera.
 A new route frames only while that map interaction
 is still current; panning, picking another POI or leaving Map cancels a pending
 frame. Changing sheet content does not override a detent the user has dragged.

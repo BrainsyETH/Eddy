@@ -6,7 +6,7 @@ import { ControlIcon } from './ControlIcon';
 import { PlanRouteFields } from './PlanRouteFields';
 import { MapSheet, type SheetMetrics } from './map-sheet/MapSheet';
 import { SheetBody } from './map-sheet/SheetPager';
-import type { Detent } from './map-sheet/sheetGeometry';
+import { CONTENT_BOTTOM_PAD, type Detent } from './map-sheet/sheetGeometry';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
@@ -26,10 +26,13 @@ export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChoos
   const { fontScale, height } = useWindowDimensions();
   // Keep the fields scrollable at large text sizes and on short screens.
   const scrollingFields = fontScale > 1.3 || height < 600;
-  const [fieldsHeight, setFieldsHeight] = useState(0);
+  const [preview, setPreview] = useState<{ key: string; height: number } | null>(null);
   const { putIn, takeOut, plan, calculating, error, step } = state;
   const showingResult = step === 'result' && takeOut != null;
   const title = showingResult ? 'Your float plan' : 'Build a Route';
+  const previewKey = `plan:${putIn?.id}:${showingResult ? takeOut.id : 'choose'}`;
+  const hasPreviewBody = scrollingFields || showingResult;
+  const previewHeight = preview?.key === previewKey ? preview.height : 0;
   const choosingPutIn = step === 'put-in';
   const hasOptions = (choosingPutIn ? state.putInOptions : state.takeOutOptions).length > 0;
   const fields = <View style={styles.fields}>
@@ -49,11 +52,13 @@ export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChoos
     </View> : null}
   </View>;
 
-  return <MapSheet resetKey={`plan:${putIn?.id}:${showingResult ? takeOut.id : 'choose'}`}
-    initialDetent={showingResult ? 'half' : 'peek'} label={title} onClose={onClose}
+  return <MapSheet resetKey={previewKey}
+    label={title} onClose={onClose}
     metrics={metrics} onDetentChange={onDetentChange} peekPadding={0}
-    previewReady={!scrollingFields || fieldsHeight > 0}
-    peekExtraHeight={scrollingFields ? fieldsHeight : 0}
+    previewReady={!hasPreviewBody || previewHeight > 0}
+    // The result belongs to the glance too. Measuring only the route fields
+    // left the estimate and CTA below the resting edge when loading finished.
+    peekExtraHeight={hasPreviewBody ? previewHeight + CONTENT_BOTTOM_PAD : 0}
     peek={<>
       <View style={styles.header}>
         <Text accessibilityRole="header" style={[styles.title, styles.grow, { color: colors.text }]}>{title}</Text>
@@ -65,24 +70,27 @@ export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChoos
     </>}
   >
     <SheetBody>
-      {scrollingFields ? <View onLayout={event => setFieldsHeight(Math.round(event.nativeEvent.layout.height))}>{fields}</View> : null}
-      {showingResult ? <View style={styles.body}>
-        {calculating ? <View style={styles.row}><ActivityIndicator color={colors.interactive} />
-          <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Building your plan…</Text></View> : null}
-        {error ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.text }]}>{error}</Text> : null}
-        {plan && !calculating && !error ? <>
-          <Text style={[textStyles.sectionTitle, { color: colors.text }]}>{plan.distance.formatted}</Text>
-          <Text style={[t.base, { color: colors.text }]}>{plan.floatTime?.formatted ?? 'Float time unavailable'}</Text>
-          {plan.warnings.map(warning => <Text key={warning} style={[t.sm, { color: colors.text }]}>{warning}</Text>)}
-          <Pressable onPress={onOpenPlan} accessibilityRole="button"
-            style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 }]}>
-            <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>View full plan</Text>
-          </Pressable>
-        </> : null}
-        {error ? <Pressable onPress={state.retry} accessibilityRole="button" style={styles.listButton}>
-          <Text style={[t.base, { color: colors.interactive }]}>Try again</Text>
-        </Pressable> : null}
-      </View> : null}
+      <View key={previewKey} collapsable={false}
+        onLayout={event => setPreview({ key: previewKey, height: Math.ceil(event.nativeEvent.layout.height) })}>
+        {scrollingFields ? fields : null}
+        {showingResult ? <View style={styles.body}>
+          {calculating ? <View style={styles.row}><ActivityIndicator color={colors.interactive} />
+            <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Building your plan…</Text></View> : null}
+          {error ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.text }]}>{error}</Text> : null}
+          {plan && !calculating && !error ? <>
+            <Text style={[textStyles.sectionTitle, { color: colors.text }]}>{plan.distance.formatted}</Text>
+            <Text style={[t.base, { color: colors.text }]}>{plan.floatTime?.formatted ?? 'Float time unavailable'}</Text>
+            {plan.warnings.map(warning => <Text key={warning} style={[t.sm, { color: colors.text }]}>{warning}</Text>)}
+            <Pressable onPress={onOpenPlan} accessibilityRole="button"
+              style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>View full plan</Text>
+            </Pressable>
+          </> : null}
+          {error ? <Pressable onPress={state.retry} accessibilityRole="button" style={styles.listButton}>
+            <Text style={[t.base, { color: colors.interactive }]}>Try again</Text>
+          </Pressable> : null}
+        </View> : null}
+      </View>
     </SheetBody>
   </MapSheet>;
 }
