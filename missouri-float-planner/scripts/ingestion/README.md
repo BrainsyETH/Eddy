@@ -162,6 +162,9 @@ human-grade verification. The current path (`import-dossier-access-points.ts`):
    expected_mile, lat, lon, is_public, ownership, managing_agency,
    official_site_url, facilities, source_urls, confidence}`. `kind` ∈
    `access | bridge | boat_ramp | park | campground | gravel_bar`.
+   When changing an existing place's display name, supply its current `slug`
+   explicitly so imports keep the same row and public URL. Omit `slug` for a
+   new place to derive it from the name. Duplicate or malformed slugs are refused.
 3. **Import + snap + mile + validate:**
    ```bash
    npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> --write

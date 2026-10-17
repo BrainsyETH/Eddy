@@ -10,7 +10,7 @@
  * miles so we can validate placement.
  *
  * Data files: scripts/ingestion/access-points/<slug>.json
- *   [{ name, kind, roles, is_float_endpoint, expected_mile, lat, lon, is_public, ownership,
+ *   [{ name, slug?, kind, roles, is_float_endpoint, expected_mile, lat, lon, is_public, ownership,
  *      managing_agency, official_site_url, facilities, description,
  *      confidence, source_urls }]
  *   kind/roles ∈ access | bridge | boat_ramp | park | campground | gravel_bar
@@ -60,6 +60,8 @@ export type Kind =
   | 'gravel_bar';
 export interface APRow {
   name: string;
+  /** Preserve an existing public identity when a reviewed display name changes. */
+  slug?: string;
   kind: Kind;
   /** Every role the place offers. `kind` remains the primary display category. */
   roles?: Kind[];
@@ -85,6 +87,14 @@ export interface APRow {
 
 function slugify(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+export function dossierSlugOf(row: APRow): string {
+  const slug = row.slug ?? slugify(row.name);
+  if (typeof slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    throw new Error(`${row.name}: invalid dossier slug ${String(slug)}`);
+  }
+  return slug;
 }
 
 // access_points_managing_agency_check (00034) allows only this set (or NULL).
@@ -207,7 +217,7 @@ export function dossierExpectationsOf(rows: APRow[]): Map<string, DossierExpecta
     // Validate roles even when explicit endpoint eligibility means
     // endpointIntentOf() would not need to inspect them.
     rolesOf(row);
-    const slug = slugify(row.name);
+    const slug = dossierSlugOf(row);
     if (expectations.has(slug)) throw new Error(`duplicate dossier slug: ${slug}`);
     expectations.set(slug, {
       expectedMile: row.expected_mile,
@@ -350,7 +360,7 @@ async function main() {
     );
 
     const operations = placeable.map((r) => {
-      const slugKey = slugify(r.name);
+      const slugKey = dossierSlugOf(r);
       const existingId = existingBySlug.get(slugKey);
 
       if (existingId) {

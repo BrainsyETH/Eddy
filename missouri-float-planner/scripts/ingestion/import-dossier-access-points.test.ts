@@ -7,6 +7,7 @@ import {
   classifyPoints,
   dossierColumns,
   dossierExpectationsOf,
+  dossierSlugOf,
   endpointIntentOf,
   REVIEW_STATE_COLUMNS,
   rolesOf,
@@ -160,6 +161,36 @@ test('duplicate dossier slugs fail before a write plan can be built', () => {
     ]),
     /duplicate dossier slug/,
   );
+});
+
+test('a county-qualified display name retains the existing Guion identity', () => {
+  const stone = {
+    name: 'Guion Access (Stone County)', slug: 'guion-access',
+    kind: 'boat_ramp' as const, expected_mile: 89.5, lat: 35.92446, lon: -91.94942,
+  };
+  const izard = {
+    name: 'Guion Access (Izard County)', kind: 'boat_ramp' as const,
+    expected_mile: 89.5, lat: 35.92548566, lon: -91.94807434,
+  };
+  assert.equal(dossierSlugOf(stone), 'guion-access');
+  assert.equal(dossierSlugOf(izard), 'guion-access-izard-county');
+  const expected = dossierExpectationsOf([stone, izard]);
+  const existing = point({ id: 'stone-id', slug: 'guion-access' });
+  assert.deepEqual(classifyPoints([existing], expected).validated, ['stone-id']);
+  assert.equal(expected.size, 2);
+  assert.equal(dossierColumns(stone, true).name, stone.name);
+  assert.equal(Object.hasOwn(dossierColumns(stone, true), 'slug'), false);
+});
+
+test('explicit slugs reject malformed identities and collisions before writing', () => {
+  const row = { name: 'Guion Access', kind: 'boat_ramp' as const,
+    expected_mile: 89.5, lat: 35.92446, lon: -91.94942 };
+  for (const slug of ['', 'Guion Access', '../guion', 'guion--access']) {
+    assert.throws(() => dossierExpectationsOf([{ ...row, slug }]), /invalid dossier slug/);
+  }
+  assert.throws(() => dossierExpectationsOf([
+    row, { ...row, name: 'Another site', slug: 'guion-access' },
+  ]), /duplicate dossier slug/);
 });
 
 test('--write hands one finished plan to the atomic database function', () => {
