@@ -3,8 +3,8 @@
     "name": "Shepherd of the Hills Hatchery Bank Access",
     "kind": "access",
     "expected_mile": 0.4,
-    "lat": 36.59724,
-    "lon": -93.30453,
+    "lat": 36.595827,
+    "lon": -93.304095,
     "is_public": true,
     "ownership": "MDC",
     "managing_agency": "MDC",
@@ -14,7 +14,8 @@
     "source_urls": [
       "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
       "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
-      "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf"
+      "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
     ],
     "is_float_endpoint": false
   },
@@ -111,18 +112,22 @@
     "name": "Empire Park Ramp (Forsyth)",
     "kind": "boat_ramp",
     "expected_mile": 22.1,
-    "lat": 36.6573,
-    "lon": -93.1331,
+    "lat": 36.65712,
+    "lon": -93.13281,
     "is_public": true,
     "ownership": "City",
     "managing_agency": "Municipal",
-    "official_site_url": "https://forsythmo.gov/parks-and-recreation-1",
-    "facilities": "One-lane concrete ramp just upstream of Powersite Dam — the last take-out on Taneycomo; parking ~40 rigs, covered fishing dock, restrooms, picnic area, playground",
+    "official_site_url": "https://forsythmo.gov/department/parks-recreation/",
+    "facilities": "Concrete boat ramp beside the fishing dock at Empire Park on Lake Taneycomo, upstream of Powersite Dam; paved parking and picnic area",
     "confidence": "medium",
     "source_urls": [
-      "https://forsythmo.gov/parks-and-recreation-1",
-      "https://lostintheozarks.com/empire-park",
-      "https://www.branson.com/outdoor-activities/boat-ramps-fishing/"
-    ]
+      "https://forsythmo.gov/department/parks-recreation/",
+      "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9709map.pdf",
+      "https://www.branson.com/outdoor-activities/boat-ramps-fishing/",
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
+    ],
+    "description": "The ramp is on the south edge of the Empire Park parking lot, east of the fishing dock. This is the Taneycomo side of Powersite (Ozark Beach) Dam.",
+    "is_float_endpoint": true
   }
 ]

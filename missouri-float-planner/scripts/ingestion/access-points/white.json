@@ -149,23 +149,44 @@
     ]
   },
   {
-    "name": "Roundhouse Shoals Walk-In Access",
+    "name": "Armstrong Hole Walk-In Access",
     "kind": "access",
-    "expected_mile": 17.6,
-    "lat": 36.2647,
-    "lon": -92.53446,
+    "expected_mile": 17.67,
+    "lat": 36.2633804,
+    "lon": -92.53777,
     "is_public": true,
-    "ownership": "AGFC",
+    "ownership": null,
     "managing_agency": null,
-    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "AGFC walk-in at Roundhouse Shoals below Cotter; gravel parking, wade fishing, no ramp",
+    "official_site_url": "https://www.cotterar.gov/parks",
+    "facilities": "Walk-in fishing access at Armstrong Hole; no boat access",
+    "description": "Armstrong Hole is a separate site from Roundhouse Shoals. This pin identifies the access area on the City of Cotter parks map.",
     "confidence": "medium",
     "source_urls": [
-      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
-      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
-      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+      "https://www.cotterar.gov/parks",
+      "https://www.google.com/maps/d/viewer?mid=1TBdXXOG96OAorJtt3Ksr0C-tGg49OOQ&usp=sharing",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
     ],
     "is_float_endpoint": false
+  },
+  {
+    "name": "Roundhouse Shoals Walk-In Access",
+    "kind": "access",
+    "expected_mile": 18.34,
+    "lat": 36.2679403,
+    "lon": -92.5284983,
+    "is_public": true,
+    "ownership": null,
+    "managing_agency": null,
+    "official_site_url": "https://www.cotterar.gov/parks",
+    "facilities": "Walk-in fishing access with gravel parking at the signed Roundhouse Shoals site; no boat ramp",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.cotterar.gov/parks",
+      "https://www.google.com/maps/d/viewer?mid=1TBdXXOG96OAorJtt3Ksr0C-tGg49OOQ&usp=sharing",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
+    ],
+    "is_float_endpoint": false,
+    "description": "The pin identifies the Roundhouse Shoals access and parking area. Armstrong Hole is a separate walk-in fishing access."
   },
   {
     "name": "Rim Shoals Access",
@@ -402,15 +423,13 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "Concrete ramp plus dirt launch, fishing pier and parking on both banks at the old Sylamore Ferry crossing",
+    "facilities": "Concrete boat ramp on the Highway 5 bank, upstream of the Highway 9 bridge near the mouth of Sylamore Creek",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
-      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
-      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
-      "https://www.openstreetmap.org/node/7171420836",
-      "https://www.openstreetmap.org/node/2028356738"
-    ]
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
+    ],
+    "description": "This pin identifies Sylamore Ferry Boat Ramp #2. Facilities on the opposite bank belong to a separate access."
   },
   {
     "name": "Round Bottom Access",
@@ -432,7 +451,7 @@
     ]
   },
   {
-    "name": "Guion Access",
+    "name": "Guion Access (Stone County)",
     "kind": "boat_ramp",
     "expected_mile": 89.5,
     "lat": 35.92446,
@@ -446,8 +465,30 @@
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
-      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
-    ]
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
+    ],
+    "slug": "guion-access",
+    "description": "Stone County ramp on the southwest bank. Guion Access (Izard County) is a separate facility across the White River."
+  },
+  {
+    "name": "Guion Access (Izard County)",
+    "kind": "boat_ramp",
+    "expected_mile": 89.5,
+    "lat": 35.92548566,
+    "lon": -91.94807434,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Two concrete boat ramps, parking and a fishing jetty on the Izard County bank near the Highway 58 bridge",
+    "description": "The pin identifies Guion Boat Ramp-Izard County #1. Ramp #2 is part of this same facility; the Stone County access is a separate site across the river.",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
+    ],
+    "is_float_endpoint": true
   },
   {
     "name": "Oliver Smith Picnic Area Walk-In Access",

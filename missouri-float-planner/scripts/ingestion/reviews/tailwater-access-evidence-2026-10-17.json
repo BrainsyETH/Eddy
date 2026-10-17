@@ -1,0 +1,164 @@
+{
+  "reviewedAt": "2026-10-17",
+  "issue": "https://github.com/BrainsyETH/Eddy/issues/1541",
+  "reviewers": [
+    "Evan (site identification and boat-access confirmations)",
+    "Codex (source matching and coordinate transcription)"
+  ],
+  "scope": "Access identity and classification only; no production application or river activation. User images were reviewed in conversation, not licensed as public endpoint photos.",
+  "access": [
+    {
+      "river": "taneycomo",
+      "slug": "shepherd-of-the-hills-hatchery-bank-access",
+      "latitude": 36.595827,
+      "longitude": -93.304095,
+      "positionMethod": "Coordinate supplied directly by Evan",
+      "isFloatEndpoint": false
+    },
+    {
+      "river": "taneycomo",
+      "slug": "empire-park-ramp-forsyth",
+      "latitude": 36.65712,
+      "longitude": -93.13281,
+      "positionMethod": "Digitized the concrete ramp selected in Evan's screenshot against georeferenced Esri imagery; rounded to five decimal places, not surveyed or field GPS. Imagery positional accuracy and date were not established.",
+      "identity": "Boat ramp east of the fishing dock, south edge of the Empire Park lot, upstream of Powersite Dam on Taneycomo.",
+      "imageExport": {
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-93.134%2C36.6567%2C-93.1318%2C36.6581&bboxSR=4326&imageSR=4326&size=1320%2C840&format=jpg&f=json",
+        "extent": {
+          "xmin": -93.134,
+          "ymin": 36.656699999999994,
+          "xmax": -93.1318,
+          "ymax": 36.6581,
+          "spatialReference": {
+            "wkid": 4326,
+            "latestWkid": 4326
+          }
+        },
+        "width": 1320,
+        "height": 840,
+        "selectedPixel": [
+          714,
+          588
+        ],
+        "imageryDate": null
+      },
+      "sources": [
+        "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9709map.pdf",
+        "https://forsythmo.gov/department/parks-recreation/",
+        "https://www.branson.com/outdoor-activities/boat-ramps-fishing/"
+      ],
+      "isFloatEndpoint": true
+    },
+    {
+      "river": "white",
+      "slug": "roundhouse-shoals-walk-in-access",
+      "latitude": 36.2679403,
+      "longitude": -92.5284983,
+      "positionMethod": "City-linked parks map access-area marker, corroborated by Evan's signed-site image; not a launch pin.",
+      "sources": [
+        "https://www.cotterar.gov/parks",
+        "https://www.google.com/maps/d/viewer?mid=1TBdXXOG96OAorJtt3Ksr0C-tGg49OOQ&usp=sharing"
+      ],
+      "isFloatEndpoint": false,
+      "note": "Earlier pin matched AGFC Cotter Walk-In Access (16810/16811); that evidence does not establish ownership of the corrected Roundhouse site, so ownership is unknown."
+    },
+    {
+      "river": "white",
+      "slug": "armstrong-hole-walk-in-access",
+      "latitude": 36.2633804,
+      "longitude": -92.53777,
+      "positionMethod": "City-linked parks map access-area marker",
+      "sources": [
+        "https://www.cotterar.gov/parks",
+        "https://www.google.com/maps/d/viewer?mid=1TBdXXOG96OAorJtt3Ksr0C-tGg49OOQ&usp=sharing"
+      ],
+      "isFloatEndpoint": false,
+      "note": "Evan explicitly confirmed no boat access. Separate from Roundhouse Shoals."
+    },
+    {
+      "river": "white",
+      "slug": "sylamore-ferry-access",
+      "latitude": 35.94124,
+      "longitude": -92.11444,
+      "source": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "matchedOfficialFeatures": [
+        {
+          "objectId": 2142,
+          "name": "Sylamore Ferry Boat Ramp #2"
+        }
+      ],
+      "note": "Retain reviewed pin. Describe only the Highway 5 bank facilities."
+    },
+    {
+      "river": "white",
+      "slug": "guion-access",
+      "displayName": "Guion Access (Stone County)",
+      "source": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "matchedOfficialFeatures": [
+        {
+          "objectId": 1841,
+          "name": "Guion Boat Ramp-Stone County",
+          "latitude": 35.92447151,
+          "longitude": -91.94942431
+        }
+      ],
+      "note": "Retain existing UUID, slug and pin. Current operating condition was not established."
+    },
+    {
+      "river": "white",
+      "slug": "guion-access-izard-county",
+      "source": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "matchedOfficialFeatures": [
+        {
+          "objectId": 1372,
+          "name": "Guion Boat Ramp-Izard County #1",
+          "latitude": 35.92548566,
+          "longitude": -91.94807434
+        },
+        {
+          "objectId": 2357,
+          "name": "Guion Boat Ramp-Izard County #2",
+          "latitude": 35.92506456,
+          "longitude": -91.94771157
+        },
+        {
+          "objectId": 2019,
+          "name": "Guion Parking Area",
+          "type": "parking"
+        },
+        {
+          "objectId": 1290,
+          "name": "Guion Fishing Jetty",
+          "type": "fishing jetty"
+        }
+      ],
+      "note": "One facility, two ramp assets. Use ramp #1 for the endpoint pin. Evan's screenshot identifies the developed opposite-bank site."
+    },
+    {
+      "river": "white",
+      "slug": "buffalo-city-access",
+      "source": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "matchedOfficialFeatures": [
+        {
+          "objectId": 1026,
+          "name": "Buffalo City Boat Ramp #2",
+          "latitude": 36.16458203,
+          "longitude": -92.44027958
+        },
+        {
+          "objectId": 2225,
+          "name": "Buffalo City Boat Ramp #1",
+          "latitude": 36.16453366,
+          "longitude": -92.44064911
+        }
+      ],
+      "note": "One facility with two ramps. Current endpoint pin identifies ramp #2; retain."
+    },
+    {
+      "river": "norfork-tailwater",
+      "slug": "dam-quarry-campground",
+      "isFloatEndpoint": false,
+      "note": "Evan confirmed shared campground/ramp area. Keep campground and boat ramp as separate records; only the ramp is an endpoint."
+    }
+  ]
+}
