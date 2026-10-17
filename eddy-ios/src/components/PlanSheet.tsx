@@ -383,7 +383,7 @@ export function PlanSheet({
                 accessibilityHint={activeFloat ? 'Returns to your float in progress' : 'Review this route before starting tracking'}
               >
                 <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Resume float' : 'Float this route'}</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
               </Pressable>
             ) : null}
             <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>

@@ -56,23 +56,21 @@ async function packs(): Promise<NativePack[]> {
 }
 
 async function statuses(list: NativePack[]): Promise<PackStatus[]> {
-  const out: PackStatus[] = [];
-  for (const pack of list) {
+  return Promise.all(list.map(async (pack): Promise<PackStatus> => {
     try {
       const status = await bounded(pack.status(), `pack.status(${pack.name})`);
-      out.push({
+      return {
         name: pack.name,
         requiredResourceCount: status.requiredResourceCount ?? 0,
         completedResourceCount: status.completedResourceCount ?? 0,
         completedResourceSize: status.completedResourceSize ?? 0,
-      });
+      };
     } catch (error) {
       warn('float', 'could not read a trip download', error);
       // A pack the native side cannot describe is not complete.
-      out.push({ name: pack.name, requiredResourceCount: 0, completedResourceCount: 0, completedResourceSize: 0 });
+      return { name: pack.name, requiredResourceCount: 0, completedResourceCount: 0, completedResourceSize: 0 };
     }
-  }
-  return out;
+  }));
 }
 
 /** This trip's packs as the native store reports them. Re-read each time; never cached. */
@@ -173,12 +171,14 @@ export interface StoredTrip {
   bytes: number;
   /** From the route package, when there is one. */
   label: string | null;
+  status: string;
 }
 
 /** Every trip map on the phone, for the Storage screen. */
 export async function listTripDownloads(): Promise<StoredTrip[]> {
   try {
     const all = await statuses(await packs());
+    const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
     const byTrip = new Map<string, number>();
     for (const pack of all) {
       const tripKey = pack.name.slice(TRIP_PACK_PREFIX.length).replace(/:\d+$/, '');
@@ -189,7 +189,10 @@ export async function listTripDownloads(): Promise<StoredTrip[]> {
       const pkg = await readTripPackage(tripKey);
       const from = pkg?.route.anchors.find((a) => a.id === pkg.fromId)?.name;
       const to = pkg?.route.anchors.find((a) => a.id === pkg.toId)?.name;
-      out.push({ tripKey, bytes, label: from && to ? `${from} → ${to}` : null });
+      const own = all.filter(pack => isTripPack(pack.name, tripKey));
+      const readiness = tripReadiness(pkg, TRIP_STYLE_URL, own, own.map(pack => pack.name), styleComplete);
+      out.push({ tripKey, bytes, label: from && to ? `${from} → ${to}` : null,
+        status: offlineBadge(readiness, pkg != null) ?? 'Download incomplete' });
     }
     return out;
   } catch (error) {

@@ -303,7 +303,7 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 
 ### Floats discovery controls
 
-The Floats hub leads with Start a Float, or Resume Float while tracking.
+The Floats hub leads with Start a Float, or Return to float for a float already in progress.
 Build a Route (choose endpoints) and Find a Route (suggestions for a time and
 location) share a secondary row. Build a Route takes the accent styling when
 River Mode is disabled. Both use the same planner and result actions.
@@ -970,7 +970,7 @@ artwork from `design/float-action-icons/`. These are transparent templates at
 40 points with 1x/2x/3x exports, tinted at render time: `onAccent` on filled
 buttons and `interactive` on cards, including light, dark, and increased-contrast
 themes. Keep facial and map details transparent and preserve the aspect ratio.
-Resume Float retains its navigation control. Regenerate with
+Return to float retains its navigation control. Regenerate with
 `node eddy-ios/scripts/build-float-action-icons.cjs` after installing web dependencies.
 
 The app icon and splash are generated from the Eddy favicon artwork:

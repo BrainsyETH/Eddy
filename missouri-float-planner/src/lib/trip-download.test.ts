@@ -9,6 +9,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { buildRouteIndex, type LngLat } from '@eddy/geo';
+import { inspectStylePack } from '../../../eddy-ios/src/lib/stylePackRead';
 import {
   CHUNK_METERS,
   PAD_METERS,
@@ -129,10 +130,36 @@ test('Ready offline needs every chunk present and complete', () => {
   assert.equal(missing.kind, 'partial');
   assert.ok(missing.kind === 'partial' && Math.abs(missing.fraction - 0.5) < 1e-9);
   assert.equal(tripDownloadState(expected, [pack('float:t:0', 100), pack('float:t:1', 40)]).kind, 'partial');
+  const queued = tripDownloadState(expected, [pack('float:t:0', 100), pack('float:t:1', 0, 0)]);
+  assert.ok(queued.kind === 'partial');
+  assert.equal(queued.fraction, 0.5, 'A queued pack with no counts is unfinished, not free progress');
   // A pack that has not worked out what it needs yet is not complete.
   assert.equal(tripDownloadState(expected, [pack('float:t:0', 0, 0), pack('float:t:1', 100)]).kind, 'partial');
   // Other trips' packs are ignored.
   assert.equal(tripDownloadState(expected, [pack('float:other:0', 100), pack('float:t:0', 100)]).kind, 'partial');
+});
+
+test('offline style checks distinguish missing support, unknown data, and a failed read', async () => {
+  assert.deepEqual(await inspectStylePack(null), { kind: 'unconfirmed', reason: 'module-missing' });
+  assert.deepEqual(await inspectStylePack(async () => null), { kind: 'unconfirmed', reason: 'native-unconfirmed' });
+  assert.deepEqual(await inspectStylePack(async () => { throw new Error('native failure'); }),
+    { kind: 'unconfirmed', reason: 'read-failed' });
+  const counts = { requiredResourceCount: 40, completedResourceCount: 40 };
+  const result = await inspectStylePack(async () => counts);
+  assert.deepEqual(result, { kind: 'counts', counts });
+  assert.equal(stylePackComplete(result.kind === 'counts' ? result.counts : null), true);
+});
+
+test('a stalled style check ends and a later recheck can confirm the saved map', async () => {
+  let finish!: (counts: { requiredResourceCount: number; completedResourceCount: number }) => void;
+  const pending = new Promise<{ requiredResourceCount: number; completedResourceCount: number }>(resolve => { finish = resolve; });
+  const result = await inspectStylePack(() => pending, 5);
+  assert.deepEqual(result, { kind: 'unconfirmed', reason: 'timeout' });
+  finish({ requiredResourceCount: 40, completedResourceCount: 40 });
+  assert.deepEqual(result, { kind: 'unconfirmed', reason: 'timeout' }, 'Late answers cannot change the timed-out check');
+  assert.deepEqual(await inspectStylePack(() => pending), {
+    kind: 'counts', counts: { requiredResourceCount: 40, completedResourceCount: 40 },
+  });
 });
 
 test('Ready offline means the whole trip, not only its tiles', () => {
