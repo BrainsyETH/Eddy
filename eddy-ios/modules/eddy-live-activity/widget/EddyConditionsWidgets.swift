@@ -167,6 +167,20 @@ struct WidgetCanvas: View {
   @Environment(\.colorScheme) private var scheme
   var body: some View { Color(hex: scheme == .dark ? "#1A1814" : "#FAF8F4") }
 }
+// Native counterparts of the existing iOS palette. Condition colors continue
+// to come exclusively from the shared API snapshot, not these brand accents.
+enum WidgetBrand {
+  static func water(dark: Bool) -> Color { Color(hex: dark ? "#72B5C4" : "#1D525F") }
+  static func panel(dark: Bool) -> Color { Color(hex: dark ? "#0F2D35" : "#EBF5F7") }
+  static let coral = Color(hex: "#F07052")
+}
+struct WidgetArtwork: View {
+  let name: String
+  var body: some View {
+    Image(name).resizable().widgetAccentedRenderingMode(.desaturated)
+      .scaledToFit().accessibilityHidden(true)
+  }
+}
 private extension Color {
   init(hex: String) {
     let value = UInt64(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0x6B6459
@@ -192,11 +206,6 @@ struct GaugeDisplay {
   var unit: String { condition?.unit ?? (snapshot?.dischargeCfs != nil ? "cfs" : "ft") }
   var value: Double? { unit == "cfs" ? snapshot?.dischargeCfs : snapshot?.heightFt }
   var reading: String { value.map { format($0, unit: unit) } ?? "—" }
-  var secondary: String? {
-    let value = unit == "cfs" ? snapshot?.heightFt : snapshot?.dischargeCfs
-    let otherUnit = unit == "cfs" ? "ft" : "cfs"
-    return value.map { "\(format($0, unit: otherUnit)) \(otherUnit)" }
-  }
   var status: String {
     if let confirmedWarning { return confirmedWarning.label }
     if hasAlert { return "Check flood alerts" }
@@ -236,41 +245,39 @@ private struct RiverLevelCard: View {
   let entry: ConditionsEntry
   @Environment(\.colorScheme) private var scheme
   @Environment(\.dynamicTypeSize) private var typeSize
-  private func reading(_ display: GaugeDisplay, compact: Bool, showSecondary: Bool) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 4) {
-      Text(display.reading).font(.system(compact ? .title2 : .title, design: .rounded).weight(.semibold))
+  private func reading(_ display: GaugeDisplay, compact: Bool) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 5) {
+      Text(display.reading).font(.system(compact ? .title : .largeTitle, design: .rounded).weight(.bold))
         .monospacedDigit().minimumScaleFactor(0.8)
         .foregroundStyle(display.current ? Color.primary : Color.secondary)
-      Text(display.unit).font(.caption).foregroundStyle(.secondary)
-      if showSecondary, let secondary = display.secondary {
-        Text("· " + secondary).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
-      }
+      Text(display.unit.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        .fixedSize()
     }.lineLimit(1)
   }
   var body: some View {
     if let choice = entry.choices.first {
       let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
       GeometryReader { geometry in
-        let compact = typeSize > .large || geometry.size.height < 132 || display.hasAlert || display.alertsUnavailable
+        let compact = typeSize > .large || geometry.size.height < 140 || display.hasAlert || display.alertsUnavailable
         VStack(alignment: .leading, spacing: 3) {
           HStack(alignment: .top, spacing: 2) {
             VStack(alignment: .leading, spacing: 1) {
               Text(choice.riverName).font(.system(.footnote, design: .rounded).weight(.semibold)).lineLimit(1)
-              Text(choice.stationName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+              if choice.stationName != choice.riverName {
+                Text(widgetStationLabel(choice)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                  .accessibilityLabel(choice.stationName)
+              }
             }
             Spacer(minLength: 0)
             if !compact { GaugeOtter().frame(width: 28, height: 28) }
           }
-          ViewThatFits(in: .horizontal) {
-            reading(display, compact: compact, showSecondary: !compact).fixedSize(horizontal: true, vertical: false)
-            reading(display, compact: compact, showSecondary: false)
-          }
+          reading(display, compact: compact)
           StatusPill(display: display)
           Spacer(minLength: 0)
           if !compact, display.current, let series = display.series, series.points.count > 1 {
             HStack(spacing: 4) {
               WidgetSparkline(series: series).stroke(display.color(dark: scheme == .dark), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                .frame(width: 42, height: 15).accessibilityLabel("Observed gauge history, last 24 hours")
+                .frame(height: 18).accessibilityLabel("Observed gauge history, last 24 hours")
               if let trend = display.trend {
                 Text(widgetShortTrend(trend)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                   .fixedSize(horizontal: true, vertical: false).layoutPriority(1).accessibilityLabel(trend)
@@ -364,8 +371,7 @@ private struct FavoriteRow: View {
 }
 struct GaugeOtter: View {
   var body: some View {
-    Image("GaugeOtter").resizable().widgetAccentedRenderingMode(.desaturated)
-      .scaledToFit().accessibilityHidden(true)
+    WidgetArtwork(name: "GaugeOtter")
   }
 }
 private struct StatusText: View {
@@ -415,7 +421,7 @@ struct WidgetEmptyState: View {
     }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
   }
 }
-private struct WidgetSparkline: Shape {
+struct WidgetSparkline: Shape {
   var series: WidgetSeries
   func path(in rect: CGRect) -> Path {
     let values = series.points.map(\.v)

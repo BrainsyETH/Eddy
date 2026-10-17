@@ -23,7 +23,7 @@ The **Mine** segment of Alerts includes an optional widget setup invitation
 for installed iOS binaries that expose the widget native bridge. An older
 binary, Expo Go or Android never advertises unavailable Home Screen widgets.
 The invitation is shown once per device until dismissed or opened; afterward
-a compact **Home Screen widgets** row remains so people can reopen the guide.
+a compact **River Widgets** row ("Set up a river level widget.") remains so people can reopen the guide.
 The device-only `eddy.widgets.setup-guide.seen.v1` key records seeing the
 guide, never falsely asserts that a widget was installed.
 
@@ -42,15 +42,27 @@ by iOS, and observation time remains visible.
 
 Widgets use semantic text styles (at least caption2 for small labels), with
 Dynamic Type growth capped at xxLarge for the fixed widget bounds. The small
-card drops the otter, secondary reading and history details on tight layouts.
+card shows one large reading in the selected river's rating unit (CFS or FT),
+never both. Unrated stations prefer available discharge. It drops the otter
+and history details on tight layouts before reducing the primary reading.
 Your rivers shows fewer, roomier rows at larger text sizes, with a link stating
 how many remain in Eddy. Observation time has its own space: today shows a
 local clock time; older readings show their calendar date, with the full
 timestamp in VoiceOver. Small-widget trend labels use “Steady”, “Slow rise”,
 “Fast rise”, “Slow fall” and “Fast fall”; VoiceOver retains the full trend.
-The secondary measurement sits beside the primary reading, separate from status.
+Station subtitles omit an exact repeated river-name prefix while VoiceOver
+retains the complete public station name. No duplicate measurement is shown.
 No status or age label is shrunk to fit. Otter images use desaturated accented
 rendering to preserve their detail on a tinted Home Screen.
+
+Gauges use the existing gauge otter; Dam generation uses `eddy-dam.png`; Daily
+River Report uses `eddy-river.png`. Prebuild copies those shipped assets into
+the widget catalog. Warm Stone/Sandbar surfaces and Deep Teal accents come
+from the iOS brand palette; condition colors still come from the API. The
+report title, selected river and condition each appear once. Weather uses a
+separate forecast tile with a condition symbol, high/low Fahrenheit readings
+and precipitation icon. The forecast location is available to VoiceOver;
+the gauge station and observation time have one shared footer.
 
 Placeholders and gallery snapshots show three illustrative rivers, with
 readings, a Flowing label and history; installed empty widgets still explain
@@ -97,7 +109,7 @@ checks that the packaged example matches the canonical presentation.
   Its condition labels/colors and strict-unit ratings come from
   `shared/condition-widget.ts` and the canonical condition system. Every linked
   river has its own rating; Swift does not reimplement the ladder. The primary
-  displayed number uses that river's rating unit, with the other unit secondary.
+  displayed number uses that river's rating unit, with no secondary number.
   Unrated stations prefer discharge when available.
 - The snapshot also carries warning presentation from the gauge endpoint's
   existing NWS point lookup, with no extra request. A current NWS flood warning
@@ -168,8 +180,17 @@ preview generator. An installed unconfigured dam widget asks for a selection;
 tapping a configured widget opens `/dam/:damId`. Its compact public
 `GET /api/dams/:damId?widget=1` response projects the existing snapshot using
 canonical `dam-generation` logic, without adding database queries or changing
-the normal detail response. It labels turbine flow separately from the next
-scheduled change (Central Time); this is not total release or downstream flow.
+the normal detail response. It places observed turbine flow beside today's
+hourly posted schedule in Central Time. Bars use published MW (their upper
+scale is labelled), not estimated cfs or a count of generators. A short solid
+bar means zero scheduled generation; a hollow dashed bar means a missing or
+invalid hour. A coral pointer marks the current local hour, including the
+source's repeated/skipped wall-clock slots on DST days. Hour-ending labels
+come from the shared schedule rules. This is not total release or downstream flow.
+The additive v1 `scheduleDays` data retains its original Central calendar date.
+Only a fresh schedule matching today's date can draw; a stale schedule or an
+older server without hourly data shows a short unavailable/open-schedule state.
+Existing binaries still receive the next-change summary they understand.
 Missing, negative, daily-mean and invalid/future measurements are unavailable,
 not zero. Cached timelines carry hourly and exact observation/schedule expiry
 transitions: after two hours observations lose present-tense language; after
@@ -180,16 +201,16 @@ original timestamps; 404 clears the selected dam’s cache.
 Daily river report selects a curated river’s primary gauge, defaulting to the
 first eligible river in Favorites. It reuses the existing gauge snapshot,
 including flood-warning precedence, and the public river weather forecast.
-Weather is labelled forecast, with location and Fahrenheit units; retrieval
+Weather is labelled forecast, with Fahrenheit units and location in VoiceOver; retrieval
 is a cache deadline, never an observation timestamp. Cached weather is hidden
 after three hours and only the current Central calendar date can render.
 Gauge and weather requests fail independently. Tapping opens `/river/:slug`.
 This widget does not fetch Premium Eddy Read prose, credentials or account data.
 
-The optional synchronous `widgetLayoutVersion()` native bridge returns 2 for
-these layouts. In-app setup guidance only advertises the added widgets/editable
-medium layout on that binary; older widget binaries retain their original
-Favorites instructions. This change requires a new native iOS binary. Deploy
+The optional synchronous `widgetLayoutVersion()` native bridge returns 3 for
+these visual layouts. In-app setup guidance shows hourly schedule illustrations
+only on v3, keeps next-change instructions on v2, and automatic Favorites on
+v1. This change requires a new native iOS binary. Deploy
 the additive dam widget API before distributing that binary; against an older
 API, the dam widget remains unavailable rather than interpreting an incompatible
 payload. Simulator compilation, static-to-configurable widget upgrade migration,

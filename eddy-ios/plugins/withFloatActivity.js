@@ -61,6 +61,14 @@ function configureProject(project, root, config) {
   fs.mkdirSync(gaugeOtter, { recursive: true });
   fs.copyFileSync(path.join(root, 'assets/eddy/eddy-checking-gauge.png'), path.join(gaugeOtter, 'otter.png'));
   fs.copyFileSync(path.join(otter, 'Contents.json'), path.join(gaugeOtter, 'Contents.json'));
+  // Reuse Eddy's shipped feature artwork; a dam and a daily river report have
+  // their own identity rather than borrowing the gauge mascot.
+  for (const [name, file] of [['DamMark', 'eddy-dam.png'], ['RiverMark', 'eddy-river.png']]) {
+    const folder = path.join(assets, `${name}.imageset`);
+    fs.mkdirSync(folder, { recursive: true });
+    fs.copyFileSync(path.join(root, 'assets/eddy', file), path.join(folder, 'otter.png'));
+    fs.copyFileSync(path.join(otter, 'Contents.json'), path.join(folder, 'Contents.json'));
+  }
 
   const nativeTargets = project.pbxNativeTargetSection();
   // xcode silently skips addTargetDependency when these empty sections are
