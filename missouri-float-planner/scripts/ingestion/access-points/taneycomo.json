@@ -127,7 +127,7 @@
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
       "https://github.com/BrainsyETH/Eddy/issues/1541"
     ],
-    "description": "The ramp is on the south edge of the Empire Park parking lot, east of the fishing dock. This is the Taneycomo side of Powersite (Ozark Beach) Dam.",
+    "description": "Ramp at the south edge of the parking lot, east of the fishing dock, above Powersite Dam.",
     "is_float_endpoint": true
   }
 ]

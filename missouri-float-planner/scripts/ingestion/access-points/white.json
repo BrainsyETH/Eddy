@@ -159,7 +159,7 @@
     "managing_agency": null,
     "official_site_url": "https://www.cotterar.gov/parks",
     "facilities": "Walk-in fishing access at Armstrong Hole; no boat access",
-    "description": "Armstrong Hole is a separate site from Roundhouse Shoals. This pin identifies the access area on the City of Cotter parks map.",
+    "description": "Walk-in fishing only; no boat access. Separate from Roundhouse Shoals.",
     "confidence": "medium",
     "source_urls": [
       "https://www.cotterar.gov/parks",
@@ -186,7 +186,7 @@
       "https://github.com/BrainsyETH/Eddy/issues/1541"
     ],
     "is_float_endpoint": false,
-    "description": "The pin identifies the Roundhouse Shoals access and parking area. Armstrong Hole is a separate walk-in fishing access."
+    "description": "Walk-in fishing access and parking. Armstrong Hole is a separate access nearby."
   },
   {
     "name": "Rim Shoals Access",
@@ -429,7 +429,7 @@
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://github.com/BrainsyETH/Eddy/issues/1541"
     ],
-    "description": "This pin identifies Sylamore Ferry Boat Ramp #2. Facilities on the opposite bank belong to a separate access."
+    "description": "Ramp on the Highway 5 side. Facilities across the river are a separate access."
   },
   {
     "name": "Round Bottom Access",
@@ -469,7 +469,7 @@
       "https://github.com/BrainsyETH/Eddy/issues/1541"
     ],
     "slug": "guion-access",
-    "description": "Stone County ramp on the southwest bank. Guion Access (Izard County) is a separate facility across the White River."
+    "description": "Stone County ramp on the southwest bank. The Izard County access is across the river."
   },
   {
     "name": "Guion Access (Izard County)",
@@ -482,7 +482,7 @@
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
     "facilities": "Two concrete boat ramps, parking and a fishing jetty on the Izard County bank near the Highway 58 bridge",
-    "description": "The pin identifies Guion Boat Ramp-Izard County #1. Ramp #2 is part of this same facility; the Stone County access is a separate site across the river.",
+    "description": "Two ramps on the Izard County bank. The Stone County access is across the river.",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",

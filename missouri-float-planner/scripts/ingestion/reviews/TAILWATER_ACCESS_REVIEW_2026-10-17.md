@@ -93,6 +93,17 @@ changed. This keeps future Guion imports attached to the original record and
 public URL. New rows still default to unapproved under ordinary dossier imports;
 only this reviewed patch approves the two named additions.
 
+## Description wording follow-up
+
+The applied descriptions read as curation notes ("this pin identifies…"), but
+web and iOS show them on access screens. The dossiers now carry plain-language
+descriptions for the seven affected records.
+[tailwater-access-descriptions-2026-10-17.sql](tailwater-access-descriptions-2026-10-17.sql)
+updates only the `description` column, checks each record still holds the
+applied text, and ends in `ROLLBACK`. **It has not been applied to production.**
+Until it is, the stored descriptions differ from the dossiers; apply it before
+any of the three rivers is activated.
+
 Dam restrictions were deferred by Evan during this access review. Fixed-hazard
 review, publication scope and web/iOS/MCP release acceptance remain separate
 work; this change does not reopen the resolved site-identification questions.
