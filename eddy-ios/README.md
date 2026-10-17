@@ -717,7 +717,11 @@ those cancels their calculation and leaves the Map tab unchanged, except for
 the explicit View on Map handoff.
 
 Use as put-in on a Map POI opens a compact Build a Route peek with the same
-River / Put-in / Take-out controls as the full planner. Tapping an eligible
+River / Put-in / Take-out controls as the full planner. Selected endpoints keep
+their existing place icon with a teal put-in or coral take-out badge and a text
+label; no triangle/square covers the artwork. Each endpoint draws once and stays
+visible and tappable at overview zoom or with its ordinary layer hidden.
+Tapping an eligible
 downstream access pin chooses the take-out immediately, including a campground
 or boat-ramp mark for that access. Tap either endpoint control to change it on
 the map, or List to use the current endpoint picker. Other POIs still open their
