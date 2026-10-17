@@ -386,11 +386,15 @@ error and Retry; backup failures keep loaded routes and trips visible and show
 that backup needs attention.
 The old `/float-history` URL opens the History segment. Featured Floats uses the
 same photo/fallback card on the carousel and full list, and the full list has
-river filtering and featured or alphabetical ordering.
+river filtering and featured or alphabetical ordering. Featured order matches
+the carousel's stable daily rotation; River A–Z groups that order by river.
 
 Saved cards show a cached endpoint thumbnail, then a river photo from the
-existing index cache, then the Eddy canoe. Featured cards also reuse cached
-river photos when their editorial photo is absent. One cache read per screen
+existing index cache, then the Eddy canoe. Featured photos come from the guide
+section or that route's own put-in/take-out galleries, including reviewed access
+photos. The API selects an unused route photo when possible, retaining the other
+route photos as load-failure alternatives. Only after those fail do cards use a
+cached river photo, then the Eddy fallback. One cache read per screen
 avoids per-card API requests; a missing or failed cache leaves the fallback.
 New saves retain the photo URL; older saves gain one on their next successful
 online open. A refresh without imagery retains the prior photo. Images use
