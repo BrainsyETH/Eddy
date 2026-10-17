@@ -21,6 +21,8 @@ screens use two columns. Fishery and equipment descriptions stay on the detail
 page. The summary payload includes water temperature with its original timestamp;
 missing measurements never become zeroes or invented readings. The schedule
 change and downstream travel-time note appears once above the list.
+Search filters those cards by dam name, lake, or state without another data
+request. Empty groups disappear, and returning from a dam preserves the filter.
 
 The root HTML declares the site's smooth-scroll behavior to Next so route
 changes can reset immediately instead of retaining the bottom of the old page.
@@ -40,10 +42,15 @@ Visible pages refresh that same cached server snapshot every five minutes and
 on focus/return after at least one minute, preserving chart and disclosure state.
 Hidden tabs do not poll. Original measurement timestamps are never replaced by
 page refresh times. The dam API and iOS app contracts are unchanged.
+Closed info dialogs never autofocus; opening one focuses its close button
+without scrolling the underlying page.
 
 `npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
 portrait, and landscape sizes, including list cards, list-to-detail navigation,
-disclosure/dialog controls, freshness, and missing-data states. Install the browser with `npx playwright install chromium`
+search, full reloads, disclosure/dialog controls, freshness, and missing-data
+states. Set `DAM_SMOKE_BROWSER=both` to also run WebKit with iPhone emulation
+(install with `npx playwright install webkit`, or set `PLAYWRIGHT_WEBKIT_PATH`).
+Install Chromium with `npx playwright install chromium`
 (or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
 removes its temporary fixture route on exit or SIGINT/SIGTERM. The route is
 ignored by Git and returns not-found unless the smoke script's development-only

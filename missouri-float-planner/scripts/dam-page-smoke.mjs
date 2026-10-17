@@ -6,7 +6,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, webkit, devices } from 'playwright';
 
 const port = 3137;
 const origin = `http://127.0.0.1:${port}`;
@@ -82,6 +82,21 @@ export default function Page() {
   return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <Link key={key} data-variant={key} href="/dam-layout-check" className="group block min-w-0 rounded-2xl"><DamListCard dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></Link>)}</div></div>;
 }
 `);
+  await mkdir(`${route}/search`, { recursive: true });
+  await writeFile(`${route}/search/page.tsx`, `import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import DamListCard from '@/components/dam/DamListCard';
+import DamSearchList from '@/components/dam/DamSearchList';
+import { groupDamsForIndex } from '@/lib/data/dam-grouping';
+import { stateName } from '@/lib/navigation/states';
+const base = ${JSON.stringify(dam)} as import('@shared/dam-types').DamSnapshot;
+const dams = [base, { ...base, id: 'swl-table-rock-dam', name: 'Table Rock Dam', lakeName: 'Table Rock Lake', state: 'MO' }, { ...base, id: 'bagnell', name: 'Bagnell Dam', lakeName: 'Lake of the Ozarks', state: 'MO' }];
+export default function Page() {
+  if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
+  const groups = groupDamsForIndex(dams).map(group => ({ label: group.label, dams: group.dams.map(dam => ({ id: dam.id, searchText: [dam.name, dam.lakeName, dam.state, stateName(dam.state)].join(' '), content: <Link href="/dam-layout-check" className="group block h-full"><DamListCard dam={dam} now={${now}} /></Link> })) }));
+  return <div className="mx-auto max-w-7xl px-4 py-6"><h1 className="mb-5 text-3xl font-bold">Lakes &amp; dams</h1><DamSearchList groups={groups} /></div>;
+}
+`);
   const ignored = spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]);
   assert.equal(ignored.status, 0, 'fixture page must be ignored by Git');
   // Exercise the generated route itself: neither an ordinary dev process nor
@@ -109,14 +124,93 @@ export default function Page() {
     await new Promise(r => setTimeout(r, 1000));
   }
   assert(html.includes('Generation schedule') && html.includes('13,200'), `readings and schedule must be server-rendered\n${log.slice(-4000)}`);
+  // Compile every fixture before driving the browser, so a dev-server rebuild
+  // cannot interrupt the navigation and reload behavior under test.
+  for (const path of ['/list', '/search']) {
+    const response = await fetch(`${url}${path}`);
+    assert(response.ok, `fixture ${path} must render`);
+    await response.text();
+  }
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
-  browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
+  assert(!/\sautofocus(?:[\s=>])/i.test(html), 'closed dialogs must not autofocus during document loading');
+  const engines = process.env.DAM_SMOKE_BROWSER === 'both' ? ['chromium', 'webkit'] : [process.env.DAM_SMOKE_BROWSER || 'chromium'];
+  for (const engine of engines) {
+  const engineOut = `${out}/${engine}`;
+  await mkdir(engineOut, { recursive: true });
+  const webkitPath = process.env.PLAYWRIGHT_WEBKIT_PATH;
+  browser = engine === 'webkit' ? await webkit.launch({ ...(webkitPath ? { executablePath: webkitPath } : {}), headless: true }) : await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
+  console.log(`Checking ${engine}`);
   const errors = [];
   for (const [name, width, height, wide] of [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, true], ['small-landscape', 667, 375, true], ['small-portrait', 320, 720, false]]) {
-    const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900 });
+    const page = await browser.newPage({ ...(width < 900 ? devices['iPhone 13'] : {}), viewport: { width, height }, deviceScaleFactor: 1, hasTouch: width < 900 });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
+    if (name === 'desktop' || name === 'portrait') {
+      await page.goto(`${url}/search`, { waitUntil: 'networkidle' });
+      const search = page.getByRole('searchbox', { name: 'Search lakes and dams' });
+      const results = page.locator('a[href="/dam-layout-check"]');
+      const expectCount = async count => {
+        try {
+          await page.waitForFunction(expected => document.querySelectorAll('a[href="/dam-layout-check"]').length === expected, count);
+        } catch (error) {
+          console.error('Search state', { engine, name, expected: count, actual: await results.count(), query: await search.inputValue(), errors, history: await page.evaluate(() => history.state) });
+          throw error;
+        }
+        assert.equal(await results.count(), count);
+      };
+      await expectCount(3);
+      assert(!(await search.evaluate(el => el === document.activeElement)), 'search does not open the mobile keyboard on load');
+      let searchRequests = 0;
+      const countRequest = request => { if (request.url().includes('/api/') || request.headers().rsc === '1') searchRequests++; };
+      page.on('request', countRequest);
+      await search.fill('  rOcK  ');
+      await expectCount(1);
+      assert((await results.innerText()).includes('Table Rock Dam'));
+      await search.fill('mo');
+      await expectCount(2);
+      assert.equal(await page.getByRole('heading', { name: 'Arkansas', exact: true }).count(), 0, 'empty state sections disappear');
+      await search.fill('Arkansas');
+      await expectCount(1);
+      await search.fill('bull ar');
+      await expectCount(1);
+      await search.fill('nothing-matches');
+      await expectCount(0);
+      assert(await page.getByText('No dams found.', { exact: true }).isVisible());
+      await page.getByRole('button', { name: 'Show all dams' }).click();
+      await expectCount(3);
+      assert(await search.evaluate(el => el === document.activeElement));
+      await search.fill('Ozarks');
+      await expectCount(1);
+      assert((await results.innerText()).includes('Bagnell Dam'));
+      assert.equal(searchRequests, 0, 'filtering makes no API or RSC requests');
+      page.off('request', countRequest);
+      await results.click();
+      await page.waitForURL(url);
+      await page.goBack({ waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.querySelector('#dam-search')?.value === 'Ozarks');
+      await expectCount(1);
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.querySelector('#dam-search')?.value === 'Ozarks');
+      await expectCount(1);
+      await page.getByRole('button', { name: 'Clear search' }).click();
+      await expectCount(3);
+      await page.screenshot({ path: `${engineOut}/search-${name}.png` });
+      console.log(`PASS ${engine} ${name}: search, clear, no results, Back and reload`);
+    }
+    await page.goto(url, { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    assert(await page.evaluate(() => scrollY < 100), `${name}: reload at the top stays at the top`);
+    await page.evaluate(() => window.scrollTo({ top: Math.min(350, (document.documentElement.scrollHeight - innerHeight) / 2), behavior: 'instant' }));
+    const reloadScroll = await page.evaluate(() => scrollY);
+    await page.reload({ waitUntil: 'networkidle' });
+    // Headless WebKit may reset even a static page to the top on reload.
+    // Allow that browser behavior, but never an unsolicited jump farther down.
+    await page.waitForTimeout(250);
+    const afterReload = await page.evaluate(() => scrollY);
+    console.log('Reload position', name, { before: reloadScroll, after: afterReload });
+    assert(afterReload <= reloadScroll + 40, `${name}: refresh never jumps farther down the page`);
+    if (engine === 'chromium') assert(Math.abs(afterReload - reloadScroll) < 40, `${name}: Chromium retains the reading position`);
     await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
     const list = page.locator('a[data-variant]');
     assert.equal(await list.locator('button, a, input, select').count(), 0, 'whole-card links have no nested controls');
@@ -138,7 +232,7 @@ export default function Page() {
     const second = await list.nth(1).boundingBox();
     assert(width >= 768 ? second.x > first.x : second.y >= first.y + first.height, `${name}: list uses available width`);
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
-    await page.screenshot({ path: `${out}/list-${name}.png`, fullPage: false });
+    await page.screenshot({ path: `${engineOut}/list-${name}.png`, fullPage: false });
     const lastCard = page.locator('a[href="/dam-layout-check"]').last();
     await lastCard.scrollIntoViewIfNeeded();
     const listScroll = await page.evaluate(() => scrollY);
@@ -151,6 +245,14 @@ export default function Page() {
     await page.goBack({ waitUntil: 'networkidle' });
     await page.waitForFunction(expected => Math.abs(scrollY - expected) < 5, listScroll, { timeout: 5000 });
     console.log(`PASS ${name}: list cards, opening at top, Back restoration`);
+    // Exercise a full reload separately from the router's Back restoration.
+    // Reloading replaces its in-memory navigation state with a fresh document.
+    await lastCard.click();
+    await page.waitForURL(url);
+    await page.waitForLoadState('networkidle');
+    await page.reload({ waitUntil: 'networkidle' });
+    assert(await page.evaluate(() => scrollY < 100), `${name}: refreshing after a dam tap stays at the top`);
+    console.log(`PASS ${name}: full reload after a dam tap stays at the top`);
     await page.goto(url, { waitUntil: 'networkidle' });
     assert(await page.evaluate(() => scrollY < 100), `${name}: direct load starts at the top`);
     const detail = page.locator('[data-dam-detail]');
@@ -214,7 +316,7 @@ export default function Page() {
     await days.nth(1).locator('summary').click();
     await page.getByRole('heading', { level: 1 }).click();
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
-    await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
+    await page.screenshot({ path: `${engineOut}/${name}.png`, fullPage: true });
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
@@ -239,7 +341,9 @@ export default function Page() {
     console.log(`PASS ${variant}`);
   }
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');
-  console.log(`Screenshots: ${out}`);
+  console.log(`Screenshots: ${engineOut}`);
+  await browser.close();
+  }
 } finally {
   await cleanup();
 }

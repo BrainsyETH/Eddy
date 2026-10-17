@@ -13,8 +13,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import DamListCard from '@/components/dam/DamListCard';
+import DamSearchList from '@/components/dam/DamSearchList';
 import { fetchAllDamSummaries } from '@/lib/data/dams';
 import { groupDamsForIndex } from '@/lib/data/dam-grouping';
+import { stateName } from '@/lib/navigation/states';
 
 export const revalidate = 300; // ISR every 5 minutes
 
@@ -59,29 +61,21 @@ export default async function DamsPage() {
             Dam readings are unavailable right now. Please try again shortly.
           </p>
         ) : (
-          <>
-            {groups.map((group) => (
-              <section key={group.label} className="mb-10">
-                <h2
-                  className="mb-3 text-2xl font-bold text-neutral-900"
-                  style={{ fontFamily: 'var(--font-display)' }}
+          <DamSearchList groups={groups.map(group => ({
+            label: group.label,
+            dams: group.dams.map(dam => ({
+              id: dam.id,
+              searchText: `${dam.name} ${dam.lakeName ?? ''} ${dam.state} ${stateName(dam.state)}`,
+              content: (
+                <Link
+                  href={`/dams/${dam.id}`}
+                  className="group block h-full min-w-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"
                 >
-                  {group.label}
-                </h2>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {group.dams.map((dam) => (
-                    <Link
-                      key={dam.id}
-                      href={`/dams/${dam.id}`}
-                      className="group block min-w-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"
-                    >
-                      <DamListCard dam={dam} now={now} />
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </>
+                  <DamListCard dam={dam} now={now} />
+                </Link>
+              ),
+            })),
+          }))} />
         )}
 
         <p className="mt-8 text-xs text-neutral-500">
