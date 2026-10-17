@@ -8,6 +8,8 @@ import {
   campingPulseReading,
   campingPulseAccessibilityLabel,
   campingPulseInfo,
+  campingPulseFcfsNote,
+  campingPulseUpdated,
   todayPopularCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
 import { campingDemand, demandDetail, type DemandBand } from '../../shared/camping-demand';
@@ -96,6 +98,7 @@ test('Today rates tonight across the region, weighted by sites, not campground o
   assert.equal(demand.bookedSites, 95);
   assert.equal(demand.booked, 95 / 220);
   assert.equal(demand.band, 'moderate');
+  assert.equal(campingPulseHeadline(demand), 'At 43% capacity');
   assert.equal(campingPulseDetail(demand), '43% of tracked campsites booked');
 });
 
@@ -257,11 +260,13 @@ test('a regional sample with unknown capacity cannot read as Packed', () => {
   assert.equal(demand.band, 'crowded');
   assert.equal(demand.allObservedBooked, true);
   assert.equal(demand.completeCoverage, false);
-  assert.equal(campingPulseHeadline(demand), 'Checked sites fully booked');
+  assert.equal(campingPulseHeadline(demand), 'At 100% capacity');
+  assert.equal(campingPulseFcfsNote(demand), 'FCFS sites may be available');
   assert.deepEqual(campingPulseReading(demand), { percent: 100, label: '100%' });
-  const spoken = campingPulseAccessibilityLabel(demand, 'Ozarks');
-  assert.match(spoken, /Ozarks camping tonight. Checked sites fully booked. 100% of checked campsites booked/);
-  assert.match(spoken, /Checked today/);
+  const spoken = campingPulseAccessibilityLabel(demand, 'Ozarks', now.getTime());
+  assert.match(spoken, /Ozarks camping tonight. At 100% capacity. 100% of checked campsites booked/);
+  assert.match(spoken, /Updated 3 hours ago/);
+  assert.match(spoken, /First-come, first-served sites may be available/);
   assert.match(spoken, /2 unavailable/);
   assert.doesNotMatch(spoken, /Packed/);
 });
@@ -302,15 +307,19 @@ test('the summary distinguishes zero bookings, Packed, and an unavailable readin
   const o = riverSample(['current']);
   const night = o.tracked[0].nights[0];
   night.sitesOpen = night.sitesReservable;
-  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Plenty of sites open');
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'At 0% capacity');
+  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), null);
   assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 0, label: '0%' });
   night.sitesOpen = 0;
   night.status = 'full';
-  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Tracked sites fully booked');
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'At 100% capacity');
+  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), 'FCFS sites may be available');
   assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 100, label: '100%' });
   o.tracked[0].nights = [];
   assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Not enough data');
   assert.equal(campingPulseReading(todayCampingDemand(o, now.getTime())), null);
+  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), null);
+  assert.equal(campingPulseUpdated(todayCampingDemand(o, now.getTime()), now.getTime()), null);
 });
 
 test('all Quiet rows remain separate, and changing demand never changes popular order', () => {
@@ -337,8 +346,22 @@ test('bar widths use actual percentages and labels cannot round away the last op
     const reading = campingPulseReading(todayCampingDemand(o, now.getTime()))!;
     assert.ok(Math.abs(reading.percent - bookedSites / 10) < 1e-10);
     assert.equal(reading.label, label);
-    assert.ok(campingPulseAccessibilityLabel(todayCampingDemand(o, now.getTime()), 'Current River').includes(`${label} of tracked campsites booked`));
+    assert.ok(campingPulseAccessibilityLabel(todayCampingDemand(o, now.getTime()), 'Current River', now.getTime()).includes(`${label} of tracked campsites booked`));
+    assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), null);
   }
+});
+
+test('the update age follows the oldest included reading across midnight and hour boundaries', () => {
+  const o = overview();
+  o.tracked[0].nights[0].checkedAt = '2026-09-28T16:00:00Z';
+  const demand = todayCampingDemand(o, now.getTime());
+  assert.equal(campingPulseUpdated(demand, now.getTime()), 'Updated 25 hours ago');
+  const checkedAt = Date.parse(demand.oldestCheckedAt!);
+  assert.equal(campingPulseUpdated(demand, checkedAt + 3_599_999), 'Updated less than 1 hour ago');
+  assert.equal(campingPulseUpdated(demand, checkedAt + 3_600_000), 'Updated 1 hour ago');
+  assert.equal(campingPulseUpdated(demand, checkedAt + 7_200_000), 'Updated 2 hours ago');
+  assert.equal(campingPulseUpdated({ ...demand, oldestCheckedAt: null }, now.getTime()), null);
+  assert.equal(campingPulseUpdated({ ...demand, oldestCheckedAt: 'invalid' }, now.getTime()), null);
 });
 
 test('the short legend explains the number and preserves partial coverage and reading age', () => {

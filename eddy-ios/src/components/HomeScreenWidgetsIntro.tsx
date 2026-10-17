@@ -70,7 +70,7 @@ export function HomeScreenWidgetsIntro() {
         <Pressable
           onPress={open}
           accessibilityRole="button"
-          accessibilityLabel="Home Screen widgets. How to add Eddy's widgets"
+          accessibilityLabel="River Widgets. Set up a river level widget."
           style={({ pressed }) => [
             styles.compactRow,
             { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },

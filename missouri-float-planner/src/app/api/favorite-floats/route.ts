@@ -46,6 +46,7 @@ async function _GET(request: NextRequest) {
           bestForTags: float.bestForTags,
           guideSlug: float.postSlug,
           photoUrl: float.photoUrl ?? null,
+          photoFallbackUrls: float.photoFallbackUrls ?? [],
         })),
       },
       { headers: cdnCacheHeaders(900, 3600) },
