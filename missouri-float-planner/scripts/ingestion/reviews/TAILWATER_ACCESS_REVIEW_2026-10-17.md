@@ -54,7 +54,23 @@ contains six existing-row corrections and two new records. It:
   for an authorized production application, then read back the affected rows and
   run `make check-db`. This patch is DML, not a schema migration.
 
-**Database preview passed; production application is pending.** The exact
+**Applied to production on 2026-10-17 at 17:23:22 UTC**, after Evan explicitly
+approved applying the tested patch while keeping all three rivers inactive.
+The six existing records and two additions were read back in a separate query.
+Armstrong is excluded from boat endpoints; Empire is retained as a ramp.
+
+Post-apply catalog: Norfork 5 accesses / 2 endpoints; White 26 / 23; Taneycomo
+7 / 5. All three remain inactive. New Armstrong ID:
+`e41a11c4-a904-4026-8ecd-e0ee0e0e5344`; new Guion/Izard ID:
+`c997d64d-7459-471d-98af-caff3fe519e4`.
+
+The `make check-db` launcher hit this sandbox's tsx IPC socket restriction.
+The same repository checks were then run with Node 20 against fresh read-only
+MCP query results: migration history and ledger agree, no seed/slug drift or
+unexpected absent rows (8 existing exceptions), and no client-access contract
+problems. No schema migration was created by this DML patch.
+
+**Pre-apply previews passed.** The exact
 transaction ran against the target project and rolled back. A second preview
 executed the patch twice within one transaction: the two added IDs and review
 states were preserved, all river rows were unchanged, and unrelated access

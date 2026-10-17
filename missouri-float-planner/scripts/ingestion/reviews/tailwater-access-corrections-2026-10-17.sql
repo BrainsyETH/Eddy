@@ -2,6 +2,9 @@
 -- Target: ilefwfpvphadsbptiaur. DML only; no activation or threshold changes.
 -- Preview ends in ROLLBACK. Only an authorized production apply may replace
 -- the final ROLLBACK with COMMIT. See TAILWATER_ACCESS_REVIEW_2026-10-17.md.
+-- APPLIED 2026-10-17 17:23:22 UTC with explicit owner approval (COMMIT).
+-- Separate read-back and migration/slug/client-access checks passed. Rivers
+-- remain inactive. Keep ROLLBACK below as the default for future previews.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';

@@ -5,7 +5,7 @@
     "Evan (site identification and boat-access confirmations)",
     "Codex (source matching and coordinate transcription)"
   ],
-  "scope": "Access identity and classification only; no production application or river activation. User images were reviewed in conversation, not licensed as public endpoint photos.",
+  "scope": "Access identity and classification corrections; applied to production with owner approval on 2026-10-17. All three rivers remain inactive. User images were reviewed in conversation, not licensed as public endpoint photos.",
   "access": [
     {
       "river": "taneycomo",
@@ -160,5 +160,6 @@
       "isFloatEndpoint": false,
       "note": "Evan confirmed shared campground/ramp area. Keep campground and boat ramp as separate records; only the ramp is an endpoint."
     }
-  ]
+  ],
+  "appliedAt": "2026-10-17T17:23:22.394727Z"
 }
