@@ -2,8 +2,11 @@
 -- tailwater-access-corrections-2026-10-17.sql (#1541). The applied text read
 -- as curation notes ("this pin identifies…"); descriptions are shown to users
 -- on web and iOS access screens. Description column only.
--- Target: ilefwfpvphadsbptiaur. NOT APPLIED. Preview ends in ROLLBACK; only an
+-- Target: ilefwfpvphadsbptiaur. Preview ends in ROLLBACK; only an
 -- authorized production apply may replace the final ROLLBACK with COMMIT.
+-- APPLIED 2026-10-17 18:41:48 UTC with explicit owner approval (COMMIT).
+-- Separate read-back confirmed all seven descriptions; rivers remain inactive.
+-- Re-running is a no-op. Keep ROLLBACK below as the default for previews.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';

@@ -100,9 +100,9 @@ web and iOS show them on access screens. The dossiers now carry plain-language
 descriptions for the seven affected records.
 [tailwater-access-descriptions-2026-10-17.sql](tailwater-access-descriptions-2026-10-17.sql)
 updates only the `description` column, checks each record still holds the
-applied text, and ends in `ROLLBACK`. **It has not been applied to production.**
-Until it is, the stored descriptions differ from the dossiers; apply it before
-any of the three rivers is activated.
+applied text, and ends in `ROLLBACK`. **Applied to production on 2026-10-17 at
+18:41:48 UTC** with Evan's explicit approval. A separate read-back confirmed all
+seven descriptions match the dossiers and all three rivers remain inactive.
 
 Dam restrictions were deferred by Evan during this access review. Fixed-hazard
 review, publication scope and web/iOS/MCP release acceptance remain separate
