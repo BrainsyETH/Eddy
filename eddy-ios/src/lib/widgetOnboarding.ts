@@ -3,7 +3,7 @@
 // Neither an account nor notification permission is required.
 
 export const WIDGET_ONBOARDING_KEY = 'eddy.widgets.setup-guide.seen.v1';
-export type WidgetGuideKind = 'river' | 'favorites';
+export type WidgetGuideKind = 'river' | 'favorites' | 'dam' | 'report';
 
 export const WIDGET_GUIDE = {
   river: {
@@ -15,13 +15,34 @@ export const WIDGET_GUIDE = {
   favorites: {
     title: 'Your rivers',
     size: 'Medium',
-    summary: 'See readings for the first three rivers or gauges you star in Favorites.',
-    personalize: 'Star your rivers or gauges in Eddy’s Favorites tab. Your rivers displays the first three distinct favorites in that order. Dams are not included.',
+    summary: 'Choose three stations, or follow the first three rivers or gauges you star in Favorites.',
+    personalize: 'Touch and hold, tap Edit Widget, then choose the first, second and third stations. Empty slots follow the first three distinct rivers or gauges in Favorites; explicit choices stay selected when you unstar them.',
+  },
+  dam: {
+    title: 'Dam generation',
+    size: 'Medium',
+    summary: 'See observed turbine flow and the next posted schedule change at a dam.',
+    personalize: 'Touch and hold the widget, tap Edit Widget, then choose a dam. Schedule times are Central Time and can change.',
+  },
+  report: {
+    title: 'Daily river report',
+    size: 'Medium',
+    summary: 'See a river’s current condition, observed trend and today’s weather forecast.',
+    personalize: 'Touch and hold the widget, tap Edit Widget, then choose a river. Tap the report to open its river page.',
   },
 } as const;
 
-export function widgetGuideSteps(kind: WidgetGuideKind) {
-  const widget = WIDGET_GUIDE[kind];
+export function widgetGuide(kind: WidgetGuideKind, layoutVersion = 2) {
+  if (kind === 'favorites' && layoutVersion < 2) return {
+    ...WIDGET_GUIDE.favorites,
+    summary: 'See readings for the first three rivers or gauges you star in Favorites.',
+    personalize: 'Star rivers or gauges in Eddy’s Favorites tab. This installed widget follows the first three distinct favorites in that order.',
+  };
+  return WIDGET_GUIDE[kind];
+}
+
+export function widgetGuideSteps(kind: WidgetGuideKind, layoutVersion = 2) {
+  const widget = widgetGuide(kind, layoutVersion);
   return [
     {
       title: 'Open the widget gallery',

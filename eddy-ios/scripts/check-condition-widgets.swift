@@ -1,5 +1,6 @@
 // Foundation contract checks for a Mac with Xcode/Swift. From eddy-ios:
 // swiftc modules/eddy-live-activity/ios/ConditionWidgetData.swift \
+//   modules/eddy-live-activity/ios/SupplementaryWidgetData.swift \
 //   scripts/check-condition-widgets.swift -o /tmp/eddy-widget-check
 // /tmp/eddy-widget-check modules/eddy-live-activity/widget/ConditionsPreview.json
 // This does not replace compiling the WidgetKit extension or device checks.
@@ -12,6 +13,25 @@ import Foundation
     let now = Date(timeIntervalSince1970: 2_000_000_000)
     let shifted = preview.rebased(to: now)
     let choice = shifted.choices[0]
+    let favorites = Array(shifted.choices.prefix(3))
+    precondition(widgetFavoriteChoices(selected: [nil, nil, nil], favorites: favorites) == favorites)
+    precondition(widgetFavoriteChoices(selected: [nil, favorites[0], nil], favorites: favorites).map(\.id)
+      == [favorites[1].id, favorites[0].id, favorites[2].id])
+    precondition(widgetFavoriteChoices(selected: [favorites[0], favorites[0], nil], favorites: []).count == 1)
+    precondition(widgetFavoriteChoices(selected: [favorites[0], nil, nil], favorites: []).first == favorites[0])
+    precondition(widgetShortTrend("Holding steady") == "Steady")
+    precondition(widgetShortTrend("Rising slowly") == "Slow rise")
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "America/Chicago")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let forecast = WidgetForecastCache(retrievedAt: now.timeIntervalSince1970 * 1000,
+      response: WidgetForecastResponse(river: "current", location: "Akers", forecast: [
+        WidgetForecastDay(date: formatter.string(from: now), tempHigh: 74, tempLow: 51, condition: "Clear", precipitation: 20)
+      ]))
+    precondition(forecast.today(at: now)?.tempHigh == 74)
+    precondition(forecast.today(at: now.addingTimeInterval(10_800)) == nil)
+    precondition(forecast.today(at: now.addingTimeInterval(86_400)) == nil)
     var snapshot = shifted.stations[choice.siteId]!.snapshot!
     precondition(snapshot.isCurrent(at: now))
     precondition(snapshot.observedAt == now.timeIntervalSince1970 * 1000 - 600_000)

@@ -1262,10 +1262,27 @@ require a new binary; do not deliver the native changes as an OTA update.
       Home Screen widgets row across app restarts. Verify old binaries without
       widget support and Expo Go do not advertise a widget they cannot add.
       Open the setup guide and switch between River level (small, Edit Widget
-      station picker) and Your rivers (medium, first three starred rivers/gauges).
+      station picker), Your rivers (medium, three station pickers), Dam generation
+      and Daily river report. Old binaries must retain the original two-widget
+      guide and automatic-Favorites instructions.
       Check Apple Home Screen steps, illustrative sample-data labeling,
       non-notification/freshness copy, and VoiceOver, large text, light/dark,
       sheet swipe dismissal and scrolling on a small phone.
+- [ ] Compile `SupplementaryWidgetData.swift` in both host and extension, and
+      `EddyReportWidgets.swift` in the extension. Verify `widgetLayoutVersion()`
+      returns 2 and all four widgets appear. Deploy the additive dam `?widget=1`
+      API before distributing the binary; old API responses must remain unavailable.
+- [ ] Upgrade a device with an existing static Your rivers widget. Confirm it
+      keeps Favorites defaults and now offers Edit Widget with three pickers.
+      Check explicit choices, cleared slots, duplicates, unstarred choices and
+      independent configurations on two medium widgets. Check small-widget
+      “Steady”/“Slow rise” labels and secondary feet beside the main reading.
+- [ ] Add/edit Dam generation and Daily river report. Check compact and large
+      text, light/dark/tinted, VoiceOver, gallery sample labels, no selection,
+      cold/warm deep links, offline cache and 404 removal. Exercise two-hour
+      observation expiry, 90-minute schedule expiry and Central midnight/three-hour
+      forecast expiry without network refresh. Missing turbine flow must not say
+      generation is off; a failed forecast must not hide a valid gauge reading.
 - [ ] On a physical iPhone, add/edit River level, add Your rivers, and verify
       light, dark, tinted Home Screen, smallest supported screen, large text,
       and VoiceOver. Names, units, status and observation age must remain legible.

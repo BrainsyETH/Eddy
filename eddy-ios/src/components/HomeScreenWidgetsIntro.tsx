@@ -13,6 +13,7 @@ import {
   markWidgetGuideSeen,
   WIDGET_GUIDE,
   widgetGuideSteps,
+  widgetGuide,
   type WidgetGuideKind,
 } from '@/lib/widgetOnboarding';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -21,18 +22,20 @@ import { fonts, textStyles, type as t } from '@/theme/typography';
 // Do not promote widgets to users whose installed native binary predates the
 // WidgetKit extension. An OTA can carry this screen, not the extension.
 // Match ConditionsWidgetSync's optional bridge checks; never require the module.
-const nativeWidgetsAvailable = (() => {
-  if (Platform.OS !== 'ios') return false;
+const nativeWidgetLayoutVersion = (() => {
+  if (Platform.OS !== 'ios') return 0;
   try {
     const bridge = requireOptionalNativeModule<{
+      widgetLayoutVersion?: () => number;
       readWidgetConfiguration?: () => Promise<string | null>;
       setWidgetConfiguration?: (json: string) => Promise<void>;
     }>('EddyLiveActivity');
-    return !!bridge?.readWidgetConfiguration && !!bridge?.setWidgetConfiguration;
+    return bridge?.readWidgetConfiguration && bridge?.setWidgetConfiguration ? (bridge.widgetLayoutVersion?.() ?? 1) : 0;
   } catch {
-    return false;
+    return 0;
   }
 })();
+const nativeWidgetsAvailable = nativeWidgetLayoutVersion > 0;
 
 export function HomeScreenWidgetsIntro() {
   const { colors } = useTheme();
@@ -76,7 +79,7 @@ export function HomeScreenWidgetsIntro() {
           <ControlIcon name="grid-outline" size={20} color={colors.interactive} />
           <View style={styles.compactCopy}>
             <Text style={[styles.compactTitle, { color: colors.text }]}>Home Screen widgets</Text>
-            <Text style={[t.xs, { color: colors.textMuted }]}>Set up River level or Your rivers</Text>
+            <Text style={[t.xs, { color: colors.textMuted }]}>Explore your Home Screen widgets</Text>
           </View>
           <ControlIcon name="chevron-forward" size={17} color={colors.textMuted} />
         </Pressable>
@@ -124,8 +127,8 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
   const [kind, setKind] = useState<WidgetGuideKind>('river');
-  const choice = WIDGET_GUIDE[kind];
-  const kinds: WidgetGuideKind[] = ['river', 'favorites'];
+  const choice = widgetGuide(kind, nativeWidgetLayoutVersion);
+  const kinds: WidgetGuideKind[] = nativeWidgetLayoutVersion >= 2 ? ['river', 'favorites', 'dam', 'report'] : ['river', 'favorites'];
 
   return (
     <Modal
@@ -197,7 +200,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             <Text accessibilityRole="header" style={[styles.stepsHeading, { color: colors.text }]}>
               How to add it
             </Text>
-            {widgetGuideSteps(kind).map((step, index) => (
+            {widgetGuideSteps(kind, nativeWidgetLayoutVersion).map((step, index) => (
               <View key={step.title} style={styles.stepRow}>
                 <View style={[styles.stepNumber, { backgroundColor: colors.selectionBg }]}>
                   <Text style={[styles.stepNumberText, { color: colors.selectionText }]}>
@@ -234,7 +237,7 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         accessible
         accessibilityLabel={isSmall
           ? 'Illustrative small River level widget, sample river reading, not live data'
-          : 'Illustrative medium Your rivers widget, three sample readings, not live data'}
+          : 'Illustrative ' + WIDGET_GUIDE[kind].title + ' widget, sample data, not live data'}
         style={[
           styles.previewWidget,
           isSmall ? styles.previewSmall : styles.previewMedium,
@@ -243,7 +246,7 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
       >
         <View style={styles.previewHeader}>
           <Text style={[styles.previewHeading, { color: colors.text }]}>
-            {isSmall ? 'Current River' : 'Your rivers'}
+            {isSmall ? 'Current River' : WIDGET_GUIDE[kind].title}
           </Text>
           <Image
             source={require('../../assets/eddy/eddy-checking-gauge.png')}
@@ -259,11 +262,19 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
           </>
         ) : (
           <>
-            {[
+            {(kind === 'dam' ? [
+              ['Bull Shoals Dam', '6,600 cfs'],
+              ['Turbine flow', 'Generating now'],
+              ['Next scheduled change · CT', 'Stops at 6 PM'],
+            ] : kind === 'report' ? [
+              ['Current River', '250 cfs'],
+              ['Observed trend', 'Steady'],
+              ['Today’s forecast', '74° / 51°F'],
+            ] : [
               ['Current River', '123 cfs'],
               ['Big River', '456 cfs'],
               ['Huzzah Creek', '789 cfs'],
-            ].map(([name, reading]) => (
+            ]).map(([name, reading]) => (
               <View key={name} style={styles.previewReading}>
                 <Text style={[styles.previewReadingText, { color: colors.text }]}>{name}</Text>
                 <Text style={[styles.previewReadingText, { color: colors.textMuted }]}>{reading}</Text>

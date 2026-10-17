@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const TARGET = 'EddyFloatActivity';
 const appGroup = (config) => `group.${config.ios.bundleIdentifier}.widgets`;
-const SOURCES = ['FloatActivityAttributes.swift', 'EddyFloatActivity.swift', 'ConditionWidgetData.swift', 'EddyConditionsWidgets.swift'];
+const SOURCES = ['FloatActivityAttributes.swift', 'EddyFloatActivity.swift', 'ConditionWidgetData.swift', 'EddyConditionsWidgets.swift', 'SupplementaryWidgetData.swift', 'EddyReportWidgets.swift'];
 
 function configureProject(project, root, config) {
   const source = path.join(root, 'modules/eddy-live-activity');
@@ -18,6 +18,9 @@ function configureProject(project, root, config) {
     ['ios/ConditionWidgetData.swift', 'ConditionWidgetData.swift'],
     ['widget/EddyConditionsWidgets.swift', 'EddyConditionsWidgets.swift'],
     ['widget/ConditionsPreview.json', 'ConditionsPreview.json'],
+    ['ios/SupplementaryWidgetData.swift', 'SupplementaryWidgetData.swift'],
+    ['widget/EddyReportWidgets.swift', 'EddyReportWidgets.swift'],
+    ['widget/DamWidgetCatalog.json', 'DamWidgetCatalog.json'],
   ]) fs.copyFileSync(path.join(source, from), path.join(destination, to));
   fs.writeFileSync(path.join(destination, `${TARGET}-Info.plist`), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -87,7 +90,7 @@ function configureProject(project, root, config) {
   // xcode's addSourceFile checks existing references, so repeated runs are safe.
   const groupId = project.findPBXGroupKey({ name: TARGET });
   for (const file of SOURCES) project.addSourceFile(file, { target: target.uuid }, groupId);
-  for (const name of ['PrivacyInfo.xcprivacy', 'ConditionsPreview.json']) {
+  for (const name of ['PrivacyInfo.xcprivacy', 'ConditionsPreview.json', 'DamWidgetCatalog.json']) {
     const resource = project.addFile(name, groupId);
     if (resource) {
       resource.uuid = project.generateUuid();

@@ -15,6 +15,8 @@ private enum ConditionsWidgetReloader {
     defaults.set(now, forKey: key)
     WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.riverKind)
     WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.favoritesKind)
+    WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.damKind)
+    WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.reportKind)
     return "requested"
   }
 }
@@ -31,6 +33,7 @@ public final class EddyLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("EddyLiveActivity")
     Events("onActivityState")
+    Function("widgetLayoutVersion") { 2 }
     AsyncFunction("readWidgetConfiguration") { () -> String? in
       ConditionsWidgetStore.configurationJSON()
     }

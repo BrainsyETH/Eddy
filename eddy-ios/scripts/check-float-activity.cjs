@@ -19,8 +19,8 @@ assert.equal(host.dependencies.filter(({ value }) => objects.PBXTargetDependency
 const embedded = host.buildPhases.flatMap(({ value }) => objects.PBXCopyFilesBuildPhase?.[value]?.files ?? []);
 assert.equal(embedded.filter(({ value }) => objects.PBXBuildFile[value].fileRef === target.productReference).length, 1, 'host embeds the appex once');
 const files = (kind) => target.buildPhases.flatMap(({ value }) => objects[kind]?.[value]?.files ?? []).map(({ value }) => objects.PBXFileReference[objects.PBXBuildFile[value].fileRef].path.replaceAll('"', ''));
-assert.deepEqual(files('PBXSourcesBuildPhase').sort(), ['ConditionWidgetData.swift', 'EddyConditionsWidgets.swift', 'EddyFloatActivity.swift', 'FloatActivityAttributes.swift']);
-assert.deepEqual(files('PBXResourcesBuildPhase').sort(), ['Assets.xcassets', 'ConditionsPreview.json', 'PrivacyInfo.xcprivacy']);
+assert.deepEqual(files('PBXSourcesBuildPhase').sort(), ['ConditionWidgetData.swift', 'EddyConditionsWidgets.swift', 'EddyFloatActivity.swift', 'EddyReportWidgets.swift', 'FloatActivityAttributes.swift', 'SupplementaryWidgetData.swift']);
+assert.deepEqual(files('PBXResourcesBuildPhase').sort(), ['Assets.xcassets', 'ConditionsPreview.json', 'DamWidgetCatalog.json', 'PrivacyInfo.xcprivacy']);
 const hostInfo = plist.parse(fs.readFileSync(path.join(root, 'ios/Eddy/Info.plist'), 'utf8'));
 assert.equal(hostInfo.NSSupportsLiveActivities, true);
 const group = `group.${config.ios.bundleIdentifier}.widgets`;
@@ -50,6 +50,9 @@ for (const [source, generated] of [
   ['ios/ConditionWidgetData.swift', 'ConditionWidgetData.swift'],
   ['widget/EddyConditionsWidgets.swift', 'EddyConditionsWidgets.swift'],
   ['widget/ConditionsPreview.json', 'ConditionsPreview.json'],
+    ['ios/SupplementaryWidgetData.swift', 'SupplementaryWidgetData.swift'],
+    ['widget/EddyReportWidgets.swift', 'EddyReportWidgets.swift'],
+    ['widget/DamWidgetCatalog.json', 'DamWidgetCatalog.json'],
 ]) assert.equal(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity', generated), 'utf8'), fs.readFileSync(path.join(root, 'modules/eddy-live-activity', source), 'utf8'));
 const before = project.writeSync();
 configureProject(project, root, config);

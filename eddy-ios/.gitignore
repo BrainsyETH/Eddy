@@ -14,6 +14,7 @@ android/
 !/modules/eddy-live-activity/ios/EddyLiveActivityModule.swift
 !/modules/eddy-live-activity/ios/FloatActivityAttributes.swift
 !/modules/eddy-live-activity/ios/ConditionWidgetData.swift
+!/modules/eddy-live-activity/ios/SupplementaryWidgetData.swift
 
 !/modules/eddy-map-sheet/ios/
 /modules/eddy-map-sheet/ios/*

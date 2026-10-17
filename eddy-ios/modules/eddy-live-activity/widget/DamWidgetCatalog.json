@@ -1,0 +1,112 @@
+[
+  {
+    "id": "ameren-bagnell-dam",
+    "name": "Bagnell Dam",
+    "state": "MO"
+  },
+  {
+    "id": "swl-beaver-dam",
+    "name": "Beaver Dam",
+    "state": "AR"
+  },
+  {
+    "id": "swt-broken-bow-dam",
+    "name": "Broken Bow Dam",
+    "state": "OK"
+  },
+  {
+    "id": "swl-bull-shoals-dam",
+    "name": "Bull Shoals Dam",
+    "state": "AR"
+  },
+  {
+    "id": "lrn-center-hill-dam",
+    "name": "Center Hill Dam",
+    "state": "TN"
+  },
+  {
+    "id": "lrn-dale-hollow-dam",
+    "name": "Dale Hollow Dam",
+    "state": "TN"
+  },
+  {
+    "id": "swl-dardanelle-dam",
+    "name": "Dardanelle Lock & Dam",
+    "state": "AR"
+  },
+  {
+    "id": "swt-denison-dam",
+    "name": "Denison Dam",
+    "state": "TX"
+  },
+  {
+    "id": "swt-eufaula-dam",
+    "name": "Eufaula Dam",
+    "state": "OK"
+  },
+  {
+    "id": "swt-fort-gibson-dam",
+    "name": "Fort Gibson Dam",
+    "state": "OK"
+  },
+  {
+    "id": "swl-greers-ferry-dam",
+    "name": "Greers Ferry Dam",
+    "state": "AR"
+  },
+  {
+    "id": "nwk-truman-dam",
+    "name": "Harry S. Truman Dam",
+    "state": "MO"
+  },
+  {
+    "id": "swt-keystone-dam",
+    "name": "Keystone Dam",
+    "state": "OK"
+  },
+  {
+    "id": "mvs-mark-twain",
+    "name": "Mark Twain Lake",
+    "state": "MO"
+  },
+  {
+    "id": "swl-norfork-dam",
+    "name": "Norfork Dam",
+    "state": "AR"
+  },
+  {
+    "id": "swl-ozark-dam",
+    "name": "Ozark Lock & Dam",
+    "state": "AR"
+  },
+  {
+    "id": "swt-robert-s-kerr-dam",
+    "name": "Robert S. Kerr Lock & Dam",
+    "state": "OK"
+  },
+  {
+    "id": "nwk-stockton-dam",
+    "name": "Stockton Dam",
+    "state": "MO"
+  },
+  {
+    "id": "swl-table-rock-dam",
+    "name": "Table Rock Dam",
+    "state": "MO"
+  },
+  {
+    "id": "swt-tenkiller-dam",
+    "name": "Tenkiller Ferry Dam",
+    "state": "OK"
+  },
+  {
+    "id": "swt-webbers-falls-dam",
+    "name": "Webbers Falls Lock & Dam",
+    "state": "OK"
+  },
+  {
+    "id": "lrn-wolf-creek-dam",
+    "name": "Wolf Creek Dam",
+    "state": "KY"
+  }
+]
