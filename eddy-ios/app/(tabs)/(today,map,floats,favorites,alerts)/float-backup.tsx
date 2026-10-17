@@ -45,16 +45,8 @@ export default function FloatBackupScreen() {
           Keep your saved routes and finished floats in your account.
         </Text>
         <Text style={[t.sm, { color: colors.textMuted }]}>
-          Backups include your route, trip times and pace. Raw GPS tracks stay on this phone and are deleted
-          when you delete the float from History.
+          Backups save your route, times and pace. GPS tracks stay on this phone until you delete the float.
         </Text>
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => void openExternalLink(PRIVACY_URL)}
-          style={styles.button}
-        >
-          <Text style={[t.base, { color: colors.interactive }]}>Privacy Policy</Text>
-        </Pressable>
         {archive.recovered ? (
           <Text accessibilityRole="alert" style={[t.base, { color: colors.textMuted }]}>
             Some local history could not be opened. A recovery copy is kept on this phone. Sign in to reload
@@ -164,6 +156,13 @@ export default function FloatBackupScreen() {
             </Text> : null}
           </View>
         ) : null}
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => void openExternalLink(PRIVACY_URL)}
+          style={styles.button}
+        >
+          <Text style={[t.base, { color: colors.interactive }]}>Privacy Policy</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

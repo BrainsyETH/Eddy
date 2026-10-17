@@ -197,9 +197,9 @@ export default function PrivacyPage() {
         <section>
           <h2 className={heading}>Service Providers and External Links</h2>
           <p className={`${body} mb-3`}>
-            Eddy uses service providers to operate the website and app. Providers processing
-            personal information for Eddy must protect it to the same or an equivalent standard
-            described in this policy and use it only for the services described here:
+            Eddy uses service providers to operate the website and app. Providers that process
+            personal information for Eddy must protect it as this policy describes and use it
+            only to provide these services:
           </p>
           <ul className={list}>
             <li><strong>Vercel</strong> for hosting, delivery, logs, and site analytics.</li>
@@ -275,7 +275,7 @@ export default function PrivacyPage() {
               saved float plans, completed-float summaries, estimate-sharing preference,
               favorites, alert rules, and registered devices. The app also stops an active
               float and removes local float records and raw tracks. If local cleanup fails,
-              the app asks you to retry. Deleting a server account requires a connection. It does not
+              the app asks you to retry. Deleting your account requires a connection. It does not
               cancel an active subscription &mdash; Apple manages billing, so cancel there first
               if you want it stopped.
             </li>
