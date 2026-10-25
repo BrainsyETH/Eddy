@@ -4,7 +4,7 @@
 // Until that catalog arrives, /api/rivers supplies the headline fallback.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -22,7 +22,10 @@ import { GaugeRow } from '@/components/GaugeRow';
 import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
-import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
+import { useSavedPlaces } from '@/hooks/useSavedPlaces';
+import { savedPlaces } from '@/lib/savedPlacesStore';
+import type { SavedPlace } from '@/lib/savedPlaces';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
 import { onForeground } from '@/lib/foreground';
@@ -83,13 +86,15 @@ function gaugeForRiver(
  * The row hides itself below two kinds: a filter offering one real choice is a
  * control pretending to be a decision, and this screen is small by nature.
  */
-type FavoriteKind = 'river' | 'gauge' | 'dam';
+type FavoriteKind = 'river' | 'gauge' | 'dam' | 'place';
 type FavoriteFilter = 'all' | FavoriteKind;
+type FavoriteItem = StarredItem | { kind: 'place'; entityId: string; name: string; starredAt: string; place: SavedPlace };
 
 const FAVORITE_FILTERS: { key: FavoriteKind; label: string }[] = [
   { key: 'river', label: 'Rivers' },
   { key: 'gauge', label: 'Gauges' },
   { key: 'dam', label: 'Dams' },
+  { key: 'place', label: 'Places' },
 ];
 
 export default function FavoritesScreen() {
@@ -98,6 +103,10 @@ export default function FavoritesScreen() {
 
 function FavoritesContent() {
   const { starred, toggleStar, ready } = useStarredRivers();
+  const { places, ready: placesReady, error: placesError } = useSavedPlaces();
+  const favorites = useMemo<FavoriteItem[]>(() => [...starred, ...places.map(place => ({
+    kind: 'place' as const, entityId: place.id, name: place.name, starredAt: place.savedAt, place,
+  }))].sort((a, b) => b.starredAt.localeCompare(a.starredAt)), [starred, places]);
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
@@ -178,7 +187,7 @@ function FavoritesContent() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    await Promise.all([load(), savedPlaces.load()]);
     setRefreshing(false);
   }, [load]);
 
@@ -208,15 +217,16 @@ function FavoritesContent() {
       key,
       label,
       icon: undefined,
-      count: starred.filter((s) => s.kind === key).length,
+      count: favorites.filter((s) => s.kind === key).length,
     })).filter((chip) => chip.count > 0);
     if (present.length < 2) return [];
-    return [{ key: 'all', label: 'All', count: starred.length }, ...present];
-  }, [starred]);
+    return [{ key: 'all', label: 'All', count: favorites.length }, ...present];
+  }, [favorites]);
 
+  const activeFilter = favorites.some(item => item.kind === filter) ? filter : 'all';
   const visible = useMemo(
-    () => (filter === 'all' ? starred : starred.filter((s) => s.kind === filter)),
-    [starred, filter],
+    () => (activeFilter === 'all' ? favorites : favorites.filter((s) => s.kind === activeFilter)),
+    [favorites, activeFilter],
   );
 
   return (
@@ -238,6 +248,7 @@ function FavoritesContent() {
               <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
               <AccountIconButton />
             </View>
+            {placesError ? <Text accessibilityRole="alert" style={[styles.offlineText, { color: colors.error }]}>{placesError}</Text> : null}
             {refreshFailed || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
@@ -256,7 +267,7 @@ function FavoritesContent() {
               <View style={styles.chipRow}>
                 <FilterChips
                   chips={kindChips}
-                  active={[filter]}
+                  active={[activeFilter]}
                   // Single-select, and tapping the live chip returns to All —
                   // the same contract the Today tab's chips have, so the two
                   // rows do not behave differently for looking identical.
@@ -270,17 +281,15 @@ function FavoritesContent() {
           </View>
         }
         ListEmptyComponent={
-          ready ? (
+          ready && placesReady ? (
             <View style={styles.empty}>
               {/* "No favorite rivers yet?" — the heart is the screen. */}
               <EddyScene name="heart" size={128} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                {starred.length > 0 ? 'Nothing of that kind' : 'No favorite rivers yet?'}
+                {favorites.length > 0 ? 'Nothing of that kind' : 'No favorites yet'}
               </Text>
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                {starred.length > 0
-                  ? 'Tap the live chip again to see everything you have saved.'
-                  : 'Tap the star on any river or gauge to add it to your favorites. No account needed — favorites are kept on this device and will sync when you sign in.'}
+                {favorites.length > 0 ? 'Choose All.' : 'Star a river, gauge, dam, or place.'}
               </Text>
             </View>
           ) : null
@@ -297,7 +306,9 @@ function FavoritesContent() {
              share a bottom margin (8, 9 and 10) and the red must end exactly
              where the row does rather than two points short of it. */
           <SwipeRow
-            onAction={() => toggleStar(item)}
+            onAction={() => item.kind === 'place'
+              ? void savedPlaces.remove(item.entityId).catch(() => Alert.alert('Couldn’t remove place', 'Try again.'))
+              : toggleStar(item)}
             actionLabel="Remove"
             accessibilityActionLabel={`Remove ${item.name} from favorites`}
             bottomInset={item.kind === 'dam' ? 8 : item.kind === 'gauge' ? 9 : 10}
@@ -309,7 +320,14 @@ function FavoritesContent() {
     </SafeAreaView>
   );
 
-  function favoriteRow(item: (typeof starred)[number]) {
+  function favoriteRow(item: FavoriteItem) {
+    if (item.kind === 'place') return <Pressable accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/saved-place', params: { id: item.place.id } })}
+      style={({ pressed }) => [styles.row, { padding: 16, minHeight: 72, flexDirection: 'column', alignItems: 'flex-start', gap: 6, backgroundColor: colors.card, opacity: pressed ? 0.65 : 1 }, elevation(1)]}>
+      <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
+      <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{item.place.riverName ?? (item.place.kind === 'campground' ? 'Campground' : 'Access point')}</Text>
+      <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{item.place.detailsDownloadedAt ? `Downloaded ${new Date(item.place.detailsDownloadedAt).toLocaleDateString()}` : 'Details not downloaded'}</Text>
+    </Pressable>;
     if (item.kind === 'dam') {
       const dam = damById.get(item.entityId);
       // No snapshot yet — offline, or /api/dams has not landed. The row

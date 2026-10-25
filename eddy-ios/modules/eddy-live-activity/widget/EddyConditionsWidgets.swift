@@ -141,13 +141,63 @@ struct FavoritesProvider: AppIntentTimelineProvider {
 struct EddyRiverLevelWidget: Widget {
   var body: some WidgetConfiguration {
     AppIntentConfiguration(kind: ConditionsWidgetStore.riverKind, intent: RiverGaugeIntent.self, provider: RiverLevelProvider()) { entry in
-      RiverLevelCard(entry: entry)
+      RiverLevelWidgetView(entry: entry)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .containerBackground(for: .widget) { WidgetCanvas() }
     }
     .configurationDisplayName("River level")
     .description("A gauge reading, its condition and the last 24 hours. Open Eddy once, then edit to choose a station.")
-    .supportedFamilies([.systemSmall])
+    .supportedFamilies([.systemSmall, .accessoryRectangular])
+  }
+}
+
+private struct RiverLevelWidgetView: View {
+  let entry: ConditionsEntry
+  @Environment(\.widgetFamily) private var family
+  var body: some View {
+    if family == .accessoryRectangular {
+      LockScreenGauge(entry: entry)
+    } else {
+      RiverLevelCard(entry: entry)
+    }
+  }
+}
+
+private struct LockScreenGauge: View {
+  let entry: ConditionsEntry
+  var body: some View {
+    if let choice = entry.choices.first {
+      let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(choice.riverName).font(.headline).lineLimit(1)
+        HStack(spacing: 4) {
+          Text("\(display.reading) \(display.unit)").font(.title3.bold()).monospacedDigit().minimumScaleFactor(0.8).lineLimit(1)
+          if display.current, let direction = display.series?.direction {
+            Image(systemName: direction == "rising" ? "arrow.up" : direction == "falling" ? "arrow.down" : "arrow.right")
+              .accessibilityLabel(display.trend ?? direction)
+          }
+        }
+        HStack(spacing: 4) {
+          if display.confirmedWarning != nil || display.hasAlert || display.alertsUnavailable {
+            Text(display.status)
+          } else if display.snapshot?.suspect == true {
+            Text("Flagged")
+          } else if !display.current, display.snapshot != nil {
+            Text("Older")
+          }
+          if let observed = display.snapshot?.observedDate {
+            Text(observed, style: .relative)
+          } else {
+            Text("No reading")
+          }
+        }.font(.caption2).lineLimit(1)
+      }
+      .widgetURL(choice.url)
+      .accessibilityElement(children: .combine)
+    } else {
+      Text("Choose a gauge").font(.headline)
+        .widgetURL(URL(string: "eddy://favorites"))
+    }
   }
 }
 struct EddyFavoritesWidget: Widget {

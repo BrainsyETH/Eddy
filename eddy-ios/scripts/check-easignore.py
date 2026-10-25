@@ -52,6 +52,8 @@ REQUIRED = [
     "eddy-ios/modules/eddy-live-activity/widget/EddyConditionsWidgets.swift",
     "eddy-ios/modules/eddy-live-activity/widget/ConditionsPreview.json",
     "eddy-ios/modules/eddy-live-activity/ios/SupplementaryWidgetData.swift",
+    "eddy-ios/modules/eddy-live-activity/ios/ShortcutData.swift",
+    "eddy-ios/modules/eddy-live-activity/shortcuts/EddyAppShortcuts.swift",
     "eddy-ios/modules/eddy-live-activity/widget/EddyReportWidgets.swift",
     "eddy-ios/modules/eddy-live-activity/widget/DamWidgetCatalog.json",
     "eddy-ios/assets/eddy/eddy-checking-gauge.png",

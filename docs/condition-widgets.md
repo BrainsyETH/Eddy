@@ -14,7 +14,7 @@ The small widget can select any curated station/river association or a starred
 national gauge through Edit Widget. Open Eddy once to populate the picker.
 Its public river/station names are retained separately when a gauge is
 unstarred; resolving that choice never adds it back to Favorites or the picker.
-Additional widget sizes and condition Lock Screen accessories are separate work.
+The rectangular Lock Screen family is included in native layout 4 below; other accessory families remain separate work.
 The existing River Mode Live Activity is unchanged.
 
 ## Discovering widgets in Alerts
@@ -207,11 +207,25 @@ after three hours and only the current Central calendar date can render.
 Gauge and weather requests fail independently. Tapping opens `/river/:slug`.
 This widget does not fetch Premium Eddy Read prose, credentials or account data.
 
-The optional synchronous `widgetLayoutVersion()` native bridge returns 3 for
-these visual layouts. In-app setup guidance shows hourly schedule illustrations
-only on v3, keeps next-change instructions on v2, and automatic Favorites on
+The optional synchronous `widgetLayoutVersion()` native bridge returned 3 for
+these visual layouts (4 with the Lock Screen extension below). In-app setup guidance shows hourly schedule illustrations
+on v3 and later, keeps next-change instructions on v2, and automatic Favorites on
 v1. This change requires a new native iOS binary. Deploy
 the additive dam widget API before distributing that binary; against an older
 API, the dam widget remains unavailable rather than interpreting an incompatible
 payload. Simulator compilation, static-to-configurable widget upgrade migration,
 and device layout/timeline checks remain release gates, not proven by JS tests.
+
+## Lock Screen extension (native layout 4)
+
+`EddyRiverLevelWidget` supports `accessoryRectangular` in addition to
+`systemSmall`; it keeps the same kind, configuration intent, cache, unit
+selection and timeline provider. The Lock Screen displays one reading, a trend
+only while its observation/history remain valid, and the original observation
+age. Warning, flagged and older states remain visible without relying on color.
+No extra background task, location collection or refresh cadence is added.
+The in-app widget guide hides this family on binaries below layout version 4.
+
+Native build, Lock Screen layout/VoiceOver, Always-On and failed-network device
+verification remain unconfirmed. Host App Shortcuts and their validation are
+described in `eddy-ios/README.md` under App Shortcuts.

@@ -56,6 +56,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { savedPlaces } from '@/lib/savedPlacesStore';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
@@ -437,7 +438,7 @@ function ProfileContent() {
       // Server deletion succeeded. Local cleanup has its own retry so it can
       // never be reported as an account-deletion failure or silently skipped.
       const finish = async () => {
-        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats()]);
+        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats(), savedPlaces.clear()]);
         if (cleanup.every(entry => entry.status === 'fulfilled')) await forgetSession();
         const subscriptionNote = result?.hadActiveEntitlement
           ? ' Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'

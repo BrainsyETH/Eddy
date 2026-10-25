@@ -78,8 +78,7 @@ export function HomeScreenWidgetsIntro() {
         >
           <ControlIcon name="grid-outline" size={20} color={colors.interactive} />
           <View style={styles.compactCopy}>
-            <Text style={[styles.compactTitle, { color: colors.text }]}>Home Screen widgets</Text>
-            <Text style={[t.xs, { color: colors.textMuted }]}>Explore your Home Screen widgets</Text>
+            <Text style={[styles.compactTitle, { color: colors.text }]}>Widgets</Text>
           </View>
           <ControlIcon name="chevron-forward" size={17} color={colors.textMuted} />
         </Pressable>
@@ -91,10 +90,7 @@ export function HomeScreenWidgetsIntro() {
             </View>
             <View style={styles.invitationCopy}>
               <Text style={[styles.invitationTitle, { color: colors.text }]}>
-                River levels, right on your Home Screen
-              </Text>
-              <Text style={[styles.invitationBody, { color: colors.textMuted }]}>
-                Add an Eddy widget to see your favorite water at a glance.
+                River widgets
               </Text>
             </View>
             <Pressable
@@ -112,7 +108,7 @@ export function HomeScreenWidgetsIntro() {
             accessibilityLabel="Learn how to add Eddy widgets"
             style={styles.learn}
           >
-            <Text style={[styles.learnText, { color: colors.interactive }]}>See how to add widgets</Text>
+            <Text style={[styles.learnText, { color: colors.interactive }]}>Set up widgets</Text>
             <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
           </Pressable>
         </View>
@@ -128,7 +124,8 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
   const reducedMotion = useReducedMotion();
   const [kind, setKind] = useState<WidgetGuideKind>('river');
   const choice = widgetGuide(kind, nativeWidgetLayoutVersion);
-  const kinds: WidgetGuideKind[] = nativeWidgetLayoutVersion >= 2 ? ['river', 'favorites', 'dam', 'report'] : ['river', 'favorites'];
+  const kinds: WidgetGuideKind[] = nativeWidgetLayoutVersion >= 4 ? ['river', 'lock', 'favorites', 'dam', 'report']
+    : nativeWidgetLayoutVersion >= 2 ? ['river', 'favorites', 'dam', 'report'] : ['river', 'favorites'];
 
   return (
     <Modal
@@ -147,7 +144,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
         >
           <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
             <Text accessibilityRole="header" style={[styles.sheetTitle, { color: colors.text }]}>
-              Home Screen widgets
+              Widgets
             </Text>
             <Pressable
               onPress={onClose}
@@ -159,10 +156,6 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={styles.sheetContent}>
-            <Text style={[styles.sheetIntro, { color: colors.textMuted }]}>
-              See a river reading without opening Eddy. Choose the widget that suits your Home Screen.
-            </Text>
-
             <View style={styles.choiceRow}>
               {kinds.map((variant) => {
                 const item = WIDGET_GUIDE[variant];
@@ -231,6 +224,15 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
   const { colors } = useTheme();
   const isSmall = kind === 'river';
   const visual = nativeWidgetLayoutVersion >= 3;
+
+  if (kind === 'lock') return <View accessible accessibilityLabel="Example Lock Screen gauge: Current River, 1,240 cfs, rising, observed 15 minutes ago. Sample data."
+    style={[styles.previewStage, { backgroundColor: colors.selectionBg }]}>
+    <View style={{ gap: 3 }}>
+      <Text style={[t.sm, { color: colors.text, fontFamily: fonts.heading }]}>Current River</Text>
+      <Text style={[t.xl, { color: colors.text, fontFamily: fonts.heading }]}>1,240 cfs ↑</Text>
+      <Text style={[t.xs, { color: colors.textMuted }]}>15 min ago</Text>
+    </View>
+  </View>;
 
   return (
     <View style={[styles.previewStage, { backgroundColor: colors.selectionBg }]}>

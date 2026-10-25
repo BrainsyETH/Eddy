@@ -1004,6 +1004,40 @@ composites those itself).
 
 ## Home Screen widgets
 
+The River level widget also supports the rectangular Lock Screen family in
+native layout version 4. It uses the same selected station, unit, observation,
+trend expiration, disk cache and WidgetKit refresh budget as the Home Screen
+widget. There is no new polling loop. Its three lines show the river, reading
+and eligible trend, then warning/staleness and observation age. The setup guide
+offers Lock Screen instructions only on a binary with this family.
+
+### App Shortcuts
+
+The host target compiles `EddyAppShortcuts.swift` through `withFloatActivity`:
+**Open my river**, **Return to float**, and **Prepare saved route**. Open my river
+uses the selected river or the most recently starred river; no river opens
+Favorites. Prepare saved route accepts a saved route parameter and opens its
+existing Ready to float screen. Without a selection it opens Saved Floats;
+older saves without endpoint IDs open their existing plan detail. It never
+starts tracking or downloads in the background. Return to float opens the
+existing recording presentation, including its no-active-float state.
+
+Only current river/route IDs and display names enter the native shortcut
+catalog; no GPS positions, contacts, route geometry or logistics are exported.
+Requests survive React's cold launch, are consumed once, expire after two
+minutes, and resolve against the currently visible collection. An old Siri
+selection cannot reopen a removed or other-account saved route. Old binaries
+skip the optional bridge. Widget and shortcut changes require a **new native
+build**, not an OTA update.
+
+Native compilation, Siri discovery, cold/warm shortcut handoff, Lock Screen
+fit and VoiceOver on a device are **unconfirmed**. Before release, check all
+three actions from a terminated and running app, with zero/multiple favorites,
+deleted routes and account changes; verify Prepare stops before recording.
+Check the rectangular widget with long river names, no reading, stale/flagged
+readings, a warning, airplane mode and Always-On dimming. Existing widget
+verification gates still apply.
+
 Home Screen River level and Your rivers widgets share the Float Activity native
 target. Their data contract, offline behavior, configuration and build gates
 are documented in [`docs/condition-widgets.md`](../docs/condition-widgets.md).
@@ -1092,6 +1126,39 @@ Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
 readings still show their specific qualifier note.
 
 ## Favorites
+
+Access points, boat ramps and campgrounds can also be starred from the map
+sheet or access detail toolbar. Favorites → saved place opens the local
+snapshot directly, without a float route or waiting for the network. Saved
+places use the versioned `eddy.savedPlaces.v1` store. This first version is
+device-local: places are **never sent to Eddy's servers**, do not sync across
+devices, and may be included in normal device backups. Account deletion clears
+them; a late read, write or refresh cannot restore a removed place.
+
+Snapshots include coordinates, driving location when available,
+access/parking/road/fee notes, amenities and contact/booking links. Dynamic
+campsite availability is not saved. Saving initiates a download; opening the
+saved place performs no fetch. **Refresh** explicitly updates its details,
+gauge and linked dam. Bare access pins remain **Details not downloaded** until
+the detail fetch succeeds. Failed refreshes preserve the previous snapshot.
+Details, gauge and dam download timestamps are independent of the gauge and
+release observation times and the schedule's date/retrieval time.
+
+An access uses its server-selected gauge. Only a single whole-river dam
+association is automatic; partial-reach or ambiguous associations require
+**Choose dam**. The dam detail request downloads the multi-day schedule (the
+index does not include it). A missing replacement schedule preserves the last
+downloaded schedule for the same dam, with its original timestamps. Past
+Central-Time dates say **Historical schedule**; older and undated schedules
+are labeled separately. Switching dams never carries over the old dam's
+schedule. Raw saved readings have their observation time and no live condition
+verdict. This downloads details, not an offline basemap.
+
+Device verification is **unconfirmed**: save an access and a standalone
+campground online, force-quit, enable airplane mode, then open each in two taps
+from Favorites. Check parking/directions, phone/booking links, gauge age and
+the previous day's historical schedule; repeat with a failed first download,
+large text and VoiceOver. Validate a partial-reach dam choice with anglers.
 
 River cards show a reading pill for every linked gauge, ordered upstream to
 downstream using the existing gauge catalog. Each row opens its station when
