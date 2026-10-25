@@ -34,6 +34,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
+import { usePlaceFavorite } from '@/hooks/usePlaceFavorite';
+import { placeFromAccess, placeFromPin } from '@/lib/savedPlaces';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
@@ -120,10 +122,13 @@ export function PinSheet(props: PinSheetProps) {
   return <SheetPresentation metrics={props.metrics}><PinSheetSelection key={props.pin.id} {...props} /></SheetPresentation>;
 }
 
-function PinSheetSelection(props: PinSheetProps) {
-  const { pin, accessPoint, width } = props;
+function PinSheetSelection(input: PinSheetProps) {
+  const { pin, accessPoint, width } = input;
   // Core facts first, then float estimates, shared by every tab.
   const { detail, status, estimatesStatus } = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
+  const place = detail ? placeFromAccess(detail, new Date().toISOString()) : placeFromPin(pin, new Date().toISOString());
+  const favorite = usePlaceFavorite(place);
+  const props = place ? { ...input, starred: favorite.starred, onToggleStar: () => void favorite.toggle() } : input;
   // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
   // that is not a station rather than the call being made conditionally.
   const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';

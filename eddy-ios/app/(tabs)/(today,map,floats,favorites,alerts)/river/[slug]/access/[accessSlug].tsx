@@ -64,6 +64,8 @@ import type {
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
+import { usePlaceFavorite } from '@/hooks/usePlaceFavorite';
+import { placeFromAccess } from '@/lib/savedPlaces';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import {
   conditionBg,
@@ -405,6 +407,7 @@ export default function AccessPointDetailScreen() {
     slug && accessSlug ? `/river/${slug}/access/${accessSlug}` : null,
   );
   const loading = status === 'loading';
+  const favorite = usePlaceFavorite(data ? placeFromAccess(data, new Date().toISOString()) : null);
 
   /**
    * The point as the tapped row already knew it, off the disk cache.
@@ -507,6 +510,8 @@ export default function AccessPointDetailScreen() {
       <NativeHeaderHome />
 
       <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button icon={favorite.starred ? 'star.fill' : 'star'} accessibilityLabel={favorite.starred ? `Remove ${point.name} from Favorites` : `Save ${point.name}`}
+          onPress={() => void favorite.toggle()}>{favorite.starred ? 'Saved' : 'Save'}</Stack.Toolbar.Button>
         {sharePath ? (
           <Stack.Toolbar.Button
             icon="square.and.arrow.up"

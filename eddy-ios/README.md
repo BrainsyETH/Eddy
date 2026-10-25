@@ -1093,6 +1093,54 @@ readings still show their specific qualifier note.
 
 ## Favorites
 
+Access points, boat ramps and campgrounds offer **Save/Saved** from the map
+sheet and access toolbar. Favorites → place opens the downloaded details in
+two taps, without a route or a network request. Rows show a cached gauge and
+its age, or today's **scheduled** generation window when available.
+
+Places are stored in versioned `eddy.savedPlaces.v2:<owner>` collections:
+one for each signed-in account and one for guests. Switching accounts hides
+the previous collection immediately and restores the selected account's
+saves. Existing unowned v1 data migrates only into the guest collection; it
+is never silently assigned to an account. Account deletion clears that
+account's collection. Late reads, writes and downloads cannot publish into
+a different account or restore a deleted place. Places are **never sent to
+Eddy's servers**, do not sync across devices, and may be included in normal
+device backups.
+
+Snapshots include labeled parking, road, agency, facilities, fees and tips;
+private access and required fees appear first. They retain coordinates,
+driving location, amenities and contact/booking links, but no campsite
+availability. Saving starts a download. **Refresh** retries explicitly;
+foregrounding and reconnecting also retry missing/stale downloads while the
+app is active and connected. A batch handles at most four places with two
+workers, with failure backoff from one to thirty minutes. Details and dam
+associations are checked daily; downloaded gauge/dam data after fifteen
+minutes. There is no background polling. Bare access pins remain **Details
+not downloaded** until their detail request succeeds. Failed downloads keep
+the previous data. A new download never changes an observation timestamp or
+a schedule day's original retrieval time.
+
+Gauge freshness uses the existing `readingBand`: stale numbers are muted,
+out-of-date numbers are withheld, and only fresh readings show the canonical
+river condition. This is a flow condition, not a claim about fishability.
+Dam sections appear for linked or river-related dams; elsewhere there is an
+**Add a dam schedule** link. The searchable picker orders river-related dams
+first. Only an unambiguous whole-river association is automatic. Removing a
+dam persists an opt-out. Changing dams cannot retain the old dam's schedule.
+The full dam request supplies schedules; a missing replacement preserves
+the same dam's earlier schedule and original dates. Today and Tomorrow lead;
+past Central-Time days collapse under **Earlier schedules** and remain
+**Historical schedule**. These are downloaded details, not an offline basemap.
+
+This change adds no native code or dependency and is separate from the
+widget/Shortcuts build. OTA eligibility still depends on matching the
+production runtime. Device verification is **unconfirmed**: save an access
+and campground, force-quit, enable airplane mode, and reopen from Favorites.
+Check failed first downloads, reconnect retries, large text, VoiceOver,
+account A → guest → B → A, deletion during a download, expired gauge data,
+and historical schedules. Validate partial-reach dam choices with anglers.
+
 River cards show a reading pill for every linked gauge, ordered upstream to
 downstream using the existing gauge catalog. Each row opens its station when
 it has a site ID. Pills prefer CFS and fall back to feet when discharge is
