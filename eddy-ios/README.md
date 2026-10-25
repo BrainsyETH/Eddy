@@ -1238,6 +1238,23 @@ for why safety data can never sit behind a wall.
 
 ### Starting a float
 
+Production feature flags retain their last successful values across failed refreshes
+and offline launches. Only recognized boolean flags are persisted, keyed by API base
+URL and environment; notices and version gates are never cached. Cache hydration
+is separate from the launch upgrade decision, and a successful server response wins
+over a late cache read. An active float remains reachable from Floats, saved routes,
+and the planner even when new starts are disabled or route details are unavailable.
+
+Ready to float offers take-out and mapped-hazard reminder choices before starting.
+Those choices are saved in the initial session. Notification permission is optional
+and requested only after tapping Enable; recording does not require it. The same
+OS permission reader is used by readiness, River Mode and local delivery, separately
+from remote push availability, sign-in and token registration. Provisional permission
+or disabled alerts/sound is shown as quiet delivery. Permission is rechecked on
+foreground; neither permission nor scheduling proves audible delivery. Production
+cold/offline launch and locked-phone delivery verification remain unconfirmed.
+
+
 Every entry opens **Ready to float** in its originating tab. A plan fills in
 river, named put-in, take-out and boat; the Floats button starts with an empty
 river and take-out unless an unfinished downloaded setup is recovered. River,

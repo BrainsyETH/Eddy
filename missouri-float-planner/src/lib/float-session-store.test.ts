@@ -252,3 +252,17 @@ test('a float cancelled before it measured anything saves no recap and does not 
   assert.equal(disk.data.has(STORAGE_KEY), false);
   assert.deepEqual(recaps, []);
 });
+
+
+import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
+
+test('readiness reminder opt-outs are in the first durable session and survive relaunch', async () => {
+  const disk = fakeDisk();
+  const store = createFloatSessionStore(disk, quiet);
+  const reminders = initialFloatReminders({ takeOut: false, hazards: false, stops: [] });
+  assert.equal(await store.begin({ ...newSession(), reminders }), 'started');
+  assert.deepEqual(JSON.parse(disk.data.get(STORAGE_KEY)!).reminders, reminders);
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.deepEqual(relaunched.get()?.reminders, { ...reminders, pending: [] });
+});

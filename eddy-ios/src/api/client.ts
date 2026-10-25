@@ -109,7 +109,7 @@ import {
   type RequestOutcome,
 } from '@/lib/requestTiming';
 
-const BASE_URL =
+export const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
 
 export const USER_AGENT = 'EddyiOS/0.1';

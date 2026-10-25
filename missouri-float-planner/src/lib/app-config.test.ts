@@ -124,3 +124,51 @@ test('Find a Float production and unidentified builds still require an explicit 
     assert.equal(floatSearchEnabled({ floatSearch: true }, environment), true);
   }
 });
+
+
+import { hydrateAppFeatures, appFeatureCacheKey, parseAppFeatureCache } from '../../../eddy-ios/src/lib/appConfigState';
+import { floatEntryAction } from '../../../eddy-ios/src/lib/floatEntry';
+
+test('production flags survive a failed foreground refresh but transient config does not', () => {
+  const live = receiveAppConfig(initialAppConfigState, {
+    features: { floatMode: true, floatSearch: true }, notice: 'Outage', minSupportedVersion: '1.0.0',
+  } as MobileConfig, '1.0.0');
+  const failed = receiveAppConfig(live, null, '1.0.0');
+  assert.equal(floatModeEnabled(failed.features, 'production'), true);
+  assert.equal(floatSearchEnabled(failed.features, 'production'), true);
+  assert.equal(failed.config, null);
+  const disabled = receiveAppConfig(failed, { features: { floatMode: false, floatSearch: false } } as MobileConfig, '1.0.0');
+  assert.equal(floatModeEnabled(disabled.features, 'production'), false);
+  assert.equal(floatSearchEnabled(disabled.features, 'production'), false);
+});
+
+test('cold offline launch uses cached flags without using cached upgrade policy', () => {
+  const cached = hydrateAppFeatures(initialAppConfigState, { floatMode: true });
+  assert.equal(cached.loading, true);
+  assert.equal(cached.featuresReady, true);
+  const offline = receiveAppConfig(cached, null, '1.0.0');
+  assert.equal(floatModeEnabled(offline.features, 'production'), true);
+  assert.equal(offline.upgradeRequired, false);
+  assert.equal(receiveAppConfig(cached, { minSupportedVersion: '2.0.0', features: {} } as MobileConfig, '1.0.0').upgradeRequired, true);
+});
+
+test('server success beats late disk hydration; failed network permits late cache', () => {
+  const remote = receiveAppConfig(initialAppConfigState, { features: { floatMode: false } } as MobileConfig, '1.0.0');
+  assert.equal(hydrateAppFeatures(remote, { floatMode: true }).features.floatMode, false);
+  const failed = receiveAppConfig(initialAppConfigState, null, '1.0.0');
+  assert.equal(hydrateAppFeatures(failed, { floatMode: true }).features.floatMode, true);
+});
+
+test('cache rejects malformed data and isolates API environments', () => {
+  for (const raw of [null, '{', 'null', '[]', '"yes"']) assert.deepEqual(parseAppFeatureCache(raw), {});
+  assert.deepEqual(parseAppFeatureCache(JSON.stringify({ floatMode: true, floatSearch: false, push: 'true', notice: 'old', minSupportedVersion: '99.0', future: true })), { floatMode: true, floatSearch: false });
+  assert.notEqual(appFeatureCacheKey('https://eddy.guide', 'production'), appFeatureCacheKey('https://eddy.guide', 'preview'));
+  assert.notEqual(appFeatureCacheKey('https://eddy.guide', 'production'), appFeatureCacheKey('https://preview.eddy.guide', 'production'));
+});
+
+test('all entry points must prioritize the active float over disabled flags and missing routes', () => {
+  for (const enabled of [false, true]) for (const ready of [false, true]) {
+    assert.equal(floatEntryAction(true, enabled, ready), 'return');
+    assert.equal(floatEntryAction(false, enabled, ready), enabled && ready ? 'start' : null);
+  }
+});

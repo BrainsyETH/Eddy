@@ -22,10 +22,11 @@ import {
   type ReactNode,
 } from 'react';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppConfigResponse, AppFeatureFlags } from '@eddy/types';
 import { onForeground } from '@/lib/foreground';
-import { fetchAppConfig } from '@/api/client';
-import { initialAppConfigState, receiveAppConfig } from '@/lib/appConfigState';
+import { BASE_URL, fetchAppConfig } from '@/api/client';
+import { initialAppConfigState, receiveAppConfig, hydrateAppFeatures, appFeatureCacheKey, parseAppFeatureCache } from '@/lib/appConfigState';
 
 const DEFAULT_FEATURES: AppFeatureFlags = {
   campingHeatmap: false,
@@ -40,6 +41,7 @@ const DEFAULT_FEATURES: AppFeatureFlags = {
 interface AppConfigValue {
   config: AppConfigResponse | null;
   loading: boolean;
+  featuresReady: boolean;
   /** Launch-time decision; foreground flag refresh cannot interrupt a session. */
   upgradeRequired: boolean;
   features: AppFeatureFlags;
@@ -50,6 +52,7 @@ interface AppConfigValue {
 const AppConfigContext = createContext<AppConfigValue>({
   config: null,
   loading: true,
+  featuresReady: false,
   upgradeRequired: false,
   features: DEFAULT_FEATURES,
   notice: null,
@@ -57,17 +60,34 @@ const AppConfigContext = createContext<AppConfigValue>({
 
 export function AppConfigProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(initialAppConfigState);
-  const { config, loading, upgradeRequired } = state;
+  const { config, loading, upgradeRequired, featuresReady, features: effectiveFeatures } = state;
 
   useEffect(() => {
     let controller: AbortController | null = null;
     let active = true;
+    const cacheKey = appFeatureCacheKey(BASE_URL, resolveEnvironment());
+    // A stuck disk read must not hold the controls indefinitely. The network runs in parallel.
+    let cacheFinished = false;
+    const hydrate = (raw: string | null) => {
+      if (!active || cacheFinished) return;
+      cacheFinished = true;
+      clearTimeout(cacheTimeout);
+      setState(previous => hydrateAppFeatures(previous, parseAppFeatureCache(raw)));
+    };
+    const cacheTimeout = setTimeout(() => hydrate(null), 1000);
+    void AsyncStorage.getItem(cacheKey).then(hydrate, () => hydrate(null));
+    // Serialize writes so an older successful refresh cannot finish after a newer one.
+    let cacheWrite = Promise.resolve();
     async function load() {
       controller?.abort();
       const current = new AbortController();
       controller = current;
       const next = await fetchAppConfig(current.signal);
       if (active && !current.signal.aborted) {
+        if (next) {
+          const flags = JSON.stringify(parseAppFeatureCache(JSON.stringify(next.features)));
+          cacheWrite = cacheWrite.then(() => AsyncStorage.setItem(cacheKey, flags)).catch(() => {});
+        }
         setState((previous) =>
           receiveAppConfig(previous, next, Constants.expoConfig?.version ?? null),
         );
@@ -77,6 +97,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     const off = onForeground(() => void load());
     return () => {
       active = false;
+      clearTimeout(cacheTimeout);
       controller?.abort();
       off();
     };
@@ -87,18 +108,19 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     return {
       config,
       loading,
+      featuresReady,
       upgradeRequired,
       features: {
         ...DEFAULT_FEATURES,
-        ...config?.features,
-        campingHeatmap: campingHeatmapEnabled(config?.features),
-        crowdSignal: crowdSignalEnabled(config?.features),
-        floatMode: floatModeEnabled(config?.features, environment),
-        floatSearch: floatSearchEnabled(config?.features, environment),
+        ...effectiveFeatures,
+        campingHeatmap: campingHeatmapEnabled(effectiveFeatures),
+        crowdSignal: crowdSignalEnabled(effectiveFeatures),
+        floatMode: floatModeEnabled(effectiveFeatures, environment),
+        floatSearch: floatSearchEnabled(effectiveFeatures, environment),
       },
       notice: config?.notice ?? null,
     };
-  }, [config, loading, upgradeRequired]);
+  }, [config, loading, upgradeRequired, featuresReady, effectiveFeatures]);
 
   return (
     <AppConfigContext.Provider value={value}>

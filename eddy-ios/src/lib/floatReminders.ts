@@ -78,6 +78,13 @@ export interface FloatReminderSettings {
 
 export const DEFAULT_REMINDERS: FloatReminderSettings = { takeOut: true, stops: [], fired: [] };
 
+export type FloatReminderChoices = Pick<FloatReminderSettings, 'takeOut' | 'stops' | 'hazards'>;
+
+/** Choices are part of the first durable session, before recording can deliver anything. */
+export function initialFloatReminders(choices: FloatReminderChoices): FloatReminderSettings {
+  return { takeOut: choices.takeOut, hazards: choices.hazards !== false, stops: [...choices.stops], fired: [] };
+}
+
 export function remindersOf(session: FloatSession): FloatReminderSettings {
   return session.reminders ?? DEFAULT_REMINDERS;
 }

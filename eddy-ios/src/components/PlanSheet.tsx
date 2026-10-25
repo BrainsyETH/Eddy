@@ -20,6 +20,7 @@
 // opens a saved float: a shared plan that read differently from the plan that
 // produced it would be a plan nobody trusts.
 
+import { floatEntryAction } from '@/lib/floatEntry';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useIsFocused, useRouter } from 'expo-router';
 import {
@@ -142,7 +143,7 @@ export function PlanSheet({
   const presentDetail = useCallback(() => {
     const destination = detailNavigation.dismissed();
     if (!destination) return;
-    if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
+    if (!visible || !focused || (!resultReady && destination.pathname !== '/float-mode')) { detailNavigation.reset(); return; }
     if (destination.pathname === '/') {
       if (onViewMap) onViewMap();
       else {
@@ -202,12 +203,18 @@ export function PlanSheet({
   }, [actions, plan, visible, resultReady, savedFloatsReady, isSaved, forgetPlan, remember]);
 
   // Every route opens readiness in this tab, or resumes the active recorder.
-  const canStart = features.floatMode && resultReady && plan != null;
+  const entry = floatEntryAction(!!activeFloat, !!features.floatMode, resultReady && plan != null);
   const onStart = useCallback(() => {
-    if (!plan || !visible || !resultReady || !focused) return;
+    if (!visible || !focused) return;
+    if (entry === 'return') {
+      actions.cancelShare();
+      detailNavigation.open({ pathname: '/float-mode' });
+      return;
+    }
+    if (entry !== 'start' || !plan || !resultReady) return;
     const kept = floats.find((f) => f.riverSlug === plan.river.slug && f.putInId === plan.putIn.id && f.takeOutId === plan.takeOut.id);
     actions.cancelShare();
-    detailNavigation.open(activeFloat ? { pathname: '/float-mode' } : {
+    detailNavigation.open({
       pathname: '/float-start',
       params: {
         riverSlug: plan.river.slug,
@@ -217,7 +224,7 @@ export function PlanSheet({
         ...(kept ? { shortCode: kept.shortCode } : {}),
       },
     });
-  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused, activeFloat]);
+  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused, entry]);
 
   const heading = (
     <View style={styles.headText}>
@@ -250,7 +257,7 @@ export function PlanSheet({
       }}
     >
       <SafeAreaProvider>
-      <SafeAreaView edges={resultReady ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
+      <SafeAreaView edges={resultReady || entry === 'return' ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
         <View style={[styles.head, stacked && styles.compactHead]}>
           {!stacked ? heading : null}
           <Pressable onPress={close} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close planner">
@@ -366,7 +373,7 @@ export function PlanSheet({
             </>}
           />
         )}
-        {resultReady ? (
+        {resultReady || entry === 'return' ? (
           <SafeAreaView edges={['bottom']} style={[styles.actionFooter, { backgroundColor: colors.chrome, borderTopColor: colors.border }]}>
             {actionErrors.length > 0 ? (
               <ScrollView style={styles.actionErrorArea} contentContainerStyle={styles.actionErrorContent}>
@@ -375,7 +382,7 @@ export function PlanSheet({
                 ))}
               </ScrollView>
             ) : null}
-            {canStart ? (
+            {entry ? (
               <Pressable
                 onPress={onStart}
                 style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
@@ -386,7 +393,7 @@ export function PlanSheet({
                 <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
               </Pressable>
             ) : null}
-            <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
+            {resultReady ? <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
               <Pressable
                 onPress={() => void onToggleSave()}
                 disabled={saving || !savedFloatsReady}
@@ -422,7 +429,7 @@ export function PlanSheet({
                 )}
                 <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{sharing ? 'Sharing…' : 'Share'}</Text>
               </Pressable>
-            </View>
+            </View> : null}
           </SafeAreaView>
         ) : null}
       </SafeAreaView>

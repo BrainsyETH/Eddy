@@ -15,8 +15,10 @@
 // lines on saved floats, read from the same rules as each trip's own card. Featured Floats are the first three of the
 // curated picks in the same daily rotation Today used, swiped one at a time.
 
+import { floatEntryAction } from '@/lib/floatEntry';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -70,7 +72,7 @@ function FloatHomeContent() {
   const navigate = useNavigationAction();
   const { colors, elevation } = useTheme();
   const { floats: saved, ready, forget } = useSavedFloats();
-  const { features } = useAppConfig();
+  const { features, featuresReady } = useAppConfig();
   const activeFloat = useFloatSession();
   const savedPreview = saved.slice(0, SAVED_PREVIEW_COUNT);
   const photos = useCachedRiverPhotos();
@@ -134,8 +136,8 @@ function FloatHomeContent() {
           </View>
         </View>
 
-        <View style={[styles.gutter, styles.actions]}>
-          {features.floatMode ? (
+        {featuresReady || activeFloat ? <View style={[styles.gutter, styles.actions]}>
+          {floatEntryAction(!!activeFloat, featuresReady && !!features.floatMode) ? (
             <Pressable
               onPress={() => navigate(() => router.push(activeFloat ? '/float-mode' : '/float-start'))}
               accessibilityRole="button"
@@ -175,7 +177,7 @@ function FloatHomeContent() {
               <Text style={[styles.actionTitle, { color: features.floatMode ? colors.text : colors.onAccent }]}>Build a Route</Text>
               <Text style={[t.sm, { color: features.floatMode ? colors.textMuted : colors.onAccent }]}>Choose your put-in and take-out</Text>
             </Pressable>
-            {features.floatSearch ? (
+            {featuresReady && features.floatSearch ? (
               <Pressable
                 onPress={() => navigate(() => router.push('/find-float'))}
                 accessibilityRole="button"
@@ -192,7 +194,7 @@ function FloatHomeContent() {
               </Pressable>
             ) : null}
           </View>
-        </View>
+        </View> : <ActivityIndicator accessibilityLabel="Loading float options" color={colors.interactive} />}
 
         <View style={styles.section}>
           <View style={styles.gutter}>
