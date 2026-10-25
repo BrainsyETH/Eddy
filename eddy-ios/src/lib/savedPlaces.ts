@@ -88,7 +88,6 @@ export function savedScheduleState(day: DamSnapshot['schedule'][number], now: Da
   return scheduleIsStale(day.retrievedAt, now.getTime()) ? 'Older schedule' : 'Downloaded schedule';
 }
 
-export const LEGACY_SAVED_PLACES_KEY = 'eddy.savedPlaces.v1';
 export const savedPlacesKey = (owner: string) => `eddy.savedPlaces.v2:${encodeURIComponent(owner)}`;
 export const SAVED_PLACES_KEY = savedPlacesKey('guest');
 export function savedPlacesOwner(userId: string | undefined, anonymous: boolean) { return userId && !anonymous ? userId : 'guest'; }
@@ -116,11 +115,29 @@ export function decodeSavedPlaces(raw: string | null): SavedPlace[] {
           Array.isArray(d.hours) && d.hours.every(h => h && Number.isFinite(h.hourEnding) && Number.isFinite(h.megawatts)) && Array.isArray(d.idle)) ? p.dam : null,
     }));
 }
+/** Keep account-specific details/settings on a duplicate, but its first save date. */
+function mergeGuestPlaces(account: SavedPlace[], guest: SavedPlace[]) {
+  const rows = new Map(account.map(place => [place.id, place]));
+  for (const place of guest) {
+    const existing = rows.get(place.id);
+    if (!existing) rows.set(place.id, place);
+    else if (Date.parse(place.savedAt) < Date.parse(existing.savedAt) || !Number.isFinite(Date.parse(existing.savedAt)))
+      rows.set(place.id, { ...existing, savedAt: place.savedAt });
+  }
+  return [...rows.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+const claimedOwner = (raw: string | null): string | null => {
+  const owner = raw ? JSON.parse(raw)?.claimedBy : null;
+  return typeof owner === 'string' && owner !== 'guest' ? owner : null;
+};
+const encodePlaces = (places: SavedPlace[], claimedBy?: string) => JSON.stringify({ version: 2, places, ...(claimedBy ? { claimedBy } : {}) });
+
 /** Scope changes hide old rows immediately; late work can only touch its original scope. */
 export function createSavedPlacesStore(storage: Storage) {
   let state: { owner: string; scopeToken: number; ready: boolean; places: SavedPlace[]; error: string | null } =
     { owner: 'guest', scopeToken: 0, ready: false, places: [], error: null };
   let loading: Promise<void> | null = null;
+  let claimGuest = false;
   let writes = Promise.resolve();
   const listeners = new Set<() => void>();
   const publish = (next: typeof state) => { state = next; listeners.forEach(fn => fn()); };
@@ -128,25 +145,35 @@ export function createSavedPlacesStore(storage: Storage) {
     if (state.ready && !state.error) return Promise.resolve();
     if (loading) return loading;
     const { owner, scopeToken } = state;
+    const shouldClaimGuest = claimGuest;
     const current = () => state.owner === owner && state.scopeToken === scopeToken;
     const task = (async () => {
       await writes.catch(() => {});
       let raw = await storage.getItem(savedPlacesKey(owner));
-      if (raw === null && owner === 'guest') {
-        const legacy = await storage.getItem(LEGACY_SAVED_PLACES_KEY);
-        if (legacy && current()) {
-          const places = decodeSavedPlaces(legacy);
-          // Migration uses the same queue as writes/deletion, so it cannot
-          // rewrite guest data after clear() has removed it.
-          const migrate = writes.catch(() => {}).then(async () => {
-            if (!current()) return;
-            await storage.setItem(savedPlacesKey(owner), JSON.stringify({ version: 2, places }));
-            await storage.removeItem(LEGACY_SAVED_PLACES_KEY);
-          });
-          writes = migrate;
-          await migrate;
-          raw = JSON.stringify({ version: 2, places });
-        }
+      const guestRaw = owner === 'guest' ? raw : await storage.getItem(SAVED_PLACES_KEY);
+      if (current() && (claimedOwner(guestRaw) || shouldClaimGuest && decodeSavedPlaces(guestRaw).length)) {
+        const transfer = writes.catch(() => {}).then(async () => {
+          if (!current()) return raw;
+          // Re-read inside the write queue; an older transfer may have finished.
+          const source = await storage.getItem(SAVED_PLACES_KEY);
+          const pendingOwner = claimedOwner(source);
+          const target = pendingOwner ?? (shouldClaimGuest ? owner : null);
+          if (!target || target === 'guest' || !current()) return raw;
+          const guest = decodeSavedPlaces(source);
+          if (!guest.length) return raw;
+          const account = decodeSavedPlaces(await storage.getItem(savedPlacesKey(target)));
+          if (!current()) return raw;
+          // Pin the recipient before either key changes. If writing the account
+          // or clearing the guest key fails, any later load finishes for this
+          // account only, even after a restart or an A-to-B switch.
+          if (!pendingOwner) await storage.setItem(SAVED_PLACES_KEY, encodePlaces(guest, target));
+          const merged = encodePlaces(mergeGuestPlaces(account, guest));
+          await storage.setItem(savedPlacesKey(target), merged);
+          await storage.removeItem(SAVED_PLACES_KEY);
+          return owner === target ? merged : owner === 'guest' ? null : raw;
+        });
+        writes = transfer.then(() => {}, () => {});
+        raw = await transfer;
       }
       if (current()) publish({ ...state, ready: true, places: decodeSavedPlaces(raw), error: null });
     })().catch(() => { if (current()) publish({ ...state, ready: true, places: [], error: 'Couldn’t load saved places' }); })
@@ -163,7 +190,7 @@ export function createSavedPlacesStore(storage: Storage) {
       if (state.error) throw new Error(state.error);
       const next = fn(state.places);
       if (next === state.places) return;
-      await storage.setItem(savedPlacesKey(owner), JSON.stringify({ version: 2, places: next }));
+      await storage.setItem(savedPlacesKey(owner), encodePlaces(next));
       if (owner === state.owner && at === state.scopeToken) publish({ ...state, ready: true, places: next, error: null });
     });
     writes = task;
@@ -175,6 +202,7 @@ export function createSavedPlacesStore(storage: Storage) {
     load,
     select(owner: string) {
       if (owner !== state.owner) {
+        claimGuest = state.owner === 'guest' && owner !== 'guest';
         loading = null;
         publish({ owner, scopeToken: state.scopeToken + 1, ready: false, places: [], error: null });
       }
@@ -189,8 +217,11 @@ export function createSavedPlacesStore(storage: Storage) {
     clear(owner = state.owner) {
       if (owner === state.owner) { loading = null; publish({ ...state, scopeToken: state.scopeToken + 1, ready: true, places: [], error: null }); }
       const task = writes.catch(() => {}).then(async () => {
+        // Remove a failed incoming transfer first, so it cannot revive a
+        // deleted account on a later load. Another account's claim is untouched.
+        if (owner !== 'guest' && claimedOwner(await storage.getItem(SAVED_PLACES_KEY)) === owner)
+          await storage.removeItem(SAVED_PLACES_KEY);
         await storage.removeItem(savedPlacesKey(owner));
-        if (owner === 'guest') await storage.removeItem(LEGACY_SAVED_PLACES_KEY);
       });
       writes = task;
       return task;

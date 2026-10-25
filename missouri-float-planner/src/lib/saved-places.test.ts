@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AccessPointDetailResponse, DamSnapshot, RiverService } from '../../../packages/eddy-types';
-import { createSavedPlacesStore, decodeSavedPlaces, placeFromAccess, placeFromPin, placeFromService, savedScheduleState, wholeRiverDam, SAVED_PLACES_KEY, savedPlacesKey, LEGACY_SAVED_PLACES_KEY, savedPlacesOwner } from '../../../eddy-ios/src/lib/savedPlaces';
+import { createSavedPlacesStore, decodeSavedPlaces, placeFromAccess, placeFromPin, placeFromService, savedScheduleState, wholeRiverDam, SAVED_PLACES_KEY, savedPlacesKey, savedPlacesOwner } from '../../../eddy-ios/src/lib/savedPlaces';
 import { createSavedPlaceRefresher, refreshedDam, createPlaceAutoRefresh, placeRefreshNeeds } from '../../../eddy-ios/src/lib/savedPlaceRefresh';
 
 import { savedGaugeDisplay, savedPlaceSummary, savedScheduleDayLabel, scheduleGroups, sortedPlaceDams } from '../../../eddy-ios/src/lib/savedPlaceDisplay';
@@ -158,34 +158,70 @@ test('a failed refresh retains all cached details and their original dates', asy
 test('account collections survive switches and delete independently', async () => {
   const disk = memory(); const store = createSavedPlacesStore(disk);
   await store.save({ ...place(), name: 'Guest' }); await store.select('a');
-  assert.deepEqual(store.snapshot().places, []); await store.save({ ...place(), name: 'A' });
+  assert.equal(store.snapshot().places[0].name, 'Guest'); await store.save({ ...place(), name: 'A' });
   const loading = store.select('b'); assert.deepEqual(store.snapshot().places, []); assert.equal(store.snapshot().ready, false);
   await loading; await store.save({ ...place(), name: 'B' });
-  await store.select('guest'); assert.equal(store.snapshot().places[0].name, 'Guest');
+  await store.select('guest'); assert.deepEqual(store.snapshot().places, []);
   await store.select('a'); assert.equal(store.snapshot().places[0].name, 'A'); await store.clear('a');
   await store.select('b'); assert.equal(store.snapshot().places[0].name, 'B');
   assert.equal(disk.values.has(savedPlacesKey('a')), false);
   assert.equal(savedPlacesOwner('anonymous', true), 'guest'); assert.equal(savedPlacesOwner('a', false), 'a');
 });
 
-test('unowned saves migrate only to guest and failed migration preserves the source', async () => {
-  const disk = memory(); const legacy = JSON.stringify({ version: 1, places: [{ ...place(), version: 1, facts: undefined, tags: undefined, damChoice: undefined }] });
-  disk.values.set(LEGACY_SAVED_PLACES_KEY, legacy);
-  const store = createSavedPlacesStore(disk); await store.select('a'); assert.deepEqual(store.snapshot().places, []);
-  assert.equal(disk.values.get(LEGACY_SAVED_PLACES_KEY), legacy);
-  const write = disk.setItem; disk.setItem = async () => { throw Error('full'); };
-  await store.select('guest'); assert.ok(store.snapshot().error); assert.equal(disk.values.get(LEGACY_SAVED_PLACES_KEY), legacy);
-  disk.setItem = write; await store.load(); assert.equal(store.snapshot().places[0].version, 2);
-  assert.deepEqual(store.snapshot().places[0].facts, []); assert.equal(disk.values.has(LEGACY_SAVED_PLACES_KEY), false);
+test('guest saves survive sign-in once, merge by ID and earliest date, and stay hidden from B', async () => {
+  const disk = memory(); const store = createSavedPlacesStore(disk);
+  const earlier = '2026-10-20T16:00:00Z';
+  const account = { ...place(), name: 'Account copy', damChoice: 'none' };
+  disk.values.set(savedPlacesKey('a'), JSON.stringify({ version: 2, places: [account] }));
+  await store.save({ ...place(), savedAt: earlier });
+  await store.save({ ...place(), id: 'second', name: 'Second landing' });
+  await store.select('a');
+  assert.equal(store.snapshot().places.length, 2);
+  assert.deepEqual(store.snapshot().places.find(p => p.id === account.id), { ...account, savedAt: earlier });
+  assert.equal(disk.values.has(SAVED_PLACES_KEY), false);
+  await store.select('b'); assert.deepEqual(store.snapshot().places, []);
+  await store.select('guest'); assert.deepEqual(store.snapshot().places, []);
+  await store.select('a'); assert.equal(store.snapshot().places.length, 2);
+  await store.remove(account.id);
+  const cold = createSavedPlacesStore(disk); await cold.select('a');
+  assert.deepEqual(cold.snapshot().places.map(p => p.id), ['second']); // No later replay.
 });
 
-test('deletion wins against guest migration already writing', async () => {
-  const disk = memory(); disk.values.set(LEGACY_SAVED_PLACES_KEY, JSON.stringify({ version: 1, places: [place()] }));
+test('interrupted sign-in resumes only into its original account, even after a restart into B', async () => {
+  for (const failure of ['account write', 'guest clear']) {
+    const disk = memory(); const store = createSavedPlacesStore(disk); await store.save(place());
+    const write = disk.setItem; const remove = disk.removeItem;
+    disk.setItem = async (key, value) => { if (failure === 'account write' && key === savedPlacesKey('a')) throw Error('full'); await write(key, value); };
+    disk.removeItem = async key => { if (failure === 'guest clear' && key === SAVED_PLACES_KEY) throw Error('busy'); await remove(key); };
+    await store.select('a'); assert.ok(store.snapshot().error);
+    assert.equal(JSON.parse(disk.values.get(SAVED_PLACES_KEY)!).claimedBy, 'a');
+    disk.setItem = write; disk.removeItem = remove;
+    const cold = createSavedPlacesStore(disk); await cold.select('b');
+    assert.deepEqual(cold.snapshot().places, []); assert.equal(disk.values.has(SAVED_PLACES_KEY), false);
+    await cold.select('a'); assert.deepEqual(cold.snapshot().places, [place()]);
+  }
+});
+
+test('account deletion removes an interrupted transfer before it can restore the account', async () => {
+  const disk = memory(); const store = createSavedPlacesStore(disk); await store.save(place());
+  const write = disk.setItem;
+  disk.setItem = async (key, value) => { if (key === savedPlacesKey('a')) throw Error('full'); await write(key, value); };
+  await store.select('a'); assert.ok(store.snapshot().error);
+  disk.setItem = write;
+  await store.clear('a');
+  const cold = createSavedPlacesStore(disk); await cold.select('b'); await cold.select('a');
+  assert.deepEqual(cold.snapshot().places, []); assert.equal(disk.values.has(SAVED_PLACES_KEY), false);
+});
+
+test('account deletion and B selection win against an in-flight guest transfer', async () => {
+  const disk = memory(); const store = createSavedPlacesStore(disk); await store.save(place());
   const pending = deferred<void>(); const write = disk.setItem;
-  disk.setItem = async (key, value) => { await pending.promise; await write(key, value); };
-  const store = createSavedPlacesStore(disk); const loading = store.load(); await flush();
-  const clearing = store.clear(); pending.resolve(); await Promise.all([loading, clearing]);
-  assert.deepEqual(store.snapshot().places, []); assert.equal(disk.values.size, 0);
+  disk.setItem = async (key, value) => { if (key === savedPlacesKey('a')) await pending.promise; await write(key, value); };
+  const signingIn = store.select('a'); await flush();
+  const switching = store.select('b'); const clearing = store.clear('a');
+  pending.resolve(); await Promise.all([signingIn, switching, clearing]);
+  assert.equal(store.snapshot().owner, 'b'); assert.deepEqual(store.snapshot().places, []);
+  assert.equal(disk.values.has(savedPlacesKey('a')), false); assert.equal(disk.values.has(SAVED_PLACES_KEY), false);
 });
 
 test('returning to an account waits for its pending write', async () => {
