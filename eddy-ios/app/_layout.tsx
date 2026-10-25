@@ -53,6 +53,7 @@ import { sweepStaleVersions } from '@/lib/riverCache';
 import { sweepOfflinePacks } from '@/map/packSweep';
 import { seedOfflineBundle } from '@/api/client';
 import { FloatTracker } from '@/float/FloatTracker';
+import { AppShortcutsSync } from '@/components/AppShortcutsSync';
 import { SavedPlacesSync } from '@/components/SavedPlacesSync';
 import { ConditionsWidgetSync } from '@/components/ConditionsWidgetSync';
 import { attachFloatRecorder } from '@/float/recorder';
@@ -281,6 +282,7 @@ export default function RootLayout() {
                           <FloatTracker />
                           <ConditionsWidgetSync />
                           <SavedPlacesSync />
+                          <AppShortcutsSync />
                           <ThemedShell />
                         </PushProvider>
                       </AlertRulesProvider>

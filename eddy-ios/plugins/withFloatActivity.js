@@ -1,6 +1,6 @@
 // Generate the WidgetKit target during prebuild. No generated ios/ files belong
 // in git or EAS uploads; the same attributes source compiles in both targets.
-const { withInfoPlist, withEntitlementsPlist, withXcodeProject } = require('expo/config-plugins');
+const { withInfoPlist, withEntitlementsPlist, withXcodeProject, withAppDelegate } = require('expo/config-plugins');
 const plist = require('@expo/plist').default;
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,6 +10,20 @@ const SOURCES = ['FloatActivityAttributes.swift', 'EddyFloatActivity.swift', 'Co
 
 function configureProject(project, root, config) {
   const source = path.join(root, 'modules/eddy-live-activity');
+  // App Shortcuts metadata must be extracted from the application target,
+  // not just an Expo pod or WidgetKit extension.
+  const shortcutsName = 'EddyShortcuts';
+  const shortcuts = path.join(root, 'ios', shortcutsName);
+  fs.mkdirSync(shortcuts, { recursive: true });
+  for (const [from, to] of [['shortcuts/EddyAppShortcuts.swift', 'EddyAppShortcuts.swift'], ['ios/ShortcutData.swift', 'ShortcutData.swift']]) {
+    fs.copyFileSync(path.join(source, from), path.join(shortcuts, to));
+  }
+  let shortcutsGroup = project.findPBXGroupKey({ name: shortcutsName });
+  if (!shortcutsGroup) {
+    shortcutsGroup = project.addPbxGroup([], shortcutsName, shortcutsName).uuid;
+    project.getPBXGroupByKey(project.getFirstProject().firstProject.mainGroup).children.push({ value: shortcutsGroup, comment: shortcutsName });
+  }
+  for (const file of ['EddyAppShortcuts.swift', 'ShortcutData.swift']) project.addSourceFile(file, { target: project.getFirstTarget().uuid }, shortcutsGroup);
   const destination = path.join(root, 'ios', TARGET);
   fs.mkdirSync(destination, { recursive: true });
   for (const [from, to] of [
@@ -161,6 +175,15 @@ function withFloatActivity(config) {
   config = withInfoPlist(config, (mod) => {
     mod.modResults.NSSupportsLiveActivities = true;
     mod.modResults.EddyWidgetAppGroup = appGroup(config);
+    return mod;
+  });
+  config = withAppDelegate(config, (mod) => {
+    const marker = 'EddyAppShortcuts.register()';
+    if (!mod.modResults.contents.includes(marker)) {
+      const launch = 'return super.application(application, didFinishLaunchingWithOptions: launchOptions)';
+      if (!mod.modResults.contents.includes(launch)) throw new Error('AppDelegate launch hook changed; register Eddy App Shortcuts explicitly.');
+      mod.modResults.contents = mod.modResults.contents.replace(launch, `${marker}\n    ${launch}`);
+    }
     return mod;
   });
   // EAS discovers extension credentials BEFORE prebuild runs on the worker.
