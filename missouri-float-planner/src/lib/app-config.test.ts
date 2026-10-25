@@ -1,3 +1,6 @@
+// The version gate is the one lever that can lock a user out of the app
+// entirely, so its edge cases matter more than its happy path.
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compareVersions, isUpgradeRequired } from '../../../packages/eddy-types/index';
@@ -5,9 +8,9 @@ import { floatModeEnabled } from '../../../eddy-ios/src/lib/floatModeFeature';
 import { floatSearchEnabled } from '../../../eddy-ios/src/lib/floatSearchFeature';
 import { pickEnvironment } from '../../../eddy-ios/src/lib/app-environment';
 import { floatSearchLaunch } from './float-search-launch';
-
-// The version gate is the one lever that can lock a user out of the app
-// entirely, so its edge cases matter more than its happy path.
+import type { AppConfigResponse as MobileConfig } from '../../../packages/eddy-types';
+import { initialAppConfigState, receiveAppConfig, hydrateAppFeatures, finishAppFeatureWait, appFeatureCacheKey, parseAppFeatureCache } from '../../../eddy-ios/src/lib/appConfigState';
+import { floatEntryAction } from '../../../eddy-ios/src/lib/floatEntry';
 
 test('orders versions numerically, not lexically', () => {
   assert.ok(compareVersions('1.0.0', '1.0.1') < 0);
@@ -58,10 +61,6 @@ test('the default floor of 0.0.0 never locks anyone out', () => {
     assert.equal(isUpgradeRequired(v, '0.0.0'), false, `${v} should be allowed`);
   }
 });
-
-
-import { initialAppConfigState, receiveAppConfig } from '../../../eddy-ios/src/lib/appConfigState';
-import type { AppConfigResponse as MobileConfig } from '../../../packages/eddy-types';
 
 test('foreground refresh updates flags without imposing an upgrade mid-session', () => {
   const config = { minSupportedVersion: '1.0.0', features: { campingHeatmap: true } } as MobileConfig;
@@ -125,10 +124,6 @@ test('Find a Float production and unidentified builds still require an explicit 
   }
 });
 
-
-import { hydrateAppFeatures, appFeatureCacheKey, parseAppFeatureCache } from '../../../eddy-ios/src/lib/appConfigState';
-import { floatEntryAction } from '../../../eddy-ios/src/lib/floatEntry';
-
 test('production flags survive a failed foreground refresh but transient config does not', () => {
   const live = receiveAppConfig(initialAppConfigState, {
     features: { floatMode: true, floatSearch: true }, notice: 'Outage', minSupportedVersion: '1.0.0',
@@ -171,4 +166,18 @@ test('all entry points must prioritize the active float over disabled flags and 
     assert.equal(floatEntryAction(true, enabled, ready), 'return');
     assert.equal(floatEntryAction(false, enabled, ready), enabled && ready ? 'start' : null);
   }
+});
+
+
+test('timeout releases loading without discarding a late offline cache read', () => {
+  const timedOut = finishAppFeatureWait(initialAppConfigState);
+  assert.equal(timedOut.featuresReady, true);
+  assert.equal(timedOut.loading, true, 'cache timeout must not resolve the launch upgrade check');
+  const offline = receiveAppConfig(timedOut, null, '1.0.0');
+  const late = hydrateAppFeatures(offline, { floatMode: true, floatSearch: true });
+  assert.equal(floatModeEnabled(late.features, 'production'), true);
+  assert.equal(floatSearchEnabled(late.features, 'production'), true);
+  const remote = receiveAppConfig(timedOut, { features: { floatMode: false } } as MobileConfig, '1.0.0');
+  assert.equal(hydrateAppFeatures(remote, { floatMode: true }).features.floatMode, false);
+  assert.deepEqual(finishAppFeatureWait(late).features, late.features);
 });

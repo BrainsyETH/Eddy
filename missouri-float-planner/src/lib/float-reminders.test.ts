@@ -38,6 +38,8 @@ import {
   autoEndAt,
   autoEndCopy,
 } from '../../../eddy-ios/src/lib/floatEnding';
+import { notificationAccess, canDeliverNotification } from '../../../eddy-ios/src/lib/notificationAccess';
+import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 const MILE = 1609.344;
 const COS = Math.cos((37 * Math.PI) / 180);
@@ -395,10 +397,6 @@ test('away is judged on fresh evidence: a gap, a return to the river, or a bank 
   assert.equal(bank.awaySince, null);
   assert.equal(autoEndAt(bank, t + 2 * AUTO_END_AWAY_MS), null);
 });
-
-
-import { notificationAccess, canDeliverNotification } from '../../../eddy-ios/src/lib/notificationAccess';
-import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 test('local reminder permission distinguishes quiet delivery and does not mistake read failure for denial', () => {
   assert.equal(notificationAccess(null), 'unknown');

@@ -1,6 +1,6 @@
+// All entry points fill one editable draft. Preview GPS never seeds the recorder.
 import { ReminderChoices } from '@/float/start/ReminderChoices';
 import { DEFAULT_REMINDERS, type FloatReminderChoices } from '@/lib/floatReminders';
-// All entry points fill one editable draft. Preview GPS never seeds the recorder.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';

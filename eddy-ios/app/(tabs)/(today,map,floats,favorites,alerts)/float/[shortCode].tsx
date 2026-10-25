@@ -1,4 +1,3 @@
-import { floatEntryAction } from '@/lib/floatEntry';
 // eddy-ios/app/float/[shortCode].tsx
 // One saved float, re-read against today's river.
 //
@@ -6,6 +5,7 @@ import { floatEntryAction } from '@/lib/floatEntry';
 // available offline or after a failed request, with historical cautions dated.
 // Foreground refresh keeps the plan mounted without claiming old water is current.
 
+import { floatEntryAction } from '@/lib/floatEntry';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';

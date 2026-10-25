@@ -7,7 +7,8 @@
 //
 // An unreachable launch config does not require an upgrade. Later refreshes
 // update flags and notices but preserve the launch-time upgrade decision.
-// Camping defaults off when config is unavailable.
+// Failed refreshes retain flags from the last success, including the disk cache.
+// Camping defaults off only when neither the server nor the cache supplies it.
 
 import { campingHeatmapEnabled, crowdSignalEnabled } from '@/lib/campingFeature';
 import { floatModeEnabled } from '@/lib/floatModeFeature';
@@ -26,7 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppConfigResponse, AppFeatureFlags } from '@eddy/types';
 import { onForeground } from '@/lib/foreground';
 import { BASE_URL, fetchAppConfig } from '@/api/client';
-import { initialAppConfigState, receiveAppConfig, hydrateAppFeatures, appFeatureCacheKey, parseAppFeatureCache } from '@/lib/appConfigState';
+import { initialAppConfigState, receiveAppConfig, hydrateAppFeatures, finishAppFeatureWait, appFeatureCacheKey, parseAppFeatureCache } from '@/lib/appConfigState';
 
 const DEFAULT_FEATURES: AppFeatureFlags = {
   campingHeatmap: false,
@@ -67,14 +68,14 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     let active = true;
     const cacheKey = appFeatureCacheKey(BASE_URL, resolveEnvironment());
     // A stuck disk read must not hold the controls indefinitely. The network runs in parallel.
-    let cacheFinished = false;
     const hydrate = (raw: string | null) => {
-      if (!active || cacheFinished) return;
-      cacheFinished = true;
+      if (!active) return;
       clearTimeout(cacheTimeout);
       setState(previous => hydrateAppFeatures(previous, parseAppFeatureCache(raw)));
     };
-    const cacheTimeout = setTimeout(() => hydrate(null), 1000);
+    const cacheTimeout = setTimeout(() => {
+      if (active) setState(finishAppFeatureWait);
+    }, 1000);
     void AsyncStorage.getItem(cacheKey).then(hydrate, () => hydrate(null));
     // Serialize writes so an older successful refresh cannot finish after a newer one.
     let cacheWrite = Promise.resolve();

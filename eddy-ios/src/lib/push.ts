@@ -48,6 +48,8 @@ export function installForegroundHandler(): void {
 export type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unsupported';
 
 // Remote push keeps its device/token policy; local reminders use OS capability directly.
+// Provisional permission intentionally permits remote delivery without re-prompting.
+// Shared requests ask for alert/sound only: Eddy does not use notification badges.
 function pushPermissionState(access: NotificationAccess): PermissionState {
   if (access === 'granted' || access === 'quiet') return 'granted';
   if (access === 'ask') return 'undetermined';

@@ -13,6 +13,11 @@ export const initialAppConfigState: AppConfigState = {
   loading: true, upgradeRequired: false,
 };
 
+/** Bound the loading indicator without discarding flags or closing the disk read. */
+export function finishAppFeatureWait(previous: AppConfigState): AppConfigState {
+  return { ...previous, featuresReady: true };
+}
+
 /** Disk hydration never resolves the launch upgrade decision or beats a server response. */
 export function hydrateAppFeatures(previous: AppConfigState, features: Partial<AppFeatureFlags>): AppConfigState {
   return { ...previous, featuresReady: true,

@@ -136,7 +136,8 @@ function FloatHomeContent() {
           </View>
         </View>
 
-        {featuresReady || activeFloat ? <View style={[styles.gutter, styles.actions]}>
+        <View style={[styles.gutter, styles.actions]}>
+          {!featuresReady && !activeFloat ? <ActivityIndicator accessibilityLabel="Loading float options" color={colors.interactive} /> : null}
           {floatEntryAction(!!activeFloat, featuresReady && !!features.floatMode) ? (
             <Pressable
               onPress={() => navigate(() => router.push(activeFloat ? '/float-mode' : '/float-start'))}
@@ -194,7 +195,7 @@ function FloatHomeContent() {
               </Pressable>
             ) : null}
           </View>
-        </View> : <ActivityIndicator accessibilityLabel="Loading float options" color={colors.interactive} />}
+        </View>
 
         <View style={styles.section}>
           <View style={styles.gutter}>
