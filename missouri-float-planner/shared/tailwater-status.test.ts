@@ -106,7 +106,7 @@ test('a stale idle observation says when it was observed, not that it is so now'
     dam({ metrics: { generationFlow: reading(18, 300) } }),
     NOON_CENTRAL
   )!;
-  assert.equal(status.headline, 'Bull Shoals Dam: no generation at last observation');
+  assert.equal(status.headline, 'Bull Shoals Dam: not generating at last reading');
   assert.doesNotMatch(allText(status), /\bnow\b/i);
 });
 

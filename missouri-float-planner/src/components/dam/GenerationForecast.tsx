@@ -15,6 +15,7 @@
 // plain peak figure where the schedule page refuses one on ramp hours.
 
 import DamInfoTip from './DamInfoTip';
+import Card from '@/components/ui/Card';
 import { CalendarClock } from 'lucide-react';
 import type { DamGenerationForecast } from '@shared/dam-types';
 import {
@@ -45,11 +46,11 @@ export default function GenerationForecast({
   const planStale = forecastPlanStale(forecast.windows, renderedAt);
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+    <Card as="section" variant="framed" className="p-5 sm:p-6">
       <div className="flex items-center gap-2">
         <CalendarClock className="h-4 w-4 text-primary-700" aria-hidden="true" />
         <h2
-          className="flex-1 text-lg font-bold text-neutral-900"
+          className="flex-1 text-xl font-semibold text-primary-800"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           Generation forecast
@@ -77,7 +78,7 @@ export default function GenerationForecast({
                         : 'text-neutral-500'
                     }
                   >
-                    {span.generating ? 'Generation forecast' : 'No generation forecast'}
+                    {span.generating ? 'Generation planned' : 'No generation planned'}
                   </span>
                   <span className="text-neutral-700">{span.label}</span>
                   {span.peakLabel && (
@@ -109,12 +110,12 @@ export default function GenerationForecast({
         {horizon && (
           <span className={planStale ? 'font-medium text-accent-700' : undefined}>
             {horizon}
-            {planStale && ' — shorter than this district usually publishes, so it may not have been updated'}
+            {planStale && ' — shorter than usual, so it may not have been updated'}
             .{' '}
           </span>
         )}
         Times at the dam · Downstream timing varies · Subject to change.
       </p>
-    </section>
+    </Card>
   );
 }
