@@ -9,10 +9,14 @@
 import { useEffect } from 'react';
 import { useAppCampaign } from '@/components/AppLink';
 import { APP_STORE } from '@/lib/app-discovery';
-import { trackEvent } from '@/lib/analytics';
+import { initializeAnalytics, trackEvent } from '@/lib/analytics';
 
-export default function AnalyticsListener() {
+export default function AnalyticsListener({ trackingId }: { trackingId?: string }) {
   const campaign = useAppCampaign();
+  useEffect(() => {
+    initializeAnalytics(trackingId);
+  }, [trackingId]);
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
       const start = e.target as Element | null;
