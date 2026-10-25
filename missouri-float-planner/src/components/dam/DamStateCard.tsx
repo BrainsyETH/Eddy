@@ -240,7 +240,7 @@ export default function DamStateCard({
         {tailwaterTemp && (
           <Stat
             icon={<Thermometer className="h-3.5 w-3.5" />}
-            label="Tailwater temp"
+            label="Water temp below dam"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
             dim={isStale(tailwaterTemp, now)}
@@ -284,7 +284,7 @@ export default function DamStateCard({
         {dam.tailwaterFishery && (
           <Stat
             icon={<Fish className="h-3.5 w-3.5" />}
-            label="Tailwater fishery"
+            label="Fishery below dam"
             value={dam.tailwaterFishery === 'trout' ? 'Trout' : 'Warmwater'}
             sub={
               dam.tailwaterFishery === 'trout'
@@ -311,7 +311,7 @@ export default function DamStateCard({
         // Stockton and Truman are SWPA-only: the Kansas City district
         // publishes no timeseries at all, so there are no levels to show.
         <p className="mt-3 text-sm text-neutral-500">
-          The Corps does not publish live levels for this project. The generation
+          The Corps does not publish live levels for this dam. The generation
           schedule is the available data.
         </p>
       )}

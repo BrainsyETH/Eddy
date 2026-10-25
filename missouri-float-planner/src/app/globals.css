@@ -1416,6 +1416,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 @media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
   .dam-generation-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
+  /* Side by side, the schedule is already in view. */
+  .dam-next-glance { display: none; }
 }
 @media (min-width: 1100px) {
   .dam-support-layout { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }

@@ -120,14 +120,14 @@ export default function Page() {
     await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
     const list = page.locator('a[data-variant]');
     assert.equal(await list.locator('button, a, input, select').count(), 0, 'whole-card links have no nested controls');
-    assert(!(await list.allTextContents()).join(' ').includes('Tailwater fishery'), 'fishery stays off list cards');
+    assert(!(await list.allTextContents()).join(' ').includes('Fishery below dam'), 'fishery stays off list cards');
     const normal = page.locator('[data-variant="normal"]');
     assert((await normal.innerText()).includes('50%'), 'list shows measured generation scale');
     assert((await normal.innerText()).includes('56.0 °F'), 'list shows water temperature');
     assert((await normal.innerText()).includes('estimated from flow'), 'rack remains an estimate');
     assert(!(await page.locator('[data-variant="noTemp"]').innerText()).includes('°F'), 'missing temperature is not fabricated');
     assert(!(await page.locator('[data-variant="noReference"]').innerText()).includes('%'), 'no reference means no percentage');
-    assert((await page.locator('[data-variant="stale"]').innerText()).includes('Last observed generating'), 'old readings do not claim now');
+    assert((await page.locator('[data-variant="stale"]').innerText()).includes('Generating at last reading'), 'old readings do not claim now');
     assert((await page.locator('[data-variant="stale"]').innerText()).includes('may have been revised'), 'old schedule retains its provenance');
     assert(!(await page.locator('[data-variant="scheduleOnly"]').innerText()).includes('No turbine generation observed'), 'missing readings are not idle');
     assert((await page.locator('[data-variant="gateDaily"]').innerText()).includes('daily avg'), 'daily release is labelled');
@@ -178,7 +178,7 @@ export default function Page() {
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('dialog').count(), 0);
     assert(await trigger.evaluate(el => el === document.activeElement));
-    assert(await detail.getByText('Other release', { exact: true }).isVisible());
+    assert(await detail.getByText('Not through turbines', { exact: true }).isVisible());
     if (name === 'desktop') {
       const before = await detail.getByText(/Last reading/).first().textContent();
       await page.clock.fastForward(65_000);

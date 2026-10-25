@@ -63,10 +63,9 @@ export default function GenerationSchedule({ schedule, reference, now }: {
         })}
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-neutral-200 pt-3 text-xs text-neutral-500">
-        <span>Central time · At the dam · Subject to change</span>
+        <span>Central time at the dam · Water downstream changes later · Subject to change</span>
         {retrieval && <span className={scheduleIsStale(oldestRetrieval, now) ? 'font-medium text-accent-700' : undefined}>{retrieval}</span>}
       </div>
-      <p className="mt-1 text-xs text-neutral-500">Water reaches downstream locations later.</p>
     </section>
   );
 }

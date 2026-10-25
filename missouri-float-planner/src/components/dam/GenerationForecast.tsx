@@ -78,7 +78,7 @@ export default function GenerationForecast({
                         : 'text-neutral-500'
                     }
                   >
-                    {span.generating ? 'Generation forecast' : 'No generation forecast'}
+                    {span.generating ? 'Generation planned' : 'No generation planned'}
                   </span>
                   <span className="text-neutral-700">{span.label}</span>
                   {span.peakLabel && (
@@ -110,7 +110,7 @@ export default function GenerationForecast({
         {horizon && (
           <span className={planStale ? 'font-medium text-accent-700' : undefined}>
             {horizon}
-            {planStale && ' — shorter than this district usually publishes, so it may not have been updated'}
+            {planStale && ' — shorter than usual, so it may not have been updated'}
             .{' '}
           </span>
         )}

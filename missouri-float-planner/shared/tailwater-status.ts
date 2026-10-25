@@ -198,7 +198,7 @@ export function buildTailwaterStatus(
       tone = 'idle';
       headline = speaksForNow(state.age)
         ? `${dam.name}: no turbine generation observed`
-        : `${dam.name}: no generation at last observation`;
+        : `${dam.name}: not generating at last reading`;
       // The idle note first: it is the correction a reader needs before they
       // read a flat tailwater as an all-clear.
       supporting.push(TAILWATER_IDLE_NOTE);

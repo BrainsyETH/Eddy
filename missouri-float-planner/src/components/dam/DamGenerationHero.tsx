@@ -20,6 +20,7 @@ import {
   speaksForNow,
   OTHER_RELEASE_NOTE,
   RACK_ESTIMATE_SHORT,
+  ABOVE_FULL_GENERATION_LABEL,
 } from '@shared/dam-generation';
 
 function cfs(value: number): string {
@@ -52,29 +53,34 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
 
   return (
     <section aria-label="Observed generation" className="min-w-0">
-      <p className="text-xs font-bold uppercase tracking-widest text-primary-200">Observed at the dam</p>
-      <h2 className="mt-4 flex items-center gap-2 text-base font-semibold text-white">
+      <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">
         <Zap className="size-4 shrink-0 text-primary-200" aria-hidden="true" /> {status}
+        {dim && <span className="rounded-full bg-accent-100 px-2 py-0.5 text-xs font-bold text-accent-900">Outdated reading</span>}
       </h2>
 
       {/* Flow leads; the rack adds scale against the published reference.
-          Its decorative cells are hidden from assistive technology. */}
-      <div className={dim ? 'opacity-80' : undefined}>
+          Its decorative cells are hidden from assistive technology. Dimming
+          alone barely reads on the dark panel, so an old reading also says so
+          in words beside the status. */}
+      <div className={dim ? 'opacity-70' : undefined}>
         {state.kind !== 'unavailable' && (
-          <p className="mt-4 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-white">
+          <p className="mt-3 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-white">
             {Math.round(state.turbineCfs).toLocaleString()} <span className="text-base tracking-normal text-primary-200">cfs</span>
             <span className="mt-1 block font-sans text-sm font-normal tracking-normal text-primary-100">through the turbines</span>
           </p>
         )}
         {observedAt && <p className="mt-2 text-xs text-primary-200">Last reading {observedAt}</p>}
-        {rack && <div className="mt-6 flex flex-wrap items-center gap-3">
+        {rack && <div className="mt-5 flex flex-wrap items-center gap-3">
           <DamGeneratorRack rack={rack} inverse />
           {percent && ref && state.kind === 'generating' && <p className="text-sm font-bold text-white">
             {percent} <span className="font-normal text-primary-100">{FULL_GENERATION_SHORT_LABEL}</span>
           </p>}
         </div>}
-        {rack && <p className="mt-2 text-xs text-primary-200">{RACK_ESTIMATE_SHORT}</p>}
-        {state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && <p className="mt-1 text-xs text-primary-100">Above the published reference</p>}
+        {/* One caption under the rack rather than two orphaned lines. */}
+        {rack && <p className="mt-2 text-xs text-primary-200">
+          {state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && `${ABOVE_FULL_GENERATION_LABEL} · `}
+          {RACK_ESTIMATE_SHORT}
+        </p>}
       </div>
 
       {voiceOver && <p className="sr-only">{voiceOver}</p>}
@@ -89,7 +95,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
             className={
               readingStaleness(dam.metrics.release.at, now) === 'fresh'
                 ? 'text-sm text-primary-100'
-                : 'text-sm text-primary-100 opacity-80'
+                : 'text-sm text-primary-100 opacity-70'
             }
           >
             <span className="block text-xs font-medium text-primary-200">
@@ -105,7 +111,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
           {comparison.kind === 'other-release' && (
             <>
               <p className="mt-4 text-sm text-primary-100">
-                <span className="font-medium">Other release</span>{' '}
+                <span className="font-medium">Not through turbines</span>{' '}
                 <span className="font-mono text-white">
                   {cfs(comparison.otherCfs)}
                 </span>

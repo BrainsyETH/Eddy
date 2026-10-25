@@ -24,6 +24,12 @@ import { pageDam } from '@/lib/data/public-pages';
 
 export const revalidate = 60;
 
+/** The snapshot's agency abbreviations, spelled out for the page. */
+const SOURCE_NAMES: Record<string, string> = {
+  'USACE CWMS': 'U.S. Army Corps of Engineers',
+  SWPA: 'Southwestern Power Administration',
+};
+
 export function generateStaticParams() {
   return listDamIds().map((damId) => ({ damId }));
 }
@@ -36,12 +42,17 @@ export async function generateMetadata({
   const { damId } = await params;
   const dam = getUsaceDam(damId);
   if (!dam) return { title: 'Dam not found' };
+  // Anglers search for the schedule by name, so dams with an hourly SWPA
+  // schedule lead with it.
+  const scheduled = Boolean(dam.swpaCode);
   return {
     ...publicPageMetadata(
-      `${dam.name} — Lake Level & Releases`,
-      `Lake level, release and generation information for ${dam.name}${
+      scheduled
+        ? `${dam.name} Generation Schedule, Lake Level & Releases`
+        : `${dam.name} — Lake Level & Releases`,
+      `${scheduled ? 'Hourly generation schedule, current' : 'Current'} release in cfs, lake level and conditions below ${dam.name}${
         dam.lakeName ? ` on ${dam.lakeName}` : ''
-      }. Open for current updates.`,
+      }.`,
       `/dams/${damId}`,
     ),
     ...appBannerMetadata(`/dam/${encodeURIComponent(damId)}`),
@@ -60,7 +71,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
       ? { title: 'Gate-operated releases', detail: 'This dam has no powerhouse. Releases are controlled by gate operation, so there is no generation schedule.' }
       : !project?.swpaCode
         ? { title: 'No hourly schedule published', detail: dam.generationForecast ? 'The operating forecast below provides the forward view for this dam.' : 'Eddy shows observed readings for this dam. No public hourly loading schedule is available.' }
-        : { title: 'Schedule currently unavailable', detail: 'SWPA posts upcoming schedules each afternoon. Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.' };
+        : { title: 'Schedule currently unavailable', detail: 'The Southwestern Power Administration (SWPA) posts upcoming schedules each afternoon. Eddy shows only dates it can confirm; an unavailable schedule does not mean generation has stopped.' };
 
   // Only offer a river destination that is active. Catalog failure must not
   // prevent the dam readings from rendering.
@@ -80,8 +91,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             <p className="mt-2 text-sm text-neutral-600">{[dam.lakeName ?? 'Dam conditions', river?.name, dam.state].filter(Boolean).join(' · ')}</p>
           </div>
           <nav aria-label="Dam sections" className="flex gap-2 text-sm">
-            <Button href="#generation" variant="secondary" size="sm" className="min-h-11">{dam.hasTurbines ? 'Generation' : 'Releases'}</Button>
-            <Button href="#dam-resources" variant="ghost" size="sm" className="min-h-11">Useful links</Button>
+            <Button href="#dam-resources" variant="ghost" size="sm" className="min-h-11">{dam.infoPhone ? 'Release line & links' : 'Related links'}</Button>
           </nav>
         </header>
         <div id="generation" className="scroll-mt-24">
@@ -92,7 +102,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           {dam.infoPhone && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Recorded release line · {dam.infoPhone}</Button>}
           <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>
         </div>
-        {dam.sources.length > 0 && <p className="mt-5 text-xs text-neutral-500">Sources: {dam.sources.join(' · ')}</p>}
+        {dam.sources.length > 0 && <p className="mt-5 text-xs text-neutral-500">Sources: {dam.sources.map((source) => SOURCE_NAMES[source] ?? source).join(' · ')}</p>}
       </div>
       <SiteFooter maxWidth="max-w-7xl" />
     </div>

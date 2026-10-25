@@ -2,7 +2,7 @@ import { ChevronRight, Clock, Thermometer, Waves, Ruler, Zap } from 'lucide-reac
 import type { DamMetricValue, DamSnapshot } from '@/lib/data/dams';
 import { relativeAge, readingStaleness, tailwaterMovementSentence } from '@shared/dam-schedule-copy';
 import {
-  FULL_GENERATION_SHORT_LABEL, RACK_ESTIMATE_SHORT, generationNow,
+  FULL_GENERATION_SHORT_LABEL, RACK_ESTIMATE_SHORT, ABOVE_FULL_GENERATION_LABEL, generationNow,
   generationPercentLabel, generationStatusLabel, generationVoiceOver,
   generatorRack, nowNextClauses, scheduledClauseProvenance, speaksForNow,
 } from '@shared/dam-generation';
@@ -53,7 +53,7 @@ export default function DamListCard({ dam, now }: { dam: DamSnapshot; now: numbe
                 <DamGeneratorRack rack={rack} compact />
                 <p className="text-sm text-neutral-600"><strong className="text-lg tabular-nums text-primary-900">{percent}</strong> {FULL_GENERATION_SHORT_LABEL}</p>
               </div>
-              {rack.overflow && <p className="mt-1 text-xs text-neutral-500">Above the published reference</p>}
+              {rack.overflow && <p className="mt-1 text-xs text-neutral-500">{ABOVE_FULL_GENERATION_LABEL}</p>}
               <p className="sr-only">{generationVoiceOver(state, dam.generationReference)}</p>
             </>
           )}

@@ -32,9 +32,12 @@ export default function GenerationCard({ dam, now, availability }: {
         </DamInfoTip>
       </div>
       <div className={hasObserved ? 'dam-generation-layout' : undefined}>
-        {hasObserved && <div className="dam-observed p-5 sm:p-6">{dam.hasTurbines ? <DamGenerationHero dam={dam} now={now} /> : release && <div className={readingStaleness(release.at, now) === 'fresh' ? undefined : 'opacity-80'}>
-          <h2 className="text-xs font-bold uppercase tracking-wide text-primary-200">{release.dailyMean ? 'Release at dam · Daily average' : 'Release at dam'}</h2>
-          <p className="mt-4 font-mono text-4xl text-white">{Math.round(release.value).toLocaleString()} <span className="text-base text-primary-200">cfs</span></p>
+        {hasObserved && <div className="dam-observed p-5 sm:p-6">{dam.hasTurbines ? <DamGenerationHero dam={dam} now={now} /> : release && <div>
+          <h2 className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary-200">
+            {release.dailyMean ? 'Release at dam · Daily average' : 'Release at dam'}
+            {!release.dailyMean && readingStaleness(release.at, now) !== 'fresh' && <span className="rounded-full bg-accent-100 px-2 py-0.5 normal-case tracking-normal text-accent-900">Outdated reading</span>}
+          </h2>
+          <p className={`mt-4 font-mono text-4xl text-white${readingStaleness(release.at, now) === 'fresh' ? '' : ' opacity-70'}`}>{Math.round(release.value).toLocaleString()} <span className="text-base text-primary-200">cfs</span></p>
           <p className="mt-2 text-xs text-primary-200">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
         </div>}</div>}
         <div className="min-w-0 p-5 sm:p-6">

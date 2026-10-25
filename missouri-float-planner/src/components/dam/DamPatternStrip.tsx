@@ -201,17 +201,17 @@ export default function DamPatternStrip({
 
               <span
                 className={`w-16 shrink-0 text-right text-[10px] ${
-                  row.scheduleStale ? 'font-medium text-accent-700' : 'text-neutral-400'
+                  row.scheduleStale ? 'font-medium text-accent-700' : 'text-neutral-500'
                 }`}
               >
-                {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'stale' : 'scheduled') : ''}
+                {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'outdated' : 'scheduled') : ''}
               </span>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-2 flex justify-between pl-[3.25rem] pr-16 text-[10px] text-neutral-400">
+      <div className="mt-2 flex justify-between pl-[3.25rem] pr-16 text-[10px] text-neutral-500">
         <span>midnight</span>
         <span>noon</span>
         <span>midnight</span>
