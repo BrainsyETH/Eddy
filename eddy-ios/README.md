@@ -1245,6 +1245,38 @@ blur:
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`
 for why safety data can never sit behind a wall.
 
+### River Mode essentials
+
+Essentials keeps the `/float-options` route so existing notification and Live Activity
+links keep working. It leads with raw location sharing and the take-out, followed by
+Ahead, the optional pickup contact, and timestamped gauge readings. Settings are
+collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
+status and actionable errors. Hazard instructions are never truncated.
+
+The latest valid raw recorder fix is stored separately from the accepted GPS/map
+position and the confirmed river position. Coarse fixes may update sharing, never
+progress, ETA or arrival. Sharing never falls back to a snapped river coordinate.
+Restored fixes are last-known until a newer fix arrives. Old sessions migrate only
+their genuine GPS position, with unknown accuracy. Raw fixes stay out of recaps.
+
+Coordinates use decimal degrees and selectable text; the native share sheet supplies
+Copy. No clipboard or contacts module is added. The pickup contact is stored only
+in a separate on-device key, excluded from Eddy backup and telemetry, and cleared
+by `discardFloat` during account deletion. Calls and messages require a saved number
+and an explicit tap. Removing a contact is also available in its editor.
+
+Ahead uses the last confirmed river mile and dates that basis when it is stale.
+Mapped accesses are not described as safe exits. This phone's positioned reports are
+labeled as reports and keep their submission status. Unpositioned reports are separate;
+refused reports stay in report history. Map taps use one 56-point rectangle query
+across marker and endpoint layers, deduplicate features, and put endpoints first.
+
+Device verification remains unconfirmed: test wet-case taps, overlapping layers,
+VoiceOver, largest text sizes, offline/stale GPS, coarse fresh fixes, restored sessions,
+share-sheet Copy, Messages handoff, Android map links and contact deletion. Guided
+Access can be tested as an optional touch lock; pause it before calling or Messages
+handoffs. No in-app control lock is added.
+
 ### Starting a float
 
 An active float remains reachable from Floats, saved routes,

@@ -13,20 +13,20 @@
 // ── Layout: the map, then one glanceable panel ──────────────────────────────
 // Made for a wet thumb in sunlight. The map takes the screen; under it a
 // compact panel holds the numbers (miles left, time left, arrival), the next
-// hazard, at most one tracking line, and three large buttons: Options, Hazard
+// hazard, at most one tracking line, and three large buttons: Essentials, Report hazard
 // and End/Finish. Reminders, the Lock Screen card, keep-awake and past hazard
-// reports live in Float options (float-options.tsx), a sheet, so End is never
+// reports live in Essentials (float-options.tsx), a sheet, so End is never
 // scrolled under a list of switches.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useNavigation, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { ControlIcon } from '@/components/ControlIcon';
 import { FloatStatusDot } from '@/float/FloatStatusDot';
-import { floatDisplayPosition, fixAgeLabel, activityLabel } from '@/lib/floatDisplay';
-import { useFloatActivity } from '@/float/liveActivity';
+import { floatDisplayPosition, fixAgeLabel } from '@/lib/floatDisplay';
+import { useFloatMapFocus } from '@/float/mapFocus';
 import { FloatMap } from '@/float/FloatMap';
 import { HazardReportSheet } from '@/float/HazardReportSheet';
 import { useKeepAwakePreference } from '@/float/keepAwakePreference';
@@ -55,11 +55,13 @@ const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'n
 
 export default function FloatModeScreen() {
   const session = useFloatSession();
+  const mapFocus = useFloatMapFocus();
+  const { fontScale, width } = useWindowDimensions();
+  const stacked = fontScale > 1.3 || width < 360;
   const router = useRouter();
   const root = useNavigation('/');
   const { colors, elevation } = useTheme();
   const tracking = useTrackingLine();
-  const activity = useFloatActivity();
   const [keepAwake] = useKeepAwakePreference();
   const [reporting, setReporting] = useState(false);
   // Finish is applying the last of the recorded track before saving.
@@ -146,7 +148,6 @@ export default function FloatModeScreen() {
   const position = displayed?.lngLat ?? null;
   const recording = tracking.tracker.status === 'recording' && !tracking.tracker.servicesOff && !tracking.tracker.denied && !tracking.tracker.preciseOff && !tracking.tracker.notInUse;
   const fresh = recording && displayed != null && !displayed.dimmed;
-  const activityCopy = activityLabel(activity);
   const currentMile = view.confirmed ? (session.samples[session.samples.length - 1]?.riverMile ?? null) : null;
   const time = remainingCopy(view.estimate, view.takeOutBeyondMeters != null);
   const anchor = arrivalAnchor(view, clock);
@@ -230,10 +231,11 @@ export default function FloatModeScreen() {
           position={position}
           positionDimmed={!fresh}
           currentMile={currentMile}
+          focus={mapFocus?.sessionId === session.id ? mapFocus : null}
         />
       </View>
 
-      <View style={[styles.panel, { backgroundColor: colors.card, borderColor: colors.border }, elevation(2)]}>
+      <View style={[styles.panel, stacked && { maxHeight: '70%' }, { backgroundColor: colors.card, borderColor: colors.border }, elevation(2)]}>
         <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelContent} showsVerticalScrollIndicator>
         <View style={styles.freshness}>
           <FloatStatusDot at={displayed?.at ?? null} fresh={fresh} />
@@ -244,13 +246,12 @@ export default function FloatModeScreen() {
               : displayed ? `Location delayed · ${fixAgeLabel(displayed.at, clock)}` : 'Finding GPS…'}
           </Text>
         </View>
-        <Text style={[styles.route, { color: colors.textMuted }]} numberOfLines={1}>
+        <Text style={[styles.route, { color: colors.textMuted }]}>
           {view.riverName} · to {view.takeOutName}
         </Text>
         <Text
           style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}
           accessibilityLiveRegion="polite"
-          numberOfLines={3}
         >
           {waitingAtLaunch ? `Near ${session.putIn?.name} · waiting for the mapped river` : statusCopy(view, clock)}
         </Text>
@@ -264,19 +265,19 @@ export default function FloatModeScreen() {
           </Text>
         ) : (
           <>
-            <View style={styles.numbers}>
+            <View style={[styles.numbers, stacked && styles.stackedNumbers]}>
               <View style={styles.number}>
                 <Text style={[styles.miles, { color: live ? colors.text : colors.textMuted }]}>
                   {view.milesLeft == null ? '—' : view.milesLeft.toFixed(1)}
                   <Text style={[styles.unit, { color: colors.textMuted }]}> mi left</Text>
                 </Text>
               </View>
-              <View style={[styles.number, styles.numberRight]}>
-                <Text style={[styles.time, { color: live ? colors.text : colors.textMuted }]} numberOfLines={1}>
+              <View style={[styles.number, !stacked && styles.numberRight]}>
+                <Text style={[styles.time, { color: live ? colors.text : colors.textMuted }]}>
                   {time.headline}
                 </Text>
                 {arrival ? (
-                  <Text style={[styles.note, styles.right, { color: colors.textMuted }]} numberOfLines={2}>
+                  <Text style={[styles.note, !stacked && styles.right, { color: colors.textMuted }]}>
                     {arrival.line}
                   </Text>
                 ) : null}
@@ -305,9 +306,9 @@ export default function FloatModeScreen() {
         )}
 
         {hazard ? (
-          <View style={styles.hazardRow} accessible>
+          <Pressable style={styles.hazardRow} accessibilityRole="button" accessibilityHint="Open upcoming accesses and hazards" onPress={() => router.push({ pathname: '/float-options', params: { section: 'ahead' } })}>
             <ControlIcon name="warning-outline" size={16} color={colors.error} />
-            <Text style={[styles.note, styles.flex, { color: colors.text }]} numberOfLines={2}>
+            <Text style={[styles.note, styles.flex, { color: colors.text }]}>
               <Text style={styles.emphasis}>
                 {hazard.milesAway < 0.1 ? 'Just ahead' : `${hazard.milesAway.toFixed(1)} mi`}:
               </Text>{' '}
@@ -316,7 +317,7 @@ export default function FloatModeScreen() {
                 ? ` · portage${hazard.hazard.portageSide && hazard.hazard.portageSide !== 'either' ? ` river ${hazard.hazard.portageSide}` : ''}`
                 : ''}
             </Text>
-          </View>
+          </Pressable>
         ) : null}
 
         {tracking.line ? (
@@ -331,16 +332,10 @@ export default function FloatModeScreen() {
           <Notice label={`Not on the ${view.riverName}? Tap to choose another river.`} onPress={changeRiver} />
         ) : null}
 
-        {activityCopy ? <Pressable accessibilityRole="button" accessibilityLabel={activityCopy}
-          onPress={() => router.push('/float-options')} style={styles.activityLink}>
-          <ControlIcon name="phone-portrait-outline" size={15} color={colors.textMuted} />
-          <Text style={[styles.caption, { color: colors.textMuted }]}>{activityCopy}</Text>
-          <ControlIcon name="chevron-forward" size={12} color={colors.textMuted} />
-        </Pressable> : null}
         </ScrollView>
-        <View style={styles.actions}>
-          <ActionButton icon="ellipsis-horizontal" label="Options" onPress={() => router.push('/float-options')} />
-          <ActionButton icon="warning-outline" label="Hazard" onPress={() => setReporting(true)} accessibilityLabel="Report a hazard here" />
+        <View style={[styles.actions, stacked && styles.stackedActions]}>
+          <ActionButton icon="ellipsis-horizontal" label="Essentials" onPress={() => router.push('/float-options')} />
+          <ActionButton icon="warning-outline" label="Report hazard" onPress={() => setReporting(true)} accessibilityLabel="Report a hazard here" />
           <Pressable
             onPress={confirmEnd}
             disabled={finishing}
@@ -431,13 +426,15 @@ const styles = StyleSheet.create({
   caption: { ...t.xs, fontFamily: fonts.body },
   emphasis: { fontFamily: fonts.semibold },
   flex: { flex: 1 },
-  hazardRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hazardRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56 },
   notice: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 12 },
   noticeText: { ...t.sm, fontFamily: fonts.body },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  stackedNumbers: { flexDirection: 'column', alignItems: 'flex-start' },
+  stackedActions: { flexDirection: 'column' },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 4, flexShrink: 0 },
   action: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 56,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -446,7 +443,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   endAction: { flex: 1.4 },
-  actionText: { ...t.base, fontFamily: fonts.semibold },
+  actionText: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'center' },
   emptyTitle: { ...t.lg, fontFamily: fonts.heading },
   secondary: { minHeight: 48, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   secondaryText: { ...t.base, fontFamily: fonts.semibold },

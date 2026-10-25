@@ -27,6 +27,7 @@
 // Ending a float, by any path, stops the native recorder here, so recording
 // can never outlive the float.
 
+import { pickupContact } from '../float/pickupContactStore';
 import { floatArchive } from './floatArchive';
 import { recapFloat } from './floatRecap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -208,5 +209,6 @@ export async function discardFloat(): Promise<void> {
   stopRecording(null);
   await deleteAllFloatTracks();
   await store.discard();
+  await pickupContact.clear();
   void syncFloatActivity(null);
 }

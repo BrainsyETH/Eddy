@@ -20,14 +20,14 @@ export default function RecordingLayout() {
     } else router.replace('/(tabs)/(floats)/float-home');
   };
   const closeButton = () => <Pressable accessibilityRole="button" accessibilityLabel="Close float view"
-    onPress={close} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
+    onPress={close} style={{ minWidth: 56, minHeight: 56, justifyContent: 'center', alignItems: 'center' }}>
     <ControlIcon name="close" size={22} color={colors.interactive} />
   </Pressable>;
   return <SafeAreaProvider><Stack screenOptions={{ orientation: 'portrait',
     headerBackButtonDisplayMode: 'generic', contentStyle: { backgroundColor: colors.bg } }}>
     <Stack.Screen name="float-mode" dangerouslySingular={recordingScreenId}
       options={{ title: 'River Mode', headerLeft: closeButton }} />
-    <Stack.Screen name="float-options" dangerouslySingular={recordingScreenId} options={{ title: 'Float options', presentation: 'formSheet',
+    <Stack.Screen name="float-options" dangerouslySingular={recordingScreenId} options={{ title: 'Essentials', presentation: 'formSheet',
         sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: true, headerShown: false }} />
     <Stack.Screen name="float-recap" dangerouslySingular={recordingScreenId}
       options={{ title: 'Float recap', headerLeft: closeButton }} />

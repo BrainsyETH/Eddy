@@ -24,6 +24,7 @@
 // Either way there must be a take-out. Without one there are no miles left,
 // no percentage and no time left, which is the whole feature.
 
+import { latestRawFix, restoreRawFix, validCoordinate, type RawFloatFix } from './floatRawFix';
 import { nearLaunch } from './floatOrigin';
 import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
@@ -166,6 +167,8 @@ export interface FloatSession {
   last: { result: TrackResult; at: number; nearPutIn?: boolean } | null;
   /** The last confirmed position on the line; legacy display fallback. */
   position: { lngLat: LngLat; at: number } | null;
+  /** Latest valid raw recorder fix, including coarse fixes. Never drives progress. */
+  lastFix?: RawFloatFix | null;
   /** Latest usable GPS fix for display, even off-river. Never used for progress or ETA. */
   gpsPosition?: { lngLat: LngLat; at: number; restored?: true } | null;
   /**
@@ -397,11 +400,15 @@ export function startSession(input: {
 /** Feed one GPS fix. Returns the same object when nothing changed. */
 export function applyFix(session: FloatSession, index: RouteIndex, fix: PositionFix, now: number): FloatSession {
   if (!Number.isFinite(fix.timestamp) || fix.timestamp < session.startedAt || fix.timestamp > now) return session;
+  if (!validCoordinate(fix.lngLat)) return session;
+  const previousRaw = session.lastFix ?? restoreRawFix(session.gpsPosition, session.startedAt);
+  const lastFix = latestRawFix(previousRaw, fix, session.startedAt, now);
+  const rawSession = lastFix !== previousRaw ? { ...session, lastFix } : session;
   const step = trackFix(index, session.track, fix, now);
-  if (step.result.kind === 'rejected') return session;
+  if (step.result.kind === 'rejected') return rawSession;
   const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
   const atLaunch = Boolean(putIn && nearLaunch(fix.lngLat, fix.accuracyMeters, putIn.lngLat));
-  const next: FloatSession = { ...session, track: step.state,
+  const next: FloatSession = { ...rawSession, track: step.state,
     gpsPosition: { lngLat: fix.lngLat, at: fix.timestamp },
     last: { result: step.result, at: fix.timestamp, nearPutIn: atLaunch } };
   // Three accurate fixes, with no gap over thirty seconds, like river acquisition.
@@ -617,7 +624,7 @@ export interface FloatMapFeatures {
   hazards: RouteHazard[];
 }
 
-export function mapFeatures(session: FloatSession, index: RouteIndex): FloatMapFeatures {
+export function mapFeatures(session: Pick<FloatSession, 'route' | 'startMile' | 'putIn' | 'takeOut'>, index: RouteIndex): FloatMapFeatures {
   const from = session.startMile ?? session.putIn?.riverMile ?? null;
   const to = session.takeOut.riverMile;
   const between = (mile: number) => (from == null ? mile <= to : mile > from && mile < to);
@@ -726,6 +733,7 @@ export function restoreSession(raw: string | null): FloatSession | null {
     return {
       ...parsed,
       position: parsed.position ?? null,
+      lastFix: restoreRawFix(parsed.lastFix ?? parsed.gpsPosition, parsed.startedAt ?? 0),
       gpsPosition: parsed.gpsPosition ? { ...parsed.gpsPosition, restored: true } : null,
       awaitingFix: true,
       // A handover interrupted by the app ending may or may not have shown;
