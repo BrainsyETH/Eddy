@@ -2,7 +2,8 @@
 // Starting the float: the permission flow, the last checks, and beginFloat.
 // No session exists until the permission flow finishes and the float is on disk.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { initialFloatReminders, type FloatReminderChoices } from '@/lib/floatReminders';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
@@ -13,6 +14,7 @@ import { startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { clearPendingFloatSetup } from '@/float/pendingFloatSetup';
 import { startLocationState } from '@/lib/floatPermissions';
 import { beginFloat } from '@/lib/floatSessionStore';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 export type Params = {
   riverSlug?: string;
@@ -31,8 +33,12 @@ export function newSessionId() {
   return `float-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function useStart(params: Params & { previewStartMile?: number }, loaded: LoadedRoute | null, location: StartLocation) {
+export function useStart(params: Params & { previewStartMile?: number }, loaded: LoadedRoute | null, location: StartLocation, reminders: FloatReminderChoices) {
   const archive = useFloatArchive();
+  const { features, featuresReady } = useAppConfig();
+  const canStart = featuresReady && features.floatMode === true;
+  const startAllowed = useRef(canStart);
+  useLayoutEffect(() => { startAllowed.current = canStart; }, [canStart]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
@@ -49,7 +55,7 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
   // the background activity session the native recorder holds (ADR 0014),
   // not from "Always", so there is no second permission step.
   const run = async () => {
-    if (running.current || !loaded?.ok) return;
+    if (running.current || !loaded?.ok || !startAllowed.current) return;
     running.current = true;
     setBusy(true);
     setError(null);
@@ -113,7 +119,12 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
         setError(routeProblemCopy(made.reason));
         return;
       }
-      const result = await beginFloat(made.session);
+      // A foreground config refresh can disable new starts during permission/GPS work.
+      if (!startAllowed.current) {
+        setError('Starting a new float is temporarily unavailable.');
+        return;
+      }
+      const result = await beginFloat({ ...made.session, reminders: initialFloatReminders(reminders) });
       if (result === 'storage-failed') {
         setError('Eddy couldn’t save this float. Free up some storage and try again.');
         return;
@@ -132,7 +143,7 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
       setBusy(false);
     }
   };
-  return { run, busy, error };
+  return { run, busy, error, canStart, featuresReady };
 }
 
 export function useRiverRoute(slug?: string, tripKey?: string, reload = 0): LoadedRoute | null {

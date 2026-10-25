@@ -1,4 +1,6 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
+import { ReminderChoices } from '@/float/start/ReminderChoices';
+import { DEFAULT_REMINDERS, type FloatReminderChoices } from '@/lib/floatReminders';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -90,6 +92,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const account = useSession();
   const { floats } = useSavedFloats();
   const [id] = useState(newSessionId);
+  const [reminders, setReminders] = useState<FloatReminderChoices>(() => ({ ...DEFAULT_REMINDERS }));
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
   const [boat, setBoat] = useState<FloatBoat>(() => isBoat(initial.boatType) ? initial.boatType : 'kayak');
   const boatChosen = useRef(isBoat(initial.boatType));
@@ -162,7 +165,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const start = useStart({ ...draft, boatType: boat, shortCode,
     sessionId: id, downloadKey,
     plannerMph: estimate.speed?.toString(), previewStartMile: startMile ?? undefined,
-  }, loaded, location);
+  }, loaded, location, reminders);
   const preview = loaded?.ok && takeOut ? startSession({ id, kind: draft.putInId ? 'saved' : 'quick',
     route: loaded.route, index: loaded.index, putInId: draft.putInId, takeOutId: takeOut.id, now: 0 }) : null;
   const features = loaded?.ok && preview?.ok
@@ -213,7 +216,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         headerTransparent: false, headerBlurEffect: 'none', headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text, headerShadowVisible: true }} />
       <Shell footer={<>
-        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        {!start.canStart ? <Text style={[styles.body, { color: colors.textMuted }]}>{start.featuresReady
+          ? 'Starting a new float is temporarily unavailable.' : 'Checking River Mode availability…'}</Text> : null}
         {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
         {account.ready && (!account.session || account.isAnonymous) ? <Text style={[styles.caption, local.backup, { color: colors.textMuted }]}>Sign in to back up your float summary</Text> : null}
       </>}>
@@ -250,6 +255,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             {arrival?.warning ? <Text style={[styles.body, { color: colors.error }]}>{arrival.warning}</Text> : null}
           </View> : null}
         </Card>
+        <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>

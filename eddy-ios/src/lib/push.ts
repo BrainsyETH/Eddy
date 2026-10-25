@@ -19,6 +19,8 @@
 // then belong to a user nobody can bill or entitle.
 
 import * as Notifications from 'expo-notifications';
+import { readNotificationAccess, requestNotificationAccess } from './notificationPermissions';
+import type { NotificationAccess } from './notificationAccess';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
@@ -45,22 +47,22 @@ export function installForegroundHandler(): void {
 
 export type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unsupported';
 
+// Remote push keeps its device/token policy; local reminders use OS capability directly.
+// Provisional permission intentionally permits remote delivery without re-prompting.
+// Shared requests ask for alert/sound only: Eddy does not use notification badges.
+function pushPermissionState(access: NotificationAccess): PermissionState {
+  if (access === 'granted' || access === 'quiet') return 'granted';
+  if (access === 'ask') return 'undetermined';
+  return access === 'settings' ? 'denied' : 'unsupported';
+}
+
 /** What the OS currently thinks, without prompting. */
 export async function getPermissionState(): Promise<PermissionState> {
   // The simulator has no APNs connection, so a token can never be issued there.
   // Reporting that as "denied" would be misleading; it is not a user decision.
   if (!Device.isDevice) return 'unsupported';
 
-  try {
-    const { status, canAskAgain } = await Notifications.getPermissionsAsync();
-    if (status === 'granted') return 'granted';
-    // Undetermined only if iOS will still show the dialog. Once it will not,
-    // "denied" is the honest state even if the raw status says otherwise,
-    // because the only remaining path is Settings.
-    return canAskAgain ? 'undetermined' : 'denied';
-  } catch {
-    return 'unsupported';
-  }
+  return pushPermissionState(await readNotificationAccess());
 }
 
 /**
@@ -72,13 +74,7 @@ export async function getPermissionState(): Promise<PermissionState> {
 export async function requestPermission(): Promise<PermissionState> {
   if (!Device.isDevice) return 'unsupported';
 
-  try {
-    const { status, canAskAgain } = await Notifications.requestPermissionsAsync();
-    if (status === 'granted') return 'granted';
-    return canAskAgain ? 'undetermined' : 'denied';
-  } catch {
-    return 'unsupported';
-  }
+  return pushPermissionState(await requestNotificationAccess());
 }
 
 /**

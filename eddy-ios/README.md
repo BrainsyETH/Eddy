@@ -1010,6 +1010,15 @@ are documented in [`docs/condition-widgets.md`](../docs/condition-widgets.md).
 Native widget changes require a new binary. Device verification and release
 status are unconfirmed until the release runbook records them.
 
+## Remote configuration
+
+Production feature flags retain their last successful values across failed refreshes
+and offline launches. Only recognized boolean flags are persisted, keyed by API base
+URL and environment; notices and version gates are never cached. Cache hydration
+is separate from the launch upgrade decision, and a successful server response wins
+over a late cache read. A loading timeout only releases the controls; a later disk read still applies
+unless a successful server response has already supplied flags.
+
 ## Launch path — read before adding anything at module scope
 
 `src/lib/bootstrap.ts` is the first module the app evaluates. It holds the
@@ -1237,6 +1246,18 @@ readings, hazards and the float plan are free, online or off — see `PaywallShe
 for why safety data can never sit behind a wall.
 
 ### Starting a float
+
+An active float remains reachable from Floats, saved routes,
+and the planner even when new starts are disabled or route details are unavailable.
+
+Ready to float offers take-out and mapped-hazard reminder choices before starting.
+Those choices are saved in the initial session. Notification permission is optional
+and requested only after tapping Enable; recording does not require it. The same
+OS permission reader is used by readiness, River Mode and local delivery, separately
+from remote push availability, sign-in and token registration. Provisional permission
+or disabled alerts/sound is shown as quiet delivery. Permission is rechecked on
+foreground; neither permission nor scheduling proves audible delivery. Production
+cold/offline launch and locked-phone delivery verification remain unconfirmed.
 
 Every entry opens **Ready to float** in its originating tab. A plan fills in
 river, named put-in, take-out and boat; the Floats button starts with an empty
@@ -1479,6 +1500,13 @@ disclosure sits with the subscription controls rather than behind a link, for th
 same reason.
 
 ## Push
+
+Remote push and local reminders share OS notification permission interpretation.
+The explicit Enable action requests alert and sound permission, not badges (Eddy
+does not use notification badges). Provisional permission counts as allowed for
+remote delivery, so Profile may show push as on even when delivery is quiet;
+it does not re-prompt for full authorization. Float reminder controls explicitly
+label quiet delivery and offer Settings to enable alerts and sound.
 
 The backend was built first — outbox, `deliver-push` cron every 5 minutes,
 `/api/me/device-tokens` — so the client's whole job is to acquire a token, hand

@@ -38,6 +38,8 @@ import {
   autoEndAt,
   autoEndCopy,
 } from '../../../eddy-ios/src/lib/floatEnding';
+import { notificationAccess, canDeliverNotification } from '../../../eddy-ios/src/lib/notificationAccess';
+import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 const MILE = 1609.344;
 const COS = Math.cos((37 * Math.PI) / 180);
@@ -394,4 +396,24 @@ test('away is judged on fresh evidence: a gap, a return to the river, or a bank 
   }
   assert.equal(bank.awaySince, null);
   assert.equal(autoEndAt(bank, t + 2 * AUTO_END_AWAY_MS), null);
+});
+
+test('local reminder permission distinguishes quiet delivery and does not mistake read failure for denial', () => {
+  assert.equal(notificationAccess(null), 'unknown');
+  assert.equal(notificationAccess({ granted: false, canAskAgain: true }), 'ask');
+  assert.equal(notificationAccess({ granted: false, canAskAgain: false }), 'settings');
+  assert.equal(notificationAccess({ granted: true, canAskAgain: false }), 'granted');
+  assert.equal(notificationAccess({ granted: false, canAskAgain: false, provisional: true }), 'quiet');
+  assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsSound: false }), 'quiet');
+  assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsAlert: false }), 'quiet');
+  for (const state of ['unknown', 'ask', 'settings'] as const) assert.equal(canDeliverNotification(state), false);
+  for (const state of ['granted', 'quiet'] as const) assert.equal(canDeliverNotification(state), true);
+});
+
+test('pre-start opt-outs survive session serialization without inheriting sent reminder ids', () => {
+  const selected = { takeOut: false, hazards: false, stops: [] as string[] };
+  const settings = initialFloatReminders(selected);
+  assert.deepEqual(JSON.parse(JSON.stringify(settings)), { ...selected, fired: [] });
+  selected.stops.push('later-edit');
+  assert.deepEqual(settings.stops, []);
 });
