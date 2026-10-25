@@ -4,6 +4,7 @@ import { generationReferenceCitation, RACK_ESTIMATE_NOTE } from '@shared/dam-gen
 import DamGenerationHero from './DamGenerationHero';
 import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
+import Card from '@/components/ui/Card';
 
 export type ScheduleAvailability = { title: string; detail: string };
 
@@ -16,9 +17,9 @@ export default function GenerationCard({ dam, now, availability }: {
   const release = dam.metrics.release;
   const hasObserved = dam.hasTurbines || Boolean(release);
   return (
-    <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-2 sm:px-6">
-        <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">{dam.hasTurbines ? 'Generation overview' : 'Release overview'}</p>
+    <Card as="section" variant="framed">
+      <div className="flex items-center justify-between gap-3 border-b border-primary-700 bg-secondary-50 px-5 py-1 sm:px-6">
+        <p className="text-xs font-bold uppercase tracking-wider text-primary-800">{dam.hasTurbines ? 'Generation overview' : 'Release overview'}</p>
         <DamInfoTip title="Generation and schedule">
           {dam.generationReference && <p>{generationReferenceCitation(dam.generationReference)}. {RACK_ESTIMATE_NOTE}</p>}
           {dam.nameplate && <p>{dam.nameplate.units} generating units · {dam.nameplate.megawatts} MW nameplate capacity. Nameplate capacity and the published scheduling reference can differ.</p>}
@@ -31,10 +32,10 @@ export default function GenerationCard({ dam, now, availability }: {
         </DamInfoTip>
       </div>
       <div className={hasObserved ? 'dam-generation-layout' : undefined}>
-        {hasObserved && <div className="dam-observed p-5 sm:p-6">{dam.hasTurbines ? <DamGenerationHero dam={dam} now={now} /> : release && <div className={readingStaleness(release.at, now) === 'fresh' ? undefined : 'opacity-60'}>
-          <h2 className="text-xs font-bold uppercase tracking-wide text-primary-700">{release.dailyMean ? 'Release at dam · Daily average' : 'Release at dam'}</h2>
-          <p className="mt-3 text-3xl font-bold tabular-nums text-neutral-900">{Math.round(release.value).toLocaleString()} <span className="text-sm font-medium text-neutral-500">cfs</span></p>
-          <p className="mt-1 text-xs text-neutral-500">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
+        {hasObserved && <div className="dam-observed p-5 sm:p-6">{dam.hasTurbines ? <DamGenerationHero dam={dam} now={now} /> : release && <div className={readingStaleness(release.at, now) === 'fresh' ? undefined : 'opacity-80'}>
+          <h2 className="text-xs font-bold uppercase tracking-wide text-primary-200">{release.dailyMean ? 'Release at dam · Daily average' : 'Release at dam'}</h2>
+          <p className="mt-4 font-mono text-4xl text-white">{Math.round(release.value).toLocaleString()} <span className="text-base text-primary-200">cfs</span></p>
+          <p className="mt-2 text-xs text-primary-200">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
         </div>}</div>}
         <div className="min-w-0 p-5 sm:p-6">
           {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} /> : (
@@ -46,6 +47,6 @@ export default function GenerationCard({ dam, now, availability }: {
           )}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }

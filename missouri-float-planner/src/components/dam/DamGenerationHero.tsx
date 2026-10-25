@@ -52,44 +52,35 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
 
   return (
     <section aria-label="Observed generation" className="min-w-0">
-      <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary-800">
-        <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-        {status}
+      <p className="text-xs font-bold uppercase tracking-widest text-primary-200">Observed at the dam</p>
+      <h2 className="mt-4 flex items-center gap-2 text-base font-semibold text-white">
+        <Zap className="size-4 shrink-0 text-primary-200" aria-hidden="true" /> {status}
       </h2>
 
-      {/* The rack, the number, and the bar are one figure. It is hidden from
-          assistive technology and carries the same facts as a sentence — a
-          drawing that exists only for people who can see it is half a feature. */}
-      <div className={dim ? 'opacity-60' : undefined}>
-        {rack && (
-          <div className="mt-3">
-            <DamGeneratorRack rack={rack} />
-          </div>
-        )}
-
-        {percent && ref && state.kind === 'generating' && (
-          <p className="mt-4 text-4xl font-bold tabular-nums tracking-tight text-neutral-900">
-            {percent}
-            <span className="mt-1 block text-sm font-medium tracking-normal text-neutral-600">{FULL_GENERATION_SHORT_LABEL}</span>
-            {state.fraction !== null && state.fraction > 1 && <span className="mt-1 block text-xs font-medium text-accent-700">Above the published reference</span>}
-          </p>
-        )}
+      {/* Flow leads; the rack adds scale against the published reference.
+          Its decorative cells are hidden from assistive technology. */}
+      <div className={dim ? 'opacity-80' : undefined}>
         {state.kind !== 'unavailable' && (
-          <p className="mt-1 text-lg font-bold tabular-nums text-neutral-900">
-            <span className="whitespace-nowrap">{cfs(state.turbineCfs)}</span>
-            <span className="ml-1.5 text-sm font-medium text-neutral-500">through the turbines</span>
+          <p className="mt-4 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-white">
+            {Math.round(state.turbineCfs).toLocaleString()} <span className="text-base tracking-normal text-primary-200">cfs</span>
+            <span className="mt-1 block font-sans text-sm font-normal tracking-normal text-primary-100">through the turbines</span>
           </p>
         )}
-        {observedAt && <p className="text-xs text-neutral-500">Last reading {observedAt}</p>}
-
-        {rack && <p className="mt-2 text-xs text-neutral-500">{RACK_ESTIMATE_SHORT}</p>}
-
+        {observedAt && <p className="mt-2 text-xs text-primary-200">Last reading {observedAt}</p>}
+        {rack && <div className="mt-6 flex flex-wrap items-center gap-3">
+          <DamGeneratorRack rack={rack} inverse />
+          {percent && ref && state.kind === 'generating' && <p className="text-sm font-bold text-white">
+            {percent} <span className="font-normal text-primary-100">{FULL_GENERATION_SHORT_LABEL}</span>
+          </p>}
+        </div>}
+        {rack && <p className="mt-2 text-xs text-primary-200">{RACK_ESTIMATE_SHORT}</p>}
+        {state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && <p className="mt-1 text-xs text-primary-100">Above the published reference</p>}
       </div>
 
       {voiceOver && <p className="sr-only">{voiceOver}</p>}
 
       {dam.metrics.release && (
-        <div className="mt-4 border-t border-neutral-200 pt-3">
+        <div className="mt-6 border-t border-primary-600 pt-5">
           {/* The age is not optional. Turbine flow above carries one, and two
               adjacent measurements with different ages look synchronised when
               only one of them is dated — which is exactly the impression that
@@ -97,29 +88,29 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
           <p
             className={
               readingStaleness(dam.metrics.release.at, now) === 'fresh'
-                ? 'text-sm text-neutral-600'
-                : 'text-sm text-neutral-600 opacity-60'
+                ? 'text-sm text-primary-100'
+                : 'text-sm text-primary-100 opacity-80'
             }
           >
-            <span className="font-medium text-neutral-700">
+            <span className="block text-xs font-medium text-primary-200">
               {dam.metrics.release.dailyMean ? 'Total release at dam (daily avg)' : 'Total release at dam'}
             </span>{' '}
-            <span className="font-bold tabular-nums text-neutral-900">
+            <span className="mt-1 block font-mono text-xl text-white">
               {cfs(dam.metrics.release.value)}
             </span>
-            <span className="ml-1.5 text-xs text-neutral-500">
+            <span className="mt-1 block text-xs text-primary-200">
               {relativeAge(dam.metrics.release.at, now)}
             </span>
           </p>
           {comparison.kind === 'other-release' && (
             <>
-              <p className="mt-1 text-sm text-neutral-600">
-                <span className="font-medium text-neutral-700">Other release</span>{' '}
-                <span className="font-bold tabular-nums text-neutral-900">
+              <p className="mt-4 text-sm text-primary-100">
+                <span className="font-medium">Other release</span>{' '}
+                <span className="font-mono text-white">
                   {cfs(comparison.otherCfs)}
                 </span>
               </p>
-              <p className="text-xs text-neutral-500">{OTHER_RELEASE_NOTE}</p>
+              <p className="mt-1 text-xs leading-relaxed text-primary-200">{OTHER_RELEASE_NOTE}</p>
             </>
           )}
         </div>

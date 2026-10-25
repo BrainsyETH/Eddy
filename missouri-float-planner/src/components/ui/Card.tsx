@@ -8,6 +8,8 @@
 //   panel      the quiet data surface most of the site actually uses — one
 //              hairline border, no shadow, no lift. Chart shells, threshold
 //              tables, notices. Unpadded; panels carry their own header rows.
+//   framed     the standard teal border and offset shadow without hover lift.
+//              Unpadded, for dashboards with controls inside the surface.
 //   trip       the tan trip summary.
 //   access     an access-point row.
 //   glass      map overlays, light and dark.
@@ -18,11 +20,12 @@
 import type { ElementType, HTMLAttributes, ReactNode } from 'react';
 import { cx } from '@/lib/utils/cx';
 
-export type CardVariant = 'standard' | 'panel' | 'trip' | 'access' | 'glass' | 'glass-dark';
+export type CardVariant = 'standard' | 'panel' | 'framed' | 'trip' | 'access' | 'glass' | 'glass-dark';
 
 const VARIANT_CLASS: Record<CardVariant, string> = {
   standard: 'card',
   panel: 'card-panel',
+  framed: 'card-framed',
   trip: 'trip-card',
   access: 'access-card',
   glass: 'glass-card',

@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, ArrowUpRight, Phone, Smartphone } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
+import Button from '@/components/ui/Button';
 import DamDetail from '@/components/dam/DamDetail';
 import AppLink from '@/components/AppLink';
 import { getRiverContext } from '@/lib/rivers/context';
@@ -75,21 +76,21 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
         </Link>
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h1>
-            <p className="mt-1 text-sm text-neutral-500">{dam.lakeName ?? 'Dam conditions'} · {dam.state}</p>
+            <h1 className="text-4xl font-semibold tracking-tight text-primary-800 sm:text-5xl" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h1>
+            <p className="mt-2 text-sm text-neutral-600">{[dam.lakeName ?? 'Dam conditions', river?.name, dam.state].filter(Boolean).join(' · ')}</p>
           </div>
           <nav aria-label="Dam sections" className="flex gap-2 text-sm">
-            <a href="#generation" className="inline-flex min-h-11 items-center rounded-full bg-primary-100 px-4 font-medium text-primary-800">{dam.hasTurbines ? 'Generation' : 'Releases'}</a>
-            <a href="#dam-resources" className="inline-flex min-h-11 items-center rounded-full px-4 text-neutral-600 hover:bg-neutral-100">Useful links</a>
+            <Button href="#generation" variant="secondary" size="sm" className="min-h-11">{dam.hasTurbines ? 'Generation' : 'Releases'}</Button>
+            <Button href="#dam-resources" variant="ghost" size="sm" className="min-h-11">Useful links</Button>
           </nav>
         </header>
         <div id="generation" className="scroll-mt-24">
           <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} />
         </div>
-        <div id="dam-resources" className="mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
-          {riverHref && river && <Link href={riverHref} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900">View {river.name} below the dam <ArrowUpRight className="size-4" aria-hidden="true" /></Link>}
-          {dam.infoPhone && <a href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700"><Phone className="size-4" aria-hidden="true" /> Recorded release line · {dam.infoPhone}</a>}
-          <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-primary-700"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>
+        <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
+          {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></Button>}
+          {dam.infoPhone && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Recorded release line · {dam.infoPhone}</Button>}
+          <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>
         </div>
         {dam.sources.length > 0 && <p className="mt-5 text-xs text-neutral-500">Sources: {dam.sources.join(' · ')}</p>}
       </div>

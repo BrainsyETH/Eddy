@@ -690,6 +690,15 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 12px;
 }
 
+/* Branded dashboard surface. Static so charts do not move under the pointer. */
+.card-framed {
+  overflow: hidden;
+  background-color: var(--color-surface);
+  border: var(--border-base) solid var(--color-primary-700);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+}
+
 /* Trip Summary Card */
 .trip-card {
   padding: 1.5rem;
@@ -1396,13 +1405,21 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dam detail: wide charts on desktop and landscape phones, stacked in portrait. */
 .dam-generation-layout { display: grid; }
-.dam-observed { border-bottom: 1px solid var(--color-neutral-200); }
-.dam-support-layout { display: grid; gap: 1.25rem; align-items: start; }
+.dam-observed { background: var(--color-primary-800); color: white; }
+.dam-support-layout { display: grid; gap: 1.5rem; align-items: start; }
+.dam-resource-links > * { max-width: 100%; white-space: normal; }
+.dam-measurements { display: grid; gap: 1.25rem; }
+.dam-measurements > * + * { border-top: 1px solid var(--color-neutral-200); padding-top: 1.25rem; }
+@media (min-width: 480px) and (max-width: 1099px) {
+  .dam-measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dam-measurements > * + * { border-top: 0; padding-top: 0; }
+}
 @media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
-  .dam-generation-layout { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr); }
-  .dam-observed { border-bottom: 0; border-right: 1px solid var(--color-neutral-200); }
+  .dam-generation-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
 }
 @media (min-width: 1100px) {
-  .dam-support-layout { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
+  .dam-support-layout { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
   .dam-support-layout > :only-child { grid-column: 1 / -1; }
+  .dam-support-layout > :only-child .dam-measurements { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dam-support-layout > :only-child .dam-measurements > * + * { border-top: 0; padding-top: 0; }
 }

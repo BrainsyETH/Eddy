@@ -24,6 +24,8 @@
 import { useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import DamInfoTip from './DamInfoTip';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 import type { DamPatternDay, DamScheduleDay } from '@/lib/data/dams';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
@@ -73,11 +75,11 @@ export default function DamPatternStrip({
   const hasScheduled = rows.some((r) => r.cells.some((c) => c.kind === 'scheduled'));
 
   return (
-    <section className="min-w-0 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+    <Card as="section" variant="framed" className="min-w-0 p-5 sm:p-6">
       <div className="flex items-center gap-2">
         <Activity className="h-4 w-4 text-primary-700" aria-hidden="true" />
         <h2
-          className="flex-1 text-lg font-bold text-neutral-900"
+          className="flex-1 text-xl font-semibold text-primary-800"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           {showUpcoming ? 'Generation pattern' : 'Generation history'}
@@ -146,7 +148,7 @@ export default function DamPatternStrip({
               <div
                 role="img"
                 aria-label={row.today && row.cells.length === 0 ? 'Today: no completed hours yet.' : rowVoiceOver(row)}
-                className="relative flex h-6 min-w-0 flex-1 items-end sm:h-7"
+                className="relative flex h-8 min-w-0 flex-1 items-end sm:h-9"
               >
                 {row.cells.map((cell, i) => (
                   <div key={i} className="flex h-full shrink-0 items-end px-[0.5px]" style={{ width: `${100 / (slots.get(row.dayKey) || 24)}%` }}>
@@ -217,10 +219,10 @@ export default function DamPatternStrip({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2">
         <span className="text-xs text-neutral-500">Central time · At the dam</span>
-        {canShowUpcoming && <button type="button" aria-pressed={showUpcoming} onClick={() => setShowUpcoming(!showUpcoming)} className="min-h-11 rounded-lg px-3 text-sm font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600">
+        {canShowUpcoming && <Button variant="ghost" size="sm" aria-pressed={showUpcoming} onClick={() => setShowUpcoming(!showUpcoming)} className="min-h-11">
           {showUpcoming ? 'Hide upcoming schedule' : 'Include upcoming schedule'}
-        </button>}
+        </Button>}
       </div>
-    </section>
+    </Card>
   );
 }

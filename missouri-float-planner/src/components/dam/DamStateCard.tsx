@@ -17,6 +17,7 @@
 
 import { Waves, Zap, Thermometer, Droplets, Fish, Ruler, Clock } from 'lucide-react';
 import type { DamSnapshot } from '@/lib/data/dams';
+import Card from '@/components/ui/Card';
 // One freshness voice across the dam surfaces, and across web and iOS. See
 // shared/dam-schedule-copy.ts for why the hour arithmetic lives there.
 import {
@@ -69,9 +70,9 @@ function Stat({
         {icon}
         {label}
       </div>
-      <div className="mt-0.5 text-lg font-bold tabular-nums text-neutral-900">
+      <div className="mt-1 font-mono text-xl text-primary-800">
         {value}
-        {suffix && <span className="ml-1 text-sm font-medium text-neutral-500">{suffix}</span>}
+        {suffix && <span className="ml-1 font-sans text-xs text-neutral-600">{suffix}</span>}
       </div>
       {sub && <div className="text-xs text-neutral-500">{sub}</div>}
     </div>
@@ -132,13 +133,13 @@ export default function DamStateCard({
       : nowNextClauses(state, dam.schedule, dam.generationReference, now);
 
   return (
-    <div className={secondary ? "min-w-0 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6" : "rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]"}>
+    <Card variant="framed" className="min-w-0 p-5 sm:p-6">
       {secondary ? (
         <h2
-          className="text-lg font-bold text-neutral-900"
+          className="text-xl font-semibold text-primary-800"
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          Dam and lake measurements
+          Dam &amp; lake
         </h2>
       ) : (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -198,7 +199,7 @@ export default function DamStateCard({
 
       {/* Tailwater facts lead, lake facts follow. The water below the dam is
           what someone is standing in; the pool is context. */}
-      <div className={secondary ? "mt-4 grid grid-cols-2 gap-x-4 gap-y-5" : "mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"}>
+      <div className={secondary ? "dam-measurements mt-5" : "mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4"}>
         {/* GenerationCard carries total release for turbine AND gate-operated
             dams on the detail page. The index still needs its own figure. */}
         {release && !secondary && (
@@ -314,6 +315,6 @@ export default function DamStateCard({
           schedule is the available data.
         </p>
       )}
-    </div>
+    </Card>
   );
 }

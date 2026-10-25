@@ -103,7 +103,7 @@ export default function DamTimeline({
         role="img"
         aria-label={summary}
         tabIndex={0}
-        className="relative flex h-11 items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        className="relative flex h-20 items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
