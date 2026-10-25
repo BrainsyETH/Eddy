@@ -1004,6 +1004,49 @@ composites those itself).
 
 ## Home Screen widgets
 
+The River level widget also supports the rectangular Lock Screen family in
+native layout version 4. It uses the same selected station, unit, observation,
+trend expiration, disk cache and WidgetKit refresh budget as the Home Screen
+widget. There is no new polling loop. Its three lines show the station, reading
+and eligible trend, then warning/staleness and observation age with “ago”.
+VoiceOver reads the full river/station identity and observation timestamp. The setup guide
+offers Lock Screen instructions only on a binary with this family.
+
+### App Shortcuts
+
+The host target compiles `EddyAppShortcuts.swift` through `withFloatActivity`:
+**Open my river**, **Return to float**, and **Prepare saved route**. Open my river
+supports both “Open my river in Eddy” and “Open [river] in Eddy”. It uses the
+selected river or the most recently starred river; no river opens Favorites. Prepare saved route accepts a saved route parameter and opens its
+existing Ready to float screen only when no float is active. With an active
+float, both float shortcuts return to River Mode. Without a route selection
+it opens Saved Floats;
+older saves without endpoint IDs open their existing plan detail. It never
+starts tracking or downloads in the background. Return to float opens the
+existing recording presentation, or the Floats home screen when no float is
+active. Both actions wait for local recorder restoration; a failed read opens
+River Mode’s existing recovery state and never assumes tracking has stopped.
+
+Only current river/route IDs and display names enter the native shortcut
+catalog; no GPS positions, contacts, route geometry or logistics are exported.
+Requests survive React's cold launch, are consumed once, expire after two
+minutes, and resolve against the currently visible collection. An old Siri
+selection cannot reopen a removed or other-account saved route. Old binaries
+skip the optional bridge. Widget and shortcut changes require a **new native
+build**, not an OTA update. They are separate from the JavaScript-only saved
+places PR (#1565).
+
+Native compilation, Siri discovery, cold/warm shortcut handoff, Lock Screen
+fit and VoiceOver on a device are **unconfirmed**. Before release, check all
+three actions from a terminated and running app, with zero/multiple favorites,
+deleted routes and account changes; verify both float actions restore an
+active float before navigation, Return without a float opens Floats home, and
+Prepare without an active float stops before recording. Test the named-river
+phrase with two saved rivers.
+Check the rectangular widget with long river names, no reading, stale/flagged
+readings, a warning, airplane mode and Always-On dimming. Existing widget
+verification gates still apply.
+
 Home Screen River level and Your rivers widgets share the Float Activity native
 target. Their data contract, offline behavior, configuration and build gates
 are documented in [`docs/condition-widgets.md`](../docs/condition-widgets.md).
