@@ -247,7 +247,7 @@ export function DamStateCard({
         {tailwaterTemp ? (
           <Stat
             icon="thermometer-outline"
-            label="Tailwater temp"
+            label="Water temp below dam"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
             dim={isStale(tailwaterTemp)}

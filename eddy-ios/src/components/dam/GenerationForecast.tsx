@@ -75,7 +75,7 @@ export function GenerationForecast({ forecast }: { forecast: DamGenerationForeca
                     fontFamily: fonts.semibold,
                   }}
                 >
-                  {span.generating ? 'Generation forecast' : 'No generation forecast'}
+                  {span.generating ? 'Generation planned' : 'No generation planned'}
                 </Text>
                 {` ${span.label}`}
                 {span.peakLabel ? (
@@ -122,7 +122,7 @@ export function GenerationForecast({ forecast }: { forecast: DamGenerationForeca
         >
           {horizon}
           {planStale
-            ? ' — shorter than this district usually publishes, so it may not have been updated'
+            ? ' — shorter than usual, so it may not have been updated'
             : ''}
         </Text>
       ) : null}

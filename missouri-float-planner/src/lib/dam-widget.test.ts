@@ -28,7 +28,7 @@ test('dam widget keeps observation and schedule separate and expires each locall
   assert.match(first.scheduleSummary, /Stops at 2 PM/); // HE15 begins at 2, not 3.
   assert.equal(first.scheduleCheckedAt, now);
   const older = packet.entries.find(entry => entry.date === now + 3600_000 + 1)!;
-  assert.equal(older.status, 'Last observed generating');
+  assert.equal(older.status, 'Generating at last reading');
   assert.equal(older.turbineCfs, 6600);
   const scheduleExpired = packet.entries.find(entry => entry.date === now + 90 * 60_000 + 1)!;
   assert.equal(scheduleExpired.scheduleCurrent, false);

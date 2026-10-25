@@ -32,6 +32,13 @@ schedule day is expanded, and later days can be opened individually. History
 shows completed observations by default; an explicit toggle includes upcoming
 scheduled hours. Missing observations remain gaps and retain the full day axis.
 
+The detail dashboard uses Eddy's static framed cards, with a deep-teal observed
+panel, turbine flow as the primary reading, and the next scheduled change above
+the existing hourly chart. History takes the wider lower column; supporting
+dam and lake measurements sit alongside it on desktop. Framed cards keep the
+brand's border and offset shadow without moving charts on hover. This layout
+does not infer downstream arrival times or add an AI conditions assessment.
+
 Info buttons hold reference/methodology explanations. Reading age, schedule
 check age, stale provenance, and release differences stay visible. The HTML
 snapshot renders on the server, with one shared display clock for readings,
