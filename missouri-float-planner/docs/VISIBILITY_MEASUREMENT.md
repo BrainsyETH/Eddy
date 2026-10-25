@@ -69,6 +69,63 @@ clicks. Do not claim Apple campaign attribution is configured until the provider
 token has been supplied. Apple Ads attribution is a separate reporting path;
 these campaign links alone do not implement AdServices attribution.
 
+## Website analytics scope
+
+GA4 initializes after hydration, only in a production build on `eddy.guide`
+or `www.eddy.guide`. Vercel preview/development deployments, local hosts,
+all iframe contexts (including widgets inside Eddy's own blog), and browsers
+reporting `navigator.webdriver` are excluded before the Google script loads.
+Only a valid `G-...` ID from `NEXT_PUBLIC_GA_ID` or its legacy environment
+alias `NEXT_PUBLIC_GA_MEASUREMENT_ID` enables collection. This is not a general
+bot filter: automated browsers that hide WebDriver can still be counted, and
+Linux visitors are not excluded.
+
+Embedded widgets retain their independent `/api/embed/impression` beacon.
+Those impressions measure widget use, separately from website sessions and
+engagement. Opening an `/embed/...` URL directly in a top-level production
+tab still counts as a website visit.
+
+For manual production QA, run the following in the page's browser console
+and reload **before** testing:
+
+```js
+sessionStorage.setItem('eddy_analytics_disabled', '1');
+location.reload();
+```
+
+Remove that key and reload to resume collection in the tab. Setting the key
+without reloading stops new custom events but cannot unload Google's already
+running automatic tracking. Storage denial does not prevent ordinary visitor
+analytics. This opt-out affects GA4 only, not widget impression accounting.
+
+The root listener initializes Google once per document. Google's `config`
+command owns the initial page view; GA4 Enhanced Measurement must have page
+views on browser-history changes enabled for client-side navigation. There
+is no additional `usePathname` or manual `page_view` sender. Keep one owner
+for page views to avoid duplicates.
+
+Run `make check-web` and `npm run test:analytics-browser` (from the web folder)
+before merging. The browser fixture exercises the analytics module with all
+requests intercepted; it cannot prove events arrived in GA4. After deployment:
+
+- Record the actual deployment timestamp and GA4 property timezone as the
+  start of the clean baseline. Historical iframe/development traffic remains
+  in earlier reports; do not treat the resulting count changes as growth or loss.
+- In a normal production browser with analytics allowed, verify one initial
+  `page_view`, one for each intended client-side page navigation (including
+  Back/Forward), and no duplicate after a campaign change. Confirm both the
+  collection requests and GA4 DebugView; check the Enhanced Measurement
+  browser-history setting if navigation views are missing.
+- Open a blog with an embedded widget and a partner-hosted widget. The parent
+  website visit may generate GA events; the widget frame must load no Google
+  tag or collection request, while its impression beacon still succeeds.
+- Confirm preview/local/automated QA generates no GA requests. Check the
+  existing download and planner events before changing key-event settings.
+
+These are rollout gates, not a claim that the deployed property has already
+been verified. Key-event configuration and Apple campaign attribution are
+separate follow-ups.
+
 ## Release checks
 
 - Run the web checks. The app-discovery regression also feeds generated banner
@@ -107,6 +164,8 @@ cannot confirm that real events or installations reached those accounts.
 References:
 
 - [Google Tag Platform: CSP](https://developers.google.com/tag-platform/security/guides/csp)
+- [GA4: page views and automatic measurement](https://developers.google.com/analytics/devguides/collection/ga4/views)
+- [GA4: single-page applications](https://developers.google.com/analytics/devguides/collection/ga4/single-page-applications)
 - [Google Search Central: noindex](https://developers.google.com/search/docs/crawling-indexing/block-indexing)
 - [Apple: Smart App Banners](https://developer.apple.com/documentation/webkit/promoting-apps-with-smart-app-banners)
 - [Apple: campaign links](https://developer.apple.com/help/app-store-connect-analytics/acquisition/campaign-links)
