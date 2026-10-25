@@ -63,7 +63,7 @@ export function PinCallout({
   onOpenDetail: (route: string) => void;
   onClose: () => void;
   starred?: boolean;
-  /** Null for anything that cannot be starred, which is everything but gauges. */
+  /** Null for a pin that cannot be saved. */
   onToggleStar?: (() => void) | null;
 }) {
   const { colors, isDark } = useTheme();

@@ -3,9 +3,15 @@
 // Neither an account nor notification permission is required.
 
 export const WIDGET_ONBOARDING_KEY = 'eddy.widgets.setup-guide.seen.v1';
-export type WidgetGuideKind = 'river' | 'favorites' | 'dam' | 'report';
+export type WidgetGuideKind = 'river' | 'lock' | 'favorites' | 'dam' | 'report';
 
 export const WIDGET_GUIDE = {
+  lock: {
+    title: 'River level',
+    size: 'Lock Screen',
+    summary: 'Reading, trend and observation age.',
+    personalize: 'Tap River level in the editor to choose a station.',
+  },
   river: {
     title: 'River level',
     size: 'Small',
@@ -51,6 +57,11 @@ export function widgetGuide(kind: WidgetGuideKind, layoutVersion = 3) {
 
 export function widgetGuideSteps(kind: WidgetGuideKind, layoutVersion = 3) {
   const widget = widgetGuide(kind, layoutVersion);
+  if (kind === 'lock') return [
+    { title: 'Edit Lock Screen', detail: 'Touch and hold your Lock Screen. Tap Customize, then Lock Screen.' },
+    { title: 'Add River level', detail: 'Tap Add Widgets, then Eddy. Choose the rectangular River level widget.' },
+    { title: 'Choose a station', detail: widget.personalize },
+  ];
   return [
     {
       title: 'Open the widget gallery',

@@ -15,6 +15,12 @@ const targets = entries(objects.PBXNativeTarget).filter(([, t]) => t.name.replac
 assert.equal(targets.length, 1, 'one extension');
 const [id, target] = targets[0];
 const host = project.getFirstTarget().firstTarget;
+const hostSources = host.buildPhases.flatMap(({ value }) => objects.PBXSourcesBuildPhase?.[value]?.files ?? [])
+  .map(({ value }) => objects.PBXFileReference[objects.PBXBuildFile[value].fileRef].path.replaceAll('"', ''));
+for (const name of ['EddyAppShortcuts.swift', 'ShortcutData.swift']) {
+  assert.equal(hostSources.filter(file => file === name).length, 1, 'App Intents metadata is compiled in the host once');
+}
+assert.match(fs.readFileSync(path.join(root, 'ios/Eddy/AppDelegate.swift'), 'utf8'), /EddyAppShortcuts\.register\(\)/);
 assert.equal(host.dependencies.filter(({ value }) => objects.PBXTargetDependency[value]?.target === id).length, 1, 'host builds the extension');
 const embedded = host.buildPhases.flatMap(({ value }) => objects.PBXCopyFilesBuildPhase?.[value]?.files ?? []);
 assert.equal(embedded.filter(({ value }) => objects.PBXBuildFile[value].fileRef === target.productReference).length, 1, 'host embeds the appex once');
