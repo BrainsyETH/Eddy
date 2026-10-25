@@ -1,4 +1,5 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
+import { PickupContact } from '@/float/PickupContact';
 import { ReminderChoices } from '@/float/start/ReminderChoices';
 import { DEFAULT_REMINDERS, type FloatReminderChoices } from '@/lib/floatReminders';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -278,6 +279,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
+        <Card><PickupContact disabled={start.busy} /></Card>
         <OfflinePreparation tripKey={matchingDownloadKey} disabled={start.busy}
           onBuild={() => router.push({ pathname: '/plan-route', params: startPlannerParams(draft, boat) })} />
       </Shell>

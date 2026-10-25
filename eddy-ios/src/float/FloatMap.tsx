@@ -38,13 +38,18 @@
 // token, Expo Go), where there is no map to keep.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { type LngLat } from '@eddy/geo';
 import { hazardConditionCode, hazardTypeLabel } from '@eddy/hazards';
 import { markerDistance, type FloatMapFeatures, type RouteHazard } from '@/lib/floatSession';
 import { conditionColor } from '@/theme/conditions';
 import { loadMapbox, STYLE_URL } from '@/map/runtime';
+import { floatMapChoices, floatTapRect, type FloatMapChoice } from '@/lib/floatMapSelection';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { selectionFeedback } from '@/lib/haptics';
+import { consumeFloatMapFocus, type FloatMapFocus } from './mapFocus';
 import { floatOverviewBounds, floatRouteBounds } from '@/lib/floatDisplay';
 import { networkHintsOffline } from '@/lib/networkHint';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -74,6 +79,7 @@ export interface FloatMapProps {
   currentMile?: number | null;
   /** A still, framed preview: no following, no controls, no gestures. */
   preview?: boolean;
+  focus?: FloatMapFocus | null;
 }
 
 interface CameraRef {
@@ -111,13 +117,20 @@ function MapboxFloatMap({
   positionDimmed,
   currentMile = null,
   preview = false,
+  focus,
 }: FloatMapProps & { Mapbox: NonNullable<ReturnType<typeof loadMapbox>> }) {
   const { colors } = useTheme();
   const camera = useRef<CameraRef | null>(null);
+  const map = useRef<{ queryRenderedFeaturesInRect(rect: number[], filter: unknown[], layers: string[]): Promise<{ features: Parameters<typeof floatMapChoices>[0] } | undefined> } | null>(null);
+  const tapGeneration = useRef(0);
+  const reducedMotion = useReducedMotion(true);
+  const [choices, setChoices] = useState<FloatMapChoice[]>([]);
+  useEffect(() => () => { tapGeneration.current += 1; }, []);
   const [following, setFollowing] = useState<'overview' | 'position' | false>(preview ? false : 'overview');
   const [mapReady, setMapReady] = useState(false);
   const [neutral, setNeutral] = useState(false);
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [focusedTarget, setFocusedTarget] = useState<FloatMapFocus | null>(null);
 
   // A background with no sources at all: renders with no network, no tiles
   // and no glyphs, so the route layers above it always draw.
@@ -154,21 +167,29 @@ function MapboxFloatMap({
     if (following === 'overview') {
       // Follow actual coordinate changes only. A manual gesture stops following.
       const frame = floatOverviewBounds([lng, lat], endLng != null && endLat != null ? [endLng, endLat] : null);
-      if (frame) camera.current?.fitBounds([frame[2], frame[3]], [frame[0], frame[1]], FRAME_PADDING, 600);
+      if (frame) camera.current?.fitBounds([frame[2], frame[3]], [frame[0], frame[1]], FRAME_PADDING, reducedMotion ? 0 : 600);
     } else {
-      camera.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: FOLLOW_ZOOM, animationDuration: 600 });
+      camera.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
     }
-  }, [preview, following, mapReady, lng, lat, endLng, endLat]);
+  }, [preview, following, mapReady, lng, lat, endLng, endLat, reducedMotion]);
 
+  const clearSelection = () => {
+    tapGeneration.current++;
+    setChoices([]);
+    setSelected(null);
+    setFocusedTarget(null);
+  };
   const showRoute = () => {
+    clearSelection();
     if (!bounds) return;
     setFollowing(false);
-    camera.current?.fitBounds([bounds[2], bounds[3]], [bounds[0], bounds[1]], FRAME_PADDING, 700);
+    camera.current?.fitBounds([bounds[2], bounds[3]], [bounds[0], bounds[1]], FRAME_PADDING, reducedMotion ? 0 : 700);
   };
   const recenter = () => {
+    clearSelection();
     setFollowing('position');
     // Repeated taps work even if following was already selected.
-    if (position) camera.current?.setCamera({ centerCoordinate: position, zoomLevel: FOLLOW_ZOOM, animationDuration: 600 });
+    if (position) camera.current?.setCamera({ centerCoordinate: position, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
   };
 
   const routeShape = useMemo(
@@ -185,17 +206,17 @@ function MapboxFloatMap({
       features: [
         ...stops.map((stop) => ({
           type: 'Feature' as const,
-          properties: { kind: 'stop', color: colors.card, label: stop.name, title: stop.name, sub: 'Access point', mile: stop.riverMile },
+          properties: { id: `access:${stop.id}`, kind: 'stop', color: colors.card, label: stop.name, title: stop.name, sub: 'Mapped access', mile: stop.riverMile },
           geometry: { type: 'Point' as const, coordinates: stop.lngLat },
         })),
         ...hazards.map((hazard) => ({
           type: 'Feature' as const,
           properties: {
-            kind: 'hazard',
+            id: `hazard:${hazard.id}`, kind: 'hazard',
             color: conditionColor(hazardConditionCode(hazard.severity)),
             label: hazard.name,
             title: hazard.name,
-            sub: hazardTypeLabel(hazard.type) + (hazard.portageRequired ? ' · portage' : ''),
+            sub: hazardTypeLabel(hazard.type) + (hazard.portageRequired ? ` · Portage${hazard.portageSide && hazard.portageSide !== 'either' ? ` river ${hazard.portageSide}` : ''}` : ''),
             mile: hazard.riverMile,
           },
           geometry: { type: 'Point' as const, coordinates: hazard.lngLat },
@@ -212,14 +233,14 @@ function MapboxFloatMap({
           ? [
               {
                 type: 'Feature' as const,
-                properties: { end: 'start', label: `Put-in · ${start.name}`, title: start.name, sub: 'Put-in', mile: start.riverMile ?? -1 },
+                properties: { id: 'end:start', end: 'start', label: `Put-in · ${start.name}`, title: start.name, sub: 'Put-in', mile: start.riverMile ?? -1 },
                 geometry: { type: 'Point' as const, coordinates: start.lngLat },
               },
             ]
           : []),
         ...(takeOut ? [{
           type: 'Feature' as const,
-          properties: { end: 'take-out', label: `Take-out · ${takeOut.name}`, title: takeOut.name, sub: 'Take-out', mile: takeOut.riverMile },
+          properties: { id: 'end:take-out', end: 'take-out', label: `Take-out · ${takeOut.name}`, title: takeOut.name, sub: 'Take-out', mile: takeOut.riverMile },
           geometry: { type: 'Point' as const, coordinates: takeOut.lngLat },
         }] : []),
       ],
@@ -227,12 +248,43 @@ function MapboxFloatMap({
     [start, takeOut],
   );
 
-  const onMarkerPress = (event: { features?: { properties?: Record<string, unknown> | null }[] }) => {
-    const props = event.features?.[0]?.properties;
-    if (!props || typeof props.title !== 'string') return;
-    const mile = typeof props.mile === 'number' && props.mile >= 0 ? props.mile : null;
-    const where = mile == null ? '' : ` · ${markerDistance(mile, currentMile)}`;
-    setSelected({ title: props.title, detail: `${String(props.sub ?? '')}${where}` });
+  useEffect(() => {
+    if (!focus || !mapReady || preview || !camera.current) return;
+    const applied = consumeFloatMapFocus(focus.id);
+    if (!applied) return;
+    tapGeneration.current++;
+    // Synchronize the sheet's explicit map-focus command with local interaction state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFollowing(false);
+    setChoices([]);
+    setFocusedTarget(applied);
+    setSelected({ title: applied.title, detail: applied.detail });
+    camera.current.setCamera({ centerCoordinate: applied.point, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
+  }, [focus, mapReady, preview, reducedMotion]);
+
+  const choose = (choice: FloatMapChoice) => {
+    tapGeneration.current++;
+    selectionFeedback();
+    setChoices([]);
+    setFocusedTarget(null);
+    const where = choice.mile == null ? '' : ` · ${markerDistance(choice.mile, currentMile)}`;
+    setSelected({ title: choice.title, detail: `${choice.detail}${where}` });
+  };
+  const onMapPress = async (event: { properties?: { screenPointX?: number; screenPointY?: number } }) => {
+    if (preview) return;
+    const x = event.properties?.screenPointX;
+    const y = event.properties?.screenPointY;
+    if (x == null || y == null || !map.current) return;
+    const generation = ++tapGeneration.current;
+    try {
+      const hit = await map.current.queryRenderedFeaturesInRect(floatTapRect(x, y), [], [
+        'float-markers-dot', 'float-markers-label', 'float-ends-dot', 'float-ends-label',
+      ]);
+      if (generation !== tapGeneration.current || !hit) return;
+      const matches = floatMapChoices(hit.features);
+      if (matches.length === 1) choose(matches[0]);
+      else { setSelected(null); setFocusedTarget(null); setChoices(matches); }
+    } catch { /* Keep the current selection when the style cannot be queried. */ }
   };
 
   const labelStyle = {
@@ -250,6 +302,7 @@ function MapboxFloatMap({
   return (
     <View style={styles.fill}>
       <Mapbox.MapView
+        ref={map}
         style={styles.fill}
         {...(neutral ? { styleJSON: neutralStyle } : { styleURL: STYLE_URL })}
         scaleBarEnabled={false}
@@ -262,9 +315,9 @@ function MapboxFloatMap({
         pitchEnabled={false}
         onDidFailLoadingMap={() => setNeutral(true)}
         onDidFinishLoadingStyle={() => setMapReady(true)}
-        onPress={() => setSelected(null)}
+        onPress={onMapPress}
         onCameraChanged={(state: { gestures?: { isGestureActive?: boolean } }) => {
-          if (state?.gestures?.isGestureActive) setFollowing(false);
+          if (state?.gestures?.isGestureActive) { tapGeneration.current++; setFollowing(false); }
         }}
       >
         <Mapbox.Camera ref={camera} defaultSettings={defaultSettings} />
@@ -282,7 +335,7 @@ function MapboxFloatMap({
             />
           </Mapbox.ShapeSource>
         ) : null}
-        <Mapbox.ShapeSource id="float-markers" shape={markersShape} onPress={preview ? undefined : onMarkerPress} hitbox={{ width: 32, height: 32 }}>
+        <Mapbox.ShapeSource id="float-markers" shape={markersShape}>
           <Mapbox.CircleLayer
             id="float-markers-dot"
             style={{
@@ -294,7 +347,7 @@ function MapboxFloatMap({
           />
           {preview ? null : <Mapbox.SymbolLayer id="float-markers-label" minZoomLevel={LABEL_ZOOM} style={labelStyle} />}
         </Mapbox.ShapeSource>
-        <Mapbox.ShapeSource id="float-ends" shape={endsShape} onPress={preview ? undefined : onMarkerPress} hitbox={{ width: 36, height: 36 }}>
+        <Mapbox.ShapeSource id="float-ends" shape={endsShape}>
           <Mapbox.CircleLayer
             id="float-ends-dot"
             style={{
@@ -329,13 +382,39 @@ function MapboxFloatMap({
             />
           </Mapbox.ShapeSource>
         ) : null}
+        {focusedTarget && !preview ? <Mapbox.ShapeSource id="float-focus" shape={{ type: 'Feature', properties: { label: focusedTarget.title }, geometry: { type: 'Point', coordinates: focusedTarget.point } }}>
+          <Mapbox.CircleLayer id="float-focus-dot" style={{ circleRadius: 14, circleColor: colors.accent, circleStrokeColor: colors.text, circleStrokeWidth: 3 }} />
+          <Mapbox.SymbolLayer id="float-focus-label" style={labelStyle} />
+        </Mapbox.ShapeSource> : null}
       </Mapbox.MapView>
       {neutral && !preview ? (
         <View style={[styles.chip, { backgroundColor: colors.card }]} pointerEvents="none">
           <Text style={[styles.chipText, { color: colors.textMuted }]}>Background map unavailable</Text>
         </View>
       ) : null}
-      {selected ? <MarkerCard selected={selected} onClose={() => setSelected(null)} /> : null}
+      <Modal visible={choices.length > 1} transparent animationType={reducedMotion ? 'none' : 'fade'}
+        onRequestClose={clearSelection}>
+        <View style={[styles.selectionOverlay, { backgroundColor: colors.scrim }]}>
+          <SafeAreaView edges={['bottom']} style={[styles.selectionSheet, { backgroundColor: colors.card }]} accessibilityViewIsModal>
+            <View style={styles.choiceCard}>
+              <View style={styles.choiceHeader}>
+                <Text style={[styles.markerTitle, { flex: 1, color: colors.text }]} accessibilityRole="header">Choose a place</Text>
+                <Pressable style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close selection" onPress={clearSelection}>
+                  <ControlIcon name="close" size={22} color={colors.interactive} />
+                </Pressable>
+              </View>
+              <ScrollView>{choices.map(choice => <Pressable key={choice.id} accessibilityRole="button" onPress={() => choose(choice)}
+                style={[styles.choice, { borderTopColor: colors.border }]}>
+                <Text style={[styles.markerTitle, { color: colors.text }]}>{choice.title}</Text>
+                <Text style={[styles.markerDetail, { color: colors.textMuted }]}>{choice.detail}</Text>
+              </Pressable>)}</ScrollView>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+      {selected ? <View style={styles.markerOverlay} pointerEvents="box-none">
+        <MarkerCard selected={selected} onClose={clearSelection} />
+      </View> : null}
       {preview ? null : (
         <View style={styles.controls}>
           {bounds ? <MapButton icon="map-outline" label="Show route" onPress={showRoute} accessibilityLabel="Show the whole route" /> : null}
@@ -352,13 +431,13 @@ function MarkerCard({ selected, onClose }: { selected: Selected; onClose: () => 
   const { colors, elevation } = useTheme();
   return (
     <View style={[styles.markerCard, { backgroundColor: colors.card }, elevation(2)]} accessibilityLiveRegion="polite">
-      <View style={styles.markerText}>
-        <Text style={[styles.markerTitle, { color: colors.text }]} numberOfLines={2}>
+      <ScrollView style={styles.markerText}>
+        <Text style={[styles.markerTitle, { color: colors.text }]}>
           {selected.title}
         </Text>
         <Text style={[styles.markerDetail, { color: colors.textMuted }]}>{selected.detail}</Text>
-      </View>
-      <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+      </ScrollView>
+      <Pressable onPress={onClose} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close">
         <ControlIcon name="close" size={18} color={colors.textMuted} />
       </Pressable>
     </View>
@@ -391,16 +470,25 @@ function MapButton({
 }
 
 /** The river drawn plainly, for builds with no Mapbox at all (no token, Expo Go). */
-function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position, positionDimmed, preview = false }: FloatMapProps) {
+function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position, positionDimmed, preview = false, focus }: FloatMapProps) {
   const { colors } = useTheme();
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const [focusedTarget, setFocusedTarget] = useState<FloatMapFocus | null>(null);
+  const ready = size !== null;
+  useEffect(() => {
+    if (!focus || !ready || preview) return;
+    const applied = consumeFloatMapFocus(focus.id);
+    // Synchronize the explicit focus command, including builds without Mapbox.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (applied) setFocusedTarget(applied);
+  }, [focus, ready, preview]);
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setSize({ width, height });
   };
 
   // Fitted to the stretch; the rest of the river runs off the edges, faint.
-  const drawing = useMemo(() => (size ? fit([...(section ?? line), ...(start ? [start.lngLat] : []), ...(takeOut ? [takeOut.lngLat] : []), ...(!preview && position ? [position] : [])], size.width, size.height, 24) : null), [section, line, size, start, takeOut, preview, position]);
+  const drawing = useMemo(() => (size ? fit([...(section ?? line), ...(start ? [start.lngLat] : []), ...(takeOut ? [takeOut.lngLat] : []), ...(!preview && position ? [position] : []), ...(!preview && focusedTarget ? [focusedTarget.point] : [])], size.width, size.height, 24) : null), [section, line, size, start, takeOut, preview, position, focusedTarget]);
   const sectionPath = useMemo(() => (drawing && section ? drawing.pathOf(section) : null), [drawing, section]);
 
   return (
@@ -437,11 +525,15 @@ function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position,
             <Circle {...drawing.point(takeOut.lngLat)} r={10} fill={colors.accent} stroke="#ffffff" strokeWidth={3} />
             <Circle {...drawing.point(takeOut.lngLat)} r={3.5} fill="#ffffff" />
           </> : null}
+          {focusedTarget && !preview ? <Circle {...drawing.point(focusedTarget.point)} r={13} fill={colors.accent} stroke={colors.text} strokeWidth={3} /> : null}
           {position && !preview ? (
             <Circle {...drawing.point(position)} r={9} fill="#1E6FD9" opacity={positionDimmed ? 0.4 : 1} stroke="#ffffff" strokeWidth={3} />
           ) : null}
         </Svg>
       ) : null}
+      {focusedTarget && !preview ? <View style={styles.markerOverlay} pointerEvents="box-none">
+        <MarkerCard selected={focusedTarget} onClose={() => setFocusedTarget(null)} />
+      </View> : null}
       {preview ? null : (
         <Text style={[styles.fallbackNote, { color: colors.textMuted }]}>River only · background map unavailable</Text>
       )}
@@ -482,23 +574,28 @@ function fit(line: LngLat[], width: number, height: number, padding: number) {
 }
 
 const styles = StyleSheet.create({
+  closeButton: { minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  selectionOverlay: { flex: 1, justifyContent: 'flex-end' },
+  selectionSheet: { maxHeight: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16 },
+  choiceCard: { flexShrink: 1, paddingHorizontal: 4 },
+  choiceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  choice: { minHeight: 56, paddingVertical: 12, gap: 4, borderTopWidth: StyleSheet.hairlineWidth },
   fill: { flex: 1 },
   clip: { overflow: 'hidden' },
-  controls: { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
+  controls: { position: 'absolute', right: 12, bottom: 12, left: 12, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
   mapButton: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    minHeight: 44,
+    minHeight: 56,
     paddingHorizontal: 14,
     borderRadius: 22,
   },
-  mapButtonText: { ...t.sm, fontFamily: fonts.semibold },
+  mapButtonText: { flexShrink: 1, ...t.sm, fontFamily: fonts.semibold },
+  markerOverlay: { position: 'absolute', top: 12, left: 12, right: 12, maxHeight: '55%' },
   markerCard: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 68,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
