@@ -16,7 +16,7 @@ import { useTrackingLine } from '@/float/useTrackingLine';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { useTheme } from '@/theme/ThemeProvider';
-import { aheadItems, essentialsRouteFeatures, coordinateText, essentialsPosition, locationLink, locationMessage } from '@/lib/floatEssentials';
+import { aheadItems, currentFloatReports, essentialsRouteFeatures, coordinateText, essentialsPosition, locationLink, locationMessage } from '@/lib/floatEssentials';
 import { formatBeyond, viewSession } from '@/lib/floatSession';
 import { fixAgeLabel } from '@/lib/floatDisplay';
 import { HAZARD_KINDS } from '@/lib/hazardReportQueue';
@@ -53,7 +53,7 @@ export default function FloatOptionsScreen() {
   const fix = essentialsPosition(session, now);
   const view = viewSession(session, now);
   const takeOut = session.route.anchors.find(a => a.id === session.takeOut.id);
-  const unplaced = reports.filter(r => r.riverSlug === session.route.riverSlug && r.status !== 'refused' && r.riverMile == null);
+  const unplaced = currentFloatReports(session, reports).filter(r => r.riverMile == null);
   const share = async (message: string | null) => {
     if (!message) return;
     setError(null);

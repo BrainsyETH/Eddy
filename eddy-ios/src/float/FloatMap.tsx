@@ -49,7 +49,7 @@ import { loadMapbox, STYLE_URL } from '@/map/runtime';
 import { floatMapChoices, floatTapRect, type FloatMapChoice } from '@/lib/floatMapSelection';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { selectionFeedback } from '@/lib/haptics';
-import type { FloatMapFocus } from './mapFocus';
+import { consumeFloatMapFocus, type FloatMapFocus } from './mapFocus';
 import { floatOverviewBounds, floatRouteBounds } from '@/lib/floatDisplay';
 import { networkHintsOffline } from '@/lib/networkHint';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -130,6 +130,7 @@ function MapboxFloatMap({
   const [mapReady, setMapReady] = useState(false);
   const [neutral, setNeutral] = useState(false);
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [focusedTarget, setFocusedTarget] = useState<FloatMapFocus | null>(null);
 
   // A background with no sources at all: renders with no network, no tiles
   // and no glyphs, so the route layers above it always draw.
@@ -172,12 +173,20 @@ function MapboxFloatMap({
     }
   }, [preview, following, mapReady, lng, lat, endLng, endLat, reducedMotion]);
 
+  const clearSelection = () => {
+    tapGeneration.current++;
+    setChoices([]);
+    setSelected(null);
+    setFocusedTarget(null);
+  };
   const showRoute = () => {
+    clearSelection();
     if (!bounds) return;
     setFollowing(false);
     camera.current?.fitBounds([bounds[2], bounds[3]], [bounds[0], bounds[1]], FRAME_PADDING, reducedMotion ? 0 : 700);
   };
   const recenter = () => {
+    clearSelection();
     setFollowing('position');
     // Repeated taps work even if following was already selected.
     if (position) camera.current?.setCamera({ centerCoordinate: position, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
@@ -240,20 +249,24 @@ function MapboxFloatMap({
   );
 
   useEffect(() => {
-    if (!focus || !mapReady || preview) return;
+    if (!focus || !mapReady || preview || !camera.current) return;
+    const applied = consumeFloatMapFocus(focus.id);
+    if (!applied) return;
     tapGeneration.current++;
     // Synchronize the sheet's explicit map-focus command with local interaction state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFollowing(false);
     setChoices([]);
-    setSelected(null);
-    camera.current?.setCamera({ centerCoordinate: focus.point, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
+    setFocusedTarget(applied);
+    setSelected({ title: applied.title, detail: applied.detail });
+    camera.current.setCamera({ centerCoordinate: applied.point, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
   }, [focus, mapReady, preview, reducedMotion]);
 
   const choose = (choice: FloatMapChoice) => {
     tapGeneration.current++;
     selectionFeedback();
     setChoices([]);
+    setFocusedTarget(null);
     const where = choice.mile == null ? '' : ` · ${markerDistance(choice.mile, currentMile)}`;
     setSelected({ title: choice.title, detail: `${choice.detail}${where}` });
   };
@@ -264,11 +277,13 @@ function MapboxFloatMap({
     if (x == null || y == null || !map.current) return;
     const generation = ++tapGeneration.current;
     try {
-      const hit = await map.current.queryRenderedFeaturesInRect(floatTapRect(x, y), [], ['float-markers-dot', 'float-ends-dot']);
+      const hit = await map.current.queryRenderedFeaturesInRect(floatTapRect(x, y), [], [
+        'float-markers-dot', 'float-markers-label', 'float-ends-dot', 'float-ends-label',
+      ]);
       if (generation !== tapGeneration.current || !hit) return;
       const matches = floatMapChoices(hit.features);
       if (matches.length === 1) choose(matches[0]);
-      else { setSelected(null); setChoices(matches); }
+      else { setSelected(null); setFocusedTarget(null); setChoices(matches); }
     } catch { /* Keep the current selection when the style cannot be queried. */ }
   };
 
@@ -367,7 +382,7 @@ function MapboxFloatMap({
             />
           </Mapbox.ShapeSource>
         ) : null}
-        {focus && !preview ? <Mapbox.ShapeSource id="float-focus" shape={{ type: 'Feature', properties: { label: focus.title }, geometry: { type: 'Point', coordinates: focus.point } }}>
+        {focusedTarget && !preview ? <Mapbox.ShapeSource id="float-focus" shape={{ type: 'Feature', properties: { label: focusedTarget.title }, geometry: { type: 'Point', coordinates: focusedTarget.point } }}>
           <Mapbox.CircleLayer id="float-focus-dot" style={{ circleRadius: 14, circleColor: colors.accent, circleStrokeColor: colors.text, circleStrokeWidth: 3 }} />
           <Mapbox.SymbolLayer id="float-focus-label" style={labelStyle} />
         </Mapbox.ShapeSource> : null}
@@ -377,27 +392,29 @@ function MapboxFloatMap({
           <Text style={[styles.chipText, { color: colors.textMuted }]}>Background map unavailable</Text>
         </View>
       ) : null}
-      <Modal visible={choices.length > 1 || selected !== null} transparent animationType={reducedMotion ? 'none' : 'fade'}
-        onRequestClose={() => { tapGeneration.current++; setSelected(null); setChoices([]); }}>
+      <Modal visible={choices.length > 1} transparent animationType={reducedMotion ? 'none' : 'fade'}
+        onRequestClose={clearSelection}>
         <View style={[styles.selectionOverlay, { backgroundColor: colors.scrim }]}>
-        <SafeAreaView edges={['bottom']} style={[styles.selectionSheet, { backgroundColor: colors.card }]} accessibilityViewIsModal>
-      {choices.length > 1 ? <View style={styles.choiceCard}>
-        <View style={styles.choiceHeader}>
-          <Text style={[styles.markerTitle, { flex: 1, color: colors.text }]} accessibilityRole="header">Choose a place</Text>
-          <Pressable style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close selection" onPress={() => { tapGeneration.current++; setChoices([]); }}>
-            <ControlIcon name="close" size={22} color={colors.interactive} />
-          </Pressable>
-        </View>
-        <ScrollView>{choices.map(choice => <Pressable key={choice.id} accessibilityRole="button" onPress={() => choose(choice)}
-          style={[styles.choice, { borderTopColor: colors.border }]}>
-          <Text style={[styles.markerTitle, { color: colors.text }]}>{choice.title}</Text>
-          <Text style={[styles.markerDetail, { color: colors.textMuted }]}>{choice.detail}</Text>
-        </Pressable>)}</ScrollView>
-      </View> : null}
-      {selected ? <MarkerCard selected={selected} onClose={() => { tapGeneration.current++; setSelected(null); }} /> : null}
-        </SafeAreaView>
+          <SafeAreaView edges={['bottom']} style={[styles.selectionSheet, { backgroundColor: colors.card }]} accessibilityViewIsModal>
+            <View style={styles.choiceCard}>
+              <View style={styles.choiceHeader}>
+                <Text style={[styles.markerTitle, { flex: 1, color: colors.text }]} accessibilityRole="header">Choose a place</Text>
+                <Pressable style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close selection" onPress={clearSelection}>
+                  <ControlIcon name="close" size={22} color={colors.interactive} />
+                </Pressable>
+              </View>
+              <ScrollView>{choices.map(choice => <Pressable key={choice.id} accessibilityRole="button" onPress={() => choose(choice)}
+                style={[styles.choice, { borderTopColor: colors.border }]}>
+                <Text style={[styles.markerTitle, { color: colors.text }]}>{choice.title}</Text>
+                <Text style={[styles.markerDetail, { color: colors.textMuted }]}>{choice.detail}</Text>
+              </Pressable>)}</ScrollView>
+            </View>
+          </SafeAreaView>
         </View>
       </Modal>
+      {selected ? <View style={styles.markerOverlay} pointerEvents="box-none">
+        <MarkerCard selected={selected} onClose={clearSelection} />
+      </View> : null}
       {preview ? null : (
         <View style={styles.controls}>
           {bounds ? <MapButton icon="map-outline" label="Show route" onPress={showRoute} accessibilityLabel="Show the whole route" /> : null}
@@ -456,13 +473,22 @@ function MapButton({
 function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position, positionDimmed, preview = false, focus }: FloatMapProps) {
   const { colors } = useTheme();
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const [focusedTarget, setFocusedTarget] = useState<FloatMapFocus | null>(null);
+  const ready = size !== null;
+  useEffect(() => {
+    if (!focus || !ready || preview) return;
+    const applied = consumeFloatMapFocus(focus.id);
+    // Synchronize the explicit focus command, including builds without Mapbox.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (applied) setFocusedTarget(applied);
+  }, [focus, ready, preview]);
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setSize({ width, height });
   };
 
   // Fitted to the stretch; the rest of the river runs off the edges, faint.
-  const drawing = useMemo(() => (size ? fit([...(section ?? line), ...(start ? [start.lngLat] : []), ...(takeOut ? [takeOut.lngLat] : []), ...(!preview && position ? [position] : []), ...(!preview && focus ? [focus.point] : [])], size.width, size.height, 24) : null), [section, line, size, start, takeOut, preview, position, focus]);
+  const drawing = useMemo(() => (size ? fit([...(section ?? line), ...(start ? [start.lngLat] : []), ...(takeOut ? [takeOut.lngLat] : []), ...(!preview && position ? [position] : []), ...(!preview && focusedTarget ? [focusedTarget.point] : [])], size.width, size.height, 24) : null), [section, line, size, start, takeOut, preview, position, focusedTarget]);
   const sectionPath = useMemo(() => (drawing && section ? drawing.pathOf(section) : null), [drawing, section]);
 
   return (
@@ -499,12 +525,15 @@ function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position,
             <Circle {...drawing.point(takeOut.lngLat)} r={10} fill={colors.accent} stroke="#ffffff" strokeWidth={3} />
             <Circle {...drawing.point(takeOut.lngLat)} r={3.5} fill="#ffffff" />
           </> : null}
-          {focus && !preview ? <Circle {...drawing.point(focus.point)} r={13} fill={colors.accent} stroke={colors.text} strokeWidth={3} /> : null}
+          {focusedTarget && !preview ? <Circle {...drawing.point(focusedTarget.point)} r={13} fill={colors.accent} stroke={colors.text} strokeWidth={3} /> : null}
           {position && !preview ? (
             <Circle {...drawing.point(position)} r={9} fill="#1E6FD9" opacity={positionDimmed ? 0.4 : 1} stroke="#ffffff" strokeWidth={3} />
           ) : null}
         </Svg>
       ) : null}
+      {focusedTarget && !preview ? <View style={styles.markerOverlay} pointerEvents="box-none">
+        <MarkerCard selected={focusedTarget} onClose={() => setFocusedTarget(null)} />
+      </View> : null}
       {preview ? null : (
         <Text style={[styles.fallbackNote, { color: colors.textMuted }]}>River only · background map unavailable</Text>
       )}
@@ -564,6 +593,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   mapButtonText: { flexShrink: 1, ...t.sm, fontFamily: fonts.semibold },
+  markerOverlay: { position: 'absolute', top: 12, left: 12, right: 12, maxHeight: '55%' },
   markerCard: {
     flexShrink: 1,
     flexDirection: 'row',

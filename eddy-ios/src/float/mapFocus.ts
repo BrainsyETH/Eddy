@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react';
-import type { LngLat } from '@eddy/geo';
-export interface FloatMapFocus { sessionId: string; point: LngLat; title: string; detail: string }
-let focus: FloatMapFocus | null = null;
-const listeners = new Set<() => void>();
-export function focusFloatMap(next: FloatMapFocus) { focus = next; listeners.forEach(fn => fn()); }
+import { createFloatMapFocusStore } from '@/lib/floatMapFocus';
+export type { FloatMapFocus } from '@/lib/floatMapFocus';
+
+const focus = createFloatMapFocusStore();
+export const focusFloatMap = focus.request;
+export const consumeFloatMapFocus = focus.consume;
 export function useFloatMapFocus() {
-  return useSyncExternalStore(fn => { listeners.add(fn); return () => { listeners.delete(fn); }; }, () => focus, () => null);
+  return useSyncExternalStore(focus.subscribe, focus.snapshot, () => null);
 }

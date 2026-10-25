@@ -5,9 +5,18 @@ import { HAZARD_KINDS, type HazardReport } from './hazardReportQueue';
 import type { LngLat } from '@eddy/geo';
 
 export function essentialsPosition(session: FloatSession, now: number) {
-  const fix = session.lastFix;
-  if (!fix || !validCoordinate(fix.lngLat) || !Number.isFinite(fix.at) || fix.at > now) return null;
-  return { ...fix, stale: fix.restored === true || now - fix.at > STALE_POSITION_MS };
+  const latest = session.lastFix;
+  if (!latest || !validCoordinate(latest.lngLat) || !Number.isFinite(latest.at) || latest.at > now) return null;
+  const precise = session.gpsPosition;
+  // Preserve every raw fix. Sharing alone may prefer a recent, much tighter GPS fix.
+  // gpsPosition is also raw GPS, never the snapped session.position.
+  const preferPrecise = latest.accuracyMeters != null && latest.accuracyMeters > 500 && precise != null &&
+    validCoordinate(precise.lngLat) && Number.isFinite(precise.at) && precise.at >= session.startedAt &&
+    precise.at < latest.at && now - precise.at <= STALE_POSITION_MS &&
+    precise.accuracyMeters != null && Number.isFinite(precise.accuracyMeters) &&
+    precise.accuracyMeters >= 0 && precise.accuracyMeters <= 75 && latest.accuracyMeters >= precise.accuracyMeters * 10;
+  const fix = preferPrecise ? { ...precise, accuracyMeters: precise.accuracyMeters! } : latest;
+  return { ...fix, stale: preferPrecise || fix.restored === true || now - fix.at > STALE_POSITION_MS };
 }
 export const coordinateText = (point: LngLat) => `${point[1].toFixed(5)}, ${point[0].toFixed(5)}`;
 export const locationLink = (point: LngLat, name: string) =>
@@ -22,6 +31,11 @@ ${coordinateText(fix.lngLat)} (${accuracy})
 ${locationLink(fix.lngLat, 'My location')}`;
 }
 export interface AheadItem { id: string; name: string; detail: string; mile: number; distance: number | null; point: LngLat; reportedAt?: string }
+/** Both positioned and unpositioned lists must be scoped to this float. */
+export function currentFloatReports(session: FloatSession, reports: readonly HazardReport[]) {
+  return reports.filter(report => report.riverSlug === session.route.riverSlug && report.status !== 'refused' &&
+    Number.isFinite(Date.parse(report.capturedAt)) && Date.parse(report.capturedAt) >= session.startedAt);
+}
 export function essentialsRouteFeatures(route: FloatSession['route'], startMile: number | null, putIn: FloatSession['putIn'], takeOut: FloatSession['takeOut']): FloatMapFeatures | null {
   const built = indexRoute(route);
   return built.ok ? mapFeatures({ route, startMile, putIn, takeOut }, built.index) : null;
@@ -36,7 +50,7 @@ export function aheadItems(session: FloatSession, reports: readonly HazardReport
     ...(features?.hazards ?? []).map(h => ({ id: `hazard:${h.id}`, name: h.name,
       detail: `${hazardTypeLabel(h.type)}${h.portageRequired ? ` · Portage${h.portageSide && h.portageSide !== 'either' ? ` river ${h.portageSide}` : ''}` : ''}`,
       mile: h.riverMile, point: h.lngLat, distance: null })),
-    ...reports.filter(h => h.riverSlug === session.route.riverSlug && h.status !== 'refused' && h.riverMile != null && Number.isFinite(h.riverMile) && validCoordinate([h.longitude, h.latitude]))
+    ...currentFloatReports(session, reports).filter(h => h.riverMile != null && Number.isFinite(h.riverMile) && validCoordinate([h.longitude, h.latitude]))
       .map(h => ({ id: `report:${h.id}`, name: HAZARD_KINDS.find(k => k.id === h.kind)?.label ?? 'Hazard',
         detail: `Your report · ${h.status === 'waiting' ? 'Pending upload' : 'Under review'}${h.note ? ` · ${h.note}` : ''}`,
         mile: h.riverMile!, point: [h.longitude, h.latitude] as LngLat, distance: null, reportedAt: h.capturedAt })),

@@ -1252,24 +1252,38 @@ links keep working. It leads with raw location sharing and the take-out, followe
 Ahead, the optional pickup contact, and timestamped gauge readings. Settings are
 collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
 status and actionable errors. Hazard instructions are never truncated.
+Live Activity status, including update errors, remains inside Float settings.
 
 The latest valid raw recorder fix is stored separately from the accepted GPS/map
 position and the confirmed river position. Coarse fixes may update sharing, never
 progress, ETA or arrival. Sharing never falls back to a snapped river coordinate.
 Restored fixes are last-known until a newer fix arrives. Old sessions migrate only
 their genuine GPS position, with unknown accuracy. Raw fixes stay out of recaps.
+Sharing prefers a known precise raw GPS fix (at most 75 m, at most two minutes old)
+when the newest fix is over 500 m and at least ten times less precise. That earlier
+fix retains its timestamp and is labeled last-known. The newest raw fix is still
+stored, and becomes the sharing position when the precise fix ages out.
 
 Coordinates use decimal degrees and selectable text; the native share sheet supplies
-Copy. No clipboard or contacts module is added. The pickup contact is stored only
-in a separate on-device key, excluded from Eddy backup and telemetry, and cleared
-by `discardFloat` during account deletion. Calls and messages require a saved number
+Copy. No clipboard or contacts module is added. The pickup contact is stored in a
+separate on-device key, never sent to Eddy's servers, and cleared by `discardFloat`
+during account deletion. Normal device or iCloud backups can include it.
+Calls and messages require a saved number
 and an explicit tap. Removing a contact is also available in its editor.
 
 Ahead uses the last confirmed river mile and dates that basis when it is stale.
-Mapped accesses are not described as safe exits. This phone's positioned reports are
+Mapped accesses are not described as safe exits. Only this phone's reports captured
+since the current float started appear in Ahead or the unpositioned list. They are
 labeled as reports and keep their submission status. Unpositioned reports are separate;
 refused reports stay in report history. Map taps use one 56-point rectangle query
-across marker and endpoint layers, deduplicate features, and put endpoints first.
+across marker and endpoint dot/label layers, deduplicate features, and put endpoints
+first. Only overlapping choices use a modal; single selections stay over the map.
+Show on map commands are consumed once. Recenter, Show route, or closing the marker
+card clears the temporary highlight. Reopening River Mode does not replay a target.
+
+Essentials reads cached conditions first, then refreshes on open or on request.
+`fetchCondition` caches successful readings with their observation timestamp for
+the next offline open. Tracking and progress remain independent of the network.
 
 Device verification remains unconfirmed: test wet-case taps, overlapping layers,
 VoiceOver, largest text sizes, offline/stale GPS, coarse fresh fixes, restored sessions,

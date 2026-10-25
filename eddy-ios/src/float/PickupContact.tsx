@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
-import { pickupContact } from './pickupContactStore';
+import { pickupContact } from '@/lib/pickupContactStore';
 import { normalizePickupContact, type PickupContact as Contact } from '@/lib/pickupContactCore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { EssentialsButton, essentialsStyles as s } from './essentialsUi';

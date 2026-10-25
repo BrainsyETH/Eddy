@@ -1,4 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createPickupContactStore } from '@/lib/pickupContactCore';
+import { createPickupContactStore } from './pickupContactCore';
 
 export const pickupContact = createPickupContactStore(AsyncStorage);

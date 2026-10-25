@@ -1,4 +1,4 @@
-import { essentialsPosition, locationMessage, aheadItems } from '../../../eddy-ios/src/lib/floatEssentials';
+import { essentialsPosition, locationMessage, aheadItems, currentFloatReports } from '../../../eddy-ios/src/lib/floatEssentials';
 import type { HazardReport } from '../../../eddy-ios/src/lib/hazardReportQueue';
 import { floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel } from '../../../eddy-ios/src/lib/floatDisplay';
 import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts, startPlannerParams } from '../../../eddy-ios/src/lib/floatStartSelection';
@@ -1184,6 +1184,27 @@ test('older sessions load without accuracy and never share a snapped position', 
   assert.equal(locationMessage(snappedOnly, T0, () => ''), null);
 });
 
+test('sharing prefers a recent precise raw fix to a much coarser one, then expires that preference', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'coarse-sharing', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const precise = { lngLat: at(100), accuracyMeters: 10, timestamp: T0 };
+  const good = applyFix(started.session, index, precise, T0);
+  const now = T0 + 60_000;
+  const coarse = applyFix(good, index, { lngLat: at(3000), accuracyMeters: 3000, timestamp: now }, now);
+  assert.equal(coarse.lastFix?.at, now, 'The recorder must still retain the latest raw fix');
+  assert.deepEqual(essentialsPosition(coarse, now)?.lngLat, precise.lngLat);
+  assert.equal(essentialsPosition(coarse, now)?.accuracyMeters, 10);
+  assert.equal(essentialsPosition(coarse, now)?.at, T0, 'Do not make the preferred fix look newer');
+  assert.match(locationMessage(coarse, now, at => String(at))!, /Last known location/);
+  assert.equal(essentialsPosition(coarse, T0 + 120_001)?.accuracyMeters, 3000, 'After two minutes, use the newest raw fix');
+  assert.equal(essentialsPosition({ ...coarse, gpsPosition: { ...good.gpsPosition!, accuracyMeters: undefined } }, now)?.accuracyMeters, 3000,
+    'Legacy accuracy is unknown, never assumed precise');
+  const usable = applyFix(good, index, { lngLat: at(200), accuracyMeters: 150, timestamp: now }, now);
+  assert.equal(essentialsPosition(usable, now)?.accuracyMeters, 150, 'An ordinary coarse fix remains useful');
+  assert.equal(essentialsPosition(restoreSession(JSON.stringify(coarse))!, now)?.stale, true);
+});
+
 test('Ahead keeps a dated river-position basis and separates refused or unpositioned reports', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 'ahead', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
@@ -1191,10 +1212,15 @@ test('Ahead keeps a dated river-position basis and separates refused or unpositi
   const session = float(started.session, index, 1000, T0, 30, 1);
   const report = { id: 'mine', riverSlug: session.route.riverSlug, riverMile: session.samples.at(-1)!.riverMile + 0.2,
     latitude: at(1200)[1], longitude: at(1200)[0], kind: 'debris', note: '', status: 'waiting', capturedAt: new Date(T0).toISOString() } as HazardReport;
-  const ahead = aheadItems(session, [report, { ...report, id: 'refused', status: 'refused' }, { ...report, id: 'unplaced', riverMile: null }], T0 + 20 * 60_000);
+  const reports: HazardReport[] = [report, { ...report, id: 'refused', status: 'refused' }, { ...report, id: 'unplaced', riverMile: null },
+    { ...report, id: 'old', capturedAt: new Date(T0 - 30 * 24 * 60 * 60_000).toISOString() },
+    { ...report, id: 'old-unplaced', riverMile: null, capturedAt: new Date(T0 - 1).toISOString() },
+    { ...report, id: 'invalid-time', capturedAt: 'invalid' }];
+  const ahead = aheadItems(session, reports, T0 + 20 * 60_000);
   assert.equal(ahead.basis?.stale, true);
   assert.equal(ahead.basis?.at, session.samples.at(-1)!.timestamp);
   assert.ok(ahead.items.some(row => row.id === 'report:mine' && row.detail.includes('Your report')));
-  assert.ok(!ahead.items.some(row => /refused|unplaced/.test(row.id)));
+  assert.ok(!ahead.items.some(row => /refused|unplaced|old|invalid-time/.test(row.id)));
+  assert.deepEqual(currentFloatReports(session, reports).filter(r => r.riverMile == null).map(r => r.id), ['unplaced']);
   assert.ok(ahead.items.every((row, i) => i === 0 || row.mile >= ahead.items[i - 1].mile));
 });

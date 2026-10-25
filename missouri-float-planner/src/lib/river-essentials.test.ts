@@ -2,6 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { floatMapChoices, floatTapRect } from '../../../eddy-ios/src/lib/floatMapSelection';
 import { createPickupContactStore, normalizePickupContact, PICKUP_CONTACT_KEY } from '../../../eddy-ios/src/lib/pickupContactCore';
+import { createFloatMapFocusStore } from '../../../eddy-ios/src/lib/floatMapFocus';
+
+test('map focus is consumed once and a stale consumer cannot clear the next request', () => {
+  const store = createFloatMapFocusStore();
+  const target = { sessionId: 'float-1', point: [-91, 37] as [number, number], title: 'Take-out', detail: 'Landing' };
+  const first = store.request(target);
+  assert.equal(store.consume(first.id), first);
+  assert.equal(store.snapshot(), null, 'A remounted map must not replay the old request');
+  assert.equal(store.consume(first.id), null, 'A repeated effect must not apply it again');
+  const second = store.request(target);
+  assert.notEqual(second.id, first.id, 'Requesting the same place again is a new command');
+  assert.equal(store.consume(first.id), null);
+  assert.equal(store.snapshot(), second);
+  assert.equal(store.consume(second.id), second);
+  assert.equal(store.snapshot(), null);
+});
 
 test('map selection queries a 56-point square and deduplicates both layers with endpoints first', () => {
   assert.deepEqual(floatTapRect(100, 200), [172, 72, 228, 128]);

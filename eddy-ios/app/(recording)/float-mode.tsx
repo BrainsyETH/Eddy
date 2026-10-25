@@ -6,9 +6,9 @@
 // screen can unmount at any time (tab switch, another screen) and the float
 // carries on.
 //
-// It reads nothing from the network. Connectivity affects the background map
-// only; miles, progress and time left come from data copied onto the phone
-// when the float started.
+// Miles, progress and time left use data copied onto the phone at float start.
+// The background map can use the network. Essentials also refreshes conditions
+// when opened or on request; successful readings are cached by fetchCondition.
 //
 // ── Layout: the map, then one glanceable panel ──────────────────────────────
 // Made for a wet thumb in sunlight. The map takes the screen; under it a

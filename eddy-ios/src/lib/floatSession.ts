@@ -170,7 +170,7 @@ export interface FloatSession {
   /** Latest valid raw recorder fix, including coarse fixes. Never drives progress. */
   lastFix?: RawFloatFix | null;
   /** Latest usable GPS fix for display, even off-river. Never used for progress or ETA. */
-  gpsPosition?: { lngLat: LngLat; at: number; restored?: true } | null;
+  gpsPosition?: { lngLat: LngLat; at: number; accuracyMeters?: number | null; restored?: true } | null;
   /**
    * Restored after a relaunch and not yet re-confirmed. Progress is kept, but
    * nothing is live until fresh fixes confirm a position again.
@@ -409,7 +409,7 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
   const atLaunch = Boolean(putIn && nearLaunch(fix.lngLat, fix.accuracyMeters, putIn.lngLat));
   const next: FloatSession = { ...rawSession, track: step.state,
-    gpsPosition: { lngLat: fix.lngLat, at: fix.timestamp },
+    gpsPosition: { lngLat: fix.lngLat, at: fix.timestamp, accuracyMeters: fix.accuracyMeters },
     last: { result: step.result, at: fix.timestamp, nearPutIn: atLaunch } };
   // Three accurate fixes, with no gap over thirty seconds, like river acquisition.
   // A lone outlier, preview GPS, or passing the snapped river point is not a launch.

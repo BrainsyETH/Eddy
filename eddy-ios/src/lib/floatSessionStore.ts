@@ -27,7 +27,7 @@
 // Ending a float, by any path, stops the native recorder here, so recording
 // can never outlive the float.
 
-import { pickupContact } from '../float/pickupContactStore';
+import { pickupContact } from './pickupContactStore';
 import { floatArchive } from './floatArchive';
 import { recapFloat } from './floatRecap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
