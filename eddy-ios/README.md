@@ -1101,9 +1101,14 @@ its age, or today's **scheduled** generation window when available.
 Places are stored in versioned `eddy.savedPlaces.v2:<owner>` collections:
 one for each signed-in account and one for guests. Switching accounts hides
 the previous collection immediately and restores the selected account's
-saves. Existing unowned v1 data migrates only into the guest collection; it
-is never silently assigned to an account. Account deletion clears that
-account's collection. Late reads, writes and downloads cannot publish into
+saves. On guest-to-account sign-in, guest places move into the account once,
+merging by place ID and keeping the earliest save date. An existing account
+copy keeps its details and dam choice. The guest list clears after the account
+write succeeds. An interrupted transfer remains assigned to that account;
+retry cannot hand it to another account. Direct A-to-B switches never merge
+collections. The unused pre-release v1 migration has been removed. Account
+deletion clears that account's collection and any pending incoming transfer.
+Late reads, writes and downloads cannot publish into
 a different account or restore a deleted place. Places are **never sent to
 Eddy's servers**, do not sync across devices, and may be included in normal
 device backups.
@@ -1138,7 +1143,8 @@ widget/Shortcuts build. OTA eligibility still depends on matching the
 production runtime. Device verification is **unconfirmed**: save an access
 and campground, force-quit, enable airplane mode, and reopen from Favorites.
 Check failed first downloads, reconnect retries, large text, VoiceOver,
-account A → guest → B → A, deletion during a download, expired gauge data,
+guest saves → sign-in, account A → guest → B → A, deletion during a
+download, expired gauge data,
 and historical schedules. Validate partial-reach dam choices with anglers.
 
 River cards show a reading pill for every linked gauge, ordered upstream to
