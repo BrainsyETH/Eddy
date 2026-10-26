@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveAppStoreConfig, appStoreUrl, appLandingUrl, appLandingContext, campaignToken, smartBannerContent, DEFAULT_APP_STORE_URL } from './app-discovery';
-import { getDamAppPromotion } from './dam-app-promotion';
+import { damWidgetHeadline, getDamAppPromotion } from './dam-app-promotion';
+import { appDevice } from './app-device';
+import { appQrImage } from './app-qr';
 import { getUsaceDam } from './flow-providers/usace-registry';
 import DamAppCTA from '../components/dam/DamAppCTA';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
@@ -87,8 +89,10 @@ test('every contextual banner opens an existing native destination, cold and war
 test('each promoted dam keeps its identity from the CTA through the landing banner', () => {
   for (const id of ['swl-bull-shoals-dam', 'swl-table-rock-dam', 'swl-beaver-dam']) {
     const dam = getDamAppPromotion(id)!;
-    assert.equal(dam.name, getUsaceDam(id)?.name, 'promotion identity matches the dam catalog');
-    const html = renderToStaticMarkup(createElement(DamAppCTA, { damId: id }));
+    const damName = getUsaceDam(id)?.name;
+    assert.ok(damName, 'promoted dam exists in the catalog');
+    const html = renderToStaticMarkup(createElement(DamAppCTA, { damId: id, damName }));
+    assert.ok(html.includes(damWidgetHeadline(damName)));
     const href = html.match(/href="([^"]+)"/)![1].replaceAll('&amp;', '&');
     assert.equal(href, appLandingUrl(dam.campaign, id));
     assert.match(html, /Get Eddy for iPhone/);
@@ -116,6 +120,32 @@ test('dam context does not replace partner attribution or accept arbitrary desti
     assert.equal(appLandingContext({ dam: value }).dam, null);
   }
   assert.equal(appLandingUrl('partner_foo', 'https://example.com'), '/app?ct=partner_foo');
-  assert.equal(renderToStaticMarkup(createElement(DamAppCTA, { damId: 'swl-norfork-dam' })), '');
+  assert.equal(renderToStaticMarkup(createElement(DamAppCTA, { damId: 'swl-norfork-dam', damName: 'Norfork Dam' })), '');
   assert.deepEqual(appLandingContext({}), { dam: null, campaign: null });
+});
+
+test('promotion copy follows the supplied catalog name without a second name registry', () => {
+  const html = renderToStaticMarkup(createElement(DamAppCTA, { damId: 'swl-bull-shoals-dam', damName: 'Renamed Dam' }));
+  assert.match(html, /Renamed on your Home Screen\./);
+  assert.ok(!html.includes('Bull Shoals'));
+});
+
+test('device hints distinguish Android, iPhone, desktop-mode iPad and narrow desktop windows', () => {
+  for (const [userAgent, platform, maxTouchPoints, expected] of [
+    ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 'iPhone', 5, 'ios'],
+    ['Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)', 'iPad', 5, 'ios'],
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 'MacIntel', 5, 'ios'],
+    ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 'MacIntel', 0, 'other'],
+    ['Mozilla/5.0 (Linux; Android 15; Pixel 9)', 'Linux armv8l', 5, 'android'],
+    ['Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Win32', 10, 'other'],
+    ['', '', 0, 'other'],
+  ] as const) assert.equal(appDevice({ userAgent, platform, maxTouchPoints }), expected);
+});
+
+test('QR handoff retains the dam and partner campaign on Eddy’s own app page', async () => {
+  const { href, src } = await appQrImage('partner_guide', 'swl-bull-shoals-dam');
+  assert.equal(href, 'https://eddy.guide/app?ct=partner_guide&dam=swl-bull-shoals-dam');
+  assert.match(decodeURIComponent(src), /^data:image\/svg\+xml,<svg /);
+  const rejected = await appQrImage('a,b', 'https://example.com');
+  assert.equal(rejected.href, 'https://eddy.guide/app');
 });

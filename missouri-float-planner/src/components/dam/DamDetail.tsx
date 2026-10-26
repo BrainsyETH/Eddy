@@ -5,7 +5,6 @@ import GenerationCard, { type ScheduleAvailability } from './GenerationCard';
 import DamPatternStrip from './DamPatternStrip';
 import DamStateCard from './DamStateCard';
 import GenerationForecast from './GenerationForecast';
-import DamAppCTA from './DamAppCTA';
 import { useDamPageClock } from './useDamPageClock';
 import { scheduledChangeSummary, scheduledClauseProvenance } from '@shared/dam-generation';
 
@@ -33,7 +32,6 @@ export default function DamDetail({ dam, renderedAt, availability }: {
         <span className="font-bold text-primary-800">Next scheduled change:</span> {nextChange}
       </p>}
       <GenerationCard dam={dam} now={now} availability={availability} />
-      <DamAppCTA damId={dam.id} />
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
       <div className="dam-support-layout">
         {dam.pattern && dam.pattern.length > 0 && <DamPatternStrip pattern={dam.pattern} schedule={dam.schedule} reference={dam.generationReference} generationFloorCfs={dam.generationFloorCfs} now={now} />}

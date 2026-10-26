@@ -71,13 +71,22 @@ these campaign links alone do not implement AdServices attribution.
 
 ## Dam-to-app links
 
-Bull Shoals, Table Rock and Beaver have one compact app card immediately after
-the generation/schedule card. Their former bottom resource button is omitted;
-other dam pages retain it. The card uses a single sentence and the existing
-“Get Eddy for iPhone” action, with no extra feature labels.
+Bull Shoals, Table Rock and Beaver have one compact invitation in the generation
+card's footer: “Bull Shoals on your Home Screen.” and “Get Eddy for iPhone”.
+Their former bottom resource button is omitted; other dam pages retain it.
+The forecast and history remain adjacent to the generation card. Android hides
+the invitation after hydration; cached dam HTML stays device-neutral. No code
+tries to detect whether Safari's native banner is visible or the app is installed.
+
+On October 26, 2026, the owner confirmed the dam widget is in the released app
+and supplied the Bull Shoals screenshot used at `public/app-store/dam-widget.jpg`.
+It is a labeled example, not live readings. Starring a dam does not configure
+this widget: users add Dam generation and select a dam in Edit Widget.
 
 `src/lib/dam-app-promotion.ts` is the shared allowlist for placement, landing
-context and analytics. The link carries `dam=swl-bull-shoals-dam` (or the other
+context and analytics; it stores IDs and campaigns, not another copy of dam
+names. The footer receives the snapshot's name and the server-rendered app page
+reads the registry. The link carries `dam=swl-bull-shoals-dam` (or the other
 allowed ID) to `/app`, plus the default campaign `dam_bull_shoals`,
 `dam_table_rock` or `dam_beaver`. An existing session campaign, including a
 partner's `ct`, keeps priority. The separate `dam_id` event parameter preserves
@@ -88,19 +97,29 @@ are not accepted, and the canonical stays `/app`.
 The contextual app page names the dam and supplies its existing `/dam/<id>`
 native route in Safari's Smart App Banner. `AppLink` remains an ordinary
 document navigation so Safari receives the updated banner. The App Store
-buttons retain the published listing. The desktop QR remains the generic
-app link; this does not implement deferred links after a new installation.
+buttons retain the published listing. The QR encodes that app page's dam and
+campaign query on `https://eddy.guide`, using a server-generated image with no
+third-party QR service. It remains visible at any desktop width and hides on
+iOS (including iPad desktop mode); viewport width is not a device detector.
+The generic app page keeps its existing QR. This does not implement deferred
+links after a new installation.
 
-The card emits `app_landing_click` with `label=dam_schedule` and `dam_id`.
+The footer emits `app_promotion_view` once per mounted dam page when at least
+half of the invitation enters the viewport, with `label=dam_schedule`, `dam_id`
+and `page_path`. It uses the same GA host, automation, frame and opt-out guards;
+unsupported IntersectionObserver browsers omit the view event without hiding
+the link. This is visibility measurement, not proof the visitor read the text.
+The link emits `app_landing_click` with `label=dam_schedule` and `dam_id`.
 The two download buttons emit `app_store_click` with `dam_id` plus their
 existing placement, page path and campaign. Register `dam_id` as an
 event-scoped GA4 custom dimension if it is needed in standard reports or
-explorations. Compare dam visits → app-page clicks → outbound store clicks;
+explorations. Compare visible invitations → app-page clicks → outbound store clicks;
 neither click event proves an installation.
 
 `npm run test:dam-page` verifies each CTA, contextual page, initial-head banner
 and delegated click event with all network requests routed locally. It also
-checks partner attribution and generic fallbacks. Real iPhone Safari Open
+checks single-count visibility, partner attribution, Android hiding, a QR in a
+narrow desktop window, the real screenshot and generic fallbacks. Real iPhone Safari Open
 behavior and GA4 event receipt remain deployment checks.
 
 ## Website analytics scope

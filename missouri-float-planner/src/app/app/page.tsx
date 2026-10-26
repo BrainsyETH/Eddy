@@ -6,6 +6,10 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
 import AppLink from '@/components/AppLink';
 import { appBannerMetadata, appLandingContext } from '@/lib/app-discovery';
+import { damWidgetHeadline } from '@/lib/dam-app-promotion';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { appQrImage } from '@/lib/app-qr';
+import AppQrPrompt from '@/components/AppQrPrompt';
 
 type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] }> };
 
@@ -70,7 +74,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function AppLandingPage({ searchParams }: Props) {
-  const { campaign, dam } = appLandingContext(await searchParams);
+  const { campaign, dam: promotion } = appLandingContext(await searchParams);
+  const dam = promotion ? getUsaceDam(promotion.id) : undefined;
+  const qr = dam ? await appQrImage(campaign, dam.id) : null;
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -78,9 +84,9 @@ export default async function AppLandingPage({ searchParams }: Props) {
         <div className={styles.heroInner}>
           <div className={styles.copy}>
             {!dam && <p className={styles.eyebrow}>EDDY FOR IPHONE</p>}
-            <h1 className={dam ? styles.damHeading : undefined}>{dam ? `${dam.name} on your iPhone.` : 'Find floatable water.'}</h1>
+            <h1 className={dam ? styles.damHeading : undefined}>{dam ? damWidgetHeadline(dam.name) : 'Find floatable water.'}</h1>
             <p className={styles.lede}>
-              {dam ? 'Generation schedules and water levels, together in Eddy.' :
+              {dam ? 'Today’s generation schedule, at a glance.' :
                 'Live river conditions, complete float plans, access-point details, gauge trends, and alerts—built for the water you actually paddle.'}
             </p>
 
@@ -108,7 +114,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
               </Link>}
             </div>
 
-            <div className={`${styles.qrPrompt}${dam ? ` ${styles.damQrPrompt}` : ''}`}>
+            {qr ? <AppQrPrompt {...qr} className={styles.qrPrompt} frameClassName={styles.qrFrame} /> : <div className={styles.qrPrompt}>
               <span className={styles.qrFrame}>
                 <Image
                   src="/app-store/eddy-guide-qr.svg"
@@ -121,14 +127,24 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 <strong>Open Eddy on your iPhone</strong>
                 Scan to visit eddy.guide/app
               </span>
-            </div>
+            </div>}
 
             {!dam && <p className={styles.microcopy}>
               Designed for Missouri and Ozarks float rivers. More water is on the way.
             </p>}
           </div>
 
-          <div className={styles.preview} aria-label="Eddy iPhone app preview">
+          {dam ? <figure className={styles.widgetPreview}>
+            <Image
+              src="/app-store/dam-widget.jpg"
+              alt="Eddy’s Bull Shoals Dam widget showing turbine flow and today’s generation schedule"
+              width={1113}
+              height={523}
+              sizes="(min-width: 960px) 540px, 95vw"
+              priority
+            />
+            <figcaption>Example: Bull Shoals Dam.</figcaption>
+          </figure> : <div className={styles.preview} aria-label="Eddy iPhone app preview">
             <Image
               className={`${styles.phoneShot} ${styles.phoneShotBackLeft}`}
               src="/app-store/03-plan-put-in-to-take-out.png"
@@ -154,7 +170,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
               sizes="(min-width: 900px) 320px, 54vw"
               priority
             />
-          </div>
+          </div>}
         </div>
       </section>
 
