@@ -314,12 +314,26 @@ checks, and it must be listened to before approving voice quality or level.
 
 ### Weekly social mix (Blog posts, Float Pick, Eddy’s Read)
 
-- **Blog posts:** Tuesday's existing Facebook link post now includes up to three
-  complete highlights from the published `guide_data` (local details, pro tips,
-  pre-launch notes, or article bullets/steps). Oversized/malformed points are
-  skipped, not cut mid-advice. Legacy blogs without structured highlights keep
-  their description. The clickable guide card, rotation and Tuesday cron stay
-  unchanged; this does not add an Instagram carousel publisher.
+- **Guide posts:** one Facebook link post **Monday–Friday at 9 a.m. Central**.
+  Vercel checks at 14:00 and 15:00 UTC on weekdays; `blogFeatureDue` admits only
+  the matching Central-time window, so daylight saving does not move the post.
+  The cron takes the existing database lock and checks for a publishing or
+  published guide that day before sending. Config/dedup failures stop the send.
+  The master social switch still applies. The admin Post blog now action is
+  still an explicit override outside the scheduled slot.
+  Never-shared guides go first, then least recently shared; publication date
+  and ID break ties. This is evergreen discovery, independent of today's river
+  conditions. It keeps the clickable article card and Facebook-only format.
+  Captions use river-specific openings authored from `EDDY_KNOWLEDGE.md` and
+  the published guides, following the warm, lightly playful outfitter voice
+  in `generate-update.ts` and `docs/river-guide-style.md`. They continue with
+  up to three complete published local details, pro tips and pre-launch notes
+  in short paragraphs, then one planning CTA. No repeated SEO title, forced
+  jokes, fake personal outings or implied current conditions. The text is
+  curated, with no new model call at publishing time. Unknown rivers and
+  general articles fall back to their title; legacy blogs without structured
+  highlights keep their description. Oversized/malformed points are skipped,
+  never cut mid-advice. The website guides themselves are unchanged.
 - **Float Pick:** no selection, schedule, caption, or rendering changes.
 - **Eddy’s Read:** newly generated social Reads compare two or three rivers.
   They reuse the narrated scrolling Read composition, with retained short
