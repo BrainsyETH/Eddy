@@ -1,6 +1,6 @@
 // src/app/api/admin/social/post-blog/route.ts
-// POST — manually publish the next weekly blog spotlight to Facebook. Lets an
-// admin test the flow without waiting for Tuesday's cron. No same-day dedup here
+// POST — manually publish the next river guide to Facebook. Lets an
+// admin use the flow outside the weekday morning slot. No same-day dedup here
 // on purpose (so a test can force a post); the cron path handles dedup.
 
 import { NextRequest, NextResponse } from 'next/server';

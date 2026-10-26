@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import FindFloatClient from './FindFloatClient';
 
 export const metadata: Metadata = {
-  title: 'Find a Float',
+  title: 'Find a Route',
   description:
-    'Find a float near you by time on the river, boat, and current conditions.',
+    'Find a route near you by time on the river, vessel, and current conditions.',
 };
 export default async function FindFloatPage({
   searchParams,

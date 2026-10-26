@@ -2,8 +2,8 @@
 
 ## Current release
 
-- **Release in progress:** 1.4 (`eddy-ios/app.json` is `1.4.0`, bumped
-  2026-10-06)
+- **Release in progress:** 1.5 (`eddy-ios/app.json` is `1.5.0`, repository
+  version checked 2026-10-26; this does not confirm a submitted or live build)
 - **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
@@ -16,8 +16,9 @@
 `app.json` version above stops matching the real one, so a version bump has
 to touch this section. It cannot check the store line; that one is on you.
 
-See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the current
-submission verdict and release order. The shipped-build baseline is unconfirmed.
+See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the last recorded
+submission assessment and release order; it does not verify 1.5. The shipped-build
+baseline is unconfirmed.
 The 1.2 report's gates below stay unticked until evidence closes them; a later
 version number does not close them. The 1.4, River Mode, and history sections
 below remain the device checklist.

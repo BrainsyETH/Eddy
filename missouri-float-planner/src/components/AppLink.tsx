@@ -29,11 +29,12 @@ export function useAppCampaign(initialCampaign?: string | null) {
 type Props = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   store?: boolean;
   campaign?: string | null;
+  damId?: string;
 };
 
-export default function AppLink({ store = false, campaign: initialCampaign, ...props }: Props) {
+export default function AppLink({ store = false, campaign: initialCampaign, damId, ...props }: Props) {
   const campaign = useAppCampaign(initialCampaign);
   // A document navigation to /app gives Safari the campaign-specific banner
   // in the initial HTML. Native banners aren't guaranteed to re-read SPA meta.
-  return <a {...props} href={store ? appStoreUrl(campaign) : appLandingUrl(campaign)} />;
+  return <a {...props} href={store ? appStoreUrl(campaign) : appLandingUrl(campaign, damId)} />;
 }

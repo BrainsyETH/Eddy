@@ -5,9 +5,13 @@ import { ArrowRight, BellRing, MapPin, Signal, Waves } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
 import AppLink from '@/components/AppLink';
-import { appBannerMetadata, campaignToken } from '@/lib/app-discovery';
+import { appBannerMetadata, appLandingContext } from '@/lib/app-discovery';
+import { damWidgetHeadline } from '@/lib/dam-app-promotion';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { appQrImage } from '@/lib/app-qr';
+import AppQrPrompt from '@/components/AppQrPrompt';
 
-type Props = { searchParams: Promise<{ ct?: string | string[] }> };
+type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] }> };
 
 const pageMetadata: Metadata = {
   title: 'Eddy for iPhone — Find Floatable Water',
@@ -65,23 +69,25 @@ const features = [
 ] as const;
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const campaign = campaignToken((await searchParams).ct);
-  return { ...pageMetadata, ...appBannerMetadata('/reports', campaign) };
+  const { campaign, dam } = appLandingContext(await searchParams);
+  return { ...pageMetadata, ...appBannerMetadata(dam?.nativePath ?? '/reports', campaign) };
 }
 
 export default async function AppLandingPage({ searchParams }: Props) {
-  const campaign = campaignToken((await searchParams).ct);
+  const { campaign, dam: promotion } = appLandingContext(await searchParams);
+  const dam = promotion ? getUsaceDam(promotion.id) : undefined;
+  const qr = dam ? await appQrImage(campaign, dam.id) : null;
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.contours} aria-hidden="true" />
         <div className={styles.heroInner}>
           <div className={styles.copy}>
-            <p className={styles.eyebrow}>EDDY FOR IPHONE</p>
-            <h1>Find floatable water.</h1>
+            {!dam && <p className={styles.eyebrow}>EDDY FOR IPHONE</p>}
+            <h1 className={dam ? styles.damHeading : undefined}>{dam ? damWidgetHeadline(dam.name) : 'Find floatable water.'}</h1>
             <p className={styles.lede}>
-              Live river conditions, complete float plans, access-point details,
-              gauge trends, and alerts—built for the water you actually paddle.
+              {dam ? 'Today’s generation schedule, at a glance.' :
+                'Live river conditions, complete float plans, access-point details, gauge trends, and alerts—built for the water you actually paddle.'}
             </p>
 
             <div className={styles.actions}>
@@ -93,6 +99,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 rel="noopener noreferrer"
                 data-ga-event="app_store_click"
                 data-ga-label="app_landing_hero"
+                data-ga-dam-id={dam?.id}
               >
                 <Image
                   src="/app-store/download-on-app-store.svg"
@@ -102,12 +109,12 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 />
               </AppLink>
 
-              <Link className={styles.secondaryButton} href="/rivers">
+              {!dam && <Link className={styles.secondaryButton} href="/rivers">
                 Explore Eddy now <ArrowRight aria-hidden="true" />
-              </Link>
+              </Link>}
             </div>
 
-            <div className={styles.qrPrompt}>
+            {qr ? <AppQrPrompt {...qr} className={styles.qrPrompt} frameClassName={styles.qrFrame} /> : <div className={styles.qrPrompt}>
               <span className={styles.qrFrame}>
                 <Image
                   src="/app-store/eddy-guide-qr.svg"
@@ -120,14 +127,24 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 <strong>Open Eddy on your iPhone</strong>
                 Scan to visit eddy.guide/app
               </span>
-            </div>
+            </div>}
 
-            <p className={styles.microcopy}>
+            {!dam && <p className={styles.microcopy}>
               Designed for Missouri and Ozarks float rivers. More water is on the way.
-            </p>
+            </p>}
           </div>
 
-          <div className={styles.preview} aria-label="Eddy iPhone app preview">
+          {dam ? <figure className={styles.widgetPreview}>
+            <Image
+              src="/app-store/dam-widget.jpg"
+              alt="Eddy’s Bull Shoals Dam widget showing turbine flow and today’s generation schedule"
+              width={1113}
+              height={523}
+              sizes="(min-width: 960px) 540px, 95vw"
+              priority
+            />
+            <figcaption>Example: Bull Shoals Dam.</figcaption>
+          </figure> : <div className={styles.preview} aria-label="Eddy iPhone app preview">
             <Image
               className={`${styles.phoneShot} ${styles.phoneShotBackLeft}`}
               src="/app-store/03-plan-put-in-to-take-out.png"
@@ -153,7 +170,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
               sizes="(min-width: 900px) 320px, 54vw"
               priority
             />
-          </div>
+          </div>}
         </div>
       </section>
 
@@ -187,6 +204,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
           rel="noopener noreferrer"
           data-ga-event="app_store_click"
           data-ga-label="app_landing_footer"
+          data-ga-dam-id={dam?.id}
         >
           <Image
             src="/app-store/download-on-app-store.svg"

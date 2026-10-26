@@ -13,6 +13,49 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 River pages place “Find a float on this river” near the bottom, after the river
 guide and before the feedback link, when float search is enabled for the web.
 
+## Web navigation
+
+The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a
+separate app link. Conditions uses the existing `/rivers` and `/dams` pages as
+linked tabs; `/gauges` remains part of Conditions. Map opens Build a Route at
+`/plan`. Floats links to `/find-float` when web discovery is enabled and is hidden
+otherwise. The planning page links use the iOS
+labels **Find a Route** and **Build a Route**. The planner tabs belong only to
+`/plan`, never shared plans at `/plan/[shortCode]`. These are normal links, with
+no hover menus or nested mobile menus.
+
+On river and access pages, Map and Floats preserve the river slug. On the map,
+finder, and planner they follow the current URL selection; unrelated pages
+start without a remembered river. Planning tabs retain existing endpoints. Only
+the planner forwards its URL vessel; finder result links supply the selected
+vessel instead of forwarding an old URL value. The map's URL is the source of
+its river/gauge selection and condition filters, including browser history and
+query-only navigation. Loading catalogue data never replaces an incoming deep link.
+
+The homepage shows **Daily River Report**, real condition cards, the two route
+actions, river guides, and the iPhone app. The hero links to Build a Route. The
+Live River Map card opens `/river-map` without a separate header link.
+River reports appear directly under the heading without a second alert summary.
+Report photos prefer the bundled guide covers over older external URLs. Eddy's
+existing colors, fonts, artwork, and condition badges are reused. Website widgets
+remain in the footer.
+
+`npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
+and 320px widths, including keyboard/touch navigation and river selection across
+the planner, map history, refresh, the finder, shared-plan tab isolation, and
+report photo loading. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
+Playwright Chromium, starts a local development server, and removes its temporary
+fixture routes afterward. It does not require production credentials.
+Screenshots go to `/tmp/eddy-navigation`
+(override with `NAV_SMOKE_OUTPUT`).
+
+For map performance, first build `/river-map` with
+`npm run build -- --webpack --debug-build-paths=app/river-map/page.tsx`, then run
+`NAV_SMOKE_PRODUCTION_MAP=1 npm run test:navigation`. This starts the optimized
+build and enforces a 250ms click-to-painted-state budget under the same throttle.
+Development timings are diagnostic only. Production mode uses API fixtures but
+does not create any fixture routes.
+
 ## Dam pages
 
 The lakes and dams index uses compact cards with generation estimates, release,
@@ -48,15 +91,30 @@ on focus/return after at least one minute, preserving chart and disclosure state
 Hidden tabs do not poll. Original measurement timestamps are never replaced by
 page refresh times. The dam API and iOS app contracts are unchanged.
 
+Bull Shoals, Table Rock, and Beaver have a compact widget invitation in the
+generation card's footer: “Bull Shoals on your Home Screen.” and “Get Eddy for
+iPhone”. It replaces their bottom resource button and hides on Android after
+hydration. `src/lib/dam-app-promotion.ts` owns only the three IDs and campaigns;
+the card uses the snapshot's name and `/app` resolves names from the registry
+on the server. The app page shows a real widget screenshot, labeled as an
+example. Its QR retains the dam and campaign and stays visible in narrow
+desktop windows; iOS uses the download action. QR generation stays on the
+server. `AppLink` and the delegated listener retain click attribution, while
+`app_promotion_view` counts the invitation once when half of it enters the
+viewport. See `docs/VISIBILITY_MEASUREMENT.md` for reporting and device checks.
+
 `npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
 portrait, and landscape sizes, including list cards, list-to-detail navigation,
-disclosure/dialog controls, freshness, and missing-data states. Install the browser with `npx playwright install chromium`
+disclosure/dialog controls, freshness, missing-data states, and the three dam
+links through `/app` and the outgoing download event. All browser requests are
+local or intercepted. Install the browser with `npx playwright install chromium`
 (or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
 removes its temporary fixture route on exit or SIGINT/SIGTERM. The route is
 ignored by Git and returns not-found unless the smoke script's development-only
 flag is set; an uncatchable kill cannot leave a publicly usable fixture page.
 Screenshots go to
 `/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
+Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow.
 
 ## Supported Rivers
 

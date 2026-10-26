@@ -126,6 +126,14 @@ export default function FindFloatClient({
     };
   }, [state.result]);
   const update = (patch: Partial<FloatSearchInput>) => {
+    if (Object.hasOwn(patch, 'river')) {
+      const params = new URLSearchParams(window.location.search);
+      if (patch.river) params.set('river', patch.river);
+      else params.delete('river');
+      for (const key of ['putIn', 'takeOut']) params.delete(key);
+      const query = params.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    }
     request.current?.abort();
     locationAttempt.current++;
     setBusy(null);
@@ -245,12 +253,9 @@ export default function FindFloatClient({
           aria-hidden
         />
         <div>
-          <p className="mb-1 text-sm font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">
-            Your next stretch
-          </p>
-          <h1 className="text-4xl font-bold">Find a Float</h1>
+          <h1 className="text-4xl font-bold">Find a Route</h1>
           <p className="mt-3 max-w-xl text-lg text-[var(--color-text-secondary)]">
-            Got an afternoon? Find a stretch that fits your time on the river.
+            Get suggestions for your time and location.
           </p>
         </div>
       </div>
@@ -408,7 +413,7 @@ export default function FindFloatClient({
           </p>
         )}
         <fieldset>
-          <legend className="mb-2 text-sm font-semibold">Your boat</legend>
+          <legend className="mb-2 text-sm font-semibold">Vessel</legend>
           <div className="flex flex-wrap gap-2">
             {FLOAT_BOATS.map((boat) => (
               <button
@@ -436,7 +441,7 @@ export default function FindFloatClient({
             className={primary}
             disabled={busy !== null || (!input.near && !input.river)}
           >
-            {busy === 'search' ? 'Checking nearby floats…' : 'Find floats'}
+            {busy === 'search' ? 'Checking nearby floats…' : 'Find routes'}
           </button>
           <p className="text-sm text-[var(--color-text-secondary)]">
             Time includes ordinary stops.
@@ -579,7 +584,7 @@ function FloatCard({
         onClick={onPlan}
         className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary-700 px-4 py-3 font-semibold text-white hover:bg-primary-800"
       >
-        Plan this float <ArrowRight size={17} />
+        Build this route <ArrowRight size={17} />
       </Link>
     </article>
   );
