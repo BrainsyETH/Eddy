@@ -1149,6 +1149,14 @@ sheet and access toolbar. Favorites → place opens the downloaded details in
 two taps, without a route or a network request. Rows show a cached gauge and
 its age, or today's **scheduled** generation window when available.
 
+Saved-place cards share the river favorites' rounded surface, accent stripe,
+and reading pills. Bundled access-point/campground artwork and a category label
+identify each place even offline. The name and river lead; restrictions stay
+visible above the gauge/schedule panel, followed by up to three labeled amenities.
+The separate saved star and swipe action both remove only the current account's
+save. Stale readings stay neutral, expired values stay hidden, and narrow or
+large-text layouts stack the artwork and readings without truncating names.
+
 Places are stored in versioned `eddy.savedPlaces.v2:<owner>` collections:
 one for each signed-in account and one for guests. Switching accounts hides
 the previous collection immediately and restores the selected account's
