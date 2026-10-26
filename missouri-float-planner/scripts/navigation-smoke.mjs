@@ -18,9 +18,10 @@ const timestamp = new Date(Date.now() - 15 * 60_000).toISOString();
 const riverMeta = [
   { id: 'r-current', slug: 'current', name: 'Current River', state: 'MO', value: 530 },
   { id: 'r-meramec', slug: 'meramec', name: 'Meramec River', state: 'MO', value: 320 },
-  { id: 'r-buffalo', slug: 'buffalo', name: 'Buffalo River', state: 'AR', value: 140 },
+  { id: 'r-buffalo', slug: 'buffalo', name: 'Buffalo National River', state: 'AR', value: 140 },
 ];
-const reports = riverMeta.map(r => ({ slug: r.slug, name: r.name, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}`, photoUrl: null }));
+const guidePhotos = JSON.parse(await readFile('src/data/guide-photos.json', 'utf8'));
+const reports = riverMeta.map(r => ({ slug: r.slug, name: r.name, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}`, photoUrl: guidePhotos.find(photo => photo.riverSlug === r.slug)?.cardUrl ?? null }));
 const gauges = riverMeta.map((r, i) => ({
   id: `g-${i}`, usgsSiteId: `0706700${i}`, name: `${r.name} gauge`, active: true,
   coordinates: { lng: -91.5 + i * .15, lat: 37.2 + i * .1 },
@@ -123,17 +124,10 @@ try {
   for (const [name, width, height] of viewports) {
     const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' });
     page.on('pageerror', error => browserErrors.push(error.message));
-    let gaugeMode = 'normal', gaugeGate, releaseGauges;
     let stressMap = false, mapRequests = 0;
     await page.route('**/api/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.startsWith('/api/usgs/mo-')) mapRequests++;
-      if (path === '/api/gauges' && gaugeGate) {
-        await gaugeGate;
-        const responseGauges = gaugeMode === 'empty' ? [] : gaugeMode === 'high' ? gauges.map(g => ({ ...g, dischargeCfs: 1500 })) : gauges;
-        await route.fulfill({ status: gaugeMode === 'error' ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ gauges: responseGauges }) });
-        return;
-      }
       if (path === '/api/usgs/mo-dataset') await new Promise(done => setTimeout(done, 300));
       const response = stressMap && path === '/api/usgs/mo-dataset' ? stressDataset : stressMap && path === '/api/usgs/mo-statewide' ? stressStatewide : api[path] ?? {};
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(response) });
@@ -154,7 +148,19 @@ try {
       await page.getByText('530 cfs', { exact: true }).first().waitFor();
       assert(await page.getByRole('navigation', { name: 'Conditions', exact: true }).getByRole('link', { name: 'Lakes & Dams' }).getAttribute('href') === '/dams');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
-      assert.equal(await page.getByText('Your next stretch', { exact: true }).count(), 0);
+      const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
+      assert.equal(await heroCta.textContent(), 'Build a Route');
+      assert.equal(await heroCta.getAttribute('href'), '/plan');
+      assert.equal(await page.getByRole('region', { name: 'River alerts', exact: true }).count(), 0);
+      const conditionMap = page.getByRole('link', { name: 'Open the Live River Map', exact: true });
+      assert.equal(await conditionMap.getAttribute('href'), '/river-map');
+      assert.equal(await conditionMap.locator('p').count(), 0);
+      const buffaloPhoto = page.locator('a[data-ga-label="buffalo"][data-ga-event="home_river_report"] img');
+      await buffaloPhoto.scrollIntoViewIfNeeded();
+      await buffaloPhoto.evaluate(img => img.decode());
+      assert(await buffaloPhoto.evaluate(img => img.complete && img.naturalWidth > 0), 'Buffalo report image loads from the actual bundled asset');
+      assert((await buffaloPhoto.getAttribute('src')).includes('buffalo-card.webp'));
+      await page.evaluate(() => scrollTo(0, 0));
       await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
       await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
       if (width < 900) {
@@ -177,10 +183,16 @@ try {
         // Native-history transitions exercise the same Next hooks used by the map.
         await page.evaluate(() => history.replaceState(null, '', '/rivers/missouri/current'));
         const nav = page.getByRole('navigation', { name: 'Main navigation' });
-        await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/river-map?river=current"]'));
+        await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/plan?river=current"]'));
         assert.equal(await nav.getByRole('link', { name: 'Floats' }).getAttribute('href'), '/find-float?river=current');
         await nav.getByRole('link', { name: 'Map', exact: true }).click();
-        await page.waitForURL('**/river-map?river=current');
+        await page.waitForURL('**/plan?river=current');
+        await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).waitFor();
+        assert.equal(await nav.getByRole('link', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page');
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('link', { name: 'Open the Live River Map', exact: true }).click();
+        await page.waitForURL('**/river-map');
+        await page.evaluate(() => history.replaceState(null, '', '/river-map?river=current'));
         await page.getByRole('dialog', { name: 'Current River', exact: true }).waitFor({ timeout: 45000 });
         assert.equal(new URL(page.url()).searchParams.get('river'), 'current');
         await page.evaluate(() => history.pushState(null, '', '/river-map?river=meramec'));
@@ -196,7 +208,7 @@ try {
         await page.getByRole('heading', { name: 'Find a Route', exact: true }).waitFor();
         assert.equal(await page.getByLabel('River (optional)').inputValue(), 'meramec');
         await page.getByLabel('River (optional)').selectOption('current');
-        await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/river-map?river=current"]'));
+        await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/plan?river=current"]'));
         assert.equal(await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).getAttribute('href'), '/plan?river=current');
         await page.goto(`${origin}/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak`, { waitUntil: 'networkidle' });
         await page.getByRole('button', { name: 'kayak', exact: true }).click();
@@ -209,31 +221,8 @@ try {
         await page.goto(`${url}?disabled=1`, { waitUntil: 'networkidle' });
         assert.equal(await page.getByRole('link', { name: /^Find a Route/ }).count(), 0);
         assert(await page.getByRole('link', { name: /^Build a Route/ }).count() > 0);
-        console.log('PASS river → map → finder, delayed map data, query changes, Back/Forward, refresh, exact plan links, and disabled finder');
+        console.log('PASS river → planner, homepage → condition map → finder, delayed map data, query changes, Back/Forward, refresh, exact plan links, and disabled finder');
       }
-      // Hold the readings until the loading layout has been measured. Compare
-      // positions within Daily River Report so the separate hero cannot mask a jump.
-      for (const mode of ['high', 'normal', 'empty', 'error']) {
-        gaugeMode = mode;
-        gaugeGate = new Promise(done => { releaseGauges = done; });
-        await page.goto(`${url}?alerts=${mode}`, { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
-        const alert = page.getByRole('region', { name: 'River alerts', exact: true });
-        await page.waitForFunction(() => document.querySelector('[aria-label="River alerts"]')?.getAttribute('aria-busy') === 'true');
-        await page.evaluate(() => document.fonts.ready);
-        const measure = () => alert.evaluate(el => ({ height: el.getBoundingClientRect().height, nextTop: el.nextElementSibling.getBoundingClientRect().top - el.parentElement.getBoundingClientRect().top }));
-        const before = await measure();
-        releaseGauges();
-        await page.waitForFunction(() => document.querySelector('[aria-label="River alerts"]')?.getAttribute('aria-busy') === 'false');
-        assert.deepEqual(await measure(), before, `${name}/${mode}: alert must not move the report cards`);
-        assert(await alert.evaluate(el => [...el.querySelectorAll('a, p')].every(child => child.getBoundingClientRect().bottom <= el.getBoundingClientRect().bottom)), `${name}/${mode}: text fits`);
-        if (mode === 'high') {
-          await alert.getByRole('heading', { name: 'High-water alerts' }).waitFor();
-          await alert.screenshot({ path: `${out}/${name}-high-water.png` });
-        }
-      }
-      gaugeGate = undefined;
-      console.log(`PASS ${name}: alert loading, high-water, clear, empty, and failed states keep identical layout`);
     }
     if (width === 390) {
       stressMap = true;

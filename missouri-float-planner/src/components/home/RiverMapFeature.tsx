@@ -33,7 +33,7 @@ export default function RiverMapFeature() {
       href="/river-map"
       data-ga-event="cta_river_map"
       data-ga-label="home_feature"
-      aria-label="Open the River Map"
+      aria-label="Open the Live River Map"
       className="group relative flex min-h-[240px] flex-col justify-end overflow-hidden rounded-2xl p-5 md:p-6 no-underline shadow-soft-md"
       style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 45%, #1A4F5C 100%)' }}
     >
@@ -86,13 +86,10 @@ export default function RiverMapFeature() {
       {/* ── Foreground ── */}
       <div className="relative z-10 mt-4">
         <h3 className="max-w-[15rem] text-xl md:text-2xl font-bold leading-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
-          River Map
+          Live River Map
         </h3>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/75">
-          Explore rivers, access points, and current conditions.
-        </p>
         <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-          Open the River Map
+          Open Map
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </span>
       </div>

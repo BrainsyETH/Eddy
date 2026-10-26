@@ -5,7 +5,6 @@ import Link from 'next/link';
 import AppLink from '@/components/AppLink';
 import { ArrowRight, Search, MapPin } from 'lucide-react';
 import type { RiverGuide } from '@/lib/data/rivers';
-import EddySaysReport from '@/components/home/EddySaysReport';
 import RiverMapFeature from '@/components/home/RiverMapFeature';
 import EddyHeroBubble from '@/components/home/EddyHeroBubble';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -78,12 +77,12 @@ export default function HomePage({ riverGuides, featuredReports, floatSearchEnab
                   Check Conditions
                 </Link>
                 <Link
-                  href={floatSearchEnabled ? '/find-float' : '/plan'}
-                  data-ga-event={floatSearchEnabled ? 'cta_find_route' : 'cta_plan_float'}
+                  href="/plan"
+                  data-ga-event="cta_plan_float"
                   data-ga-label="hero"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
-                  {floatSearchEnabled ? 'Find a Route' : 'Build a Route'}
+                  Build a Route
                 </Link>
               </div>
             </div>
@@ -115,7 +114,6 @@ export default function HomePage({ riverGuides, featuredReports, floatSearchEnab
           <h2 id="daily-river-report" className="text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Daily River Report</h2>
           <Link href="/rivers" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 no-underline">All Rivers <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
         </div>
-        <EddySaysReport compact />
         <HomeRiverReports rivers={featuredReports} />
       </section>
 

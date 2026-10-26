@@ -25,21 +25,16 @@ export function navigationRiver(pathname: string, search = ''): string | null {
   return null;
 }
 
-export function contextualHref(path: string, river: string | null): string {
-  return river ? `${path}?${new URLSearchParams({ river })}` : path;
-}
-
 export function siteNavigation(pathname: string, search: string, floatSearchEnabled: boolean): SiteNavLink[] {
-  const river = navigationRiver(pathname, search);
-  const currentFloatPage = floatNavigation(pathname, search).find(link => link.active);
+  const [finder, planner] = floatNavigation(pathname, search);
   return [
     { href: '/rivers', label: 'Conditions', active: ['/rivers', '/gauges', '/dams'].some(base => belongsTo(pathname, base)) },
-    { href: contextualHref('/river-map', river), label: 'Map', active: belongsTo(pathname, '/river-map') },
-    {
-      href: currentFloatPage?.href ?? contextualHref(floatSearchEnabled ? '/find-float' : '/plan', river),
+    { href: planner.href, label: 'Map', active: belongsTo(pathname, '/plan') },
+    ...(floatSearchEnabled ? [{
+      href: finder.href,
       label: 'Floats',
-      active: ['/plan', '/find-float'].some(base => belongsTo(pathname, base)),
-    },
+      active: belongsTo(pathname, '/find-float'),
+    }] : []),
     { href: '/blog', label: 'Guides', active: belongsTo(pathname, '/blog') },
   ];
 }
