@@ -10,15 +10,15 @@ import { fileURLToPath } from 'node:url';
  * at a versioned same-origin URL, with no CDN dependency or CSP relaxation.
  * Called by Next config so dev, webpack and Turbopack builds all prepare it.
  */
-export function prepareMapWorker() {
+export function prepareMapWorker(publicDir = join(dirname(dirname(fileURLToPath(import.meta.url))), 'public')) {
   const require = createRequire(import.meta.url);
   const packageDir = dirname(require.resolve('maplibre-gl/package.json'));
   const { version } = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
-  const appDir = dirname(dirname(fileURLToPath(import.meta.url)));
-  const destination = join(appDir, 'public', 'maplibre', version);
+  const destination = join(publicDir, 'maplibre', version);
   mkdirSync(destination, { recursive: true });
   for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
     copyFileSync(join(packageDir, 'dist', file), join(destination, file));
   }
   copyFileSync(join(packageDir, 'LICENSE.txt'), join(destination, 'LICENSE.txt'));
+  return destination;
 }

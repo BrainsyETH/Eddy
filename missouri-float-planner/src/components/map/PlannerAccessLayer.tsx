@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type RefObject } from 'react';
 import type { MapLayerMouseEvent } from 'maplibre-gl';
 import { useMap } from './map-context';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
@@ -50,17 +50,34 @@ export default function PlannerAccessLayer({ places, excludeRiverSlug, onSelect 
 }
 
 /** Search and map taps use the same selection and camera treatment. */
-export function PlannerPlaceFocus({ place }: { place: PlannerMapPlace | null }) {
+export function PlannerPlaceFocus({ place, panelRef }: {
+  place: PlannerMapPlace | null;
+  panelRef: RefObject<HTMLDivElement | null>;
+}) {
   const map = useMap();
   useEffect(() => {
     if (!place) return;
-    // Run after the parent fits newly loaded river bounds, so a search result
-    // stays centered on the chosen access instead of zooming back to the river.
-    const frame = requestAnimationFrame(() => map.flyTo({
-      center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
-      offset: [140, 0], duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650,
-    }));
-    return () => cancelAnimationFrame(frame);
-  }, [map, place]);
+    let frame = 0;
+    const focus = () => {
+      cancelAnimationFrame(frame);
+      // Run after river bounds fitting. Center in the map area to the right
+      // of the actual panel, including its inset; no assumed panel width.
+      frame = requestAnimationFrame(() => {
+        const canvas = map.getCanvas().getBoundingClientRect();
+        const panel = panelRef.current?.getBoundingClientRect();
+        const coveredWidth = panel ? Math.max(0, Math.min(canvas.width, panel.right - canvas.left)) : 0;
+        map.flyTo({
+          center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
+          offset: [coveredWidth / 2, 0],
+          duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650,
+        });
+      });
+    };
+    focus();
+    const observer = new ResizeObserver(focus);
+    if (panelRef.current) observer.observe(panelRef.current);
+    map.on('resize', focus);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); map.off('resize', focus); };
+  }, [map, place, panelRef]);
   return null;
 }

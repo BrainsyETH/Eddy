@@ -68,12 +68,6 @@ layer rather than a DOM marker per statewide access; selected-river markers
 retain their existing put-in/take-out styling. River and access search works
 locally against these cached catalogues, including keyboard selection.
 
-Next config prepares MapLibre's installed worker and sibling shared module
-under a versioned same-origin URL. `MapContainer` sets that URL before creating
-any map; without it, MapLibre 6's GeoJSON sources can hang while satellite
-imagery and canvas flow particles still appear. Generated worker assets are
-ignored by Git and rebuilt from the installed dependency for dev and builds.
-
 Search and marker selections open the same access preview. Routing actions
 wait for the selected river's authoritative access response and check endpoint
 eligibility; overview data alone never grants launch eligibility. Selecting a

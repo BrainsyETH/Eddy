@@ -188,6 +188,8 @@ try {
   });
   await writeFile(`${fixtureDir}/page.tsx`, `import { notFound } from 'next/navigation'; import Fixture from './Fixture'; export default function Page(){if(process.env.NODE_ENV!=='development'||process.env.EDDY_PLANNER_SMOKE!=='1')notFound();return <Fixture/>;}`);
   await writeFile(`${fixtureDir}/Fixture.tsx`, `'use client'; import {useEffect,useState} from 'react'; import * as maplibregl from 'maplibre-gl'; import Plan from '@/app/plan/PlanPageClient'; export default function Fixture(){const[ready,setReady]=useState(false); useEffect(()=>{const original=maplibregl.Map.prototype.addSource;maplibregl.Map.prototype.addSource=function(...args){(window as unknown as {plannerMap:maplibregl.Map}).plannerMap=this;return original.apply(this,args);};setReady(true);return()=>{maplibregl.Map.prototype.addSource=original;};},[]);return ready?<Plan initialRiverSlug={null} defaultBounds={[-92.5,36.5,-90.4,38.6]}/>:null;}`);
+  await mkdir(`${fixtureDir}/ssr`, { recursive: true });
+  await writeFile(`${fixtureDir}/ssr/page.tsx`, `import { notFound } from 'next/navigation'; import Plan from '@/app/plan/PlanPageClient'; export const dynamic = 'force-dynamic'; export default function Page(){if(process.env.NODE_ENV!=='development'||process.env.EDDY_PLANNER_SMOKE!=='1')notFound();return <Plan initialRiverSlug={null}/>;}`);
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
     detached: true,
     env: {
@@ -221,6 +223,15 @@ try {
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH,
     args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader']
   });
+  // With JavaScript disabled, viewport state is still unknown. The desktop
+  // search must already be visible in the server-rendered HTML.
+  const ssrPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, javaScriptEnabled: false });
+  await ssrPage.goto(`${origin}/planner-map-layout-check/ssr`, { waitUntil: 'domcontentloaded' });
+  assert(await ssrPage.getByRole('combobox', { name: 'Search rivers and access points' }).isVisible());
+  await ssrPage.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await ssrPage.getByRole('combobox', { name: 'Search rivers and access points' }).isVisible(), false);
+  await ssrPage.close();
+  console.log('Desktop search is visible before hydration without appearing on mobile');
   const page = await browser.newPage({
     viewport: {
       width: 1440,
@@ -359,6 +370,21 @@ try {
   await page.screenshot({
     path: `${out}/desktop-access.png`
   });
+  // Changing the floating panel width must move the chosen access to the
+  // center of the remaining map area, without a fixed camera offset.
+  const panel = page.locator('.pointer-events-none.absolute.top-20');
+  await panel.evaluate(el => { el.style.width = '400px'; });
+  await page.waitForFunction(coordinates => {
+    const map = window.plannerMap;
+    const canvas = map.getCanvas().getBoundingClientRect();
+    const panel = document.querySelector('.pointer-events-none.absolute.top-20').getBoundingClientRect();
+    const point = map.project([coordinates.lng, coordinates.lat]);
+    return !map.isMoving() && Math.abs(point.x - (canvas.width + panel.right - canvas.left) / 2) < 2;
+  }, points[0][0].coordinates);
+  await panel.evaluate(el => { el.style.width = ''; });
+  await page.waitForFunction(() => !window.plannerMap.isMoving());
+  console.log('Access camera centers beside the measured panel width');
+
   await page.getByRole('button', {
     name: 'Use as put-in',
     exact: true

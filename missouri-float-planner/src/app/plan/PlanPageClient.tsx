@@ -257,6 +257,7 @@ export default function PlanPageClient({
   // CSS-hidden markup so server and client HTML agree, then drop one.
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const catalog = usePlannerMapCatalog(isDesktop === true);
+  const desktopPanelRef = useRef<HTMLDivElement>(null);
   const [selectedPlace, setSelectedPlace] = useState<PlannerMapPlace | null>(null);
   const searchConditions = useMemo(() => new Map(
     (conditionNetwork?.features ?? []).map(feature => [feature.properties.slug, feature.properties]),
@@ -694,7 +695,7 @@ export default function PlanPageClient({
   // ─── No river selected: show the map with a prominent river picker ───
   if (!riverSlug) {
     return (
-      <div className={`relative bg-neutral-100 plan-viewport-h ${isDesktop ? "planner-desktop" : ""}`}>
+      <div className={`relative bg-neutral-100 plan-viewport-h ${isDesktop !== false ? "planner-desktop" : ""}`}>
         <MapContainer initialBounds={defaultBounds} showLegend={false}>
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
@@ -704,7 +705,7 @@ export default function PlanPageClient({
           {flowOn && <FlowParticlesLayer />}
         </MapContainer>
 
-        {isDesktop && <div className="absolute left-5 top-5 z-30 w-[340px]">
+        {isDesktop !== false && <div className="absolute left-5 top-5 z-30 hidden w-[340px] lg:block">
           {desktopSearch}
           <div className="planner-glass mt-3 rounded-2xl p-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-700">Your next river day</p>
@@ -804,7 +805,7 @@ export default function PlanPageClient({
               />
             )}
             <PlannerAccessLayer places={catalog.places} excludeRiverSlug={river.slug === riverSlug && !accessPlaceholder && visibleAccessPoints ? river.slug : undefined} onSelect={handlePlaceSelect} />
-            <PlannerPlaceFocus place={river.slug === riverSlug ? selectedPlace : null} />
+            <PlannerPlaceFocus place={river.slug === riverSlug ? selectedPlace : null} panelRef={desktopPanelRef} />
             {showGauges && gaugeStations && (
               <GaugeStationMarkers
                 gauges={gaugeStations}
@@ -844,7 +845,7 @@ export default function PlanPageClient({
           </MapContainer>
 
           {/* Search and details float over the map, below the unchanged River Report. */}
-          <div className="pointer-events-none absolute top-20 bottom-36 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
+          <div ref={desktopPanelRef} className="pointer-events-none absolute top-20 bottom-36 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             {selectedPlace && <div className="pointer-events-auto shrink-0">
               <PlannerPlaceCard place={selectedPlace} point={previewPoint} loading={accessLoading || accessPlaceholder || river.slug !== riverSlug}
