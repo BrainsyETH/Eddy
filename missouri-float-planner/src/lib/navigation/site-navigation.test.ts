@@ -3,10 +3,10 @@ import test from 'node:test';
 import { conditionNavigation, floatNavigation, navigationRiver, siteNavigation } from './site-navigation';
 import { readRiverMapSearch, writeRiverMapSearch } from './river-map-search';
 
-test('river pages carry the river into both planning and the map, including access details', () => {
+test('river pages carry the river into the planner and finder, including access details', () => {
   for (const path of ['/rivers/current', '/rivers/missouri/current', '/rivers/missouri/current/access/akers-ferry']) {
     const links = siteNavigation(path, 'river=meramec', true);
-    assert.equal(links.find(link => link.label === 'Map')?.href, '/river-map?river=current');
+    assert.equal(links.find(link => link.label === 'Map')?.href, '/plan?river=current');
     assert.equal(links.find(link => link.label === 'Floats')?.href, '/find-float?river=current');
     assert.deepEqual(links.filter(link => link.active).map(link => link.label), ['Conditions']);
   }
@@ -25,14 +25,20 @@ test('map and planner URL selections propagate, while search discovery respects 
     assert.equal(navigationRiver(path, 'river=meramec'), 'meramec');
     assert.equal(navigationRiver(path), null);
   }
-  assert.equal(siteNavigation('/rivers/missouri/current', '', false).find(link => link.label === 'Floats')?.href, '/plan?river=current');
+  const disabled = siteNavigation('/rivers/missouri/current', '', false);
+  assert.equal(disabled.find(link => link.label === 'Map')?.href, '/plan?river=current');
+  assert.equal(disabled.some(link => link.label === 'Floats'), false);
 });
 
-test('conditions includes gauges and dams, and the map remains its own section', () => {
+test('Map owns the planner, while Conditions and Floats keep distinct active sections', () => {
   for (const path of ['/gauges/07067000', '/dams/swl-bull-shoals-dam', '/rivers/arkansas/buffalo']) {
     assert.deepEqual(siteNavigation(path, '', true).filter(link => link.active).map(link => link.label), ['Conditions']);
   }
-  assert.deepEqual(siteNavigation('/river-map', '', true).filter(link => link.active).map(link => link.label), ['Map']);
+  for (const path of ['/plan', '/plan/shared-code']) {
+    assert.deepEqual(siteNavigation(path, '', true).filter(link => link.active).map(link => link.label), ['Map']);
+  }
+  assert.deepEqual(siteNavigation('/find-float', '', true).filter(link => link.active).map(link => link.label), ['Floats']);
+  assert.deepEqual(siteNavigation('/river-map', '', true).filter(link => link.active), []);
   assert.deepEqual(conditionNavigation('dams').filter(link => link.active).map(link => link.href), ['/dams']);
 });
 
@@ -42,13 +48,13 @@ test('switching planning tabs preserves exact endpoints and vessel without copyi
   assert.equal(links[1].href, '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
   assert.equal(links[1].active, true);
   assert.equal(floatNavigation('/find-float', 'putIn=orphan')[1].href, '/plan');
-  assert.equal(siteNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak', true).find(link => link.label === 'Floats')?.href, links[1].href);
+  assert.equal(siteNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak', true).find(link => link.label === 'Map')?.href, links[1].href);
 });
 
 test('finder links retain endpoints without forwarding a vessel its form no longer uses', () => {
   const search = 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak';
   assert.equal(floatNavigation('/find-float', search)[1].href, '/plan?river=current&putIn=akers&takeOut=pulltite');
-  assert.equal(siteNavigation('/find-float', search, true).find(link => link.label === 'Floats')?.href, '/find-float?river=current&putIn=akers&takeOut=pulltite');
+  assert.equal(siteNavigation('/find-float', search, true).find(link => link.label === 'Map')?.href, '/plan?river=current&putIn=akers&takeOut=pulltite');
 });
 
 test('map deep links retain river/gauge intent before asynchronous catalogue reads arrive', () => {
