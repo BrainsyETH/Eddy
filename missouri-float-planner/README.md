@@ -56,6 +56,35 @@ build and enforces a 250ms click-to-painted-state budget under the same throttle
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
 
+## Find a Route
+
+The finder places preferences beside photo-led discovery/results on desktop
+and stacks them on narrow screens. One destination field offers rivers from
+the catalogue and town suggestions after a 350ms pause. The destination field
+uses a combobox/listbox: arrow keys move through suggestions while input keeps
+focus, Enter chooses, Escape dismisses, and Tab moves to the next control.
+Selecting a river clears the nearby location; selecting a town or device
+location clears the river. Typed text must be resolved to a selection before
+searching. Coordinates and town
+suggestions stay in memory; only the Vessel preference is saved locally.
+
+Duration presets retain the full 0.5–12 hour custom selection. Results are a
+snapshot of the submitted preferences: editing keeps them visible with an
+update notice, and disables their planner actions until refreshed. Failed
+refreshes retain the previous snapshot. The existing 30-minute expiry still
+removes expired results, including on focus and return from the planner.
+Condition badges, cautions, and estimate provenance remain visible. Inspiration
+photos come from the river catalogue and make no current-condition claim.
+The Vessel icon parity test compares web and iOS SVG geometry and strokes.
+
+`npm run test:float-finder` runs fixture-backed browser checks of the real page
+at 1440, 1024, 390, and 320px, plus dark mode. It covers keyboard combobox
+navigation, location/river selection, pending and failed searches, late
+responses, partial/empty results, expiry, and
+planner parameters. No production credentials are needed. Set
+`PLAYWRIGHT_CHROMIUM_PATH` when using a locally installed browser. Screenshots
+go to `/tmp/eddy-float-finder` (override with `FINDER_SMOKE_OUTPUT`).
+
 ## River and gauge history
 
 Desktop reports (1024px and wider) show the full chart tools inline: all supported

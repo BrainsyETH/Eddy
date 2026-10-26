@@ -112,9 +112,9 @@ test('Immersive road names appear no earlier than their geometry', () => {
   }
 });
 
-// Exercise the same asset preparation Next runs, including the worker's relative
-// shared-module import. Keep the fixture outside public so parallel builds/tests
-// cannot overwrite each other's output.
+// Exercise the same asset preparation Next runs. Compare against the installed
+// package without requiring an import layout that changes between versions.
+// Keep the fixture outside public so builds/tests cannot overwrite its output.
 test('MapLibre worker and sibling module are emitted from the installed version', () => {
   const publicDir = mkdtempSync(join(tmpdir(), 'eddy-map-worker-'));
   try {
@@ -125,7 +125,6 @@ test('MapLibre worker and sibling module are emitted from the installed version'
     for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
       assert.deepEqual(readFileSync(join(destination, file)), readFileSync(join(packageDir, 'dist', file)));
     }
-    assert.match(readFileSync(join(destination, 'maplibre-gl-worker.mjs'), 'utf8'), /['"]\.\/maplibre-gl-shared\.mjs['"]/);
     assert.ok(readFileSync(join(destination, 'LICENSE.txt')).length > 0);
   } finally {
     rmSync(publicDir, { recursive: true, force: true });
