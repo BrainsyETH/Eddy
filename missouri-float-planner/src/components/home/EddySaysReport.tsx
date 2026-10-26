@@ -54,9 +54,9 @@ function buildRisingCaption(rising: RiverGroup[]): string {
 
 // Gradient-framed white card shell shared by every state so the loading,
 // error, and populated views stay pixel-identical.
-function Shell({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
+function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className={`${compact ? 'mb-5' : 'h-full min-h-[240px]'} rounded-2xl p-[3px] shadow-soft-md`} style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+    <div className="h-full min-h-[240px] rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
       <div className="h-full bg-white rounded-[13px] p-5 md:p-6 flex flex-col">
         {children}
       </div>
@@ -79,12 +79,52 @@ function Header() {
   );
 }
 
+/** Reserve the same space for loading, warnings, clear readings, and failures. */
+function CompactReport({ riverGroups, risingCount, isLoading, failed }: {
+  riverGroups: RiverGroup[];
+  risingCount: number;
+  isLoading: boolean;
+  failed: boolean;
+}) {
+  const complete = riverGroups.length > 0 && riverGroups.every(group => group.condition.code !== 'unknown' && gaugeFreshness(group.primaryGauge.readingTimestamp) === 'live' && !group.primaryGauge.readingSuspect);
+  const high = !isLoading && !failed && risingCount > 0;
+  const summary = failed
+    ? 'Couldn’t refresh. Check river reports.'
+    : high
+      ? `${risingCount} ${risingCount === 1 ? 'river has' : 'rivers have'} high-water readings. View reports.`
+      : complete
+        ? 'No high-water alerts in the latest readings.'
+        : 'Check river reports for the latest readings.';
+  return (
+    <section aria-label="River alerts" aria-busy={isLoading} className="mb-5">
+      <div role="status" className={`h-24 rounded-xl border ${high ? 'border-accent-200 bg-accent-50' : 'border-neutral-200 bg-white'}`}>
+        {isLoading ? (
+          <div className="flex h-full flex-col justify-center gap-2 p-3 sm:px-4">
+            <span className="sr-only">Loading river alerts</span>
+            <div aria-hidden="true" className="h-4 w-32 rounded bg-neutral-200 motion-safe:animate-pulse" />
+            <div aria-hidden="true" className="h-3 w-48 max-w-full rounded bg-neutral-100 motion-safe:animate-pulse" />
+          </div>
+        ) : (
+          <Link href="/rivers" data-ga-event="eddy_other_rivers" className="flex h-full items-center justify-between gap-3 rounded-xl p-3 no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 sm:px-4">
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-neutral-900">{high ? 'High-water alerts' : 'River alerts'}</h3>
+              <p className="mt-1 text-sm leading-5 text-neutral-600">{summary}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function EddySaysReport({ compact = false }: { compact?: boolean }) {
   const { riverGroups, isLoading, error } = useRiverGroups();
-
-  if (isLoading && compact) return null;
-
-  if (error && compact) return <p role="status" className="mb-4 text-sm text-neutral-600">River alerts couldn’t refresh. Check your river report before heading out.</p>;
+  // Rivers at or above "high", worst first via the canonical severity.
+  const rising = riverGroups
+    .filter((rg) => rg.condition.code === 'high' || rg.condition.code === 'dangerous')
+    .sort((a, b) => conditionDef(a.condition.code).severity - conditionDef(b.condition.code).severity);
+  if (compact) return <CompactReport riverGroups={riverGroups} risingCount={rising.length} isLoading={isLoading} failed={Boolean(error)} />;
 
   if (isLoading) {
     return (
@@ -101,8 +141,6 @@ export default function EddySaysReport({ compact = false }: { compact?: boolean 
     );
   }
 
-  if (compact && riverGroups.length === 0) return null;
-
   // No river data at all (fetch failed or nothing configured) — don't imply an
   // all-clear we can't vouch for.
   if (riverGroups.length === 0) {
@@ -116,21 +154,11 @@ export default function EddySaysReport({ compact = false }: { compact?: boolean 
     );
   }
 
-  // Rivers at or above "high", worst (flood) first via the canonical severity.
-  const rising = riverGroups
-    .filter((rg) => rg.condition.code === 'high' || rg.condition.code === 'dangerous')
-    .sort((a, b) => conditionDef(a.condition.code).severity - conditionDef(b.condition.code).severity);
-
-  if (compact && rising.length === 0) {
-    const complete = riverGroups.every(group => group.condition.code !== 'unknown' && gaugeFreshness(group.primaryGauge.readingTimestamp) === 'live' && !group.primaryGauge.readingSuspect);
-    return complete ? <p className="mb-4 text-sm text-neutral-600">No high-water alerts in the latest readings.</p> : null;
-  }
-
   const shown = rising.slice(0, MAX_RISING);
   const overflow = rising.length - shown.length;
 
   return (
-    <Shell compact={compact}>
+    <Shell>
       <Header />
 
       {rising.length === 0 ? (

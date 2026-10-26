@@ -60,6 +60,9 @@ export function floatNavigation(pathname: string, search = ''): SiteNavLink[] {
     // Carry an existing plan through the finder tab; result links still supply
     // their own endpoints. Never carry tracking, modal, or map-only parameters.
     for (const key of ['putIn', 'takeOut', 'vessel']) {
+      // The finder owns its vessel in form state. Its result links use that
+      // selection; a vessel left in the incoming URL can be an older choice.
+      if (key === 'vessel' && pathname === '/find-float') continue;
       const value = params.get(key);
       if (value) route.set(key, value);
     }

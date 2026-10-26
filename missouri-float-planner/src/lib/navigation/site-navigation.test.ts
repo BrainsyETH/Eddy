@@ -45,6 +45,12 @@ test('switching planning tabs preserves exact endpoints and vessel without copyi
   assert.equal(siteNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak', true).find(link => link.label === 'Floats')?.href, links[1].href);
 });
 
+test('finder links retain endpoints without forwarding a vessel its form no longer uses', () => {
+  const search = 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak';
+  assert.equal(floatNavigation('/find-float', search)[1].href, '/plan?river=current&putIn=akers&takeOut=pulltite');
+  assert.equal(siteNavigation('/find-float', search, true).find(link => link.label === 'Floats')?.href, '/find-float?river=current&putIn=akers&takeOut=pulltite');
+});
+
 test('map deep links retain river/gauge intent before asynchronous catalogue reads arrive', () => {
   assert.deepEqual(readRiverMapSearch('river=current'), { river: 'current', gauge: null, conditions: [] });
   assert.deepEqual(readRiverMapSearch('gauge=07067000'), { river: null, gauge: '07067000', conditions: [] });

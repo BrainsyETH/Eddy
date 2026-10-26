@@ -19,26 +19,38 @@ The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a
 separate app link. Conditions uses the existing `/rivers` and `/dams` pages as
 linked tabs; `/gauges` remains part of Conditions. Floats links to `/find-float`
 when web discovery is enabled, otherwise `/plan`. Its page links use the iOS
-labels **Find a Route** and **Build a Route**. These are normal links, with no
-hover menus or nested mobile menus.
+labels **Find a Route** and **Build a Route**. The planner tabs belong only to
+`/plan`, never shared plans at `/plan/[shortCode]`. These are normal links, with
+no hover menus or nested mobile menus.
 
 On river and access pages, Map and Floats preserve the river slug. On the map,
 finder, and planner they follow the current URL selection; unrelated pages
-start without a remembered river. Planning tabs retain existing endpoints and
-vessel. The map's URL is the source of its river/gauge selection and condition
-filters, including browser history and query-only navigation. Loading catalogue
-data never replaces an incoming deep link.
+start without a remembered river. Planning tabs retain existing endpoints. Only
+the planner forwards its URL vessel; finder result links supply the selected
+vessel instead of forwarding an old URL value. The map's URL is the source of
+its river/gauge selection and condition filters, including browser history and
+query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
 The homepage shows **Daily River Report**, real condition cards, the two route
 actions, river guides, and the iPhone app. It reuses Eddy's existing colors,
-fonts, artwork, and condition badges. Website widgets remain in the footer.
+fonts, artwork, and condition badges. The alert summary reserves the same space
+while loading and in every result state. Website widgets remain in the footer.
 
 `npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
 and 320px widths, including keyboard/touch navigation and river selection across
-map history, refresh, and the finder. It uses Playwright Chromium, starts a local
-development server, and removes its temporary fixture route afterward. It does
-not require production credentials. Screenshots go to `/tmp/eddy-navigation`
+map history, refresh, the finder, shared-plan tab isolation, and alert layout
+stability. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
+Playwright Chromium, starts a local development server, and removes its temporary
+fixture routes afterward. It does not require production credentials.
+Screenshots go to `/tmp/eddy-navigation`
 (override with `NAV_SMOKE_OUTPUT`).
+
+For map performance, first build `/river-map` with
+`npm run build -- --webpack --debug-build-paths=app/river-map/page.tsx`, then run
+`NAV_SMOKE_PRODUCTION_MAP=1 npm run test:navigation`. This starts the optimized
+build and enforces a 250ms click-to-painted-state budget under the same throttle.
+Development timings are diagnostic only. Production mode uses API fixtures but
+does not create any fixture routes.
 
 ## Dam pages
 
