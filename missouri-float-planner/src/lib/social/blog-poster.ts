@@ -1,5 +1,5 @@
 // src/lib/social/blog-poster.ts
-// Publishes the weekly blog spotlight — a Facebook-only LINK post to a
+// Publishes the weekday river guide — a Facebook-only LINK post to a
 // river-guide blog. Facebook renders the Open Graph card from the URL, so the
 // whole post is clickable and drives traffic to the site. Facebook-only on
 // purpose: Instagram can't do clickable in-feed links.
@@ -9,6 +9,7 @@
 // post-blog cron and the admin "post blog now" button.
 
 import { blogHighlights } from './blog-highlights';
+import { GUIDE_OPENINGS } from './blog-voice';
 import { hasMetaCredentials, publishLinkToFacebook } from './meta-client';
 
 const SITE = 'https://eddy.guide';
@@ -34,20 +35,21 @@ export interface BlogPostResult {
   error?: string;
 }
 
-// Facebook caption delivers up to three useful points from the published
-// guide before inviting readers to open the full article. The URL
+// A river-specific Eddy opening followed by complete, published advice in
+// short paragraphs. The link card already supplies the SEO article title.
+// Unknown rivers and general articles retain their title/description. The URL
 // is NOT put in the message — the `link` param generates the clickable card.
 export function buildBlogCaption(blog: BlogRow): string {
-  const hook = (blog.description || '').trim();
-  const lines: string[] = [`📖 ${blog.title}`];
+  const opening = blog.river_slug ? GUIDE_OPENINGS[blog.river_slug] : undefined;
+  const lines: string[] = [opening || blog.title];
   const highlights = blogHighlights(blog.guide_data);
   if (highlights.length) {
-    lines.push('', ...highlights.map(point => `• ${point}`));
-  } else if (hook) {
-    lines.push('', hook);
+    lines.push(...highlights);
+  } else if (blog.description?.trim()) {
+    lines.push(blog.description.trim());
   }
-  lines.push('', 'Read the full guide 👇');
-  return lines.join('\n');
+  lines.push('Get the guide and plan it on Eddy 👇');
+  return lines.join('\n\n');
 }
 
 // Publish the next guide as a Facebook link post. Records a social_posts row and
@@ -66,6 +68,7 @@ export async function publishBlogFeature(supabase: any): Promise<BlogPostResult>
     .eq('status', 'published')
     .order('last_shared_at', { ascending: true, nullsFirst: true })
     .order('published_at', { ascending: true })
+    .order('id', { ascending: true })
     .limit(1);
 
   if (error) return { ok: false, error: error.message };
