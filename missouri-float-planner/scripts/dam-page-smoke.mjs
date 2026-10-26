@@ -7,11 +7,13 @@ import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import WebSocket from 'next/dist/compiled/ws/index.js';
 
 const port = 3137;
 const origin = `http://127.0.0.1:${port}`;
 const route = resolve('src/app/dam-layout-check');
 const out = process.env.DAM_SMOKE_OUTPUT || '/tmp/eddy-dam-page';
+const appOnly = process.env.DAM_SMOKE_APP_ONLY === '1';
 const now = Date.parse('2026-10-16T16:30:00Z');
 const at = new Date(now - 10 * 60_000).toISOString();
 const metric = (value, unit = 'cfs') => ({ value, unit, at, staleness: 'fresh' });
@@ -31,6 +33,9 @@ const dam = {
 };
 const variants = {
   normal: dam,
+  tableRock: { ...dam, id: 'swl-table-rock-dam', name: 'Table Rock Dam' },
+  beaver: { ...dam, id: 'swl-beaver-dam', name: 'Beaver Dam' },
+  norfork: { ...dam, id: 'swl-norfork-dam', name: 'Norfork Dam' },
   noReference: { ...dam, generationReference: undefined },
   idle: { ...dam, generating: false, metrics: { ...dam.metrics, generationFlow: metric(20) } },
   noTemp: { ...dam, metrics: { ...dam.metrics, tailwaterTempF: undefined } },
@@ -112,7 +117,7 @@ export default function Page() {
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
   const errors = [];
-  for (const [name, width, height, wide] of [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, true], ['small-landscape', 667, 375, true], ['small-portrait', 320, 720, false]]) {
+  for (const [name, width, height, wide] of (appOnly ? [] : [['desktop', 1440, 1000, true], ['portrait', 390, 844, false], ['landscape', 844, 390, true], ['small-landscape', 667, 375, true], ['small-portrait', 320, 720, false]])) {
     const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900 });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -159,6 +164,14 @@ export default function Page() {
     const a = await page.locator('.dam-observed').boundingBox();
     const b = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
     assert(wide ? b.x > a.x + a.width - 2 : b.y >= a.y + a.height, `${name}: responsive column placement`);
+    const cta = page.locator('[data-dam-app-cta]');
+    assert.equal(await cta.locator('a').count(), 1, 'dam promotion has one action');
+    assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');
+    const ctaBox = await cta.boundingBox();
+    const ctaLinkBox = await cta.getByRole('link', { name: 'Get Eddy for iPhone' }).boundingBox();
+    const historyBox = await page.getByRole('heading', { name: 'Generation history', exact: true }).boundingBox();
+    assert(ctaBox.y >= b.y + b.height && historyBox.y > ctaBox.y + ctaBox.height, `${name}: app action follows schedule and precedes history`);
+    assert(ctaLinkBox.height >= 44 && ctaLinkBox.x >= 0 && ctaLinkBox.x + ctaLinkBox.width <= width, `${name}: app action fits and has a touch target`);
     const days = page.locator('details');
     assert.equal(await days.count(), 2);
     assert.equal(await days.nth(0).getAttribute('open'), '');
@@ -218,7 +231,7 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
-  for (const variant of ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'forecast']) {
+  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'forecast'])) {
     const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -238,6 +251,119 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${variant}`);
   }
+  // Serve the local app through an intercepted production-shaped URL to exercise
+  // the real delegated listener. Never contact Eddy, Google, or the App Store.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
+  const events = [];
+  await context.exposeBinding('recordAnalytics', (_source, ...args) => events.push(args));
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    window.__eddyAnalyticsId = 'G-FIXTURE123';
+    window.damPromotionViews = 0;
+    window.gtag = (...args) => {
+      if (args[1] === 'app_promotion_view') window.damPromotionViews++;
+      return window.recordAnalytics(...args);
+    };
+    window.damDocument = Math.random();
+  });
+  // Next's development React debug channel must connect before hydration can
+  // finish. Bridge it locally too, using the WS client bundled with Next.
+  await context.routeWebSocket('**/*', socket => {
+    const target = new URL(socket.url());
+    assert.equal(target.origin, 'wss://eddy.guide');
+    assert.equal(target.pathname, '/_next/hmr');
+    const upstream = new WebSocket(`ws://127.0.0.1:${port}${target.pathname}${target.search}`);
+    const pending = [];
+    socket.onMessage(message => upstream.readyState === WebSocket.OPEN ? upstream.send(message) : pending.push(message));
+    upstream.on('open', () => pending.splice(0).forEach(message => upstream.send(message)));
+    upstream.on('message', (message, binary) => socket.send(binary ? message : message.toString()));
+    upstream.on('error', error => errors.push(error.message));
+    socket.onClose(() => upstream.close());
+    upstream.on('close', () => socket.close());
+  });
+  await context.route('**/*', async route => {
+    const requestUrl = new URL(route.request().url());
+    if (requestUrl.origin !== 'https://eddy.guide') return route.abort();
+    const response = await route.fetch({ url: `${origin}${requestUrl.pathname}${requestUrl.search}`, headers: { ...route.request().headers(), origin } });
+    await route.fulfill({ response });
+  });
+  try {
+    const page = await context.newPage();
+    page.on('pageerror', e => errors.push(e.message));
+    for (const [variant, id, name, campaign] of [
+      ['normal', dam.id, dam.name, 'dam_bull_shoals'],
+      ['tableRock', variants.tableRock.id, variants.tableRock.name, 'dam_table_rock'],
+      ['beaver', variants.beaver.id, variants.beaver.name, 'dam_beaver'],
+      ['tableRock', variants.tableRock.id, variants.tableRock.name, 'partner_guide'],
+    ]) {
+      events.length = 0;
+      await page.goto(`https://eddy.guide/dam-layout-check?variant=${variant}${campaign === 'partner_guide' ? '&ct=partner_guide' : ''}`, { waitUntil: 'networkidle' });
+      const cta = page.locator('[data-dam-app-cta] a');
+      const expectedUrl = `https://eddy.guide/app?ct=${campaign}&dam=${id}`;
+      await page.waitForFunction(expected => document.querySelector('[data-dam-app-cta] a')?.href === expected, expectedUrl);
+      await cta.scrollIntoViewIfNeeded();
+      await page.waitForFunction(() => window.damPromotionViews === 1);
+      await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+      await cta.scrollIntoViewIfNeeded();
+      const oldDocument = await page.evaluate(() => window.damDocument);
+      await cta.click();
+      await page.waitForURL(expectedUrl);
+      await page.waitForLoadState('networkidle');
+      assert.notEqual(await page.evaluate(() => window.damDocument), oldDocument, 'document navigation refreshes Safari banner');
+      assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} on your Home Screen.`);
+      assert.equal(await page.locator('[data-app-qr]').count(), 0, 'iPhone uses the download action without a QR prompt');
+      assert(await page.getByRole('img', { name: /Eddy’s Bull Shoals Dam widget/ }).evaluate(el => el.complete && el.naturalWidth > 0), 'real widget screenshot loads');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: app page fits phone`);
+      assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), new RegExp(`app-argument=eddy:///dam/${id}(?:,|$)`));
+      const store = page.locator('[data-ga-event="app_store_click"]').first();
+      assert.equal(new URL(await store.getAttribute('href')).hostname, 'apps.apple.com');
+      await page.evaluate(() => document.addEventListener('click', event => {
+        if (event.target.closest('[data-ga-event="app_store_click"]')) event.preventDefault();
+      }));
+      await store.click();
+      // A round trip drains the exposed binding before checking its calls.
+      await page.evaluate(() => window.recordAnalytics('flush'));
+      assert.deepEqual(errors, [], 'contextual app flow has no browser errors');
+      assert.deepEqual(events.filter(event => event[1] === 'app_promotion_view'), [
+        ['event', 'app_promotion_view', { label: 'dam_schedule', dam_id: id, page_path: '/dam-layout-check' }],
+      ], 'view is counted once after the CTA enters the viewport');
+      assert.deepEqual(events.filter(event => ['app_landing_click', 'app_store_click'].includes(event[1])), [
+        ['event', 'app_landing_click', { label: 'dam_schedule', dam_id: id }],
+        ['event', 'app_store_click', { label: 'app_landing_hero', dam_id: id, page_path: '/app', app_campaign: campaign, transport_type: 'beacon' }],
+      ]);
+      await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+      await page.screenshot({ path: `${out}/app-${campaign}.png`, fullPage: false });
+      await page.evaluate(() => sessionStorage.clear());
+      console.log(`PASS ${name}: CTA → contextual app page → store event (${campaign})`);
+    }
+    await page.goto('https://eddy.guide/dam-layout-check?variant=norfork', { waitUntil: 'networkidle' });
+    assert.equal(await page.locator('[data-dam-app-cta]').count(), 0, 'other dams keep their existing layout');
+    await page.goto('https://eddy.guide/app?dam=unknown', { waitUntil: 'networkidle' });
+    assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Find floatable water.');
+    assert.match(await page.locator('head meta[name="apple-itunes-app"]').getAttribute('content'), /app-argument=eddy:\/\/\/reports(?:,|$)/);
+  } finally {
+    await context.close();
+  }
+  const desktop = await browser.newPage({ viewport: { width: 700, height: 900 } });
+  desktop.on('pageerror', e => errors.push(e.message));
+  await desktop.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
+  await desktop.goto(`${origin}/app?ct=partner_guide&dam=swl-table-rock-dam`, { waitUntil: 'networkidle' });
+  const qr = desktop.locator('[data-app-qr]');
+  assert(await qr.isVisible(), 'narrow desktop windows retain the QR');
+  assert.equal(await qr.locator('a').getAttribute('href'), 'https://eddy.guide/app?ct=partner_guide&dam=swl-table-rock-dam');
+  await writeFile(`${out}/dam-qr.svg`, decodeURIComponent((await qr.locator('img').getAttribute('src')).split(',').slice(1).join(',')));
+  await desktop.addStyleTag({ content: 'nextjs-portal { display: none; }' });
+  await desktop.screenshot({ path: `${out}/app-narrow-desktop.png`, fullPage: false });
+  await desktop.close();
+  const android = await browser.newPage({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36' });
+  android.on('pageerror', e => errors.push(e.message));
+  await android.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
+  await android.goto(url, { waitUntil: 'networkidle' });
+  assert.equal(await android.locator('[data-dam-app-cta]').count(), 0, 'Android omits the iPhone promotion');
+  assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
+  await android.close();
+  console.log('PASS Android keeps the schedule; desktop QR retains dam and campaign below 900px');
   assert.deepEqual(errors, [], 'no browser runtime or hydration errors');
   console.log(`Screenshots: ${out}`);
 } finally {

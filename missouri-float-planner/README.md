@@ -87,15 +87,30 @@ on focus/return after at least one minute, preserving chart and disclosure state
 Hidden tabs do not poll. Original measurement timestamps are never replaced by
 page refresh times. The dam API and iOS app contracts are unchanged.
 
+Bull Shoals, Table Rock, and Beaver have a compact widget invitation in the
+generation card's footer: “Bull Shoals on your Home Screen.” and “Get Eddy for
+iPhone”. It replaces their bottom resource button and hides on Android after
+hydration. `src/lib/dam-app-promotion.ts` owns only the three IDs and campaigns;
+the card uses the snapshot's name and `/app` resolves names from the registry
+on the server. The app page shows a real widget screenshot, labeled as an
+example. Its QR retains the dam and campaign and stays visible in narrow
+desktop windows; iOS uses the download action. QR generation stays on the
+server. `AppLink` and the delegated listener retain click attribution, while
+`app_promotion_view` counts the invitation once when half of it enters the
+viewport. See `docs/VISIBILITY_MEASUREMENT.md` for reporting and device checks.
+
 `npm run test:dam-page` checks fixture-rendered dam pages in Chromium at desktop,
 portrait, and landscape sizes, including list cards, list-to-detail navigation,
-disclosure/dialog controls, freshness, and missing-data states. Install the browser with `npx playwright install chromium`
+disclosure/dialog controls, freshness, missing-data states, and the three dam
+links through `/app` and the outgoing download event. All browser requests are
+local or intercepted. Install the browser with `npx playwright install chromium`
 (or set `PLAYWRIGHT_CHROMIUM_PATH`). It starts a local server on port 3137 and
 removes its temporary fixture route on exit or SIGINT/SIGTERM. The route is
 ignored by Git and returns not-found unless the smoke script's development-only
 flag is set; an uncatchable kill cannot leave a publicly usable fixture page.
 Screenshots go to
 `/tmp/eddy-dam-page` (override with `DAM_SMOKE_OUTPUT`); no live dam data is needed.
+Use `DAM_SMOKE_APP_ONLY=1 npm run test:dam-page` to run just the dam-to-app flow.
 
 ## Supported Rivers
 

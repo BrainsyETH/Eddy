@@ -5,6 +5,7 @@ import DamGenerationHero from './DamGenerationHero';
 import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
+import DamAppCTA from './DamAppCTA';
 
 export type ScheduleAvailability = { title: string; detail: string };
 
@@ -50,6 +51,7 @@ export default function GenerationCard({ dam, now, availability }: {
           )}
         </div>
       </div>
+      <DamAppCTA damId={dam.id} damName={dam.name} />
     </Card>
   );
 }
