@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouteViewport } from "../../lib/use-route-viewport";
 import { terrainMapPlan, terrainJourneyCamera, terrainImageTransform } from "../../../../shared/social-terrain-map";
 import { Audio, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
@@ -8,6 +8,7 @@ import {
   buildJourney,
   journeyCamera,
   journeyState,
+  intermediateRouteStops,
   type Journey,
   type JourneyCamera,
   type JourneyPoint,
@@ -24,6 +25,7 @@ import {
   conditionInk,
   inkOn,
 } from "../../../../shared/social-brand";
+import { ROUTE_PHOTO_CARD_HEIGHT, ROUTE_PHOTO_HEIGHT, ROUTE_PHOTO_ZOOM } from "../../../../shared/social-route-photos";
 import { EddyMascot } from "../../components/EddyMascot";
 import { ReelPage, SafeImg } from "../../components/ReelPage";
 import { BrandCallout, BrandCard, BrandPill, KindBadge, StatTile } from "../../components/BrandCard";
@@ -115,7 +117,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const viewport = useRouteViewport();
-  const stage = { ...STAGE, height: viewport.height, boatY: viewport.height / 2 };
+
   const condition = evergreen
     ? EVERGREEN_STYLE
     : CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
@@ -128,7 +130,13 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     () => orderedStops(routePoints, { putInName, putInMile, takeOutName, takeOutMile }),
     [routePoints, putInName, putInMile, takeOutName, takeOutMile],
   );
-  const intermediate = stops.filter((point) => point.progress > 0.015 && point.progress < 0.985);
+  const intermediate = intermediateRouteStops(stops);
+  const hasPhotos = intermediate.some((point) => point.photoReveal);
+  // Reserve the band for the entire shot, even between stops. The measured map
+  // and camera never resize when a callout fades in or out.
+  const overlayHeight = hasPhotos ? ROUTE_PHOTO_CARD_HEIGHT + 20 : journey ? 286 : 0;
+  const stageHeight = Math.max(180, viewport.height - overlayHeight);
+  const stage = { ...STAGE, height: stageHeight, boatY: stageHeight / 2 };
   const state = journeyState(frame, intermediate);
   const arrival = arrivalFrame(intermediate);
   const camera = journey ? (terrain
@@ -173,7 +181,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
 
   const presence = clamp(calloutProgress, 0, 1);
   const stageProps = {
-    stageHeight: viewport.height,
+    stageHeight,
     stops,
     state,
     condition,
@@ -235,22 +243,24 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         <div ref={viewport.ref} data-route-region="map" data-route-top={viewport.top} data-route-height={viewport.height}
           style={{ position: "relative", minHeight: 0 }}>
           {journey && camera
-            ? <RiverStage journey={journey} camera={camera} terrain={Boolean(terrain)} {...stageProps} />
+            ? <RiverStage journey={journey} camera={camera} terrain={Boolean(terrain)} {...stageProps} stageHeight={viewport.height} />
             : <ItineraryStage {...stageProps} />}
+          <div data-route-region="overlay-band" style={{ position: "absolute", left: 0, right: 0,
+            bottom: 0, height: overlayHeight, pointerEvents: "none", zIndex: 12 }}>
+            {(journey && (summaryVisible || activeCallout)) || activeIntermediate?.photoReveal ?
+              <div data-route-region="stop-reveal" data-presence={presence}
+                style={{ position: "absolute", bottom: 8, left: 0, right: 0, opacity: presence }}>
+                <div data-route-region="stop">
+                  {summaryVisible
+                    ? <AlongCallout points={unanchoredPoints} opacity={1} style={{ width: "100%" }} />
+                    : activeCallout ? <RouteStopCard key={`${activeCallout.id}:${activeCallout.photoUrl ?? ""}`}
+                        point={activeCallout} putInMile={putInMile} state={state} /> : null}
+                </div>
+              </div> : null}
+          </div>
         </div>
 
         <div data-route-region="footer" style={{ position: "relative", zIndex: 15 }}>
-          {journey && (summaryVisible || activeCallout) ?
-            <div data-route-region="stop-reveal" data-presence={presence} style={{ display: "grid",
-              gridTemplateRows: `${presence}fr`, opacity: presence, marginBottom: 16 * presence }}>
-              <div style={{ minHeight: 0, overflow: "hidden", marginRight: -8 }}>
-                <div data-route-region="stop" style={{ paddingBottom: 8, paddingRight: 8 }}>
-                  {summaryVisible
-                    ? <AlongCallout points={unanchoredPoints} opacity={1} style={{ width: "100%" }} />
-                    : activeCallout ? <RouteCallout point={activeCallout} putInMile={putInMile} opacity={1} style={{ width: "100%" }} /> : null}
-                </div>
-              </div>
-            </div> : null}
           <div data-route-region="stats">
             <BrandCard padding={14}>
               <div style={{ display: "grid", gridTemplateColumns: "1.35fr 0.8fr 1fr", gap: 10 }}>
@@ -852,7 +862,7 @@ const RouteMarker: React.FC<{
   const scale = (active ? 1.25 : 1) * counterScale;
   return (
     <g transform={`translate(${position.x} ${position.y}) scale(${scale})`} opacity={visited ? 1 : 0.58}>
-      {active ? <circle r={endpoint ? 36 : 29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
+      {active ? <circle data-route-active-marker={point.id} r={endpoint ? 36 : 29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
       {endpoint ? (
         // Endpoints get a bigger, wordless mark — "OUT" in an 18px circle was
         // unreadable, and the callout already names the place.
@@ -887,6 +897,34 @@ const StopIcon: React.FC<{ kind: RoutePointKind }> = ({ kind }) => (
       : <><path d="M19 9c0 5-7 13-7 13S5 14 5 9a7 7 0 1 1 14 0Z" /><circle cx="12" cy="9" r="2" /></>}
   </svg>
 );
+
+/** Photo failure changes only the card, never the resolved clock or map band. */
+const RouteStopCard: React.FC<{ point: SocialRoutePoint; putInMile: number; state: JourneyState }> = ({ point, putInMile, state }) => {
+  const [failed, setFailed] = useState(false);
+  const photo = point.photoReveal && point.photoUrl && !failed;
+  if (!photo) return <RouteCallout point={failed ? { ...point, photoUrl: undefined, photoCredit: undefined } : point}
+    putInMile={putInMile} opacity={1} style={{ width: "100%" }} />;
+  const zoom = interpolate(state.stopElapsedFrames ?? 0, [0, Math.max(1, (state.stopDurationFrames ?? 90) - 1)], [1, ROUTE_PHOTO_ZOOM],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return <div data-route-region="photo-card" style={{ height: ROUTE_PHOTO_CARD_HEIGHT, borderRadius: 18,
+    overflow: "hidden", background: LIGHT.surface, border: `2px solid ${colors.primary[800]}`,
+    boxShadow: "0 6px 18px rgba(22,23,72,0.16)" }}>
+    <div style={{ height: ROUTE_PHOTO_HEIGHT, position: "relative", overflow: "hidden" }}>
+      <SafeImg src={point.photoUrl!} onFailure={() => setFailed(true)} style={{ width: "100%", height: "100%",
+        objectFit: "cover", transform: `scale(${zoom})` }} />
+      {point.photoCredit ? <div data-route-region="photo-credit" style={{ position: "absolute", bottom: 10, right: 10,
+        maxWidth: "calc(100% - 20px)", padding: "6px 9px", borderRadius: 6, background: "rgba(16,25,31,0.86)",
+        color: "#FFFFFF", fontSize: 18, lineHeight: 1.25, overflowWrap: "anywhere" }}>{point.photoCredit}</div> : null}
+    </div>
+    <div style={{ padding: "9px 16px", background: LIGHT.surface }}>
+      <div style={{ fontFamily: fontFamilies.display, fontSize: 29, lineHeight: 1.08, fontWeight: 700,
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cleanName(point.name, 70)}</div>
+      <div style={{ marginTop: 4, color: LIGHT.inkSecondary, fontSize: 19, lineHeight: 1.2 }}>
+        {point.detail || point.kind.replace(/_/g, " ")} · {Math.max(0, point.riverMile - putInMile).toFixed(1)} miles from launch
+      </div>
+    </div>
+  </div>;
+};
 
 const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties }> = ({ point, putInMile, opacity, style }) => {
   const accent = hazardFill(point);

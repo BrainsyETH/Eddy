@@ -270,15 +270,36 @@ Do not accept new baselines until the generated frames have been visually review
 
 ### Route layout and renderer freshness
 
-Float Pick geographic reels use one grid for the header, mileage, flexible map
-and lower stop/stats/CTA stack. The map camera follows the measured space left
-by wrapped titles and photo credits. Endpoint labels clear the canoe and remain
-opaque; only river strokes fade at the edges. The camera returns to the complete
-route after arrival. Browser collision checks run in Remotion CI, including every
-frame of the Black River photo-card regression. The missing-geometry itinerary retains its factual, scrolling
-rows inside the map area. Visual coverage includes both camera transitions,
-arrival and the final hold, long names, the full approximate-feature summary,
-and the real Akers Ferry → Pulltite channel from the September 18 screenshot.
+Float Pick geographic reels use one grid for the header, mileage, fixed map
+viewport and stats/CTA footer. Stop cards fade in a fixed band over the bottom
+of the map; its camera reserves that band throughout the shot, including while
+hidden. Reveals never resize the viewport or shift the camera framing. Start
+and Finish retain compact cards, keeping the cover readable and the CTA clear.
+
+Intermediate stops with a usable place photo show a larger landscape card:
+9-frame fade in, 72-frame full hold, 9-frame fade out (90 frames at 30 fps),
+with a deterministic 100–104% image zoom and a stationary frame. Compact stops
+retain 60 frames. One shared per-stop schedule owns travel rounding, stop
+phases, arrival, summary and composition duration; each photo adds exactly
+30 frames. There is no arbitrary duration cap that could truncate the route.
+
+Remotion metadata decodes candidate photos before calculating that schedule.
+Sources must cover the displayed crop at the final zoom without upscaling;
+undersized sources remain compact thumbnails, failed sources are omitted,
+and a stop photo matching the page backdrop is omitted. Common resize query
+variants and Next image wrappers share an image identity. Supplied credits
+remain visible on a dark corner overlay. A later image failure falls back to
+the compact card without changing the resolved schedule or map band. All
+images remain associated with their actual place; no generic river fallback.
+
+Endpoint labels clear the canoe and remain opaque; only river strokes fade at
+the edges. The camera returns to the complete route after arrival. Browser
+checks cover map-bound invariance, canoe/marker clearance, credits, consecutive
+photo stops, small/missing/duplicate images and late failures, along with the
+Black River regression and missing-geometry itinerary. The itinerary retains
+its factual scrolling rows and can show the same eligible photo overlay.
+Visual coverage includes both camera transitions, arrival and final hold,
+long names, approximate-feature summaries, and the recorded routes.
 
 `render-reusable.yml` resolves the latest first-parent commit touching the render
 image inputs and checks its immutable GHCR SHA tag. It never consumes `latest`.
@@ -334,7 +355,8 @@ checks, and it must be listened to before approving voice quality or level.
   general articles fall back to their title; legacy blogs without structured
   highlights keep their description. Oversized/malformed points are skipped,
   never cut mid-advice. The website guides themselves are unchanged.
-- **Float Pick:** no selection, schedule, caption, or rendering changes.
+- **Float Pick:** selection, posting schedule and captions are unchanged.
+  Place-photo reveals follow the renderer rules above.
 - **Eddy’s Read:** newly generated social Reads compare two or three rivers.
   They reuse the narrated scrolling Read composition, with retained short
   summaries and explicitly labeled weekend weather. Current water is never

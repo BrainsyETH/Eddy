@@ -136,10 +136,10 @@ test('the timeline pauses at each stop and then completes', () => {
   const complete = journeyState(10_000, stops, timing);
   assert.equal(complete.progress, 1);
   assert.equal(complete.complete, true);
-  assert.equal(journeyDuration(stops.length, timing), 180);
+  assert.equal(journeyDuration(stops, timing), 180);
   // The summary hold is added only when asked for, and falls back to the
   // default length when the timing does not name one.
-  assert.equal(journeyDuration(stops.length, timing, true), 180 + DEFAULT_TIMING.summaryFrames!);
+  assert.equal(journeyDuration(stops, timing, true), 180 + DEFAULT_TIMING.summaryFrames!);
 });
 
 test('arrivalFrame is exactly the first frame the journey reports complete', () => {
@@ -194,7 +194,7 @@ test('real river layouts finish on a full overview and never lose the canoe', as
     const stage = ROUTE_MAP_STAGE;
     for (const stops of [[], [{ progress: 0.25 }, { progress: 0.8 }]]) {
       const arrival = arrivalFrame(stops);
-      for (let frame = 0; frame < journeyDuration(stops.length); frame++) {
+      for (let frame = 0; frame < journeyDuration(stops); frame++) {
         const state = journeyState(frame, stops);
         const p = journey.locate(state.progress).point;
         const camera = journeyCamera(frame, journey.points, p, stage, DEFAULT_TIMING, arrival);
@@ -220,7 +220,7 @@ test('the recorded three-point float visits its middle stop for two seconds with
   const stops = [{ progress: 0.33674626366689575 }];
   let previous = 0;
   let held = 0;
-  for (let frame = 0; frame < journeyDuration(stops.length); frame++) {
+  for (let frame = 0; frame < journeyDuration(stops); frame++) {
     const state = journeyState(frame, stops);
     assert.ok(state.progress >= previous);
     assert.ok(state.progress - previous < 0.015, `jump at frame ${frame}`);
@@ -232,5 +232,5 @@ test('the recorded three-point float visits its middle stop for two seconds with
   }
   assert.equal(held, 60);
   assert.equal(previous, 1);
-  assert.equal(journeyDuration(1), 420);
+  assert.equal(journeyDuration([{ progress: 0.5 }]), 420);
 });
