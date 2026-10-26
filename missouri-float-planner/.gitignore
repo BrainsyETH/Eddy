@@ -53,3 +53,9 @@ tmp/
 # Development-only navigation smoke fixture (removed by its runner).
 /src/app/navigation-layout-check/
 /src/app/plan/navigation-layout-check/
+
+# Version-matched MapLibre workers generated when Next loads its config.
+/public/maplibre/
+
+# Development-only desktop planner browser fixture
+/src/app/planner-map-layout-check/
