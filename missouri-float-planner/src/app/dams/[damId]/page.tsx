@@ -7,6 +7,7 @@
 
 import { publicPageMetadata } from '@/lib/seo';
 import { appBannerMetadata } from '@/lib/app-discovery';
+import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -100,7 +101,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
         <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
           {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></Button>}
           {dam.infoPhone && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Recorded release line · {dam.infoPhone}</Button>}
-          <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>
+          {!getDamAppPromotion(dam.id) && <AppLink data-ga-event="app_landing_click" data-ga-label="dam_detail" className="btn-outline btn--sm min-h-11"><Smartphone className="size-4" aria-hidden="true" /> Eddy for iPhone</AppLink>}
         </div>
         {dam.sources.length > 0 && <p className="mt-5 text-xs text-neutral-500">Sources: {dam.sources.map((source) => SOURCE_NAMES[source] ?? source).join(' · ')}</p>}
       </div>

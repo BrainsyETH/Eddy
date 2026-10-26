@@ -5,9 +5,9 @@ import { ArrowRight, BellRing, MapPin, Signal, Waves } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
 import AppLink from '@/components/AppLink';
-import { appBannerMetadata, campaignToken } from '@/lib/app-discovery';
+import { appBannerMetadata, appLandingContext } from '@/lib/app-discovery';
 
-type Props = { searchParams: Promise<{ ct?: string | string[] }> };
+type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] }> };
 
 const pageMetadata: Metadata = {
   title: 'Eddy for iPhone — Find Floatable Water',
@@ -65,23 +65,23 @@ const features = [
 ] as const;
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const campaign = campaignToken((await searchParams).ct);
-  return { ...pageMetadata, ...appBannerMetadata('/reports', campaign) };
+  const { campaign, dam } = appLandingContext(await searchParams);
+  return { ...pageMetadata, ...appBannerMetadata(dam?.nativePath ?? '/reports', campaign) };
 }
 
 export default async function AppLandingPage({ searchParams }: Props) {
-  const campaign = campaignToken((await searchParams).ct);
+  const { campaign, dam } = appLandingContext(await searchParams);
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.contours} aria-hidden="true" />
         <div className={styles.heroInner}>
           <div className={styles.copy}>
-            <p className={styles.eyebrow}>EDDY FOR IPHONE</p>
-            <h1>Find floatable water.</h1>
+            {!dam && <p className={styles.eyebrow}>EDDY FOR IPHONE</p>}
+            <h1 className={dam ? styles.damHeading : undefined}>{dam ? `${dam.name} on your iPhone.` : 'Find floatable water.'}</h1>
             <p className={styles.lede}>
-              Live river conditions, complete float plans, access-point details,
-              gauge trends, and alerts—built for the water you actually paddle.
+              {dam ? 'Generation schedules and water levels, together in Eddy.' :
+                'Live river conditions, complete float plans, access-point details, gauge trends, and alerts—built for the water you actually paddle.'}
             </p>
 
             <div className={styles.actions}>
@@ -93,6 +93,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 rel="noopener noreferrer"
                 data-ga-event="app_store_click"
                 data-ga-label="app_landing_hero"
+                data-ga-dam-id={dam?.id}
               >
                 <Image
                   src="/app-store/download-on-app-store.svg"
@@ -102,12 +103,12 @@ export default async function AppLandingPage({ searchParams }: Props) {
                 />
               </AppLink>
 
-              <Link className={styles.secondaryButton} href="/rivers">
+              {!dam && <Link className={styles.secondaryButton} href="/rivers">
                 Explore Eddy now <ArrowRight aria-hidden="true" />
-              </Link>
+              </Link>}
             </div>
 
-            <div className={styles.qrPrompt}>
+            <div className={`${styles.qrPrompt}${dam ? ` ${styles.damQrPrompt}` : ''}`}>
               <span className={styles.qrFrame}>
                 <Image
                   src="/app-store/eddy-guide-qr.svg"
@@ -122,9 +123,9 @@ export default async function AppLandingPage({ searchParams }: Props) {
               </span>
             </div>
 
-            <p className={styles.microcopy}>
+            {!dam && <p className={styles.microcopy}>
               Designed for Missouri and Ozarks float rivers. More water is on the way.
-            </p>
+            </p>}
           </div>
 
           <div className={styles.preview} aria-label="Eddy iPhone app preview">
@@ -187,6 +188,7 @@ export default async function AppLandingPage({ searchParams }: Props) {
           rel="noopener noreferrer"
           data-ga-event="app_store_click"
           data-ga-label="app_landing_footer"
+          data-ga-dam-id={dam?.id}
         >
           <Image
             src="/app-store/download-on-app-store.svg"

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { resolveAppStoreConfig, appStoreUrl, appLandingUrl, campaignToken, smartBannerContent, DEFAULT_APP_STORE_URL } from './app-discovery';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { resolveAppStoreConfig, appStoreUrl, appLandingUrl, appLandingContext, campaignToken, smartBannerContent, DEFAULT_APP_STORE_URL } from './app-discovery';
+import { getDamAppPromotion } from './dam-app-promotion';
+import { getUsaceDam } from './flow-providers/usace-registry';
+import DamAppCTA from '../components/dam/DamAppCTA';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import { readAppCampaign } from '../components/AppLink';
 
@@ -77,4 +82,40 @@ test('every contextual banner opens an existing native destination, cold and war
     assert.equal(redirectSystemPath({ path: argument, initial: true }), `/(tabs)/(${owner})${path}`);
   }
   assert.equal(redirectSystemPath({ path: 'eddy:///reports', initial: true }), '/reports');
+});
+
+test('each promoted dam keeps its identity from the CTA through the landing banner', () => {
+  for (const id of ['swl-bull-shoals-dam', 'swl-table-rock-dam', 'swl-beaver-dam']) {
+    const dam = getDamAppPromotion(id)!;
+    assert.equal(dam.name, getUsaceDam(id)?.name, 'promotion identity matches the dam catalog');
+    const html = renderToStaticMarkup(createElement(DamAppCTA, { damId: id }));
+    const href = html.match(/href="([^"]+)"/)![1].replaceAll('&amp;', '&');
+    assert.equal(href, appLandingUrl(dam.campaign, id));
+    assert.match(html, /Get Eddy for iPhone/);
+    assert.equal((html.match(/<a\s/g) || []).length, 1, 'one clear action');
+    assert.ok(html.includes(`data-ga-dam-id="${id}"`));
+    assert.match(html, /data-ga-label="dam_schedule"/);
+    const params = Object.fromEntries(new URL(href, 'https://eddy.guide').searchParams);
+    const context = appLandingContext(params);
+    assert.equal(context.dam?.id, id);
+    assert.equal(context.campaign, dam.campaign);
+    const argument = smartBannerContent(context.dam!.nativePath, context.campaign)
+      .split(', ').find(p => p.startsWith('app-argument='))!.slice('app-argument='.length);
+    assert.equal(redirectSystemPath({ path: argument, initial: false }), `/dam/${id}`);
+    assert.equal(redirectSystemPath({ path: argument, initial: true }), `/(tabs)/(today)/dam/${id}`);
+    assert.equal(new URL(appStoreUrl(context.campaign)).origin, 'https://apps.apple.com');
+  }
+});
+
+test('dam context does not replace partner attribution or accept arbitrary destinations', () => {
+  const dam = 'swl-bull-shoals-dam';
+  assert.equal(appLandingContext({ dam, ct: 'partner_foo' }).campaign, 'partner_foo');
+  assert.equal(appLandingContext({ dam, ct: '<script>' }).campaign, 'dam_bull_shoals');
+  for (const value of [undefined, '', ['swl-bull-shoals-dam'], '__proto__', 'constructor', '/dam/unknown', 'https://example.com', 'swl-norfork-dam']) {
+    assert.equal(getDamAppPromotion(value), null);
+    assert.equal(appLandingContext({ dam: value }).dam, null);
+  }
+  assert.equal(appLandingUrl('partner_foo', 'https://example.com'), '/app?ct=partner_foo');
+  assert.equal(renderToStaticMarkup(createElement(DamAppCTA, { damId: 'swl-norfork-dam' })), '');
+  assert.deepEqual(appLandingContext({}), { dam: null, campaign: null });
 });

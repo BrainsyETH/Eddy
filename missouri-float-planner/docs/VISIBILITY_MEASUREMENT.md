@@ -36,7 +36,7 @@ launch ads, change App Store categories, or change the database.
 ## Metadata performance before rollout
 
 iOS Safari must wait for `generateMetadata` so its native banner is in the
-initial head. `/app` metadata only reads the campaign query (no data fetch);
+initial head. `/app` metadata only reads the campaign and dam query (no data fetch);
 shared plans also perform a plan lookup and parallel river/access lookups.
 Measure iPhone-user-agent TTFB on an authenticated preview versus the base
 revision, for both cold and warm requests to `/app`, a river, and a shared plan.
@@ -68,6 +68,40 @@ Without a real provider token, the app remains downloadable and GA can record
 clicks. Do not claim Apple campaign attribution is configured until the provider
 token has been supplied. Apple Ads attribution is a separate reporting path;
 these campaign links alone do not implement AdServices attribution.
+
+## Dam-to-app links
+
+Bull Shoals, Table Rock and Beaver have one compact app card immediately after
+the generation/schedule card. Their former bottom resource button is omitted;
+other dam pages retain it. The card uses a single sentence and the existing
+“Get Eddy for iPhone” action, with no extra feature labels.
+
+`src/lib/dam-app-promotion.ts` is the shared allowlist for placement, landing
+context and analytics. The link carries `dam=swl-bull-shoals-dam` (or the other
+allowed ID) to `/app`, plus the default campaign `dam_bull_shoals`,
+`dam_table_rock` or `dam_beaver`. An existing session campaign, including a
+partner's `ct`, keeps priority. The separate `dam_id` event parameter preserves
+dam-level reporting regardless of that campaign. Invalid or repeated dam
+parameters fall back to the generic app page. Arbitrary native/return URLs
+are not accepted, and the canonical stays `/app`.
+
+The contextual app page names the dam and supplies its existing `/dam/<id>`
+native route in Safari's Smart App Banner. `AppLink` remains an ordinary
+document navigation so Safari receives the updated banner. The App Store
+buttons retain the published listing. The desktop QR remains the generic
+app link; this does not implement deferred links after a new installation.
+
+The card emits `app_landing_click` with `label=dam_schedule` and `dam_id`.
+The two download buttons emit `app_store_click` with `dam_id` plus their
+existing placement, page path and campaign. Register `dam_id` as an
+event-scoped GA4 custom dimension if it is needed in standard reports or
+explorations. Compare dam visits → app-page clicks → outbound store clicks;
+neither click event proves an installation.
+
+`npm run test:dam-page` verifies each CTA, contextual page, initial-head banner
+and delegated click event with all network requests routed locally. It also
+checks partner attribution and generic fallbacks. Real iPhone Safari Open
+behavior and GA4 event receipt remain deployment checks.
 
 ## Website analytics scope
 

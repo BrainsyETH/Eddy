@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { useAppCampaign } from '@/components/AppLink';
 import { APP_STORE } from '@/lib/app-discovery';
 import { initializeAnalytics, trackEvent } from '@/lib/analytics';
+import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 
 export default function AnalyticsListener({ trackingId }: { trackingId?: string }) {
   const campaign = useAppCampaign();
@@ -25,11 +26,13 @@ export default function AnalyticsListener({ trackingId }: { trackingId?: string 
       const action = el.dataset.gaEvent;
       if (!action) return;
       const label = el.dataset.gaLabel;
+      const dam = getDamAppPromotion(el.dataset.gaDamId);
       trackEvent(action, {
         ...(label ? { label } : {}),
+        ...(dam ? { dam_id: dam.id } : {}),
         ...(action === 'app_store_click' ? {
           page_path: window.location.pathname,
-          app_campaign: campaign ?? APP_STORE.campaign ?? 'website_download',
+          app_campaign: campaign ?? dam?.campaign ?? APP_STORE.campaign ?? 'website_download',
           transport_type: 'beacon',
         } : {}),
       });

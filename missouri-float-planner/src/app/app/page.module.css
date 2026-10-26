@@ -75,6 +75,16 @@
   line-height: 1.55;
 }
 
+.copy h1.damHeading {
+  font-size: clamp(2.75rem, 5vw, 4.5rem);
+  line-height: 1.05;
+  text-shadow: 3px 3px 0 #2d2a24;
+}
+
+@media (max-width: 900px) {
+  .qrPrompt.damQrPrompt { display: none; }
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
