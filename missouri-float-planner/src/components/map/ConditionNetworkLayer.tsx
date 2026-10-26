@@ -46,12 +46,15 @@ const LABEL_LAYER_ID = 'condition-network-label-layer';
 
 // Filter that matches no feature — the highlight layer's resting state.
 const NO_MATCH: maplibregl.FilterSpecification = ['==', ['get', 'riverId'], ''];
+const NO_PRIORITY_LAYERS: readonly string[] = [];
 
 export default function ConditionNetworkLayer({
   excludeRiverId,
   onSelectRiver,
   showLabels = true,
   visibleConditions = null,
+  prominent = false,
+  priorityLayerIds = NO_PRIORITY_LAYERS,
 }: {
   /** The page's hero river — rendered by ConditionRiverLayer/RouteLayer
    *  instead, so the network skips it. */
@@ -64,6 +67,10 @@ export default function ConditionNetworkLayer({
   /** Condition codes to show, or null for all — the Filters panel's
    *  legend-chip filter ("show me only flowing rivers"). */
   visibleConditions?: ConditionCode[] | null;
+  /** Desktop exploration keeps the network legible at the opening zoom. */
+  prominent?: boolean;
+  /** Point layers win when an access pin sits on a river's hit target. */
+  priorityLayerIds?: readonly string[];
 }) {
   const map = useMap();
   // One condition-coded feature per curated river; classification shared
@@ -118,7 +125,7 @@ export default function ConditionNetworkLayer({
         id: CASING_LAYER_ID,
         type: 'line',
         source: SOURCE_ID,
-        paint: { 'line-color': CASING_COLOR, 'line-width': NETWORK_CASING_WIDTH },
+        paint: { 'line-color': CASING_COLOR, 'line-width': prominent ? ['interpolate', ['linear'], ['zoom'], 6, 5, 10, 7, 16, 12] : NETWORK_CASING_WIDTH },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       }, ANCHORS.lines);
 
@@ -128,7 +135,7 @@ export default function ConditionNetworkLayer({
         source: SOURCE_ID,
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': NETWORK_LINE_WIDTH,
+          'line-width': prominent ? ['interpolate', ['linear'], ['zoom'], 6, 3, 10, 4.5, 16, 8] : NETWORK_LINE_WIDTH,
           'line-opacity': 0.95,
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -208,7 +215,7 @@ export default function ConditionNetworkLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, collection, labelCollection, styleReadyTick, showLabels]);
+  }, [map, collection, labelCollection, styleReadyTick, showLabels, prominent]);
 
   // Condition filter from the Filters panel's legend chips. setFilter on
   // the existing layers (cheap) rather than rebuilding the source; deps
@@ -227,7 +234,7 @@ export default function ConditionNetworkLayer({
     } catch {
       // Style mid-transition; the add-layers effect re-runs this after.
     }
-  }, [map, visibleConditions, collection, styleReadyTick, showLabels]);
+  }, [map, visibleConditions, collection, styleReadyTick, showLabels, prominent]);
 
   // Click a context river to make it the active planner river; hovering one
   // lights the whole river up via the highlight layer. Kept in its own
@@ -267,6 +274,8 @@ export default function ConditionNetworkLayer({
       setHighlight(null);
     };
     const onClick = (e: maplibregl.MapLayerMouseEvent) => {
+      const priority = priorityLayerIds.filter(id => map.getLayer(id));
+      if (priority.length && map.queryRenderedFeatures(e.point, { layers: priority }).length) return;
       const slug = e.features?.[0]?.properties?.slug;
       if (typeof slug === 'string' && slug) onSelectRiver(slug);
     };
@@ -284,7 +293,7 @@ export default function ConditionNetworkLayer({
       setHighlight(null);
       map.getCanvas().style.cursor = '';
     };
-  }, [map, onSelectRiver]);
+  }, [map, onSelectRiver, priorityLayerIds]);
 
   return null;
 }

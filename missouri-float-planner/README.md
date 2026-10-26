@@ -56,6 +56,19 @@ build and enforces a 250ms click-to-painted-state budget under the same throttle
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
 
+## River and gauge history
+
+Desktop reports (1024px and wider) show the full chart tools inline: all supported
+history ranges, Custom dates, comparison, zoom, CSV export, and a collapsed data
+table. Mobile web keeps Expand, preserving the selected range and units on open
+and close. A selected long or custom range stays highlighted in the compact
+control. Resizing to desktop closes the dialog until the next Expand tap.
+Both layouts share `GaugeHistoryChart`; iOS is unchanged. See
+[ADR 0010](../docs/decisions/0010-hydrograph-gridlines-and-export-belong-to-an-expanded-mode.md).
+
+Run `npx tsx scripts/gauge-smoke.ts` for fixture-backed desktop/mobile checks.
+Screenshots and CSV downloads go to `.smoke-gauge` (override with `SMOKE_OUT`).
+
 ## Dam pages
 
 The lakes and dams index uses compact cards with generation estimates, release,
