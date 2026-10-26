@@ -53,14 +53,14 @@ export const ReelPage: React.FC<ReelPageProps> = ({
 
 /** An <Img> that renders nothing (instead of throwing the render) when its
  *  source can't load — a cover photo is decoration, never worth a failed post. */
-export class SafeImg extends React.Component<{ src: string; style?: React.CSSProperties }, { failed: boolean }> {
+export class SafeImg extends React.Component<{ src: string; style?: React.CSSProperties; onFailure?: () => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {}
+  componentDidCatch() { this.props.onFailure?.(); }
   render() {
     if (this.state.failed) return null;
-    return <Img src={this.props.src} onError={() => this.setState({ failed: true })} style={this.props.style} />;
+    return <Img src={this.props.src} maxRetries={this.props.onFailure ? 0 : undefined} onError={() => { this.setState({ failed: true }); this.props.onFailure?.(); }} style={this.props.style} />;
   }
 }
