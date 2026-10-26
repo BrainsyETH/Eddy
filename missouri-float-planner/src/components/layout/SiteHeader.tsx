@@ -1,82 +1,47 @@
 'use client';
 
-// src/components/layout/SiteHeader.tsx
-// Global site header. Top nav is intentionally flat — one link per primary
-// surface (Plan a Float, River Reports, River Map, About) so it scales as we
-// add more rivers.
-
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import AppLink from '@/components/AppLink';
 import { Menu, X } from 'lucide-react';
+import { siteNavigation } from '@/lib/navigation/site-navigation';
 
-interface NavItem {
-  href: string;
-  label: string;
-  matches: (pathname: string) => boolean;
+type HeaderProps = { floatSearchEnabled?: boolean };
+
+export default function SiteHeader({ floatSearchEnabled = false }: HeaderProps) {
+  return (
+    <Suspense fallback={<HeaderContent floatSearchEnabled={floatSearchEnabled} />}>
+      <ContextualHeader floatSearchEnabled={floatSearchEnabled} />
+    </Suspense>
+  );
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/find-float', label: 'Find a Float', matches: (p) => p === '/find-float' },
-  {
-    href: '/plan',
-    label: 'Plan a Float',
-    matches: (p) => p === '/plan' || p.startsWith('/plan/'),
-  },
-  {
-    href: '/rivers',
-    label: 'River Reports',
-    // River Reports owns both the live conditions dashboard (/gauges) and the
-    // river browse/guide surfaces (/rivers), so browsing a river no longer
-    // lights up "Plan a Float". Note: /river-map is a sibling surface, not a
-    // /rivers/ child, so it never matches this prefix.
-    matches: (p) =>
-      p === '/gauges' || p.startsWith('/gauges/') || p === '/rivers' || p.startsWith('/rivers/'),
-  },
-  {
-    href: '/river-map',
-    label: 'River Map',
-    // The live statewide observatory — its own primary surface.
-    matches: (p) => p === '/river-map' || p.startsWith('/river-map/'),
-  },
-  {
-    href: '/dams',
-    label: 'Lakes & Dams',
-    // Reservoirs and tailwaters. A sibling of River Reports rather than a
-    // child: most of these projects have no Eddy river below them, so they
-    // are not reachable by browsing rivers.
-    matches: (p) => p === '/dams' || p.startsWith('/dams/'),
-  },
-  {
-    href: '/blog',
-    label: 'Guides',
-    matches: (p) => p === '/blog' || p.startsWith('/blog/'),
-  },
-  { href: '/app', label: 'Get the App', matches: (p) => p === '/app' },
-  {
-    href: '/about',
-    label: 'About',
-    matches: (p) => p === '/about',
-  },
-];
+function ContextualHeader(props: HeaderProps) {
+  const searchParams = useSearchParams();
+  return <HeaderContent {...props} search={searchParams.toString()} />;
+}
 
-export default function SiteHeader({ floatSearchEnabled = false }: { floatSearchEnabled?: boolean }) {
+function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps & { search?: string }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const navItems = NAV_ITEMS.filter((item) => item.href !== '/find-float' || floatSearchEnabled);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const navItems = siteNavigation(pathname, search, floatSearchEnabled);
 
   // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [pathname]);
+  }, [pathname, search]);
 
   // Close mobile menu on Escape
   useEffect(() => {
     if (!mobileMenuOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileMenuOpen(false);
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        menuButton.current?.focus();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -107,25 +72,23 @@ export default function SiteHeader({ floatSearchEnabled = false }: { floatSearch
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-1 ml-8">
+          <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-1 ml-8">
             {navItems.map((item) => {
-              const active = item.matches(pathname);
-              const NavLink = item.href === '/app' ? AppLink : Link;
+              const active = item.active;
               return (
-                <NavLink
+                <Link
                   key={item.href}
                   href={item.href}
-                  data-ga-event={item.href === '/app' ? 'app_landing_click' : undefined}
-                  data-ga-label={item.href === '/app' ? 'header' : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+                  className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
                     active
                       ? 'text-white bg-white/10'
                       : 'text-primary-100 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   {item.label}
-                </NavLink>
+                </Link>
               );
             })}
           </nav>
@@ -133,8 +96,18 @@ export default function SiteHeader({ floatSearchEnabled = false }: { floatSearch
           {/* Spacer */}
           <div className="flex-1" />
 
+          <AppLink
+            data-ga-event="app_landing_click"
+            data-ga-label="header"
+            className="hidden lg:inline-flex items-center rounded-md border border-white/30 px-3 py-2 text-sm font-semibold text-white no-underline hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            Get the App
+          </AppLink>
+
           {/* Mobile hamburger */}
           <button
+            ref={menuButton}
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden p-2 rounded-md text-primary-100 hover:text-white hover:bg-white/10 transition-colors"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -149,16 +122,14 @@ export default function SiteHeader({ floatSearchEnabled = false }: { floatSearch
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div id="mobile-menu" className="lg:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
-          <div className="px-4 py-3 space-y-1">
+          <nav aria-label="Mobile navigation" className="px-4 py-3 space-y-1">
             {navItems.map((item) => {
-              const active = item.matches(pathname);
-              const NavLink = item.href === '/app' ? AppLink : Link;
+              const active = item.active;
               return (
-                <NavLink
+                <Link
                   key={item.href}
                   href={item.href}
-                  data-ga-event={item.href === '/app' ? 'app_landing_click' : undefined}
-                  data-ga-label={item.href === '/app' ? 'header' : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
                   aria-current={active ? 'page' : undefined}
                   className={`block px-3 py-3 rounded-md no-underline transition-colors font-medium ${
                     active
@@ -167,10 +138,18 @@ export default function SiteHeader({ floatSearchEnabled = false }: { floatSearch
                   }`}
                 >
                   {item.label}
-                </NavLink>
+                </Link>
               );
             })}
-          </div>
+            <AppLink
+              data-ga-event="app_landing_click"
+              data-ga-label="header"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block rounded-md px-3 py-3 font-medium text-primary-100 hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+            >
+              Get the App
+            </AppLink>
+          </nav>
         </div>
       )}
     </header>

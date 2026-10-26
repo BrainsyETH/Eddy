@@ -3,8 +3,11 @@
 // allowing one canonical planner page across all rivers.
 
 import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceAreaBounds } from '@/lib/geo/region-bounds';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
+import FloatNavigation from '@/components/layout/FloatNavigation';
 import PlanPageClient from './PlanPageClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
@@ -166,11 +169,15 @@ export default async function PlanPage({ searchParams }: Props) {
     area.maxLat,
   ];
 
+  const showNavigation = floatSearchLaunch().web;
   return (
-    <PlanPageClient
-      initialRiverSlug={slug}
-      guidePost={guidePost}
-      defaultBounds={defaultBounds}
-    />
+    <div style={{ '--plan-section-height': showNavigation ? '3rem' : '0rem' } as CSSProperties}>
+      {showNavigation && <FloatNavigation activePath="/plan" />}
+      <PlanPageClient
+        initialRiverSlug={slug}
+        guidePost={guidePost}
+        defaultBounds={defaultBounds}
+      />
+    </div>
   );
 }

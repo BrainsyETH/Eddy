@@ -9,6 +9,8 @@
 // is. That is a dam page, and it needs no river content at all.
 
 import { publicPageMetadata } from '@/lib/seo';
+import SectionNavigation from '@/components/layout/SectionNavigation';
+import { conditionNavigation } from '@/lib/navigation/site-navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -49,6 +51,8 @@ export default async function DamsPage() {
           </p>
         </div>
       </section>
+
+      <SectionNavigation label="Conditions" links={conditionNavigation('dams')} />
 
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <p className="mb-6 text-xs text-neutral-500">

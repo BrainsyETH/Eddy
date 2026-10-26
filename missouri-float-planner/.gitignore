@@ -49,3 +49,7 @@ tmp/
 .terrain-tile-cache/
 .smoke/
 .smoke-gauge/
+
+# Development-only navigation smoke fixture (removed by its runner).
+/src/app/navigation-layout-check/
+/src/app/plan/navigation-layout-check/

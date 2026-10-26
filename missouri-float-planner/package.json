@@ -51,6 +51,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "db:readiness": "tsx scripts/ingestion/audit-readiness.ts",
     "test:dam-page": "node scripts/dam-page-smoke.mjs",
+    "test:navigation": "node scripts/navigation-smoke.mjs",
     "test:analytics-browser": "node scripts/analytics-browser-smoke.mjs"
   },
   "dependencies": {
