@@ -13,6 +13,33 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 River pages place “Find a float on this river” near the bottom, after the river
 guide and before the feedback link, when float search is enabled for the web.
 
+## Web navigation
+
+The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a
+separate app link. Conditions uses the existing `/rivers` and `/dams` pages as
+linked tabs; `/gauges` remains part of Conditions. Floats links to `/find-float`
+when web discovery is enabled, otherwise `/plan`. Its page links use the iOS
+labels **Find a Route** and **Build a Route**. These are normal links, with no
+hover menus or nested mobile menus.
+
+On river and access pages, Map and Floats preserve the river slug. On the map,
+finder, and planner they follow the current URL selection; unrelated pages
+start without a remembered river. Planning tabs retain existing endpoints and
+vessel. The map's URL is the source of its river/gauge selection and condition
+filters, including browser history and query-only navigation. Loading catalogue
+data never replaces an incoming deep link.
+
+The homepage shows **Daily River Report**, real condition cards, the two route
+actions, river guides, and the iPhone app. It reuses Eddy's existing colors,
+fonts, artwork, and condition badges. Website widgets remain in the footer.
+
+`npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
+and 320px widths, including keyboard/touch navigation and river selection across
+map history, refresh, and the finder. It uses Playwright Chromium, starts a local
+development server, and removes its temporary fixture route afterward. It does
+not require production credentials. Screenshots go to `/tmp/eddy-navigation`
+(override with `NAV_SMOKE_OUTPUT`).
+
 ## Dam pages
 
 The lakes and dams index uses compact cards with generation estimates, release,

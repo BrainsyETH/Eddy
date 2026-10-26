@@ -1369,15 +1369,15 @@ h1, h2, h3, h4, h5, h6 {
    collapses (iOS Safari, Brave, Chrome) and pushes the bottom of the layout
    behind the browser chrome; dvh tracks the *visible* viewport. The vh
    declaration is the fallback for older engines. 6rem = site header (3.5rem)
-   + planner header row (2.5rem). */
+   + planner header row (2.5rem). The optional Floats navigation adds 3rem. */
 .plan-viewport-h {
-  height: calc(100vh - 3.5rem);
-  height: calc(100dvh - 3.5rem);
+  height: calc(100vh - 3.5rem - var(--plan-section-height, 0rem));
+  height: calc(100dvh - 3.5rem - var(--plan-section-height, 0rem));
 }
 
 .plan-map-h {
-  height: calc(100vh - 6rem);
-  height: calc(100dvh - 6rem);
+  height: calc(100vh - var(--plan-section-height, 0rem) - 6rem);
+  height: calc(100dvh - var(--plan-section-height, 0rem) - 6rem);
 }
 
 /* Variant reserving room for the collapsed float-plan bottom sheet. The
@@ -1385,8 +1385,8 @@ h1, h2, h3, h4, h5, h6 {
    the same inset or the sheet covers the bottom of the map (and MapLibre's
    attribution) on notched phones. */
 .plan-map-h--sheet {
-  height: calc(100vh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
-  height: calc(100dvh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+  height: calc(100vh - var(--plan-section-height, 0rem) - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--plan-section-height, 0rem) - 6rem - 80px - env(safe-area-inset-bottom, 0px));
 }
 
 /* ── /river-map SVG marker focus ─────────────────────────────────────────

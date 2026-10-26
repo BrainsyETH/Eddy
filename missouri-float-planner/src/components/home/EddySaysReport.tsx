@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 import { EDDY_IMAGES } from '@/constants';
+import { gaugeFreshness } from '@shared/gauge-freshness';
 import { conditionDef } from '@shared/condition-system';
 import { formatRiverLevel, type RiverGroup } from '@/lib/river-groups';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
@@ -53,9 +54,9 @@ function buildRisingCaption(rising: RiverGroup[]): string {
 
 // Gradient-framed white card shell shared by every state so the loading,
 // error, and populated views stay pixel-identical.
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
   return (
-    <div className="h-full min-h-[240px] rounded-2xl p-[3px] shadow-soft-md" style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
+    <div className={`${compact ? 'mb-5' : 'h-full min-h-[240px]'} rounded-2xl p-[3px] shadow-soft-md`} style={{ background: 'linear-gradient(135deg, #F07052 0%, #2D7889 100%)' }}>
       <div className="h-full bg-white rounded-[13px] p-5 md:p-6 flex flex-col">
         {children}
       </div>
@@ -78,8 +79,12 @@ function Header() {
   );
 }
 
-export default function EddySaysReport() {
-  const { riverGroups, isLoading } = useRiverGroups();
+export default function EddySaysReport({ compact = false }: { compact?: boolean }) {
+  const { riverGroups, isLoading, error } = useRiverGroups();
+
+  if (isLoading && compact) return null;
+
+  if (error && compact) return <p role="status" className="mb-4 text-sm text-neutral-600">River alerts couldn’t refresh. Check your river report before heading out.</p>;
 
   if (isLoading) {
     return (
@@ -95,6 +100,8 @@ export default function EddySaysReport() {
       </Shell>
     );
   }
+
+  if (compact && riverGroups.length === 0) return null;
 
   // No river data at all (fetch failed or nothing configured) — don't imply an
   // all-clear we can't vouch for.
@@ -114,11 +121,16 @@ export default function EddySaysReport() {
     .filter((rg) => rg.condition.code === 'high' || rg.condition.code === 'dangerous')
     .sort((a, b) => conditionDef(a.condition.code).severity - conditionDef(b.condition.code).severity);
 
+  if (compact && rising.length === 0) {
+    const complete = riverGroups.every(group => group.condition.code !== 'unknown' && gaugeFreshness(group.primaryGauge.readingTimestamp) === 'live' && !group.primaryGauge.readingSuspect);
+    return complete ? <p className="mb-4 text-sm text-neutral-600">No high-water alerts in the latest readings.</p> : null;
+  }
+
   const shown = rising.slice(0, MAX_RISING);
   const overflow = rising.length - shown.length;
 
   return (
-    <Shell>
+    <Shell compact={compact}>
       <Header />
 
       {rising.length === 0 ? (

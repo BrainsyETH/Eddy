@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { conditionNavigation, floatNavigation, navigationRiver, siteNavigation } from './site-navigation';
+import { readRiverMapSearch, writeRiverMapSearch } from './river-map-search';
+
+test('river pages carry the river into both planning and the map, including access details', () => {
+  for (const path of ['/rivers/current', '/rivers/missouri/current', '/rivers/missouri/current/access/akers-ferry']) {
+    const links = siteNavigation(path, 'river=meramec', true);
+    assert.equal(links.find(link => link.label === 'Map')?.href, '/river-map?river=current');
+    assert.equal(links.find(link => link.label === 'Floats')?.href, '/find-float?river=current');
+    assert.deepEqual(links.filter(link => link.active).map(link => link.label), ['Conditions']);
+  }
+});
+
+test('directories and unrelated pages never turn a state or old query into a selected river', () => {
+  for (const path of ['/', '/rivers', '/rivers/missouri', '/rivers/missouri/access/akers-ferry', '/blog/guide', '/dams', '/about']) {
+    assert.equal(navigationRiver(path, 'river=current'), null, path);
+  }
+  assert.equal(navigationRiver('/plan', 'river=%3Cscript%3E'), null);
+});
+
+test('map and planner URL selections propagate, while search discovery respects the release flag', () => {
+  for (const path of ['/river-map', '/find-float', '/plan']) {
+    assert.equal(navigationRiver(path, 'river=buffalo'), 'buffalo');
+    assert.equal(navigationRiver(path, 'river=meramec'), 'meramec');
+    assert.equal(navigationRiver(path), null);
+  }
+  assert.equal(siteNavigation('/rivers/missouri/current', '', false).find(link => link.label === 'Floats')?.href, '/plan?river=current');
+});
+
+test('conditions includes gauges and dams, and the map remains its own section', () => {
+  for (const path of ['/gauges/07067000', '/dams/swl-bull-shoals-dam', '/rivers/arkansas/buffalo']) {
+    assert.deepEqual(siteNavigation(path, '', true).filter(link => link.active).map(link => link.label), ['Conditions']);
+  }
+  assert.deepEqual(siteNavigation('/river-map', '', true).filter(link => link.active).map(link => link.label), ['Map']);
+  assert.deepEqual(conditionNavigation('dams').filter(link => link.active).map(link => link.href), ['/dams']);
+});
+
+test('switching planning tabs preserves exact endpoints and vessel without copying unrelated state', () => {
+  const links = floatNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak&submitPhoto=true&ct=campaign');
+  assert.equal(links[0].href, '/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
+  assert.equal(links[1].href, '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
+  assert.equal(links[1].active, true);
+  assert.equal(floatNavigation('/find-float', 'putIn=orphan')[1].href, '/plan');
+  assert.equal(siteNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak', true).find(link => link.label === 'Floats')?.href, links[1].href);
+});
+
+test('map deep links retain river/gauge intent before asynchronous catalogue reads arrive', () => {
+  assert.deepEqual(readRiverMapSearch('river=current'), { river: 'current', gauge: null, conditions: [] });
+  assert.deepEqual(readRiverMapSearch('gauge=07067000'), { river: null, gauge: '07067000', conditions: [] });
+  assert.equal(readRiverMapSearch('river=current&gauge=07067000').gauge, null);
+});
+
+test('map selection changes replace the previous selection and clearing preserves filters and campaign', () => {
+  const changed = writeRiverMapSearch('river=current&conditions=good&ct=partner', { gauge: '07067000' });
+  assert.deepEqual(readRiverMapSearch(changed), { river: null, gauge: '07067000', conditions: ['good'] });
+  const cleared = writeRiverMapSearch(changed, { gauge: null });
+  assert.equal(new URLSearchParams(cleared).get('ct'), 'partner');
+  assert.deepEqual(readRiverMapSearch(cleared), { river: null, gauge: null, conditions: ['good'] });
+  assert.equal(readRiverMapSearch(writeRiverMapSearch(changed, { river: 'buffalo' })).gauge, null);
+});
+
+test('shared condition filters discard unknown values and serialize in stable order', () => {
+  assert.deepEqual(readRiverMapSearch('conditions=good,nonsense,good').conditions, ['good']);
+  const query = writeRiverMapSearch('river=current', { conditions: ['good', 'flowing', 'good'] });
+  assert.deepEqual(readRiverMapSearch(query).conditions, readRiverMapSearch('conditions=flowing,good').conditions);
+  assert.equal(writeRiverMapSearch(query, { conditions: [] }), 'river=current');
+});

@@ -3,6 +3,8 @@
 // (with Eddy's cross-river summary) wrapping the live conditions dashboard.
 
 import type { Metadata } from 'next';
+import SectionNavigation from '@/components/layout/SectionNavigation';
+import { conditionNavigation } from '@/lib/navigation/site-navigation';
 import Image from 'next/image';
 import { Suspense } from 'react';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -70,6 +72,8 @@ export default async function RiversPage() {
           </div>
         </div>
       </section>
+
+      <SectionNavigation label="Conditions" links={conditionNavigation('rivers')} />
 
       {/* Live conditions dashboard (filter + search + per-river cards) */}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">

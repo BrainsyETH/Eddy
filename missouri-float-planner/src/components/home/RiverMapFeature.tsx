@@ -1,8 +1,6 @@
 // src/components/home/RiverMapFeature.tsx
-// Landing-page feature band for /river-map — a self-contained visual teaser
-// (brand gradient + a stylized river/topo SVG) that sells the live statewide
-// map. Pairs with EddySaysReport in the home "conditions at a glance" 2-col
-// band, in the slot the "Floating well now" list used to hold.
+// Homepage link to /river-map, alongside Find a Route and Build a Route.
+// Uses the existing brand gradient and decorative river/topography artwork.
 //
 // Presentational only — no data hooks — so it renders instantly server-side
 // with no loading state or layout shift. The live data lives on /river-map
@@ -35,8 +33,8 @@ export default function RiverMapFeature() {
       href="/river-map"
       data-ga-event="cta_river_map"
       data-ga-label="home_feature"
-      aria-label="Open the live River Map"
-      className="group relative flex min-h-[240px] flex-col justify-between overflow-hidden rounded-2xl p-5 md:p-6 no-underline shadow-soft-md"
+      aria-label="Open the River Map"
+      className="group relative flex min-h-[240px] flex-col justify-end overflow-hidden rounded-2xl p-5 md:p-6 no-underline shadow-soft-md"
       style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 45%, #1A4F5C 100%)' }}
     >
       {/* ── Decorative map layer: topo contours + rivers colored by condition ── */}
@@ -86,23 +84,12 @@ export default function RiverMapFeature() {
       />
 
       {/* ── Foreground ── */}
-      <div className="relative z-10">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/15">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: FLOWING }} />
-            <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: FLOWING }} />
-          </span>
-          Live
-        </span>
-      </div>
-
       <div className="relative z-10 mt-4">
-        <h2 className="max-w-[15rem] text-xl md:text-2xl font-bold leading-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
-          See every Ozarks river, live
-        </h2>
+        <h3 className="max-w-[15rem] text-xl md:text-2xl font-bold leading-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
+          River Map
+        </h3>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/75">
-          One map. Every river displays the river condition, flood warnings, and
-          water trends all in one place.
+          Explore rivers, access points, and current conditions.
         </p>
         <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
           Open the River Map

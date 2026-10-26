@@ -107,7 +107,7 @@ export default function EddyHeroBubble() {
             className="w-6 h-6 rounded-full flex-shrink-0"
           />
           <span className="text-sm font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-            Eddy says
+            Eddy’s Read
           </span>
         </div>
       </div>

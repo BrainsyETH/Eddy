@@ -681,7 +681,7 @@ export default function PlanPageClient({
               className="text-lg font-bold text-neutral-900 mb-0.5"
               style={{ fontFamily: 'var(--font-display)' }}
             >
-              Plan a Float
+              Build a Route
             </h1>
             <p className="text-sm text-neutral-600 mb-3">
               Tap any river on the map — colored by today&apos;s conditions —
