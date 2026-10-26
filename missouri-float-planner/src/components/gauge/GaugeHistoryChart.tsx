@@ -70,6 +70,9 @@ export default function GaugeHistoryChart({
 }: GaugeHistoryChartProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [expandedOpen, setExpandedOpen] = useState(false);
+  // Taking over inline ends the mobile dialog session. Rotating back must
+  // require a fresh Expand tap, while the history selection stays intact.
+  if (isDesktop === true && expandedOpen) setExpandedOpen(false);
   const dialogOpen = expandedOpen && isDesktop === false;
   const fullControls = isDesktop === true || dialogOpen;
   const expandButton = useRef<HTMLButtonElement>(null);
@@ -211,13 +214,21 @@ export default function GaugeHistoryChart({
         : range.days === 365
           ? 'Last year'
           : `Last ${range.days} days`;
+  const compactActiveRange =
+    range.kind === 'custom'
+      ? { value: 0, label: 'Custom' }
+      : !RANGE_OPTIONS.some((option) => option.value === range.days)
+        ? { value: range.days, label: range.days === 365 ? '1Y' : `${range.days}D` }
+        : null;
   const presets = fullControls
     ? [
         ...RANGE_OPTIONS,
         { value: 90, label: '90D' },
         { value: 365, label: '1Y' },
       ]
-    : RANGE_OPTIONS;
+    : compactActiveRange
+      ? [...RANGE_OPTIONS, compactActiveRange]
+      : RANGE_OPTIONS;
   const hasReadings = !!history?.readings.length && !isFetching && !isError;
   const content = (
     <>
@@ -248,6 +259,7 @@ export default function GaugeHistoryChart({
               ref={expandButton}
               variant="outline"
               size="sm"
+              className="lg:hidden"
               onClick={() => {
                 setExpandedOpen(true);
                 onExpand();
@@ -282,6 +294,14 @@ export default function GaugeHistoryChart({
             }))}
             value={range.kind === 'days' ? range.days : 0}
             onChange={(days) => {
+              // The compact Custom segment reflects the selected dates and
+              // opens their editor; zero is never sent as a history range.
+              if (days === 0) {
+                setCustomOpen(true);
+                setExpandedOpen(true);
+                onExpand();
+                return;
+              }
               chooseRange({ kind: 'days', days });
               setCustomOpen(false);
             }}
@@ -392,7 +412,7 @@ export default function GaugeHistoryChart({
           floodStages={floodStages}
           latestValue={latestValue}
           displayUnit={displayUnit}
-          chartClassName={fullControls ? 'h-72 lg:h-96' : 'h-48 md:h-56'}
+          chartClassName={fullControls ? 'h-72 lg:h-96' : 'h-48 md:h-56 lg:h-96'}
           showTypical={showTypical}
           showProvenance
           showGridlines={fullControls}

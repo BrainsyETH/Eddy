@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 
 const PORT = 3119;
-const OUT_DIR = process.env.SMOKE_OUT ?? '/tmp/eddy-gauge-smoke';
+const OUT_DIR = process.env.SMOKE_OUT ?? path.join(__dirname, '..', '.smoke-gauge');
 let ownedFixture = false;
 let server: ChildProcess | null = null;
 function cleanup() {
@@ -219,12 +219,32 @@ async function main() {
     assert(!existsSync(fixtureRoute), 'refusing to overwrite a fixture route');
     mkdirSync(fixtureRoute, { recursive: true });
     ownedFixture = true;
+    writeFileSync(path.join(fixtureRoute, 'HydrationFixture.tsx'), `'use client';
+import { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import GaugeHistoryChart from '@/components/gauge/GaugeHistoryChart';
+import { normalizeGaugeHistory } from '@shared/history-normalize';
+export default function HydrationFixture() {
+  const [client] = useState(() => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['gaugeHistory', '${SITE}', 7, null, null, 'auto'], normalizeGaugeHistory(${JSON.stringify(history())}));
+    return queryClient;
+  });
+  return <QueryClientProvider client={client}><GaugeHistoryChart
+    siteId="${SITE}" siteName="Chart hydration fixture" displayUnit="ft"
+    onUnitChange={() => {}} canToggleUnit showTypical={false}
+    capabilities={{ maxInstantDays: 90, supportsDaily: true, supportsCustomRange: true }}
+    lastYearOn={false} onLastYearChange={() => {}} onRangeChange={() => {}} onExpand={() => {}}
+  /></QueryClientProvider>;
+}`);
     writeFileSync(path.join(fixtureRoute, 'page.tsx'), `import { notFound } from 'next/navigation';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import GaugeDetailView from '@/components/gauge/GaugeDetailView';
-export default async function Page({ searchParams }: { searchParams: Promise<{ river?: string }> }) {
+import HydrationFixture from './HydrationFixture';
+export default async function Page({ searchParams }: { searchParams: Promise<{ river?: string; chart?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_CHART_SMOKE !== '1') notFound();
-  const { river } = await searchParams;
+  const { river, chart } = await searchParams;
+  if (chart) return <main className="mx-auto max-w-5xl px-4 py-8"><HydrationFixture /></main>;
   return river ? <main className="mx-auto max-w-5xl px-4 py-8"><RiverGaugeDetail riverSlug="current" /></main> : <GaugeDetailView siteId="07067000" />;
 }`);
     console.log(`Starting next dev on :${PORT}…`);
@@ -246,6 +266,30 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     (existsSync(fallbackChromium) ? fallbackChromium : undefined);
   const browser = await chromium.launch({ executablePath, args: ['--disable-dev-shm-usage'] });
   try {
+    if (urlArg === -1) {
+      console.log('\nDesktop hydration layout:');
+      const hydratedPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+      await intercept(hydratedPage, { list: { gauges: [listStation()] }, detail: detail(), history: history() });
+      // Permit Next's inline streaming scripts, but hold the client bundles so
+      // the first measurement uses the hook's null server snapshot.
+      let releaseScripts!: () => void;
+      const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
+      await hydratedPage.route(/\/_next\/static\/.*\.js(?:\?|$)/, async route => { await scriptsReady; await route.continue(); });
+      let initialHeight: number | undefined;
+      try {
+        await hydratedPage.goto(`${baseUrl}/chart-layout-check?chart=1`, { waitUntil: 'commit' });
+        await hydratedPage.getByRole('slider').waitFor();
+        initialHeight = (await hydratedPage.getByRole('slider').boundingBox())?.height;
+        check('desktop reserves a 384px plot before hydration', initialHeight === 384);
+        check('desktop hides Expand before hydration', !await hydratedPage.getByRole('button', { name: 'Expand', exact: true }).isVisible());
+      } finally {
+        releaseScripts();
+      }
+      await hydratedPage.getByRole('button', { name: '1Y', exact: true }).waitFor();
+      const hydratedPlot = await hydratedPage.getByRole('slider').boundingBox();
+      check('desktop plot height stays fixed through hydration', initialHeight === hydratedPlot?.height);
+      await hydratedPage.close();
+    }
     // ── 1. Rated + trusted + NWS stages ──
     console.log('\nRated station (trusted reading, NWS stages):');
     {
@@ -309,6 +353,34 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       await page.getByRole('button', { name: 'Expand', exact: true }).waitFor();
       check('Escape restores focus to Expand', await page.getByRole('button', { name: 'Expand', exact: true }).evaluate(element => element === document.activeElement));
       check('mobile close preserves long-range selection', await page.getByText('Last 90 days', { exact: true }).isVisible());
+      check('compact 90D selection stays highlighted', await page.getByRole('group', { name: 'History range' }).getByRole('button', { name: '90D', exact: true }).getAttribute('aria-pressed') === 'true');
+
+      await page.setViewportSize({ width: 820, height: 1180 });
+      await page.getByRole('button', { name: 'Expand', exact: true }).click();
+      await dialog.waitFor();
+      await dialog.getByRole('button', { name: '1Y', exact: true }).click();
+      await page.setViewportSize({ width: 1180, height: 820 });
+      await dialog.waitFor({ state: 'detached' });
+      await page.setViewportSize({ width: 820, height: 1180 });
+      await page.getByRole('button', { name: 'Expand', exact: true }).waitFor();
+      check('portrait return leaves the dialog closed', await dialog.count() === 0);
+      check('compact 1Y selection stays highlighted after rotation', await page.getByRole('group', { name: 'History range' }).getByRole('button', { name: '1Y', exact: true }).getAttribute('aria-pressed') === 'true');
+      await page.getByRole('button', { name: 'Expand', exact: true }).focus();
+      await page.keyboard.press('Tab');
+      check('portrait return releases the focus trap', await page.getByRole('group', { name: 'History range' }).getByRole('button', { name: '24H', exact: true }).evaluate(element => element === document.activeElement));
+
+      await page.getByRole('button', { name: 'Expand', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Custom', exact: true }).click();
+      await dialog.getByLabel('From date', { exact: true }).fill('2026-09-10');
+      await dialog.getByLabel('To date', { exact: true }).fill('2026-09-30');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await page.keyboard.press('Escape');
+      const compactCustom = page.getByRole('group', { name: 'History range' }).getByRole('button', { name: 'Custom', exact: true });
+      check('compact Custom selection stays highlighted', await compactCustom.getAttribute('aria-pressed') === 'true');
+      await compactCustom.click();
+      check('compact Custom opens the selected date editor', await dialog.getByLabel('From date', { exact: true }).inputValue() === '2026-09-10' && await dialog.getByLabel('To date', { exact: true }).inputValue() === '2026-09-30');
+      await dialog.getByRole('button', { name: '90D', exact: true }).click();
+      await page.keyboard.press('Escape');
       await page.setViewportSize({ width: 1024, height: 900 });
       await page.getByRole('button', { name: '90D', exact: true }).waitFor();
       check('desktop resize preserves selection', await page.getByRole('button', { name: '90D', exact: true }).getAttribute('aria-pressed') === 'true');
