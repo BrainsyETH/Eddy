@@ -1,5 +1,8 @@
 import { IMAGE_REMOTE_PATTERNS } from './shared/image-remote-patterns.mjs';
 import { withSentryConfig } from '@sentry/nextjs';
+import { prepareMapWorker } from './scripts/prepare-map-worker.mjs';
+
+prepareMapWorker();
 
 // Snapshot of Next 16.3.8's default HTML-limited crawler list. Keep config
 // loading independent of private Next module paths. visibility-seo.test.ts
