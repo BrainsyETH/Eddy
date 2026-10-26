@@ -86,7 +86,8 @@ export default function GaugeStationMarkers({
     // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove());
     popupsRef.current.forEach((popup) => popup.remove());
-    rootsRef.current.forEach((root) => root.unmount());
+    const oldRoots = rootsRef.current;
+    queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
     markersRef.current = [];
     popupsRef.current = [];
     rootsRef.current = [];
@@ -393,7 +394,8 @@ export default function GaugeStationMarkers({
       detachZoomFade();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
-      rootsRef.current.forEach((root) => root.unmount());
+      const oldRoots = rootsRef.current;
+      queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
       markersRef.current = [];
       popupsRef.current = [];
       rootsRef.current = [];

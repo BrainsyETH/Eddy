@@ -84,6 +84,29 @@ responses, partial/empty results, expiry, and
 planner parameters. No production credentials are needed. Set
 `PLAYWRIGHT_CHROMIUM_PATH` when using a locally installed browser. Screenshots
 go to `/tmp/eddy-float-finder` (override with `FINDER_SMOKE_OUTPUT`).
+## Desktop route map
+
+Build a Route keeps one MapLibre map mounted while choosing rivers, loading
+river details, and returning to **All rivers**. All rivers zooms back to the
+service area and preserves the current route and its endpoint selections;
+choosing a different river starts that river's plan. Search and access clicks
+frame the usable map area beside the measured panel and above the access strip.
+Valid camera deep links are honored on the initial load.
+
+Desktop content filters start enabled each visit and retain changes while
+switching rivers. The regional catalogue supplies access points and POIs;
+gauges and verified photo pins remain visible across rivers. Photo queries
+reuse the existing per-river cache/endpoints. Mobile keeps saved filter choices.
+The desktop plan card fills the available height, and the access strip sits to
+its right. Eddy Says River Report keeps its existing position and behavior.
+
+Map tools share MapLibre's native control stack. Compact attribution starts
+closed, including when source credits arrive asynchronously, and remains
+available through its info button.
+
+`npm run test:planner-map` uses real MapLibre with fixture APIs to check map
+continuity, retained endpoints, default filters, camera framing, control/panel
+spacing, attribution, keyboard search, and desktop/mobile layouts.
 
 ## River and gauge history
 
