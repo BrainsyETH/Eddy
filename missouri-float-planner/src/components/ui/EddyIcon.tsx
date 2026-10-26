@@ -49,7 +49,7 @@ const ICONS = {
 
   // Scenes — hero slots only.
   //
-  // Three of the catalog's ten, because a name here has to have a file under
+  // Four of the catalog's ten, because a name here has to have a file under
   // public/icons and that file is emitted by WEB_ICONS in
   // eddy-ios/scripts/build-eddy-icons.py. Adding a name means adding it there
   // and re-running the script; a name without a file is a 404, not a fallback.
@@ -60,6 +60,7 @@ const ICONS = {
   campfire: { file: 'eddy-campfire-chill', size: 110, alt: '', scene: true },
   wave: { file: 'eddy-wave', size: 110, alt: '', scene: true },
   thumbsUp: { file: 'eddy-thumbs-up', size: 110, alt: '', scene: true },
+  checkingGauge: { file: 'eddy-checking-gauge', size: 110, alt: '', scene: true },
 } as const;
 
 export type EddyIconName = keyof typeof ICONS;
@@ -97,7 +98,7 @@ export function EddyIcon({
       // The sources are square-ish but not square; contain keeps a droplet from
       // being stretched into a circle in a square box.
       className={className}
-      style={{ objectFit: 'contain' }}
+      style={{ objectFit: 'contain', width: px, height: px }}
       aria-hidden={decorative || undefined}
     />
   );

@@ -107,6 +107,7 @@ ICONS = SYMBOLS + SCENES
 # directions: the web has a chat panel and a submission form the app does not,
 # and the app has empty states the web has no equivalent for.
 WEB_ICONS = (
+    "eddy-checking-gauge",
     "eddy-weather",
     "eddy-ai-assistant",
     "eddy-water-droplet",

@@ -10,7 +10,8 @@ const rivers = [
   { id: 'r-current', slug: 'current', name: 'Current River', state: 'MO', description: 'Spring-fed water, gravel bars, and a day well spent in the Ozarks.', photoUrl: '/share/river-current-v2.jpg' },
   { id: 'r-buffalo', slug: 'buffalo', name: 'Buffalo River', state: 'AR', description: 'Explore the Buffalo River.', photoUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Misty_Bluff_along_the_Buffalo_River.jpg?width=1200' },
   { id: 'r-eleven', slug: 'eleven-point', name: 'Eleven Point River', state: 'MO', description: 'Explore the Eleven Point River.', photoUrl: '/images/river-guides/north-fork-white-card.webp' },
-].map(r => ({ ...r, accessPointCount: 5, lengthMiles: 90, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}` }));
+  { id: 'r-huzzah', slug: 'huzzah', name: 'Huzzah Creek', state: 'MO', description: 'Explore Huzzah Creek.', photoUrl: '/share/river-current-v2.jpg' },
+].map(r => ({ ...r, floatAccessCoordinates: [{ lat: 37.7203, lng: -91.2048 }, { lat: 38.0292, lng: -91.213 }], accessPointCount: 5, lengthMiles: 90, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}` }));
 function responseFor(input, timestamp = new Date().toISOString()) {
   const river = rivers.find(r => r.slug === input.river) || rivers[0];
   const option = {
@@ -63,7 +64,9 @@ try {
         if (selectedMode === 'held') { held?.(); await new Promise(resolve => { releaseHeld = resolve; }); }
         if (selectedMode === 'error') return route.fulfill({ status: 503, json: { error: 'The search could not finish. Please try again.' } });
         const data = responseFor(input, selectedMode === 'expires' ? new Date(Date.now() - 30 * 60_000 + 4000).toISOString() : undefined);
-        if (selectedMode === 'empty') { data.matches = []; data.alternatives = []; }
+        if (['empty', 'too-low', 'private'].includes(selectedMode)) { data.matches = []; data.alternatives = []; }
+        if (selectedMode === 'too-low') { data.emptyReason = 'too_low'; data.evaluated = 0; }
+        if (selectedMode === 'private') { data.emptyReason = 'public_access'; data.evaluated = 0; }
         if (selectedMode === 'partial') { data.partial = true; data.failed = 1; data.alternatives = [{ ...data.matches.pop(), relation: 'longer' }]; }
         try { return await route.fulfill({ json: data }); } catch { /* Canceled by a newer selection. */ }
       }
@@ -83,6 +86,7 @@ try {
     });
     await page.goto(`${origin}/find-float`, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: 'A little river inspiration' }).waitFor();
+    assert.equal(await page.getByText('Your next day outside', { exact: true }).count(), 0);
     await page.getByRole('button', { name: 'Choose river : Current River' }).waitFor();
     const search = page.getByRole('button', { name: 'Find routes', exact: true });
     assert(await search.isDisabled());
@@ -111,13 +115,13 @@ try {
     await page.keyboard.press('ArrowUp');
     await assertActive('Current River');
     await page.keyboard.press('ArrowUp');
-    await assertActive('Eleven Point River');
+    await assertActive('Huzzah Creek');
     await page.keyboard.press('Escape');
     assert.equal(await destination.getAttribute('aria-expanded'), 'false');
     assert.equal(await destination.getAttribute('aria-activedescendant'), null);
     assert.equal(await destination.inputValue(), '');
     await page.keyboard.press('ArrowUp');
-    await assertActive('Eleven Point River');
+    await assertActive('Huzzah Creek');
     await page.keyboard.press('Tab');
     assert.equal(await destination.getAttribute('aria-expanded'), 'false');
     assert(await page.getByRole('button', { name: '2 hr', exact: true }).evaluate(button => button === document.activeElement), 'Tab skips suggestions without selecting');
@@ -145,7 +149,24 @@ try {
     assert.equal(await destination.getAttribute('aria-activedescendant'), null);
     assert.equal(new URL(page.url()).searchParams.get('river'), 'current');
     await page.getByRole('button', { name: '4 hr', exact: true }).click();
+    mode = 'held';
+    const initialStarted = new Promise(resolve => { held = resolve; });
     await search.click();
+    await initialStarted;
+    const loading = page.getByRole('status').filter({ hasText: 'Eddy’s reading the waters' });
+    await loading.waitFor();
+    await loading.locator('img').evaluate(image => image.decode());
+    assert(await loading.locator('img').evaluate(image => image.naturalWidth > 0), 'branded loading art is locally available');
+    assert(await loading.locator('.motion-safe\\:animate-pulse').evaluateAll(dots => dots.every(dot => getComputedStyle(dot).animationName === 'none')), 'Reduce Motion disables the progress animation');
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: loading overflow`);
+    await page.screenshot({ path: `${out}/loading-${width}.png`, fullPage: true });
+    if (width === 1440) {
+      await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+      await page.screenshot({ path: `${out}/loading-dark.png`, fullPage: true });
+      await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+    }
+    releaseHeld();
+    mode = 'normal';
     await page.getByRole('heading', { name: '2 routes for your day' }).waitFor();
     assert.equal(searches.at(-1).targetHours, 4);
     assert.equal(searches.at(-1).publicOnly, true);
@@ -213,7 +234,45 @@ try {
       await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
       mode = 'empty';
       await page.getByRole('button', { name: 'Update routes', exact: true }).click();
-      await page.getByText(/No duration matches/).waitFor();
+      await page.getByText(/No routes found with these choices/).waitFor();
+      await destination.fill('Huzzah');
+      await page.getByRole('option', { name: 'Huzzah Creek', exact: true }).click();
+      assert.equal(await page.getByRole('button', { name: 'Search nearby rivers', exact: true }).count(), 0, 'dirty results cannot launch recovery for the previous river');
+      mode = 'too-low';
+      await page.getByRole('button', { name: 'Update routes', exact: true }).click();
+      await page.getByText(/Water is currently too low/).waitFor();
+      assert.equal(await page.getByRole('link', { name: 'Build this route' }).count(), 0);
+      await page.screenshot({ path: `${out}/huzzah-too-low.png`, fullPage: true });
+      mode = 'normal';
+      const priorInput = searches.at(-1);
+      await page.getByRole('button', { name: 'Search nearby rivers', exact: true }).click();
+      await plannerLink.waitFor();
+      const nearbyInput = { ...priorInput, near: { lat: 37.87, lng: -91.21 } };
+      delete nearbyInput.river;
+      assert.deepEqual(searches.at(-1), nearbyInput);
+      assert.equal(await destination.inputValue(), 'Near Huzzah Creek');
+      assert.equal(new URL(page.url()).searchParams.get('river'), null);
+      assert(!page.url().includes('37.87'));
+      mode = 'empty';
+      await page.getByRole('button', { name: 'Update routes', exact: true }).click();
+      await page.getByRole('button', { name: 'Search within 100 miles', exact: true }).waitFor();
+      mode = 'normal';
+      await page.getByRole('button', { name: 'Search within 100 miles', exact: true }).click();
+      await plannerLink.waitFor();
+      assert.equal(searches.at(-1).radiusMiles, 100);
+      assert.equal(searches.at(-1).vesselType, priorInput.vesselType);
+      assert.equal(searches.at(-1).publicOnly, true);
+      await destination.fill('Huzzah');
+      await page.getByRole('option', { name: 'Huzzah Creek', exact: true }).click();
+      mode = 'private';
+      await page.getByRole('button', { name: 'Update routes', exact: true }).click();
+      await page.getByRole('button', { name: 'Include other accesses', exact: true }).waitFor();
+      mode = 'normal';
+      await page.getByRole('button', { name: 'Include other accesses', exact: true }).click();
+      await plannerLink.waitFor();
+      assert.equal(searches.at(-1).publicOnly, false);
+      assert.equal(searches.at(-1).river, 'huzzah');
+      assert.equal(await page.getByLabel('Public accesses only').isChecked(), false);
       mode = 'expires';
       await page.getByRole('button', { name: 'Update routes', exact: true }).click();
       await page.getByText(/These results have expired/).waitFor({ timeout: 10000 });

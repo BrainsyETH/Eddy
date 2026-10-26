@@ -219,7 +219,7 @@ test('one timing function preserves boat, published-time and flow behavior in fi
 
 import { publishedTiming } from './candidate-duration';
 import { approximateLocation } from '@shared/float-search';
-import { floatSearchIsFresh, floatSearchEmptyMessage, FLOAT_SEARCH_MAX_AGE_MS } from '@shared/float-search';
+import { floatSearchIsFresh, floatSearchEmptyMessage, floatSearchRecoveryOptions, FLOAT_SEARCH_MAX_AGE_MS } from '@shared/float-search';
 import { scrubFloatSearchRequest, scrubFloatSearchBreadcrumb } from '@shared/float-search-privacy';
 test('published timing keeps kayak on canoe times and follows reverse-route rules', () => {
   const rows = [{ put_in_id: 'a', take_out_id: 'b', canoe_time_min: 180, canoe_time_max: 300, raft_time_min: 240, raft_time_max: 360, tube_time_min: 360, tube_time_max: 480 }];
@@ -246,9 +246,31 @@ test('restored result freshness expires at thirty minutes and rejects invalid or
 
 test('empty copy distinguishes an unfinished search and withheld times from no matches', () => {
   const result = { matches: [], alternatives: [], partial: false, evaluated: 0, failed: 0, estimatedAt: '' };
-  assert.match(floatSearchEmptyMessage(result), /No duration matches/);
+  assert.match(floatSearchEmptyMessage(result), /No routes found/);
   assert.match(floatSearchEmptyMessage({ ...result, partial: true }), /could not finish/);
+  assert.match(floatSearchEmptyMessage({ ...result, emptyReason: 'too_low' }), /Water is currently too low/);
+  assert.match(floatSearchEmptyMessage({ ...result, alternatives: [{} as never] }), /No exact time match/);
   assert.equal(floatSearchEmptyMessage({ ...result, unavailableReason: 'Dam releases vary.' }), 'Dam releases vary.');
+});
+
+test('recovery searches preserve preferences and explicitly change scope using public river coordinates', () => {
+  const input = { river: 'huzzah', targetHours: 6, vesselType: 'canoe' as const, publicOnly: true, radiusMiles: 100 };
+  const result = { matches: [], alternatives: [], partial: false, evaluated: 0, failed: 0, estimatedAt: '', emptyReason: 'too_low' as const };
+  const river = { name: 'Huzzah Creek', floatAccessCoordinates: [{ lat: 37.7203, lng: -91.2048 }, { lat: 38.0292, lng: -91.2130 }] };
+  const options = floatSearchRecoveryOptions(input, result, river);
+  assert.deepEqual(options, [{ label: 'Search nearby rivers', location: 'Near Huzzah Creek', input: { ...input, river: undefined, near: { lat: 37.87, lng: -91.21 } } }]);
+  assert.equal(input.river, 'huzzah', 'building recovery options does not mutate the selected river');
+  assert.deepEqual(floatSearchRecoveryOptions(input, { ...result, partial: true }, river), []);
+  assert.deepEqual(floatSearchRecoveryOptions(input, { ...result, alternatives: [{} as never] }, river), []);
+  assert.deepEqual(floatSearchRecoveryOptions(input, result), [], 'missing coordinates cannot invent a nearby origin');
+  const privateOptions = floatSearchRecoveryOptions(input, { ...result, emptyReason: 'public_access' }, river);
+  assert.equal(privateOptions[0].input.publicOnly, false);
+  assert.equal(privateOptions[0].input.river, 'huzzah');
+  assert.equal(privateOptions[1].input.publicOnly, true, 'nearby recovery keeps the public-only filter');
+  const nearby = { ...input, river: undefined, near: { lat: 37.87, lng: -91.21 } };
+  assert.deepEqual(floatSearchRecoveryOptions(nearby, result)[0].input, { ...nearby, radiusMiles: 200 });
+  assert.equal(floatSearchRecoveryOptions({ ...nearby, radiusMiles: 200 }, result)[0].input.radiusMiles, 300);
+  assert.deepEqual(floatSearchRecoveryOptions({ ...nearby, radiusMiles: 300 }, result), []);
 });
 
 test('result cards never show a straight-line distance; the ordering note appears only when location was used', async () => {

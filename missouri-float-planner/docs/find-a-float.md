@@ -23,7 +23,24 @@ The requested time is an approximate trip duration, including ordinary stops. A 
 
 Matches rank before alternatives. Within matches: ordinary conditions before conditional/low-water results, central-estimate distance in one-hour buckets, distance to the put-in, then narrower range and stable route ID. Alternative ranges also rank by distance from the requested duration. Geographic distance is never presented as a driving distance.
 
-Screening continues to exclude `too_low`, `high`, and `dangerous`, including positioned gauges within the route. Full route checks remove `not_recommended` results. Unknown/low readings can survive with the existing assessment's caution labels and typical-estimate basis. Closures and hazards use the existing recommendation checks.
+An empty result explains the actual exclusion: low/high water, missing public
+endpoints, missing condition coverage, closures, hazards, or unavailable timing.
+It is not called a duration mismatch when no route reached a time comparison.
+The additive `emptyReason` identifies recovery actions; `unavailableReason`
+also carries the explanation for older iOS builds. Partial searches do not
+claim a definitive exclusion. Scope counts include only eligible put-ins
+inside the requested radius, while take-outs may remain farther downstream.
+
+Both apps offer an explicit nearby-river search from an empty selected-river
+result. Its origin is the rounded average of that river’s public catalogue
+launch coordinates, not a request for device location. Time, vessel, radius,
+and the public-only preference carry forward. Empty nearby searches can double
+the radius up to 300 miles. Only the separate “Include other accesses” action
+turns off public-only, and only when the catalogue contains another downstream
+endpoint pair. Recovery starts a new search; it never relabels old results or
+relaxes condition, closure, or hazard exclusions.
+
+Screening continues to exclude `too_low`, `high`, and `dangerous`, including positioned gauges within the route. Full route checks remove `not_recommended` results. Low readings can survive with the existing assessment’s caution labels. Unknown or stale readings survive preliminary screening but must pass the final coverage checks before becoming suggestions. Closures and hazards use the existing recommendation checks.
 
 Variety is a preference: reuse the existing overlap/put-in/reach selection, prefer at most two picks per river, then backfill. Selecting a river disables the river cap and the radius filter. Location still supplies geographic distance to the launch. The web disables the radius control with an explanation; iOS separates Nearby and By river and only shows a radius in Nearby.
 
@@ -47,7 +64,7 @@ The UI has separate request/IP and search quotas from MCP: 120 attempts per IP p
 
 Coordinates are rounded to two decimals on the device and again on the server. Search bodies use POST, private/no-store responses, and are excluded from application analytics and request monitoring. The only new persisted preference is boat type. Search state and scroll position are kept in memory for returning from the planner. Results expire after 30 minutes; inputs remain available for a new search. Expiry is checked on restoration, focus/foreground return, and while the result screen remains open. The existing iOS location hook retains its existing location-permission/cache behavior.
 
-Cards name both endpoint access statuses, range, central estimate, river mileage, condition cautions, estimate basis and reading time. Cards do not show a distance to the put-in: proximity is straight-line, and in the Ozarks the drive can be much longer, so a number would invite the wrong comparison. Proximity only orders similar fits, and when a location was used both apps say so above the results (`FLOAT_SEARCH_PROXIMITY_NOTE`). The planner shows the drive once a float is opened. A photo is labeled as a photo with its capture date when available. Plan this float carries the river, both endpoints and boat into the existing planner, which recalculates when opened. iOS names the boat beside the estimate and retains it when endpoints change, until a new plan/reset or river change. A newer reading/reference or an authoritative route/gauge correction may change the estimate. Once enabled, the web header intentionally puts Find a Float before Plan a Float: discovery comes before planning known endpoints.
+Cards name both endpoint access statuses, estimated range, river mileage, condition cautions, estimate basis and reading time. Cards do not show a distance to the put-in: proximity is straight-line, and in the Ozarks the drive can be much longer, so a number would invite the wrong comparison. Proximity only orders similar fits, and when a location was used both apps say so above the results (`FLOAT_SEARCH_PROXIMITY_NOTE`). The planner shows the drive once a float is opened. A photo is labeled as a photo with its capture date when available. Plan this float carries the river, both endpoints and boat into the existing planner, which recalculates when opened. iOS names the boat beside the estimate and retains it when endpoints change, until a new plan/reset or river change. A newer reading/reference or an authoritative route/gauge correction may change the estimate. Once enabled, the web header intentionally puts Find a Float before Plan a Float: discovery comes before planning known endpoints.
 
 ## MCP client release notes
 

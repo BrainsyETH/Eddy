@@ -6,15 +6,15 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Segmented from '@/components/ui/Segmented';
 import VesselIcon from '@/components/ui/VesselIcon';
-import Skeleton from '@/components/ui/Skeleton';
 import { useRivers } from '@/hooks/useRivers';
 import {
   approximateLocation, FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY,
   floatSearchIsFresh, FLOAT_SEARCH_MAX_AGE_MS, FLOAT_SEARCH_EXPIRED_MESSAGE,
+  floatSearchRecoveryOptions,
   type FloatBoat, type FloatSearchInput, type FloatSearchResponse,
 } from '@shared/float-search';
 import DestinationSearch, { type SearchDestination } from './DestinationSearch';
-import { FloatResults, RiverInspiration } from './FloatResults';
+import { FloatResults, RiverInspiration, FloatSearchLoading } from './FloatResults';
 
 export type SearchSnapshot = { input: FloatSearchInput; location: string; data: FloatSearchResponse };
 type State = { input: FloatSearchInput; location: string; result: SearchSnapshot | null };
@@ -107,8 +107,8 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     update({ river: destination.river, near: destination.near ? approximateLocation(destination.near) : undefined }, destination.name);
   }
 
-  async function search() {
-    if (!canSearch || busy === 'location') return;
+  async function search(submitted = { ...input }, location = destinationName) {
+    if (!(submitted.near || submitted.river) || busy === 'location') return;
     request.current?.abort();
     locationAttempt.current++;
     const controller = new AbortController();
@@ -117,8 +117,6 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     setError('');
     setExpired(false);
     // Snapshot the submitted preferences; pending edits must never relabel old results.
-    const submitted = { ...input };
-    const location = destinationName;
     try {
       const response = await fetch('/api/float-search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -210,18 +208,25 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
             </label>
             <div>
               <Button type="submit" className="w-full" disabled={!canSearch || busy !== null}>
-                {busy === 'search' ? 'Checking routes…' : result ? 'Update routes' : 'Find routes'}<ArrowRight size={18} aria-hidden="true" />
+                {busy === 'search' ? 'Finding routes…' : result ? 'Update routes' : 'Find routes'}<ArrowRight size={18} aria-hidden="true" />
               </Button>
               {!canSearch && <p className="mt-3 text-center text-sm text-[var(--color-text-secondary)]">Choose a town or river to get started.</p>}
               {error && <p role="alert" className="mt-3 text-sm text-[var(--color-error)]">{error}</p>}
             </div>
           </form>
         </Card>
-        <section className="min-w-0" aria-label="Route discovery" aria-busy={busy === 'search'}>
+        <section className="min-w-0" aria-label="Route discovery">
           {expired && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm">{FLOAT_SEARCH_EXPIRED_MESSAGE}</p></Card>}
-          {result ? <FloatResults snapshot={result} dirty={dirty} busy={busy !== null} onPlan={remember} />
-            : busy === 'search' ? <div role="status" className="space-y-5"><h2 className="text-2xl font-bold">Finding your next float…</h2><p className="text-[var(--color-text-secondary)]">Checking routes and available river conditions.</p><Skeleton className="h-64 w-full" rounded="xl" /></div>
-            : <RiverInspiration rivers={rivers} selectedRiver={input.river} loading={riversLoading} onChoose={river => {
+          {busy === 'search' && <FloatSearchLoading compact={Boolean(result)} />}
+          {result ? <FloatResults snapshot={result} dirty={dirty} busy={busy !== null} onPlan={remember}
+            recoveryOptions={floatSearchRecoveryOptions(result.input, result.data, rivers.find(r => r.slug === result.input.river))}
+            onRecover={option => {
+              const location = option.location ?? result.location;
+              update(option.input, location);
+              setDestinationVersion(v => v + 1);
+              void search(option.input, location);
+            }} />
+            : busy !== 'search' && <RiverInspiration rivers={rivers} selectedRiver={input.river} loading={riversLoading} onChoose={river => {
               chooseDestination({ name: river.name, river: river.slug });
               setDestinationVersion(v => v + 1);
             }} />}

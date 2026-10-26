@@ -344,6 +344,14 @@ without a location permission; only an explicit location tap asks. Selecting a r
 previous nearby point, and selecting a location clears the river. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
+While searching, the bundled Eddy checking a gauge appears with “Eddy’s reading
+the waters.” Progress dots respect Reduce Motion; loading and results share
+the same scroll destination. Empty results explain the actual water/access
+exclusion and offer an explicit nearby-river or wider-radius search. These
+actions keep the time, vessel, and public-only preference. Including other
+accesses is a separate action; nearby river searches use catalogue coordinates
+and do not ask for GPS.
+
 Results use photos from each float’s put-in or take-out, preferring a photo
 not already shown in another result when one is available. Access-point galleries,
 reviewed place photos, linked campgrounds, and verified community reports supply
