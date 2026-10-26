@@ -28,7 +28,7 @@ async function handleGET(request: NextRequest) {
   // matching Central-time window publishes, including after a DST change.
   const now = new Date();
   if (!blogFeatureDue(now)) {
-    return NextResponse.json({ skipped: 'Outside weekday 9 a.m. Central window' });
+    return NextResponse.json({ monitoring_status: 'skipped', skipped: true, reason: 'outside weekday 9 a.m. Central window' });
   }
 
   const supabase = createAdminClient();
@@ -36,7 +36,7 @@ async function handleGET(request: NextRequest) {
   if (!lock.acquired) {
     return lock.reason === 'unavailable'
       ? NextResponse.json({ error: 'Blog posting lock unavailable' }, { status: 503 })
-      : NextResponse.json({ skipped: 'Blog posting already running' });
+      : NextResponse.json({ monitoring_status: 'skipped', skipped: true, reason: 'Blog posting already running' });
   }
 
   try {
