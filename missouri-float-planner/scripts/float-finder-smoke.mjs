@@ -53,7 +53,9 @@ try {
       if (path === '/api/rivers') return route.fulfill({ status: riverFailure ? 503 : 200, json: { rivers } });
       if (path === '/api/float-search/places') {
         const q = route.request().postDataJSON().query;
-        return route.fulfill({ status: townFailure ? 503 : 200, json: { places: q.toLowerCase().includes('salem') ? [{ id: 'salem', name: 'Salem, Missouri', near: { lat: 37.65, lng: -91.54 } }] : [] } });
+        const places = q.toLowerCase().includes('salem') ? [{ id: 'salem', name: 'Salem, Missouri', near: { lat: 37.65, lng: -91.54 } }]
+          : q.toLowerCase().includes('current') ? [{ id: 'current-town', name: 'Current, Missouri', near: { lat: 37.65, lng: -91.54 } }] : [];
+        return route.fulfill({ status: townFailure ? 503 : 200, json: { places } });
       }
       if (path === '/api/float-search') {
         const input = route.request().postDataJSON(); searches.push(input);
@@ -88,11 +90,59 @@ try {
     assert(await page.locator('[role="group"] button').evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth)), `${width}: preference labels must not clip`);
     await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
     await page.screenshot({ path: `${out}/initial-${width}.png`, fullPage: true });
-    const destination = page.getByLabel('Town or river', { exact: true });
-    await destination.fill('Current');
+    const destination = page.getByRole('combobox', { name: 'Town or river', exact: true });
+    const suggestions = page.getByRole('listbox', { name: 'Destinations' });
+    assert.equal(await destination.getAttribute('aria-autocomplete'), 'list');
+    const assertActive = async name => {
+      assert(await destination.evaluate(input => input === document.activeElement), 'arrow navigation keeps focus in the input');
+      const selected = suggestions.getByRole('option', { selected: true });
+      assert.equal(await selected.count(), 1);
+      assert.equal((await selected.innerText()).trim(), name);
+      assert.equal(await destination.getAttribute('aria-activedescendant'), await selected.getAttribute('id'));
+      assert.equal(await destination.getAttribute('aria-controls'), await suggestions.getAttribute('id'));
+    };
+    await destination.click();
+    assert.equal(await destination.getAttribute('aria-expanded'), 'true');
+    assert(await suggestions.getByRole('option').evaluateAll(options => options.every(option => option.tabIndex === -1)));
+    await page.keyboard.press('ArrowDown');
+    await assertActive('Current River');
+    await page.keyboard.press('ArrowDown');
+    await assertActive('Buffalo River');
+    await page.keyboard.press('ArrowUp');
+    await assertActive('Current River');
+    await page.keyboard.press('ArrowUp');
+    await assertActive('Eleven Point River');
+    await page.keyboard.press('Escape');
+    assert.equal(await destination.getAttribute('aria-expanded'), 'false');
+    assert.equal(await destination.getAttribute('aria-activedescendant'), null);
+    assert.equal(await destination.inputValue(), '');
+    await page.keyboard.press('ArrowUp');
+    await assertActive('Eleven Point River');
+    await page.keyboard.press('Tab');
+    assert.equal(await destination.getAttribute('aria-expanded'), 'false');
+    assert(await page.getByRole('button', { name: '2 hr', exact: true }).evaluate(button => button === document.activeElement), 'Tab skips suggestions without selecting');
+    assert(await search.isDisabled());
+    await destination.fill('No such destination');
+    await page.getByText('No towns found. Try adding a state.').waitFor();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    assert.equal(await destination.getAttribute('aria-activedescendant'), null);
+    assert.equal(searches.length, 0, 'Enter without an option cannot submit an unresolved destination');
+    await destination.fill('Current');
+    await page.keyboard.press('ArrowDown');
+    await assertActive('Current River');
+    // Async town suggestions cannot steal the active river; arrows cross groups.
+    await page.getByRole('option', { name: 'Current, Missouri', exact: true }).waitFor();
+    await assertActive('Current River');
+    await page.keyboard.press('ArrowDown');
+    await assertActive('Current, Missouri');
+    await page.keyboard.press('ArrowUp');
+    await assertActive('Current River');
+    await page.screenshot({ path: `${out}/destination-${width}.png`, fullPage: true });
+    await page.keyboard.press('Enter');
     assert.equal(await destination.inputValue(), 'Current River');
+    assert.equal(await destination.getAttribute('aria-expanded'), 'false');
+    assert.equal(await destination.getAttribute('aria-activedescendant'), null);
     assert.equal(new URL(page.url()).searchParams.get('river'), 'current');
     await page.getByRole('button', { name: '4 hr', exact: true }).click();
     await search.click();
@@ -119,8 +169,12 @@ try {
     assert.equal(await plannerLink.getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=kayak-id');
     // Entering an unselected place cannot accidentally search the old river.
     await destination.fill('Salem');
+    assert.equal(await destination.getAttribute('aria-activedescendant'), null, 'typing resets the active option');
     assert(await page.getByRole('button', { name: 'Update routes', exact: true }).isDisabled());
-    await page.getByRole('button', { name: 'Salem, Missouri', exact: true }).click();
+    await page.getByRole('option', { name: 'Salem, Missouri', exact: true }).waitFor();
+    await page.keyboard.press('ArrowDown');
+    await assertActive('Salem, Missouri');
+    await page.keyboard.press('Enter');
     await page.getByLabel('Search radius').selectOption('50');
     await page.getByRole('button', { name: 'Update routes', exact: true }).click();
     await plannerLink.waitFor();
@@ -135,7 +189,7 @@ try {
     assert.deepEqual(searches.at(-1).near, { lat: 37.12, lng: -91.99 });
     // River selection must drop both the old location and its radius control.
     await destination.fill('Buffalo');
-    await page.getByRole('button', { name: 'Buffalo River', exact: true }).click();
+    await page.getByRole('option', { name: 'Buffalo River', exact: true }).click();
     assert.equal(await page.getByLabel('Search radius').count(), 0);
     mode = 'partial';
     await page.getByRole('button', { name: 'Update routes', exact: true }).click();
