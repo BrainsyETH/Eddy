@@ -54,8 +54,5 @@ tmp/
 /src/app/navigation-layout-check/
 /src/app/plan/navigation-layout-check/
 
-# Version-matched MapLibre workers generated when Next loads its config.
-/public/maplibre/
-
-# Development-only desktop planner browser fixture
-/src/app/planner-map-layout-check/
+# Temporary, development-gated chart QA route
+/src/app/chart-layout-check/

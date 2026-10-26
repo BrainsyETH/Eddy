@@ -18,7 +18,7 @@
 // The APG "radio group" pattern (role=radiogroup, one tab stop, arrow keys
 // move selection) is the upgrade path for a strictly single-select control.
 // It is not done here because it changes keyboard behaviour, and inside
-// ExpandedGaugeChart the arrow keys are contracted to chart scrubbing
+// GaugeHistoryChart the arrow keys are contracted to chart scrubbing
 // (chart-parity.test.ts) — that interaction needs its own decision, not a
 // side effect of a migration.
 

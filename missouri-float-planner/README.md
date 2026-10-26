@@ -56,29 +56,18 @@ build and enforces a 250ms click-to-painted-state budget under the same throttle
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
 
-## Desktop Build a Route
+## River and gauge history
 
-At desktop widths (1024px and above), `/plan` keeps the map full width with
-frosted search, access details, and route panels. Eddy Says — River Report
-retains its existing top-center presentation. The mobile planner is unchanged.
+Desktop reports (1024px and wider) show the full chart tools inline: all supported
+history ranges, Custom dates, comparison, zoom, CSV export, and a collapsed data
+table. Mobile web keeps Expand, preserving the selected range and units on open
+and close. A selected long or custom range stays highlighted in the compact
+control. Resizing to desktop closes the dialog until the next Expand tap.
+Both layouts share `GaugeHistoryChart`; iOS is unchanged. See
+[ADR 0010](../docs/decisions/0010-hydrograph-gridlines-and-export-belong-to-an-expanded-mode.md).
 
-The overview uses the Live River Map catalogue for all river access pins and
-the existing condition network for colored geometry. Pins use one GeoJSON
-layer rather than a DOM marker per statewide access; selected-river markers
-retain their existing put-in/take-out styling. River and access search works
-locally against these cached catalogues, including keyboard selection.
-
-Search and marker selections open the same access preview. Routing actions
-wait for the selected river's authoritative access response and check endpoint
-eligibility; overview data alone never grants launch eligibility. Selecting a
-different river clears the old route, and delayed placeholder access data is
-not allowed to validate or select endpoints on the new river.
-
-`npm run test:planner-map` runs the actual planner and MapLibre with fixture API
-responses at desktop, narrow desktop, and mobile widths.
-Set `PLAYWRIGHT_CHROMIUM_PATH` for a locally installed browser. Its temporary
-development-only route is ignored and removed after the run; screenshots go to
-`/tmp/eddy-planner-map` (override with `PLANNER_SMOKE_OUTPUT`).
+Run `npx tsx scripts/gauge-smoke.ts` for fixture-backed desktop/mobile checks.
+Screenshots and CSV downloads go to `.smoke-gauge` (override with `SMOKE_OUT`).
 
 ## Dam pages
 
