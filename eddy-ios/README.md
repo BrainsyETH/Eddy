@@ -1780,10 +1780,14 @@ always retains its full-window value scale. Closing and reopening the expanded
 chart retains the fitting choice for the same zoomed range. Fitting and the
 Compare panel's full threshold scale are mutually exclusive choices.
 
-Expanded USGS charts offer Share chart: either a fixed-date web link or a
-server-rendered PNG. Image preparation requires internet, presents the actual
-attachment as a preview, and sends the same cached file through the native
-share sheet. Station sharing uses dedicated USGS and USACE share paths; ordinary
+Expanded USGS charts have a Share action (the system share glyph). It opens a
+native action sheet titled with the station and visible dates: Share Link sends
+a fixed-date web link through `shareLink()`, like every other screen; Share
+Image renders the PNG on the server and hands the system share sheet the file
+together with the link text, so Messages sends both. There is no separate
+preview screen: the system share sheet previews the attachment. Image
+preparation requires internet; a failure to prepare it is reported, a cancel or
+failure inside the share sheet is not. Station sharing uses dedicated USGS and USACE share paths; ordinary
 gauge and dam website URLs keep their existing behavior. See
 [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for the versioned
 state contract, shared scale/calendar rules and outstanding device gates.

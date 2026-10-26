@@ -429,12 +429,23 @@ export default function DamDetailScreen() {
     });
   };
 
+  // Absent rather than disabled when the id is not shareable, as on the gauge screen.
+  const sharePath = gaugeSharePath('usace', damId);
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
       <Stack.Screen options={{ title: dam.name }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button icon="square.and.arrow.up" accessibilityLabel={`Share ${dam.name}`} onPress={() => { const path = gaugeSharePath('usace', damId); if (path) void shareLink(dam.name, path); }}>Share</Stack.Toolbar.Button>
+        {sharePath ? (
+          <Stack.Toolbar.Button
+            icon="square.and.arrow.up"
+            accessibilityLabel={`Share ${dam.name}`}
+            onPress={() => void shareLink(dam.name, sharePath)}
+          >
+            Share
+          </Stack.Toolbar.Button>
+        ) : null}
         <Stack.Toolbar.Button
           icon={starred ? 'star.fill' : 'star'}
           selected={starred}

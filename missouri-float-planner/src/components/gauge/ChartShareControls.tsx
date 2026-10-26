@@ -3,13 +3,34 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
-import { chartImagePath, chartSharePath, type ChartShareState } from '@shared/chart-share';
+import {
+  chartImagePath,
+  chartSharePath,
+  chartShareTitle,
+  type ChartShareState,
+} from '@shared/chart-share';
+
+/** Touch devices get the system share sheet; desktop browsers copy, matching the page's other Share buttons. */
+function prefersShareSheet(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches;
+}
 
 /** Freeze the selected view before rendering; the preview and attachment use the same bytes. */
-export default function ChartShareControls({ state }: { state: ChartShareState | null }) {
+export default function ChartShareControls({
+  state,
+  stationName,
+}: {
+  state: ChartShareState | null;
+  stationName?: string | null;
+}) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<{ url: string; file: File } | null>(null);
+  const [preview, setPreview] = useState<{
+    url: string;
+    file: File;
+    title: string;
+    link: string;
+  } | null>(null);
   const inFlight = useRef(false);
   const sharing = useRef(false);
   const request = useRef<AbortController | null>(null);
@@ -26,7 +47,8 @@ export default function ChartShareControls({ state }: { state: ChartShareState |
     setMessage('');
     try {
       const url = new URL(chartSharePath(state), window.location.origin).href;
-      if (navigator.share) await navigator.share({ title: 'Eddy chart', url });
+      if (prefersShareSheet() && navigator.share)
+        await navigator.share({ title: chartShareTitle(stationName, state), url });
       else {
         await navigator.clipboard.writeText(url);
         setMessage('Chart link copied.');
@@ -58,7 +80,12 @@ export default function ChartShareControls({ state }: { state: ChartShareState |
         throw new Error('Image unavailable');
       const blob = await response.blob();
       const file = new File([blob], `eddy-${snapshot.siteId}-chart.png`, { type: 'image/png' });
-      setPreview({ url: URL.createObjectURL(blob), file });
+      setPreview({
+        url: URL.createObjectURL(blob),
+        file,
+        title: chartShareTitle(stationName, snapshot),
+        link: new URL(chartSharePath(snapshot), window.location.origin).href,
+      });
     } catch (error) {
       setMessage(
         error instanceof Error && error.message.startsWith('This saved view')
@@ -72,19 +99,25 @@ export default function ChartShareControls({ state }: { state: ChartShareState |
       request.current = null;
     }
   }
+  function downloadImage() {
+    if (!preview) return;
+    const a = document.createElement('a');
+    a.href = preview.url;
+    a.download = preview.file.name;
+    a.click();
+    setMessage('Image downloaded.');
+  }
   async function shareImage() {
     if (!preview || sharing.current) return;
     sharing.current = true;
     try {
-      if (navigator.canShare?.({ files: [preview.file] }))
-        await navigator.share({ files: [preview.file], title: 'Eddy chart' });
-      else {
-        const a = document.createElement('a');
-        a.href = preview.url;
-        a.download = preview.file.name;
-        a.click();
-        setMessage('Image downloaded.');
-      }
+      // The link travels with the picture so a recipient can open the live view.
+      const data = { files: [preview.file], title: preview.title, text: `${preview.title}\n${preview.link}` };
+      if (prefersShareSheet() && navigator.canShare?.(data)) await navigator.share(data);
+      else if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': preview.file })]);
+        setMessage('Image copied. Paste it anywhere.');
+      } else downloadImage();
     } catch (error) {
       if (!(error instanceof Error && error.name === 'AbortError'))
         setMessage('Could not share the image. Please try again.');
@@ -114,9 +147,12 @@ export default function ChartShareControls({ state }: { state: ChartShareState |
             unoptimized
             className="h-auto w-full"
           />
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" onClick={shareImage}>
-              Share or save this image
+              Share or copy this image
+            </Button>
+            <Button size="sm" variant="outline" onClick={downloadImage}>
+              Download
             </Button>
             <Button size="sm" variant="outline" onClick={() => setPreview(null)}>
               Close preview

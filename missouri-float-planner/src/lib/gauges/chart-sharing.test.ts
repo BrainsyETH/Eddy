@@ -16,6 +16,7 @@ import {
   parseChartShare,
   chartSharePath,
   chartShareQuery,
+  chartShareTitle,
   chartImagePath,
   chartSharePageRiver,
   resolutionNotice,
@@ -278,6 +279,20 @@ test('station zones use the same projected coordinates as detail and reject look
   await assert.rejects(stationTimeZoneForSite(failed, '07067000'), /lookup unavailable/);
 });
 
+test('share titles name the station and the visible station-calendar dates', () => {
+  const state = {
+    ...fixtureState,
+    timeZone: 'America/Chicago',
+    visible: { from: '2026-03-01T18:00:00.000Z', to: '2026-03-08T18:00:00.000Z' },
+  };
+  assert.equal(chartShareTitle(' Current River at Van Buren ', state), 'Current River at Van Buren · Mar 1, 2026 – Mar 8, 2026');
+  // No catalog name: the site number, never an empty title.
+  assert.equal(chartShareTitle(null, state), `USGS ${state.siteId} · Mar 1, 2026 – Mar 8, 2026`);
+  // 03:00Z on Mar 2 is still Mar 1 in the station zone.
+  const sameDay = { ...state, visible: { from: '2026-03-01T15:00:00.000Z', to: '2026-03-02T03:00:00.000Z' } };
+  assert.equal(chartShareTitle('Gauge', sameDay), 'Gauge · Mar 1, 2026');
+});
+
 test('new links retain a unique river slug fallback while old UUID-only links stay valid', () => {
   const state = { ...fixtureState, riverSlug: 'fixture' };
   assert.deepEqual(
@@ -490,13 +505,15 @@ function mockPublicSources(t: TestContext) {
       else process.env[key] = value;
     }
   });
-  const controls = { missing: false, outage: false, linked: true };
+  const controls = { missing: false, outage: false, linked: true, searchOutage: false };
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.hostname !== 'chart-fixture.supabase.co')
       return Response.json({ value: { timeSeries: [] }, features: [] });
     if (controls.outage) return Response.json({ message: 'fixture outage' }, { status: 503 });
     const table = url.pathname.split('/').at(-1);
+    if (table === 'search_gauges' && controls.searchOutage)
+      return Response.json({ message: 'fixture search outage' }, { status: 503 });
     if (table === 'search_gauges')
       return Response.json(
         controls.missing
@@ -606,6 +623,32 @@ test('ordinary daily dispatch stays auto; saved calendars preserve their dates a
   assert.equal(dispatched.resolution, 'daily');
   assert.equal(dispatched.from?.toISOString(), '2026-03-01T00:00:00.000Z');
   assert.equal(dispatched.to?.toISOString(), '2026-03-31T23:59:59.000Z');
+});
+
+test('a timezone lookup outage serves history without a timezone and is never cached', async (t) => {
+  const { controls } = mockPublicSources(t);
+  controls.searchOutage = true;
+  t.mock.method(console, 'warn', () => {});
+  const context = { params: Promise.resolve({ siteId: fixtureState.siteId }) };
+  const response = await gaugeHistoryResponse(
+    new NextRequest(`https://eddy.guide/api/gauges/${fixtureState.siteId}/history?days=7`),
+    context,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  const body = await response.json();
+  assert.equal('timeZone' in body, false, 'clients label a missing zone as UTC');
+  assert.ok(body.readings.length > 0);
+  // A saved link carries its own zone and never depends on the lookup.
+  const saved = await gaugeHistoryResponse(
+    new NextRequest(
+      `https://eddy.guide/api/gauges/${fixtureState.siteId}/history?${new URLSearchParams({ ...fixtureState.loaded, resolution: 'auto', calendar: 'station', tz: fixtureState.timeZone })}`,
+    ),
+    context,
+  );
+  assert.equal(saved.status, 200);
+  assert.match(saved.headers.get('Cache-Control') ?? '', /s-maxage/);
+  assert.equal((await saved.json()).timeZone, fixtureState.timeZone);
 });
 
 test('invalid saved timezones are rejected before upstream reads', async (t) => {

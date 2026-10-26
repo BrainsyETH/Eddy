@@ -293,7 +293,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, riverId, riverSlug, initialShareState,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, title, riverId, riverSlug, initialShareState,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -1111,7 +1111,7 @@ function GaugeChartView({
       </View>
       <View style={[styles.actions, { borderTopColor: colors.border }]}
         onLayout={expanded ? event => setActionsHeight(event.nativeEvent.layout.height) : undefined}>
-        {expanded && provider === 'usgs' && <ChartShareControl state={shareState} />}
+        {expanded && provider === 'usgs' && <ChartShareControl state={shareState} stationName={title} />}
         {expanded && initialShareState && customWindow === initialShareState.loaded && <Pressable accessibilityRole="button" onPress={() => { setCustomWindow(undefined); setDays(7); setZoom(null); setFitValuesKey(null); }} style={styles.toolbarAction}><Text style={[styles.actionText, { color: colors.interactive }]}>Show latest</Text></Pressable>}
         {sharedNotice && <Text style={[styles.caption, { color: colors.textMuted }]}>{sharedNotice}</Text>}
         <Pressable accessibilityRole="button" accessibilityLabel="Compare chart layers" onPress={() => { clearScrub(); setSheet('compare'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>

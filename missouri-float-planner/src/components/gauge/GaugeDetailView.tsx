@@ -50,6 +50,7 @@ interface GaugeDetailViewProps {
 
 export default function GaugeDetailView({ siteId, initialShareState, shareUnavailable }: GaugeDetailViewProps) {
   const [sharedView, setSharedView] = useState(initialShareState);
+  const [restoreFailed, setRestoreFailed] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [lastYearFor, setLastYearFor] = useState<string | null>(
     initialShareState?.layers.includes('lastYear') ? siteId : null,
@@ -291,9 +292,17 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
     ? chartSharePageRiver(gaugeDetail.thresholds, sharedView.riverId, sharedView.riverSlug)
     : null;
   const missingSharedScale = sharedView?.riverId && !thresholdsForUnit(sharedRiver, sharedView.unit);
-  if (sharedView && gaugeDetail && (gaugeDetail.provider !== 'usgs' || missingSharedScale)) {
-    return <GaugeDetailView siteId={siteId} shareUnavailable />;
-  }
+  const sharedViewUnusable = !!(sharedView && gaugeDetail && (gaugeDetail.provider !== 'usgs' || missingSharedScale));
+  // Drop the saved view in place and fall back to latest conditions, rather than
+  // mounting a second copy of this page with its own fetches and timers.
+  useEffect(() => {
+    if (!sharedViewUnusable) return;
+    setSharedView(undefined);
+    setRestoreFailed(true);
+    setDisplayUnit(null);
+    setLastYearFor(null);
+  }, [sharedViewUnusable]);
+  const activeSharedView = sharedViewUnusable ? undefined : sharedView;
 
   if (loading) {
     return (
@@ -333,7 +342,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {shareUnavailable && <p role="status" className="mx-auto max-w-5xl p-4">This chart link could not be restored. Showing the station’s latest conditions.</p>}
+      {(shareUnavailable || restoreFailed) && <p role="status" className="mx-auto max-w-5xl p-4">This chart link could not be restored. Showing the station’s latest conditions.</p>}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
         {/* Back link */}
         <Link
@@ -427,8 +436,8 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
         <div className="space-y-6 mb-8">
           {/* Chart */}
           <GaugeHistoryChart
-            key={`${gauge.usgsSiteId}:${JSON.stringify(sharedView ?? null)}`}
-            initialShareState={sharedView}
+            key={`${gauge.usgsSiteId}:${JSON.stringify(activeSharedView ?? null)}`}
+            initialShareState={activeSharedView}
             onShowLatest={() => {
               setSharedView(undefined);
               setDisplayUnit(primaryUnit);
@@ -440,7 +449,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
             timeZone={gaugeDetail?.timeZone}
             siteId={gauge.usgsSiteId}
             siteName={gauge.name}
-            thresholds={sharedView && !sharedView.riverId ? null : chartThresholds}
+            thresholds={activeSharedView && !activeSharedView.riverId ? null : chartThresholds}
             floodStages={gaugeDetail?.floodStages ?? null}
             latestValue={latestValue}
             displayUnit={effectiveUnit}

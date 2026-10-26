@@ -282,10 +282,20 @@ export async function gaugeHistoryResponse(
     }
 
     const supabase = createAdminClient();
-    const [station, timeZone] = await Promise.all([
+    // A lookup outage must not take the whole chart down with it, and must not
+    // be cached as a UTC answer either. The response then omits `timeZone`
+    // (clients already label that as UTC) and is served no-store, so the next
+    // request retries the lookup. A saved link's timezone needs no lookup.
+    const [station, lookedUpTimeZone] = await Promise.all([
       findStation(supabase, siteId),
-      savedTimeZone ? Promise.resolve(savedTimeZone) : stationTimeZoneForSite(supabase, siteId),
+      savedTimeZone
+        ? Promise.resolve(savedTimeZone)
+        : stationTimeZoneForSite(supabase, siteId).catch((err) => {
+            console.warn('[gauge-history] station timezone unavailable:', err);
+            return null;
+          }),
     ]);
+    const timeZone = lookedUpTimeZone ?? 'UTC';
     const providerId = station?.provider ?? DEFAULT_PROVIDER_ID;
     const provider = getFlowProvider(providerId);
     // Provider-declared limits replace the old global 30-day clamp, which was
@@ -494,7 +504,7 @@ export async function gaugeHistoryResponse(
     return NextResponse.json({
       siteId: historicalData?.siteId ?? siteId,
       siteName: historicalData?.siteName ?? station?.name ?? siteId,
-      timeZone,
+      ...(lookedUpTimeZone ? { timeZone } : {}),
       readings,
       observedThrough,
       sampled: readings.length < rawReadings.length,
@@ -516,7 +526,7 @@ export async function gaugeHistoryResponse(
         minHeight: historicalData?.minHeight ?? null,
         maxHeight: historicalData?.maxHeight ?? null,
       },
-    }, { headers: cdnCacheHeaders(900, 3600) });
+    }, { headers: lookedUpTimeZone ? cdnCacheHeaders(900, 3600) : { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error fetching historical gauge data:', error);
     return NextResponse.json(

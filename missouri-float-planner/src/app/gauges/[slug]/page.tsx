@@ -4,7 +4,7 @@
 import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { createPublicCatalogClient } from '@/lib/supabase/public-read';
+import { getStationName } from '@/lib/gauges/station-name';
 
 export const revalidate = 300;
 import GaugeDetailView from '@/components/gauge/GaugeDetailView';
@@ -14,19 +14,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 interface Props {
   params: Promise<{ slug: string }>;
-}
-
-/** The station's own name, for a site id nobody has curated. */
-async function getStationName(siteId: string): Promise<string | null> {
-  const supabase = createPublicCatalogClient();
-  const { data, error } = await supabase
-    .from('gauge_stations')
-    .select('name')
-    .eq('usgs_site_id', siteId)
-    .eq('active', true)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.name || null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

@@ -765,7 +765,11 @@ export default function GaugeDetailScreen() {
             river screen's pads 16, and a margin inside the component was added
             to both. */}
         <View style={styles.inset}>
-          {(shareUnavailable || (chart && !initialShareState)) && <Text style={{ color: colors.textMuted }}>This chart link could not be restored. Showing the station’s latest conditions.</Text>}
+          {(shareUnavailable || (chart && !initialShareState)) && (
+            <Text accessibilityRole="alert" style={[styles.restoreNotice, { color: colors.textMuted }]}>
+              This chart link could not be restored. Showing the station’s latest conditions.
+            </Text>
+          )}
           <GaugeChart
             key={`${gauge.siteId}:${chart ?? ''}:${initialShareState ? 'shared' : 'latest'}`}
             initialShareState={initialShareState ?? undefined}
@@ -1070,6 +1074,7 @@ const styles = StyleSheet.create({
   premiumTitle: { ...t.sm, fontFamily: fonts.semibold },
   premiumBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   caveat: { ...t.xs, fontFamily: fonts.medium, marginTop: 10 },
+  restoreNotice: { ...t.sm, fontFamily: fonts.body, marginBottom: 8 },
   stages: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
   stagePassed: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 4 },
   stageSummary: { ...t.xs, fontFamily: fonts.body },

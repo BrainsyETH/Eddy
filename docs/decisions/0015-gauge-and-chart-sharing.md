@@ -25,7 +25,10 @@ PostGIS decoder. New ordinary views use the current boundary data. A saved view
 keeps its validated IANA timezone even after catalog or boundary corrections;
 history accepts that timezone only with `calendar=station`. Dependency/data
 updates therefore do not invalidate existing links. Missing or ambiguous
-coordinates use UTC; lookup outages fail instead of being cached as UTC.
+coordinates use UTC. A lookup outage is never cached as UTC: an ordinary
+history response omits `timeZone` (clients label that as UTC, as above) and is
+served `no-store`, so the next request retries; a saved view carries its own
+timezone and does not depend on the lookup.
 
 New links carry both the river UUID (`river`) and a slug (`rslug`). Resolution
 uses the UUID first, then a unique matching slug among this gauge's linked
@@ -48,8 +51,14 @@ statistic. USGS provisional values can be revised. Forecasts and percentile
 context also reflect the source's current available data.
 
 An image request freezes the selection, loads coherent public history, and
-renders SVG through `next/og`. It contains no paid Eddy Read. The user previews
-the resulting PNG and shares those same bytes. Image preparation requires
+renders SVG through `next/og`. It contains no paid Eddy Read. The PNG that is
+shown is the PNG that is sent: on the web the user previews it, then shares
+it on touch devices or copies or downloads it on desktop; on iOS the system
+share sheet is the preview and receives the file together with the link text.
+Shared titles and link-preview metadata name the station and the visible
+station-calendar dates (`chartShareTitle`), not a bare site number. Web share
+controls use the system share sheet only on touch devices and copy on
+desktop, matching the site's other Share buttons. Image preparation requires
 internet; link sharing does not wait for it. Transient render/data failures return retryable 503 responses and are never
 cached. Missing saved station/history/river context returns a typed 422 for
 image attachments. Social metadata requests `preview=1` and receive a neutral
@@ -107,7 +116,9 @@ until the release owner records an explicit compatibility decision and evidence:
 - [ ] Old installed build behavior has been tested and accepted, or activation
       remains off until a separately approved migration handles it.
 - [ ] Physical-device PNG sharing works in Messages, Mail, Files, and a third-party
-      destination; cancellation, offline preparation and retry are verified.
+      destination, with the link text arriving alongside the image in Messages;
+      the action sheet anchors correctly on iPad; cancellation, offline
+      preparation and retry are verified.
 - [ ] Landscape, accessibility text sizes, VoiceOver and web keyboard controls
       remain usable; daily labels agree across viewer timezones.
 - [ ] Deployment and Apple CDN refresh are checked after explicit activation.

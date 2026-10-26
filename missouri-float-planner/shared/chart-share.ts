@@ -1,4 +1,4 @@
-import { stationDate } from './chart-calendar';
+import { chartStamp, stationDate } from './chart-calendar';
 import { pickPrimaryRiverLink, type PrimaryRiverCandidate } from './primary-river-link';
 /** Public, versioned view specification. Contains no readings or paid content. */
 export type ChartScaleMode = 'loaded' | 'visible' | 'full';
@@ -193,6 +193,13 @@ export function chartSharePath(state: ChartShareState): string {
 }
 export function chartImagePath(state: ChartShareState, preview = false): string {
   return `/api/share/chart/usgs/${state.siteId}/image?${chartShareQuery(state)}${preview ? '&preview=1' : ''}`;
+}
+/** What a recipient reads first in a link preview or message: the station and the visible dates. */
+export function chartShareTitle(stationName: string | null | undefined, state: ChartShareState): string {
+  const from = chartStamp(state.visible.from, state.timeZone, true);
+  const to = chartStamp(state.visible.to, state.timeZone, true);
+  const range = from === to ? from : `${from} – ${to}`;
+  return `${stationName?.trim() || `USGS ${state.siteId}`} · ${range}`;
 }
 export function chartStatisticLabel(statistic: ChartStatistic): string {
   return statistic === 'daily_mean'

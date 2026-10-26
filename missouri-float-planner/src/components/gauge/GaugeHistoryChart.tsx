@@ -554,7 +554,7 @@ export default function GaugeHistoryChart({
           <p className="mt-1">Drag to zoom. Use arrow keys to explore readings.</p>
         </div>
       )}
-      {fullControls && provider === 'usgs' && <ChartShareControls state={shareState} />}
+      {fullControls && provider === 'usgs' && <ChartShareControls state={shareState} stationName={siteName} />}
       {fullControls && history && history.readings.length > 0 && !isError && (
         <details className="border-t border-neutral-200 px-5 py-3">
           <summary className="cursor-pointer text-xs font-semibold text-neutral-600">

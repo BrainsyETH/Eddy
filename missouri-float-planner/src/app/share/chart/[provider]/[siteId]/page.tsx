@@ -6,9 +6,12 @@ import {
   shareStation,
   shareParams,
   chartImagePath,
+  chartShareTitle,
+  chartStatisticLabel,
   gaugeSharePath,
 } from '@shared/chart-share';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
+import { getStationName } from '@/lib/gauges/station-name';
 
 type Props = {
   params: Promise<{ provider: string; siteId: string }>;
@@ -17,8 +20,14 @@ type Props = {
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { provider, siteId } = await params;
   const state = parseChartShare(provider, siteId, shareParams(await searchParams));
-  const title = `USGS ${siteId} · Shared chart`;
-  const description = 'A fixed date window from Eddy. USGS provisional values may be revised.';
+  // The title is the most prominent line of a Messages or Slack preview, so it
+  // names the station and the dates rather than a site number. A catalog
+  // outage must not fail the page; the site number is the fallback.
+  const name = state ? await getStationName(siteId).catch(() => null) : null;
+  const title = state ? chartShareTitle(name, state) : `USGS ${siteId} · Shared chart`;
+  const description = state
+    ? `${state.unit === 'cfs' ? 'Flow' : 'Gauge height'} chart from Eddy · ${chartStatisticLabel(state.statistic)}. USGS provisional values may be revised.`
+    : 'A fixed date window from Eddy. USGS provisional values may be revised.';
   const images = state
     ? [{ url: chartImagePath(state, true), width: 1200, height: 630, alt: title }]
     : undefined;
