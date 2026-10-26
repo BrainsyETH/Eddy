@@ -330,9 +330,9 @@ export default function PlanPageClient({
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     }
-    // Preserve camera coordinates and Next's history state; this is a state
-    // update within the existing map, not a navigation to another page.
-    window.history.replaceState(window.history.state, '', url);
+    // Keep the camera while letting Next synchronize useSearchParams for
+    // navigation tabs. Next preserves its own history state automatically.
+    window.history.replaceState(null, '', url);
   }, []);
 
   useEffect(() => {
