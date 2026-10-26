@@ -15,6 +15,8 @@ private enum ConditionsWidgetReloader {
     defaults.set(now, forKey: key)
     WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.riverKind)
     WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.favoritesKind)
+    WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.damKind)
+    WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.reportKind)
     return "requested"
   }
 }
@@ -27,10 +29,23 @@ private struct Snapshot: Decodable {
 public final class EddyLiveActivityModule: Module {
   private var observation: Task<Void, Never>?
   private var observedId: String?
+  private var shortcutObserver: NSObjectProtocol?
 
   public func definition() -> ModuleDefinition {
     Name("EddyLiveActivity")
-    Events("onActivityState")
+    Events("onActivityState", "onShortcut")
+    OnCreate {
+      self.shortcutObserver = NotificationCenter.default.addObserver(forName: EddyShortcutStore.requested, object: nil, queue: .main) { [weak self] _ in
+        self?.sendEvent("onShortcut", [:])
+      }
+    }
+    AsyncFunction("setShortcutCatalog") { (json: String) in
+      try EddyShortcutStore.setCatalog(json)
+    }
+    AsyncFunction("takeShortcutRequest") { () -> String? in
+      return await MainActor.run { EddyShortcutStore.takeRequest() }
+    }
+    Function("widgetLayoutVersion") { 4 }
     AsyncFunction("readWidgetConfiguration") { () -> String? in
       ConditionsWidgetStore.configurationJSON()
     }
@@ -47,6 +62,8 @@ public final class EddyLiveActivityModule: Module {
     }
     OnDestroy {
       self.observation?.cancel()
+      if let observer = self.shortcutObserver { NotificationCenter.default.removeObserver(observer) }
+      self.shortcutObserver = nil
     }
     AsyncFunction("sync") { (json: String?, allowStart: Bool, promise: Promise) in
       Task { @MainActor in

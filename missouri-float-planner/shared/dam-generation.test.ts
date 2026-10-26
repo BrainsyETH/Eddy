@@ -219,7 +219,7 @@ test('a stale observation keeps its number and loses the present tense', () => {
   );
   assert.equal(state.kind, 'generating');
   assert.equal(state.kind === 'generating' && state.age, 'stale');
-  assert.equal(generationStatusLabel(state), 'Last observed generating');
+  assert.equal(generationStatusLabel(state), 'Generating at last reading');
 
   const clauses = nowNextClauses(state, [], BULL_SHOALS, NOON_CENTRAL);
   assert.equal(clauses.observed, 'About 6 of 8 generators’ worth when last observed, 9 hours ago.');
@@ -271,7 +271,7 @@ test('short next-change copy preserves timing, bounded stops and unpublished hou
   assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Increases at 2 PM.');
   assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Decreases at 2 PM.');
   assert.equal(summary([day('2026-07-28', {})]),
-    'No generation scheduled for the rest of the posted schedule.');
+    'No more generation in the posted schedule.');
   assert.equal(summary([]), null);
 });
 
@@ -372,7 +372,7 @@ test('a schedule that never changes says so about the POSTED schedule', () => {
   const idle = generationNow(dam({ metrics: { generationFlow: reading(20, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(idle, never, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No generation scheduled for the rest of the posted schedule.'
+    'No more generation in the posted schedule.'
   );
 });
 
@@ -740,7 +740,7 @@ test('a LAGGING observation loses "now", not just a stale one', () => {
     NOON_CENTRAL
   );
   assert.equal(lagging.kind === 'generating' && lagging.age, 'lagging');
-  assert.equal(generationStatusLabel(lagging), 'Last observed generating');
+  assert.equal(generationStatusLabel(lagging), 'Generating at last reading');
 
   const clauses = nowNextClauses(lagging, [], BULL_SHOALS, NOON_CENTRAL);
   assert.ok(!/\bnow\b/.test(clauses.observed), `still said now: ${clauses.observed}`);
@@ -751,7 +751,7 @@ test('a LAGGING observation loses "now", not just a stale one', () => {
     dam({ metrics: { generationFlow: reading(20, 5 * 60) } }),
     NOON_CENTRAL
   );
-  assert.equal(generationStatusLabel(idleLagging), 'No generation at last observation');
+  assert.equal(generationStatusLabel(idleLagging), 'Not generating at last reading');
 });
 
 test('a stop is bounded by its restart when the schedule reaches one', () => {
@@ -788,7 +788,7 @@ test('a stale schedule says so beside its own sentence, and is not suppressed', 
   assert.equal(scheduleOutlook(stale, BULL_SHOALS, NOON_CENTRAL)?.stale, true);
   assert.equal(
     scheduledClauseProvenance(stale, BULL_SHOALS, NOON_CENTRAL),
-    'From a schedule Eddy last retrieved 3 hours ago. It may have been revised since.'
+    'From a schedule Eddy last checked 3 hours ago. It may have been revised since.'
   );
 
   // A current schedule says nothing extra.

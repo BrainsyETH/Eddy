@@ -22,7 +22,8 @@ import { fetchNwsForecast } from '@/lib/nws/forecast';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { type HistoricalData } from '@/lib/usgs/gauges';
 import { toNum } from '@/lib/utils/num';
-import { stationTimeZoneFromGeometry } from './station-time-zone';
+import { stationTimeZoneForSite } from './station-time-zone';
+import { validTimeZone } from '@shared/chart-share';
 import { sampleChartReadings } from '@shared/chart-model';
 import { widgetHistorySeries } from '@shared/condition-widget';
 import type {
@@ -40,7 +41,6 @@ const MIN_DB_POINTS = 6;
 const PARAM_DISCHARGE = '00060';
 
 interface Station {
-  location?: unknown;
   id: string;
   name: string | null;
   provider: string | null;
@@ -64,7 +64,7 @@ async function findStation(
   supabase: ReturnType<typeof createAdminClient>,
   siteId: string
 ): Promise<Station | null> {
-  const columns = 'id, name, provider, nws_lid, usgs_site_id, location';
+  const columns = 'id, name, provider, nws_lid, usgs_site_id';
   const byUsgs = await supabase
     .from('gauge_stations')
     .select(columns)
@@ -166,9 +166,11 @@ function serverDateKey(date: Date): string {
  * findStation also matches site_id_external, and a dam slug or NWS LID keyed
  * against usgs_daily_percentiles.site_no matches nothing.
  *
- * Dates are built at noon and read with the same calendar fields
- * the upstream uses, matching USGS's own
- * calendar-day statistics. Noon keeps a DST shift from moving the date.
+ * Dates use UTC calendar fields, matching the provider's date-only bounds.
+ * Production has always run in UTC; explicit fields also make development
+ * and tests independent of the host timezone. The optional station calendar
+ * has already converted its bounds to publisher dates before this function.
+ * Noon avoids DST ambiguity without moving a publisher's calendar day.
  */
 async function fetchTypicalRange(
   supabase: ReturnType<typeof createAdminClient>,
@@ -239,6 +241,13 @@ export async function gaugeHistoryResponse(
     const fromParam = searchParams.get('from');
     const toParam = searchParams.get('to');
     const resolutionParam = searchParams.get('resolution');
+    const stationCalendar = searchParams.get('calendar') === 'station';
+    const savedTimeZone = searchParams.get('tz');
+    const validSavedTimeZone =
+      stationCalendar && searchParams.getAll('tz').length === 1 && validTimeZone(savedTimeZone ?? '');
+    if (savedTimeZone !== null && !validSavedTimeZone) {
+      return NextResponse.json({ error: 'A valid tz requires calendar=station' }, { status: 400 });
+    }
 
     if (resolutionParam && !['auto', 'instant', 'daily'].includes(resolutionParam)) {
       return NextResponse.json(
@@ -273,9 +282,10 @@ export async function gaugeHistoryResponse(
     }
 
     const supabase = createAdminClient();
-    const station = await findStation(supabase, siteId);
-    const timeZone = stationTimeZoneFromGeometry(station?.location);
-    const stationCalendar = searchParams.get('calendar') === 'station';
+    const [station, timeZone] = await Promise.all([
+      findStation(supabase, siteId),
+      savedTimeZone ? Promise.resolve(savedTimeZone) : stationTimeZoneForSite(supabase, siteId),
+    ]);
     const providerId = station?.provider ?? DEFAULT_PROVIDER_ID;
     const provider = getFlowProvider(providerId);
     // Provider-declared limits replace the old global 30-day clamp, which was
@@ -336,7 +346,12 @@ export async function gaugeHistoryResponse(
       );
     }
 
-    const dailyWindow = stationCalendar ? { from: new Date(`${stationDate(requestedFrom.getTime(), timeZone)}T00:00:00Z`), to: new Date(`${stationDate((requestedTo ?? new Date()).getTime(), timeZone)}T23:59:59Z`) } : window;
+    const dailyWindow = stationCalendar
+      ? {
+          from: new Date(`${stationDate(requestedFrom.getTime(), timeZone)}T00:00:00Z`),
+          to: new Date(`${stationDate((requestedTo ?? new Date()).getTime(), timeZone)}T23:59:59Z`),
+        }
+      : window;
 
     // ── Source selection: freshness AND completeness, never point count
     // alone ────────────────────────────────────────────────────────────────
@@ -369,7 +384,9 @@ export async function gaugeHistoryResponse(
         ? await provider.fetchHistory(siteId, validDays, {
             from: useDaily && stationCalendar ? dailyWindow.from : from ?? undefined,
             to: useDaily && stationCalendar ? dailyWindow.to ?? undefined : to ?? undefined,
-            resolution: useDaily ? 'daily' : resolution,
+            // Ordinary callers retain provider auto-dispatch. Station calendar
+            // bounds can shift age/span, so only that opt-in fixes daily here.
+            resolution: useDaily && stationCalendar ? 'daily' : resolution,
           })
         : null;
       // When the stored history is merely STALE or INCOMPLETE the live series

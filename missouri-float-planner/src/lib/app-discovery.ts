@@ -1,3 +1,5 @@
+import { getDamAppPromotion } from './dam-app-promotion';
+
 // Public app identity must keep working without deployment configuration.
 export const DEFAULT_APPLE_APP_ID = '6794933267';
 export const DEFAULT_APP_STORE_URL = `https://apps.apple.com/app/id${DEFAULT_APPLE_APP_ID}`;
@@ -57,9 +59,19 @@ export function appStoreUrl(campaign?: string | null, config = APP_STORE): strin
   return url.toString();
 }
 
-export function appLandingUrl(campaign?: string | null): string {
+export function appLandingUrl(campaign?: string | null, damId?: string): string {
   const token = campaignToken(campaign);
-  return token ? `/app?ct=${encodeURIComponent(token)}` : '/app';
+  const params = new URLSearchParams();
+  if (token) params.set('ct', token);
+  const dam = getDamAppPromotion(damId);
+  if (dam) params.set('dam', dam.id);
+  return params.size ? `/app?${params}` : '/app';
+}
+
+/** The query carries dam context through a document navigation to Safari's banner. */
+export function appLandingContext(params: { ct?: unknown; dam?: unknown }) {
+  const dam = getDamAppPromotion(params.dam);
+  return { dam, campaign: campaignToken(params.ct) ?? dam?.campaign ?? null };
 }
 
 /** Explicit banner taps use existing app routes; ordinary web links stay on the web. */

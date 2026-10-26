@@ -284,6 +284,8 @@ enum ConditionsWidgetDiagnostics {
 enum ConditionsWidgetStore {
   static let riverKind = "EddyRiverLevel"
   static let favoritesKind = "EddyFavorites"
+  static let damKind = "EddyDamGeneration"
+  static let reportKind = "EddyDailyRiverReport"
   private static let configurationKey = "eddy.conditions.configuration.v1"
   static var sharedDefaults: UserDefaults? {
     guard let group = Bundle.main.object(forInfoDictionaryKey: "EddyWidgetAppGroup") as? String else { return nil }
@@ -365,7 +367,7 @@ private struct GaugeEnvelope: Decodable {
   }
 }
 private struct HistoryEnvelope: Decodable { var widgetSeries: WidgetHistory? }
-private enum WidgetRequestError: Error {
+enum WidgetRequestError: Error {
   case unavailable, removed, oversized, invalidJSON
   case http(Int)
 }
@@ -391,7 +393,7 @@ private func widgetRequestFailure(_ error: Error) -> (code: String, status: Int?
 }
 
 enum ConditionsWidgetLoader {
-  private static func request<T: Decodable>(_ url: URL, as type: T.Type, timeout: TimeInterval) async throws -> T {
+  static func request<T: Decodable>(_ url: URL, as type: T.Type, timeout: TimeInterval) async throws -> T {
     var request = URLRequest(url: url)
     request.timeoutInterval = timeout
     // Public, credential-free API. Do not inherit a web session's cookies.

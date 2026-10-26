@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { blogHighlights } from './blog-highlights';
 import { buildBlogCaption } from './blog-poster';
+import { blogFeatureDue } from './blog-schedule';
+import { GUIDE_OPENINGS } from './blog-voice';
 import { selectWeekendReads, weekendReadDue, weekendReadExclusion, weekendReadCaption, weekendReadText, type WeekendReadSource } from './weekend-read';
 import { buildPostContext } from './post-context';
 import { POST_TYPES } from './post-types';
@@ -24,8 +26,48 @@ test('Blog posts reuse complete published highlights and preserve qualifications
   const caption = buildBlogCaption({ id: 'id', slug: 'guide', title: 'River guide', description: 'Teaser.',
     og_image_url: null, featured_image_url: null, river_slug: 'current', last_shared_at: null, guide_data: data });
   assert.ok(highlights.every(point => caption.includes(point)));
-  assert.ok(caption.indexOf('•') < caption.indexOf('Read the full guide'));
+  assert.ok(caption.startsWith(GUIDE_OPENINGS.current));
+  assert.ok(!caption.includes('•'));
+  assert.ok(!caption.includes('River guide'));
+  assert.ok(caption.endsWith('Get the guide and plan it on Eddy 👇'));
+  assert.ok(highlights.every(point => caption.includes(`\n\n${point}\n\n`)));
   assert.ok(!caption.includes('Teaser.'));
+});
+
+test('guide captions retain source advice and distinguish the two Spring Rivers', () => {
+  const base = { id: 'id', slug: 'guide', title: 'A published guide', description: 'A complete published description.',
+    og_image_url: null, featured_image_url: null, last_shared_at: null };
+  const mo = buildBlogCaption({ ...base, river_slug: 'spring-river-mo' });
+  const ar = buildBlogCaption({ ...base, river_slug: 'spring-river' });
+  assert.match(mo, /La Russell and Carthage, Missouri/);
+  assert.match(ar, /Arkansas Spring River/);
+  assert.ok(!ar.includes('Carthage'));
+  for (const river_slug of [null, 'a-new-river']) {
+    assert.equal(buildBlogCaption({ ...base, river_slug }),
+      'A published guide\n\nA complete published description.\n\nGet the guide and plan it on Eddy 👇');
+  }
+});
+
+test('weekday guide slot produces five mornings in both daylight and standard time', () => {
+  // Sample both actual Vercel ticks for every day of a week, on each side
+  // of the November clock change. Only one tick per weekday may publish.
+  for (const [monday, dueHour] of [['2026-10-26', 14], ['2026-11-02', 15]] as const) {
+    const due: string[] = [];
+    for (let day = 0; day < 7; day++) {
+      for (const hour of [14, 15]) {
+        const date = new Date(`${monday}T00:00:00Z`);
+        date.setUTCDate(date.getUTCDate() + day);
+        date.setUTCHours(hour);
+        assert.equal(blogFeatureDue(date), day < 5 && hour === dueHour);
+        if (blogFeatureDue(date)) due.push(date.toISOString().slice(0, 10));
+      }
+    }
+    assert.equal(due.length, 5);
+    assert.equal(new Set(due).size, 5);
+  }
+  assert.equal(blogFeatureDue(new Date('2026-10-26T13:59:59Z')), false);
+  assert.equal(blogFeatureDue(new Date('2026-10-26T14:34:59Z')), true);
+  assert.equal(blogFeatureDue(new Date('2026-10-26T14:35:00Z')), false);
 });
 
 test('Blog highlights support general articles and skip malformed or oversized points without cutting them', () => {

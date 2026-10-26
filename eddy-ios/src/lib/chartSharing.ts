@@ -12,10 +12,13 @@ export function sharedGaugeDestination(local: string): string | null {
   // Preserve the invalid path so Expo Router explains that the link was not
   // found, instead of silently sending the user to an unrelated Today screen.
   if (!station) return local;
-  const destination = station.provider === 'usace' ? `/dam/${station.siteId}` : `/gauge/${station.siteId}`;
+  const destination =
+    station.provider === 'usace' ? `/dam/${station.siteId}` : `/gauge/${station.siteId}`;
   if (match[1] === 'gauge') return destination;
   const state = parseChartShare(station.provider, station.siteId, url.searchParams);
-  return state ? `${destination}?chart=${encodeURIComponent(chartShareQuery(state))}` : `${destination}?shareUnavailable=1`;
+  return state
+    ? `${destination}?chart=${encodeURIComponent(chartShareQuery(state))}`
+    : `${destination}?shareUnavailable=1`;
 }
 
 export { chartView as nativeChartView } from '@eddy/conditions/chart-view';

@@ -33,7 +33,7 @@ import type {
   TrendReelProps,
   ClipReelProps,
 } from "./lib/social-props";
-import { DEFAULT_TIMING, journeyDuration } from "../../shared/social-route-journey";
+import { routeMetadata } from "./lib/route-metadata";
 
 import "./style.css";
 
@@ -51,17 +51,6 @@ const CLIP_REEL_FIXTURE: ClipReelProps = {
   sourceOrientation: "landscape",
   captions: [{ start: 0.5, end: 4, text: "this is the clearest water I have ever paddled" }],
 };
-
-/** Base journey plus one readable pause per intermediate feature, plus one
- *  hold for the "also along this float" card when there is one. Identical for
- *  the river and itinerary stages — they share the journey clock. */
-const routeDuration = ({ props }: { props: RouteDrawProps }) => ({
-  durationInFrames: journeyDuration(
-    (props.routePoints ?? []).filter((point) => point.progress > 0.015 && point.progress < 0.985).length,
-    DEFAULT_TIMING,
-    (props.unanchoredPoints?.length ?? 0) > 0,
-  ),
-});
 
 // A REAL section, so the visual baseline guards the composition on the
 // geometry it will actually draw: Current River, Pulltite Spring → Round
@@ -644,14 +633,14 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{ ...ROUTE_DEMO, routeCoordinates: ROUTE_DEMO_LINE } satisfies RouteDrawProps}
       />
 
       {/* Oct 1 regression: photo + wrapped finish title, and a north/south route. */}
       <Composition id="social-route-black-river" component={RouteDraw}
         durationInFrames={360} fps={FPS} width={1080} height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{ ...blackRiver, format: "portrait",
           conditionCode: blackRiver.conditionCode as RouteDrawProps["conditionCode"],
           routeCoordinates: blackRiver.routeCoordinates as [number, number][],
@@ -665,7 +654,7 @@ export const RemotionRoot: React.FC = () => {
           Catches camera drift, icon legibility and the complete closing CTA. */}
       <Composition id="social-route-grassy-bee" component={RouteDraw}
         durationInFrames={420} fps={FPS} width={1080} height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{ ...grassyBee, format: "portrait",
           conditionCode: grassyBee.conditionCode as RouteDrawProps["conditionCode"],
           routeCoordinates: grassyBee.routeCoordinates as [number, number][],
@@ -686,7 +675,7 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{
           ...ROUTE_DEMO,
           unanchoredPoints: [
@@ -704,7 +693,7 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{
           ...ROUTE_DEMO,
           putInName: "Sinking Creek Campground",
@@ -729,7 +718,7 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{
           ...ROUTE_DEMO,
           label: "Today’s Float Pick",
@@ -751,7 +740,7 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{
           ...ROUTE_DEMO,
           label: "Map layout test",
@@ -769,7 +758,7 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={routeDuration}
+        calculateMetadata={routeMetadata}
         defaultProps={{
           ...ROUTE_DEMO,
           routeCoordinates: ROUTE_DEMO_LINE,

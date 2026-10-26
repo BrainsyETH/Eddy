@@ -1,8 +1,8 @@
 import { requireOptionalNativeModule } from 'expo';
 import type { NetworkState } from 'expo-network';
 
-/** An optional optimization: older dev clients still use the loader's grace period.
- * Importing expo-network at runtime would throw before that fallback could run. */
+/** An optional optimization: older dev clients wait for the live request to settle.
+ * Importing expo-network at runtime would throw before that request could run. */
 export async function networkHintsOffline(): Promise<boolean> {
   try {
     const network = requireOptionalNativeModule<{

@@ -1,3 +1,5 @@
+import { dailyFavoriteFloats } from './todayFloats';
+
 export interface RiverEntry {
   riverSlug: string;
   riverName: string;
@@ -43,4 +45,13 @@ export function visibleFloats<T extends RiverEntry>(
 ): T[] {
   const filtered = items.filter((item) => !river || item.riverSlug === river);
   return sort === 'river' ? filtered.sort((a, b) => a.riverName.localeCompare(b.riverName)) : filtered;
+}
+/** Match the carousel's daily featured order before applying list controls. */
+export function visibleFeaturedFloats<T extends RiverEntry & { id: string }>(
+  items: T[],
+  river: string,
+  sort: 'default' | 'river',
+  dayKey?: string,
+): T[] {
+  return visibleFloats(dailyFavoriteFloats(items, dayKey), river, sort);
 }

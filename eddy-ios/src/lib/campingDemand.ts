@@ -46,17 +46,25 @@ export function todayPopularCamping(
     .slice(0, 5);
 }
 
-/** Availability wording describes this snapshot, never a booking trend. */
+/** Capacity describes the observed reservable inventory, explained in the legend. */
 export function campingPulseHeadline(demand: CampingDemand): string {
-  if (demand.band === null) return 'Not enough data';
-  if (demand.allObservedBooked) return 'Checked sites fully booked';
-  switch (demand.band) {
-    case 'quiet': return 'Plenty of sites open';
-    case 'moderate': return 'Sites still available';
-    case 'busy': return 'Most sites booked';
-    case 'crowded': return 'Few sites left';
-    case 'packed': return 'Tracked sites fully booked';
-  }
+  const reading = campingPulseReading(demand);
+  return reading ? `At ${reading.label} capacity` : 'Not enough data';
+}
+
+/** Reservations do not account for first-come, first-served inventory. */
+export function campingPulseFcfsNote(demand: CampingDemand): string | null {
+  return demand.band !== null && demand.booked === 1 ? 'FCFS sites may be available' : null;
+}
+
+/** Age the oldest counted observation, not the phone's last successful refresh. */
+export function campingPulseUpdated(demand: CampingDemand, now: number): string | null {
+  if (demand.band === null || !demand.oldestCheckedAt) return null;
+  const checkedAt = Date.parse(demand.oldestCheckedAt);
+  if (!Number.isFinite(checkedAt) || !Number.isFinite(now)) return null;
+  const hours = Math.floor(Math.max(0, now - checkedAt) / 3_600_000);
+  if (hours === 0) return 'Updated less than 1 hour ago';
+  return `Updated ${hours} hour${hours === 1 ? '' : 's'} ago`;
 }
 
 /** Use the actual percent for bar width; rounding must not imply empty/full. */
@@ -109,12 +117,14 @@ export function campingPulseCoverage(demand: CampingDemand): string | null {
 }
 
 /** Speak the same result as the card, including sample scope and reading age. */
-export function campingPulseAccessibilityLabel(demand: CampingDemand, scope: string): string {
+export function campingPulseAccessibilityLabel(demand: CampingDemand, scope: string, now: number): string {
   return [
     `${scope} camping tonight`,
     campingPulseHeadline(demand),
     campingPulseDetail(demand),
-    demandBasis(demand),
+    demandBasis(demand).split(' · ')[0],
     campingPulseCoverage(demand),
+    campingPulseFcfsNote(demand) ? 'First-come, first-served sites may be available' : null,
+    campingPulseUpdated(demand, now),
   ].filter(Boolean).join('. ');
 }

@@ -658,6 +658,18 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.875rem;
 }
 
+.segmented--stretch {
+  display: flex;
+  width: 100%;
+}
+
+.segmented--stretch .segmented__option {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: 0.25rem;
+}
+
 /* ===== CARDS ===== */
 
 .card {
@@ -688,6 +700,15 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--color-surface);
   border: var(--border-thin) solid var(--color-border);
   border-radius: 12px;
+}
+
+/* Branded dashboard surface. Static so charts do not move under the pointer. */
+.card-framed {
+  overflow: hidden;
+  background-color: var(--color-surface);
+  border: var(--border-base) solid var(--color-primary-700);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
 }
 
 /* Trip Summary Card */
@@ -744,6 +765,44 @@ h1, h2, h3, h4, h5, h6 {
 .glass-bg {
   background: rgba(255, 255, 255, 0.9);
   border: var(--border-thin) solid var(--color-border);
+}
+
+/* Desktop route planning: a warm, readable glass surface over geography.
+   Solid fallback is intentional for browsers without backdrop filtering. */
+@media (min-width: 1024px) {
+  .planner-desktop .planner-glass {
+    background: var(--color-surface);
+    border: 1px solid color-mix(in srgb, var(--color-border) 65%, white);
+    box-shadow: 0 8px 32px rgb(15 45 53 / 16%), inset 0 1px 0 rgb(255 255 255 / 65%);
+  }
+  @supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+    .planner-desktop .planner-glass {
+      background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+      -webkit-backdrop-filter: blur(24px) saturate(135%);
+      backdrop-filter: blur(24px) saturate(135%);
+    }
+  }
+  .planner-desktop .planner-search:focus-within > .planner-glass {
+    border-color: var(--color-primary-400);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-300) 35%, transparent), 0 8px 32px rgb(15 45 53 / 16%);
+  }
+  .planner-desktop .maplibregl-ctrl-group {
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 50%);
+    border-radius: 14px;
+    background: rgb(255 255 255 / 88%);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 6px 24px rgb(15 45 53 / 15%);
+  }
+  .planner-desktop .maplibregl-ctrl-group button { width: 38px; height: 38px; }
+  .planner-desktop .planner-glass button:focus-visible,
+  .planner-desktop .planner-glass a:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+}
+@media (min-width: 1024px) and (prefers-reduced-transparency: reduce) {
+  .planner-desktop .planner-glass { background: var(--color-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 
 /* ===== BADGES ===== */
@@ -1360,15 +1419,15 @@ h1, h2, h3, h4, h5, h6 {
    collapses (iOS Safari, Brave, Chrome) and pushes the bottom of the layout
    behind the browser chrome; dvh tracks the *visible* viewport. The vh
    declaration is the fallback for older engines. 6rem = site header (3.5rem)
-   + planner header row (2.5rem). */
+   + planner header row (2.5rem). The optional Floats navigation adds 3rem. */
 .plan-viewport-h {
-  height: calc(100vh - 3.5rem);
-  height: calc(100dvh - 3.5rem);
+  height: calc(100vh - 3.5rem - var(--plan-section-height, 0rem));
+  height: calc(100dvh - 3.5rem - var(--plan-section-height, 0rem));
 }
 
 .plan-map-h {
-  height: calc(100vh - 6rem);
-  height: calc(100dvh - 6rem);
+  height: calc(100vh - var(--plan-section-height, 0rem) - 6rem);
+  height: calc(100dvh - var(--plan-section-height, 0rem) - 6rem);
 }
 
 /* Variant reserving room for the collapsed float-plan bottom sheet. The
@@ -1376,8 +1435,8 @@ h1, h2, h3, h4, h5, h6 {
    the same inset or the sheet covers the bottom of the map (and MapLibre's
    attribution) on notched phones. */
 .plan-map-h--sheet {
-  height: calc(100vh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
-  height: calc(100dvh - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+  height: calc(100vh - var(--plan-section-height, 0rem) - 6rem - 80px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--plan-section-height, 0rem) - 6rem - 80px - env(safe-area-inset-bottom, 0px));
 }
 
 /* ── /river-map SVG marker focus ─────────────────────────────────────────
@@ -1396,13 +1455,23 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dam detail: wide charts on desktop and landscape phones, stacked in portrait. */
 .dam-generation-layout { display: grid; }
-.dam-observed { border-bottom: 1px solid var(--color-neutral-200); }
-.dam-support-layout { display: grid; gap: 1.25rem; align-items: start; }
+.dam-observed { background: var(--color-primary-800); color: white; }
+.dam-support-layout { display: grid; gap: 1.5rem; align-items: start; }
+.dam-resource-links > * { max-width: 100%; white-space: normal; }
+.dam-measurements { display: grid; gap: 1.25rem; }
+.dam-measurements > * + * { border-top: 1px solid var(--color-neutral-200); padding-top: 1.25rem; }
+@media (min-width: 480px) and (max-width: 1099px) {
+  .dam-measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dam-measurements > * + * { border-top: 0; padding-top: 0; }
+}
 @media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
-  .dam-generation-layout { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr); }
-  .dam-observed { border-bottom: 0; border-right: 1px solid var(--color-neutral-200); }
+  .dam-generation-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
+  /* Side by side, the schedule is already in view. */
+  .dam-next-glance { display: none; }
 }
 @media (min-width: 1100px) {
-  .dam-support-layout { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
+  .dam-support-layout { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
   .dam-support-layout > :only-child { grid-column: 1 / -1; }
+  .dam-support-layout > :only-child .dam-measurements { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dam-support-layout > :only-child .dam-measurements > * + * { border-top: 0; padding-top: 0; }
 }

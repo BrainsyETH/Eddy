@@ -18,7 +18,7 @@
 // The APG "radio group" pattern (role=radiogroup, one tab stop, arrow keys
 // move selection) is the upgrade path for a strictly single-select control.
 // It is not done here because it changes keyboard behaviour, and inside
-// ExpandedGaugeChart the arrow keys are contracted to chart scrubbing
+// GaugeHistoryChart the arrow keys are contracted to chart scrubbing
 // (chart-parity.test.ts) — that interaction needs its own decision, not a
 // side effect of a migration.
 
@@ -38,6 +38,8 @@ export interface SegmentedProps<T extends string | number> {
   value: T;
   onChange: (value: T) => void;
   size?: 'sm' | 'md';
+  /** Equal-width choices that fit a narrow preference panel. */
+  stretch?: boolean;
   'aria-label'?: string;
   className?: string;
 }
@@ -47,11 +49,12 @@ export default function Segmented<T extends string | number>({
   value,
   onChange,
   size = 'sm',
+  stretch = false,
   className,
   'aria-label': ariaLabel,
 }: SegmentedProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={cx('segmented', size === 'md' && 'segmented--md', className)}>
+    <div role="group" aria-label={ariaLabel} className={cx('segmented', size === 'md' && 'segmented--md', stretch && 'segmented--stretch', className)}>
       {options.map((option) => (
         <button
           key={String(option.value)}

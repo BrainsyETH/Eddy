@@ -275,6 +275,12 @@ with primary > secondary > tertiary contrast. Warm Stone 550 and 350 fill the
 accessible intermediate steps recorded in DESIGN.md; they are not new brand
 hues. High-contrast variants resolve through ThemeProvider while Mapbox colors remain strings.
 
+Photo-backed Eddy’s Read cards use an opaque warm-white excerpt panel in both
+appearances, with deep teal report text and muted gray timestamps. The panel
+uses the light palette (including its Increase Contrast variant) for loading,
+empty and retry states too. River names and the footer action stay white over
+the photo; the condition badge keeps its canonical colors.
+
 ### Translating, not transcribing
 
 `DESIGN.md`'s signature is a hard-edged offset shadow (`3px 3px 0 #A49C8E`,
@@ -303,7 +309,7 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 
 ### Floats discovery controls
 
-The Floats hub leads with Start a Float, or Resume Float while tracking.
+The Floats hub leads with Start a Float, or Return to float for a float already in progress.
 Build a Route (choose endpoints) and Find a Route (suggestions for a time and
 location) share a secondary row. Build a Route takes the accent styling when
 River Mode is disabled. Both use the same planner and result actions.
@@ -380,11 +386,15 @@ error and Retry; backup failures keep loaded routes and trips visible and show
 that backup needs attention.
 The old `/float-history` URL opens the History segment. Featured Floats uses the
 same photo/fallback card on the carousel and full list, and the full list has
-river filtering and featured or alphabetical ordering.
+river filtering and featured or alphabetical ordering. Featured order matches
+the carousel's stable daily rotation; River A–Z groups that order by river.
 
 Saved cards show a cached endpoint thumbnail, then a river photo from the
-existing index cache, then the Eddy canoe. Featured cards also reuse cached
-river photos when their editorial photo is absent. One cache read per screen
+existing index cache, then the Eddy canoe. Featured photos come from the guide
+section or that route's own put-in/take-out galleries, including reviewed access
+photos. The API selects an unused route photo when possible, retaining the other
+route photos as load-failure alternatives. Only after those fail do cards use a
+cached river photo, then the Eddy fallback. One cache read per screen
 avoids per-card API requests; a missing or failed cache leaves the fallback.
 New saves retain the photo URL; older saves gain one on their next successful
 online open. A refresh without imagery retains the prior photo. Images use
@@ -716,10 +726,25 @@ with the same PlanSheet and planning hook, without mounting a map. Closing
 those cancels their calculation and leaves the Map tab unchanged, except for
 the explicit View on Map handoff.
 
-Use as put-in on a Map POI opens a peek sheet with Choose your take-out. The map
-stays interactive: tap a downstream access point, or use Choose from list.
-Selecting a take-out expands the compact summary; View full plan opens the
-full planner explicitly. A new route frames only while that map interaction
+Use as put-in on a Map POI opens a compact Build a Route peek with the same
+River / Put-in / Take-out controls as the full planner. Selected endpoints keep
+their existing place icon with a teal put-in or coral take-out badge and a text
+label; no triangle/square covers the artwork. Each endpoint draws once and stays
+visible and tappable at overview zoom or with its ordinary layer hidden.
+Tapping an eligible
+downstream access pin chooses the take-out immediately, including a campground
+or boat-ramp mark for that access. Tap either endpoint control to change it on
+the map, or List to use the current endpoint picker. Other POIs still open their
+details. Selecting a take-out expands the compact summary; View full plan opens
+the full planner explicitly. The compact result measures its estimate and View
+full plan button as part of the peek, including after calculation completes;
+long results and large-text route controls scroll within the sheet.
+Closing the compact planner returns directly to the map, retaining the river,
+endpoints and calculated route. Dismissing a POI while planning returns to Your
+route; outside planning it returns to the map. Only an access opened from the
+river sheet offers Back to that river. A selected river is data context, not
+an instruction to reopen its details. Dismissal never reframes the camera.
+A new route frames only while that map interaction
 is still current; panning, picking another POI or leaving Map cancels a pending
 frame. Changing sheet content does not override a detent the user has dragged.
 
@@ -785,17 +810,18 @@ routes through the float archive (see Float history and backup below). Saved tri
 and dated cautions for offline use. Live conditions and time estimates are not
 stored in that record. Opening a trip online recalculates the plan and updates
 its saved details; older stubs gain details on their next successful open.
-Fast opens show a loading placeholder until the live plan arrives. An offline
+Online opens keep a loading placeholder until the live plan arrives, including
+slow requests; elapsed time alone never reveals the saved-details fallback. An offline
 connectivity hint exposes saved logistics immediately, but never cancels the live
 request or sets an error; network transitions can make that hint inaccurate.
-Otherwise a slow request reveals logistics after 1.2 seconds. Foreground refresh
+Failed requests expose saved logistics with a retry. Foreground refresh
 keeps an open result mounted and its scroll position intact, but hides its previous water verdict, readings
 and float-time estimate from sight and VoiceOver until revalidation succeeds.
 If refresh fails, logistics and dated cautions remain available with a retry.
 Connectivity uses `expo-network`, so adding this dependency requires a new
 native build, not only a JavaScript refresh. Its lookup is optional so an older
 development client can still open Saved Floats: missing native support uses the
-1.2-second grace period instead of crashing on import. Rebuild to test the
+live request's result instead of crashing on import. Rebuild to test the
 immediate offline hint; this fallback does not change EAS runtime compatibility.
 Account deletion clears both the current and legacy local favorites stores and
 the saved-float collection, including queued writes and in-flight sync results.
@@ -817,9 +843,9 @@ existing grant. Acquiring a fix and filling Near you alone sends no route
 search; selecting a river instead omits `near`. Do not describe location as
 never leaving the device.
 
-The native permission text currently names approximate weather requests only.
-Before the next store build, update it to also name nearby route searches.
-That `app.json` permission change requires a new binary, not an OTA update.
+The native permission text names approximate location sent for weather and
+nearby searches. Any `app.json` permission text change requires a new binary,
+not an OTA update.
 
 The planner's put-in list gains a **nearest-first** ordering (headwaters-first
 stays the default — that is the order a river runs in). Search's distance sort
@@ -954,32 +980,87 @@ artwork from `design/float-action-icons/`. These are transparent templates at
 40 points with 1x/2x/3x exports, tinted at render time: `onAccent` on filled
 buttons and `interactive` on cards, including light, dark, and increased-contrast
 themes. Keep facial and map details transparent and preserve the aspect ratio.
-Resume Float retains its navigation control. Regenerate with
+Return to float retains its navigation control. Regenerate with
 `node eddy-ios/scripts/build-float-action-icons.cjs` after installing web dependencies.
 
-The app icon and splash are generated from the Eddy favicon artwork:
+The active app icon uses the polished Eddy artwork in `assets/icon-polished-light.png`.
+The asset script derives its transparent splash and black dark-appearance icon,
+and generates the legacy and tinted variants from the Eddy favicon artwork:
 
 ```bash
 python3 eddy-ios/scripts/build-icons.py    # needs Pillow
 ```
 
-Light appearance is white, matching the website's favicon so the mark reads the
-same in the App Store listing as it does in a browser tab. iOS 18's dark and
-tinted variants are generated alongside it and wired through `ios.icon` — dark
-is Deep River Teal rather than black, because the otter's outline is near-black
-itself and dissolves into a black field.
+Light appearance is white. The active dark variant (`icon-polished-dark.png`)
+uses the same polished Eddy cutout on solid black, preserving its size and
+position. The legacy `icon-dark.png` also uses black. The dark and tinted
+variants are wired through `ios.icon`; icon asset changes require a new iOS
+binary, not an OTA update.
 
 The rule that bites: **the App Store icon must have no alpha channel.** Apple
-rejects it at upload rather than at review, so `icon.png` is flattened while the
-splash and tinted assets keep their alpha (the OS composites those itself).
+rejects it at upload rather than at review, so the light and dark icon assets
+are opaque RGB while splash and tinted assets keep their alpha (the OS
+composites those itself).
 
 ## Home Screen widgets
+
+The River level widget also supports the rectangular Lock Screen family in
+native layout version 4. It uses the same selected station, unit, observation,
+trend expiration, disk cache and WidgetKit refresh budget as the Home Screen
+widget. There is no new polling loop. Its three lines show the station, reading
+and eligible trend, then warning/staleness and observation age with “ago”.
+VoiceOver reads the full river/station identity and observation timestamp. The setup guide
+offers Lock Screen instructions only on a binary with this family.
+
+### App Shortcuts
+
+The host target compiles `EddyAppShortcuts.swift` through `withFloatActivity`:
+**Open my river**, **Return to float**, and **Prepare saved route**. Open my river
+supports both “Open my river in Eddy” and “Open [river] in Eddy”. It uses the
+selected river or the most recently starred river; no river opens Favorites. Prepare saved route accepts a saved route parameter and opens its
+existing Ready to float screen only when no float is active. With an active
+float, both float shortcuts return to River Mode. Without a route selection
+it opens Saved Floats;
+older saves without endpoint IDs open their existing plan detail. It never
+starts tracking or downloads in the background. Return to float opens the
+existing recording presentation, or the Floats home screen when no float is
+active. Both actions wait for local recorder restoration; a failed read opens
+River Mode’s existing recovery state and never assumes tracking has stopped.
+
+Only current river/route IDs and display names enter the native shortcut
+catalog; no GPS positions, contacts, route geometry or logistics are exported.
+Requests survive React's cold launch, are consumed once, expire after two
+minutes, and resolve against the currently visible collection. An old Siri
+selection cannot reopen a removed or other-account saved route. Old binaries
+skip the optional bridge. Widget and shortcut changes require a **new native
+build**, not an OTA update. They are separate from the JavaScript-only saved
+places PR (#1565).
+
+Native compilation, Siri discovery, cold/warm shortcut handoff, Lock Screen
+fit and VoiceOver on a device are **unconfirmed**. Before release, check all
+three actions from a terminated and running app, with zero/multiple favorites,
+deleted routes and account changes; verify both float actions restore an
+active float before navigation, Return without a float opens Floats home, and
+Prepare without an active float stops before recording. Test the named-river
+phrase with two saved rivers.
+Check the rectangular widget with long river names, no reading, stale/flagged
+readings, a warning, airplane mode and Always-On dimming. Existing widget
+verification gates still apply.
 
 Home Screen River level and Your rivers widgets share the Float Activity native
 target. Their data contract, offline behavior, configuration and build gates
 are documented in [`docs/condition-widgets.md`](../docs/condition-widgets.md).
 Native widget changes require a new binary. Device verification and release
 status are unconfirmed until the release runbook records them.
+
+## Remote configuration
+
+Production feature flags retain their last successful values across failed refreshes
+and offline launches. Only recognized boolean flags are persisted, keyed by API base
+URL and environment; notices and version gates are never cached. Cache hydration
+is separate from the launch upgrade decision, and a successful server response wins
+over a late cache read. A loading timeout only releases the controls; a later disk read still applies
+unless a successful server response has already supplied flags.
 
 ## Launch path — read before adding anything at module scope
 
@@ -1054,6 +1135,60 @@ Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
 readings still show their specific qualifier note.
 
 ## Favorites
+
+Access points, boat ramps and campgrounds offer **Save/Saved** from the map
+sheet and access toolbar. Favorites → place opens the downloaded details in
+two taps, without a route or a network request. Rows show a cached gauge and
+its age, or today's **scheduled** generation window when available.
+
+Places are stored in versioned `eddy.savedPlaces.v2:<owner>` collections:
+one for each signed-in account and one for guests. Switching accounts hides
+the previous collection immediately and restores the selected account's
+saves. On guest-to-account sign-in, guest places move into the account once,
+merging by place ID and keeping the earliest save date. An existing account
+copy keeps its details and dam choice. The guest list clears after the account
+write succeeds. An interrupted transfer remains assigned to that account;
+retry cannot hand it to another account. Direct A-to-B switches never merge
+collections. The unused pre-release v1 migration has been removed. Account
+deletion clears that account's collection and any pending incoming transfer.
+Late reads, writes and downloads cannot publish into
+a different account or restore a deleted place. Places are **never sent to
+Eddy's servers**, do not sync across devices, and may be included in normal
+device backups.
+
+Snapshots include labeled parking, road, agency, facilities, fees and tips;
+private access and required fees appear first. They retain coordinates,
+driving location, amenities and contact/booking links, but no campsite
+availability. Saving starts a download. **Refresh** retries explicitly;
+foregrounding and reconnecting also retry missing/stale downloads while the
+app is active and connected. A batch handles at most four places with two
+workers, with failure backoff from one to thirty minutes. Details and dam
+associations are checked daily; downloaded gauge/dam data after fifteen
+minutes. There is no background polling. Bare access pins remain **Details
+not downloaded** until their detail request succeeds. Failed downloads keep
+the previous data. A new download never changes an observation timestamp or
+a schedule day's original retrieval time.
+
+Gauge freshness uses the existing `readingBand`: stale numbers are muted,
+out-of-date numbers are withheld, and only fresh readings show the canonical
+river condition. This is a flow condition, not a claim about fishability.
+Dam sections appear for linked or river-related dams; elsewhere there is an
+**Add a dam schedule** link. The searchable picker orders river-related dams
+first. Only an unambiguous whole-river association is automatic. Removing a
+dam persists an opt-out. Changing dams cannot retain the old dam's schedule.
+The full dam request supplies schedules; a missing replacement preserves
+the same dam's earlier schedule and original dates. Today and Tomorrow lead;
+past Central-Time days collapse under **Earlier schedules** and remain
+**Historical schedule**. These are downloaded details, not an offline basemap.
+
+This change adds no native code or dependency and is separate from the
+widget/Shortcuts build. OTA eligibility still depends on matching the
+production runtime. Device verification is **unconfirmed**: save an access
+and campground, force-quit, enable airplane mode, and reopen from Favorites.
+Check failed first downloads, reconnect retries, large text, VoiceOver,
+guest saves → sign-in, account A → guest → B → A, deletion during a
+download, expired gauge data,
+and historical schedules. Validate partial-reach dam choices with anglers.
 
 River cards show a reading pill for every linked gauge, ordered upstream to
 downstream using the existing gauge catalog. Each row opens its station when
@@ -1207,7 +1342,65 @@ blur:
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`
 for why safety data can never sit behind a wall.
 
+### River Mode essentials
+
+Essentials keeps the `/float-options` route so existing notification and Live Activity
+links keep working. It leads with raw location sharing and the take-out, followed by
+Ahead, the optional pickup contact, and timestamped gauge readings. Settings are
+collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
+status and actionable errors. Hazard instructions are never truncated.
+Live Activity status, including update errors, remains inside Float settings.
+
+The latest valid raw recorder fix is stored separately from the accepted GPS/map
+position and the confirmed river position. Coarse fixes may update sharing, never
+progress, ETA or arrival. Sharing never falls back to a snapped river coordinate.
+Restored fixes are last-known until a newer fix arrives. Old sessions migrate only
+their genuine GPS position, with unknown accuracy. Raw fixes stay out of recaps.
+Sharing prefers a known precise raw GPS fix (at most 75 m, at most two minutes old)
+when the newest fix is over 500 m and at least ten times less precise. That earlier
+fix retains its timestamp and is labeled last-known. The newest raw fix is still
+stored, and becomes the sharing position when the precise fix ages out.
+
+Coordinates use decimal degrees and selectable text; the native share sheet supplies
+Copy. No clipboard or contacts module is added. The pickup contact is stored in a
+separate on-device key, never sent to Eddy's servers, and cleared by `discardFloat`
+during account deletion. Normal device or iCloud backups can include it.
+Calls and messages require a saved number
+and an explicit tap. Removing a contact is also available in its editor.
+
+Ahead uses the last confirmed river mile and dates that basis when it is stale.
+Mapped accesses are not described as safe exits. Only this phone's reports captured
+since the current float started appear in Ahead or the unpositioned list. They are
+labeled as reports and keep their submission status. Unpositioned reports are separate;
+refused reports stay in report history. Map taps use one 56-point rectangle query
+across marker and endpoint dot/label layers, deduplicate features, and put endpoints
+first. Only overlapping choices use a modal; single selections stay over the map.
+Show on map commands are consumed once. Recenter, Show route, or closing the marker
+card clears the temporary highlight. Reopening River Mode does not replay a target.
+
+Essentials reads cached conditions first, then refreshes on open or on request.
+`fetchCondition` caches successful readings with their observation timestamp for
+the next offline open. Tracking and progress remain independent of the network.
+
+Device verification remains unconfirmed: test wet-case taps, overlapping layers,
+VoiceOver, largest text sizes, offline/stale GPS, coarse fresh fixes, restored sessions,
+share-sheet Copy, Messages handoff, Android map links and contact deletion. Guided
+Access can be tested as an optional touch lock; pause it before calling or Messages
+handoffs. No in-app control lock is added.
+
 ### Starting a float
+
+An active float remains reachable from Floats, saved routes,
+and the planner even when new starts are disabled or route details are unavailable.
+
+Ready to float offers take-out and mapped-hazard reminder choices before starting.
+Those choices are saved in the initial session. Notification permission is optional
+and requested only after tapping Enable; recording does not require it. The same
+OS permission reader is used by readiness, River Mode and local delivery, separately
+from remote push availability, sign-in and token registration. Provisional permission
+or disabled alerts/sound is shown as quiet delivery. Permission is rechecked on
+foreground; neither permission nor scheduling proves audible delivery. Production
+cold/offline launch and locked-phone delivery verification remain unconfirmed.
 
 Every entry opens **Ready to float** in its originating tab. A plan fills in
 river, named put-in, take-out and boat; the Floats button starts with an empty
@@ -1219,7 +1412,12 @@ it obtains a preview fix without prompting, and with an empty river it fills
 the river only when GPS sits on a mapped river line
 (closest line at a confluence; "Found from your location", Change one tap
 away), with the put-in as Current location. A nearby river alone is never
-selected automatically. So at the water the usual setup is two
+selected automatically. Detection retries on fresh GPS and at most every 30 seconds
+until its first match, while the fix is usable, serializing requests and ignoring
+cancelled answers. The 150 m line limit remains unchanged. Opening and cancelling
+a picker only pauses detection; typing in river search or selecting a river or
+endpoint stops it for this visit. A matched river and its endpoints stay put as
+later GPS fixes arrive. So at the water the usual setup is two
 taps: a take-out and Start tracking. With a known start and no take-out, the
 next three downstream take-outs are listed inline with distance and moving time,
 then a See All row when there are more. Without a known start, Choose a take-out
@@ -1227,9 +1425,9 @@ still opens all eligible endpoints; no downstream distances or “next” choice
 are invented. Choosing a named put-in enables downstream suggestions.
 The picker leads with Choose your take-out, then a compact river/change row,
 search and results. Its task title stays visible while choosing a river.
-Without a river the card is a
-single "Where are you floating?" prompt; a river chosen in the sheet continues
-to its take-outs there. Once chosen, Put-in and Take-out read as one connected
+Without a river, search and nearby/all river choices appear directly in Ready
+to float. Choosing a river reveals its route fields and downstream suggestions.
+Changing a river in the sheet continues to its take-outs there. Once chosen, Put-in and Take-out read as one connected
 stretch with river miles on each stop and the leg's distance and time between
 them. Location status is a small badge on the put-in; Start tracking stays fixed
 below the scrolling content. River
@@ -1254,7 +1452,11 @@ directly, without another confirmation screen. Setup is removed on success.
 River Mode, options and the just-finished recap live in one root full-screen
 presentation above all tabs. Historical recaps use the same content in a normal
 tab detail (`float-history-recap`), with Back restoring the History list.
-Constant navigation identities prevent duplicate recording views.
+Constant navigation identities prevent duplicate recording views. Options (also
+opened by Live Activity) uses a root ScrollView in its native form sheet;
+physical-device verification of the blank-sheet fix remains unconfirmed.
+Recenter is hidden while the map follows the paddler and reappears after a pan
+or Show route.
 River Mode shows the recorder’s usable GPS position, including off-river fixes.
 Only confirmed river positions advance progress, distance or ETA. The map
 initially keeps the user and take-out in view; a manual gesture stops following.
@@ -1330,23 +1532,28 @@ The map, distance, estimate and offline section derive from the same draft.
 Changing the river clears both ends; moving the start beyond the selected
 take-out clears that take-out. Pickers share the planner's photo cards and label
 river miles separately from miles from the put-in or current location. The
-Offline map section is always present, with a reason when the stretch isn't
-known. Only the original, unchanged stretch reuses its saved plan's download
-and share code. Edited stretches and changed GPS origins get separate local
-packages; an old download cannot be labelled ready for a new stretch (up to
-75 m of GPS drift at the same launch may reuse its padded tiles). Downloading
-also saves a reference to the unfinished setup outside the river cache. A fresh
-Start a Float recovers that package, route and boat; deleting the package
-invalidates recovery. A saved location only defines tile coverage, never GPS
-readiness or recorded origin. Each recording has a new id independent of the
-package, which Storage protects while in use. Starting clears the pending setup.
+Offline map section is always present. It shows **Offline map ready** only for
+an existing matching download that passes the complete tile and style checks.
+Otherwise it says “For an offline map, build a route and download it before you
+go,” with **Build a Route** carrying the river, any named endpoints and the boat.
+A location start carries its take-out but asks for a named put-in in the planner;
+GPS coordinates never travel through navigation. The planner offers saving the
+route and then its download card; saved-route details retain the same controls.
+Only the original, unchanged stretch reuses its saved plan's download and share
+code. An old download cannot be labelled ready for an edited stretch. Existing
+unfinished packages from older app versions still recover on a fresh Start a
+Float (up to 75 m of GPS drift at the same launch may reuse their padded tiles).
+Deleting the package invalidates recovery. A saved location only defines tile
+coverage, never GPS readiness or recorded origin. Each recording has a new id
+independent of the package, which Storage protects while in use. Starting clears
+the legacy pending setup.
 Persisting dated estimates with downloads remains a separate change.
 
 `app/(tabs)/(today,map,floats,favorites,alerts)/float-start.tsx` owns the draft;
 `src/float/start/` owns river selection, permissions, estimates and committing.
 Device verification of presentation, Back/swipe and permission transitions is
 unconfirmed. Native QA must include all five tab origins, saved and unsaved
-starts, both From choices, edits during an estimate/download, offline starts,
+starts, both From choices, edits during an estimate, planner download handoff, offline starts,
 large text, GPS timeout, and permission changes in Settings.
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
@@ -1436,6 +1643,13 @@ disclosure sits with the subscription controls rather than behind a link, for th
 same reason.
 
 ## Push
+
+Remote push and local reminders share OS notification permission interpretation.
+The explicit Enable action requests alert and sound permission, not badges (Eddy
+does not use notification badges). Provisional permission counts as allowed for
+remote delivery, so Profile may show push as on even when delivery is quiet;
+it does not re-prompt for full authorization. Float reminder controls explicitly
+label quiet delivery and offer Settings to enable alerts and sound.
 
 The backend was built first — outbox, `deliver-push` cron every 5 minutes,
 `/api/me/device-tokens` — so the client's whole job is to acquire a token, hand
@@ -1722,3 +1936,5 @@ verify the **destination pin**, not just that onX/Gaia launch. Test each float
 endpoint and the shuttle direction, a curated parking override, Cancel/backdrop
 and VoiceOver escape, double taps, return to the planner, offline saved trips,
 large text on a small phone, both appearances, and Reduce Motion.
+
+Shared chart views retain the timezone saved in the link. New links include a river slug alongside its UUID for recovery after a catalog reseed. Image attachments report unavailable context rather than substituting current readings; link sharing stays available during image preparation. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for compatibility and device-release gates.

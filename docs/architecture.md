@@ -115,7 +115,7 @@ collected.
 | Land & availability | 5 | daily / weekly | Campsite availability from Recreation.gov and Missouri State Parks; NPS and USFS public-lands sync |
 | Alerts & push | 3 | 5–15 min | Evaluate gauge thresholds against subscriber rules, drain the delivery queue to Expo push, reconcile receipts 4×/hour |
 | Eddy updates | 3 | daily | Anthropic writes the river and gauge prose, gated by a knowledge base and a prose gate before it can publish |
-| Social & media | 9 | 30 min → weekly | Post scheduler, preflight, clip brand-check by vision, clip posting, weekly blog, insight fetch, weekly review |
+| Social & media | 9 | 30 min → weekly | Post scheduler, preflight, clip brand-check by vision, clip posting, weekday guide, insight fetch, weekly review |
 | Integrity | 1 | hourly | The trust tick — registered data checks, severity scoring, decay and remediation against a ledger |
 
 ### Two read paths are assembled ahead of the reader

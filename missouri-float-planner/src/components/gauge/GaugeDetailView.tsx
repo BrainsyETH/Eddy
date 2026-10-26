@@ -3,8 +3,6 @@
 // src/components/gauge/GaugeDetailView.tsx
 // Full-page gauge detail view for individual gauges (fallback when no river association)
 
-import { thresholdsForUnit } from '@shared/chart-view';
-import { chartSharePageRiver, gaugeSharePath, type ChartShareState } from '@shared/chart-share';
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -14,17 +12,12 @@ import { computeCondition, getConditionShortLabel, getConditionTailwindColor, ty
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import Segmented from '@/components/ui/Segmented';
 import Skeleton from '@/components/ui/Skeleton';
-import { RANGE_OPTIONS, UNIT_OPTIONS } from '@/components/gauge/gaugeControls';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { useGaugeStations } from '@/hooks/useGaugeStations';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
-import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
@@ -34,13 +27,12 @@ import { stateName } from '@/lib/navigation/states';
 import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import { chartSharePageRiver, gaugeSharePath, type ChartShareState } from '@shared/chart-share';
+import { thresholdsForUnit } from '@shared/chart-view';
 import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
-import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
-import ChartCompare from '@/components/gauge/ChartCompare';
-import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import GaugeHistoryChart from '@/components/gauge/GaugeHistoryChart';
 import { resolveHistoryCapabilities } from '@shared/history-capabilities';
-import { lastYearAvailable } from '@shared/chart-model';
 import { ageHoursOf } from '@/lib/utils/reading-age';
 import {
   rangeLabelForDays,
@@ -57,11 +49,11 @@ interface GaugeDetailViewProps {
 }
 
 export default function GaugeDetailView({ siteId, initialShareState, shareUnavailable }: GaugeDetailViewProps) {
-  // Seven days, and not restored from another gauge's prior selection.
-  const [dateRange, setDateRange] = useState(7);
+  const [sharedView, setSharedView] = useState(initialShareState);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
-  const [expandedOpen, setExpandedOpen] = useState(!!initialShareState);
-  const [lastYearFor, setLastYearFor] = useState<string | null>(initialShareState?.layers.includes('lastYear') ? siteId : null);
+  const [lastYearFor, setLastYearFor] = useState<string | null>(
+    initialShareState?.layers.includes('lastYear') ? siteId : null,
+  );
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(initialShareState?.unit ?? null);
 
   // Eddy AI update
@@ -96,7 +88,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
   // happened to order first. See shared/primary-river-link.ts.
-  const primaryRiver = chartSharePageRiver(gauge?.thresholds, initialShareState?.riverId) ?? undefined;
+  const primaryRiver = chartSharePageRiver(gauge?.thresholds, sharedView?.riverId, sharedView?.riverSlug) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || (gauge?.dischargeCfs != null ? 'cfs' : 'ft');
 
@@ -110,14 +102,14 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
 
   // Initialize displayUnit from threshold
   useEffect(() => {
-    if (!primaryRiver || initialShareState) return;
+    if (!primaryRiver || sharedView) return;
     const stored = localStorage.getItem(`gauge-unit-${siteId}`);
     if (stored === 'ft' || stored === 'cfs') {
       setDisplayUnit(stored);
     } else {
       setDisplayUnit(primaryRiver.thresholdUnit);
     }
-  }, [primaryRiver, siteId, initialShareState]);
+  }, [primaryRiver, siteId, sharedView]);
 
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
@@ -288,22 +280,18 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
 
   const eddyDisplayText = eddyUpdate?.summaryText ?? buildStaticText();
 
-  // One setting for this page and its expanded chart, held per station so a
+  // One comparison setting for every chart presentation, held per station so a
   // gauge switch starts with the layer off.
   const lastYearSite = gauge?.usgsSiteId ?? null;
-  const lastYearCapabilities = gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null;
+  const lastYearCapabilities = resolveHistoryCapabilities(gaugeDetail?.provider ?? gauge?.provider, gaugeDetail?.historyCapabilities);
   const lastYearOn = lastYearFor !== null && lastYearFor === lastYearSite;
   const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
-  const lastYear = useLastYearComparison({
-    siteId: lastYearSite,
-    days: dateRange,
-    unit: effectiveUnit,
-    capabilities: lastYearCapabilities,
-    on: lastYearOn,
-  });
 
-  if (initialShareState && gaugeDetail && (gaugeDetail.provider !== 'usgs' || (gaugeDetail.timeZone && gaugeDetail.timeZone !== initialShareState.timeZone))) return <GaugeDetailView siteId={siteId} shareUnavailable />;
-  if (initialShareState?.riverId && gaugeDetail && !thresholdsForUnit(gaugeDetail.thresholds?.find(r => r.riverId === initialShareState.riverId), initialShareState.unit)) {
+  const sharedRiver = sharedView && gaugeDetail
+    ? chartSharePageRiver(gaugeDetail.thresholds, sharedView.riverId, sharedView.riverSlug)
+    : null;
+  const missingSharedScale = sharedView?.riverId && !thresholdsForUnit(sharedRiver, sharedView.unit);
+  if (sharedView && gaugeDetail && (gaugeDetail.provider !== 'usgs' || missingSharedScale)) {
     return <GaugeDetailView siteId={siteId} shareUnavailable />;
   }
 
@@ -420,7 +408,7 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
           seasonalContextUnavailableReason={gaugeDetail?.seasonalContextUnavailableReason}
           className="mb-6"
           siteId={gauge.usgsSiteId}
-          days={dateRange}
+          days={7}
           tier={tier}
           provider={gaugeDetail?.provider ?? 'usgs'}
           gaugeHeightFt={gauge.gaugeHeightFt}
@@ -435,97 +423,42 @@ export default function GaugeDetailView({ siteId, initialShareState, shareUnavai
           waterTemperature={gaugeDetail?.waterTemperature ?? null}
         />
 
-        {/* Chart + Reading Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mb-8">
+        {/* History and supporting conditions */}
+        <div className="space-y-6 mb-8">
           {/* Chart */}
-          <Card variant="panel">
-            {/* Stacks below `sm`, and the control row wraps rather than
-                overflowing. As one unbreakable row it did neither: at 390px the
-                heading was squeezed into three lines ("7-Day" / "Stage" /
-                "Trend") and the controls ran past the card, which clips them —
-                the Expand button rendered as "Expa" against the right edge, on
-                the width most of this page's readers are on. */}
-            <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
-                {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
-              </h2>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Unit toggle — show when gauge reports both ft and cfs */}
-                {canToggleUnit && (
-                  <Segmented
-                    aria-label="Display unit"
-                    options={UNIT_OPTIONS}
-                    value={effectiveUnit}
-                    onChange={handleUnitToggle}
-                  />
-                )}
-                <Segmented
-                  aria-label="Trend range"
-                  options={RANGE_OPTIONS}
-                  value={dateRange}
-                  onChange={(days) => {
-                    setDateRange(days);
-                    if (!lastYearAvailable(effectiveUnit, lastYearCapabilities, days)) setLastYearFor(null);
-                    trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
-                  }}
-                />
-                {lastYear.eligible && (
-                  <ChartCompare
-                    on={lastYearOn}
-                    onChange={setLastYearOn}
-                    status={lastYear.status}
-                    onRetry={lastYear.retry}
-                  />
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setExpandedOpen(true);
-                    trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
-                  }}
-                >
-                  Expand
-                </Button>
-              </div>
-            </div>
-            <FlowTrendChart
-              gaugeSiteId={gauge.usgsSiteId}
-              days={dateRange}
-              thresholds={chartThresholds}
-              floodStages={gaugeDetail?.floodStages ?? null}
-              latestValue={latestValue}
-              displayUnit={effectiveUnit}
-              chartClassName="h-48 md:h-56"
-              // One context at a time: a rated river's chart speaks the ladder,
-              // a reference station's speaks the day-of-year typical band.
-              // Observed data and the official forecast stay visible in both.
-              showTypical={tier !== 'rated'}
-              showProvenance
-              lastYear={lastYear.comparison}
-            />
-          </Card>
-
-          <ExpandedGaugeChart
-            initialShareState={initialShareState}
+          <GaugeHistoryChart
+            key={`${gauge.usgsSiteId}:${JSON.stringify(sharedView ?? null)}`}
+            initialShareState={sharedView}
+            onShowLatest={() => {
+              setSharedView(undefined);
+              setDisplayUnit(primaryUnit);
+              setLastYearFor(null);
+            }}
             riverId={primaryRiver?.riverId}
+            riverSlug={primaryRiver?.riverSlug ?? undefined}
             provider={gaugeDetail?.provider}
             timeZone={gaugeDetail?.timeZone}
-            open={expandedOpen}
-            onClose={() => setExpandedOpen(false)}
             siteId={gauge.usgsSiteId}
             siteName={gauge.name}
-            thresholds={initialShareState && !initialShareState.riverId ? null : chartThresholds}
+            thresholds={sharedView && !sharedView.riverId ? null : chartThresholds}
             floodStages={gaugeDetail?.floodStages ?? null}
+            latestValue={latestValue}
             displayUnit={effectiveUnit}
+            onUnitChange={handleUnitToggle}
+            canToggleUnit={canToggleUnit}
             showTypical={tier !== 'rated'}
-            capabilities={gaugeDetail?.historyCapabilities ?? null}
+            capabilities={lastYearCapabilities}
             lastYearOn={lastYearOn}
             onLastYearChange={setLastYearOn}
+            onRangeChange={range => trackGaugeRangeChanged(
+              { provider: gaugeDetail?.provider ?? 'usgs', tier },
+              range.kind === 'custom' ? 'custom' : rangeLabelForDays(range.days),
+            )}
+            onExpand={() => trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
           />
 
-          {/* Right column: Current Reading + Weather */}
-          <div className="flex flex-col gap-4">
+          {/* Supporting readings and weather follow the full-width chart. */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <CurrentReadingCard
               siteId={gauge.usgsSiteId}
               gaugeHeightFt={gauge.gaugeHeightFt}

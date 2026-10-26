@@ -36,6 +36,15 @@ there is none.
      beyond the take-out.
    - One style only: `STYLE_URL` (`mapbox://styles/mapbox/outdoors-v12`). No
      satellite, no user-drawn areas, no zoom choices.
+   - Run one chunk at a time, across trips as well as within a trip. Each
+     rnmapbox chunk starts a load of that same style; overlapping loads can
+     collide. `plugins/withSerialMapboxOffline.js` queues create/resume work
+     at the native `DispatchGroup` boundary, after both tile and style callbacks
+     finish (including failures/cancellation). Duplicate active/queued requests
+     do not start another load; pause/remove also removes pending work.
+     `createPack` and `resume` resolve at start, so awaiting those JavaScript
+     calls alone does not serialize downloads. This patch needs a new iOS
+     binary and fails prebuild if the pinned native source no longer matches.
 
 3. **Pack names are `float:<trip-key>:<chunk>`**, where the trip key is the
    saved float's short code or the quick-start session id. This must never
@@ -58,8 +67,8 @@ there is none.
    when required is above zero and completed reaches it. @rnmapbox/maps
    10.3.5 cannot answer this from JavaScript (see "Constraints" below), and
    the absence of an error is not evidence, so with no module (an older
-   binary, Expo Go), no pack or any error the trip shows "Trip and map tiles
-   saved", never Ready offline. Re-checked each time the trip opens, never
+   binary, Expo Go), no pack or any error the trip shows "Download
+   incomplete", never Ready offline. Re-checked each time the trip opens, never
    stored. An ambient-cache hit never counts. The code is `tripReadiness` and
    `stylePackComplete` in `eddy-ios/src/lib/tripDownload.ts`, with tests.
 
@@ -90,7 +99,7 @@ there is none.
   already has, so an interrupted download resumes rather than restarts, also
   after a relaunch (`getPacks` re-lists regions from `TileStore`). The UI
   must say "Paused, keep Eddy open to finish", never imply completion.
-- **Completeness covers tiles, not the style pack.** `getPacks()` reports
+- **Upstream completeness covers tiles, not the style pack.** `getPacks()` reports
   resource counts per tile region. Nothing exposes the style pack: the
   TileStore module offers only `setOption`; the one "complete" progress event
   fires when the TILES finish; the step that waits for both style and tiles
@@ -100,10 +109,38 @@ there is none.
   Hence the native module in decision 4. It links whatever `MapboxMaps`
   rnmapbox pins (no version of its own) and asks the default `OfflineManager`,
   the same store rnmapbox downloads into.
+  Our config plugin also keeps progress events active at 100% tiles and emits
+  the terminal event after both loads settle, so the JS wrapper keeps listening
+  for late style errors. It preserves cancellation handles during status polls
+  and counts tile failures in the final state. Readiness still needs the
+  independently verified resource counts in decision 4.
 - **`createPack` throws if the name exists in this process.** Updates use new
   names (decision 5), which also avoids that.
 
-## Prove on a device before building the full download UI
+## Download controls and diagnostics
+
+Ready to float offers **Build a Route**, preserving named selections and vessel,
+or a compact ready status for a verified matching download. Download/resume/remove
+controls live in the planner result (after saving the route) and saved-route
+details. After tiles finish, the card says “Checking offline map”; an absent native
+verifier, timeout or exception stops that indicator and explains that readiness
+is unconfirmed. A pack that is not yet readable keeps the bounded recheck window
+so a style finishing just after its tiles can become ready automatically.
+A check is capped at 20 seconds, native style reads
+at 8 seconds, and the finishing indicator at 30 seconds independently of reads.
+Only one check runs at a time; chunk statuses are read in parallel so queued
+chunks cannot each add another timeout. Check again verifies saved data without
+starting downloads. Focus/foreground rechecks completion. Storage uses the same
+readiness rules and labels incomplete maps, even when they occupy space. Queued
+chunks with zero counts contribute zero progress. The readiness checks above
+remain strict. A synchronous guard blocks
+repeat start taps while saving the route package. Native failures record the
+create/resume operation, chunk number/count and redacted native wording through
+existing monitoring, which supplies release/build context. They never include
+route geometry or the route package. SDK resource-byte totals are not unique disk
+usage because regions can share tiles; they do not justify changing coverage.
+
+## Prove on a device before release
 
 1. One representative trip: download → the card reaches Ready offline (the
    style-pack module compiled and answered) → airplane mode → cold launch →

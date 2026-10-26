@@ -2,9 +2,10 @@
 // One saved float, re-read against today's river.
 //
 // Current conditions always come from the server. The saved logistics view is
-// available offline or during slow requests, with historical cautions dated.
+// available offline or after a failed request, with historical cautions dated.
 // Foreground refresh keeps the plan mounted without claiming old water is current.
 
+import { floatEntryAction } from '@/lib/floatEntry';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -93,10 +94,12 @@ export default function SavedFloatScreen() {
   const putInId = plan?.putIn.id ?? stub?.putInId;
   const takeOutId = plan?.takeOut.id ?? stub?.takeOutId;
   const boatType = plan?.vessel.slug ?? stub?.logistics?.boatType;
-  const canStart = features.floatMode && riverSlug && putInId && takeOutId;
+  const canDownload = features.floatMode && riverSlug && putInId && takeOutId;
+  const entry = floatEntryAction(!!activeFloat, !!features.floatMode, !!(riverSlug && putInId && takeOutId));
   const onStart = useCallback(() => {
-    if (!riverSlug || !putInId || !takeOutId) return;
-    navigate(() => router.push(activeFloat ? '/float-mode' : {
+    if (entry === 'return') { navigate(() => router.push('/float-mode')); return; }
+    if (entry !== 'start' || !riverSlug || !putInId || !takeOutId) return;
+    navigate(() => router.push({
       pathname: '/float-start',
       params: {
         riverSlug,
@@ -106,7 +109,7 @@ export default function SavedFloatScreen() {
         ...(shortCode ? { shortCode } : {}),
       },
     }));
-  }, [router, navigate, activeFloat, riverSlug, putInId, takeOutId, shortCode, boatType]);
+  }, [router, navigate, entry, riverSlug, putInId, takeOutId, shortCode, boatType]);
 
   // The heading belongs to the same scroll view as the current/offline body.
   // A fixed sibling would hide behind the transparent navigation bar.
@@ -120,18 +123,18 @@ export default function SavedFloatScreen() {
             ? `${stub.putInName} → ${stub.takeOutName}`
             : ' '}
       </Text>
-      {canStart ? (
+      {entry ? (
         <Pressable
           onPress={onStart}
           style={({ pressed }) => [styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
           accessibilityRole="button"
         >
-          <Text style={[styles.startText, { color: colors.onAccent }]}>{activeFloat ? 'Resume float' : 'Float this route'}</Text>
+          <Text style={[styles.startText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
         </Pressable>
       ) : null}
-      {canStart && shortCode ? (
+      {canDownload && shortCode ? (
         <View style={styles.download}>
-          <SavedTripDownload riverSlug={riverSlug!} shortCode={shortCode} putInId={putInId!} takeOutId={takeOutId!} />
+          <SavedTripDownload key={shortCode} riverSlug={riverSlug!} shortCode={shortCode} putInId={putInId!} takeOutId={takeOutId!} />
         </View>
       ) : null}
     </View>

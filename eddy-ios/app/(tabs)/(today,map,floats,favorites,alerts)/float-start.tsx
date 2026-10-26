@@ -1,11 +1,15 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
+import { PickupContact } from '@/float/PickupContact';
+import { ReminderChoices } from '@/float/start/ReminderChoices';
+import { DEFAULT_REMINDERS, type FloatReminderChoices } from '@/lib/floatReminders';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { CommonActions, useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
 import { useSession } from '@/hooks/useSession';
+import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy } from '@/float/loadFloatRoute';
@@ -18,15 +22,16 @@ import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
-import { TripDownloadCard } from '@/float/TripDownloadCard';
+import { RiverPicker } from '@/float/start/RiverPicker';
+import { OfflinePreparation } from '@/float/start/OfflinePreparation';
 import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
 import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
 import { completedFloatRoutes } from '@/lib/floatNavigation';
-import { nextTakeOuts } from '@/lib/floatStartSelection';
+import { nextTakeOuts, startPlannerParams } from '@/lib/floatStartSelection';
 import { matchesSetupDownload } from '@/lib/floatSetupDownload';
-import { readPendingFloatSetup, savePendingFloatSetup } from '@/float/pendingFloatSetup';
+import { readPendingFloatSetup } from '@/float/pendingFloatSetup';
 import type { TripPackage } from '@/lib/tripDownload';
 
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -82,9 +87,13 @@ function ResumeActiveFloat() {
 
 function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredPackage?: TripPackage }) {
   const { colors } = useTheme();
+  const focused = useIsFocused();
   const location = useFloatStartLocation();
+  const router = useRouter();
   const account = useSession();
+  const { floats } = useSavedFloats();
   const [id] = useState(newSessionId);
+  const [reminders, setReminders] = useState<FloatReminderChoices>(() => ({ ...DEFAULT_REMINDERS }));
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
   const [boat, setBoat] = useState<FloatBoat>(() => isBoat(initial.boatType) ? initial.boatType : 'kayak');
   const boatChosen = useRef(isBoat(initial.boatType));
@@ -98,11 +107,17 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
     askedLocation.current = true;
     void locationAct();
   }, [locationState, locationAct]);
-  // An empty river is filled from GPS until the paddler makes any choice.
+  // GPS may fill an empty river once. A match, typing or selection settles it.
   const [autoEligible, setAutoEligible] = useState(!initial.riverSlug);
+  const manuallySelected = useRef(false);
+  const stopDetection = () => {
+    manuallySelected.current = true; setAutoEligible(false); gpsRiver.stop();
+  };
   const [autoRiver, setAutoRiver] = useState<string | null>(null);
-  const gpsRiver = useGpsRiver(autoEligible && !draft.riverSlug, location, slug => {
-    setDraft(current => current.riverSlug ? current : { riverSlug: slug, putInId: undefined, takeOutId: undefined });
+  const gpsRiver = useGpsRiver(focused && autoEligible && !picker, location, slug => {
+    if (manuallySelected.current) return;
+    setAutoEligible(false);
+    setDraft(current => current.riverSlug === slug ? current : { riverSlug: slug, putInId: undefined, takeOutId: undefined });
     setAutoRiver(slug);
   });
   useEffect(() => {
@@ -113,8 +128,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
     return () => { current = false; };
   }, []);
   const unchanged = sameFloatStretch(initial, draft);
-  const shortCode = unchanged ? initial.shortCode : undefined;
-  const [savedPackage, setSavedPackage] = useState(restoredPackage);
+  const matchingSaved = draft.putInId && draft.takeOutId ? floats.find(saved => sameFloatStretch(saved, draft)) : undefined;
+  const shortCode = (unchanged ? initial.shortCode : undefined) ?? matchingSaved?.shortCode;
+
   // A package also carries the full river line. It remains a valid data source
   // on that river after edits, but its tiles are reused only for its own stretch.
   const sourceKey = restoredPackage && restoredPackage.route.riverSlug === draft.riverSlug ? restoredPackage.tripKey : undefined;
@@ -129,17 +145,9 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const startMile = draft.putInId ? putIn?.mile ?? null : located?.riverMile ?? null;
   const fromPoint = putIn?.lngLat ?? (!draft.putInId && located ? location.fix?.point : null);
   const stretchKey = floatSetupKey(draft, fromPoint);
-  // Local package IDs contain no GPS coordinates. A change gets its own package;
-  // returning to an earlier draft reuses that draft's download.
-  const [packages] = useState(() => new Map<string, string>());
-  const reusablePackage = savedPackage && matchesSetupDownload(savedPackage, draft, fromPoint) ? savedPackage : null;
-  const downloadKey = useMemo(() => {
-    if (shortCode) return shortCode;
-    if (reusablePackage) return reusablePackage.tripKey;
-    let key = packages.get(stretchKey);
-    if (!key) { key = `${id}-${packages.size}`; packages.set(stretchKey, key); }
-    return key;
-  }, [id, packages, stretchKey, shortCode, reusablePackage]);
+  const reusablePackage = restoredPackage && matchesSetupDownload(restoredPackage, draft, fromPoint) ? restoredPackage : null;
+  const matchingDownloadKey = shortCode ?? reusablePackage?.tripKey;
+  const downloadKey = matchingDownloadKey ?? id;
   const miles = takeOut && startMile != null ? takeOut.mile - startMile : null;
   const upstream = miles != null && miles <= 0;
   const upcoming = takeOut ? null : nextTakeOuts(choices, startMile);
@@ -158,7 +166,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const start = useStart({ ...draft, boatType: boat, shortCode,
     sessionId: id, downloadKey,
     plannerMph: estimate.speed?.toString(), previewStartMile: startMile ?? undefined,
-  }, loaded, location);
+  }, loaded, location, reminders);
   const preview = loaded?.ok && takeOut ? startSession({ id, kind: draft.putInId ? 'saved' : 'quick',
     route: loaded.route, index: loaded.index, putInId: draft.putInId, takeOutId: takeOut.id, now: 0 }) : null;
   const features = loaded?.ok && preview?.ok
@@ -179,11 +187,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
     : location.state !== 'ready' ? 'Location needed to track'
     : !gpsReady ? (location.busy ? 'Finding your location…' : 'Waiting for GPS…')
     : putInStatus?.label ?? (route && !located ? 'GPS ready · not on this river yet' : 'GPS ready');
-  const downloadReason = !route ? 'Choose a river to prepare an offline map.'
-    : !takeOut ? 'Choose a take-out to prepare an offline map.'
-    : upstream ? 'Choose a take-out downstream of your start.'
-    : !fromPoint ? 'Available once Eddy knows where you’re starting.' : null;
-  const openPicker = (next: typeof picker) => { if (!start.busy) { setAutoEligible(false); setPicker(next); } };
+  const openPicker = (next: typeof picker) => { if (!start.busy) setPicker(next); };
   const riverNote = draft.riverSlug
     ? autoRiver === draft.riverSlug ? { label: 'Found from your location' } : undefined
     : gpsRiver.searching ? { label: 'Looking for a river near you…', busy: true } : undefined;
@@ -197,10 +201,11 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         photo: photoPoint ? <PlanAccessPhoto point={photoPoint} style={local.photo} /> : undefined };
     }),
     more: upcoming.more,
-    onPick: (takeOutId: string) => { if (!start.busy) { setAutoEligible(false); setDraft(current => ({ ...current, takeOutId })); } },
+    onPick: (takeOutId: string) => { if (!start.busy) { stopDetection(); setDraft(current => ({ ...current, takeOutId })); } },
     onSeeAll: () => openPicker('to'),
   } : undefined;
   const selectFrom = (putInId?: string) => {
+    stopDetection();
     const mile = putInId ? choices.find(p => p.id === putInId)?.mile : located?.riverMile;
     setDraft(current => ({ ...current, putInId,
       takeOutId: mile != null && takeOut && takeOut.mile <= mile ? undefined : current.takeOutId }));
@@ -212,12 +217,23 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         headerTransparent: false, headerBlurEffect: 'none', headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text, headerShadowVisible: true }} />
       <Shell footer={<>
-        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        {!start.canStart ? <Text style={[styles.body, { color: colors.textMuted }]}>{start.featuresReady
+          ? 'Starting a new float is temporarily unavailable.' : 'Checking River Mode availability…'}</Text> : null}
         {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
         {account.ready && (!account.session || account.isAnonymous) ? <Text style={[styles.caption, local.backup, { color: colors.textMuted }]}>Sign in to back up your float summary</Text> : null}
       </>}>
         {restoredPackage ? <Text style={[styles.caption, { color: colors.textMuted }]}>Your downloaded setup · edit any field below</Text> : null}
-        <RouteCard river={draft.riverSlug ? route?.riverName ?? (loaded ? null : 'loading') : null}
+        {!draft.riverSlug ? <Card padded={false}>
+          <View style={{ padding: 16, paddingBottom: 12 }}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Choose your river</Text>
+            {gpsRiver.searching ? <Text style={[styles.body, { color: colors.textMuted }]}>Looking for your river…</Text> : null}
+          </View>
+          <RiverPicker inline location={location} onSearchChange={stopDetection} onChoose={river => {
+            stopDetection(); setAutoRiver(null);
+            setDraft({ riverSlug: river.slug, putInId: undefined, takeOutId: undefined });
+          }} />
+        </Card> : <RouteCard river={draft.riverSlug ? route?.riverName ?? (loaded ? null : 'loading') : null}
           riverNote={riverNote} suggestions={suggestions}
           takeOutHint={!takeOut && route && startMile == null ? 'Choose a put-in to see downstream suggestions.' : undefined}
           disabled={start.busy} onRiver={() => openPicker('river')} onFrom={() => openPicker('from')} onTo={() => openPicker('to')}
@@ -227,7 +243,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             photo: putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined }}
           to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
-          leg={miles != null && miles > 0 ? `${miles.toFixed(1)} mi${minutes != null ? ` · about ${formatDuration(minutes)}` : ''}` : null} />
+          leg={miles != null && miles > 0 ? `${miles.toFixed(1)} mi${minutes != null ? ` · about ${formatDuration(minutes)}` : ''}` : null} />}
         <Card padded={false}>
           <VesselPicker value={boat} disabled={start.busy} onChange={value => {
             boatChosen.current = true; setBoat(value);
@@ -240,6 +256,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             {arrival?.warning ? <Text style={[styles.body, { color: colors.error }]}>{arrival.warning}</Text> : null}
           </View> : null}
         </Card>
+        <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
@@ -262,15 +279,15 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
-        {!downloadReason && route && takeOut && fromPoint ? <TripDownloadCard key={downloadKey} compact tripKey={downloadKey}
-          route={route} fromId={draft.putInId ?? ''} fromLngLat={draft.putInId ? undefined : fromPoint} toId={takeOut.id}
-          onPackageSaved={async pkg => { await savePendingFloatSetup(pkg, boat); setSavedPackage(pkg); }} />
-          : <Card><Text style={[styles.label, { color: colors.text }]}>Offline map · Optional</Text>
-            <Text style={[styles.body, { color: colors.textMuted }]}>{downloadReason}</Text></Card>}
+        <Card><PickupContact disabled={start.busy} /></Card>
+        <OfflinePreparation tripKey={matchingDownloadKey} disabled={start.busy}
+          onBuild={() => router.push({ pathname: '/plan-route', params: startPlannerParams(draft, boat) })} />
       </Shell>
       {picker ? <RoutePicker field={picker} draft={draft} loaded={loaded} location={location}
+        onSearchChange={stopDetection}
         onRetryCurrent={() => setRouteReload(value => value + 1)}
         onClose={() => setPicker(null)} onSelect={next => {
+          stopDetection(); setAutoRiver(null);
           setDraft({ riverSlug: next.riverSlug, putInId: next.putInId, takeOutId: next.takeOutId });
           setPicker(null);
         }} /> : null}

@@ -18,6 +18,7 @@ import type { GuideData } from '@/types/blog';
 import { dayIndex, springsForRun, type Section } from './section-picker';
 import { toNum } from '@/lib/utils/num';
 import { riverDisplayLong } from './river-display';
+import { withReviewedPlacePhoto } from '@/lib/photos/reviewed';
 
 /** A curated favorite float: the route geometry RouteDraw needs + editorial copy. */
 export interface FavoriteFloat extends Section {
@@ -36,9 +37,10 @@ export interface FavoriteFloat extends Section {
   toSlug: string;
   /** Source guide's blog slug (deep-link target for the caption). */
   postSlug: string;
-  /** Guide section's hero photo (public URL), composited behind the reel + OG
-   *  cover. Optional — sections without a photo fall back to the solid bg. */
+  /** Section or endpoint photo, also used behind the reel + OG cover. */
   photoUrl?: string;
+  /** Other photos of this section or its endpoints, for failed image loads. */
+  photoFallbackUrls?: string[];
 }
 
 interface GuideRow {
@@ -55,6 +57,7 @@ interface ApRow {
   type: string | null;
   types: string[] | null;
   river_id: string;
+  image_urls?: string[] | null;
 }
 
 const cleanName = (s: string): string => (s || '').trim().replace(/\s+/g, ' ');
@@ -65,7 +68,7 @@ const isCampground = (ap: ApRow): boolean =>
  * Load every published river guide and flatten its sections into a pool of
  * resolvable FavoriteFloats. A section qualifies only when both endpoints have
  * an access-point slug we can resolve to a downstream mile (so the route + float
- * time are real). Stable order (river slug, then section id) keeps the daily
+ * time are real). Stable order (river slug, then route miles/slugs) keeps the daily
  * rotation deterministic regardless of DB row order.
  */
 async function loadFavoritePool(
@@ -123,7 +126,7 @@ async function loadFavoritePool(
 
   const { data: apRows, error: accessError } = await supabase
     .from('access_points')
-    .select('id, slug, name, river_mile_downstream, type, types, river_id')
+    .select('id, slug, name, river_mile_downstream, type, types, river_id, image_urls')
     .in('river_id', riverIds)
     .in('slug', Array.from(wantedSlugs))
     .not('river_mile_downstream', 'is', null);
@@ -136,7 +139,7 @@ async function loadFavoritePool(
   // Key by river_id + slug (slugs aren't guaranteed unique across rivers).
   const apByKey = new Map<string, ApRow>();
   for (const ap of (apRows || []) as ApRow[]) {
-    apByKey.set(`${ap.river_id}::${ap.slug}`, ap);
+    apByKey.set(`${ap.river_id}::${ap.slug}`, withReviewedPlacePhoto('access_points', ap));
   }
 
   const anyFlagged = (guides as GuideRow[]).some((g) =>
@@ -144,6 +147,7 @@ async function loadFavoritePool(
   );
 
   const pool: FavoriteFloat[] = [];
+  const photoChoices = new Map<FavoriteFloat, string[]>();
   for (const guide of guides as GuideRow[]) {
     const riverSlug = guide.river_slug;
     if (!riverSlug) continue;
@@ -172,7 +176,7 @@ async function loadFavoritePool(
       const distanceMi = Math.round((takeOutMile - putInMile) * 10) / 10;
       if (distanceMi < 0.5) continue;
 
-      pool.push({
+      const float: FavoriteFloat = {
         riverId,
         riverSlug,
         riverName,
@@ -195,16 +199,31 @@ async function loadFavoritePool(
         fromSlug: putIn.slug,
         toSlug: takeOut.slug,
         postSlug: guide.slug,
-        photoUrl: section.photo ?? undefined,
-      });
+      };
+      pool.push(float);
+      photoChoices.set(float, [...new Set([
+        section.photo,
+        ...(putIn.image_urls ?? []),
+        ...(takeOut.image_urls ?? []),
+      ].filter((url): url is string => typeof url === 'string' && /^https:\/\//.test(url)))]);
     }
   }
 
   pool.sort((x, y) =>
     x.riverSlug === y.riverSlug
-      ? x.putInMile - y.putInMile
+      ? x.putInMile - y.putInMile || x.takeOutMile - y.takeOutMile
+        || x.fromSlug.localeCompare(y.fromSlug) || x.toSlug.localeCompare(y.toSlug)
       : x.riverSlug.localeCompare(y.riverSlug),
   );
+  // Assign before the client rotates/filters the list, so a route keeps its
+  // photo. Never borrow another section's image just to make a card different.
+  const usedPhotos = new Set<string>();
+  for (const float of pool) {
+    const choices = photoChoices.get(float) ?? [];
+    float.photoUrl = choices.find(url => !usedPhotos.has(url)) ?? choices[0];
+    float.photoFallbackUrls = choices.filter(url => url !== float.photoUrl);
+    if (float.photoUrl) usedPhotos.add(float.photoUrl);
+  }
   return pool;
 }
 

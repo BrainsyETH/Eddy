@@ -264,11 +264,11 @@ export function speaksForNow(age: ReadingStaleness): boolean {
 export function generationStatusLabel(state: GenerationNow): string | null {
   switch (state.kind) {
     case 'generating':
-      return speaksForNow(state.age) ? 'Generating now' : 'Last observed generating';
+      return speaksForNow(state.age) ? 'Generating now' : 'Generating at last reading';
     case 'not-generating':
       return speaksForNow(state.age)
         ? 'No turbine generation observed'
-        : 'No generation at last observation';
+        : 'Not generating at last reading';
     case 'unavailable':
       // A flood-control project has no powerhouse to report on, and a hero that
       // said anything at all here would invent one.
@@ -353,6 +353,9 @@ export function generationReferenceLine(ref: GenerationReference): string {
  * unchanged: this is a share of full-generation DISCHARGE, not of power.
  */
 export const FULL_GENERATION_SHORT_LABEL = 'of full generation';
+
+/** Shown when observed turbine flow exceeds the published full-generation figure. */
+export const ABOVE_FULL_GENERATION_LABEL = 'Above listed full-generation flow';
 
 /**
  * The citation, on its own line beneath.
@@ -671,7 +674,7 @@ function scheduledClause(
     // not exist yet.
     return outlook.generating
       ? 'Generation scheduled for every remaining hour posted.'
-      : 'No generation scheduled for the rest of the posted schedule.';
+      : 'No more generation in the posted schedule.';
   }
 
   const when = moveClock(outlook.move);
@@ -723,7 +726,7 @@ export function scheduledClauseProvenance(
 
   const age = relativeAge(oldestRetrievedAt(schedule), now);
   return age
-    ? `From a schedule Eddy last retrieved ${age}. It may have been revised since.`
+    ? `From a schedule Eddy last checked ${age}. It may have been revised since.`
     : 'From a schedule Eddy cannot date. It may have been revised since.';
 }
 
@@ -854,11 +857,11 @@ export function releaseComparison(
  * The line that explains an "other release" without naming an outlet.
  *
  * Deliberately not "spill" and not "the gates are open": the difference says
- * water is leaving the project by some route other than the turbines, and the
+ * water is leaving the dam by some route other than the turbines, and the
  * data cannot say which.
  */
 export const OTHER_RELEASE_NOTE =
-  'More is leaving the project than is passing through the turbines. Eddy cannot tell which outlet carries the difference.';
+  'More water is leaving the dam than is passing through the turbines. Eddy can’t tell which outlet carries the difference.';
 
 // ── Magnitudes for drawing ─────────────────────────────────────────────────
 

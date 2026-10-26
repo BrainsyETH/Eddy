@@ -9,6 +9,7 @@ import type { MapAccessPoint } from '@eddy/types';
 import type { LngLat } from '@eddy/geo';
 import { routeFromRiver, startSession, type FloatSession } from '../../../eddy-ios/src/lib/floatSession';
 import { ENDED_KEY, STORAGE_KEY, createFloatSessionStore, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
+import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 const MILE = 1609.344;
 const COS = Math.cos((37 * Math.PI) / 180);
@@ -251,4 +252,15 @@ test('a float cancelled before it measured anything saves no recap and does not 
   assert.equal(relaunched.get(), null, 'the cancelled float is not resumed');
   assert.equal(disk.data.has(STORAGE_KEY), false);
   assert.deepEqual(recaps, []);
+});
+
+test('readiness reminder opt-outs are in the first durable session and survive relaunch', async () => {
+  const disk = fakeDisk();
+  const store = createFloatSessionStore(disk, quiet);
+  const reminders = initialFloatReminders({ takeOut: false, hazards: false, stops: [] });
+  assert.equal(await store.begin({ ...newSession(), reminders }), 'started');
+  assert.deepEqual(JSON.parse(disk.data.get(STORAGE_KEY)!).reminders, reminders);
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.deepEqual(relaunched.get()?.reminders, { ...reminders, pending: [] });
 });

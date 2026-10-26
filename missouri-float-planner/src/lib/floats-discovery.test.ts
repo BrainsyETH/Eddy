@@ -6,7 +6,9 @@ import {
   floatCollectionStatus,
   floatRiverChoices,
   visibleFloats,
+  visibleFeaturedFloats,
 } from '../../../eddy-ios/src/lib/floatCollection';
+import { dailyFavoriteFloats } from '../../../eddy-ios/src/lib/todayFloats';
 import { canDefaultToCurrentLocation, selectSearchLocation, selectSearchRiver } from '../../../eddy-ios/src/lib/floatSearchSelection';
 import type { FloatSearchInput } from '../../shared/float-search';
 import { loadPlannerResource } from '../../../eddy-ios/src/lib/plannerResource';
@@ -85,6 +87,23 @@ test('river filters and alphabetical sorting preserve recent or editorial order 
   );
   assert.deepEqual(visibleFloats(rows, '', 'default'), rows);
   assert.equal(rows[0].id, 'new-jacks');
+});
+
+test('full featured list matches the carousel rotation and keeps River A–Z distinct', () => {
+  const rows = ['alpha', 'bravo', 'charlie', 'delta', 'echo'].flatMap(river => [
+    { id: `${river}:upper`, riverSlug: river, riverName: river },
+    { id: `${river}:lower`, riverSlug: river, riverName: river },
+  ]);
+  const day = '2026-10-17';
+  const featured = visibleFeaturedFloats(rows, '', 'default', day);
+  const alphabetical = visibleFeaturedFloats(rows, '', 'river', day);
+  assert.deepEqual(featured.slice(0, 3), dailyFavoriteFloats(rows, day).slice(0, 3));
+  assert.notDeepEqual(featured, alphabetical);
+  assert.deepEqual(alphabetical.map(row => row.riverName), rows.map(row => row.riverName));
+  assert.deepEqual(visibleFeaturedFloats([...rows].reverse(), '', 'default', day), featured);
+  assert.deepEqual(visibleFeaturedFloats(rows, 'bravo', 'default', day), featured.filter(row => row.riverSlug === 'bravo'));
+  assert.deepEqual(visibleFeaturedFloats(rows, '', 'default', day), featured, 'returning from A–Z restores the daily order');
+  assert.notDeepEqual(visibleFeaturedFloats(rows, '', 'default', '2026-10-18'), featured);
 });
 
 test('an unreadable local collection exposes an error instead of indefinite loading or an empty collection', () => {

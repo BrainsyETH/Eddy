@@ -232,7 +232,7 @@ const APP_CHART = read('../eddy-ios/src/components/GaugeChart.tsx');
 const WEB_CHART = read('src/components/ui/FlowTrendChart.tsx');
 const PAGES = ['src/components/gauge/GaugeDetailView.tsx', 'src/components/gauge/RiverGaugeDetail.tsx']
   .map((path) => [path, read(path)] as const);
-const EXPANDED = read('src/components/gauge/ExpandedGaugeChart.tsx');
+const EXPANDED = read('src/components/gauge/GaugeHistoryChart.tsx');
 
 test('both renderers align and read out the comparison through the shared model', () => {
   for (const [name, source] of [['app', APP_CHART], ['web', WEB_CHART]] as const) {
@@ -243,16 +243,16 @@ test('both renderers align and read out the comparison through the shared model'
   }
 });
 
-test('each web page shares one Last year setting with its expanded chart', () => {
+test('each web page shares one Last year setting with its responsive chart', () => {
   for (const [path, source] of PAGES) {
     assert.match(source, /lastYearOn=\{lastYearOn\}/, `${path} does not hand its setting to the expanded chart`);
     assert.match(source, /onLastYearChange=\{setLastYearOn\}/, `${path} does not take changes back from it`);
     assert.match(source, /if \(unit !== 'cfs'\) setLastYearFor\(null\);/, `${path} keeps the layer on for stage`);
-    assert.match(source, /if \(!lastYearAvailable\(effectiveUnit, lastYearCapabilities, days\)\) setLastYearFor\(null\);/);
   }
+  assert.match(EXPANDED, /if \(!lastYearAvailable\(displayUnit, capabilities, historyRangeDays\(choice\)\)\)\s+onLastYearChange\(false\);/);
   assert.doesNotMatch(EXPANDED, /useState\([^)]*\)[^\n]*lastYear/i, 'the expanded chart grew its own setting again');
   assert.match(EXPANDED, /onChange=\{onLastYearChange\}/);
-  assert.match(EXPANDED, /dates: range\.kind === 'custom' \? \{ from: range\.from, to: range\.to \} : null/,
+  assert.match(EXPANDED, /dates:\s*sharedView\?\.calendar \?\? \(range\.kind === 'custom' \? \{ from: range\.from, to: range\.to \} : null\)/,
     'the expanded chart re-derives picked dates from UTC instants');
 });
 

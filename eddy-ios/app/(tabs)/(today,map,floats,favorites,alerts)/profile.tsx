@@ -56,6 +56,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useSavedPlaces } from '@/hooks/useSavedPlaces';
+import { savedPlaces } from '@/lib/savedPlacesStore';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
@@ -417,6 +419,7 @@ function ProfileContent() {
 
   const { clearForAccountDeletion: clearStars } = useStarredRivers();
   const { clearForAccountDeletion: clearSavedFloats } = useSavedFloats();
+  const { owner: placesOwner } = useSavedPlaces();
 
   const runDelete = useCallback(async () => {
     setBusy('delete');
@@ -437,7 +440,7 @@ function ProfileContent() {
       // Server deletion succeeded. Local cleanup has its own retry so it can
       // never be reported as an account-deletion failure or silently skipped.
       const finish = async () => {
-        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats()]);
+        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats(), savedPlaces.clear(placesOwner)]);
         if (cleanup.every(entry => entry.status === 'fulfilled')) await forgetSession();
         const subscriptionNote = result?.hadActiveEntitlement
           ? ' Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'
@@ -457,7 +460,7 @@ function ProfileContent() {
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, forgetSession, disable, clearStars, clearSavedFloats, session, signedIn]);
+  }, [getAccessToken, forgetSession, disable, clearStars, clearSavedFloats, placesOwner, session, signedIn]);
 
   const handleDelete = useCallback(() => {
     // Two steps, and the first names what is lost. This is the only

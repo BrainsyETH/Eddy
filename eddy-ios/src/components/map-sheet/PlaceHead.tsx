@@ -166,7 +166,9 @@ export function PlaceHead({
           onPress={onToggleStar}
           style={({ pressed }) => [styles.control, { opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
-          accessibilityLabel={starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
+          accessibilityLabel={pin.layer === 'access' || pin.layer === 'campgrounds'
+            ? starred ? `Remove ${pin.name} from Favorites` : `Save ${pin.name}`
+            : starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
         >
           <ControlIcon
             name={starred ? 'star' : 'star-outline'}

@@ -1438,6 +1438,7 @@ export default function RiverDetailScreen() {
         {shownSiteId ? (
           <GaugeChart
             riverId={scaleThresholds ? river.id : undefined}
+            riverSlug={river.slug}
             siteId={shownSiteId}
             title={shownGaugeName ?? river.name}
             provider={chartGaugeDetail?.provider ?? chartProvider}

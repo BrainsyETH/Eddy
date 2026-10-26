@@ -9,14 +9,16 @@
 // list stays exactly where links expect it.
 //
 // ── What it deliberately does not show ────────────────────────────────────
-// No float times on saved cards (see SavedFloatRow). Start Float and Resume
-// Float appear only where the floatMode flag is on (development and preview
+// No float times on saved cards (see SavedFloatRow). Start a Float and Return
+// to float appear only where the floatMode flag is on (development and preview
 // builds, or the server flag; see floatModeFeature.ts), and so do the offline
 // lines on saved floats, read from the same rules as each trip's own card. Featured Floats are the first three of the
 // curated picks in the same daily rotation Today used, swiped one at a time.
 
+import { floatEntryAction } from '@/lib/floatEntry';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -70,7 +72,7 @@ function FloatHomeContent() {
   const navigate = useNavigationAction();
   const { colors, elevation } = useTheme();
   const { floats: saved, ready, forget } = useSavedFloats();
-  const { features } = useAppConfig();
+  const { features, featuresReady } = useAppConfig();
   const activeFloat = useFloatSession();
   const savedPreview = saved.slice(0, SAVED_PREVIEW_COUNT);
   const photos = useCachedRiverPhotos();
@@ -135,7 +137,8 @@ function FloatHomeContent() {
         </View>
 
         <View style={[styles.gutter, styles.actions]}>
-          {features.floatMode ? (
+          {!featuresReady && !activeFloat ? <ActivityIndicator accessibilityLabel="Loading float options" color={colors.interactive} /> : null}
+          {floatEntryAction(!!activeFloat, featuresReady && !!features.floatMode) ? (
             <Pressable
               onPress={() => navigate(() => router.push(activeFloat ? '/float-mode' : '/float-start'))}
               accessibilityRole="button"
@@ -151,7 +154,7 @@ function FloatHomeContent() {
               )}
               <View style={styles.welcomeText}>
                 <Text style={[styles.findTitle, { color: colors.onAccent }]}>
-                  {activeFloat ? 'Resume Float' : 'Start a Float'}
+                  {activeFloat ? 'Return to float' : 'Start a Float'}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.onAccent }]}>
                   {activeFloat
@@ -175,7 +178,7 @@ function FloatHomeContent() {
               <Text style={[styles.actionTitle, { color: features.floatMode ? colors.text : colors.onAccent }]}>Build a Route</Text>
               <Text style={[t.sm, { color: features.floatMode ? colors.textMuted : colors.onAccent }]}>Choose your put-in and take-out</Text>
             </Pressable>
-            {features.floatSearch ? (
+            {featuresReady && features.floatSearch ? (
               <Pressable
                 onPress={() => navigate(() => router.push('/find-float'))}
                 accessibilityRole="button"

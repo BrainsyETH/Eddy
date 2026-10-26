@@ -66,7 +66,7 @@ const SavedFloatsContext = createContext<SavedFloatsValue>({
 });
 
 /** True when a stored stub describes the same stretch as this plan. */
-function matchesPlan(entry: SavedFloat, plan: FloatPlan): boolean {
+export function matchesPlan(entry: SavedFloat, plan: FloatPlan): boolean {
   if (entry.riverSlug !== plan.river.slug) return false;
   if (entry.putInId && entry.takeOutId) {
     return entry.putInId === plan.putIn.id && entry.takeOutId === plan.takeOut.id;

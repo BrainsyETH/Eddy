@@ -12,9 +12,25 @@ export default function StationShareButton({ station }: { station: ShareStation 
     try {
       const url = new URL(gaugeSharePath(station), window.location.origin).href;
       if (navigator.share) await navigator.share({ url });
-      else { await navigator.clipboard.writeText(url); setMessage('Link copied.'); }
-    } catch (error) { if (!(error instanceof Error && error.name === 'AbortError')) setMessage('Could not share. Please try again.'); }
-    finally { pending.current = false; }
+      else {
+        await navigator.clipboard.writeText(url);
+        setMessage('Link copied.');
+      }
+    } catch (error) {
+      if (!(error instanceof Error && error.name === 'AbortError'))
+        setMessage('Could not share. Please try again.');
+    } finally {
+      pending.current = false;
+    }
   }
-  return <div><Button size="sm" variant="outline" onClick={share}>Share station</Button><span role="status" className="ml-2 text-xs">{message}</span></div>;
+  return (
+    <div>
+      <Button size="sm" variant="outline" onClick={share}>
+        Share station
+      </Button>
+      <span role="status" className="ml-2 text-xs">
+        {message}
+      </span>
+    </div>
+  );
 }

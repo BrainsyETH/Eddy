@@ -25,7 +25,7 @@ export function FeaturedFloatCard({
 }) {
   const { colors, elevation } = useTheme();
   const [failedUris, setFailedUris] = useState<string[]>([]);
-  const photo = [item.photoUrl, riverPhotoUrl].find(
+  const photo = [item.photoUrl, ...(item.photoFallbackUrls ?? []), riverPhotoUrl].find(
     (url): url is string => !!url && !failedUris.includes(url),
   );
   return (

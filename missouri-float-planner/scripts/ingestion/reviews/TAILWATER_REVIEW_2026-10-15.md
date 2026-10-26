@@ -5,6 +5,11 @@ research and data corrections (applied 2026-10-16; see *Applying the prepared
 corrections*), **not river activation approval**. All three
 rivers remain inactive. No device acceptance is claimed.
 
+The later [October 17 access review](TAILWATER_ACCESS_REVIEW_2026-10-17.md)
+resolves the site-identification follow-ups, including Empire Park, Roundhouse,
+Armstrong Hole and the two Guion county accesses. This October 15 record remains
+the history of the corrections applied on October 16.
+
 ## Dam recovery and monitoring
 
 - PR #1528 merged and deployed. Its first scheduled production history run,

@@ -175,12 +175,17 @@ option fills Primary 500 with white text. The pressed look is styled from
 to Neutral 400 on Neutral 100 and carry their reason in `title`. Focus ring is
 inset, because the group clips overflow. Render with `<Segmented>`.
 
+Use `<Segmented stretch>` for equal-width choices in a narrow preference panel.
+It keeps 44px targets and compact horizontal padding so labels and vessel glyphs
+remain inside their buttons at 320px viewport widths.
+
 ### Cards
 
 | Variant | Background | Border | Shadow | Radius | Behavior |
 |:---|:---|:---|:---|:---|:---|
 | **Standard** | White surface | 2px solid Primary 700 | md (3px 3px) | 8px | Hover: lifts -2px, lg shadow |
 | **Panel** | White surface | 1px solid Neutral 200 | None | 12px | Static. The quiet data surface: chart shells, threshold tables, notices. Unpadded; carries its own header row. |
+| **Framed** | White surface | 2px solid Primary 700 | md (3px 3px) | 8px | Static. Branded dashboards with interactive charts inside; unpadded, no hover lift. |
 | **Trip Summary** | Secondary-50 (tan tint) | 3px solid Primary 600 | lg (4px 4px) | 12px | Static, no hover lift |
 | **Access Point** | White surface | 2px solid Neutral 200 | None (soft on hover) | 6px | Hover: Primary-400 border. Selected: Accent-500 border, accent shadow |
 | **Glass (light)** | rgba(255,255,255,0.95) | 2px solid Neutral 200 | soft-lg | 8px | For map overlays |

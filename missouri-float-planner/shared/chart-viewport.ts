@@ -1,4 +1,7 @@
-export interface ChartWindow { start: number; end: number }
+export interface ChartWindow {
+  start: number;
+  end: number;
+}
 
 /** Geometry for value-axis fitting only, never readings for scrubbing/export.
  * Each series is a continuous plotted segment. Include its intersections with
@@ -14,9 +17,16 @@ export function visibleChartGeometry(
     for (let i = 0; i < segment.length; i++) {
       const point = segment[i];
       if (!Number.isFinite(point.t) || !Number.isFinite(point.v)) continue;
-      if (point.t >= window.start && point.t <= window.end) visible.push({ t: point.t, v: point.v });
+      if (point.t >= window.start && point.t <= window.end)
+        visible.push({ t: point.t, v: point.v });
       const previous = segment[i - 1];
-      if (!previous || !Number.isFinite(previous.t) || !Number.isFinite(previous.v) || previous.t >= point.t) continue;
+      if (
+        !previous ||
+        !Number.isFinite(previous.t) ||
+        !Number.isFinite(previous.v) ||
+        previous.t >= point.t
+      )
+        continue;
       for (const t of [window.start, window.end]) {
         if (previous.t < t && point.t > t) {
           const fraction = (t - previous.t) / (point.t - previous.t);

@@ -13,24 +13,17 @@ import { hasLadder } from '@shared/condition-ladder';
 import { stationTier } from '@shared/station-tier';
 import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
-import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import Segmented from '@/components/ui/Segmented';
 import Skeleton from '@/components/ui/Skeleton';
-import { RANGE_OPTIONS, UNIT_OPTIONS } from '@/components/gauge/gaugeControls';
 import type { ConditionCode } from '@/types/api';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverOutlook } from '@/hooks/useRiverOutlook';
 import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
-import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
-import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
-import ChartCompare from '@/components/gauge/ChartCompare';
-import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import GaugeHistoryChart from '@/components/gauge/GaugeHistoryChart';
 import { resolveHistoryCapabilities } from '@shared/history-capabilities';
-import { lastYearAvailable } from '@shared/chart-model';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
@@ -82,9 +75,6 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
-  // Seven days, and not restored from another gauge's prior selection.
-  const [dateRange, setDateRange] = useState(7);
-  const [expandedOpen, setExpandedOpen] = useState(false);
   const [lastYearFor, setLastYearFor] = useState<string | null>(null);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
@@ -382,19 +372,12 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // there, the row never reaches the server HTML at all, which is the opposite
   // of what the page comment above fetchRiverDam promises.
 
-  // One setting for this page and its expanded chart, held per station so a
+  // One comparison setting for every chart presentation, held per station so a
   // gauge switch starts with the layer off.
   const lastYearSite = activeGauge?.usgsSiteId ?? null;
-  const lastYearCapabilities = gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null;
+  const lastYearCapabilities = resolveHistoryCapabilities(gaugeDetail?.provider ?? activeGauge?.provider, gaugeDetail?.historyCapabilities);
   const lastYearOn = lastYearFor !== null && lastYearFor === lastYearSite;
   const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
-  const lastYear = useLastYearComparison({
-    siteId: lastYearSite,
-    days: dateRange,
-    unit: effectiveUnit,
-    capabilities: lastYearCapabilities,
-    on: lastYearOn,
-  });
 
   // Loading state
   if (isLoading) {
@@ -482,7 +465,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           yearsOfRecord={gaugeDetail?.seasonalContext?.yearsOfRecord}
           seasonalContextUnavailableReason={gaugeDetail?.seasonalContextUnavailableReason}
             siteId={activeGauge.usgsSiteId}
-            days={dateRange}
+            days={7}
             tier={tier}
             provider={gaugeDetail?.provider ?? 'usgs'}
             gaugeHeightFt={activeGauge.gaugeHeightFt}
@@ -508,100 +491,32 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
         {/* The hydrograph — third, above the outdoor conditions and the
             deeper interpretation. It used to close the column, below the
             photos; the redesign leads with how the number came about. */}
-          <Card variant="panel">
-            <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
-                {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
-              </h2>
-              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                <InfoTip
-                  title={CFS_EXPLAINER.title}
-                  body={CFS_EXPLAINER.body}
-                  ariaLabel="What is CFS?"
-                  colors={{
-                    trigger: '#857D70',
-                    triggerBorder: '#C2BAAC',
-                    popBg: '#FFFFFF',
-                    popBorder: '#DBD5CA',
-                    title: '#2D2A24',
-                    body: '#524D43',
-                    focus: '#2D7889',
-                  }}
-                />
-                {/* Unit toggle — show when gauge reports both ft and cfs */}
-                {canToggleUnit && (
-                  <Segmented
-                    aria-label="Display unit"
-                    options={UNIT_OPTIONS}
-                    value={effectiveUnit}
-                    onChange={handleUnitToggle}
-                  />
-                )}
-                <Segmented
-                  aria-label="Trend range"
-                  options={RANGE_OPTIONS}
-                  value={dateRange}
-                  onChange={(days) => {
-                    setDateRange(days);
-                    if (!lastYearAvailable(effectiveUnit, lastYearCapabilities, days)) setLastYearFor(null);
-                    trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
-                  }}
-                />
-                {lastYear.eligible && (
-                  <ChartCompare
-                    on={lastYearOn}
-                    onChange={setLastYearOn}
-                    status={lastYear.status}
-                    onRetry={lastYear.retry}
-                  />
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setExpandedOpen(true);
-                    trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
-                  }}
-                >
-                  Expand
-                </Button>
-              </div>
-            </div>
-            <FlowTrendChart
-              key={`${activeSiteId}-${effectiveUnit}`}
-              gaugeSiteId={activeGauge.usgsSiteId}
-              days={dateRange}
-              thresholds={chartThresholds}
-              floodStages={gaugeDetail?.floodStages ?? null}
-              latestValue={latestValue}
-              displayUnit={effectiveUnit}
-              chartClassName="h-48 md:h-56"
-              // One context at a time: a rated river's chart speaks the ladder,
-              // a reference station's speaks the day-of-year typical band.
-              // Observed data and the official forecast stay visible in both.
-              showTypical={tier !== 'rated'}
-              showProvenance
-              lastYear={lastYear.comparison}
-            />
-          </Card>
-
-        <ExpandedGaugeChart
-          key={activeGauge.usgsSiteId}
-          provider={gaugeDetail?.provider}
+          <GaugeHistoryChart
+            key={activeGauge.usgsSiteId}
+            riverId={riverGroup.riverId}
+            riverSlug={riverSlug}
+            provider={gaugeDetail?.provider}
             timeZone={gaugeDetail?.timeZone}
-          riverId={activeThreshold?.riverId}
-          open={expandedOpen}
-          onClose={() => setExpandedOpen(false)}
-          siteId={activeGauge.usgsSiteId}
-          siteName={activeGauge.name}
-          thresholds={chartThresholds}
-          floodStages={gaugeDetail?.floodStages ?? null}
-          displayUnit={effectiveUnit}
-          showTypical={tier !== 'rated'}
-          capabilities={gaugeDetail?.historyCapabilities ?? null}
-          lastYearOn={lastYearOn}
-          onLastYearChange={setLastYearOn}
-        />
+            siteId={activeGauge.usgsSiteId}
+            siteName={activeGauge.name}
+            thresholds={chartThresholds}
+            floodStages={gaugeDetail?.floodStages ?? null}
+            latestValue={latestValue}
+            displayUnit={effectiveUnit}
+            onUnitChange={handleUnitToggle}
+            canToggleUnit={canToggleUnit}
+            showTypical={tier !== 'rated'}
+            capabilities={lastYearCapabilities}
+            lastYearOn={lastYearOn}
+            onLastYearChange={setLastYearOn}
+            onRangeChange={range => trackGaugeRangeChanged(
+              { provider: gaugeDetail?.provider ?? 'usgs', tier },
+              range.kind === 'custom' ? 'custom' : rangeLabelForDays(range.days),
+            )}
+            onExpand={() => trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
+            help={<InfoTip title={CFS_EXPLAINER.title} body={CFS_EXPLAINER.body} ariaLabel="What is CFS?"
+              colors={{ trigger: '#857D70', triggerBorder: '#C2BAAC', popBg: '#FFFFFF', popBorder: '#DBD5CA', title: '#2D2A24', body: '#524D43', focus: '#2D7889' }} />}
+          />
         {/* Outdoor conditions, after the hydrograph and before the deeper
             interpretation below. */}
         <HistoricalWaterQuality data={gaugeDetail?.historicalWaterQuality} />

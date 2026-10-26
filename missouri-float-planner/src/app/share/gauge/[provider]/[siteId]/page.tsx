@@ -11,18 +11,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { provider, siteId } = await params;
   const station = shareStation(provider, siteId);
   if (!station) return { title: 'Station not found' };
-  const metadata = provider === 'usace' ? await damMetadata({ params: Promise.resolve({ damId: siteId }) })
-    : await gaugeMetadata({ params: Promise.resolve({ slug: siteId }) });
+  const metadata =
+    provider === 'usace'
+      ? await damMetadata({ params: Promise.resolve({ damId: siteId }) })
+      : await gaugeMetadata({ params: Promise.resolve({ slug: siteId }) });
   const asset = linkPreviewAsset(provider === 'usace' ? 'dam' : 'gauge', siteId);
   const images = [{ url: `/share/${asset.file}`, width: 1200, height: 630, alt: asset.alt }];
-  const canonical = station.provider === 'usace' ? `/dams/${station.siteId}` : `/gauges/${station.siteId}`;
-  return { ...metadata, alternates: { canonical }, robots: { index: false, follow: true },
-    openGraph: { ...metadata.openGraph, url: gaugeSharePath(station), images }, twitter: { ...metadata.twitter, card: 'summary_large_image', images } };
-
+  const canonical =
+    station.provider === 'usace' ? `/dams/${station.siteId}` : `/gauges/${station.siteId}`;
+  return {
+    ...metadata,
+    alternates: { canonical },
+    robots: { index: false, follow: true },
+    openGraph: { ...metadata.openGraph, url: gaugeSharePath(station), images },
+    twitter: { ...metadata.twitter, card: 'summary_large_image', images },
+  };
 }
 export default async function SharedGaugePage({ params }: Props) {
   const { provider, siteId } = await params;
   const station = shareStation(provider, siteId);
   if (!station) notFound();
-  return station.provider === 'usace' ? <DamPage params={Promise.resolve({ damId: siteId })} /> : <GaugeDetailView siteId={siteId} />;
+  return station.provider === 'usace' ? (
+    <DamPage params={Promise.resolve({ damId: siteId })} />
+  ) : (
+    <GaugeDetailView siteId={siteId} />
+  );
 }

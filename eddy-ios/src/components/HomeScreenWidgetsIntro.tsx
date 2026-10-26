@@ -13,6 +13,7 @@ import {
   markWidgetGuideSeen,
   WIDGET_GUIDE,
   widgetGuideSteps,
+  widgetGuide,
   type WidgetGuideKind,
 } from '@/lib/widgetOnboarding';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -21,18 +22,20 @@ import { fonts, textStyles, type as t } from '@/theme/typography';
 // Do not promote widgets to users whose installed native binary predates the
 // WidgetKit extension. An OTA can carry this screen, not the extension.
 // Match ConditionsWidgetSync's optional bridge checks; never require the module.
-const nativeWidgetsAvailable = (() => {
-  if (Platform.OS !== 'ios') return false;
+const nativeWidgetLayoutVersion = (() => {
+  if (Platform.OS !== 'ios') return 0;
   try {
     const bridge = requireOptionalNativeModule<{
+      widgetLayoutVersion?: () => number;
       readWidgetConfiguration?: () => Promise<string | null>;
       setWidgetConfiguration?: (json: string) => Promise<void>;
     }>('EddyLiveActivity');
-    return !!bridge?.readWidgetConfiguration && !!bridge?.setWidgetConfiguration;
+    return bridge?.readWidgetConfiguration && bridge?.setWidgetConfiguration ? (bridge.widgetLayoutVersion?.() ?? 1) : 0;
   } catch {
-    return false;
+    return 0;
   }
 })();
+const nativeWidgetsAvailable = nativeWidgetLayoutVersion > 0;
 
 export function HomeScreenWidgetsIntro() {
   const { colors } = useTheme();
@@ -67,7 +70,7 @@ export function HomeScreenWidgetsIntro() {
         <Pressable
           onPress={open}
           accessibilityRole="button"
-          accessibilityLabel="Home Screen widgets. How to add Eddy's widgets"
+          accessibilityLabel="River Widgets. Set up a river level widget."
           style={({ pressed }) => [
             styles.compactRow,
             { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -75,8 +78,7 @@ export function HomeScreenWidgetsIntro() {
         >
           <ControlIcon name="grid-outline" size={20} color={colors.interactive} />
           <View style={styles.compactCopy}>
-            <Text style={[styles.compactTitle, { color: colors.text }]}>Home Screen widgets</Text>
-            <Text style={[t.xs, { color: colors.textMuted }]}>Set up River level or Your rivers</Text>
+            <Text style={[styles.compactTitle, { color: colors.text }]}>River widgets</Text>
           </View>
           <ControlIcon name="chevron-forward" size={17} color={colors.textMuted} />
         </Pressable>
@@ -88,11 +90,9 @@ export function HomeScreenWidgetsIntro() {
             </View>
             <View style={styles.invitationCopy}>
               <Text style={[styles.invitationTitle, { color: colors.text }]}>
-                River levels, right on your Home Screen
+                River widgets
               </Text>
-              <Text style={[styles.invitationBody, { color: colors.textMuted }]}>
-                Add an Eddy widget to see your favorite water at a glance.
-              </Text>
+              <Text style={[styles.invitationBody, { color: colors.textMuted }]}>See your river without opening Eddy.</Text>
             </View>
             <Pressable
               onPress={acknowledge}
@@ -109,7 +109,7 @@ export function HomeScreenWidgetsIntro() {
             accessibilityLabel="Learn how to add Eddy widgets"
             style={styles.learn}
           >
-            <Text style={[styles.learnText, { color: colors.interactive }]}>See how to add widgets</Text>
+            <Text style={[styles.learnText, { color: colors.interactive }]}>Set up widgets</Text>
             <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
           </Pressable>
         </View>
@@ -124,8 +124,9 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
   const [kind, setKind] = useState<WidgetGuideKind>('river');
-  const choice = WIDGET_GUIDE[kind];
-  const kinds: WidgetGuideKind[] = ['river', 'favorites'];
+  const choice = widgetGuide(kind, nativeWidgetLayoutVersion);
+  const kinds: WidgetGuideKind[] = nativeWidgetLayoutVersion >= 4 ? ['river', 'lock', 'favorites', 'dam', 'report']
+    : nativeWidgetLayoutVersion >= 2 ? ['river', 'favorites', 'dam', 'report'] : ['river', 'favorites'];
 
   return (
     <Modal
@@ -144,7 +145,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
         >
           <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
             <Text accessibilityRole="header" style={[styles.sheetTitle, { color: colors.text }]}>
-              Home Screen widgets
+              Widgets
             </Text>
             <Pressable
               onPress={onClose}
@@ -156,10 +157,6 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={styles.sheetContent}>
-            <Text style={[styles.sheetIntro, { color: colors.textMuted }]}>
-              See a river reading without opening Eddy. Choose the widget that suits your Home Screen.
-            </Text>
-
             <View style={styles.choiceRow}>
               {kinds.map((variant) => {
                 const item = WIDGET_GUIDE[variant];
@@ -197,7 +194,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             <Text accessibilityRole="header" style={[styles.stepsHeading, { color: colors.text }]}>
               How to add it
             </Text>
-            {widgetGuideSteps(kind).map((step, index) => (
+            {widgetGuideSteps(kind, nativeWidgetLayoutVersion).map((step, index) => (
               <View key={step.title} style={styles.stepRow}>
                 <View style={[styles.stepNumber, { backgroundColor: colors.selectionBg }]}>
                   <Text style={[styles.stepNumberText, { color: colors.selectionText }]}>
@@ -214,7 +211,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             <View style={[styles.note, { borderColor: colors.border }]}>
               <ControlIcon name="information-circle-outline" size={18} color={colors.textMuted} />
               <Text style={[styles.noteText, { color: colors.textMuted }]}>
-                Widgets are not push notifications. iOS decides when their readings refresh, so always check the observation time. You don&apos;t need an account or notification permission to add one.
+                Widgets are not push notifications. iOS decides when their readings refresh, so always check the observation time. You don’t need an account or notification permission to add one.
               </Text>
             </View>
           </ScrollView>
@@ -227,6 +224,16 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
 function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
   const { colors } = useTheme();
   const isSmall = kind === 'river';
+  const visual = nativeWidgetLayoutVersion >= 3;
+
+  if (kind === 'lock') return <View accessible accessibilityLabel="Example Lock Screen gauge: Current River, 1,240 cfs, rising, observed 15 minutes ago. Sample data."
+    style={[styles.previewStage, { backgroundColor: colors.selectionBg }]}>
+    <View style={{ gap: 3 }}>
+      <Text style={[t.sm, { color: colors.text, fontFamily: fonts.heading }]}>Current River</Text>
+      <Text style={[t.xl, { color: colors.text, fontFamily: fonts.heading }]}>1,240 cfs ↑</Text>
+      <Text style={[t.xs, { color: colors.textMuted }]}>15 min ago</Text>
+    </View>
+  </View>;
 
   return (
     <View style={[styles.previewStage, { backgroundColor: colors.selectionBg }]}>
@@ -234,7 +241,7 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         accessible
         accessibilityLabel={isSmall
           ? 'Illustrative small River level widget, sample river reading, not live data'
-          : 'Illustrative medium Your rivers widget, three sample readings, not live data'}
+          : 'Illustrative ' + WIDGET_GUIDE[kind].title + ' widget, sample data, not live data'}
         style={[
           styles.previewWidget,
           isSmall ? styles.previewSmall : styles.previewMedium,
@@ -243,10 +250,12 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
       >
         <View style={styles.previewHeader}>
           <Text style={[styles.previewHeading, { color: colors.text }]}>
-            {isSmall ? 'Current River' : 'Your rivers'}
+            {isSmall ? 'Current River' : visual && kind === 'dam' ? 'Bull Shoals Dam' : WIDGET_GUIDE[kind].title}
           </Text>
           <Image
-            source={require('../../assets/eddy/eddy-checking-gauge.png')}
+            source={visual && kind === 'dam' ? require('../../assets/eddy/eddy-dam.png')
+              : visual && kind === 'report' ? require('../../assets/eddy/eddy-river.png')
+                : require('../../assets/eddy/eddy-checking-gauge.png')}
             style={styles.previewOtter}
             accessible={false}
           />
@@ -254,16 +263,64 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         {isSmall ? (
           <>
             <Text style={[t.xs, { color: colors.textMuted }]}>Akers, MO</Text>
-            <Text style={[styles.previewNumber, { color: colors.text }]}>123 <Text style={t.xs}>cfs</Text></Text>
+            <Text style={[styles.previewNumber, visual && styles.previewHero, { color: colors.text }]}>123 <Text style={t.xs}>CFS</Text></Text>
             <Text style={[t.xs, { color: colors.textMuted }]}>Sample data</Text>
           </>
+        ) : visual && kind === 'dam' ? (
+          <View style={styles.previewVisualRow}>
+            <View style={styles.previewMetric}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Turbine flow</Text>
+              <Text style={[styles.previewNumber, { color: colors.text }]}>6,600</Text>
+              <Text style={[t.xs, { color: colors.textMuted }]}>CFS · Generating</Text>
+            </View>
+            <View style={styles.previewChart}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Today · CT · MW</Text>
+              <View style={styles.previewBars}>
+                {Array.from({ length: 24 }, (_, hour) => (
+                  <View key={hour} style={{ flex: 1, height: hour >= 7 && hour < 18 ? (hour >= 13 ? 34 : 18) : 3,
+                    backgroundColor: hour >= 7 && hour < 18 ? colors.accentFill : colors.border, borderRadius: 2 }} />
+                ))}
+              </View>
+              <View style={styles.previewAxis}>
+                {['12a', '6a', '12p', '6p', '12a'].map((label, index) => <Text key={index} style={[t.xs, { color: colors.textMuted }]}>{label}</Text>)}
+              </View>
+            </View>
+          </View>
+        ) : visual && kind === 'report' ? (
+          <View style={styles.previewVisualRow}>
+            <View style={styles.previewMetric}>
+              <Text style={[styles.previewHeading, { color: colors.text }]}>Current River</Text>
+              <Text style={[styles.previewNumber, { color: colors.text }]}>250 <Text style={t.xs}>CFS</Text></Text>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Akers, MO</Text>
+            </View>
+            <View style={[styles.previewWeather, { backgroundColor: colors.selectionBg }]}>
+              <Text style={[t.xs, { color: colors.textMuted }]}>Forecast · °F</Text>
+              <View style={styles.previewAxis}>
+                <ControlIcon name="partly-sunny-outline" size={24} color={colors.text} />
+                <Text style={[styles.previewNumber, { color: colors.text }]}>74°</Text>
+              </View>
+              <View style={styles.previewAxis}>
+                <Text style={[t.xs, { color: colors.textMuted }]}>↓51°</Text>
+                <ControlIcon name="water" size={12} color={colors.textMuted} />
+                <Text style={[t.xs, { color: colors.textMuted }]}>20%</Text>
+              </View>
+            </View>
+          </View>
         ) : (
           <>
-            {[
+            {(kind === 'dam' ? [
+              ['Bull Shoals Dam', '6,600 cfs'],
+              ['Turbine flow', 'Generating now'],
+              ['Next scheduled change · CT', 'Stops at 6 PM'],
+            ] : kind === 'report' ? [
+              ['Current River', '250 cfs'],
+              ['Observed trend', 'Steady'],
+              ['Today’s forecast', '74° / 51°F'],
+            ] : [
               ['Current River', '123 cfs'],
               ['Big River', '456 cfs'],
               ['Huzzah Creek', '789 cfs'],
-            ].map(([name, reading]) => (
+            ]).map(([name, reading]) => (
               <View key={name} style={styles.previewReading}>
                 <Text style={[styles.previewReadingText, { color: colors.text }]}>{name}</Text>
                 <Text style={[styles.previewReadingText, { color: colors.textMuted }]}>{reading}</Text>
@@ -328,6 +385,13 @@ const styles = StyleSheet.create({
   previewHeading: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   previewOtter: { width: 26, height: 26 },
   previewNumber: { ...t['2xl'], fontFamily: fonts.semibold },
+  previewHero: { ...t['3xl'], fontFamily: fonts.monoMedium },
+  previewVisualRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginTop: 8 },
+  previewMetric: { flex: 1, gap: 3 },
+  previewChart: { flex: 1.4, gap: 4 },
+  previewBars: { flexDirection: 'row', alignItems: 'flex-end', height: 40, gap: 2 },
+  previewAxis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 2 },
+  previewWeather: { flex: 1, borderRadius: 12, padding: 8, gap: 3 },
   previewReading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   previewReadingText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1 },
   previewCaption: { ...t.xs, marginTop: 10, textAlign: 'center' },

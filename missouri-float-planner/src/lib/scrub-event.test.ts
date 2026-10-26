@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { scrubEvent, type ScrubbableEvent } from '../../../eddy-ios/src/lib/scrub-event';
+import { scrubFloatSearchBreadcrumb } from '@shared/float-search-privacy';
 
 // ── why this file exists ─────────────────────────────────────────
 //
@@ -103,8 +104,8 @@ test('a non-string exception value is left alone', () => {
 });
 
 test('a coordinate pair in a thrown error is redacted', () => {
-  // Location never leaves the device by design, so a coordinate can only reach
-  // Sentry inside a message. The privacy policy says this is stripped.
+  // Location has explicit weather/report/backup flows, but must not leak
+  // through diagnostic messages as well.
   const event = scrubEvent({
     exception: { values: [{ value: 'locate failed near 37.15412, -91.56231' }] },
   });
@@ -112,4 +113,38 @@ test('a coordinate pair in a thrown error is redacted', () => {
   const scrubbed = event.exception?.values?.[0]?.value as string;
   assert.match(scrubbed, /\[redacted-coords\]/);
   assert.ok(!scrubbed.includes('37.15412'), 'the raw latitude survived redaction');
+});
+
+test('weather requests do not attach location or credentials to diagnostic events', () => {
+  const event = scrubEvent({
+    request: {
+      url: 'https://eddy.guide/api/weather/forecast?lat=37.15&lon=-91.55#location',
+      data: { lat: 37.15 },
+      query_string: 'lat=37.15&lon=-91.55',
+      headers: { Authorization: 'Bearer private' },
+      cookies: 'private',
+    },
+    exception: { values: [{ value: 'weather failed: lat=37.15&lon=-91.55' }] },
+  });
+  assert.deepEqual(event.request, { url: 'https://eddy.guide/api/weather/forecast' });
+  assert.ok(!JSON.stringify(event).includes('37.15'));
+  assert.ok(!JSON.stringify(event).includes('-91.55'));
+});
+
+test('weather breadcrumbs retain route/status but not location or request payload', () => {
+  const crumb = scrubFloatSearchBreadcrumb({
+    message: 'GET lat=37.15 lon=-91.55',
+    data: {
+      url: 'https://eddy.guide/api/weather/forecast?lat=37.15&lon=-91.55',
+      method: 'GET', status_code: 503, request_body: 'lat=37.15', headers: { token: 'private' },
+    },
+  });
+  assert.deepEqual(crumb, {
+    data: { url: 'https://eddy.guide/api/weather/forecast', method: 'GET', status_code: 503 },
+  });
+});
+
+test('unrelated request context is preserved by the location boundary', () => {
+  const event = { request: { url: 'https://eddy.guide/api/gauges?period=30d' } };
+  assert.deepEqual(scrubEvent(structuredClone(event)), event);
 });

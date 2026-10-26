@@ -27,10 +27,13 @@
 // Ending a float, by any path, stops the native recorder here, so recording
 // can never outlive the float.
 
+import { pickupContact } from './pickupContactStore';
 import { floatArchive } from './floatArchive';
 import { recapFloat } from './floatRecap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { readNotificationAccess } from './notificationPermissions';
+import { canDeliverNotification } from './notificationAccess';
 import type { PositionFix } from '@eddy/geo';
 import type { FloatSession } from './floatSession';
 import { createFloatSessionStore, type BeginResult } from './floatSessionStoreCore';
@@ -56,8 +59,7 @@ function stopRecording(sessionId: string | null): void {
  * screen says when notifications are off.
  */
 async function deliverReminders(due: DueReminder[]): Promise<string[]> {
-  const permission = await Notifications.getPermissionsAsync().catch(() => null);
-  if (!permission?.granted) return [];
+  if (!canDeliverNotification(await readNotificationAccess())) return [];
   const delivered: string[] = [];
   for (const reminder of due) {
     const { title, body } = reminderCopy(reminder);
@@ -132,8 +134,7 @@ async function autoEnd(sessionId: string): Promise<boolean> {
   if (!session || endedAt == null) return false;
   stopRecording(session.id);
   await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
-  const permission = await Notifications.getPermissionsAsync().catch(() => null);
-  if (permission?.granted) {
+  if (canDeliverNotification(await readNotificationAccess())) {
     await Notifications.scheduleNotificationAsync({
       content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
       trigger: null,
@@ -208,5 +209,6 @@ export async function discardFloat(): Promise<void> {
   stopRecording(null);
   await deleteAllFloatTracks();
   await store.discard();
+  await pickupContact.clear();
   void syncFloatActivity(null);
 }

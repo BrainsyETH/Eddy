@@ -7,10 +7,9 @@
 // plainly when notifications are off, because a reminder that silently never
 // arrives is worse than none.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { onForeground } from '@/lib/foreground';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { ReminderPermission } from './ReminderPermission';
 import { setFloatReminders } from '@/lib/floatSessionStore';
 import { indexRoute, type FloatSession } from '@/lib/floatSession';
 import {
@@ -26,7 +25,6 @@ import { FloatInfoTip } from './FloatInfoTip';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-type NotificationAccess = 'unknown' | 'granted' | 'ask' | 'settings';
 
 export function FloatReminders({ session }: { session: FloatSession }) {
   const { colors } = useTheme();
@@ -40,7 +38,6 @@ export function FloatReminders({ session }: { session: FloatSession }) {
     return built.ok ? reminderStops(session, built.index) : [];
   }, [session]);
   const stateOf = (id: string, waiting: string) => (fired.has(id) ? 'Sent.' : pending.has(id) ? 'Sending…' : waiting);
-  const access = useNotificationAccess();
   const hazardsOn = settings.hazards !== false;
   const seriousHazards = (session.route.hazards ?? []).filter(
     (hazard) => isRemindedHazard(hazard) && hazard.riverMile <= session.takeOut.riverMile,
@@ -60,16 +57,7 @@ export function FloatReminders({ session }: { session: FloatSession }) {
         <FloatInfoTip title="Float reminders" message={`Take-out reminders arrive about ${TAKE_OUT_LEAD_MILES} river miles ahead. Stop reminders arrive about ${STOP_LEAD_MILES} miles ahead. They work without cell service, using a confirmed river position, and are sent once per stop. A GPS gap can delay or prevent a reminder. Eddy also notifies you near the take-out.`} />
       </View>
 
-      {anyOn && access.state === 'ask' ? (
-        <Pressable onPress={access.request} style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]} accessibilityRole="button">
-          <Text style={[styles.noticeText, { color: colors.text }]}>Allow notifications so Eddy can remind you on the water.</Text>
-        </Pressable>
-      ) : null}
-      {anyOn && access.state === 'settings' ? (
-        <Pressable onPress={() => void Linking.openSettings()} style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]} accessibilityRole="button">
-          <Text style={[styles.noticeText, { color: colors.text }]}>Notifications are off for Eddy, so reminders can’t appear. Turn them on in Settings.</Text>
-        </Pressable>
-      ) : null}
+      <ReminderPermission enabled={anyOn} />
 
       <ReminderRow
         title="Take-out reminder"
@@ -119,26 +107,6 @@ function ReminderRow({ title, note, value, onChange }: { title: string; note: st
       <Switch value={value} onValueChange={onChange} accessibilityLabel={`Remind me: ${title}`} />
     </View>
   );
-}
-
-/** Whether a reminder can appear, and how to fix it if not. */
-function useNotificationAccess(): { state: NotificationAccess; request: () => void } {
-  const [state, setState] = useState<NotificationAccess>('unknown');
-  const read = useCallback(() => {
-    void Notifications.getPermissionsAsync()
-      .then((status) => setState(status.granted ? 'granted' : status.canAskAgain ? 'ask' : 'settings'))
-      .catch(() => setState('unknown'));
-  }, []);
-  useEffect(() => {
-    read();
-    return onForeground(read);
-  }, [read]);
-  const request = useCallback(() => {
-    void Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true } })
-      .then(read)
-      .catch(read);
-  }, [read]);
-  return { state, request };
 }
 
 const styles = StyleSheet.create({

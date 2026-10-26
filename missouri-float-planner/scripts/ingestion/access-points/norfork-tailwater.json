@@ -34,8 +34,11 @@
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://www.openstreetmap.org/node/4345184689",
       "https://www.recreation.gov/camping/campsites/70628",
-      "https://www.swl.usace.army.mil/Portals/50/docs/norforklake/nfparkmaps/Dam-Quarry.pdf"
-    ]
+      "https://www.swl.usace.army.mil/Portals/50/docs/norforklake/nfparkmaps/Dam-Quarry.pdf",
+      "https://github.com/BrainsyETH/Eddy/issues/1541"
+    ],
+    "is_float_endpoint": false,
+    "description": "Campground beside the Dam-Quarry boat ramp. Launch from the ramp."
   },
   {
     "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",

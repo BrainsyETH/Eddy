@@ -18,9 +18,22 @@ latest conditions with an explanation. Daily dates retain the publisher's day;
 labels and comparison alignment use the station zone. Missing coordinates use
 UTC explicitly, with a visible UTC note on native charts. An older web response
 without `timeZone` also uses UTC; deploy the web before distributing the build.
-Geographic timezone resolution is server-only (`tz-lookup`). A missing river
-threshold identity suppresses the chart ladder, not the page's ordinary river
-association, condition vocabulary, or navigation.
+Geographic timezone resolution is server-only (`geo-tz@8.1.10`, the since-1970
+boundaries); its data files are included in the server route traces. Detail and
+history both use the coordinates projected by `search_gauges`, with no application
+PostGIS decoder. New ordinary views use the current boundary data. A saved view
+keeps its validated IANA timezone even after catalog or boundary corrections;
+history accepts that timezone only with `calendar=station`. Dependency/data
+updates therefore do not invalidate existing links. Missing or ambiguous
+coordinates use UTC; lookup outages fail instead of being cached as UTC.
+
+New links carry both the river UUID (`river`) and a slug (`rslug`). Resolution
+uses the UUID first, then a unique matching slug among this gauge's linked
+rivers. Existing UUID-only v1 links remain valid. Imports must retain published
+UUIDs and slugs; this fallback cannot recover old UUID-only links after a
+destructive reseed. If neither identity resolves, never substitute another
+river's scale. A share with no threshold identity suppresses the chart ladder,
+not the page's ordinary river association, condition vocabulary, or navigation.
 
 The three value scales are `loaded` (all loaded values), `visible` (visible
 values including line intersections at viewport edges), and `full` (all values
@@ -37,8 +50,13 @@ context also reflect the source's current available data.
 An image request freezes the selection, loads coherent public history, and
 renders SVG through `next/og`. It contains no paid Eddy Read. The user previews
 the resulting PNG and shares those same bytes. Image preparation requires
-internet; link sharing does not wait for it. Render errors remain retryable and
-are never cached. The route has its own 60-render-per-minute IP limit and bounded
+internet; link sharing does not wait for it. Transient render/data failures return retryable 503 responses and are never
+cached. Missing saved station/history/river context returns a typed 422 for
+image attachments. Social metadata requests `preview=1` and receive a neutral
+"saved view unavailable" PNG, never a chart of replacement readings. Both
+unavailable responses are `no-store`. The linked page explains the problem
+and offers latest conditions. Station shares intentionally retain static
+per-gauge artwork; chart shares show the selected view. The route has its own 60-render-per-minute IP limit and bounded
 parameter size/window; it does not consume the public gauge-detail quota.
 Crawler user agents receive the same limit. A configured limiter outage still
 fails closed to bound rendering work. Noncanonical image queries redirect before
@@ -47,11 +65,27 @@ key. Successful images have five-minute CDN freshness and one-minute browser
 freshness, not immutable parameter-only caching. No new native sharing dependency
 is needed.
 
-The public API remains additive. History dispatch now explicitly sends `daily`
-when the route's existing `auto` decision selects daily data, for every caller;
-this agrees with the provider's existing selection. Typical calendar dates use
-UTC rather than server-local fields (equivalent on the UTC production runtime).
-Station-local daily request bounds remain opt-in through `calendar=station`.
+The image route deliberately bypasses `withX402Route`: share previews and
+attachments are a free public presentation of source readings, not a paid API
+product or an Eddy Read. Activating the payout address does not paywall images.
+This permits machine extraction from PNGs; that trade-off is accepted for
+shareability. Canonical URLs, caching and the independent fail-closed quota
+bound rendering work. Revisit this policy explicitly if the paid product is
+expanded to cover public visualizations.
+
+The extraction includes documented additive behavior, rather than being a
+move-only refactor: station timezone metadata, alternate ladder thresholds, and
+opt-in station calendar bounds. Ordinary history requests preserve their
+existing upstream `auto` dispatch, including boundary cases. Only station
+calendar mode fixes the resolution to `daily` when chosen, because translating
+calendar bounds can change provider age/span calculations. Typical calendar
+dates use explicit UTC fields (equivalent on the UTC production runtime); the
+handler retains the rationale. No schema migration is required.
+
+After #1580, web sharing lives in `GaugeHistoryChart`: desktop controls stay
+inline and mobile uses its expanded dialog. Dates, zoom, layers and scale live
+in the common component and survive presentation changes. Both platforms allow
+link sharing while image preparation is running.
 
 ## Delivery and activation
 

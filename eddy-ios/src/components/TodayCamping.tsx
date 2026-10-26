@@ -11,7 +11,7 @@ import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
-import { todayCampingDemand, todayPopularCamping, campingPulseInfo, campingPulseReading, campingPulseAccessibilityLabel } from '@/lib/campingDemand';
+import { todayCampingDemand, todayPopularCamping, campingPulseInfo, campingPulseReading, campingPulseAccessibilityLabel, campingPulseFcfsNote, campingPulseUpdated } from '@/lib/campingDemand';
 import { campingDate } from '@/lib/campingHeatmap';
 import { CampingDemandGauge } from './CampingDemandGauge';
 import { CampingDemandMeter } from './CampingDemandMeter';
@@ -47,6 +47,7 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
   const openCamping = () => router.push({ pathname: '/camping', params: { night: campingDate(now) } });
   const [infoOpen, setInfoOpen] = useState(false);
   const showInfo = () => setInfoOpen(true);
+  const updated = demand ? campingPulseUpdated(demand, now) : null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -73,7 +74,7 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
         ) : null}
       </View>
       {demand ? (
-        <CampingDemandGauge demand={demand} />
+        <CampingDemandGauge demand={demand} now={now} />
       ) : showDemand && loading ? (
         <ActivityIndicator
           style={styles.loading}
@@ -95,20 +96,27 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
               key={row.slug}
               onPress={() => router.push({ pathname: '/camping', params: { river: row.slug, night: row.demand.date } })}
               accessibilityRole="button"
-              accessibilityLabel={campingPulseAccessibilityLabel(row.demand, row.name)}
+              accessibilityLabel={campingPulseAccessibilityLabel(row.demand, row.name, now)}
               accessibilityHint="Opens campground availability on this river for tonight"
               style={styles.riverRow}
             >
-              <View style={[styles.riverContent, stackRiverReadings && styles.stacked]}>
-                <Text style={[styles.riverName, { color: colors.text }]}>{row.name}</Text>
-                <View style={[styles.riverReading, stackRiverReadings && styles.readingWide]}>
-                  <View style={styles.riverMeter}>
-                    <CampingDemandMeter demand={row.demand} />
+              <View style={styles.riverDetails}>
+                <View style={[styles.riverContent, stackRiverReadings && styles.stacked]}>
+                  <Text style={[styles.riverName, { color: colors.text }]}>{row.name}</Text>
+                  <View style={[styles.riverReading, stackRiverReadings && styles.readingWide]}>
+                    <View style={styles.riverMeter}>
+                      <CampingDemandMeter demand={row.demand} />
+                    </View>
+                    <Text style={[textStyles.caption, styles.readingLabel, { color: colors.text }]}>
+                      <Text style={styles.percent}>{campingPulseReading(row.demand)?.label}</Text> booked
+                    </Text>
                   </View>
-                  <Text style={[textStyles.caption, styles.readingLabel, { color: colors.text }]}>
-                    <Text style={styles.percent}>{campingPulseReading(row.demand)?.label}</Text> booked
-                  </Text>
                 </View>
+                {campingPulseFcfsNote(row.demand) ? (
+                  <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+                    {campingPulseFcfsNote(row.demand)}
+                  </Text>
+                ) : null}
               </View>
               <ControlIcon name="chevron-forward" size={14} color={colors.textSubtle} />
             </Pressable>
@@ -123,11 +131,16 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
           </Text>
         </Pressable>
       ) : null}
-      <Pressable onPress={openCamping} accessibilityRole="button" style={styles.action}>
-        <Text style={{ color: colors.interactive, fontFamily: fonts.semibold }}>
-          See all camping →
-        </Text>
-      </Pressable>
+      <View style={[styles.footer, stackRiverReadings && styles.stacked]}>
+        <Pressable onPress={openCamping} accessibilityRole="button" style={styles.action}>
+          <Text style={{ color: colors.interactive, fontFamily: fonts.semibold }}>
+            See all camping →
+          </Text>
+        </Pressable>
+        {updated ? (
+          <Text style={[textStyles.caption, styles.updated, { color: colors.textMuted }]}>{updated}</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -141,7 +154,8 @@ const styles = StyleSheet.create({
   loading: { paddingVertical: 24 },
   rivers: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8, paddingTop: 10 },
   riverRow: { minHeight: 44, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  riverContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  riverDetails: { flex: 1, gap: 4 },
+  riverContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   riverName: { fontFamily: fonts.medium, fontSize: 14, flexGrow: 1, flexShrink: 1 },
   riverReading: { width: 152, flexDirection: 'row', alignItems: 'center', gap: 8 },
   riverMeter: { width: 48 },
@@ -149,5 +163,7 @@ const styles = StyleSheet.create({
   percent: { fontFamily: fonts.monoMedium },
   stacked: { flexDirection: 'column', alignItems: 'stretch' },
   readingWide: { width: '100%' },
+  footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12 },
+  updated: { flexShrink: 1, marginLeft: 'auto', textAlign: 'right' },
   action: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

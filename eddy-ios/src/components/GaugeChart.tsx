@@ -135,6 +135,7 @@ interface Props {
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
   riverId?: string;
+  riverSlug?: string;
   initialShareState?: ChartShareState;
   /** Station identity remains visible when the page is behind the chart. */
   title?: string;
@@ -254,7 +255,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
    */
   const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(initialShareState?.unit ?? null);
 
-  const historyState = useGaugeHistory(siteId, days, customWindow, initialShareState && customWindow === initialShareState.loaded && initialShareState.statistic !== 'instantaneous' ? 'daily' : 'auto');
+  const historyState = useGaugeHistory(siteId, days, customWindow, initialShareState && customWindow === initialShareState.loaded && initialShareState.statistic !== 'instantaneous' ? 'daily' : 'auto', initialShareState && customWindow === initialShareState.loaded ? initialShareState.timeZone : undefined);
 
   // Fetched here so expansion and rotation keep the layer and its data.
   const lastYearEligible = lastYearAvailable(unitOverride ?? unit, resolveHistoryCapabilities(provider, historyCapabilities), days);
@@ -292,7 +293,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, riverId, initialShareState,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary, riverId, riverSlug, initialShareState,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -477,7 +478,7 @@ function GaugeChartView({
   const shareState = captureNativeChart({ siteId: siteId ?? '', provider, unit: drawnUnit, history,
     matchesRequest, comparisonPending: lastYearShown && !['ready', 'empty'].includes(lastYear.status),
     layers: [...(showTypical ? ['typical' as const] : []), ...(showMedian ? ['median' as const] : []), ...(lastYearShown ? ['lastYear' as const] : [])],
-    scale: scaleMode, domain, riverId: zones.length ? riverId : undefined });
+    scale: scaleMode, domain, riverId: zones.length ? riverId : undefined, riverSlug });
   const sharedNotice = initialShareState && customWindow === initialShareState.loaded && history ? resolutionNotice(initialShareState.statistic, chartStatisticForUnit(history.statistic, drawnUnit)) : null;
   const currentDomain = useRef(domain);
   useLayoutEffect(() => { currentDomain.current = domain; }, [domain]);

@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import localFont from "next/font/local";
 import '@fontsource-variable/fredoka';
 import { Providers } from "@/lib/providers";
@@ -10,6 +9,7 @@ import { SOCIAL_SAME_AS } from "@/constants/social";
 import { appBannerMetadata } from '@/lib/app-discovery';
 import { jsonLdString } from '@/lib/json-ld';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
+import { analyticsTrackingId } from '@/lib/analytics';
 
 import "./globals.css";
 
@@ -38,9 +38,7 @@ const geistHeading = localFont({
 
 const EDDY_FAVICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
-// Validate GA tracking ID format to prevent script injection via misconfigured env vars
-const rawGaId = process.env.NEXT_PUBLIC_GA_ID || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-const GA_TRACKING_ID = rawGaId && /^(G-[A-Z0-9]+|UA-\d+-\d+)$/.test(rawGaId) ? rawGaId : undefined;
+const GA_TRACKING_ID = analyticsTrackingId(process.env);
 
 // Tint the iOS/Android browser chrome (status bar, URL bar) the same dark
 // teal as the site header — without this the OS paints it with the light
@@ -113,29 +111,12 @@ export default function RootLayout({
             }),
           }}
         />
-        {GA_TRACKING_ID ? (
-          <>
-            <Script
-              async
-              strategy="afterInteractive"
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}
-            />
-            <Script id="ga4">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_TRACKING_ID}');
-              `}
-            </Script>
-          </>
-        ) : null}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${geistHeading.variable} antialiased`}
       >
         <Providers>
-          <AnalyticsListener />
+          <AnalyticsListener trackingId={GA_TRACKING_ID} />
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-md focus:bg-white focus:text-primary-800 focus:shadow-lg focus:outline focus:outline-2 focus:outline-primary-500"

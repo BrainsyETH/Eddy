@@ -99,6 +99,8 @@ android/
 !/eddy-ios/modules/eddy-live-activity/ios/EddyLiveActivityModule.swift
 !/eddy-ios/modules/eddy-live-activity/ios/FloatActivityAttributes.swift
 !/eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift
+!/eddy-ios/modules/eddy-live-activity/ios/SupplementaryWidgetData.swift
+!/eddy-ios/modules/eddy-live-activity/ios/ShortcutData.swift
 
 # Native float recorder (ADR 0014); admit only its handwritten native source.
 !/eddy-ios/modules/eddy-float-recorder/ios/

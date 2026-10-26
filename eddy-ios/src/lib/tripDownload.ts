@@ -101,10 +101,10 @@ export function tripDownloadState(expected: readonly string[], packs: readonly P
   const bytes = found.reduce((sum, pack) => sum + pack.completedResourceSize, 0);
   const complete = found.filter((pack) => pack.requiredResourceCount > 0 && pack.completedResourceCount >= pack.requiredResourceCount);
   if (found.length === expected.length && complete.length === expected.length) return { kind: 'ready', bytes };
-  const required = found.reduce((sum, pack) => sum + pack.requiredResourceCount, 0);
-  const done = found.reduce((sum, pack) => sum + Math.min(pack.completedResourceCount, pack.requiredResourceCount), 0);
-  // Chunks not started yet count as nothing done.
-  const fraction = required > 0 ? (done / required) * (found.length / expected.length) : 0;
+  // Queued chunks exist but have zero required resources until loading starts.
+  // Count those as 0%, rather than letting the first finished chunk show 100%.
+  const fraction = found.reduce((sum, pack) => sum + (pack.requiredResourceCount > 0
+    ? Math.min(pack.completedResourceCount / pack.requiredResourceCount, 1) : 0), 0) / expected.length;
   return { kind: 'partial', fraction, bytes };
 }
 
@@ -204,7 +204,7 @@ export function offlineBadge(readiness: TripReadiness | null, hasPackage: boolea
     case 'ready':
       return 'Ready offline';
     case 'tiles-saved':
-      return 'Map saved';
+      return 'Download incomplete';
     case 'partial':
       return 'Map partly saved';
     case 'outdated':

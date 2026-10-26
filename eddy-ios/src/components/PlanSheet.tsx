@@ -20,6 +20,7 @@
 // opens a saved float: a shared plan that read differently from the plan that
 // produced it would be a plan nobody trusts.
 
+import { floatEntryAction } from '@/lib/floatEntry';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useIsFocused, useRouter } from 'expo-router';
 import {
@@ -42,12 +43,14 @@ import { selectionFeedback, successFeedback } from '@/lib/haptics';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
-import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { EddySymbol } from '@/components/EddySymbol';
+import { PlanRouteFields } from '@/components/PlanRouteFields';
 import { PlanAccessPicker } from '@/components/PlanAccessPicker';
 import { Otter } from '@/components/Otter';
+import { SavedTripDownload } from '@/float/SavedTripDownload';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
-import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { matchesPlan, useSavedFloats } from '@/hooks/useSavedFloats';
 import type { Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
@@ -140,7 +143,7 @@ export function PlanSheet({
   const presentDetail = useCallback(() => {
     const destination = detailNavigation.dismissed();
     if (!destination) return;
-    if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
+    if (!visible || !focused || (!resultReady && destination.pathname !== '/float-mode')) { detailNavigation.reset(); return; }
     if (destination.pathname === '/') {
       if (onViewMap) onViewMap();
       else {
@@ -170,6 +173,7 @@ export function PlanSheet({
     if (Platform.OS !== 'ios' && !visible) onClosed?.();
   }, [visible, onClosed]);
   const saved = plan ? isSaved(plan) : false;
+  const keptPlan = plan ? floats.find(f => matchesPlan(f, plan)) : undefined;
   const actionState = plan ? actions.stateFor(plan) : null;
   const saving = actionState?.saving ?? false;
   const sharing = actions.isSharing();
@@ -199,12 +203,18 @@ export function PlanSheet({
   }, [actions, plan, visible, resultReady, savedFloatsReady, isSaved, forgetPlan, remember]);
 
   // Every route opens readiness in this tab, or resumes the active recorder.
-  const canStart = features.floatMode && resultReady && plan != null;
+  const entry = floatEntryAction(!!activeFloat, !!features.floatMode, resultReady && plan != null);
   const onStart = useCallback(() => {
-    if (!plan || !visible || !resultReady || !focused) return;
+    if (!visible || !focused) return;
+    if (entry === 'return') {
+      actions.cancelShare();
+      detailNavigation.open({ pathname: '/float-mode' });
+      return;
+    }
+    if (entry !== 'start' || !plan || !resultReady) return;
     const kept = floats.find((f) => f.riverSlug === plan.river.slug && f.putInId === plan.putIn.id && f.takeOutId === plan.takeOut.id);
     actions.cancelShare();
-    detailNavigation.open(activeFloat ? { pathname: '/float-mode' } : {
+    detailNavigation.open({
       pathname: '/float-start',
       params: {
         riverSlug: plan.river.slug,
@@ -214,7 +224,7 @@ export function PlanSheet({
         ...(kept ? { shortCode: kept.shortCode } : {}),
       },
     });
-  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused, activeFloat]);
+  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused, entry]);
 
   const heading = (
     <View style={styles.headText}>
@@ -223,7 +233,9 @@ export function PlanSheet({
     </View>
   );
   const breadcrumb = river ? (
-    <Breadcrumb state={state} riverName={river.name} onChooseRiver={onClearRiver} stacked={stacked} />
+    <PlanRouteFields state={state} riverName={river.name} onChooseRiver={onClearRiver}
+      onChooseStep={state.goToStep} stacked={stacked}
+      style={[styles.breadcrumb, stacked && styles.breadcrumbStacked, { borderBottomColor: colors.border }]} />
   ) : null;
   // Large titles/names must scroll too: three full-size rows fixed above two
   // persistent actions would leave no result viewport on a small iPhone.
@@ -245,7 +257,7 @@ export function PlanSheet({
       }}
     >
       <SafeAreaProvider>
-      <SafeAreaView edges={resultReady ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
+      <SafeAreaView edges={resultReady || entry === 'return' ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
         <View style={[styles.head, stacked && styles.compactHead]}>
           {!stacked ? heading : null}
           <Pressable onPress={close} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close planner">
@@ -342,7 +354,15 @@ export function PlanSheet({
             onOpenDetail={openDetail}
             accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
             header={contentHeader}
-            actions={
+            actions={<>
+              {features.floatMode && keptPlan ? <SavedTripDownload key={keptPlan.shortCode} riverSlug={plan.river.slug} shortCode={keptPlan.shortCode}
+                putInId={plan.putIn.id} takeOutId={plan.takeOut.id} /> : features.floatMode ? <View>
+                <Text style={[styles.subtitle, { color: colors.textMuted }]}>Save this route to download its offline map.</Text>
+                <Pressable accessibilityRole="button" disabled={saving || !savedFloatsReady} onPress={() => void onToggleSave()}
+                  style={styles.secondaryButton}>
+                  <Text style={[styles.link, { color: colors.interactive }]}>{saving ? 'Saving…' : 'Save route for offline'}</Text>
+                </Pressable>
+              </View> : null}
               <Pressable
                 onPress={state.reset}
                 style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
@@ -350,10 +370,10 @@ export function PlanSheet({
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>Plan a different stretch</Text>
               </Pressable>
-            }
+            </>}
           />
         )}
-        {resultReady ? (
+        {resultReady || entry === 'return' ? (
           <SafeAreaView edges={['bottom']} style={[styles.actionFooter, { backgroundColor: colors.chrome, borderTopColor: colors.border }]}>
             {actionErrors.length > 0 ? (
               <ScrollView style={styles.actionErrorArea} contentContainerStyle={styles.actionErrorContent}>
@@ -362,7 +382,7 @@ export function PlanSheet({
                 ))}
               </ScrollView>
             ) : null}
-            {canStart ? (
+            {entry ? (
               <Pressable
                 onPress={onStart}
                 style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
@@ -370,10 +390,10 @@ export function PlanSheet({
                 accessibilityHint={activeFloat ? 'Returns to your float in progress' : 'Review this route before starting tracking'}
               >
                 <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Resume float' : 'Float this route'}</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
               </Pressable>
             ) : null}
-            <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
+            {resultReady ? <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
               <Pressable
                 onPress={() => void onToggleSave()}
                 disabled={saving || !savedFloatsReady}
@@ -409,129 +429,12 @@ export function PlanSheet({
                 )}
                 <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{sharing ? 'Sharing…' : 'Share'}</Text>
               </Pressable>
-            </View>
+            </View> : null}
           </SafeAreaView>
         ) : null}
       </SafeAreaView>
       </SafeAreaProvider>
     </Modal>
-  );
-}
-
-/**
- * Where you are in the flow, and the way back.
- *
- * Every completed step is a button. Changing the put-in three taps in is the
- * single most common correction in a planner, and making it a back-out-and-
- * start-again is what makes people give up on one.
- */
-function Breadcrumb({
-  state,
-  riverName,
-  onChooseRiver,
-  stacked,
-}: {
-  state: FloatPlanState;
-  riverName: string;
-  onChooseRiver: () => void;
-  stacked: boolean;
-}) {
-  const { colors } = useTheme();
-  /**
-   * Each step wears Eddy's own mark for the thing it is asking about.
-   *
-   * A river is Eddy's river; both ends of the float are Eddy's access-point
-   * mark, and they are deliberately THE SAME mark — a put-in and a take-out are
-   * one kind of place, and inventing two drawings would claim a distinction the
-   * data does not make. What separates them is the crumb's own text, which is
-   * either the step's name or the place chosen for it.
-   */
-  const crumbs: {
-    step: 'river' | 'put-in' | 'take-out';
-    label: string;
-    symbol: EddySymbolName;
-    value?: string;
-  }[] = [
-    { step: 'river', label: 'River', symbol: 'river', value: riverName },
-    { step: 'put-in', label: 'Put-in', symbol: 'accessPoint', value: state.putIn?.name },
-    { step: 'take-out', label: 'Take-out', symbol: 'accessPoint', value: state.takeOut?.name },
-  ];
-
-  return (
-    <View style={[styles.breadcrumb, stacked && styles.breadcrumbStacked, { borderBottomColor: colors.border }]}>
-      {crumbs.map((crumb, index) => {
-        const current = crumb.step !== 'river' && state.step === crumb.step;
-        // A step is reachable once the one before it has an answer. Nothing
-        // below can be tapped into out of order, so the machine cannot be put
-        // into a state where a take-out exists without a put-in.
-        const reachable = index < 2 || Boolean(crumbs[index - 1].value);
-        // Answered AND not the step being edited. A crumb you are standing in
-        // is not done, however much data it holds.
-        const done = Boolean(crumb.value) && !current;
-        const ink = current
-          ? colors.interactive
-          : reachable
-            ? colors.text
-            : colors.textSubtle;
-        return (
-          <Pressable
-            key={crumb.step}
-            disabled={!reachable}
-            onPress={() =>
-              crumb.step === 'river' ? onChooseRiver() : state.goToStep(crumb.step)
-            }
-            /* ── A chip, not three columns of grey text ──────────────
-               Changing the put-in is the single most common correction anybody
-               makes in this flow, and the control for it was three stacked
-               12pt labels whose only signal that they could be tapped was a
-               colour change — which is to say, no signal at all for anyone not
-               comparing two of them side by side, and none whatsoever for
-               anyone who cannot distinguish the two greys.
-
-               A bordered chip reads as a control at a glance.
-
-               ── The mark took the checkmark's slot ──────────────────
-               A checkmark used to lead an answered crumb, and it cannot share
-               the leading position with the symbol: a third of a phone's width
-               minus a 15pt mark, a 13pt tick and two gaps leaves about eight
-               characters for a place called Meramec State Park. The state is
-               still carried without colour — an answered crumb reads the place
-               and an unanswered one reads the step, which is a stronger signal
-               than a tick was, and its mark is dimmed until it has an answer. */
-            style={({ pressed }) => [
-              styles.crumb,
-              stacked && styles.crumbStacked,
-              {
-                borderColor: current
-                  ? colors.interactive
-                  : reachable
-                    ? colors.border
-                    : 'transparent',
-                backgroundColor: current ? colors.selectionBg : 'transparent',
-                opacity: pressed && reachable ? 0.6 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${crumb.label}${crumb.value ? `: ${crumb.value}` : ', not chosen yet'}`}
-            accessibilityHint={reachable ? `Change ${crumb.label.toLowerCase()}` : undefined}
-            accessibilityState={{ selected: current, disabled: !reachable }}
-          >
-            <EddySymbol
-              name={crumb.symbol}
-              size={15}
-              style={{ opacity: done || current ? 1 : 0.45 }}
-            />
-            <View style={styles.crumbText}>
-              <Text style={[styles.crumbLabel, { color: ink }]}>{crumb.label}</Text>
-              <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={stacked ? undefined : 2}>
-                {crumb.value ?? (crumb.step === 'put-in' ? 'Where you launch' : 'Where you finish')}
-              </Text>
-            </View>
-            {stacked && reachable ? <ControlIcon name="chevron-forward" size={17} color={ink} /> : null}
-          </Pressable>
-        );
-      })}
-    </View>
   );
 }
 
@@ -655,23 +558,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   breadcrumbStacked: { flexDirection: 'column', paddingHorizontal: 0, borderBottomWidth: 0 },
-  crumbStacked: { flex: 0, justifyContent: 'flex-start', paddingHorizontal: 12, gap: 12 },
-  crumb: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    minHeight: 60,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  crumbText: { flex: 1, minWidth: 0, gap: 3 },
-  crumbLabel: { ...t.sm, fontFamily: fonts.semibold },
-  crumbValue: { ...t.sm, fontFamily: fonts.body },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
   optionBody: { flex: 1, minWidth: 0 },

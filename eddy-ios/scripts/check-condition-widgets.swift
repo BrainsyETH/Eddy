@@ -1,5 +1,6 @@
 // Foundation contract checks for a Mac with Xcode/Swift. From eddy-ios:
 // swiftc modules/eddy-live-activity/ios/ConditionWidgetData.swift \
+//   modules/eddy-live-activity/ios/SupplementaryWidgetData.swift \
 //   scripts/check-condition-widgets.swift -o /tmp/eddy-widget-check
 // /tmp/eddy-widget-check modules/eddy-live-activity/widget/ConditionsPreview.json
 // This does not replace compiling the WidgetKit extension or device checks.
@@ -12,6 +13,60 @@ import Foundation
     let now = Date(timeIntervalSince1970: 2_000_000_000)
     let shifted = preview.rebased(to: now)
     let choice = shifted.choices[0]
+    let favorites = Array(shifted.choices.prefix(3))
+    precondition(widgetFavoriteChoices(selected: [nil, nil, nil], favorites: favorites) == favorites)
+    precondition(widgetFavoriteChoices(selected: [nil, favorites[0], nil], favorites: favorites).map(\.id)
+      == [favorites[1].id, favorites[0].id, favorites[2].id])
+    precondition(widgetFavoriteChoices(selected: [favorites[0], favorites[0], nil], favorites: []).count == 1)
+    precondition(widgetFavoriteChoices(selected: [favorites[0], nil, nil], favorites: []).first == favorites[0])
+    precondition(widgetShortTrend("Holding steady") == "Steady")
+    precondition(widgetShortTrend("Rising slowly") == "Slow rise")
+    var namedChoice = choice
+    namedChoice.riverName = "Current River"
+    namedChoice.stationName = "Current River at Akers, MO"
+    precondition(widgetStationLabel(namedChoice) == "Akers, MO")
+    namedChoice.stationName = "Current River near Van Buren"
+    precondition(widgetStationLabel(namedChoice) == "Van Buren")
+    namedChoice.stationName = "Current Riverbend"
+    precondition(widgetStationLabel(namedChoice) == "Current Riverbend")
+    precondition(widgetWeatherSymbol("Partly cloudy") == "cloud.sun.fill")
+    precondition(widgetWeatherSymbol("Thunderstorms") == "cloud.bolt.rain.fill")
+    precondition(widgetWeatherSymbol("Unknown") == "thermometer.medium")
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "America/Chicago")
+    formatter.dateFormat = "yyyy-MM-dd"
+    let day = formatter.string(from: now)
+    let damMoment = WidgetDamMoment(date: now.timeIntervalSince1970 * 1000,
+      status: "Generating now", turbineCfs: 6600, observedAt: now.timeIntervalSince1970 * 1000,
+      current: true, scheduleSummary: "Stops at 6 PM", scheduleCurrent: true, scheduleCheckedAt: nil,
+      generationKind: "generating", scheduleDate: day, scheduleHour: 13)
+    let schedule = WidgetDamScheduleDay(date: day, hours: (1...24).map {
+      WidgetDamScheduleHour(hourEnding: $0, label: "Hour \($0)", megawatts: $0 == 1 ? nil : 100)
+    })
+    var packet = WidgetDamPacket(version: 1, id: "example", name: "Example", entries: [damMoment], scheduleDays: [schedule])
+    precondition(packet.todaySchedule(at: now)?.hours[0].megawatts == nil)
+    precondition(packet.todaySchedule(at: now)?.peak == 100)
+    precondition(packet.todaySchedule(at: now.addingTimeInterval(86_400)) == nil)
+    packet.entries[0].scheduleCurrent = false
+    precondition(packet.todaySchedule(at: now) == nil)
+    packet.entries[0].scheduleCurrent = true
+    packet.scheduleDays?[0].hours[0].megawatts = -1
+    precondition(packet.todaySchedule(at: now) == nil)
+    // Existing v1 API packets and cache records still decode without new fields.
+    let legacyJSON = """
+      {"version":1,"id":"example","name":"Example","entries":[{"date":1,"status":"Older reading","turbineCfs":6600,"current":false,"scheduleSummary":"Check schedule","scheduleCurrent":false}]}
+      """
+    let legacy = try JSONDecoder().decode(WidgetDamPacket.self, from: Data(legacyJSON.utf8))
+    precondition(legacy.scheduleDays == nil && legacy.entries[0].generationKind == nil)
+    precondition(legacy.todaySchedule(at: now) == nil)
+    let forecast = WidgetForecastCache(retrievedAt: now.timeIntervalSince1970 * 1000,
+      response: WidgetForecastResponse(river: "current", location: "Akers", forecast: [
+        WidgetForecastDay(date: formatter.string(from: now), tempHigh: 74, tempLow: 51, condition: "Clear", precipitation: 20)
+      ]))
+    precondition(forecast.today(at: now)?.tempHigh == 74)
+    precondition(forecast.today(at: now.addingTimeInterval(10_800)) == nil)
+    precondition(forecast.today(at: now.addingTimeInterval(86_400)) == nil)
     var snapshot = shifted.stations[choice.siteId]!.snapshot!
     precondition(snapshot.isCurrent(at: now))
     precondition(snapshot.observedAt == now.timeIntervalSince1970 * 1000 - 600_000)

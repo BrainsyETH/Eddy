@@ -19,6 +19,7 @@ export const DETAIL_TITLES: Record<string, string> = {
   // Settings is no longer a tab: Today and Favorites push it from their
   // account button, so it is a shared detail like the rest.
   profile: 'Settings',
+  'saved-place': 'Saved place',
   // Warm starts stay in their originating tab; cold links belong to Floats.
   'float-start': 'Ready to float',
   'find-float': 'Find a Route',
@@ -30,6 +31,7 @@ export const DETAIL_TITLES: Record<string, string> = {
 
 // Cold links have no originating tab. Match the destination's place in the app.
 const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
+  'saved-place': 'favorites',
   floats: 'floats',
   'float/[shortCode]': 'floats',
   'favorite-floats': 'floats',

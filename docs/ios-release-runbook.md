@@ -2,8 +2,8 @@
 
 ## Current release
 
-- **Release in progress:** 1.4 (`eddy-ios/app.json` is `1.4.0`, bumped
-  2026-10-06)
+- **Release in progress:** 1.5 (`eddy-ios/app.json` is `1.5.0`, repository
+  version checked 2026-10-26; this does not confirm a submitted or live build)
 - **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
@@ -16,8 +16,9 @@
 `app.json` version above stops matching the real one, so a version bump has
 to touch this section. It cannot check the store line; that one is on you.
 
-See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the current
-submission verdict and release order. The shipped-build baseline is unconfirmed.
+See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the last recorded
+submission assessment and release order; it does not verify 1.5. The shipped-build
+baseline is unconfirmed.
 The 1.2 report's gates below stay unticked until evidence closes them; a later
 version number does not close them. The 1.4, River Mode, and history sections
 below remain the device checklist.
@@ -263,7 +264,7 @@ are pending checks, not evidence of a device pass.
 - [ ] **Unified Ready to float:** from Today, Map, Floats, Favorites and Alerts,
       open a plan and a fresh Start a Float. Confirm the same editable River,
       From, Take-out and Vessel, photo rows, labelled distances, moving-time copy,
-      offline section and permission card. Edit while an estimate/download is
+      offline section and permission card. Edit while an estimate is
       running; an old result must not appear for the edited stretch. Check large
       text, GPS timeout and permission changes in Settings.
 - [ ] **Ready vessel menu:** tap the compact Vessel row, see the current
@@ -277,8 +278,13 @@ are pending checks, not evidence of a device pass.
       open Start a Float and see Current location populate without another tap
       or permission-card flash. Leave Ready open for over two minutes and verify
       GPS refreshes; repeat after a timeout and after returning from Settings.
-      With no river selected, tap Take-out: see river search immediately, choose
-      a river, then its take-out in the same sheet. With a river selected, open
+      With no river selected, see river search and choices directly on Ready;
+      choose a river in one tap, then its take-out. Improve a poor GPS fix and
+      verify detection retries without a tap. After its first match, wait for
+      later fixes near a confluence: the river and endpoints must stay put.
+      Cancel an untouched picker and verify detection resumes. Type in river
+      search (then clear it or cancel), or make a selection: late detection must
+      not replace the draft or hide the search list. With a river selected, open
       take-outs directly. Change river inside that sheet and close: the previous
       route and download remain. Search with the keyboard open and select in
       one tap. Check light/dark, large text, VoiceOver, Reduce Motion and that
@@ -304,11 +310,46 @@ are pending checks, not evidence of a device pass.
       closest mapped river point: the recap must not claim Buffalo City as
       the launch. Waiting at the actual launch must not trigger away ending.
 - [ ] **One recording presentation:** start from each tab; close, switch tabs,
-      and Resume. Repeat Resume taps and a reminder deep link. Confirm one
+      and Return to float. Repeat Return to float taps and a reminder deep link. Confirm one
       River Mode/map, recording continues when closed, keep-awake releases,
       options return correctly, and manual/automatic ending shows one recap.
       Closing returns to the page underneath; a cold recording link returns to
       Floats. A standalone planner must not leave a blank page behind.
+- [ ] **Options sheet and recenter:** open Options and Live Activity repeatedly
+      during River Mode, expand/collapse the sheet, and dismiss it. Verify content
+      in light/dark and large text on a physical iPhone. Recenter hides while
+      following; a pan or Show route makes it available again.
+- [ ] **Planner offline handoff:** Build a Route retains river, vessel and any
+      named endpoints. A current-location start retains take-out and asks for
+      put-in. Save and download there; return to Ready with the unchanged saved
+      route and see Offline map ready only after complete tile/style verification.
+      The planner requires Save before Download; verify returning to Ready finds
+      that saved stretch, including after a relaunch, and that changing an end
+      does not borrow its ready status.
+      **Use a new iOS binary containing `withSerialMapboxOffline` (not an OTA).**
+      Download a multi-chunk route and a second route while the first runs:
+      only one chunk's tile/style load may be active. Double-tap Download,
+      interrupt/retry, remove queued work, relaunch and test in airplane mode.
+      Force a style failure after tiles reach 100% and verify it is reported;
+      completion must wait for both loads, and retries must not overlap them.
+      If “group load with same identifier” recurs, record exact native wording,
+      build/runtime version, create vs resume, chunk counts and style status from
+      diagnostics. Confirm completed state clears old errors; do not treat the
+      byte count alone as success or unique disk usage.
+      A missing verifier or failed check must show an explanation, not a
+      finishing spinner. A slow check must end within 20 seconds; the finishing
+      indicator must end within 30 seconds. Check again must not start native
+      downloads. Return from Storage and foreground Eddy to recheck completion;
+      Storage must label partial/unconfirmed maps separately from Ready offline.
+- [ ] **Backup and sharing recovery:** reproduce Sync now on an affected account;
+      correlate client method/status and server `[float-archive]` stage/code.
+      Apply the reviewed account-read grant migration only with authorization;
+      verify `service_role` can read `auth.users.id`/`is_anonymous` while client
+      roles and unrelated account columns remain restricted.
+      Confirm pending floats become backed up and restore on another installation.
+      Sharing errors stay inline; failed opt-in stays off, failed opt-out stays
+      locally off and retries. Verify account-linked summary disclosure, raw GPS
+      staying local, and backups continuing independently of optional sharing.
 - [ ] **Historical recaps:** open last month's float from History, including
       while a different float is active. Keep the tab bar and ordinary Back;
       return to the same History list. Resume the active float from another
@@ -320,8 +361,8 @@ are pending checks, not evidence of a device pass.
       and backup pending (no permanent refusal or lost note). Upgrade the API,
       sync, and restore on a clean installation: launch fields remain null and
       the descriptive note survives. Old recaps retain their original names.
-- [ ] **Unfinished offline setup:** download a location-start route, leave
-      Ready, clear ordinary saved river data, quit Eddy, enable airplane mode,
+- [ ] **Legacy unfinished offline setup:** use a location-start package saved
+      by the earlier app, clear ordinary saved river data, quit Eddy, enable airplane mode,
       and reopen Start a Float. Confirm the downloaded river, take-out and boat
       recover. With fresh GPS at that launch, its own download is recognized;
       without GPS, show the reason and never use the saved position as a fix.
@@ -1203,8 +1244,9 @@ require a new binary; do not deliver the native changes as an OTA update.
       older server must still decode the full response.
 - [ ] Run `expo prebuild --platform ios --no-install` and
       `node scripts/check-float-activity.cjs` from `eddy-ios`, then compile/archive
-      both targets in Xcode or EAS. Inspect the archive for all three widget
-      bundle members, both otter assets, `ConditionsPreview.json`, and the
+      both targets in Xcode or EAS. Inspect the archive for all five bundle
+      members (four condition widgets and the Live Activity), both otter assets,
+      `DamMark`/`RiverMark`, `ConditionsPreview.json`, and the
       extension privacy manifest. Run the Mac Foundation contract checks in
       [condition-widgets.md](condition-widgets.md#build-and-acceptance).
       Confirm `ConditionWidgetData.swift` compiles in BOTH the Expo native
@@ -1219,13 +1261,40 @@ require a new binary; do not deliver the native changes as an OTA update.
 - [ ] In Alerts → Mine, confirm widget discovery appears once on a supported
       iOS binary for signed-in and signed-out users, with no permission prompt.
       Dismiss the invitation and confirm it becomes a compact, always-reopenable
-      Home Screen widgets row across app restarts. Verify old binaries without
+      River Widgets row across app restarts. Verify old binaries without
       widget support and Expo Go do not advertise a widget they cannot add.
       Open the setup guide and switch between River level (small, Edit Widget
-      station picker) and Your rivers (medium, first three starred rivers/gauges).
+      station picker), Your rivers (medium, three station pickers), Dam generation
+      and Daily river report. Old binaries must retain the original two-widget
+      guide and automatic-Favorites instructions.
       Check Apple Home Screen steps, illustrative sample-data labeling,
       non-notification/freshness copy, and VoiceOver, large text, light/dark,
       sheet swipe dismissal and scrolling on a small phone.
+- [ ] Compile `SupplementaryWidgetData.swift` in both host and extension, and
+      `EddyReportWidgets.swift` in the extension. Verify `widgetLayoutVersion()`
+      returns 3 and all four widgets appear. Deploy the additive dam `?widget=1`
+      API before distributing the binary; old API responses must remain unavailable.
+- [ ] Upgrade a device with an existing static Your rivers widget. Confirm it
+      keeps Favorites defaults and now offers Edit Widget with three pickers.
+      Check explicit choices, cleared slots, duplicates, unstarred choices and
+      independent configurations on two medium widgets. Check small-widget
+      “Steady”/“Slow rise” labels and one large CFS or FT reading, matching the
+      river's rating unit. Check six-digit CFS, negative/decimal feet and long
+      station names; no second unit should appear or crowd the reading.
+- [ ] Verify the dam's 24 posted-MW bars, current-hour pointer and Central-time
+      axis against its detail schedule, including zero and missing hours,
+      a late-night phone in another timezone, Central midnight and DST.
+      Stale schedules must stop drawing and yesterday must never become today.
+      Confirm Daily River Report shows its title/river/condition once, uses the
+      river artwork and weather icons, and preserves flood warnings and gauge
+      observation time. Inspect all three layouts on small phones and at xxLarge
+      text in light, dark and tinted appearances. These are native visual gates.
+- [ ] Add/edit Dam generation and Daily river report. Check compact and large
+      text, light/dark/tinted, VoiceOver, gallery sample labels, no selection,
+      cold/warm deep links, offline cache and 404 removal. Exercise two-hour
+      observation expiry, 90-minute schedule expiry and Central midnight/three-hour
+      forecast expiry without network refresh. Missing turbine flow must not say
+      generation is off; a failed forecast must not hide a valid gauge reading.
 - [ ] On a physical iPhone, add/edit River level, add Your rivers, and verify
       light, dark, tinted Home Screen, smallest supported screen, large text,
       and VoiceOver. Names, units, status and observation age must remain legible.

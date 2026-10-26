@@ -186,7 +186,10 @@ export default function GaugeDetailScreen() {
     alertId?: string;
     alertSource?: string;
   }>();
-  const candidateShareState = useMemo(() => typeof chart === 'string' ? parseChartShare('usgs', siteId, new URLSearchParams(chart)) : null, [chart, siteId]);
+  const candidateShareState = useMemo(
+    () => typeof chart === 'string' ? parseChartShare('usgs', siteId, new URLSearchParams(chart)) : null,
+    [chart, siteId],
+  );
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
@@ -308,8 +311,14 @@ export default function GaugeDetailScreen() {
   // it — so `find` returned whichever row the API happened to list first, and
   // this screen could name a different river than the map did in the same
   // session. See @eddy/conditions/primary-river-link.
-  const initialShareState = candidateShareState && (!gauge?.timeZone || gauge.timeZone === candidateShareState.timeZone) && (!candidateShareState.riverId || (gauge && thresholdsForUnit(gauge.thresholds?.find(r => r.riverId === candidateShareState.riverId), candidateShareState.unit))) ? candidateShareState : null;
-  const link = chartSharePageRiver(gauge?.thresholds, initialShareState?.riverId);
+  const sharedRiver = candidateShareState && gauge
+    ? chartSharePageRiver(gauge.thresholds, candidateShareState.riverId, candidateShareState.riverSlug)
+    : null;
+  const sharedContextAvailable = gauge?.provider === 'usgs' && candidateShareState && (
+    !candidateShareState.riverId || thresholdsForUnit(sharedRiver, candidateShareState.unit)
+  );
+  const initialShareState = sharedContextAvailable ? candidateShareState : null;
+  const link = chartSharePageRiver(gauge?.thresholds, initialShareState?.riverId, initialShareState?.riverSlug);
   const rated = Boolean(link && hasLadder(link));
 
   /**
@@ -758,8 +767,10 @@ export default function GaugeDetailScreen() {
         <View style={styles.inset}>
           {(shareUnavailable || (chart && !initialShareState)) && <Text style={{ color: colors.textMuted }}>This chart link could not be restored. Showing the station’s latest conditions.</Text>}
           <GaugeChart
+            key={`${gauge.siteId}:${chart ?? ''}:${initialShareState ? 'shared' : 'latest'}`}
             initialShareState={initialShareState ?? undefined}
             riverId={link?.riverId}
+            riverSlug={link?.riverSlug ?? undefined}
             siteId={gauge.siteId}
             title={gauge.name}
             recentSummary={!rated ? peakLine : null}

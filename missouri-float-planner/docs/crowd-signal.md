@@ -14,16 +14,19 @@ Owner decisions (September 29–30, 2026):
 `eddy-ios/src/components/TodayCamping.tsx` uses the **Camping tonight** heading,
 campground symbol and “See all camping” link. Its compact, left-aligned summary has:
 
-- An availability outcome: “Plenty of sites open,” “Sites still available,”
-  “Most sites booked,” “Few sites left,” or “Tracked sites fully booked”
-- The measured sample, for example “11% of tracked campsites booked”
+- A single capacity headline, for example “At 53% capacity.” Capacity refers to
+  booked sites in the observed reservable inventory; the legend and VoiceOver
+  retain the sample and coverage explanation. No second percentage sentence.
 - A rounded 0–100% meter filled to the actual booked percentage, with ticks at
   30%, 60% and 85%. Its entire fill changes with availability: green below 30%
   booked, yellow at 30–under 60%, orange at 60–under 85%, red at 85% and above.
   Both regional and river meters use the same colors. Theme-specific shades
   maintain at least 3:1 contrast against the pale track, including yellow.
-- “Checked yesterday” at normal text contrast when applicable; older readings
-  also get an alert icon. A failed refresh retains its retry action and alert icon.
+- “Updated N hours ago” in small text at the bottom right of the card, beside
+  “See all camping.” Use the oldest counted observation, not the overview fetch
+  time; under an hour reads “Updated less than 1 hour ago.” The footer wraps on
+  narrow screens and at large text sizes. A failed refresh retains its retry
+  action and alert icon.
 
 Up to five popular rivers follow, with a river name, equal-length mini meter and
 “N% booked.” All text uses consistent theme colors; bar length handles comparison.
@@ -33,7 +36,9 @@ never changes with demand. Other covered rivers can fill remaining slots in
 alphabetical order. Existing per-river coverage gates run before the five-row
 limit: missing, expired, undersized and unsupported readings are omitted entirely.
 Fully booked rivers remain useful and are included when their reading passes the
-gates. Show fewer rows when fewer qualify, and hide the list and heading if none do.
+gates. A river at exactly 100% booked adds “FCFS sites may be available” in small
+text beneath its reading; VoiceOver spells out first-come, first-served. Show
+fewer rows when fewer qualify, and hide the list and heading if none do.
 Keep separate river rows even when every river is Quiet. Favorites do not control
 this list. There is no weekend lookahead: this card always represents tonight.
 
@@ -41,8 +46,9 @@ The former band pills and ordinal Quiet → Packed gauge are removed. All meters
 now use a true percentage axis, including zero and 100%; unknown readings show
 “Not enough data” and the reason, without a misleading empty bar. Percentage labels
 round for readability, but use “<1%” and “>99%” instead of rounding partial bookings
-to zero or full. Partial coverage at 100% says “Checked sites fully booked,” never
-Packed, and the detail names checked rather than tracked campsites.
+to zero or full. Partial coverage at 100% still uses the capacity headline, but
+never receives the Packed band; the legend and VoiceOver identify checked rather
+than fully tracked inventory.
 
 The regional summary is read-only. The footer opens `/camping` with tonight's date;
 each river row also applies its river filter. The date carries into campground
@@ -127,10 +133,11 @@ Only the Quiet cutoff is fixed. Validate 60% and 85% against real weekends.
 the cached horizon's start. `useCampingOverview` advances the clock every minute
 and refreshes on foreground. Missing tonight never falls back to a later night.
 
-The 72-hour limit expires observations; it does not make them current. “Checked
-today / yesterday / earlier” uses the Chicago date of the oldest counted reading.
-Older readings are labeled on the card at normal contrast. The existing ≤26-hour
-rule separately controls the scorer's `final` field; it does not determine the calendar label.
+The 72-hour limit expires observations; it does not make them current. The card's
+update age counts elapsed whole hours from the oldest counted reading and advances
+with the existing minute clock. The legend's “Checked today / yesterday / earlier”
+uses that reading's Chicago date. The existing ≤26-hour rule separately controls
+the scorer's `final` field; it does not determine either display label.
 
 ## Existing history
 

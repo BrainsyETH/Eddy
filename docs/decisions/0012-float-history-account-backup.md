@@ -51,6 +51,13 @@ Server rows in `float_archive` belong to a permanent authenticated user. The API
 verifies the user; RLS limits reads to that permanent owner. Mutations use
 service-only functions after strict allowlist validation. No raw positions,
 route geometry or pace samples cross this API. Completed summaries are immutable.
+Both mutation functions remain `SECURITY INVOKER`. Their permanent-account guard
+needs column-level `SELECT (id, is_anonymous)` on `auth.users` for `service_role`.
+The account-read grant migration supplies exactly that access, without granting
+email/password reads or any new client-role privileges. Database tests start
+without this grant, reproduce 42501 for both functions, then apply it before
+testing uploads, consent, guest rejection and isolation. The migration ledger
+records whether production has received it.
 New summaries keep `putInId`/`putInName` for a confirmed launch access or null.
 Optional `startNote` (1–240 characters) describes the recorded origin separately;
 no raw positions are added. Older completed records are not rewritten. Legacy

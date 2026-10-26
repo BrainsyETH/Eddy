@@ -6,7 +6,10 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { buildRouteIndex, type LngLat } from '@eddy/geo';
+import { inspectStylePack } from '../../../eddy-ios/src/lib/stylePackRead';
 import {
   CHUNK_METERS,
   PAD_METERS,
@@ -21,6 +24,40 @@ import {
   tripReadiness,
   type TripPackage,
 } from '../../../eddy-ios/src/lib/tripDownload';
+
+const { patchOfflineModule } = createRequire(import.meta.url)('../../../eddy-ios/plugins/withSerialMapboxOffline.js') as {
+  patchOfflineModule: (source: string) => string;
+};
+const offlineSource = readFileSync(new URL('./fixtures/mapbox-offline-lifecycle.swift.txt', import.meta.url), 'utf8');
+
+test('the pinned Mapbox lifecycle is patched once and remains safe to prebuild again', () => {
+  const patched = patchOfflineModule(offlineSource);
+  assert.notEqual(patched, offlineSource);
+  assert.equal(patchOfflineModule(patched), patched);
+  const config = JSON.parse(readFileSync(new URL('../../../eddy-ios/app.json', import.meta.url), 'utf8'));
+  assert.ok(config.expo.plugins.includes('./plugins/withSerialMapboxOffline'));
+  // This is a build-time source contract, not a substitute for compiling Swift
+  // and exercising Mapbox's callbacks on a phone (ADR 0011 device gates).
+  const start = patched.slice(patched.indexOf('  func startLoading('), patched.indexOf('  private func eddyStartNextDownload'));
+  assert.ok(start.includes('eddyActiveDownload != pack.name'));
+  assert.ok(start.includes('!eddyPendingDownloads.contains'));
+  assert.ok(!start.includes('loadStylePack'));
+  const complete = patched.slice(patched.indexOf('    taskGroup.notify(queue: .main)'));
+  assert.ok(complete.includes('self.eddyFinishedDownload(id)'));
+  assert.ok(complete.includes('self._sendEvent(Callbacks.progress.rawValue'));
+  assert.ok(!patched.includes('offlinePackProgressDidChange(progress: progess, metadata: metadata, state: .complete)'));
+  assert.ok(patched.includes('payload["state"] = state.rawValue'), '100% tile counts cannot detach the late style-error listener');
+  assert.ok(patched.includes('pack.cancelables = self.tileRegionPacks[name]?.cancelables ?? []'), 'Status polls retain cancellation handles');
+  assert.equal((patched.match(/eddyPendingDownloads.removeAll/g) ?? []).length, 2, 'Pause and removal cancel queued work');
+});
+
+test('a changed, ambiguous, or partially applied Mapbox patch fails the build', () => {
+  assert.throws(() => patchOfflineModule(offlineSource
+    .replace('func startLoading(pack: TileRegionPack)', 'func startLoading(pack: ChangedPack)')), /no longer matches/);
+  assert.throws(() => patchOfflineModule(offlineSource + '\n' + offlineSource), /no longer matches/);
+  const patched = patchOfflineModule(offlineSource);
+  assert.throws(() => patchOfflineModule(patched.replace('self.eddyFinishedDownload(id)', '// lost queue release')), /incomplete/);
+});
 
 const LAT0 = 37.0;
 const LNG0 = -91.4;
@@ -93,10 +130,36 @@ test('Ready offline needs every chunk present and complete', () => {
   assert.equal(missing.kind, 'partial');
   assert.ok(missing.kind === 'partial' && Math.abs(missing.fraction - 0.5) < 1e-9);
   assert.equal(tripDownloadState(expected, [pack('float:t:0', 100), pack('float:t:1', 40)]).kind, 'partial');
+  const queued = tripDownloadState(expected, [pack('float:t:0', 100), pack('float:t:1', 0, 0)]);
+  assert.ok(queued.kind === 'partial');
+  assert.equal(queued.fraction, 0.5, 'A queued pack with no counts is unfinished, not free progress');
   // A pack that has not worked out what it needs yet is not complete.
   assert.equal(tripDownloadState(expected, [pack('float:t:0', 0, 0), pack('float:t:1', 100)]).kind, 'partial');
   // Other trips' packs are ignored.
   assert.equal(tripDownloadState(expected, [pack('float:other:0', 100), pack('float:t:0', 100)]).kind, 'partial');
+});
+
+test('offline style checks distinguish missing support, unknown data, and a failed read', async () => {
+  assert.deepEqual(await inspectStylePack(null), { kind: 'unconfirmed', reason: 'module-missing' });
+  assert.deepEqual(await inspectStylePack(async () => null), { kind: 'unconfirmed', reason: 'native-unconfirmed' });
+  assert.deepEqual(await inspectStylePack(async () => { throw new Error('native failure'); }),
+    { kind: 'unconfirmed', reason: 'read-failed' });
+  const counts = { requiredResourceCount: 40, completedResourceCount: 40 };
+  const result = await inspectStylePack(async () => counts);
+  assert.deepEqual(result, { kind: 'counts', counts });
+  assert.equal(stylePackComplete(result.kind === 'counts' ? result.counts : null), true);
+});
+
+test('a stalled style check ends and a later recheck can confirm the saved map', async () => {
+  let finish!: (counts: { requiredResourceCount: number; completedResourceCount: number }) => void;
+  const pending = new Promise<{ requiredResourceCount: number; completedResourceCount: number }>(resolve => { finish = resolve; });
+  const result = await inspectStylePack(() => pending, 5);
+  assert.deepEqual(result, { kind: 'unconfirmed', reason: 'timeout' });
+  finish({ requiredResourceCount: 40, completedResourceCount: 40 });
+  assert.deepEqual(result, { kind: 'unconfirmed', reason: 'timeout' }, 'Late answers cannot change the timed-out check');
+  assert.deepEqual(await inspectStylePack(() => pending), {
+    kind: 'counts', counts: { requiredResourceCount: 40, completedResourceCount: 40 },
+  });
 });
 
 test('Ready offline means the whole trip, not only its tiles', () => {
@@ -145,7 +208,7 @@ test('the route package lives outside the cache that "clear saved river data" re
 test('a saved float row never claims more than its trip card', () => {
   assert.equal(offlineBadge({ kind: 'ready', bytes: 1 }, true), 'Ready offline');
   // Tiles complete but the style pack unconfirmed is saved, not ready.
-  assert.equal(offlineBadge({ kind: 'tiles-saved', bytes: 1 }, true), 'Map saved');
+  assert.equal(offlineBadge({ kind: 'tiles-saved', bytes: 1 }, true), 'Download incomplete');
   assert.equal(offlineBadge({ kind: 'partial', fraction: 0.4, bytes: 1 }, true), 'Map partly saved');
   assert.equal(offlineBadge({ kind: 'outdated', bytes: 1 }, true), 'Map needs update');
   // The route package alone: the float starts offline, with no map.

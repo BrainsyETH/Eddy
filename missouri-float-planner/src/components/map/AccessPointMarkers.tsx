@@ -23,6 +23,8 @@ interface AccessPointMarkersProps {
   onMarkerClick?: (point: AccessPoint) => void;
   selectedPutIn?: string | null;
   selectedTakeOut?: string | null;
+  /** Desktop browsing opens details first, including places without launches. */
+  interaction?: 'select' | 'inspect';
 }
 
 export default function AccessPointMarkers({
@@ -30,6 +32,7 @@ export default function AccessPointMarkers({
   onMarkerClick,
   selectedPutIn,
   selectedTakeOut,
+  interaction = 'select',
 }: AccessPointMarkersProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -50,7 +53,9 @@ export default function AccessPointMarkers({
     // Clear existing markers, popups, and React roots
     markersRef.current.forEach((marker) => marker.remove());
     popupsRef.current.forEach((popup) => popup.remove());
-    rootsRef.current.forEach((root) => root.unmount());
+    // Nested marker roots must unmount after the parent React commit.
+    const oldRoots = rootsRef.current;
+    queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
     markersRef.current = [];
     popupsRef.current = [];
     rootsRef.current = [];
@@ -102,6 +107,7 @@ export default function AccessPointMarkers({
       // campground on the water. `!== false` so a payload predating the field
       // still behaves as it always did: selectable.
       const isEndpoint = point.isFloatEndpoint !== false;
+      const canActivate = !!onMarkerClick && (isEndpoint || interaction === 'inspect');
 
       // Create custom marker element with React icon
       // Note: Avoid position: relative and will-change: transform as they interfere with MapLibre's positioning
@@ -121,7 +127,7 @@ export default function AccessPointMarkers({
         align-items: center;
         justify-content: center;
         background: transparent;
-        cursor: ${onMarkerClick && isEndpoint ? 'pointer' : 'default'};
+        cursor: ${canActivate ? 'pointer' : 'default'};
         z-index: ${zIndex};
         pointer-events: auto;
         box-sizing: border-box;
@@ -189,7 +195,9 @@ export default function AccessPointMarkers({
       if (!isEndpoint) {
         selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-text-secondary); font-weight: 600;">Not a launch \u2014 no put-in or take-out here</p>`;
       } else if (onMarkerClick) {
-        if (isPutIn) {
+        if (interaction === 'inspect') {
+          selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to view access details</p>`;
+        } else if (isPutIn) {
           selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to deselect put-in</p>`;
         } else if (isTakeOut) {
           selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to deselect take-out</p>`;
@@ -257,9 +265,9 @@ export default function AccessPointMarkers({
         .addTo(map);
 
       // Add click handler - always allow clicks so user can deselect or change selection
-      if (onMarkerClick && isEndpoint) {
+      if (onMarkerClick && canActivate) {
         // Expose the marker to keyboard + assistive tech as a real button.
-        const action = isPutIn
+        const action = interaction === 'inspect' ? 'view access details' : isPutIn
           ? 'deselect put-in'
           : isTakeOut
           ? 'deselect take-out'
@@ -336,12 +344,13 @@ export default function AccessPointMarkers({
       detachPointerPriority();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
-      rootsRef.current.forEach((root) => root.unmount());
+      const oldRoots = rootsRef.current;
+      queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
       markersRef.current = [];
       popupsRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, accessPoints, onMarkerClick, selectedPutIn, selectedTakeOut]);
+  }, [map, accessPoints, onMarkerClick, selectedPutIn, selectedTakeOut, interaction]);
 
   return null;
 }

@@ -167,6 +167,7 @@ import {
 } from '@/components/GaugeFilterBar';
 import { LayerZoomHint } from '@/components/LayerZoomHint';
 import { MapPlanSheet } from '@/components/MapPlanSheet';
+import { mapPlanSelection } from '@/map/planSelection';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
@@ -643,29 +644,9 @@ function MapContent() {
     [],
   );
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
-  /**
-   * Whether dismissing this pin will reveal a river sheet the reader was just
-   * looking at — which is what earns the Back control.
-   *
-   * ── Why this is not `Boolean(riverSheetData)` ────────────────────────────
-   *
-   * Because a river being selected does not mean the reader ever saw its sheet.
-   * `onSelectPin` SELECTS THE RIVER as a side effect when the pin sits on one
-   * nobody had chosen, so tapping a put-in from the statewide map leaves exactly
-   * the same state behind as tapping one while its river's sheet was open.
-   * Offering "‹ Jacks Fork" in the first case names a place the reader has never
-   * been.
-   *
-   * ── Why it is not a three-way source either ──────────────────────────────
-   *
-   * It was, briefly: 'map' | 'river-sheet' | 'search'. That distinction earned
-   * its keep only while × cleared the whole selection stack and the two cases
-   * therefore ended differently. Now that × pops one level, HOW the pin was
-   * selected stops mattering and only WHAT IS UNDERNEATH does — and a map tap
-   * onto an already-selected river genuinely does replace a river sheet that was
-   * on screen (`riverSheetData && !selectedPin` is what renders it). So the
-   * three-way record collapsed to the one fact that decides anything.
-   */
+  // River data can remain selected for a route without presenting its sheet.
+  const [riverSheetOpen, setRiverSheetOpen] = useState(false);
+  // Only an access row opened from river details earns a return to that sheet.
   const [revealsRiverSheet, setRevealsRiverSheet] = useState(false);
   // Search results arrive before the selected river's access-point response.
   // Keep the identity across that fetch so choosing a result can finish by
@@ -990,6 +971,7 @@ function MapContent() {
 
   const selectRiver = useCallback(
     (slug: string | null, intent: RiverCameraIntent) => {
+      setRiverSheetOpen(false);
       setPickedSlug(slug);
       // Whatever this call asks for supersedes a fit still waiting on geometry:
       // the reader has navigated again, and the older river is not owed a frame.
@@ -1333,6 +1315,10 @@ function MapContent() {
   const onSelectResult = useCallback((result: SearchResult) => {
     cancelMapSearch();
     setSelectedPin(null);
+    setRevealsRiverSheet(false);
+    setRiverSheetOpen(false);
+    pendingMapPlanFrame.current = null;
+    if (result.kind === 'river') setMapPlanRiver(null);
     if (result.kind === 'access_point' && result.riverSlug) {
       // The whole network's put-ins are on the map now, so this no longer has
       // to wait for the chosen river's response to open a callout — the point
@@ -1389,6 +1375,7 @@ function MapContent() {
           ? { camera: 'searchResult', lng: result.coordinates.lng, lat: result.coordinates.lat }
           : { camera: 'fitRiver' },
       );
+      setRiverSheetOpen(result.kind === 'river');
     } else if (result.coordinates) {
       // A national-tier station: a point that belongs to no curated river, so
       // there is no selection to make — only somewhere to go.
@@ -1436,21 +1423,12 @@ function MapContent() {
       enableLayer('dams');
       const pin = damPins.find((p) => p.damId === result.id);
       if (pin) {
-        // This kind never calls selectRiver, so a river already on screen was
-        // CHOSEN, not revealed by this search — and the stated invariant is
-        // that dismissing a pin never destroys a chosen river. `false` here
-        // sent × down clearRiver's branch: tap the Current, search "Clearwater
-        // Dam", close the callout, and the Current was deselected.
-        setRevealsRiverSheet(Boolean(selectedSlug));
         setSelectedPin(pin);
       }
     } else if (result.kind === 'hazard') {
       enableLayer('hazards');
       const hazard = drawnHazards.find((h) => h.id === result.id);
       if (hazard && hasCoordinates(hazard)) {
-        // Same as the dam branch: no river selected by this kind, so a chosen
-        // one survives the dismissal.
-        setRevealsRiverSheet(Boolean(selectedSlug));
         setSelectedPin(mapHazardPin(hazard));
       }
     } else if (result.kind === 'service') {
@@ -1458,8 +1436,6 @@ function MapContent() {
       const opened = service ? serviceResultPin(service) : null;
       if (opened) {
         enableLayer(opened.layer);
-        // Same as the dam branch above.
-        setRevealsRiverSheet(Boolean(selectedSlug));
         setSelectedPin(opened.pin);
       }
     }
@@ -1472,7 +1448,6 @@ function MapContent() {
     gauges,
     services,
     damPins,
-    selectedSlug,
     cancelMapSearch,
     selectRiver,
     issueCameraCommand,
@@ -1923,7 +1898,7 @@ function MapContent() {
   const sheetKey = mapSearchOpen ? null
     : selectedPin ? `pin:${selectedPin.id}`
       : mapPlanning ? `plan:${selectedSlug}:${planner.putIn?.id}:${planner.step === 'result' ? planner.takeOut?.id : 'choose'}`
-        : riverSheetData ? `river:${riverSheetData.slug}` : null;
+        : riverSheetOpen && riverSheetData ? `river:${riverSheetData.slug}` : null;
   const sheetOpen = sheetKey !== null;
   const [sheet, setSheet] = useState<{ key: string | null; detent: string; height: number; ready: boolean }>({
     key: sheetKey,
@@ -2565,7 +2540,10 @@ function MapContent() {
       // A map selection also exits focused search, so its sheet can appear
       // on this tap rather than waiting for a separate Cancel.
       cancelMapSearch();
+      setMapPlanRiver(null);
+      pendingMapPlanFrame.current = null;
       selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
+      setRiverSheetOpen(true);
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },
@@ -2595,50 +2573,24 @@ function MapContent() {
     pendingAccessSelection.current = null;
   }, [selectRiver]);
 
-  /**
-   * Dismiss the open pin — and, when nothing was underneath it, the river its
-   * own tap selected.
-   *
-   * ── TWO CLOSES FOR ONE THING ─────────────────────────────────────────────
-   *
-   * `onSelectPin` SELECTS THE RIVER a pin sits on when nobody had chosen it,
-   * and it does that for good reasons of its own (everything downstream of a
-   * put-in is river-scoped — see its docblock). The cost landed on the way out:
-   * × cleared the pin, the selection it had silently made stayed, and a river
-   * sheet the reader had never opened rose into the gap. Tapping a campground
-   * from the statewide map therefore cost two dismissals, the second of them
-   * for a sheet that only existed because of the first tap.
-   *
-   * It was survivable while access points were the only pins anyone met at that
-   * zoom. With camping, cabins and rentals on by default it is most taps on the
-   * map.
-   *
-   * ── The rule: × GOES WHERE BACK GOES ─────────────────────────────────────
-   *
-   * `revealsRiverSheet` already records the only fact that decides this —
-   * whether a river sheet was on screen BEFORE this pin — and the Back control
-   * is drawn from it. So:
-   *
-   *   • Something to go back to → pop one level, exactly as before, and land on
-   *     the sheet Back names.
-   *   • Nothing to go back to → the river underneath, if any, is this tap's own
-   *     doing, so take it back down with the pin.
-   *
-   * That keeps the old promise ("Back names where × already goes") and drops
-   * the half of it that was making the reader close a sheet they never opened.
-   * A river the reader chose is still never destroyed by dismissing a pin: in
-   * that case revealsRiverSheet is true and this pops one level.
-   *
-   * THE CAMERA STAYS either way — clearRiver holds it, and dismissal is not
-   * navigation.
-   */
+  // Back and close restore the surface that actually opened this point.
+  // Keep river/route data and the camera; neither dismissal changes the route.
   const dismissPin = useCallback(() => {
-    if (revealsRiverSheet) {
-      setSelectedPin(null);
-      return;
-    }
-    clearRiver();
-  }, [revealsRiverSheet, clearRiver]);
+    setSelectedPin(null);
+    setCameraCommand(null);
+    pendingRiverFit.current = null;
+    pendingAccessSelection.current = null;
+    pendingMapPlanFrame.current = null;
+    setRiverSheetOpen(revealsRiverSheet);
+  }, [revealsRiverSheet]);
+
+  const dismissMapPlan = useCallback(() => {
+    setMapPlanRiver(null);
+    setCameraCommand(null);
+    pendingRiverFit.current = null;
+    setRiverSheetOpen(false);
+    pendingMapPlanFrame.current = null;
+  }, []);
 
   const onLocate = useCallback(async () => {
     // Recorded BEFORE the request, not after it. This is what mounts the puck,
@@ -2758,11 +2710,34 @@ function MapContent() {
    * of the screen and a pin selected near it ends up underneath.
    */
   const onSelectPin = useCallback(
-    (pin: MapPin) => {
+    (pin: MapPin, source: 'map' | 'river-sheet' = 'map') => {
       pendingMapPlanFrame.current = null;
       // Exit search before selecting: an empty query can still have focus,
       // and mapSearchOpen hides the pin sheet until that focus is cleared.
       cancelMapSearch();
+      // While choosing an endpoint, an eligible map tap completes that step.
+      // Resolve against the planner's own options, never a pin's display layer.
+      const endpoint = mapPlanSelection({
+        active: mapPlanning && !planOpen,
+        riverSlug: selectedSlug,
+        step: planner.step,
+        putIn: planner.putIn,
+        putInOptions: planner.putInOptions,
+        takeOutOptions: planner.takeOutOptions,
+        pin,
+      });
+      if (endpoint) {
+        pendingAccessSelection.current = null;
+        setSelectedPin(null);
+        if (endpoint.step === 'put-in') planner.choosePutIn(endpoint.point);
+        else if (planner.putIn) {
+          planner.chooseTakeOut(endpoint.point);
+          pendingMapPlanFrame.current = {
+            from: planner.putIn.id, to: endpoint.point.id, gestures: gestureCount.current,
+          };
+        }
+        return;
+      }
       // A dot from the zoomed-out index has no name or station uuid to open a
       // callout with — the index leaves both out to stay one request. Treat
       // it the way a cluster is treated: zoom toward it. Past the floor the
@@ -2777,11 +2752,8 @@ function MapContent() {
       // the chosen one. Bound once so the narrowing holds below.
       const newRiverSlug =
         entry?.riverSlug && entry.riverSlug !== selectedSlug ? entry.riverSlug : null;
-      // ── Was the river sheet on screen a moment ago? ──────────────────────
-      // Recorded here because it is only answerable here: a river being
-      // selected NOW proves nothing, since the branch below may be what
-      // selected it. See the state's own comment.
-      setRevealsRiverSheet(Boolean(selectedSlug) && newRiverSlug === null);
+      setRevealsRiverSheet(source === 'river-sheet' && riverSheetOpen && newRiverSlug === null);
+      setRiverSheetOpen(false);
       // A POI owns the centre, never the zoom. The command waits for the sheet's
       // peek height and then eases the point into the visible map without using
       // the last onMapIdle zoom, which may belong to the statewide view if a
@@ -2803,7 +2775,7 @@ function MapContent() {
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, cancelMapSearch, selectedSlug, selectRiver, issueCameraCommand, onZoomToCluster],
+    [accessPointForPin, cancelMapSearch, selectedSlug, riverSheetOpen, selectRiver, issueCameraCommand, onZoomToCluster, mapPlanning, planOpen, planner],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -3196,26 +3168,25 @@ function MapContent() {
         </Animated.View>
         )}
 
-        {/* ── The river sheet ───────────────────────────────────────────
-            Shown when a river is selected and NO pin is. A pin belongs to a
-            river, so both at once would be two sheets arguing about the same
-            stretch of water — and the pin is the more specific answer, so it
-            wins. Closing it puts you back on the river's own sheet, which is
-            where you were.
-
-            Tapping a river used to produce no UI whatsoever: onSelectNetworkRiver
-            set the slug, closed any callout and cleared the focus, and the only
-            thing that appeared was a header chip whose one action was to leave
-            the screen. */}
+        {/* Selected river data outlives sheets; only explicit river navigation opens its details. */}
         <View style={[styles.sheetHost, { top: geometry.sheetTop, bottom: geometry.bottomInset, left: insets.left, right: insets.right }]} pointerEvents="box-none">
           {mapPlanning && !selectedPin && !mapSearchOpen ? <MapPlanSheet
             riverName={selected?.name ?? 'Your river'} state={planner} metrics={sheetMetrics}
             onDetentChange={onSheetDetentChange}
-            onClose={() => { setMapPlanRiver(null); pendingMapPlanFrame.current = null; }}
-            onOpenList={() => { planner.goToStep('take-out'); setPlanOpen(true); }}
+            onClose={dismissMapPlan}
+            onChooseRiver={() => {
+              pendingMapPlanFrame.current = null;
+              setMapPlanRiver(null);
+              planner.reset();
+              selectRiver(null, { camera: 'hold' });
+              setPlannerAccess(null);
+              setPlanOpen(true);
+            }}
+            onChooseStep={step => { pendingMapPlanFrame.current = null; planner.goToStep(step); }}
+            onOpenList={() => setPlanOpen(true)}
             onOpenPlan={() => setPlanOpen(true)}
           /> : null}
-          {riverSheetData && !selectedPin && !mapSearchOpen && !mapPlanning ? (
+          {riverSheetOpen && riverSheetData && !selectedPin && !mapSearchOpen && !mapPlanning ? (
             <RiverSheetPanel
               river={riverSheetData}
               width={geometry.sheetWidth}
@@ -3223,12 +3194,9 @@ function MapContent() {
               onOpenGauge={onOpenGauge}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}
               onOpenCamping={(params) => router.push({ pathname: '/camping', params })}
-              // No source argument any more. This selection is on the river
-              // already showing, so onSelectPin's own check — "did this tap pick
-              // a new river" — answers false and records that × returns here.
               onSelectAccess={(point) => {
                 const entry = drawnAccessPoints.find((e) => e.point.id === point.id);
-                onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug));
+                onSelectPin(mapAccessPointPin(point, entry?.riverSlug ?? riverSheetData.slug), 'river-sheet');
               }}
               // ── THE ROUTE IS BUILT WHERE EVERY OTHER ROUTE IS ───────────
               // Through mapAccessPointPin, so the Accesses list and the sheet's
@@ -3279,39 +3247,8 @@ function MapContent() {
               onOpenGauge={onOpenGauge}
               onOpenDam={onOpenDam}
               onOpenDetail={(route) => router.push(asHref(route))}
-              // ── BACK NAMES WHERE × ALREADY GOES ──────────────────────────
-              // Both pop one level, and that is the point rather than an
-              // oversight: × is a 19pt glyph in a corner that names nothing,
-              // and "‹ Meramec River" is a 44pt target that says where it
-              // lands. The original complaint was that the icon communicated
-              // dismissal rather than Back — a labelled control beside it is
-              // the answer to that, not a second behaviour.
-              //
-              // Shown only when a river sheet was genuinely on screen before
-              // this pin. See revealsRiverSheet for the case that is not true
-              // despite a river being selected.
-              onBack={
-                revealsRiverSheet && riverSheetData
-                  ? () => {
-                      setSelectedPin(null);
-                    }
-                  : null
-              }
-              backLabel={revealsRiverSheet ? riverSheetData?.name ?? null : null}
-              // ── × GOES WHERE BACK GOES ───────────────────────────────────
-              // One glyph, one meaning: it lands on whatever was on screen
-              // before this pin. When that is a river sheet, Back is drawn
-              // beside it naming the same destination and both pop one level.
-              // When there is no Back — because no river sheet was ever open —
-              // the only thing under the pin is a selection the pin's OWN tap
-              // made, and × takes that with it rather than leaving the reader a
-              // second sheet to close. See dismissPin.
-              //
-              // A river the reader chose is still never destroyed by dismissing
-              // a pin; that case has a Back control and pops one level.
-              //
-              // Dismissal is not navigation. The native camera stays exactly
-              // where the reader left it; no old target or bounds can wake up.
+              onBack={mapPlanning || (revealsRiverSheet && riverSheetData) ? dismissPin : null}
+              backLabel={mapPlanning ? 'Your route' : revealsRiverSheet ? riverSheetData?.name ?? null : null}
               onClose={dismissPin}
               starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
               onToggleStar={

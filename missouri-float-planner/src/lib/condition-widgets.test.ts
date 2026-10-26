@@ -8,7 +8,7 @@ import { STALE_READING_MS } from '../../shared/reading-staleness';
 import type { ChartReadingLike } from '../../shared/chart-model';
 import { widgetConfiguration, widgetGaugeCatalog } from '../../../eddy-ios/src/lib/conditionWidgets';
 import {
-  WIDGET_GUIDE, WIDGET_ONBOARDING_KEY, widgetGuideSteps,
+  WIDGET_GUIDE, WIDGET_ONBOARDING_KEY, widgetGuideSteps, widgetGuide,
   hasSeenWidgetGuide, markWidgetGuideSeen,
 } from '../../../eddy-ios/src/lib/widgetOnboarding';
 import type { MapGauge } from '../../../packages/eddy-types';
@@ -53,7 +53,14 @@ test('widget discovery is a local acknowledgement, not an install or an account 
 });
 
 test('widget guide follows the real small-versus-medium configuration rules', () => {
+  assert.match(widgetGuide('dam', 3).summary, /hourly generation schedule/);
+  assert.match(widgetGuide('dam', 2).summary, /next posted schedule change/);
+  assert.match(widgetGuide('river', 3).summary, /CFS or FT/);
   assert.equal(WIDGET_GUIDE.river.size, 'Small');
+  assert.match(WIDGET_GUIDE.favorites.personalize, /Edit Widget/);
+  assert.doesNotMatch(widgetGuide('favorites', 1).personalize, /Edit Widget/);
+  assert.match(widgetGuideSteps('dam')[2].detail, /choose a dam/);
+  assert.match(widgetGuideSteps('report')[2].detail, /choose a river/);
   assert.equal(WIDGET_GUIDE.favorites.size, 'Medium');
   assert.match(WIDGET_GUIDE.river.personalize, /Edit Widget/);
   assert.match(WIDGET_GUIDE.favorites.personalize, /first three/);

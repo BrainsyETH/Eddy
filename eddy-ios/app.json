@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eddy",
     "slug": "eddy",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "default",
     "scheme": "eddy",
     "userInterfaceStyle": "automatic",
@@ -39,6 +39,7 @@
     "plugins": [
       "expo-router",
       "@rnmapbox/maps",
+      "./plugins/withSerialMapboxOffline",
       "expo-font",
       [
         "expo-splash-screen",
@@ -60,7 +61,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins, show local weather, and track your progress during a float, including while your phone is locked until you end it. Approximate coordinates are sent to Eddy for the weather forecast; raw float positions stay on your phone. Signed-in trip summaries are backed up; hazard reports send the location you submit.",
+          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins, show local weather, and track your float, even while your phone is locked, until you end it. Approximate location is sent to Eddy for weather and nearby searches; raw float positions stay on your phone.",
           "locationAlwaysAndWhenInUsePermission": "During a float, Eddy keeps tracking your progress to the take-out while your phone is locked, and stops when you end the float. Raw float positions stay on your phone. Signed-in trip summaries are backed up.",
           "isIosBackgroundLocationEnabled": true
         }
