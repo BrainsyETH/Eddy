@@ -22,8 +22,7 @@ import {
   CornerUpLeft,
 } from 'lucide-react';
 import type { InboundEmail, InboundEmailStatus } from '@/types/api';
-import RichTextEditor from '@/components/admin/RichTextEditor';
-import { REPLY_TEMPLATES } from '@/lib/email/reply-templates';
+import EmailReplyEditor from './EmailReplyEditor';
 
 const EDDY_DOMAIN = 'eddy.guide';
 
@@ -82,9 +81,10 @@ function formatDate(dateString: string): string {
 interface Props {
   /** Reports the current global unread count so the parent tab badge stays live. */
   onUnreadChange?: (unread: number) => void;
+  onOpenFeedback?: (id: string) => void;
 }
 
-export default function InboundEmailList({ onUnreadChange }: Props) {
+export default function InboundEmailList({ onUnreadChange, onOpenFeedback }: Props) {
   const [emails, setEmails] = useState<InboundEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -423,7 +423,12 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                             </button>
                           );
                         })}
-                        {email.fromAddress && replyingId !== email.id && (
+                        {email.feedbackId && onOpenFeedback && (
+                          <button onClick={() => onOpenFeedback(email.feedbackId!)} className="ml-auto flex items-center gap-1 rounded bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-500">
+                            <CornerUpLeft className="w-3 h-3" />Open feedback conversation
+                          </button>
+                        )}
+                        {!email.feedbackId && email.fromAddress && replyingId !== email.id && (
                           <button
                             onClick={() => openReply(email)}
                             className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-primary-600 text-white hover:bg-primary-500 transition-colors ml-auto"
@@ -466,31 +471,7 @@ export default function InboundEmailList({ onUnreadChange }: Props) {
                                   <span className="text-neutral-500">Subject:</span> {replySubjectDisplay(email.subject)}
                                 </div>
                               </div>
-                              <div className="mb-2 flex items-center gap-2">
-                                <label className="text-xs text-neutral-500">Template:</label>
-                                <select
-                                  value=""
-                                  onChange={(e) => {
-                                    const tpl = REPLY_TEMPLATES.find((t) => t.id === e.target.value);
-                                    if (tpl) setReplyHtml(tpl.html);
-                                    e.target.value = '';
-                                  }}
-                                  className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                >
-                                  <option value="">Insert a quick reply…</option>
-                                  {REPLY_TEMPLATES.map((t) => (
-                                    <option key={t.id} value={t.id} title={t.description}>
-                                      {t.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <RichTextEditor
-                                content={replyHtml}
-                                onChange={setReplyHtml}
-                                minHeight="150px"
-                                placeholder="Write your reply…"
-                              />
+                              <EmailReplyEditor html={replyHtml} onChange={setReplyHtml} />
                               {replyError && <div className="text-red-400 text-xs mt-2">{replyError}</div>}
                               <div className="flex items-center gap-2 mt-2">
                                 <button

@@ -87,6 +87,10 @@ export async function POST(
       return NextResponse.json({ error: 'Email not found' }, { status: 404 });
     }
 
+    if (row.feedback_id) {
+      return NextResponse.json({ error: 'Reply from the linked feedback conversation to keep its history together.', feedbackId: row.feedback_id }, { status: 409 });
+    }
+
     const to: string | null = row.from_address;
     if (!to) {
       return NextResponse.json(

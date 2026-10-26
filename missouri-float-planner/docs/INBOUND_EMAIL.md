@@ -3,7 +3,7 @@
 > **Status: active** — runbook for inbound *@eddy.guide mail via Resend.
 
 How mail sent to `*@eddy.guide` reaches the app, and everything required to make
-it work end to end. This is inbound only — receiving mail, not sending it.
+it work end to end. The admin panel receives mail and sends replies through the same Resend client.
 
 ## Flow
 
@@ -87,9 +87,9 @@ headers — it should return `401`/`400`, not `200`.
 
 ## Replying
 
-Resend's dashboard only lets you *view* received mail — it has no compose/reply
-button. Replies are sent programmatically via the sending API, which the admin
-panel does for you:
+The admin panel sends replies through Resend's sending API. Resend also offers
+a separate Inboxes product with a compose/reply UI; Eddy currently uses the
+Receiving webhook integration described here.
 
 - Expand a message in **Feedback → Inbound Email** and click **Reply**. Compose
   in the **rich-text editor** (bold, links, lists, headings) or pick a
@@ -109,13 +109,72 @@ panel does for you:
   **Replied**.
 - Endpoint: `POST /api/admin/inbound-emails/[id]/reply`.
 
+## Feedback conversations
+
+Deploy the feedback conversation migration before deploying this feature.
+Consult `supabase/production-migrations.txt` for its applied/pending state,
+and record the actual production migration version after applying it.
+
+Form feedback is stored in `feedback`, separately from email. Expand a feedback
+card in `/admin/feedback` to see **Conversation → Reply**. The composer shares
+the inbound email editor/templates and Eddy branding. It defaults to
+`Evan from Eddy <hello@eddy.guide>`; `RESEND_REPLY_FROM` may override this with a
+verified address on `eddy.guide`. The recipient comes only from the saved
+feedback record. Sending does not change Pending/Reviewed/Resolved/Dismissed.
+
+- **History:** `feedback_email_replies` stores outgoing content, timestamps,
+  Resend ID, and sending outcome. `Sent` means Resend accepted the message,
+  not that delivery to the recipient's inbox was confirmed. Old outbound
+  messages sent before this feature cannot be reconstructed from the existing
+  `last_replied_at` timestamp.
+- **Follow-ups:** each feedback row has a random `email_thread_token`. The
+  outgoing `Reply-To` is `feedback+<token>@eddy.guide`. The verified receiving
+  webhook associates the message only if exactly one token matches and its
+  sender matches the original feedback email. It never matches by subject or
+  sender alone. Other mail remains in Inbound Email. Existing catch-all domain
+  receiving must continue to accept these addresses; no new mailbox is needed.
+- **Inbox navigation:** linked mail offers **Open feedback conversation**. The
+  destination includes `?feedbackId=<id>` and loads that exact feedback,
+  including older or resolved items outside the normal first 100 results.
+  All replies to linked mail go through the feedback endpoint to preserve
+  the shared history. The normal inbound-mail reply endpoint refuses these.
+- **Retries:** save an immutable send snapshot before calling Resend. A draft
+  UUID becomes the provider idempotency key. Double clicks, network timeouts,
+  and failed DB writes after acceptance retry that same snapshot. A partial
+  unique index allows only one uncertain send per conversation. Use **Retry
+  saved reply** instead of composing another message. Automatic retries stop
+  after 23 hours, before Resend's 24-hour deduplication window expires. If a
+  send stays uncertain after that, inspect Resend and reconcile the saved row
+  before attempting another reply; do not blindly reset its status.
+- **Privacy:** the new history table has RLS enabled and all public/anonymous/
+  authenticated grants revoked. Only the service role can access it, behind
+  the existing admin authentication and same-origin write checks.
+
+### Verification and rollout
+
+1. Apply the pending migration to the intended database, recording the actual
+   production version if applicable. Check migration drift with `make check-db`.
+2. Confirm `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, sending-domain DKIM/SPF,
+   and receiving MX/catch-all setup. Keep the `email.received` subscription;
+   this feature does not migrate to Resend Inboxes events.
+3. Use a feedback entry with an email address you control. Send a reply, refresh
+   to confirm history, and reply from that mailbox. Verify the response appears
+   under the same feedback and links from Inbound Email. Verify status remains
+   unchanged. Also verify a regular, unlinked inbound email can still be replied
+   to using its existing composer.
+4. Check the `Sent` provider ID in Resend for actual delivery or bounce status.
+
+Automated behavior/auth/webhook tests: `src/lib/email/feedback-mail.test.ts`
+(registered in `npm test`). These use test mail and never contact real users.
+
 ## Behavior notes
 
 - **Idempotent:** rows are upserted on `email_id` (`ignoreDuplicates`), so a
   redelivered webhook is a no-op — Resend can retry safely.
-- **Resilient body fetch:** if `resend.emails.receiving.get()` fails, the
-  envelope row is still stored with `body_fetched = false` and the webhook still
-  returns `200`; a later job can retry the fetch.
+- **Resilient body fetch:** the envelope is saved first. A failed body fetch,
+  body save, or feedback link returns `503` so Resend retries. Repeated webhook
+  deliveries preserve read/archive/spam state. If retries are exhausted, replay
+  the failed event from Resend after resolving the error.
 - **Attachments:** only metadata is stored. Fetch binary content on demand via
   the Attachments API (`resend.emails.receiving.attachments.get`).
 - **Access:** the table is admin-only (RLS `is_admin()`); only the webhook, via

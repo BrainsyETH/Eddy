@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { WebhookEventPayload } from 'resend';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getResendClient, hasResendApiKey } from '@/lib/email/resend';
+import { linkFeedbackEmail } from '@/lib/email/feedback-mail-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,14 +96,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to persist email' }, { status: 500 });
   }
 
-  // Best-effort backfill of the full body / headers / attachment metadata, which
-  // the webhook does NOT include. Never fail the webhook over this: the envelope
-  // is already stored, and a 200 avoids needless Resend retries. `body_fetched`
-  // stays false so a later job can retry the fetch.
+  // Connect feedback follow-ups before fetching content. A failed link or body
+  // fetch must be retried by Resend, rather than leaving a silent empty message.
   try {
+    await linkFeedbackEmail(supabase, {
+      emailId: data.email_id, from: data.from,
+      recipients: [...(data.received_for ?? []), ...(data.to ?? [])],
+    });
     const { data: full, error: fetchError } = await resend.emails.receiving.get(data.email_id);
     if (full) {
-      await supabase
+      const { error: bodyError } = await supabase
         .from('inbound_emails')
         .update({
           text_body: full.text,
@@ -113,11 +116,15 @@ export async function POST(request: NextRequest) {
           body_fetched: true,
         })
         .eq('email_id', data.email_id);
+      if (bodyError) throw bodyError;
     } else if (fetchError) {
-      console.warn('[ResendWebhook] Could not fetch full email body:', fetchError);
+      throw fetchError;
+    } else {
+      throw new Error('Received email body unavailable');
     }
   } catch (err) {
-    console.warn('[ResendWebhook] Body fetch threw (metadata already saved):', err);
+    console.warn('[ResendWebhook] Content/link incomplete; requesting retry:', err);
+    return NextResponse.json({ error: 'Email saved; content or conversation link needs retry' }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true, email_id: data.email_id });

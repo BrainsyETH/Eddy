@@ -941,6 +941,7 @@ export interface FeedbackContext {
 
 export interface Feedback {
   id: string;
+  lastRepliedAt?: string | null;
   feedbackType: FeedbackType;
   userName: string | null;
   userEmail: string;
@@ -984,6 +985,26 @@ export interface UpdateFeedbackRequest {
   adminNotes?: string;
 }
 
+export interface FeedbackConversationResponse {
+  from: string | null;
+  to: string;
+  subject: string;
+  configurationError: string | null;
+  messages: {
+    id: string;
+    direction: 'inbound' | 'outbound';
+    from: string | null;
+    to: string | null;
+    text: string;
+    status: 'sending' | 'sent' | 'failed' | 'received' | 'loading_body';
+    error: string | null;
+    createdAt: string;
+    sentAt: string | null;
+    sendId: string | null;
+    retryUntil: string | null;
+  }[];
+}
+
 // ─────────────────────────────────────────────────────────────
 // Inbound Email API Types (mail received at *@eddy.guide via Resend)
 // ─────────────────────────────────────────────────────────────
@@ -1001,6 +1022,7 @@ export interface InboundEmailAttachmentMeta {
 
 export interface InboundEmail {
   id: string;
+  feedbackId?: string | null;
   emailId: string;
   messageId: string | null;
   fromAddress: string | null;

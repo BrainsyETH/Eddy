@@ -125,8 +125,8 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # The first two are required for POST /api/webhooks/resend. See docs/INBOUND_EMAIL.md.
 RESEND_API_KEY=re_your_api_key                 # fetches the received body + sends replies
 RESEND_WEBHOOK_SECRET=whsec_your_signing_secret # verifies the Svix signature
-# RESEND_REPLY_FROM=hello@eddy.guide            # optional: From for admin replies when the
-                                                #   message wasn't sent to an @eddy.guide address
+# RESEND_REPLY_FROM="Evan from Eddy <hello@eddy.guide>" # optional feedback sender; also
+                                                        # fallback for non-eddy inbound recipients
 
 # RevenueCat — iOS subscription entitlements. Required for POST /api/webhooks/revenuecat.
 # In the RevenueCat dashboard (Project → Integrations → Webhooks) set the

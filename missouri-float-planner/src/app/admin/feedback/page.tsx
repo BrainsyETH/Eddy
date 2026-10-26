@@ -3,10 +3,11 @@
 // src/app/admin/feedback/page.tsx
 // Admin page for reviewing user feedback
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import InboundEmailList from '@/components/admin/InboundEmailList';
+import FeedbackConversation from '@/components/admin/FeedbackConversation';
 import {
   Flag,
   Mail,
@@ -62,6 +63,19 @@ export default function FeedbackAdminPage() {
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('pending');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [focusedFeedbackId, setFocusedFeedbackId] = useState<string | null>(null);
+  const fetchVersion = useRef(0);
+
+  const openFeedback = (id: string | null) => {
+    setFocusedFeedbackId(id);
+    setExpandedId(id);
+    setView('feedback');
+    window.history.replaceState(null, '', id ? `/admin/feedback?feedbackId=${encodeURIComponent(id)}` : '/admin/feedback');
+  };
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('feedbackId');
+    if (id) { setFocusedFeedbackId(id); setExpandedId(id); }
+  }, []);
 
   // Probe the unread-email count on mount so the Email sub-tab shows a badge
   // before it's ever opened. Kept live afterwards by InboundEmailList.
@@ -75,12 +89,14 @@ export default function FeedbackAdminPage() {
   }, []);
 
   const fetchFeedback = useCallback(async () => {
+    const version = ++fetchVersion.current;
     setLoading(true);
     setError(null);
 
     try {
       const params = new URLSearchParams();
-      if (statusFilter !== 'all') {
+      if (focusedFeedbackId) params.set('id', focusedFeedbackId);
+      if (!focusedFeedbackId && statusFilter !== 'all') {
         params.set('status', statusFilter);
       }
       params.set('limit', '100');
@@ -92,13 +108,13 @@ export default function FeedbackAdminPage() {
       }
 
       const data = await response.json();
-      setFeedback(data.feedback);
+      if (version === fetchVersion.current) setFeedback(data.feedback);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch feedback');
+      if (version === fetchVersion.current) setError(err instanceof Error ? err.message : 'Failed to fetch feedback');
     } finally {
-      setLoading(false);
+      if (version === fetchVersion.current) setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, focusedFeedbackId]);
 
   useEffect(() => {
     fetchFeedback();
@@ -122,11 +138,11 @@ export default function FeedbackAdminPage() {
 
       // Update local state
       setFeedback((prev) =>
-        prev.map((f) => (f.id === id ? data.feedback : f))
+        prev.map((f) => (f.id === id ? { ...f, ...data.feedback } : f))
       );
     } catch (err) {
       console.error('Error updating feedback:', err);
-      alert('Failed to update feedback');
+      setError('Failed to update feedback');
     } finally {
       setUpdating(null);
     }
@@ -191,15 +207,17 @@ export default function FeedbackAdminPage() {
           </button>
         </div>
 
-        {view === 'email' && <InboundEmailList onUnreadChange={setEmailUnread} />}
+        {view === 'email' && <InboundEmailList onUnreadChange={setEmailUnread} onOpenFeedback={openFeedback} />}
 
         {view === 'feedback' && (
         <>
+        {focusedFeedbackId && <button onClick={() => openFeedback(null)} className="mb-4 text-sm text-primary-300">← Back to all feedback</button>}
         {/* Filter Bar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <label className="text-sm text-neutral-400">Status:</label>
             <select
+              disabled={Boolean(focusedFeedbackId)}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as FeedbackStatus | 'all')}
               className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -273,6 +291,7 @@ export default function FeedbackAdminPage() {
                           <span className={`px-2 py-1 rounded text-xs font-medium text-white ${statusInfo.color}`}>
                             {statusInfo.label}
                           </span>
+                          {item.lastRepliedAt && <span className="px-2 py-1 rounded text-xs font-medium bg-green-500/15 text-green-400">Replied</span>}
                           {item.contextType && (
                             <span className="flex items-center gap-1 px-2 py-1 bg-neutral-700 rounded text-xs text-neutral-300">
                               {getContextIcon(item.contextType)}
@@ -351,6 +370,10 @@ export default function FeedbackAdminPage() {
                           {item.reviewedBy && ` by ${item.reviewedBy}`}
                         </div>
                       )}
+
+                      <FeedbackConversation key={item.id} feedbackId={item.id} onSent={(sentAt) => {
+                        setFeedback((items) => items.map((feedback) => feedback.id === item.id ? { ...feedback, lastRepliedAt: sentAt } : feedback));
+                      }} />
 
                       {/* Action Buttons */}
                       <div className="flex items-center gap-2 pt-2 border-t border-neutral-700">

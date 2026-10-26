@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireAdminAuth } from '@/lib/admin-auth';
+import { requireAdminAuth, isValidUUID, invalidIdResponse } from '@/lib/admin-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import {
   FEEDBACK_TYPES,
@@ -138,17 +138,20 @@ export async function GET(request: NextRequest) {
     // Get query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const id = searchParams.get('id');
+    if (id && !isValidUUID(id)) return invalidIdResponse();
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     // Build query
     let query = supabase
       .from('feedback')
-      .select('*', { count: 'exact' })
+      .select('*, feedback_email_replies(sent_at)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (status && ['pending', 'reviewed', 'resolved', 'dismissed'].includes(status)) {
+    if (id) query = query.eq('id', id);
+    if (!id && status && ['pending', 'reviewed', 'resolved', 'dismissed'].includes(status)) {
       query = query.eq('status', status);
     }
 
@@ -165,6 +168,9 @@ export async function GET(request: NextRequest) {
     // Transform to API format
     const feedback: Feedback[] = (data || []).map((row) => ({
       id: row.id,
+      lastRepliedAt: (row.feedback_email_replies || [])
+        .map((reply: { sent_at: string | null }) => reply.sent_at)
+        .filter((at: string | null): at is string => Boolean(at)).sort().at(-1) || null,
       feedbackType: row.feedback_type,
       userName: row.user_name,
       userEmail: row.user_email,

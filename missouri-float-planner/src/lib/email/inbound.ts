@@ -8,6 +8,7 @@ import type { InboundEmail } from '@/types/api';
 export function mapInboundEmailRow(row: any): InboundEmail {
   return {
     id: row.id,
+    feedbackId: row.feedback_id ?? null,
     emailId: row.email_id,
     messageId: row.message_id,
     fromAddress: row.from_address,
