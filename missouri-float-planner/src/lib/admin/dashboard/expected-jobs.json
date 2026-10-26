@@ -117,7 +117,7 @@
   },
   {
     "path": "/api/cron/post-blog",
-    "schedule": "0 14 * * 2"
+    "schedule": "0 14,15 * * 1-5"
   },
   {
     "path": "/api/cron/fetch-insights",
