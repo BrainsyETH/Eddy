@@ -1,6 +1,6 @@
 # 0010 — Gridlines and data export belong to an expanded hydrograph, not to the inline one
 
-Status: active · 2026-08 (built 2026-08 — see the closing note)
+Status: revised · 2026-10-26 (desktop controls now live inline; see revision below)
 
 A chart review asked for four readability additions:
 neutral horizontal gridlines, a larger/full-screen web mode, CSV or table
@@ -73,3 +73,25 @@ What it owns, as this record said it would:
 
 The **user-set reference level** remains unbuilt, and everything this record
 says about it still applies.
+
+## Desktop revision — 2026-10-26
+
+At widths of 1024px and above, river Live Reports and individual gauge pages
+show the complete history chart inline. The chart fills the report width with
+a 384px plot, neutral gridlines, 24H / 7D / 30D / 90D / 1Y presets, Custom dates,
+comparison when supported, brush/button zoom, CSV export, and a collapsed data
+table. Desktop has no Expand gate. Custom date fields open from their visible
+control; the long readings table remains collapsed to keep the report readable.
+
+`GaugeHistoryChart.tsx` replaces the separate inline and expanded implementations.
+One selection survives resizing and mobile Expand/Close, which no longer resets
+the range to 90 days. Each station starts at seven days. A unit change preserves
+the selected dates but clears incompatible comparison and zoom state. The
+summary above the chart keeps its current seven-day trend regardless of the
+historical window being explored.
+
+Mobile web keeps a compact chart with 24H / 7D / 30D and an Expand dialog. The
+dialog offers the same full controls and returns focus on close. Provider limits,
+sampling declarations, forecast/condition semantics and keyboard scrubbing stay
+in force. Making longer presets visible does not prefetch a year of data;
+their history loads when selected. iOS is unchanged.

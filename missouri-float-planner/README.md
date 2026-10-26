@@ -64,8 +64,8 @@ the catalogue and town suggestions after a 350ms pause. The destination field
 uses a combobox/listbox: arrow keys move through suggestions while input keeps
 focus, Enter chooses, Escape dismisses, and Tab moves to the next control.
 Selecting a river clears the nearby location; selecting a town or device
-location clears the river. Typed
-text must be resolved to a selection before searching. Coordinates and town
+location clears the river. Typed text must be resolved to a selection before
+searching. Coordinates and town
 suggestions stay in memory; only the Vessel preference is saved locally.
 
 Duration presets retain the full 0.5–12 hour custom selection. Results are a
@@ -79,11 +79,24 @@ The Vessel icon parity test compares web and iOS SVG geometry and strokes.
 
 `npm run test:float-finder` runs fixture-backed browser checks of the real page
 at 1440, 1024, 390, and 320px, plus dark mode. It covers keyboard combobox
-navigation, location/river selection,
-pending and failed searches, late responses, partial/empty results, expiry, and
+navigation, location/river selection, pending and failed searches, late
+responses, partial/empty results, expiry, and
 planner parameters. No production credentials are needed. Set
 `PLAYWRIGHT_CHROMIUM_PATH` when using a locally installed browser. Screenshots
 go to `/tmp/eddy-float-finder` (override with `FINDER_SMOKE_OUTPUT`).
+
+## River and gauge history
+
+Desktop reports (1024px and wider) show the full chart tools inline: all supported
+history ranges, Custom dates, comparison, zoom, CSV export, and a collapsed data
+table. Mobile web keeps Expand, preserving the selected range and units on open
+and close. A selected long or custom range stays highlighted in the compact
+control. Resizing to desktop closes the dialog until the next Expand tap.
+Both layouts share `GaugeHistoryChart`; iOS is unchanged. See
+[ADR 0010](../docs/decisions/0010-hydrograph-gridlines-and-export-belong-to-an-expanded-mode.md).
+
+Run `npx tsx scripts/gauge-smoke.ts` for fixture-backed desktop/mobile checks.
+Screenshots and CSV downloads go to `.smoke-gauge` (override with `SMOKE_OUT`).
 
 ## Dam pages
 

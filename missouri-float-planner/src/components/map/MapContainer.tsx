@@ -16,6 +16,11 @@ import { MapProvider } from './map-context';
 import PublicLandsLayer from './PublicLandsLayer';
 import { MAP_OVERLAYS, type MapOverlayKey } from './map-overlays';
 
+// v6 no longer embeds its worker. The version-matched worker and its shared
+// module are emitted by Next config; without this, raster imagery loads but
+// every GeoJSON/vector source waits forever and only the flow particles show.
+maplibregl.setWorkerUrl(`/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`);
+
 // Available map styles (all free, no API key required)
 // Immersive is first and default: satellite imagery with luminous water
 // veins, haloed labels, and the baked layer anchors — so condition-colored

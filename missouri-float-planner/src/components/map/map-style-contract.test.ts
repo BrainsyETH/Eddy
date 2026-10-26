@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
+import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server';
+import { config as proxyConfig } from '../../proxy';
+import { prepareMapWorker } from '../../../scripts/prepare-map-worker.mjs';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 
 interface StyleLayer {
@@ -104,5 +109,33 @@ test('Immersive road names appear no earlier than their geometry', () => {
       (label.minzoom ?? 0) >= (road.minzoom ?? 0),
       `${labelId} must not appear before ${roadId}`,
     );
+  }
+});
+
+// Exercise the same asset preparation Next runs. Compare against the installed
+// package without requiring an import layout that changes between versions.
+// Keep the fixture outside public so builds/tests cannot overwrite its output.
+test('MapLibre worker and sibling module are emitted from the installed version', () => {
+  const publicDir = mkdtempSync(join(tmpdir(), 'eddy-map-worker-'));
+  try {
+    const packageDir = dirname(createRequire(import.meta.url).resolve('maplibre-gl/package.json'));
+    const { version } = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
+    const destination = prepareMapWorker(publicDir);
+    assert.equal(destination, join(publicDir, 'maplibre', version));
+    for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
+      assert.deepEqual(readFileSync(join(destination, file)), readFileSync(join(packageDir, 'dist', file)));
+    }
+    assert.ok(readFileSync(join(destination, 'LICENSE.txt')).length > 0);
+  } finally {
+    rmSync(publicDir, { recursive: true, force: true });
+  }
+});
+
+test('worker assets bypass session proxy while app and admin routes remain covered', () => {
+  for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
+    assert.equal(unstable_doesMiddlewareMatch({ config: proxyConfig, nextConfig: {}, url: `/maplibre/6.9.1/${file}` }), false);
+  }
+  for (const url of ['/plan', '/api/admin/reports', '/api/account']) {
+    assert.equal(unstable_doesMiddlewareMatch({ config: proxyConfig, nextConfig: {}, url }), true);
   }
 });

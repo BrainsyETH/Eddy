@@ -13,8 +13,7 @@ export const UNIT_OPTIONS: readonly SegmentedOption<DisplayUnit>[] = [
   { value: 'cfs', label: 'cfs', title: 'Flow in cubic feet per second' },
 ];
 
-// 24h / 7d / 30d inline; longer ranges belong to the expanded mode (ADR 0010),
-// not more buttons.
+// Compact mobile presets. Desktop and expanded mobile add longer ranges.
 export const RANGE_OPTIONS: readonly SegmentedOption<number>[] = [
   { value: 1, label: '24H' },
   { value: 7, label: '7D' },
