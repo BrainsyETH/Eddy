@@ -26,6 +26,8 @@ export type SocialRoutePoint = {
   /** A photo already associated with this exact place. No generic river fallback. */
   photoUrl?: string;
   photoCredit?: string;
+  /** Resolved by render metadata after decoding and checking the source photo. */
+  photoReveal?: boolean;
 };
 
 /**
@@ -50,6 +52,8 @@ export type JourneyPoint = {
 
 export type JourneyStop = {
   progress: number;
+  pauseFrames?: number;
+  fadeFrames?: number;
 };
 
 export type JourneyTiming = {
@@ -67,6 +71,9 @@ export type JourneyState = {
   /** 0 at the pause edges, 1 through its readable middle. */
   calloutProgress: number;
   complete: boolean;
+  /** Local photo motion clock; absent outside a stop. */
+  stopElapsedFrames?: number;
+  stopDurationFrames?: number;
 };
 
 export type JourneyBounds = {
@@ -419,105 +426,75 @@ export function progressAlongRoute(
   return clamp01(bestProgress);
 }
 
-/**
- * Total frames: intro, travel, one pause per intermediate stop, the summary
- * hold when there are unanchored features to mention, then the outro.
- */
-export function journeyDuration(
-  stopCount: number,
-  timing: JourneyTiming = DEFAULT_TIMING,
-  withSummary = false,
-): number {
-  const summary = withSummary ? timing.summaryFrames ?? DEFAULT_TIMING.summaryFrames ?? 0 : 0;
-  return (
-    timing.introFrames +
-    timing.travelFrames +
-    Math.max(0, stopCount) * timing.pauseFrames +
-    summary +
-    timing.outroFrames
-  );
+/** Intermediate stops only, in stable river order — endpoints never pause. */
+function usableStops(rawStops: ReadonlyArray<JourneyStop>): JourneyStop[] {
+  return rawStops
+    .filter((stop) => Number.isFinite(stop.progress) && stop.progress > 0.015 && stop.progress < 0.985)
+    .sort((a, b) => a.progress - b.progress);
 }
 
-/** Intermediate stops only, in order — endpoints never pause. */
-function usableStops(rawStops: ReadonlyArray<JourneyStop>): number[] {
-  return rawStops
-    .map((stop) => clamp01(stop.progress))
-    .filter((progress) => progress > 0.015 && progress < 0.985)
-    .sort((a, b) => a - b);
+/** Photo eligibility is decided before this schedule reaches the renderer. */
+export function intermediateRouteStops(points: ReadonlyArray<SocialRoutePoint>) {
+  return points.filter((point) => Number.isFinite(point.progress) && point.progress > 0.015 && point.progress < 0.985)
+    .sort((a, b) => a.progress - b.progress)
+    .map((point) => ({ ...point, ...(point.photoReveal ? { pauseFrames: 90, fadeFrames: 9 } : {}) }));
 }
 
 function legFrames(from: number, to: number, timing: JourneyTiming): number {
   return Math.max(1, Math.round((to - from) * timing.travelFrames));
 }
 
-/**
- * The frame at which the boat reaches the take-out. Uses the same per-leg
- * rounding as journeyState, so it is exact rather than ±(stops) frames.
- */
-export function arrivalFrame(
-  rawStops: ReadonlyArray<JourneyStop>,
-  timing: JourneyTiming = DEFAULT_TIMING,
-): number {
-  const stops = usableStops(rawStops);
-  let frame = timing.introFrames;
+/** The single clock for travel, per-stop holds, arrival and composition length. */
+export function journeySchedule(rawStops: ReadonlyArray<JourneyStop>, timing: JourneyTiming = DEFAULT_TIMING) {
+  let cursor = timing.introFrames;
   let previous = 0;
-  for (const stop of stops) {
-    frame += legFrames(previous, stop, timing) + timing.pauseFrames;
-    previous = stop;
-  }
-  return frame + legFrames(previous, 1, timing);
+  const stops = usableStops(rawStops).map((stop) => {
+    const start = cursor;
+    const arrival = start + legFrames(previous, stop.progress, timing);
+    const pause = Number.isFinite(stop.pauseFrames) && stop.pauseFrames! > 0
+      ? Math.round(stop.pauseFrames!) : timing.pauseFrames;
+    const fade = Number.isFinite(stop.fadeFrames) && stop.fadeFrames! > 0
+      ? Math.min(pause / 2, stop.fadeFrames!) : pause / 5;
+    const entry = { from: previous, progress: stop.progress, start, arrival, departure: arrival + pause, fade };
+    cursor = entry.departure;
+    previous = stop.progress;
+    return entry;
+  });
+  return { stops, finalStart: cursor, finalFrom: previous, arrival: cursor + legFrames(previous, 1, timing) };
 }
 
-/**
- * Piecewise route progress: travel at a consistent average pace, hold at every
- * intermediate feature, then continue. Stops at either endpoint are ignored.
- */
-export function journeyState(
-  frame: number,
-  rawStops: ReadonlyArray<JourneyStop>,
+export function journeyDuration(
+  stops: ReadonlyArray<JourneyStop>,
   timing: JourneyTiming = DEFAULT_TIMING,
-): JourneyState {
-  const stops = usableStops(rawStops);
-  const elapsed = Math.max(0, frame - timing.introFrames);
-  let cursor = 0;
-  let previous = 0;
+  withSummary = false,
+): number {
+  const summary = withSummary ? timing.summaryFrames ?? DEFAULT_TIMING.summaryFrames ?? 0 : 0;
+  return journeySchedule(stops, timing).arrival + summary + timing.outroFrames;
+}
 
-  for (let i = 0; i < stops.length; i += 1) {
-    const stop = stops[i];
-    const travel = legFrames(previous, stop, timing);
-    if (elapsed < cursor + travel) {
-      const local = (elapsed - cursor) / travel;
-      return {
-        progress: previous + (stop - previous) * smoothstep(clamp01(local)),
-        activeStop: null,
-        calloutProgress: 0,
-        complete: false,
-      };
-    }
-    cursor += travel;
-    if (elapsed < cursor + timing.pauseFrames) {
-      const local = clamp01((elapsed - cursor) / timing.pauseFrames);
-      return {
-        progress: stop,
-        activeStop: i,
-        calloutProgress: Math.min(1, local * 5, (1 - local) * 5),
-        complete: false,
-      };
-    }
-    cursor += timing.pauseFrames;
-    previous = stop;
-  }
+export function arrivalFrame(rawStops: ReadonlyArray<JourneyStop>, timing: JourneyTiming = DEFAULT_TIMING): number {
+  return journeySchedule(rawStops, timing).arrival;
+}
 
-  const finalTravel = legFrames(previous, 1, timing);
-  if (elapsed < cursor + finalTravel) {
-    const local = (elapsed - cursor) / finalTravel;
-    return {
-      progress: previous + (1 - previous) * smoothstep(clamp01(local)),
-      activeStop: null,
-      calloutProgress: 0,
+/** Travel, hold, then continue. All consumers use the exact same rounded legs. */
+export function journeyState(frame: number, rawStops: ReadonlyArray<JourneyStop>, timing: JourneyTiming = DEFAULT_TIMING): JourneyState {
+  const schedule = journeySchedule(rawStops, timing);
+  const travelState = (from: number, to: number, start: number, end: number): JourneyState => ({
+    progress: from + (to - from) * smoothstep(clamp01((frame - start) / (end - start))),
+    activeStop: null, calloutProgress: 0, complete: false,
+  });
+  for (const [index, stop] of schedule.stops.entries()) {
+    if (frame < stop.arrival) return travelState(stop.from, stop.progress, stop.start, stop.arrival);
+    if (frame < stop.departure) return {
+      progress: stop.progress,
+      activeStop: index,
+      calloutProgress: Math.min(1, (frame - stop.arrival) / stop.fade, (stop.departure - frame) / stop.fade),
       complete: false,
+      stopElapsedFrames: frame - stop.arrival,
+      stopDurationFrames: stop.departure - stop.arrival,
     };
   }
+  if (frame < schedule.arrival) return travelState(schedule.finalFrom, 1, schedule.finalStart, schedule.arrival);
   return { progress: 1, activeStop: null, calloutProgress: 0, complete: true };
 }
 

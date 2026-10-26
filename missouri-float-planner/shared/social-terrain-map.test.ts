@@ -36,7 +36,7 @@ test('measured viewports keep Black River aligned and the full canoe clear as ca
   // Opening/travel, wrapped finish card, and the taller photo-credit variant.
   for (const [top, height] of [[545, 650], [545, 446], [545, 400], [570, 345]]) {
     const stage = { ...ROUTE_MAP_STAGE, height, boatY: height / 2 };
-    for (let frame = 0; frame < journeyDuration(0); frame++) {
+    for (let frame = 0; frame < journeyDuration([]); frame++) {
       const boat = plan.journey.locate(journeyState(frame, []).progress).point;
       const camera = terrainJourneyCamera(frame, plan.journey.points, boat, arrivalFrame([]), stage, top);
       const image = terrainImageTransform(camera, top);
@@ -79,7 +79,7 @@ test('terrain and overlay remain aligned through every camera frame, with no bla
     const plan = terrainMapPlan(route)!;
     const stops = [{ progress: 0.3367 }];
     const arrival = arrivalFrame(stops);
-    for (let frame = 0; frame < journeyDuration(stops.length); frame++) {
+    for (let frame = 0; frame < journeyDuration(stops); frame++) {
       const state = journeyState(frame, stops);
       const boat = plan.journey.locate(state.progress).point;
       const camera = terrainJourneyCamera(frame, plan.journey.points, boat, arrival);
