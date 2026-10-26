@@ -92,7 +92,31 @@ export interface FloatSearchResponse {
   evaluated: number;
   estimatedAt: string;
   unavailableReason?: string;
+  emptyReason?: FloatSearchEmptyReason;
 }
+
+export type FloatSearchEmptyReason = 'too_low' | 'high_water' | 'water_conditions' | 'public_access' | 'access_points' | 'conditions_unavailable' | 'duration_unavailable' | 'closures' | 'hazards' | 'no_nearby_rivers' | 'route_checks';
+
+const EMPTY_REASONS: Record<FloatSearchEmptyReason, string> = {
+  too_low: 'Water is currently too low on the routes checked. Try a nearby river or check back when levels rise.',
+  high_water: 'High water is keeping the routes checked out of suggestions. Try a nearby river or check back when levels fall.',
+  water_conditions: 'Current water conditions rule out the routes checked. Try a nearby river.',
+  public_access: 'No downstream route with two confirmed public accesses was found. Include other accesses or try a nearby river.',
+  access_points: 'There aren’t enough mapped launch and take-out points for this search. Try a nearby river.',
+  conditions_unavailable: 'Current conditions couldn’t be verified for the routes checked. Try a nearby river or check again later.',
+  duration_unavailable: 'We couldn’t estimate a float time for the routes checked. Try a nearby river.',
+  closures: 'Recorded closures affect the routes checked. Try a nearby river.',
+  hazards: 'Recorded hazards keep the routes checked out of suggestions. Try a nearby river.',
+  no_nearby_rivers: 'No rivers with eligible launches were found in this area. Try a wider search.',
+  route_checks: 'No routes passed the current condition and access checks. Try another river or a wider search.',
+};
+
+export function floatSearchEmptyReasonMessage(reason: FloatSearchEmptyReason) {
+  return EMPTY_REASONS[reason];
+}
+
+export const FLOAT_SEARCH_LOADING_TITLE = 'Eddy’s reading the waters';
+export const FLOAT_SEARCH_LOADING_DETAIL = 'Finding routes for your day.';
 
 export const REGULATED_DURATION_MESSAGE = 'Duration matching is unavailable on this river because dam releases can change the current mid-float. Check the river page for release information.';
 export const FLOAT_SEARCH_MAX_AGE_MS = 30 * 60 * 1000;
@@ -108,8 +132,36 @@ export function floatSearchIsFresh(result: Pick<FloatSearchResponse, 'estimatedA
 }
 export function floatSearchEmptyMessage(result: FloatSearchResponse) {
   if (result.unavailableReason) return result.unavailableReason;
-  if (result.partial && result.evaluated === 0) return 'The search could not finish. Please try again.';
-  return 'No duration matches found in this search. Try another river, boat, or time, or widen your nearby search.';
+  if (result.partial && !result.alternatives.length) return 'The search could not finish. Please try again.';
+  if (result.emptyReason) return floatSearchEmptyReasonMessage(result.emptyReason);
+  if (result.alternatives.length) return 'No exact time match. These shorter or longer routes may work for your day.';
+  return 'No routes found with these choices. Try another river or a wider search.';
+}
+
+/** Recovery is an explicit new search. Preserve time, vessel and access filters;
+ * a selected river supplies a public catalogue location, never device GPS. */
+export function floatSearchRecoveryOptions(
+  input: FloatSearchInput,
+  result: FloatSearchResponse,
+  river?: { name: string; floatAccessCoordinates?: Array<{ lat: number; lng: number }> },
+) {
+  const options: Array<{ label: string; input: FloatSearchInput; location?: string }> = [];
+  if (result.matches.length || result.alternatives.length || result.partial) return options;
+  if (input.publicOnly && result.emptyReason === 'public_access') {
+    options.push({ label: 'Include other accesses', input: { ...input, publicOnly: false } });
+  }
+  const points = river?.floatAccessCoordinates?.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180) ?? [];
+  if (input.river && points.length) {
+    const near = approximateLocation({
+      lat: points.reduce((sum, p) => sum + p.lat, 0) / points.length,
+      lng: points.reduce((sum, p) => sum + p.lng, 0) / points.length,
+    });
+    options.push({ label: 'Search nearby rivers', input: { ...input, river: undefined, near }, location: `Near ${river!.name}` });
+  } else if (!input.river && input.near && input.radiusMiles < 300) {
+    const radiusMiles = Math.min(300, input.radiusMiles * 2);
+    options.push({ label: `Search within ${radiusMiles} miles`, input: { ...input, radiusMiles } });
+  }
+  return options;
 }
 
 export interface FloatSearchPlace {

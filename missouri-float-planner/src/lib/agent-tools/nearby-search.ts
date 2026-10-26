@@ -4,6 +4,8 @@ import {
   durationRelation,
   geographicMiles,
   REGULATED_DURATION_MESSAGE,
+  floatSearchEmptyReasonMessage,
+  type FloatSearchEmptyReason,
   type FloatSearchInput,
   type FloatSearchOption,
   type FloatSearchResponse,
@@ -12,6 +14,7 @@ import {
   createDataContext,
   checked,
   accessView,
+  numeric,
   type Db,
   type River,
 } from './data';
@@ -75,6 +78,10 @@ export async function findNearbyFloats(
     evaluated = 0,
     partial = false;
   let unavailableReason: string | undefined;
+  let riverCount = 0, eligiblePairs = 0, screenedOutPairs = 0, unavailableDurationPairs = 0;
+  let otherAccessPair = false;
+  const excludedConditions = new Set<string>();
+  const blockedReasons = new Set<string>();
   const pool: Array<{
     candidate: Candidate;
     river: River;
@@ -154,6 +161,7 @@ export async function findNearbyFloats(
           a.id.localeCompare(b.id),
       );
     // Bounded catalog work, stated as partial if coverage exceeds the budget.
+    riverCount = nearby.length;
     if (nearby.length > 12) partial = true;
     await workers(nearby.slice(0, 12), async (river) => {
       const [points, screen, vessel] = await Promise.all([
@@ -190,8 +198,18 @@ export async function findNearbyFloats(
         Number(vessel.speed_normal),
         input.publicOnly,
         screen,
-        (a, b) => (closePutIns.has(a.id) ? durationFor(a, b) : null),
+        durationFor,
+        point => closePutIns.has(point.id),
       );
+      eligiblePairs += screened.coverage.eligiblePairs;
+      screenedOutPairs += screened.coverage.screenedOutPairs;
+      unavailableDurationPairs += screened.coverage.unavailableDurationPairs;
+      for (const code of screened.coverage.excludedConditions) excludedConditions.add(code);
+      if (input.publicOnly && screened.coverage.eligiblePairs === 0) {
+        const launches = points.filter(p => p.approved && p.is_float_endpoint && numeric(p.river_mile_downstream) != null);
+        const lastMile = Math.max(...launches.map(p => Number(p.river_mile_downstream)));
+        otherAccessPair ||= launches.some(p => closePutIns.has(p.id) && Number(p.river_mile_downstream) < lastMile);
+      }
       for (const candidate of screened.candidates) {
         const coords = accessView(candidate.putIn, river).coordinates;
         pool.push({
@@ -244,8 +262,11 @@ export async function findNearbyFloats(
       if (
         p.routeAssessment.recommendationStatus === 'not_recommended' ||
         !time?.timeRange
-      )
+      ) {
+        for (const reason of p.routeAssessment.blockingReasons) blockedReasons.add(reason.code);
+        if (!time?.timeRange) blockedReasons.add('duration_unavailable');
         return;
+      }
       const vessel = await planning.vessels(input.vesselType);
       output.push({
         id: `${candidate.putIn.id}:${candidate.takeOut.id}`,
@@ -303,6 +324,24 @@ export async function findNearbyFloats(
   const matches = diverseFloats(output.filter(p => p.relation === 'match'), 5, Boolean(input.river));
   const alternatives = diverseFloats(output.filter(p => p.relation !== 'match'), 3, Boolean(input.river));
   assignRoutePhotos([...matches, ...alternatives], routePhotos);
+  let emptyReason: FloatSearchEmptyReason | undefined;
+  // A time mismatch already returns assessed shorter/longer alternatives.
+  // With no routes, explain the actual exclusion rather than blaming the time.
+  if (!matches.length && !alternatives.length && !unavailableReason && !partial && !budget.signal.aborted) {
+    if (!riverCount) emptyReason = 'no_nearby_rivers';
+    else if (!eligiblePairs) emptyReason = otherAccessPair ? 'public_access' : 'access_points';
+    else if (screenedOutPairs === eligiblePairs) {
+      emptyReason = excludedConditions.size === 1 && excludedConditions.has('too_low') ? 'too_low'
+        : !excludedConditions.has('too_low') ? 'high_water' : 'water_conditions';
+    } else if (blockedReasons.has('official_closure')) emptyReason = 'closures';
+    else if (blockedReasons.has('danger_on_route') || blockedReasons.has('danger_location_unknown')) emptyReason = 'hazards';
+    else if (blockedReasons.has('gauge_coverage_incomplete')) emptyReason = 'conditions_unavailable';
+    else if (blockedReasons.has('water_conditions_unsuitable') || blockedReasons.has('low_water_in_route')) emptyReason = 'water_conditions';
+    else if (unavailableDurationPairs || blockedReasons.has('duration_unavailable')) emptyReason = 'duration_unavailable';
+    else emptyReason = 'route_checks';
+    // Older app builds already display unavailableReason, so they get the fix too.
+    unavailableReason = floatSearchEmptyReasonMessage(emptyReason);
+  }
   return {
     matches,
     alternatives,
@@ -311,5 +350,6 @@ export async function findNearbyFloats(
     evaluated,
     estimatedAt: new Date(ctx.now).toISOString(),
     ...(unavailableReason ? { unavailableReason } : {}),
+    ...(emptyReason ? { emptyReason } : {}),
   };
 }

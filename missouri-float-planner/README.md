@@ -77,6 +77,13 @@ Condition badges, cautions, and estimate provenance remain visible. Inspiration
 photos come from the river catalogue and make no current-condition claim.
 The Vessel icon parity test compares web and iOS SVG geometry and strokes.
 
+Searching shows the locally bundled Eddy checking a gauge with “Eddy’s reading
+the waters”; Reduce Motion disables the progress-dot animation. Refreshes keep
+the previous cards visible but their planner actions blocked. Empty results
+explain the actual condition/access exclusion and offer an explicit nearby
+river or wider-radius search. These recovery searches preserve the submitted
+time, vessel, and access preference; private accesses require a separate action.
+
 `npm run test:float-finder` runs fixture-backed browser checks of the real page
 at 1440, 1024, 390, and 320px, plus dark mode. It covers keyboard combobox
 navigation, location/river selection, pending and failed searches, late

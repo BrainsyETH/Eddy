@@ -23,6 +23,7 @@ import { SafeAreaView as ScreenSafeAreaView } from 'react-native-screens/experim
 import { ControlIcon } from '@/components/ControlIcon';
 import { VesselPicker } from '@/components/VesselPicker';
 import { FloatSearchCard } from '@/components/FloatSearchCard';
+import { FloatSearchLoading } from '@/components/FloatSearchLoading';
 import { FloatInfoSheet, type FloatInfoTopic } from '@/components/FloatInfoSheet';
 import { floatDurationLabel } from '@/lib/floatPresentation';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -34,6 +35,7 @@ import {
   FLOAT_BOAT_STORAGE_KEY,
   floatSearchIsFresh,
   floatSearchEmptyMessage,
+  floatSearchRecoveryOptions,
   FLOAT_SEARCH_MAX_AGE_MS,
   FLOAT_SEARCH_EXPIRED_MESSAGE,
   FLOAT_SEARCH_PROXIMITY_NOTE,
@@ -235,7 +237,7 @@ export default function FindFloatScreen() {
       void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType).catch(() => {});
     }
   };
-  async function run() {
+  async function run(nextInput = state.input, nextLocation = state.location) {
     if (request.current && !request.current.signal.aborted) return;
     locationChosen.current = true; // Search commits the geographic scope shown.
     boatChosen.current = true; // Search commits the vessel currently shown, even if storage is slow.
@@ -246,11 +248,11 @@ export default function FindFloatScreen() {
     setBusy('search');
     setError('');
     revealResults.current = true;
-    setState((s) => ({ ...s, result: null }));
+    setState((s) => ({ ...s, input: nextInput, location: nextLocation, result: null }));
     try {
       const input = {
-        ...state.input,
-        near: state.input.near ? approximateLocation(state.input.near) : undefined,
+        ...nextInput,
+        near: nextInput.near ? approximateLocation(nextInput.near) : undefined,
       };
       const result = await fetchFloatSearch(input, controller.signal);
       if (!controller.signal.aborted) setState((s) => ({ ...s, result }));
@@ -447,7 +449,13 @@ export default function FindFloatScreen() {
             ? body('Results may include private or unconfirmed access. Check access details before going.')
             : null}
         </View>
-        {busy && <ActivityIndicator color={colors.interactive} />}
+        {busy === 'location' && <ActivityIndicator color={colors.interactive} />}
+        {busy === 'search' && <View onLayout={(event) => {
+          if (revealResults.current) {
+            revealResults.current = false;
+            scroller.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: !reducedMotion });
+          }
+        }}><FloatSearchLoading /></View>}
         {error ? (
           <Text accessibilityRole="alert" style={[styles.label, { color: colors.text }]}>
             {error}
@@ -498,6 +506,13 @@ export default function FindFloatScreen() {
               </View>
             ) : null}
             {result.matches.length === 0 && body(floatSearchEmptyMessage(result))}
+            {floatSearchRecoveryOptions(input, result, rivers.find(r => r.slug === input.river || r.id === input.river)).map(option => (
+              <SearchButton key={option.label} label={option.label} disabled={busy !== null} onPress={() => {
+                update(option.input);
+                if (option.location) setState(s => ({ ...s, location: option.location!, locationSource: 'place' }));
+                void run(option.input, option.location ?? state.location);
+              }} />
+            ))}
             {result.matches.map(card)}
             {result.alternatives.length > 0 && (
               <>

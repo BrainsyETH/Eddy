@@ -1226,6 +1226,42 @@ test('single river needs no location and alternatives retain a shorter/longer la
   assert.ok(result.alternatives.length > 0);
   assert.ok(result.alternatives.every(m => m.relation === 'shorter' && m.nearbyMiles === null));
 });
+
+test('Huzzah-shaped searches find six-hour routes in suitable water and explain low-water exclusions', async () => {
+  for (const tooLow of [false, true]) {
+    const f = fixture({ points: 8 });
+    Object.assign(f.tables.rivers[0], { name: 'Huzzah Creek', slug: 'huzzah' });
+    const miles = [-1.8, 0.2, 6, 8.3, 16.3, 17.5, 23, 28.4];
+    f.tables.access_points.forEach((p, i) => { p.river_mile_downstream = miles[i]; p.is_public = i !== 1 && i !== 6; });
+    if (tooLow) for (const table of ['gauge_readings', 'gauge_latest']) f.tables[table].forEach(row => { row.gauge_height_ft = 0.5; });
+    const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'huzzah', targetHours: 6 }, { sources: f.sources, now: NOW });
+    assert.equal(result.partial, false);
+    if (tooLow) {
+      assert.equal(result.evaluated, 0);
+      assert.deepEqual([...result.matches, ...result.alternatives], []);
+      assert.equal(result.emptyReason, 'too_low');
+      assert.match(result.unavailableReason!, /Water is currently too low/);
+      assert.doesNotMatch(result.unavailableReason!, /duration|time match/);
+    } else {
+      assert.ok(result.matches.length > 0, 'the time and public-only selection can produce suggestions');
+      assert.ok(result.evaluated <= 6);
+      assert.equal(result.emptyReason, undefined);
+    }
+  }
+});
+
+test('empty searches distinguish private endpoints, missing access data, high water and unverifiable conditions', async () => {
+  for (const reason of ['public_access', 'access_points', 'high_water', 'conditions_unavailable'] as const) {
+    const f = fixture({ stale: reason === 'conditions_unavailable' });
+    if (reason === 'public_access') f.tables.access_points.forEach(p => { p.is_public = false; });
+    if (reason === 'access_points') f.tables.access_points.splice(1);
+    if (reason === 'high_water') for (const table of ['gauge_readings', 'gauge_latest']) f.tables[table].forEach(row => { row.gauge_height_ft = 8; });
+    const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current' }, { sources: f.sources, now: NOW });
+    assert.deepEqual([...result.matches, ...result.alternatives], [], reason);
+    assert.equal(result.emptyReason, reason);
+    assert.ok(result.unavailableReason, 'older iOS builds receive the explanation through the existing field');
+  }
+});
 test('route results vary photos using their own endpoints, even when the first gallery image repeats', async () => {
   const f = fixture({ points: 8 });
   for (const point of f.tables.access_points) {
@@ -1299,6 +1335,7 @@ test('public endpoints and closure checks survive multi-river search', async () 
   assert.equal(closed.failed, 0);
   assert.ok(closed.evaluated > 0);
   assert.deepEqual([...closed.matches, ...closed.alternatives], []);
+  assert.equal(closed.emptyReason, 'closures');
 });
 test('nearby deadline before any assessment is a failed search, not an empty result', async () => {
   const f = fixture({ stallTable: 'float_segments' });

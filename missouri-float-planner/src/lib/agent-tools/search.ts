@@ -113,6 +113,7 @@ export function screenCandidates(
   publicOnly: boolean,
   screen?: Screening,
   durationFor?: (putIn: Access, takeOut: Access) => TripDuration | null,
+  canStart: (point: Access) => boolean = () => true,
 ) {
   const eligible = points
     .filter(
@@ -130,13 +131,15 @@ export function screenCandidates(
   const unsuitable = new Set(['too_low', 'high', 'dangerous']);
   const pool: Candidate[] = [];
   const counts = {
-    eligiblePutIns: Math.max(0, eligible.length - 1),
+    eligiblePutIns: 0,
     ratedFloatablePutIns: 0,
     unsuitablePutIns: 0,
     unknownPutIns: 0,
     screenedOutPairs: 0,
     eligiblePairs: 0,
+    unavailableDurationPairs: 0,
   };
+  const excludedConditions = new Set<string>();
   const first = Number(eligible[0]?.river_mile_downstream ?? 0);
   const extent = Math.max(
     1,
@@ -148,11 +151,12 @@ export function screenCandidates(
   for (let i = 0; i < eligible.length - 1; i++) {
     const putIn = eligible[i],
       start = Number(putIn.river_mile_downstream);
+    if (!canStart(putIn)) continue;
     // Duplicate-mile endpoints cannot start a downstream route by themselves.
     if (start >= Number(eligible.at(-1)?.river_mile_downstream)) {
-      counts.eligiblePutIns--;
       continue;
     }
+    counts.eligiblePutIns++;
     const gauge = screen && screeningGauge(start, screen.links, screen.reaches);
     const code = gauge
       ? (screen!.ratings.get(gauge.gauge_station_id) ?? 'unknown')
@@ -168,6 +172,7 @@ export function screenCandidates(
     let spanIndex = 0;
     let spanUnsuitable = false;
     let spanUnknown = false;
+    const spanExcluded = new Set<string>();
     for (const takeOut of eligible.slice(i + 1)) {
       const end = Number(takeOut.river_mile_downstream);
       if (end <= start) continue;
@@ -181,16 +186,19 @@ export function screenCandidates(
         const spanCode =
           screen!.ratings.get(span[spanIndex++].gauge_station_id) ?? 'unknown';
         spanUnsuitable ||= unsuitable.has(spanCode);
+        if (unsuitable.has(spanCode)) spanExcluded.add(spanCode);
         spanUnknown ||= spanCode === 'unknown';
       }
       if (unsuitable.has(code) || spanUnsuitable) {
         counts.screenedOutPairs++;
+        if (unsuitable.has(code)) excludedConditions.add(code);
+        for (const spanCode of spanExcluded) excludedConditions.add(spanCode);
         continue;
       }
       const duration = durationFor ? durationFor(putIn, takeOut) : calculateTripDuration({
         miles: end - start, condition: 'flowing', speeds: { speedLowWater: speedMph, speedNormal: speedMph, speedHighWater: speedMph },
       });
-      if (!duration) continue;
+      if (!duration) { counts.unavailableDurationPairs++; continue; }
       local.push({
         putIn,
         takeOut,
@@ -239,6 +247,7 @@ export function screenCandidates(
     candidates,
     coverage: {
       ...counts,
+      excludedConditions: [...excludedConditions],
       status: screen ? 'ok' : 'partial',
       basis:
         'Current stored readings at recorded eligible put-ins and positioned route gauges; not a whole-river or future-date verdict.',

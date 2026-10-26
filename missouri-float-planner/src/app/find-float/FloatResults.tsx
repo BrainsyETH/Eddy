@@ -6,12 +6,26 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import Skeleton from '@/components/ui/Skeleton';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 import { optimizeBlogImage } from '@/lib/blog-image';
 import type { RiverListItem } from '@/types/api';
-import { floatRangeLabel, publicAccessLabel, floatPlanPath, floatSearchEmptyMessage, floatSearchUsedProximity, FLOAT_SEARCH_PROXIMITY_NOTE, type FloatSearchOption } from '@shared/float-search';
+import { floatRangeLabel, publicAccessLabel, floatPlanPath, floatSearchEmptyMessage, floatSearchUsedProximity, FLOAT_SEARCH_PROXIMITY_NOTE, FLOAT_SEARCH_LOADING_TITLE, FLOAT_SEARCH_LOADING_DETAIL, type floatSearchRecoveryOptions, type FloatSearchOption } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
 
 const FEATURED_RIVERS = ['current', 'eleven-point', 'buffalo', 'jacks-fork', 'meramec'];
+
+export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
+  return <Card variant="panel" role="status" aria-live="polite"
+    style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary-300) 8%, var(--color-surface))', borderColor: 'var(--color-primary-300)' }}
+    className={`mb-5 flex flex-col items-center justify-center gap-4 px-6 text-center ${compact ? 'py-6' : 'min-h-96 py-12 sm:min-h-[480px]'}`}>
+    <EddyIcon name="checkingGauge" size={compact ? 100 : 190} />
+    <h2 style={{ fontFamily: 'var(--font-display)' }} className={compact ? 'text-2xl' : 'text-3xl sm:text-4xl'}>{FLOAT_SEARCH_LOADING_TITLE}</h2>
+    <p className="text-sm text-[var(--color-text-secondary)]">{FLOAT_SEARCH_LOADING_DETAIL}</p>
+    <div className="flex gap-2 py-2 text-[var(--color-text-secondary)]" aria-hidden="true">
+      {[0, 1, 2].map(i => <span key={i} className="h-2 w-2 rounded-full bg-current motion-safe:animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />)}
+    </div>
+  </Card>;
+}
 
 export function RiverInspiration({ rivers, selectedRiver, loading, onChoose }: {
   rivers: RiverListItem[];
@@ -27,7 +41,6 @@ export function RiverInspiration({ rivers, selectedRiver, loading, onChoose }: {
   return (
     <>
       <div className="mb-5">
-        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--color-text-secondary)]">Your next day outside</p>
         <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">A little river inspiration</h2>
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Pick a river to explore. We’ll check conditions when you find routes.</p>
       </div>
@@ -58,11 +71,13 @@ export function RiverInspiration({ rivers, selectedRiver, loading, onChoose }: {
   );
 }
 
-export function FloatResults({ snapshot, dirty, busy, onPlan }: {
+export function FloatResults({ snapshot, dirty, busy, onPlan, recoveryOptions, onRecover }: {
   snapshot: SearchSnapshot;
   dirty: boolean;
   busy: boolean;
   onPlan: () => boolean;
+  recoveryOptions: ReturnType<typeof floatSearchRecoveryOptions>;
+  onRecover: (option: ReturnType<typeof floatSearchRecoveryOptions>[number]) => void;
 }) {
   const { data, input, location } = snapshot;
   const blocked = dirty || busy;
@@ -74,9 +89,11 @@ export function FloatResults({ snapshot, dirty, busy, onPlan }: {
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">About {input.targetHours} hours · <span className="capitalize">{input.vesselType}</span>{input.publicOnly ? ' · Public accesses' : ''}</p>
         <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Checked {new Date(data.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Conditions can change.</p>
       </div>
-      {blocked && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm font-medium">{busy ? 'Updating your search. Previous results are shown below.' : 'Your choices changed. Update routes to see matching floats.'}</p></Card>}
+      {dirty && !busy && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm font-medium">Your choices changed. Update routes to see matching floats.</p></Card>}
       {data.partial && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm">{data.failed ? 'Some river data was unavailable. ' : ''}This is a partial search. Try again or choose a river for a closer look.</p></Card>}
-      {data.matches.length === 0 && <Card variant="panel" className="mb-5 p-5"><p>{floatSearchEmptyMessage(data)}</p></Card>}
+      {data.matches.length === 0 && <Card variant="panel" className="mb-5 space-y-4 p-5"><p>{floatSearchEmptyMessage(data)}</p>
+        {!blocked && recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
+      </Card>}
       <div className="space-y-5" aria-label="Matching routes">
         {data.matches.map(option => <FloatCard key={option.id} option={option} blocked={blocked} onPlan={onPlan} />)}
       </div>
