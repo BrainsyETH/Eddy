@@ -46,6 +46,14 @@ import { getConditionTailwindColor } from '@/lib/conditions';
 import { trackEvent } from '@/lib/analytics';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
 import { useRiverVisualPins } from '@/hooks/useRiverVisualPins';
+import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
+import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
+import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
+import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
+
+const PlannerAccessLayer = dynamic(() => import('@/components/map/PlannerAccessLayer'), { ssr: false });
+const PlannerPlaceFocus = dynamic(() => import('@/components/map/PlannerAccessLayer').then(module => module.PlannerPlaceFocus), { ssr: false });
+const ACCESS_PRIORITY_LAYERS = ['planner-access-dots'];
 
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
 const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
@@ -219,7 +227,8 @@ export default function PlanPageClient({
   //
   // `!== false` and not `=== true`: a payload predating the field omits it, and
   // absent means eligible. See the field's note in packages/eddy-types.
-  const { data: visibleAccessPoints } = useAccessPoints(riverSlug);
+  const { data: visibleAccessPoints, isPlaceholderData: accessPlaceholder, isFetching: accessLoading,
+    isError: accessError, refetch: refetchAccess } = useAccessPoints(riverSlug);
   const floatEndpointAccessPoints = useMemo(
     () => visibleAccessPoints?.filter(ap => ap.isFloatEndpoint !== false),
     [visibleAccessPoints],
@@ -234,7 +243,7 @@ export default function PlanPageClient({
   const { data: allGaugeStations } = useGaugeStations({ enabled: showGauges });
   // Statewide condition counts + newest-reading stamp for the Filters
   // legend. Same React Query keys the network layer uses — no extra fetch.
-  const { countsByCode, newestReadingAt } = useConditionNetwork();
+  const { collection: conditionNetwork, countsByCode, newestReadingAt } = useConditionNetwork();
   const { data: pois } = usePOIs(riverSlug);
   const { data: photoPins } = useRiverVisualPins(riverSlug, showPhotos);
   const { data: hazards } = useHazards(riverSlug);
@@ -247,6 +256,12 @@ export default function PlanPageClient({
   // render (viewport unknown): render both wrappers exactly like the old
   // CSS-hidden markup so server and client HTML agree, then drop one.
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const catalog = usePlannerMapCatalog(isDesktop === true);
+  const desktopPanelRef = useRef<HTMLDivElement>(null);
+  const [selectedPlace, setSelectedPlace] = useState<PlannerMapPlace | null>(null);
+  const searchConditions = useMemo(() => new Map(
+    (conditionNetwork?.features ?? []).map(feature => [feature.properties.slug, feature.properties]),
+  ), [conditionNetwork]);
 
   // Resolve the flow-particle default once the viewport is known; a choice
   // the user already made this session wins.
@@ -324,7 +339,7 @@ export default function PlanPageClient({
 
   // Validate URL access points belong to the loaded river
   useEffect(() => {
-    if (floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && urlInitialized) {
+    if (!accessPlaceholder && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && urlInitialized) {
       if (selectedPutIn && !floatEndpointAccessPoints.find(ap => ap.id === selectedPutIn)) {
         setSelectedPutIn(null);
       }
@@ -332,16 +347,31 @@ export default function PlanPageClient({
         setSelectedTakeOut(null);
       }
     }
-  }, [floatEndpointAccessPoints, selectedPutIn, selectedTakeOut, urlInitialized]);
+  }, [floatEndpointAccessPoints, selectedPutIn, selectedTakeOut, urlInitialized, accessPlaceholder]);
 
   // River change: clear access point selections (a put-in from one river
   // never makes sense on another)
   const handleRiverChange = useCallback((slug: string | null, source: 'dropdown' | 'map' = 'dropdown') => {
+    setSelectedPlace(null);
+    if (slug === riverSlug) return;
     if (slug) trackEvent('river_selected', { slug, source });
     setRiverSlug(slug);
     setSelectedPutIn(null);
     setSelectedTakeOut(null);
-  }, []);
+  }, [riverSlug]);
+
+  const handlePlaceSelect = useCallback((place: PlannerMapPlace) => {
+    if (place.riverSlug !== riverSlug) handleRiverChange(place.riverSlug, 'map');
+    setSelectedPlace(place);
+  }, [riverSlug, handleRiverChange]);
+
+  const previewPoint = !accessPlaceholder && river?.slug === riverSlug && selectedPlace?.riverSlug === riverSlug
+    ? visibleAccessPoints?.find(point => point.id === selectedPlace.id) : undefined;
+
+  const desktopSearch = <PlannerMapSearch rivers={rivers ?? []} places={catalog.places}
+    currentSlug={riverSlug} conditions={searchConditions} loading={catalog.isPending}
+    failed={catalog.isError} onRetry={() => { void catalog.refetch(); }}
+    onRiver={handleRiverChange} onPlace={handlePlaceSelect} />;
 
   // Put-in is always upstream of take-out (lower river_mile_downstream).
   const setBothPoints = useCallback((idA: string, idB: string) => {
@@ -665,17 +695,28 @@ export default function PlanPageClient({
   // ─── No river selected: show the map with a prominent river picker ───
   if (!riverSlug) {
     return (
-      <div className="relative bg-neutral-100 plan-viewport-h">
+      <div className={`relative bg-neutral-100 plan-viewport-h ${isDesktop !== false ? "planner-desktop" : ""}`}>
         <MapContainer initialBounds={defaultBounds} showLegend={false}>
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
-          <ConditionNetworkLayer showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+          <ConditionNetworkLayer prominent={isDesktop === true} priorityLayerIds={ACCESS_PRIORITY_LAYERS} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+          {isDesktop && <PlannerAccessLayer places={catalog.places} onSelect={handlePlaceSelect} />}
           {/* Statewide flow at first sight — the wow frame. */}
           {flowOn && <FlowParticlesLayer />}
         </MapContainer>
 
-        {/* Prominent river selector floating on the map */}
-        <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[380px] z-30">
+        {isDesktop !== false && <div className="absolute left-5 top-5 z-30 hidden w-[340px] lg:block">
+          {desktopSearch}
+          <div className="planner-glass mt-3 rounded-2xl p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-700">Your next river day</p>
+            <h1 className="mt-1 text-2xl font-bold text-primary-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h1>
+            <p className="mt-2 text-sm leading-relaxed text-neutral-600">Explore a river. Pick your put-in and take-out. Make a day of it.</p>
+            <p className="mt-3 border-t border-neutral-200/60 pt-3 text-xs text-neutral-600">River colors show current conditions. Select an access point to get started.</p>
+          </div>
+        </div>}
+        {isDesktop && <MapLegend className="!bottom-8" />}
+        {/* Mobile keeps the existing river picker. */}
+        <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[380px] z-30 lg:hidden">
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-neutral-200 p-4">
             <h1
               className="text-lg font-bold text-neutral-900 mb-0.5"
@@ -744,21 +785,80 @@ export default function PlanPageClient({
     <div className="min-h-screen bg-neutral-50">
       {/* OfflineBanner is rendered once globally in the root layout (above the
           header); no second copy here. */}
-      {/* ─── DESKTOP: Split-panel layout ─── */}
+      {/* ─── DESKTOP: Floating panels over a full-width map ─── */}
       {isDesktop !== false && (
-      <div className="hidden lg:flex overflow-hidden plan-viewport-h">
-        {/* Map-first: the sidebar column only exists once a put-in starts a
-            plan. Before that the map is full-bleed and the river switcher
-            floats on it (left overlay stack below). */}
-        {putInPoint && (
-        <div className="w-[400px] flex-shrink-0 border-r border-neutral-200 bg-white flex flex-col min-h-0">
-          <div className="p-3 border-b border-neutral-200 bg-white">
-            <RiverSwitcher
-              currentSlug={riverSlug}
-              rivers={rivers || []}
-              onChange={handleRiverChange}
-            />
-          </div>
+      <div className="planner-desktop relative hidden lg:flex overflow-hidden plan-viewport-h">
+        <div className="flex-1 relative">
+          <MapContainer
+            initialBounds={river.bounds}
+            showLegend={false}
+            syncCameraToUrl
+          >
+            {river.slug === riverSlug && !accessPlaceholder && visibleAccessPoints && (
+              <AccessPointMarkers
+                interaction="inspect"
+                accessPoints={visibleAccessPoints}
+                selectedPutIn={selectedPutIn}
+                selectedTakeOut={selectedTakeOut}
+                onMarkerClick={(point) => handlePlaceSelect({ id: point.id, name: point.name, slug: point.slug,
+                  riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates })}
+              />
+            )}
+            <PlannerAccessLayer places={catalog.places} excludeRiverSlug={river.slug === riverSlug && !accessPlaceholder && visibleAccessPoints ? river.slug : undefined} onSelect={handlePlaceSelect} />
+            <PlannerPlaceFocus place={river.slug === riverSlug ? selectedPlace : null} panelRef={desktopPanelRef} />
+            {showGauges && gaugeStations && (
+              <GaugeStationMarkers
+                gauges={gaugeStations}
+                selectedRiverId={river.id}
+                nearestGaugeId={nearestGauge?.id}
+              />
+            )}
+            {filteredPois.length > 0 && (
+              <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
+            )}
+            {showPhotos && photoPins && photoPins.length > 0 && (
+              <RiverPhotoMarkers pins={photoPins} />
+            )}
+            {/* Statewide condition network: every OTHER river in its live
+                condition color as context. Click one to switch the
+                active river. The selected river is drawn separately below. */}
+            {showNetwork && (
+              <ConditionNetworkLayer prominent priorityLayerIds={ACCESS_PRIORITY_LAYERS} excludeRiverId={river.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+            )}
+            {/* The selected river, drawn prominently in its own condition color
+                (so it's not the one bare line among colored context rivers). */}
+            {river.geometry && (
+              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} showLabel={showRiverNames} />
+            )}
+            {/* Selected float route line between put-in and take-out */}
+            <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
+            {/* Safety-critical: hazards render always, never gated behind toggles */}
+            <HazardMarkers hazards={hazards ?? []} />
+            {/* Animated downstream current. Honors the legend-chip filter;
+                when the network is hidden, flow stays on the hero river. */}
+            {flowOn && (
+              <FlowParticlesLayer
+                visibleConditions={visibleConditions}
+                onlyRiverId={showNetwork ? undefined : river.id}
+              />
+            )}
+          </MapContainer>
+
+          {/* Search and details float over the map, below the unchanged River Report. */}
+          <div ref={desktopPanelRef} className="pointer-events-none absolute top-20 bottom-36 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
+            <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
+            {selectedPlace && <div className="pointer-events-auto shrink-0">
+              <PlannerPlaceCard place={selectedPlace} point={previewPoint} loading={accessLoading || accessPlaceholder || river.slug !== riverSlug}
+                failed={accessError} onRetry={() => { void refetchAccess(); }} canTakeOut={!!selectedPutIn && selectedPutIn !== previewPoint?.id}
+                onClose={() => setSelectedPlace(null)}
+                onPutIn={() => { if (previewPoint && previewPoint.isFloatEndpoint !== false) {
+                  setSelectedPutIn(previewPoint.id); setSelectedTakeOut(null); setSelectedPlace(null);
+                } }}
+                onTakeOut={() => { if (previewPoint && previewPoint.isFloatEndpoint !== false && selectedPutIn) {
+                  setBothPoints(selectedPutIn, previewPoint.id); setSelectedPlace(null);
+                } }} />
+            </div>}
+            {putInPoint && !selectedPlace && <div className="planner-glass pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
           <PlanSidebar
             riverName={river.name}
             riverSlug={river.slug}
@@ -782,77 +882,8 @@ export default function PlanPageClient({
             pointsAlongRoute={pointsAlongRoute}
             captureRef={captureRef}
           />
-        </div>
-        )}
-
-        <div className="flex-1 relative">
-          <MapContainer
-            initialBounds={river.bounds}
-            showLegend={false}
-            syncCameraToUrl
-          >
-            {visibleAccessPoints && (
-              <AccessPointMarkers
-                accessPoints={visibleAccessPoints}
-                selectedPutIn={selectedPutIn}
-                selectedTakeOut={selectedTakeOut}
-                onMarkerClick={handleMarkerClick}
-              />
-            )}
-            {showGauges && gaugeStations && (
-              <GaugeStationMarkers
-                gauges={gaugeStations}
-                selectedRiverId={river.id}
-                nearestGaugeId={nearestGauge?.id}
-              />
-            )}
-            {filteredPois.length > 0 && (
-              <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
-            )}
-            {showPhotos && photoPins && photoPins.length > 0 && (
-              <RiverPhotoMarkers pins={photoPins} />
-            )}
-            {/* Statewide condition network: every OTHER river in its live
-                condition color, thin, as context. Click one to switch the
-                active river. The selected river is drawn separately below. */}
-            {showNetwork && (
-              <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
-            )}
-            {/* The selected river, drawn prominently in its own condition color
-                (so it's not the one bare line among colored context rivers). */}
-            {river.geometry && (
-              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} showLabel={showRiverNames} />
-            )}
-            {/* Selected float route line between put-in and take-out */}
-            <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
-            {/* Safety-critical: hazards render always, never gated behind toggles */}
-            <HazardMarkers hazards={hazards ?? []} />
-            {/* Animated downstream current. Honors the legend-chip filter;
-                when the network is hidden, flow stays on the hero river. */}
-            {flowOn && (
-              <FlowParticlesLayer
-                visibleConditions={visibleConditions}
-                onlyRiverId={showNetwork ? undefined : river.id}
-              />
-            )}
-          </MapContainer>
-
-          {/* Left overlay stack — river switcher (until a put-in starts the
-              plan), weather, filters. One column so they never overlap. */}
-          <div className="pointer-events-none absolute top-4 left-4 z-30 flex w-[300px] flex-col items-start gap-2">
-            {!putInPoint && (
-              // relative z-10: the backdrop-blur cards each create a stacking
-              // context, and later siblings (weather, Filters) were painting
-              // OVER the open river dropdown. Lifting the card lifts its
-              // dropdown with it.
-              <div className="pointer-events-auto relative z-10 w-full rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-2xl backdrop-blur-sm">
-                <RiverSwitcher
-                  currentSlug={riverSlug}
-                  rivers={rivers || []}
-                  onChange={handleRiverChange}
-                />
-              </div>
-            )}
+            </div>}
+            <div className="pointer-events-auto flex shrink-0 flex-wrap items-start gap-2">
             <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="pointer-events-auto relative" />
             <PlanFilters
               showNetwork={showNetwork}
@@ -877,6 +908,7 @@ export default function PlanPageClient({
               readingsAsOf={newestReadingAt}
               className="pointer-events-auto relative"
             />
+            </div>
           </div>
 
           <MapEddySays
@@ -980,7 +1012,7 @@ export default function PlanPageClient({
               <RiverPhotoMarkers pins={photoPins} />
             )}
             {/* Statewide condition network: every OTHER river in its live
-                condition color, thin, as context. Click one to switch the
+                condition color as context. Click one to switch the
                 active river. The selected river is drawn separately below. */}
             {showNetwork && (
               <ConditionNetworkLayer excludeRiverId={river.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
