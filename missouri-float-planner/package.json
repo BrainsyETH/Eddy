@@ -52,7 +52,8 @@
     "db:readiness": "tsx scripts/ingestion/audit-readiness.ts",
     "test:dam-page": "node scripts/dam-page-smoke.mjs",
     "test:navigation": "node scripts/navigation-smoke.mjs",
-    "test:analytics-browser": "node scripts/analytics-browser-smoke.mjs"
+    "test:analytics-browser": "node scripts/analytics-browser-smoke.mjs",
+    "test:planner-map": "node scripts/planner-map-smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

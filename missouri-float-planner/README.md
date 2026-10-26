@@ -56,6 +56,36 @@ build and enforces a 250ms click-to-painted-state budget under the same throttle
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
 
+## Desktop Build a Route
+
+At desktop widths (1024px and above), `/plan` keeps the map full width with
+frosted search, access details, and route panels. Eddy Says — River Report
+retains its existing top-center presentation. The mobile planner is unchanged.
+
+The overview uses the Live River Map catalogue for all river access pins and
+the existing condition network for colored geometry. Pins use one GeoJSON
+layer rather than a DOM marker per statewide access; selected-river markers
+retain their existing put-in/take-out styling. River and access search works
+locally against these cached catalogues, including keyboard selection.
+
+Next config prepares MapLibre's installed worker and sibling shared module
+under a versioned same-origin URL. `MapContainer` sets that URL before creating
+any map; without it, MapLibre 6's GeoJSON sources can hang while satellite
+imagery and canvas flow particles still appear. Generated worker assets are
+ignored by Git and rebuilt from the installed dependency for dev and builds.
+
+Search and marker selections open the same access preview. Routing actions
+wait for the selected river's authoritative access response and check endpoint
+eligibility; overview data alone never grants launch eligibility. Selecting a
+different river clears the old route, and delayed placeholder access data is
+not allowed to validate or select endpoints on the new river.
+
+`npm run test:planner-map` runs the actual planner and MapLibre with fixture API
+responses at desktop, narrow desktop, and mobile widths.
+Set `PLAYWRIGHT_CHROMIUM_PATH` for a locally installed browser. Its temporary
+development-only route is ignored and removed after the run; screenshots go to
+`/tmp/eddy-planner-map` (override with `PLANNER_SMOKE_OUTPUT`).
+
 ## Dam pages
 
 The lakes and dams index uses compact cards with generation estimates, release,
