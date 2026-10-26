@@ -206,8 +206,11 @@ try {
         await nav.getByRole('link', { name: 'Floats' }).click();
         await page.waitForURL('**/find-float?river=meramec');
         await page.getByRole('heading', { name: 'Find a Route', exact: true }).waitFor();
-        assert.equal(await page.getByLabel('River (optional)').inputValue(), 'meramec');
-        await page.getByLabel('River (optional)').selectOption('current');
+        // The catalogue resolves the URL slug to its display name after hydration.
+        await page.waitForFunction(() => document.querySelector('#float-destination')?.value === 'Meramec River');
+        assert.equal(await page.getByLabel('Town or river', { exact: true }).inputValue(), 'Meramec River');
+        await page.getByLabel('Town or river', { exact: true }).fill('Current');
+        await page.getByRole('button', { name: 'Current River', exact: true }).click();
         await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/plan?river=current"]'));
         assert.equal(await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).getAttribute('href'), '/plan?river=current');
         await page.goto(`${origin}/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak`, { waitUntil: 'networkidle' });

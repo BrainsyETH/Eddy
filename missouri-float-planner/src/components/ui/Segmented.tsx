@@ -38,6 +38,8 @@ export interface SegmentedProps<T extends string | number> {
   value: T;
   onChange: (value: T) => void;
   size?: 'sm' | 'md';
+  /** Equal-width choices that fit a narrow preference panel. */
+  stretch?: boolean;
   'aria-label'?: string;
   className?: string;
 }
@@ -47,11 +49,12 @@ export default function Segmented<T extends string | number>({
   value,
   onChange,
   size = 'sm',
+  stretch = false,
   className,
   'aria-label': ariaLabel,
 }: SegmentedProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={cx('segmented', size === 'md' && 'segmented--md', className)}>
+    <div role="group" aria-label={ariaLabel} className={cx('segmented', size === 'md' && 'segmented--md', stretch && 'segmented--stretch', className)}>
       {options.map((option) => (
         <button
           key={String(option.value)}

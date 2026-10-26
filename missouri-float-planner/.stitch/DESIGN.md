@@ -175,6 +175,10 @@ option fills Primary 500 with white text. The pressed look is styled from
 to Neutral 400 on Neutral 100 and carry their reason in `title`. Focus ring is
 inset, because the group clips overflow. Render with `<Segmented>`.
 
+Use `<Segmented stretch>` for equal-width choices in a narrow preference panel.
+It keeps 44px targets and compact horizontal padding so labels and vessel glyphs
+remain inside their buttons at 320px viewport widths.
+
 ### Cards
 
 | Variant | Background | Border | Shadow | Radius | Behavior |
