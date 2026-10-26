@@ -14,10 +14,10 @@ test('photo dimensions cover the actual crop including the 4% zoom', () => {
   assert.ok(!usableRoutePhoto({ width: NaN, height: 1000 }));
 });
 
-test('preflight preserves small thumbnails but removes failed photos and backdrop duplicates', async () => {
+test('preflight preserves small and failed thumbnails but removes backdrop duplicates', async () => {
   const points = [point('good', 0.2, 'https://photos.test/good.jpg'),
     point('small', 0.3, 'https://photos.test/small.jpg'), point('missing', 0.4),
-    point('bad', 0.5, 'https://photos.test/bad.jpg'),
+    { ...point('bad', 0.5, 'https://photos.test/bad.jpg'), photoCredit: 'Photo: Park Service' },
     point('duplicate', 0.6, 'https://photos.test/backdrop.jpg?w=1000'),
     { ...point('start', 0, 'https://photos.test/backdrop.jpg?w=130'), kind: 'put_in' as const },
     { ...point('finish', 1, 'https://photos.test/finish.jpg'), kind: 'take_out' as const }];
@@ -29,11 +29,21 @@ test('preflight preserves small thumbnails but removes failed photos and backdro
   });
   assert.deepEqual(resolved.map(p => p.photoReveal), [true, false, false, false, false, false, false]);
   assert.equal(resolved[1].photoUrl, points[1].photoUrl);
-  assert.equal(resolved[3].photoUrl, undefined);
+  assert.equal(resolved[3].photoUrl, points[3].photoUrl);
+  assert.equal(resolved[3].photoCredit, points[3].photoCredit);
   assert.equal(resolved[4].photoUrl, undefined);
   assert.equal(resolved[5].photoUrl, undefined, 'duplicate endpoint thumbnails are omitted too');
   assert.equal(loaded.length, 3, 'endpoints and duplicate backdrop need no preflight');
   assert.equal(journeyDuration(intermediateRouteStops(resolved)) - journeyDuration(intermediateRouteStops(points)), 30);
+});
+
+test('a preflight timeout preserves the thumbnail and compact timing for later stops', async () => {
+  const points = [{ ...point('slow', 0.25, 'https://photos.test/slow.jpg'),
+    photoCredit: 'Photo: Photographer', photoReveal: true }, point('next', 0.7)];
+  const resolved = await resolveRoutePhotos(points, undefined, async () => { throw new Error('Photo decode timed out'); });
+  assert.deepEqual(resolved[0], { ...points[0], photoReveal: false });
+  const compact = intermediateRouteStops(points.map(p => ({ ...p, photoReveal: false })));
+  assert.deepEqual(journeySchedule(intermediateRouteStops(resolved)), journeySchedule(compact));
 });
 
 test('duplicate decoding is shared and stale eligibility is never trusted', async () => {

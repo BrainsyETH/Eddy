@@ -15,6 +15,7 @@ if (reviewDir) await mkdir(reviewDir, { recursive: true });
 const dir = await mkdtemp(resolve(tmpdir(), 'eddy-route-check-'));
 let browser;
 let server;
+let slowPhotoRequests = 0;
 try {
   const root = await bundle({ entryPoint: resolve('src/index.ts'), publicDir: resolve('public'),
     outDir: resolve(dir, 'bundle'), webpackOverride: enableTailwind });
@@ -24,9 +25,11 @@ try {
   server = createServer(async (req, res) => {
     try {
       const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-      const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+      const slowPhoto = pathname === '/public/test/slow-photo.png';
+      const file = resolve(root, '.' + (slowPhoto ? '/public/test/williams-landing.png' : pathname === '/' ? '/index.html' : pathname));
       if (!file.startsWith(root + sep)) { res.writeHead(403).end(); return; }
       const bytes = await readFile(file);
+      if (slowPhoto && slowPhotoRequests++ === 0) await new Promise(r => setTimeout(r, 6000));
       res.writeHead(200, { 'Content-Type': mime[extname(file)] || 'application/octet-stream' });
       res.end(bytes);
     } catch { res.writeHead(404).end(); }
@@ -44,7 +47,7 @@ try {
   const cases = ['social-route-portrait', 'social-route-black-river', 'social-route-grassy-bee',
     'social-route-itinerary-portrait', 'social-route-long-names-portrait',
     'social-route-akers-pulltite', 'social-route-map-layout', 'social-route-summary-portrait',
-    'black-river-photo-credit', 'photo-mixed', 'photo-itinerary', 'photo-late-failure', 'photo-tall-route'];
+    'black-river-photo-credit', 'photo-mixed', 'photo-itinerary', 'photo-late-failure', 'photo-tall-route', 'photo-slow-preflight'];
   let checked = 0;
   for (const name of cases.filter(name => !process.env.ROUTE_CASES || process.env.ROUTE_CASES.split(",").includes(name))) {
     const credit = name === 'black-river-photo-credit';
@@ -70,12 +73,17 @@ try {
       const input = { photoUrl: '/public/test/grassy-access.png', routePoints: [
         { ...fixture.routePoints[0], photoUrl: '/public/test/grassy-access.png' },
         { ...poi('Williams Landing', 0.2, '/public/test/williams-landing.png'),
+          name: 'Devils Well and Cave Spring Overlook Trailhead Landing',
           photoCredit: 'Photo: Example public land agency / photographer. A longer attribution that wraps cleanly without covering the place name or becoming clipped.' },
         poi('Second photo stop', 0.201, '/public/test/bee-bluff.png'),
         poi('Small photo', 0.3, '/public/test/route-photo-fixture.svg'),
         poi('Backdrop duplicate', 0.7, '/public/test/grassy-access.png?w=900'),
         { ...fixture.routePoints[2], photoUrl: '/public/test/bee-bluff.png' },
       ], ...(name === 'photo-itinerary' ? { routeCoordinates: [], terrainMapUrl: null } : {}) };
+      if (name === 'photo-slow-preflight') {
+        slowPhotoRequests = 0;
+        input.routePoints[1].photoUrl = '/public/test/slow-photo.png';
+      }
       if (name === 'photo-tall-route') {
         const black = JSON.parse(await readFile('src/fixtures/black-river.json', 'utf8'));
         Object.assign(input, { ...black, photoUrl: input.photoUrl, routePoints: input.routePoints,
@@ -86,8 +94,16 @@ try {
     const composition = await page.evaluate(id => window.remotion_calculateComposition(id), id);
     if (photoCase) {
       const props = JSON.parse(composition.serializedResolvedPropsWithCustomSchema);
-      assert.equal(props.routePoints.filter(p => p.photoReveal).length, 2, 'metadata must resolve eligibility');
-      assert.equal(composition.durationInFrames, 661, 'exact rounded travel + mixed pauses + closing');
+      const slow = name === 'photo-slow-preflight';
+      assert.equal(props.routePoints.filter(p => p.photoReveal).length, slow ? 1 : 2, 'metadata must resolve eligibility');
+      // Pin the product timing independently of the implementation: intro +
+      // rounded travel legs + two photo/compact pauses + two compact pauses + CTA.
+      const expectedDuration = 60 + (42 + 1 + 21 + 84 + 63) + (slow ? 60 : 90) + 90 + 2 * 60 + 90;
+      assert.equal(composition.durationInFrames, expectedDuration, 'exact rounded travel + mixed pauses + closing');
+      if (slow) {
+        assert.equal(props.routePoints[1].photoUrl, '/public/test/slow-photo.png', 'timeout keeps thumbnail URL');
+        assert.ok(props.routePoints[1].photoCredit, 'timeout keeps attribution');
+      }
       if (name === 'photo-late-failure') {
         props.routePoints = props.routePoints.map(p => p.photoReveal ? { ...p, photoUrl: '/public/test/gone-after-preflight.png' } : p);
         composition.serializedResolvedPropsWithCustomSchema = JSON.stringify(props);
@@ -147,8 +163,16 @@ try {
         const photo = rect('photo-card'), credit = rect('photo-credit');
         if (photo && (photo.top < band.top || photo.bottom > band.bottom || photo.right > band.right)) problems.push('photo outside band');
         if (credit && (credit.top < photo.top || credit.bottom > photo.bottom || credit.right > photo.right)) problems.push('credit clipped');
+        if (credit && credit.height > rect('photo-image').height / 4) problems.push('credit covers too much photo');
+        const title = rect('photo-title'), subtitle = rect('photo-subtitle');
+        if (photo && (subtitle.bottom > photo.bottom - 10 || title.bottom > subtitle.top - 3)) problems.push('photo caption too tight');
+        if (photo && element('photo-subtitle').scrollHeight > subtitle.height + 1) problems.push('photo subtitle wraps');
         if (photo && (frame === 0 || frame >= duration - 90)) problems.push('large endpoint photo');
         if (name === 'photo-late-failure' && frame >= 111 && frame < 183 && photo) problems.push('failed photo did not fall back');
+        if (name === 'photo-slow-preflight' && frame === 120) {
+          const thumbnail = element('stop')?.querySelector('img');
+          if (photo || !thumbnail?.complete || thumbnail.naturalWidth === 0) problems.push('slow photo thumbnail did not recover');
+        }
         const stop = rect('stop'), reveal = element('stop-reveal');
         if (stop && Number(reveal.dataset.presence) >= 0.999 && stop.top < band.top) problems.push('compact card outside band');
         if (stop && Number(reveal.dataset.presence) >= 0.999 && stop.bottom > stats.top - 8) problems.push('stop/stats');

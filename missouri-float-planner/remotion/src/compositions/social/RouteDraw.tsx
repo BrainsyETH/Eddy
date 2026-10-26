@@ -902,6 +902,7 @@ const StopIcon: React.FC<{ kind: RoutePointKind }> = ({ kind }) => (
 const RouteStopCard: React.FC<{ point: SocialRoutePoint; putInMile: number; state: JourneyState }> = ({ point, putInMile, state }) => {
   const [failed, setFailed] = useState(false);
   const photo = point.photoReveal && point.photoUrl && !failed;
+  const title = cleanName(point.name, 70);
   if (!photo) return <RouteCallout point={failed ? { ...point, photoUrl: undefined, photoCredit: undefined } : point}
     putInMile={putInMile} opacity={1} style={{ width: "100%" }} />;
   const zoom = interpolate(state.stopElapsedFrames ?? 0, [0, Math.max(1, (state.stopDurationFrames ?? 90) - 1)], [1, ROUTE_PHOTO_ZOOM],
@@ -909,17 +910,19 @@ const RouteStopCard: React.FC<{ point: SocialRoutePoint; putInMile: number; stat
   return <div data-route-region="photo-card" style={{ height: ROUTE_PHOTO_CARD_HEIGHT, borderRadius: 18,
     overflow: "hidden", background: LIGHT.surface, border: `2px solid ${colors.primary[800]}`,
     boxShadow: "0 6px 18px rgba(22,23,72,0.16)" }}>
-    <div style={{ height: ROUTE_PHOTO_HEIGHT, position: "relative", overflow: "hidden" }}>
+    <div data-route-region="photo-image" style={{ height: ROUTE_PHOTO_HEIGHT, position: "relative", overflow: "hidden" }}>
       <SafeImg src={point.photoUrl!} onFailure={() => setFailed(true)} style={{ width: "100%", height: "100%",
         objectFit: "cover", transform: `scale(${zoom})` }} />
       {point.photoCredit ? <div data-route-region="photo-credit" style={{ position: "absolute", bottom: 10, right: 10,
-        maxWidth: "calc(100% - 20px)", padding: "6px 9px", borderRadius: 6, background: "rgba(16,25,31,0.86)",
-        color: "#FFFFFF", fontSize: 18, lineHeight: 1.25, overflowWrap: "anywhere" }}>{point.photoCredit}</div> : null}
+        maxWidth: "calc(100% - 20px)", padding: "3px 8px", borderRadius: 6, background: "rgba(16,25,31,0.86)",
+        color: "#FFFFFF", fontSize: 18, lineHeight: 1.15, overflowWrap: "anywhere" }}>{point.photoCredit}</div> : null}
     </div>
     <div style={{ padding: "9px 16px", background: LIGHT.surface }}>
-      <div style={{ fontFamily: fontFamilies.display, fontSize: 29, lineHeight: 1.08, fontWeight: 700,
-        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cleanName(point.name, 70)}</div>
-      <div style={{ marginTop: 4, color: LIGHT.inkSecondary, fontSize: 19, lineHeight: 1.2 }}>
+      <div data-route-region="photo-title" style={{ fontFamily: fontFamilies.display, fontSize: title.length > 40 ? 26 : 29,
+        lineHeight: 1.08, fontWeight: 700, display: "-webkit-box", WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical", overflow: "hidden" }}>{title}</div>
+      <div data-route-region="photo-subtitle" style={{ marginTop: 4, color: LIGHT.inkSecondary, fontSize: 19, lineHeight: 1.2,
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {point.detail || point.kind.replace(/_/g, " ")} · {Math.max(0, point.riverMile - putInMile).toFixed(1)} miles from launch
       </div>
     </div>

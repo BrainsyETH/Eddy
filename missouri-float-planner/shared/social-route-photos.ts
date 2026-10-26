@@ -28,7 +28,7 @@ export function usableRoutePhoto(size: PhotoSize): boolean {
     size.height >= ROUTE_PHOTO_HEIGHT * ROUTE_PHOTO_ZOOM;
 }
 
-/** Decode before choosing holds. A failed image cannot delay/fail a whole reel. */
+/** Decode before choosing holds; a failed preflight still gets a compact thumbnail attempt. */
 export async function resolveRoutePhotos(
   points: ReadonlyArray<SocialRoutePoint>,
   backdrop: string | undefined,
@@ -48,10 +48,10 @@ export async function resolveRoutePhotos(
         !Number.isFinite(point.progress) || point.progress <= 0.015 || point.progress >= 0.985) return compact;
       if (!sizes.has(src)) sizes.set(src, Promise.resolve().then(() => readSize(src)).catch(() => null));
       const size = await sizes.get(src)!;
-      if (!size) return { ...compact, photoUrl: undefined, photoCredit: undefined };
+      if (!size) return compact;
       return { ...compact, photoReveal: usableRoutePhoto(size) };
     } catch {
-      return { ...compact, photoUrl: undefined, photoCredit: undefined };
+      return compact;
     }
   }));
 }

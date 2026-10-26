@@ -275,6 +275,9 @@ viewport and stats/CTA footer. Stop cards fade in a fixed band over the bottom
 of the map; its camera reserves that band throughout the shot, including while
 hidden. Reveals never resize the viewport or shift the camera framing. Start
 and Finish retain compact cards, keeping the cover readable and the CTA clear.
+Routes without photo reveals deliberately keep a 286px compact-card band;
+photo routes reserve 346px. This trades some route look-ahead for stable framing.
+The 220px landscape photo height stays fixed while real-post cropping is evaluated.
 
 Intermediate stops with a usable place photo show a larger landscape card:
 9-frame fade in, 72-frame full hold, 9-frame fade out (90 frames at 30 fps),
@@ -285,10 +288,12 @@ phases, arrival, summary and composition duration; each photo adds exactly
 
 Remotion metadata decodes candidate photos before calculating that schedule.
 Sources must cover the displayed crop at the final zoom without upscaling;
-undersized sources remain compact thumbnails, failed sources are omitted,
+undersized sources and failed/timed-out preflight checks remain compact thumbnails,
 and a stop photo matching the page backdrop is omitted. Common resize query
 variants and Next image wrappers share an image identity. Supplied credits
-remain visible on a dark corner overlay. A later image failure falls back to
+remain complete on a slim dark corner overlay, wrapping when needed rather than
+truncating attribution. Two-line photo titles use smaller type to preserve bottom
+padding; subtitles stay on one line. A later image failure falls back to
 the compact card without changing the resolved schedule or map band. All
 images remain associated with their actual place; no generic river fallback.
 
