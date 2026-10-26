@@ -152,7 +152,7 @@ try {
       assert.equal(await heroCta.textContent(), 'Build a Route');
       assert.equal(await heroCta.getAttribute('href'), '/plan');
       assert.equal(await page.getByRole('region', { name: 'River alerts', exact: true }).count(), 0);
-      const conditionMap = page.getByRole('link', { name: 'Open the Interactive Condition Map', exact: true });
+      const conditionMap = page.getByRole('link', { name: 'Open the Live River Map', exact: true });
       assert.equal(await conditionMap.getAttribute('href'), '/river-map');
       assert.equal(await conditionMap.locator('p').count(), 0);
       const buffaloPhoto = page.locator('a[data-ga-label="buffalo"][data-ga-event="home_river_report"] img');
@@ -190,7 +190,7 @@ try {
         await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).waitFor();
         assert.equal(await nav.getByRole('link', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page');
         await page.goto(url, { waitUntil: 'domcontentloaded' });
-        await page.getByRole('link', { name: 'Open the Interactive Condition Map', exact: true }).click();
+        await page.getByRole('link', { name: 'Open the Live River Map', exact: true }).click();
         await page.waitForURL('**/river-map');
         await page.evaluate(() => history.replaceState(null, '', '/river-map?river=current'));
         await page.getByRole('dialog', { name: 'Current River', exact: true }).waitFor({ timeout: 45000 });

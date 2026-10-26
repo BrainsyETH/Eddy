@@ -34,7 +34,7 @@ query-only navigation. Loading catalogue data never replaces an incoming deep li
 
 The homepage shows **Daily River Report**, real condition cards, the two route
 actions, river guides, and the iPhone app. The hero links to Build a Route. The
-Interactive Condition Map card opens `/river-map` without a separate header link.
+Live River Map card opens `/river-map` without a separate header link.
 River reports appear directly under the heading without a second alert summary.
 Report photos prefer the bundled guide covers over older external URLs. Eddy's
 existing colors, fonts, artwork, and condition badges are reused. Website widgets
