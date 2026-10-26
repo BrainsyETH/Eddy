@@ -652,8 +652,10 @@ export default function MapContainer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapAttempt]);
 
+  const [boundsWest, boundsSouth, boundsEast, boundsNorth] = initialBounds ?? [];
   useEffect(() => {
-    if (!map.current || !initialBounds) return;
+    if (!map.current || boundsWest === undefined || boundsSouth === undefined
+      || boundsEast === undefined || boundsNorth === undefined) return;
 
     // Skip the one fit the constructor already performed: at mount the map
     // is created framed to these same bounds (or to a deep-linked ?lat&lng&z
@@ -665,14 +667,16 @@ export default function MapContainer({
     }
 
     const bounds = new maplibregl.LngLatBounds(
-      [initialBounds[0], initialBounds[1]],
-      [initialBounds[2], initialBounds[3]]
+      [boundsWest, boundsSouth],
+      [boundsEast, boundsNorth]
     );
 
     // Camera changes do not require tiles or even a parsed style. In
     // particular, don't wait for the one-time load event after river switches.
     map.current.fitBounds(bounds, { padding: 50, duration: 800 });
-  }, [initialBounds]);
+    // URL updates may recreate the bounds array without changing its values.
+    // Refitting on its identity can feed another moveend back into the URL.
+  }, [boundsWest, boundsSouth, boundsEast, boundsNorth]);
 
   // Feature state stays beside the behavior that owns it; the catalog carries
   // the metadata shared by the controls and attribution. 3D deliberately
