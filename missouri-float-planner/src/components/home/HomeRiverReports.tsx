@@ -8,6 +8,7 @@ import { formatRiverLevel } from '@/lib/river-groups';
 import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 import { gaugeFreshness } from '@shared/gauge-freshness';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import { optimizeBlogImage } from '@/lib/blog-image';
 
 export interface HomeRiver {
   slug: string;
@@ -32,7 +33,7 @@ export default function HomeRiverReports({ rivers }: { rivers: HomeRiver[] }) {
           return (
             <Link key={river.slug} href={river.path} data-ga-event="home_river_report" data-ga-label={river.slug}
               className="group overflow-hidden rounded-xl border border-neutral-200 bg-white no-underline transition-shadow hover:shadow-soft-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
-              {river.photoUrl && <div className="relative h-28 sm:h-32"><Image src={river.photoUrl} alt="" fill sizes="(min-width: 640px) 33vw, 100vw" className="object-cover" /></div>}
+              {river.photoUrl && <div className="relative h-28 sm:h-32"><Image src={river.photoUrl} alt="" fill sizes="(min-width: 640px) 33vw, 100vw" className="object-cover" unoptimized={!optimizeBlogImage(river.photoUrl)} /></div>}
               <div className="p-4 md:p-5">
                 <h3 className="mb-3 text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{river.name}</h3>
                 {live ? (

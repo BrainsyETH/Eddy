@@ -20,7 +20,9 @@ export default async function Home() {
   ]);
   const featuredReports = ['current', 'meramec', 'buffalo'].flatMap(slug => {
     const river = rivers.find(item => item.slug === slug);
-    return river ? [{ slug, name: river.name, path: river.path, photoUrl: river.photoUrl ?? riverGuides[slug]?.image ?? null }] : [];
+    // Reviewed guide covers are bundled with the app; prefer them over older
+    // third-party photo URLs, including Buffalo's Wikimedia redirect.
+    return river ? [{ slug, name: river.name, path: river.path, photoUrl: riverGuides[slug]?.image ?? river.photoUrl ?? null }] : [];
   });
   return <HomePage riverGuides={riverGuides} featuredReports={featuredReports} floatSearchEnabled={floatSearchLaunch().web} />;
 }

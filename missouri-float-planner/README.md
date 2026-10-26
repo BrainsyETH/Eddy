@@ -17,8 +17,9 @@ guide and before the feedback link, when float search is enabled for the web.
 
 The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a
 separate app link. Conditions uses the existing `/rivers` and `/dams` pages as
-linked tabs; `/gauges` remains part of Conditions. Floats links to `/find-float`
-when web discovery is enabled, otherwise `/plan`. Its page links use the iOS
+linked tabs; `/gauges` remains part of Conditions. Map opens Build a Route at
+`/plan`. Floats links to `/find-float` when web discovery is enabled and is hidden
+otherwise. The planning page links use the iOS
 labels **Find a Route** and **Build a Route**. The planner tabs belong only to
 `/plan`, never shared plans at `/plan/[shortCode]`. These are normal links, with
 no hover menus or nested mobile menus.
@@ -32,14 +33,17 @@ its river/gauge selection and condition filters, including browser history and
 query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
 The homepage shows **Daily River Report**, real condition cards, the two route
-actions, river guides, and the iPhone app. It reuses Eddy's existing colors,
-fonts, artwork, and condition badges. The alert summary reserves the same space
-while loading and in every result state. Website widgets remain in the footer.
+actions, river guides, and the iPhone app. The hero links to Build a Route. The
+Interactive Condition Map card opens `/river-map` without a separate header link.
+River reports appear directly under the heading without a second alert summary.
+Report photos prefer the bundled guide covers over older external URLs. Eddy's
+existing colors, fonts, artwork, and condition badges are reused. Website widgets
+remain in the footer.
 
 `npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
 and 320px widths, including keyboard/touch navigation and river selection across
-map history, refresh, the finder, shared-plan tab isolation, and alert layout
-stability. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
+the planner, map history, refresh, the finder, shared-plan tab isolation, and
+report photo loading. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
 Playwright Chromium, starts a local development server, and removes its temporary
 fixture routes afterward. It does not require production credentials.
 Screenshots go to `/tmp/eddy-navigation`
