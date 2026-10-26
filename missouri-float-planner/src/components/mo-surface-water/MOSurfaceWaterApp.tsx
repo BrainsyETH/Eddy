@@ -13,7 +13,7 @@
 // mobile the dock becomes a slide-in drawer behind a floating live chip.
 
 import { gaugeFreshness } from '@shared/gauge-freshness';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   classifyStageFromThresholds,
@@ -37,7 +37,7 @@ import type {
 } from '@/app/api/usgs/mo-forecast/route';
 import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
 import type { MoContextSite } from '@/lib/usgs/mo-sites';
-import { CONDITION_ORDER } from '@shared/condition-system';
+import { useRiverMapSelection } from '@/hooks/useRiverMapSelection';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
 import DataDock, { type DockRiverReading, type DockRiverTrend } from './Dock';
 import {
@@ -70,13 +70,12 @@ export default function MOSurfaceWaterApp() {
   const [staleCacheAt, setStaleCacheAt] = useState<string | null>(null);
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
-  const [focusedRiverId, setFocusedRiverId] = useState<string | null>(null);
+  const rivers: MORiver[] = useMemo(() => dataset?.rivers ?? [], [dataset]);
+  const gauges: MoStatewideGauge[] = useMemo(() => statewide?.gauges ?? [], [statewide]);
+  const { focusedRiverId, setFocusedRiverId, focusedGaugeId, setFocusedGaugeId, conditionFilter, setConditionFilter } = useRiverMapSelection(rivers, gauges);
   // Condition filter: which float verdicts the user has toggled on. Empty =
   // show everything. Drives both the dock list (hard filter) and the map
   // (non-matching reaches dim). A Set so multi-select is a union.
-  const [conditionFilter, setConditionFilter] = useState<Set<StageVerdict>>(
-    () => new Set(),
-  );
   const toggleCondition = useCallback((code: StageVerdict) => {
     setConditionFilter((prev) => {
       const next = new Set(prev);
@@ -84,15 +83,14 @@ export default function MOSurfaceWaterApp() {
       else next.add(code);
       return next;
     });
-  }, []);
-  const clearConditionFilter = useCallback(() => setConditionFilter(new Set()), []);
+  }, [setConditionFilter]);
+  const clearConditionFilter = useCallback(() => setConditionFilter(new Set()), [setConditionFilter]);
   const setConditions = useCallback(
     (codes: StageVerdict[]) => setConditionFilter(new Set(codes)),
-    [],
+    [setConditionFilter],
   );
   const [hoveredGaugeId, setHoveredGaugeId] = useState<string | null>(null);
   const [hoveredGaugePos, setHoveredGaugePos] = useState<{ x: number; y: number } | null>(null);
-  const [focusedGaugeId, setFocusedGaugeId] = useState<string | null>(null);
   // Access points / campgrounds / POIs open in a modal popup with link-outs;
   // they're not pinned in the right rail. Rivers + gauges still pin to the
   // rail on click.
@@ -243,9 +241,6 @@ export default function MOSurfaceWaterApp() {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
-
-  const rivers: MORiver[] = useMemo(() => dataset?.rivers ?? [], [dataset]);
-  const gauges: MoStatewideGauge[] = useMemo(() => statewide?.gauges ?? [], [statewide]);
   const historyEntries: MoHistoryBundleEntry[] = useMemo(
     () => historyBundle?.entries ?? [],
     [historyBundle],
@@ -532,16 +527,16 @@ export default function MOSurfaceWaterApp() {
     setHoveredGaugePos(null);
     setSelectedSite(null);
     setModalSelection(null);
-  }, []);
+  }, [setFocusedGaugeId, setFocusedRiverId]);
 
   const handleFocusGauge = useCallback((id: string | null) => {
     clearAllOverlays();
     if (id) setFocusedGaugeId(id);
-  }, [clearAllOverlays]);
+  }, [clearAllOverlays, setFocusedGaugeId]);
   const selectRiver = useCallback((id: string | null) => {
     clearAllOverlays();
     if (id) setFocusedRiverId(id);
-  }, [clearAllOverlays]);
+  }, [clearAllOverlays, setFocusedRiverId]);
   const selectSite = useCallback((site: MoContextSite | null) => {
     clearAllOverlays();
     if (site) setSelectedSite(site);
@@ -565,7 +560,7 @@ export default function MOSurfaceWaterApp() {
         return;
       }
     }
-  }, [rivers, clearAllOverlays]);
+  }, [rivers, clearAllOverlays, setFocusedRiverId]);
   const handleClickCampground = useCallback((id: string | null) => {
     if (!id || !dataset) { setModalSelection(null); return; }
     const camp = dataset.campgrounds.find((c) => c.id === id);
@@ -604,7 +599,7 @@ export default function MOSurfaceWaterApp() {
         return;
       }
     }
-  }, [rivers, clearAllOverlays]);
+  }, [rivers, clearAllOverlays, setFocusedRiverId]);
   const closeModal = () => setModalSelection(null);
   const closeRail = useCallback(() => {
     setFocusedGaugeId(null);
@@ -615,52 +610,7 @@ export default function MOSurfaceWaterApp() {
     setHoveredRiverId(null);
     setHoveredGaugeId(null);
     setHoveredGaugePos(null);
-  }, []);
-
-  // ─── Shareable URL state (?river=<slug> / ?gauge=<site_no>) ────────────
-  // Makes a selected river/gauge deep-linkable. Apply the query once, after
-  // rivers load (slugs → ids), then reflect later selections back into the
-  // URL with replaceState so there's no navigation or history spam.
-  const urlApplied = useRef(false);
-  useEffect(() => {
-    if (urlApplied.current || rivers.length === 0) return;
-    urlApplied.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const riverSlug = params.get('river');
-    const gaugeNo = params.get('gauge');
-    if (riverSlug) {
-      const r = rivers.find((x) => x.slug === riverSlug);
-      if (r) setFocusedRiverId(r.id);
-    } else if (gaugeNo && gauges.some((g) => g.site_no === gaugeNo)) {
-      setFocusedGaugeId(gaugeNo);
-    }
-    // Restore a shared condition filter (?conditions=flowing,good). Ignore any
-    // unknown codes so a hand-edited URL can't wedge the filter.
-    const condsParam = params.get('conditions');
-    if (condsParam) {
-      const known = new Set<StageVerdict>(CONDITION_ORDER);
-      const codes = condsParam
-        .split(',')
-        .filter((c): c is StageVerdict => known.has(c as StageVerdict));
-      if (codes.length) setConditionFilter(new Set(codes));
-    }
-  }, [rivers, gauges]);
-  useEffect(() => {
-    if (!urlApplied.current) return;
-    const params = new URLSearchParams(window.location.search);
-    params.delete('river');
-    params.delete('gauge');
-    params.delete('conditions');
-    const r = rivers.find((x) => x.id === focusedRiverId);
-    if (r) params.set('river', r.slug);
-    else if (focusedGaugeId) params.set('gauge', focusedGaugeId);
-    if (conditionFilter.size > 0) {
-      // CONDITION_ORDER for a stable, canonical param regardless of tap order.
-      params.set('conditions', CONDITION_ORDER.filter((c) => conditionFilter.has(c)).join(','));
-    }
-    const qs = params.toString();
-    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
-  }, [focusedRiverId, focusedGaugeId, rivers, conditionFilter]);
+  }, [setFocusedGaugeId, setFocusedRiverId]);
 
   // Escape backs out of whatever is pinned: modal → site card → rail.
   useEffect(() => {
