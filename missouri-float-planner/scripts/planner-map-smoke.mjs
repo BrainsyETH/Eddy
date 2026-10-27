@@ -703,7 +703,8 @@ try {
     name: /Current Put-in/
   }).waitFor();
   await search.press('Escape');
-  assert.equal(await search.getAttribute('aria-expanded'), 'false');
+  // Wait for the re-render rather than reading the attribute once.
+  await page.locator('.planner-search input[aria-expanded="false"]').waitFor();
   console.log('Catalogue failure, retry, and Escape dismissal passed');
   delayRiver = false;
   await page.goto(`${origin}/planner-map-layout-check?river=current&lat=37.4&lng=-91.2&z=10`, { waitUntil: 'domcontentloaded' });
