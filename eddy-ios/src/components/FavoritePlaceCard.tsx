@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
-import { accessAmenities } from '@/components/map-sheet/accessAmenities';
 import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
 import { savedCampingDisplay, savedGaugeDisplay, savedPlaceSummary } from '@/lib/savedPlaceDisplay';
 import type { SavedPlace } from '@/lib/savedPlaces';
@@ -28,17 +27,15 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
   const gauge = !camping && place.gauge ? savedGaugeDisplay(place, now) : null;
   const code = gauge?.code ?? null;
   const gaugeNotice = gauge ? [gauge.condition ?? gauge.state, gauge.age].filter(Boolean).join(' · ') : null;
-  const amenities = accessAmenities(place.amenities);
   const summary = camping || gauge ? null : savedPlaceSummary(place, now);
-  // Restrictions and amenities get their own rows, without repeating the
-  // legacy summary's first tag or raw amenity slugs in the inset panel.
+  // Keep restrictions visible without repeating tags or raw amenities in the summary.
   const detailSummary = summary && !place.tags.includes(summary) && summary !== place.amenities.join(' · ')
     ? summary : null;
   const accessibilityLabel = [
     place.name, kind, place.riverName, ...place.tags,
     camping ? `Campsites, ${camping.accessibilityLabel}, checked ${camping.age}` : null,
     gauge ? place.gauge?.reading.gaugeName : null, gauge?.reading ?? (gauge ? 'Reading unavailable' : null), gaugeNotice,
-    detailSummary, ...amenities.map(amenity => amenity.label),
+    detailSummary,
   ].filter(Boolean).join(', ');
 
   return (
@@ -63,7 +60,6 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
             <View style={[styles.identity, stacked && styles.stackedIdentity]}>
               <Text style={[styles.kind, { color: colors.interactive }]}>{kind}</Text>
               <Text style={[styles.name, { color: colors.text }]}>{place.name}</Text>
-              {place.riverName ? <Text style={[styles.river, { color: colors.textMuted }]}>{place.riverName}</Text> : null}
             </View>
           </Pressable>
           <Pressable
@@ -120,19 +116,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
               </View>
             ) : null}
 
-            {amenities.length ? (
-              <View style={styles.chips}>
-                {amenities.slice(0, 3).map(amenity => (
-                  <View key={amenity.slug} style={styles.amenity}>
-                    {amenity.symbol ? <EddySymbol name={amenity.symbol} size={17} /> : null}
-                    <Text style={[styles.amenityText, { color: colors.textMuted }]}>{amenity.label}</Text>
-                  </View>
-                ))}
-                {amenities.length > 3 ? <Text style={[styles.amenityText, { color: colors.textMuted }]}>+{amenities.length - 3} more</Text> : null}
-              </View>
-            ) : null}
-
-            {!camping && !gauge && !detailSummary && !place.tags.length && !amenities.length ? (
+            {!camping && !gauge && !detailSummary && !place.tags.length ? (
               <View style={styles.openRow}>
                 <Text style={[styles.openText, { color: colors.interactive }]}>View place</Text>
                 <ControlIcon name="chevron-forward" size={12} color={colors.interactive} />
@@ -157,7 +141,6 @@ const styles = StyleSheet.create({
   stackedIdentity: { flexGrow: 0, flexBasis: 'auto', alignSelf: 'stretch' },
   kind: { ...t.xs, fontFamily: fonts.medium, marginBottom: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
-  river: { ...t.sm, marginTop: 2 },
   star: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   details: { marginTop: 12, marginRight: 9, minHeight: 44, justifyContent: 'center' },
   detailsContent: { gap: 10 },
@@ -175,8 +158,6 @@ const styles = StyleSheet.create({
   readingValue: { ...t.sm, fontFamily: fonts.mono },
   summary: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10 },
   summaryText: { ...t.sm, flex: 1 },
-  amenity: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%' },
-  amenityText: { ...t.xs, flexShrink: 1 },
   openRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   openText: { ...t.sm, fontFamily: fonts.medium },
 });
