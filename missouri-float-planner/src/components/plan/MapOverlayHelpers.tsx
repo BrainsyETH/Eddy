@@ -11,8 +11,8 @@ import { formatFloatTimeCompact, formatFloatTimeRangeCompact } from '@/lib/calcu
 import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
 import { CONDITION_SHORT_LABELS } from '@/constants';
 
-const PUT_IN_COLOR = '#478559';
-const TAKE_OUT_COLOR = '#f95d9b';
+const PUT_IN_COLOR = '#1D525F';
+const TAKE_OUT_COLOR = '#F07052';
 const NEUTRAL_COLOR = '#c7b8a6';
 
 interface MapHintBannerProps {
@@ -217,7 +217,7 @@ export function MapLegend({ className = '', asControl = false }: MapLegendProps)
 
 function LegendPanel({ onClose, scroll = false }: { onClose: () => void; scroll?: boolean }) {
   return (
-    <div className={`bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px] ${
+    <div className={`card-framed p-2.5 min-w-[180px] ${
       scroll ? 'max-h-[inherit] overflow-y-auto overscroll-contain' : ''
     }`}>
       <div className="flex items-center justify-between mb-2">

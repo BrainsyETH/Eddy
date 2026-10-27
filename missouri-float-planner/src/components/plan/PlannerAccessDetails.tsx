@@ -24,7 +24,7 @@ export default function PlannerAccessDetails({ point, riverSlug }: { point: Acce
   const [photoIndex, setPhotoIndex] = useState(0);
   const index = photoIndex % Math.max(1, photos.length);
   return <div className="space-y-4 text-sm text-neutral-700">
-    {photos.length > 0 && <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-neutral-100">
+    {photos.length > 0 && <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-neutral-100">
       <AccessPointPhoto src={photos[index]} alt={`${point.name}, photo ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />
       {photos.length > 1 && <>
         <button type="button" aria-label="Previous photo" onClick={() => setPhotoIndex((index - 1 + photos.length) % photos.length)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white"><ChevronLeft size={18} /></button>
@@ -33,8 +33,8 @@ export default function PlannerAccessDetails({ point, riverSlug }: { point: Acce
       </>}
     </div>}
     {query.data?.gaugeStatus && <AccessPointGauge gaugeStatus={query.data.gaugeStatus} />}
-    <details className="rounded-xl border border-neutral-200 bg-white p-3">
-      <summary className="cursor-pointer font-semibold text-primary-700">Directions</summary>
+    <details className="rounded-lg border-2 border-neutral-200 bg-white p-3">
+      <summary className="cursor-pointer font-semibold text-primary-700"><span className="inline-flex items-center gap-2"><EddyIcon name="road" size={24} />Directions</span></summary>
       <div className="mt-3"><AccessPointNav accessPoint={current} /></div>
     </details>
     {current.description && <p className="leading-relaxed">{current.description}</p>}

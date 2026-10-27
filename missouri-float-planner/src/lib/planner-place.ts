@@ -14,3 +14,8 @@ export function plannerPlaceSymbol(point: Pick<AccessPoint, 'types' | 'type'> | 
   }
   return 'accessPoint' as const;
 }
+
+/** A spring is a place, not a gauge; don't borrow measurement artwork. */
+export function plannerPoiSymbol(type: string) {
+  return type === 'float_camp' ? 'campground' : type === 'outfitter' ? 'outfitter' : 'accessPoint';
+}
