@@ -159,9 +159,18 @@ const style = {
 };
 let browser,
   server,
-  log = '';
+  log = '',
+  heldAccess = null;
 const errors = [];
+function holdAccess(slug) {
+  assert.equal(heldAccess, null);
+  let release;
+  const wait = new Promise(resolve => { release = resolve; });
+  heldAccess = { slug, wait, release };
+  return () => { heldAccess = null; release(); };
+}
 async function cleanup() {
+  heldAccess?.release();
   if (server?.pid) {
     try { process.kill(-server.pid, 'SIGKILL'); } catch { server.kill('SIGKILL'); }
   }
@@ -251,7 +260,7 @@ try {
     if (m.type() === 'error' && /Error adding|layers\.|sources\.|expression|GeoJSON|TypeError|error occurred|Something went wrong|synchronously unmount/i.test(m.text())) errors.push(m.text());
   });
   let failCatalog = false,
-    delayAccess = false, delayRiver = false;
+    delayRiver = false, emptyAccessRiver = null;
   let documentRequests = 0;
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documentRequests++; });
   await page.addInitScript(() => localStorage.setItem('eddy-plan-map-filters-v1', JSON.stringify({
@@ -343,9 +352,9 @@ try {
         currentDischargeCfs: 500
       };
       if (path === `/api/rivers/${r.slug}/access-points`) {
-        if (delayAccess) await new Promise(r => setTimeout(r, 700));
+        if (heldAccess?.slug === r.slug) await heldAccess.wait;
         result = {
-          accessPoints: points[i]
+          accessPoints: emptyAccessRiver === r.slug ? [] : points[i]
         };
       }
     }
@@ -476,6 +485,9 @@ try {
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('takeOut')), 'p-0-1');
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('river')), 'current');
+  assert.equal(await page.locator('button[data-access-point-id="p-0-0"]').count(), 1,
+    'All rivers keeps current-river access data and the saved route');
   await assertDesktopLayout();
   assert.equal(documentRequests, 1, 'River changes must not navigate/reload the document');
   const riverHit = await page.evaluate(coordinates => {
@@ -525,11 +537,38 @@ try {
     exact: true
   }).count(), 0);
   console.log('Non-endpoints remain viewable and cannot start a float');
-  delayAccess = true;
+  await page.locator('button[data-access-point-id="p-0-0"]').waitFor({ state: 'visible' });
+  const releaseMeramecAccess = holdAccess('meramec');
+  const meramecAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/meramec/access-points');
   await search.fill('meramec put');
   await page.getByRole('option', {
     name: /Meramec Put-in/
   }).click();
+  await meramecAccessRequest;
+  // Hold the access response until the new river actually renders. A fixed
+  // delay can finish before an assertion and miss the stale-selection window.
+  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Meramec River');
+  await page.waitForFunction(() => !document.querySelector('[data-access-point-id^="p-0-"]'));
+  assert.equal(await page.locator('button[data-access-point-id]').count(), 0, 'desktop strips must not expose the previous river while access data loads');
+  assert.equal(await page.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
+  assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap),
+    'switching rivers retains the desktop map while access data is pending');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(async () => {
+    const map = window.plannerMap;
+    const container = map?.getContainer();
+    return container?.isConnected && container.closest('[class~="lg:hidden"]') &&
+      (await map.getSource('condition-river-source')?.getData())?.properties?.name === 'Meramec River';
+  });
+  assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0, 'mobile markers and strip must not expose previous-river endpoints');
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), null);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.waitForFunction(() => window.plannerMap?.getContainer()?.closest('.planner-desktop'));
+  // Crossing the desktop/mobile breakpoint intentionally replaces the map.
+  // Subsequent desktop-only selection must preserve this new instance.
+  await page.evaluate(() => { window.resumedDesktopMap = window.plannerMap; });
+  await page.getByText('Loading access details…', { exact: true }).waitFor();
+  releaseMeramecAccess();
   await page.getByRole('button', {
     name: 'Use as put-in',
     exact: true
@@ -540,7 +579,7 @@ try {
     exact: true
   }).click();
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-1-0');
-  assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
+  assert(await page.evaluate(() => window.plannerMap === window.resumedDesktopMap));
   assert.equal(documentRequests, 1);
   console.log('Cross-river selection clears old endpoints and waits for eligible details without replacing the map');
   await page.waitForFunction(() => !window.plannerMap.isMoving());
@@ -631,6 +670,25 @@ try {
   const camera = await page.evaluate(() => ({ lat: window.plannerMap.getCenter().lat, lng: window.plannerMap.getCenter().lng, zoom: window.plannerMap.getZoom() }));
   assert(Math.abs(camera.lat - 37.4) < 0.0001 && Math.abs(camera.lng + 91.2) < 0.0001 && Math.abs(camera.zoom - 10) < 0.01);
   console.log('Initial camera deep link survives loading river data and vessel defaults');
+  // Deep links survive pending requests, but a completed empty access list
+  // must clear both endpoint IDs instead of retaining an unusable route.
+  emptyAccessRiver = 'jacks-fork';
+  const releaseEmptyAccess = holdAccess(emptyAccessRiver);
+  const emptyAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/jacks-fork/access-points');
+  await page.goto(`${origin}/planner-map-layout-check?river=jacks-fork&putIn=p-2-0&takeOut=p-2-1&vessel=canoe`, { waitUntil: 'domcontentloaded' });
+  await emptyAccessRequest;
+  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
+  assert.deepEqual(await page.evaluate(() => {
+    const params = new URLSearchParams(location.search);
+    return [params.get('putIn'), params.get('takeOut')];
+  }), ['p-2-0', 'p-2-1'], 'loading must preserve deep-link endpoints');
+  releaseEmptyAccess();
+  await page.waitForFunction(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('river') === 'jacks-fork' && !params.has('putIn') && !params.has('takeOut');
+  });
+  assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0);
+  console.log('Delayed access responses hide stale desktop/mobile controls; empty responses clear both deep-link endpoints');
   assert.deepEqual(errors, []);
   console.log('Desktop 1440/1024, mobile and runtime checks passed');
 } catch (error) {
