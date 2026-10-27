@@ -138,6 +138,21 @@ export function MapLegend({ className = '', asControl = false }: MapLegendProps)
   const [placement, setPlacement] = useState<{ up: boolean; maxHeight: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
+  // Escape closes the legend only — handled before MapContainer's window
+  // listener, which skips defaultPrevented keys, so fullscreen stays open.
+  useEffect(() => {
+    if (!asControl || !open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      buttonRef.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [asControl, open]);
+
   const toggleControl = () => {
     if (open) { setOpen(false); return; }
     const button = buttonRef.current?.getBoundingClientRect();

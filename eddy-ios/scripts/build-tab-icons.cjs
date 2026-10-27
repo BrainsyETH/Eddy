@@ -6,43 +6,57 @@ const path = require('node:path');
 const sharp = require('../../missouri-float-planner/node_modules/sharp');
 
 const root = path.resolve(__dirname, '../..');
-const source = path.join(root, 'design/eddy-canoe-tab/source.png');
 const output = path.join(root, 'eddy-ios/assets/tab-icons');
 const iconSize = 28;
 const artworkSize = 26;
+const icons = [
+  { name: 'eddy-canoe', source: 'design/eddy-canoe-tab/source.png' },
+  // The shared full-color master supplies the silhouette; native tabs tint it.
+  { name: 'eddy-today', source: 'design/eddy-emoji/eddy-today.png', alphaOnly: true },
+];
 
-async function main() {
+async function buildIcon({ name, source: sourcePath, alphaOnly = false }) {
+  const source = path.join(root, sourcePath);
   const { data, info } = await sharp(source).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let left = info.width, top = info.height, right = -1, bottom = -1;
   for (let y = 0; y < info.height; y++) {
     for (let x = 0; x < info.width; x++) {
-      if (data[(y * info.width + x) * 4 + 3] > 8) {
+      const offset = (y * info.width + x) * 4;
+      if (data[offset + 3] > 8) {
         left = Math.min(left, x); top = Math.min(top, y);
         right = Math.max(right, x); bottom = Math.max(bottom, y);
       }
+      if (alphaOnly) data[offset] = data[offset + 1] = data[offset + 2] = 0;
     }
   }
-  if (right < left) throw new Error('The canoe source has no visible artwork');
+  if (right < left) throw new Error(`${name}: source has no visible artwork`);
   const aspect = (right - left + 1) / (bottom - top + 1);
   if (aspect > 1.2 || aspect < 0.85) {
-    throw new Error('Use compact, near-square canoe artwork for the tab; do not stretch a wide illustration to fit');
+    throw new Error(`${name}: use compact, near-square artwork for the tab; do not stretch an illustration to fit`);
   }
-  const art = await sharp(source)
+  const image = alphaOnly
+    ? sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    : sharp(source);
+  const art = await image
     .extract({ left, top, width: right - left + 1, height: bottom - top + 1 })
     .png().toBuffer();
-  await fs.mkdir(output, { recursive: true });
   for (const scale of [1, 2, 3]) {
-    const name = `eddy-canoe${scale === 1 ? '' : `@${scale}x`}.png`;
-    // The smile and glasses stay transparent: template tinting must never
-    // flatten them against a particular theme's background.
+    const filename = `${name}${scale === 1 ? '' : `@${scale}x`}.png`;
+    // Preserve facial details and gaps between the sun, rays, and river bands
+    // as transparent cutouts, so template tinting works in every appearance.
     const glyph = await sharp(art)
       .resize(artworkSize * scale, artworkSize * scale, { fit: 'contain', background: '#00000000' })
       .toBuffer();
     await sharp({ create: { width: iconSize * scale, height: iconSize * scale, channels: 4, background: '#00000000' } })
       .composite([{ input: glyph, gravity: 'centre' }])
-      .png({ compressionLevel: 9 }).toFile(path.join(output, name));
-    console.log(`${name}: ${iconSize * scale} x ${iconSize * scale}`);
+      .png({ compressionLevel: 9 }).toFile(path.join(output, filename));
+    console.log(`${filename}: ${iconSize * scale} x ${iconSize * scale}`);
   }
+}
+
+async function main() {
+  await fs.mkdir(output, { recursive: true });
+  for (const icon of icons) await buildIcon(icon);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
