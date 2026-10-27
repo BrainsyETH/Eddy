@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, X } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { RiverListItem, RiversResponse } from '@/types/api';
 import type { DamSnapshot, DamsResponse } from '@shared/dam-types';
@@ -43,7 +43,12 @@ function LocationObserver({ onChange }: { onChange: (query: string) => void }) {
 const KINDS: { value: ConditionsKind; label: string }[] = [
   { value: 'all', label: 'All' }, { value: 'rivers', label: 'Rivers' }, { value: 'dams', label: 'Lakes & Dams' },
 ];
-const selectClass = 'min-h-11 min-w-0 rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 focus-visible:outline-2 focus-visible:outline-primary-600';
+function FilterSelect(props: ComponentProps<'select'>) {
+  return <span className="relative min-w-0 max-w-full">
+    <select {...props} className="min-h-11 w-full min-w-0 appearance-none rounded-xl border border-neutral-300 bg-white py-2 pl-3 pr-10 text-sm text-neutral-800 focus-visible:outline-2 focus-visible:outline-primary-600" />
+    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-neutral-600" aria-hidden="true" />
+  </span>;
+}
 
 export default function ConditionsExplorer({ rivers: initialRivers, dams: initialDams, renderedAt, defaultKind = 'all', damsUnavailable = false }: ConditionsExplorerProps) {
   const [queryString, setQueryString] = useState('');
@@ -176,17 +181,17 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
             onClick={() => chooseKind(kind.value)} className={`min-h-11 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary-600 ${state.kind === kind.value ? 'bg-primary-800 text-white' : 'text-neutral-700 hover:bg-neutral-200'}`}>{kind.label}</button>)}
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
-          <select aria-label="Filter by state" disabled={!ready} value={state.state} onChange={event => { setNotice(''); update({ ...state, state: event.target.value }); }} className={selectClass}>
+          <FilterSelect aria-label="Filter by state" disabled={!ready} value={state.state} onChange={event => { setNotice(''); update({ ...state, state: event.target.value }); }}>
             <option value="all">All states</option>
             {state.state !== 'all' && !states.includes(state.state) && <option value={state.state}>{stateName(state.state)}</option>}
             {states.map(code => <option key={code} value={code}>{stateName(code)}</option>)}
-          </select>
-          <select aria-label="Sort destinations" disabled={!ready || hasQuery} value={hasQuery ? 'relevance' : state.sort}
-            onChange={event => update({ ...state, sort: event.target.value as ConditionsSort })} className={selectClass}>
+          </FilterSelect>
+          <FilterSelect aria-label="Sort destinations" disabled={!ready || hasQuery} value={hasQuery ? 'relevance' : state.sort}
+            onChange={event => update({ ...state, sort: event.target.value as ConditionsSort })}>
             {hasQuery && <option value="relevance">Best matches</option>}
             <option value="featured">Featured</option><option value="name">A–Z</option><option value="nearest">Nearest</option>
             {state.kind === 'rivers' && (['best', 'length_asc', 'length_desc'] as const).map(sort => <option key={sort} value={sort}>{SORT_LABELS[sort]}</option>)}
-          </select>
+          </FilterSelect>
           {hasFilters && <button type="button" onClick={clear} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50">Clear filters</button>}
         </div>
       </div>
@@ -203,10 +208,10 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
             ['type', 'Filter by river type', 'All river types', RIVER_TYPE_LABELS],
             ['diff', 'Filter by difficulty', 'All difficulties', DIFFICULTY_TIER_LABELS],
             ['len', 'Filter by length', 'Any length', LENGTH_BUCKET_LABELS],
-          ] as const).map(([key, label, all, values]) => <select key={key} aria-label={label} disabled={!ready} value={state[key]}
-            onChange={event => update({ ...state, [key]: event.target.value })} className={selectClass}>
+          ] as const).map(([key, label, all, values]) => <FilterSelect key={key} aria-label={label} disabled={!ready} value={state[key]}
+            onChange={event => update({ ...state, [key]: event.target.value })}>
             <option value="all">{all}</option>{Object.entries(values).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-          </select>)}
+          </FilterSelect>)}
         </div>
       </div>}
     </div>

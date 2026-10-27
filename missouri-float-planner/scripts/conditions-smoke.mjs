@@ -110,7 +110,7 @@ export default function Page() {
   for (const [path, canonical] of [[root, '/rivers'], [`${root}/dams`, '/dams']]) {
     const html=await (await fetch(`${origin}${path}`)).text();
     assert(html.includes('Table Rock Dam') && html.includes('Bull Shoals Dam'), 'destinations render before JavaScript');
-    assert(html.includes(path === root ? '>Conditions</h1>' : '>Lakes &amp; Dams</h1>'), 'entry keeps its visible heading');
+    assert(html.includes('>Conditions</h1>'), 'both entries use the shared Conditions heading');
     assert.equal((html.match(/<section aria-label="Today’s generation schedule"/g) ?? []).length, dams.length, 'today’s schedules render before JavaScript');
     for (const dam of dams) assert(html.includes(`href="/dams/${dam.id}"`), `${dam.name} link renders before JavaScript`);
     if (path === root) {
@@ -166,10 +166,24 @@ export default function Page() {
     assert.equal(await page.getByRole('img',{name:/Flow.*trend chart/}).count(),rivers.length);
     assert.equal(await page.getByRole('img',{name:'Eddy the Otter',exact:true}).count(),rivers.length+1);
     const featuredDam=featured.locator('[data-destination="dam:swl-table-rock-dam"]');
-    assert(await featuredDam.getByText('50%',{exact:true}).isVisible());
+    assert(await featuredDam.getByText('10,500 cfs',{exact:true}).isVisible());
     assert(await featuredDam.getByText('Water temp',{exact:true}).isVisible());
-    assert(await featuredDam.getByText('Below-dam elevation',{exact:true}).isVisible());
-    assert(await featuredDam.getByText(/scheduled/i).first().isVisible());
+    assert(await featuredDam.getByText('52.0 °F',{exact:true}).isVisible());
+    assert.equal(await featuredDam.getByText(/Generating now|of full generation|Below-dam elevation/).count(),0);
+    assert.equal(await featuredDam.locator('dt').count(),2,'dam cards show only release and temperature readings');
+    assert(await featuredDam.getByText(/(?:Increases|Decreases) at/).isVisible());
+    for (const control of [page.getByLabel('Filter by state'),page.getByLabel('Sort destinations')]) {
+      const fit=await control.evaluate(select=>{
+        const style=getComputedStyle(select);
+        const canvas=document.createElement('canvas');
+        const context=canvas.getContext('2d');
+        context.font=`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        return {text:context.measureText(select.selectedOptions[0].text).width,available:select.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)};
+      });
+      assert(fit.text<=fit.available,`${label}: selected filter label fits without crowding the arrow`);
+    }
+    await page.addStyleTag({content:'nextjs-portal { display:none; }'});
+    await page.screenshot({path:`${out}/${label}-top.png`});
     const schedules=page.getByRole('region',{name:'Today’s generation schedule',exact:true});
     assert.equal(await schedules.count(),dams.length);
     assert.equal(await schedules.getByRole('img').count(),dams.length,'one visible timeline per dam, even with two days available');
@@ -189,6 +203,11 @@ export default function Page() {
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: hourly readout fits`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await featuredDam.screenshot({path:`${out}/${label}-dam-hour.png`});
+    assert((await featuredDam.boundingBox()).height<550,`${label}: dam card stays compact with an hourly readout`);
+    // Reset pointer inspection explicitly. Compact cards no longer need to
+    // scroll when the report link receives focus, so hover can otherwise stay.
+    await page.mouse.move(0,0);
+    await timeline.focus();
     await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).focus();
     await timeline.focus();
     await timeline.press('ArrowRight');
@@ -211,7 +230,7 @@ export default function Page() {
     assert.equal(await page.locator('[data-result]').getAttribute('data-result'),'dam:ameren-bagnell-dam');
     assert.equal(await page.getByLabel('Sort destinations').inputValue(),'relevance');
     assert(await page.locator('[data-result]').getByText('Water temp',{exact:true}).isVisible(), 'search retains dam detail');
-    assert(await page.locator('[data-result]').getByText(/scheduled/i).first().isVisible());
+    assert(await page.locator('[data-result]').getByText(/(?:Increases|Decreases) at/).isVisible());
     assert(await page.locator('[data-result]').getByRole('region',{name:'Today’s generation schedule',exact:true}).getByRole('img').isVisible(),'search retains the hourly dam timeline');
     await search.fill('Current River');
     await page.locator('[data-result="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
@@ -249,10 +268,12 @@ export default function Page() {
     await readyConditions(page);
     assert.equal(await page.getByLabel('Filter by difficulty').count(),0);
     assert.equal(await page.locator('[data-result]').count(),dams.length);
+    assert(await page.getByRole('heading',{name:'Conditions',exact:true,level:1}).isVisible());
     assert.equal(await schedules.getByRole('img').count(),dams.length,'the dams entry retains hourly timelines');
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await page.screenshot({path:`${out}/${label}-dams.png`,fullPage:true});
     await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'All',exact:true}).click();
+    assert(await page.getByRole('heading',{name:'Conditions',exact:true,level:1}).isVisible(),'switching to All on /dams keeps the shared heading');
     await page.getByLabel('Sort destinations').selectOption('name');
     assert.equal(await page.getByRole('region',{name:'Featured destinations'}).count(),0);
     const first=await page.locator('[data-result]').first().getAttribute('data-result');
@@ -292,7 +313,7 @@ export default function Page() {
       assert.equal(damRequests, 0, 'partial stored readings do not trigger an immediate catalogue refresh');
       assert.equal(await page.getByText('Loading latest dam readings…',{exact:true}).count(), 0);
       const missing = page.locator('[data-result="dam:nwk-stockton-dam"]');
-      assert(await missing.getByText('Current generation unavailable',{exact:true}).isVisible());
+      assert.equal(await missing.getByText('Unavailable',{exact:true}).count(),2);
       assert(await missing.getByText('Today’s generation schedule is unavailable.',{exact:true}).isVisible());
       page.off('request', countDamRequests);
       await page.goto(`${origin}${root}/fallback`,{waitUntil:'networkidle'});

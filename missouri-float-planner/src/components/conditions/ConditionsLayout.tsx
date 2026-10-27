@@ -5,15 +5,14 @@ import { buildRiversSummary } from '@/data/eddy-quotes';
 import ConditionsExplorer, { type ConditionsExplorerProps } from './ConditionsExplorer';
 
 export default function ConditionsLayout(props: ConditionsExplorerProps) {
-  const damEntry = props.defaultKind === 'dams';
   const summary = buildRiversSummary(props.rivers.map(river => river.currentCondition?.code ?? null));
   return <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
     <header className="bg-primary-900 py-7 text-white md:py-9">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 sm:gap-6 sm:px-6 lg:px-8">
         <Image src={EDDY_IMAGES.canoe} alt="Eddy the Otter" width={300} height={300} priority className="h-20 w-auto shrink-0 md:h-28" />
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-accent-400 md:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>{damEntry ? 'Lakes & Dams' : 'Conditions'}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/80">{damEntry ? 'Check water releases, temperatures, and generation before you head out.' : summary}</p>
+          <h1 className="text-2xl font-bold text-accent-400 md:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>Conditions</h1>
+          <p className="mt-2 max-w-2xl text-sm text-white/80">{summary}</p>
         </div>
       </div>
     </header>

@@ -111,13 +111,14 @@ test('the actual Conditions layout links to every destination before JavaScript'
   assert.doesNotMatch(html, /Show all rivers/);
 });
 
-test('All renders the original river chart and Eddy report alongside full dam information', () => {
+test('All keeps the river chart and Eddy report alongside the dam schedule and essential readings', () => {
   const now = Date.parse('2026-10-27T17:00:00Z');
   const at = new Date(now - 600000).toISOString();
   const river = directoryRivers[0];
   const dam = { ...conditionsDamCatalogue([]).dams.find(item => item.id === 'swl-table-rock-dam')!,
     generationFloorCfs: 100, generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
     metrics: { generationFlow: { value: 10000, unit: 'cfs', at, staleness: 'fresh' as const },
+      release: { value: 10500, unit: 'cfs', at, staleness: 'fresh' as const },
       tailwaterTempF: { value: 52, unit: 'F', at, staleness: 'fresh' as const },
       tailwaterElevation: { value: 650.25, unit: 'ft', at, staleness: 'fresh' as const } },
     schedule: [{ scheduleDate: '2026-10-27', retrievedAt: at, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 14 ? 200 : 400, cfs: i < 14 ? 10000 : 20000, isRamp: i === 14 })) }],
@@ -134,7 +135,8 @@ test('All renders the original river chart and Eddy report alongside full dam in
       siteId: '07067000', readings: [400, 450, 500].map((value, i) => ({ timestamp: new Date(now - (3 - i) * 86400000).toISOString(), dischargeCfs: value, gaugeHeightFt: 3 })),
     }));
   });
-  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Water temp', 'Below-dam elevation', '50%', 'Generation scheduled to increase', 'Today’s generation schedule', 'Select an hour for details', 'Full report']) assert.ok(html.includes(text), text);
+  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Increases at 2 PM.', 'Today’s generation schedule', 'Select an hour for details', 'Full report']) assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /Generating now|of full generation|Below-dam elevation/);
   assert.match(html, /role="img" aria-label="Flow \(cfs\) trend chart/);
   assert.ok(html.includes('Eddy_the_Otter_'), 'river report keeps its condition-specific Eddy image');
   assert.ok(html.includes('canoe'), 'header keeps Eddy’s canoe artwork');
@@ -178,10 +180,10 @@ test('dam cards distinguish missing today from an idle schedule and retain stale
   assert.doesNotMatch(noTurbines, /Today’s generation schedule/);
 });
 
-test('the dams entry has its own visible heading and every dam in the initial HTML', () => {
+test('the dams entry uses the shared Conditions heading and links every dam before JavaScript', () => {
   const html = renderConditions({ defaultKind: 'dams' });
-  assert.match(html, /<h1[^>]*>Lakes &amp; Dams<\/h1>/);
-  assert.doesNotMatch(html, /<h1[^>]*>Conditions<\/h1>/);
+  assert.match(html, /<h1[^>]*>Conditions<\/h1>/);
+  assert.doesNotMatch(html, /<h1[^>]*>Lakes &amp; Dams<\/h1>/);
   for (const dam of conditionsDamCatalogue([]).dams) assert.ok(html.includes(`href="/dams/${dam.id}"`));
 });
 
