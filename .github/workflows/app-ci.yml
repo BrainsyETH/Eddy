@@ -121,6 +121,12 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Install Chromium for analytics checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Check browser analytics
+        run: npm run test:analytics-browser
+
   mobile-app:
     runs-on: ubuntu-latest
     timeout-minutes: 20

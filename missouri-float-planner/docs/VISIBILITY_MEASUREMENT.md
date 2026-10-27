@@ -151,11 +151,47 @@ without reloading stops new custom events but cannot unload Google's already
 running automatic tracking. Storage denial does not prevent ordinary visitor
 analytics. This opt-out affects GA4 only, not widget impression accounting.
 
-The root listener initializes Google once per document. Google's `config`
-command owns the initial page view; GA4 Enhanced Measurement must have page
-views on browser-history changes enabled for client-side navigation. There
-is no additional `usePathname` or manual `page_view` sender. Keep one owner
-for page views to avoid duplicates.
+The root listener initializes Google once per document with
+`send_page_view: false`. Eddy sends one explicit `page_view` for the initial
+page and each pathname change, including Back/Forward. The last measured
+pathname lives on the browser window so listener remounts do not duplicate it.
+Query strings and fragments are state within a page: typing in Conditions,
+changing filters, panning/zooming a map, choosing endpoints and changing a
+campaign on the same pathname do not create additional views. Full document
+loads still start a new view. URLs, history, sharing and navigation are unchanged.
+
+Each view includes the current title, full location (retaining incoming campaign
+parameters), pathname and previous measured page as referrer. The initial
+referrer comes from the document. Preview, frame, automation and opt-out guards
+apply before either initialization or sending. Existing action events remain.
+
+**Required GA4 rollout setting:** In Eddy property 522140244, open Admin →
+Data streams → the eddy.guide web stream → Enhanced measurement → Page views →
+Show advanced settings. Turn off **Page changes based on browser history
+events**, leaving the other measurement options on. This is required in
+addition to `send_page_view: false`; that code option does not disable
+Enhanced Measurement's history listener. Coordinate the setting with the code
+deployment. Before the new code is live, turning it off temporarily omits
+client-side navigation views; deploying the code first temporarily duplicates
+them. Record the switch and deployment times and exclude that transition from
+comparisons. If reverting to the old automatic implementation, restore the
+history setting. Do not merge/roll out the manual sender without this handoff.
+
+The desktop header, mobile menu, planning tabs and footer opt into delegated
+`navigation_click` tracking with `data-ga-navigation` on their shared
+containers. Events carry `label`, `placement` (`header_desktop`,
+`header_mobile`, `section` or `footer`), `destination_path` and
+`page_path`. Destinations omit query strings and fragments. External social
+links, menu-toggle buttons and links outside those containers are excluded.
+Explicit `data-ga-event` links keep their existing event instead of emitting
+a second navigation event, so app acquisition and conversion names stay stable.
+Register placement/destination_path as event-scoped custom dimensions if needed
+in GA4 reports; do not mark ordinary menu clicks as key events.
+
+For before/after reports, Map now targets `/plan` and the homepage app-link
+placement is `homepage_app` rather than `homepage_hero`. Aggregate
+`app_landing_click` across placements for the overall trend; retain the
+separate labels to distinguish the changed placement.
 
 Run `make check-web` and `npm run test:analytics-browser` (from the web folder)
 before merging. The browser fixture exercises the analytics module with all
@@ -165,10 +201,11 @@ requests intercepted; it cannot prove events arrived in GA4. After deployment:
   start of the clean baseline. Historical iframe/development traffic remains
   in earlier reports; do not treat the resulting count changes as growth or loss.
 - In a normal production browser with analytics allowed, verify one initial
-  `page_view`, one for each intended client-side page navigation (including
-  Back/Forward), and no duplicate after a campaign change. Confirm both the
-  collection requests and GA4 DebugView; check the Enhanced Measurement
-  browser-history setting if navigation views are missing.
+  `page_view`, one for each pathname navigation (including Back/Forward),
+  no view for typing/filtering/map movement/endpoint edits, and no duplicate
+  after a remount or campaign change. Confirm collection requests and GA4
+  DebugView. Extra views on query changes indicate the automatic history
+  setting is still enabled; missing pathname views require checking the sender.
 - Open a blog with an embedded widget and a partner-hosted widget. The parent
   website visit may generate GA events; the widget frame must load no Google
   tag or collection request, while its impression beacon still succeeds.

@@ -7,6 +7,7 @@ type AnalyticsWindow = Window & {
   dataLayer?: IArguments[];
   gtag?: (...args: unknown[]) => void;
   __eddyAnalyticsId?: string;
+  __eddyPageView?: { pathname: string; location: string };
 };
 
 /** NODE_ENV alone also permits next build/start previews. */
@@ -44,9 +45,9 @@ export function initializeAnalytics(trackingId: string | undefined): void {
   };
   browser.__eddyAnalyticsId = trackingId;
   browser.gtag('js', new Date());
-  // GA owns the initial page view and Enhanced Measurement owns history
-  // changes. Do not add a usePathname/manual page_view sender alongside it.
-  browser.gtag('config', trackingId);
+  // Eddy owns page views. Also disable GA4's browser-history page views in
+  // Enhanced Measurement before rollout; send_page_view alone does not do it.
+  browser.gtag('config', trackingId, { send_page_view: false });
 
   const script = document.createElement('script');
   script.id = 'eddy-google-analytics';
@@ -60,4 +61,41 @@ export function trackEvent(action: string, params?: Record<string, unknown>): vo
   const browser = window as AnalyticsWindow;
   if (!browser.__eddyAnalyticsId || typeof browser.gtag !== 'function') return;
   browser.gtag('event', action, params ?? {});
+}
+
+/** One view per visible pathname, including return visits via Back/Forward.
+ * Query/hash changes are state within a page, not additional page views.
+ * Window state survives listener remounts without leaking across SSR requests.
+ */
+export function trackPageView(): void {
+  if (!websiteAnalyticsAllowed()) return;
+  const browser = window as AnalyticsWindow;
+  if (!browser.__eddyAnalyticsId || typeof browser.gtag !== 'function') return;
+  const pathname = browser.location.pathname;
+  const previous = browser.__eddyPageView;
+  if (previous?.pathname === pathname) return;
+  const location = browser.location.href;
+  trackEvent('page_view', {
+    page_path: pathname,
+    page_location: location,
+    page_title: document.title,
+    page_referrer: previous?.location ?? document.referrer,
+  });
+  browser.__eddyPageView = { pathname, location };
+}
+
+/** Shared menus opt in once; explicit CTA events keep their existing names. */
+export function trackNavigationClick(target: Element | null): void {
+  if (!websiteAnalyticsAllowed() || target?.closest?.('[data-ga-event]')) return;
+  const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+  const placement = anchor?.closest<HTMLElement>('[data-ga-navigation]')?.dataset.gaNavigation;
+  if (!anchor || !placement) return;
+  const destination = new URL(anchor.href, window.location.href);
+  if (destination.origin !== window.location.origin) return;
+  trackEvent('navigation_click', {
+    label: (anchor.getAttribute('aria-label') || anchor.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 100),
+    placement,
+    destination_path: destination.pathname,
+    page_path: window.location.pathname,
+  });
 }

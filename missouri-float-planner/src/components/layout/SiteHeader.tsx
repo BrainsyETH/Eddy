@@ -72,7 +72,7 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
           </Link>
 
           {/* Desktop nav */}
-          <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-1 ml-8">
+          <nav aria-label="Main navigation" data-ga-navigation="header_desktop" className="hidden lg:flex items-center gap-1 ml-8">
             {navItems.map((item) => {
               const active = item.active;
               return (
@@ -122,7 +122,7 @@ function HeaderContent({ floatSearchEnabled = false, search = '' }: HeaderProps 
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div id="mobile-menu" className="lg:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
-          <nav aria-label="Mobile navigation" className="px-4 py-3 space-y-1">
+          <nav aria-label="Mobile navigation" data-ga-navigation="header_mobile" className="px-4 py-3 space-y-1">
             {navItems.map((item) => {
               const active = item.active;
               return (

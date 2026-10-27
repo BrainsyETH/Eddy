@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
-import { ANALYTICS_OPT_OUT_KEY, analyticsTrackingId, initializeAnalytics, trackEvent } from './analytics';
+import { ANALYTICS_OPT_OUT_KEY, analyticsTrackingId, initializeAnalytics, trackEvent, trackPageView, trackNavigationClick } from './analytics';
 
 const trackingId = 'G-TEST123';
 
@@ -30,7 +30,7 @@ function browserFixture(t: TestContext, options: {
   const scripts: { id?: string; async?: boolean; src?: string }[] = [];
   const storage = new Map(options.optOut ? [[ANALYTICS_OPT_OUT_KEY, '1']] : []);
   const browser = {
-    location: { hostname: options.hostname ?? 'eddy.guide', pathname: '/dams/bull-shoals' },
+    location: new URL(`https://${options.hostname ?? 'eddy.guide'}/dams/bull-shoals`),
     navigator: { webdriver: options.webdriver ?? false, platform: 'Linux x86_64' },
     sessionStorage: { getItem: (key: string) => {
       if (options.storageDenied) throw new Error('Storage denied');
@@ -42,6 +42,7 @@ function browserFixture(t: TestContext, options: {
   };
   browser.top = options.framed ? {} : browser.self;
   for (const [key, value] of Object.entries({ window: browser, document: {
+    title: 'Eddy report', referrer: 'https://www.google.com/',
     createElement: (tag: string) => { assert.equal(tag, 'script'); return {}; },
     head: { appendChild: (script: (typeof scripts)[number]) => scripts.push(script) },
   } })) {
@@ -59,6 +60,8 @@ test('SSR calls do not require browser globals', () => {
   assert.equal(typeof window, 'undefined');
   assert.doesNotThrow(() => initializeAnalytics(trackingId));
   assert.doesNotThrow(() => trackEvent('app_store_click'));
+  assert.doesNotThrow(() => trackPageView());
+  assert.doesNotThrow(() => trackNavigationClick(null));
 });
 
 for (const options of [
@@ -70,6 +73,7 @@ for (const options of [
     const fixture = browserFixture(t, options);
     initializeAnalytics(trackingId);
     trackEvent('app_store_click', { label: 'dam' });
+    trackPageView();
     assert.deepEqual(fixture.scripts, []);
     assert.deepEqual(fixture.commands(), []);
     assert.equal(fixture.browser.gtag, undefined);
@@ -80,6 +84,7 @@ test('missing or invalid IDs never load the Google script', t => {
   const fixture = browserFixture(t);
   for (const id of [undefined, '', 'UA-123-1', 'G-invalid']) initializeAnalytics(id);
   trackEvent('app_store_click');
+  trackPageView();
   assert.deepEqual(fixture.scripts, []);
   assert.deepEqual(fixture.commands(), []);
 });
@@ -99,7 +104,7 @@ for (const options of [{}, { hostname: 'www.eddy.guide' }, { storageDenied: true
     assert.equal(commands[0][0], 'js');
     assert.ok(commands[0][1] instanceof Date);
     assert.deepEqual(commands.slice(1), [
-      ['config', trackingId], // Google's initial view; history remains Enhanced Measurement's responsibility
+      ['config', trackingId, { send_page_view: false }],
       ['event', 'app_store_click', params],
       ['event', 'plan_shared', {}],
     ]);
@@ -111,3 +116,56 @@ for (const options of [{}, { hostname: 'www.eddy.guide' }, { storageDenied: true
     }
   });
 }
+
+test('page views count paths once, ignore state changes, and retain campaign and referrer', t => {
+  const fixture = browserFixture(t);
+  const views = () => fixture.commands().filter(command => command[0] === 'event' && command[1] === 'page_view');
+  fixture.browser.location.href = 'https://eddy.guide/rivers?utm_source=partner&utm_medium=referral';
+  initializeAnalytics(trackingId);
+  trackPageView();
+  initializeAnalytics(trackingId);
+  trackPageView(); // remount
+  for (const query of ['?q=b', '?q=bu', '?q=bull', '?kind=dams', '?kind=dams#reports']) {
+    fixture.browser.location.href = 'https://eddy.guide/rivers' + query;
+    trackPageView();
+  }
+  assert.equal(views().length, 1);
+  assert.deepEqual(views()[0][2], {
+    page_path: '/rivers',
+    page_location: 'https://eddy.guide/rivers?utm_source=partner&utm_medium=referral',
+    page_title: 'Eddy report',
+    page_referrer: 'https://www.google.com/',
+  });
+  fixture.browser.location.href = 'https://eddy.guide/plan?river=current';
+  trackPageView();
+  for (const query of ['?river=current&lat=36&lng=-93&z=7', '?river=current&putIn=one&takeOut=two']) {
+    fixture.browser.location.href = 'https://eddy.guide/plan' + query;
+    trackPageView();
+  }
+  assert.equal(views().length, 2);
+  assert.equal((views()[1][2] as Record<string, unknown>).page_referrer, 'https://eddy.guide/rivers?utm_source=partner&utm_medium=referral');
+  fixture.browser.location.href = 'https://eddy.guide/rivers?kind=dams';
+  trackPageView(); // Back to another path counts.
+  fixture.browser.location.href = 'https://eddy.guide/plan?river=current';
+  trackPageView(); // Forward counts.
+  assert.deepEqual(views().map(command => (command[2] as Record<string, unknown>).page_path), ['/rivers', '/plan', '/rivers', '/plan']);
+  assert.equal((views()[3][2] as Record<string, unknown>).page_referrer, 'https://eddy.guide/rivers?kind=dams');
+});
+
+test('a skipped page view does not advance the last measured page', t => {
+  const fixture = browserFixture(t);
+  trackPageView(); // not initialized yet
+  initializeAnalytics(trackingId);
+  trackPageView();
+  fixture.browser.location.href = 'https://eddy.guide/app?ct=partner';
+  fixture.storage.set(ANALYTICS_OPT_OUT_KEY, '1');
+  const before = fixture.commands();
+  trackPageView();
+  assert.deepEqual(fixture.commands(), before);
+  fixture.storage.delete(ANALYTICS_OPT_OUT_KEY);
+  trackPageView();
+  const last = fixture.commands().at(-1)!;
+  assert.equal(last[1], 'page_view');
+  assert.equal((last[2] as Record<string, unknown>).page_path, '/app');
+  assert.equal((last[2] as Record<string, unknown>).page_referrer, 'https://eddy.guide/dams/bull-shoals');
+});

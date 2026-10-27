@@ -23,7 +23,7 @@ export default function SiteFooter({
   className = '',
 }: SiteFooterProps) {
   return (
-    <footer className={`bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 ${className}`}>
+    <footer data-ga-navigation="footer" className={`bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 ${className}`}>
       <div className={`${maxWidth} mx-auto`}>
         {showSafetyDisclaimer && (
           <div className="mb-6 p-4 bg-primary-700/50 rounded-lg border border-primary-600/30">
