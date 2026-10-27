@@ -388,6 +388,12 @@ export interface PositionFix {
   accuracyMeters: number | null;
   /** Epoch milliseconds when the fix was taken. */
   timestamp: number;
+  /**
+   * Course over ground in degrees from true north, when the receiver had
+   * one (moving); absent or null otherwise. Display only: the tracker
+   * matches on position alone.
+   */
+  course?: number | null;
 }
 
 /** A position on the line at a moment. */

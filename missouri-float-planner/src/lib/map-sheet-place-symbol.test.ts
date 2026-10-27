@@ -3,6 +3,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MapAccessPoint } from '@eddy/types';
+import type { AccessPointType } from '@/types/api';
+import { plannerPlaceSymbol } from './planner-place';
 import {
   accessBadgeTypes,
   accessTypeSymbol,
@@ -27,6 +29,17 @@ function point(over: Partial<MapAccessPoint> = {}): MapAccessPoint {
     ...over,
   } as MapAccessPoint;
 }
+
+test('web planner uses the same place symbol as the iOS access sheet', () => {
+  const combinations: AccessPointType[][] = [
+    ['access'], ['boat_ramp'], ['park'], ['bridge'], ['gravel_bar'],
+    ['boat_ramp', 'campground'], ['access', 'gravel_bar', 'campground'],
+    ['park', 'bridge'], ['access', 'boat_ramp'],
+  ];
+  for (const types of combinations) {
+    assert.equal(plannerPlaceSymbol({ type: types[0], types }), placeSymbol({ layer: 'access' }, point({ type: types[0], types })));
+  }
+});
 
 test('the layer decides, because it is the icon the finger landed on', () => {
   // The campgrounds layer and the access layer present the SAME access point.

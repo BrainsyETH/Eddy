@@ -34,7 +34,9 @@ export function FloatActivityControl() {
           ? 'Live Activities are off for Eddy. You can enable them in Settings.'
           : availability === 'error'
             ? 'The Lock Screen card couldn’t update. Your float is still running.'
-            : 'See your float on the Lock Screen and Dynamic Island.'}
+            : availability === 'expired'
+              ? 'iOS ends Lock Screen cards after eight hours. Your float is still running; show the card again to keep following it.'
+              : 'See your float on the Lock Screen and Dynamic Island.'}
       </Text>
       <Pressable onPress={() => void show()} disabled={busy} accessibilityRole="button"
         style={[styles.button, { borderColor: colors.border, opacity: busy ? 0.5 : 1 }]}>

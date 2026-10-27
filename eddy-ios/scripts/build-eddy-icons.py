@@ -45,6 +45,7 @@ WEB_OUT = ROOT / "missouri-float-planner/public/icons"
 # are rendered by different components and at different sizes. See EddySymbol.tsx
 # (inline, ~18pt) and EddyScene.tsx (hero, ~110pt).
 SYMBOLS = (
+    "eddy-today",
     "eddy-weather",
     "eddy-ai-assistant",
     "eddy-water-droplet",
@@ -82,7 +83,9 @@ SYMBOLS = (
 # to black and the corners are black. "Mostly" is the problem: any dark pixel in
 # the mark that touches the edge would be eaten, silently, and nobody reviews a
 # PNG diff. Declaring the difference is cheaper than trusting it.
-PRE_CUT = frozenset({"eddy-road", "eddy-parking", "eddy-restroom"})
+# The approved Today master also has real transparency, including the spaces
+# between the rays, sun, and river bands used by the native tab's alpha mask.
+PRE_CUT = frozenset({"eddy-road", "eddy-parking", "eddy-restroom", "eddy-today"})
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot
 # to live in and the app has six of them. The rest of the catalog's scenes are
@@ -107,6 +110,12 @@ ICONS = SYMBOLS + SCENES
 # directions: the web has a chat panel and a submission form the app does not,
 # and the app has empty states the web has no equivalent for.
 WEB_ICONS = (
+    "eddy-today",
+    "eddy-boat-ramp",
+    "eddy-campground",
+    "eddy-bridge",
+    "eddy-gravel-bar",
+    "eddy-outfitter",
     "eddy-checking-gauge",
     "eddy-weather",
     "eddy-ai-assistant",
@@ -358,7 +367,7 @@ def main() -> None:
     # Derived once and written to both apps, rather than each app deriving its
     # own: the same concept must be the same pixels in the app and the browser,
     # and two pipelines is how a mark ends up cropped differently on each.
-    for name in sorted(set(ICONS) | set(WEB_ICONS)):
+    for name in sorted((set(ICONS) | set(WEB_ICONS)) - set(GENERATED_SYMBOLS)):
         art = derive(name)
 
         targets = []
@@ -378,6 +387,8 @@ def main() -> None:
         art = generate(name)
         target = OUT / f"{name}.png"
         art.save(target, optimize=True)
+        if name in WEB_ICONS:
+            art.save(WEB_OUT / f"{name}.png", optimize=True)
         size = target.stat().st_size // 1024
         print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  ios")
 

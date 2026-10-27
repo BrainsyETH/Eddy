@@ -40,7 +40,12 @@ export function createFloatActivityLifecycle(
   };
 }
 
-export type ActivityAvailability = 'unavailable' | 'idle' | 'active' | 'dismissed' | 'disabled' | 'error';
+/**
+ * 'dismissed' is a swipe-away; 'expired' is the system's eight-hour limit on
+ * a Live Activity. Both leave the float running and both need an explicit
+ * Show action to bring a card back.
+ */
+export type ActivityAvailability = 'unavailable' | 'idle' | 'active' | 'dismissed' | 'expired' | 'disabled' | 'error';
 export interface FloatActivitySnapshot {
   sessionId: string;
   state: {

@@ -1,112 +1,30 @@
-// src/components/access-point/AccessPointGauge.tsx
-// Water level gauge status display
-
+// Shared access reading: the same condition system and reading/station hierarchy as iOS.
 import type { AccessPointGaugeStatus } from '@/types/api';
 import { stationCaption } from '@shared/station-caption';
+import { conditionChip } from '@shared/condition-system';
+import ConditionBadge from '@/components/ui/ConditionBadge';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
-interface AccessPointGaugeProps {
-  gaugeStatus: AccessPointGaugeStatus | null;
-}
-
-export default function AccessPointGauge({ gaugeStatus }: AccessPointGaugeProps) {
-  if (!gaugeStatus) {
-    return (
-      <div className="flex items-center gap-3 p-3 bg-neutral-100 rounded-lg">
-        <div className="w-2 h-9 rounded bg-neutral-300" />
-        <div>
-          <div className="text-sm font-semibold text-neutral-600">
-            No gauge data
-          </div>
-          <div className="text-xs text-neutral-500">
-            Water level unavailable
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const colors = getGaugeColors(gaugeStatus.level);
-  const lastUpdated = gaugeStatus.lastUpdated
-    ? formatTimeAgo(new Date(gaugeStatus.lastUpdated))
-    : null;
+export default function AccessPointGauge({ gaugeStatus }: { gaugeStatus: AccessPointGaugeStatus | null }) {
+  if (!gaugeStatus) return <p className="flex items-center gap-2 text-sm text-neutral-600"><EddyIcon name="gauge" size={24} />Water level unavailable</p>;
+  const chip = conditionChip(gaugeStatus.level);
+  const lastUpdated = gaugeStatus.lastUpdated ? formatTimeAgo(new Date(gaugeStatus.lastUpdated)) : null;
   const caption = stationCaption(gaugeStatus.provider, gaugeStatus.usgsId);
-
-  return (
-    <div>
-      <div
-        className="flex items-center gap-3 p-3 rounded-lg border"
-        style={{
-          backgroundColor: colors.bg,
-          borderColor: colors.border,
-        }}
-      >
-        {/* Level indicator bar */}
-        <div
-          className="w-2 h-9 rounded"
-          style={{ backgroundColor: colors.bar }}
-        />
-
-        {/* Status text */}
-        <div className="flex-1 min-w-0">
-          <div
-            className="text-sm font-bold"
-            style={{ color: colors.text }}
-          >
-            {gaugeStatus.label}
-          </div>
-          <div
-            className="text-xs font-mono"
-            style={{ color: colors.text, opacity: 0.75 }}
-          >
-            {gaugeStatus.cfs !== null ? `${gaugeStatus.cfs.toLocaleString()} cfs` : 'N/A'}
-            {gaugeStatus.heightFt !== null && ` · ${gaugeStatus.heightFt.toFixed(2)} ft`}
-          </div>
-        </div>
-
-        {/* Trend indicator */}
-        {gaugeStatus.trend && (
-          <div className="flex flex-col items-end">
-            <span className="text-base">
-              {gaugeStatus.trend === 'rising' ? '↑' : gaugeStatus.trend === 'falling' ? '↓' : '→'}
-            </span>
-            <span
-              className="text-[10px]"
-              style={{ color: colors.text, opacity: 0.7 }}
-            >
-              {gaugeStatus.trend}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Gauge info footer */}
-      {lastUpdated && (
-        <div className="text-right mt-1.5 text-[10px] font-mono text-neutral-500">
-          {/*
-            Not `USGS {id}`. Every access point on the Black River reads its
-            condition from Clearwater, a Corps release — so this line credited
-            the USGS with USACE data and printed 'swl-clearwater-dam' as though
-            it were a site number. `caption` is null when nothing can be said
-            honestly, and the update time stands on its own.
-          */}
-          {caption ? `${caption} · ` : ''}Updated {lastUpdated}
-        </div>
-      )}
+  return <section aria-label="Water conditions" className="border-y-2 border-neutral-200 py-3">
+    <div className="flex flex-wrap items-center gap-2">
+      <EddyIcon name="gauge" size={26} />
+      <span className="font-mono text-base font-semibold tabular-nums" style={{ color: chip.color }}>
+        {gaugeStatus.cfs !== null ? `${gaugeStatus.cfs.toLocaleString()} cfs` : gaugeStatus.heightFt !== null ? `${gaugeStatus.heightFt.toFixed(2)} ft` : 'No reading'}
+      </span>
+      <ConditionBadge code={gaugeStatus.level} label={gaugeStatus.label} />
     </div>
-  );
-}
-
-function getGaugeColors(level: AccessPointGaugeStatus['level']) {
-  const colorMap: Record<string, { bg: string; bar: string; border: string; text: string }> = {
-    'too_low': { bg: '#f5f2ef', bar: '#78716c', border: '#78716c33', text: '#57534e' },
-    'low': { bg: '#fef3e0', bar: '#d4a244', border: '#d4a24433', text: '#8a6a1e' },
-    'good': { bg: '#fef3e0', bar: '#d4a244', border: '#d4a24433', text: '#8a6a1e' },
-    'flowing': { bg: '#e0f0e4', bar: '#3d7c47', border: '#3d7c4733', text: '#1e5428' },
-    'high': { bg: '#fff3e0', bar: '#f57c00', border: '#f57c0033', text: '#e65100' },
-    'dangerous': { bg: '#ffebee', bar: '#d32f2f', border: '#d32f2f33', text: '#b71c1c' },
-    'unknown': { bg: '#f5f5f5', bar: '#9e9e9e', border: '#9e9e9e33', text: '#616161' },
-  };
-  return colorMap[level] || colorMap.unknown;
+    <p className="mt-1 text-xs font-semibold text-neutral-700">{gaugeStatus.gaugeName}</p>
+    <p className="mt-1 text-xs text-neutral-600">
+      {[gaugeStatus.cfs !== null && gaugeStatus.heightFt !== null ? `${gaugeStatus.heightFt.toFixed(2)} ft` : null,
+        gaugeStatus.trend ? `${gaugeStatus.trend === 'rising' ? '↑ Rising' : gaugeStatus.trend === 'falling' ? '↓ Falling' : '→ Steady'}` : null,
+        caption, lastUpdated ? `Updated ${lastUpdated}` : null].filter(Boolean).join(' · ')}
+    </p>
+  </section>;
 }
 
 function formatTimeAgo(date: Date): string {

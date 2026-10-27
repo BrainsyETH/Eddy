@@ -38,10 +38,14 @@ struct RecordedFix: Codable, Sendable {
 ///
 /// ── Durability ──────────────────────────────────────────────────────────────
 /// Each append is a write(2) into the kernel: it survives the app being killed
-/// or crashing. It is synchronised to storage when a float stops and when Eddy
-/// leaves the foreground; only a power loss in between could cost the last
-/// few seconds, which is what every recording app accepts in exchange for not
-/// forcing a flash write every second.
+/// or crashing. It is forced to flash (F_FULLFSYNC: on Apple storage fsync
+/// alone only reaches the drive's cache) when a float stops, when Eddy leaves
+/// the foreground, and on its own every SYNC_EVERY fixes or SYNC_INTERVAL,
+/// whichever comes first. The periodic sync is what protects a float after
+/// iOS relaunched Eddy in the background: that process never sees
+/// "did enter background", and a phone that dies in a dry bag hours later
+/// would otherwise lose everything since the relaunch. A power loss can still
+/// cost the fixes since the last sync, which is a minute at most.
 ///
 /// ── Privacy ─────────────────────────────────────────────────────────────────
 /// Raw positions stay on the phone: the directory is excluded from iCloud and
@@ -57,6 +61,12 @@ final class FloatJournal: @unchecked Sendable {
   private var handleId: String?
   private let encoder = JSONEncoder()
   private let decoder = JSONDecoder()
+
+  /// Fixes appended since the open file was last forced to flash, and when.
+  static let syncEvery = 30
+  static let syncInterval: TimeInterval = 60
+  private var unsyncedAppends = 0
+  private var lastSyncAt = Date()
 
   private var directory: URL {
     let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -105,6 +115,8 @@ final class FloatJournal: @unchecked Sendable {
     }
     handle = opened
     handleId = sessionId
+    unsyncedAppends = 0
+    lastSyncAt = Date()
     return opened
   }
 
@@ -113,8 +125,27 @@ final class FloatJournal: @unchecked Sendable {
     guard let handle else { return }
     self.handle = nil
     handleId = nil
-    try handle.synchronize()
+    Self.fullSync(handle)
     try handle.close()
+  }
+
+  /// Force the file's data to flash, not only to the kernel or the drive's
+  /// cache. Best effort: a failure here is a durability loss, not a recording
+  /// failure, and the next append or sync tries again.
+  private static func fullSync(_ handle: FileHandle) {
+    if fcntl(handle.fileDescriptor, F_FULLFSYNC) != 0 {
+      try? handle.synchronize()
+    }
+  }
+
+  /// Must run on `queue`: sync the open file when enough has accumulated.
+  private func syncIfDue() {
+    guard let handle else { return }
+    if unsyncedAppends >= Self.syncEvery || Date().timeIntervalSince(lastSyncAt) >= Self.syncInterval {
+      Self.fullSync(handle)
+      unsyncedAppends = 0
+      lastSyncAt = Date()
+    }
   }
 
   /// Append fixes; `done` gets the byte offsets the new lines occupy.
@@ -129,8 +160,14 @@ final class FloatJournal: @unchecked Sendable {
           data.append(0x0A)
         }
         try handle.write(contentsOf: data)
+        self.unsyncedAppends += fixes.count
+        self.syncIfDue()
         done(.success((from: from, to: from + UInt64(data.count))))
       } catch {
+        // The write may have stopped mid-line. Drop the handle so the next
+        // append reopens the file and ends that torn line first; otherwise
+        // the next fix would be glued onto it and both would be unreadable.
+        try? self.closeHandle()
         done(.failure(error))
       }
     }
@@ -182,9 +219,14 @@ final class FloatJournal: @unchecked Sendable {
     }
   }
 
-  /// Flush the open file to storage.
+  /// Force the open file to storage now (Eddy leaving the foreground).
   func synchronize() {
-    queue.async { try? self.handle?.synchronize() }
+    queue.async {
+      guard let handle = self.handle else { return }
+      Self.fullSync(handle)
+      self.unsyncedAppends = 0
+      self.lastSyncAt = Date()
+    }
   }
 
   /// Close the open file once a float stops recording.

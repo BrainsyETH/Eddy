@@ -33,6 +33,7 @@ import { recapFloat } from './floatRecap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { readNotificationAccess } from './notificationPermissions';
+import { FINISH_FLOAT_ACTION } from './notificationDestination';
 import { canDeliverNotification } from './notificationAccess';
 import type { PositionFix } from '@eddy/geo';
 import type { FloatSession } from './floatSession';
@@ -41,13 +42,35 @@ import { reminderCopy, type DueReminder, type FloatReminderSettings } from './fl
 import { warn } from './monitoring';
 import { syncFloatActivity } from '../float/liveActivity';
 import { createFloatActivityLifecycle } from './floatActivity';
-import { autoEndAt, autoEndCopy } from './floatEnding';
+import { autoEndAt, autoEndCopy, isShortFloat } from './floatEnding';
 import { floatRecorder } from '../../modules/eddy-float-recorder';
 import { deleteAllFloatTracks, deleteFloatTrack } from '../float/floatTracks';
 
 /** Recording stops with the float, whichever way it ended. */
 function stopRecording(sessionId: string | null): void {
-  void floatRecorder?.stop(sessionId).catch((error) => warn('float', 'could not stop recording', error));
+  void stopRecordingNow(sessionId);
+}
+
+/** The same, awaited: for paths that then delete the float's journal. */
+async function stopRecordingNow(sessionId: string | null): Promise<void> {
+  try {
+    await floatRecorder?.stop(sessionId);
+  } catch (error) {
+    warn('float', 'could not stop recording', error);
+  }
+}
+
+/** The arrival prompt's category: a Finish action right on the notification (usePush handles it). */
+export const ARRIVED_CATEGORY = 'float-arrived';
+let arrivedCategory: Promise<void> | null = null;
+function ensureArrivedCategory(): Promise<void> {
+  arrivedCategory ??= Notifications.setNotificationCategoryAsync(ARRIVED_CATEGORY, [
+    { identifier: FINISH_FLOAT_ACTION, buttonTitle: 'Finish float', options: { opensAppToForeground: true } },
+  ]).then(() => undefined, (error) => {
+    warn('float', 'could not register the arrival notification category', error);
+    arrivedCategory = null;
+  });
+  return arrivedCategory;
 }
 
 /**
@@ -57,15 +80,28 @@ function stopRecording(sessionId: string | null): void {
  * the phone accepted; without notification permission none are, so they stay
  * eligible and still fire if permission is given in time. The River Mode
  * screen says when notifications are off.
+ *
+ * Heads-ups about the water ahead (a dam, a portage, the take-out) are
+ * time-sensitive: a Focus mode must not silence "portage river left". The
+ * entitlement is in app.json. The ending prompts are ordinary.
  */
 async function deliverReminders(due: DueReminder[]): Promise<string[]> {
   if (!canDeliverNotification(await readNotificationAccess())) return [];
   const delivered: string[] = [];
   for (const reminder of due) {
     const { title, body } = reminderCopy(reminder);
+    const ahead = reminder.kind === 'take-out' || reminder.kind === 'stop' || reminder.kind === 'hazard';
+    if (reminder.kind === 'arrived') await ensureArrivedCategory();
     try {
       await Notifications.scheduleNotificationAsync({
-        content: { title, body, sound: true, data: { floatReminder: reminder.id } },
+        content: {
+          title,
+          body,
+          sound: true,
+          data: { floatReminder: reminder.id },
+          ...(ahead ? { interruptionLevel: 'timeSensitive' } : {}),
+          ...(reminder.kind === 'arrived' ? { categoryIdentifier: ARRIVED_CATEGORY } : {}),
+        },
         trigger: null,
       });
       delivered.push(reminder.id);
@@ -74,6 +110,25 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
     }
   }
   return delivered;
+}
+
+/**
+ * Take this float's reminders off the Lock Screen and out of Notification
+ * Center once it has ended: "Still floating?" after Finish is noise. The
+ * ended notice itself, scheduled after this, stays.
+ */
+async function dismissFloatNotifications(): Promise<void> {
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    for (const notification of presented) {
+      const data = notification.request.content.data as Record<string, unknown> | null | undefined;
+      if (typeof data?.floatReminder === 'string' || typeof data?.floatEnded === 'string') {
+        await Notifications.dismissNotificationAsync(notification.request.identifier);
+      }
+    }
+  } catch (error) {
+    warn('float', 'could not dismiss float notifications', error);
+  }
 }
 
 const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders,
@@ -134,6 +189,7 @@ async function autoEnd(sessionId: string): Promise<boolean> {
   if (!session || endedAt == null) return false;
   stopRecording(session.id);
   await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
+  await dismissFloatNotifications();
   if (canDeliverNotification(await readNotificationAccess())) {
     await Notifications.scheduleNotificationAsync({
       content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
@@ -182,21 +238,45 @@ export async function endFloat(): Promise<EndResult> {
   const session = store.get();
   if (session && !(await finishRecording(session.id))) return 'not-ended';
   const cleared = await activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+  void dismissFloatNotifications();
   return cleared ? 'ended' : 'ended-unsaved';
+}
+
+/**
+ * End the active float without a recap and delete its journal. Recording is
+ * stopped and awaited first: a fix still being written would otherwise
+ * recreate the journal after the delete, leaving a file no recap can ever
+ * remove.
+ */
+async function discardWithoutRecap(sessionId: string): Promise<boolean> {
+  await stopRecordingNow(sessionId);
+  // Nothing worth keeping was measured, so the journal goes with it.
+  await deleteFloatTrack(sessionId).catch((error) => warn('float', 'could not queue the track deletion', error));
+  const ended = await activityLifecycle.end(null, undefined, false);
+  void dismissFloatNotifications();
+  return ended;
 }
 
 /**
  * End a float that never reached its river, without a recap: nothing was
  * measured, so history gets no empty entry. Refused (false) once a position
- * on the river has been confirmed; use endFloat then.
+ * on the river has been confirmed; use endFloat or discardShortFloat then.
  */
 export function cancelUnstartedFloat(): Promise<boolean> {
   const session = store.get();
   if (!session || session.samples.length > 0) return Promise.resolve(false);
-  stopRecording(session.id);
-  // Nothing was measured, so its journal holds nothing worth keeping.
-  void deleteFloatTrack(session.id).catch((error) => warn('float', 'could not queue the track deletion', error));
-  return activityLifecycle.end(null, undefined, false);
+  return discardWithoutRecap(session.id);
+}
+
+/**
+ * Discard an accidental float (floatEnding.ts isShortFloat): no recap, no
+ * history entry, journal deleted. Refused (false) once the float has
+ * measured enough to be worth keeping; use endFloat then.
+ */
+export function discardShortFloat(now = Date.now()): Promise<boolean> {
+  const session = store.get();
+  if (!session || !isShortFloat(session, now)) return Promise.resolve(false);
+  return discardWithoutRecap(session.id);
 }
 
 /** Change the active float's reminders. */
@@ -206,9 +286,10 @@ export function setFloatReminders(update: (current: FloatReminderSettings) => Pi
 
 /** Account deletion also clears positions, every raw journal, and any pending end journal. */
 export async function discardFloat(): Promise<void> {
-  stopRecording(null);
+  await stopRecordingNow(null);
   await deleteAllFloatTracks();
   await store.discard();
   await pickupContact.clear();
   void syncFloatActivity(null);
+  void dismissFloatNotifications();
 }

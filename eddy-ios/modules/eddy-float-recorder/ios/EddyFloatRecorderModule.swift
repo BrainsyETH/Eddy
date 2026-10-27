@@ -7,11 +7,21 @@ public final class EddyFloatRecorderModule: Module {
     Name("EddyFloatRecorder")
     Events("onFixes", "onStatus")
 
-    OnCreate {
+    // Events are bridged only while JS is listening (src/float/recorder.ts
+    // attaches once per process). With no listener there is nothing to
+    // deliver to, and the journal is the record either way; JS catches up
+    // from its checkpoint when it attaches.
+    OnStartObserving {
       Task { @MainActor [weak self] in
         FloatRecorder.shared.emit = { name, body in
           self?.sendEvent(name, body.mapValues { $0 as Any? })
         }
+      }
+    }
+
+    OnStopObserving {
+      Task { @MainActor in
+        FloatRecorder.shared.emit = nil
       }
     }
 

@@ -179,7 +179,8 @@ opted-in completed-float summaries. No tracking.**
   `app.json` enables the location background mode for that session. Ending
   stops recording. If iOS ends Eddy mid-float, iOS relaunches it to resume the
   session (device-unconfirmed). A float left running ends itself an hour after
-  reaching the take-out or 45 minutes after leaving the river.
+  reaching the take-out (once confirmed positions stop moving downstream past
+  it) or 45 minutes after leaving the river.
 - Raw River Mode positions stay on the phone: each float's GPS track is kept
   in a local file, excluded from iCloud and device backups, never uploaded,
   and deleted with that float's recap or with the account (ADR 0014). Pace

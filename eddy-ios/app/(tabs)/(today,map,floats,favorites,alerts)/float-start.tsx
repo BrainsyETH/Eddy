@@ -98,15 +98,10 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const [boat, setBoat] = useState<FloatBoat>(() => isBoat(initial.boatType) ? initial.boatType : 'kayak');
   const boatChosen = useRef(isBoat(initial.boatType));
   const [picker, setPicker] = useState<'river' | 'from' | 'to' | null>(null);
-  // Tracking needs location, so the screen asks once on arrival instead of
-  // waiting for a tap; a declined prompt falls back to the Location card.
-  const askedLocation = useRef(false);
-  const { state: locationState, act: locationAct } = location;
-  useEffect(() => {
-    if (locationState !== 'request' || askedLocation.current) return;
-    askedLocation.current = true;
-    void locationAct();
-  }, [locationState, locationAct]);
+  // The iOS location prompt is never fired on arrival: the Location card
+  // explains why tracking needs it and its button asks (LocationGate). A
+  // prompt that appears before the explanation is the one people decline,
+  // and a decline is a permanent Settings detour.
   // GPS may fill an empty river once. A match, typing or selection settles it.
   const [autoEligible, setAutoEligible] = useState(!initial.riverSlug);
   const manuallySelected = useRef(false);

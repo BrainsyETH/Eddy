@@ -15,6 +15,9 @@
         "applinks:eddy.guide"
       ],
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "icon": {
         "light": "./assets/icon-polished-light.png",
         "dark": "./assets/icon-polished-dark.png",

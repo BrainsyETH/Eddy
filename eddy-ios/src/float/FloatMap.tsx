@@ -75,6 +75,10 @@ export interface FloatMapProps {
   position: LngLat | null;
   /** The position is not live: draw it, but faded. */
   positionDimmed: boolean;
+  /** Horizontal accuracy of the shown fix, drawn as a ring; null hides it. */
+  accuracyMeters?: number | null;
+  /** Course over ground in degrees, drawn as a heading needle; null hides it. */
+  course?: number | null;
   /** The last confirmed mile, so a tapped marker can say how far ahead it is. */
   currentMile?: number | null;
   /** A still, framed preview: no following, no controls, no gestures. */
@@ -96,6 +100,39 @@ const FOLLOW_ZOOM = 14;
 /** Access-point and hazard labels appear from here; ends are always labelled. */
 const LABEL_ZOOM = 12;
 const FRAME_PADDING = 48;
+/**
+ * Following moves the camera only for a real move: a fix a few metres from
+ * the last one centred is GPS wobble, and a camera that animates to every
+ * wobble never settles. The overview re-frames only once the dot leaves the
+ * inner part of what it framed last.
+ */
+const FOLLOW_MIN_MOVE_M = 5;
+const OVERVIEW_MARGIN = 0.15;
+const FOLLOW_ANIMATION_MS = 300;
+/** Accuracy rings tighter than this hide under the dot; wider than this are noise. */
+const ACCURACY_RING_MIN_M = 15;
+const ACCURACY_RING_MAX_M = 500;
+/** Metres per pixel at zoom 0 on the equator (Web Mercator, 512 px tiles). */
+const METERS_PER_PIXEL_Z0 = 78271.517;
+
+/** A circle-radius expression that keeps a Mapbox circle `meters` wide at every zoom. */
+function metersToCircleRadius(meters: number, lat: number): unknown[] {
+  const pixelsAtZ0 = meters / (METERS_PER_PIXEL_Z0 * Math.cos((lat * Math.PI) / 180));
+  return ['interpolate', ['exponential', 2], ['zoom'], 0, pixelsAtZ0, 22, pixelsAtZ0 * 2 ** 22];
+}
+
+/** Local straight-line distance in metres, for the follow threshold. */
+function metersApart(a: LngLat, b: LngLat): number {
+  const lat = ((a[1] + b[1]) / 2) * (Math.PI / 180);
+  return Math.hypot((a[0] - b[0]) * Math.cos(lat), a[1] - b[1]) * 111_320;
+}
+
+/** Whether a point sits inside a frame, shrunk by `margin` of its span on each side. */
+function wellInside(frame: readonly [number, number, number, number], point: LngLat, margin: number): boolean {
+  const dx = (frame[2] - frame[0]) * margin;
+  const dy = (frame[3] - frame[1]) * margin;
+  return point[0] >= frame[0] + dx && point[0] <= frame[2] - dx && point[1] >= frame[1] + dy && point[1] <= frame[3] - dy;
+}
 
 /** How often, at most, to try the real style again while on the neutral one. */
 const STYLE_RETRY_MS = 60_000;
@@ -115,6 +152,8 @@ function MapboxFloatMap({
   takeOut,
   position,
   positionDimmed,
+  accuracyMeters = null,
+  course = null,
   currentMile = null,
   preview = false,
   focus,
@@ -162,14 +201,25 @@ function MapboxFloatMap({
   const lat = position?.[1];
   const endLng = takeOut?.lngLat[0];
   const endLat = takeOut?.lngLat[1];
+  // What the camera last framed or centred on, so a wobble does not move it.
+  const framed = useRef<{ overview: readonly [number, number, number, number] | null; centre: LngLat | null }>({ overview: null, centre: null });
   useEffect(() => {
     if (preview || !following || !mapReady || lng == null || lat == null) return;
+    const here: LngLat = [lng, lat];
     if (following === 'overview') {
-      // Follow actual coordinate changes only. A manual gesture stops following.
-      const frame = floatOverviewBounds([lng, lat], endLng != null && endLat != null ? [endLng, endLat] : null);
-      if (frame) camera.current?.fitBounds([frame[2], frame[3]], [frame[0], frame[1]], FRAME_PADDING, reducedMotion ? 0 : 600);
+      // Follow actual coordinate changes only, and only once the dot has left
+      // the inner part of the last frame. A manual gesture stops following.
+      const last = framed.current.overview;
+      if (last && wellInside(last, here, OVERVIEW_MARGIN)) return;
+      const frame = floatOverviewBounds(here, endLng != null && endLat != null ? [endLng, endLat] : null);
+      if (!frame) return;
+      framed.current.overview = frame;
+      camera.current?.fitBounds([frame[2], frame[3]], [frame[0], frame[1]], FRAME_PADDING, reducedMotion ? 0 : FOLLOW_ANIMATION_MS);
     } else {
-      camera.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
+      const last = framed.current.centre;
+      if (last && metersApart(last, here) < FOLLOW_MIN_MOVE_M) return;
+      framed.current.centre = here;
+      camera.current?.setCamera({ centerCoordinate: here, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : FOLLOW_ANIMATION_MS });
     }
   }, [preview, following, mapReady, lng, lat, endLng, endLat, reducedMotion]);
 
@@ -183,14 +233,26 @@ function MapboxFloatMap({
     clearSelection();
     if (!bounds) return;
     setFollowing(false);
+    framed.current = { overview: null, centre: null };
     camera.current?.fitBounds([bounds[2], bounds[3]], [bounds[0], bounds[1]], FRAME_PADDING, reducedMotion ? 0 : 700);
   };
   const recenter = () => {
     clearSelection();
     setFollowing('position');
     // Repeated taps work even if following was already selected.
-    if (position) camera.current?.setCamera({ centerCoordinate: position, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
+    if (position) {
+      framed.current.centre = position;
+      camera.current?.setCamera({ centerCoordinate: position, zoomLevel: FOLLOW_ZOOM, animationDuration: reducedMotion ? 0 : 600 });
+    }
   };
+  // The accuracy ring and heading needle, drawn with the dot. The ring is a
+  // true ground size at every zoom; the needle is a glyph swung around the
+  // dot (absent on the neutral style, which has no glyphs).
+  const ringRadius = useMemo(() => (
+    lat != null && accuracyMeters != null && accuracyMeters >= ACCURACY_RING_MIN_M && accuracyMeters <= ACCURACY_RING_MAX_M
+      ? metersToCircleRadius(accuracyMeters, lat) : null
+  ), [lat, accuracyMeters]);
+  const heading = course != null && Number.isFinite(course) && course >= 0 ? course : null;
 
   const routeShape = useMemo(
     () => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: line } }),
@@ -368,8 +430,41 @@ function MapboxFloatMap({
         {position && !preview ? (
           <Mapbox.ShapeSource
             id="float-position"
-            shape={{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: position } }}
+            shape={{ type: 'Feature', properties: { heading: heading ?? 0 }, geometry: { type: 'Point', coordinates: position } }}
           >
+            {ringRadius && !positionDimmed ? (
+              <Mapbox.CircleLayer
+                id="float-position-accuracy"
+                style={{
+                  circleRadius: ringRadius,
+                  circleColor: '#1E6FD9',
+                  circleOpacity: 0.12,
+                  circleStrokeColor: '#1E6FD9',
+                  circleStrokeWidth: 1,
+                  circleStrokeOpacity: 0.35,
+                  circlePitchAlignment: 'map',
+                }}
+              />
+            ) : null}
+            {heading != null && !positionDimmed ? (
+              <Mapbox.SymbolLayer
+                id="float-position-heading"
+                style={{
+                  textField: '▲',
+                  textSize: 15,
+                  textColor: '#1E6FD9',
+                  textHaloColor: '#ffffff',
+                  textHaloWidth: 1,
+                  textRotate: ['get', 'heading'],
+                  textRotationAlignment: 'map',
+                  textPitchAlignment: 'map',
+                  textAnchor: 'center',
+                  textOffset: [0, -1.25],
+                  textAllowOverlap: true,
+                  textIgnorePlacement: true,
+                }}
+              />
+            ) : null}
             <Mapbox.CircleLayer
               id="float-position-dot"
               style={{

@@ -1383,7 +1383,13 @@ blur:
   A float left running ends itself an hour
   after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
   never for stopping or losing signal, and only on fresh evidence of being
-  away. Resuming after iOS ends Eddy is device-unconfirmed, so the screen
+  away. The arrival end waits while confirmed positions keep moving
+  downstream past the take-out: a paddler who went on past it is still
+  floating, and the recap still counts the float finished at the planned
+  take-out once they stop. The arrival prompt carries a Finish action, and
+  a finished float's reminders are dismissed from Notification Center.
+  End offers Discard while a float is under five minutes old or has measured
+  under a tenth of a mile; nothing is filed in history. Resuming after iOS ends Eddy is device-unconfirmed, so the screen
   still asks people to leave Eddy open in the background rather than
   promising it (runbook gate "Closing Eddy mid-float"). A take-out off the mapped
   river is never recorded as reached: reaching the river's closest point is
@@ -1411,10 +1417,14 @@ for why safety data can never sit behind a wall.
 
 Essentials keeps the `/float-options` route so existing notification and Live Activity
 links keep working. It leads with raw location sharing and the take-out, followed by
-Ahead, the optional pickup contact, and timestamped gauge readings. Settings are
+Ahead, the optional pickup contact, timestamped gauge readings, and the Keep screen
+awake switch (one tap away, off unless chosen). Settings are
 collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
 status and actionable errors. Hazard instructions are never truncated.
-Live Activity status, including update errors, remains inside Float settings.
+Live Activity status, including update errors and the system's eight-hour expiry
+(reported as `expired`, distinct from a swipe-away), remains inside Float settings.
+A hazard report can be withdrawn while it waits; a report Eddy gave up sending
+(a day of attempts, or a week old) says so with Retry.
 
 The latest valid raw recorder fix is stored separately from the accepted GPS/map
 position and the confirmed river position. Coarse fixes may update sharing, never
@@ -1462,9 +1472,15 @@ Ready to float offers take-out and mapped-hazard reminder choices before startin
 Those choices are saved in the initial session. Notification permission is optional
 and requested only after tapping Enable; recording does not require it. The same
 OS permission reader is used by readiness, River Mode and local delivery, separately
-from remote push availability, sign-in and token registration. Provisional permission
-or disabled alerts/sound is shown as quiet delivery. Permission is rechecked on
-foreground; neither permission nor scheduling proves audible delivery. Production
+from remote push availability, sign-in and token registration. Provisional
+permission (quiet by iOS) is upgradeable through the same prompt and says so;
+alerts or sound turned off in Settings are shown as quiet delivery with a Settings
+link. Reminders about the water ahead (take-out, stops, serious hazards) are
+delivered time-sensitive, so a Focus mode does not silence a portage warning;
+the entitlement is in `app.json`. Permission is rechecked on
+foreground; neither permission nor scheduling proves audible delivery.
+The iOS location prompt is never fired on arrival at Ready to float: the
+Location card explains why tracking needs it and its button asks. Production
 cold/offline launch and locked-phone delivery verification remain unconfirmed.
 
 Every entry opens **Ready to float** in its originating tab. A plan fills in
@@ -1522,12 +1538,18 @@ opened by Live Activity) uses a root ScrollView in its native form sheet;
 physical-device verification of the blank-sheet fix remains unconfirmed.
 Recenter is hidden while the map follows the paddler and reappears after a pan
 or Show route.
-River Mode shows the recorder’s usable GPS position, including off-river fixes.
+River Mode shows the recorder’s usable GPS position, including off-river fixes,
+with its accuracy ring and a heading needle when the fix carries a course.
 Only confirmed river positions advance progress, distance or ETA. The map
-initially keeps the user and take-out in view; a manual gesture stops following.
+initially keeps the user and take-out in view and re-frames only once the dot
+leaves the inner part of that frame, never for GPS wobble; a manual gesture
+stops following.
 Recenter follows the user; Show route fits the complete stretch and actual
 landings even while off-route. A restored or stale fix is visibly dimmed until
-fresh GPS arrives. The tracking indicator pulses once per actual fix, respects
+fresh GPS arrives. Coarse fixes (worse than the tracker’s 75 m limit) read as
+“Weak GPS · ±N m”, not as waiting for GPS. The panel also shows time on the
+water (to arrival) and miles from the recorded start. Arrival, a hazard just
+ahead, the sunset warning and tracking problems are announced to VoiceOver. The tracking indicator pulses once per actual fix, respects
 Reduce Motion, and shows the last update age. The five-second display clock
 runs only while River Mode is focused, the app is foregrounded and a float is
 active; it refreshes immediately on return. This clock does not request GPS
@@ -1670,7 +1692,13 @@ trace. Measurement details are available through an info button. Backup status
 comes from the recap row and the account sync state: local, syncing, backed up,
 waiting or failed with Retry. A subscription is not required for backup, and
 sign-in copy is shown only for guests. Raw display coordinates remain local and
-are excluded from recap uploads.
+are excluded from recap uploads. Uploads are batched by serialized size as well
+as row count; a 413 isolates the oversized row and marks it too large to back
+up. The periodic timer and the post-edit debounce upload only; the account's
+history is read back on foreground, sign-in and manual sync. A recap filed under
+another account (ended as a guest, or under a previous sign-in) says so rather
+than "finishing". Account deletion also clears queued hazard reports and trip
+route packages with their map packs.
 
 ### The purchase flow
 
@@ -1712,9 +1740,10 @@ same reason.
 Remote push and local reminders share OS notification permission interpretation.
 The explicit Enable action requests alert and sound permission, not badges (Eddy
 does not use notification badges). Provisional permission counts as allowed for
-remote delivery, so Profile may show push as on even when delivery is quiet;
-it does not re-prompt for full authorization. Float reminder controls explicitly
-label quiet delivery and offer Settings to enable alerts and sound.
+remote delivery, so Profile may show push as on even when delivery is quiet.
+Float reminder controls tell provisional (upgradeable through the in-app prompt,
+offered as Allow alerts) apart from alerts or sound turned off in Settings
+(labelled quiet delivery, with a Settings link).
 
 The backend was built first — outbox, `deliver-push` cron every 5 minutes,
 `/api/me/device-tokens` — so the client's whole job is to acquire a token, hand

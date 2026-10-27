@@ -49,85 +49,113 @@ export default function PlannerAccessLayer({ places, excludeRiverSlug, onSelect 
   return null;
 }
 
-/** Search and map taps use the same selection and camera treatment. */
-export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile = false, sheetReady = false, stripReady = false }: {
+/** Only explicit navigation fits bounds. Inspection only reveals a covered pin. */
+export function PlannerMapFocus({ place, bounds, request, mode, callout = false, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile = false, sheetReady = false, stripReady = false }: {
   place: PlannerMapPlace | null;
   bounds?: [number, number, number, number];
   request: number;
+  mode: 'bounds' | 'locate' | 'reveal' | 'none';
+  callout?: boolean;
   preserveInitialCamera: boolean;
   panelRef: RefObject<HTMLDivElement | null>;
   stripRef: RefObject<HTMLDivElement | null>;
   sheetRef?: RefObject<HTMLDivElement | null>;
   mobile?: boolean;
   sheetReady?: boolean;
-  /** The access strip is mounted. It can appear after the first framing
-   *  (it waits for the river's own access data), and the observers above only
-   *  watch overlays that existed when this effect ran, so its arrival must
-   *  re-run the effect or the route's end can sit behind the strip. */
   stripReady?: boolean;
 }) {
   const map = useMap();
   const [west, south, east, north] = bounds ?? [];
-  const cameraIntent = useRef({ request, moved: false });
+  const intent = useRef({ request, moved: false, framed: false });
   useEffect(() => {
-    if (preserveInitialCamera && request === 0) return;
-    if (!place && (west === undefined || south === undefined || east === undefined || north === undefined)) return;
+    if (mode === 'none' || (preserveInitialCamera && request === 0)) return;
+    if (intent.current.request !== request) intent.current = { request, moved: false, framed: false };
     let frame = 0;
-    if (cameraIntent.current.request !== request) cameraIntent.current = { request, moved: false };
-    const onMove = (event: { originalEvent?: Event }) => { if (event.originalEvent) cameraIntent.current.moved = true; };
-    const takeControl = () => { cameraIntent.current.moved = true; cancelAnimationFrame(frame); };
+    let pendingResize = false;
+    const takeControl = () => { intent.current.moved = true; cancelAnimationFrame(frame); };
     const focus = (animate = true) => {
-      if (cameraIntent.current.moved) return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        if (cameraIntent.current.moved) return;
+        if (intent.current.moved || (mode === 'bounds' && intent.current.framed)) return;
+        if (intent.current.framed && map.isMoving()) { pendingResize = true; return; }
+        // The mobile sheet animates to its measured detent after mounting.
+        // Fit once with its final height, rather than framing behind it and
+        // then moving the camera again when the animation finishes.
+        if (mobile && sheetReady && sheetRef?.current?.getAnimations().some(animation => animation.playState === 'running')) return;
         const canvas = map.getCanvas().getBoundingClientRect();
         const panel = panelRef.current?.getBoundingClientRect();
         const strip = stripRef.current?.getBoundingClientRect();
-        // Frame the usable map area, accounting for the actual panel, report,
-        // controls and access strip rather than assuming a sidebar width.
         const sheet = sheetRef?.current?.getBoundingClientRect();
-        const bottomOverlays = mobile ? [panel, strip, sheet] : [strip];
-        const bottom = Math.max(24, ...bottomOverlays.filter(rect => rect && rect.height > 0)
-          .map(rect => canvas.bottom - rect!.top + (mobile ? 32 : 24)));
-        const padding = {
-          // Mobile: clear Filters and the route-tools row under it on the
-          // left, as right: 80 clears the map's own tool column.
-          left: !mobile && panel ? Math.min(canvas.width / 2, Math.max(24, panel.right - canvas.left + 24)) : mobile ? 116 : 24,
-          right: mobile ? 80 : 64,
-          top: mobile ? 120 : 80,
-          bottom: Math.min(Math.max(24, canvas.height - (mobile ? 220 : 180)), bottom),
-        };
-        const duration = !animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650;
-        if (place) {
-          map.flyTo({
-            center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
-            offset: [(padding.left - padding.right) / 2, (padding.top - padding.bottom) / 2], duration,
-          });
-        } else if (west !== undefined && south !== undefined && east !== undefined && north !== undefined) {
-          // MapLibre's fit padding adjusts the calculated center without
-          // retaining asymmetric camera padding for subsequent map gestures.
-          map.fitBounds([[west, south], [east, north]], { padding, maxZoom: 12, duration });
+        const overlays = (mobile ? [panel, strip, sheet] : [strip]).filter(rect => rect && rect.height > 0);
+        const bottom = Math.max(32, ...overlays.map(rect => canvas.bottom - rect!.top + 32));
+        const left = !mobile && panel ? Math.max(24, panel.right - canvas.left + 24) : 24;
+        const padding = { left, right: mobile ? 64 : 64, top: mobile ? 150 : 100,
+          bottom: Math.min(Math.max(32, canvas.height - 220), bottom) };
+        const duration = (!animate && intent.current.framed) || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300;
+        if (mode === 'locate' && place && !intent.current.framed) {
+          intent.current.framed = true;
+          const centerY = (canvas.height + padding.top - padding.bottom) / 2;
+          const popupHeight = map.getContainer().querySelector('.planner-place-popup')?.getBoundingClientRect().height ?? 320;
+          const targetY = callout ? Math.min(canvas.height - padding.bottom - 24, Math.max(centerY, popupHeight + 28 + 120)) : centerY;
+          map.easeTo({ center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
+            offset: [(padding.left - padding.right) / 2, targetY - canvas.height / 2], duration });
+        } else if ((mode === 'reveal' || mode === 'locate') && place) {
+          const point = map.project([place.coordinates.lng, place.coordinates.lat]);
+          // Keep the callout above its pin and clear of the sidebar. For a
+          // plain selection reserve only its marker and label; never zoom in.
+          const minX = Math.min(canvas.width / 2 + 80, padding.left + (callout ? 150 : 24));
+          const maxX = Math.max(minX, canvas.width - padding.right - (callout ? 150 : 24));
+          // 28px matches the popup's anchor offset; 120px clears the report
+          // and route chips at the top of the map.
+          const minY = Math.min(canvas.height - padding.bottom - 24, callout ? (map.getContainer().querySelector('.planner-place-popup')?.getBoundingClientRect().height ?? 320) + 28 + 120 : padding.top);
+          const maxY = Math.max(minY, canvas.height - padding.bottom - 24);
+          const x = Math.min(maxX, Math.max(minX, point.x));
+          const y = Math.min(maxY, Math.max(minY, point.y));
+          if (Math.abs(point.x - x) > 1 || Math.abs(point.y - y) > 1) {
+            intent.current.framed = true;
+            map.panBy([point.x - x, point.y - y], { duration });
+          }
+        } else if (mode === 'bounds' && west !== undefined && south !== undefined && east !== undefined && north !== undefined) {
+          intent.current.framed = true;
+          // A short linear ease keeps orientation; no zoom-out/zoom-in flight.
+          map.fitBounds([[west, south], [east, north]], { padding, maxZoom: 12, duration, linear: true });
         }
       });
     };
     focus();
-    const resize = () => focus(false);
-    const observer = new ResizeObserver(resize);
-    if (panelRef.current) observer.observe(panelRef.current);
-    if (stripRef.current) observer.observe(stripRef.current);
-    if (sheetRef?.current) observer.observe(sheetRef.current);
+    const resize = () => {
+      // A card may expand while an intentional search ease is in progress.
+      // Check its final size once that move finishes instead of losing the
+      // notification or interrupting the navigation animation.
+      if (map.isMoving()) { pendingResize = true; return; }
+      pendingResize = false;
+      focus(false);
+    };
+    const finishMove = () => { if (pendingResize) resize(); };
+    // Ignore the observer's initial notification: it must not cancel the
+    // deliberate navigation animation scheduled above.
+    let observed = false;
+    const observer = new ResizeObserver(() => {
+      if (!observed) { observed = true; return; }
+      resize();
+    });
+    for (const ref of [panelRef, stripRef, sheetRef]) if (ref?.current) observer.observe(ref.current);
+    const sheetElement = sheetRef?.current;
+    sheetElement?.addEventListener('transitionend', resize);
+    map.getContainer().addEventListener('planner-selection-resize', resize);
     map.on('resize', resize);
-    map.on('movestart', onMove);
+    map.on('moveend', finishMove);
     map.on('dragstart', takeControl);
     const canvas = map.getCanvas();
     canvas.addEventListener('pointerdown', takeControl);
     canvas.addEventListener('wheel', takeControl, { passive: true });
     return () => {
       cancelAnimationFrame(frame); observer.disconnect();
-      map.off('resize', resize); map.off('movestart', onMove); map.off('dragstart', takeControl);
+      sheetElement?.removeEventListener('transitionend', resize);
+      map.getContainer().removeEventListener('planner-selection-resize', resize);
+      map.off('resize', resize); map.off('moveend', finishMove); map.off('dragstart', takeControl);
       canvas.removeEventListener('pointerdown', takeControl); canvas.removeEventListener('wheel', takeControl);
     };
-  }, [map, place, west, south, east, north, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile, sheetReady, stripReady]);
+  }, [map, place, west, south, east, north, request, mode, callout, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile, sheetReady, stripReady]);
   return null;
 }

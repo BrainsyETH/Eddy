@@ -4,7 +4,7 @@ import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { accumulateFloat, EMPTY_FLOAT_TOTALS, finishFloatTotals, movingPace, type PaceSample } from '@eddy/geo';
-import { createFloatArchive, ARCHIVE_KEY, ARCHIVE_RECOVERY_KEY, type ArchiveTransport } from '../../../eddy-ios/src/lib/floatArchiveCore';
+import { createFloatArchive, uploadBatches, ARCHIVE_KEY, ARCHIVE_RECOVERY_KEY, TOO_LARGE_REASON, UPLOAD_MAX_CHARS, UPLOAD_MAX_ROWS, type ArchiveTransport } from '../../../eddy-ios/src/lib/floatArchiveCore';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { createFloatSessionStore, ENDED_KEY, STORAGE_KEY } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
 import { routeFromRiver, startSession } from '../../../eddy-ios/src/lib/floatSession';
@@ -214,6 +214,96 @@ test('corrupt current and legacy history is copied before recovery, and cloud hi
     assert.equal(storage.data.has(ARCHIVE_RECOVERY_KEY), false, 'deleting a trip also removes unreadable copies');
     assert.equal(restarted.snapshot().recovered, false);
   }
+});
+
+test('forgetting a saved route keeps the recovery copy; a scope mismatch deletes nothing and says so', async () => {
+  const storage = disk();
+  storage.data.set(ARCHIVE_KEY, '{broken');
+  const local = createFloatArchive(storage);
+  await local.select('A');
+  assert.equal(local.snapshot().recovered, true);
+  await local.putSaved({ shortCode: 'abc', url: 'https://eddy.guide/float/abc', riverName: 'Current River', riverSlug: 'current',
+    putInName: 'Akers', takeOutName: 'Pulltite', distanceLabel: '6 mi', savedAt: new Date(0).toISOString() }, 'A');
+  const savedId = local.snapshot().rows[0].id;
+  assert.equal(await local.remove(savedId, 'A'), true);
+  assert.ok(storage.data.has(ARCHIVE_RECOVERY_KEY), 'a saved route is not what the unreadable copy could resurrect');
+  assert.equal(local.snapshot().recovered, true);
+  await local.addCompleted(summary('trip'), 'A');
+  assert.equal(await local.remove('trip', 'wrong-scope'), false);
+  assert.equal(local.snapshot().rows.find((r) => r.id === 'trip')?.deleted, false, 'nothing deleted on a scope mismatch');
+  assert.equal(await local.remove('missing', 'A'), false);
+  assert.ok(storage.data.has(ARCHIVE_RECOVERY_KEY));
+  assert.equal(await local.remove('trip', 'A'), true);
+  assert.equal(storage.data.has(ARCHIVE_RECOVERY_KEY), false, 'deleting a trip removes the unreadable copy, after its tombstone');
+  assert.equal(local.snapshot().recovered, false);
+});
+
+test('uploads are batched by size as well as count, and a 413 isolates the oversized row', async () => {
+  const sized = (n: number) => ({ id: `r${n}`, chars: n });
+  const rows = [sized(1), sized(2), sized(UPLOAD_MAX_CHARS + 1), sized(3), ...Array.from({ length: UPLOAD_MAX_ROWS + 1 }, (_, i) => sized(100 + i))];
+  const batches = uploadBatches(rows, (row) => row.chars);
+  assert.deepEqual(batches.map((b) => b.length), [2, 1, UPLOAD_MAX_ROWS, 2]);
+  assert.equal(batches[1][0].id, `r${UPLOAD_MAX_CHARS + 1}`, 'too large for any batch: alone, so a 413 names it');
+
+  const local = createFloatArchive(disk());
+  await local.select('A');
+  for (const id of ['small-1', 'huge', 'small-2']) await local.addCompleted({ ...summary(id), startNote: id === 'huge' ? 'x'.repeat(200) : undefined }, 'A');
+  const remote = server();
+  const written: string[][] = [];
+  const api: ArchiveTransport = { ...remote.api, write: async (batch) => {
+    written.push(batch.map((r) => r.id));
+    // The server refuses any body carrying the oversized row.
+    if (batch.some((r) => r.id === 'huge')) throw Object.assign(new Error('Batch too large'), { status: 413 });
+    return remote.api.write(batch);
+  } };
+  await local.sync('A', api);
+  const synced = new Map(local.snapshot().rows.map((r) => [r.id, r]));
+  assert.equal(synced.get('small-1')?.dirty, false);
+  assert.equal(synced.get('small-2')?.dirty, false, 'rows behind the oversized one still upload');
+  assert.equal(synced.get('huge')?.backupError, TOO_LARGE_REASON);
+  assert.equal(synced.get('huge')?.dirty, false, 'not resent every fifteen minutes');
+  assert.equal(local.snapshot().error, null);
+  assert.ok(written.some((ids) => ids.length === 1 && ids[0] === 'huge'), 'halved down to the one row');
+});
+
+test('a backup failure stays visible through later local saves; one unreadable server row is skipped, not kept', async () => {
+  const storage = disk();
+  const local = createFloatArchive(storage);
+  await local.select('A');
+  await local.addCompleted(summary('first'), 'A');
+  const remote = server();
+  await local.sync('A', { ...remote.api, write: async () => { throw new Error('offline'); } });
+  assert.equal(local.snapshot().error, 'offline');
+  await local.addCompleted(summary('second'), 'A');
+  assert.equal(local.snapshot().error, 'offline', 'a local save does not clear a backup failure');
+  await remote.api.write([{ id: 'odd', kind: 'completed', payload: { nonsense: true } as unknown as CompletedFloat, deleted: false, contributionVersion: null }]);
+  await local.sync('A', remote.api, true);
+  assert.equal(local.snapshot().error, null, 'a successful backup clears it');
+  assert.deepEqual(local.snapshot().rows.map((r) => r.id).sort(), ['first', 'second']);
+  const restarted = createFloatArchive(storage);
+  await restarted.select('A');
+  assert.equal(restarted.snapshot().recovered, false, 'history still readable at the next launch');
+  assert.equal(restarted.locate('first'), 'current');
+  await restarted.select('B');
+  assert.equal(restarted.locate('first'), 'elsewhere');
+  assert.equal(restarted.locate('nothing'), null);
+});
+
+test('a sync without a read uploads changes but does not download history', async () => {
+  const local = createFloatArchive(disk());
+  await local.select('A');
+  await local.addCompleted(summary('mine'), 'A');
+  const remote = server();
+  await remote.api.write([{ id: 'theirs', kind: 'completed', payload: summary('theirs'), deleted: false, contributionVersion: null }]);
+  let reads = 0;
+  const api: ArchiveTransport = { ...remote.api, read: async () => { reads += 1; return remote.api.read(); } };
+  await local.sync('A', api, false, false);
+  assert.equal(reads, 0);
+  assert.equal(local.snapshot().rows.find((r) => r.id === 'mine')?.dirty, false);
+  assert.equal(local.snapshot().rows.some((r) => r.id === 'theirs'), false);
+  await local.sync('A', api);
+  assert.equal(reads, 1);
+  assert.equal(local.snapshot().rows.some((r) => r.id === 'theirs'), true);
 });
 
 test('recovery never overwrites data if preservation fails, and temporary read errors can retry', async () => {

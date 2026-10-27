@@ -22,7 +22,19 @@ A float's GPS track is recorded by native code, not by JavaScript:
 - **Journal.** Every fix is appended, as it arrives, to a per-float
   newline-delimited JSON file (`FloatJournal.swift`) before JavaScript hears
   of it. Files are readable after first unlock (so recording works locked) and
-  excluded from backups. A line torn by termination is skipped on read.
+  excluded from backups. A line torn by termination is skipped on read, and a
+  failed append closes the handle so the next append ends the torn line
+  first. The file is forced to flash (`F_FULLFSYNC`) every 30 fixes or 60 s,
+  at stop and on entering the background: a process iOS relaunched in the
+  background never sees "did enter background", and a phone that dies in a
+  dry bag hours later must not lose everything since the relaunch. A journal
+  write failure is held in the recorder's status until a later write
+  succeeds, so River Mode keeps saying so rather than reading "recording".
+- **Start is foreground-only, natively.** A start requested while Eddy is
+  in the background is refused and reported as not in the foreground (a
+  background activity session created there stays insufficiently in use);
+  JS retries from the next foreground. A different float replaces the
+  previous one with a clean last-fix time and flags.
 - **The session is a checkpoint.** The JS session (`floatSession.ts`) saves
   `journalTo`, the byte offset it has applied, in the same write as the
   progress derived from those fixes. `src/float/recorder.ts` applies live
