@@ -52,7 +52,7 @@ const ALIASES: Record<string, string[]> = {
   'dam:ameren-bagnell-dam': ['Lake Ozark', 'LOTO'],
 };
 const RELATED: Record<string, { term: string; label: string }[]> = {
-  'dam:swl-table-rock-dam': [{ term: 'Taneycomo', label: 'Releases into Lake Taneycomo' }],
+  'dam:swl-table-rock-dam': [{ term: 'Lake Taneycomo', label: 'Releases into Lake Taneycomo' }],
 };
 const RIVER_FILTERS = ['condition', 'floatable', 'diff', 'len', 'type'] as const;
 const RIVER_SORTS = new Set(['best', 'length_asc', 'length_desc']);

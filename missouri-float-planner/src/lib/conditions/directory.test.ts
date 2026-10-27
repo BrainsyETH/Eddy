@@ -93,10 +93,12 @@ test('dam and lake names match one destination, case and punctuation are normali
 });
 
 test('direct Taneycomo name contains ranks ahead of Table Rock as a related destination', () => {
-  const result = selectConditionsDestinations(destinations, state('q=Taneycomo'));
-  assert.deepEqual(result.map(item => item.key), ['river:taneycomo', 'dam:swl-table-rock-dam']);
-  assert.equal(matchConditionsDestination(result[1], 'Taneycomo')?.relatedLabel, 'Releases into Lake Taneycomo');
-  assert.equal(matchConditionsDestination(result[0], 'Taneycomo')?.relatedLabel, undefined);
+  for (const query of ['Taneycomo', 'Lake Taneycomo']) {
+    const result = selectConditionsDestinations(destinations, state(`q=${encodeURIComponent(query)}`));
+    assert.deepEqual(result.map(item => item.key), ['river:taneycomo', 'dam:swl-table-rock-dam']);
+    assert.equal(matchConditionsDestination(result[1], query)?.relatedLabel, 'Releases into Lake Taneycomo');
+    assert.equal(matchConditionsDestination(result[0], query)?.relatedLabel, undefined);
+  }
 });
 
 test('shared matching tiers favor exact, prefix, alias, name contains, then related', () => {
