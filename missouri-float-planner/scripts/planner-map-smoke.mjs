@@ -478,7 +478,9 @@ try {
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('takeOut')), 'p-0-1');
   await assertDesktopLayout();
   assert.equal(documentRequests, 1, 'River changes must not navigate/reload the document');
-  const riverHit = await page.evaluate(coordinates => {
+  // Poll: after All rivers the network source is re-set asynchronously, and
+  // when the camera doesn't move there's no moveend to wait on first.
+  const riverHit = await (await page.waitForFunction(coordinates => {
     const map = window.plannerMap;
     const rect = map.getCanvas().getBoundingClientRect();
     for (const coordinate of coordinates) {
@@ -490,7 +492,7 @@ try {
       if (map.queryRenderedFeatures(p, { layers: ['condition-network-hit-layer'] }).some(f => f.properties.slug === 'current')) return { x, y };
     }
     return null;
-  }, geometry[0].coordinates);
+  }, geometry[0].coordinates).catch(() => null))?.jsonValue();
   assert(riverHit, 'A condition-colored river must have a clickable segment');
   await page.mouse.click(riverHit.x, riverHit.y);
   await page.getByRole('button', { name: 'All rivers', exact: true }).waitFor();
