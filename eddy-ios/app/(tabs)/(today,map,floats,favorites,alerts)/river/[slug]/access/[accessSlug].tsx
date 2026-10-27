@@ -42,7 +42,7 @@ import { ScenicImage } from '@/components/ScenicImage';
 // back for a sharper reason — see the seeded body below.
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -53,10 +53,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
-  AccessPointDetail,
   AccessPointGaugeStatus,
   MapAccessPoint,
   NearbyAccessPoint,
@@ -65,6 +64,13 @@ import type {
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { usePlaceFavorite } from '@/hooks/usePlaceFavorite';
+import { useSavedPlaces } from '@/hooks/useSavedPlaces';
+import { savedPlaces } from '@/lib/savedPlacesStore';
+import { accessDetailPresentation, retainNewerSavedObservations } from '@/lib/accessDetailPresentation';
+import { accessAvailability } from '@/components/map-sheet/availabilitySource';
+import { onForeground } from '@/lib/foreground';
+import { SavedPlaceSchedule } from '@/components/SavedPlaceSchedule';
+import { AmenityChips } from '@/components/map-sheet/sections';
 import { placeFromAccess } from '@/lib/savedPlaces';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import {
@@ -92,12 +98,7 @@ import {
   roadSurfaceLabel,
   stripHtml,
 } from '@/lib/accessCopy';
-import {
-  accessAvailability,
-  accessAvailabilityName,
-} from '@/components/map-sheet/availabilitySource';
 import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
-import { localToday } from '@/components/map-sheet/availability';
 import { TREND_ICON } from '@/components/TrendPill';
 
 const SERVICE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -252,7 +253,7 @@ function Section({
   );
 }
 
-function GaugeCard({ status, onOpen }: { status: AccessPointGaugeStatus; onOpen: () => void }) {
+function GaugeCard({ status, age, onOpen }: { status: AccessPointGaugeStatus; age: string; onOpen: () => void }) {
   const { colors, elevation, isDark } = useTheme();
   const reading =
     status.cfs != null
@@ -270,11 +271,11 @@ function GaugeCard({ status, onOpen }: { status: AccessPointGaugeStatus; onOpen:
         elevation(1),
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`${status.gaugeName}, ${status.label}${reading ? `, ${reading}` : ''}`}
+      accessibilityLabel={`${status.gaugeName}, ${status.label}${reading ? `, ${reading}` : ''}, ${age}`}
     >
       <View style={styles.gaugeCardTop}>
-        <Text style={[styles.gaugeName, { color: colors.textMuted }]} numberOfLines={1}>
-          {status.gaugeName}
+        <Text style={[styles.gaugeName, { color: colors.textMuted }]}>
+          {status.gaugeName} · {age}
         </Text>
         <View
           style={[
@@ -403,11 +404,49 @@ export default function AccessPointDetailScreen() {
   const { colors, elevation } = useTheme();
   const { showDirections, directionsMenu } = useDirectionsMenu();
 
-  const { detail: data, status, estimatesStatus, error } = useAccessPointDetail(
-    slug && accessSlug ? `/river/${slug}/access/${accessSlug}` : null,
-  );
+  const detailRoute = slug && accessSlug ? `/river/${slug}/access/${accessSlug}` : null;
+  const { places, owner, ready } = useSavedPlaces();
+  const saved = places.find(place => place.detailRoute === detailRoute);
+  const [now, setNow] = useState(Date.now);
+  const [revision, setRevision] = useState(0);
+  const lastAttempt = useRef(now);
+  const { detail: data, status, estimatesStatus, error } = useAccessPointDetail(detailRoute, revision);
+  const presentation = accessDetailPresentation(data, saved, now);
   const loading = status === 'loading';
-  const favorite = usePlaceFavorite(data ? placeFromAccess(data, new Date().toISOString()) : null);
+  const favorite = usePlaceFavorite(data ? placeFromAccess(data, new Date(now).toISOString()) : saved ?? null);
+
+  // Opening uses the normal detail loader. Refresh a long-lived screen on
+  // return, while the minute timer only ages readings and never polls.
+  useFocusEffect(useCallback(() => {
+    const resume = () => {
+      const at = Date.now();
+      setNow(at);
+      if (at - lastAttempt.current >= 15 * 60_000) {
+        lastAttempt.current = at;
+        setRevision(value => value + 1);
+      }
+    };
+    resume();
+    const off = onForeground(resume);
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => { off(); clearInterval(timer); };
+  }, []));
+
+  // Update only an existing save; store.replace guards account switches and
+  // removal during a request. Route-estimate enrichment does not rewrite it.
+  const livePoint = data?.accessPoint;
+  const liveGauge = data?.gaugeStatus;
+  useEffect(() => {
+    if (!ready || !livePoint) return;
+    const previous = savedPlaces.snapshot().places.find(place => place.detailRoute === detailRoute);
+    if (!previous) return;
+    const at = Date.now();
+    const next = retainNewerSavedObservations(
+      placeFromAccess({ accessPoint: livePoint, gaugeStatus: liveGauge ?? null, nearbyAccessPoints: [] }, new Date(at).toISOString(), previous),
+      previous, at, accessAvailability(livePoint),
+    );
+    void savedPlaces.replace(previous, next, owner).catch(() => {});
+  }, [ready, owner, detailRoute, livePoint, liveGauge]);
 
   /**
    * The point as the tapped row already knew it, off the disk cache.
@@ -454,7 +493,7 @@ export default function AccessPointDetailScreen() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
 
-  if (seed && (loading || error || !data)) {
+  if (!presentation && seed && (loading || error || !data)) {
     return (
       <SeededAccessPoint
         point={seed.point}
@@ -469,7 +508,7 @@ export default function AccessPointDetailScreen() {
     );
   }
 
-  if (loading) {
+  if (!presentation && loading) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
         <NativeHeaderHome />
@@ -480,7 +519,7 @@ export default function AccessPointDetailScreen() {
     );
   }
 
-  if (error || !data) {
+  if (!presentation) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
         <NativeHeaderHome />
@@ -494,14 +533,14 @@ export default function AccessPointDetailScreen() {
     );
   }
 
-  const point = data.accessPoint;
+  const { point, camping, gauge, gaugeAge } = presentation;
   const sharePath = point.path;
   const tips = stripHtml(point.localTips);
   const parking = parkingLabel(point.parkingCapacity);
   const hasRoad = point.roadSurface.length > 0 || Boolean(point.roadAccess);
   const hasParking = Boolean(parking) || Boolean(point.parkingInfo);
   const hasFacilities =
-    point.amenities.length > 0 || Boolean(point.facilities) || Boolean(point.npsCampground);
+    point.amenities.length > 0 || Boolean(point.facilities) || Boolean(point.feeNotes) || Boolean(point.npsCampground);
   const hasNotes = Boolean(point.description) || Boolean(tips);
 
   return (
@@ -553,7 +592,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         <Text style={[styles.name, { color: colors.text }]}>{point.name}</Text>
-        <AccessRiverLink name={point.river.name} slug={point.river.slug} />
+        {point.river.name ? <AccessRiverLink name={point.river.name} slug={point.river.slug} /> : null}
 
         {/* ── Quick stats ─────────────────────────────────────────
             The facts that decide whether to drive here, in one row of chips.
@@ -561,9 +600,9 @@ export default function AccessPointDetailScreen() {
             can walk on but it costs" is a different trip from "you cannot". */}
         <View style={styles.stats}>
           {[
-            `Mile ${point.riverMile}`,
+            point.riverMile != null ? `Mile ${point.riverMile}` : null,
             ...point.types.map(accessTypeLabel),
-            point.isPublic ? 'Public' : 'Private',
+            point.isPublic === undefined ? null : point.isPublic ? 'Public' : 'Private',
             point.feeRequired ? 'Fee required' : null,
             point.managingAgency ? agencyLabel(point.managingAgency) : null,
           ]
@@ -579,7 +618,7 @@ export default function AccessPointDetailScreen() {
             The primary action, above everything descriptive: someone who opened
             this screen from a list already decided they are interested. */}
         <View style={styles.actions}>
-          <Pressable
+          {presentation.canDrive ? <Pressable
             onPress={() => showDirections(point)}
             style={({ pressed }) => [
               styles.primaryAction,
@@ -592,7 +631,7 @@ export default function AccessPointDetailScreen() {
           >
             <Ionicons name="navigate" size={17} color={colors.onAccent} />
             <Text style={[styles.primaryActionText, { color: colors.onAccent }]}>Directions</Text>
-          </Pressable>
+          </Pressable> : null}
 
           {/* ── BACK TO THE MAP, WITH THIS PLACE SELECTED ────────────
               The sheet has always been able to reach this screen and this
@@ -606,11 +645,9 @@ export default function AccessPointDetailScreen() {
               `focus` handling. Beside Directions: that chooser leaves the app,
               this stays in it.
 
-              Unconditional, unlike Official site. Every access point is on the
-              map by definition — it has coordinates or it would not be an
-              access point — so there is no state in which this row would be a
-              promise the map cannot keep. */}
-          <Pressable
+              Saved-only snapshots do not retain the database id needed to
+              select the map pin. Offer this once the live response supplies it. */}
+          {point.id ? <Pressable
             onPress={() =>
               // navigate, not push: the Map tab already exists — returning to
               // it is the intent, and push minted a fresh copy of the tab on
@@ -629,7 +666,7 @@ export default function AccessPointDetailScreen() {
           >
             <Ionicons name="map-outline" size={15} color={colors.text} />
             <Text style={[styles.secondaryActionText, { color: colors.text }]}>View on map</Text>
-          </Pressable>
+          </Pressable> : null}
 
           {point.officialSiteUrl ? (
             <Pressable
@@ -645,19 +682,20 @@ export default function AccessPointDetailScreen() {
           ) : null}
         </View>
 
-        {/* ── The water ──────────────────────────────────────────
-            Pre-graded by the server, so this access point and its river cannot
-            disagree about the same water. Taps through to the gauge itself. */}
-        {data.gaugeStatus ? (
-          <Section title="River right now">
-            <GaugeCard
-              status={data.gaugeStatus}
-              onOpen={() =>
-                router.push(`/gauge/${encodeURIComponent(data.gaugeStatus!.usgsId)}`)
-              }
-            />
-          </Section>
-        ) : null}
+        {camping ? <Section title="Campsites">
+          <CampgroundAvailability
+            wrapText style={styles.availabilityInset}
+            availability={camping.availability} name={camping.name} today={camping.today}
+            pending={!camping.availability} pendingLabel="Availability out of date"
+          />
+          {camping.age !== 'Time unknown' ? <Text style={[styles.prose, { color: colors.textMuted }]}>Checked {camping.age}</Text> : null}
+        </Section> : null}
+
+        {gauge ? <Section title="River conditions">
+          <GaugeCard status={gauge} age={gaugeAge}
+            onOpen={() => router.push(`/gauge/${encodeURIComponent(gauge.usgsId)}`)} />
+        </Section> : null}
+        {saved ? <View style={{ paddingHorizontal: 20 }}><SavedPlaceSchedule place={saved} now={now} /></View> : null}
 
         {hasRoad ? (
           <Section title="Getting in" symbol="road">
@@ -710,49 +748,13 @@ export default function AccessPointDetailScreen() {
 
         {hasFacilities ? (
           <Section title="Facilities" symbol="facilities">
-            {point.amenities.length > 0 ? (
-              <View style={styles.chips}>
-                {point.amenities.map((amenity) => (
-                  <View
-                    key={amenity}
-                    style={[styles.chipOutline, { borderColor: colors.border, backgroundColor: colors.card }]}
-                  >
-                    <Text style={[styles.chipOutlineText, { color: colors.textMuted }]}>
-                      {amenity}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
+            <View style={{ paddingHorizontal: 20 }}><AmenityChips amenities={point.amenities} /></View>
             {point.facilities ? (
               <Text style={[styles.prose, { color: colors.textMuted }]}>{point.facilities}</Text>
             ) : null}
             {point.feeNotes ? (
               <Text style={[styles.prose, { color: colors.textMuted }]}>{point.feeNotes}</Text>
             ) : null}
-
-            {/* ── OUTSIDE the NPS card, which is the whole point ──────────────
-                This lived inside the block below, so it rendered only for
-                campgrounds the National Park Service runs. Meramec, Onondaga
-                Cave, Montauk and Washington have no nps_campgrounds row — that
-                is the exact case the sibling `availability` field was added to
-                represent — so this screen showed them nothing while the map
-                sheet, fixed first, showed 59 of 197 open.
-
-                The NAME is passed, which it was not: it is interpolated only by
-                the backcountry-district wording, which covers eighteen of the
-                thirty enabled federal facilities — every Ozark gravel-bar loop.
-                Without it "12 backcountry sites open · Upper Current District"
-                lost its place. */}
-            {/* The map sheet's card, verbatim. A reader arrives here from the
-                sheet — "Open the full details screen" is one row down from it —
-                and the flagship fact must not change costume on the way. */}
-            <CampgroundAvailability
-              style={styles.availabilityInset}
-              availability={accessAvailability(point)}
-              name={accessAvailabilityName(point)}
-              today={localToday()}
-            />
 
             {/* NPS campgrounds carry booking information nothing else here does,
                 and "can I reserve this or is it first-come" is the whole
@@ -826,9 +828,9 @@ export default function AccessPointDetailScreen() {
           </Section>
         ) : null}
 
-        {data.nearbyAccessPoints.length > 0 ? (
+        {presentation.nearbyAccessPoints.length > 0 ? (
           <Section title="Nearby access">
-            {data.nearbyAccessPoints.map((nearby) => (
+            {presentation.nearbyAccessPoints.map((nearby) => (
               <NearbyRow
                 estimatesStatus={estimatesStatus}
                 key={nearby.id}
@@ -846,6 +848,20 @@ export default function AccessPointDetailScreen() {
           </Section>
         ) : null}
 
+        {presentation.extraFacts.map(fact => <Section key={fact.label} title={fact.label}>
+          <Text style={[styles.prose, { color: colors.textMuted }]}>{fact.value}</Text>
+        </Section>)}
+        {point.booking && !point.npsCampground?.reservationUrl ? <Pressable
+          accessibilityRole="button" onPress={() => void openExternalLink(point.booking!.url)}
+          style={({ pressed }) => [styles.secondaryAction, styles.photoCta, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.secondaryActionText, { color: colors.interactive }]}>Book campsite</Text>
+        </Pressable> : null}
+        {presentation.extraLinks.map(link => <Pressable key={link.url}
+          accessibilityRole="button" onPress={() => void openExternalLink(link.url)}
+          style={({ pressed }) => [styles.secondaryAction, styles.photoCta, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.secondaryActionText, { color: colors.interactive }]}>{link.label}</Text>
+        </Pressable>)}
+
         <Text style={[styles.footnote, { color: colors.textSubtle }]}>
           Access details are community-maintained and can change with the season. Conditions on the
           ground win.
@@ -862,7 +878,7 @@ export default function AccessPointDetailScreen() {
             the water looks like at a level, and it is fed from here. Someone
             reading an access-point screen is either at the put-in or about to
             be, which is the only moment the photo can actually be taken. */}
-        <Pressable
+        {data ? <Pressable
           onPress={() => setPhotoOpen(true)}
           style={({ pressed }) => [
             styles.secondaryAction,
@@ -876,9 +892,9 @@ export default function AccessPointDetailScreen() {
           <Text style={[styles.secondaryActionText, { color: colors.interactive }]}>
             Add a photo of the river here
           </Text>
-        </Pressable>
+        </Pressable> : null}
 
-        <Pressable
+        {data ? <Pressable
           onPress={() => setFeedbackOpen(true)}
           style={({ pressed }) => [styles.reportRow, { opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
@@ -888,31 +904,31 @@ export default function AccessPointDetailScreen() {
           <Text style={[styles.reportText, { color: colors.textSubtle }]}>
             Something here out of date?
           </Text>
-        </Pressable>
+        </Pressable> : null}
       </ScrollView>
 
       {/* One access point, already chosen — the sheet's picker collapses to a
           single selected chip rather than asking a question this screen has
           already answered. */}
-      <PhotoSubmitSheetLazy
+      {data ? <PhotoSubmitSheetLazy
         visible={photoOpen}
         onDismiss={() => setPhotoOpen(false)}
-        riverId={point.riverId}
-        riverName={point.river.name}
-        accessPoints={[point]}
-        initialAccessPointId={point.id}
-      />
+        riverId={data.accessPoint.riverId}
+        riverName={data.accessPoint.river.name}
+        accessPoints={[data.accessPoint]}
+        initialAccessPointId={data.accessPoint.id}
+      /> : null}
 
-      <FeedbackSheet
+      {data ? <FeedbackSheet
         visible={feedbackOpen}
         onDismiss={() => setFeedbackOpen(false)}
         defaultType="inaccurate_data"
         context={{
           type: 'access_point',
-          id: point.id,
+          id: data.accessPoint.id,
           name: `${point.name} (${point.river.name})`,
         }}
-      />
+      /> : null}
       {directionsMenu}
     </SafeAreaView>
   );
@@ -952,6 +968,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   reportRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -972,11 +989,12 @@ const styles = StyleSheet.create({
   },
   stat: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8 },
   statText: { ...t.xs, fontFamily: fonts.medium },
-  actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 16 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, marginTop: 16 },
   /** Under the seeded body, where the sections the request is still fetching go. */
   seedPending: { alignItems: 'center', marginTop: 28 },
   primaryAction: {
     flex: 1,
+    minWidth: 150,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -989,6 +1007,9 @@ const styles = StyleSheet.create({
   // the gap collapses to nothing on it, so both keep the same pill — the same
   // arrangement the sheet's chips use for the same reason.
   secondaryAction: {
+    minHeight: 44,
+    maxWidth: '100%',
+    flexShrink: 1,
     flexDirection: 'row',
     gap: 7,
     paddingHorizontal: 16,
@@ -998,7 +1019,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryActionText: { ...t.sm, fontFamily: fonts.medium },
+  secondaryActionText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   section: { marginTop: 22 },
   // The padding that used to sit on sectionTitle lives here now, so a mark and
   // its heading share one baseline and one left edge with the prose below.
@@ -1017,8 +1038,8 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.semibold },
   gaugeCard: { marginHorizontal: 16, borderRadius: 14, padding: 13 },
-  gaugeCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  gaugeName: { ...t.xs, fontFamily: fonts.body, flex: 1 },
+  gaugeCardTop: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  gaugeName: { ...t.xs, fontFamily: fonts.body, flexGrow: 1, flexShrink: 1, flexBasis: 200 },
   gaugeCardBottom: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   gaugeReading: { ...t.xl, fontFamily: fonts.mono },
   gaugeSpacer: { flex: 1 },

@@ -1,143 +1,130 @@
-import { useCallback, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { Linking, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Redirect, Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSavedPlaces } from '@/hooks/useSavedPlaces';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { conditionText } from '@/theme/conditions';
 import { PlaceAction } from '@/components/PlaceAction';
-import { SavedPlaceDamPicker } from '@/components/SavedPlaceDamPicker';
+import { SavedPlaceSchedule } from '@/components/SavedPlaceSchedule';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
-import { DayBars } from '@/components/dam/DayBars';
 import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
-import { DAM_CATALOG } from '@/lib/damCatalog';
+import { AccessGaugeReading, AmenityChips, Chips, LinkRow, Prose, Section } from '@/components/map-sheet/sections';
 import { refreshSavedPlace, savedPlaces } from '@/lib/savedPlacesStore';
-import { savedScheduleState } from '@/lib/savedPlaces';
-import { savedCampingDisplay, savedGaugeDisplay, savedScheduleDayLabel, scheduleGroups } from '@/lib/savedPlaceDisplay';
+import { savedCampingDisplay, savedGaugeDisplay } from '@/lib/savedPlaceDisplay';
+import { openExternalLink } from '@/lib/openExternalLink';
 import { onForeground } from '@/lib/foreground';
-
-const stamp = (value: string | null) => value && Number.isFinite(Date.parse(value))
-  ? new Date(value).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Time unknown';
+import { savedAccessRoute } from '@/lib/accessDetailPresentation';
 
 export default function SavedPlaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { owner } = useSavedPlaces();
   return <SavedPlaceContent key={`${owner}:${id}`} />;
 }
+
+/** Access saves use the canonical access screen; this is for service-only POIs. */
 function SavedPlaceContent() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { places, owner, ready, error: loadError } = useSavedPlaces();
-  const place = places.find(p => p.id === id);
-  const { colors, isDark } = useTheme();
+  const place = places.find(value => value.id === id);
+  const accessRoute = savedAccessRoute(place);
+  const opensAccess = !!accessRoute;
+  const { colors } = useTheme();
   const router = useRouter();
   const { showDirections, directionsMenu } = useDirectionsMenu();
   const [now, setNow] = useState(Date.now);
-  const [choosingDam, setChoosingDam] = useState(false);
-  const [earlierOpen, setEarlierOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const refreshingRef = useRef(false);
+
   useFocusEffect(useCallback(() => {
-    setNow(Date.now());
-    const tick = () => setNow(Date.now());
-    const off = onForeground(tick);
-    const timer = setInterval(tick, 60_000);
+    if (!ready || opensAccess) return;
+    const update = () => {
+      setNow(Date.now());
+      void refreshSavedPlace(id, undefined, { owner, automatic: true }).catch(() => {});
+    };
+    update();
+    const off = onForeground(update);
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => { off(); clearInterval(timer); };
-  }, []));
-  const refresh = async (damId?: string) => {
-    if (!place || busy) return;
-    setBusy(true); setError(null);
-    try { if (!await refreshSavedPlace(place.id, damId, { owner })) setError('Couldn’t refresh all details'); }
-    catch { setError('Couldn’t save the download'); }
-    finally { setBusy(false); }
+  }, [ready, opensAccess, id, owner]));
+
+  const refresh = async () => {
+    if (!place || refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    setError(null);
+    try {
+      if (!await refreshSavedPlace(place.id, undefined, { owner })) setError('Couldn’t update details. Try again.');
+    } catch { setError('Couldn’t update details. Try again.'); }
+    finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+      setNow(Date.now());
+    }
   };
-  const heading = [t.lg, { fontFamily: fonts.heading, color: colors.text }];
+
   const body = [t.base, { fontFamily: fonts.body, color: colors.text }];
-  const note = [t.sm, { fontFamily: fonts.body, color: colors.textMuted }];
+  const note = [t.xs, { fontFamily: fonts.body, color: colors.textMuted }];
   if (!place) return <View style={{ flex: 1, backgroundColor: colors.bg, padding: 20, gap: 16 }}>
     <Text style={body}>{!ready ? 'Loading…' : loadError ?? 'Place unavailable'}</Text>
     {loadError ? <PlaceAction label="Retry" onPress={() => void savedPlaces.select(owner)} /> : null}
     <PlaceAction label="Favorites" onPress={() => router.replace('/(tabs)/(favorites)/favorites')} />
   </View>;
+  if (accessRoute) return <Redirect href={{ pathname: '/river/[slug]/access/[accessSlug]', params: accessRoute }} />;
+
+  const camping = savedCampingDisplay(place, now);
   const gauge = place.gauge?.reading;
   const display = savedGaugeDisplay(place, now);
-  const camping = savedCampingDisplay(place, now);
-  const dam = place.dam?.snapshot;
-  const chosenDamId = place.damChoice === 'none' ? null : dam?.id ?? (place.damChoice === 'auto' ? null : place.damChoice);
-  const damName = dam?.name ?? DAM_CATALOG.find(d => d.id === chosenDamId)?.name;
-  const days = scheduleGroups(place, now);
-  const showDamSection = !!chosenDamId || place.relatedDamIds.length > 0;
-  const renderDay = (day: NonNullable<typeof dam>['schedule'][number]) => <View key={day.scheduleDate} style={{ gap: 8 }}>
-    <Text accessibilityRole="header" style={body}>{savedScheduleDayLabel(day.scheduleDate, now)} · CT</Text>
-    <Text style={note}>{savedScheduleState(day, new Date(now))} · Checked {stamp(day.retrievedAt)}</Text>
-    <DayBars day={day} reference={dam?.generationReference} />
-  </View>;
+  const status = gauge ? {
+    ...gauge,
+    cfs: display.reading ? gauge.cfs : null,
+    heightFt: display.reading ? gauge.heightFt : null,
+    level: display.code ?? 'unknown' as const,
+    label: display.condition ?? display.state ?? gauge.label,
+    trend: display.band === 'fresh' ? gauge.trend : null,
+  } : null;
+
   return <>
     <Stack.Screen options={{ title: place.name }} />
     <NativeHeaderHome />
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 20, gap: 24, paddingBottom: 40 }}>
+    <Stack.Toolbar placement="right">
+      <Stack.Toolbar.Button icon="star.fill" accessibilityLabel={`Remove ${place.name} from Favorites`} onPress={() => {
+        void savedPlaces.remove(place.id, owner).then(() => router.back()).catch(() => setError('Couldn’t remove place'));
+      }}>Saved</Stack.Toolbar.Button>
+    </Stack.Toolbar>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.interactive} />}>
       <View style={{ gap: 8 }}>
-        <Text accessibilityRole="header" style={heading}>{place.name}</Text>
-        {place.riverName ? <Text style={note}>{place.riverName}</Text> : null}
-        {place.tags.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{place.tags.map(tag =>
-          <Text key={tag} style={[t.sm, { color: colors.text, fontFamily: fonts.semibold, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 8 }]}>{tag}</Text>)}</View> : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {place.canDrive ? <PlaceAction label="Directions" onPress={() => showDirections(place)} /> : null}
-          <PlaceAction label={busy ? 'Downloading…' : 'Refresh'} disabled={busy} onPress={() => void refresh()} />
-        </View>
-        <Text selectable style={note}>{place.coordinates.lat.toFixed(5)}, {place.coordinates.lng.toFixed(5)}</Text>
-        <Text style={note}>{place.detailsDownloadedAt ? `Details downloaded ${stamp(place.detailsDownloadedAt)}` : 'Details not downloaded'}</Text>
+        <Text accessibilityRole="header" style={[t.xl, { fontFamily: fonts.heading, color: colors.text }]}>{place.name}</Text>
+        {place.riverName ? <Text style={[t.sm, { fontFamily: fonts.body, color: colors.textMuted }]}>{place.riverName}</Text> : null}
+        <Chips labels={place.tags} />
+        {place.canDrive ? <LinkRow label="Directions" external onPress={() => showDirections(place)} accessibilityLabel={`Directions to ${place.name}`} /> : null}
         {error ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>{error}</Text> : null}
       </View>
-      {camping ? <View style={{ gap: 6 }}>
-        <Text accessibilityRole="header" style={heading}>Campsites</Text>
+      {camping ? <Section title="Campsites">
         <CampgroundAvailability wrapText availability={camping.availability} name={camping.name} today={camping.today}
           pending={!camping.availability} pendingLabel="Availability out of date" />
-        <Text style={note}>Checked {camping.age}</Text>
-      </View> : null}
-      {gauge ? <View style={{ gap: 6 }}>
-        <Text accessibilityRole="header" style={heading}>{gauge.gaugeName}</Text>
-        <Text style={[t.xl, { fontFamily: fonts.heading, color: display.band === 'fresh' ? colors.text : colors.textMuted }]}>{display.reading ?? 'Reading unavailable'}</Text>
-        <Text style={[t.base, { color: display.code ? conditionText(display.code, isDark) : colors.textMuted }]}>{[display.condition ?? display.state, display.age].filter(Boolean).join(' · ')}</Text>
-        <Text style={note}>Observed {stamp(gauge.lastUpdated)}</Text>
-        {place.gauge?.downloadedAt !== place.detailsDownloadedAt ? <Text style={note}>Downloaded {stamp(place.gauge?.downloadedAt ?? null)}</Text> : null}
-        <PlaceAction label="Open gauge" variant="link" onPress={() => router.push(`/gauge/${gauge.usgsId}`)} />
-      </View> : null}
-      {place.notes.map((text, i) => <Text key={i} style={body}>{text}</Text>)}
-      {place.facts.map(fact => <View key={fact.label} style={{ gap: 4 }}>
-        <Text style={[t.sm, { fontFamily: fonts.semibold, color: colors.textMuted }]}>{fact.label}</Text>
-        <Text style={body}>{fact.value}</Text>
-      </View>)}
-      {place.amenities.length ? <Text style={note}>{place.amenities.join(' · ')}</Text> : null}
-      {showDamSection ? <View style={{ gap: 12 }}>
-        <Text accessibilityRole="header" style={heading}>{damName ?? 'Dam schedule'}</Text>
-        {place.dam ? <Text style={note}>Downloaded {stamp(place.dam.downloadedAt)}</Text> : null}
-        {dam?.metrics.release ? <View style={{ gap: 4 }}>
-          <Text style={body}>{Math.round(dam.metrics.release.value).toLocaleString()} {dam.metrics.release.unit}{dam.metrics.release.dailyMean ? ' · daily average' : ''}</Text>
-          <Text style={note}>Observed {stamp(dam.metrics.release.at)}</Text>
-        </View> : null}
-        {days.upcoming.map(renderDay)}
-        {days.earlier.length ? <>
-          {!days.upcoming.length ? <Text style={note}>No current schedule</Text> : null}
-          <PlaceAction label={`Earlier schedules (${days.earlier.length})`} variant="link" expanded={earlierOpen} onPress={() => setEarlierOpen(v => !v)} />
-          {earlierOpen ? days.earlier.map(renderDay) : null}
-        </> : null}
-        {chosenDamId && !dam ? <Text style={note}>Schedule not downloaded</Text> : dam && !dam.schedule.length ? <Text style={note}>Schedule unavailable</Text> : null}
-        <PlaceAction label={chosenDamId ? 'Change dam' : 'Add a dam schedule'} variant="link" disabled={busy} onPress={() => setChoosingDam(true)} />
-      </View> : <PlaceAction label="Add a dam schedule" variant="link" disabled={busy} onPress={() => setChoosingDam(true)} />}
-      {place.links.map(link => <PlaceAction key={link.url} label={link.label} onPress={() => {
-        if (!/^(https?:|tel:)/i.test(link.url)) return;
-        void Linking.openURL(link.url).catch(() => setError('Couldn’t open link'));
-      }} />)}
-      <PlaceAction label="Remove from Favorites" variant="link" onPress={() => {
-        void savedPlaces.remove(place.id, owner).then(() => router.back()).catch(() => setError('Couldn’t remove place'));
-      }} />
+        {camping.age !== 'Time unknown' ? <Text style={note}>Checked {camping.age}</Text> : null}
+      </Section> : null}
+      {status ? <Section title="Water level">
+        <AccessGaugeReading status={status} onOpenGauge={siteId => router.push(`/gauge/${encodeURIComponent(siteId)}`)} />
+        <Text style={note}>{display.age}</Text>
+      </Section> : null}
+      {place.notes.length ? <Section>{place.notes.map((text, index) => <Prose key={index}>{text}</Prose>)}</Section> : null}
+      {place.facts.map(fact => <Section key={fact.label}
+        title={fact.label === 'Road' ? 'Getting in' : fact.label}
+        symbol={fact.label === 'Road' ? 'road' : fact.label === 'Parking' ? 'parking' : fact.label === 'Facilities' ? 'facilities' : undefined}>
+        <Prose>{fact.value}</Prose>
+      </Section>)}
+      {place.amenities.length ? <Section><AmenityChips amenities={place.amenities} /></Section> : null}
+      <SavedPlaceSchedule place={place} now={now} />
+      {place.links.length ? <Section>{place.links.map(link => <LinkRow key={link.url} label={link.label} external onPress={() => {
+        if (/^https?:/i.test(link.url)) void openExternalLink(link.url);
+        else if (/^tel:/i.test(link.url)) void Linking.openURL(link.url).catch(() => setError('Couldn’t open link'));
+      }} />)}</Section> : null}
     </ScrollView>
-    {choosingDam ? <SavedPlaceDamPicker relatedIds={place.relatedDamIds} selectedId={chosenDamId} onClose={() => setChoosingDam(false)} onSelect={damId => {
-      setChoosingDam(false);
-      if (damId) void refresh(damId);
-      else void savedPlaces.linkDam(place.id, null, owner).catch(() => setError('Couldn’t remove dam schedule'));
-    }} /> : null}
     {directionsMenu}
   </>;
 }

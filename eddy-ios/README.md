@@ -1175,16 +1175,18 @@ readings still show their specific qualifier note.
 ## Favorites
 
 Access points, boat ramps and campgrounds offer **Save/Saved** from the map
-sheet and access toolbar. Favorites → place opens the downloaded details in
-two taps, without a route or a network request. Linked campground availability
-leads the card when Eddy tracks it, including on ordinary access-point saves.
+sheet and access toolbar. Favorites opens the same access-point detail screen
+as the map and river list. Saved facts render immediately while the normal
+detail request updates them; offline, the same screen keeps the saved facts.
+Service-only campgrounds use the shared map-sheet sections and actions.
+Linked campground availability leads the card when Eddy tracks it, including on ordinary access-point saves.
 Otherwise rows show a cached gauge and its age, or today's **scheduled**
 generation window when available.
 
 Saved-place cards share the river favorites' rounded surface, accent stripe,
 and reading pills. Bundled access-point/campground artwork and a category label
 identify each place even offline. The name and river lead; restrictions stay
-visible above the availability/gauge/schedule panel, followed by up to three labeled amenities.
+visible above the availability/gauge/schedule panel.
 The separate saved star and swipe action both remove only the current account's
 save. Stale readings stay neutral, expired values stay hidden, and narrow or
 large-text layouts stack the artwork and readings without truncating names.
@@ -1219,24 +1221,25 @@ and the panel says “Availability out of date”. Old weekend counts cannot res
 the weekend starts passing. The gauge remains in the saved details.
 Saving retains any inventory already on the pin with its original provider timestamp.
 Missing pin inventory stays unchecked until a successful detail lookup.
-Saving starts a download. **Refresh** retries explicitly;
-foregrounding and reconnecting also retry missing/stale downloads while the
-app is active and connected. A batch handles at most four places with two
-workers, with failure backoff from one to thirty minutes. Details and dam
+Saving starts a download. Access details update automatically on opening
+and after fifteen minutes when returning to an open screen. Service-only
+places update on opening and also support pull-to-refresh. Foregrounding and
+reconnecting retry missing/stale downloads while the app is active and connected.
+A batch handles at most four places with two workers, with failure backoff from one to thirty minutes. Details and dam
 associations are checked daily; downloaded camping/gauge/dam data after fifteen
 minutes. Older saves missing the optional camping field get one lookup through
-the same bounded foreground refresh. There is no background polling. Bare access pins remain **Details
-not downloaded** until their detail request succeeds. Failed downloads keep
-the previous data. A new download never changes an observation timestamp or
-a schedule day's original retrieval time.
+the same bounded foreground refresh. There is no background polling. Bare access
+pins retain only known facts until their detail request succeeds; they do not
+invent a driving location or river mile. Failed downloads keep the previous data. A new download never changes an observation timestamp or
+a schedule day's original retrieval time. The access detail screen keeps the newest
+saved observation from the same gauge or campground when a response arrives late.
 
 Gauge freshness uses the existing `readingBand`: stale numbers are muted,
 out-of-date numbers are withheld, and only fresh readings show the canonical
 river condition. This is a flow condition, not a claim about fishability.
-Dam sections appear for linked or river-related dams; elsewhere there is an
-**Add a dam schedule** link. The searchable picker orders river-related dams
-first. Only an unambiguous whole-river association is automatic. Removing a
-dam persists an opt-out. Changing dams cannot retain the old dam's schedule.
+Dam sections appear only for an existing linked snapshot and respect the
+saved opt-out. There is no manual dam picker on place details. Only an
+unambiguous whole-river association is automatic.
 The full dam request supplies schedules; a missing replacement preserves
 the same dam's earlier schedule and original dates. Today and Tomorrow lead;
 past Central-Time days collapse under **Earlier schedules** and remain
@@ -1249,7 +1252,8 @@ and campground, force-quit, enable airplane mode, and reopen from Favorites.
 Check failed first downloads, reconnect retries, large text, VoiceOver,
 guest saves → sign-in, account A → guest → B → A, deletion during a
 download, expired gauge data,
-and historical schedules. Validate partial-reach dam choices with anglers.
+and historical schedules. Confirm Favorites and map navigation open the same
+access detail screen, including the Eddy road, parking and facilities marks.
 
 River cards show a reading pill for every linked gauge, ordered upstream to
 downstream using the existing gauge catalog. Each row opens its station when
