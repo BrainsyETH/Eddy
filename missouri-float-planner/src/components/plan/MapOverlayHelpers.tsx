@@ -143,9 +143,12 @@ export function MapLegend({ className = '', asControl = false }: MapLegendProps)
     const button = buttonRef.current?.getBoundingClientRect();
     const region = buttonRef.current?.closest('[role="region"]')?.getBoundingClientRect();
     if (button && region) {
-      // Leave room for the bottom access strip (~5.5rem) below.
+      // Leave room for the bottom access strip (~5.5rem) below, and for the
+      // top-center River Report pill above: the tool column lives inside
+      // the map's isolated stacking context, so the legend can't layer over
+      // page overlays and must stay out of their band instead.
       const below = region.bottom - button.top - 88;
-      const above = button.bottom - region.top - 8;
+      const above = button.bottom - region.top - 64;
       const up = below < LEGEND_HEIGHT && above > below;
       setPlacement({ up, maxHeight: Math.max(120, up ? above : below) });
     }
