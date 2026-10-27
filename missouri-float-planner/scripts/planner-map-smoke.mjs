@@ -420,12 +420,12 @@ try {
   });
   // Changing the floating panel width must move the chosen access to the
   // center of the remaining map area, without a fixed camera offset.
-  const panel = page.locator('.pointer-events-none.absolute.top-20');
+  const panel = page.locator('.planner-panel');
   await panel.evaluate(el => { el.style.width = '400px'; });
   await page.waitForFunction(coordinates => {
     const map = window.plannerMap;
     const canvas = map.getCanvas().getBoundingClientRect();
-    const panel = document.querySelector('.pointer-events-none.absolute.top-20').getBoundingClientRect();
+    const panel = document.querySelector('.planner-panel').getBoundingClientRect();
     const point = map.project([coordinates.lng, coordinates.lat]);
     return !map.isMoving() && Math.abs(point.x - (canvas.width + Math.min(canvas.width / 2, panel.right - canvas.left + 24) - 64) / 2) < 2;
   }, points[0][0].coordinates);
@@ -455,7 +455,7 @@ try {
   const assertDesktopLayout = async () => {
     const result = await page.evaluate(() => {
       const box = selector => document.querySelector(selector).getBoundingClientRect();
-      const panel = box('.pointer-events-none.absolute.top-20');
+      const panel = box('.planner-panel');
       const strip = box('.planner-access-strip');
       const map = box('.planner-desktop');
       const nav = box('.maplibregl-ctrl-top-right .maplibregl-ctrl-group');

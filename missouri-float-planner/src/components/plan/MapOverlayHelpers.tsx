@@ -119,46 +119,45 @@ export function RouteStatsBadge({ plan, isLoading = false, className = '' }: Rou
 
 interface MapLegendProps {
   className?: string;
+  /**
+   * Render as a button in the map's right-hand tool column (pass through
+   * MapContainer's extraTools) with the legend opening to its left, instead
+   * of a pill floating in the bottom-right corner.
+   */
+  asControl?: boolean;
 }
 
 // Compact legend for marker colors. Collapsed by default; expands on click.
-export function MapLegend({ className = '' }: MapLegendProps) {
+export function MapLegend({ className = '', asControl = false }: MapLegendProps) {
   const [open, setOpen] = useState(false);
+
+  if (asControl) {
+    return (
+      <div className={`relative ${className}`}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+            open ? 'bg-primary-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'
+          }`}
+          title="Map legend"
+          aria-label={open ? 'Hide map legend' : 'Show map legend'}
+          aria-expanded={open}
+        >
+          <Info className="w-5 h-5" aria-hidden="true" />
+        </button>
+        {open && (
+          <div className="absolute right-full top-0 mr-2">
+            <LegendPanel onClose={() => setOpen(false)} />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`absolute bottom-3 right-3 z-20 pointer-events-auto ${className}`}>
       {open ? (
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Legend</span>
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Close legend"
-              className="p-0.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-            >
-              <X className="w-3 h-3" aria-hidden="true" />
-            </button>
-          </div>
-          <ul className="space-y-1.5">
-            <LegendRow color={PUT_IN_COLOR} label="Put-in" />
-            <LegendRow color={TAKE_OUT_COLOR} label="Take-out" />
-            <LegendRow color={NEUTRAL_COLOR} label="Other access" />
-          </ul>
-          <div className="mt-2 pt-2 border-t border-neutral-200">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Conditions
-            </span>
-            <ul className="space-y-1.5 mt-1.5">
-              {CONDITION_ORDER.map((code) => (
-                <ConditionRow
-                  key={code}
-                  color={conditionColor(code)}
-                  label={CONDITION_SHORT_LABELS[code]}
-                />
-              ))}
-            </ul>
-          </div>
-        </div>
+        <LegendPanel onClose={() => setOpen(false)} />
       ) : (
         <button
           onClick={() => setOpen(true)}
@@ -169,6 +168,42 @@ export function MapLegend({ className = '' }: MapLegendProps) {
           <span>Legend</span>
         </button>
       )}
+    </div>
+  );
+}
+
+function LegendPanel({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Legend</span>
+        <button
+          onClick={onClose}
+          aria-label="Close legend"
+          className="p-0.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+        >
+          <X className="w-3 h-3" aria-hidden="true" />
+        </button>
+      </div>
+      <ul className="space-y-1.5">
+        <LegendRow color={PUT_IN_COLOR} label="Put-in" />
+        <LegendRow color={TAKE_OUT_COLOR} label="Take-out" />
+        <LegendRow color={NEUTRAL_COLOR} label="Other access" />
+      </ul>
+      <div className="mt-2 pt-2 border-t border-neutral-200">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+          Conditions
+        </span>
+        <ul className="space-y-1.5 mt-1.5">
+          {CONDITION_ORDER.map((code) => (
+            <ConditionRow
+              key={code}
+              color={conditionColor(code)}
+              label={CONDITION_SHORT_LABELS[code]}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

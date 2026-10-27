@@ -171,6 +171,8 @@ interface MapContainerProps {
    */
   syncCameraToUrl?: boolean;
   cooperativeGestures?: boolean;
+  /** Extra page-owned buttons appended to the right-hand tool column. */
+  extraTools?: React.ReactNode;
 }
 
 // RainViewer API types
@@ -193,6 +195,7 @@ export default function MapContainer({
   legendRoute = true,
   syncCameraToUrl = false,
   cooperativeGestures = false,
+  extraTools,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -859,6 +862,7 @@ export default function MapContainer({
         >
           {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
         </button>
+        {extraTools}
       </div>, controlsHost)}
 
       {/* Attribution follows the same catalog as the controls, so adding an

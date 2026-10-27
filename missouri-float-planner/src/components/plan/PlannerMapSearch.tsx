@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, MapPin, Search, Waves, X } from 'lucide-react';
 import type { RiverListItem } from '@/types/api';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
@@ -18,12 +18,16 @@ interface Props {
   onRetry: () => void;
   onRiver: (slug: string | null) => void;
   onPlace: (place: PlannerMapPlace) => void;
+  /** Compact controls (weather, filters) shown at the end of the input row. */
+  actions?: ReactNode;
+  /** Rivers only: no access-point results or category tabs (mobile picker). */
+  riversOnly?: boolean;
 }
 
-export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace }: Props) {
+export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<'all' | 'rivers' | 'access'>('all');
+  const [kind, setKind] = useState<'all' | 'rivers' | 'access'>(riversOnly ? 'rivers' : 'all');
   const [active, setActive] = useState(-1);
   const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -62,14 +66,16 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
   return <div ref={panel} className="planner-search relative z-40 shrink-0" onBlur={event => {
     if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
   }}>
-    <div className="planner-glass overflow-hidden rounded-2xl">
+    {/* No overflow clipping: the action popovers (weather, filters) open
+        below this card. */}
+    <div className="planner-glass rounded-2xl">
       <div className="flex items-center gap-2 px-3.5 py-3">
         <Search size={19} className="shrink-0 text-primary-600" aria-hidden="true" />
-        <input ref={input} role="combobox" aria-label="Search rivers and access points" aria-autocomplete="list"
+        <input ref={input} role="combobox" aria-label={riversOnly ? 'Search rivers' : 'Search rivers and access points'} aria-autocomplete="list"
           aria-expanded={open} aria-controls={open ? `${id}-results` : undefined}
           aria-activedescendant={open && active >= 0 && results[active] ? `${id}-${active}` : undefined}
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-500"
-          placeholder="Search rivers & access points" value={query}
+          placeholder={riversOnly ? 'Search rivers' : actions ? 'Search rivers & access' : 'Search rivers & access points'} value={query}
           onFocus={() => { setOpen(true); setActive(-1); }} onClick={() => setOpen(true)}
           onChange={event => { setQuery(event.target.value); setOpen(true); setActive(-1); }}
           onKeyDown={event => {
@@ -84,6 +90,9 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
           }} />
         {query && <button type="button" aria-label="Clear search" className="rounded-lg p-1 text-neutral-600 hover:bg-neutral-100"
           onClick={() => { setQuery(''); setActive(-1); input.current?.focus(); }}><X size={16} /></button>}
+        {/* Opening a tool closes the results so two popovers never stack. */}
+        {actions && <div className="flex shrink-0 items-center gap-0.5 border-l border-neutral-200/70 pl-1.5"
+          onPointerDown={() => setOpen(false)}>{actions}</div>}
       </div>
       {current && !open && <div className="flex items-center justify-between gap-2 border-t border-neutral-200/60 px-3.5 py-2">
         <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-primary-800"><Waves size={15} /><span className="truncate">{current.name}</span></span>
@@ -91,11 +100,11 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
       </div>}
     </div>
     {open && <div className="planner-glass absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl">
-      <div className="flex gap-1 border-b border-neutral-200/60 p-2" aria-label="Search categories">
+      {!riversOnly && <div className="flex gap-1 border-b border-neutral-200/60 p-2" aria-label="Search categories">
         {(['all', 'rivers', 'access'] as const).map(value => <button type="button" key={value} aria-pressed={kind === value}
           className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${kind === value ? 'bg-primary-700 text-white' : 'text-neutral-600 hover:bg-primary-50'}`}
           onClick={() => { setKind(value); setActive(-1); }}>{value === 'all' ? 'All' : value === 'rivers' ? 'Rivers' : 'Access points'}</button>)}
-      </div>
+      </div>}
       <div id={`${id}-results`} role="listbox" aria-label="Places" className="max-h-[min(360px,45vh)] overflow-y-auto overscroll-contain p-1.5">
         {results.map((result, index) => {
           const condition = result.river ? conditions.get(result.river.slug) : undefined;
@@ -110,12 +119,14 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
             {condition ? <span className="h-1.5 w-6 shrink-0 rounded-full" style={{ backgroundColor: condition.color }} /> : <ArrowUpRight size={15} className="text-neutral-400" />}
           </div>;
         })}
-        {!results.length && <p className="p-5 text-center text-sm text-neutral-600">{loading ? 'Loading places…' : 'No matches. Try a river or access name.'}</p>}
+        {!results.length && <p className="p-5 text-center text-sm text-neutral-600">{loading ? 'Loading places…' : riversOnly ? 'No matches. Try a river name.' : 'No matches. Try a river or access name.'}</p>}
       </div>
       {kind !== 'rivers' && (loading || failed) && <div className="border-t border-neutral-200/60 px-3 py-2 text-xs text-neutral-600" role="status">
         {failed ? <>Access points couldn’t load. <button type="button" onClick={onRetry} className="font-semibold text-primary-700 underline">Try again</button></> : 'Loading access points…'}
       </div>}
-      <p className="border-t border-neutral-200/60 px-3 py-2 text-[11px] text-neutral-500">{results.length} places · Choose a river or explore an access point</p>
+      <p className="border-t border-neutral-200/60 px-3 py-2 text-[11px] text-neutral-500">{riversOnly
+        ? `${results.length} rivers · Colored by today’s conditions`
+        : `${results.length} places · Choose a river or explore an access point`}</p>
     </div>}
   </div>;
 }

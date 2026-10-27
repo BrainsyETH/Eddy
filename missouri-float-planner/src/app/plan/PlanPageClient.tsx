@@ -404,11 +404,6 @@ export default function PlanPageClient({
   const previewPoint = !accessPlaceholder && river?.slug === riverSlug && selectedPlace?.riverSlug === riverSlug
     ? visibleAccessPoints?.find(point => point.id === selectedPlace.id) : undefined;
 
-  const desktopSearch = <PlannerMapSearch rivers={rivers ?? []} places={catalog.places}
-    currentSlug={showAllRivers ? null : riverSlug} conditions={searchConditions} loading={catalog.isPending}
-    failed={catalog.isError} onRetry={() => { void catalog.refetch(); }}
-    onRiver={handleRiverChange} onPlace={handlePlaceSelect} />;
-
   // Put-in is always upstream of take-out (lower river_mile_downstream).
   const setBothPoints = useCallback((idA: string, idB: string) => {
     if (!floatEndpointAccessPoints) {
@@ -736,6 +731,40 @@ export default function PlanPageClient({
 
   const activeRiver = river?.slug === riverSlug ? river : null;
   const viewRiver = showAllRivers ? null : activeRiver;
+  // One card for "where" and "how the map looks": search, then the weather
+  // and filter tools in the same row, instead of three stacked floating bits.
+  const desktopSearch = <PlannerMapSearch rivers={rivers ?? []} places={catalog.places}
+    currentSlug={showAllRivers ? null : riverSlug} conditions={searchConditions} loading={catalog.isPending}
+    failed={catalog.isError} onRetry={() => { void catalog.refetch(); }}
+    onRiver={handleRiverChange} onPlace={handlePlaceSelect}
+    actions={<>
+      {activeRiver && <WeatherBug compact riverSlug={activeRiver.slug} riverId={activeRiver.id} />}
+      <PlanFilters
+        floating
+        compact
+        showNetwork={showNetwork}
+        onToggleNetwork={toggleNetwork}
+        showRiverNames={showRiverNames}
+        onToggleRiverNames={toggleRiverNames}
+        showGauges={showGauges}
+        onToggleGauges={toggleGauges}
+        showFlow={flowOn}
+        onToggleFlow={toggleFlow}
+        showPOIs={showPOIs}
+        onTogglePOIs={togglePOIs}
+        showPhotos={showPhotos}
+        onTogglePhotos={togglePhotos}
+        availableCategories={availablePoiCategories}
+        hiddenCategories={hiddenPoiCategories}
+        onToggleCategory={togglePoiCategory}
+        conditionCounts={countsByCode}
+        conditionFilter={conditionFilter}
+        onToggleCondition={toggleCondition}
+        onClearConditionFilter={clearConditionFilter}
+        readingsAsOf={newestReadingAt}
+        className="relative"
+      />
+    </>} />;
   const desktopMap = isDesktop !== false ? (
       <div className="planner-desktop relative hidden lg:flex overflow-hidden plan-viewport-h">
         <div className="flex-1 relative">
@@ -743,6 +772,7 @@ export default function PlanPageClient({
             initialBounds={defaultBounds}
             showLegend={false}
             syncCameraToUrl
+            extraTools={<MapLegend asControl />}
           >
             {activeRiver && !accessPlaceholder && visibleAccessPoints && (
               <AccessPointMarkers
@@ -799,36 +829,9 @@ export default function PlanPageClient({
           {/* Search and details float in a left column pinned to the top of
               the map; the River Report and route stats center over the open
               map to its right (see the overlay column below). */}
-          <h1 className="sr-only">Build a Route</h1>
-          <div ref={desktopPanelRef} className="pointer-events-none absolute top-4 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
+          <h1 className="sr-only">{activeRiver ? activeRiver.name : 'Build a Route'}</h1>
+          <div ref={desktopPanelRef} className="planner-panel pointer-events-none absolute top-4 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-2">
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
-            <div className="pointer-events-auto flex shrink-0 flex-wrap items-start gap-2">
-            {activeRiver && <WeatherBug riverSlug={activeRiver.slug} riverId={activeRiver.id} positionClassName="pointer-events-auto relative" />}
-            <PlanFilters
-              floating
-              showNetwork={showNetwork}
-              onToggleNetwork={toggleNetwork}
-              showRiverNames={showRiverNames}
-              onToggleRiverNames={toggleRiverNames}
-              showGauges={showGauges}
-              onToggleGauges={toggleGauges}
-              showFlow={flowOn}
-              onToggleFlow={toggleFlow}
-              showPOIs={showPOIs}
-              onTogglePOIs={togglePOIs}
-              showPhotos={showPhotos}
-              onTogglePhotos={togglePhotos}
-              availableCategories={availablePoiCategories}
-              hiddenCategories={hiddenPoiCategories}
-              onToggleCategory={togglePoiCategory}
-              conditionCounts={countsByCode}
-              conditionFilter={conditionFilter}
-              onToggleCondition={toggleCondition}
-              onClearConditionFilter={clearConditionFilter}
-              readingsAsOf={newestReadingAt}
-              className="pointer-events-auto relative"
-            />
-            </div>
             {/* No intro card: the search box and the colored river network
                 are the call to action. Only surface load/error status. */}
             {!activeRiver && !selectedPlace && riverSlug && (riverLoading || riverError) && <div className="planner-glass rounded-2xl px-4 py-3">
@@ -892,10 +895,9 @@ export default function PlanPageClient({
               <PlanErrorBanner onRetry={() => refetchPlan()} />
             </div>
           )}
-          <MapLegend />
 
           {activeRiver && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
-            <div ref={desktopStripRef} className="planner-access-strip absolute bottom-0 left-[360px] right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
+            <div ref={desktopStripRef} className="planner-access-strip absolute bottom-0 left-[360px] right-0 bg-gradient-to-t from-white/90 via-white/60 to-transparent pt-6 pb-1 px-2 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
                   accessPoints={floatEndpointAccessPoints}
@@ -926,24 +928,23 @@ export default function PlanPageClient({
           {flowOn && <FlowParticlesLayer />}
         </MapContainer>
 
-        {/* Mobile keeps just the river picker — the colored network is the
-            invitation, so no intro copy competes with the map. */}
+        {/* Mobile gets the same search-bar pattern as desktop (rivers only:
+            the access-point catalogue stays a desktop-only download). The
+            colored network is the invitation, so no intro copy competes. */}
         <h1 className="sr-only">Build a Route</h1>
-        <div className="absolute top-3 left-3 right-3 sm:right-auto sm:w-[380px] z-30 lg:hidden">
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-neutral-200 p-3">
-            <RiverSwitcher
-              currentSlug={null}
-              rivers={rivers || []}
-              onChange={handleRiverChange}
-            />
-            {/* The browsing mood belongs to the Observatory — offer it. */}
-            <Link
-              href="/river-map"
-              className="mt-2 flex items-center justify-center gap-1 text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700"
-            >
-              See statewide conditions →
-            </Link>
+        <div className="planner-mobile absolute top-3 left-3 right-3 sm:right-auto sm:w-[380px] z-30 flex flex-col items-start gap-2 lg:hidden">
+          <div className="w-full">
+            <PlannerMapSearch riversOnly rivers={rivers ?? []} places={[]} currentSlug={null}
+              conditions={searchConditions} loading={!rivers} failed={false} onRetry={() => {}}
+              onRiver={handleRiverChange} onPlace={() => {}} />
           </div>
+          {/* The browsing mood belongs to the Observatory — offer it. */}
+          <Link
+            href="/river-map"
+            className="planner-glass rounded-full px-3 py-1.5 text-xs font-semibold text-primary-700"
+          >
+            See statewide conditions →
+          </Link>
         </div>
       </div>
     );
@@ -1277,91 +1278,6 @@ export default function PlanPageClient({
         </div>
       )}
 
-    </div>
-  );
-}
-
-function RiverSwitcher({
-  currentSlug,
-  rivers,
-  onChange,
-}: {
-  currentSlug: string | null;
-  rivers: RiverListItem[];
-  onChange: (slug: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = currentSlug ? rivers.find(r => r.slug === currentSlug) : null;
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left rounded-xl border-2 border-primary-300 bg-white hover:border-primary-500 hover:bg-primary-50 shadow-sm transition-colors"
-      >
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wide text-primary-600 font-bold">River</div>
-          <div className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
-            {current?.name || 'Choose a river'}
-          </div>
-        </div>
-        <span className="flex items-center gap-2 flex-shrink-0">
-          {current && (
-            <span className={`w-2.5 h-2.5 rounded-full ${getConditionTailwindColor(current.currentCondition?.code ?? 'unknown')}`} />
-          )}
-          <ChevronDown className={`w-5 h-5 text-primary-600 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </span>
-      </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 bg-white border border-neutral-200 rounded-xl shadow-2xl max-h-[60vh] overflow-y-auto">
-          {rivers.length === 0 && (
-            <div className="flex items-center justify-center py-6">
-              <LoadingSpinner size="md" />
-            </div>
-          )}
-          {rivers.map(r => (
-            <button
-              key={r.id}
-              onClick={() => { onChange(r.slug); setOpen(false); }}
-              className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-neutral-50 transition-colors ${
-                r.slug === currentSlug ? 'bg-primary-50' : ''
-              }`}
-            >
-              <div className="min-w-0">
-                <div className="font-semibold text-neutral-900 text-sm truncate">{r.name}</div>
-                <div className="text-[11px] text-neutral-500 truncate">{r.lengthMiles.toFixed(1)} mi · {r.region}</div>
-              </div>
-              <span
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${getConditionTailwindColor(r.currentCondition?.code ?? 'unknown')}`}
-              />
-            </button>
-          ))}
-          <Link
-            href="/rivers"
-            className="block px-4 py-2.5 text-center text-sm text-primary-600 hover:bg-neutral-50 border-t border-neutral-100"
-          >
-            Browse all rivers
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

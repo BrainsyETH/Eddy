@@ -132,41 +132,25 @@ export default function CompactAccessCard({
 
   return (
     <div className={`bg-white rounded-xl border ${borderColor} overflow-hidden`}>
-      {/* Hero image — always visible when images exist */}
-      {allImages.length > 0 && (
-        <div className="relative w-full aspect-[16/9] bg-neutral-100">
-          <AccessPointPhoto
-            src={allImages[currentImageIndex]}
-            alt={point.name}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {allImages.length > 1 && (
-            <>
-              <button
-                onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
-                aria-label="Previous image"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <button
-                onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
-                aria-label="Next image"
-              >
-                <ChevronRight size={14} />
-              </button>
-              <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded">
-                {currentImageIndex + 1} / {allImages.length}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Header */}
+      {/* Header — a thumbnail, not a hero: the map and the access strip
+          already show where this is, so the photo only needs to jog memory.
+          The full photo carousel lives under "More details". */}
       <div className="px-3 py-2.5">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2.5">
+          {allImages.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-100"
+              aria-label={`Show photos of ${point.name}`}
+            >
+              <AccessPointPhoto
+                src={allImages[0]}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </button>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-0.5">
               <span className={`px-1.5 py-0.5 ${labelColor} text-white text-[10px] font-bold rounded`}>
@@ -239,6 +223,38 @@ export default function CompactAccessCard({
       {expanded && (
         <div className="border-t border-neutral-100">
           <div className="px-3 py-2.5 space-y-3">
+            {/* Photo carousel */}
+            {allImages.length > 0 && (
+              <div className="relative -mx-3 -mt-2.5 w-[calc(100%+1.5rem)] aspect-[16/9] bg-neutral-100">
+                <AccessPointPhoto
+                  src={allImages[currentImageIndex]}
+                  alt={point.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                {allImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentImageIndex(i => (i - 1 + allImages.length) % allImages.length)}
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentImageIndex(i => (i + 1) % allImages.length)}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                    <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] rounded">
+                      {currentImageIndex + 1} / {allImages.length}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Description */}
             {point.description && (
               <p className="text-xs text-neutral-600 leading-relaxed">{point.description}</p>

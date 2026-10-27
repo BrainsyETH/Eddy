@@ -18,6 +18,11 @@ interface WeatherBugProps {
   /** Root placement. Default floats top-left; pass "relative" to slot the
    *  bug into an overlay stack (so filters/river card never overlap it). */
   positionClassName?: string;
+  /**
+   * Light, chrome-less temperature chip for embedding in another card's
+   * toolbar (the desktop search card); details open right-aligned below it.
+   */
+  compact?: boolean;
 }
 
 function getConditionIcon(condition: string): React.ReactNode {
@@ -35,6 +40,7 @@ export default function WeatherBug({
   riverSlug,
   className = '',
   positionClassName = 'absolute top-4 left-4 z-20',
+  compact = false,
 }: WeatherBugProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { data: weatherData, isLoading: weatherLoading, isError: hasWeatherError } = useWeather(riverSlug);
@@ -42,6 +48,38 @@ export default function WeatherBug({
 
   if (!riverSlug) {
     return null;
+  }
+
+  if (compact) {
+    return (
+      <div className={`relative ${className}`}>
+        <button
+          onClick={() => setIsExpanded((v) => !v)}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? 'Collapse weather details' : 'Expand weather details'}
+          title="Weather"
+          className={`flex items-center gap-1 rounded-lg px-1.5 py-1 text-sm font-semibold tabular-nums transition-colors hover:bg-primary-50 ${
+            isExpanded ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
+          }`}
+        >
+          {weatherLoading ? (
+            <LoadingSpinner size="sm" />
+          ) : weather ? (
+            <>
+              <span className="text-primary-600 [&>svg]:h-4 [&>svg]:w-4">{getConditionIcon(weather.condition)}</span>
+              {weather.temp}°
+            </>
+          ) : (
+            <span className="text-xs font-normal text-neutral-500">—°</span>
+          )}
+        </button>
+        {isExpanded && (
+          <div className="absolute right-0 top-full z-40 mt-2 min-w-[240px] rounded-lg border border-primary-600/30 p-4 shadow-lg backdrop-blur-md glass-card-dark">
+            <WeatherDetails weather={weather} isLoading={weatherLoading} isError={hasWeatherError} onCollapse={() => setIsExpanded(false)} />
+          </div>
+        )}
+      </div>
+    );
   }
 
   // Collapsed view - just show temperature
@@ -79,12 +117,25 @@ export default function WeatherBug({
                   backdrop-blur-md border border-primary-600/30 shadow-lg
                   min-w-[240px] ${className}`}
     >
-      {weatherLoading ? (
+      <WeatherDetails weather={weather} isLoading={weatherLoading} isError={hasWeatherError} onCollapse={() => setIsExpanded(false)} />
+    </div>
+  );
+}
+
+function WeatherDetails({ weather, isLoading, isError, onCollapse }: {
+  weather: WeatherData | null | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  onCollapse: () => void;
+}) {
+  return (
+    <>
+      {isLoading ? (
         <div className="flex items-center gap-2 text-neutral-400">
           <LoadingSpinner size="sm" />
           <span className="text-sm">Loading weather...</span>
         </div>
-      ) : hasWeatherError ? (
+      ) : isError ? (
         <div className="text-sm text-amber-400">
           Unable to load weather data
         </div>
@@ -94,7 +145,7 @@ export default function WeatherBug({
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
             <h3 className="text-sm font-semibold text-white">Weather & Conditions</h3>
             <button
-              onClick={() => setIsExpanded(false)}
+              onClick={onCollapse}
               aria-label="Collapse weather details"
               className="p-1 hover:bg-white/10 rounded transition-colors"
             >
@@ -133,6 +184,6 @@ export default function WeatherBug({
           Weather data unavailable
         </div>
       )}
-    </div>
+    </>
   );
 }
