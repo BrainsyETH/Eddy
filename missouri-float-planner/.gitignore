@@ -60,3 +60,6 @@ tmp/
 # Generated map workers and temporary planner browser fixture
 /public/maplibre/
 /src/app/planner-map-layout-check/
+
+# Development-only Conditions browser fixture.
+/src/app/conditions-layout-check/

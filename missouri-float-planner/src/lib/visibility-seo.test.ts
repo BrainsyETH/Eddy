@@ -5,9 +5,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppRouterContext, type AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import { accessFeeSchema, publicPageMetadata } from './seo';
 import ArticleByline from '../components/blog/ArticleByline';
-import RiverReportsSnapshot from '../components/gauge/RiverReportsSnapshot';
+import ConditionsLayout from '../components/conditions/ConditionsLayout';
+import type { ConditionsExplorerProps } from '../components/conditions/ConditionsExplorer';
+import { conditionsDamCatalogue } from './conditions/dam-catalogue';
 import type { RiverListItem } from '../types/api';
 
 test('Next upgrades require reviewing the copied default crawler list', () => {
@@ -60,17 +65,49 @@ test('emitted CSP permits public analytics and isolates admin diagrams', async (
   assert.equal(guidePolicies, 1);
 });
 
-test('river directory has real content and canonical links before JavaScript', () => {
-  const river: RiverListItem = {
-    id: 'current', slug: 'current', name: 'Current River', state: 'MO', path: '/rivers/missouri/current',
+const directoryRivers: RiverListItem[] = Array.from({ length: 12 }, (_, index) => {
+  const slug = index === 0 ? 'current' : `river-${index}`;
+  return {
+    id: slug, slug, name: index === 0 ? 'Current River' : `River ${index}`, state: 'MO', path: `/rivers/missouri/${slug}`,
     lengthMiles: 100, description: 'Spring-fed Ozark floating.', difficultyRating: 'I', region: 'Ozarks', riverType: 'spring_fed_float', accessPointCount: 12, currentCondition: null,
   };
-  const html = renderToStaticMarkup(createElement(RiverReportsSnapshot, { rivers: [river], unavailable: true }));
-  assert.match(html, /href="\/rivers\/missouri\/current"/);
-  assert.match(html, /Current River/);
-  assert.match(html, /Spring-fed Ozark floating/);
-  assert.match(html, /Live charts couldn’t load/);
+});
+
+function renderConditions(overrides: Partial<ConditionsExplorerProps> = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  const noop = () => {};
+  const router: AppRouterInstance = { back: noop, forward: noop, refresh: noop, push: noop, replace: noop, prefetch: noop, bfcacheId: 'test' };
+  try {
+    return renderToStaticMarkup(createElement(QueryClientProvider, { client },
+      createElement(AppRouterContext.Provider, { value: router },
+        createElement(SearchParamsContext.Provider, { value: new URLSearchParams() },
+          createElement(ConditionsLayout, { rivers: directoryRivers, ...conditionsDamCatalogue([]), renderedAt: Date.now(), ...overrides }))),
+    ));
+  } finally { client.clear(); }
+}
+
+test('the actual Conditions layout links to every destination before JavaScript, beyond its previews', () => {
+  const html = renderConditions();
+  assert.match(html, /<h1[^>]*>Conditions<\/h1>/);
+  const directory = html.match(/<section aria-label="A–Z directory"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(directory, 'the browsing layout must include the complete directory');
+  for (const river of directoryRivers) {
+    assert.ok(directory.includes(`href="${river.path}"`), `missing canonical river link: ${river.slug}`);
+    assert.ok(directory.includes(river.name));
+  }
+  for (const dam of conditionsDamCatalogue([]).dams) {
+    assert.ok(directory.includes(`href="/dams/${dam.id}"`), `missing dam link: ${dam.id}`);
+  }
+  assert.equal((directory.match(/<a /g) ?? []).length, directoryRivers.length + conditionsDamCatalogue([]).dams.length);
   assert.doesNotMatch(html, /No rivers found/);
+  assert.match(html, /USGS readings can lag actual river conditions/);
+});
+
+test('the dams entry has its own visible heading and every dam in the initial HTML', () => {
+  const html = renderConditions({ defaultKind: 'dams' });
+  assert.match(html, /<h1[^>]*>Lakes &amp; Dams<\/h1>/);
+  assert.doesNotMatch(html, /<h1[^>]*>Conditions<\/h1>/);
+  for (const dam of conditionsDamCatalogue([]).dams) assert.ok(html.includes(`href="/dams/${dam.id}"`));
 });
 
 test('paid access is never marked free, and unknown fees remain unspecified', () => {
