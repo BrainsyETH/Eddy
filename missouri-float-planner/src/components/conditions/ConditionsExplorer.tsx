@@ -71,7 +71,7 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
     },
     staleTime: 60_000, retry: 1,
   });
-  const rivers = riverQuery.data ?? initialRivers;
+  const rivers = initialRivers.length ? initialRivers : riverQuery.data ?? initialRivers;
   const damQuery = useQuery<DamSnapshot[]>({
     queryKey: ['conditions-dams'],
     queryFn: async () => {
@@ -158,7 +158,7 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
     <div ref={controls} className="mb-6 scroll-mt-20 space-y-3 rounded-2xl border border-neutral-200 bg-white p-3 sm:p-4">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3.5 top-3.5 text-primary-700" size={20} aria-hidden="true" />
-        <input ref={input} type="search" aria-label="Search rivers, lakes, or dams" placeholder="Search rivers, lakes, or dams"
+        <input ref={input} type="search" aria-label="Search rivers, lakes, or dams" placeholder="Rivers, lakes, or dams"
           disabled={!ready} value={state.q} autoComplete="off"
           onChange={event => update({ ...state, q: event.target.value }, 'replace')}
           onKeyDown={event => { if (event.key === 'Escape') update({ ...state, q: '' }, 'replace'); }}
