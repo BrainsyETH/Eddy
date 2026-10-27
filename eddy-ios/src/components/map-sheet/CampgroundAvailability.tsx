@@ -87,6 +87,7 @@ export function CampgroundAvailability({
   pending = false,
   pendingLabel,
   wrapText = false,
+  hideCaption = false,
   style,
 }: {
   availability: CampsiteAvailabilitySummary | null | undefined;
@@ -138,6 +139,8 @@ export function CampgroundAvailability({
   pendingLabel?: string;
   /** Favorites and saved details can grow; map peek keeps its fixed height. */
   wrapText?: boolean;
+  /** Compact favorites omit the visual subtitle; spoken context remains complete. */
+  hideCaption?: boolean;
 }) {
   const { colors, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -197,13 +200,13 @@ export function CampgroundAvailability({
             >
               {hero ? `${largeText && hero.count != null ? `${hero.count} ` : ''}${hero.headline}` : (pendingLabel ?? 'Checking campsites…')}
             </Text>
-            {/* ALWAYS RENDERED — see the header. The space is what keeps the
+            {/* Map peek keeps this line reserved — see the header. The space is what keeps the
                 line box alive for `closed`, which carries neither a detail nor
                 a caption, and without it this card is a line shorter than the
                 one the slot reserved for it. */}
-            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText || wrapText ? undefined : 1}>
+            {!hideCaption ? <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText || wrapText ? undefined : 1}>
               {(hero ? [hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : '') || ' '}
-            </Text>
+            </Text> : null}
           </View>
 
           {/* ── THE RIVER, IN THE CORNER ─────────────────────────────────

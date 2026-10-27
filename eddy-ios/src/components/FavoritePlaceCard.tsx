@@ -60,6 +60,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
             <View style={[styles.identity, stacked && styles.stackedIdentity]}>
               <Text style={[styles.kind, { color: colors.interactive }]}>{kind}</Text>
               <Text style={[styles.name, { color: colors.text }]}>{place.name}</Text>
+              {place.riverName ? <Text style={[styles.river, { color: colors.textMuted }]}>{place.riverName}</Text> : null}
             </View>
           </Pressable>
           <Pressable
@@ -89,7 +90,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
 
             {camping ? (
               <View style={styles.camping}>
-                <CampgroundAvailability wrapText availability={camping.availability} name={camping.name} today={camping.today}
+                <CampgroundAvailability wrapText hideCaption availability={camping.availability} name={camping.name} today={camping.today}
                   pending={!camping.availability} pendingLabel="Availability out of date" />
                 <Text style={[styles.notice, { color: colors.textMuted }]}>Checked {camping.age}</Text>
               </View>
@@ -141,6 +142,7 @@ const styles = StyleSheet.create({
   stackedIdentity: { flexGrow: 0, flexBasis: 'auto', alignSelf: 'stretch' },
   kind: { ...t.xs, fontFamily: fonts.medium, marginBottom: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
+  river: { ...t.sm, marginTop: 2 },
   star: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   details: { marginTop: 12, marginRight: 9, minHeight: 44, justifyContent: 'center' },
   detailsContent: { gap: 10 },
