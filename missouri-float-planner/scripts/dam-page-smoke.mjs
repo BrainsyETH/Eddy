@@ -114,6 +114,7 @@ export default function Page() {
     await new Promise(r => setTimeout(r, 1000));
   }
   assert(html.includes('Generation schedule') && html.includes('13,200'), `readings and schedule must be server-rendered\n${log.slice(-4000)}`);
+  assert(!/\sautofocus(?:[\s=>])/i.test(html), 'closed info dialogs must not autofocus on page load');
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true, args: ['--no-sandbox'] });
   const errors = [];
@@ -158,6 +159,9 @@ export default function Page() {
     console.log(`PASS ${name}: list cards, opening at top, Back restoration`);
     await page.goto(url, { waitUntil: 'networkidle' });
     assert(await page.evaluate(() => scrollY < 100), `${name}: direct load starts at the top`);
+    await page.reload({ waitUntil: 'networkidle' });
+    assert(await page.evaluate(() => scrollY < 100), `${name}: reload at the top stays at the top`);
+    assert(await page.evaluate(() => !document.activeElement?.closest('dialog')), `${name}: closed dialog never receives focus`);
     const detail = page.locator('[data-dam-detail]');
     assert(await detail.isVisible());
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: horizontal page overflow`);
@@ -183,9 +187,12 @@ export default function Page() {
     await page.getByRole('button', { name: 'Hide upcoming schedule' }).click();
     assert(await page.getByRole('heading', { name: 'Generation history', exact: true }).isVisible());
     const trigger = page.getByRole('button', { name: 'About generation and schedule' });
+    await trigger.scrollIntoViewIfNeeded();
+    const dialogScroll = await page.evaluate(() => scrollY);
     await trigger.click();
     assert(await page.getByRole('dialog').isVisible());
     assert(await page.getByRole('button', { name: 'Close explanation' }).evaluate(el => el === document.activeElement));
+    assert(Math.abs(await page.evaluate(() => scrollY) - dialogScroll) < 5, `${name}: opening a dialog preserves page scroll`);
     const dialogBox = await page.getByRole('dialog').boundingBox();
     assert(dialogBox.x >= 0 && dialogBox.y >= 0 && dialogBox.x + dialogBox.width <= width && dialogBox.y + dialogBox.height <= height, `${name}: dialog fits viewport`);
     await page.keyboard.press('Escape');

@@ -162,6 +162,8 @@ Visible pages refresh that same cached server snapshot every five minutes and
 on focus/return after at least one minute, preserving chart and disclosure state.
 Hidden tabs do not poll. Original measurement timestamps are never replaced by
 page refresh times. The dam API and iOS app contracts are unchanged.
+Closed info dialogs never autofocus. Opening one focuses its close button
+without scrolling the underlying page; closing restores focus to its trigger.
 
 Bull Shoals, Table Rock, and Beaver have a compact widget invitation in the
 generation card's footer: “Bull Shoals on your Home Screen.” and “Get Eddy for
