@@ -587,7 +587,10 @@ try {
   assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0, 'mobile markers and strip must not expose previous-river endpoints');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), null);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.waitForFunction(() => window.plannerMap?.getContainer()?.closest('.planner-desktop'));
+  // Dev Strict Mode creates, removes and recreates the map on the same
+  // container; only the live instance still has its canvas in the document.
+  await page.waitForFunction(() => window.plannerMap?.getContainer()?.closest('.planner-desktop')
+    && window.plannerMap.getCanvas().isConnected);
   // Crossing the desktop/mobile breakpoint intentionally replaces the map.
   // Subsequent desktop-only selection must preserve this new instance.
   await page.evaluate(() => { window.resumedDesktopMap = window.plannerMap; });
