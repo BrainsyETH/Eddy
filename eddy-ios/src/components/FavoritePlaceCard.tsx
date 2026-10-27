@@ -90,7 +90,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
 
             {camping ? (
               <View style={styles.camping}>
-                <CampgroundAvailability wrapText hideCaption availability={camping.availability} name={camping.name} today={camping.today}
+                <CampgroundAvailability wrapText caption={camping.caption} availability={camping.availability} name={camping.name} today={camping.today}
                   pending={!camping.availability} pendingLabel="Availability out of date" />
                 <Text style={[styles.notice, { color: colors.textMuted }]}>Checked {camping.age}</Text>
               </View>

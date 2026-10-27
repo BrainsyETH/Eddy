@@ -1180,9 +1180,10 @@ driving location, amenities, contact/booking links and any linked campsite
 availability returned by the existing access/service request. Availability uses
 the same campsite count and night strip as the map. Any saved place with
 linked campsite availability leads with camping, regardless of its tags.
-Without camping, cards fall back to the gauge or dam schedule. Cards retain the river name but omit the amenities row and the campsite
-availability subtitle for a compact layout. Availability context remains in
-VoiceOver and place details. Its original provider timestamp stays visible; at 72 hours, with an
+Without camping, cards fall back to the gauge or dam schedule. Cards retain the river name and omit the amenities row. The camping subtitle
+uses “X of Y sites available tonight” with the measured night or date window,
+plus “FCFS may be available” unless first-come inventory is known to be zero
+or the facility is closed/not yet bookable. Its original provider timestamp stays visible; at 72 hours, with an
 invalid/future timestamp, or after all relevant nights pass, counts are hidden
 and the panel says “Availability out of date”. Old weekend counts cannot resurface after
 the weekend starts passing. The gauge remains in the saved details.

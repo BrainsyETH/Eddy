@@ -87,7 +87,7 @@ export function CampgroundAvailability({
   pending = false,
   pendingLabel,
   wrapText = false,
-  hideCaption = false,
+  caption,
   style,
 }: {
   availability: CampsiteAvailabilitySummary | null | undefined;
@@ -139,8 +139,8 @@ export function CampgroundAvailability({
   pendingLabel?: string;
   /** Favorites and saved details can grow; map peek keeps its fixed height. */
   wrapText?: boolean;
-  /** Compact favorites omit the visual subtitle; spoken context remains complete. */
-  hideCaption?: boolean;
+  /** Optional concise wording for saved cards; map peek keeps its standard caption. */
+  caption?: string;
 }) {
   const { colors, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -204,9 +204,9 @@ export function CampgroundAvailability({
                 line box alive for `closed`, which carries neither a detail nor
                 a caption, and without it this card is a line shorter than the
                 one the slot reserved for it. */}
-            {!hideCaption ? <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText || wrapText ? undefined : 1}>
-              {(hero ? [hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : '') || ' '}
-            </Text> : null}
+            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText || wrapText ? undefined : 1}>
+              {(caption ?? (hero ? [hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : '')) || ' '}
+            </Text>
           </View>
 
           {/* ── THE RIVER, IN THE CORNER ─────────────────────────────────

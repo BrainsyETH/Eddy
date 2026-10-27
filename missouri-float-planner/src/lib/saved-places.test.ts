@@ -489,3 +489,18 @@ test('camping leads for every saved place regardless of access or campground tag
   assert.match(savedPlaceSummary(scheduled, Date.parse(now)) ?? '', /4 open/);
   assert.equal(savedPlaceSummary({ ...scheduled, camping: null }, Date.parse(now)), 'No generation scheduled today');
 });
+
+
+test('saved camping caption names measured availability and qualifies first-come sites', () => {
+  assert.equal(savedCampingDisplay(campingPlace(), Date.parse(now))?.caption,
+    '4 of 20 sites available tonight. FCFS may be available.');
+  const noWalkUp = availability({ nights: availability().nights!.map(n => ({ ...n, sitesWalkUp: 0 })) });
+  assert.equal(savedCampingDisplay(campingPlace(noWalkUp), Date.parse(now))?.caption, '4 of 20 sites available tonight.');
+  const tomorrow = availability({ nights: availability().nights!.slice(1) });
+  assert.equal(savedCampingDisplay(campingPlace(tomorrow), Date.parse(now))?.caption,
+    '7 of 20 sites available tomorrow. FCFS may be available.');
+  const window = availability({ nights: undefined });
+  assert.match(savedCampingDisplay(campingPlace(window), Date.parse(now))?.caption ?? '', /available for Oct 25–27/);
+  const stale = availability({ fetchedAt: '2026-10-01T00:00:00Z' });
+  assert.equal(savedCampingDisplay(campingPlace(stale), Date.parse(now))?.caption, '');
+});

@@ -44,8 +44,17 @@ export function savedCampingDisplay(place: SavedPlace, now: number) {
   const hero = availabilityHero(availability, today, saved.name);
   const summary = hero ? [hero.count === null ? hero.headline : `${hero.count} ${hero.headline}`,
     hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : 'Availability out of date';
+  const night = availability ? nightBars(availability, today).find(bar => bar.mark !== 'none') : undefined;
+  const walkUp = night ? night.sitesWalkUp : availability?.sitesWalkUp;
+  const fcfs = availability && availability.kind === 'campground'
+    && (night ? night.mark === 'bar' || night.mark === 'empty' : ['open', 'full'].includes(availability.status))
+    && walkUp !== 0 ? 'FCFS may be available.' : null;
+  const when = night ? hero?.caption?.toLowerCase() : availability ? `for ${availability.window.label}` : null;
+  const caption = hero && availability && hero.count !== null && availability.kind === 'campground'
+    ? [`${hero.count} of ${night?.sitesReservable ?? availability.sitesReservable} sites available ${when}.`, fcfs].filter(Boolean).join(' ')
+    : [hero?.caption ? `${hero.caption}.` : null, fcfs].filter(Boolean).join(' ');
   return {
-    availability, name: saved.name, today, summary,
+    availability, name: saved.name, today, summary, caption,
     age: shortAge(Number.isFinite(ageMs) && ageMs >= 0 ? ageMs / 3_600_000 : null),
     accessibilityLabel: availabilityVoiceOver(availability, today, saved.name) ?? summary,
   };
