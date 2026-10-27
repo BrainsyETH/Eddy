@@ -59,20 +59,28 @@ does not create any fixture routes.
 
 ## Conditions directory
 
-`/rivers` starts with All: four compact **Featured** destinations (Table Rock,
-Bull Shoals, Current, Buffalo), followed by previews of Rivers and Lakes & Dams.
+`/rivers` starts with All: full **Featured** reports for Table Rock, Bull Shoals,
+Current and Buffalo, followed by complete Rivers and Lakes & Dams sections.
 Featured is a fixed editorial selection, not measured popularity, and respects
-the state filter. Previews omit those four cards, show three items on mobile or
-six on wider screens, and apply the category filter in place through Show all.
-Category browsing retains the full river and dam cards.
-A compact A–Z link directory follows the previews so every destination is
-reachable in the initial HTML. `/dams` keeps its “Lakes & Dams” heading as well
-as its own search title and canonical URL.
+the state filter. All cards are visible without a Show all step: two columns
+on desktop, one on mobile. Search results and explicit sorts use those same
+full components, including river charts, gauge details, Eddy summaries and
+condition artwork, plus dam generator indicators, percentages, readings and
+next scheduled changes. Discovery controls never replace report content with
+compact summary tiles.
 
-The combined header is deliberately compact: Featured replaces the old river-only
-Eddy summary as the first discovery content, and the hero otter is omitted to
-keep search and both destination types near the top. The USGS observation-delay
-note remains below the directory alongside the source and dam-release guidance.
+Hydroelectric dam cards also show today's hourly generation timeline directly,
+using the same `DamTimeline` as the full report. Today means Central time at the
+dam; another day's schedule never substitutes for a missing one. Hover, tap or
+arrow keys reveal hourly details in place. Only the dam heading and Full report
+link navigate, so inspecting a schedule keeps the current search and filters.
+Additional schedule days remain on the full report.
+
+The header retains Eddy's canoe artwork and the cross-river summary. A compact
+A–Z link directory keeps every destination reachable before JavaScript, including
+when live gauge metadata is unavailable. `/dams` keeps its “Lakes & Dams” heading,
+search title and canonical URL. The USGS observation-delay note remains below
+the reports alongside source and dam-release guidance.
 
 Search matches both lake and dam names against the same destination. Ranking is
 exact name, name prefix, approved alias, words within a name, then related
@@ -107,14 +115,18 @@ invented measurements. The directory does not add reservoir levels or change
 
 `npm run test:conditions` runs the actual directory layout with local fixtures
 in Chromium at desktop, tablet, 390px and 320px widths. It covers server-rendered
-cards and canonical URLs, matching and related labels, state/category filters,
+cards and canonical URLs, populated river charts, Eddy artwork and summaries,
+dam generation/temperature/elevation/schedule information, matching and related
+labels, state/category filters,
 legacy links, browser history, sorting, request-free typing and overflow.
 No production credentials are needed. Set `PLAYWRIGHT_CHROMIUM_PATH` for an
 installed browser. Screenshots go to `/tmp/eddy-conditions` (override with
 `CONDITIONS_SMOKE_OUTPUT`). Temporary fixture routes are ignored by Git,
 development-guarded, and removed on exit. The fixture server keeps its Webpack
 memory settings in `scripts/conditions-smoke-server.mjs`; the application config
-contains no browser-test overrides.
+contains no browser-test overrides. Set `CONDITIONS_SMOKE_IMAGES` to a directory
+with the original `canoe.png`, `green.png`, `yellow.png`, `red.png` and `flood.png`
+assets for visual review; otherwise image requests use a local Eddy fixture.
 
 ## Find a Route
 

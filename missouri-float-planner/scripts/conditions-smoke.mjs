@@ -14,12 +14,18 @@ const out = process.env.CONDITIONS_SMOKE_OUTPUT || '/tmp/eddy-conditions';
 const now = Date.now();
 const at = new Date(now - 600000).toISOString();
 const remoteImageFixture = await readFile('public/icons/eddy-wave.png');
+const originalImages = new Map();
+if (process.env.CONDITIONS_SMOKE_IMAGES) {
+  for (const key of ['canoe', 'green', 'red', 'yellow', 'flood']) originalImages.set(key, await readFile(resolve(process.env.CONDITIONS_SMOKE_IMAGES, `${key}.png`)));
+}
+const historyReadings = Array.from({length:57}, (_,i) => ({timestamp:new Date(now-(56-i)*6*3600000).toISOString(),dischargeCfs:250+i*2+Math.sin(i/5)*90,gaugeHeightFt:2.5+i*.01}));
+const scheduleDates = [now, now+86400000].map(value => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(value));
 const names = [
   ['current', 'Current River', 'MO'], ['buffalo', 'Buffalo River', 'AR'], ['meramec', 'Meramec River', 'MO'],
   ['huzzah', 'Huzzah Creek', 'MO'], ['courtois', 'Courtois Creek', 'MO'], ['jacks-fork', 'Jacks Fork', 'MO'],
   ['niangua', 'Niangua River', 'MO'], ['taneycomo', 'Lake Taneycomo', 'MO'], ['white', 'White River', 'AR'],
 ];
-const rivers = names.map(([slug, name, state]) => ({ id: slug, slug, name, state,
+const rivers = names.map(([slug, name, state], i) => ({ id: slug, slug, name, state, primaryGaugeId:`g-${i}`, primaryGaugeSiteId:`0706700${i}`,
   path: `${root}/detail?river=${slug}`, lengthMiles: 100, description: null, difficultyRating: 'Class I', region: 'Ozarks', riverType: 'spring_fed_float', accessPointCount: 5,
   currentCondition: { code: 'good', label: 'Good', thresholdUnit: 'cfs', dischargeCfs: 400, gaugeHeightFt: 3, readingAgeHours: .2, trend: null },
 }));
@@ -39,8 +45,10 @@ const dams = [
   ['swt-tenkiller-dam', 'Tenkiller Ferry Dam', 'Tenkiller Ferry Lake', 'OK'],
   ['nwk-stockton-dam', 'Stockton Dam', 'Stockton Lake', 'MO'],
 ].map(([id, name, lakeName, state], i) => ({ id, name, lakeName, state, lat: 36 + i*.1, lon: -93,
-  hasTurbines: true, generating: false, generationFloorCfs: 100,
-  metrics: { generationFlow: { value: 20, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 200, unit: 'cfs', at, staleness: 'fresh' } }, schedule: [], sources: ['USACE'],
+  hasTurbines: true, generating: true, generationFloorCfs: 100,
+  generationReference:{units:8, fullGenerationCfs:20000, schedulingCapacityMw:400, source:'SWPA'},
+  metrics: { generationFlow: { value: 10000, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 10500, unit: 'cfs', at, staleness: 'fresh' }, tailwaterTempF:{value:52,unit:'F',at,staleness:'fresh'},tailwaterElevation:{value:650.25,unit:'ft',at,staleness:'fresh'} },
+  schedule: scheduleDates.map(scheduleDate => ({scheduleDate,retrievedAt:at,idle:[],hours:Array.from({length:24},(_,i)=>({hourEnding:i+1,megawatts:i%4<2?200:400,cfs:i%4<2?10000:20000,isRamp:i%2===0}))})), sources: ['USACE','SWPA'],
 }));
 let server, browser;
 let log = '';
@@ -103,11 +111,12 @@ export default function Page() {
     const html=await (await fetch(`${origin}${path}`)).text();
     assert(html.includes('Table Rock Dam') && html.includes('Bull Shoals Dam'), 'destinations render before JavaScript');
     assert(html.includes(path === root ? '>Conditions</h1>' : '>Lakes &amp; Dams</h1>'), 'entry keeps its visible heading');
+    assert.equal((html.match(/<section aria-label="Today’s generation schedule"/g) ?? []).length, dams.length, 'today’s schedules render before JavaScript');
     for (const dam of dams) assert(html.includes(`href="/dams/${dam.id}"`), `${dam.name} link renders before JavaScript`);
     if (path === root) {
       const directory = html.match(/<section aria-label="A–Z directory"[\s\S]*?<\/section>/)?.[0];
-      assert(directory, 'full directory renders below previews');
-      for (const river of rivers) assert(directory.includes(`href="${river.path}"`), `${river.name} link renders beyond previews`);
+      assert(directory, 'full directory renders below reports');
+      for (const river of rivers) assert(directory.includes(`href="${river.path}"`), `${river.name} link renders before JavaScript`);
     }
     assert(html.includes(`rel="canonical" href="https://eddy.guide${canonical}"`), 'entry keeps its canonical');
   }
@@ -118,15 +127,24 @@ export default function Page() {
     page.setDefaultNavigationTimeout(90000);
     const errors=[];
     page.on('pageerror', error=>errors.push(error.message));
-    await page.route('**/*', route => {
+    await page.route('**/*', async route => {
       const url=new URL(route.request().url());
       if(url.origin!==origin) return route.abort();
+      // Exercise the real card links without invoking the production detail
+      // loader; serve the local detail fixture at the canonical destination.
+      if(url.pathname==='/dams/swl-table-rock-dam') {
+        const response=await route.fetch({url:`${origin}${root}/detail${url.search}`});
+        return route.fulfill({response});
+      }
       // Next's image proxy is same-origin but can still fetch a remote CDN on
       // the server. Keep those requests local too, including the header logo.
       if(url.pathname==='/_next/image' && /^https?:/.test(url.searchParams.get('url') ?? '')) {
-        return route.fulfill({contentType:'image/png',body:remoteImageFixture});
+        const source=decodeURIComponent(url.searchParams.get('url') ?? '');
+        const key=source.includes('canoe')?'canoe':['green','red','yellow','flood'].find(color=>source.includes(`_${color}.png`));
+        return route.fulfill({contentType:'image/png',body:originalImages.get(key) ?? remoteImageFixture});
       }
       if(url.pathname==='/api/rivers') return route.fulfill({json:{rivers}});
+      if(/^\/api\/gauges\/[^/]+\/history$/.test(url.pathname)) return route.fulfill({json:{siteId:url.pathname.split('/')[3],siteName:'Fixture gauge',readings:historyReadings}});
       if(url.pathname==='/api/gauges') return route.fulfill({json:{gauges}});
       if(url.pathname==='/api/dams') return route.fulfill({json:{dams}});
       if(url.pathname==='/api/eddy-updates') return route.fulfill({json:{updates:{}}});
@@ -141,11 +159,50 @@ export default function Page() {
     assert.equal(await page.getByRole('region',{name:'A–Z directory'}).getByRole('link').count(), rivers.length + dams.length);
     const featured=page.getByRole('region',{name:'Featured destinations'});
     assert.equal(await featured.locator('[data-destination]').count(),4);
-    assert.equal(await page.locator('[aria-label="Rivers preview"] [data-destination]:visible').count(),width<768?3:6);
-    assert.equal(await page.locator('[aria-label="Lakes & Dams preview"] [data-destination]:visible').count(),width<768?3:6);
+    assert.equal(await page.locator('[data-destination]:visible').count(), rivers.length + dams.length, 'every full card is visible without Show all');
+    await page.locator('[data-destination="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
+    await page.waitForFunction(count => document.querySelectorAll('[data-destination^="river:"] svg[role="img"]').length === count, rivers.length);
+    assert.equal(await page.getByText('Eddy says',{exact:true}).count(), rivers.length);
+    assert.equal(await page.getByRole('img',{name:/Flow.*trend chart/}).count(),rivers.length);
+    assert.equal(await page.getByRole('img',{name:'Eddy the Otter',exact:true}).count(),rivers.length+1);
+    const featuredDam=featured.locator('[data-destination="dam:swl-table-rock-dam"]');
+    assert(await featuredDam.getByText('50%',{exact:true}).isVisible());
+    assert(await featuredDam.getByText('Water temp',{exact:true}).isVisible());
+    assert(await featuredDam.getByText('Below-dam elevation',{exact:true}).isVisible());
+    assert(await featuredDam.getByText(/scheduled/i).first().isVisible());
+    const schedules=page.getByRole('region',{name:'Today’s generation schedule',exact:true});
+    assert.equal(await schedules.count(),dams.length);
+    assert.equal(await schedules.getByRole('img').count(),dams.length,'one visible timeline per dam, even with two days available');
+    assert.equal(await schedules.locator('details,[role="tab"]').count(),0,'today is visible without a disclosure or day selector');
+    const schedule=featuredDam.getByRole('region',{name:'Today’s generation schedule',exact:true});
+    const timeline=schedule.getByRole('img');
+    assert.equal(await timeline.evaluate(node=>node.closest('a')),null,'chart interaction is separate from navigation');
+    const beforeTimeline=page.url();
+    await timeline.scrollIntoViewIfNeeded();
+    const bounds=await timeline.boundingBox();
+    assert(bounds && bounds.height>=44);
+    const hourPosition={x:bounds.width*1.5/24,y:bounds.height/2};
+    if(width<900) await timeline.tap({position:hourPosition});
+    else await timeline.hover({position:hourPosition});
+    await schedule.getByText('1 AM–2 AM · 200 MW · 50% of capacity · ~10,000 cfs',{exact:true}).waitFor();
+    assert.equal(page.url(),beforeTimeline,'hover or tap does not navigate');
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: hourly readout fits`);
+    await page.addStyleTag({content:'nextjs-portal { display:none; }'});
+    await featuredDam.screenshot({path:`${out}/${label}-dam-hour.png`});
+    await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).focus();
+    await timeline.focus();
+    await timeline.press('ArrowRight');
+    await schedule.getByText('12 AM–1 AM · 200 MW · 50% of capacity',{exact:true}).waitFor();
+    await timeline.press('ArrowRight');
+    await schedule.getByText('1 AM–2 AM · 200 MW · 50% of capacity · ~10,000 cfs',{exact:true}).waitFor();
+    assert.equal(page.url(),beforeTimeline,'keyboard exploration does not navigate');
+    await timeline.press('Tab');
+    assert.equal(await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).evaluate(node=>node===document.activeElement),true,'keyboard focus moves from the chart to Full report');
+    await page.mouse.move(0,0);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: no horizontal overflow`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await page.screenshot({path:`${out}/${label}-all.png`,fullPage:true});
+    await featured.screenshot({path:`${out}/${label}-featured.png`});
     let searches=0;
     const requests=request=>{if(request.url().includes('/api/')||request.headers().rsc==='1') searches++;};
     page.on('request',requests);
@@ -153,6 +210,12 @@ export default function Page() {
     await page.waitForFunction(()=>document.querySelectorAll('[data-result]').length===1);
     assert.equal(await page.locator('[data-result]').getAttribute('data-result'),'dam:ameren-bagnell-dam');
     assert.equal(await page.getByLabel('Sort destinations').inputValue(),'relevance');
+    assert(await page.locator('[data-result]').getByText('Water temp',{exact:true}).isVisible(), 'search retains dam detail');
+    assert(await page.locator('[data-result]').getByText(/scheduled/i).first().isVisible());
+    assert(await page.locator('[data-result]').getByRole('region',{name:'Today’s generation schedule',exact:true}).getByRole('img').isVisible(),'search retains the hourly dam timeline');
+    await search.fill('Current River');
+    await page.locator('[data-result="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
+    assert(await page.getByText('Eddy says',{exact:true}).isVisible(), 'search retains Eddy and the river chart');
     await search.fill('Taneycomo');
     await page.waitForFunction(()=>document.querySelectorAll('[data-result]').length===2);
     assert.deepEqual(await page.locator('[data-result]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('data-result'))),['river:taneycomo','dam:swl-table-rock-dam']);
@@ -163,7 +226,7 @@ export default function Page() {
     page.off('request',requests);
     await page.getByRole('button',{name:'Clear search',exact:true}).click();
     await page.getByLabel('Filter by state').selectOption('OK');
-    assert.equal(await page.locator('[aria-label="Rivers preview"]').count(),0);
+    assert.equal(await page.getByRole('region',{name:'Rivers',exact:true}).count(),0);
     assert.equal(await page.getByText(/No rivers/).count(),0);
     await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'Rivers',exact:true}).click();
     await page.getByText('Oklahoma filter cleared.',{exact:true}).waitFor();
@@ -186,6 +249,7 @@ export default function Page() {
     await readyConditions(page);
     assert.equal(await page.getByLabel('Filter by difficulty').count(),0);
     assert.equal(await page.locator('[data-result]').count(),dams.length);
+    assert.equal(await schedules.getByRole('img').count(),dams.length,'the dams entry retains hourly timelines');
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await page.screenshot({path:`${out}/${label}-dams.png`,fullPage:true});
     await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'All',exact:true}).click();
@@ -201,15 +265,25 @@ export default function Page() {
     assert(!new URL(page.url()).searchParams.has('lat'));
     await page.goto(`${origin}${root}?kind=all&state=AR`, {waitUntil:'networkidle'});
     await readyConditions(page);
-    const beforeShowAll=page.url().split('?')[0];
-    await page.getByRole('button',{name:'Show all lakes & dams',exact:true}).click();
-    assert.equal(page.url().split('?')[0],beforeShowAll);
+    const beforeCategory=page.url().split('?')[0];
+    await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'Lakes & Dams',exact:true}).click();
+    assert.equal(page.url().split('?')[0],beforeCategory);
     assert.equal(await page.getByLabel('Filter by state').inputValue(),'AR');
-    assert(await search.evaluate(el=>el===document.activeElement));
     await search.fill('Bull Shoals');
     await page.keyboard.press('Escape');
     assert.equal(await search.inputValue(),'');
     if (label==='desktop') {
+      await page.getByLabel('Filter by state').selectOption('MO');
+      await search.fill('Table Rock');
+      for (const name of ['Table Rock Dam Table Rock Lake','Full report for Table Rock Dam']) {
+        await page.locator('[data-result="dam:swl-table-rock-dam"]').getByRole('link',{name,exact:true}).click();
+        await page.getByRole('heading',{name:'Fixture detail',exact:true}).waitFor();
+        assert.equal(new URL(page.url()).pathname,'/dams/swl-table-rock-dam');
+        await page.goBack({waitUntil:'networkidle'});
+        await readyConditions(page);
+        assert.equal(await search.inputValue(),'Table Rock','returning from the report preserves search');
+        assert.equal(await page.getByLabel('Filter by state').inputValue(),'MO');
+      }
       let damRequests = 0;
       const countDamRequests = request => { if (new URL(request.url()).pathname === '/api/dams') damRequests++; };
       page.on('request', countDamRequests);
@@ -217,8 +291,9 @@ export default function Page() {
       await readyConditions(page);
       assert.equal(damRequests, 0, 'partial stored readings do not trigger an immediate catalogue refresh');
       assert.equal(await page.getByText('Loading latest dam readings…',{exact:true}).count(), 0);
-      const missing = page.getByRole('link').filter({has:page.getByRole('heading',{name:'Stockton Dam',exact:true})});
+      const missing = page.locator('[data-result="dam:nwk-stockton-dam"]');
       assert(await missing.getByText('Current generation unavailable',{exact:true}).isVisible());
+      assert(await missing.getByText('Today’s generation schedule is unavailable.',{exact:true}).isVisible());
       page.off('request', countDamRequests);
       await page.goto(`${origin}${root}/fallback`,{waitUntil:'networkidle'});
       await readyConditions(page);
@@ -233,7 +308,7 @@ export default function Page() {
       assert.equal(await page.locator('[data-result]').first().getAttribute('data-result'),'dam:swl-table-rock-dam');
     }
     assert.deepEqual(errors,[],`${label}: no runtime errors`);
-    console.log(`PASS ${label}: search, ranking, filters, history, entry URLs, sorts and layout`);
+    console.log(`PASS ${label}: full reports, today’s timelines, hourly interaction, search, filters, history, entry URLs, sorts and layout`);
     await context.close();
   }
 } catch (error) {
