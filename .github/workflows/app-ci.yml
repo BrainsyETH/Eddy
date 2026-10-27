@@ -3,7 +3,7 @@
 # for the Next.js app, plus typecheck, lint and a PRODUCTION BUNDLE for the Expo
 # app. Keeps regressions visible before deploy.
 #
-# ── Why the path filters reach outside missouri-float-planner ─────────────
+# ── Why push path filters reach outside missouri-float-planner ────────────
 #
 # The web test suite is where the Expo app's pure logic is covered — the app has
 # no test runner of its own, so chunked-store, purchase-copy, notification-copy,
@@ -15,11 +15,12 @@
 # and the first sign of a break would have been a red build on some later,
 # unrelated PR.
 #
-# The dependency runs BOTH ways, which is why both jobs run on any of these
+# The dependency runs BOTH ways, which is why all jobs run on any of these
 # paths rather than being filtered per job: missouri-float-planner/shared IS
 # the app's @eddy/conditions package, so editing the canonical condition system
 # can break the iOS bundle just as easily as editing the app can break a web
-# test.
+# test. Pull requests run without path filters so required checks always emit,
+# including on documentation-only changes.
 #
 # docs/ios-release-runbook.md is here for the same reason:
 # src/lib/ios-release-runbook.test.ts reads it, so a docs-only edit to it can
@@ -31,16 +32,6 @@ name: App CI
 
 on:
   pull_request:
-    paths:
-      - 'missouri-float-planner/**'
-      - 'eddy-ios/**'
-      - 'packages/**'
-      - '.easignore'
-      - '.github/workflows/**'
-      - '.github/dependabot.yml'
-      - 'docs/ios-release-runbook.md'
-      - '.agents/skills/**'
-      - '.claude/skills/**'
   push:
     branches: [main]
     paths:
@@ -59,7 +50,10 @@ permissions:
   contents: read
 
 jobs:
-  lint-and-typecheck:
+  # Audit failures must block their own check without hiding functional results.
+  # No job depends on this one. Generate the SBOM before audit so it remains
+  # available when a newly published advisory makes this check fail.
+  dependency-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -79,9 +73,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Reject high-severity runtime advisories
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Generate CycloneDX SBOM
         run: npm sbom --package-lock-only --sbom-format cyclonedx > "$RUNNER_TEMP/eddy-sbom.cdx.json"
 
@@ -91,6 +82,29 @@ jobs:
           name: eddy-sbom-${{ github.sha }}
           path: ${{ runner.temp }}/eddy-sbom.cdx.json
           retention-days: 14
+
+      - name: Reject high-severity runtime advisories
+        run: npm audit --omit=dev --audit-level=high
+
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
 
       # Two configs: tsconfig.json is what `next build` uses and covers only
       # shippable code, tsconfig.test.json adds the tests. They are separate
