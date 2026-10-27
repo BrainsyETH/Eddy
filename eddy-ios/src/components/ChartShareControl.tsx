@@ -70,7 +70,7 @@ export function ChartShareControl({ state, stationName }: { state: ChartShareSta
         // As in shareLink: a share-sheet failure costs nothing the user cannot retry.
       }
     } catch (error) {
-      if (mounted.current && !controller.signal.aborted) {
+      if (mounted.current) {
         Alert.alert(
           'Image unavailable',
           error instanceof Error && error.message === 'saved_view_unavailable'

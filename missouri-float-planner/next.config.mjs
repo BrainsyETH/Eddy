@@ -16,8 +16,9 @@ const nextConfig = {
   serverExternalPackages: ['geo-tz'],
   outputFileTracingIncludes: {
     '/*': ['./public/share/*.png', './public/share/*.jpg'],
-    '/api/gauges/**': ['./node_modules/geo-tz/data/timezones-1970.*'],
-    '/api/share/chart/**': ['./node_modules/geo-tz/data/timezones-1970.*'],
+    '/api/gauges/\\[siteId\\]': ['./node_modules/geo-tz/data/timezones-1970.*'],
+    '/api/gauges/\\[siteId\\]/history': ['./node_modules/geo-tz/data/timezones-1970.*'],
+    '/api/share/chart/\\[provider\\]/\\[siteId\\]/image': ['./node_modules/geo-tz/data/timezones-1970.*'],
     // Private HTML is served only by the authenticated diagram route.
     '/admin/visuals/*': ['./content/admin-visuals/*.html'],
   },

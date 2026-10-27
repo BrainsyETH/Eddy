@@ -306,7 +306,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         });
         const historyRequests: string[] = [];
         page.on('request', request => { if (request.url().includes('/history?')) historyRequests.push(request.url()); });
-        await page.addInitScript("Object.defineProperty(navigator, 'share', { value: async function (data) { window.sharedUrl = data.url; } });");
+        await page.addInitScript(`
+          Object.defineProperty(navigator, 'share', { value: async function (data) { window.sharedUrl = data.url; } });
+          Object.defineProperty(navigator, 'clipboard', { value: { writeText: async function (url) { window.sharedUrl = url; } } });
+        `);
         await page.goto(`${baseUrl}/chart-layout-check?share=${encodeURIComponent(chartShareQuery(state))}`, { waitUntil: 'domcontentloaded' });
         await page.getByRole('button', { name: 'Share chart link', exact: true }).waitFor();
         check(`${width}px restores the original calendar despite catalog changes`, historyRequests.some(url => new URL(url).searchParams.get('tz') === state.timeZone));
