@@ -401,12 +401,12 @@ export function AccessGaugeReading({
           style={[
             styles.readingChip,
             {
-              backgroundColor: conditionBg(status.level),
-              borderColor: conditionChipBorder(status.level),
+              backgroundColor: conditionBg(status.level, isDark),
+              borderColor: conditionChipBorder(status.level, isDark),
             },
           ]}
         >
-          <Text style={[styles.readingChipText, { color: conditionInk(status.level) }]}>
+          <Text style={[styles.readingChipText, { color: conditionInk(status.level, isDark) }]}>
             {status.label}
           </Text>
         </View>

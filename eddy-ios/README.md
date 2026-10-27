@@ -255,10 +255,12 @@ with `Unable to resolve module expo-asset`.
 
 ## Theming
 
-Light and dark, following the system setting (`useColorScheme`). `DESIGN.md` is a
-light, desktop-first web system; its neutral scale also names the dark-mode
-surfaces, so both palettes come from the document rather than one being an
-inversion of the other.
+Light and dark follow the system setting (`useColorScheme`). Light keeps the
+warm web palette. Native dark appearance uses the neutral charcoal roles in
+`src/theme/palette.ts`, documented in `DESIGN.md` and
+[ADR 0016](../docs/decisions/0016-ios-dark-mode-uses-neutral-charcoal.md): darker
+page canvas, lighter cards, then lighter foreground sheets. Teal identifies
+actions, selections and data rather than ordinary surfaces or supporting text.
 
 **The rule that makes it work:** `StyleSheet.create` runs ONCE at module import,
 so a colour written into a StyleSheet is frozen at whichever scheme the app
@@ -270,16 +272,19 @@ launched with. The convention is therefore a split:
 `src/lib/app-theme.test.ts` in the web app enforces this, along with both
 palettes defining every semantic role (a missing key renders as a transparent
 label on one scheme only, which is easy to miss). The same tests require at
-least 4.5:1 for supporting text on page, card, raised, and selected surfaces,
-with primary > secondary > tertiary contrast. Warm Stone 550 and 350 fill the
-accessible intermediate steps recorded in DESIGN.md; they are not new brand
-hues. High-contrast variants resolve through ThemeProvider while Mapbox colors remain strings.
+least 4.5:1 for supporting text on page, card, raised, sheet and selected
+surfaces. Dark text has four levels: near-white `text` for titles and values,
+`textBody` for prose, neutral `textMuted` for supporting labels, and
+`textSubtle` for timestamps. Body text clears 7:1 and remains brighter than
+supporting text. Increase Contrast strengthens these roles while retaining
+neutral supporting labels. Mapbox colors remain strings. Native iOS tabs keep
+the system material; the content palette does not repaint the tab bar.
 
-Photo-backed Eddy’s Read cards use an opaque warm-white excerpt panel in both
-appearances, with deep teal report text and muted gray timestamps. The panel
-uses the light palette (including its Increase Contrast variant) for loading,
-empty and retry states too. River names and the footer action stay white over
-the photo; the condition badge keeps its canonical colors.
+Photo-backed Eddy’s Read cards use an opaque charcoal excerpt panel in dark
+appearance and the existing warm-white panel with teal report text in light.
+Loading, empty, error, retry and timestamp colors use the same appearance as
+the panel. River names and the footer action stay white over a shaded photo;
+the condition badge uses the matched appearance-aware fill and ink.
 
 ### Translating, not transcribing
 
@@ -427,6 +432,13 @@ hardcode condition hex — that file says so explicitly, and an earlier version 
 this app ignored it and immediately drifted (`#DC2626` here vs the canonical
 `#ef4444`), so the app showed different colours than the website for the same
 river.
+
+Badge helpers require `isDark` from `useTheme()`. Light keeps the canonical
+tint/ink/border. Dark derives opaque fills over charcoal and lighter ink from
+the same canonical hues; all condition labels clear 7:1 on their badge and on
+ordinary dark surfaces. Use `conditionOpaqueBg` over photos or maps so the
+image cannot alter text contrast. Solids remain unchanged for map markers,
+stripes and chart data; do not use a raw solid as small label text.
 
 Two severity orderings exist and **must not be conflated**:
 

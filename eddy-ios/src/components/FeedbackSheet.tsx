@@ -167,7 +167,7 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.lift}
       >
-        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.sheet }]}>
 
           {sent ? (
             // No auto-dismiss. The website's modal closes itself after two

@@ -71,7 +71,7 @@ export function RiverReaches({
   highlightSlug?: string | null;
   damName?: string | null;
 }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
 
   // Nothing to explain unless at least two reaches and a real difference. The
   // API already gates on this; re-checking keeps the component honest on its own.
@@ -109,8 +109,8 @@ export function RiverReaches({
           ) : null}
 
           <View style={styles.chipRow}>
-            <View style={[styles.chip, { backgroundColor: conditionBg(reach.conditionCode) }]}>
-              <Text style={[styles.chipText, { color: conditionInk(reach.conditionCode) }]}>
+            <View style={[styles.chip, { backgroundColor: conditionBg(reach.conditionCode, isDark) }]}>
+              <Text style={[styles.chipText, { color: conditionInk(reach.conditionCode, isDark) }]}>
                 {reach.conditionLabel ?? reach.conditionCode}
               </Text>
             </View>

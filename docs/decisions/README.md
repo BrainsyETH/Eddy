@@ -20,5 +20,6 @@ successor), `historical` (context only), `open` (recorded but not yet decided).
 | [0011](0011-float-mode-offline-maps-use-tile-regions.md) | River Mode offline maps are Mapbox tile regions along the route, with a river-only fallback | active |
 | [0012](0012-float-history-account-backup.md) | Float history, account backup and optional contribution use one private summary archive | active |
 | [0014](0014-float-recording-is-native.md) | Float recording is native: Core Location sessions, an on-phone journal, minimum iOS 18 | active |
+| [0016](0016-ios-dark-mode-uses-neutral-charcoal.md) | Native dark appearance uses neutral charcoal surfaces and readable neutral text | active |
 
 - [0015: Station links, fixed chart views, and share images](0015-gauge-and-chart-sharing.md)

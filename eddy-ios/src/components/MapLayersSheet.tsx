@@ -205,7 +205,7 @@ export function MapLayersSheet({
         style={[
           styles.sheet,
           floating(),
-          { backgroundColor: colors.card, paddingBottom: 12 },
+          { backgroundColor: colors.sheet, paddingBottom: 12 },
           sheetMotion,
         ]}
       >

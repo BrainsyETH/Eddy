@@ -139,7 +139,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
       <SafeAreaProvider>
         <SafeAreaView
           edges={['top', 'bottom']}
-          style={[styles.sheet, { backgroundColor: colors.bg }]}
+          style={[styles.sheet, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}
           accessibilityViewIsModal
           onAccessibilityEscape={onClose}
         >

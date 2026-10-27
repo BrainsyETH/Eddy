@@ -16,7 +16,7 @@ export function SavedPlaceDamPicker({ relatedIds, selectedId, onSelect, onClose 
   const [query, setQuery] = useState('');
   const items = sortedPlaceDams(DAM_CATALOG, relatedIds, query);
   return <Modal visible presentationStyle="pageSheet" animationType={reducedMotion ? 'none' : 'slide'} onRequestClose={onClose} allowSwipeDismissal>
-    <SafeAreaProvider><SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} accessibilityViewIsModal onAccessibilityEscape={onClose}>
+    <SafeAreaProvider><SafeAreaView style={{ flex: 1, backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }} accessibilityViewIsModal onAccessibilityEscape={onClose}>
       <View style={{ paddingHorizontal: 20, gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text accessibilityRole="header" style={[t.lg, { fontFamily: fonts.heading, color: colors.text, flexShrink: 1 }]}>Dam schedule</Text>

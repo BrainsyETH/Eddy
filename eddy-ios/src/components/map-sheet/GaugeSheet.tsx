@@ -113,12 +113,12 @@ export function GaugeReadingRow({
           style={[
             styles.chip,
             {
-              backgroundColor: conditionBg(facts.code),
-              borderColor: conditionChipBorder(facts.code),
+              backgroundColor: conditionBg(facts.code, isDark),
+              borderColor: conditionChipBorder(facts.code, isDark),
             },
           ]}
         >
-          <Text style={[styles.chipText, { color: conditionInk(facts.code) }]}>
+          <Text style={[styles.chipText, { color: conditionInk(facts.code, isDark) }]}>
             {conditionLongLabel(facts.code)}
           </Text>
         </View>

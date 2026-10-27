@@ -35,10 +35,10 @@ record. `palette.ts` used to open by calling DESIGN.md "the design system of
 record, not this file" while diverging from it 115 lines later, which is what
 made the divergence look like drift.
 
-This is not an invitation to fork the palette further. Everything else —
-families, hex values, the type scale, the 44pt touch floor — is copied verbatim
-from DESIGN.md, and a second exception needs a reason of this size and a note in
-all three places.
+Native dark surfaces and neutral text have a second documented adaptation in
+[ADR 0016](0016-ios-dark-mode-uses-neutral-charcoal.md) and DESIGN.md. That
+decision preserves the teal CTA role here. Brand scales, typography and the
+44pt touch floor continue to follow DESIGN.md.
 
 Reopening it means deciding which platform moves. Repainting the app's CTAs
 coral reintroduces the condition collision and is refused; repainting the site's

@@ -226,7 +226,7 @@ function MeasuredSheetPager({
         </Animated.View>
       </GestureDetector>
       {scrollHeader ? (
-        <Animated.View style={[styles.sharedHeader, { backgroundColor: colors.card }, headerClipStyle]}>
+        <Animated.View style={[styles.sharedHeader, { backgroundColor: colors.sheet }, headerClipStyle]}>
           <Animated.View
             collapsable={false}
             onLayout={(event) => setSharedHeaderHeight(Math.ceil(event.nativeEvent.layout.height))}

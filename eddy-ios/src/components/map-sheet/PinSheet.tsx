@@ -303,7 +303,7 @@ function PinSheetSelection(input: PinSheetProps) {
     ...props, detail, status, gaugeFacts, peekSlot: slot,
   };
   const tabBar = activeTabs.length > 1 ? (
-    <View style={{ backgroundColor: colors.card }}>
+    <View style={{ backgroundColor: colors.sheet }}>
       <SheetTabBar
         labels={activeTabs.map((tab) => tab.label)}
         index={activeIndex}

@@ -66,7 +66,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
   </Pressable> : null;
   return <Modal visible presentationStyle="pageSheet" animationType={reducedMotion ? 'none' : 'slide'}
     allowSwipeDismissal onRequestClose={close}>
-    <SafeAreaProvider><SafeAreaView style={[local.screen, { backgroundColor: colors.bg }]}
+    <SafeAreaProvider><SafeAreaView style={[local.screen, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}
       accessibilityViewIsModal onAccessibilityEscape={close}>
       <View style={local.header}>
         {picker.page === 'rivers' && field !== 'river' && picker.draft.riverSlug ?

@@ -551,7 +551,7 @@ export default function FindFloatScreen() {
       >
         <SafeAreaProvider>
           <SafeAreaView
-            style={[styles.screen, { backgroundColor: colors.bg }]}
+            style={[styles.screen, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}
             accessibilityViewIsModal
             onAccessibilityEscape={closePicker}
           >

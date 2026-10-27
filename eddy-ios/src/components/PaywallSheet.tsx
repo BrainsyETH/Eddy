@@ -374,7 +374,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
         redeemBaseline.current = null;
       }}
     >
-      <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}>
         <View style={styles.handleRow}>
           <Pressable
             onPress={onClose}

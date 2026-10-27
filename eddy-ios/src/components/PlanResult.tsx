@@ -109,7 +109,7 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
   const [contentOffset] = useState(() => initialScrollOffset === undefined ? undefined : { x: 0, y: initialScrollOffset });
   const unverified = !!verification && verification.state !== 'current';
   const checked = verification?.checkedAt ? new Date(verification.checkedAt).toLocaleString() : null;
-  const warningInk = unverified ? colors.textMuted : conditionInk(plan.condition.code);
+  const warningInk = unverified ? colors.textMuted : conditionInk(plan.condition.code, isDark);
 
   return (
     <ScrollView
@@ -143,8 +143,8 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
           style={[
             styles.warnings,
             {
-              backgroundColor: unverified ? colors.card : conditionBg(plan.condition.code),
-              borderColor: unverified ? colors.border : conditionChipBorder(plan.condition.code),
+              backgroundColor: unverified ? colors.card : conditionBg(plan.condition.code, isDark),
+              borderColor: unverified ? colors.border : conditionChipBorder(plan.condition.code, isDark),
             },
           ]}
         >

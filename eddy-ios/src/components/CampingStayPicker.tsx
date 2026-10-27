@@ -93,7 +93,7 @@ export function CampingStayPicker({
         onRequestClose={() => setOpen(false)}
       >
         <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} onAccessibilityEscape={() => setOpen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }} onAccessibilityEscape={() => setOpen(false)}>
           <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} onLayout={(event) => setContentWidth(event.nativeEvent.layout.width - 40)}>
             <Text style={[textStyles.sectionTitle, { color: colors.text }]}>
               Stay dates

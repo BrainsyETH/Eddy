@@ -10,7 +10,7 @@ export function FavoriteRiverGauges({ readings, onOpenGauge }: {
   readings: FavoriteGaugeReading[];
   onOpenGauge: (gauge: MapGauge) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale >= 1.3;
   return (
@@ -31,9 +31,9 @@ export function FavoriteRiverGauges({ readings, onOpenGauge }: {
               {notice ? <Text style={[styles.notice, { color: colors.textMuted }]}>{notice}</Text> : null}
             </View>
             <View style={[styles.pill, stacked && styles.stackedPill, {
-              backgroundColor: conditionOpaqueBg(code), borderColor: conditionChipBorder(code),
+              backgroundColor: conditionOpaqueBg(code, isDark), borderColor: conditionChipBorder(code, isDark),
             }]}>
-              <Text style={[styles.value, { color: conditionInk(code) }]}>{reading}</Text>
+              <Text style={[styles.value, { color: conditionInk(code, isDark) }]}>{reading}</Text>
             </View>
           </View>
           {gauge.usgsSiteId ? <ControlIcon name="chevron-forward" size={12} color={colors.textSubtle} /> : null}

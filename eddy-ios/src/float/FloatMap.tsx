@@ -395,7 +395,7 @@ function MapboxFloatMap({
       <Modal visible={choices.length > 1} transparent animationType={reducedMotion ? 'none' : 'fade'}
         onRequestClose={clearSelection}>
         <View style={[styles.selectionOverlay, { backgroundColor: colors.scrim }]}>
-          <SafeAreaView edges={['bottom']} style={[styles.selectionSheet, { backgroundColor: colors.card }]} accessibilityViewIsModal>
+          <SafeAreaView edges={['bottom']} style={[styles.selectionSheet, { backgroundColor: colors.sheet }]} accessibilityViewIsModal>
             <View style={styles.choiceCard}>
               <View style={styles.choiceHeader}>
                 <Text style={[styles.markerTitle, { flex: 1, color: colors.text }]} accessibilityRole="header">Choose a place</Text>

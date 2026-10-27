@@ -2,6 +2,8 @@ import { highContrastDarkPalette, highContrastLightPalette } from '../../../eddy
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { darkPalette, lightPalette } from '../../../eddy-ios/src/theme/palette';
+import { conditionBg, conditionChipBorder, conditionInk, conditionOpaqueBg, conditionText } from '../../../eddy-ios/src/theme/conditions';
+import { CONDITION_SYSTEM } from '../../shared/condition-system';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -21,16 +23,48 @@ function contrast(ink: string, surface: string): number {
 }
 for (const palette of [lightPalette, darkPalette]) {
   test(`${palette.scheme} supporting text stays readable and subordinate on every standard surface`, () => {
-    for (const surface of [palette.bg, palette.card, palette.cardRaised, palette.selectionBg]) {
+    for (const surface of [palette.bg, palette.card, palette.cardRaised, palette.sheet, palette.selectionBg]) {
       const subtle = contrast(palette.textSubtle, surface);
       const muted = contrast(palette.textMuted, surface);
+      const body = contrast(palette.textBody, surface);
       assert.ok(subtle >= 4.5, `subtle text on ${surface}: ${subtle}`);
       assert.ok(muted > subtle, 'secondary text must have more contrast than tertiary text');
-      assert.ok(contrast(palette.text, surface) > muted, 'primary text must have the highest contrast');
+      assert.ok(body > muted, 'body text must remain clearer than supporting labels');
+      assert.ok(contrast(palette.text, surface) >= body, 'primary text must have the highest contrast');
+      if (palette.scheme === 'dark') {
+        assert.ok(contrast(palette.text, surface) > body, 'dark titles must stand above body text');
+        assert.ok(body >= 7, `dark body text on ${surface}: ${body}`);
+      }
       assert.ok(contrast(palette.interactive, surface) >= 4.5, 'interactive labels must stay readable');
     }
   });
 }
+
+for (const [code, canonical] of Object.entries(CONDITION_SYSTEM)) {
+  test(`${code} badge ink stays readable on dark chips, photos and ordinary surfaces`, () => {
+    const background = conditionBg(code, true);
+    assert.match(background, /^#[0-9a-f]{6}$/i, 'dark chips must be opaque over maps and photos');
+    assert.ok(contrast(conditionInk(code, true), background) >= 7, `${code} ink on ${background}`);
+    assert.ok(contrast(conditionInk(code, true), conditionOpaqueBg(code, true)) >= 7);
+    for (const surface of [darkPalette.bg, darkPalette.card, darkPalette.sheet]) {
+      assert.ok(contrast(conditionText(code, true), surface) >= 7, `${code} text on ${surface}`);
+    }
+  });
+  test(`${code} keeps its canonical light appearance`, () => {
+    assert.equal(conditionBg(code, false), canonical.bg);
+    assert.equal(conditionInk(code, false), canonical.ink);
+    assert.equal(conditionChipBorder(code, false), canonical.chipBorder);
+    assert.ok(contrast(conditionInk(code, false), conditionOpaqueBg(code, false)) >= 4.5);
+  });
+}
+
+test('unrecognized conditions use the readable unknown badge in both appearances', () => {
+  for (const isDark of [false, true]) {
+    for (const role of [conditionBg, conditionChipBorder, conditionInk, conditionOpaqueBg, conditionText]) {
+      assert.equal(role('future-condition', isDark), role('unknown', isDark));
+    }
+  }
+});
 
 /** Every .tsx under app/ and src/, which is where StyleSheets live. */
 function componentFiles(): string[] {
@@ -146,8 +180,8 @@ test('condition colours are never redefined in the app', () => {
 
 for (const [base, strong] of [[lightPalette, highContrastLightPalette], [darkPalette, highContrastDarkPalette]]) {
   test(`${base.scheme} increased-contrast roles improve legibility and stay string colors`, () => {
-    for (const surface of [base.bg, base.card, base.cardRaised, base.selectionBg]) {
-      for (const role of ['textMuted', 'textSubtle', 'interactive'] as const) {
+    for (const surface of [base.bg, base.card, base.cardRaised, base.sheet, base.selectionBg]) {
+      for (const role of ['text', 'textBody', 'textMuted', 'textSubtle', 'interactive'] as const) {
         assert.ok(contrast(strong[role], surface) >= 7, `${role} must meet 7:1 on ${surface}`);
         assert.ok(contrast(strong[role], surface) >= contrast(base[role], surface));
       }

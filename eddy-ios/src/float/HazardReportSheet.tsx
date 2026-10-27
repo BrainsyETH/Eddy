@@ -111,7 +111,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => onClose(false)}>
-      <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}>
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Report a hazard here</Text>
           <Pressable onPress={() => onClose(false)} accessibilityRole="button" hitSlop={12}>

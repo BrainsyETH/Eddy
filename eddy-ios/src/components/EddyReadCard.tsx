@@ -27,6 +27,8 @@ interface Props {
 const BLUR_INTENSITY = 34;
 
 function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
+  const { colors, isDark } = useTheme();
+  const shade = isDark ? colors.bg : '#071c20';
   // Stretch fixed SVG coordinates over the card. Percentage Rect dimensions
   // use a cached drawing-context size on iOS and can stop above a growing footer.
   return <View style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false}>
@@ -34,7 +36,7 @@ function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
       contentFit="cover" cachePolicy="memory-disk" transition={120}
       recyclingKey={photoUrl} accessibilityIgnoresInvertColors accessible={false} /> : null}
     <Svg viewBox="0 0 1 1" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
-      <Defs><LinearGradient id="readShade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#071c20" stopOpacity={0.66} /><Stop offset="0.45" stopColor="#071c20" stopOpacity={0.65} /><Stop offset="1" stopColor="#071c20" stopOpacity={0.94} /></LinearGradient></Defs>
+      <Defs><LinearGradient id="readShade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={shade} stopOpacity={0.66} /><Stop offset="0.45" stopColor={shade} stopOpacity={0.65} /><Stop offset="1" stopColor={shade} stopOpacity={0.94} /></LinearGradient></Defs>
       <Rect width={1} height={1} fill="url(#readShade)" />
     </Svg>
   </View>;
@@ -42,10 +44,10 @@ function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
 
 /** Reserve the card's layout without presenting an unvalidated Read or verdict. */
 export function EddyReadPlaceholder() {
-  const { elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   return <View accessible accessibilityLabel="Loading Eddy’s Read" accessibilityState={{ busy: true }}
     style={[styles.card, styles.compact,
-      { backgroundColor: '#16352e', borderColor: 'transparent' }, elevation(1)]}>
+      { backgroundColor: isDark ? colors.card : '#16352e', borderColor: 'transparent' }, elevation(1)]}>
     <ReadBackdrop />
     <View style={styles.content} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View style={styles.head}>
@@ -91,7 +93,7 @@ export function BlurredReadPreview({ lines = 3, withSpacing = true }: { lines?: 
 
 /** Public metadata stays immediate. Premium excerpts use the authenticated report endpoint. */
 export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, standalone = false, photoUrl, premiumUserId, refreshRevision = 0 }: Props) {
-  const { elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const code = river.currentCondition?.code ?? 'unknown';
   const age = writtenAge(says.generatedAt);
   const action = 'View full read';
@@ -105,7 +107,7 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
         styles.card,
         compact ? styles.compact : null,
         standalone ? styles.standalone : null,
-        { backgroundColor: '#16352e', borderColor: 'transparent' },
+        { backgroundColor: isDark ? colors.card : '#16352e', borderColor: 'transparent' },
         elevation(1),
       ]}
     >
@@ -114,8 +116,8 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Eddy's Read for ${river.name}. ${conditionLabel(code)}. ${action}`}>
       <View style={styles.head}>
         <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ</Text>
-        <View style={[styles.pill, { backgroundColor: conditionOpaqueBg(code), borderColor: conditionChipBorder(code) }]}>
-          <Text style={[styles.pillText, { color: conditionInk(code) }]}>{conditionLabel(code)}</Text>
+        <View style={[styles.pill, { backgroundColor: conditionOpaqueBg(code, isDark), borderColor: conditionChipBorder(code, isDark) }]}>
+          <Text style={[styles.pillText, { color: conditionInk(code, isDark) }]}>{conditionLabel(code)}</Text>
         </View>
       </View>
       <Text style={[styles.name, { color: 'white' }]}>{river.name}</Text>
@@ -130,7 +132,7 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
         >
           <BlurredReadPreview lines={7} withSpacing={false} />
           <View pointerEvents="none" style={styles.lockOverlay}>
-            <View style={[styles.lockBadge, { backgroundColor: '#16352e', borderColor: '#d2e1db' }]}>
+            <View style={[styles.lockBadge, { backgroundColor: isDark ? colors.card : '#16352e', borderColor: '#d2e1db' }]}>
               <ControlIcon name="lock-closed" size={22} color="white" />
             </View>
           </View>

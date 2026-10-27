@@ -17,7 +17,7 @@ export function GaugeChartSheet({ title, onClose, children, expanded = false }: 
       supportedOrientations={expanded ? ['portrait', 'landscape-left', 'landscape-right'] : ['portrait']}
       animationType={reducedMotion ? 'none' : 'slide'} allowSwipeDismissal={!expanded} onRequestClose={onClose}>
       <SafeAreaProvider>
-        <SafeAreaView style={[styles.sheet, { backgroundColor: colors.card }]}
+        <SafeAreaView style={[styles.sheet, { backgroundColor: colors.sheet }]}
           accessibilityViewIsModal onAccessibilityEscape={onClose}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{title}</Text>

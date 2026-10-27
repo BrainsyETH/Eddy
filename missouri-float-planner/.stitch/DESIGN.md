@@ -46,14 +46,14 @@ Warm, supportive surfaces that feel like sun-baked riverbank sand. Used for trip
 ### Accent — Sunset Coral
 The attention-grabber. Used for primary CTAs, active states, and the Eddy brand signature color.
 
-> **Platform-scoped role — the one place this document is not shared.** On
+> **Platform-scoped CTA role.** On
 > **web**, coral is the primary CTA fill and `.btn-primary` means it. On
 > **native**, the primary CTA fill is Deep River Teal (`primary-700` light /
 > `primary-500` dark) and coral is reserved for Eddy's identity and non-action
 > emphasis — because the iOS condition ladder already owns red, orange, yellow,
 > lime, emerald and stone, so a coral button on a map full of safety colour reads
-> as the loudest warning on screen. Every other value in this document applies to
-> both platforms verbatim. See
+> as the loudest warning on screen. Native dark surfaces have a separate
+> charcoal adaptation below. See
 > [ADR 0007](../../docs/decisions/0007-cta-fill-is-teal-on-native-coral-on-web.md)
 > and the `accentFill` comment in `eddy-ios/src/theme/palette.ts`.
 
@@ -89,11 +89,39 @@ Not cold grays — these are warm, sandstone-toned neutrals that feel organic an
 | Neutral 550 | `#766E62` | Native subtle text on light surfaces; at least 4.5:1 |
 | Neutral 500 | `#857D70` | Muted text, lg shadow color |
 | Neutral 400 | `#A49C8E` | md shadow color, hover borders |
-| Neutral 350 | `#AEA698` | Native subtle text on dark surfaces, including raised teal; at least 4.5:1 |
+| Neutral 350 | `#AEA698` | Warm intermediate neutral; native dark text uses the charcoal roles below |
 | Neutral 300 | `#C2BAAC` | xs/sm shadow color, strong borders |
 | Neutral 200 | `#DBD5CA` | Default borders, badge-neutral bg |
 | Neutral 100 | `#EDEBE6` | Skeleton loaders, subtle backgrounds |
 | Neutral 50 | `#F7F6F3` | Page background — warm off-white |
+
+### Native Dark Appearance — Neutral Charcoal
+
+The iOS content palette uses subtly warm charcoal instead of the web system's
+dark teal surfaces. Teal stays on actions, selections and data. Ordinary labels
+are neutral so they do not compete with links. See
+[ADR 0016](../../docs/decisions/0016-ios-dark-mode-uses-neutral-charcoal.md).
+
+| Native role | Hex | Usage |
+|:---|:---|:---|
+| Canvas | `#161615` | Full-page background |
+| Card | `#242423` | Content cards and opaque photo excerpt panels |
+| Raised / sheet | `#333331` | Selected surfaces and foreground sheets |
+| Border | `#50504B` | Quiet surface separation |
+| Text | `#F5F5F0` | Titles and key values |
+| Body | `#DEDED8` | Readable prose |
+| Secondary | `#C3C3BD` | Supporting labels |
+| Subtle | `#B5B5AF` | Timestamps and metadata |
+
+Body text must clear 7:1 and supporting text 4.5:1 on all standard surfaces.
+Increase Contrast strengthens text and control borders. Native tabs retain the
+iOS system material. Light appearance keeps its warm palette.
+
+Native condition badges derive their dark ink and opaque fills from
+`CONDITION_SYSTEM`; the light appearance retains its canonical tint and ink.
+Dark labels clear 7:1 on both their badge fill and ordinary dark surfaces.
+Photo-backed Read panels adapt to the current appearance, including their
+loading, empty, error and retry states.
 
 ### Semantic / State Colors
 

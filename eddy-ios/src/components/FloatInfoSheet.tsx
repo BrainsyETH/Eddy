@@ -19,7 +19,7 @@ export function FloatInfoSheet({ topic, onClose }: { topic: FloatInfoTopic; onCl
     >
       <SafeAreaProvider>
         <SafeAreaView
-          style={[styles.screen, { backgroundColor: colors.card }]}
+          style={[styles.screen, { backgroundColor: colors.sheet }]}
           accessibilityViewIsModal
           onAccessibilityEscape={onClose}
         >

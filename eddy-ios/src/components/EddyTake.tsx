@@ -287,7 +287,7 @@ export function EddyTake({
   onUpgrade,
   onRetry,
 }: EddyTakeProps) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const { sections, days } = outlook;
   const router = useRouter();
   const forecastDestination = weatherDestination(outlook.weatherCoordinates);
@@ -400,8 +400,8 @@ export function EddyTake({
                       </Text>
                     ) : null}
                     {day.heatAdvisory ? (
-                      <View style={[styles.heat, { backgroundColor: conditionBg('high') }]}>
-                        <Text style={[styles.heatText, { color: conditionInk('high') }]}>HEAT</Text>
+                      <View style={[styles.heat, { backgroundColor: conditionBg('high', isDark) }]}>
+                        <Text style={[styles.heatText, { color: conditionInk('high', isDark) }]}>HEAT</Text>
                       </View>
                     ) : null}
                   </>
@@ -426,7 +426,7 @@ export function EddyTake({
                           <Text
                             style={[
                               styles.forecastCode,
-                              { color: conditionInk(day.river.conditionCode) },
+                              { color: conditionInk(day.river.conditionCode, isDark) },
                             ]}
                             numberOfLines={1}
                           >
@@ -540,7 +540,7 @@ export function EddyTake({
                     scheme={colors.scheme}
                   />
                 ) : read ? (
-                  <Text style={[styles.sectionText, { color: colors.textMuted }]}>{read}</Text>
+                  <Text style={[styles.sectionText, { color: colors.textBody }]}>{read}</Text>
                 ) : null}
               </View>
 
@@ -562,7 +562,7 @@ export function EddyTake({
                     scheme={colors.scheme}
                   />
                 ) : (
-                  <Text style={[styles.sectionText, { color: colors.textMuted }]}>
+                  <Text style={[styles.sectionText, { color: colors.textBody }]}>
                     {sections.watchFor}
                   </Text>
                 )}

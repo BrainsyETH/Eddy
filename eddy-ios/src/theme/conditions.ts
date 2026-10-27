@@ -17,6 +17,7 @@ import {
   WEEKEND_SEVERITY,
   type ConditionCode,
 } from '@eddy/conditions';
+import { darkPalette } from './palette';
 
 export type { ConditionCode };
 
@@ -25,25 +26,35 @@ export function conditionColor(code: string): string {
   return CONDITION_SYSTEM[code as ConditionCode]?.solid ?? CONDITION_SYSTEM.unknown.solid;
 }
 
-/**
- * Translucent fill for chips and badges.
- *
- * An rgba tint, not a hex — which is precisely why condition colours need no
- * light/dark variants: the same tint composites correctly over a warm off-white
- * canvas and over near-black stone.
- */
-export function conditionBg(code: string): string {
-  return CONDITION_SYSTEM[code as ConditionCode]?.bg ?? CONDITION_SYSTEM.unknown.bg;
+function definition(code: string) {
+  return CONDITION_SYSTEM[code as ConditionCode] ?? CONDITION_SYSTEM.unknown;
 }
 
-/**
- * Accessible dark text/icon colour for use ON the `bg` tint.
- *
- * The canonical file is explicit: "NEVER print white text on the light condition
- * fills — use tint + ink." These clear WCAG 2.2 AA at 4.5:1.
- */
-export function conditionInk(code: string): string {
-  return CONDITION_SYSTEM[code as ConditionCode]?.ink ?? CONDITION_SYSTEM.unknown.ink;
+/** Blend canonical hues without introducing a second condition-color registry. */
+function mix(foreground: string, background: string, alpha: number): string {
+  return `#${[1, 3, 5].map(offset => {
+    const front = parseInt(foreground.slice(offset, offset + 2), 16);
+    const back = parseInt(background.slice(offset, offset + 2), 16);
+    return Math.round(front * alpha + back * (1 - alpha)).toString(16).padStart(2, '0');
+  }).join('')}`;
+}
+
+function opaqueBg(code: string, background: string): string {
+  const condition = definition(code);
+  const alpha = Number(condition.bg.match(/[\d.]+/g)?.[3] ?? 0.15);
+  return mix(condition.solid, background, alpha);
+}
+
+/** Light retains the canonical tint; dark uses an opaque tint over charcoal. */
+export function conditionBg(code: string, isDark: boolean): string {
+  return isDark ? opaqueBg(code, darkPalette.card) : definition(code).bg;
+}
+
+/** A matched text/icon role for the current badge surface, including photos. */
+export function conditionInk(code: string, isDark: boolean): string {
+  // Keep 40% of the canonical hue. The lighter ink clears 7:1 on dark badge
+  // fills and raised surfaces, including the gray and low-water conditions.
+  return isDark ? mix(conditionColor(code), '#FFFFFF', 0.4) : definition(code).ink;
 }
 
 /**
@@ -55,19 +66,17 @@ export function conditionInk(code: string): string {
  * darks, which vanish against Eddy's near-black stone, while several solids
  * (lime-500, yellow-500) fail AA as small text on the warm off-white.
  *
- * So this picks per scheme: ink on light, solid on dark. Callers pass
+ * So this picks per scheme: canonical ink on light, lifted ink on dark. Callers pass
  * `isDark` from useTheme rather than reading it here, because this file has no
  * business importing React.
  */
 export function conditionText(code: string, isDark: boolean): string {
-  return isDark ? conditionColor(code) : conditionInk(code);
+  return conditionInk(code, isDark);
 }
 
 /** Border for a tinted chip — a mid tint of the same hue. */
-export function conditionChipBorder(code: string): string {
-  return (
-    CONDITION_SYSTEM[code as ConditionCode]?.chipBorder ?? CONDITION_SYSTEM.unknown.chipBorder
-  );
+export function conditionChipBorder(code: string, isDark: boolean): string {
+  return isDark ? mix(conditionColor(code), darkPalette.card, 0.45) : definition(code).chipBorder;
 }
 
 /**
@@ -139,10 +148,7 @@ export function alarmRank(code: string): number {
   return CONDITION_SYSTEM[code as ConditionCode]?.severity ?? CONDITION_SYSTEM.unknown.severity;
 }
 
-/** Canonical tint flattened onto white, so photo-backed chips stay opaque. */
-export function conditionOpaqueBg(code: string): string {
-  const channels = conditionBg(code).match(/[\d.]+/g)?.map(Number);
-  if (!channels || channels.length !== 4) return '#ffffff';
-  const [r, g, b, alpha] = channels;
-  return `rgb(${[r, g, b].map(channel => Math.round(channel * alpha + 255 * (1 - alpha))).join(',')})`;
+/** Opaque fills prevent a photo or map from changing a badge's text contrast. */
+export function conditionOpaqueBg(code: string, isDark: boolean): string {
+  return opaqueBg(code, isDark ? darkPalette.card : '#FFFFFF');
 }
