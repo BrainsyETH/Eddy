@@ -92,6 +92,8 @@ export interface PlanFiltersProps {
    * weather widget so the two never overlap.
    */
   className?: string;
+  /** Overlay the desktop card rather than consuming its available height. */
+  floating?: boolean;
 }
 
 export default function PlanFilters({
@@ -116,6 +118,7 @@ export default function PlanFilters({
   onClearConditionFilter,
   readingsAsOf = null,
   className = 'absolute top-4 left-4 z-30',
+  floating = false,
 }: PlanFiltersProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -202,7 +205,7 @@ export default function PlanFilters({
           outgrew short phones. */}
       {open && (
         <div
-          className="mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border shadow-2xl"
+          className={`${floating ? 'absolute top-full left-0 z-40' : ''} mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border shadow-2xl`}
           style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
         >
           {/* Map layers */}

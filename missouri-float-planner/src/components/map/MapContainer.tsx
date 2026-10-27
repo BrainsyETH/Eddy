@@ -197,6 +197,7 @@ export default function MapContainer({
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [controlsHost, setControlsHost] = useState<HTMLElement | null>(null);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [mapAttempt, setMapAttempt] = useState(0);
   const cancelReadinessRef = useRef<(() => void) | null>(null);
@@ -236,9 +237,9 @@ export default function MapContainer({
   const [is3D, setIs3D] = useState(false);
   const is3DRef = useRef(false);
   // URL camera (deep link) handling. The URL is read ONCE per page load
-  // and consumed at map creation — afterwards the ?lat&lng&z in the URL is
-  // our own moveend echo, and bounds changes must win over it.
-  const pendingUrlCamRef = useRef<UrlCamera | null | undefined>(undefined);
+  // and reused if React replays mount effects or map initialization is retried.
+  // Afterwards the URL is our own moveend echo; bounds changes still win.
+  const initialUrlCamRef = useRef<UrlCamera | null | undefined>(undefined);
   // True when the constructor already framed the camera (deep link or
   // initial bounds) — lets the fitBounds effect skip its redundant first run.
   const cameraSetAtCreateRef = useRef(false);
@@ -514,11 +515,11 @@ export default function MapContainer({
     setMapLoadError(null);
 
     // A valid ?lat&lng&z camera wins over initialBounds on first creation
-    // only (see pendingUrlCamRef above).
-    if (pendingUrlCamRef.current === undefined) {
-      pendingUrlCamRef.current = syncCameraToUrl ? readCameraFromUrl() : null;
+    // only (including Strict Mode's replay of the same mount).
+    if (initialUrlCamRef.current === undefined) {
+      initialUrlCamRef.current = syncCameraToUrl ? readCameraFromUrl() : null;
     }
-    const urlCam = pendingUrlCamRef.current;
+    const urlCam = initialUrlCamRef.current;
 
     // Initialize map
     try {
@@ -554,9 +555,7 @@ export default function MapContainer({
       return;
     }
     cameraSetAtCreateRef.current = Boolean(urlCam || initialBounds);
-    if (urlCam) {
-      pendingUrlCamRef.current = null; // consumed
-    }
+    firstBoundsFitRef.current = true;
 
     // Mirror the camera into the URL after every settled movement (pan,
     // zoom, fitBounds), replaceState so history doesn't stack per pan.
@@ -611,19 +610,25 @@ export default function MapContainer({
       map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
     }
 
+    // Join MapLibre's control stack so navigation and Eddy's tools flow
+    // together at every size, including the larger desktop brand buttons.
+    const toolsHost = document.createElement('div');
+    toolsHost.className = 'maplibregl-ctrl eddy-map-tools';
+    map.current.addControl({ onAdd: () => toolsHost, onRemove: () => toolsHost.remove() }, 'top-right');
+    setControlsHost(toolsHost);
+
     // Move attribution to bottom-left so it doesn't cover access points
     map.current.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
 
-    map.current.on('style.load', () => {
-      // MapLibre auto-expands the compact attribution the first time it populates
-      // (on style load), and only re-collapses on a drag. Force it minimized here
-      // so it starts as just the (i); the toggle button still expands it on click.
-      const attribEl = mapContainer.current?.querySelector('.maplibregl-ctrl-attrib');
-      if (attribEl) {
-        attribEl.classList.remove('maplibregl-compact-show');
-        attribEl.removeAttribute('open');
-      }
-    });
+    // Establish compact mode before asynchronous sources supply their credits.
+    // Otherwise the first attribution update opens it again after style.load.
+    // Leave subsequent user toggles alone, including across style changes.
+    const attribEl = mapContainer.current.querySelector('.maplibregl-ctrl-attrib');
+    if (attribEl) {
+      attribEl.classList.add('maplibregl-compact');
+      attribEl.classList.remove('maplibregl-compact-show');
+      attribEl.removeAttribute('open');
+    }
     // MapLibre's load waits for every basemap resource. Eddy's data only
     // needs the parsed style; a slow tile must not hide all pins and routes.
     watchStyleReadiness(map.current);
@@ -631,6 +636,7 @@ export default function MapContainer({
     // Cleanup
     return () => {
       cancelReadinessRef.current?.();
+      setControlsHost(null);
       if (map.current) {
         map.current.remove();
         map.current = null;
@@ -646,8 +652,10 @@ export default function MapContainer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapAttempt]);
 
+  const [boundsWest, boundsSouth, boundsEast, boundsNorth] = initialBounds ?? [];
   useEffect(() => {
-    if (!map.current || !initialBounds) return;
+    if (!map.current || boundsWest === undefined || boundsSouth === undefined
+      || boundsEast === undefined || boundsNorth === undefined) return;
 
     // Skip the one fit the constructor already performed: at mount the map
     // is created framed to these same bounds (or to a deep-linked ?lat&lng&z
@@ -659,14 +667,16 @@ export default function MapContainer({
     }
 
     const bounds = new maplibregl.LngLatBounds(
-      [initialBounds[0], initialBounds[1]],
-      [initialBounds[2], initialBounds[3]]
+      [boundsWest, boundsSouth],
+      [boundsEast, boundsNorth]
     );
 
     // Camera changes do not require tiles or even a parsed style. In
     // particular, don't wait for the one-time load event after river switches.
     map.current.fitBounds(bounds, { padding: 50, duration: 800 });
-  }, [initialBounds]);
+    // URL updates may recreate the bounds array without changing its values.
+    // Refitting on its identity can feed another moveend back into the URL.
+  }, [boundsWest, boundsSouth, boundsEast, boundsNorth]);
 
   // Feature state stays beside the behavior that owns it; the catalog carries
   // the metadata shared by the controls and attribution. 3D deliberately
@@ -722,13 +732,9 @@ export default function MapContainer({
         </div>
       )}
 
-      {/* Map Controls - right side. On mobile there is no NavigationControl,
-          so the column starts near the top; on desktop it sits below the
-          MapLibre zoom/compass stack. */}
-      {/* z-10 normally, but lifted above the z-20 hint/stats overlays while
-          the layers menu is open. The dropdown PANEL itself is portaled to
-          <body> (below) so it clears the mobile float plan sheet. */}
-      <div className={`absolute top-2.5 md:top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 ${showStylePicker ? 'z-30' : 'z-10'}`}>
+      {/* Map tools share the native control stack; the dropdown itself
+          portals to body to clear the mobile float plan sheet. */}
+      {controlsHost && createPortal(<div className="flex flex-col gap-3 md:gap-2" role="group" aria-label="Map tools">
         {/* One menu, two questions: basemaps change the canvas; overlays add
             information. 3D keeps its existing control and behavior while that
             feature is explicitly out of scope. */}
@@ -853,7 +859,7 @@ export default function MapContainer({
         >
           {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
         </button>
-      </div>
+      </div>, controlsHost)}
 
       {/* Attribution follows the same catalog as the controls, so adding an
           overlay cannot produce a switch without its required source credit. */}

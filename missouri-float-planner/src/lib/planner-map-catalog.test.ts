@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { matchesMapSearch, plannerMapPlaces } from './planner-map-catalog';
-import type { MOAccessPoint, MODataset, MORiver } from './usgs/mo-statewide-data';
+import { matchesMapSearch, plannerMapPlaces, plannerMapPois } from './planner-map-catalog';
+import type { MOAccessPoint, MODataset, MORiver, MOPoi } from './usgs/mo-statewide-data';
 
 const point = (extra: Partial<MOAccessPoint> = {}): MOAccessPoint => ({
   id: 'akers', name: 'Akers Ferry', slug: 'akers-ferry', type: 'access',
@@ -51,4 +51,32 @@ test('duplicates collapse within a river, preserving a shared access on another 
   const result = plannerMapPlaces(dataset(river([point(), point()]),
     river([point()], { id: 'jacks-fork', slug: 'jacks-fork', name: 'Jacks Fork' })));
   assert.deepEqual(result.map(p => [p.riverId, p.id]), [['current', 'akers'], ['jacks-fork', 'akers']]);
+});
+
+const poi = (extra: Partial<MOPoi> = {}): MOPoi => ({
+  id: 'spring', name: 'Big Spring', slug: 'big-spring', type: 'spring',
+  lat: 37, lon: -91, river_mile: 15, nps_url: null, description: 'A spring', ...extra,
+});
+
+test('overview POIs retain river identity and normalize unknown categories', () => {
+  const input = dataset(river(null, { pois: [poi()] }),
+    river(null, { id: 'jacks-fork', pois: [poi({ id: 'park', type: 'new-category', river_mile: null })] }));
+  const before = structuredClone(input);
+  const result = plannerMapPois(input);
+  assert.deepEqual(result.map(p => [p.id, p.riverId, p.type, p.isOnWater]),
+    [['spring', 'current', 'spring', true], ['park', 'jacks-fork', 'other', false]]);
+  assert.equal(result[0].latitude, 37);
+  assert.equal(result[0].longitude, -91);
+  assert.deepEqual(input, before);
+});
+
+test('overview POIs handle empty data, deduplicate shared places and reject invalid locations', () => {
+  assert.deepEqual(plannerMapPois(undefined), []);
+  assert.deepEqual(plannerMapPois(dataset(river(null))), []);
+  const invalid = [poi({ lat: NaN }), poi({ lon: Infinity }), poi({ lat: 91 }),
+    poi({ lon: -181 }), poi({ lat: null as unknown as number })];
+  const result = plannerMapPois(dataset(river(null, { pois: [...invalid, poi(), poi()] }),
+    river(null, { id: 'other', pois: [poi()] })));
+  assert.equal(result.length, 1);
+  assert.equal(result[0].id, 'spring');
 });

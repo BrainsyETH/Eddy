@@ -45,14 +45,15 @@ import { CONDITION_COLORS, CONDITION_LABELS, EDDY_IMAGES } from '@/constants';
 import { getConditionTailwindColor } from '@/lib/conditions';
 import { trackEvent } from '@/lib/analytics';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
-import { useRiverVisualPins } from '@/hooks/useRiverVisualPins';
+import { useRiverVisualPins, useRegionalRiverVisualPins } from '@/hooks/useRiverVisualPins';
 import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
 import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
+import { plannerMapPois } from '@/lib/planner-map-catalog';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
 
 const PlannerAccessLayer = dynamic(() => import('@/components/map/PlannerAccessLayer'), { ssr: false });
-const PlannerPlaceFocus = dynamic(() => import('@/components/map/PlannerAccessLayer').then(module => module.PlannerPlaceFocus), { ssr: false });
+const PlannerMapFocus = dynamic(() => import('@/components/map/PlannerAccessLayer').then(module => module.PlannerMapFocus), { ssr: false });
 const ACCESS_PRIORITY_LAYERS = ['planner-access-dots'];
 
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
@@ -106,6 +107,15 @@ export default function PlanPageClient({
   const urlVessel = searchParams.get('vessel');
 
   const [riverSlug, setRiverSlug] = useState<string | null>(urlRiver);
+  // Browsing the region is independent of the river that owns the saved route.
+  const [showAllRivers, setShowAllRivers] = useState(!urlRiver);
+  const [focusPlace, setFocusPlace] = useState<PlannerMapPlace | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const initialCamera = useRef([['lat', -90, 90], ['lng', -180, 180], ['z', 0, 22]].every(([key, min, max]) => {
+    const value = searchParams.get(String(key));
+    return value !== null && value !== '' && Number.isFinite(Number(value))
+      && Number(value) >= Number(min) && Number(value) <= Number(max);
+  }));
   const [selectedPutIn, setSelectedPutIn] = useState<string | null>(urlPutIn);
   const [selectedTakeOut, setSelectedTakeOut] = useState<string | null>(urlTakeOut);
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
@@ -160,10 +170,12 @@ export default function PlanPageClient({
   const toggleFlow = useCallback(() => setShowFlow((v) => !(v === true)), []);
   const flowOn = showFlow === true;
 
-  // Layer choices persist across visits (the map style already does). The
+  // Mobile layer choices persist across visits; desktop starts with all on. The
   // condition filter deliberately does NOT persist — "what's floatable" is
   // a today question, and a stale filter reads as missing rivers.
   useEffect(() => {
+    // Desktop starts with all content enabled; choices last for this visit.
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
     try {
       const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
       if (!raw) return;
@@ -183,6 +195,7 @@ export default function PlanPageClient({
     }
   }, []);
   useEffect(() => {
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
     try {
       localStorage.setItem(
         FILTERS_STORAGE_KEY,
@@ -244,8 +257,7 @@ export default function PlanPageClient({
   // Statewide condition counts + newest-reading stamp for the Filters
   // legend. Same React Query keys the network layer uses — no extra fetch.
   const { collection: conditionNetwork, countsByCode, newestReadingAt } = useConditionNetwork();
-  const { data: pois } = usePOIs(riverSlug);
-  const { data: photoPins } = useRiverVisualPins(riverSlug, showPhotos);
+  const { data: pois, isPlaceholderData: poisPlaceholder } = usePOIs(riverSlug);
   const { data: hazards } = useHazards(riverSlug);
   const { data: weather } = useWeather(riverSlug);
   const { data: nearbyServices } = useNearbyServices(riverSlug);
@@ -257,7 +269,12 @@ export default function PlanPageClient({
   // CSS-hidden markup so server and client HTML agree, then drop one.
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const catalog = usePlannerMapCatalog(isDesktop === true);
+  const { data: photoPins } = useRiverVisualPins(riverSlug, showPhotos && isDesktop === false);
+  const regionalPhotoPins = useRegionalRiverVisualPins(
+    isDesktop ? (rivers ?? []).map(river => river.slug) : [], showPhotos,
+  );
   const desktopPanelRef = useRef<HTMLDivElement>(null);
+  const desktopStripRef = useRef<HTMLDivElement>(null);
   const [selectedPlace, setSelectedPlace] = useState<PlannerMapPlace | null>(null);
   const searchConditions = useMemo(() => new Map(
     (conditionNetwork?.features ?? []).map(feature => [feature.properties.slug, feature.properties]),
@@ -274,11 +291,21 @@ export default function PlanPageClient({
     [allGaugeStations, river?.id]
   );
 
+  const catalogPois = useMemo(() => plannerMapPois(catalog.data), [catalog.data]);
+  const desktopPois = useMemo(() => {
+    const detailedRiver = !showAllRivers && river?.slug === riverSlug && pois && !poisPlaceholder ? river.id : null;
+    const others = catalogPois.filter(poi => !detailedRiver || poi.riverId !== detailedRiver);
+    return [...others, ...(detailedRiver ? pois ?? [] : [])];
+  }, [catalogPois, pois, poisPlaceholder, river, riverSlug, showAllRivers]);
+  const visibleDesktopPois = useMemo(() => showPOIs
+    ? desktopPois.filter(poi => !hiddenPoiCategories.has(poi.type)) : [],
+  [desktopPois, showPOIs, hiddenPoiCategories]);
+
   // POI category filter (see PlanFilters). availableCategories drives which
   // pills show; filteredPois is what the map renders.
   const availablePoiCategories = useMemo(
-    () => Array.from(new Set((pois ?? []).map((p) => p.type))),
-    [pois],
+    () => Array.from(new Set((isDesktop ? desktopPois : pois ?? []).map((p) => p.type))),
+    [isDesktop, desktopPois, pois],
   );
   const filteredPois = useMemo(
     () => (showPOIs ? (pois ?? []).filter((p) => !hiddenPoiCategories.has(p.type)) : []),
@@ -298,15 +325,14 @@ export default function PlanPageClient({
     takeOut: string | null;
     vessel: string | null;
   }) => {
-    const params = new URLSearchParams();
-    if (next.river) params.set('river', next.river);
-    if (next.putIn) params.set('putIn', next.putIn);
-    if (next.takeOut) params.set('takeOut', next.takeOut);
-    if (next.vessel) params.set('vessel', next.vessel);
-
-    const qs = params.toString();
-    const newUrl = qs ? `?${qs}` : window.location.pathname;
-    window.history.replaceState(null, '', newUrl);
+    const url = new URL(window.location.href);
+    for (const [key, value] of Object.entries(next)) {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    }
+    // Keep the camera while letting Next synchronize useSearchParams for
+    // navigation tabs. Next preserves its own history state automatically.
+    window.history.replaceState(null, '', url);
   }, []);
 
   useEffect(() => {
@@ -353,15 +379,25 @@ export default function PlanPageClient({
   // never makes sense on another)
   const handleRiverChange = useCallback((slug: string | null, source: 'dropdown' | 'map' = 'dropdown') => {
     setSelectedPlace(null);
+    setFocusPlace(null);
+    setFocusRequest(value => value + 1);
+    if (!slug && isDesktop !== false) {
+      setShowAllRivers(true);
+      return;
+    }
+    setShowAllRivers(!slug);
     if (slug === riverSlug) return;
     if (slug) trackEvent('river_selected', { slug, source });
     setRiverSlug(slug);
     setSelectedPutIn(null);
     setSelectedTakeOut(null);
-  }, [riverSlug]);
+  }, [riverSlug, isDesktop]);
 
   const handlePlaceSelect = useCallback((place: PlannerMapPlace) => {
     if (place.riverSlug !== riverSlug) handleRiverChange(place.riverSlug, 'map');
+    setShowAllRivers(false);
+    setFocusPlace(place);
+    setFocusRequest(value => value + 1);
     setSelectedPlace(place);
   }, [riverSlug, handleRiverChange]);
 
@@ -369,7 +405,7 @@ export default function PlanPageClient({
     ? visibleAccessPoints?.find(point => point.id === selectedPlace.id) : undefined;
 
   const desktopSearch = <PlannerMapSearch rivers={rivers ?? []} places={catalog.places}
-    currentSlug={riverSlug} conditions={searchConditions} loading={catalog.isPending}
+    currentSlug={showAllRivers ? null : riverSlug} conditions={searchConditions} loading={catalog.isPending}
     failed={catalog.isError} onRetry={() => { void catalog.refetch(); }}
     onRiver={handleRiverChange} onPlace={handlePlaceSelect} />;
 
@@ -451,6 +487,12 @@ export default function PlanPageClient({
       setSelectedTakeOut(null);
       return;
     }
+    if (isDesktop && river?.slug === riverSlug) {
+      setShowAllRivers(false);
+      setFocusPlace({ id: point.id, name: point.name, slug: point.slug, riverId: river.id,
+        riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates });
+      setFocusRequest(value => value + 1);
+    }
     if (!selectedPutIn && !selectedTakeOut) {
       trackEvent('putin_selected', { river: riverSlug ?? '' });
       setSelectedPutIn(point.id);
@@ -464,7 +506,7 @@ export default function PlanPageClient({
       trackEvent('takeout_selected', { river: riverSlug ?? '' });
       setBothPoints(selectedPutIn, point.id);
     }
-  }, [selectedPutIn, selectedTakeOut, setBothPoints, riverSlug]);
+  }, [selectedPutIn, selectedTakeOut, setBothPoints, riverSlug, river, isDesktop]);
 
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
@@ -692,29 +734,191 @@ export default function PlanPageClient({
   // sheet, so it is always on screen — scrollIntoView on a fixed element only
   // risks yanking the document toward the below-fold content.)
 
+  const activeRiver = river?.slug === riverSlug ? river : null;
+  const viewRiver = showAllRivers ? null : activeRiver;
+  const desktopMap = isDesktop !== false ? (
+      <div className="planner-desktop relative hidden lg:flex overflow-hidden plan-viewport-h">
+        <div className="flex-1 relative">
+          <MapContainer
+            initialBounds={defaultBounds}
+            showLegend={false}
+            syncCameraToUrl
+          >
+            {activeRiver && !accessPlaceholder && visibleAccessPoints && (
+              <AccessPointMarkers
+                interaction="inspect"
+                accessPoints={visibleAccessPoints}
+                selectedPutIn={selectedPutIn}
+                selectedTakeOut={selectedTakeOut}
+                onMarkerClick={(point) => handlePlaceSelect({ id: point.id, name: point.name, slug: point.slug,
+                  riverId: activeRiver.id, riverSlug: activeRiver.slug, riverName: activeRiver.name, coordinates: point.coordinates })}
+              />
+            )}
+            <PlannerAccessLayer places={catalog.places} excludeRiverSlug={activeRiver && !accessPlaceholder && visibleAccessPoints ? activeRiver.slug : undefined} onSelect={handlePlaceSelect} />
+            <PlannerMapFocus place={focusPlace} bounds={showAllRivers ? defaultBounds : activeRiver?.bounds}
+              request={focusRequest} preserveInitialCamera={initialCamera.current}
+              panelRef={desktopPanelRef} stripRef={desktopStripRef} />
+            {showGauges && allGaugeStations && (
+              <GaugeStationMarkers
+                gauges={allGaugeStations}
+                selectedRiverId={viewRiver?.id}
+                nearestGaugeId={nearestGauge?.id}
+              />
+            )}
+            {visibleDesktopPois.length > 0 && (
+              <POIMarkers pois={visibleDesktopPois} activeMileRange={activeMileRange} activeRiverId={activeRiver?.id} />
+            )}
+            {showPhotos && regionalPhotoPins.length > 0 && (
+              <RiverPhotoMarkers pins={regionalPhotoPins} />
+            )}
+            {/* Statewide condition network: every OTHER river in its live
+                condition color as context. Click one to switch the
+                active river. The selected river is drawn separately below. */}
+            {showNetwork && (
+              <ConditionNetworkLayer prominent priorityLayerIds={ACCESS_PRIORITY_LAYERS} excludeRiverId={viewRiver?.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
+            )}
+            {/* The selected river, drawn prominently in its own condition color
+                (so it's not the one bare line among colored context rivers). */}
+            {viewRiver?.geometry && (
+              <ConditionRiverLayer riverId={viewRiver.id} riverName={viewRiver.name} geometry={viewRiver.geometry} showLabel={showRiverNames} />
+            )}
+            {/* Selected float route line between put-in and take-out */}
+            <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
+            {/* Safety-critical: hazards render always, never gated behind toggles */}
+            <HazardMarkers hazards={hazards ?? []} />
+            {/* Animated downstream current. Honors the legend-chip filter;
+                when the network is hidden, flow stays on the hero river. */}
+            {flowOn && (
+              <FlowParticlesLayer
+                visibleConditions={visibleConditions}
+                onlyRiverId={showNetwork ? undefined : viewRiver?.id}
+              />
+            )}
+          </MapContainer>
+
+          {/* Search and details float over the map, below the unchanged River Report. */}
+          <div ref={desktopPanelRef} className="pointer-events-none absolute top-20 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
+            <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
+            <div className="pointer-events-auto flex shrink-0 flex-wrap items-start gap-2">
+            {activeRiver && <WeatherBug riverSlug={activeRiver.slug} riverId={activeRiver.id} positionClassName="pointer-events-auto relative" />}
+            <PlanFilters
+              floating
+              showNetwork={showNetwork}
+              onToggleNetwork={toggleNetwork}
+              showRiverNames={showRiverNames}
+              onToggleRiverNames={toggleRiverNames}
+              showGauges={showGauges}
+              onToggleGauges={toggleGauges}
+              showFlow={flowOn}
+              onToggleFlow={toggleFlow}
+              showPOIs={showPOIs}
+              onTogglePOIs={togglePOIs}
+              showPhotos={showPhotos}
+              onTogglePhotos={togglePhotos}
+              availableCategories={availablePoiCategories}
+              hiddenCategories={hiddenPoiCategories}
+              onToggleCategory={togglePoiCategory}
+              conditionCounts={countsByCode}
+              conditionFilter={conditionFilter}
+              onToggleCondition={toggleCondition}
+              onClearConditionFilter={clearConditionFilter}
+              readingsAsOf={newestReadingAt}
+              className="pointer-events-auto relative"
+            />
+            </div>
+            {!activeRiver && !selectedPlace && <div className="planner-glass rounded-2xl p-4">
+              <h1 className="text-xl font-bold text-primary-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h1>
+              <p className="mt-2 text-sm text-neutral-600">Explore a river. Pick your put-in and take-out.</p>
+              {riverSlug && riverLoading && <p className="mt-3 text-xs text-neutral-600" role="status">Loading river details…</p>}
+              {riverSlug && riverError && <p className="mt-3 text-xs text-neutral-600" role="status">River details couldn’t load. Choose another river or try again.</p>}
+            </div>}
+            {selectedPlace && <div className="pointer-events-auto shrink-0">
+              <PlannerPlaceCard place={selectedPlace} point={previewPoint} loading={accessLoading || accessPlaceholder || river?.slug !== riverSlug}
+                failed={accessError} onRetry={() => { void refetchAccess(); }} canTakeOut={!!selectedPutIn && selectedPutIn !== previewPoint?.id}
+                onClose={() => setSelectedPlace(null)}
+                onPutIn={() => { if (previewPoint && previewPoint.isFloatEndpoint !== false) {
+                  setSelectedPutIn(previewPoint.id); setSelectedTakeOut(null); setSelectedPlace(null);
+                } }}
+                onTakeOut={() => { if (previewPoint && previewPoint.isFloatEndpoint !== false && selectedPutIn) {
+                  setBothPoints(selectedPutIn, previewPoint.id); setSelectedPlace(null);
+                } }} />
+            </div>}
+            {activeRiver && putInPoint && !selectedPlace && <div className="planner-glass pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
+          <PlanSidebar
+            riverName={activeRiver.name}
+            riverSlug={activeRiver.slug}
+            pois={pois}
+            conditionCode={isLastValidFallback ? plan?.condition.code ?? 'unknown' : condition?.code ?? 'unknown'}
+            plan={plan || null}
+            isLoading={planLoading}
+            isLastValidFallback={isLastValidFallback}
+            lastValidAt={lastValidAt}
+            onRetry={() => refetchPlan()}
+            putInPoint={putInPoint}
+            takeOutPoint={takeOutPoint}
+            onClearPutIn={() => setSelectedPutIn(null)}
+            onClearTakeOut={() => setSelectedTakeOut(null)}
+            onShare={handleShare}
+            onDownloadImage={handleDownloadImage}
+            shareStatus={shareStatus}
+            selectedVesselTypeId={selectedVesselTypeId}
+            onVesselChange={setSelectedVesselTypeId}
+            onReportIssue={handleReportAccessPointIssue}
+            pointsAlongRoute={pointsAlongRoute}
+            captureRef={captureRef}
+          />
+            </div>}
+
+          </div>
+
+          {activeRiver && <MapEddySays
+            riverSlug={activeRiver.slug}
+            conditionCode={condition?.code ?? 'unknown'}
+            gaugeHeightFt={isLastValidFallback ? null : plan?.condition?.gaugeHeightFt ?? null}
+            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
+          />}
+          {(putInPoint && takeOutPoint) && (
+            <RouteStatsBadge plan={isLastValidFallback ? null : plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
+          )}
+          {showStandalonePlanError && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
+              <PlanErrorBanner onRetry={() => refetchPlan()} />
+            </div>
+          )}
+          <MapLegend />
+
+          {activeRiver && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
+            <div ref={desktopStripRef} className="planner-access-strip absolute bottom-0 left-[360px] right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
+              <div className="pointer-events-auto">
+                <AccessPointStrip
+                  accessPoints={floatEndpointAccessPoints}
+                  selectedPutInId={selectedPutIn}
+                  selectedTakeOutId={selectedTakeOut}
+                  onSelect={handleMarkerClick}
+                  onHover={handleAccessPointHover}
+                  onReportIssue={handleReportAccessPointIssue}
+                  hideExpandedDetails={true}
+                  riverSlug={activeRiver.slug}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+  ) : null;
+
   // ─── No river selected: show the map with a prominent river picker ───
-  if (!riverSlug) {
+  if (!riverSlug && isDesktop === false) {
     return (
-      <div className={`relative bg-neutral-100 plan-viewport-h ${isDesktop !== false ? "planner-desktop" : ""}`}>
+      <div className="relative bg-neutral-100 plan-viewport-h">
         <MapContainer initialBounds={defaultBounds} showLegend={false}>
           {/* Every river in its live condition color — click one to start
               planning it (no river excluded here since none is selected). */}
-          <ConditionNetworkLayer prominent={isDesktop === true} priorityLayerIds={ACCESS_PRIORITY_LAYERS} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
-          {isDesktop && <PlannerAccessLayer places={catalog.places} onSelect={handlePlaceSelect} />}
+          <ConditionNetworkLayer priorityLayerIds={ACCESS_PRIORITY_LAYERS} showLabels={showRiverNames} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
           {/* Statewide flow at first sight — the wow frame. */}
           {flowOn && <FlowParticlesLayer />}
         </MapContainer>
 
-        {isDesktop !== false && <div className="absolute left-5 top-5 z-30 hidden w-[340px] lg:block">
-          {desktopSearch}
-          <div className="planner-glass mt-3 rounded-2xl p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-700">Your next river day</p>
-            <h1 className="mt-1 text-2xl font-bold text-primary-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h1>
-            <p className="mt-2 text-sm leading-relaxed text-neutral-600">Explore a river. Pick your put-in and take-out. Make a day of it.</p>
-            <p className="mt-3 border-t border-neutral-200/60 pt-3 text-xs text-neutral-600">River colors show current conditions. Select an access point to get started.</p>
-          </div>
-        </div>}
-        {isDesktop && <MapLegend className="!bottom-8" />}
         {/* Mobile keeps the existing river picker. */}
         <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[380px] z-30 lg:hidden">
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-neutral-200 p-4">
@@ -747,7 +951,7 @@ export default function PlanPageClient({
   }
 
   // ─── River loading/error states ───
-  if (riverLoading) {
+  if (isDesktop === false && riverLoading) {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -755,7 +959,7 @@ export default function PlanPageClient({
     );
   }
 
-  if (riverError || !river) {
+  if (isDesktop === false && (riverError || !river)) {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
@@ -785,170 +989,10 @@ export default function PlanPageClient({
     <div className="min-h-screen bg-neutral-50">
       {/* OfflineBanner is rendered once globally in the root layout (above the
           header); no second copy here. */}
-      {/* ─── DESKTOP: Floating panels over a full-width map ─── */}
-      {isDesktop !== false && (
-      <div className="planner-desktop relative hidden lg:flex overflow-hidden plan-viewport-h">
-        <div className="flex-1 relative">
-          <MapContainer
-            initialBounds={river.bounds}
-            showLegend={false}
-            syncCameraToUrl
-          >
-            {river.slug === riverSlug && !accessPlaceholder && visibleAccessPoints && (
-              <AccessPointMarkers
-                interaction="inspect"
-                accessPoints={visibleAccessPoints}
-                selectedPutIn={selectedPutIn}
-                selectedTakeOut={selectedTakeOut}
-                onMarkerClick={(point) => handlePlaceSelect({ id: point.id, name: point.name, slug: point.slug,
-                  riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates })}
-              />
-            )}
-            <PlannerAccessLayer places={catalog.places} excludeRiverSlug={river.slug === riverSlug && !accessPlaceholder && visibleAccessPoints ? river.slug : undefined} onSelect={handlePlaceSelect} />
-            <PlannerPlaceFocus place={river.slug === riverSlug ? selectedPlace : null} panelRef={desktopPanelRef} />
-            {showGauges && gaugeStations && (
-              <GaugeStationMarkers
-                gauges={gaugeStations}
-                selectedRiverId={river.id}
-                nearestGaugeId={nearestGauge?.id}
-              />
-            )}
-            {filteredPois.length > 0 && (
-              <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
-            )}
-            {showPhotos && photoPins && photoPins.length > 0 && (
-              <RiverPhotoMarkers pins={photoPins} />
-            )}
-            {/* Statewide condition network: every OTHER river in its live
-                condition color as context. Click one to switch the
-                active river. The selected river is drawn separately below. */}
-            {showNetwork && (
-              <ConditionNetworkLayer prominent priorityLayerIds={ACCESS_PRIORITY_LAYERS} excludeRiverId={river.id} showLabels={showRiverNames} visibleConditions={visibleConditions} onSelectRiver={(slug) => handleRiverChange(slug, 'map')} />
-            )}
-            {/* The selected river, drawn prominently in its own condition color
-                (so it's not the one bare line among colored context rivers). */}
-            {river.geometry && (
-              <ConditionRiverLayer riverId={river.id} riverName={river.name} geometry={river.geometry} showLabel={showRiverNames} />
-            )}
-            {/* Selected float route line between put-in and take-out */}
-            <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
-            {/* Safety-critical: hazards render always, never gated behind toggles */}
-            <HazardMarkers hazards={hazards ?? []} />
-            {/* Animated downstream current. Honors the legend-chip filter;
-                when the network is hidden, flow stays on the hero river. */}
-            {flowOn && (
-              <FlowParticlesLayer
-                visibleConditions={visibleConditions}
-                onlyRiverId={showNetwork ? undefined : river.id}
-              />
-            )}
-          </MapContainer>
-
-          {/* Search and details float over the map, below the unchanged River Report. */}
-          <div ref={desktopPanelRef} className="pointer-events-none absolute top-20 bottom-36 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
-            <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
-            {selectedPlace && <div className="pointer-events-auto shrink-0">
-              <PlannerPlaceCard place={selectedPlace} point={previewPoint} loading={accessLoading || accessPlaceholder || river.slug !== riverSlug}
-                failed={accessError} onRetry={() => { void refetchAccess(); }} canTakeOut={!!selectedPutIn && selectedPutIn !== previewPoint?.id}
-                onClose={() => setSelectedPlace(null)}
-                onPutIn={() => { if (previewPoint && previewPoint.isFloatEndpoint !== false) {
-                  setSelectedPutIn(previewPoint.id); setSelectedTakeOut(null); setSelectedPlace(null);
-                } }}
-                onTakeOut={() => { if (previewPoint && previewPoint.isFloatEndpoint !== false && selectedPutIn) {
-                  setBothPoints(selectedPutIn, previewPoint.id); setSelectedPlace(null);
-                } }} />
-            </div>}
-            {putInPoint && !selectedPlace && <div className="planner-glass pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-          <PlanSidebar
-            riverName={river.name}
-            riverSlug={river.slug}
-            pois={pois}
-            conditionCode={isLastValidFallback ? plan?.condition.code ?? 'unknown' : condition?.code ?? 'unknown'}
-            plan={plan || null}
-            isLoading={planLoading}
-            isLastValidFallback={isLastValidFallback}
-            lastValidAt={lastValidAt}
-            onRetry={() => refetchPlan()}
-            putInPoint={putInPoint}
-            takeOutPoint={takeOutPoint}
-            onClearPutIn={() => setSelectedPutIn(null)}
-            onClearTakeOut={() => setSelectedTakeOut(null)}
-            onShare={handleShare}
-            onDownloadImage={handleDownloadImage}
-            shareStatus={shareStatus}
-            selectedVesselTypeId={selectedVesselTypeId}
-            onVesselChange={setSelectedVesselTypeId}
-            onReportIssue={handleReportAccessPointIssue}
-            pointsAlongRoute={pointsAlongRoute}
-            captureRef={captureRef}
-          />
-            </div>}
-            <div className="pointer-events-auto flex shrink-0 flex-wrap items-start gap-2">
-            <WeatherBug riverSlug={riverSlug} riverId={river.id} positionClassName="pointer-events-auto relative" />
-            <PlanFilters
-              showNetwork={showNetwork}
-              onToggleNetwork={toggleNetwork}
-              showRiverNames={showRiverNames}
-              onToggleRiverNames={toggleRiverNames}
-              showGauges={showGauges}
-              onToggleGauges={toggleGauges}
-              showFlow={flowOn}
-              onToggleFlow={toggleFlow}
-              showPOIs={showPOIs}
-              onTogglePOIs={togglePOIs}
-              showPhotos={showPhotos}
-              onTogglePhotos={togglePhotos}
-              availableCategories={availablePoiCategories}
-              hiddenCategories={hiddenPoiCategories}
-              onToggleCategory={togglePoiCategory}
-              conditionCounts={countsByCode}
-              conditionFilter={conditionFilter}
-              onToggleCondition={toggleCondition}
-              onClearConditionFilter={clearConditionFilter}
-              readingsAsOf={newestReadingAt}
-              className="pointer-events-auto relative"
-            />
-            </div>
-          </div>
-
-          <MapEddySays
-            riverSlug={riverSlug}
-            conditionCode={condition?.code ?? 'unknown'}
-            gaugeHeightFt={isLastValidFallback ? null : plan?.condition?.gaugeHeightFt ?? null}
-            onSubmitPhoto={() => setShowVisualSubmitForm(true)}
-          />
-          {(putInPoint && takeOutPoint) && (
-            <RouteStatsBadge plan={isLastValidFallback ? null : plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
-          )}
-          {showStandalonePlanError && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
-              <PlanErrorBanner onRetry={() => refetchPlan()} />
-            </div>
-          )}
-          <MapLegend />
-
-          {floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent pt-8 pb-2 px-2 pointer-events-none">
-              <div className="pointer-events-auto">
-                <AccessPointStrip
-                  accessPoints={floatEndpointAccessPoints}
-                  selectedPutInId={selectedPutIn}
-                  selectedTakeOutId={selectedTakeOut}
-                  onSelect={handleMarkerClick}
-                  onHover={handleAccessPointHover}
-                  onReportIssue={handleReportAccessPointIssue}
-                  hideExpandedDetails={true}
-                  riverSlug={riverSlug}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      )}
+      {desktopMap}
 
       {/* ─── MOBILE: Full-screen map + bottom sheet ─── */}
-      {isDesktop !== true && (
+      {isDesktop !== true && river && riverSlug && (
       <div className="lg:hidden">
         <div className="px-4 py-2 bg-white border-b border-neutral-200 flex items-center justify-between gap-2">
           <MobileRiverSwitcher
@@ -1134,6 +1178,7 @@ export default function PlanPageClient({
       </div>
       )}
 
+      {river && riverSlug && <>
       {/* ─── Below-fold info ─── */}
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
         {forecast?.days && forecast.days.length > 0 && (
@@ -1198,13 +1243,15 @@ export default function PlanPageClient({
         />
       )}
 
+      </>}
+
       <FeedbackModal
         isOpen={feedbackModalOpen}
         onClose={() => setFeedbackModalOpen(false)}
         context={feedbackContext}
       />
 
-      {showVisualSubmitForm && (
+      {river && showVisualSubmitForm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setShowVisualSubmitForm(false)}
