@@ -563,16 +563,15 @@ try {
   }).count(), 0);
   console.log('Non-endpoints remain viewable and cannot start a float');
   await page.locator('button[data-access-point-id="p-0-0"]').waitFor({ state: 'visible' });
-  const releaseMeramecAccess = holdAccess('meramec');
-  const meramecAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/meramec/access-points');
-  await search.fill('meramec put');
-  await page.getByRole('option', {
-    name: /Meramec Put-in/
-  }).click();
-  await meramecAccessRequest;
-  // Hold the access response until the new river actually renders. A fixed
-  // delay can finish before an assertion and miss the stale-selection window.
-  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Meramec River');
+  // Switching rivers directly: hold the new river's access response until the
+  // river actually renders. A fixed delay can finish before an assertion and
+  // miss the stale-selection window.
+  const releaseJacksAccess = holdAccess('jacks-fork');
+  const jacksAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/jacks-fork/access-points');
+  await search.fill('jacks fork');
+  await page.getByRole('option', { name: /^Jacks Fork River\b/ }).click();
+  await jacksAccessRequest;
+  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
   await page.waitForFunction(() => !document.querySelector('[data-access-point-id^="p-0-"]'));
   assert.equal(await page.locator('button[data-access-point-id]').count(), 0, 'desktop strips must not expose the previous river while access data loads');
   assert.equal(await page.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
@@ -583,7 +582,7 @@ try {
     const map = window.plannerMap;
     const container = map?.getContainer();
     return container?.isConnected && container.closest('[class~="lg:hidden"]') &&
-      (await map.getSource('condition-river-source')?.getData())?.properties?.name === 'Meramec River';
+      (await map.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River';
   });
   assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0, 'mobile markers and strip must not expose previous-river endpoints');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), null);
@@ -592,18 +591,26 @@ try {
   // Crossing the desktop/mobile breakpoint intentionally replaces the map.
   // Subsequent desktop-only selection must preserve this new instance.
   await page.evaluate(() => { window.resumedDesktopMap = window.plannerMap; });
+  releaseJacksAccess();
+  const jacksStart = page.locator('button[data-access-point-id="p-2-0"]');
+  await jacksStart.waitFor({ state: 'visible' });
+  await jacksStart.click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-2-0');
+  console.log('Direct river switches hide stale access controls while the new river loads');
+  // Previewing another river's access keeps the current route until an
+  // endpoint is explicitly chosen; the preview waits for its own access data.
+  const releaseMeramecAccess = holdAccess('meramec');
+  const meramecAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/meramec/access-points');
+  await search.fill('meramec put');
+  await page.getByRole('option', { name: /Meramec Put-in/ }).click();
+  await meramecAccessRequest;
   await page.getByText('Loading access details…', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
   releaseMeramecAccess();
-  await page.getByRole('button', {
-    name: 'Use as put-in',
-    exact: true
-  }).waitFor();
-  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
-  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('takeOut')), 'p-0-1');
-  await page.getByRole('button', {
-    name: 'Use as put-in',
-    exact: true
-  }).click();
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('river')), 'jacks-fork');
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-2-0');
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-1-0');
   // The new river loads after the endpoint choice; wait for its route panel.
   await page.locator('.planner-glass.flex-1').waitFor();
