@@ -15,6 +15,7 @@ import { escapeHtml } from '@/lib/escape-html';
 
 interface POIMarkersProps {
   pois: PointOfInterest[];
+  activeRiverId?: string;
   activeMileRange?: { min: number; max: number } | null;
 }
 
@@ -34,7 +35,7 @@ const POI_ICONS: Record<string, LucideIcon> = {
 const POI_COLOR = '#0d9488'; // teal-600
 const POI_COLOR_DARK = '#0f766e'; // teal-700
 
-export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
+export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POIMarkersProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const popupsRef = useRef<maplibregl.Popup[]>([]);
@@ -52,7 +53,8 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
     // Clear existing
     markersRef.current.forEach((marker) => marker.remove());
     popupsRef.current.forEach((popup) => popup.remove());
-    rootsRef.current.forEach((root) => root.unmount());
+    const oldRoots = rootsRef.current;
+    queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
     markersRef.current = [];
     popupsRef.current = [];
     rootsRef.current = [];
@@ -66,10 +68,10 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
       const IconComponent = POI_ICONS[poi.type] || POI_ICONS.other;
 
       // Determine if this POI is within the active route
-      const isOnRoute = activeMileRange && poi.riverMile !== null
+      const hasActiveRoute = !!activeMileRange && (!activeRiverId || poi.riverId === activeRiverId);
+      const isOnRoute = hasActiveRoute && activeMileRange && poi.riverMile !== null
         ? poi.riverMile >= activeMileRange.min && poi.riverMile <= activeMileRange.max
         : false;
-      const hasActiveRoute = !!activeMileRange;
 
       // Highlighted: larger, glowing; Dimmed: smaller, transparent
       const markerSize = hasActiveRoute && isOnRoute ? baseSize + 6 : baseSize;
@@ -206,12 +208,13 @@ export default function POIMarkers({ pois, activeMileRange }: POIMarkersProps) {
     return () => {
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
-      rootsRef.current.forEach((root) => root.unmount());
+      const oldRoots = rootsRef.current;
+      queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
       markersRef.current = [];
       popupsRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, pois, activeMileRange]);
+  }, [map, pois, activeMileRange, activeRiverId]);
 
   return null;
 }

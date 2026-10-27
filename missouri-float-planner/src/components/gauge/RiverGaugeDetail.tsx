@@ -493,6 +493,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             photos; the redesign leads with how the number came about. */}
           <GaugeHistoryChart
             key={activeGauge.usgsSiteId}
+            riverId={riverGroup.riverId}
+            riverSlug={riverSlug}
+            provider={gaugeDetail?.provider}
+            timeZone={gaugeDetail?.timeZone}
             siteId={activeGauge.usgsSiteId}
             siteName={activeGauge.name}
             thresholds={chartThresholds}

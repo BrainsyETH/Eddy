@@ -128,7 +128,7 @@ test('the gauge detail route is still the caller this protects', () => {
   // If this route ever starts passing p_offset, the pair stops needing to be
   // resolvable and this file should be deleted rather than worked around.
   const route = readFileSync(
-    path.resolve(process.cwd(), 'src/app/api/gauges/[siteId]/route.ts'),
+    path.resolve(process.cwd(), 'src/lib/gauges/detail-response.ts'),
     'utf8',
   );
   const call = route.match(/rpc\(\s*'search_gauges'\s*,\s*\{([^}]*)\}/);

@@ -50,34 +50,53 @@ export default function PlannerAccessLayer({ places, excludeRiverSlug, onSelect 
 }
 
 /** Search and map taps use the same selection and camera treatment. */
-export function PlannerPlaceFocus({ place, panelRef }: {
+export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera, panelRef, stripRef }: {
   place: PlannerMapPlace | null;
+  bounds?: [number, number, number, number];
+  request: number;
+  preserveInitialCamera: boolean;
   panelRef: RefObject<HTMLDivElement | null>;
+  stripRef: RefObject<HTMLDivElement | null>;
 }) {
   const map = useMap();
+  const [west, south, east, north] = bounds ?? [];
   useEffect(() => {
-    if (!place) return;
+    if (preserveInitialCamera && request === 0) return;
+    if (!place && (west === undefined || south === undefined || east === undefined || north === undefined)) return;
     let frame = 0;
     const focus = () => {
       cancelAnimationFrame(frame);
-      // Run after river bounds fitting. Center in the map area to the right
-      // of the actual panel, including its inset; no assumed panel width.
       frame = requestAnimationFrame(() => {
         const canvas = map.getCanvas().getBoundingClientRect();
         const panel = panelRef.current?.getBoundingClientRect();
-        const coveredWidth = panel ? Math.max(0, Math.min(canvas.width, panel.right - canvas.left)) : 0;
-        map.flyTo({
-          center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
-          offset: [coveredWidth / 2, 0],
-          duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650,
-        });
+        const strip = stripRef.current?.getBoundingClientRect();
+        // Frame the usable map area, accounting for the actual panel, report,
+        // controls and access strip rather than assuming a sidebar width.
+        const padding = {
+          left: panel ? Math.min(canvas.width / 2, Math.max(24, panel.right - canvas.left + 24)) : 24,
+          right: 64,
+          top: 80,
+          bottom: strip ? Math.min(canvas.height / 2, canvas.bottom - strip.top + 16) : 48,
+        };
+        const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650;
+        if (place) {
+          map.flyTo({
+            center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
+            offset: [(padding.left - padding.right) / 2, (padding.top - padding.bottom) / 2], duration,
+          });
+        } else if (west !== undefined && south !== undefined && east !== undefined && north !== undefined) {
+          // MapLibre's fit padding adjusts the calculated center without
+          // retaining asymmetric camera padding for subsequent map gestures.
+          map.fitBounds([[west, south], [east, north]], { padding, maxZoom: 12, duration });
+        }
       });
     };
     focus();
     const observer = new ResizeObserver(focus);
     if (panelRef.current) observer.observe(panelRef.current);
+    if (stripRef.current) observer.observe(stripRef.current);
     map.on('resize', focus);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); map.off('resize', focus); };
-  }, [map, place, panelRef]);
+  }, [map, place, west, south, east, north, request, preserveInitialCamera, panelRef, stripRef]);
   return null;
 }

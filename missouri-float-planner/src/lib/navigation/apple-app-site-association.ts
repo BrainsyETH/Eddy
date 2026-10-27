@@ -51,6 +51,8 @@ export const APP_ID = `${APPLE_TEAM_ID}.${IOS_BUNDLE_ID}`;
  * eddy-ios/app/+native-intent.tsx. The test below fails if the two disagree.
  */
 export const CLAIMED_PATHS = ['/plan/*'] as const;
+/** Activate only after ADR 0015's store/device gates. Ordinary gauge/river links stay web links. */
+export const SHARE_CLAIMED_PATHS = ['/share/gauge/*', '/share/chart/*'] as const;
 
 export interface AppleAppSiteAssociation {
   applinks: {
@@ -58,7 +60,7 @@ export interface AppleAppSiteAssociation {
   };
 }
 
-export function appleAppSiteAssociation(): AppleAppSiteAssociation {
+export function appleAppSiteAssociation(shareLinksEnabled = false): AppleAppSiteAssociation {
   return {
     applinks: {
       details: [
@@ -67,9 +69,9 @@ export function appleAppSiteAssociation(): AppleAppSiteAssociation {
           // The modern `components` form rather than the legacy `paths` array.
           // iOS 13+ reads this one, and it is what supports exclusions if the
           // claimed set ever needs them.
-          components: CLAIMED_PATHS.map((path) => ({
+          components: [...CLAIMED_PATHS, ...(shareLinksEnabled ? SHARE_CLAIMED_PATHS : [])].map((path) => ({
             '/': path,
-            comment: 'Shared float plans open in the Eddy app',
+            comment: 'Shared Eddy content opens in the app',
           })),
         },
       ],

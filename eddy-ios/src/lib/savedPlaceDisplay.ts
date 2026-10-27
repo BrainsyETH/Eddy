@@ -43,9 +43,11 @@ export function savedCampingDisplay(place: SavedPlace, now: number) {
   const availability = fresh && (hasUpcomingNight || upcomingWindow) ? saved.availability : null;
   const hero = availabilityHero(availability, today, saved.name);
   const summary = hero ? [hero.count === null ? hero.headline : `${hero.count} ${hero.headline}`,
-    hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : 'Availability needs an update';
+    hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : 'Availability out of date';
   return {
     availability, name: saved.name, today, summary,
+    compactSummary: hero ? [hero.count === null ? hero.headline : `${hero.count} ${hero.headline}`,
+      hero.caption, hero.walkUp].filter(Boolean).join(' · ') : summary,
     age: shortAge(Number.isFinite(ageMs) && ageMs >= 0 ? ageMs / 3_600_000 : null),
     accessibilityLabel: availabilityVoiceOver(availability, today, saved.name) ?? summary,
   };
@@ -61,9 +63,9 @@ export function savedScheduleDayLabel(day: string, now: number) {
   if (day === nextDayKey(today)) return 'Tomorrow';
   return scheduleDayLabel(day) + (day.slice(0, 4) !== today.slice(0, 4) ? ` ${day.slice(0, 4)}` : '');
 }
-export function savedPlaceSummary(place: SavedPlace, now: number) {
+export function savedPlaceSummary(place: SavedPlace, now: number, includeCamping = true) {
   const camping = savedCampingDisplay(place, now);
-  if (camping) return camping.summary;
+  if (includeCamping && place.kind === 'campground' && camping) return camping.summary;
   if (place.gauge) {
     const gauge = savedGaugeDisplay(place, now);
     return [gauge.reading ?? gauge.state, gauge.reading ? gauge.state : null, gauge.age].filter(Boolean).join(' · ');
@@ -80,6 +82,7 @@ export function savedPlaceSummary(place: SavedPlace, now: number) {
     return runs.length ? `Scheduled ${runs.map(r => windowLabel(r.from, r.to)).join(', ')} CT` : 'No generation scheduled today';
   }
   if (place.dam?.snapshot.schedule.length) return day ? 'Schedule out of date' : scheduleGroups(place, now).upcoming.length ? 'No schedule for today' : 'Schedule out of date';
+  if (includeCamping && camping) return camping.summary;
   if (!place.detailsDownloadedAt) return 'Details not downloaded';
   const parking = place.facts.find(f => f.label === 'Parking')?.value;
   return (place.tags[0] ?? parking ?? place.amenities.join(' · ')) || null;

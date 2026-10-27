@@ -12,7 +12,7 @@ import type { RiverListItem } from '../types/api';
 
 test('Next upgrades require reviewing the copied default crawler list', () => {
   const require = createRequire(import.meta.url);
-  assert.equal(require('next/package.json').version, '16.3.8',
+  assert.equal(require('next/package.json').version, '16.4.3',
     'Next changed: compare its default HTML-limited crawler list with next.config.mjs, then update this version guard.');
 });
 

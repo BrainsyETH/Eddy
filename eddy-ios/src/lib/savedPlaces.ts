@@ -1,4 +1,4 @@
-import type { AccessPointDetailResponse, AccessPointGaugeStatus, DamSnapshot, RiverService } from '@eddy/types';
+import type { AccessPointDetailResponse, AccessPointGaugeStatus, CampsiteAvailabilitySummary, DamSnapshot, RiverService } from '@eddy/types';
 import { centralDayKey, scheduleIsStale } from '@eddy/conditions/dam-schedule-copy';
 import { stripHtml, roadSurfaceLabel, parkingLabel, agencyLabel } from './accessCopy';
 import { serviceContactActions } from './serviceContactActions';
@@ -36,6 +36,7 @@ export interface SavedPlace {
 interface PlacePin {
   id: string; name: string; layer: string; coordinates: SavedPlace['coordinates'];
   riverSlug?: string | null; detailRoute?: string | null; body?: string | null;
+  availability?: CampsiteAvailabilitySummary | null;
   contactLinks?: { label: string; url: string }[]; link?: { label: string; url: string } | null;
 }
 export function accessPlaceId(route: string) { return `access:${route}`; }
@@ -48,7 +49,10 @@ export function placeFromPin(pin: PlacePin, now: string): SavedPlace | null {
     canDrive: !access, detailRoute: access ? pin.detailRoute! : null,
     notes: pin.body ? [stripHtml(pin.body)].filter((n): n is string => !!n) : [], facts: [], tags: [], amenities: [],
     links: pin.contactLinks ?? (pin.link ? [pin.link] : []), savedAt: now,
-    detailsDownloadedAt: access ? null : now, gauge: null, camping: null, dam: null,
+    detailsDownloadedAt: access ? null : now, gauge: null,
+    // A pin without inventory is not a completed detail lookup.
+    camping: pin.availability ? decodeSavedCamping({ availability: pin.availability, name: pin.name, downloadedAt: now }) : undefined,
+    dam: null,
     damChoice: 'auto', relatedDamIds: [], damsCheckedAt: null };
 }
 export function placeFromAccess(data: AccessPointDetailResponse, now: string, previous?: SavedPlace): SavedPlace {
@@ -61,7 +65,8 @@ export function placeFromAccess(data: AccessPointDetailResponse, now: string, pr
     ['Managed by', a.managingAgency ? agencyLabel(a.managingAgency) : null],
     ['Facilities', a.facilities], ['Fees', a.feeNotes], ['Local tips', a.localTips],
   ].flatMap(([label, raw]) => { const value = stripHtml(raw); return label && value ? [{ label, value }] : []; });
-  return { version: 2, id: accessPlaceId(route), kind: a.types.includes('campground') ? 'campground' : 'access',
+  return { version: 2, id: accessPlaceId(route), kind: a.types.includes('campground') && !a.types.some(type => ['boat_ramp', 'gravel_bar', 'bridge', 'access'].includes(type))
+      ? 'campground' : 'access',
     name: a.name, riverSlug: a.river.slug, riverName: a.river.name, coordinates: a.coordinates,
     drivingLat: a.drivingLat, drivingLng: a.drivingLng, canDrive: true, detailRoute: route,
     notes: [stripHtml(a.description)].filter((n): n is string => !!n), facts,

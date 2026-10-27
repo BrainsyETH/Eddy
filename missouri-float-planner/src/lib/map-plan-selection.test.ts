@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { MapAccessPoint } from '../../../packages/eddy-types';
 import { mapAccessPointPin } from '../../../eddy-ios/src/map/accessPin';
 import { mapPlanSelection } from '../../../eddy-ios/src/map/planSelection';
+import { currentPlannerAccessPoints, reconcilePlannerEndpoints } from './planner-access';
 
 const access = (id: string, riverMile: number, extra: Partial<MapAccessPoint> = {}): MapAccessPoint => ({
   id, name: id, riverMile, type: 'access', isPublic: true,
@@ -71,4 +72,39 @@ test('real map pins carry river identity even when an access has no detail slug'
     pin: mapAccessPointPin(bayCreek, 'current', 'campgrounds') }), null);
   assert.deepEqual(mapPlanSelection({ ...choosing, step: 'put-in', pin: mapAccessPointPin(upstream, 'jacks-fork') }),
     { step: 'put-in', point: upstream });
+});
+
+test('web planner hides the previous river points regardless of which request finishes first', () => {
+  const oldPoints = [bach, rymers];
+  const newPoints = [access('new-put-in', 1), access('new-take-out', 5)];
+  // Both requests pending, then the river response arrives before its accesses.
+  assert.equal(currentPlannerAccessPoints('current', 'jacks-fork', oldPoints, true), undefined);
+  assert.equal(currentPlannerAccessPoints('current', 'current', oldPoints, true), undefined);
+  // The opposite completion order must not label new points with the old river.
+  assert.equal(currentPlannerAccessPoints('current', 'jacks-fork', newPoints, false), undefined);
+  assert.equal(currentPlannerAccessPoints('current', 'current', newPoints, false), newPoints);
+  assert.equal(currentPlannerAccessPoints(null, 'current', newPoints, false), undefined);
+});
+
+test('web deep-link endpoints survive loading and are reconciled with the completed response', () => {
+  const selection = { putIn: bach.id, takeOut: rymers.id };
+  const pending = currentPlannerAccessPoints('current', 'current', [bach, rymers], true);
+  assert.deepEqual(reconcilePlannerEndpoints(pending, selection), selection);
+  const currentPoints = [access('current-put-in', 0), access('current-take-out', 6)];
+  const ready = currentPlannerAccessPoints('current', 'current', currentPoints, false);
+  assert.deepEqual(reconcilePlannerEndpoints(ready, selection), { putIn: null, takeOut: null });
+  const validSelection = { putIn: currentPoints[0].id, takeOut: currentPoints[1].id };
+  assert.deepEqual(reconcilePlannerEndpoints(ready, validSelection), validSelection);
+  assert.deepEqual(reconcilePlannerEndpoints(ready, { putIn: bach.id, takeOut: currentPoints[1].id }),
+    { putIn: null, takeOut: currentPoints[1].id });
+});
+
+test('a river with no eligible endpoints clears stale selections after loading', () => {
+  const selection = { putIn: bach.id, takeOut: rymers.id };
+  const currentPoints = currentPlannerAccessPoints('current', 'current', [noLaunch], false);
+  const endpoints = currentPoints?.filter(point => point.isFloatEndpoint !== false);
+  assert.deepEqual(reconcilePlannerEndpoints(endpoints, selection), { putIn: null, takeOut: null });
+  assert.deepEqual(reconcilePlannerEndpoints(currentPlannerAccessPoints('current', 'current', [], false), selection),
+    { putIn: null, takeOut: null });
+  assert.equal(currentPoints?.find(point => point.id === bach.id), undefined, 'old marker clicks have no current endpoint');
 });

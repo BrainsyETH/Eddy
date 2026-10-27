@@ -273,6 +273,18 @@ test('recovery searches preserve preferences and explicitly change scope using p
   assert.deepEqual(floatSearchRecoveryOptions({ ...nearby, radiusMiles: 300 }, result), []);
 });
 
+test('public-access recovery remains available at the maximum nearby radius', () => {
+  const input = { near: { lat: 37.87, lng: -91.21 }, targetHours: 6, vesselType: 'canoe' as const, publicOnly: true, radiusMiles: 300 };
+  const result = { matches: [], alternatives: [], partial: false, evaluated: 0, failed: 0, estimatedAt: '', emptyReason: 'public_access' as const };
+  assert.deepEqual(floatSearchRecoveryOptions(input, result), [
+    { label: 'Include other accesses', input: { ...input, publicOnly: false } },
+  ]);
+  assert.equal(input.publicOnly, true, 'recovery requires an explicit new search');
+  const noLaunches = { ...result, emptyReason: 'no_nearby_rivers' as const };
+  assert.deepEqual(floatSearchRecoveryOptions(input, noLaunches), [], 'missing launch data must not imply private-access routes exist');
+  assert.match(floatSearchEmptyMessage(noLaunches), /another location/, 'the radius cap still has a useful next step');
+});
+
 test('result cards never show a straight-line distance; the ordering note appears only when location was used', async () => {
   const { floatSearchUsedProximity } = await import('@shared/float-search');
   const option = { nearbyMiles: null } as { nearbyMiles: number | null };

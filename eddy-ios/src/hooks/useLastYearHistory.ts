@@ -28,7 +28,7 @@ export function useLastYearHistory(siteId: string | null, window: { from: string
     loader.select(key, async signal => {
       if (!siteId || !window) return undefined;
       const days = Math.max(1, Math.round((Date.parse(window.to) - Date.parse(window.from)) / DAY_MS));
-      const result = await fetchGaugeHistory(siteId, days, signal, window, 'daily');
+      const result = await fetchGaugeHistory(siteId, days, signal, window, 'daily', false);
       if (result === undefined) return undefined;
       return result?.readings.some(reading => reading.dischargeCfs != null) ? result.readings : null;
     });

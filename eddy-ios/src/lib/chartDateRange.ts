@@ -1,5 +1,7 @@
+import { chartStamp } from '@eddy/conditions/chart-calendar';
 /** Display the API's UTC calendar window without shifting a day in local time. */
-export function chartDateRange(from: string, to: string): string {
+export function chartDateRange(from: string, to: string, timeZone?: string): string {
+  if (timeZone) return `${chartStamp(from, timeZone, true)} – ${chartStamp(to, timeZone, true)}`;
   const start = new Date(from);
   const end = new Date(to);
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return 'Selected dates';

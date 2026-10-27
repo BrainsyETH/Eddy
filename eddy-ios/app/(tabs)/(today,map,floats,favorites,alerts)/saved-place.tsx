@@ -92,7 +92,7 @@ function SavedPlaceContent() {
       {camping ? <View style={{ gap: 6 }}>
         <Text accessibilityRole="header" style={heading}>Campsites</Text>
         <CampgroundAvailability wrapText availability={camping.availability} name={camping.name} today={camping.today}
-          pending={!camping.availability} pendingLabel="Update availability" />
+          pending={!camping.availability} pendingLabel="Availability out of date" />
         <Text style={note}>Checked {camping.age}</Text>
       </View> : null}
       {gauge ? <View style={{ gap: 6 }}>

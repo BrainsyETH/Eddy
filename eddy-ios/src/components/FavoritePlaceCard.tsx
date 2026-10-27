@@ -25,20 +25,23 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
   const campground = place.kind === 'campground';
   const kind = campground ? 'Campground' : 'Access point';
   const camping = savedCampingDisplay(place, now);
-  const gauge = !camping && place.gauge ? savedGaugeDisplay(place, now) : null;
+  const campingFirst = campground && !!camping;
+  const gauge = !campingFirst && place.gauge ? savedGaugeDisplay(place, now) : null;
   const code = gauge?.code ?? null;
   const gaugeNotice = gauge ? [gauge.condition ?? gauge.state, gauge.age].filter(Boolean).join(' · ') : null;
   const amenities = accessAmenities(place.amenities);
-  const summary = camping || gauge ? null : savedPlaceSummary(place, now);
+  const summary = campingFirst || gauge ? null : savedPlaceSummary(place, now, false);
   // Restrictions and amenities get their own rows, without repeating the
   // legacy summary's first tag or raw amenity slugs in the inset panel.
   const detailSummary = summary && !place.tags.includes(summary) && summary !== place.amenities.join(' · ')
     ? summary : null;
   const accessibilityLabel = [
     place.name, kind, place.riverName, ...place.tags,
-    camping ? `Campsites, ${camping.accessibilityLabel}, checked ${camping.age}` : null,
+    campingFirst ? `Campsites, ${camping?.accessibilityLabel}, checked ${camping?.age}` : null,
     gauge ? place.gauge?.reading.gaugeName : null, gauge?.reading ?? (gauge ? 'Reading unavailable' : null), gaugeNotice,
-    detailSummary, ...amenities.map(amenity => amenity.label),
+    detailSummary,
+    !campingFirst && camping ? `Campsites, ${camping.accessibilityLabel}, checked ${camping.age}` : null,
+    ...amenities.map(amenity => amenity.label),
   ].filter(Boolean).join(', ');
 
   return (
@@ -91,10 +94,10 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
               </View>
             ) : null}
 
-            {camping ? (
+            {campingFirst && camping ? (
               <View style={styles.camping}>
                 <CampgroundAvailability wrapText availability={camping.availability} name={camping.name} today={camping.today}
-                  pending={!camping.availability} pendingLabel="Update availability" />
+                  pending={!camping.availability} pendingLabel="Availability out of date" />
                 <Text style={[styles.notice, { color: colors.textMuted }]}>Checked {camping.age}</Text>
               </View>
             ) : gauge ? (
@@ -117,6 +120,15 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
               <View style={[styles.summary, { backgroundColor: colors.cardRaised }]}>
                 <ControlIcon name={place.dam ? 'time-outline' : 'information-circle-outline'} size={16} color={colors.textMuted} />
                 <Text style={[styles.summaryText, { color: colors.textMuted }]}>{detailSummary}</Text>
+              </View>
+            ) : null}
+
+            {!campingFirst && camping ? (
+              <View style={styles.secondaryCamping}>
+                <EddySymbol name="campground" size={18} />
+                <Text style={[styles.secondaryCampingText, { color: colors.textMuted }]}>
+                  Campsites · {camping.compactSummary} · {camping.age}
+                </Text>
               </View>
             ) : null}
 
@@ -162,6 +174,8 @@ const styles = StyleSheet.create({
   details: { marginTop: 12, marginRight: 9, minHeight: 44, justifyContent: 'center' },
   detailsContent: { gap: 10 },
   camping: { gap: 3 },
+  secondaryCamping: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  secondaryCampingText: { ...t.xs, flex: 1, flexShrink: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   tag: { maxWidth: '100%', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
   tagText: { ...t.xs, fontFamily: fonts.medium },

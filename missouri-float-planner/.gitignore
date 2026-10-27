@@ -56,3 +56,7 @@ tmp/
 
 # Temporary, development-gated chart QA route
 /src/app/chart-layout-check/
+
+# Generated map workers and temporary planner browser fixture
+/public/maplibre/
+/src/app/planner-map-layout-check/

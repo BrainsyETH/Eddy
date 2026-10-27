@@ -41,6 +41,7 @@ import type {
 import { stationTier } from '@eddy/conditions/station-tier';
 
 export interface GaugeSeed {
+  timeZone?: string;
   /** gauge_stations.id, when the source knew it. Stars are keyed on this. */
   id: string | null;
   siteId: string;
@@ -385,6 +386,7 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
     name: gauge.name,
     curated: gauge.curated,
     coordinates: gauge.coordinates,
+    timeZone: gauge.timeZone,
     gaugeHeightFt: gauge.gaugeHeightFt,
     dischargeCfs: gauge.dischargeCfs,
     readingTimestamp: gauge.readingTimestamp,

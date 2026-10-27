@@ -1178,11 +1178,15 @@ Snapshots include labeled parking, road, agency, facilities, fees and tips;
 private access and required fees appear first. They retain coordinates,
 driving location, amenities, contact/booking links and any linked campsite
 availability returned by the existing access/service request. Availability uses
-the same campsite count and night strip as the map, without a water-reading
-corner. Its original provider timestamp stays visible; at 72 hours, with an
+the same campsite count and night strip as the map on campground cards.
+Access points (including mixed-use ramps) lead with the gauge or dam schedule,
+retain the fresh condition stripe and spoken reading, and show camping in a
+compact secondary row that can wrap with larger text. Its original provider timestamp stays visible; at 72 hours, with an
 invalid/future timestamp, or after all relevant nights pass, counts are hidden
-and the panel requests an update. Old weekend counts cannot resurface after
+and the panel says “Availability out of date”. Old weekend counts cannot resurface after
 the weekend starts passing. The gauge remains in the saved details.
+Saving retains any inventory already on the pin with its original provider timestamp.
+Missing pin inventory stays unchecked until a successful detail lookup.
 Saving starts a download. **Refresh** retries explicitly;
 foregrounding and reconnecting also retry missing/stale downloads while the
 app is active and connected. A batch handles at most four places with two
@@ -1805,6 +1809,24 @@ always retains its full-window value scale. Closing and reopening the expanded
 chart retains the fitting choice for the same zoomed range. Fitting and the
 Compare panel's full threshold scale are mutually exclusive choices.
 
+Expanded USGS charts have a Share action (the system share glyph). It opens a
+native action sheet titled with the station and visible dates: Share Link sends
+a fixed-date web link through `shareLink()`, like every other screen; Share
+Image renders the PNG on the server and hands the system share sheet the file
+together with the link text, so Messages sends both. There is no separate
+preview screen: the system share sheet previews the attachment. Image
+preparation requires internet; a failure to prepare it is reported, a cancel or
+failure inside the share sheet is not. Station sharing uses dedicated USGS and USACE share paths; ordinary
+gauge and dam website URLs keep their existing behavior. See
+[ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for the versioned
+state contract, shared scale/calendar rules and outstanding device gates.
+Deploy the additive web routes and timezone fields before distributing the
+app build. Charts use station time rather than device time. Missing coordinates
+or older web responses without `timeZone` use UTC, with a visible UTC note on
+the chart; skipping the deployment order therefore produces UTC labels.
+App-opening associations remain off until the ADR's store and
+compatibility gates are recorded; shipping the handlers does not enable them.
+
 The app config permits native rotation. The local `eddy-orientation` Expo
 module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run
@@ -1947,3 +1969,5 @@ verify the **destination pin**, not just that onX/Gaia launch. Test each float
 endpoint and the shuttle direction, a curated parking override, Cancel/backdrop
 and VoiceOver escape, double taps, return to the planner, offline saved trips,
 large text on a small phone, both appearances, and Reduce Motion.
+
+Shared chart views retain the timezone saved in the link. New links include a river slug alongside its UUID for recovery after a catalog reseed. Image attachments report unavailable context rather than substituting current readings; link sharing stays available during image preparation. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for compatibility and device-release gates.
