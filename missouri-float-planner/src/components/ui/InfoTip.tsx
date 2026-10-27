@@ -6,7 +6,9 @@
 // position:fixed with a coordinate computed from the trigger, so it escapes any
 // `overflow:hidden` ancestor (chart cards, reading cards) instead of clipping.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useId, useRef, useState, type CSSProperties } from 'react';
+
+import { createPortal } from 'react-dom';
 
 export interface InfoTipColors {
   /** (i) glyph color. */
@@ -25,11 +27,13 @@ interface InfoTipProps {
   ariaLabel: string;
   colors: InfoTipColors;
   size?: number;
+  branded?: boolean;
 }
 
 const POPOVER_WIDTH = 240;
 
-export default function InfoTip({ title, body, ariaLabel, colors, size = 16 }: InfoTipProps) {
+export default function InfoTip({ title, body, ariaLabel, colors, size = 16, branded = false }: InfoTipProps) {
+  const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -54,25 +58,31 @@ export default function InfoTip({ title, body, ariaLabel, colors, size = 16 }: I
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       if (btnRef.current?.contains(e.target as Node)) return;
       if (popRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); btnRef.current?.focus({ preventScroll: true }); } };
     const close = () => setOpen(false);
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDoc);
+    document.addEventListener('keydown', onKey, true);
     // Fixed popover can't follow a scroll/resize — close instead of drift.
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
     return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDoc);
+      document.removeEventListener('keydown', onKey, true);
       window.removeEventListener('scroll', close, true);
       window.removeEventListener('resize', close);
     };
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !pos || !popRef.current) return;
+    const rect = popRef.current.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 10) setPos({ ...pos, top: Math.max(10, window.innerHeight - rect.height - 10) });
+  }, [open, pos]);
 
   const glyph = Math.round(size * 0.72);
 
@@ -83,6 +93,7 @@ export default function InfoTip({ title, body, ariaLabel, colors, size = 16 }: I
         type="button"
         aria-label={ariaLabel}
         aria-expanded={open}
+        aria-controls={open ? id : undefined}
         onClick={toggle}
         className="info-tip-trigger"
         style={{
@@ -109,9 +120,10 @@ export default function InfoTip({ title, body, ariaLabel, colors, size = 16 }: I
           <path d="M12 7.7h.01" />
         </svg>
       </button>
-      {open && pos && (
+      {open && pos && createPortal(
         <div
           ref={popRef}
+          id={id}
           role="dialog"
           aria-label={title}
           style={{
@@ -122,16 +134,16 @@ export default function InfoTip({ title, body, ariaLabel, colors, size = 16 }: I
             width: `min(${POPOVER_WIDTH}px, calc(100vw - 20px))`,
             boxSizing: 'border-box',
             padding: '10px 12px',
-            borderRadius: 10,
+            borderRadius: branded ? 8 : 10,
             background: colors.popBg,
-            border: `1px solid ${colors.popBorder}`,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.20)',
+            border: `${branded ? 2 : 1}px solid ${colors.popBorder}`,
+            boxShadow: branded ? 'var(--shadow-md)' : '0 10px 30px rgba(0,0,0,0.20)',
             textAlign: 'left',
           }}
         >
           <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 3, color: colors.title }}>{title}</div>
           <div style={{ fontSize: 12, lineHeight: 1.45, color: colors.body }}>{body}</div>
-        </div>
+        </div>, document.body
       )}
     </>
   );

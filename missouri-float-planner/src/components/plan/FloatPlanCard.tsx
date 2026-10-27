@@ -13,6 +13,7 @@ import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Share2, Download, X, GripHorizontal, Flag, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2, MapPin, Mountain, Landmark, Eye, CircleDot, Star, Info, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/types/api';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import PlanFreshnessNotice from '@/components/plan/PlanFreshnessNotice';
@@ -1141,7 +1142,7 @@ function JourneyCenter({
 }
 
 // Mobile Bottom Sheet Component
-function MobileBottomSheet({
+export function MobileBottomSheet({
   plan,
   putInPoint,
   takeOutPoint,
@@ -1159,7 +1160,11 @@ function MobileBottomSheet({
   lastValidAt = null,
   onRetry,
   sheetRef,
+  children,
+  selectionId,
 }: {
+  children?: React.ReactNode;
+  selectionId?: string | null;
   plan: FloatPlan;
   putInPoint: AccessPoint;
   takeOutPoint: AccessPoint;
@@ -1185,6 +1190,7 @@ function MobileBottomSheet({
   // Lead with the decision on phones. Peek keeps enough map visible for
   // orientation while exposing time, distance, and endpoints immediately.
   const [sheetState, setSheetState] = useState<SheetState>('peek');
+  useEffect(() => { if (selectionId) setSheetState('peek'); }, [selectionId]);
   const [putInExpanded, setPutInExpanded] = useState(false);
   const [takeOutExpanded, setTakeOutExpanded] = useState(false);
   const dragRef = useRef<{
@@ -1323,10 +1329,10 @@ function MobileBottomSheet({
       // z-40: below the site header menu, river picker, photo/feedback modals,
       // and fullscreen map (all z-50) — the sheet used to win those ties by
       // DOM order and drew over every one of them.
-      className={`fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl shadow-2xl overflow-hidden lg:hidden ${
+      className={`fixed bottom-0 left-0 right-0 z-40 rounded-t-lg border-2 border-primary-700 shadow-md overflow-hidden lg:hidden ${
         isOpen
-          ? 'bg-white border-t border-neutral-200'
-          : 'bg-[#1e3a5f] border-t border-[#2a4d7a]'
+          ? 'bg-white'
+          : 'bg-primary-800'
       }`}
       // Safe-area inset keeps the sheet clear of the home indicator / gesture bar.
       // While dragging, height tracks the finger 1:1 (no transition); on release
@@ -1336,7 +1342,7 @@ function MobileBottomSheet({
         height: `calc(${sheetHeight ?? COLLAPSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
         transition: isDragging
           ? 'none'
-          : 'height 380ms var(--ease-out-expo), background-color 260ms ease-out, border-color 260ms ease-out',
+          : 'height var(--duration-slow) var(--ease-out-expo)',
         willChange: 'height',
       }}
     >
@@ -1358,11 +1364,9 @@ function MobileBottomSheet({
               live ONCE in the route summary card below, not repeated here. */}
           <div className="px-4 pb-3">
             <div className="flex items-center justify-between">
-              <h2 id="mobile-float-plan-title" className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</h2>
+              <h2 id="mobile-float-plan-title" className="text-sm font-bold text-neutral-900">{children ? 'Build a Route' : 'Float Plan'}</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-                  {conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
-                </span>
+                <ConditionBadge code={conditionCode} label={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : undefined} />
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1370,7 +1374,7 @@ function MobileBottomSheet({
                   }}
                   aria-label={sheetState === 'peek' ? 'Expand float plan' : 'Collapse float plan'}
                   aria-expanded={true}
-                  className="p-1"
+                  className="flex min-h-11 min-w-11 items-center justify-center"
                 >
                   {sheetState === 'peek'
                     ? <ChevronUp size={20} className="text-neutral-900" />
@@ -1414,7 +1418,7 @@ function MobileBottomSheet({
       )}
 
       {/* Sheet Content (peek shows the route summary; scroll for the rest) */}
-      <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 84px)` }}>
+      {children ? <div className="flex min-h-0 flex-col pb-safe" style={{ height: 'calc(100% - 84px)' }}>{children}</div> : <div className="overflow-y-auto px-4 pb-safe" style={{ height: `calc(100% - 84px)` }}>
         {isLastValidFallback && lastValidAt ? (
           <div className="mb-3">
             <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
@@ -1625,7 +1629,7 @@ function MobileBottomSheet({
             Image
           </button>
         </div>}
-      </div>
+      </div>}
     </div>
   );
 }

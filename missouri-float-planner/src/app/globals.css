@@ -767,55 +767,38 @@ h1, h2, h3, h4, h5, h6 {
   border: var(--border-thin) solid var(--color-border);
 }
 
-/* Desktop route planning: a warm, readable glass surface over geography.
-   Solid fallback is intentional for browsers without backdrop filtering. */
-@media (min-width: 1024px) {
-  .planner-desktop .planner-glass {
-    background: var(--color-surface);
-    border: 1px solid color-mix(in srgb, var(--color-border) 65%, white);
-    box-shadow: 0 8px 32px rgb(15 45 53 / 16%), inset 0 1px 0 rgb(255 255 255 / 65%);
-  }
-  @supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
-    .planner-desktop .planner-glass {
-      background: color-mix(in srgb, var(--color-surface) 86%, transparent);
-      -webkit-backdrop-filter: blur(24px) saturate(135%);
-      backdrop-filter: blur(24px) saturate(135%);
-    }
-  }
-  .planner-desktop .planner-search:focus-within > .planner-glass {
-    border-color: var(--color-primary-400);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-300) 35%, transparent), 0 8px 32px rgb(15 45 53 / 16%);
-  }
-  .planner-desktop .maplibregl-ctrl-group {
-    overflow: hidden;
-    border: 1px solid rgb(255 255 255 / 50%);
-    border-radius: 14px;
-    background: rgb(255 255 255 / 88%);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 6px 24px rgb(15 45 53 / 15%);
-  }
-  .planner-desktop .maplibregl-ctrl-group button { width: 38px; height: 38px; }
-  .planner-desktop .planner-glass button:focus-visible,
-  .planner-desktop .planner-glass a:focus-visible {
-    outline: 2px solid var(--color-primary-500);
-    outline-offset: 2px;
-  }
-}
-/* Mobile planner search: the same card, solid (older mobile Safari drops
-   color-mix/backdrop backgrounds, which over satellite imagery is unreadable). */
-.planner-mobile .planner-glass {
+/* Planner surfaces use the same framed, opaque Eddy treatment as other dashboards. */
+.planner-glass {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 6px 24px rgb(15 45 53 / 18%);
+  border: var(--border-base) solid var(--color-primary-700);
+  box-shadow: var(--shadow-md);
+  border-radius: 8px;
 }
-/* Focus shows on the card's border, not as a square ring inside it. */
-.planner-mobile .planner-search input:focus-visible { outline: none; }
-.planner-mobile .planner-search:focus-within > .planner-glass {
-  border-color: var(--color-primary-400);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-300) 35%, transparent), 0 6px 24px rgb(15 45 53 / 18%);
+.planner-search:focus-within > .planner-glass { outline: 2px solid var(--color-primary-400); outline-offset: 2px; }
+.planner-search input:focus-visible { outline: none; }
+.planner-desktop .maplibregl-ctrl-group {
+  border: 2px solid var(--color-primary-700);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
 }
-@media (min-width: 1024px) and (prefers-reduced-transparency: reduce) {
-  .planner-desktop .planner-glass { background: var(--color-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.planner-desktop .maplibregl-ctrl-group button { width: 40px; height: 40px; }
+.planner-place-popup { z-index: 35; }
+.planner-place-popup .maplibregl-popup-content { padding: 0; background: none; box-shadow: none; }
+.planner-place-popup .maplibregl-popup-tip { border-top-color: var(--color-primary-700); }
+.planner-place-popup section { max-height: min(360px, 46dvh); overflow-y: auto; overscroll-behavior: contain; }
+.planner-selected-ring {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 3px solid var(--color-primary-800);
+  box-shadow: 0 0 0 3px white;
+  pointer-events: none; z-index: 12;
+}
+.planner-selected-ring span {
+  position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
+  max-width: 180px; width: max-content; padding: 3px 7px;
+  color: var(--color-primary-900); background: white;
+  border: 2px solid var(--color-primary-700); border-radius: 4px;
+  font-size: 12px; font-weight: 700; text-align: center;
 }
 
 /* ===== BADGES ===== */

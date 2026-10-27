@@ -28,10 +28,12 @@ interface AccessPointMarkersProps {
   selectedTakeOut?: string | null;
   /** Desktop browsing opens details first, including places without launches. */
   interaction?: 'select' | 'inspect';
+  inspectedId?: string | null;
 }
 
 export default function AccessPointMarkers({
   accessPoints,
+  inspectedId,
   onMarkerClick,
   selectedPutIn,
   selectedTakeOut,
@@ -92,7 +94,7 @@ export default function AccessPointMarkers({
       let zIndex = 1;
 
       if (isPutIn) {
-        bgColor = interaction === 'inspect' ? '#1F6373' : '#478559'; // river-forest (green) for put-in
+        bgColor = interaction === 'inspect' ? '#1D525F' : '#478559'; // river-forest (green) for put-in
         borderColor = '#ffffff';
         iconType = 'putin';
         scale = 1.2;
@@ -182,17 +184,19 @@ export default function AccessPointMarkers({
       rootsRef.current.push(root);
       if (interaction === 'inspect') {
         circle.style.background = '#fff';
+        circle.style.boxShadow = '2px 2px 0 #524D43';
         circle.style.borderColor = isPutIn || isTakeOut ? bgColor : '#d6d3ce';
         if (isPutIn || isTakeOut) {
           const badge = document.createElement('span');
           badge.textContent = isPutIn ? 'Put-in' : 'Take-out';
-          badge.style.cssText = `position:absolute;top:37px;white-space:nowrap;border-radius:4px;background:${bgColor};color:white;padding:2px 5px;font-size:10px;font-weight:700;pointer-events:none;`;
+          badge.style.cssText = `position:absolute;top:37px;white-space:nowrap;border-radius:4px;background:${bgColor};color:${isPutIn ? 'white' : '#2D2A24'};padding:2px 5px;font-size:10px;font-weight:700;pointer-events:none;`;
           el.appendChild(badge);
         }
       }
 
       // Hover effect - no transform to prevent marker movement
       el.addEventListener('mouseenter', () => {
+        if (interaction === 'inspect') { circle.style.borderColor = '#1D525F'; return; }
         const glowColor = isPutIn
           ? 'rgba(71, 133, 89, 0.4)' // river-forest
           : isTakeOut
@@ -203,6 +207,7 @@ export default function AccessPointMarkers({
         circle.style.opacity = '1';
       });
       el.addEventListener('mouseleave', () => {
+        if (interaction === 'inspect') { circle.style.borderColor = isPutIn || isTakeOut ? bgColor : '#d6d3ce'; return; }
         circle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
         circle.style.borderWidth = '2px';
         circle.style.opacity = '1';
@@ -260,7 +265,7 @@ export default function AccessPointMarkers({
       }).setHTML(popupContent);
 
       // Show popup on hover for hover-capable devices
-      if (supportsHoverRef.current) {
+      if (supportsHoverRef.current && interaction !== 'inspect') {
         el.addEventListener('mouseenter', () => {
           el.style.zIndex = '1'; // Lower marker z-index when popup shows
           presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
@@ -285,7 +290,7 @@ export default function AccessPointMarkers({
       // Add click handler - always allow clicks so user can deselect or change selection
       if (hasClickHandler && canActivate) {
         // Expose the marker to keyboard + assistive tech as a real button.
-        const action = interaction === 'inspect' ? 'view access details' : isPutIn
+        const action = interaction === 'inspect' ? selectedPutIn && !selectedTakeOut && !isPutIn && isEndpoint ? 'use as take-out' : 'view access details' : isPutIn
           ? 'deselect put-in'
           : isTakeOut
           ? 'deselect take-out'
@@ -326,6 +331,7 @@ export default function AccessPointMarkers({
         });
         // Surface the popup on keyboard focus, mirroring hover.
         el.addEventListener('focus', () => {
+          if (interaction === 'inspect') return;
           presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
         });
         el.addEventListener('blur', () => popup.remove());
@@ -341,6 +347,7 @@ export default function AccessPointMarkers({
           `${point.name}, river mile ${point.riverMile.toFixed(1)}, ${point.type.replace('_', ' ')}. Not a launch \u2014 no put-in or take-out here.`,
         );
         el.addEventListener('focus', () => {
+          if (interaction === 'inspect') return;
           presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
         });
         el.addEventListener('blur', () => popup.remove());
@@ -373,6 +380,13 @@ export default function AccessPointMarkers({
       rootsRef.current = [];
     };
   }, [map, accessPoints, hasClickHandler, selectedPutIn, selectedTakeOut, interaction]);
+
+  useEffect(() => {
+    for (const marker of markersRef.current) {
+      const el = marker.getElement();
+      el.setAttribute('aria-pressed', String(el.dataset.accessPointId === inspectedId));
+    }
+  }, [inspectedId, accessPoints, selectedPutIn, selectedTakeOut]);
 
   return null;
 }

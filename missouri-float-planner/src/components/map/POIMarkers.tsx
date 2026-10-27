@@ -13,6 +13,7 @@ import { presentPopup } from './popup-manager';
 import { enableMarkerKeyboard, attachMarkerTabOrder } from './marker-keyboard';
 import type { PointOfInterest } from '@/types/nps';
 import { escapeHtml } from '@/lib/escape-html';
+import { plannerPoiSymbol } from '@/lib/planner-place';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 
 interface POIMarkersProps {
@@ -20,6 +21,7 @@ interface POIMarkersProps {
   activeRiverId?: string;
   activeMileRange?: { min: number; max: number } | null;
   onSelect?: (poi: PointOfInterest) => void;
+  inspectedId?: string | null;
 }
 
 const POI_ICONS: Record<string, LucideIcon> = {
@@ -38,7 +40,7 @@ const POI_ICONS: Record<string, LucideIcon> = {
 const POI_COLOR = '#0d9488'; // teal-600
 const POI_COLOR_DARK = '#0f766e'; // teal-700
 
-export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSelect }: POIMarkersProps) {
+export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSelect, inspectedId }: POIMarkersProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const popupsRef = useRef<maplibregl.Popup[]>([]);
@@ -91,6 +93,7 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSel
       // circle lives in an inner child so its size is unchanged.
       const el = document.createElement('div');
       el.className = 'poi-marker';
+      el.dataset.poiId = poi.id;
       el.style.cssText = `
         width: 44px;
         height: 44px;
@@ -133,17 +136,19 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSel
       const root = createRoot(circle);
       root.render(
         branded
-          ? React.createElement(EddyIcon, { name: poi.type === 'float_camp' ? 'campground' : poi.type === 'outfitter' ? 'outfitter' : poi.type === 'spring' || poi.type === 'waterfall' ? 'gauge' : 'accessPoint', size: 21 })
+          ? React.createElement(EddyIcon, { name: plannerPoiSymbol(poi.type), size: 21 })
           : React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
       );
       rootsRef.current.push(root);
-      if (branded) circle.style.background = '#fff';
+      if (branded) { circle.style.background = '#fff'; circle.style.borderColor = '#1D525F'; circle.style.boxShadow = '2px 2px 0 #524D43'; }
 
       // Hover effect
       el.addEventListener('mouseenter', () => {
+        if (branded) return;
         circle.style.boxShadow = `0 4px 16px rgba(0,0,0,0.35), 0 0 16px rgba(13, 148, 136, 0.4)`;
       });
       el.addEventListener('mouseleave', () => {
+        if (branded) return;
         circle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)';
       });
 
@@ -184,9 +189,11 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSel
 
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
+        if (branded) return;
           presentPopup(map, popup, [poi.longitude, poi.latitude]);
         });
         el.addEventListener('mouseleave', () => {
+        if (branded) return;
           popup.remove();
         });
         // Click pins the card and must not fall through to the river
@@ -231,6 +238,13 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSel
       rootsRef.current = [];
     };
   }, [map, pois, activeMileRange, activeRiverId, branded]);
+
+  useEffect(() => {
+    for (const marker of markersRef.current) {
+      const el = marker.getElement();
+      el.setAttribute('aria-pressed', String(el.dataset.poiId === inspectedId));
+    }
+  }, [inspectedId, pois, activeMileRange, activeRiverId]);
 
   return null;
 }
