@@ -870,7 +870,8 @@ export default function PlanPageClient({
             <PlannerAccessLayer places={catalog.places} excludeRiverSlug={activeRiver && !accessPlaceholder && visibleAccessPoints ? activeRiver.slug : undefined} onSelect={handlePlaceSelect} />
             <PlannerMapFocus place={focusPlace} bounds={showAllRivers ? defaultBounds : routeBounds ?? activeRiver?.bounds}
               request={focusRequest} preserveInitialCamera={initialCamera.current}
-              panelRef={desktopPanelRef} stripRef={desktopStripRef} />
+              panelRef={desktopPanelRef} stripRef={desktopStripRef}
+              stripReady={!!activeRiver && !!floatEndpointAccessPoints?.length} />
             {showGauges && allGaugeStations && (
               <GaugeStationMarkers
                 gauges={allGaugeStations}
@@ -1128,7 +1129,8 @@ export default function PlanPageClient({
             <PlannerMapFocus place={focusPlace} bounds={routeBounds ?? river.bounds}
               request={focusRequest} preserveInitialCamera={initialCamera.current} mobile
               panelRef={mobilePreviewRef} stripRef={mobileStripRef} sheetRef={mobileSheetRef}
-              sheetReady={!!plan && !!putInPoint && !!takeOutPoint && !selectedPlace} />
+              sheetReady={!!plan && !!putInPoint && !!takeOutPoint && !selectedPlace}
+              stripReady={!!floatEndpointAccessPoints?.length && !(putInPoint && takeOutPoint)} />
             {showGauges && gaugeStations && (
               <GaugeStationMarkers
                 gauges={gaugeStations}

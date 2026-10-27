@@ -50,7 +50,7 @@ export default function PlannerAccessLayer({ places, excludeRiverSlug, onSelect 
 }
 
 /** Search and map taps use the same selection and camera treatment. */
-export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile = false, sheetReady = false }: {
+export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile = false, sheetReady = false, stripReady = false }: {
   place: PlannerMapPlace | null;
   bounds?: [number, number, number, number];
   request: number;
@@ -60,6 +60,11 @@ export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera,
   sheetRef?: RefObject<HTMLDivElement | null>;
   mobile?: boolean;
   sheetReady?: boolean;
+  /** The access strip is mounted. It can appear after the first framing
+   *  (it waits for the river's own access data), and the observers above only
+   *  watch overlays that existed when this effect ran, so its arrival must
+   *  re-run the effect or the route's end can sit behind the strip. */
+  stripReady?: boolean;
 }) {
   const map = useMap();
   const [west, south, east, north] = bounds ?? [];
@@ -121,6 +126,6 @@ export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera,
       map.off('resize', resize); map.off('movestart', onMove); map.off('dragstart', takeControl);
       canvas.removeEventListener('pointerdown', takeControl); canvas.removeEventListener('wheel', takeControl);
     };
-  }, [map, place, west, south, east, north, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile, sheetReady]);
+  }, [map, place, west, south, east, north, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile, sheetReady, stripReady]);
   return null;
 }
