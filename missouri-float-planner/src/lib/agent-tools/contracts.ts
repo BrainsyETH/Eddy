@@ -9,7 +9,7 @@ export const statusSchema = z.enum(['ok', 'partial', 'none_recorded', 'unavailab
 export type Status = z.infer<typeof statusSchema>;
 export const resultShape = {
   status: statusSchema,
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   warnings: z.array(z.string()),
   safetyNote: z.string(),
 };

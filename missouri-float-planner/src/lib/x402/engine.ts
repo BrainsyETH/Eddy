@@ -1,13 +1,13 @@
-// x402 V2 engine — Next.js 14 adapter over @x402/core@2.18.
+// x402 V2 engine — Next.js App Router adapter over @x402/core@2.18.
 //
-// The official @x402/next package requires Next.js >= 16, so we drive the
-// framework-agnostic core primitives directly. ALL payment verification and
+// Eddy drives the framework-agnostic core primitives directly. Payment verification and
 // settlement happens inside @x402/core (`processHTTPRequest` / `processSettlement`);
-// this module only adapts request/response I/O for Next 14 and preserves Eddy's
+// this module adapts request/response I/O and preserves Eddy's
 // "browsers free, AI agents pay" policy. The orchestration mirrors @x402/next's
 // `withX402` (verify → run handler → settle only after a <400 response).
 
 import { NextRequest, NextResponse } from 'next/server';
+import { paymentHeadersWithinLimit } from './request-limits';
 import {
   x402ResourceServer,
   x402HTTPResourceServer,
@@ -48,7 +48,7 @@ import {
 const SERVICE_NAME = 'Eddy — Missouri Float Trip Planner';
 
 // ---------------------------------------------------------------------------
-// Next.js 14 HTTP adapter (identical surface to @x402/next's NextAdapter)
+// App Router HTTP adapter (identical surface to @x402/next's NextAdapter)
 // ---------------------------------------------------------------------------
 
 class NextAdapter implements HTTPAdapter {
@@ -272,6 +272,13 @@ export function withX402Route<C = StaticRouteContext>(
     // Browsers / non-agent traffic: free passthrough.
     if (!isAiAgent(request.headers.get('user-agent'))) {
       return runHandler(request);
+    }
+
+    if (!paymentHeadersWithinLimit(request.headers)) {
+      return NextResponse.json({ error: 'Payment headers too large' }, {
+        status: 431,
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
     }
 
     try {
