@@ -45,6 +45,7 @@ WEB_OUT = ROOT / "missouri-float-planner/public/icons"
 # are rendered by different components and at different sizes. See EddySymbol.tsx
 # (inline, ~18pt) and EddyScene.tsx (hero, ~110pt).
 SYMBOLS = (
+    "eddy-today",
     "eddy-weather",
     "eddy-ai-assistant",
     "eddy-water-droplet",
@@ -82,7 +83,9 @@ SYMBOLS = (
 # to black and the corners are black. "Mostly" is the problem: any dark pixel in
 # the mark that touches the edge would be eaten, silently, and nobody reviews a
 # PNG diff. Declaring the difference is cheaper than trusting it.
-PRE_CUT = frozenset({"eddy-road", "eddy-parking", "eddy-restroom"})
+# The approved Today master also has real transparency, including the spaces
+# between the rays, sun, and river bands used by the native tab's alpha mask.
+PRE_CUT = frozenset({"eddy-road", "eddy-parking", "eddy-restroom", "eddy-today"})
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot
 # to live in and the app has six of them. The rest of the catalog's scenes are
@@ -107,6 +110,7 @@ ICONS = SYMBOLS + SCENES
 # directions: the web has a chat panel and a submission form the app does not,
 # and the app has empty states the web has no equivalent for.
 WEB_ICONS = (
+    "eddy-today",
     "eddy-checking-gauge",
     "eddy-weather",
     "eddy-ai-assistant",

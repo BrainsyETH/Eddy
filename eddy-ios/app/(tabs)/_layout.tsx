@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
-import { FLOAT_TAB_ICON, FloatTabIcon } from '@/components/FloatTabIcon';
+import { BRAND_TAB_ICONS, BrandTabIcon } from '@/components/BrandTabIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
@@ -16,7 +16,7 @@ import { fonts } from '@/theme/typography';
 // "TODAY", NOT "SEARCH". The tab was named after its mechanism rather than its
 // job. Nobody opens Eddy in order to search; they open it to find out what the
 // water is doing, and searching is one of the things they do once they are
-// here. Search keeps its own magnifying glass; the tab icon names the home screen.
+// here. Search keeps its magnifying glass; Today uses Eddy's sun over the river.
 //
 // TODAY LAUNCHES, NOT MAP. The app opens on the screen that answers the
 // question people came with — "what can I float today?" — rather than on the
@@ -49,7 +49,7 @@ export default function TabsLayout() {
             map-sheet scrollers don't accidentally inherit tab-bar padding. */}
         <NativeTabs.Trigger name="(today)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
+          <NativeTabs.Trigger.Icon src={BRAND_TAB_ICONS.today} renderingMode="template" />
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(map)" disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Label>Map</NativeTabs.Trigger.Label>
@@ -57,7 +57,7 @@ export default function TabsLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(floats)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Label>Floats</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon src={FLOAT_TAB_ICON} renderingMode="template" />
+          <NativeTabs.Trigger.Icon src={BRAND_TAB_ICONS.floats} renderingMode="template" />
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(favorites)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Label>Favorites</NativeTabs.Trigger.Label>
@@ -90,7 +90,7 @@ export default function TabsLayout() {
         name="(today)"
         options={{
           title: 'Today',
-          tabBarIcon: ({ color, size }) => <ControlIcon name="home-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <BrandTabIcon name="today" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -104,7 +104,7 @@ export default function TabsLayout() {
         name="(floats)"
         options={{
           title: 'Floats',
-          tabBarIcon: ({ color, size }) => <FloatTabIcon size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <BrandTabIcon name="floats" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

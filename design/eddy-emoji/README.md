@@ -2,7 +2,8 @@
 
 This folder contains square PNG concept art for Eddy reaction and experience icons.
 The images use the existing Eddy mascot artwork as a character reference and are
-isolated on an off-white background for easy review and future app integration.
+usually isolated on an off-white background for review. Approved transparent
+masters, including Today, retain their alpha channel for app integration.
 
 ## Reaction icons
 
@@ -23,6 +24,7 @@ isolated on an off-white background for easy review and future app integration.
 - `eddy-high-water-alert.png`
 - `eddy-ai-assistant.png`
 - `eddy-weather.png`
+- `eddy-today.png`
 - `eddy-water-droplet.png`
 - `eddy-poi.png`
 - `eddy-boat-ramp.png`
@@ -44,6 +46,34 @@ concept-derived icons and writes them directly to `eddy-ios/assets/eddy/`.
 Generic Access intentionally reuses `eddy-poi.png`: it is the broad fallback
 place category, not a visually distinct facility.
 
+## Today — Morning current
+
+`eddy-today.png` is the approved **option A** from the Today tab exploration:
+three rounded sun rays, a coral half-sun, and two blue river bands with deep
+teal outlines. It was adapted from the approved concept using image generation.
+It is the shared full-color brand master, with real transparency between all
+six parts. Keep those gaps open; they carry the shape in the monochrome tab.
+
+Regenerate from the repository root:
+
+```sh
+python3 eddy-ios/scripts/build-eddy-icons.py
+node eddy-ios/scripts/build-tab-icons.cjs
+```
+
+The first command needs Pillow and creates matching 300px color exports in
+`eddy-ios/assets/eddy/` and `missouri-float-planner/public/icons/`, registered
+as `today` in `EddySymbol` and `EddyIcon`. The second needs the installed web
+dependencies and creates black alpha templates at 28 × 28 points, with artwork
+contained inside 26 × 26 points, at 1x/2x/3x in `eddy-ios/assets/tab-icons/`.
+Only those bundled exports are imported by the app.
+
+iOS uses template rendering and the native tab's selected/unselected tint.
+Keep the tab monochrome; use the color artwork in ordinary brand-icon slots.
+Before distribution, check the native Today tab on a small iPhone in light,
+dark, Increase Contrast, and Reduce Transparency, selected and unselected.
+Inspect all three rays, both river gaps, and alignment with the other tabs.
+
 ## Art direction
 
 - Neo-Brutalist mascot sticker style
@@ -53,7 +83,7 @@ place category, not a visually distinct facility.
 - One clear action or prop per icon, optimized for small-size recognition
 - No words, watermarks, detailed scenery, or photorealistic elements
 
-The AI assistant, weather, water droplet, POI, boat ramp, USGS gauge, hazard,
+The Today, AI assistant, weather, water droplet, POI, boat ramp, USGS gauge, hazard,
 campground, outfitter, lodging, river, alert/watch, and offline-map icons are mascot-free utility
 symbols that use the same palette and bold sticker treatment without depicting
 Eddy.

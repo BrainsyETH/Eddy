@@ -4,7 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'r
 import { useFocusEffect } from 'expo-router';
 import { MenuView } from '@react-native-menu/menu';
 import { ControlIcon } from '@/components/ControlIcon';
-import { FloatTabIcon } from '@/components/FloatTabIcon';
+import { BrandTabIcon } from '@/components/BrandTabIcon';
 import { ScenicImage } from '@/components/ScenicImage';
 import type { SavedFloat } from '@/hooks/useSavedFloats';
 import { radii } from '@/theme/layout';
@@ -60,7 +60,7 @@ export function SavedFloatRow({
           accessible={false}
           importantForAccessibility="no-hide-descendants"
         >
-          <FloatTabIcon color={colors.interactive} size={46} />
+          <BrandTabIcon name="floats" color={colors.interactive} size={46} />
           {photo ? (
             <ScenicImage
               source={{ uri: photo }}
