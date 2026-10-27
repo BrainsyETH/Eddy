@@ -4,7 +4,7 @@ import { prepareMapWorker } from './scripts/prepare-map-worker.mjs';
 
 prepareMapWorker();
 
-// Snapshot of Next 16.3.8's default HTML-limited crawler list. Keep config
+// Snapshot of Next 16.4.3's default HTML-limited crawler list. Keep config
 // loading independent of private Next module paths. visibility-seo.test.ts
 // flags upgrades so this list is checked against the newly installed version.
 // Source: packages/next/src/shared/lib/router/utils/html-bots.ts in vercel/next.js.
