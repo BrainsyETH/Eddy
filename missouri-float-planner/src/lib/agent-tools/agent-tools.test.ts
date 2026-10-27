@@ -11,7 +11,7 @@ import { createAgentServer } from './mcp-server';
 import { AGENT_TOOLS } from './catalog';
 import { EDDY_TOOLS } from '../chat/tools';
 import { AGENT_VERSION, RiverNotFoundError, freshness, tripDate } from './contracts';
-import { approximateLocation } from '@shared/float-search';
+import { approximateLocation, floatSearchRecoveryOptions } from '@shared/float-search';
 import {
   readMcpBody,
   MAX_BODY_BYTES,
@@ -1279,6 +1279,46 @@ test('empty searches distinguish private endpoints, missing access data, high wa
     assert.deepEqual([...result.matches, ...result.alternatives], [], reason);
     assert.equal(result.emptyReason, reason);
     assert.ok(result.unavailableReason, 'older iOS builds receive the explanation through the existing field');
+  }
+});
+
+test('nearby public-only searches recover excluded private or unknown launches, including at the radius cap', async () => {
+  for (const isPublic of [false, null]) for (const radiusMiles of [100, 300]) {
+    const f = fixture();
+    f.tables.access_points.forEach(p => { p.is_public = isPublic; });
+    const input = { ...nearbyInput, radiusMiles };
+    const result = await findNearbyFloats(f.db, input, { sources: f.sources, now: NOW });
+    assert.deepEqual([...result.matches, ...result.alternatives], []);
+    assert.equal(result.evaluated, 0, 'private routes must not be assessed without opting in');
+    assert.equal(result.partial, false);
+    assert.equal(result.emptyReason, 'public_access');
+    assert.match(result.unavailableReason!, /Include other accesses/, 'older iOS builds receive the explanation');
+    const recovery = floatSearchRecoveryOptions(input, result);
+    assert.deepEqual(recovery[0], { label: 'Include other accesses', input: { ...input, publicOnly: false } });
+    assert.equal(recovery.length, radiusMiles === 300 ? 1 : 2);
+    const broadened = await findNearbyFloats(f.db, recovery[0].input, { sources: f.sources, now: NOW });
+    const routes = [...broadened.matches, ...broadened.alternatives];
+    assert.ok(routes.length > 0);
+    assert.ok(routes.every(route => route.putIn.isPublic === isPublic && route.takeOut.isPublic === isPublic));
+  }
+});
+
+test('nearby access recovery requires a mapped downstream pair with a put-in inside the radius', async () => {
+  for (const scenario of ['none', 'single', 'outside', 'upstream_outside', 'unknown_miles', 'same_mile', 'unapproved', 'not_endpoints'] as const) {
+    const f = fixture();
+    f.tables.access_points.forEach(p => { p.is_public = false; });
+    if (scenario === 'none') f.tables.access_points = [];
+    if (scenario === 'single') f.tables.access_points.splice(1);
+    if (scenario === 'outside') f.tables.access_points.forEach(p => { p.location_orig = { type: 'Point', coordinates: [-100, 37] }; });
+    if (scenario === 'upstream_outside') f.tables.access_points.slice(0, -1).forEach(p => { p.location_orig = { type: 'Point', coordinates: [-100, 37] }; });
+    if (scenario === 'unknown_miles') f.tables.access_points.forEach(p => { p.river_mile_downstream = null; });
+    if (scenario === 'same_mile') f.tables.access_points.forEach(p => { p.river_mile_downstream = 4; });
+    if (scenario === 'unapproved') f.tables.access_points.forEach(p => { p.approved = false; });
+    if (scenario === 'not_endpoints') f.tables.access_points.forEach(p => { p.is_float_endpoint = false; });
+    const result = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+    assert.equal(result.emptyReason, 'no_nearby_rivers', scenario);
+    assert.equal(result.evaluated, 0, scenario);
+    assert.ok(floatSearchRecoveryOptions(nearbyInput, result).every(option => option.input.publicOnly), scenario);
   }
 });
 test('route results vary photos using their own endpoints, even when the first gallery image repeats', async () => {

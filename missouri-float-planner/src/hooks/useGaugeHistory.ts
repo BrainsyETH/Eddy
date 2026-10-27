@@ -29,6 +29,7 @@ export interface HistoryWindowRequest {
   from: string;
   to?: string | null;
   resolution?: 'auto' | 'instant' | 'daily';
+  timeZone?: string;
 }
 
 export async function fetchHistory(
@@ -36,8 +37,10 @@ export async function fetchHistory(
   days: number,
   window?: HistoryWindowRequest | null,
   signal?: AbortSignal,
+  stationCalendar = true,
 ): Promise<NormalizedGaugeHistory | null> {
-  const params = new URLSearchParams({ days: String(days) });
+  const params = new URLSearchParams({ days: String(days), ...(stationCalendar ? { calendar: 'station' } : {}) });
+  if (stationCalendar && window?.timeZone) params.set('tz', window.timeZone);
   if (window?.from) params.set('from', window.from);
   if (window?.to) params.set('to', window.to);
   if (window?.resolution && window.resolution !== 'auto') {
@@ -57,7 +60,7 @@ export function useGaugeHistory(
   window?: HistoryWindowRequest | null,
 ) {
   return useQuery<NormalizedGaugeHistory | null, Error>({
-    queryKey: ['gaugeHistory', siteId, days, window?.from ?? null, window?.to ?? null, window?.resolution ?? 'auto'],
+    queryKey: ['gaugeHistory', siteId, days, window?.from ?? null, window?.to ?? null, window?.resolution ?? 'auto', window?.timeZone ?? null],
     queryFn: async (): Promise<NormalizedGaugeHistory | null> => {
       if (!siteId) return null;
       return fetchHistory(siteId, days, window);
@@ -78,7 +81,7 @@ export function useGaugeHistoryPrefetch() {
   return useCallback((siteIds: string[], days: number = 14) => {
     for (const siteId of siteIds) {
       queryClient.prefetchQuery({
-        queryKey: ['gaugeHistory', siteId, days, null, null, 'auto'],
+        queryKey: ['gaugeHistory', siteId, days, null, null, 'auto', null],
         queryFn: (): Promise<NormalizedGaugeHistory | null> => fetchHistory(siteId, days),
         staleTime: 30 * 60 * 1000,
       });

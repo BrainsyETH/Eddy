@@ -12,7 +12,7 @@ import { appleAppSiteAssociation } from '@/lib/navigation/apple-app-site-associa
 export const dynamic = 'force-dynamic';
 
 export function GET() {
-  return NextResponse.json(appleAppSiteAssociation(), {
+  return NextResponse.json(appleAppSiteAssociation(process.env.SHARE_APP_LINKS_ENABLED === 'true'), {
     headers: {
       // Required. Served as anything else — application/octet-stream is what a
       // static host picks for an extensionless file — and iOS ignores it

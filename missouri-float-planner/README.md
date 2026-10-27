@@ -341,6 +341,21 @@ explainers. The documents require a valid admin session even when opened by
 direct URL. See [the guide catalog](../docs/visuals/README.md) for source files,
 editing instructions, and access-control details.
 
+## Scheduled job monitoring
+
+Diagnostics distinguish the latest cron tick from the latest work outcome.
+Skipped ticks and running retries do not clear a failed or partial outcome.
+Attempts still marked started after ten minutes require attention even after
+a later skip: they did not report completion, which can mean a timeout or a
+failed final monitoring write. Historical run rows are not rewritten.
+Successful work clears attention. Latest ticks still determine schedule deadlines.
+Both views use the existing 30-day job-history retention window.
+
+The additive `20261027111520_admin_job_last_result` migration provides this
+outcome history while preserving the existing RPC fields. Apply it before
+relying on failure persistence. Until then, a skipped or running latest tick
+reports the completed outcome as unavailable rather than assuming success.
+
 ## Data Pipeline Scripts
 
 Located in `/scripts`:
@@ -392,3 +407,5 @@ own — so changes there can fail these tests by design.
 ## License
 
 Private project - not for distribution.
+
+Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and river reports. The fixed-view link contract, public-image payment policy, and app-link activation gates are recorded in [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md).

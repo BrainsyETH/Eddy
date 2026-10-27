@@ -11,7 +11,7 @@ import {
 import { METRICS } from './catalog';
 import { jobOutcome } from './jobs-model';
 import { nextScheduledAt } from './job-schedule';
-import { summarizeRuns } from './jobs-summary';
+import { summarizeRuns, type JobSnapshot, type Run } from './jobs-summary';
 
 test('partial sources never become zero, and inbox needs all three sources', () => {
   const metrics = assembleMetrics({ feedback: { state: 'ok', value: 2 } });
@@ -202,6 +202,62 @@ test('explicit outcomes preserve skips without hiding HTTP failures', () => {
   );
 });
 
+test('skipped ticks and running retries preserve the last completed failure', () => {
+  const schedules = [{ path: '/api/cron/post-blog', schedule: '0 14,15 * * 1-5' }];
+  const options = { expected: schedules, deployed: schedules };
+  const now = Date.parse('2026-10-26T15:05:00Z');
+  const latest: Run = {
+    job: 'post-blog',
+    started_at: '2026-10-26T15:00:00Z',
+    finished_at: '2026-10-26T15:00:01Z',
+    status: 'skipped',
+    duration_ms: 1000,
+    last_success_at: null,
+    counters: {},
+    last_result: { status: 'error', started_at: '2026-10-26T14:00:00Z' },
+  };
+  const summarize = (run: Run) => summarizeRuns({
+    started_at: '2026-10-01T00:00:00Z', runs: [run],
+  }, now, options)[0];
+  for (const status of ['error', 'partial'] as const) {
+    const metric = summarize({ ...latest, last_result: { ...latest.last_result!, status } });
+    assert.equal(metric.attention, true);
+    assert.equal(metric.value, 1);
+    assert.match(metric.detail, /State: skipped/);
+    assert.match(metric.detail, new RegExp(`Last completed work: ${status}.*14:00:00Z`));
+    assert.doesNotMatch(metric.detail, /Overdue/);
+  }
+  assert.equal(summarize({ ...latest, status: 'started', finished_at: null }).attention, true);
+  const recovered = summarize({ ...latest, last_result: {
+    status: 'ok', started_at: '2026-10-26T14:30:00Z',
+  } });
+  assert.equal(recovered.attention, false);
+  assert.equal(recovered.value, 'skipped');
+  const onlySkips = summarize({ ...latest, last_result: null });
+  assert.equal(onlySkips.attention, false);
+  assert.equal(onlySkips.state, 'ok');
+  assert.equal(onlySkips.value, 'skipped');
+});
+
+test('old job snapshots cannot report skipped work as a healthy completed outcome', () => {
+  const schedules = [{ path: '/api/cron/post-blog', schedule: '0 14,15 * * 1-5' }];
+  const run: Run = {
+    job: 'post-blog', started_at: '2026-10-26T15:00:00Z', finished_at: null,
+    status: 'skipped', duration_ms: 10, last_success_at: null, counters: {},
+  };
+  const snapshot = { started_at: '2026-10-01T00:00:00Z', runs: [run] };
+  const options = { expected: schedules, deployed: schedules };
+  const metric = summarizeRuns(snapshot, Date.parse('2026-10-26T15:05:00Z'), options)[0];
+  assert.equal(metric.state, 'unknown');
+  assert.equal(metric.value, null);
+  assert.match(metric.detail, /pending job monitoring migration/);
+  assert.equal(summarizeRuns(snapshot, Date.parse('2026-10-27T14:16:00Z'), options)[0].attention, true);
+  const failed = summarizeRuns({ ...snapshot, runs: [{ ...run, status: 'error' }] },
+    Date.parse('2026-10-26T15:05:00Z'), options)[0];
+  assert.equal(failed.state, 'ok');
+  assert.equal(failed.attention, true);
+});
+
 test('rollout baseline persists independently of retained runs and is service-only', async () => {
   const db = new PGlite();
   try {
@@ -238,6 +294,118 @@ test('rollout baseline persists independently of retained runs and is service-on
       );
       await db.exec('RESET ROLE');
     }
+  } finally {
+    await db.close();
+  }
+});
+
+test('job RPC preserves failed work through skips and clears it only after successful work', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(readFileSync('src/lib/admin/dashboard/fixture-schema.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20260926182346_admin_job_runs.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20261027111520_admin_job_last_result.sql', 'utf8'));
+    const read = async () => (await db.query<{ v: JobSnapshot }>(
+      'SELECT admin_dashboard_job_status() v',
+    )).rows[0].v;
+    const schedules = [{ path: '/api/cron/post-blog', schedule: '0 14,15 * * 1-5' }];
+    const metric = (snapshot: JobSnapshot) => summarizeRuns(snapshot, Date.now(), {
+      active: false, expected: schedules, deployed: schedules,
+    })[0];
+    await db.exec('SET ROLE service_role');
+    await db.exec(`INSERT INTO admin_job_runs(job, started_at, finished_at, status) VALUES
+      ('post-blog', now()-interval '2 hours', now()-interval '119 minutes', 'error'),
+      ('post-blog', now()-interval '1 hour', now()-interval '59 minutes', 'skipped'),
+      ('post-blog', now()-interval '1 minute', now()-interval '59 seconds', 'skipped');`);
+    const failed = await read();
+    assert.equal(failed.runs.length, 1, 'the RPC still returns one latest tick per job');
+    assert.equal(failed.runs[0].status, 'skipped');
+    assert.equal(failed.runs[0].last_result?.status, 'error');
+    assert.equal(failed.runs[0].last_success_at, null);
+    assert.equal(metric(failed).attention, true);
+
+    await db.exec(`INSERT INTO admin_job_runs(job, started_at, finished_at, status) VALUES
+      ('post-blog', now()-interval '30 seconds', now()-interval '20 seconds', 'ok'),
+      ('post-blog', now()-interval '10 seconds', now()-interval '9 seconds', 'skipped');`);
+    const recovered = await read();
+    assert.equal(recovered.runs[0].status, 'skipped');
+    assert.equal(recovered.runs[0].last_result?.status, 'ok');
+    assert.ok(recovered.runs[0].last_success_at);
+    assert.equal(metric(recovered).attention, false);
+
+    await db.exec(`INSERT INTO admin_job_runs(job, started_at, finished_at, status) VALUES
+      ('post-blog', now()-interval '5 seconds', now()-interval '4 seconds', 'partial'),
+      ('post-blog', now()-interval '2 seconds', now()-interval '1 second', 'skipped');
+      INSERT INTO admin_job_runs(job, started_at, status) VALUES
+      ('post-blog', now(), 'started'),
+      ('only-skips', now()-interval '1 minute', 'skipped'),
+      ('expired-failure', now()-interval '31 days', 'error'),
+      ('expired-failure', now()-interval '1 minute', 'skipped');`);
+    const retrying = await read();
+    const retry = retrying.runs.find(run => run.job === 'post-blog')!;
+    assert.equal(retry.status, 'started');
+    assert.equal(retry.last_result?.status, 'partial');
+    assert.equal(metric(retrying).attention, true);
+    assert.equal(retrying.runs.find(run => run.job === 'only-skips')?.last_result, null);
+    assert.equal(retrying.runs.find(run => run.job === 'expired-failure')?.last_result, null);
+
+    await db.exec('RESET ROLE');
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec('SET ROLE ' + role);
+      await assert.rejects(read, /permission denied/);
+      await assert.rejects(() => db.query('SELECT admin_dashboard_jobs()'), /permission denied/);
+      await db.exec('RESET ROLE');
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test('unfinished attempts stay visible after skips without treating fresh retries as failures', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(readFileSync('src/lib/admin/dashboard/fixture-schema.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20260926182346_admin_job_runs.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20261027111520_admin_job_last_result.sql', 'utf8'));
+    await db.exec('SET ROLE service_role');
+    const read = async () => (await db.query<{ v: JobSnapshot }>(
+      'SELECT admin_dashboard_job_status() v',
+    )).rows[0].v;
+    const schedules = [{ path: '/api/cron/post-blog', schedule: '0 14,15 * * 1-5' }];
+    const metric = (snapshot: JobSnapshot) => summarizeRuns(snapshot, Date.now(), {
+      active: false, expected: schedules, deployed: schedules,
+    })[0];
+    await db.exec(`INSERT INTO admin_job_runs(job, started_at, finished_at, status) VALUES
+      ('post-blog', now()-interval '1 day', now()-interval '1 day'+interval '1 minute', 'ok'),
+      ('post-blog', now()-interval '11 minutes', null, 'started'),
+      ('post-blog', now()-interval '1 minute', now()-interval '59 seconds', 'skipped'),
+      ('fresh-retry', now()-interval '1 day', now()-interval '1 day'+interval '1 minute', 'ok'),
+      ('fresh-retry', now()-interval '2 minutes', null, 'started'),
+      ('fresh-retry', now()-interval '1 minute', now()-interval '59 seconds', 'skipped');`);
+    const unfinished = await read();
+    const post = unfinished.runs.find(run => run.job === 'post-blog')!;
+    assert.equal(post.status, 'skipped');
+    assert.equal(post.last_result?.status, 'error');
+    assert.equal(post.last_result?.completion_missing, true);
+    assert.equal(metric(unfinished).attention, true);
+    assert.match(metric(unfinished).detail, /did not report completion/);
+    assert.doesNotMatch(metric(unfinished).detail, /Last completed work: error/);
+    assert.equal((await db.query<{ status: string }>(
+      "SELECT status FROM admin_job_runs WHERE job = 'post-blog' AND finished_at IS NULL",
+    )).rows[0].status, 'started', 'inferred failure must not rewrite the original run');
+    const fresh = unfinished.runs.find(run => run.job === 'fresh-retry')!;
+    assert.equal(fresh.last_result?.status, 'ok');
+    assert.equal(fresh.last_result?.completion_missing, false);
+
+    await db.exec(`INSERT INTO admin_job_runs(job, started_at, finished_at, status) VALUES
+      ('post-blog', now()-interval '30 seconds', now()-interval '20 seconds', 'ok'),
+      ('post-blog', now()-interval '10 seconds', now()-interval '9 seconds', 'skipped');`);
+    const recovered = await read();
+    const latest = recovered.runs.find(run => run.job === 'post-blog')!;
+    assert.equal(latest.status, 'skipped');
+    assert.equal(latest.last_result?.status, 'ok');
+    assert.equal(latest.last_result?.completion_missing, false);
+    assert.equal(metric(recovered).attention, false);
   } finally {
     await db.close();
   }

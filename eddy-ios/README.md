@@ -1788,6 +1788,24 @@ always retains its full-window value scale. Closing and reopening the expanded
 chart retains the fitting choice for the same zoomed range. Fitting and the
 Compare panel's full threshold scale are mutually exclusive choices.
 
+Expanded USGS charts have a Share action (the system share glyph). It opens a
+native action sheet titled with the station and visible dates: Share Link sends
+a fixed-date web link through `shareLink()`, like every other screen; Share
+Image renders the PNG on the server and hands the system share sheet the file
+together with the link text, so Messages sends both. There is no separate
+preview screen: the system share sheet previews the attachment. Image
+preparation requires internet; a failure to prepare it is reported, a cancel or
+failure inside the share sheet is not. Station sharing uses dedicated USGS and USACE share paths; ordinary
+gauge and dam website URLs keep their existing behavior. See
+[ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for the versioned
+state contract, shared scale/calendar rules and outstanding device gates.
+Deploy the additive web routes and timezone fields before distributing the
+app build. Charts use station time rather than device time. Missing coordinates
+or older web responses without `timeZone` use UTC, with a visible UTC note on
+the chart; skipping the deployment order therefore produces UTC labels.
+App-opening associations remain off until the ADR's store and
+compatibility gates are recorded; shipping the handlers does not enable them.
+
 The app config permits native rotation. The local `eddy-orientation` Expo
 module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run
@@ -1930,3 +1948,5 @@ verify the **destination pin**, not just that onX/Gaia launch. Test each float
 endpoint and the shuttle direction, a curated parking override, Cancel/backdrop
 and VoiceOver escape, double taps, return to the planner, offline saved trips,
 large text on a small phone, both appearances, and Reduce Motion.
+
+Shared chart views retain the timezone saved in the link. New links include a river slug alongside its UUID for recovery after a catalog reseed. Image attachments report unavailable context rather than substituting current readings; link sharing stays available during image preparation. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for compatibility and device-release gates.

@@ -23,6 +23,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { fixtureState, fixtureHistory, fixtureThresholds } from '../src/lib/gauges/__fixtures__/chart-share';
+import { chartShareQuery, parseChartShare } from '../shared/chart-share';
 
 const PORT = 3119;
 const OUT_DIR = process.env.SMOKE_OUT ?? path.join(__dirname, '..', '.smoke-gauge');
@@ -227,7 +229,7 @@ import { normalizeGaugeHistory } from '@shared/history-normalize';
 export default function HydrationFixture() {
   const [client] = useState(() => {
     const queryClient = new QueryClient();
-    queryClient.setQueryData(['gaugeHistory', '${SITE}', 7, null, null, 'auto'], normalizeGaugeHistory(${JSON.stringify(history())}));
+    queryClient.setQueryData(['gaugeHistory', '${SITE}', 7, null, null, 'auto', null], normalizeGaugeHistory(${JSON.stringify(history())}));
     return queryClient;
   });
   return <QueryClientProvider client={client}><GaugeHistoryChart
@@ -241,9 +243,11 @@ export default function HydrationFixture() {
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import GaugeDetailView from '@/components/gauge/GaugeDetailView';
 import HydrationFixture from './HydrationFixture';
-export default async function Page({ searchParams }: { searchParams: Promise<{ river?: string; chart?: string }> }) {
+import { parseChartShare } from '@shared/chart-share';
+export default async function Page({ searchParams }: { searchParams: Promise<{ river?: string; chart?: string; share?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_CHART_SMOKE !== '1') notFound();
-  const { river, chart } = await searchParams;
+  const { river, chart, share } = await searchParams;
+  if (share) return <GaugeDetailView siteId="${SITE}" initialShareState={parseChartShare('usgs', '${SITE}', new URLSearchParams(share)) ?? undefined} />;
   if (chart) return <main className="mx-auto max-w-5xl px-4 py-8"><HydrationFixture /></main>;
   return river ? <main className="mx-auto max-w-5xl px-4 py-8"><RiverGaugeDetail riverSlug="current" /></main> : <GaugeDetailView siteId="07067000" />;
 }`);
@@ -289,6 +293,54 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       const hydratedPlot = await hydratedPage.getByRole('slider').boundingBox();
       check('desktop plot height stays fixed through hydration', initialHeight === hydratedPlot?.height);
       await hydratedPage.close();
+    }
+    if (urlArg === -1) {
+      console.log('\nShared chart restoration:');
+      const state = { ...fixtureState, layers: [] as typeof fixtureState.layers, riverSlug: 'fixture' };
+      for (const width of [1440, 390]) {
+        const page = await browser.newPage({ viewport: { width, height: 1000 } });
+        await intercept(page, {
+          list: { gauges: [listStation()] },
+          detail: detail({ thresholds: [{ ...fixtureThresholds, riverId: '22222222-2222-2222-2222-222222222222' }], timeZone: 'America/Los_Angeles' }),
+          history: fixtureHistory,
+        });
+        const historyRequests: string[] = [];
+        page.on('request', request => { if (request.url().includes('/history?')) historyRequests.push(request.url()); });
+        await page.addInitScript(`
+          Object.defineProperty(navigator, 'share', { value: async function (data) { window.sharedUrl = data.url; } });
+          Object.defineProperty(navigator, 'clipboard', { value: { writeText: async function (url) { window.sharedUrl = url; } } });
+        `);
+        await page.goto(`${baseUrl}/chart-layout-check?share=${encodeURIComponent(chartShareQuery(state))}`, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('button', { name: 'Share chart link', exact: true }).waitFor();
+        check(`${width}px restores the original calendar despite catalog changes`, historyRequests.some(url => new URL(url).searchParams.get('tz') === state.timeZone));
+        check(`${width}px uses the responsive chart presentation`, width < 1024 ? await page.getByRole('dialog').isVisible() : await page.getByRole('dialog').count() === 0);
+        check(`${width}px restores scale`, await page.getByLabel('Value scale').inputValue() === 'visible');
+        await page.getByRole('button', { name: 'Share chart link', exact: true }).click();
+        const sharedUrl = await page.evaluate(() => (window as unknown as { sharedUrl: string }).sharedUrl);
+        const restored = parseChartShare('usgs', SITE, new URL(sharedUrl).searchParams)!;
+        check(`${width}px re-sharing preserves dates, zoom and scale`, JSON.stringify(restored.loaded) === JSON.stringify(state.loaded) && JSON.stringify(restored.visible) === JSON.stringify(state.visible) && restored.scale === state.scale);
+        check(`${width}px re-sharing uses the resolved identity and keeps the slug`, restored.riverId === '22222222-2222-2222-2222-222222222222' && restored.riverSlug === 'fixture');
+        let releaseImage!: () => void;
+        const imageReady = new Promise<void>(resolve => { releaseImage = resolve; });
+        await page.route('**/api/share/chart/**/image?*', async route => {
+          await imageReady;
+          await route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ code: 'shared_view_unavailable' }) });
+        });
+        await page.getByRole('button', { name: 'Preview share image', exact: true }).click();
+        await page.getByRole('button', { name: 'Preparing image…', exact: true }).waitFor();
+        check(`${width}px link sharing remains available during rendering`, await page.getByRole('button', { name: 'Share chart link', exact: true }).isEnabled());
+        releaseImage();
+        await page.getByRole('status').filter({ hasText: 'This saved view is no longer available' }).waitFor();
+        check(`${width}px unavailable image has a useful recovery message`, true);
+        await page.screenshot({ path: path.join(OUT_DIR, `shared-${width}.png`), fullPage: true });
+        await page.setViewportSize({ width: width < 1024 ? 1440 : 390, height: 1000 });
+        if (width >= 1024) await page.getByRole('button', { name: 'Expand', exact: true }).click();
+        check(`${width}px resize keeps scale`, await page.getByLabel('Value scale').inputValue() === 'visible');
+        await page.getByRole('button', { name: 'Show latest', exact: true }).click();
+        await page.getByText('Last 7 days', { exact: true }).waitFor();
+        check(`${width}px Show latest clears shared dates`, await page.getByText(/Shared view ·/).count() === 0);
+        await page.close();
+      }
     }
     // ── 1. Rated + trusted + NWS stages ──
     console.log('\nRated station (trusted reading, NWS stages):');

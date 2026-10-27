@@ -18,6 +18,17 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { useLastYearComparison } from '@/hooks/useLastYearComparison';
 import { lastYearAvailable } from '@shared/chart-model';
+import ChartShareControls from './ChartShareControls';
+import { captureChart } from '@shared/chart-snapshot';
+import { chartView, chartReferences } from '@shared/chart-view';
+import { chartStamp, stationDayWindow } from '@shared/chart-calendar';
+import {
+  chartStatisticForUnit,
+  resolutionNotice,
+  type ChartShareState,
+  type ChartScaleMode,
+  type ChartLayer,
+} from '@shared/chart-share';
 import type { HistoryCapabilities } from '@shared/history-capabilities';
 import ChartCompare from '@/components/gauge/ChartCompare';
 import { RANGE_OPTIONS, UNIT_OPTIONS } from '@/components/gauge/gaugeControls';
@@ -30,6 +41,12 @@ import {
 
 type ZoomWindow = { t0: number; t1: number };
 interface GaugeHistoryChartProps {
+  initialShareState?: ChartShareState;
+  onShowLatest?: () => void;
+  riverId?: string;
+  riverSlug?: string;
+  provider?: string;
+  timeZone?: string;
   siteId: string;
   siteName: string;
   thresholds?: ChartThresholdLines | null;
@@ -52,6 +69,12 @@ function csvEscape(value: string): string {
 }
 
 export default function GaugeHistoryChart({
+  initialShareState,
+  onShowLatest,
+  riverId,
+  riverSlug,
+  provider,
+  timeZone,
   siteId,
   siteName,
   thresholds,
@@ -69,7 +92,7 @@ export default function GaugeHistoryChart({
   help,
 }: GaugeHistoryChartProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
-  const [expandedOpen, setExpandedOpen] = useState(false);
+  const [expandedOpen, setExpandedOpen] = useState(!!initialShareState);
   // Taking over inline ends the mobile dialog session. Rotating back must
   // require a fresh Expand tap, while the history selection stays intact.
   if (isDesktop === true && expandedOpen) setExpandedOpen(false);
@@ -81,35 +104,66 @@ export default function GaugeHistoryChart({
     requestAnimationFrame(() => expandButton.current?.focus());
   }, []);
   const dialogRef = useFocusTrap<HTMLDivElement>(dialogOpen, close);
-  const [selection, setSelection] = useState<HistoryRange>({
-    kind: 'days',
-    days: 7,
-  });
+  const [sharedView, setSharedView] = useState(initialShareState ?? null);
+  const initialRange: HistoryRange = initialShareState
+    ? { kind: 'custom', ...initialShareState.calendar }
+    : { kind: 'days', days: 7 };
+  const [selection, setSelection] = useState<HistoryRange>(initialRange);
+  const [scale, setScale] = useState<ChartScaleMode>(initialShareState?.scale ?? 'loaded');
+  const [typicalOn, setTypicalOn] = useState(
+    initialShareState ? initialShareState.layers.includes('typical') : showTypical,
+  );
+  const [medianOn, setMedianOn] = useState(
+    initialShareState ? initialShareState.layers.includes('median') : showTypical,
+  );
+  const chartTimeZone = sharedView?.timeZone ?? timeZone ?? 'UTC';
   const [customOpen, setCustomOpen] = useState(false);
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
+  const [customFrom, setCustomFrom] = useState(initialShareState?.calendar.from ?? '');
+  const [customTo, setCustomTo] = useState(initialShareState?.calendar.to ?? '');
   const [dateError, setDateError] = useState<string | null>(null);
-  const maxDays = capabilities.supportsDaily
-    ? 366
-    : capabilities.maxInstantDays;
+  const maxDays = capabilities.supportsDaily ? 366 : capabilities.maxInstantDays;
   // A newly restricted provider must never receive an unsupported request.
   const range: HistoryRange =
     (selection.kind === 'custom' && !capabilities.supportsCustomRange) ||
     historyRangeDays(selection) > maxDays
       ? { kind: 'days', days: Math.min(7, maxDays) }
       : selection;
-  const { days: requestDays, window: requestWindow } = historyRequest(range);
+  const { days: requestDays, window: ordinaryWindow } = historyRequest(range);
+  const requestWindow = sharedView
+    ? {
+        ...sharedView.loaded,
+        timeZone: sharedView.timeZone,
+        resolution:
+          sharedView.statistic === 'instantaneous' ? ('auto' as const) : ('daily' as const),
+      }
+    : range.kind === 'custom'
+      ? {
+          ...stationDayWindow(range.from, range.to, chartTimeZone),
+          timeZone: chartTimeZone,
+          resolution: 'auto' as const,
+        }
+      : ordinaryWindow;
   const zoomContext = `${siteId}:${displayUnit}:${JSON.stringify(range)}`;
   const [zoomSelection, setZoomSelection] = useState<{
     context: string;
     window: ZoomWindow;
-  } | null>(null);
-  const zoom =
-    zoomSelection?.context === zoomContext ? zoomSelection.window : null;
+  } | null>(
+    initialShareState
+      ? {
+          context: `${siteId}:${displayUnit}:${JSON.stringify(initialRange)}`,
+          window: {
+            t0: Date.parse(initialShareState.visible.from),
+            t1: Date.parse(initialShareState.visible.to),
+          },
+        }
+      : null,
+  );
+  const zoom = zoomSelection?.context === zoomContext ? zoomSelection.window : null;
   const setZoom = (window: ZoomWindow | null) =>
     setZoomSelection(window ? { context: zoomContext, window } : null);
 
   const chooseRange = (choice: HistoryRange) => {
+    setSharedView(null);
     setSelection(choice);
     setZoomSelection(null);
     setDateError(null);
@@ -126,7 +180,8 @@ export default function GaugeHistoryChart({
     siteId,
     days: requestDays,
     window: requestWindow,
-    dates: range.kind === 'custom' ? { from: range.from, to: range.to } : null,
+    dates:
+      sharedView?.calendar ?? (range.kind === 'custom' ? { from: range.from, to: range.to } : null),
     unit: displayUnit,
     capabilities,
     on: lastYearOn,
@@ -139,10 +194,7 @@ export default function GaugeHistoryChart({
   const zoomIn = () => {
     const coverage = history?.coverageWindow;
     const current =
-      zoom ??
-      (coverage
-        ? { t0: Date.parse(coverage.from), t1: Date.parse(coverage.to) }
-        : null);
+      zoom ?? (coverage ? { t0: Date.parse(coverage.from), t1: Date.parse(coverage.to) } : null);
     if (!current || current.t1 - current.t0 < 4 * 3_600_000) return;
     const quarter = (current.t1 - current.t0) / 4;
     setZoom({ t0: current.t0 + quarter, t1: current.t1 - quarter });
@@ -176,9 +228,7 @@ export default function GaugeHistoryChart({
       `# coverage_complete: ${history.coverageComplete}`,
       `# resolution: ${history.resolution} (statistic: ${statistic})`,
       `# sampled: ${sampled ? 'true — extrema-preserving downsample; this is NOT the station’s full record' : 'false'}`,
-      history.truncationReason
-        ? `# truncation: ${history.truncationReason}`
-        : null,
+      history.truncationReason ? `# truncation: ${history.truncationReason}` : null,
       `# source: ${history.sourceUrl ?? 'unknown'}`,
       `# units: gauge_height_ft in feet, discharge_cfs in cubic feet per second`,
     ].filter(Boolean);
@@ -192,11 +242,7 @@ export default function GaugeHistoryChart({
       ].join(','),
     );
 
-    const csv = [
-      ...meta,
-      'timestamp,gauge_height_ft,discharge_cfs,qualifiers',
-      ...rows,
-    ].join('\n');
+    const csv = [...meta, 'timestamp,gauge_height_ft,discharge_cfs,qualifiers', ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -206,8 +252,9 @@ export default function GaugeHistoryChart({
     URL.revokeObjectURL(url);
   }, [history, siteId, siteName]);
 
-  const rangeLabel =
-    range.kind === 'custom'
+  const rangeLabel = sharedView
+    ? `Shared view · ${chartStamp(sharedView.visible.from, sharedView.timeZone)} to ${chartStamp(sharedView.visible.to, sharedView.timeZone)}`
+    : range.kind === 'custom'
       ? `${range.from} to ${range.to}`
       : range.days === 1
         ? 'Last 24 hours'
@@ -221,25 +268,64 @@ export default function GaugeHistoryChart({
         ? { value: range.days, label: range.days === 365 ? '1Y' : `${range.days}D` }
         : null;
   const presets = fullControls
-    ? [
-        ...RANGE_OPTIONS,
-        { value: 90, label: '90D' },
-        { value: 365, label: '1Y' },
-      ]
+    ? [...RANGE_OPTIONS, { value: 90, label: '90D' }, { value: 365, label: '1Y' }]
     : compactActiveRange
       ? [...RANGE_OPTIONS, compactActiveRange]
       : RANGE_OPTIONS;
   const hasReadings = !!history?.readings.length && !isFetching && !isError;
+  const layers: ChartLayer[] =
+    displayUnit === 'cfs'
+      ? [
+          ...(typicalOn ? ['typical' as const] : []),
+          ...(medianOn ? ['median' as const] : []),
+          ...(lastYearOn ? ['lastYear' as const] : []),
+        ]
+      : [];
+  const visible = zoom ? { start: zoom.t0, end: zoom.t1 } : null;
+  const model = history?.requestedWindow
+    ? chartView({
+        ...history,
+        prior: lastYear.comparison?.readings,
+        loaded: history.requestedWindow,
+        unit: displayUnit,
+        timeZone: history.timeZone ?? 'UTC',
+        layers,
+        scale,
+        references: chartReferences(displayUnit, thresholds, floodStages),
+        visible,
+      })
+    : null;
+  const shareState = captureChart({
+    siteId,
+    provider,
+    unit: displayUnit,
+    history: history ?? null,
+    matchesRequest: !!history && !isFetching && !isError,
+    comparisonPending: lastYearOn && ['loading', 'failed'].includes(lastYear.status),
+    layers,
+    scale,
+    domain: model?.domain ?? null,
+    riverId: chartReferences(displayUnit, thresholds).length ? riverId : undefined,
+    riverSlug,
+  });
+  const notice =
+    sharedView && history
+      ? resolutionNotice(
+          sharedView.statistic,
+          chartStatisticForUnit(history.statistic, displayUnit),
+        )
+      : null;
   const content = (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
         <div>
           <h2 className="text-base font-bold text-neutral-900">
-            {dialogOpen
-              ? siteName
-              : `${displayUnit === 'ft' ? 'Stage' : 'Flow'} history`}
+            {dialogOpen ? siteName : `${displayUnit === 'ft' ? 'Stage' : 'Flow'} history`}
           </h2>
-          <p className="mt-0.5 text-xs text-neutral-500">{rangeLabel}</p>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            {rangeLabel}
+            {notice && ` · ${notice}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {help}
@@ -317,8 +403,7 @@ export default function GaugeHistoryChart({
                   : undefined
               }
               onClick={() => {
-                if (capabilities.supportsCustomRange)
-                  setCustomOpen(!customOpen);
+                if (capabilities.supportsCustomRange) setCustomOpen(!customOpen);
               }}
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${range.kind === 'custom' || customOpen ? 'border-primary-600 bg-primary-50 text-primary-800' : 'border-neutral-300 text-neutral-600'} aria-disabled:opacity-50`}
             >
@@ -337,30 +422,16 @@ export default function GaugeHistoryChart({
           )}
           {fullControls && (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={zoomIn}
-                disabled={!hasReadings}
-              >
+              <Button variant="outline" size="sm" onClick={zoomIn} disabled={!hasReadings}>
                 Zoom in
               </Button>
               {zoom && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setZoom(null)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setZoom(null)}>
                   <ZoomOut className="h-3.5 w-3.5" />
                   Reset zoom
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportCsv}
-                disabled={!hasReadings}
-              >
+              <Button variant="outline" size="sm" onClick={exportCsv} disabled={!hasReadings}>
                 <Download className="h-3.5 w-3.5" />
                 Export CSV
               </Button>
@@ -368,6 +439,59 @@ export default function GaugeHistoryChart({
           )}
         </div>
       </div>
+      {fullControls && (
+        <div className="flex flex-wrap items-center gap-4 px-5 pb-3 text-xs text-neutral-600">
+          <label className="flex items-center gap-2">
+            Value scale
+            <select
+              aria-label="Value scale"
+              value={scale}
+              onChange={(event) => setScale(event.target.value as ChartScaleMode)}
+              className="rounded border border-neutral-300 bg-white px-2 py-1.5"
+            >
+              <option value="loaded">Loaded window</option>
+              <option value="visible">Visible values</option>
+              <option value="full">Full scale</option>
+            </select>
+          </label>
+          {displayUnit === 'cfs' && (
+            <>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={typicalOn}
+                  onChange={(event) => setTypicalOn(event.target.checked)}
+                />
+                Typical range
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={medianOn}
+                  onChange={(event) => setMedianOn(event.target.checked)}
+                />
+                Historical median
+              </label>
+            </>
+          )}
+          {sharedView && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                chooseRange({ kind: 'days', days: 7 });
+                setScale('loaded');
+                setTypicalOn(showTypical);
+                setMedianOn(showTypical);
+                onLastYearChange(false);
+                onShowLatest?.();
+              }}
+            >
+              Show latest
+            </Button>
+          )}
+        </div>
+      )}
       {fullControls && customOpen && capabilities.supportsCustomRange && (
         <div className="border-y border-neutral-100 bg-neutral-50 px-5 py-3">
           <div className="flex flex-wrap items-end gap-3 text-xs text-neutral-600">
@@ -406,14 +530,16 @@ export default function GaugeHistoryChart({
           gaugeSiteId={siteId}
           days={requestDays}
           window={requestWindow}
-          zoomWindow={fullControls ? zoom : null}
+          zoomWindow={zoom}
           onBrushZoom={fullControls ? setZoom : undefined}
           thresholds={thresholds}
           floodStages={floodStages}
           latestValue={latestValue}
           displayUnit={displayUnit}
           chartClassName={fullControls ? 'h-72 lg:h-96' : 'h-48 md:h-56 lg:h-96'}
-          showTypical={showTypical}
+          showTypical={typicalOn}
+          showMedian={medianOn}
+          scaleMode={scale}
           showProvenance
           showGridlines={fullControls}
           lastYear={lastYear.comparison}
@@ -425,11 +551,10 @@ export default function GaugeHistoryChart({
             <p>Daily values · one point per day</p>
           )}
           {history?.truncationReason && <p>{history.truncationReason}</p>}
-          <p className="mt-1">
-            Drag to zoom. Use arrow keys to explore readings.
-          </p>
+          <p className="mt-1">Drag to zoom. Use arrow keys to explore readings.</p>
         </div>
       )}
+      {fullControls && provider === 'usgs' && <ChartShareControls state={shareState} stationName={siteName} />}
       {fullControls && history && history.readings.length > 0 && !isError && (
         <details className="border-t border-neutral-200 px-5 py-3">
           <summary className="cursor-pointer text-xs font-semibold text-neutral-600">
@@ -464,21 +589,11 @@ export default function GaugeHistoryChart({
                     className="border-t border-neutral-100 text-neutral-700"
                   >
                     <td className="whitespace-nowrap py-2 pr-3">
-                      {new Date(reading.timestamp).toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
+                      {chartStamp(reading.timestamp, history.timeZone ?? chartTimeZone)}
                     </td>
-                    <td className="py-2 pr-3">
-                      {reading.gaugeHeightFt ?? '—'}
-                    </td>
+                    <td className="py-2 pr-3">{reading.gaugeHeightFt ?? '—'}</td>
                     <td className="py-2 pr-3">{reading.dischargeCfs ?? '—'}</td>
-                    <td className="py-2">
-                      {(reading.qualifiers ?? []).join(' ')}
-                    </td>
+                    <td className="py-2">{(reading.qualifiers ?? []).join(' ')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -498,10 +613,7 @@ export default function GaugeHistoryChart({
           {createPortal(
             <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
               {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-              <div
-                className="absolute inset-0 bg-neutral-900/60"
-                onClick={close}
-              />
+              <div className="absolute inset-0 bg-neutral-900/60" onClick={close} />
               <div
                 ref={dialogRef}
                 role="dialog"

@@ -40,7 +40,7 @@ export function lastYearQueryOptions(siteId: string | null, prior: { from: strin
   return {
     queryKey: ['gaugeHistory', 'lastYear', siteId, prior?.from ?? null, prior?.to ?? null] as const,
     queryFn: async ({ signal }: { signal: AbortSignal }): Promise<HistoricalReading[] | null> => {
-      const history = await fetchHistory(siteId!, selectedWindowDays(1, prior), { ...prior!, resolution: 'daily' }, signal);
+      const history = await fetchHistory(siteId!, selectedWindowDays(1, prior), { ...prior!, resolution: 'daily' }, signal, false);
       return history?.readings.some((reading) => reading.dischargeCfs != null) ? history.readings : null;
     },
     enabled: !!siteId && !!prior,
@@ -70,7 +70,7 @@ export function useLastYearComparison({
   const active = on && eligible;
   // The chart runs this same query; React Query shares it.
   const { data: primary } = useGaugeHistory(active && !dates ? siteId : null, days, window);
-  const selected = dates ?? (primary?.requestedWindow ? windowCalendarDates(primary.requestedWindow) : null);
+  const selected = dates ?? (primary?.requestedWindow ? windowCalendarDates(primary.requestedWindow, primary.timeZone ?? 'UTC') : null);
   const prior = active && selected ? priorYearWindow(selected) : null;
 
   const query = useQuery(lastYearQueryOptions(siteId, prior));
