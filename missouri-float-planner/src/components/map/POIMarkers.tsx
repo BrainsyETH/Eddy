@@ -10,6 +10,7 @@ import { Star, type LucideIcon, Droplets, Mountain, Landmark, Eye, CircleDot, Te
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { presentPopup } from './popup-manager';
+import { enableMarkerKeyboard, attachMarkerTabOrder } from './marker-keyboard';
 import type { PointOfInterest } from '@/types/nps';
 import { escapeHtml } from '@/lib/escape-html';
 
@@ -171,6 +172,8 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POI
         className: 'poi-popup',
       }).setHTML(popupContent);
 
+      enableMarkerKeyboard(el, `${poi.name}, ${typeLabels[poi.type] || 'Point of Interest'}`, () => popup.remove());
+
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
           presentPopup(map, popup, [poi.longitude, poi.latitude]);
@@ -205,7 +208,10 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POI
       popupsRef.current.push(popup);
     });
 
+    const detachTabOrder = attachMarkerTabOrder(map, markersRef.current);
+
     return () => {
+      detachTabOrder();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
       const oldRoots = rootsRef.current;

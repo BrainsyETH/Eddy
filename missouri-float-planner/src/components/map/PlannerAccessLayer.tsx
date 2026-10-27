@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import type { MapLayerMouseEvent } from 'maplibre-gl';
 import { useMap } from './map-context';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
@@ -50,35 +50,48 @@ export default function PlannerAccessLayer({ places, excludeRiverSlug, onSelect 
 }
 
 /** Search and map taps use the same selection and camera treatment. */
-export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera, panelRef, stripRef }: {
+export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile = false, sheetReady = false }: {
   place: PlannerMapPlace | null;
   bounds?: [number, number, number, number];
   request: number;
   preserveInitialCamera: boolean;
   panelRef: RefObject<HTMLDivElement | null>;
   stripRef: RefObject<HTMLDivElement | null>;
+  sheetRef?: RefObject<HTMLDivElement | null>;
+  mobile?: boolean;
+  sheetReady?: boolean;
 }) {
   const map = useMap();
   const [west, south, east, north] = bounds ?? [];
+  const cameraIntent = useRef({ request, moved: false });
   useEffect(() => {
     if (preserveInitialCamera && request === 0) return;
     if (!place && (west === undefined || south === undefined || east === undefined || north === undefined)) return;
     let frame = 0;
-    const focus = () => {
+    if (cameraIntent.current.request !== request) cameraIntent.current = { request, moved: false };
+    const onMove = (event: { originalEvent?: Event }) => { if (event.originalEvent) cameraIntent.current.moved = true; };
+    const takeControl = () => { cameraIntent.current.moved = true; cancelAnimationFrame(frame); };
+    const focus = (animate = true) => {
+      if (cameraIntent.current.moved) return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        if (cameraIntent.current.moved) return;
         const canvas = map.getCanvas().getBoundingClientRect();
         const panel = panelRef.current?.getBoundingClientRect();
         const strip = stripRef.current?.getBoundingClientRect();
         // Frame the usable map area, accounting for the actual panel, report,
         // controls and access strip rather than assuming a sidebar width.
+        const sheet = sheetRef?.current?.getBoundingClientRect();
+        const bottomOverlays = mobile ? [panel, strip, sheet] : [strip];
+        const bottom = Math.max(24, ...bottomOverlays.filter(rect => rect && rect.height > 0)
+          .map(rect => canvas.bottom - rect!.top + (mobile ? 32 : 24)));
         const padding = {
-          left: panel ? Math.min(canvas.width / 2, Math.max(24, panel.right - canvas.left + 24)) : 24,
-          right: 64,
-          top: 80,
-          bottom: strip ? Math.min(canvas.height / 2, canvas.bottom - strip.top + 16) : 48,
+          left: !mobile && panel ? Math.min(canvas.width / 2, Math.max(24, panel.right - canvas.left + 24)) : 24,
+          right: mobile ? 80 : 64,
+          top: mobile ? 120 : 80,
+          bottom: Math.min(Math.max(24, canvas.height - (mobile ? 220 : 180)), bottom),
         };
-        const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650;
+        const duration = !animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650;
         if (place) {
           map.flyTo({
             center: [place.coordinates.lng, place.coordinates.lat], zoom: Math.max(12, map.getZoom()),
@@ -92,11 +105,22 @@ export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera,
       });
     };
     focus();
-    const observer = new ResizeObserver(focus);
+    const resize = () => focus(false);
+    const observer = new ResizeObserver(resize);
     if (panelRef.current) observer.observe(panelRef.current);
     if (stripRef.current) observer.observe(stripRef.current);
-    map.on('resize', focus);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); map.off('resize', focus); };
-  }, [map, place, west, south, east, north, request, preserveInitialCamera, panelRef, stripRef]);
+    if (sheetRef?.current) observer.observe(sheetRef.current);
+    map.on('resize', resize);
+    map.on('movestart', onMove);
+    map.on('dragstart', takeControl);
+    const canvas = map.getCanvas();
+    canvas.addEventListener('pointerdown', takeControl);
+    canvas.addEventListener('wheel', takeControl, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame); observer.disconnect();
+      map.off('resize', resize); map.off('movestart', onMove); map.off('dragstart', takeControl);
+      canvas.removeEventListener('pointerdown', takeControl); canvas.removeEventListener('wheel', takeControl);
+    };
+  }, [map, place, west, south, east, north, request, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile, sheetReady]);
   return null;
 }

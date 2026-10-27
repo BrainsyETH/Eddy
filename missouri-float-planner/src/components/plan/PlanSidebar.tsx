@@ -37,6 +37,7 @@ interface PlanSidebarProps {
   onRetry?: () => void;
   putInPoint: AccessPoint | null;
   takeOutPoint: AccessPoint | null;
+  onClearRoute: () => void;
   onClearPutIn: () => void;
   onClearTakeOut: () => void;
   onShare: () => void;
@@ -67,6 +68,7 @@ export default function PlanSidebar({
   onRetry,
   putInPoint,
   takeOutPoint,
+  onClearRoute,
   onClearPutIn,
   onClearTakeOut,
   onShare,
@@ -247,10 +249,7 @@ export default function PlanSidebar({
                   label="Clear"
                   title="Clear route & start over"
                   icon={<RotateCcw size={15} />}
-                  onClick={() => {
-                    onClearPutIn();
-                    onClearTakeOut();
-                  }}
+                  onClick={onClearRoute}
                 />
               </div>
             )}

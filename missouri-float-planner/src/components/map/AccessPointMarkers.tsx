@@ -15,6 +15,7 @@ import {
   type MarkerPointerPriorityEntry,
 } from './marker-pointer-priority';
 import { presentPopup } from './popup-manager';
+import { attachMarkerTabOrder } from './marker-keyboard';
 import type { AccessPoint } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
 
@@ -35,6 +36,9 @@ export default function AccessPointMarkers({
   interaction = 'select',
 }: AccessPointMarkersProps) {
   const map = useMap();
+  const onMarkerClickRef = useRef(onMarkerClick);
+  useEffect(() => { onMarkerClickRef.current = onMarkerClick; }, [onMarkerClick]);
+  const hasClickHandler = !!onMarkerClick;
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const popupsRef = useRef<maplibregl.Popup[]>([]);
   const rootsRef = useRef<Root[]>([]);
@@ -107,7 +111,7 @@ export default function AccessPointMarkers({
       // campground on the water. `!== false` so a payload predating the field
       // still behaves as it always did: selectable.
       const isEndpoint = point.isFloatEndpoint !== false;
-      const canActivate = !!onMarkerClick && (isEndpoint || interaction === 'inspect');
+      const canActivate = hasClickHandler && (isEndpoint || interaction === 'inspect');
 
       // Create custom marker element with React icon
       // Note: Avoid position: relative and will-change: transform as they interfere with MapLibre's positioning
@@ -194,7 +198,7 @@ export default function AccessPointMarkers({
       let selectionPrompt = '';
       if (!isEndpoint) {
         selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-text-secondary); font-weight: 600;">Not a launch \u2014 no put-in or take-out here</p>`;
-      } else if (onMarkerClick) {
+      } else if (hasClickHandler) {
         if (interaction === 'inspect') {
           selectionPrompt = `<p style="margin: 8px 0 0 0; font-size: 11px; color: var(--color-primary-700); font-weight: 600;">Click to view access details</p>`;
         } else if (isPutIn) {
@@ -265,7 +269,7 @@ export default function AccessPointMarkers({
         .addTo(map);
 
       // Add click handler - always allow clicks so user can deselect or change selection
-      if (onMarkerClick && canActivate) {
+      if (hasClickHandler && canActivate) {
         // Expose the marker to keyboard + assistive tech as a real button.
         const action = interaction === 'inspect' ? 'view access details' : isPutIn
           ? 'deselect put-in'
@@ -275,6 +279,7 @@ export default function AccessPointMarkers({
           ? 'select as put-in'
           : 'select as take-out';
         el.setAttribute('role', 'button');
+        el.classList.add('map-marker-control');
         el.setAttribute('tabindex', '0');
         el.setAttribute(
           'aria-label',
@@ -287,7 +292,7 @@ export default function AccessPointMarkers({
           // frame anyway — and its "select as put-in" prompt is stale the
           // moment the tap lands. Selection feedback on mobile is the marker
           // recolor + the plan sheet. Hover devices preview via mouseenter.
-          onMarkerClick(point);
+          onMarkerClickRef.current?.(point);
           if (supportsHoverRef.current) {
             popup.remove();
           }
@@ -338,8 +343,11 @@ export default function AccessPointMarkers({
       ? attachNearestMarkerPointerPriority(map, pointerPriorityEntries)
       : () => {};
 
+    const detachTabOrder = attachMarkerTabOrder(map, markersRef.current);
+
     // Cleanup
     return () => {
+      detachTabOrder();
       detachZoomFade();
       detachPointerPriority();
       markersRef.current.forEach((marker) => marker.remove());
@@ -350,7 +358,7 @@ export default function AccessPointMarkers({
       popupsRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, accessPoints, onMarkerClick, selectedPutIn, selectedTakeOut, interaction]);
+  }, [map, accessPoints, hasClickHandler, selectedPutIn, selectedTakeOut, interaction]);
 
   return null;
 }

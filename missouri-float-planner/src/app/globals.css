@@ -1488,3 +1488,13 @@ h1, h2, h3, h4, h5, h6 {
   .dam-support-layout > :only-child .dam-measurements { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dam-support-layout > :only-child .dam-measurements > * + * { border-top: 0; padding-top: 0; }
 }
+
+.map-marker-control:focus-visible {
+  outline: 3px solid var(--color-primary-700);
+  outline-offset: 3px;
+}
+
+.maplibregl-ctrl-top-right { top: var(--map-controls-top, 0px); }
+@media (max-width: 767px) {
+  .maplibregl-ctrl-group button { width: 44px; height: 44px; }
+}

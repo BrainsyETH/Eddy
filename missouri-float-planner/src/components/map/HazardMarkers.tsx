@@ -12,6 +12,7 @@ import { AlertTriangle } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { presentPopup } from './popup-manager';
+import { enableMarkerKeyboard, attachMarkerTabOrder } from './marker-keyboard';
 import { HAZARD_TYPES, HAZARD_SEVERITY_COLORS } from '@/constants';
 import type { Hazard } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
@@ -38,7 +39,8 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
     // Clear existing
     markersRef.current.forEach((marker) => marker.remove());
     popupsRef.current.forEach((popup) => popup.remove());
-    rootsRef.current.forEach((root) => root.unmount());
+    const oldRoots = rootsRef.current;
+    queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
     markersRef.current = [];
     popupsRef.current = [];
     rootsRef.current = [];
@@ -132,6 +134,8 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
         className: 'hazard-popup',
       }).setHTML(popupContent);
 
+      enableMarkerKeyboard(el, `${hazard.name}, ${typeLabel}`, () => popup.remove());
+
       if (supportsHoverRef.current) {
         el.addEventListener('mouseenter', () => {
           presentPopup(map, popup, [lng, lat]);
@@ -166,10 +170,14 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
       popupsRef.current.push(popup);
     });
 
+    const detachTabOrder = attachMarkerTabOrder(map, markersRef.current);
+
     return () => {
+      detachTabOrder();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());
-      rootsRef.current.forEach((root) => root.unmount());
+      const oldRoots = rootsRef.current;
+      queueMicrotask(() => oldRoots.forEach((root) => root.unmount()));
       markersRef.current = [];
       popupsRef.current = [];
       rootsRef.current = [];

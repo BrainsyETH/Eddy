@@ -22,11 +22,13 @@ interface Props {
   actions?: ReactNode;
   /** Rivers only: no access-point results or category tabs (mobile picker). */
   riversOnly?: boolean;
+  inlineResults?: boolean;
+  initiallyOpen?: boolean;
 }
 
-export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false }: Props) {
+export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false, inlineResults = false, initiallyOpen = false }: Props) {
   const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [kind, setKind] = useState<'all' | 'rivers' | 'access'>(riversOnly ? 'rivers' : 'all');
   const [active, setActive] = useState(-1);
   const panel = useRef<HTMLDivElement>(null);
@@ -101,7 +103,7 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
         <button type="button" className="shrink-0 rounded-lg px-2 py-1 text-xs text-primary-700 hover:bg-primary-50" onClick={() => onRiver(null)}>All rivers</button>
       </div>}
     </div>
-    {open && <div className="planner-glass absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl">
+    {open && <div className={`planner-glass mt-2 overflow-hidden rounded-2xl ${inlineResults ? 'relative' : 'absolute left-0 right-0 top-full'}`}>
       {!riversOnly && <div className="flex gap-1 border-b border-neutral-200/60 p-2" aria-label="Search categories">
         {(['all', 'rivers', 'access'] as const).map(value => <button type="button" key={value} aria-pressed={kind === value}
           className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${kind === value ? 'bg-primary-700 text-white' : 'text-neutral-600 hover:bg-primary-50'}`}
@@ -126,9 +128,9 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
       {kind !== 'rivers' && (loading || failed) && <div className="border-t border-neutral-200/60 px-3 py-2 text-xs text-neutral-600" role="status">
         {failed ? <>Access points couldn’t load. <button type="button" onClick={onRetry} className="font-semibold text-primary-700 underline">Try again</button></> : 'Loading access points…'}
       </div>}
-      <p className="border-t border-neutral-200/60 px-3 py-2 text-[11px] text-neutral-500">{riversOnly
+      {!inlineResults && <p className="border-t border-neutral-200/60 px-3 py-2 text-[11px] text-neutral-500">{riversOnly
         ? `${results.length} rivers · Colored by today’s conditions`
-        : `${results.length} places · Choose a river or explore an access point`}</p>
+        : `${results.length} places · Choose a river or explore an access point`}</p>}
     </div>}
   </div>;
 }

@@ -49,7 +49,7 @@ const points = riverMeta.map((river, i) => ['Put-in', 'Take-out', 'Riverside par
     ownership: 'Public',
     description: null,
     amenities: [],
-    imageUrls: [],
+    imageUrls: ['/email/eddy-quote.png'],
     parkingInfo: null,
     roadAccess: null,
     facilities: null,
@@ -229,7 +229,7 @@ try {
   // With JavaScript disabled, viewport state is still unknown. The desktop
   // search must already be visible in the server-rendered HTML.
   const ssrPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, javaScriptEnabled: false });
-  await ssrPage.goto(`${origin}/planner-map-layout-check/ssr`, { waitUntil: 'domcontentloaded' });
+  await ssrPage.goto(`${origin}/planner-map-layout-check/ssr`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   assert(await ssrPage.getByRole('combobox', { name: 'Search rivers and access points' }).isVisible());
   await ssrPage.setViewportSize({ width: 390, height: 844 });
   await ssrPage.getByRole('combobox', { name: 'Search rivers and access points' }).waitFor({ state: 'hidden' });
@@ -257,7 +257,7 @@ try {
   await page.addInitScript(() => localStorage.setItem('eddy-plan-map-filters-v1', JSON.stringify({
     showNetwork: false, showRiverNames: false, showGauges: false, showPOIs: false, showPhotos: false, hiddenPoiCategories: ['spring']
   })));
-  await page.route('**/*', async route => {
+  const routeHandler = async route => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) {
       return route.fulfill({
@@ -312,11 +312,24 @@ try {
           isPrimary: true, riverMile: 5, thresholdUnit: 'cfs', levelTooLow: 50, levelLow: 100,
           levelOptimalMin: 200, levelOptimalMax: 800, levelHigh: 1000, levelDangerous: 2000 }]
       }))
-    };else if (path.startsWith('/api/weather')) result = null;else if (path.startsWith('/api/conditions/')) result = {
+    };else if (path.startsWith('/api/weather/forecast')) result = { days: [], city: 'Van Buren' };else if (path.startsWith('/api/weather')) result = { temp: 72, condition: 'Clear', conditionIcon: '01d', windSpeed: 5, windDirection: 180, humidity: 60, city: 'Van Buren', rain1hInches: 0, rain3hInches: 0 };else if (path.startsWith('/api/conditions/')) result = {
       condition
-    };else if (path === '/api/plan') result = {
-      plan: null
-    };else for (let i = 0; i < riverMeta.length; i++) {
+    };else if (path === '/api/plan') {
+      const i = riverMeta.findIndex(river => river.id === url.searchParams.get('riverId'));
+      const putIn = points[i]?.find(point => point.id === url.searchParams.get('startId'));
+      const takeOut = points[i]?.find(point => point.id === url.searchParams.get('endId'));
+      result = { plan: putIn && takeOut ? {
+        river: { ...riverMeta[i], geometry: geometry[i], bounds: bbox(geometry[i]) }, putIn, takeOut,
+        vessel: { id: 'canoe', name: 'Canoe', slug: 'canoe' },
+        distance: { miles: 7.5, formatted: '7.5 miles' },
+        floatTime: { minutes: 240, formatted: '4 hours', speedMph: 2, timeRange: { min: 210, max: 330 } },
+        driveBack: { minutes: 20, miles: 14, formatted: '20 min', routeSummary: null, routeGeometry: null },
+        condition, hazards: [], warnings: [], route: { type: 'Feature', properties: {}, geometry: {
+          type: 'LineString', coordinates: geometry[i].coordinates.slice(
+            Math.floor((geometry[i].coordinates.length - 1) * 0.25), Math.floor((geometry[i].coordinates.length - 1) * 0.45) + 1),
+        } },
+      } : null };
+    } else for (let i = 0; i < riverMeta.length; i++) {
       const r = riverMeta[i];
       if (path === `/api/rivers/${r.slug}`) {
         if (delayRiver) await new Promise(resolve => setTimeout(resolve, 900));
@@ -329,6 +342,10 @@ try {
       };
       }
       if (path === `/api/rivers/${r.slug}/pois`) result = { pois: [] };
+      if (path === `/api/rivers/${r.slug}/hazards`) result = { hazards: [{
+        id: `hazard-${i}`, name: 'Fixture crossing', type: 'low_water_crossing', severity: 'moderate',
+        coordinates: points[i][2].coordinates, riverMile: 15, description: 'Crossing', portageRequired: false,
+      }] };
       if (path === `/api/rivers/${r.slug}/visuals/pins`) result = { pins: [{
         id: `photo-${i}`, imageUrl: '/email/eddy-quote.png', lat: points[i][2].coordinates.lat + 0.01,
         lng: points[i][2].coordinates.lng + 0.01, conditionCode: 'flowing', matchesCurrent: true,
@@ -353,7 +370,8 @@ try {
       contentType: 'application/json',
       body: JSON.stringify(result)
     });
-  });
+  };
+  await page.route('**/*', routeHandler);
   await page.goto(`${origin}/planner-map-layout-check`, {
     waitUntil: 'domcontentloaded'
   });
@@ -536,7 +554,8 @@ try {
     name: 'Use as put-in',
     exact: true
   }).waitFor();
-  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), null);
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('takeOut')), 'p-0-1');
   await page.getByRole('button', {
     name: 'Use as put-in',
     exact: true
@@ -544,7 +563,7 @@ try {
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-1-0');
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   assert.equal(documentRequests, 1);
-  console.log('Cross-river selection clears old endpoints and waits for eligible details without replacing the map');
+  console.log('Cross-river inspection preserves the route until an endpoint is chosen');
   await page.waitForFunction(() => !window.plannerMap.isMoving());
   await page.setViewportSize({
     width: 1024,
@@ -633,6 +652,132 @@ try {
   const camera = await page.evaluate(() => ({ lat: window.plannerMap.getCenter().lat, lng: window.plannerMap.getCenter().lng, zoom: window.plannerMap.getZoom() }));
   assert(Math.abs(camera.lat - 37.4) < 0.0001 && Math.abs(camera.lng + 91.2) < 0.0001 && Math.abs(camera.zoom - 10) < 0.01);
   console.log('Initial camera deep link survives loading river data and vessel defaults');
+
+  // Complete plans, selection recovery, and fullscreen use the real planner.
+  await page.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-0&takeOut=p-0-1`, { waitUntil: 'domcontentloaded' });
+  const currentEndpoints = points[0].slice(0, 2).map(point => point.coordinates);
+  const endpointsVisible = async (target, mobile = false) => {
+    await target.waitForFunction(({ coords, mobile }) => {
+      const map = window.plannerMap;
+      if (!map || map.isMoving() || !map.getLayer('float-route-layer')) return false;
+      const canvas = map.getCanvas().getBoundingClientRect();
+      const panel = document.querySelector('.planner-panel')?.getBoundingClientRect();
+      const sheetElement = document.querySelector('[data-plan-sheet]');
+      if (mobile && sheetElement?.getAnimations().some(animation => animation.playState === 'running')) return false;
+      const sheet = sheetElement?.getBoundingClientRect();
+      if (mobile && (!sheet || Math.abs(sheet.height - Math.round(innerHeight * 0.42)) > 1)) return false;
+      return coords.every(c => {
+        const p = map.project([c.lng, c.lat]);
+        return p.x > (mobile ? 8 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
+          && p.y > 75 && p.y < (mobile && sheet ? sheet.top - canvas.top - 24 : canvas.height - 85);
+      });
+    }, { coords: currentEndpoints, mobile });
+  };
+  await endpointsVisible(page);
+  assert.equal(await page.evaluate(() => window.plannerMap.getPaintProperty('float-route-layer', 'line-color')), '#F07052');
+  await page.locator('button[data-access-point-id="p-0-1"]').click();
+  await page.getByRole('region', { name: 'Selected access point' }).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1', 'Inspecting the selected strip card must retain it');
+  await page.keyboard.press('Escape');
+  await page.getByRole('region', { name: 'Selected access point' }).waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
+  await page.waitForFunction(() => !new URLSearchParams(location.search).has('putIn') && !new URLSearchParams(location.search).has('takeOut'));
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
+  await endpointsVisible(page);
+  assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1');
+  await search.fill('meramec');
+  await page.getByRole('option', { name: /^Meramec River\b/ }).click();
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
+  await endpointsVisible(page);
+  await page.getByRole('button', { name: 'Expand map', exact: true }).click();
+  await page.locator('button[data-access-point-id="p-0-1"]').click();
+  const useTakeOut = page.getByRole('button', { name: 'Use as take-out', exact: true });
+  await useTakeOut.click(); // A covered button fails Playwright's actual hit test.
+  await endpointsVisible(page);
+  await page.screenshot({ path: `${out}/desktop-fullscreen-route.png` });
+  await page.getByRole('button', { name: 'Collapse map', exact: true }).click();
+  await endpointsVisible(page);
+  const marker = page.locator('.access-point-marker[data-access-point-id="p-0-1"]');
+  await marker.focus();
+  await marker.press('Enter');
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Selected access point');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.activeElement?.matches('.access-point-marker[data-access-point-id="p-0-1"]'));
+  for (const [selector, popup] of [['.gauge-station-marker', '.gauge-station-popup'], ['.poi-marker', '.poi-popup'], ['.hazard-marker', '.hazard-popup']]) {
+    const pin = page.locator(selector).first();
+    await pin.evaluate(el => {
+      const map = window.plannerMap;
+      const canvas = map.getCanvas().getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+      const x = rect.x + rect.width / 2 - canvas.x, y = rect.y + rect.height / 2 - canvas.y;
+      if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
+        if (el.tabIndex !== -1) throw new Error('Offscreen pin is still in the tab order');
+      }
+      map.jumpTo({ center: map.unproject([x, y]) });
+    });
+    await pin.focus();
+    await pin.press('Enter');
+    await page.locator(popup).waitFor();
+    await pin.press('Escape');
+    await page.locator(popup).waitFor({ state: 'hidden' });
+  }
+  // A real pan must survive a panel resize; Show route deliberately restores it.
+  await page.getByRole('button', { name: 'Show route', exact: true }).click();
+  await endpointsVisible(page);
+  const canvas = await page.locator('.maplibregl-canvas').boundingBox();
+  const initialCenter = await page.evaluate(() => window.plannerMap.getCenter().toArray());
+  await page.mouse.move(canvas.x + canvas.width * 0.7, canvas.y + canvas.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width * 0.7 + 100, canvas.y + canvas.height * 0.5 + 60, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForFunction(before => !window.plannerMap.isMoving()
+    && window.plannerMap.getCenter().lng !== before[0], initialCenter);
+  const pannedCenter = await page.evaluate(() => window.plannerMap.getCenter().toArray());
+  await panel.evaluate(el => { el.style.width = '400px'; });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.deepEqual(await page.evaluate(() => window.plannerMap.getCenter().toArray()), pannedCenter);
+  await panel.evaluate(el => { el.style.width = ''; });
+  await page.getByRole('button', { name: 'Show route', exact: true }).click();
+  await endpointsVisible(page);
+  console.log('Desktop route framing, orange route, Undo, fullscreen, keyboard markers and pan recovery passed');
+
+  await page.close();
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+  mobile.on('pageerror', error => errors.push(String(error)));
+  await mobile.route('**/*', routeHandler);
+  await mobile.goto(`${origin}/planner-map-layout-check?river=current`, { waitUntil: 'domcontentloaded' });
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').waitFor();
+  assert.equal(await mobile.locator('.maplibregl-ctrl-zoom-in,.maplibregl-ctrl-zoom-out').count(), 2);
+  await mobile.evaluate(c => window.plannerMap.jumpTo({ center: [c.lng, c.lat], zoom: 12 }), points[0][0].coordinates);
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').tap();
+  await mobile.getByRole('button', { name: 'Use as put-in', exact: true }).waitFor();
+  assert.equal(new URL(mobile.url()).searchParams.get('putIn'), null);
+  await mobile.getByRole('button', { name: 'Use as put-in', exact: true }).tap();
+  await mobile.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-0');
+  await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
+  const mobileSearch = mobile.getByRole('combobox', { name: 'Search rivers and access points', exact: true });
+  await mobileSearch.fill('take');
+  await mobile.getByRole('option', { name: /Current Take-out/ }).tap();
+  await mobile.getByRole('button', { name: 'Use as take-out', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.screenshot({ path: `${out}/mobile-completed-route.png` });
+  await mobile.getByRole('button', { name: 'Expand map', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
+  await mobileSearch.fill('put');
+  await mobile.getByRole('option', { name: /Current Put-in/ }).tap();
+  await mobile.getByRole('button', { name: 'Use as put-in', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  assert.equal(new URL(mobile.url()).searchParams.get('takeOut'), 'p-0-1', 'Replacing the start with itself preserves the finish');
+  await mobile.getByRole('button', { name: 'Collapse map', exact: true }).tap();
+  await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
+  await mobileSearch.fill('meramec');
+  await mobile.getByRole('option', { name: /^Meramec River\b/ }).tap();
+  await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.screenshot({ path: `${out}/mobile-restored-route.png` });
+  console.log('Mobile touch preview, current-river access search, zoom controls, fullscreen, route fit and Undo passed');
   assert.deepEqual(errors, []);
   console.log('Desktop 1440/1024, mobile and runtime checks passed');
 } catch (error) {

@@ -4,7 +4,7 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 
 ## Features
 
-- **Interactive Map**: Click to select put-in and take-out points
+- **Interactive Map**: Inspect access points and choose put-in and take-out points
 - **Real-time Conditions**: Live USGS gauge data with floatability ratings
 - **Float Time Estimates**: Calculated based on vessel type and water levels
 - **Shuttle Planning**: Drive-back time and distance
@@ -91,14 +91,25 @@ responses, partial/empty results, expiry, and
 planner parameters. No production credentials are needed. Set
 `PLAYWRIGHT_CHROMIUM_PATH` when using a locally installed browser. Screenshots
 go to `/tmp/eddy-float-finder` (override with `FINDER_SMOKE_OUTPUT`).
-## Desktop route map
+## Route map
 
 Build a Route keeps one MapLibre map mounted while choosing rivers, loading
 river details, and returning to **All rivers**. All rivers zooms back to the
 service area and preserves the current route and its endpoint selections;
-choosing a different river starts that river's plan. Search and access clicks
-frame the usable map area beside the measured panel and above the access strip.
-Valid camera deep links are honored on the initial load.
+choosing a different river starts that river's plan, with Undo available.
+Desktop and mobile web share access previews: map pins, strip cards, and search
+results inspect a place before an explicit endpoint choice. Inspecting another
+river's access does not discard the current route. Endpoint edits and river
+changes can be undone. Mobile search includes the already-loaded accesses on
+the selected river without downloading the regional access catalogue.
+
+A completed route fits the usable map area beside the panel or above the mobile
+sheet. Show route restores that view after exploring; resizing overlays does
+not override a manual pan. Valid camera deep links win on initial load.
+Fullscreen includes planner controls and details. Zoom buttons remain available
+on touch screens, and access, gauge, POI, and hazard markers support keyboard
+activation. The selected route uses the same accent orange as the iOS map,
+separate from river condition colors.
 
 Desktop content filters start enabled each visit and retain changes while
 switching rivers. The regional catalogue supplies access points and POIs;

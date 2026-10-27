@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, isStyleReady, whenStyleReady } from './layer-anchors';
-import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR } from './line-style';
+import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR, ROUTE_COLOR } from './line-style';
 import type { GeoJSON } from 'geojson';
 import type * as maplibregl from 'maplibre-gl';
 
@@ -80,8 +80,8 @@ export default function RouteLayer({
       ? (routeGeometry as GeoJSON.Feature).geometry as GeoJSON.LineString
       : routeGeometry as GeoJSON.LineString;
 
-    // Route colors - green for downstream (valid), red for upstream (warning)
-    const routeColor = isUpstream ? '#ef4444' : '#22c55e'; // red-500 or green-500
+    // The selected route is distinct from the condition-colored river network.
+    const routeColor = isUpstream ? '#ef4444' : ROUTE_COLOR;
 
     // Add or update route source
     if (hasSource(routeSourceId)) {

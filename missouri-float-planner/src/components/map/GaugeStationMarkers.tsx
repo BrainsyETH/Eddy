@@ -11,6 +11,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';
 import { attachMarkerZoomFade, type ZoomFadeEntry } from './marker-zoom';
 import { presentPopup } from './popup-manager';
+import { enableMarkerKeyboard, attachMarkerTabOrder } from './marker-keyboard';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 import { computeCondition } from '@/lib/conditions';
@@ -346,6 +347,8 @@ export default function GaugeStationMarkers({
         className: 'gauge-station-popup',
       }).setHTML(popupContent);
 
+      enableMarkerKeyboard(el, `${gauge.name}, gauge details`, () => popup.remove());
+
       // Show popup on hover for hover-capable devices. Click PINS it and
       // must stopPropagation: the gauge sits on the river line, so an
       // unswallowed click reaches the condition layer's hit layer and its
@@ -389,8 +392,11 @@ export default function GaugeStationMarkers({
 
     const detachZoomFade = attachMarkerZoomFade(map, zoomFadeEntries);
 
+    const detachTabOrder = attachMarkerTabOrder(map, markersRef.current);
+
     // Cleanup
     return () => {
+      detachTabOrder();
       detachZoomFade();
       markersRef.current.forEach((marker) => marker.remove());
       popupsRef.current.forEach((popup) => popup.remove());

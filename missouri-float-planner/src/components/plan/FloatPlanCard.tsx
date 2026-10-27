@@ -204,6 +204,7 @@ interface FloatPlanCardProps {
   vesselTypeId: string | null;
   onVesselChange: (id: string) => void;
   captureRef?: React.RefObject<HTMLDivElement | null>;
+  mobileSheetRef?: React.RefObject<HTMLDivElement | null>;
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
 }
@@ -1157,6 +1158,7 @@ function MobileBottomSheet({
   isLastValidFallback = false,
   lastValidAt = null,
   onRetry,
+  sheetRef,
 }: {
   plan: FloatPlan;
   putInPoint: AccessPoint;
@@ -1174,6 +1176,7 @@ function MobileBottomSheet({
   isLastValidFallback?: boolean;
   lastValidAt?: number | null;
   onRetry?: () => void;
+  sheetRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   // Three snap points instead of two: 'peek' keeps the route summary and
   // vessel toggle on screen while most of the map (and the drawn route) stays
@@ -1184,7 +1187,6 @@ function MobileBottomSheet({
   const [sheetState, setSheetState] = useState<SheetState>('peek');
   const [putInExpanded, setPutInExpanded] = useState(false);
   const [takeOutExpanded, setTakeOutExpanded] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     startY: number;
     startHeight: number;
@@ -1647,6 +1649,7 @@ export default function FloatPlanCard({
   vesselTypeId,
   onVesselChange,
   captureRef,
+  mobileSheetRef,
   onReportIssue,
   pointsAlongRoute = [],
 }: FloatPlanCardProps) {
@@ -1875,6 +1878,7 @@ export default function FloatPlanCard({
 
         {/* Mobile Bottom Sheet - renders as fixed overlay, outside desktop container */}
         <MobileBottomSheet
+          sheetRef={mobileSheetRef}
           plan={displayPlan}
           putInPoint={putInPoint}
           takeOutPoint={takeOutPoint}
