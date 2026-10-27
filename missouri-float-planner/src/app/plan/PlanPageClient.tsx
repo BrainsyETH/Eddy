@@ -5,7 +5,7 @@
 // single page handles every river. URL params (river, putIn, takeOut, vessel)
 // keep the planner state shareable and refresh-stable.
 
-import { useState, useReducer, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useReducer, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
@@ -288,6 +288,12 @@ export default function PlanPageClient({
   const mobilePreviewRef = useRef<HTMLDivElement>(null);
   const mobileStripRef = useRef<HTMLDivElement>(null);
   const previewReturnRef = useRef<HTMLElement | null>(null);
+  // Keyboard endpoint choices move focus to the new route's controls. On an
+  // uncached river the target marker mounts only after the river loads, so the
+  // request stays pending until it can land (see the effect below).
+  // Expires so a request whose target never appears (a failed load) can't
+  // steal focus from some later, unrelated change.
+  const pendingFocusRef = useRef<{ id: string; until: number } | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<PlannerMapPlace | null>(null);
   const previewAccess = useAccessPoints(selectedPlace?.riverSlug ?? null);
   const searchConditions = useMemo(() => new Map(
@@ -798,17 +804,40 @@ export default function PlanPageClient({
         ? orderedPlannerEndpoints(previewPoint, takeOutPoint)
         : { selectedPutIn: previewPoint.id, selectedTakeOut: null };
     changeSelection({ riverSlug: selectedPlace.riverSlug, ...next });
-    const targetId = previewPoint.id;
-    if (keyboard) requestAnimationFrame(() => {
-      const target = document.querySelector<HTMLElement>('[aria-label="Show route"]')
-        ?? document.querySelector<HTMLElement>(`.access-point-marker[data-access-point-id="${CSS.escape(targetId)}"]`);
-      target?.focus({ preventScroll: true });
-    });
+    if (keyboard) pendingFocusRef.current = { id: previewPoint.id, until: Date.now() + 10_000 };
     trackEvent(next.selectedPutIn === previewPoint.id ? 'putin_selected' : 'takeout_selected', { river: selectedPlace.riverSlug });
     setSelectedPlace(null);
     setFocusPlace(next.selectedTakeOut ? null : selectedPlace);
     setFocusRequest(value => value + 1);
   };
+  // Land a pending keyboard focus once its target exists: the Show route
+  // control, else the chosen marker. Until then keep focus on a stable element
+  // (the loading status on desktop, the river search on mobile) rather than
+  // letting it fall to <body>. Runs after every commit; it is a no-op unless a
+  // request is pending.
+  // A layout effect, so the first attempt runs in the same task as the commit
+  // that unmounted the focused preview button — focus never sits on <body>.
+  // Markers mount in their own (later) effects, hence the next-frame retry.
+  useLayoutEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    if (Date.now() > pending.until) { pendingFocusRef.current = null; return; }
+    const { id } = pending;
+    const land = () => {
+      const target = document.querySelector<HTMLElement>('[aria-label="Show route"]')
+        ?? document.querySelector<HTMLElement>(`.access-point-marker[data-access-point-id="${CSS.escape(id)}"]`);
+      if (target) {
+        pendingFocusRef.current = null;
+        target.focus({ preventScroll: true });
+      } else if (!document.activeElement || document.activeElement === document.body) {
+        document.querySelector<HTMLElement>('[data-planner-focus-fallback], [data-planner-search-trigger]')
+          ?.focus({ preventScroll: true });
+      }
+    };
+    land();
+    const frame = requestAnimationFrame(() => { if (pendingFocusRef.current) land(); });
+    return () => cancelAnimationFrame(frame);
+  });
   const placeCard = selectedPlace && <PlannerPlaceCard place={selectedPlace} point={previewPoint}
     loading={previewAccess.isFetching || previewAccess.isPlaceholderData} failed={previewAccess.isError}
     onRetry={() => { void previewAccess.refetch(); }} canTakeOut={canTakeOut} onClose={closePlace}
@@ -918,7 +947,8 @@ export default function PlanPageClient({
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             {/* No intro card: the search box and the colored river network
                 are the call to action. Only surface load/error status. */}
-            {!activeRiver && !selectedPlace && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3">
+            {!activeRiver && !selectedPlace && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3 outline-none"
+              tabIndex={-1} data-planner-focus-fallback>
               <p className="text-xs text-neutral-600" role="status">{riverError
                 ? 'River details couldn’t load. Choose another river or try again.'
                 : 'Loading river details…'}</p>
@@ -1114,7 +1144,6 @@ export default function PlanPageClient({
             showLegend={false}
             expanded={mapExpanded} onExpandedChange={setMapExpanded}
             controlsTop={putInPoint && takeOutPoint ? 0 : 64}
-            extraTools={plannerTools}
             syncCameraToUrl
           >
             {visibleAccessPoints && !accessPlaceholder && (
@@ -1196,6 +1225,10 @@ export default function PlanPageClient({
             readingsAsOf={newestReadingAt}
             className="absolute top-[4.25rem] left-3 z-30"
           />
+          {/* Route tools sit under Filters, near the top of the map: at the
+              bottom of the right-hand column the plan sheet covers them on
+              short phones. */}
+          <div className="absolute left-3 top-[7.25rem] z-30 flex flex-col gap-2">{plannerTools}</div>
 
           {/* Hidden once both endpoints are chosen: the fixed z-40 float
               sheet takes the stage and buried/collided with the pill on
