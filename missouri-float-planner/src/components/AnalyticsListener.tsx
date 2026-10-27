@@ -7,22 +7,30 @@
 // client handlers. Mounted once in the root layout; renders nothing.
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAppCampaign } from '@/components/AppLink';
 import { APP_STORE } from '@/lib/app-discovery';
-import { initializeAnalytics, trackEvent } from '@/lib/analytics';
+import { initializeAnalytics, trackEvent, trackPageView, trackNavigationClick } from '@/lib/analytics';
 import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 
 export default function AnalyticsListener({ trackingId }: { trackingId?: string }) {
   const campaign = useAppCampaign();
+  const pathname = usePathname();
   useEffect(() => {
     initializeAnalytics(trackingId);
-  }, [trackingId]);
+    // Read the committed browser URL. Search, map state and fragments do not
+    // change pathname, so they never create views; remounts are deduplicated.
+    if (pathname === window.location.pathname) trackPageView();
+  }, [trackingId, pathname]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
       const start = e.target as Element | null;
       const el = start?.closest?.('[data-ga-event]') as HTMLElement | null;
-      if (!el) return;
+      if (!el) {
+        trackNavigationClick(start);
+        return;
+      }
       const action = el.dataset.gaEvent;
       if (!action) return;
       const label = el.dataset.gaLabel;
