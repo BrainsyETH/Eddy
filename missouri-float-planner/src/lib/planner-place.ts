@@ -1,4 +1,3 @@
-import type { AccessPoint } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
 
 // Same precedence as iOS map-sheet/placeSymbol: specific types before access;
@@ -7,7 +6,7 @@ const SYMBOLS = {
   boat_ramp: 'boatRamp', campground: 'campground', bridge: 'bridge', gravel_bar: 'gravelBar',
 } as const;
 
-export function plannerPlaceSymbol(point: Pick<AccessPoint, 'types' | 'type'> | undefined) {
+export function plannerPlaceSymbol(point: { types?: readonly string[]; type?: string } | undefined) {
   const types = point?.types?.length ? point.types : point ? [point.type] : [];
   for (const type of ACCESS_POINT_TYPE_ORDER.filter(type => types.includes(type))) {
     if (type in SYMBOLS) return SYMBOLS[type as keyof typeof SYMBOLS];

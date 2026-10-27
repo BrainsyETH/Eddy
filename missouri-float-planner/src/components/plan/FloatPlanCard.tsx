@@ -1162,7 +1162,9 @@ export function MobileBottomSheet({
   sheetRef,
   children,
   selectionId,
+  headerAction,
 }: {
+  headerAction?: React.ReactNode;
   children?: React.ReactNode;
   selectionId?: string | null;
   plan: FloatPlan;
@@ -1363,9 +1365,10 @@ export function MobileBottomSheet({
           {/* Title row. Deliberately minimal: route names, distance, and time
               live ONCE in the route summary card below, not repeated here. */}
           <div className="px-4 pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between" data-plan-header>
               <h2 id="mobile-float-plan-title" className="text-sm font-bold text-neutral-900">{children ? 'Build a Route' : 'Float Plan'}</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
+                {headerAction}
                 <ConditionBadge code={conditionCode} label={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : undefined} />
                 <button
                   onClick={(e) => {

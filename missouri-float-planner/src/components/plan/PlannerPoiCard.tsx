@@ -16,7 +16,7 @@ export default function PlannerPoiCard({ poi, onClose }: { poi: PointOfInterest;
     if (scroller) scroller.scrollTop = 0;
   }, [poi.id]);
   const icon = plannerPoiSymbol(poi.type);
-  return <section ref={card} tabIndex={-1} aria-label="Selected point of interest" className="card-framed p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary-500" onKeyDown={event => {
+  return <section ref={card} tabIndex={-1} data-planner-inspection aria-label="Selected point of interest" className="card-framed p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary-500" onKeyDown={event => {
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); onClose(); }
   }}>
     <div className="flex items-start gap-2">

@@ -10,6 +10,8 @@ export interface PlannerMapPlace {
   riverSlug: string;
   riverName: string;
   coordinates: { lng: number; lat: number };
+  type?: string;
+  types?: string[];
 }
 
 export function plannerMapPlaces(dataset: MODataset | undefined): PlannerMapPlace[] {
@@ -20,7 +22,8 @@ export function plannerMapPlaces(dataset: MODataset | undefined): PlannerMapPlac
       || Math.abs(point.lon) > 180 || Math.abs(point.lat) > 90) return [];
     seen.add(key);
     return [{ id: point.id, name: point.name, slug: point.slug, riverId: river.id,
-      riverSlug: river.slug, riverName: river.name, coordinates: { lng: point.lon, lat: point.lat } }];
+      riverSlug: river.slug, riverName: river.name, coordinates: { lng: point.lon, lat: point.lat },
+      type: point.type }];
   }));
 }
 

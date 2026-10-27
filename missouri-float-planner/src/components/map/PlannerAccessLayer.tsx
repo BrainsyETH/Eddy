@@ -103,12 +103,14 @@ export function PlannerMapFocus({ place, bounds, request, mode, callout = false,
           const point = map.project([place.coordinates.lng, place.coordinates.lat]);
           // Keep the callout above its pin and clear of the sidebar. For a
           // plain selection reserve only its marker and label; never zoom in.
-          const minX = Math.min(canvas.width / 2 + 80, padding.left + (callout ? 150 : 24));
-          const maxX = Math.max(minX, canvas.width - padding.right - (callout ? 150 : 24));
+          const minX = Math.min(canvas.width / 2 + 80, padding.left + (callout ? 150 : 96));
+          const maxX = Math.max(minX, canvas.width - padding.right - (callout ? 150 : 96));
           // 28px matches the popup's anchor offset; 120px clears the report
           // and route chips at the top of the map.
-          const minY = Math.min(canvas.height - padding.bottom - 24, callout ? (map.getContainer().querySelector('.planner-place-popup')?.getBoundingClientRect().height ?? 320) + 28 + 120 : padding.top);
-          const maxY = Math.max(minY, canvas.height - padding.bottom - 24);
+          // The selected marker's combined name/role label can wrap to two
+          // lines. Keep that label above the sheet as well as the icon itself.
+          const minY = Math.min(canvas.height - padding.bottom - 56, callout ? (map.getContainer().querySelector('.planner-place-popup')?.getBoundingClientRect().height ?? 320) + 28 + 120 : padding.top);
+          const maxY = Math.max(minY, canvas.height - padding.bottom - 56);
           const x = Math.min(maxX, Math.max(minX, point.x));
           const y = Math.min(maxY, Math.max(minY, point.y));
           if (Math.abs(point.x - x) > 1 || Math.abs(point.y - y) > 1) {
