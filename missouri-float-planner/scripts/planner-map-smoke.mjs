@@ -613,10 +613,20 @@ try {
   await page.getByRole('button', { name: 'Use as put-in', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('river')), 'jacks-fork');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-2-0');
-  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
+  // Keyboard choice on an uncached river: focus must never drop to <body>
+  // while the river loads, and must land on the new put-in once it mounts.
+  await page.evaluate(() => {
+    window.focusFellToBody = false;
+    const watch = () => { if (document.activeElement === document.body) window.focusFellToBody = true; };
+    window.focusWatch = setInterval(watch, 10);
+  });
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).press('Enter');
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-1-0');
   // The new river loads after the endpoint choice; wait for its route panel.
   await page.locator('.planner-glass.flex-1').waitFor();
+  await page.waitForFunction(() => document.activeElement?.matches('.access-point-marker[data-access-point-id="p-1-0"]'));
+  assert.equal(await page.evaluate(() => { clearInterval(window.focusWatch); return window.focusFellToBody; }), false,
+    'keyboard focus must not fall to <body> while the chosen river loads');
   assert(await page.evaluate(() => window.plannerMap === window.resumedDesktopMap));
   assert.equal(documentRequests, 1);
   console.log('Cross-river inspection preserves the route until an endpoint is chosen');
@@ -729,7 +739,8 @@ try {
       if (mobile && (!sheet || Math.abs(sheet.height - Math.round(innerHeight * 0.42)) > 1)) return false;
       return coords.every(c => {
         const p = map.project([c.lng, c.lat]);
-        return p.x > (mobile ? 8 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
+        // Mobile: clear Filters and the route-tools row (left-3, ~108px wide).
+        return p.x > (mobile ? 112 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
           && p.y > 75 && p.y < (mobile && sheet ? sheet.top - canvas.top - 24 : canvas.height - 85);
       });
     }, { coords: currentEndpoints, mobile });
@@ -801,6 +812,12 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Expand weather details', exact: true }).getAttribute('aria-expanded'), 'false');
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Expand weather details');
   assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Show map legend', exact: true }).click();
+  await page.getByRole('button', { name: 'Hide map legend', exact: true }).press('Escape');
+  await page.getByRole('button', { name: 'Show map legend', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Show map legend');
+  assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1,
+    'Escape closes the legend without leaving fullscreen');
   assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 1);
   await page.getByRole('region', { name: 'Selected access point' }).focus();
   await page.keyboard.press('Escape');
@@ -898,6 +915,37 @@ try {
   await mobile.waitForFunction(() => !new URLSearchParams(location.search).has('putIn'));
   await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
   await endpointsVisible(mobile, true);
+  // Short phones (fresh pages: the sheet sizes itself from the viewport it
+  // opens in): the default plan sheet must not cover the route tools.
+  for (const size of [{ width: 375, height: 667 }, { width: 390, height: 568 }]) {
+    const phone = await browser.newPage({ viewport: size, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+    phone.on('pageerror', error => errors.push(String(error)));
+    await phone.route('**/*', routeHandler);
+    await phone.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-0&takeOut=p-0-1`, { waitUntil: 'domcontentloaded' });
+    const settledSheet = () => phone.waitForFunction(() => {
+      const sheet = document.querySelector('[data-plan-sheet]');
+      return sheet && !sheet.getAnimations().some(a => a.playState === 'running')
+        && Math.abs(sheet.getBoundingClientRect().height - Math.round(innerHeight * 0.42)) <= 1;
+    });
+    await settledSheet();
+    // Clear and re-pick the take-out: two edits, so Undo stays available.
+    const takeOut = phone.locator('.access-point-marker[data-access-point-id="p-0-1"]');
+    await takeOut.tap();
+    await phone.waitForFunction(() => !new URLSearchParams(location.search).has('takeOut'));
+    await takeOut.tap();
+    await phone.waitForFunction(() => new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
+    await settledSheet();
+    const covered = await phone.evaluate(() => {
+      const sheetTop = document.querySelector('[data-plan-sheet]').getBoundingClientRect().top;
+      return ['Show route', 'Undo route change'].filter(label => {
+        const control = document.querySelector(`[aria-label="${label}"]`)?.getBoundingClientRect();
+        return !control || control.bottom > sheetTop;
+      });
+    });
+    assert.deepEqual(covered, [], `route tools must clear the plan sheet at ${size.width}x${size.height}`);
+    await phone.screenshot({ path: `${out}/mobile-tools-${size.width}x${size.height}.png` });
+    await phone.close();
+  }
   await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
   const mobileSearch = mobile.getByRole('combobox', { name: 'Search rivers and access points', exact: true });
   await mobileSearch.fill('take');
