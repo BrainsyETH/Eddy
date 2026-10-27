@@ -1,4 +1,4 @@
-import { notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
+import { FINISH_FLOAT_ACTION, notificationCommand, notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -257,6 +257,12 @@ test('notification destinations keep the exact subject and alert context', () =>
   assert.equal(notificationDestination({}), null);
   assert.equal(notificationDestination(null), null);
   assert.equal(notificationDestination({ gaugeSiteId: 123, riverSlug: false }), null);
+  // Finish on the arrival prompt is a command, not a place to open; a plain
+  // tap on the same notification, or Finish on anything else, is not.
+  assert.equal(notificationCommand(FINISH_FLOAT_ACTION, { floatReminder: 'arrived' }), 'finish-float');
+  assert.equal(notificationCommand('expo.modules.notifications.actions.DEFAULT', { floatReminder: 'arrived' }), null);
+  assert.equal(notificationCommand(FINISH_FLOAT_ACTION, { riverSlug: 'current' }), null);
+  assert.equal(notificationCommand(undefined, { floatReminder: 'arrived' }), null);
 });
 
 

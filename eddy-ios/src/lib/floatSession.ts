@@ -169,8 +169,11 @@ export interface FloatSession {
   position: { lngLat: LngLat; at: number } | null;
   /** Latest valid raw recorder fix, including coarse fixes. Never drives progress. */
   lastFix?: RawFloatFix | null;
-  /** Latest usable GPS fix for display, even off-river. Never used for progress or ETA. */
-  gpsPosition?: { lngLat: LngLat; at: number; accuracyMeters?: number | null; restored?: true } | null;
+  /**
+   * Latest usable GPS fix for display, even off-river, with its accuracy and
+   * course over ground when known. Never used for progress or ETA.
+   */
+  gpsPosition?: { lngLat: LngLat; at: number; accuracyMeters?: number | null; course?: number | null; restored?: true } | null;
   /**
    * Restored after a relaunch and not yet re-confirmed. Progress is kept, but
    * nothing is live until fresh fixes confirm a position again.
@@ -408,8 +411,9 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   if (step.result.kind === 'rejected') return rawSession;
   const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
   const atLaunch = Boolean(putIn && nearLaunch(fix.lngLat, fix.accuracyMeters, putIn.lngLat));
+  const course = fix.course != null && Number.isFinite(fix.course) && fix.course >= 0 ? fix.course : null;
   const next: FloatSession = { ...rawSession, track: step.state,
-    gpsPosition: { lngLat: fix.lngLat, at: fix.timestamp, accuracyMeters: fix.accuracyMeters },
+    gpsPosition: { lngLat: fix.lngLat, at: fix.timestamp, accuracyMeters: fix.accuracyMeters, course },
     last: { result: step.result, at: fix.timestamp, nearPutIn: atLaunch } };
   // Three accurate fixes, with no gap over thirty seconds, like river acquisition.
   // A lone outlier, preview GPS, or passing the snapped river point is not a launch.

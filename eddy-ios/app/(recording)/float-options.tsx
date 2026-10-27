@@ -1,6 +1,6 @@
 // Essentials keeps the existing route used by Live Activity and notification links.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Share, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Share, Switch, Text, View, useWindowDimensions } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatActivityControl } from '@/float/FloatActivityControl';
@@ -116,6 +116,16 @@ export default function FloatOptionsScreen() {
     </View>)}</EssentialsSection> : null}
     <EssentialsSection title="Pickup contact"><PickupContact message={locationMessage(session, now, timeLabel)} /></EssentialsSection>
     <EssentialsSection title="River conditions"><EssentialsConditions slug={session.route.riverSlug} now={now} /></EssentialsSection>
+    {/* One tap away, not under Float settings: on the water this is the switch people reach for. */}
+    <EssentialsSection title="Screen">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[s.title, { color: colors.text }]}>Keep screen awake</Text>
+          <Text style={[s.note, { color: colors.textMuted }]}>While River Mode is showing. Uses more battery.</Text>
+        </View>
+        <Switch value={keepAwake} onValueChange={value => void setKeepAwake(value)} accessibilityLabel="Keep screen awake while River Mode is showing" />
+      </View>
+    </EssentialsSection>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: settingsOpen }} onPress={() => setSettingsOpen(v => !v)} style={{ minHeight: 56, justifyContent: 'center' }}>
       <Text style={[s.title, { color: colors.interactive }]}>{settingsOpen ? 'Hide settings' : 'Float settings'}</Text>
     </Pressable>
@@ -123,7 +133,6 @@ export default function FloatOptionsScreen() {
       {tracking.line && tracking.line.action !== 'info' ? <EssentialsButton label={tracking.line.text} onPress={tracking.act} /> : null}
       <FloatReminders session={session} />
       <EssentialsSection title="Live Activity"><FloatActivityControl /></EssentialsSection>
-      <EssentialsButton label={keepAwake ? 'Allow screen sleep' : 'Keep screen awake'} onPress={() => void setKeepAwake(!keepAwake)} />
       <FloatHazardReports session={session} />
     </> : null}
   </ScrollView>;

@@ -35,8 +35,12 @@ import {
   AUTO_END_AWAY_MS,
   AWAY_PROMPT_ID,
   AWAY_PROMPT_MS,
+  CONTINUING_WINDOW_MS,
+  SHORT_FLOAT_MS,
   autoEndAt,
   autoEndCopy,
+  continuingPastEnd,
+  isShortFloat,
 } from '../../../eddy-ios/src/lib/floatEnding';
 import { notificationAccess, canDeliverNotification } from '../../../eddy-ios/src/lib/notificationAccess';
 import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
@@ -370,6 +374,41 @@ test('a float left running ends itself after arriving or leaving the river, neve
   away = drive(session, t + AUTO_END_AWAY_MS);
   assert.equal(autoEndAt(away, t + AUTO_END_AWAY_MS), t);
   assert.match(autoEndCopy(away).body, /left the Current River/);
+});
+
+test('arrival does not end a float whose paddler keeps going downstream past the take-out', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'pulltite');
+  let { session, t } = paddle(s0, index, 0, 6_000, T0);
+  assert.ok(session.arrivedAt != null);
+  const arrivedAt = session.arrivedAt!;
+  assert.equal(continuingPastEnd(session, t), false, 'at the take-out is not past it');
+
+  // Keeps paddling for over an hour beyond the take-out: still floating, so
+  // the hour after arrival ends nothing.
+  ({ session, t } = paddle(session, index, 6_000, 9_000, t, 0.7));
+  assert.ok(t - arrivedAt > AUTO_END_AFTER_ARRIVAL_MS);
+  assert.equal(continuingPastEnd(session, t), true);
+  assert.equal(autoEndAt(session, t), null);
+
+  // Then stops on the bank for a quarter of an hour: the float ends, and the
+  // recap counts it finished at the take-out it was planned to.
+  const stopped = t + CONTINUING_WINDOW_MS + 10_000;
+  for (let when = t; when <= stopped; when += 10_000) session = applyFix(session, index, fix(at(9_000, 5), when), when);
+  assert.equal(continuingPastEnd(session, stopped), false);
+  assert.equal(autoEndAt(session, stopped), arrivedAt);
+
+  // A GPS gap after moving past the take-out is not evidence of still moving.
+  assert.equal(continuingPastEnd(session, stopped + 2 * CONTINUING_WINDOW_MS), false);
+});
+
+test('a float is short, and can be discarded without a recap, until it has measured something', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
+  assert.equal(isShortFloat(s0, T0 + SHORT_FLOAT_MS + 1), true, 'no confirmed position: nothing measured');
+  const { session, t } = paddle(s0, index, 0, 100, T0);
+  assert.equal(isShortFloat(session, t), true, 'moments old');
+  assert.equal(isShortFloat(session, T0 + SHORT_FLOAT_MS), true, 'under a tenth of a mile');
+  const far = paddle(session, index, 100, 400, t);
+  assert.equal(isShortFloat(far.session, T0 + SHORT_FLOAT_MS), false);
 });
 
 test('away is judged on fresh evidence: a gap, a return to the river, or a bank stop ends nothing', () => {

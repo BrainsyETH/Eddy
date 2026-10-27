@@ -26,10 +26,17 @@
 // stale away fix ends nothing. Nothing here ends a float for being slow,
 // stopped, or out of signal.
 //
+// Arrival is judged on evidence too. Reaching the take-out starts the hour,
+// but a paddler whose confirmed positions keep moving downstream past it has
+// not finished: they chose the wrong take-out, or decided to go on. The end
+// waits until that movement stops (continuingPastEnd), and the recap still
+// counts the float as finished at the take-out it was planned to.
+//
 // Pure, like floatSession.ts; covered by missouri-float-planner/src/lib/
 // float-reminders.test.ts. Prompts travel through the reminder machinery in
 // floatReminders.ts, so they get the same pending/sent bookkeeping.
 
+import { ARRIVAL_MILES } from '@eddy/geo';
 import { AWAY_FROM_RIVER_M, STALE_POSITION_MS, type FloatSession } from './floatSession';
 
 /** "Still floating?" after this long away from the river. */
@@ -38,6 +45,43 @@ export const AWAY_PROMPT_MS = 10 * 60_000;
 export const AUTO_END_AFTER_ARRIVAL_MS = 60 * 60_000;
 /** Ended automatically this long after leaving the river. */
 export const AUTO_END_AWAY_MS = 45 * 60_000;
+/**
+ * Confirmed movement downstream over this window, past the take-out, means
+ * the paddler is still floating: the arrival end waits.
+ */
+export const CONTINUING_WINDOW_MS = 15 * 60_000;
+export const CONTINUING_MIN_MILES = 0.1;
+/**
+ * A float this young, or that has measured less than this, can be discarded
+ * without a recap: an accidental Start, not a trip anyone wants in history.
+ */
+export const SHORT_FLOAT_MS = 5 * 60_000;
+export const SHORT_FLOAT_MILES = 0.1;
+
+/**
+ * The paddler's confirmed positions are past the take-out and still moving
+ * downstream: the latest is fresh, beyond the arrival threshold, and at least
+ * CONTINUING_MIN_MILES past where they were CONTINUING_WINDOW_MS ago.
+ */
+export function continuingPastEnd(session: FloatSession, now: number): boolean {
+  const samples = session.samples;
+  const latest = samples[samples.length - 1];
+  if (!latest || now - latest.timestamp > CONTINUING_WINDOW_MS) return false;
+  if (latest.riverMile - session.takeOut.riverMile <= ARRIVAL_MILES) return false;
+  const earlier = samples.find((sample) => sample.timestamp >= latest.timestamp - CONTINUING_WINDOW_MS);
+  return earlier != null && earlier !== latest && latest.riverMile - earlier.riverMile >= CONTINUING_MIN_MILES;
+}
+
+/**
+ * Nothing worth a recap yet: started moments ago, or no measured progress.
+ * River Mode offers Discard alongside End while this holds.
+ */
+export function isShortFloat(session: FloatSession, now: number): boolean {
+  if (now - session.startedAt < SHORT_FLOAT_MS) return true;
+  const latest = session.samples[session.samples.length - 1];
+  if (!latest || session.startMile == null) return true;
+  return Math.abs(latest.riverMile - session.startMile) < SHORT_FLOAT_MILES;
+}
 
 export const ARRIVED_PROMPT_ID = 'arrived';
 export const AWAY_PROMPT_ID = 'away';
@@ -73,8 +117,8 @@ export function endPromptsDue(session: FloatSession, now: number): EndPromptKind
  */
 export function autoEndAt(session: FloatSession | null, now: number): number | null {
   if (!session) return null;
-  if (session.arrivedAt != null && now - session.arrivedAt >= AUTO_END_AFTER_ARRIVAL_MS) return session.arrivedAt;
-  if (session.riverEndAt != null && now - session.riverEndAt >= AUTO_END_AFTER_ARRIVAL_MS) return session.riverEndAt;
+  const reached = session.arrivedAt ?? session.riverEndAt;
+  if (reached != null && now - reached >= AUTO_END_AFTER_ARRIVAL_MS && !continuingPastEnd(session, now)) return reached;
   if (awayNow(session, now) && now - session.awaySince! >= AUTO_END_AWAY_MS) return session.awaySince!;
   return null;
 }

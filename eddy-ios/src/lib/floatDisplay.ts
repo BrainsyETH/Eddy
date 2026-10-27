@@ -1,13 +1,52 @@
-import { boundsForLine, type LngLat } from '@eddy/geo';
-import { STALE_POSITION_MS, type FloatSession } from './floatSession';
+import { boundsForLine, MAX_ACCURACY_M, type LngLat } from '@eddy/geo';
+import { formatDuration, STALE_POSITION_MS, type FloatSession } from './floatSession';
 import type { ActivityAvailability } from './floatActivity';
 
 /** Display uses the recorder's GPS stream, never a second location subscription. */
-export function floatDisplayPosition(session: FloatSession, now: number) {
+export function floatDisplayPosition(session: FloatSession, now: number): {
+  lngLat: LngLat; at: number; accuracyMeters: number | null; course: number | null; dimmed: boolean;
+} | null {
   const fix = session.gpsPosition ?? session.position;
   if (!fix) return null;
   const awaiting = session.gpsPosition ? session.gpsPosition.restored === true : session.awaitingFix === true;
-  return { ...fix, dimmed: awaiting || now - fix.at > STALE_POSITION_MS };
+  const raw = session.gpsPosition;
+  return {
+    lngLat: fix.lngLat,
+    at: fix.at,
+    accuracyMeters: raw?.accuracyMeters ?? null,
+    course: raw?.course ?? null,
+    dimmed: awaiting || now - fix.at > STALE_POSITION_MS,
+  };
+}
+
+/**
+ * GPS is delivering, but too coarsely to place the paddler on the river: the
+ * latest raw fix is fresh, newer than the last fix the tracker accepted, and
+ * outside the tracker's accuracy limit. Under a bluff or tree canopy this is
+ * the common case, and it is not "waiting for GPS".
+ */
+export function gpsQualityNote(session: FloatSession, now: number): { accuracyMeters: number } | null {
+  const raw = session.lastFix;
+  if (!raw || raw.restored || raw.accuracyMeters == null) return null;
+  if (now - raw.at > STALE_POSITION_MS) return null;
+  if (raw.accuracyMeters <= MAX_ACCURACY_M) return null;
+  if (session.track.lastFixAt != null && raw.at <= session.track.lastFixAt) return null;
+  return { accuracyMeters: Math.ceil(raw.accuracyMeters) };
+}
+
+/**
+ * Time on the water and distance from the recorded start, for the panel:
+ * "1 hr 20 min on the water · 3.4 mi from start". Time stops at arrival,
+ * like the recap; distance is along the river from the first confirmed
+ * position, null until there is one.
+ */
+export function progressLine(session: FloatSession, now: number): string | null {
+  const latest = session.samples[session.samples.length - 1];
+  const until = session.arrivedAt ?? session.riverEndAt ?? now;
+  const minutes = Math.max(0, Math.round((until - session.startedAt) / 60_000));
+  const time = minutes < 1 ? 'Just started' : `${formatDuration(minutes)} on the water`;
+  const miles = latest && session.startMile != null ? Math.max(0, latest.riverMile - session.startMile) : null;
+  return miles == null ? time : `${time} · ${miles.toFixed(1)} mi from start`;
 }
 
 export function fixAgeLabel(at: number | null, now: number): string {

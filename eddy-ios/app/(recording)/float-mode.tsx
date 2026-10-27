@@ -25,15 +25,17 @@ import { useIsFocused, useNavigation, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { ControlIcon } from '@/components/ControlIcon';
 import { FloatStatusDot } from '@/float/FloatStatusDot';
-import { floatDisplayPosition, fixAgeLabel } from '@/lib/floatDisplay';
+import { floatDisplayPosition, fixAgeLabel, gpsQualityNote, progressLine } from '@/lib/floatDisplay';
 import { useFloatMapFocus } from '@/float/mapFocus';
 import { FloatMap } from '@/float/FloatMap';
 import { HazardReportSheet } from '@/float/HazardReportSheet';
 import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { useTrackingLine } from '@/float/useTrackingLine';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useAnnounce } from '@/hooks/useAnnounce';
+import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
-import { cancelUnstartedFloat, endFloat } from '@/lib/floatSessionStore';
+import { cancelUnstartedFloat, discardShortFloat, endFloat } from '@/lib/floatSessionStore';
+import { isShortFloat } from '@/lib/floatEnding';
 import {
   arrivalAnchor,
   arrivalCopy,
@@ -55,6 +57,7 @@ const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'n
 
 export default function FloatModeScreen() {
   const session = useFloatSession();
+  const stored = useFloatSessionUnreadable();
   const mapFocus = useFloatMapFocus();
   const { fontScale, width } = useWindowDimensions();
   const stacked = fontScale > 1.3 || width < 360;
@@ -130,42 +133,98 @@ export default function FloatModeScreen() {
     lastId.current = null;
   }, [session, focused, router]);
 
-  if (!session || !view || !ends) {
+  // What VoiceOver is told when it changes: the panel's text changes under
+  // the user, and iOS has no live region, so the moments that matter are
+  // announced (useAnnounce). Derived below the early return, so computed
+  // here from what may be null.
+  const displayed = session ? floatDisplayPosition(session, clock) : null;
+  const recording = tracking.tracker.status === 'recording' && !tracking.tracker.servicesOff && !tracking.tracker.denied && !tracking.tracker.preciseOff && !tracking.tracker.notInUse;
+  const fresh = recording && displayed != null && !displayed.dimmed;
+  const time = view ? remainingCopy(view.estimate, view.takeOutBeyondMeters != null) : null;
+  const anchor = view ? arrivalAnchor(view, clock) : null;
+  const outlook = view && anchor && ends ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
+  const arrival = outlook ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null) : null;
+  const hazard = view?.nextHazard ?? null;
+  // At the take-out, or as close as the mapped river goes to one off it.
+  const done = Boolean(view && (view.arrived || view.atRiverEnd));
+  const weakGps = session ? gpsQualityNote(session, clock) : null;
+  const attention = tracking.line && (tracking.line.action !== 'info' || !recording) ? tracking.line.text : null;
+  useAnnounce(view && done ? statusCopy(view, clock) : null);
+  useAnnounce(hazard && hazard.milesAway < 0.1 ? `Just ahead: ${hazardTypeLabel(hazard.hazard.type)}, ${hazard.hazard.name}` : null);
+  useAnnounce(arrival?.warning ?? null);
+  useAnnounce(attention);
+
+  if (!session || !view || !ends || !time) {
+    const back = () => {
+      if (root.canGoBack()) root.goBack();
+      router.navigate('/(tabs)/(floats)/float-home');
+    };
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['left', 'right', 'bottom']}>
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>No float in progress</Text>
-        <Pressable onPress={() => {
-          if (root.canGoBack()) root.goBack();
-          router.navigate('/(tabs)/(floats)/float-home');
-        }} style={[styles.secondary, { borderColor: colors.border }]} accessibilityRole="button">
+        {stored.unreadable ? <>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy couldn’t read your float</Text>
+          <Text style={[styles.note, styles.centeredText, { color: colors.textMuted }]}>
+            A float may still be recording. Eddy will keep trying to read it; nothing is stopped or lost.
+          </Text>
+          <Pressable onPress={stored.retry} style={[styles.secondary, { borderColor: colors.border }]} accessibilityRole="button">
+            <Text style={[styles.secondaryText, { color: colors.interactive }]}>Try again</Text>
+          </Pressable>
+        </> : <Text style={[styles.emptyTitle, { color: colors.text }]}>No float in progress</Text>}
+        <Pressable onPress={back} style={[styles.secondary, { borderColor: colors.border }]} accessibilityRole="button">
           <Text style={[styles.secondaryText, { color: colors.interactive }]}>Back to Floats</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
-  const displayed = floatDisplayPosition(session, clock);
   const position = displayed?.lngLat ?? null;
-  const recording = tracking.tracker.status === 'recording' && !tracking.tracker.servicesOff && !tracking.tracker.denied && !tracking.tracker.preciseOff && !tracking.tracker.notInUse;
-  const fresh = recording && displayed != null && !displayed.dimmed;
   const currentMile = view.confirmed ? (session.samples[session.samples.length - 1]?.riverMile ?? null) : null;
-  const time = remainingCopy(view.estimate, view.takeOutBeyondMeters != null);
-  const anchor = arrivalAnchor(view, clock);
-  const outlook = anchor ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
-  const arrival = outlook ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null) : null;
-  const hazard = view.nextHazard;
   const live = view.status === 'live';
-  // At the take-out, or as close as the mapped river goes to one off it.
-  const done = view.arrived || view.atRiverEnd;
   const waitingAtLaunch = !view.confirmed && view.status === 'off-route' && session.last?.nearPutIn;
   const wrongRiver = offerRiverChange(view) && !waitingAtLaunch;
+  const progress = progressLine(session, clock);
+  const status = waitingAtLaunch
+    ? `Near ${session.putIn?.name} · waiting for the mapped river`
+    : weakGps && (view.status === 'stale' || view.status === 'acquiring')
+      ? `GPS isn’t accurate enough to place you on the river right now (±${weakGps.accuracyMeters} m). Progress continues when it improves.`
+      : statusCopy(view, clock);
+  const freshness = fresh
+    ? `Tracking · ${fixAgeLabel(displayed?.at ?? null, clock)}`
+    : tracking.tracker.status === 'starting' ? 'Starting GPS…'
+    : !recording ? 'Tracking needs attention'
+    : weakGps ? `Weak GPS · ±${weakGps.accuracyMeters} m`
+    : displayed ? `Location delayed · ${fixAgeLabel(displayed.at, clock)}` : 'Finding GPS…';
+
+  // After a discard, back to where the float was started from.
+  const leaveAfterDiscard = () => {
+    if (root.canGoBack()) root.goBack();
+    router.navigate('/(tabs)/(floats)/float-home');
+  };
 
   const confirmEnd = () => {
+    // An accidental Start (floatEnding.ts isShortFloat): offer to throw it
+    // away rather than file a recap that has to be deleted afterwards.
+    const short = !done && isShortFloat(session, clock);
     Alert.alert(
       done ? 'Finish this float?' : 'End this float?',
-      'Tracking stops and Eddy saves a recap in your float history.',
+      short
+        ? 'Nothing much has been recorded yet. Discard it, or end it and keep a recap in your float history.'
+        : 'Tracking stops and Eddy saves a recap in your float history.',
       [
         { text: 'Keep floating', style: 'cancel' },
+        ...(short ? [{
+          text: 'Discard',
+          style: 'destructive' as const,
+          onPress: () => {
+            endingHere.current = true;
+            setFinishing(true);
+            void discardShortFloat().then((discarded) => {
+              setFinishing(false);
+              if (discarded) leaveAfterDiscard();
+              else endingHere.current = false;
+            });
+          },
+        }] : []),
         {
           text: done ? 'Finish' : 'End float',
           style: done ? 'default' : 'destructive',
@@ -230,6 +289,8 @@ export default function FloatModeScreen() {
           takeOut={ends.takeOut}
           position={position}
           positionDimmed={!fresh}
+          accuracyMeters={fresh ? displayed?.accuracyMeters ?? null : null}
+          course={fresh ? displayed?.course ?? null : null}
           currentMile={currentMile}
           focus={mapFocus?.sessionId === session.id ? mapFocus : null}
         />
@@ -239,22 +300,15 @@ export default function FloatModeScreen() {
         <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelContent} showsVerticalScrollIndicator>
         <View style={styles.freshness}>
           <FloatStatusDot at={displayed?.at ?? null} fresh={fresh} />
-          <Text style={[styles.caption, { color: colors.textMuted }]}>
-            {fresh ? `Tracking · ${fixAgeLabel(displayed?.at ?? null, clock)}`
-              : tracking.tracker.status === 'starting' ? 'Starting GPS…'
-              : !recording ? 'Tracking needs attention'
-              : displayed ? `Location delayed · ${fixAgeLabel(displayed.at, clock)}` : 'Finding GPS…'}
-          </Text>
+          <Text style={[styles.caption, { color: colors.textMuted }]}>{freshness}</Text>
         </View>
         <Text style={[styles.route, { color: colors.textMuted }]}>
           {view.riverName} · to {view.takeOutName}
         </Text>
-        <Text
-          style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}
-          accessibilityLiveRegion="polite"
-        >
-          {waitingAtLaunch ? `Near ${session.putIn?.name} · waiting for the mapped river` : statusCopy(view, clock)}
+        <Text style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}>
+          {status}
         </Text>
+        {progress ? <Text style={[styles.caption, { color: colors.textMuted }]}>{progress}</Text> : null}
 
         {recordedOrigin(session).note ? <Text style={[styles.note, { color: colors.textMuted }]}>
           {recordedOrigin(session).note}
@@ -398,6 +452,7 @@ const KEEP_AWAKE_TAG = 'float-mode';
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
+  centeredText: { textAlign: 'center' },
   map: { flex: 1, minHeight: 120 },
   panelScroll: { flexShrink: 1 },
   panelContent: { gap: 8 },

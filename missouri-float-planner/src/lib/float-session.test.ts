@@ -1,6 +1,6 @@
 import { essentialsPosition, locationMessage, aheadItems, currentFloatReports } from '../../../eddy-ios/src/lib/floatEssentials';
 import type { HazardReport } from '../../../eddy-ios/src/lib/hazardReportQueue';
-import { floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel } from '../../../eddy-ios/src/lib/floatDisplay';
+import { floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel, gpsQualityNote, progressLine } from '../../../eddy-ios/src/lib/floatDisplay';
 import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts, startPlannerParams } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { createGpsRiverLookup } from '../../../eddy-ios/src/lib/gpsRiverLookup';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
@@ -1048,6 +1048,39 @@ test('GPS age and Live Activity status distinguish waiting, fresh, delayed, disa
   assert.equal(activityLabel('disabled'), 'Live Activity is off');
   assert.equal(activityLabel('expired'), 'Live Activity expired · show it again');
   assert.equal(activityLabel('unavailable'), null);
+});
+
+test('coarse GPS is reported as weak accuracy, not as waiting for GPS, and the course rides with the fix', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'q', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  let session = float(made.session, index, 1_000, T0, 60, 1.5);
+  assert.equal(gpsQualityNote(session, T0 + 61_000), null, 'accurate fixes: nothing to explain');
+  // Under the bluff: fixes keep coming at 120 m, which the tracker rejects.
+  const coarse = { ...fix(1_100, T0 + 70_000), accuracyMeters: 120, course: 92 };
+  session = applyFix(session, index, coarse, T0 + 70_000);
+  assert.deepEqual(gpsQualityNote(session, T0 + 75_000), { accuracyMeters: 120 });
+  assert.equal(gpsQualityNote(session, T0 + 70_000 + 3 * 60_000), null, 'an old coarse fix explains nothing');
+  // A good fix after it clears the note, and carries its course for the map.
+  session = applyFix(session, index, { ...fix(1_120, T0 + 80_000), course: 91.5 }, T0 + 80_000);
+  assert.equal(gpsQualityNote(session, T0 + 81_000), null);
+  assert.equal(session.gpsPosition?.course, 91.5);
+  assert.equal(applyFix(session, index, { ...fix(1_130, T0 + 90_000), course: -1 }, T0 + 90_000).gpsPosition?.course, null, 'an invalid course is unknown');
+  // Restored, the restored raw fix never raises the note.
+  const restored = restoreSession(JSON.stringify({ ...session, lastFix: { lngLat: at(1_100), at: T0 + 85_000, accuracyMeters: 300 } }));
+  assert.equal(gpsQualityNote(restored!, T0 + 86_000), null);
+});
+
+test('the progress line counts time on the water to arrival and miles from the recorded start', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'p', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  assert.equal(progressLine(made.session, T0 + 20_000), 'Just started');
+  assert.equal(progressLine(made.session, T0 + 5 * 60_000), '5 min on the water');
+  const moving = float(made.session, index, 0, T0, 1_800, 1.5);
+  assert.equal(progressLine(moving, T0 + 1_800_000), '30 min on the water · 1.7 mi from start');
+  const arrived = { ...moving, arrivedAt: T0 + 1_800_000 };
+  assert.equal(progressLine(arrived, T0 + 3 * 3_600_000), '30 min on the water · 1.7 mi from start', 'time stops at the take-out');
 });
 
 test('recap backup reflects this row and actual sync state, independently of a subscription', () => {

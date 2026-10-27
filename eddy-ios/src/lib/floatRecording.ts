@@ -58,7 +58,7 @@ export interface RecorderStatus {
 }
 
 export function toPositionFix(fix: RecordedFix): PositionFix {
-  return { lngLat: [fix.lng, fix.lat], accuracyMeters: fix.acc, timestamp: fix.t };
+  return { lngLat: [fix.lng, fix.lat], accuracyMeters: fix.acc, timestamp: fix.t, ...(fix.crs != null ? { course: fix.crs } : {}) };
 }
 
 /**
