@@ -65,8 +65,7 @@ export function placeFromAccess(data: AccessPointDetailResponse, now: string, pr
     ['Managed by', a.managingAgency ? agencyLabel(a.managingAgency) : null],
     ['Facilities', a.facilities], ['Fees', a.feeNotes], ['Local tips', a.localTips],
   ].flatMap(([label, raw]) => { const value = stripHtml(raw); return label && value ? [{ label, value }] : []; });
-  return { version: 2, id: accessPlaceId(route), kind: a.types.includes('campground') && !a.types.some(type => ['boat_ramp', 'gravel_bar', 'bridge', 'access'].includes(type))
-      ? 'campground' : 'access',
+  return { version: 2, id: accessPlaceId(route), kind: a.types.includes('campground') ? 'campground' : 'access',
     name: a.name, riverSlug: a.river.slug, riverName: a.river.name, coordinates: a.coordinates,
     drivingLat: a.drivingLat, drivingLng: a.drivingLng, canDrive: true, detailRoute: route,
     notes: [stripHtml(a.description)].filter((n): n is string => !!n), facts,

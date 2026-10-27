@@ -114,7 +114,7 @@ test('camping inventory survives a cold load with its original observation date'
   assert.deepEqual(display?.availability, saved.camping.availability);
   assert.equal(display?.age, '1 hr ago');
   assert.match(display?.summary ?? '', /4 open.*20.*Tonight/);
-  assert.match(savedPlaceSummary(saved, Date.parse(now)) ?? '', /0 cfs/);
+  assert.match(savedPlaceSummary(saved, Date.parse(now)) ?? '', /4 open/);
   assert.match(savedPlaceSummary({ ...saved, kind: 'campground' }, Date.parse(now)) ?? '', /4 open/);
 });
 
@@ -144,7 +144,7 @@ test('saved camping uses provider age, rejects future/invalid times, and expires
     const display = savedCampingDisplay(saved, at);
     assert.equal(display?.availability, null, fetchedAt);
     assert.equal(display?.summary, 'Availability out of date');
-    assert.match(savedPlaceSummary(saved, at) ?? '', /0 cfs/);
+    assert.equal(savedPlaceSummary(saved, at), 'Availability out of date');
     assert.equal(savedPlaceSummary({ ...saved, kind: 'campground' }, at), 'Availability out of date');
     assert.doesNotMatch(display?.accessibilityLabel ?? '', /4 open|20 sites|cfs/);
   }
@@ -473,11 +473,12 @@ test('offline campground pins retain inventory and missing inventory remains eli
   }
 });
 
-test('mixed-use access points keep water priority while dedicated campgrounds lead with camping', () => {
+test('camping leads for every saved place regardless of access or campground tags', () => {
   for (const type of ['boat_ramp', 'gravel_bar', 'bridge', 'access'] as const) {
     const mixed = placeFromAccess({ ...detail, accessPoint: { ...detail.accessPoint, types: ['campground', type], availability: availability() } }, now);
-    assert.equal(mixed.kind, 'access');
-    assert.match(savedPlaceSummary(mixed, Date.parse(now)) ?? '', /0 cfs/);
+    assert.equal(mixed.kind, 'campground');
+    assert.match(savedPlaceSummary(mixed, Date.parse(now)) ?? '', /4 open/);
+    assert.match(savedPlaceSummary({ ...mixed, kind: 'access' }, Date.parse(now)) ?? '', /4 open/);
   }
   const camp = placeFromAccess({ ...detail, accessPoint: { ...detail.accessPoint, types: ['campground'], availability: availability() } }, now);
   assert.equal(camp.kind, 'campground');
@@ -485,5 +486,6 @@ test('mixed-use access points keep water priority while dedicated campgrounds le
   const ungauged = { ...campingPlace(), gauge: null };
   assert.match(savedPlaceSummary(ungauged, Date.parse(now)) ?? '', /4 open/);
   const scheduled = { ...ungauged, dam: { snapshot: { ...dam(), schedule: [{ ...day, scheduleDate: '2026-10-25', retrievedAt: now, hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: 0, cfs: 0, isRamp: false })) }] }, downloadedAt: now } };
-  assert.equal(savedPlaceSummary(scheduled, Date.parse(now)), 'No generation scheduled today');
+  assert.match(savedPlaceSummary(scheduled, Date.parse(now)) ?? '', /4 open/);
+  assert.equal(savedPlaceSummary({ ...scheduled, camping: null }, Date.parse(now)), 'No generation scheduled today');
 });

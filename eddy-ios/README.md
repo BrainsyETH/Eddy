@@ -1178,10 +1178,9 @@ Snapshots include labeled parking, road, agency, facilities, fees and tips;
 private access and required fees appear first. They retain coordinates,
 driving location, amenities, contact/booking links and any linked campsite
 availability returned by the existing access/service request. Availability uses
-the same campsite count and night strip as the map on campground cards.
-Access points (including mixed-use ramps) lead with the gauge or dam schedule,
-retain the fresh condition stripe and spoken reading, and show camping in a
-compact secondary row that can wrap with larger text. Its original provider timestamp stays visible; at 72 hours, with an
+the same campsite count and night strip as the map. Any saved place with
+linked campsite availability leads with camping, regardless of its tags.
+Without camping, cards fall back to the gauge or dam schedule. Its original provider timestamp stays visible; at 72 hours, with an
 invalid/future timestamp, or after all relevant nights pass, counts are hidden
 and the panel says “Availability out of date”. Old weekend counts cannot resurface after
 the weekend starts passing. The gauge remains in the saved details.
