@@ -811,10 +811,10 @@ export default function PlanPageClient({
     setFocusRequest(value => value + 1);
   };
   // Land a pending keyboard focus once its target exists: the Show route
-  // control, else the chosen marker. Until then keep focus on a stable element
-  // (the loading status on desktop, the river search on mobile) rather than
-  // letting it fall to <body>. Runs after every commit; it is a no-op unless a
-  // request is pending.
+  // control, else the chosen marker. Until then keep focus on an element that
+  // stays mounted through the whole load (the desktop panel, the mobile river
+  // search) rather than letting it fall to <body>. Runs after every commit;
+  // it is a no-op unless a request is pending.
   // A layout effect, so the first attempt runs in the same task as the commit
   // that unmounted the focused preview button — focus never sits on <body>.
   // Markers mount in their own (later) effects, hence the next-frame retry.
@@ -943,12 +943,11 @@ export default function PlanPageClient({
               the map; the River Report and route stats center over the open
               map to its right (see the overlay column below). */}
           <h1 className="sr-only">{activeRiver ? activeRiver.name : 'Build a Route'}</h1>
-          <div ref={desktopPanelRef} className="planner-panel pointer-events-none absolute top-4 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-2">
+          <div ref={desktopPanelRef} tabIndex={-1} data-planner-focus-fallback className="planner-panel outline-none pointer-events-none absolute top-4 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-2">
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             {/* No intro card: the search box and the colored river network
                 are the call to action. Only surface load/error status. */}
-            {!activeRiver && !selectedPlace && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3 outline-none"
-              tabIndex={-1} data-planner-focus-fallback>
+            {!activeRiver && !selectedPlace && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3">
               <p className="text-xs text-neutral-600" role="status">{riverError
                 ? 'River details couldn’t load. Choose another river or try again.'
                 : 'Loading river details…'}</p>
