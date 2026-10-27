@@ -185,12 +185,28 @@ export function TripDownloadCard({
     return () => clearTimeout(timer);
   }, [downloading, state?.kind, invalidateCheck]);
 
-  // Poll while a download runs, so progress moves.
+  // Poll while a download runs, so progress moves: one this card started, or
+  // one still progressing natively after a remount (`downloading` is this
+  // mount's own flag, not the native side's). A partial map whose progress
+  // stops moving stops being polled after a few reads; Resume or a return to
+  // the screen starts again.
+  const partial = state?.kind === 'partial';
+  const fraction = state?.kind === 'partial' ? state.fraction : null;
+  const stalled = useRef({ fraction: null as number | null, reads: 0 });
   useEffect(() => {
-    if (!downloading) return;
-    const timer = setInterval(() => void refresh(), POLL_MS);
+    if (!downloading && !partial) return;
+    stalled.current = { fraction, reads: 0 };
+    const timer = setInterval(() => {
+      if (!downloading) {
+        const seen = stalled.current;
+        if (seen.fraction === fraction) seen.reads += 1;
+        else stalled.current = { fraction, reads: 0 };
+        if (stalled.current.reads >= 5) return;
+      }
+      void refresh();
+    }, POLL_MS);
     return () => clearInterval(timer);
-  }, [downloading, refresh]);
+  }, [downloading, partial, fraction, refresh]);
 
   const start = useCallback(async () => {
     // Block a second tap before the first asynchronous package read completes.
@@ -246,19 +262,34 @@ export function TripDownloadCard({
     }
   }, [tripKey, route, fromId, fromLngLat, toId, fallbackChunks, refresh, onPackageSaved, downloading]);
 
-  const remove = useCallback(() => {
+  const remove = useCallback((cancelling = false) => {
     if (protectedByActiveFloat) {
       Alert.alert('In use', 'This map is being used by the float in progress. End the float first.');
       return;
     }
-    Alert.alert('Remove offline map?', 'The saved float stays. You can download the map again later.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => void removeTripDownload(tripKey).then(refresh),
-      },
-    ]);
+    Alert.alert(
+      cancelling ? 'Stop this download?' : 'Remove offline map?',
+      cancelling ? 'What has downloaded so far is removed. The saved float stays.' : 'The saved float stays. You can download the map again later.',
+      [
+        { text: cancelling ? 'Keep downloading' : 'Cancel', style: 'cancel' },
+        {
+          text: cancelling ? 'Stop and remove' : 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            setDownloading(false);
+            void removeTripDownload(tripKey)
+              .then(() => { setError(null); return refresh(); })
+              // A failed native delete leaves the pack: say so, rather than an
+              // unhandled rejection and a card that silently keeps it.
+              .catch((err) => {
+                warn('float', 'could not remove a trip download', err);
+                setError('Couldn’t remove this map. Try again.');
+                void refresh();
+              });
+          },
+        },
+      ],
+    );
   }, [protectedByActiveFloat, tripKey, refresh]);
 
   if (!available || fallbackChunks.length === 0) return compact ? (
@@ -295,7 +326,7 @@ export function TripDownloadCard({
       ) : state.kind === 'ready' ? (
         <>
           <Text style={[styles.body, { color: colors.text }]}>Ready offline · {formatBytes(state.bytes)}</Text>
-          <Pressable onPress={remove} accessibilityRole="button" style={styles.link}>
+          <Pressable onPress={() => remove()} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
           </Pressable>
         </>
@@ -321,7 +352,7 @@ export function TripDownloadCard({
               </Pressable> : null}
             </>
           )}
-          <Pressable onPress={remove} accessibilityRole="button" style={styles.link}>
+          <Pressable onPress={() => remove()} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
           </Pressable>
         </>
@@ -330,7 +361,7 @@ export function TripDownloadCard({
           <Text style={[styles.note, { color: colors.textMuted }]}>
             This map was saved for an older version of Eddy’s map. Remove it and download again.
           </Text>
-          <Pressable onPress={remove} accessibilityRole="button" style={styles.link}>
+          <Pressable onPress={() => remove()} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
           </Pressable>
         </>
@@ -347,6 +378,9 @@ export function TripDownloadCard({
               <Text style={[styles.linkText, { color: colors.interactive }]}>Resume download</Text>
             </Pressable>
           ) : null}
+          <Pressable onPress={() => remove(downloading)} accessibilityRole="button" style={styles.link}>
+            <Text style={[styles.linkText, { color: colors.error }]}>{downloading ? 'Cancel download' : 'Remove download'}</Text>
+          </Pressable>
         </>
       ) : compactOffer ? null : (
         <>

@@ -38,6 +38,11 @@ export async function deleteAllFloatTracks(): Promise<void> {
   await deletions.clear().catch(() => {});
 }
 
+/** Tracks whose deletion is still owed (floatTrackDeletion.ts), for the Storage screen. */
+export function pendingFloatTrackDeletions(): Promise<string[]> {
+  return deletions.pending().catch(() => []);
+}
+
 /** Bytes used by every float's track, for the Storage screen. */
 export function floatTracksSize(): Promise<number> {
   return floatRecorder ? floatRecorder.journalSize().catch(() => 0) : Promise.resolve(0);
