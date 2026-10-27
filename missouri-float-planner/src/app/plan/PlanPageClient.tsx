@@ -796,8 +796,11 @@ export default function PlanPageClient({
             )}
           </MapContainer>
 
-          {/* Search and details float over the map, below the unchanged River Report. */}
-          <div ref={desktopPanelRef} className="pointer-events-none absolute top-20 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
+          {/* Search and details float in a left column pinned to the top of
+              the map; the River Report and route stats center over the open
+              map to its right (see the overlay column below). */}
+          <h1 className="sr-only">Build a Route</h1>
+          <div ref={desktopPanelRef} className="pointer-events-none absolute top-4 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-3">
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             <div className="pointer-events-auto flex shrink-0 flex-wrap items-start gap-2">
             {activeRiver && <WeatherBug riverSlug={activeRiver.slug} riverId={activeRiver.id} positionClassName="pointer-events-auto relative" />}
@@ -826,11 +829,11 @@ export default function PlanPageClient({
               className="pointer-events-auto relative"
             />
             </div>
-            {!activeRiver && !selectedPlace && <div className="planner-glass rounded-2xl p-4">
-              <h1 className="text-xl font-bold text-primary-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h1>
-              <p className="mt-2 text-sm text-neutral-600">Explore a river. Pick your put-in and take-out.</p>
-              {riverSlug && riverLoading && <p className="mt-3 text-xs text-neutral-600" role="status">Loading river details…</p>}
-              {riverSlug && riverError && <p className="mt-3 text-xs text-neutral-600" role="status">River details couldn’t load. Choose another river or try again.</p>}
+            {/* No intro card: the search box and the colored river network
+                are the call to action. Only surface load/error status. */}
+            {!activeRiver && !selectedPlace && riverSlug && (riverLoading || riverError) && <div className="planner-glass rounded-2xl px-4 py-3">
+              {riverLoading && <p className="text-xs text-neutral-600" role="status">Loading river details…</p>}
+              {riverError && <p className="text-xs text-neutral-600" role="status">River details couldn’t load. Choose another river or try again.</p>}
             </div>}
             {selectedPlace && <div className="pointer-events-auto shrink-0">
               <PlannerPlaceCard place={selectedPlace} point={previewPoint} loading={accessLoading || accessPlaceholder || river?.slug !== riverSlug}
@@ -871,6 +874,9 @@ export default function PlanPageClient({
 
           </div>
 
+          {/* Top-center overlays center over the map area right of the
+              340px panel column, so the panel can sit flush at the top. */}
+          <div className="pointer-events-none absolute inset-y-0 left-[340px] right-14 z-30">
           {activeRiver && <MapEddySays
             riverSlug={activeRiver.slug}
             conditionCode={condition?.code ?? 'unknown'}
@@ -880,6 +886,7 @@ export default function PlanPageClient({
           {(putInPoint && takeOutPoint) && (
             <RouteStatsBadge plan={isLastValidFallback ? null : plan ?? null} isLoading={planLoading} className="!top-[4.75rem]" />
           )}
+          </div>
           {showStandalonePlanError && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
               <PlanErrorBanner onRetry={() => refetchPlan()} />
@@ -919,19 +926,11 @@ export default function PlanPageClient({
           {flowOn && <FlowParticlesLayer />}
         </MapContainer>
 
-        {/* Mobile keeps the existing river picker. */}
-        <div className="absolute top-4 left-4 right-4 sm:right-auto sm:w-[380px] z-30 lg:hidden">
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-neutral-200 p-4">
-            <h1
-              className="text-lg font-bold text-neutral-900 mb-0.5"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              Build a Route
-            </h1>
-            <p className="text-sm text-neutral-600 mb-3">
-              Tap any river on the map — colored by today&apos;s conditions —
-              or pick one from the list.
-            </p>
+        {/* Mobile keeps just the river picker — the colored network is the
+            invitation, so no intro copy competes with the map. */}
+        <h1 className="sr-only">Build a Route</h1>
+        <div className="absolute top-3 left-3 right-3 sm:right-auto sm:w-[380px] z-30 lg:hidden">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-neutral-200 p-3">
             <RiverSwitcher
               currentSlug={null}
               rivers={rivers || []}
@@ -940,7 +939,7 @@ export default function PlanPageClient({
             {/* The browsing mood belongs to the Observatory — offer it. */}
             <Link
               href="/river-map"
-              className="mt-3 flex items-center justify-center gap-1 text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700"
+              className="mt-2 flex items-center justify-center gap-1 text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700"
             >
               See statewide conditions →
             </Link>
