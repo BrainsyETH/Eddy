@@ -255,10 +255,28 @@ with `Unable to resolve module expo-asset`.
 
 ## Theming
 
-Light and dark, following the system setting (`useColorScheme`). `DESIGN.md` is a
-light, desktop-first web system; its neutral scale also names the dark-mode
-surfaces, so both palettes come from the document rather than one being an
-inversion of the other.
+Light and dark follow the system setting (`useColorScheme`). Light keeps the
+warm web palette. Native dark appearance uses the neutral charcoal roles in
+`src/theme/palette.ts`, documented in `DESIGN.md` and
+[ADR 0016](../docs/decisions/0016-ios-dark-mode-uses-neutral-charcoal.md): darker
+page canvas, lighter cards, foreground sheets, then raised controls. Teal marks
+actions, selected labels/outlines, calendar endpoints and data. Ordinary dark
+surfaces, including selected backgrounds, remain neutral.
+
+Use `sheet` for a plain sheet and `sheetGrouped` for a sheet with grouped
+content; the latter preserves the warm page tint in light appearance. Dark
+content cards inside a sheet may use `card` as an inset group. Controls and
+panels that should appear raised use `cardRaised`, which is lighter than the
+sheet. `sheetControl(colors)` adds a visible neutral outline to filled sheet
+buttons and search fields. `borderStrong` also supplies the brighter neutral
+edge for `elevation(2)`. Dark error, success and coral text use lighter ink
+steps so they remain readable on raised and selected surfaces too.
+
+The camping calendar leaves unselected cells transparent. Arrival/departure
+use solid teal markers; the intervening range has a neutral selected fill,
+teal outline and teal text. The active Arrival/Departure field has an underline,
+and the accessible list retains its checkmark. Selection cannot rely on the
+background fill alone.
 
 **The rule that makes it work:** `StyleSheet.create` runs ONCE at module import,
 so a colour written into a StyleSheet is frozen at whichever scheme the app
@@ -270,16 +288,21 @@ launched with. The convention is therefore a split:
 `src/lib/app-theme.test.ts` in the web app enforces this, along with both
 palettes defining every semantic role (a missing key renders as a transparent
 label on one scheme only, which is easy to miss). The same tests require at
-least 4.5:1 for supporting text on page, card, raised, and selected surfaces,
-with primary > secondary > tertiary contrast. Warm Stone 550 and 350 fill the
-accessible intermediate steps recorded in DESIGN.md; they are not new brand
-hues. High-contrast variants resolve through ThemeProvider while Mapbox colors remain strings.
+least 4.5:1 for supporting text on page, card, raised, sheet and selected
+surfaces. Dark text has four levels: near-white `text` for titles and values,
+`textBody` for prose, neutral `textMuted` for supporting labels, and
+`textSubtle` for timestamps. Body text clears 7:1 and remains brighter than
+supporting text. Increase Contrast strengthens these roles while retaining
+neutral supporting labels. Mapbox colors remain strings. Native iOS tabs keep
+the system material; the content palette does not repaint the tab bar. Tests
+also require visible control/selection boundaries at 3:1 and verify that raised
+dark controls sit above sheets, alongside text contrast on every surface.
 
-Photo-backed Eddy’s Read cards use an opaque warm-white excerpt panel in both
-appearances, with deep teal report text and muted gray timestamps. The panel
-uses the light palette (including its Increase Contrast variant) for loading,
-empty and retry states too. River names and the footer action stay white over
-the photo; the condition badge keeps its canonical colors.
+Photo-backed Eddy’s Read cards use an opaque charcoal excerpt panel in dark
+appearance and the existing warm-white panel with teal report text in light.
+Loading, empty, error, retry and timestamp colors use the same appearance as
+the panel. River names and the footer action stay white over a shaded photo;
+the condition badge uses the matched appearance-aware fill and ink.
 
 ### Translating, not transcribing
 
@@ -427,6 +450,13 @@ hardcode condition hex — that file says so explicitly, and an earlier version 
 this app ignored it and immediately drifted (`#DC2626` here vs the canonical
 `#ef4444`), so the app showed different colours than the website for the same
 river.
+
+Badge helpers require `isDark` from `useTheme()`. Light keeps the canonical
+tint/ink/border. Dark derives opaque fills over charcoal and lighter ink from
+the same canonical hues; all condition labels clear 7:1 on their badge and on
+ordinary dark surfaces. Use `conditionOpaqueBg` over photos or maps so the
+image cannot alter text contrast. Solids remain unchanged for map markers,
+stripes and chart data; do not use a raw solid as small label text.
 
 Two severity orderings exist and **must not be conflated**:
 
@@ -1145,9 +1175,21 @@ readings still show their specific qualifier note.
 ## Favorites
 
 Access points, boat ramps and campgrounds offer **Save/Saved** from the map
-sheet and access toolbar. Favorites → place opens the downloaded details in
-two taps, without a route or a network request. Rows show a cached gauge and
-its age, or today's **scheduled** generation window when available.
+sheet and access toolbar. Favorites opens the same access-point detail screen
+as the map and river list. Saved facts render immediately while the normal
+detail request updates them; offline, the same screen keeps the saved facts.
+Service-only campgrounds use the shared map-sheet sections and actions.
+Linked campground availability leads the card when Eddy tracks it, including on ordinary access-point saves.
+Otherwise rows show a cached gauge and its age, or today's **scheduled**
+generation window when available.
+
+Saved-place cards share the river favorites' rounded surface, accent stripe,
+and reading pills. Bundled access-point/campground artwork and a category label
+identify each place even offline. The name and river lead; restrictions stay
+visible above the availability/gauge/schedule panel.
+The separate saved star and swipe action both remove only the current account's
+save. Stale readings stay neutral, expired values stay hidden, and narrow or
+large-text layouts stack the artwork and readings without truncating names.
 
 Places are stored in versioned `eddy.savedPlaces.v2:<owner>` collections:
 one for each signed-in account and one for guests. Switching accounts hides
@@ -1166,24 +1208,38 @@ device backups.
 
 Snapshots include labeled parking, road, agency, facilities, fees and tips;
 private access and required fees appear first. They retain coordinates,
-driving location, amenities and contact/booking links, but no campsite
-availability. Saving starts a download. **Refresh** retries explicitly;
-foregrounding and reconnecting also retry missing/stale downloads while the
-app is active and connected. A batch handles at most four places with two
-workers, with failure backoff from one to thirty minutes. Details and dam
-associations are checked daily; downloaded gauge/dam data after fifteen
-minutes. There is no background polling. Bare access pins remain **Details
-not downloaded** until their detail request succeeds. Failed downloads keep
-the previous data. A new download never changes an observation timestamp or
-a schedule day's original retrieval time.
+driving location, amenities, contact/booking links and any linked campsite
+availability returned by the existing access/service request. Availability uses
+the same campsite count and night strip as the map. Any saved place with
+linked campsite availability leads with camping, regardless of its tags.
+Without camping, cards fall back to the gauge or dam schedule. Cards retain the river name and omit the amenities row. The camping subtitle
+uses “X of Y sites available tonight” with the measured night or date window,
+plus “FCFS may be available” unless first-come inventory is known to be zero
+or the facility is closed/not yet bookable. Its original provider timestamp stays visible; at 72 hours, with an
+invalid/future timestamp, or after all relevant nights pass, counts are hidden
+and the panel says “Availability out of date”. Old weekend counts cannot resurface after
+the weekend starts passing. The gauge remains in the saved details.
+Saving retains any inventory already on the pin with its original provider timestamp.
+Missing pin inventory stays unchecked until a successful detail lookup.
+Saving starts a download. Access details update automatically on opening
+and after fifteen minutes when returning to an open screen. Service-only
+places update on opening and also support pull-to-refresh. Foregrounding and
+reconnecting retry missing/stale downloads while the app is active and connected.
+A batch handles at most four places with two workers, with failure backoff from one to thirty minutes. Details and dam
+associations are checked daily; downloaded camping/gauge/dam data after fifteen
+minutes. Older saves missing the optional camping field get one lookup through
+the same bounded foreground refresh. There is no background polling. Bare access
+pins retain only known facts until their detail request succeeds; they do not
+invent a driving location or river mile. Failed downloads keep the previous data. A new download never changes an observation timestamp or
+a schedule day's original retrieval time. The access detail screen keeps the newest
+saved observation from the same gauge or campground when a response arrives late.
 
 Gauge freshness uses the existing `readingBand`: stale numbers are muted,
 out-of-date numbers are withheld, and only fresh readings show the canonical
 river condition. This is a flow condition, not a claim about fishability.
-Dam sections appear for linked or river-related dams; elsewhere there is an
-**Add a dam schedule** link. The searchable picker orders river-related dams
-first. Only an unambiguous whole-river association is automatic. Removing a
-dam persists an opt-out. Changing dams cannot retain the old dam's schedule.
+Dam sections appear only for an existing linked snapshot and respect the
+saved opt-out. There is no manual dam picker on place details. Only an
+unambiguous whole-river association is automatic.
 The full dam request supplies schedules; a missing replacement preserves
 the same dam's earlier schedule and original dates. Today and Tomorrow lead;
 past Central-Time days collapse under **Earlier schedules** and remain
@@ -1196,7 +1252,8 @@ and campground, force-quit, enable airplane mode, and reopen from Favorites.
 Check failed first downloads, reconnect retries, large text, VoiceOver,
 guest saves → sign-in, account A → guest → B → A, deletion during a
 download, expired gauge data,
-and historical schedules. Validate partial-reach dam choices with anglers.
+and historical schedules. Confirm Favorites and map navigation open the same
+access detail screen, including the Eddy road, parking and facilities marks.
 
 River cards show a reading pill for every linked gauge, ordered upstream to
 downstream using the existing gauge catalog. Each row opens its station when
@@ -1788,6 +1845,24 @@ always retains its full-window value scale. Closing and reopening the expanded
 chart retains the fitting choice for the same zoomed range. Fitting and the
 Compare panel's full threshold scale are mutually exclusive choices.
 
+Expanded USGS charts have a Share action (the system share glyph). It opens a
+native action sheet titled with the station and visible dates: Share Link sends
+a fixed-date web link through `shareLink()`, like every other screen; Share
+Image renders the PNG on the server and hands the system share sheet the file
+together with the link text, so Messages sends both. There is no separate
+preview screen: the system share sheet previews the attachment. Image
+preparation requires internet; a failure to prepare it is reported, a cancel or
+failure inside the share sheet is not. Station sharing uses dedicated USGS and USACE share paths; ordinary
+gauge and dam website URLs keep their existing behavior. See
+[ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for the versioned
+state contract, shared scale/calendar rules and outstanding device gates.
+Deploy the additive web routes and timezone fields before distributing the
+app build. Charts use station time rather than device time. Missing coordinates
+or older web responses without `timeZone` use UTC, with a visible UTC note on
+the chart; skipping the deployment order therefore produces UTC labels.
+App-opening associations remain off until the ADR's store and
+compatibility gates are recorded; shipping the handlers does not enable them.
+
 The app config permits native rotation. The local `eddy-orientation` Expo
 module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run
@@ -1930,3 +2005,5 @@ verify the **destination pin**, not just that onX/Gaia launch. Test each float
 endpoint and the shuttle direction, a curated parking override, Cancel/backdrop
 and VoiceOver escape, double taps, return to the planner, offline saved trips,
 large text on a small phone, both appearances, and Reduce Motion.
+
+Shared chart views retain the timezone saved in the link. New links include a river slug alongside its UUID for recovery after a catalog reseed. Image attachments report unavailable context rather than substituting current readings; link sharing stays available during image preparation. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for compatibility and device-release gates.

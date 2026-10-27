@@ -318,8 +318,8 @@ export function PinCallout({
                 styles.calloutChip,
                 pin.code
                   ? {
-                      backgroundColor: conditionBg(pin.code),
-                      borderColor: conditionChipBorder(pin.code),
+                      backgroundColor: conditionBg(pin.code, isDark),
+                      borderColor: conditionChipBorder(pin.code, isDark),
                     }
                   : { backgroundColor: colors.cardRaised, borderColor: pin.color ?? colors.border },
               ]}
@@ -327,7 +327,7 @@ export function PinCallout({
               <Text
                 style={[
                   styles.calloutChipText,
-                  { color: pin.code ? conditionInk(pin.code) : colors.textMuted },
+                  { color: pin.code ? conditionInk(pin.code, isDark) : colors.textMuted },
                 ]}
               >
                 {pin.codeLabel}

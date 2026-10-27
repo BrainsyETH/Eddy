@@ -101,6 +101,7 @@ export function LaunchSplash({ ready, children }: { ready: boolean; children: Re
       {!finished && (
         <Animated.View
           style={[styles.overlay, {
+            // Match the installed native splash; the charcoal app canvas fades in beneath it.
             backgroundColor: scheme === 'dark' ? '#1A1814' : '#F7F6F3', opacity,
           }]}
           pointerEvents="none"

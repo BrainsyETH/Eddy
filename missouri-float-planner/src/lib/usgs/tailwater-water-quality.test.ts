@@ -63,7 +63,7 @@ test('the water-quality site is never the dam release station itself', () => {
 // ── Static ratchet on the route ─────────────────────────────────────────────
 
 const GAUGE_ROUTE = readFileSync(
-  join(process.cwd(), 'src/app/api/gauges/[siteId]/route.ts'),
+  join(process.cwd(), 'src/lib/gauges/detail-response.ts'),
   'utf-8',
 );
 

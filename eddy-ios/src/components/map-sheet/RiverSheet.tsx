@@ -92,7 +92,7 @@ export interface RiverTabProps {
  * where it is drawn from the river's own condition code.
  */
 export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   if (!river.gauges.length) {
     return <Absent>No gauge grades this river yet, so Eddy has no reading for it.</Absent>;
@@ -129,12 +129,12 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: conditionBg(gauge.code),
-                    borderColor: conditionChipBorder(gauge.code),
+                    backgroundColor: conditionBg(gauge.code, isDark),
+                    borderColor: conditionChipBorder(gauge.code, isDark),
                   },
                 ]}
               >
-                <Text style={[styles.chipText, { color: conditionInk(gauge.code) }]}>
+                <Text style={[styles.chipText, { color: conditionInk(gauge.code, isDark) }]}>
                   {conditionLabel(gauge.code)}
                 </Text>
               </View>

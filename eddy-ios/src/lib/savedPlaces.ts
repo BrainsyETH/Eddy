@@ -1,7 +1,9 @@
-import type { AccessPointDetailResponse, AccessPointGaugeStatus, DamSnapshot, RiverService } from '@eddy/types';
+import type { AccessPointDetailResponse, AccessPointGaugeStatus, CampsiteAvailabilitySummary, DamSnapshot, RiverService } from '@eddy/types';
 import { centralDayKey, scheduleIsStale } from '@eddy/conditions/dam-schedule-copy';
 import { stripHtml, roadSurfaceLabel, parkingLabel, agencyLabel } from './accessCopy';
 import { serviceContactActions } from './serviceContactActions';
+import { accessAvailability, accessAvailabilityName } from '../components/map-sheet/availabilitySource';
+import { decodeSavedCamping, type SavedCamping } from './savedCamping';
 
 export interface SavedPlace {
   version: 2;
@@ -23,6 +25,8 @@ export interface SavedPlace {
   savedAt: string;
   detailsDownloadedAt: string | null;
   gauge: { reading: AccessPointGaugeStatus; downloadedAt: string } | null;
+  /** Optional for saves written before campsite inventory was retained. */
+  camping?: SavedCamping | null;
   dam: { snapshot: DamSnapshot; downloadedAt: string } | null;
   /** 'none' is a durable opt-out, not permission to attach the dam again. */
   damChoice: 'auto' | 'none' | string;
@@ -32,6 +36,7 @@ export interface SavedPlace {
 interface PlacePin {
   id: string; name: string; layer: string; coordinates: SavedPlace['coordinates'];
   riverSlug?: string | null; detailRoute?: string | null; body?: string | null;
+  availability?: CampsiteAvailabilitySummary | null;
   contactLinks?: { label: string; url: string }[]; link?: { label: string; url: string } | null;
 }
 export function accessPlaceId(route: string) { return `access:${route}`; }
@@ -44,11 +49,15 @@ export function placeFromPin(pin: PlacePin, now: string): SavedPlace | null {
     canDrive: !access, detailRoute: access ? pin.detailRoute! : null,
     notes: pin.body ? [stripHtml(pin.body)].filter((n): n is string => !!n) : [], facts: [], tags: [], amenities: [],
     links: pin.contactLinks ?? (pin.link ? [pin.link] : []), savedAt: now,
-    detailsDownloadedAt: access ? null : now, gauge: null, dam: null,
+    detailsDownloadedAt: access ? null : now, gauge: null,
+    // A pin without inventory is not a completed detail lookup.
+    camping: pin.availability ? decodeSavedCamping({ availability: pin.availability, name: pin.name, downloadedAt: now }) : undefined,
+    dam: null,
     damChoice: 'auto', relatedDamIds: [], damsCheckedAt: null };
 }
 export function placeFromAccess(data: AccessPointDetailResponse, now: string, previous?: SavedPlace): SavedPlace {
   const a = data.accessPoint;
+  const availability = accessAvailability(a);
   const route = `/river/${a.river.slug}/access/${a.slug}`;
   const facts = [
     ['Parking', a.parkingInfo ?? parkingLabel(a.parkingCapacity)],
@@ -66,6 +75,7 @@ export function placeFromAccess(data: AccessPointDetailResponse, now: string, pr
       a.booking ? { label: 'Reservations', url: a.booking.url } : null].filter((link): link is { label: string; url: string } => !!link),
     savedAt: previous?.savedAt ?? now, detailsDownloadedAt: now,
     gauge: data.gaugeStatus ? { reading: data.gaugeStatus, downloadedAt: now } : previous?.gauge ?? null,
+    camping: decodeSavedCamping(availability ? { availability, name: accessAvailabilityName(a) ?? a.name, downloadedAt: now } : null),
     dam: previous?.dam ?? null, damChoice: previous?.damChoice ?? 'auto',
     relatedDamIds: previous?.relatedDamIds ?? [], damsCheckedAt: previous?.damsCheckedAt ?? null };
 }
@@ -75,7 +85,8 @@ export function placeFromService(service: RiverService, previous: SavedPlace, no
     notes: [stripHtml(service.description)].filter((n): n is string => !!n),
     tags: service.status === 'temporarily_closed' ? ['Temporarily closed']
       : service.status === 'closed' || service.status === 'permanently_closed' ? ['Closed'] : [],
-    links: serviceContactActions(service), detailsDownloadedAt: now };
+    links: serviceContactActions(service), detailsDownloadedAt: now,
+    camping: decodeSavedCamping(service.availability ? { availability: service.availability, name: service.name, downloadedAt: now } : null) };
 }
 /** A whole-river association is authoritative; proximity or a partial reach is not. */
 export function wholeRiverDam(dams: readonly DamSnapshot[], riverSlug: string | null) {
@@ -107,6 +118,7 @@ export function decodeSavedPlaces(raw: string | null): SavedPlace[] {
       tags: strings(p.tags) ? p.tags : [], relatedDamIds: strings(p.relatedDamIds) ? p.relatedDamIds : [],
       damChoice: typeof p.damChoice === 'string' ? p.damChoice : p.dam?.snapshot?.id ?? 'auto',
       damsCheckedAt: typeof p.damsCheckedAt === 'string' ? p.damsCheckedAt : null,
+      camping: decodeSavedCamping(p.camping),
       gauge: p.gauge && typeof p.gauge.reading?.usgsId === 'string' && typeof p.gauge.reading.gaugeName === 'string' &&
         (p.gauge.reading.cfs == null || Number.isFinite(p.gauge.reading.cfs)) &&
         (p.gauge.reading.heightFt == null || Number.isFinite(p.gauge.reading.heightFt)) ? p.gauge : null,

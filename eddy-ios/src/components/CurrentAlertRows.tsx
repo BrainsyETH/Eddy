@@ -22,7 +22,7 @@ function readingLine(entry: HighWaterEntry): string | null {
 
 /** These rows also render in Alerts, so source attribution and destinations stay consistent. */
 export function HighWaterAlertRow({ entry }: { entry: HighWaterEntry }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const router = useRouter();
   const detail = [entry.subtitle, readingLine(entry)].filter(Boolean).join(' · ');
   const target = entry.damId ? `/dam/${entry.damId}` : entry.riverSlug ? `/river/${entry.riverSlug}`
@@ -39,11 +39,11 @@ export function HighWaterAlertRow({ entry }: { entry: HighWaterEntry }) {
       <View style={[styles.stripe, { backgroundColor: conditionColor(entry.conditionCode) }]} />
       <View style={styles.rowBody}>
         <Text style={[styles.riverName, { color: colors.text }]}>{entry.name}</Text>
-        <Text style={[styles.headline, { color: conditionInk(entry.conditionCode) }]}>{entry.conditionLabel}</Text>
+        <Text style={[styles.headline, { color: conditionInk(entry.conditionCode, isDark) }]}>{entry.conditionLabel}</Text>
         <Text style={[styles.detail, { color: colors.textMuted }]}>{detail}</Text>
       </View>
-      <View style={[styles.chip, { backgroundColor: conditionBg(entry.conditionCode) }]}>
-        <ControlIcon name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'} size={16} color={conditionInk(entry.conditionCode)} />
+      <View style={[styles.chip, { backgroundColor: conditionBg(entry.conditionCode, isDark) }]}>
+        <ControlIcon name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'} size={16} color={conditionInk(entry.conditionCode, isDark)} />
       </View>
     </Pressable>
   );

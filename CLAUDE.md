@@ -45,6 +45,19 @@ by design, not flake. See the comment block at the top of `app-ci.yml`. The
 web `test` script lists every file explicitly (no glob); a test that is not
 listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 
+App CI runs on every pull request so required checks cannot remain pending
+because of a path filter. Its `lint-and-typecheck`, `mobile-app`, and
+`dependency-audit` jobs run independently: a security advisory must not suppress
+web tests or the iOS production bundle. Require `lint-and-typecheck` and
+`mobile-app` in GitHub's branch protection or ruleset for `main`; workflow YAML
+alone does not enforce merge protection. Keep `dependency-audit` visible but
+non-required while the reviewed upstream Zod advisory remains unresolved
+(see `missouri-float-planner/docs/x402.md`). It still reports failures and
+uploads its SBOM first. Require the audit once it is green, or after a separate
+review introduces a narrowly scoped, expiring exception that still rejects
+new advisories. Do not normalize administrator bypasses of a permanently red
+required check.
+
 ## Commands
 
 **Setup:** `./bootstrap.sh [web|mobile|all] [--env-file FILE]` at the root

@@ -78,7 +78,7 @@ export function FloatSearchCard({
           </View>
         </View>
         <View style={styles.badges}>
-          <View style={[styles.badge, { backgroundColor: conditionBg(code) }]}>
+          <View style={[styles.badge, { backgroundColor: conditionBg(code, isDark) }]}>
             <Text style={[t.sm, styles.bold, { color: conditionText(code, isDark) }]}>
               {route.conditionLabel}
             </Text>

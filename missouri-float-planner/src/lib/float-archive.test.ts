@@ -420,6 +420,19 @@ test('opt-in applies at completion, never retroactively; failed withdrawal stays
   assert.equal((await remote.api.read()).preference.enabled, false);
 });
 
+test('oversized archive batches stop before validating individual trips', () => {
+  const trip = Object.defineProperty({}, 'id', {
+    get() { throw new Error('An oversized batch must not validate individual rows'); },
+  });
+  const result = archiveBatch.safeParse({ rows: Array(21).fill(trip) });
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.error.issues.length, 1);
+    assert.equal(result.error.issues[0].code, 'too_big');
+    assert.deepEqual(result.error.issues[0].path, ['rows']);
+  }
+});
+
 test('summary validation rejects raw GPS, unknown fields, inconsistent times and foreign ids', () => {
   const row = { id: 'trip', kind: 'completed', deleted: false, contributionVersion: null, payload: summary() };
   assert.equal(archiveBatch.safeParse({ rows: [row] }).success, true);

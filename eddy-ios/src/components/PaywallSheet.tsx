@@ -374,7 +374,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
         redeemBaseline.current = null;
       }}
     >
-      <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}>
         <View style={styles.handleRow}>
           <Pressable
             onPress={onClose}
@@ -546,7 +546,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                           {
                             backgroundColor: isSelected ? colors.selectionBg : colors.card,
                             borderWidth: 2,
-                            borderColor: isSelected ? colors.accentFill : colors.border,
+                            borderColor: isSelected ? colors.interactive : colors.border,
                             opacity: pressed ? 0.7 : 1,
                           },
                         ]}

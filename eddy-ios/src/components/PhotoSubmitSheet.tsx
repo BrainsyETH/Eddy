@@ -517,7 +517,7 @@ export function PhotoSubmitSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.lift}
       >
-        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.sheet }]}>
 
           {sent ? (
             <View style={styles.done}>
@@ -837,7 +837,7 @@ export function PhotoSubmitSheet({
         >
           {/* Swallows taps so a press inside the card does not dismiss it. */}
           <Pressable
-            style={[styles.pickerCard, { backgroundColor: colors.card }]}
+            style={[styles.pickerCard, { backgroundColor: colors.sheet }]}
             onPress={() => {}}
           >
             <Text style={[styles.pickerTitle, { color: colors.text }]}>

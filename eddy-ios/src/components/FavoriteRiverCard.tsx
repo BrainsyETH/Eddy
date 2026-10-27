@@ -109,7 +109,7 @@ function FavoriteRiverCardComponent({
             onPress={onToggleStar}
             style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
             accessibilityRole="button"
-            accessibilityLabel={`Unstar ${river.name}`}
+            accessibilityLabel={`Remove ${river.name} from favorites`}
           >
             <ControlIcon name="star" size={21} color={colors.warm} />
           </Pressable>

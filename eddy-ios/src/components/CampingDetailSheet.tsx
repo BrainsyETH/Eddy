@@ -104,7 +104,7 @@ export function CampingDetailSheet({
     >
       <SafeAreaProvider>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: colors.bg }}
+        style={{ flex: 1, backgroundColor: colors.sheetGrouped }}
         edges={['bottom']}
         onAccessibilityEscape={onClose}
       >

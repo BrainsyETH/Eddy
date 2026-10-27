@@ -1,9 +1,23 @@
+import { stationDayWindow } from '@eddy/conditions/chart-calendar';
 export interface ChartDateErrors { from?: string; to?: string }
 type DateResult = { errors: ChartDateErrors; window?: undefined; days?: undefined }
   | { errors?: undefined; window: { from: string; to: string }; days: number };
 
 export function localChartDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Saved chart dates belong to the station calendar, regardless of the device zone. */
+export function initialChartDates(
+  window?: { from: string; to: string },
+  sharedCalendar?: { from: string; to: string },
+  now = new Date(),
+): { from: string; to: string } {
+  if (sharedCalendar) return { ...sharedCalendar };
+  const from = window ? new Date(window.from) : new Date(now);
+  if (!window) from.setDate(from.getDate() - 29);
+  const to = window ? new Date(window.to) : now;
+  return { from: localChartDate(from), to: localChartDate(to) };
 }
 
 /** Parse a calendar date without Date's UTC interpretation of YYYY-MM-DD. */
@@ -15,7 +29,7 @@ export function parseLocalChartDate(value: string): Date | null {
 }
 
 /** Local calendar days at the UI boundary; absolute ISO instants on the wire. */
-export function validateChartDates(fromText: string, toText: string, now: number): DateResult {
+export function validateChartDates(fromText: string, toText: string, now: number, timeZone?: string): DateResult {
   const from = parseLocalChartDate(fromText.trim());
   const to = parseLocalChartDate(toText.trim());
   const errors: ChartDateErrors = {};
@@ -25,10 +39,15 @@ export function validateChartDates(fromText: string, toText: string, now: number
   // Calendar arithmetic, not elapsed 24-hour blocks: DST days can be 23/25h.
   const ordinal = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
   const days = ordinal(to) - ordinal(from) + 1;
-  if (from.getTime() > now) errors.from = 'Start date must be today or earlier.';
+  if (!timeZone && from.getTime() > now) errors.from = 'Start date must be today or earlier.';
   if (days < 1) errors.to = 'End date must be on or after the start date.';
   else if (days > 366) errors.to = 'Choose a date range of 366 days or less.';
   if (errors.from || errors.to) return { errors };
+  if (timeZone) {
+    const window = stationDayWindow(fromText.trim(), toText.trim(), timeZone);
+    if (Date.parse(window.from) > now) return { errors: { from: 'Start date must be today or earlier.' } };
+    return { window: { from: window.from, to: new Date(Math.min(Date.parse(window.to), now)).toISOString() }, days };
+  }
   to.setHours(23, 59, 59, 0);
   const end = new Date(Math.min(to.getTime(), now));
   return { window: { from: from.toISOString(), to: end.toISOString() }, days: Math.max(1, ordinal(end) - ordinal(from) + 1) };

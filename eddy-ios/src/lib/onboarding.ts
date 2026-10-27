@@ -7,9 +7,9 @@
 // require() sat outside the try/catch that was written to protect it, and a
 // missing or unlinked native module rejected the promise instead of being
 // caught. OnboardingGate awaits this before it renders anything, so a rejection
-// there left its `accepted` state null forever: a blank screen in colors.bg,
-// which in dark mode is #1A1814 — byte-identical to the splash background in
-// app.json. The app looked like it hung on the splash, and nothing was logged.
+// there left its `accepted` state null forever: a blank screen in colors.bg.
+// At the time, that matched the native splash exactly. The charcoal canvas is
+// now slightly different, but the blank screen can still resemble a hung launch.
 //
 // Passing storage explicitly is still supported, and is how the tests inject a
 // throwing stub. It just is not a default any more.

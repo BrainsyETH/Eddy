@@ -4,7 +4,7 @@ import { prepareMapWorker } from './scripts/prepare-map-worker.mjs';
 
 prepareMapWorker();
 
-// Snapshot of Next 16.3.8's default HTML-limited crawler list. Keep config
+// Snapshot of Next 16.4.3's default HTML-limited crawler list. Keep config
 // loading independent of private Next module paths. visibility-seo.test.ts
 // flags upgrades so this list is checked against the newly installed version.
 // Source: packages/next/src/shared/lib/router/utils/html-bots.ts in vercel/next.js.
@@ -12,9 +12,13 @@ const HTML_LIMITED_BOT_UA_RE = /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Sl
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Image routes serve deterministic artwork without fetching live providers.
+  // geo-tz reads its boundary files through Node's filesystem at runtime.
+  serverExternalPackages: ['geo-tz'],
   outputFileTracingIncludes: {
     '/*': ['./public/share/*.png', './public/share/*.jpg'],
+    '/api/gauges/\\[siteId\\]': ['./node_modules/geo-tz/data/timezones-1970.*'],
+    '/api/gauges/\\[siteId\\]/history': ['./node_modules/geo-tz/data/timezones-1970.*'],
+    '/api/share/chart/\\[provider\\]/\\[siteId\\]/image': ['./node_modules/geo-tz/data/timezones-1970.*'],
     // Private HTML is served only by the authenticated diagram route.
     '/admin/visuals/*': ['./content/admin-visuals/*.html'],
   },

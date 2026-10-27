@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { FLOAT_SEARCH_LOADING_TITLE, FLOAT_SEARCH_LOADING_DETAIL } from '@eddy/conditions/float-search';
 import { EddyScene } from './EddyScene';
@@ -9,7 +9,7 @@ import { fonts, type as t } from '@/theme/typography';
 export function FloatSearchLoading() {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useMemo(() => new Animated.Value(1), []);
   useEffect(() => {
     if (reducedMotion) { opacity.setValue(1); return; }
     const pulse = Animated.loop(Animated.sequence([

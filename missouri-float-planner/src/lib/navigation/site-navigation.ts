@@ -39,13 +39,6 @@ export function siteNavigation(pathname: string, search: string, floatSearchEnab
   ];
 }
 
-export function conditionNavigation(active: 'rivers' | 'dams'): SiteNavLink[] {
-  return [
-    { href: '/rivers', label: 'Rivers', active: active === 'rivers' },
-    { href: '/dams', label: 'Lakes & Dams', active: active === 'dams' },
-  ];
-}
-
 export function floatNavigation(pathname: string, search = ''): SiteNavLink[] {
   const params = new URLSearchParams(search);
   const river = navigationRiver(pathname, search);

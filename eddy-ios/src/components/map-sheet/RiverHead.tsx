@@ -77,7 +77,7 @@ export function RiverHead({
   onClose: () => void;
   onOpenGauge: (siteId: string) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const says = selectEddySays(useCachedEddyUpdate(river.slug));
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
@@ -157,12 +157,12 @@ export function RiverHead({
             style={[
               styles.chip,
               {
-                backgroundColor: conditionBg(shownCode),
-                borderColor: conditionChipBorder(shownCode),
+                backgroundColor: conditionBg(shownCode, isDark),
+                borderColor: conditionChipBorder(shownCode, isDark),
               },
             ]}
           >
-            <Text style={[styles.chipText, { color: conditionInk(shownCode) }]}>
+            <Text style={[styles.chipText, { color: conditionInk(shownCode, isDark) }]}>
               {conditionLongLabel(shownCode)}
             </Text>
           </View>

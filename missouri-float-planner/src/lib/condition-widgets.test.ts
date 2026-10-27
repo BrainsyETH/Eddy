@@ -53,25 +53,23 @@ test('widget discovery is a local acknowledgement, not an install or an account 
 });
 
 test('widget guide follows the real small-versus-medium configuration rules', () => {
-  assert.match(widgetGuide('dam', 3).summary, /hourly generation schedule/);
-  assert.match(widgetGuide('dam', 2).summary, /next posted schedule change/);
-  assert.match(widgetGuide('river', 3).summary, /CFS or FT/);
   assert.equal(WIDGET_GUIDE.river.size, 'Small');
   assert.match(WIDGET_GUIDE.favorites.personalize, /Edit Widget/);
   assert.doesNotMatch(widgetGuide('favorites', 1).personalize, /Edit Widget/);
-  assert.match(widgetGuideSteps('dam')[2].detail, /choose a dam/);
-  assert.match(widgetGuideSteps('report')[2].detail, /choose a river/);
+  assert.match(widgetGuideSteps('dam')[2], /choose a dam/);
+  assert.match(widgetGuideSteps('report')[2], /choose a river/);
   assert.equal(WIDGET_GUIDE.favorites.size, 'Medium');
   assert.match(WIDGET_GUIDE.river.personalize, /Edit Widget/);
-  assert.match(WIDGET_GUIDE.favorites.personalize, /first three/);
+  assert.match(widgetGuide('favorites', 1).personalize, /first three/);
   const smallSteps = widgetGuideSteps('river');
   const mediumSteps = widgetGuideSteps('favorites');
   assert.equal(smallSteps.length, 3);
-  assert.deepEqual(smallSteps.map(step => step.title), mediumSteps.map(step => step.title));
-  assert.match(smallSteps[0].detail, /Edit, then Add Widget/);
-  assert.match(smallSteps[1].detail, /River level/);
-  assert.match(mediumSteps[1].detail, /Your rivers/);
-  assert.match(mediumSteps[2].detail, /Favorites/);
+  assert.equal(mediumSteps.length, 3);
+  assert.equal(smallSteps[0], mediumSteps[0]);
+  assert.match(smallSteps[0], /Edit, then Add Widget/);
+  assert.match(smallSteps[1], /River level/);
+  assert.match(mediumSteps[1], /Your rivers/);
+  assert.match(mediumSteps[2], /Empty slots follow Favorites/);
   const alerts = readFileSync(new URL('../../../eddy-ios/app/(tabs)/(alerts)/alerts.tsx', import.meta.url), 'utf8');
   assert.match(alerts, /<HomeScreenWidgetsIntro \/>/);
 });
@@ -231,7 +229,7 @@ test('native widget foreground refresh is throttled and keeps configuration relo
 });
 
 test('widget detail requests opt in to compact server response without bypassing trusted values or flood alerts', () => {
-  const source = readFileSync(new URL('../app/api/gauges/[siteId]/route.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('./gauges/detail-response.ts', import.meta.url), 'utf8');
   const native = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/ios/ConditionWidgetData.swift', import.meta.url), 'utf8');
   assert.match(source, /request\.nextUrl\.searchParams\.get\('widget'\)\s*===\s*'1'/);
   assert.match(source, /if \(widgetOnly\) return null;/);

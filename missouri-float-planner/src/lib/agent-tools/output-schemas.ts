@@ -8,7 +8,7 @@ const observed = {
   ageMinutes: nullableNumber,
   stale: z.boolean().nullable(),
 };
-const record = z.record(z.unknown());
+const record = z.record(z.string(), z.unknown());
 const component = z.object({ status: statusSchema }).passthrough();
 const gauge = z
   .object({

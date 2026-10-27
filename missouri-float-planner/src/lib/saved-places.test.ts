@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { AccessPointDetailResponse, DamSnapshot, RiverService } from '../../../packages/eddy-types';
+import type { AccessPointDetailResponse, CampsiteAvailabilitySummary, DamSnapshot, RiverService } from '../../../packages/eddy-types';
 import { createSavedPlacesStore, decodeSavedPlaces, placeFromAccess, placeFromPin, placeFromService, savedScheduleState, wholeRiverDam, SAVED_PLACES_KEY, savedPlacesKey, savedPlacesOwner } from '../../../eddy-ios/src/lib/savedPlaces';
 import { createSavedPlaceRefresher, refreshedDam, createPlaceAutoRefresh, placeRefreshNeeds } from '../../../eddy-ios/src/lib/savedPlaceRefresh';
+import { accessDetailPresentation, retainNewerSavedObservations } from '../../../eddy-ios/src/lib/accessDetailPresentation';
 
-import { savedGaugeDisplay, savedPlaceSummary, savedScheduleDayLabel, scheduleGroups, sortedPlaceDams } from '../../../eddy-ios/src/lib/savedPlaceDisplay';
+import { savedCampingDisplay, savedGaugeDisplay, savedPlaceSummary, savedScheduleDayLabel, scheduleGroups, sortedPlaceDams } from '../../../eddy-ios/src/lib/savedPlaceDisplay';
+import { CAMPING_MAX_AGE_MS } from '../../shared/camping-freshness';
 import { DAM_CATALOG } from '../../../eddy-ios/src/lib/damCatalog';
 import { coldDetailPath } from '../../../eddy-ios/src/lib/tabRoutes';
 
@@ -19,6 +21,19 @@ const detail = { accessPoint: { id: 'access', slug: 'landing', name: 'Landing', 
   feeRequired: true, feeNotes: '$5 parking', booking: { url: 'https://example.com/book' },
 }, gaugeStatus: { gaugeId: 'gauge', gaugeName: 'White gauge', usgsId: '07000000', cfs: 0, heightFt: 2.5, lastUpdated: observed, trend: 'steady', level: 'low', label: 'Low' }, nearbyAccessPoints: [] } as unknown as AccessPointDetailResponse;
 const place = () => placeFromAccess(detail, now);
+const availability = (overrides: Partial<CampsiteAvailabilitySummary> = {}): CampsiteAvailabilitySummary => ({
+  window: { startDate: '2026-10-25', endDate: '2026-10-27', label: 'Oct 25–27' },
+  sitesOpen: 4, sitesReservable: 20, sitesWalkUp: 3, status: 'open',
+  kind: 'campground', source: 'recreation_gov', fetchedAt: '2026-10-25T15:00:00Z', facilityId: 'facility-a',
+  nights: [
+    { date: '2026-10-25', sitesOpen: 4, sitesReservable: 20, sitesWalkUp: 3, status: 'open' },
+    { date: '2026-10-26', sitesOpen: 7, sitesReservable: 20, sitesWalkUp: 3, status: 'open' },
+  ],
+  ...overrides,
+});
+const campingPlace = (summary = availability()) => ({
+  ...place(), camping: { availability: summary, name: 'Landing Campground', downloadedAt: now },
+});
 function memory() {
   const values = new Map<string, string>();
   return { values, getItem: async (key: string) => values.get(key) ?? null,
@@ -51,14 +66,321 @@ test('map and detail use one identity; bare pins never invent driving coordinate
   assert.equal(placeFromPin({ id: 'gauge', name: 'Gauge', layer: 'gauges', coordinates: { lat: 36, lng: -92 } }, now), null);
 });
 
-test('campgrounds save useful contact/logistics without route creation or live availability promises', () => {
+test('the canonical access screen can present cold saved facts and driving coordinates without inventing live metadata', async () => {
+  const disk = memory(); const store = createSavedPlacesStore(disk);
+  const saved = placeFromAccess({ ...detail, accessPoint: { ...detail.accessPoint, facilities: 'Vault toilet' } }, now);
+  await store.save(saved);
+  const cold = createSavedPlacesStore(disk); await cold.load();
+  const view = accessDetailPresentation(null, cold.snapshot().places[0], Date.parse(now));
+  assert.ok(view);
+  assert.equal(view.point.name, 'Landing');
+  assert.equal(view.point.river.name, 'White River');
+  assert.equal(view.point.description, 'Gravel ramp');
+  assert.equal(view.point.roadAccess, 'Gate closes at dusk\nUnmaintained gravel');
+  assert.equal(view.point.parkingInfo, 'Limited parking');
+  assert.equal(view.point.facilities, 'Vault toilet');
+  assert.equal(view.point.localTips, 'Keep the ramp clear');
+  assert.equal(view.point.feeNotes, '$5 parking');
+  assert.equal(view.canDrive, true);
+  assert.equal(view.point.drivingLat, 36.001); assert.equal(view.point.drivingLng, -92.001);
+  assert.deepEqual(view.point.coordinates, saved.coordinates);
+  assert.equal(view.point.id, undefined); assert.equal(view.point.riverId, undefined);
+  assert.equal(view.point.riverMile, undefined); assert.equal(view.point.isPublic, undefined);
+  assert.equal(view.point.path, undefined, 'an app route cannot stand in for the canonical web share URL');
+});
+
+test('a bare saved access pin stays readable without exposing driving or guessing place facts', () => {
+  const saved = placeFromPin({ id: 'map-id', name: 'Landing', layer: 'access',
+    coordinates: { lat: 36, lng: -92 }, detailRoute: '/river/white/access/landing' }, now)!;
+  const view = accessDetailPresentation(null, { ...saved, riverSlug: null }, Date.parse(now));
+  assert.ok(view);
+  assert.equal(view.point.name, 'Landing'); assert.equal(view.point.river.slug, 'white');
+  assert.equal(view.canDrive, false);
+  assert.equal(view.point.drivingLat, undefined); assert.equal(view.point.drivingLng, undefined);
+  assert.equal(view.point.isPublic, undefined); assert.equal(view.point.feeRequired, undefined);
+  assert.equal(view.gauge, null); assert.equal(view.camping, null);
+  assert.deepEqual(view.nearbyAccessPoints, []);
+});
+
+test('a live access response replaces saved display facts and keeps its real identity and share path', () => {
+  const saved = { ...campingPlace(), name: 'Old landing', notes: ['Old note'] };
+  const live = { ...detail, accessPoint: { ...detail.accessPoint,
+    id: 'live-access-id', riverId: 'live-river-id', riverMile: 12.5,
+    name: 'Renamed landing', description: 'Current description', parkingInfo: 'New paved parking',
+    path: '/rivers/arkansas/white/access/landing', availability: availability({ sitesOpen: 7 }),
+  }, gaugeStatus: { ...detail.gaugeStatus!, cfs: 125, lastUpdated: now } };
+  const view = accessDetailPresentation(live, saved, Date.parse(now));
+  assert.ok(view);
+  assert.equal(view.point.name, 'Renamed landing'); assert.equal(view.point.description, 'Current description');
+  assert.equal(view.point.parkingInfo, 'New paved parking');
+  assert.equal(view.point.id, 'live-access-id'); assert.equal(view.point.riverId, 'live-river-id');
+  assert.equal(view.point.riverMile, 12.5); assert.equal(view.point.isPublic, true);
+  assert.equal(view.point.path, '/rivers/arkansas/white/access/landing');
+  assert.equal(view.gauge?.cfs, 125); assert.equal(view.gauge?.lastUpdated, now);
+  assert.equal(view.camping?.availability?.sitesOpen, 7);
+  assert.equal(saved.name, 'Old landing'); assert.deepEqual(saved.notes, ['Old note']);
+});
+
+test('a reconnect snapshot supplies newer provider observations without reviving sources removed from live access data', () => {
+  const older = '2026-10-25T14:00:00Z'; const newer = '2026-10-25T15:00:00Z';
+  const live = { ...detail, accessPoint: { ...detail.accessPoint, availability: availability({ fetchedAt: older }) },
+    gaugeStatus: { ...detail.gaugeStatus!, cfs: 100, lastUpdated: older } };
+  const saved = { ...campingPlace(availability({ sitesOpen: 8, fetchedAt: newer })),
+    gauge: { reading: { ...detail.gaugeStatus!, cfs: 200, lastUpdated: newer }, downloadedAt: observed } };
+  const view = accessDetailPresentation(live, saved, Date.parse(now));
+  assert.equal(view?.gauge?.cfs, 200); assert.equal(view?.gauge?.lastUpdated, newer);
+  assert.equal(view?.camping?.availability?.sitesOpen, 8);
+  assert.equal(view?.camping?.availability?.fetchedAt, newer);
+  const removed = accessDetailPresentation({ ...live, gaugeStatus: null,
+    accessPoint: { ...live.accessPoint, availability: null } }, saved, Date.parse(now));
+  assert.equal(removed?.gauge, null); assert.equal(removed?.camping, null);
+  const otherSources = accessDetailPresentation({ ...live,
+    gaugeStatus: { ...live.gaugeStatus, usgsId: 'different-gauge' },
+    accessPoint: { ...live.accessPoint, availability: availability({ fetchedAt: older, facilityId: 'different-camp' }) },
+  }, saved, Date.parse(now));
+  assert.equal(otherSources?.gauge?.cfs, 100); assert.equal(otherSources?.camping?.availability?.sitesOpen, 4);
+});
+
+test('provider timestamps select current access data even when older or invalid observations were downloaded more recently', () => {
+  const current = '2026-10-25T15:00:00Z';
+  const live = { ...detail, accessPoint: { ...detail.accessPoint, availability: availability({ fetchedAt: current }) },
+    gaugeStatus: { ...detail.gaugeStatus!, cfs: 100, lastUpdated: current } };
+  for (const timestamp of [observed, current, 'invalid', '', '2026-10-25T16:00:01Z']) {
+    const saved = { ...campingPlace(availability({ sitesOpen: 8, fetchedAt: timestamp })),
+      gauge: { reading: { ...detail.gaugeStatus!, cfs: 200, lastUpdated: timestamp }, downloadedAt: now } };
+    const view = accessDetailPresentation(live, saved, Date.parse(now));
+    assert.equal(view?.gauge?.cfs, 100, timestamp);
+    assert.equal(view?.camping?.availability?.sitesOpen, 4, timestamp);
+  }
+  const validSaved = { ...campingPlace(availability({ sitesOpen: 8, fetchedAt: current })),
+    gauge: { reading: { ...detail.gaugeStatus!, cfs: 200, lastUpdated: current }, downloadedAt: observed } };
+  for (const timestamp of ['invalid', '2026-10-25T16:00:01Z']) {
+    const view = accessDetailPresentation({ ...live,
+      accessPoint: { ...live.accessPoint, availability: availability({ fetchedAt: timestamp }) },
+      gaugeStatus: { ...live.gaugeStatus, lastUpdated: timestamp },
+    }, validSaved, Date.parse(now));
+    assert.equal(view?.gauge?.cfs, 200); assert.equal(view?.gauge?.lastUpdated, current);
+    assert.equal(view?.camping?.availability?.sitesOpen, 8);
+    assert.equal(view?.camping?.availability?.fetchedAt, current);
+  }
+});
+
+test('persisting a late access response cannot downgrade newer saved observations or overwrite personal save state', async () => {
+  const newer = '2026-10-25T15:00:00Z'; const older = '2026-10-25T14:00:00Z';
+  const previous = { ...campingPlace(availability({ sitesOpen: 8, fetchedAt: newer })),
+    savedAt: '2026-10-01T12:00:00Z', damChoice: 'none',
+    gauge: { reading: { ...detail.gaugeStatus!, cfs: 200, lastUpdated: newer }, downloadedAt: now } };
+  const store = createSavedPlacesStore(memory()); await store.save(previous);
+  const late = { ...detail, accessPoint: { ...detail.accessPoint, name: 'Updated place facts',
+    availability: availability({ fetchedAt: older }) },
+    gaugeStatus: { ...detail.gaugeStatus!, cfs: 100, lastUpdated: older } };
+  const incoming = placeFromAccess(late, now, previous);
+  const next = retainNewerSavedObservations(incoming, previous, Date.parse(now), late.accessPoint.availability);
+  await store.replace(previous, next);
+  const stored = store.snapshot().places[0];
+  assert.equal(stored.name, 'Updated place facts');
+  assert.equal(stored.savedAt, previous.savedAt); assert.equal(stored.damChoice, 'none');
+  assert.deepEqual(stored.gauge, previous.gauge); assert.deepEqual(stored.camping, previous.camping);
+  assert.equal(incoming.gauge?.reading.cfs, 100, 'source selection does not mutate the incoming response');
+  const invalidCamping = availability({ fetchedAt: 'invalid' });
+  const rejected = placeFromAccess({ ...late, accessPoint: { ...late.accessPoint, availability: invalidCamping } }, now, previous);
+  assert.equal(rejected.camping, null);
+  assert.deepEqual(retainNewerSavedObservations(rejected, previous, Date.parse(now), invalidCamping).camping, previous.camping);
+  assert.equal(retainNewerSavedObservations({ ...incoming, camping: null }, previous, Date.parse(now), null).camping, null);
+});
+
+test('the shared access presentation ages saved water and camping by observation time without mutating the snapshot', () => {
+  const at = Date.parse(now);
+  const expiredAt = new Date(at - CAMPING_MAX_AGE_MS).toISOString();
+  const saved = { ...campingPlace(availability({ fetchedAt: expiredAt })),
+    gauge: { reading: { ...detail.gaugeStatus!, cfs: 125, lastUpdated: expiredAt }, downloadedAt: now } };
+  const original = structuredClone(saved);
+  const view = accessDetailPresentation(null, saved, at);
+  assert.ok(view);
+  assert.equal(view.gauge?.cfs, null); assert.equal(view.gauge?.heightFt, null);
+  assert.equal(view.gauge?.level, 'unknown'); assert.equal(view.gauge?.trend, null);
+  assert.equal(view.gauge?.lastUpdated, expiredAt);
+  assert.equal(view.camping?.availability, null);
+  assert.deepEqual(saved, original, 'rendering cannot rewrite provider timestamps or the retained offline inventory');
+
+  const stale = accessDetailPresentation(null, place(), at);
+  assert.equal(stale?.gauge?.cfs, 0, 'a measured zero survives the stale display');
+  assert.equal(stale?.gauge?.level, 'unknown'); assert.equal(stale?.gauge?.trend, null);
+  assert.equal(stale?.gauge?.lastUpdated, observed);
+  const fresh = accessDetailPresentation(null, campingPlace(), at);
+  assert.equal(fresh?.camping?.availability?.fetchedAt, availability().fetchedAt);
+  assert.equal(fresh?.camping?.age, '1 hr ago');
+});
+
+test('saved access presentation retains unrecognized facts and booking links while keeping restrictions explicit', () => {
+  const saved = { ...place(), tags: ['Private access', 'Fee required'],
+    facts: [...place().facts, { label: 'Managed by', value: 'National Park Service' }, { label: 'Seasonal gate', value: 'Closed in winter' }],
+    links: [{ label: 'Official website', url: 'https://example.com/landing' },
+      { label: 'Reservations', url: 'https://example.com/book' }, { label: 'Call', url: 'tel:5551112222' },
+      { label: 'Unsupported', url: 'custom:unsupported' }] };
+  const view = accessDetailPresentation(null, saved, Date.parse(now));
+  assert.ok(view);
+  assert.equal(view.point.isPublic, false); assert.equal(view.point.feeRequired, true);
+  assert.equal(view.point.officialSiteUrl, 'https://example.com/landing');
+  assert.deepEqual(view.extraFacts, [{ label: 'Managed by', value: 'National Park Service' }, { label: 'Seasonal gate', value: 'Closed in winter' }]);
+  assert.deepEqual(view.extraLinks, [{ label: 'Reservations', url: 'https://example.com/book' }, { label: 'Call', url: 'tel:5551112222' }]);
+});
+
+test('only valid access routes qualify a saved place for the canonical access presentation', () => {
+  assert.equal(accessDetailPresentation(null, undefined, Date.parse(now)), null);
+  for (const detailRoute of [null, '', '/river/white', '/river//access/landing', '/river/white/access/',
+    '/river/white/access/landing/extra', '/river/white/access/landing?other=1', '/river/white/access/landing#detail',
+    'https://example.com/river/white/access/landing']) {
+    assert.equal(accessDetailPresentation(null, { ...place(), detailRoute }, Date.parse(now)), null, String(detailRoute));
+  }
+  assert.ok(accessDetailPresentation(detail, { ...place(), detailRoute: null }, Date.parse(now)), 'a valid live payload does not depend on an old saved route');
+});
+
+test('campgrounds save useful contact/logistics without promoting malformed inventory', () => {
   const pin = placeFromPin({ id: 'service:camp', name: 'Camp', layer: 'campgrounds', coordinates: { lat: 36, lng: -92 },
     body: '<p>Office closes at 6</p>', contactLinks: [{ label: 'Call', url: 'tel:5551112222' }] }, now)!;
   assert.equal(pin.id, 'place:service:camp'); assert.equal(pin.riverSlug, null);
   const updated = placeFromService({ name: 'Camp', description: 'Gate closes at 7', phone: '5551112222', website: 'example.com', latitude: 36, longitude: -92, availability: { sitesOpen: 20 } } as RiverService, pin, now);
   assert.equal(updated.links.length, 2); assert.deepEqual(updated.notes, ['Gate closes at 7']);
   assert.equal('availability' in updated, false);
+  assert.equal(updated.camping, null);
   assert.ok(placeFromService({ description: '', status: 'temporarily_closed' } as RiverService, pin, now).tags.includes('Temporarily closed'));
+});
+
+test('saved access inventory uses the common source resolver even when the access is not typed as a campground', () => {
+  const statePark = availability({ source: 'mo_state_parks', facilityId: 'state-park', sitesWalkUp: null });
+  const nested = availability({ facilityId: 'nps-camp' });
+  const both = { ...detail, accessPoint: { ...detail.accessPoint, availability: statePark,
+    npsCampground: { name: 'Linked Campground', availability: nested } } } as AccessPointDetailResponse;
+  const saved = placeFromAccess(both, now);
+  assert.equal(saved.kind, 'access');
+  assert.deepEqual(saved.camping?.availability, statePark);
+  assert.equal(saved.camping?.name, 'Linked Campground');
+  assert.equal(saved.camping?.downloadedAt, now);
+  assert.equal(saved.camping?.availability.fetchedAt, statePark.fetchedAt);
+  assert.equal(saved.gauge?.reading.usgsId, detail.gaugeStatus?.usgsId, 'the detail view still retains its gauge');
+  const olderServer = { ...both, accessPoint: { ...both.accessPoint, availability: undefined } };
+  assert.deepEqual(placeFromAccess(olderServer, now).camping?.availability, nested);
+  const parkOnly = { ...both, accessPoint: { ...both.accessPoint, npsCampground: null } };
+  assert.deepEqual(placeFromAccess(parkOnly, now).camping?.availability, statePark);
+  assert.equal(placeFromAccess(parkOnly, now).camping?.name, detail.accessPoint.name);
+});
+
+test('service snapshots retain supported inventory and successful absent inventory clears the previous copy', () => {
+  const pin = placeFromPin({ id: 'service:camp', name: 'Camp', layer: 'campgrounds', coordinates: { lat: 36, lng: -92 } }, now)!;
+  const inventory = availability({ source: 'mo_state_parks', sitesWalkUp: null });
+  const service = { name: 'State Park Campground', description: 'Campground', availability: inventory } as RiverService;
+  const saved = placeFromService(service, pin, now);
+  assert.deepEqual(saved.camping, { availability: inventory, name: service.name, downloadedAt: now });
+  assert.equal(placeFromService({ ...service, availability: null }, saved, now).camping, null);
+  assert.equal(placeFromAccess(detail, now, campingPlace()).camping, null);
+});
+
+test('camping inventory survives a cold load with its original observation date', async () => {
+  const disk = memory(); const store = createSavedPlacesStore(disk); const saved = campingPlace();
+  await store.save(saved);
+  const cold = createSavedPlacesStore(disk); await cold.load();
+  assert.deepEqual(cold.snapshot().places, [saved]);
+  const display = savedCampingDisplay(cold.snapshot().places[0], Date.parse(now));
+  assert.deepEqual(display?.availability, saved.camping.availability);
+  assert.equal(display?.age, '1 hr ago');
+  assert.match(display?.summary ?? '', /4 open.*20.*Tonight/);
+  assert.match(savedPlaceSummary(saved, Date.parse(now)) ?? '', /4 open/);
+  assert.match(savedPlaceSummary({ ...saved, kind: 'campground' }, Date.parse(now)) ?? '', /4 open/);
+});
+
+test('legacy and malformed camping data never discard an otherwise usable saved place', () => {
+  const legacy = { ...place() }; delete legacy.camping;
+  const old = decodeSavedPlaces(JSON.stringify({ version: 2, places: [legacy] }));
+  assert.equal(old.length, 1); assert.equal(old[0].camping, undefined);
+  for (const camping of [
+    {},
+    { availability: { sitesOpen: 99 }, name: 'Broken', downloadedAt: now },
+    { ...campingPlace().camping, availability: availability({ sitesOpen: -1 }) },
+    { ...campingPlace().camping, availability: availability({ nights: [{ date: 'not-a-date', sitesOpen: 3, sitesReservable: 10, status: 'open' }] }) },
+  ]) {
+    const loaded = decodeSavedPlaces(JSON.stringify({ version: 2, places: [{ ...place(), camping }] }));
+    assert.equal(loaded.length, 1); assert.equal(loaded[0].camping, null);
+    assert.deepEqual(loaded[0].facts, place().facts);
+    assert.deepEqual(loaded[0].gauge, place().gauge);
+  }
+});
+
+test('saved camping uses provider age, rejects future/invalid times, and expires at the canonical boundary', () => {
+  const at = Date.parse(now);
+  const almostExpired = availability({ fetchedAt: new Date(at - CAMPING_MAX_AGE_MS + 1).toISOString() });
+  assert.ok(savedCampingDisplay(campingPlace(almostExpired), at)?.availability);
+  for (const fetchedAt of [new Date(at - CAMPING_MAX_AGE_MS).toISOString(), new Date(at + 1).toISOString(), 'invalid', '']) {
+    const saved = campingPlace(availability({ fetchedAt }));
+    const display = savedCampingDisplay(saved, at);
+    assert.equal(display?.availability, null, fetchedAt);
+    assert.equal(display?.summary, 'Availability out of date');
+    assert.equal(savedPlaceSummary(saved, at), 'Availability out of date');
+    assert.equal(savedPlaceSummary({ ...saved, kind: 'campground' }, at), 'Availability out of date');
+    assert.doesNotMatch(display?.accessibilityLabel ?? '', /4 open|20 sites|cfs/);
+  }
+  assert.equal(savedCampingDisplay(place(), at), null);
+  assert.match(savedPlaceSummary(place(), at) ?? '', /0 cfs/);
+});
+
+test('saved camping rolls its named night at Central midnight and never revives past-only weekend totals', () => {
+  const saved = campingPlace(availability({ fetchedAt: '2026-10-26T04:00:00Z' }));
+  const before = savedCampingDisplay(saved, Date.parse('2026-10-26T04:59:59Z'));
+  const after = savedCampingDisplay(saved, Date.parse('2026-10-26T05:00:00Z'));
+  assert.equal(before?.today, '2026-10-25'); assert.match(before?.summary ?? '', /4 open/);
+  assert.equal(after?.today, '2026-10-26'); assert.match(after?.summary ?? '', /7 open/);
+  const pastWindow = { startDate: '2026-10-23', endDate: '2026-10-25', label: 'Past weekend' };
+  for (const nights of [undefined, [], [availability().nights![0]]]) {
+    const past = campingPlace(availability({ fetchedAt: '2026-10-26T04:00:00Z', window: pastWindow, nights }));
+    const display = savedCampingDisplay(past, Date.parse('2026-10-26T05:00:00Z'));
+    assert.equal(display?.availability, null);
+    assert.equal(display?.summary, 'Availability out of date');
+  }
+  const upcoming = campingPlace(availability({ fetchedAt: '2026-10-26T04:00:00Z', window: pastWindow }));
+  assert.ok(savedCampingDisplay(upcoming, Date.parse('2026-10-26T05:00:00Z'))?.availability, 'current measured nights remain usable even when the old window ended');
+});
+
+test('legacy camping discovery and live camping refresh reuse bounded detail downloads without requiring a gauge', () => {
+  const at = Date.parse(now), current = { ...campingPlace(), gauge: null, damsCheckedAt: now };
+  assert.equal(placeRefreshNeeds(current, at + 15 * 60_000 - 1).details, false);
+  assert.equal(placeRefreshNeeds(current, at + 15 * 60_000).details, true);
+  const legacy = { ...place(), gauge: null }; delete legacy.camping;
+  assert.equal(placeRefreshNeeds(legacy, at).details, true);
+  assert.equal(placeRefreshNeeds({ ...legacy, id: 'place:service:camp', detailRoute: null }, at).details, true);
+  assert.equal(placeRefreshNeeds({ ...legacy, id: 'place:unlinked', detailRoute: null }, at).details, false);
+  assert.equal(placeRefreshNeeds({ ...legacy, camping: null }, at).details, false);
+});
+
+test('failed camping refresh retains inventory and provider age; a successful empty response clears it', async () => {
+  const saved = { ...campingPlace(), gauge: null, damChoice: 'none' };
+  const store = createSavedPlacesStore(memory()); await store.save(saved);
+  const failed = createSavedPlaceRefresher(store, { ...api(), access: async () => { throw Error('offline'); } }, () => now);
+  assert.equal(await failed(saved.id), false); assert.deepEqual(store.snapshot().places[0].camping, saved.camping);
+  const fresh = createSavedPlaceRefresher(store, { ...api(), access: async () => ({ ...detail,
+    accessPoint: { ...detail.accessPoint, availability: saved.camping.availability }, gaugeStatus: null }) }, () => '2026-10-25T17:00:00Z');
+  assert.equal(await fresh(saved.id), true);
+  assert.equal(store.snapshot().places[0].camping?.downloadedAt, '2026-10-25T17:00:00Z');
+  assert.equal(store.snapshot().places[0].camping?.availability.fetchedAt, saved.camping.availability.fetchedAt);
+  const empty = createSavedPlaceRefresher(store, api(), () => now);
+  assert.equal(await empty(saved.id), true); assert.equal(store.snapshot().places[0].camping, null);
+});
+
+test('late camping inventory cannot cross an account switch or restore a removed favorite', async () => {
+  for (const boundary of ['account', 'removed']) {
+    const store = createSavedPlacesStore(memory()); await store.select('a');
+    const saved = { ...place(), damChoice: 'none' }; await store.save(saved);
+    const pending = deferred<AccessPointDetailResponse>();
+    const refresh = createSavedPlaceRefresher(store, { ...api(), access: () => pending.promise }, () => now);
+    const loading = refresh(saved.id, undefined, { owner: 'a' }); await flush();
+    if (boundary === 'account') { await store.select('b'); await store.save({ ...saved, name: 'B landing' }); }
+    else await store.remove(saved.id, 'a');
+    pending.resolve({ ...detail, accessPoint: { ...detail.accessPoint, availability: availability() } });
+    await loading;
+    if (boundary === 'account') {
+      assert.equal(store.snapshot().owner, 'b'); assert.equal(store.snapshot().places[0].camping, null);
+      await store.select('a'); assert.equal(store.snapshot().places[0].camping, null);
+    } else assert.deepEqual(store.snapshot().places, []);
+  }
 });
 
 test('only one unambiguous whole-river association is automatic', () => {
@@ -306,4 +628,50 @@ test('river dams sort first, access restrictions have labels, and place links be
   const saved = placeFromAccess({ ...detail, accessPoint: { ...detail.accessPoint, isPublic: false } }, now);
   assert.deepEqual(saved.tags, ['Private access', 'Fee required']); assert.equal(saved.facts.find(f => f.label === 'Fees')?.value, '$5 parking');
   assert.equal(coldDetailPath('/saved-place?id=landing'), '/(tabs)/(favorites)/saved-place?id=landing');
+});
+
+
+test('offline campground pins retain inventory and missing inventory remains eligible for lookup', () => {
+  const pin = { id: 'service:camp', name: 'Camp', layer: 'campgrounds', coordinates: { lat: 36, lng: -92 } };
+  const saved = placeFromPin({ ...pin, availability: availability() }, now)!;
+  assert.equal(saved.camping?.availability.fetchedAt, availability().fetchedAt);
+  const cold = decodeSavedPlaces(JSON.stringify({ version: 2, places: [saved] }))[0];
+  assert.deepEqual(cold.camping, saved.camping);
+  for (const inventory of [undefined, null]) {
+    const unchecked = placeFromPin({ ...pin, availability: inventory }, now)!;
+    assert.equal(unchecked.camping, undefined);
+    assert.equal(placeRefreshNeeds(unchecked, Date.parse(now)).details, true);
+  }
+});
+
+test('camping leads for every saved place regardless of access or campground tags', () => {
+  for (const type of ['boat_ramp', 'gravel_bar', 'bridge', 'access'] as const) {
+    const mixed = placeFromAccess({ ...detail, accessPoint: { ...detail.accessPoint, types: ['campground', type], availability: availability() } }, now);
+    assert.equal(mixed.kind, 'campground');
+    assert.match(savedPlaceSummary(mixed, Date.parse(now)) ?? '', /4 open/);
+    assert.match(savedPlaceSummary({ ...mixed, kind: 'access' }, Date.parse(now)) ?? '', /4 open/);
+  }
+  const camp = placeFromAccess({ ...detail, accessPoint: { ...detail.accessPoint, types: ['campground'], availability: availability() } }, now);
+  assert.equal(camp.kind, 'campground');
+  assert.match(savedPlaceSummary(camp, Date.parse(now)) ?? '', /4 open/);
+  const ungauged = { ...campingPlace(), gauge: null };
+  assert.match(savedPlaceSummary(ungauged, Date.parse(now)) ?? '', /4 open/);
+  const scheduled = { ...ungauged, dam: { snapshot: { ...dam(), schedule: [{ ...day, scheduleDate: '2026-10-25', retrievedAt: now, hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: 0, cfs: 0, isRamp: false })) }] }, downloadedAt: now } };
+  assert.match(savedPlaceSummary(scheduled, Date.parse(now)) ?? '', /4 open/);
+  assert.equal(savedPlaceSummary({ ...scheduled, camping: null }, Date.parse(now)), 'No generation scheduled today');
+});
+
+
+test('saved camping caption names measured availability and qualifies first-come sites', () => {
+  assert.equal(savedCampingDisplay(campingPlace(), Date.parse(now))?.caption,
+    '4 of 20 sites available tonight. FCFS may be available.');
+  const noWalkUp = availability({ nights: availability().nights!.map(n => ({ ...n, sitesWalkUp: 0 })) });
+  assert.equal(savedCampingDisplay(campingPlace(noWalkUp), Date.parse(now))?.caption, '4 of 20 sites available tonight.');
+  const tomorrow = availability({ nights: availability().nights!.slice(1) });
+  assert.equal(savedCampingDisplay(campingPlace(tomorrow), Date.parse(now))?.caption,
+    '7 of 20 sites available tomorrow. FCFS may be available.');
+  const window = availability({ nights: undefined });
+  assert.match(savedCampingDisplay(campingPlace(window), Date.parse(now))?.caption ?? '', /available for Oct 25–27/);
+  const stale = availability({ fetchedAt: '2026-10-01T00:00:00Z' });
+  assert.equal(savedCampingDisplay(campingPlace(stale), Date.parse(now))?.caption, '');
 });

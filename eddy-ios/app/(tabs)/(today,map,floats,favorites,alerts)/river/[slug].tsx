@@ -374,7 +374,7 @@ export default function RiverDetailScreen() {
     alertSource?: string;
   }>();
   const router = useRouter();
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const headerHeight = useHeaderHeight();
   // Programmatic anchors must clear the translucent bar as well as its safe area.
   const readTopInset = Platform.OS === 'ios' ? headerHeight : 0;
@@ -1397,7 +1397,7 @@ export default function RiverDetailScreen() {
           ]}
         >
           {caveat ? (
-            <View style={[styles.caveat, { backgroundColor: conditionBg('unknown') }]}>
+            <View style={[styles.caveat, { backgroundColor: conditionBg('unknown', isDark) }]}>
               <ControlIcon name="alert-circle-outline" size={15} color={colors.textMuted} />
               <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
             </View>
@@ -1437,6 +1437,8 @@ export default function RiverDetailScreen() {
             and nothing to apologise for. */}
         {shownSiteId ? (
           <GaugeChart
+            riverId={scaleThresholds ? river.id : undefined}
+            riverSlug={river.slug}
             siteId={shownSiteId}
             title={shownGaugeName ?? river.name}
             provider={chartGaugeDetail?.provider ?? chartProvider}
@@ -1666,10 +1668,10 @@ export default function RiverDetailScreen() {
                   ) : null}
                   {portage ? (
                     <View
-                      style={[styles.portage, { backgroundColor: conditionBg(hazardCode) }]}
+                      style={[styles.portage, { backgroundColor: conditionBg(hazardCode, isDark) }]}
                     >
-                      <ControlIcon name="walk-outline" size={14} color={conditionInk(hazardCode)} />
-                      <Text style={[styles.portageText, { color: conditionInk(hazardCode) }]}>
+                      <ControlIcon name="walk-outline" size={14} color={conditionInk(hazardCode, isDark)} />
+                      <Text style={[styles.portageText, { color: conditionInk(hazardCode, isDark) }]}>
                         {portage}
                       </Text>
                     </View>

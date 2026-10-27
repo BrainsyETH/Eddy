@@ -37,7 +37,7 @@ export function BestRiverNotices({ notices, riverName }: { notices: RiverAlert[]
       </Pressable>
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal onRequestClose={close}>
         <SafeAreaView
-          style={[styles.sheet, { backgroundColor: colors.bg }]}
+          style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}
           edges={['top', 'bottom']}
           onAccessibilityEscape={close}
         >

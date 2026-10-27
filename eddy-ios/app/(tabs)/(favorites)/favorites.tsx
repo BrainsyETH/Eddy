@@ -1,3 +1,4 @@
+import { savedAccessRoute } from '@/lib/accessDetailPresentation';
 // Favorites are local-first: stored names remain usable when conditions
 // cannot load. River cards use the existing /api/gauges catalog for compact
 // reading pills at every linked station, without per-river request fan-out.
@@ -18,6 +19,7 @@ import { fonts, textStyles, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
+import { FavoritePlaceCard } from '@/components/FavoritePlaceCard';
 import { GaugeRow } from '@/components/GaugeRow';
 import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
@@ -25,7 +27,6 @@ import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { useSavedPlaces } from '@/hooks/useSavedPlaces';
 import { savedPlaces } from '@/lib/savedPlacesStore';
-import { savedPlaceSummary } from '@/lib/savedPlaceDisplay';
 import type { SavedPlace } from '@/lib/savedPlaces';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
@@ -322,13 +323,17 @@ function FavoritesContent() {
   );
 
   function favoriteRow(item: FavoriteItem) {
-    if (item.kind === 'place') return <Pressable accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/saved-place', params: { id: item.place.id } })}
-      style={({ pressed }) => [styles.row, { padding: 16, minHeight: 72, flexDirection: 'column', alignItems: 'flex-start', gap: 6, backgroundColor: colors.card, opacity: pressed ? 0.65 : 1 }, elevation(1)]}>
-      <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-      <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{item.place.riverName ?? (item.place.kind === 'campground' ? 'Campground' : 'Access point')}</Text>
-      {savedPlaceSummary(item.place, now) ? <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{savedPlaceSummary(item.place, now)}</Text> : null}
-    </Pressable>;
+    if (item.kind === 'place') return <FavoritePlaceCard
+      place={item.place}
+      now={now}
+      onPress={() => {
+        const accessRoute = savedAccessRoute(item.place);
+        router.push(accessRoute
+          ? { pathname: '/river/[slug]/access/[accessSlug]', params: accessRoute }
+          : { pathname: '/saved-place', params: { id: item.place.id } });
+      }}
+      onRemove={() => void savedPlaces.remove(item.entityId, placesOwner).catch(() => Alert.alert('Couldn’t remove place', 'Try again.'))}
+    />;
     if (item.kind === 'dam') {
       const dam = damById.get(item.entityId);
       // No snapshot yet — offline, or /api/dams has not landed. The row

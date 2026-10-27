@@ -146,7 +146,7 @@ export function RiverVisuals({
    */
   onReportPhoto?: (visual: RiverVisual) => void;
 }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const [level, setLevel] = useState<ConditionCode | null>(() => pickLevel(data));
 
   const bands = data.byLevel.filter((g) => g.visuals.length > 0);
@@ -201,8 +201,8 @@ export function RiverVisuals({
                 style={({ pressed }) => [
                   styles.levelChip,
                   {
-                    backgroundColor: on ? conditionBg(group.code) : 'transparent',
-                    borderColor: on ? conditionChipBorder(group.code) : colors.border,
+                    backgroundColor: on ? conditionBg(group.code, isDark) : 'transparent',
+                    borderColor: on ? conditionChipBorder(group.code, isDark) : colors.border,
                     opacity: pressed ? 0.7 : 1,
                   },
                 ]}
@@ -212,7 +212,7 @@ export function RiverVisuals({
                 <Text
                   style={[
                     styles.levelText,
-                    { color: on ? conditionInk(group.code) : colors.textMuted },
+                    { color: on ? conditionInk(group.code, isDark) : colors.textMuted },
                   ]}
                 >
                   {conditionLabel(group.code)} {group.visuals.length}

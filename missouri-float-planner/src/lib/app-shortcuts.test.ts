@@ -35,7 +35,7 @@ test('expired, future and malformed navigation requests are ignored', () => {
   }
 });
 test('widgets advertise the Lock Screen path, station and explicit observation age', () => {
-  assert.match(widgetGuideSteps('lock', 4)[1].detail, /rectangular River level/);
+  assert.match(widgetGuideSteps('lock', 4)[1], /rectangular River level/);
   const swift = readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/widget/EddyConditionsWidgets.swift', import.meta.url), 'utf8');
   assert.match(swift, /supportedFamilies\(\[\.systemSmall, \.accessoryRectangular\]\)/);
   assert.match(swift, /if display.current, let direction = display.series\?\.direction/);

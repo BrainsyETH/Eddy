@@ -51,6 +51,7 @@ import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
 import { orderedPlannerEndpoints, plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
 import { plannerMapPois } from '@/lib/planner-map-catalog';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
+import { currentPlannerAccessPoints, reconcilePlannerEndpoints } from '@/lib/planner-access';
 
 const PlannerAccessLayer = dynamic(() => import('@/components/map/PlannerAccessLayer'), { ssr: false });
 const PlannerMapFocus = dynamic(() => import('@/components/map/PlannerAccessLayer').then(module => module.PlannerMapFocus), { ssr: false });
@@ -245,11 +246,14 @@ export default function PlanPageClient({
   //
   // `!== false` and not `=== true`: a payload predating the field omits it, and
   // absent means eligible. See the field's note in packages/eddy-types.
-  const { data: visibleAccessPoints, isPlaceholderData: accessPlaceholder, isPending: accessLoading,
+  const { data: accessPoints, isPlaceholderData: accessPlaceholder, isPending: accessLoading,
     isError: accessError, refetch: refetchAccess } = useAccessPoints(riverSlug);
+  const visibleAccessPoints = currentPlannerAccessPoints(riverSlug, river?.slug, accessPoints, accessPlaceholder);
+  // visibleAccessPoints is already undefined for placeholder (previous-river)
+  // data, so endpoints only ever come from the selected river's response.
   const floatEndpointAccessPoints = useMemo(
-    () => accessPlaceholder ? undefined : visibleAccessPoints?.filter(ap => ap.isFloatEndpoint !== false),
-    [visibleAccessPoints, accessPlaceholder],
+    () => visibleAccessPoints?.filter(ap => ap.isFloatEndpoint !== false),
+    [visibleAccessPoints],
   );
   const { data: conditionData } = useConditions(river?.id || null, {
     putInAccessPointId: selectedPutIn,
@@ -373,17 +377,21 @@ export default function PlanPageClient({
     }
   }, [vesselTypes, selectedVesselTypeId, urlVessel]);
 
-  // Validate URL access points belong to the loaded river
+  const validSelection = reconcilePlannerEndpoints(floatEndpointAccessPoints, {
+    putIn: selectedPutIn, takeOut: selectedTakeOut,
+  });
+  // Only a completed, current-river response can invalidate a deep link.
+  // An empty list is authoritative too; placeholder data never reaches here.
   useEffect(() => {
-    if (!accessPlaceholder && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && urlInitialized) {
-      if (selectedPutIn && !floatEndpointAccessPoints.find(ap => ap.id === selectedPutIn)) {
-        dispatchSelection({ type: 'validate', patch: { selectedPutIn: null } });
-      }
-      if (selectedTakeOut && !floatEndpointAccessPoints.find(ap => ap.id === selectedTakeOut)) {
-        dispatchSelection({ type: 'validate', patch: { selectedTakeOut: null } });
-      }
+    if (!urlInitialized) return;
+    // 'validate', not 'change': dropping an endpoint the river no longer
+    // offers is cleanup, not a user edit, so it never becomes an Undo step.
+    if (selectedPutIn !== validSelection.putIn || selectedTakeOut !== validSelection.takeOut) {
+      dispatchSelection({ type: 'validate', patch: {
+        selectedPutIn: validSelection.putIn, selectedTakeOut: validSelection.takeOut,
+      } });
     }
-  }, [floatEndpointAccessPoints, selectedPutIn, selectedTakeOut, urlInitialized, accessPlaceholder]);
+  }, [selectedPutIn, selectedTakeOut, validSelection.putIn, validSelection.takeOut, urlInitialized]);
 
   // River change: clear access point selections (a put-in from one river
   // never makes sense on another)
@@ -438,11 +446,11 @@ export default function PlanPageClient({
     });
   }, [selection.past]);
 
-  const planParams = (river && selectedPutIn && selectedTakeOut)
+  const planParams = (river?.slug === riverSlug && !accessPlaceholder && validSelection.putIn && validSelection.takeOut)
     ? {
         riverId: river.id,
-        startId: selectedPutIn,
-        endId: selectedTakeOut,
+        startId: validSelection.putIn,
+        endId: validSelection.takeOut,
         vesselTypeId: selectedVesselTypeId || undefined,
       }
     : null;
@@ -492,7 +500,14 @@ export default function PlanPageClient({
 
   // Strip cards and mobile pins retain the original two-tap planning flow.
   const handleMarkerClick = useCallback((point: AccessPoint) => {
-    if (!river || river.slug !== riverSlug || accessPlaceholder || point.isFloatEndpoint === false) return;
+    // Belt and braces. AccessPointMarkers no longer wires a click handler to a
+    // non-endpoint and the picker strips are built from the eligible array, so
+    // nothing should reach here with one — but this function turns whatever it
+    // is handed into a trip endpoint, and that is not a thing to leave open.
+    // Membership in the current river's endpoints also rules out placeholder
+    // data from the previous river.
+    if (!river || river.slug !== riverSlug
+      || !floatEndpointAccessPoints?.some(current => current.id === point.id)) return;
     setSelectedPlace(null);
     setFocusPlace(null);
     if (point.id === selectedPutIn) {
@@ -513,7 +528,7 @@ export default function PlanPageClient({
         setFocusRequest(value => value + 1);
       }
     }
-  }, [river, riverSlug, accessPlaceholder, selectedPutIn, selectedTakeOut, floatEndpointAccessPoints, changeSelection, isDesktop]);
+  }, [river, riverSlug, selectedPutIn, selectedTakeOut, floatEndpointAccessPoints, changeSelection, isDesktop]);
 
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({

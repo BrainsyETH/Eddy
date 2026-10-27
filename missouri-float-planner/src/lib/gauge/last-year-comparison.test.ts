@@ -236,7 +236,8 @@ const EXPANDED = read('src/components/gauge/GaugeHistoryChart.tsx');
 
 test('both renderers align and read out the comparison through the shared model', () => {
   for (const [name, source] of [['app', APP_CHART], ['web', WEB_CHART]] as const) {
-    assert.match(source, /alignPriorYear\(/, `${name} chart no longer aligns through the model`);
+    assert.match(source, /(?:nativeChartView|chartView)\(/, `${name} chart no longer prepares through the shared model`);
+    assert.match(readFileSync(join(process.cwd(), 'shared/chart-view.ts'), 'utf8'), /alignPriorYear\(/);
     assert.match(source, /priorYearPointFor\(/, `${name} readout no longer matches by date`);
     assert.match(source, /Last year · daily average/, `${name} legend lost its label`);
   }
@@ -251,7 +252,7 @@ test('each web page shares one Last year setting with its responsive chart', () 
   assert.match(EXPANDED, /if \(!lastYearAvailable\(displayUnit, capabilities, historyRangeDays\(choice\)\)\)\s+onLastYearChange\(false\);/);
   assert.doesNotMatch(EXPANDED, /useState\([^)]*\)[^\n]*lastYear/i, 'the expanded chart grew its own setting again');
   assert.match(EXPANDED, /onChange=\{onLastYearChange\}/);
-  assert.match(EXPANDED, /dates: range\.kind === 'custom' \? \{ from: range\.from, to: range\.to \} : null/,
+  assert.match(EXPANDED, /dates:\s*sharedView\?\.calendar \?\? \(range\.kind === 'custom' \? \{ from: range\.from, to: range\.to \} : null\)/,
     'the expanded chart re-derives picked dates from UTC instants');
 });
 

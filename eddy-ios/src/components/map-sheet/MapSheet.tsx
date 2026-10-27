@@ -458,7 +458,7 @@ function MeasuredMapSheet({
           collapsable={false}
           style={[
             styles.sheet,
-            { height: available, backgroundColor: colors.card },
+            { height: available, backgroundColor: colors.sheet },
             elevation(2),
             sheetStyle,
           ]}

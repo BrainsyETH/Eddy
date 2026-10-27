@@ -1514,6 +1514,7 @@ export interface GaugeForecastReading {
 }
 
 export interface GaugeHistoryResponse {
+  timeZone?: string;
   siteId: string;
   siteName: string;
   /** Oldest first. Can be empty; the endpoint 404s only when it has nothing. */

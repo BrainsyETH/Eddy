@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { conditionNavigation, floatNavigation, navigationRiver, siteNavigation } from './site-navigation';
+import { floatNavigation, navigationRiver, siteNavigation } from './site-navigation';
 import { readRiverMapSearch, writeRiverMapSearch } from './river-map-search';
 
 test('river pages carry the river into the planner and finder, including access details', () => {
@@ -39,7 +39,6 @@ test('Map owns the planner, while Conditions and Floats keep distinct active sec
   }
   assert.deepEqual(siteNavigation('/find-float', '', true).filter(link => link.active).map(link => link.label), ['Floats']);
   assert.deepEqual(siteNavigation('/river-map', '', true).filter(link => link.active), []);
-  assert.deepEqual(conditionNavigation('dams').filter(link => link.active).map(link => link.href), ['/dams']);
 });
 
 test('switching planning tabs preserves exact endpoints and vessel without copying unrelated state', () => {

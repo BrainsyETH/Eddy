@@ -1,11 +1,10 @@
 // eddy-ios/src/theme/palette.ts
 // Eddy's brand palette, ported from missouri-float-planner/.stitch/DESIGN.md.
 //
-// Names and hex values are copied verbatim from that document so the app and the
-// website read as one product. If DESIGN.md changes, change this to match — it is
-// the design system of record for everything below except one role.
+// Brand scales follow that document. Native has two documented adaptations:
+// teal CTAs (ADR 0007) and neutral charcoal dark surfaces (ADR 0016).
 //
-// ── THE ONE EXCEPTION, stated here rather than discovered later ───────────
+// ── NATIVE CTA ROLE ──────────────────────────────────────────────────────
 // DESIGN.md gives coral as the primary CTA fill and the WEBSITE means it
 // (.btn-primary). This app fills its CTAs with teal instead and keeps coral for
 // Eddy's identity — the condition ladder already owns every warm hue, so a coral
@@ -14,19 +13,17 @@
 // DESIGN.md's own Accent section carries the same note, because a divergence
 // recorded on only one side of a border is indistinguishable from drift.
 //
-// Nothing else here departs from the doc, and a second exception needs a reason
-// of that size and a note in all three places.
+// Dark surfaces and labels use the charcoal roles below so brand color remains
+// a signal for interaction. Keep their values in sync with DESIGN.md and ADR 0016.
 //
 // The families and their roles, per the doc:
-//   Primary   — Deep River Teal   (surfaces, headers, links, focus, and — see
+//   Primary   — Deep River Teal   (light-mode anchors, links, focus, and — see
 //                                  accentFill below — the primary CTA)
 //   Secondary — Sandbar Tan       (warm supporting accent)
 //   Accent    — Sunset Coral      (Eddy branding and decorative emphasis)
 //   Support   — Trail Green       (success, optimal conditions)
-//   Neutral   — Warm Stone        (text and dark-mode surfaces)
-//
-// Note the neutrals are deliberately WARM (#1A1814, not a blue-grey). Eddy's
-// dark mode is stone and teal, never slate.
+//   Neutral   — Warm Stone        (light-mode text and supporting accents)
+//   Charcoal  — native dark surfaces and neutral, high-contrast text
 
 export const primary = {
   900: '#0F2D35',
@@ -81,25 +78,45 @@ export const neutral = {
   50: '#F7F6F3',
 } as const;
 
+/** Native dark appearance: subtle warmth, with no teal cast in ordinary surfaces. */
+export const charcoal = {
+  canvas: '#161615',
+  card: '#242423',
+  sheet: '#333331',
+  raised: '#3F3F3C',
+  border: '#50504B',
+  borderStrong: '#909088',
+  text: '#F5F5F0',
+  body: '#DEDED8',
+  secondary: '#C3C3BD',
+  subtle: '#B5B5AF',
+} as const;
+
 /**
  * Semantic roles. Components use these, never raw scale values, so a palette
  * change lands in one place — and so one component works in both schemes.
  *
- * NOT included: condition colours. Those come from CONDITION_SYSTEM and are
- * already scheme-agnostic by construction — `bg` is an rgba tint that composites
- * over any background, and `ink` is an AA-contrast dark for text on that tint.
- * See src/theme/conditions.ts.
+ * Condition hues come from CONDITION_SYSTEM. Native badge fills and text adapt
+ * together in src/theme/conditions.ts; light ink must never sit on a dark tint.
  */
 export interface Palette {
   scheme: 'light' | 'dark';
   /** Page canvas. */
   bg: string;
-  /** Card and sheet surfaces. */
+  /** Content card surface. */
   card: string;
-  /** A raised or selected card. */
+  /** Foreground sheet surface, lighter than content cards in dark mode. */
+  sheet: string;
+  /** Grouped sheet canvas; retains the warm page tint in light appearance. */
+  sheetGrouped: string;
+  /** Raised controls and panels, lighter than the sheet in dark appearance. */
   cardRaised: string;
   border: string;
+  /** Visible control boundaries and emphasized surface edges. */
+  borderStrong: string;
   text: string;
+  /** Readable prose below the emphasis of headings and key values. */
+  textBody: string;
   textMuted: string;
   textSubtle: string;
   /** Sunset Coral — Eddy branding and decorative emphasis. NEVER a CTA fill. */
@@ -258,48 +275,43 @@ export interface Palette {
   scrim: string;
 }
 
-/**
- * Dark — warm stone and teal.
- *
- * Not an invention: DESIGN.md's neutral scale names 950 "darkest — dark mode
- * background" and 800/700 as dark-mode surfaces, so this is the document's own
- * dark mode rather than an inversion of its light one.
- */
+/** Dark — neutral charcoal surfaces; teal is reserved for interaction and data. */
 export const darkPalette: Palette = {
   scheme: 'dark',
-  bg: neutral[950],
-  // Deep teal card surface — reads as Eddy rather than generic dark grey.
-  card: primary[900],
-  cardRaised: primary[800],
-  border: primary[700],
-  text: '#FFFFFF',
-  textMuted: primary[300],
-  textSubtle: neutral[350],
-  accent: accent[500],
+  bg: charcoal.canvas,
+  card: charcoal.card,
+  sheet: charcoal.sheet,
+  sheetGrouped: charcoal.sheet,
+  cardRaised: charcoal.raised,
+  border: charcoal.border,
+  borderStrong: charcoal.borderStrong,
+  text: charcoal.text,
+  textBody: charcoal.body,
+  textMuted: charcoal.secondary,
+  textSubtle: charcoal.subtle,
+  // Ink roles must also clear 4.5:1 on the lighter raised surface.
+  accent: accent[400],
   emphasisFill: accent[500],
   onEmphasis: neutral[950],
-  // Dark moves UP the scale here for the same reason `interactive` does: a
-  // primary-700 pill against a primary-900 card is very nearly the card. 500 is
-  // the lightest step that still clears AA with white on it (5.06:1).
+  // Preserve the established teal action fill and white-label contrast (5.06:1).
   accentFill: primary[500],
   accentFillPressed: primary[600],
   onAccent: '#FFFFFF',
-  // Dark mode moves UP the teal scale. primary-600 against primary-900 is only
-  // 2.21:1, so using the light-mode value here would make links disappear.
+  // Links stay distinct from neutral supporting text.
   interactive: primary[300],
   interactivePressed: primary[200],
   onInteractive: primary[900],
-  selectionBg: primary[800],
-  selectionText: primary[100],
-  anchorSurface: primary[800],
-  onAnchor: '#FFFFFF',
-  success: support[500],
+  selectionBg: charcoal.raised,
+  selectionText: primary[200],
+  anchorSurface: charcoal.sheet,
+  onAnchor: charcoal.text,
+  success: support[300],
   campingCountInk: neutral[950],
   warm: secondary[500],
-  // red-400. The darker red-500 used on light is muddy against near-black stone.
-  error: '#F87171',
-  chrome: primary[900],
-  rainQuiet: neutral[400],
+  // red-300 keeps small error labels readable on raised controls and panels.
+  error: '#FCA5A5',
+  chrome: charcoal.card,
+  rainQuiet: charcoal.subtle,
   rainLikely: primary[300],
   rainHeavy: primary[200],
   // Climbing toward the light end: on near-black stone, a deeper teal reads
@@ -314,15 +326,19 @@ export const darkPalette: Palette = {
  * Light — the warm off-white canvas DESIGN.md actually specifies.
  *
  * Deliberately not white-on-grey: neutral-50 is a warm sandstone tint, and
- * cardRaised uses Sandbar Tan 50 so a selected card warms rather than greys.
+ * cardRaised uses Sandbar Tan 50 for a quiet, warm control fill.
  */
 export const lightPalette: Palette = {
   scheme: 'light',
   bg: neutral[50],
   card: '#FFFFFF',
+  sheet: '#FFFFFF',
+  sheetGrouped: neutral[50],
   cardRaised: secondary[50],
   border: neutral[200],
+  borderStrong: neutral[500],
   text: neutral[900],
+  textBody: neutral[900],
   textMuted: neutral[600],
   textSubtle: neutral[550],
   accent: accent[500],
@@ -373,7 +389,7 @@ export const lightPalette: Palette = {
  */
 export function elevation(palette: Palette, level: 1 | 2) {
   if (palette.scheme === 'dark') {
-    return { borderWidth: 1, borderColor: level === 1 ? palette.border : primary[600] };
+    return { borderWidth: 1, borderColor: level === 2 ? palette.borderStrong : palette.border };
   }
   return {
     borderWidth: 1,
@@ -384,6 +400,11 @@ export function elevation(palette: Palette, level: 1 | 2) {
     shadowOffset: { width: 0, height: level === 1 ? 1 : 3 },
     elevation: level === 1 ? 1 : 3,
   };
+}
+
+/** Filled controls on sheets need a visible boundary as well as a surface lift. */
+export function sheetControl(palette: Palette) {
+  return { backgroundColor: palette.cardRaised, borderWidth: 1, borderColor: palette.borderStrong };
 }
 
 /**

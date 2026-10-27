@@ -16,8 +16,9 @@ guide and before the feedback link, when float search is enabled for the web.
 ## Web navigation
 
 The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a
-separate app link. Conditions uses the existing `/rivers` and `/dams` pages as
-linked tabs; `/gauges` remains part of Conditions. Map opens Build a Route at
+separate app link. Conditions opens a shared, searchable directory at `/rivers`;
+`/dams` opens the same interface with Lakes & Dams selected and retains its own
+metadata and canonical URL. `/gauges` remains part of Conditions. Map opens Build a Route at
 `/plan`. Floats links to `/find-float` when web discovery is enabled and is hidden
 otherwise. The planning page links use the iOS
 labels **Find a Route** and **Build a Route**. The planner tabs belong only to
@@ -55,6 +56,79 @@ For map performance, first build `/river-map` with
 build and enforces a 250ms click-to-painted-state budget under the same throttle.
 Development timings are diagnostic only. Production mode uses API fixtures but
 does not create any fixture routes.
+
+## Conditions directory
+
+`/rivers` starts with All: full **Featured** reports for Table Rock, Bull Shoals,
+Current and Buffalo, followed by complete Rivers and Lakes & Dams sections.
+Featured is a fixed editorial selection, not measured popularity, and respects
+the state filter. All cards are visible without a Show all step: two columns
+on desktop, one on mobile. Search results and explicit sorts use those same
+components, including river charts, gauge details, Eddy summaries and condition
+artwork. Dam cards focus on release, water temperature and the generation
+schedule; the generator status/rack and below-dam elevation stay on full reports.
+Unavailable release readings are marked explicitly; turbine flow is not
+substituted for total release.
+
+Hydroelectric dam cards also show today's hourly generation timeline directly,
+using the same `DamTimeline` as the full report. Today means Central time at the
+dam; another day's schedule never substitutes for a missing one. Hover, tap or
+arrow keys reveal hourly details in place. Only the dam heading and Full report
+link navigate, so inspecting a schedule keeps the current search and filters.
+Additional schedule days remain on the full report.
+
+Both entry points use the “Conditions” heading, Eddy's canoe artwork and the
+cross-river summary. A compact A–Z link directory keeps every destination
+reachable before JavaScript, including when live gauge metadata is unavailable.
+`/dams` keeps its own search title, canonical URL and initial Lakes & Dams filter.
+The USGS observation-delay note remains below the reports alongside source and
+dam-release guidance.
+
+Search matches both lake and dam names against the same destination. Ranking is
+exact name, name prefix, approved alias, words within a name, then related
+destinations; direct names always beat related matches. Taneycomo can surface
+Table Rock with the explicit label “Releases into Lake Taneycomo”. Related river
+gauges are labeled “Gauge: …” to explain their matches. State names
+and compound searches such as “bull ar” also match. Search uses Best matches;
+clearing it restores the browse sort. Search runs locally and does not request
+new API data or server navigation on each keystroke. The pure matching, ranking,
+and URL rules live in `src/lib/conditions/directory.ts` for reuse by future map
+search.
+
+`kind=all|rivers|dams` is separate from the existing river `type` parameter.
+Legacy river-only filters (or river-only sorts) without `kind` select Rivers;
+an explicit `kind` wins and incompatible filters are ignored. River-only
+controls appear only under Rivers. State options reflect the current category,
+not the search results; switching category clears an unavailable state with a
+notice. All supports Featured, A–Z and Nearest. A–Z and Nearest show one combined
+list without pinned cards. Location is requested only for Nearest, is never
+written to the URL, and denial falls back to editorial order with a retry.
+Browser Back, Forward and reload restore the URL selection.
+
+River snapshots retain their 60-second server cache and live gauges their
+10-minute polling; dam summaries keep a separate five-minute cache and client
+refresh. Initial HTML uses stored dam summaries; partial snapshots keep that
+five-minute refresh schedule and mark missing readings on the affected cards.
+Only a wholly unavailable stored catalogue triggers an immediate API retry.
+The directory never waits for live upstream dam feeds.
+Missing dam observations keep the destination searchable with no
+invented measurements. The directory does not add reservoir levels or change
+`/api/dams` or iOS payloads.
+
+`npm run test:conditions` runs the actual directory layout with local fixtures
+in Chromium at desktop, tablet, 390px and 320px widths. It covers server-rendered
+cards and canonical URLs, populated river charts, Eddy artwork and summaries,
+dam release/temperature/schedule information, matching and related
+labels, state/category filters,
+legacy links, browser history, sorting, request-free typing and overflow.
+No production credentials are needed. Set `PLAYWRIGHT_CHROMIUM_PATH` for an
+installed browser. Screenshots go to `/tmp/eddy-conditions` (override with
+`CONDITIONS_SMOKE_OUTPUT`). Temporary fixture routes are ignored by Git,
+development-guarded, and removed on exit. The fixture server keeps its Webpack
+memory settings in `scripts/conditions-smoke-server.mjs`; the application config
+contains no browser-test overrides. Set `CONDITIONS_SMOKE_IMAGES` to a directory
+with the original `canoe.png`, `green.png`, `yellow.png`, `red.png` and `flood.png`
+assets for visual review; otherwise image requests use a local Eddy fixture.
 
 ## Find a Route
 
@@ -149,7 +223,7 @@ water temperature, and below-dam elevation where readings are available. Wider
 screens use two columns. Fishery and equipment descriptions stay on the detail
 page. The summary payload includes water temperature with its original timestamp;
 missing measurements never become zeroes or invented readings. The schedule
-change and downstream travel-time note appears once above the list.
+change and downstream travel-time note appears once below the list.
 
 The root HTML declares the site's smooth-scroll behavior to Next so route
 changes can reset immediately instead of retaining the bottom of the old page.
@@ -355,6 +429,21 @@ explainers. The documents require a valid admin session even when opened by
 direct URL. See [the guide catalog](../docs/visuals/README.md) for source files,
 editing instructions, and access-control details.
 
+## Scheduled job monitoring
+
+Diagnostics distinguish the latest cron tick from the latest work outcome.
+Skipped ticks and running retries do not clear a failed or partial outcome.
+Attempts still marked started after ten minutes require attention even after
+a later skip: they did not report completion, which can mean a timeout or a
+failed final monitoring write. Historical run rows are not rewritten.
+Successful work clears attention. Latest ticks still determine schedule deadlines.
+Both views use the existing 30-day job-history retention window.
+
+The additive `20261027111520_admin_job_last_result` migration provides this
+outcome history while preserving the existing RPC fields. Apply it before
+relying on failure persistence. Until then, a skipped or running latest tick
+reports the completed outcome as unavailable rather than assuming success.
+
 ## Data Pipeline Scripts
 
 Located in `/scripts`:
@@ -406,3 +495,5 @@ own — so changes there can fail these tests by design.
 ## License
 
 Private project - not for distribution.
+
+Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and river reports. The fixed-view link contract, public-image payment policy, and app-link activation gates are recorded in [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md).

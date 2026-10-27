@@ -13,10 +13,10 @@ import {
   markWidgetGuideSeen,
   WIDGET_GUIDE,
   widgetGuideSteps,
-  widgetGuide,
   type WidgetGuideKind,
 } from '@/lib/widgetOnboarding';
 import { useTheme } from '@/theme/ThemeProvider';
+import { sheetControl } from '@/theme/palette';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
 // Do not promote widgets to users whose installed native binary predates the
@@ -92,7 +92,6 @@ export function HomeScreenWidgetsIntro() {
               <Text style={[styles.invitationTitle, { color: colors.text }]}>
                 River widgets
               </Text>
-              <Text style={[styles.invitationBody, { color: colors.textMuted }]}>See your river without opening Eddy.</Text>
             </View>
             <Pressable
               onPress={acknowledge}
@@ -124,7 +123,6 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
   const [kind, setKind] = useState<WidgetGuideKind>('river');
-  const choice = widgetGuide(kind, nativeWidgetLayoutVersion);
   const kinds: WidgetGuideKind[] = nativeWidgetLayoutVersion >= 4 ? ['river', 'lock', 'favorites', 'dam', 'report']
     : nativeWidgetLayoutVersion >= 2 ? ['river', 'favorites', 'dam', 'report'] : ['river', 'favorites'];
 
@@ -139,7 +137,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
       <SafeAreaProvider>
         <SafeAreaView
           edges={['top', 'bottom']}
-          style={[styles.sheet, { backgroundColor: colors.bg }]}
+          style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}
           accessibilityViewIsModal
           onAccessibilityEscape={onClose}
         >
@@ -151,7 +149,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close widget setup guide"
-              style={[styles.done, { backgroundColor: colors.cardRaised }]}
+              style={[styles.done, sheetControl(colors)]}
             >
               <Text style={[styles.doneText, { color: colors.interactive }]}>Done</Text>
             </Pressable>
@@ -187,33 +185,20 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
             </View>
 
             <WidgetIllustration kind={kind} />
-            <Text style={[styles.choiceDescription, { color: colors.text }]}>
-              {choice.summary}
-            </Text>
 
             <Text accessibilityRole="header" style={[styles.stepsHeading, { color: colors.text }]}>
               How to add it
             </Text>
             {widgetGuideSteps(kind, nativeWidgetLayoutVersion).map((step, index) => (
-              <View key={step.title} style={styles.stepRow}>
+              <View key={step} style={styles.stepRow}>
                 <View style={[styles.stepNumber, { backgroundColor: colors.selectionBg }]}>
                   <Text style={[styles.stepNumberText, { color: colors.selectionText }]}>
                     {index + 1}
                   </Text>
                 </View>
-                <View style={styles.stepCopy}>
-                  <Text style={[styles.stepTitle, { color: colors.text }]}>{step.title}</Text>
-                  <Text style={[styles.stepDetail, { color: colors.textMuted }]}>{step.detail}</Text>
-                </View>
+                <Text style={[styles.stepText, { color: colors.text }]}>{step}</Text>
               </View>
             ))}
-
-            <View style={[styles.note, { borderColor: colors.border }]}>
-              <ControlIcon name="information-circle-outline" size={18} color={colors.textMuted} />
-              <Text style={[styles.noteText, { color: colors.textMuted }]}>
-                Widgets are not push notifications. iOS decides when their readings refresh, so always check the observation time. You don’t need an account or notification permission to add one.
-              </Text>
-            </View>
           </ScrollView>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -233,6 +218,7 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
       <Text style={[t.xl, { color: colors.text, fontFamily: fonts.heading }]}>1,240 cfs ↑</Text>
       <Text style={[t.xs, { color: colors.textMuted }]}>15 min ago</Text>
     </View>
+    <Text style={[styles.previewCaption, { color: colors.textMuted }]}>Sample data</Text>
   </View>;
 
   return (
@@ -264,7 +250,6 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
           <>
             <Text style={[t.xs, { color: colors.textMuted }]}>Akers, MO</Text>
             <Text style={[styles.previewNumber, visual && styles.previewHero, { color: colors.text }]}>123 <Text style={t.xs}>CFS</Text></Text>
-            <Text style={[t.xs, { color: colors.textMuted }]}>Sample data</Text>
           </>
         ) : visual && kind === 'dam' ? (
           <View style={styles.previewVisualRow}>
@@ -330,7 +315,7 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
         )}
       </View>
       <Text style={[styles.previewCaption, { color: colors.textMuted }]}>
-        Illustration only · sample readings
+        Sample data
       </Text>
     </View>
   );
@@ -341,13 +326,12 @@ const styles = StyleSheet.create({
     borderRadius: 18, borderWidth: 1, marginHorizontal: 16, marginBottom: 12,
     paddingLeft: 14, paddingRight: 6, paddingTop: 12, paddingBottom: 4,
   },
-  invitationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  invitationRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   invitationIcon: {
     width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
   },
   invitationCopy: { flex: 1, minWidth: 0, paddingTop: 1 },
   invitationTitle: { ...t.sm, fontFamily: fonts.semibold },
-  invitationBody: { ...t.xs, marginTop: 3 },
   dismiss: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   learn: {
     minHeight: 44, marginLeft: 54, paddingRight: 10,
@@ -371,12 +355,10 @@ const styles = StyleSheet.create({
   done: { minHeight: 44, paddingHorizontal: 16, borderRadius: 22, justifyContent: 'center' },
   doneText: { ...t.sm, fontFamily: fonts.semibold },
   sheetContent: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 40 },
-  sheetIntro: { ...t.base },
-  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 22 },
-  choice: { flexBasis: 135, flexGrow: 1, minHeight: 72, borderRadius: 14, borderWidth: 1.5, padding: 12, justifyContent: 'center', gap: 3 },
+  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: { flexBasis: 135, flexGrow: 1, minHeight: 56, borderRadius: 14, borderWidth: 1.5, padding: 10, justifyContent: 'center', gap: 3 },
   choiceSize: { ...t.xs, fontFamily: fonts.semibold },
   choiceName: { ...t.sm, fontFamily: fonts.semibold },
-  choiceDescription: { ...t.sm, marginTop: 14 },
   previewStage: { borderRadius: 20, padding: 16, marginTop: 14, alignItems: 'center' },
   previewWidget: { borderRadius: 19, padding: 13, borderWidth: 1, justifyContent: 'space-between' },
   previewSmall: { width: 168, maxWidth: '100%', minHeight: 142 },
@@ -395,13 +377,9 @@ const styles = StyleSheet.create({
   previewReading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   previewReadingText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1 },
   previewCaption: { ...t.xs, marginTop: 10, textAlign: 'center' },
-  stepsHeading: { ...textStyles.sectionTitle, marginTop: 26, marginBottom: 12 },
-  stepRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+  stepsHeading: { ...textStyles.sectionTitle, marginTop: 20, marginBottom: 12 },
+  stepRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   stepNumber: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   stepNumberText: { ...t.sm, fontFamily: fonts.semibold },
-  stepCopy: { flex: 1, gap: 4 },
-  stepTitle: { ...t.sm, fontFamily: fonts.semibold },
-  stepDetail: { ...t.sm },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 6 },
-  noteText: { ...t.xs, flex: 1 },
+  stepText: { ...t.sm, flex: 1, paddingTop: 4 },
 });
