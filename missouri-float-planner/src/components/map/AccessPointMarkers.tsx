@@ -18,6 +18,8 @@ import { presentPopup } from './popup-manager';
 import { attachMarkerTabOrder } from './marker-keyboard';
 import type { AccessPoint } from '@/types/api';
 import { escapeHtml } from '@/lib/escape-html';
+import { EddyIcon } from '@/components/ui/EddyIcon';
+import { plannerPlaceSymbol } from '@/lib/planner-place';
 
 interface AccessPointMarkersProps {
   accessPoints: AccessPoint[];
@@ -90,13 +92,13 @@ export default function AccessPointMarkers({
       let zIndex = 1;
 
       if (isPutIn) {
-        bgColor = '#478559'; // river-forest (green) for put-in
+        bgColor = interaction === 'inspect' ? '#1F6373' : '#478559'; // river-forest (green) for put-in
         borderColor = '#ffffff';
         iconType = 'putin';
         scale = 1.2;
         zIndex = 10;
       } else if (isTakeOut) {
-        bgColor = '#f95d9b'; // sky-warm (pink) for take-out
+        bgColor = interaction === 'inspect' ? '#F07052' : '#f95d9b'; // sky-warm (pink) for take-out
         borderColor = '#ffffff';
         iconType = 'takeout';
         scale = 1.2;
@@ -173,9 +175,21 @@ export default function AccessPointMarkers({
       // Create React root and render icon into the visible circle
       const root = createRoot(circle);
       root.render(
-        React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
+        interaction === 'inspect'
+          ? React.createElement(EddyIcon, { name: plannerPlaceSymbol(point), size: 22 * scale })
+          : React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
       );
       rootsRef.current.push(root);
+      if (interaction === 'inspect') {
+        circle.style.background = '#fff';
+        circle.style.borderColor = isPutIn || isTakeOut ? bgColor : '#d6d3ce';
+        if (isPutIn || isTakeOut) {
+          const badge = document.createElement('span');
+          badge.textContent = isPutIn ? 'Put-in' : 'Take-out';
+          badge.style.cssText = `position:absolute;top:37px;white-space:nowrap;border-radius:4px;background:${bgColor};color:white;padding:2px 5px;font-size:10px;font-weight:700;pointer-events:none;`;
+          el.appendChild(badge);
+        }
+      }
 
       // Hover effect - no transform to prevent marker movement
       el.addEventListener('mouseenter', () => {

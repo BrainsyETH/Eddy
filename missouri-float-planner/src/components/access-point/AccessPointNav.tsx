@@ -22,7 +22,7 @@ const NAV_APP_ICONS: Record<string, string> = {
 };
 
 interface AccessPointNavProps {
-  accessPoint: AccessPointDetail;
+  accessPoint: Pick<AccessPointDetail, 'coordinates' | 'name' | 'directionsOverride'> & Partial<Pick<AccessPointDetail, 'drivingLat' | 'drivingLng'>>;
 }
 
 export default function AccessPointNav({ accessPoint }: AccessPointNavProps) {

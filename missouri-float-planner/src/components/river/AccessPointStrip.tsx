@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { MapPin, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Flag, ExternalLink, Car, ParkingCircle, Store, Lightbulb, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react';
 import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
+import { EddyIcon } from '@/components/ui/EddyIcon';
+import { plannerPlaceSymbol } from '@/lib/planner-place';
 
 const EDDY_OTTER_FALLBACK = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
 
@@ -51,7 +53,7 @@ function AccessPointCard({
   // Brand tokens: support (green) = put-in, accent (coral) = take-out,
   // matching the route line elsewhere.
   const stateClass = isPutIn
-    ? 'border-support-500 bg-support-50 ring-1 ring-support-500'
+    ? 'border-primary-600 bg-primary-50 ring-1 ring-primary-600'
     : isTakeOut
       ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-500'
       : 'border-neutral-200 bg-white';
@@ -69,7 +71,7 @@ function AccessPointCard({
         {thumb ? (
           <AccessPointPhoto src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <MapPin size={16} aria-hidden="true" />
+          <EddyIcon name={plannerPlaceSymbol(point)} size={26} />
         )}
       </span>
       <span className="min-w-0 flex-1">
@@ -77,7 +79,7 @@ function AccessPointCard({
         <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-neutral-500">
           <span className="tabular-nums">Mile {point.riverMile.toFixed(1)}</span>
           {labelText && (
-            <span className={`rounded px-1 py-px font-bold uppercase tracking-wide text-white ${isPutIn ? 'bg-support-500' : 'bg-accent-500'}`}>
+            <span className={`rounded px-1 py-px font-bold uppercase tracking-wide text-white ${isPutIn ? 'bg-primary-600' : 'bg-accent-500'}`}>
               {labelText}
             </span>
           )}

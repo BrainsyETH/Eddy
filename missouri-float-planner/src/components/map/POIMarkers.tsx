@@ -13,11 +13,13 @@ import { presentPopup } from './popup-manager';
 import { enableMarkerKeyboard, attachMarkerTabOrder } from './marker-keyboard';
 import type { PointOfInterest } from '@/types/nps';
 import { escapeHtml } from '@/lib/escape-html';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 
 interface POIMarkersProps {
   pois: PointOfInterest[];
   activeRiverId?: string;
   activeMileRange?: { min: number; max: number } | null;
+  onSelect?: (poi: PointOfInterest) => void;
 }
 
 const POI_ICONS: Record<string, LucideIcon> = {
@@ -36,12 +38,15 @@ const POI_ICONS: Record<string, LucideIcon> = {
 const POI_COLOR = '#0d9488'; // teal-600
 const POI_COLOR_DARK = '#0f766e'; // teal-700
 
-export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POIMarkersProps) {
+export default function POIMarkers({ pois, activeMileRange, activeRiverId, onSelect }: POIMarkersProps) {
   const map = useMap();
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const popupsRef = useRef<maplibregl.Popup[]>([]);
   const rootsRef = useRef<Root[]>([]);
   const supportsHoverRef = useRef(false);
+  const branded = !!onSelect;
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
 
   useEffect(() => {
     supportsHoverRef.current =
@@ -127,9 +132,12 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POI
       const iconSize = isTouchDevice ? 14 : 12;
       const root = createRoot(circle);
       root.render(
-        React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
+        branded
+          ? React.createElement(EddyIcon, { name: poi.type === 'float_camp' ? 'campground' : poi.type === 'outfitter' ? 'outfitter' : poi.type === 'spring' || poi.type === 'waterfall' ? 'gauge' : 'accessPoint', size: 21 })
+          : React.createElement(IconComponent, { size: iconSize, color: 'white', strokeWidth: 2.5 })
       );
       rootsRef.current.push(root);
+      if (branded) circle.style.background = '#fff';
 
       // Hover effect
       el.addEventListener('mouseenter', () => {
@@ -185,11 +193,13 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POI
         // line's hit layer beneath (its popup would replace this one).
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
+          if (onSelectRef.current) { popup.remove(); onSelectRef.current(poi); return; }
           presentPopup(map, popup, [poi.longitude, poi.latitude]);
         });
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
+          if (onSelectRef.current) { popup.remove(); onSelectRef.current(poi); return; }
           presentPopup(map, popup, [poi.longitude, poi.latitude]);
           map.once('click', () => popup.remove());
         });
@@ -220,7 +230,7 @@ export default function POIMarkers({ pois, activeMileRange, activeRiverId }: POI
       popupsRef.current = [];
       rootsRef.current = [];
     };
-  }, [map, pois, activeMileRange, activeRiverId]);
+  }, [map, pois, activeMileRange, activeRiverId, branded]);
 
   return null;
 }

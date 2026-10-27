@@ -16,9 +16,10 @@
 // ── Where these must NOT go ─────────────────────────────────────────────────
 // Anywhere the current glyph is tinted to carry state. These are fixed-colour,
 // three-tone art. The map markers colour a pin by condition (gauges) and by
-// put-in / take-out / neutral (access points); painting those with a blue
-// droplet and a coral pin deletes the signal. Same for anything inheriting
-// `currentColor` from a status class.
+// put-in / take-out / neutral (access points). Places may keep their own
+// artwork when a separate colored ring and text badge carry the endpoint role,
+// as in the planner and iOS. Never replace a condition-colored gauge glyph or
+// anything inheriting `currentColor` from a status class with fixed-color art.
 //
 // Names are ROLES, not drawings — `gauge`, not `waterDroplet`. A caller asking
 // for a gauge mark should not have to know the catalog decided that is a
@@ -31,6 +32,11 @@ const ICONS = {
   today: { file: 'eddy-today', size: 18, alt: 'Today' },
   gauge: { file: 'eddy-water-droplet', size: 18, alt: 'Gauge' },
   accessPoint: { file: 'eddy-poi', size: 18, alt: 'Access point' },
+  boatRamp: { file: 'eddy-boat-ramp', size: 24, alt: 'Boat ramp' },
+  campground: { file: 'eddy-campground', size: 24, alt: 'Campground' },
+  bridge: { file: 'eddy-bridge', size: 24, alt: 'Bridge' },
+  gravelBar: { file: 'eddy-gravel-bar', size: 24, alt: 'Gravel bar' },
+  outfitter: { file: 'eddy-outfitter', size: 24, alt: 'Outfitter' },
   weather: { file: 'eddy-weather', size: 18, alt: 'Weather' },
   ai: { file: 'eddy-ai-assistant', size: 18, alt: 'Eddy' },
 

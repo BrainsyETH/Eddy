@@ -111,6 +111,11 @@ ICONS = SYMBOLS + SCENES
 # and the app has empty states the web has no equivalent for.
 WEB_ICONS = (
     "eddy-today",
+    "eddy-boat-ramp",
+    "eddy-campground",
+    "eddy-bridge",
+    "eddy-gravel-bar",
+    "eddy-outfitter",
     "eddy-checking-gauge",
     "eddy-weather",
     "eddy-ai-assistant",
@@ -362,7 +367,7 @@ def main() -> None:
     # Derived once and written to both apps, rather than each app deriving its
     # own: the same concept must be the same pixels in the app and the browser,
     # and two pipelines is how a mark ends up cropped differently on each.
-    for name in sorted(set(ICONS) | set(WEB_ICONS)):
+    for name in sorted((set(ICONS) | set(WEB_ICONS)) - set(GENERATED_SYMBOLS)):
         art = derive(name)
 
         targets = []
@@ -382,6 +387,8 @@ def main() -> None:
         art = generate(name)
         target = OUT / f"{name}.png"
         art.save(target, optimize=True)
+        if name in WEB_ICONS:
+            art.save(WEB_OUT / f"{name}.png", optimize=True)
         size = target.stat().st_size // 1024
         print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  ios")
 

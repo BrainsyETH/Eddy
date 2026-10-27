@@ -48,6 +48,8 @@ import { useRiverVisualPins, useRegionalRiverVisualPins } from '@/hooks/useRiver
 import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
 import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
+import PlannerPoiCard from '@/components/plan/PlannerPoiCard';
+import type { PointOfInterest } from '@/types/nps';
 import { orderedPlannerEndpoints, plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
 import { plannerMapPois } from '@/lib/planner-map-catalog';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
@@ -295,6 +297,8 @@ export default function PlanPageClient({
   // steal focus from some later, unrelated change.
   const pendingFocusRef = useRef<{ id: string; until: number } | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<PlannerMapPlace | null>(null);
+  const [selectedPoi, setSelectedPoi] = useState<PointOfInterest | null>(null);
+  const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
   const previewAccess = useAccessPoints(selectedPlace?.riverSlug ?? null);
   const searchConditions = useMemo(() => new Map(
     (conditionNetwork?.features ?? []).map(feature => [feature.properties.slug, feature.properties]),
@@ -403,6 +407,8 @@ export default function PlanPageClient({
   // never makes sense on another)
   const handleRiverChange = useCallback((slug: string | null, source: 'dropdown' | 'map' = 'dropdown') => {
     setSelectedPlace(null);
+    setSelectedPoi(null);
+    setExpandedEndpointId(null);
     setFocusPlace(null);
     setFocusRequest(value => value + 1);
     if (!slug && isDesktop !== false) {
@@ -417,14 +423,37 @@ export default function PlanPageClient({
 
   const handlePlaceSelect = useCallback((place: PlannerMapPlace) => {
     previewReturnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedPoi(null);
     setShowAllRivers(false);
     setFocusPlace(place);
     setFocusRequest(value => value + 1);
-    setSelectedPlace(place);
-  }, []);
+    const isEndpoint = place.riverSlug === riverSlug && (place.id === selectedPutIn || place.id === selectedTakeOut);
+    setExpandedEndpointId(isEndpoint ? place.id : null);
+    setSelectedPlace(isEndpoint && isDesktop ? null : place);
+    if (isEndpoint && isDesktop) requestAnimationFrame(() => {
+      const card = document.querySelector<HTMLElement>(`[data-endpoint-card="${CSS.escape(place.id)}"]`);
+      const scroller = card?.closest('[data-plan-scroll]');
+      if (card && scroller) scroller.scrollTop += card.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12;
+      card?.querySelector<HTMLButtonElement>('button[aria-expanded]')?.focus({ preventScroll: true });
+    });
+  }, [riverSlug, selectedPutIn, selectedTakeOut, isDesktop]);
+
+  const handlePoiSelect = useCallback((poi: PointOfInterest) => {
+    previewReturnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedPlace(null);
+    setSelectedPoi(poi);
+    setExpandedEndpointId(null);
+    const context = rivers?.find(river => river.id === poi.riverId);
+    setFocusPlace({ id: poi.id, name: poi.name, slug: poi.slug ?? '', riverId: poi.riverId ?? '',
+      riverSlug: context?.slug ?? '', riverName: context?.name ?? '',
+      coordinates: { lng: poi.longitude, lat: poi.latitude } });
+    setFocusRequest(value => value + 1);
+  }, [rivers]);
 
   const closePlace = useCallback(() => {
     setSelectedPlace(null);
+    setSelectedPoi(null);
+    setExpandedEndpointId(null);
     setFocusPlace(null);
     const trigger = previewReturnRef.current;
     requestAnimationFrame(() => {
@@ -442,6 +471,8 @@ export default function PlanPageClient({
       && document.activeElement?.getAttribute('aria-label') === 'Undo route change';
     dispatchSelection({ type: 'undo' });
     setSelectedPlace(null);
+    setSelectedPoi(null);
+    setExpandedEndpointId(null);
     setFocusPlace(null);
     setShowAllRivers(!previous.riverSlug);
     setFocusRequest(value => value + 1);
@@ -503,38 +534,6 @@ export default function PlanPageClient({
     handlePlaceSelect({ id: point.id, name: point.name, slug: point.slug,
       riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates });
   }, [river, riverSlug, accessPlaceholder, handlePlaceSelect]);
-
-  // Strip cards and mobile pins retain the original two-tap planning flow.
-  const handleMarkerClick = useCallback((point: AccessPoint) => {
-    // Belt and braces. AccessPointMarkers no longer wires a click handler to a
-    // non-endpoint and the picker strips are built from the eligible array, so
-    // nothing should reach here with one — but this function turns whatever it
-    // is handed into a trip endpoint, and that is not a thing to leave open.
-    // Membership in the current river's endpoints also rules out placeholder
-    // data from the previous river.
-    if (!river || river.slug !== riverSlug
-      || !floatEndpointAccessPoints?.some(current => current.id === point.id)) return;
-    setSelectedPlace(null);
-    setFocusPlace(null);
-    if (point.id === selectedPutIn) {
-      changeSelection({ selectedPutIn: null });
-    } else if (point.id === selectedTakeOut) {
-      changeSelection({ selectedTakeOut: null });
-    } else {
-      const other = floatEndpointAccessPoints?.find(ap => ap.id === (selectedPutIn ?? selectedTakeOut));
-      const next = other
-        ? orderedPlannerEndpoints(selectedPutIn ? other : point, selectedPutIn ? point : other)
-        : { selectedPutIn: point.id, selectedTakeOut: null };
-      changeSelection(next);
-      trackEvent(next.selectedPutIn === point.id ? 'putin_selected' : 'takeout_selected', { river: riverSlug });
-      setShowAllRivers(false);
-      if (other || isDesktop) {
-        if (!other) setFocusPlace({ id: point.id, name: point.name, slug: point.slug,
-          riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates });
-        setFocusRequest(value => value + 1);
-      }
-    }
-  }, [river, riverSlug, selectedPutIn, selectedTakeOut, floatEndpointAccessPoints, changeSelection, isDesktop]);
 
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
@@ -782,6 +781,8 @@ export default function PlanPageClient({
   const showRoute = () => {
     setShowAllRivers(false);
     setSelectedPlace(null);
+    setSelectedPoi(null);
+    setExpandedEndpointId(null);
     setFocusPlace(null);
     setFocusRequest(value => value + 1);
   };
@@ -804,6 +805,8 @@ export default function PlanPageClient({
         ? orderedPlannerEndpoints(previewPoint, takeOutPoint)
         : { selectedPutIn: previewPoint.id, selectedTakeOut: null };
     changeSelection({ riverSlug: selectedPlace.riverSlug, ...next });
+    setShowAllRivers(false);
+    setExpandedEndpointId(next.selectedTakeOut ? null : previewPoint.id);
     if (keyboard) pendingFocusRef.current = { id: previewPoint.id, until: Date.now() + 10_000 };
     trackEvent(next.selectedPutIn === previewPoint.id ? 'putin_selected' : 'takeout_selected', { river: selectedPlace.riverSlug });
     setSelectedPlace(null);
@@ -841,7 +844,43 @@ export default function PlanPageClient({
   const placeCard = selectedPlace && <PlannerPlaceCard place={selectedPlace} point={previewPoint}
     loading={previewAccess.isFetching || previewAccess.isPlaceholderData} failed={previewAccess.isError}
     onRetry={() => { void previewAccess.refetch(); }} canTakeOut={canTakeOut} onClose={closePlace}
+    replacingPutIn={selectedPlace.riverSlug === riverSlug && !!putInPoint}
+    replacingTakeOut={selectedPlace.riverSlug === riverSlug && !!takeOutPoint}
+    selectedRole={selectedPlace.riverSlug === riverSlug ? previewPoint?.id === selectedPutIn ? 'put-in' : previewPoint?.id === selectedTakeOut ? 'take-out' : undefined : undefined}
     onPutIn={keyboard => chooseEndpoint('put-in', keyboard)} onTakeOut={keyboard => chooseEndpoint('take-out', keyboard)} />;
+
+  const inspectedCard = selectedPoi ? <PlannerPoiCard poi={selectedPoi} onClose={closePlace} /> : placeCard;
+
+  const planSidebar = activeRiver && (
+    <PlanSidebar
+      expandedEndpointId={expandedEndpointId}
+      onExpandEndpoint={id => { setSelectedPlace(null); setSelectedPoi(null); setExpandedEndpointId(id); }}
+      placeDetails={inspectedCard}
+      onClearRoute={() => changeSelection({ selectedPutIn: null, selectedTakeOut: null })}
+      riverName={activeRiver.name}
+      riverSlug={activeRiver.slug}
+      pois={pois}
+      conditionCode={isLastValidFallback ? plan?.condition.code ?? 'unknown' : condition?.code ?? 'unknown'}
+      plan={plan || null}
+      isLoading={planLoading}
+      isLastValidFallback={isLastValidFallback}
+      lastValidAt={lastValidAt}
+      onRetry={() => refetchPlan()}
+      putInPoint={putInPoint}
+      takeOutPoint={takeOutPoint}
+      onClearPutIn={() => changeSelection({ selectedPutIn: null })}
+      onClearTakeOut={() => changeSelection({ selectedTakeOut: null })}
+      onShare={handleShare}
+      onDownloadImage={handleDownloadImage}
+      shareStatus={shareStatus}
+      selectedVesselTypeId={selectedVesselTypeId}
+      onVesselChange={setSelectedVesselTypeId}
+      onReportIssue={handleReportAccessPointIssue}
+      pointsAlongRoute={pointsAlongRoute}
+      captureRef={captureRef}
+      showRiverLabel={showAllRivers}
+    />
+  );
 
   // One card for "where" and "how the map looks": search, then the weather
   // and filter tools in the same row, instead of three stacked floating bits.
@@ -909,7 +948,7 @@ export default function PlanPageClient({
               />
             )}
             {visibleDesktopPois.length > 0 && (
-              <POIMarkers pois={visibleDesktopPois} activeMileRange={activeMileRange} activeRiverId={activeRiver?.id} />
+              <POIMarkers onSelect={handlePoiSelect} pois={visibleDesktopPois} activeMileRange={activeMileRange} activeRiverId={activeRiver?.id} />
             )}
             {showPhotos && regionalPhotoPins.length > 0 && (
               <RiverPhotoMarkers pins={regionalPhotoPins} />
@@ -943,49 +982,25 @@ export default function PlanPageClient({
               the map; the River Report and route stats center over the open
               map to its right (see the overlay column below). */}
           <h1 className="sr-only">{activeRiver ? activeRiver.name : 'Build a Route'}</h1>
-          <div ref={desktopPanelRef} tabIndex={-1} data-planner-focus-fallback className="planner-panel outline-none pointer-events-none absolute top-4 bottom-10 left-5 z-30 flex w-[320px] flex-col items-stretch gap-2">
+          <div ref={desktopPanelRef} tabIndex={-1} data-planner-focus-fallback className="planner-panel outline-none pointer-events-none absolute top-4 bottom-28 left-5 z-30 flex w-[360px] flex-col items-stretch gap-2">
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             {/* No intro card: the search box and the colored river network
                 are the call to action. Only surface load/error status. */}
-            {!activeRiver && !selectedPlace && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3">
+            {!activeRiver && !inspectedCard && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3">
               <p className="text-xs text-neutral-600" role="status">{riverError
                 ? 'River details couldn’t load. Choose another river or try again.'
                 : 'Loading river details…'}</p>
             </div>}
-            {placeCard && <div className="pointer-events-auto min-h-0 shrink overflow-y-auto rounded-2xl">{placeCard}</div>}
-            {activeRiver && putInPoint && !selectedPlace && <div className="planner-glass pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-          <PlanSidebar
-            onClearRoute={() => changeSelection({ selectedPutIn: null, selectedTakeOut: null })}
-            riverName={activeRiver.name}
-            riverSlug={activeRiver.slug}
-            pois={pois}
-            conditionCode={isLastValidFallback ? plan?.condition.code ?? 'unknown' : condition?.code ?? 'unknown'}
-            plan={plan || null}
-            isLoading={planLoading}
-            isLastValidFallback={isLastValidFallback}
-            lastValidAt={lastValidAt}
-            onRetry={() => refetchPlan()}
-            putInPoint={putInPoint}
-            takeOutPoint={takeOutPoint}
-            onClearPutIn={() => changeSelection({ selectedPutIn: null })}
-            onClearTakeOut={() => changeSelection({ selectedTakeOut: null })}
-            onShare={handleShare}
-            onDownloadImage={handleDownloadImage}
-            shareStatus={shareStatus}
-            selectedVesselTypeId={selectedVesselTypeId}
-            onVesselChange={setSelectedVesselTypeId}
-            onReportIssue={handleReportAccessPointIssue}
-            pointsAlongRoute={pointsAlongRoute}
-            captureRef={captureRef}
-            showRiverLabel={showAllRivers}
-          />
+            {inspectedCard && !(activeRiver && (putInPoint || takeOutPoint)) && <div className="pointer-events-auto min-h-0 overflow-y-auto rounded-2xl">{inspectedCard}</div>}
+            {activeRiver && (putInPoint || takeOutPoint) && <div className="planner-glass pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
+              {planSidebar}
             </div>}
 
           </div>
 
           {/* Top-center overlays center over the map area right of the
-              340px panel column, so the panel can sit flush at the top. */}
-          <div className="pointer-events-none absolute inset-y-0 left-[340px] right-14 z-30">
+              380px panel column, so the panel can sit flush at the top. */}
+          <div className="pointer-events-none absolute inset-y-0 left-[380px] right-14 z-30">
           {activeRiver && <MapEddySays
             riverSlug={activeRiver.slug}
             conditionCode={condition?.code ?? 'unknown'}
@@ -1003,13 +1018,13 @@ export default function PlanPageClient({
           )}
 
           {activeRiver && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
-            <div ref={desktopStripRef} className="planner-access-strip absolute bottom-0 left-[360px] right-0 bg-gradient-to-t from-white/90 via-white/60 to-transparent pt-6 pb-1 px-2 pointer-events-none">
+            <div ref={desktopStripRef} className="planner-access-strip absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/90 via-white/60 to-transparent pt-6 pb-7 px-2 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
                   accessPoints={floatEndpointAccessPoints}
                   selectedPutInId={selectedPutIn}
                   selectedTakeOutId={selectedTakeOut}
-                  onSelect={handleMarkerClick}
+                  onSelect={inspectAccessPoint}
                   onHover={handleAccessPointHover}
                   onReportIssue={handleReportAccessPointIssue}
                   hideExpandedDetails={true}
@@ -1147,17 +1162,17 @@ export default function PlanPageClient({
           >
             {visibleAccessPoints && !accessPlaceholder && (
               <AccessPointMarkers
-                interaction="select"
+                interaction="inspect"
                 accessPoints={visibleAccessPoints}
                 selectedPutIn={selectedPutIn}
                 selectedTakeOut={selectedTakeOut}
-                onMarkerClick={handleMarkerClick}
+                onMarkerClick={inspectAccessPoint}
               />
             )}
             <PlannerMapFocus place={focusPlace} bounds={routeBounds ?? river.bounds}
               request={focusRequest} preserveInitialCamera={initialCamera.current} mobile
               panelRef={mobilePreviewRef} stripRef={mobileStripRef} sheetRef={mobileSheetRef}
-              sheetReady={!!plan && !!putInPoint && !!takeOutPoint && !selectedPlace}
+              sheetReady={!!plan && !!putInPoint && !!takeOutPoint && !inspectedCard}
               stripReady={!!floatEndpointAccessPoints?.length && !(putInPoint && takeOutPoint)} />
             {showGauges && gaugeStations && (
               <GaugeStationMarkers
@@ -1167,7 +1182,7 @@ export default function PlanPageClient({
               />
             )}
             {filteredPois.length > 0 && (
-              <POIMarkers pois={filteredPois} activeMileRange={activeMileRange} />
+              <POIMarkers onSelect={handlePoiSelect} pois={filteredPois} activeMileRange={activeMileRange} />
             )}
             {showPhotos && photoPins && photoPins.length > 0 && (
               <RiverPhotoMarkers pins={photoPins} />
@@ -1257,7 +1272,7 @@ export default function PlanPageClient({
                   accessPoints={floatEndpointAccessPoints}
                   selectedPutInId={selectedPutIn}
                   selectedTakeOutId={selectedTakeOut}
-                  onSelect={handleMarkerClick}
+                  onSelect={inspectAccessPoint}
                   onHover={handleAccessPointHover}
                   onReportIssue={handleReportAccessPointIssue}
                   hideExpandedDetails={true}
@@ -1274,9 +1289,10 @@ export default function PlanPageClient({
           </div>
         )}
 
-        {placeCard && <div ref={mobilePreviewRef} className="fixed bottom-0 left-0 right-0 z-40 max-h-[55dvh] overflow-y-auto p-3 pb-safe">{placeCard}</div>}
+        {inspectedCard && <div ref={mobilePreviewRef} className="fixed bottom-0 left-0 right-0 z-40 max-h-[55dvh] overflow-y-auto p-3 pb-safe">{inspectedCard}</div>}
+        {!inspectedCard && (putInPoint || takeOutPoint) && !(putInPoint && takeOutPoint) && <div ref={mobilePreviewRef} className="planner-glass fixed bottom-20 left-0 right-0 z-40 flex h-[38dvh] flex-col rounded-t-2xl pb-safe">{planSidebar}</div>}
         {putInPoint && takeOutPoint && (
-          <div hidden={!!selectedPlace}><FloatPlanCard
+          <div hidden={!!inspectedCard}><FloatPlanCard
             mobileSheetRef={mobileSheetRef}
             plan={plan ?? null}
             isLoading={planLoading}

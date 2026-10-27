@@ -54,6 +54,9 @@ interface PlanSidebarProps {
    * needs a label.
    */
   showRiverLabel?: boolean;
+  placeDetails?: React.ReactNode;
+  expandedEndpointId: string | null;
+  onExpandEndpoint: (id: string | null) => void;
 }
 
 export default function PlanSidebar({
@@ -79,6 +82,9 @@ export default function PlanSidebar({
   onReportIssue,
   pointsAlongRoute = [],
   showRiverLabel = false,
+  placeDetails,
+  expandedEndpointId,
+  onExpandEndpoint,
 }: PlanSidebarProps) {
   const hasBothPoints = putInPoint && takeOutPoint;
 
@@ -90,6 +96,10 @@ export default function PlanSidebar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
+      <div className="shrink-0 border-b border-neutral-200/70 px-4 py-3">
+        <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h2>
+        {placeDetails && <p className="mt-1 text-xs text-neutral-600">{putInPoint?.name ?? 'Choose put-in'} → {takeOutPoint?.name ?? 'Choose take-out'}</p>}
+      </div>
       {/* Usually no visible header: the search card above already names the
           river (and the page h1 carries it for assistive tech). The
           breadcrumbs stay for screen readers and their schema.org markup,
@@ -108,7 +118,8 @@ export default function PlanSidebar({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      <div data-plan-scroll className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {placeDetails}
 
         {isLastValidFallback && lastValidAt && (
           <PlanFreshnessNotice savedAt={lastValidAt} isChecking={isLoading} onRetry={onRetry} />
@@ -305,6 +316,9 @@ export default function PlanSidebar({
         {putInPoint && (
           <CompactAccessCard
             point={putInPoint}
+            riverSlug={riverSlug}
+            expanded={!placeDetails && expandedEndpointId === putInPoint.id}
+            onExpand={() => onExpandEndpoint(expandedEndpointId === putInPoint.id ? null : putInPoint.id)}
             isPutIn={true}
             onClear={onClearPutIn}
             onReportIssue={onReportIssue ? () => onReportIssue(putInPoint) : undefined}
@@ -323,6 +337,9 @@ export default function PlanSidebar({
         {takeOutPoint && (
           <CompactAccessCard
             point={takeOutPoint}
+            riverSlug={riverSlug}
+            expanded={!placeDetails && expandedEndpointId === takeOutPoint.id}
+            onExpand={() => onExpandEndpoint(expandedEndpointId === takeOutPoint.id ? null : takeOutPoint.id)}
             isPutIn={false}
             onClear={onClearTakeOut}
             onReportIssue={onReportIssue ? () => onReportIssue(takeOutPoint) : undefined}
