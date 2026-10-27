@@ -446,8 +446,8 @@ test('local reminder permission distinguishes quiet delivery and does not mistak
   assert.equal(notificationAccess({ granted: true, canAskAgain: false }), 'granted');
   assert.equal(notificationAccess({ granted: false, canAskAgain: false, provisional: true }), 'provisional', 'quiet by iOS, not by the user: the prompt can still upgrade it');
   assert.equal(canDeliverNotification('provisional'), true);
-  assert.deepEqual(['ask', 'provisional', 'unknown'].map(canRequestNotification), [true, true, true]);
-  assert.deepEqual(['granted', 'quiet', 'settings'].map(canRequestNotification), [false, false, false], 'alerts off in Settings or a denial cannot be prompted away');
+  assert.deepEqual((['ask', 'provisional', 'unknown'] as const).map(canRequestNotification), [true, true, true]);
+  assert.deepEqual((['granted', 'quiet', 'settings'] as const).map(canRequestNotification), [false, false, false], 'alerts off in Settings or a denial cannot be prompted away');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsSound: false }), 'quiet');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsAlert: false }), 'quiet');
   for (const state of ['unknown', 'ask', 'settings'] as const) assert.equal(canDeliverNotification(state), false);
