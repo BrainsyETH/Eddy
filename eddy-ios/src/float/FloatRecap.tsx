@@ -31,16 +31,27 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            if (!archive.owner) return;
+            // A scope switch in progress (sign-in or sign-out mid-tap): this
+            // recap is not the selected account's to delete right now, and
+            // its track must not go before its recap can.
+            if (!archive.owner || floatArchive.scope() !== archive.scopeToken) {
+              Alert.alert('Could not delete', 'Your float history is changing accounts. Try again in a moment.');
+              return;
+            }
             // The track first: its deletion is recorded before the recap, the
             // only place to ask again, disappears (floatTrackDeletion.ts).
             void (async () => {
               let track: Awaited<ReturnType<typeof deleteFloatTrack>>;
+              let removed = false;
               try {
                 track = await deleteFloatTrack(id);
-                await floatArchive.remove(id, archive.scopeToken);
+                removed = await floatArchive.remove(id, archive.scopeToken);
               } catch {
                 Alert.alert('Could not delete', 'Please try again.');
+                return;
+              }
+              if (!removed) {
+                Alert.alert('Could not delete', 'This recap is no longer in the selected account’s history. Its GPS track was removed from this phone.');
                 return;
               }
               showHistory();
@@ -163,7 +174,13 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
           </Pressable>
         </> : <>
           <Text style={[textStyles.pageTitle, { color: colors.text }]}>{archive.ready ? 'Recap unavailable' : 'Loading recap…'}</Text>
-          <Text style={[t.base, { color: colors.textMuted }]}>Eddy is finishing your recap. Check your history in a moment.</Text>
+          <Text style={[t.base, { color: colors.textMuted }]}>
+            {archive.ready && floatArchive.locate(id) === 'elsewhere'
+              ? archive.owner === 'guest'
+                ? 'This recap was saved to the account you were signed in to when the float ended. Sign in to that account to see it.'
+                : 'This recap was saved under the account or guest history in use when the float ended, not this one. Switch back to see it.'
+              : 'Eddy is finishing your recap. Check your history in a moment.'}
+          </Text>
           <Pressable accessibilityRole="button" onPress={showHistory} style={styles.button}>
             <Text style={[t.base, { color: colors.interactive }]}>Your float history</Text>
           </Pressable>

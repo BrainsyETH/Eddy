@@ -6,8 +6,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  GIVE_UP_AFTER_MS,
+  MAX_ATTEMPTS,
   REPORTS_KEY,
   createReportQueue,
+  exhausted,
   isFinalRefusal,
   newReportId,
   reportDescription,
@@ -87,6 +90,7 @@ test('a refusal is final and keeps the server’s reason; network trouble is ret
   assert.equal(isFinalRefusal(undefined), false, 'no response at all is a network failure');
   assert.equal(isFinalRefusal(429), false, 'rate limited: try later');
   assert.equal(isFinalRefusal(408), false);
+  assert.equal(isFinalRefusal(404), false, 'the route is missing mid-deploy, not a verdict on the report');
   assert.equal(isFinalRefusal(503), false);
   const queue = createReportQueue(disk(), async () => ({ kind: 'refused', message: 'Location must be within 2 km of the selected river' }), () => {}, () => T0);
   await queue.add(input('far'));
@@ -101,6 +105,57 @@ test('retries spread out and stop growing at half an hour', () => {
   assert.equal(retryDelay(2), 120_000);
   assert.equal(retryDelay(3), 240_000);
   assert.equal(retryDelay(20), 30 * 60_000);
+});
+
+test('retrying stops after a day of attempts or a week of age, is shown as not sent, and Retry starts again', async () => {
+  const storage = disk();
+  let now = T0;
+  let outcome: SendOutcome = { kind: 'retry' };
+  const queue = createReportQueue(storage, async () => outcome, () => {}, () => now);
+  await queue.add(input('stuck'));
+  for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
+    await queue.flush();
+    now = queue.list()[0].nextAttemptAt || now;
+  }
+  assert.equal(queue.list()[0].status, 'failed');
+  assert.equal(queue.list()[0].attempts, MAX_ATTEMPTS);
+  assert.equal(queue.nextDueAt(), null, 'nothing left to schedule');
+  // Retry: attempts start over, and signal now sends it.
+  outcome = { kind: 'sent' };
+  assert.equal(await queue.retry('stuck'), true);
+  await queue.flush();
+  assert.equal(queue.list()[0].status, 'sent');
+  assert.equal(await queue.retry('stuck'), false, 'only a not-sent report can be retried');
+
+  // A report that aged out while Eddy was closed is not sent either.
+  const old = { ...input('old'), capturedAt: new Date(T0 - GIVE_UP_AFTER_MS - 1).toISOString() };
+  const later = createReportQueue(disk(), async () => ({ kind: 'retry' }), () => {}, () => T0);
+  await later.add(old);
+  await later.flush();
+  assert.equal(later.list()[0].status, 'failed');
+  assert.equal(exhausted({ attempts: 0, capturedAt: old.capturedAt }, T0), true);
+});
+
+test('a waiting report can be withdrawn and is then never sent; clearing empties the list', async () => {
+  const storage = disk();
+  let sends = 0;
+  let now = T0;
+  const queue = createReportQueue(storage, async () => { sends += 1; return { kind: 'retry' }; }, () => {}, () => now);
+  await queue.add(input('oops'));
+  await queue.flush();
+  assert.equal(sends, 1);
+  assert.equal(await queue.remove('oops'), true);
+  assert.equal(await queue.remove('oops'), false);
+  assert.deepEqual(queue.list(), []);
+  assert.equal(JSON.parse(storage.data.get(REPORTS_KEY)!).length, 0, 'withdrawn on disk too');
+  now += retryDelay(1);
+  await queue.flush();
+  assert.equal(sends, 1, 'a withdrawn report is not sent later');
+  await queue.add(input('a'));
+  await queue.add(input('b'));
+  await queue.clear();
+  assert.deepEqual(queue.list(), []);
+  assert.equal(JSON.parse(storage.data.get(REPORTS_KEY)!).length, 0);
 });
 
 test('one send at a time, and a report added mid-send still goes out', async () => {
