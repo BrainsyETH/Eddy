@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { plannerSelectionReducer as reduce, type PlannerSelectionHistory } from './planner-selection';
+import { orderedPlannerEndpoints, plannerSelectionReducer as reduce, type PlannerSelectionHistory } from './planner-selection';
 
 const route: PlannerSelectionHistory = {
   current: { riverSlug: 'current', selectedPutIn: 'akers', selectedTakeOut: 'pulltite' }, past: [],
@@ -34,4 +34,25 @@ test('unchanged selections and validation do not create undo steps', () => {
   const validated = reduce(route, { type: 'validate', patch: { selectedTakeOut: null } });
   assert.deepEqual(validated.past, []);
   assert.equal(reduce(validated, { type: 'undo' }), validated);
+});
+
+test('picking endpoints in either order builds the same downstream route', () => {
+  const upstream = { id: 'akers', riverMile: 10 };
+  const downstream = { id: 'pulltite', riverMile: 20 };
+  for (const pair of [[upstream, downstream], [downstream, upstream]]) {
+    assert.deepEqual(orderedPlannerEndpoints(pair[0], pair[1]), {
+      selectedPutIn: 'akers', selectedTakeOut: 'pulltite',
+    });
+  }
+});
+
+test('Undo reverses automatic ordering as one edit and restores the first pick', () => {
+  const firstPick: PlannerSelectionHistory = {
+    current: { riverSlug: 'current', selectedPutIn: 'pulltite', selectedTakeOut: null }, past: [],
+  };
+  const completed = reduce(firstPick, { type: 'change', patch: orderedPlannerEndpoints(
+    { id: 'pulltite', riverMile: 20 }, { id: 'akers', riverMile: 10 },
+  ) });
+  assert.deepEqual(completed.current, route.current);
+  assert.deepEqual(reduce(completed, { type: 'undo' }), firstPick);
 });

@@ -23,12 +23,12 @@ interface Props {
   /** Rivers only: no access-point results or category tabs (mobile picker). */
   riversOnly?: boolean;
   inlineResults?: boolean;
-  initiallyOpen?: boolean;
 }
 
-export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false, inlineResults = false, initiallyOpen = false }: Props) {
+export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false, inlineResults = false }: Props) {
   const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(initiallyOpen);
+  const [open, setOpen] = useState(false);
+  const resultsOpen = inlineResults || open;
   const [kind, setKind] = useState<'all' | 'rivers' | 'access'>(riversOnly ? 'rivers' : 'all');
   const [active, setActive] = useState(-1);
   const panel = useRef<HTMLDivElement>(null);
@@ -42,13 +42,13 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
   ], [kind, rivers, places, query]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || inlineResults) return;
     const outside = (event: PointerEvent) => {
       if (!panel.current?.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener('pointerdown', outside);
     return () => document.removeEventListener('pointerdown', outside);
-  }, [open]);
+  }, [open, inlineResults]);
   useEffect(() => {
     if (active >= 0) document.getElementById(`${id}-${active}`)?.scrollIntoView({ block: 'nearest' });
   }, [active, id]);
@@ -66,7 +66,7 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
   const current = rivers.find(r => r.slug === currentSlug);
 
   return <div ref={panel} className="planner-search relative z-40 shrink-0" onBlur={event => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+    if (!inlineResults && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
   }}>
     {/* No overflow clipping: the action popovers (weather, filters) open
         below this card. */}
@@ -74,21 +74,21 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
       <div className="flex items-center gap-2 px-3.5 py-3">
         <Search size={19} className="shrink-0 text-primary-600" aria-hidden="true" />
         <input ref={input} role="combobox" aria-label={riversOnly ? 'Search rivers' : 'Search rivers and access points'} aria-autocomplete="list"
-          aria-expanded={open} aria-controls={open ? `${id}-results` : undefined}
-          aria-activedescendant={open && active >= 0 && results[active] ? `${id}-${active}` : undefined}
+          aria-expanded={resultsOpen} aria-controls={resultsOpen ? `${id}-results` : undefined}
+          aria-activedescendant={resultsOpen && active >= 0 && results[active] ? `${id}-${active}` : undefined}
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-500"
           placeholder={riversOnly ? 'Search rivers' : actions ? 'Search rivers & access' : 'Search rivers & access points'} value={query}
           onFocus={() => { setOpen(true); setActive(-1); }} onClick={() => setOpen(true)}
           onChange={event => { setQuery(event.target.value); setOpen(true); setActive(-1); }}
           onKeyDown={event => {
-            if (event.key === 'Escape') { event.preventDefault(); setOpen(false); setActive(-1); }
+            if (event.key === 'Escape' && !inlineResults) { event.preventDefault(); setOpen(false); setActive(-1); }
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
               event.preventDefault(); setOpen(true);
               setActive(value => !results.length ? -1 : value < 0
                 ? (event.key === 'ArrowDown' ? 0 : results.length - 1)
                 : (value + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length);
             }
-            if (event.key === 'Enter' && open && active >= 0) { event.preventDefault(); select(active); }
+            if (event.key === 'Enter' && resultsOpen && active >= 0) { event.preventDefault(); select(active); }
           }} />
         {query && <button type="button" aria-label="Clear search" className="rounded-lg p-1 text-neutral-600 hover:bg-neutral-100"
           onClick={() => { setQuery(''); setActive(-1); input.current?.focus(); }}><X size={16} /></button>}
@@ -98,12 +98,12 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
         {actions && <div className="flex shrink-0 items-center gap-0.5 border-l border-neutral-200/70 pl-1.5"
           onPointerDown={() => setOpen(false)} onFocus={() => setOpen(false)}>{actions}</div>}
       </div>
-      {current && !open && <div className="flex items-center justify-between gap-2 border-t border-neutral-200/60 px-3.5 py-2">
+      {current && !resultsOpen && <div className="flex items-center justify-between gap-2 border-t border-neutral-200/60 px-3.5 py-2">
         <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-primary-800"><Waves size={15} /><span className="truncate">{current.name}</span></span>
         <button type="button" className="shrink-0 rounded-lg px-2 py-1 text-xs text-primary-700 hover:bg-primary-50" onClick={() => onRiver(null)}>All rivers</button>
       </div>}
     </div>
-    {open && <div className={`planner-glass mt-2 overflow-hidden rounded-2xl ${inlineResults ? 'relative' : 'absolute left-0 right-0 top-full'}`}>
+    {resultsOpen && <div className={`planner-glass mt-2 overflow-hidden rounded-2xl ${inlineResults ? 'relative' : 'absolute left-0 right-0 top-full'}`}>
       {!riversOnly && <div className="flex gap-1 border-b border-neutral-200/60 p-2" aria-label="Search categories">
         {(['all', 'rivers', 'access'] as const).map(value => <button type="button" key={value} aria-pressed={kind === value}
           className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${kind === value ? 'bg-primary-700 text-white' : 'text-neutral-600 hover:bg-primary-50'}`}

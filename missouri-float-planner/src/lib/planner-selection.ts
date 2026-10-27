@@ -13,6 +13,15 @@ type SelectionAction =
   | { type: 'change' | 'validate'; patch: Partial<PlannerSelection> }
   | { type: 'undo' };
 
+/** Preserve the planner's downstream ordering, whichever endpoint is picked first. */
+export function orderedPlannerEndpoints(
+  first: { id: string; riverMile: number },
+  second: { id: string; riverMile: number },
+): Pick<PlannerSelection, 'selectedPutIn' | 'selectedTakeOut'> {
+  const [putIn, takeOut] = first.riverMile > second.riverMile ? [second, first] : [first, second];
+  return { selectedPutIn: putIn.id, selectedTakeOut: takeOut.id };
+}
+
 /** Only deliberate route edits enter history; camera moves and inspection don't. */
 export function plannerSelectionReducer(state: PlannerSelectionHistory, action: SelectionAction): PlannerSelectionHistory {
   if (action.type === 'undo') {

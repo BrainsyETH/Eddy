@@ -19,17 +19,13 @@ export default function PlannerPlaceCard({ place, point, loading, failed, canTak
 }) {
   const card = useRef<HTMLElement>(null);
   useEffect(() => { card.current?.focus({ preventScroll: true }); }, [place.id, place.riverSlug]);
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
+  return <section ref={card} tabIndex={-1} className="planner-glass shrink-0 rounded-2xl p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label="Selected access point"
+    onKeyDown={event => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
-    };
-    document.addEventListener('keydown', escape);
-    return () => document.removeEventListener('keydown', escape);
-  }, [onClose]);
-  return <section ref={card} tabIndex={-1} className="planner-glass shrink-0 rounded-2xl p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label="Selected access point">
+    }}>
     <div className="flex items-start gap-2">
       <MapPin size={18} className="mt-0.5 shrink-0 text-primary-600" />
       <div className="min-w-0 flex-1"><p className="text-[10px] font-bold uppercase tracking-wider text-primary-700">Access point</p>

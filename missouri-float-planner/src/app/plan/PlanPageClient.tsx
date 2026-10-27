@@ -48,7 +48,7 @@ import { useRiverVisualPins, useRegionalRiverVisualPins } from '@/hooks/useRiver
 import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
 import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
-import { plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
+import { orderedPlannerEndpoints, plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
 import { plannerMapPois } from '@/lib/planner-map-catalog';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
 
@@ -421,14 +421,21 @@ export default function PlanPageClient({
   const previewPoint = !previewAccess.isPlaceholderData
     ? previewAccess.data?.find(point => point.id === selectedPlace?.id) : undefined;
 
-  const undoSelection = useCallback(() => {
+  const undoSelection = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     const previous = selection.past.at(-1);
     if (!previous) return;
+    const returnFocus = event.detail === 0 && selection.past.length === 1
+      && document.activeElement?.getAttribute('aria-label') === 'Undo route change';
     dispatchSelection({ type: 'undo' });
     setSelectedPlace(null);
     setFocusPlace(null);
     setShowAllRivers(!previous.riverSlug);
     setFocusRequest(value => value + 1);
+    if (returnFocus) requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>('[aria-label="Show route"]')
+        ?? document.querySelector<HTMLElement>('.planner-search input, [data-planner-search-trigger]');
+      target?.focus({ preventScroll: true });
+    });
   }, [selection.past]);
 
   const planParams = (river && selectedPutIn && selectedTakeOut)
@@ -477,11 +484,35 @@ export default function PlanPageClient({
   const forecastLng = selectedPutInPoint?.coordinates.lng ?? nearestGauge?.coordinates.lng ?? boundsCenterLng;
   const { data: forecast } = useForecastByCoords(forecastLat, forecastLng);
 
-  const handleMarkerClick = useCallback((point: AccessPoint) => {
+  const inspectAccessPoint = useCallback((point: AccessPoint) => {
     if (!river || river.slug !== riverSlug || accessPlaceholder) return;
     handlePlaceSelect({ id: point.id, name: point.name, slug: point.slug,
       riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates });
   }, [river, riverSlug, accessPlaceholder, handlePlaceSelect]);
+
+  // Strip cards and mobile pins retain the original two-tap planning flow.
+  const handleMarkerClick = useCallback((point: AccessPoint) => {
+    if (!river || river.slug !== riverSlug || accessPlaceholder || point.isFloatEndpoint === false) return;
+    setSelectedPlace(null);
+    setFocusPlace(null);
+    if (point.id === selectedPutIn) {
+      changeSelection({ selectedPutIn: null });
+    } else if (point.id === selectedTakeOut) {
+      changeSelection({ selectedTakeOut: null });
+    } else {
+      const other = floatEndpointAccessPoints?.find(ap => ap.id === (selectedPutIn ?? selectedTakeOut));
+      changeSelection(other
+        ? orderedPlannerEndpoints(selectedPutIn ? other : point, selectedPutIn ? point : other)
+        : { selectedPutIn: point.id });
+      trackEvent(selectedPutIn ? 'takeout_selected' : 'putin_selected', { river: riverSlug });
+      setShowAllRivers(false);
+      if (other || isDesktop) {
+        if (!other) setFocusPlace({ id: point.id, name: point.name, slug: point.slug,
+          riverId: river.id, riverSlug: river.slug, riverName: river.name, coordinates: point.coordinates });
+        setFocusRequest(value => value + 1);
+      }
+    }
+  }, [river, riverSlug, accessPlaceholder, selectedPutIn, selectedTakeOut, floatEndpointAccessPoints, changeSelection, isDesktop]);
 
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
@@ -735,11 +766,11 @@ export default function PlanPageClient({
   const plannerTools = <>
     {routeBounds && <button type="button" onClick={showRoute} title="Show route" aria-label="Show route"
       className="rounded-lg bg-white/90 p-2.5 text-gray-700 shadow-lg hover:bg-white md:p-2"><Focus size={20} /></button>}
-    <button type="button" onClick={undoSelection} disabled={!selection.past.length} title="Undo" aria-label="Undo route change"
-      className="rounded-lg bg-white/90 p-2.5 text-gray-700 shadow-lg hover:bg-white disabled:opacity-40 md:p-2"><Undo2 size={20} /></button>
+    {selection.past.length > 0 && <button type="button" onClick={undoSelection} title="Undo" aria-label="Undo route change"
+      className="rounded-lg bg-white/90 p-2.5 text-gray-700 shadow-lg hover:bg-white md:p-2"><Undo2 size={20} /></button>}
   </>;
   const canTakeOut = !!previewPoint && !!putInPoint && selectedPlace?.riverSlug === riverSlug
-    && previewPoint.riverMile > putInPoint.riverMile;
+    && previewPoint.id !== putInPoint.id;
   const chooseEndpoint = (endpoint: 'put-in' | 'take-out', keyboard: boolean) => {
     if (!selectedPlace || !previewPoint || previewPoint.isFloatEndpoint === false) return;
     if (endpoint === 'take-out' && !canTakeOut) return;
@@ -747,7 +778,7 @@ export default function PlanPageClient({
       && takeOutPoint.riverMile > previewPoint.riverMile;
     changeSelection(endpoint === 'put-in'
       ? { riverSlug: selectedPlace.riverSlug, selectedPutIn: previewPoint.id, selectedTakeOut: keepTakeOut ? takeOutPoint.id : null }
-      : { selectedTakeOut: previewPoint.id });
+      : orderedPlannerEndpoints(putInPoint!, previewPoint));
     const targetId = previewPoint.id;
     if (keyboard) requestAnimationFrame(() => {
       const target = document.querySelector<HTMLElement>('[aria-label="Show route"]')
@@ -814,7 +845,7 @@ export default function PlanPageClient({
                 accessPoints={visibleAccessPoints}
                 selectedPutIn={selectedPutIn}
                 selectedTakeOut={selectedTakeOut}
-                onMarkerClick={handleMarkerClick}
+                onMarkerClick={inspectAccessPoint}
               />
             )}
             <PlannerAccessLayer places={catalog.places} excludeRiverSlug={activeRiver && !accessPlaceholder && visibleAccessPoints ? activeRiver.slug : undefined} onSelect={handlePlaceSelect} />
@@ -1067,7 +1098,7 @@ export default function PlanPageClient({
           >
             {visibleAccessPoints && !accessPlaceholder && (
               <AccessPointMarkers
-                interaction="inspect"
+                interaction="select"
                 accessPoints={visibleAccessPoints}
                 selectedPutIn={selectedPutIn}
                 selectedTakeOut={selectedTakeOut}
@@ -1353,7 +1384,7 @@ function MobileRiverSwitcher({ currentName, rivers, places, conditions, onChange
       <div ref={sheetRef} tabIndex={-1} className="w-full max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-white p-3 pb-safe"
         onClick={event => event.stopPropagation()}>
         <PlannerMapSearch rivers={rivers} places={places} currentSlug={null} conditions={conditions}
-          loading={loading} failed={failed} onRetry={onRetry} inlineResults initiallyOpen
+          loading={loading} failed={failed} onRetry={onRetry} inlineResults
           onRiver={slug => { onChange(slug); setOpen(false); }}
           onPlace={place => { setOpen(false); onPlace(place); }} />
         <button type="button" onClick={() => setOpen(false)} className="mt-2 w-full rounded-xl py-3 text-sm font-semibold text-neutral-600">Cancel</button>

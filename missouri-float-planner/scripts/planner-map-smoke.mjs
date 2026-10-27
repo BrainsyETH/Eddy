@@ -400,6 +400,7 @@ try {
   await page.evaluate(() => { window.firstPlannerMap = window.plannerMap; });
   await page.waitForFunction(() => document.querySelectorAll('.gauge-station-marker').length === 3 && document.querySelectorAll('.poi-marker').length === 3 && document.querySelectorAll('.river-photo-marker').length === 3);
   const attribution = page.locator('.maplibregl-ctrl-attrib');
+  assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   assert.equal(await attribution.getAttribute('open'), null);
   assert.equal(await attribution.evaluate(el => el.classList.contains('maplibregl-compact-show')), false);
   for (const text of ['Your next river day', 'River colors show current', 'Make a day of it']) assert.equal(await page.getByText(text, { exact: false }).count(), 0);
@@ -490,6 +491,8 @@ try {
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
   await page.screenshot({ path: `${out}/desktop-route.png` });
   await page.getByRole('button', { name: 'All rivers', exact: true }).click();
+  // Let the scheduled camera fit start before waiting for it to finish.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => !window.plannerMap.isMoving());
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
@@ -500,6 +503,7 @@ try {
   // when the camera doesn't move there's no moveend to wait on first.
   const riverHit = await (await page.waitForFunction(coordinates => {
     const map = window.plannerMap;
+    if (map.isMoving()) return null;
     const rect = map.getCanvas().getBoundingClientRect();
     for (const coordinate of coordinates) {
       const p = map.project(coordinate);
@@ -675,11 +679,14 @@ try {
   };
   await endpointsVisible(page);
   assert.equal(await page.evaluate(() => window.plannerMap.getPaintProperty('float-route-layer', 'line-color')), '#F07052');
+  assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   await page.locator('button[data-access-point-id="p-0-1"]').click();
-  await page.getByRole('region', { name: 'Selected access point' }).waitFor();
-  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1', 'Inspecting the selected strip card must retain it');
-  await page.keyboard.press('Escape');
-  await page.getByRole('region', { name: 'Selected access point' }).waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => !new URLSearchParams(location.search).has('takeOut'));
+  assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 0);
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).press('Enter');
+  await endpointsVisible(page);
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Show route');
+  assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
   await page.waitForFunction(() => !new URLSearchParams(location.search).has('putIn') && !new URLSearchParams(location.search).has('takeOut'));
   await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
@@ -690,8 +697,30 @@ try {
   await page.getByRole('option', { name: /^Meramec River\b/ }).click();
   await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
   await endpointsVisible(page);
-  await page.getByRole('button', { name: 'Expand map', exact: true }).click();
+
+  // The strip still builds a downstream route in two taps, in either order.
+  await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
   await page.locator('button[data-access-point-id="p-0-1"]').click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1');
+  await page.locator('button[data-access-point-id="p-0-0"]').click();
+  await endpointsVisible(page);
+  assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1');
+
+  // An upstream preview keeps the take-out action and restores automatic ordering.
+  await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
+  await search.fill('current take');
+  await page.getByRole('option', { name: /Current Take-out/ }).click();
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
+  await search.fill('current put');
+  await page.getByRole('option', { name: /Current Put-in/ }).click();
+  await page.getByRole('button', { name: 'Use as take-out', exact: true }).click();
+  await endpointsVisible(page);
+  assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1');
+
+  await page.getByRole('button', { name: 'Expand map', exact: true }).click();
+  await page.locator('.access-point-marker[data-access-point-id="p-0-1"]').click();
   const useTakeOut = page.getByRole('button', { name: 'Use as take-out', exact: true });
   await useTakeOut.click(); // A covered button fails Playwright's actual hit test.
   await endpointsVisible(page);
@@ -702,8 +731,17 @@ try {
   await marker.focus();
   await marker.press('Enter');
   await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Selected access point');
+  const filters = page.getByRole('button', { name: 'Map filters', exact: true });
+  await page.getByRole('button', { name: 'Expand map', exact: true }).click();
+  await filters.click();
+  await filters.press('Escape');
+  assert.equal(await filters.getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1);
+  await page.getByRole('region', { name: 'Selected access point' }).focus();
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.activeElement?.matches('.access-point-marker[data-access-point-id="p-0-1"]'));
+  await page.getByRole('button', { name: 'Collapse map', exact: true }).click();
   for (const [selector, popup] of [['.gauge-station-marker', '.gauge-station-popup'], ['.poi-marker', '.poi-popup'], ['.hazard-marker', '.hazard-popup']]) {
     const pin = page.locator(selector).first();
     await pin.evaluate(el => {
@@ -742,22 +780,38 @@ try {
   await endpointsVisible(page);
   console.log('Desktop route framing, orange route, Undo, fullscreen, keyboard markers and pan recovery passed');
 
+  await page.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-1&takeOut=p-0-0`, { waitUntil: 'domcontentloaded' });
+  await page.getByText('Upstream — paddling against current', { exact: false }).waitFor();
+
   await page.close();
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
   mobile.on('pageerror', error => errors.push(String(error)));
   await mobile.route('**/*', routeHandler);
   await mobile.goto(`${origin}/planner-map-layout-check?river=current`, { waitUntil: 'domcontentloaded' });
   await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').waitFor();
+  assert.equal(await mobile.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   assert.equal(await mobile.locator('.maplibregl-ctrl-zoom-in,.maplibregl-ctrl-zoom-out').count(), 2);
+  await mobile.waitForFunction(() => window.plannerMap && !window.plannerMap.isMoving());
+  await mobile.evaluate(c => window.plannerMap.jumpTo({ center: [c.lng, c.lat], zoom: 12 }), points[0][1].coordinates);
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-1"]').tap();
+  await mobile.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1');
+  assert.equal(await mobile.getByRole('region', { name: 'Selected access point' }).count(), 0);
   await mobile.evaluate(c => window.plannerMap.jumpTo({ center: [c.lng, c.lat], zoom: 12 }), points[0][0].coordinates);
   await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').tap();
-  await mobile.getByRole('button', { name: 'Use as put-in', exact: true }).waitFor();
-  assert.equal(new URL(mobile.url()).searchParams.get('putIn'), null);
-  await mobile.getByRole('button', { name: 'Use as put-in', exact: true }).tap();
-  await mobile.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-0');
+  await endpointsVisible(mobile, true);
+  assert.equal(new URL(mobile.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(mobile.url()).searchParams.get('takeOut'), 'p-0-1');
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').tap();
+  await mobile.waitForFunction(() => !new URLSearchParams(location.search).has('putIn'));
+  await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
+  await endpointsVisible(mobile, true);
   await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
   const mobileSearch = mobile.getByRole('combobox', { name: 'Search rivers and access points', exact: true });
   await mobileSearch.fill('take');
+  await mobileSearch.evaluate(el => el.blur());
+  assert.equal(await mobileSearch.getAttribute('aria-expanded'), 'true');
+  await mobile.getByRole('dialog', { name: 'Search rivers and access points', exact: true }).locator('[tabindex="-1"]').tap({ position: { x: 4, y: 4 } });
+  assert.equal(await mobileSearch.getAttribute('aria-expanded'), 'true');
   await mobile.getByRole('option', { name: /Current Take-out/ }).tap();
   await mobile.getByRole('button', { name: 'Use as take-out', exact: true }).tap();
   await endpointsVisible(mobile, true);
@@ -777,7 +831,7 @@ try {
   await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
   await endpointsVisible(mobile, true);
   await mobile.screenshot({ path: `${out}/mobile-restored-route.png` });
-  console.log('Mobile touch preview, current-river access search, zoom controls, fullscreen, route fit and Undo passed');
+  console.log('Mobile two-tap planning, persistent search results, zoom controls, fullscreen, route fit and Undo passed');
   assert.deepEqual(errors, []);
   console.log('Desktop 1440/1024, mobile and runtime checks passed');
 } catch (error) {

@@ -97,11 +97,13 @@ Build a Route keeps one MapLibre map mounted while choosing rivers, loading
 river details, and returning to **All rivers**. All rivers zooms back to the
 service area and preserves the current route and its endpoint selections;
 choosing a different river starts that river's plan, with Undo available.
-Desktop and mobile web share access previews: map pins, strip cards, and search
-results inspect a place before an explicit endpoint choice. Inspecting another
-river's access does not discard the current route. Endpoint edits and river
-changes can be undone. Mobile search includes the already-loaded accesses on
-the selected river without downloading the regional access catalogue.
+Mobile pins and strip cards select endpoints directly; tapping a selected
+endpoint clears it. Pairs are ordered downstream regardless of selection order.
+Desktop pins and search results open access previews. Inspecting another river's
+access does not discard the current route. Endpoint edits and river changes can
+be undone; Undo appears only while history exists. Mobile search includes the
+already-loaded accesses on the selected river without downloading the regional
+access catalogue, and its results remain visible until the dialog closes.
 
 A completed route fits the usable map area beside the panel or above the mobile
 sheet. Show route restores that view after exploring; resizing overlays does
