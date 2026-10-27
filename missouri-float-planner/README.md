@@ -41,6 +41,12 @@ Report photos prefer the bundled guide covers over older external URLs. Eddy's
 existing colors, fonts, artwork, and condition badges are reused. Website widgets
 remain in the footer.
 
+App CI's `browser-smoke` job runs every fixture smoke in this README
+(`test:navigation`, `test:conditions`, `test:float-finder`, `test:planner-map`,
+`test:dam-page`) on each pull request; `test:analytics-browser` runs in
+`lint-and-typecheck`. When a component changes on purpose, update its smoke in
+the same pull request.
+
 `npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
 and 320px widths, including keyboard/touch navigation and river selection across
 the planner, map history, refresh, the finder, shared-plan tab isolation, and

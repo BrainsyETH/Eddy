@@ -57,7 +57,7 @@ test('App CI checks run on every pull request, independently', () => {
   const pullRequest = events.split('\n  pull_request:')[1]?.split(/\n  [\w-]+:/)[0];
   assert.equal(pullRequest?.trim(), '', 'PR filters can leave required checks permanently pending');
 
-  for (const name of ['lint-and-typecheck', 'mobile-app', 'dependency-audit']) {
+  for (const name of ['lint-and-typecheck', 'mobile-app', 'dependency-audit', 'browser-smoke']) {
     const job = appCIJob(name);
     assert.doesNotMatch(job, /^    (?:needs|if):/m, `${name} must run even when another check fails`);
     assert.doesNotMatch(job, /^\s*continue-on-error:/m, `${name} must report failures`);
@@ -66,7 +66,13 @@ test('App CI checks run on every pull request, independently', () => {
 
 test('runtime audit reports failures without suppressing web tests or the iOS bundle', () => {
   const audit = appCIJob('dependency-audit');
-  assert.match(audit, /^        run: npm audit --omit=dev --audit-level=high$/m);
+  // The reviewed-exception gate, never a bare audit or one with its level lowered.
+  assert.match(audit, /^        run: npm run audit:runtime$/m);
+  assert.doesNotMatch(audit, /run: npm audit/);
+  const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>;
+  };
+  assert.equal(pkg.scripts['audit:runtime'], 'tsx scripts/check-audit.ts');
   const sbomUpload = audit.indexOf('- name: Upload SBOM');
   const auditRun = audit.indexOf('- name: Reject high-severity runtime advisories');
   assert.ok(sbomUpload >= 0 && sbomUpload < auditRun, 'upload the SBOM before advisories can fail the job');
@@ -77,4 +83,19 @@ test('runtime audit reports failures without suppressing web tests or the iOS bu
   }
   assert.doesNotMatch(web, /run: npm audit/);
   assert.match(appCIJob('mobile-app'), /run: npx expo export --platform ios/);
+});
+
+test('every fixture browser smoke runs in CI', () => {
+  // A smoke that exists but runs only when remembered drifts from the
+  // components it covers; two had when this job was added.
+  const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>;
+  };
+  const smokes = Object.entries(pkg.scripts)
+    .filter(([, command]) => /^node scripts\/[\w-]+-smoke\.mjs$/.test(command))
+    .map(([name]) => name);
+  assert.ok(smokes.length >= 6, `expected the fixture smokes, saw ${smokes.join(', ')}`);
+  const ci = `${appCIJob('lint-and-typecheck')}\n${appCIJob('browser-smoke')}`;
+  const missing = smokes.filter((name) => !ci.includes(`run: npm run ${name}\n`));
+  assert.deepEqual(missing, [], 'smoke scripts that no CI job runs');
 });

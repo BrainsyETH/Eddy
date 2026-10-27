@@ -10,7 +10,7 @@ EXPORT_DIR := $(or $(TMPDIR),/tmp)/eddy-expo-export
 # One source of truth for the supported Node major, shared with CI and nvm.
 NODE_MAJOR := $(shell sed 's/[^0-9].*//' .nvmrc 2>/dev/null)
 
-.PHONY: help guard-node setup-web setup-mobile check-web check-mobile check-db \
+.PHONY: help guard-node setup-web setup-mobile check-web test-changed check-mobile check-db \
         bundle-mobile check dev preflight-eas build-ios testflight check-eas-env \
         env-pull run-ios archive-ios
 
@@ -59,6 +59,12 @@ setup-mobile: guard-node ## Install mobile dependencies (plain npm ci — never 
 
 check-web: guard-node ## Web typecheck + lint + tests (mirrors the lint-and-typecheck CI job)
 	cd $(WEB) && npm run typecheck && npm run lint && npm test
+
+# The inner loop, not a gate: tests whose imports, or the files they read,
+# include something this branch changed (scripts/lib/test-selection.ts says
+# how). Manifest, lockfile and tsconfig changes select everything.
+test-changed: guard-node ## Web tests this branch can affect (fast loop; check-web is the gate)
+	cd $(WEB) && npm run test:changed
 
 # Package scripts rather than the bare binaries, because `typecheck` now
 # regenerates the typed-route declaration before running tsc (eddy-ios's

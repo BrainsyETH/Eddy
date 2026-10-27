@@ -62,7 +62,13 @@ let server, browser;
 let serverLog = '';
 const browserErrors = [];
 async function cleanup() {
-  server?.kill('SIGKILL');
+  // `next dev` forks the real server. SIGKILL on the CLI alone cannot be
+  // forwarded, so it orphaned next-server on this port, and the next smoke in
+  // the same checkout died on "Another next dev server is already running".
+  // Kill the whole process group, as planner-map-smoke does.
+  if (server?.pid) {
+    try { process.kill(-server.pid, 'SIGKILL'); } catch { server.kill('SIGKILL'); }
+  }
   await Promise.race([browser?.close(), new Promise(done => setTimeout(done, 5000))]);
   await rm(fixtureDir, { recursive: true, force: true });
   await rm(sharedFixtureDir, { recursive: true, force: true });
@@ -100,6 +106,7 @@ try {
   await mkdir(out, { recursive: true });
   const modeArgs = productionMapOnly ? ['start'] : ['dev', '--webpack'];
   server = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...modeArgs, '--hostname', '127.0.0.1', '--port', String(port)], {
+    detached: true,
     env: { ...process.env, EDDY_NAV_SMOKE: '1', FLOAT_SEARCH_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

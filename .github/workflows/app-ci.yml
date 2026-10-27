@@ -83,8 +83,14 @@ jobs:
           path: ${{ runner.temp }}/eddy-sbom.cdx.json
           retention-days: 14
 
+      # Not a bare `npm audit --audit-level=high`: with one unfixable upstream
+      # advisory in the tree (docs/x402.md), that failed on every run, and a
+      # permanently red check hides the next real one. This fails on any high or
+      # critical runtime advisory except a reviewed exception that names one
+      # advisory, one package and its exact install paths, and that expires.
+      # Rules and their tests: scripts/security/audit-policy.ts.
       - name: Reject high-severity runtime advisories
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:runtime
 
   lint-and-typecheck:
     runs-on: ubuntu-latest
@@ -121,11 +127,110 @@ jobs:
       - name: Test
         run: npm test
 
+      # Chromium is cached per Playwright version. On a hit the system-library
+      # step is skipped: ubuntu-latest ships Chrome, so the libraries Chromium
+      # links against are already present, and apt was most of this step's
+      # time. If an image change ever drops one, the launch fails naming
+      # `npx playwright install-deps`; delete the cache entry to recover.
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Chromium
+        id: chromium-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Chromium for analytics checks
+        if: steps.chromium-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Check browser analytics
         run: npm run test:analytics-browser
+
+  # The fixture-backed browser smokes: the real planner, map, finder, header,
+  # Conditions and dam pages in Chromium against synthetic data, with no
+  # credentials and no provider requests (each script's header says so). They
+  # existed for months but ran only when someone remembered, so two of them
+  # had drifted from the components they cover before this job was added.
+  #
+  # Separate from lint-and-typecheck so a slow `next dev` compile never delays
+  # the required web check. Visible but not yet required: see CLAUDE.md.
+  # Every smoke runs even after one fails, and their screenshots upload on
+  # failure, so one red run shows the whole picture.
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: missouri-float-planner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: missouri-float-planner/package-lock.json
+
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      # Screenshots land here; the scripts' defaults are under /tmp.
+      - name: Set smoke output folders
+        run: |
+          for smoke in DAM:dam-page NAV:navigation FINDER:float-finder CONDITIONS:conditions PLANNER:planner-map; do
+            echo "${smoke%%:*}_SMOKE_OUTPUT=$RUNNER_TEMP/smoke/${smoke#*:}" >> "$GITHUB_ENV"
+          done
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Chromium
+        id: chromium-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        id: chromium-install
+        if: steps.chromium-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Dam page
+        run: npm run test:dam-page
+
+      - name: Navigation
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.chromium-install.outcome != 'failure' }}
+        run: npm run test:navigation
+
+      - name: Float finder
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.chromium-install.outcome != 'failure' }}
+        run: npm run test:float-finder
+
+      - name: Conditions
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.chromium-install.outcome != 'failure' }}
+        run: npm run test:conditions
+
+      - name: Planner map
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.chromium-install.outcome != 'failure' }}
+        run: npm run test:planner-map
+
+      - name: Upload smoke screenshots
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-smoke-${{ github.sha }}
+          path: ${{ runner.temp }}/smoke
+          retention-days: 7
+          if-no-files-found: ignore
 
   mobile-app:
     runs-on: ubuntu-latest

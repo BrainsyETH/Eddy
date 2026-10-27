@@ -3,7 +3,7 @@
 // Run: npm run test:dam-page (no production credentials or requests).
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
@@ -55,7 +55,16 @@ assert(!existsSync(route), 'temporary QA route already exists; refusing to overw
 function cleanup() {
   return cleanupPromise ??= (async () => {
     try { await rm(route, { recursive: true, force: true }); }
-    finally { server?.kill('SIGTERM'); await browser?.close(); }
+    finally {
+      server?.kill('SIGTERM');
+      await browser?.close();
+      // Next's generated dev types still import the removed fixture route and
+      // fail the next `npm run typecheck`. Remove only outputs that refer to it,
+      // as the other smokes do; the next dev run regenerates them.
+      await rm(resolve('.next/dev/types/app/dam-layout-check'), { recursive: true, force: true });
+      const validator = resolve('.next/dev/types/validator.ts');
+      if (existsSync(validator) && (await readFile(validator, 'utf8')).includes('/dam-layout-check')) await rm(validator);
+    }
   })();
 }
 for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -79,12 +88,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ v
 `);
   await mkdir(`${route}/list`, { recursive: true });
   await writeFile(`${route}/list/page.tsx`, `import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import DamListCard from '@/components/dam/DamListCard';
 const variants = ${JSON.stringify(variants)};
 export default function Page() {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
-  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <Link key={key} data-variant={key} href="/dam-layout-check" className="group block min-w-0 rounded-2xl"><DamListCard dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></Link>)}</div></div>;
+  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <div key={key} data-variant={key} className="min-w-0"><DamListCard dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} href="/dam-layout-check" /></div>)}</div></div>;
 }
 `);
   const ignored = spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]);
@@ -123,21 +131,33 @@ export default function Page() {
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
     await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
-    const list = page.locator('a[data-variant]');
-    assert.equal(await list.locator('button, a, input, select').count(), 0, 'whole-card links have no nested controls');
+    // Cards own their dam link and an interactive timeline beside it (d09f5a3),
+    // as on Conditions. Links must never nest, and every link on a card opens
+    // that card's dam (the name header and the full-report link).
+    const list = page.locator('[data-variant]');
+    assert.equal(await page.locator('a a, a button, button a').count(), 0, 'no control is nested in a link');
+    for (const card of await list.all()) {
+      const hrefs = await card.locator('a').evaluateAll(links => links.map(a => a.getAttribute('href')));
+      assert(hrefs.length > 0 && hrefs.every(h => h === '/dam-layout-check'), `card links open its dam: ${hrefs}`);
+    }
     assert(!(await list.allTextContents()).join(' ').includes('Fishery below dam'), 'fishery stays off list cards');
-    const normal = page.locator('[data-variant="normal"]');
-    assert((await normal.innerText()).includes('50%'), 'list shows measured generation scale');
+    // Compact list cards (f6e235a): release and temperature, then today's
+    // schedule. Generation status, the rack and percentages are detail-page
+    // only, which conditions-smoke also asserts for the same component.
+    const card = key => page.locator(`[data-variant="${key}"]`);
+    const normal = card('normal');
+    assert((await normal.innerText()).includes('16,200 cfs'), 'list shows measured release');
     assert((await normal.innerText()).includes('56.0 °F'), 'list shows water temperature');
-    assert((await normal.innerText()).includes('estimated from flow'), 'rack remains an estimate');
-    assert(!(await page.locator('[data-variant="noTemp"]').innerText()).includes('°F'), 'missing temperature is not fabricated');
-    assert(!(await page.locator('[data-variant="noReference"]').innerText()).includes('%'), 'no reference means no percentage');
-    assert((await page.locator('[data-variant="stale"]').innerText()).includes('Generating at last reading'), 'old readings do not claim now');
-    assert((await page.locator('[data-variant="stale"]').innerText()).includes('may have been revised'), 'old schedule retains its provenance');
-    assert(!(await page.locator('[data-variant="scheduleOnly"]').innerText()).includes('No turbine generation observed'), 'missing readings are not idle');
-    assert((await page.locator('[data-variant="gateDaily"]').innerText()).includes('daily avg'), 'daily release is labelled');
-    assert(!(await page.locator('[data-variant="gate"]').innerText()).includes('generation'), 'gate-only dam has no generation visual');
-    assert((await page.locator('[data-variant="idle"]').innerText()).includes('No turbine generation observed'), 'idle generation uses the published floor');
+    assert.equal(await normal.locator('dt').count(), 2, 'list cards show only release and temperature readings');
+    assert(await normal.getByText('Today’s generation schedule').isVisible(), 'turbine dams show today’s schedule');
+    // The fixture is idle until hour ending 13, so the next change is the start.
+    assert(await normal.getByText('Starts at 12 PM.', { exact: true }).isVisible(), `list names the next scheduled change:\n${await normal.innerText()}`);
+    assert.equal(await list.getByText(/Generating now|of full generation|Below-dam elevation|%/).count(), 0, 'generation scale stays off list cards');
+    assert(!(await card('noTemp').innerText()).includes('°F'), 'missing temperature is not fabricated');
+    assert.equal(await card('scheduleOnly').getByText('Unavailable', { exact: true }).count(), 2, 'missing readings say so instead of reading as idle');
+    assert((await card('stale').innerText()).includes('may have been revised'), 'old schedule retains its provenance');
+    assert((await card('gateDaily').innerText()).includes('daily avg'), 'daily release is labelled');
+    assert(!(await card('gate').innerText()).includes('generation'), 'gate-only dam has no generation visual');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: list has no horizontal overflow`);
     const first = await list.nth(0).boundingBox();
     const second = await list.nth(1).boundingBox();
@@ -312,6 +332,10 @@ export default function Page() {
       await page.waitForLoadState('networkidle');
       assert.notEqual(await page.evaluate(() => window.damDocument), oldDocument, 'document navigation refreshes Safari banner');
       assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), `${name.replace(/ Dam$/, '')} on your Home Screen.`);
+      // The server renders the QR for every device and hydration removes it on
+      // iOS (useAppDevice). Network idle can come before hydration under a slow
+      // dev compile, so wait for it, bounded, instead of racing it.
+      await page.waitForFunction(() => !document.querySelector('[data-app-qr]'), null, { timeout: 15_000 }).catch(() => {});
       assert.equal(await page.locator('[data-app-qr]').count(), 0, 'iPhone uses the download action without a QR prompt');
       assert(await page.getByRole('img', { name: /Eddy’s Bull Shoals Dam widget/ }).evaluate(el => el.complete && el.naturalWidth > 0), 'real widget screenshot loads');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: app page fits phone`);
@@ -360,6 +384,8 @@ export default function Page() {
   android.on('pageerror', e => errors.push(e.message));
   await android.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
   await android.goto(url, { waitUntil: 'networkidle' });
+  // Server-rendered for every device, removed by hydration on Android; wait as above.
+  await android.waitForFunction(() => !document.querySelector('[data-dam-app-cta]'), null, { timeout: 15_000 }).catch(() => {});
   assert.equal(await android.locator('[data-dam-app-cta]').count(), 0, 'Android omits the iPhone promotion');
   assert(await android.getByRole('region', { name: 'Generation schedule', exact: true }).isVisible());
   await android.close();

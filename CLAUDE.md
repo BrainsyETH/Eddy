@@ -46,17 +46,28 @@ web `test` script lists every file explicitly (no glob); a test that is not
 listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 
 App CI runs on every pull request so required checks cannot remain pending
-because of a path filter. Its `lint-and-typecheck`, `mobile-app`, and
-`dependency-audit` jobs run independently: a security advisory must not suppress
-web tests or the iOS production bundle. Require `lint-and-typecheck` and
-`mobile-app` in GitHub's branch protection or ruleset for `main`; workflow YAML
-alone does not enforce merge protection. Keep `dependency-audit` visible but
-non-required while the reviewed upstream Zod advisory remains unresolved
-(see `missouri-float-planner/docs/x402.md`). It still reports failures and
-uploads its SBOM first. Require the audit once it is green, or after a separate
-review introduces a narrowly scoped, expiring exception that still rejects
-new advisories. Do not normalize administrator bypasses of a permanently red
-required check.
+because of a path filter. Its `lint-and-typecheck`, `mobile-app`,
+`browser-smoke`, and `dependency-audit` jobs run independently: a security
+advisory must not suppress web tests or the iOS production bundle. Require
+`lint-and-typecheck` and `mobile-app` in GitHub's branch protection or ruleset
+for `main`; workflow YAML alone does not enforce merge protection.
+
+`dependency-audit` uploads its SBOM, then fails on any high or critical runtime
+advisory except a reviewed exception in
+`missouri-float-planner/scripts/security/audit-exceptions.json`. An exception
+names one advisory, one package, and its exact install paths, and expires at
+most 45 days after review. The rules and tests are in
+`scripts/security/audit-policy.ts` under the web app. The upstream Zod advisory
+is the one exception (see `missouri-float-planner/docs/x402.md`). Require
+`dependency-audit` once that exception's review has merged and the check is
+green. Renewing an exception is a fresh review, not a date edit. Do not
+normalize administrator bypasses of a permanently red required check.
+
+`browser-smoke` runs the fixture-backed Playwright smokes (`test:*` scripts
+named `*-smoke.mjs`) against `next dev` with synthetic data and no credentials.
+`scripts/security/workflow-action-pins.test.ts` fails if a smoke script exists
+that no CI job runs. Keep it visible but non-required until it has a stable
+green record on `main`, then require it.
 
 ## Commands
 
@@ -76,6 +87,7 @@ scripts and mirror CI exactly:
 
 - `make setup-web` / `make setup-mobile` — `npm ci` in each app
 - `make check-web` — web typecheck + lint + tests
+- `make test-changed` — only the web tests this branch can affect (imports, plus files tests read). The inner loop while iterating; `make check-web` and CI still run the full suite. `npm run test:changed -- --list` prints the selection and why
 - `make check-mobile` — iOS typecheck + lint
 - `make bundle-mobile` — credential-free production iOS bundle + `.easignore` allowlist check (the step that catches Metro/EAS breakage invisible in dev)
 - `make check-db` — migration drift against the **linked** Supabase project. Outside `make check` on purpose: it needs credentials, and CI stays hermetic. Run it after applying anything by hand, not only before a release

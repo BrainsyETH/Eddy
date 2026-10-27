@@ -1,0 +1,18 @@
+[
+  {
+    "advisory": "GHSA-mrhx-c7xc-m3w5",
+    "package": "zod",
+    "paths": [
+      "node_modules/@coinbase/cdp-sdk/node_modules/zod",
+      "node_modules/@coinbase/x402/node_modules/zod",
+      "node_modules/@x402/core/node_modules/zod",
+      "node_modules/@x402/evm/node_modules/zod",
+      "node_modules/@x402/extensions/node_modules/zod"
+    ],
+    "owner": "BrainsyETH",
+    "reviewed": "2026-10-27",
+    "expires": "2026-11-26",
+    "reason": "Coinbase and x402 SDKs require Zod 3; the fix exists only in Zod 4.6.6+ and forcing Zod 4 into them breaks their schemas. Exposure: SDK validation of x402 payment headers and facilitator responses. Compensating control: payment headers are size-bounded before SDK parsing (src/lib/x402/request-limits.ts); application code uses patched Zod 4.6.7.",
+    "tracking": "https://github.com/colinhacks/zod/issues/6653"
+  }
+]
