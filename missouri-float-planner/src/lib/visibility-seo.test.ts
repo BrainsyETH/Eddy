@@ -17,6 +17,7 @@ import type { ConditionsExplorerProps } from '../components/conditions/Condition
 import { conditionsDamCatalogue } from './conditions/dam-catalogue';
 import { normalizeGaugeHistory } from '@shared/history-normalize';
 import type { RiverListItem } from '../types/api';
+import type { DamScheduleDay } from '@shared/dam-types';
 
 test('Next upgrades require reviewing the copied default crawler list', () => {
   const require = createRequire(import.meta.url);
@@ -133,10 +134,48 @@ test('All renders the original river chart and Eddy report alongside full dam in
       siteId: '07067000', readings: [400, 450, 500].map((value, i) => ({ timestamp: new Date(now - (3 - i) * 86400000).toISOString(), dischargeCfs: value, gaugeHeightFt: 3 })),
     }));
   });
-  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Water temp', 'Below-dam elevation', '50%', 'Generation scheduled to increase']) assert.ok(html.includes(text), text);
+  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Water temp', 'Below-dam elevation', '50%', 'Generation scheduled to increase', 'Today’s generation schedule', 'Select an hour for details', 'Full report']) assert.ok(html.includes(text), text);
   assert.match(html, /role="img" aria-label="Flow \(cfs\) trend chart/);
   assert.ok(html.includes('Eddy_the_Otter_'), 'river report keeps its condition-specific Eddy image');
   assert.ok(html.includes('canoe'), 'header keeps Eddy’s canoe artwork');
+});
+
+const scheduleDay = (scheduleDate: string, megawatts: number): DamScheduleDay => ({
+  scheduleDate, retrievedAt: '2026-10-27T16:50:00Z', idle: [],
+  hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts, cfs: null, isRamp: false })),
+});
+const scheduledDam = {
+  ...conditionsDamCatalogue([]).dams.find(item => item.id === 'swl-table-rock-dam')!,
+  generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
+};
+
+test('dam cards render only today’s timeline and roll over at Central midnight', () => {
+  const dam = { ...scheduledDam, schedule: [scheduleDay('2026-10-26', 100), scheduleDay('2026-10-27', 200), scheduleDay('2026-10-28', 400)] };
+  for (const [instant, capacity] of [['2026-10-28T03:00:00Z', 50], ['2026-10-28T05:00:00Z', 100]] as const) {
+    const html = renderConditions({ rivers: [], dams: [dam], renderedAt: Date.parse(instant) });
+    assert.equal((html.match(/role="img"/g) ?? []).length, 1, 'one visible timeline, even with multiple schedule days');
+    assert.match(html, new RegExp(`aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is ${capacity}%`));
+    assert.match(html, /Central time at the dam/);
+    assert.doesNotMatch(html, /<details|role="tab"/);
+    for (const link of html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/g)) assert.ok(!link[0].includes('tabindex="0"'), 'timeline is never nested in a navigation link');
+  }
+});
+
+test('dam cards distinguish missing today from an idle schedule and retain stale provenance', () => {
+  const renderedAt = Date.parse('2026-10-27T17:00:00Z');
+  for (const schedule of [[], [scheduleDay('2026-10-26', 400)], [scheduleDay('2026-10-28', 400)], [{ ...scheduleDay('2026-10-27', 0), hours: [] }]]) {
+    const html = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule }], renderedAt });
+    assert.match(html, /Today’s generation schedule is unavailable/);
+    assert.doesNotMatch(html, /role="img"|No generation scheduled at any hour/);
+  }
+  const idle = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [scheduleDay('2026-10-27', 0)] }], renderedAt });
+  assert.match(idle, /role="img" aria-label="No generation scheduled at any hour/);
+  assert.doesNotMatch(idle, /Today’s generation schedule is unavailable/);
+  const stale = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [{ ...scheduleDay('2026-10-27', 200), retrievedAt: '2026-10-27T10:00:00Z' }] }], renderedAt });
+  assert.match(stale, /role="img"/);
+  assert.match(stale, /It may have been revised since/);
+  const noTurbines = renderConditions({ rivers: [], dams: [{ ...scheduledDam, hasTurbines: false, schedule: [] }], renderedAt });
+  assert.doesNotMatch(noTurbines, /Today’s generation schedule/);
 });
 
 test('the dams entry has its own visible heading and every dam in the initial HTML', () => {

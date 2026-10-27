@@ -69,6 +69,13 @@ condition artwork, plus dam generator indicators, percentages, readings and
 next scheduled changes. Discovery controls never replace report content with
 compact summary tiles.
 
+Hydroelectric dam cards also show today's hourly generation timeline directly,
+using the same `DamTimeline` as the full report. Today means Central time at the
+dam; another day's schedule never substitutes for a missing one. Hover, tap or
+arrow keys reveal hourly details in place. Only the dam heading and Full report
+link navigate, so inspecting a schedule keeps the current search and filters.
+Additional schedule days remain on the full report.
+
 The header retains Eddy's canoe artwork and the cross-river summary. A compact
 A–Z link directory keeps every destination reachable before JavaScript, including
 when live gauge metadata is unavailable. `/dams` keeps its “Lakes & Dams” heading,

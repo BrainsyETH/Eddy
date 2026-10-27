@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { Search, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { RiverListItem, RiversResponse } from '@/types/api';
@@ -151,7 +150,7 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
     return <div key={destination.key} data-result={destination.key} data-destination={destination.key} className="min-w-0">
       {relatedLabel && <p className="mb-2 text-sm text-neutral-600">{relatedLabel}</p>}
       {destination.kind === 'dams'
-        ? <><Link href={destination.href} prefetch={false} className="group block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"><DamListCard dam={destination.dam} now={now} /></Link>
+        ? <><DamListCard dam={destination.dam} now={now} href={destination.href} />
           {distance != null && <p className="mt-2 text-xs text-neutral-500">{Math.max(1, Math.round(distance))} mi away</p>}</>
         : destination.group
           ? <RiverCard riverGroup={destination.group} meta={destination.meta} href={destination.href} distanceMiles={distance} />
