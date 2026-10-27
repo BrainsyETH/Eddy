@@ -18,7 +18,7 @@ import { join } from 'node:path';
 // type-checks perfectly. Same instrument as chart-parity.test.ts: pin the
 // source shape.
 
-const ROUTE = join(__dirname, '../../app/api/gauges/[siteId]/history/route.ts');
+const ROUTE = join(__dirname, 'history-response.ts');
 
 test('the not-found decision waits for the forecast', () => {
   const source = readFileSync(ROUTE, 'utf-8');

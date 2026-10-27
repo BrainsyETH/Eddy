@@ -407,3 +407,5 @@ own — so changes there can fail these tests by design.
 ## License
 
 Private project - not for distribution.
+
+Chart sharing uses the responsive `GaugeHistoryChart` on dedicated gauge and river reports. The fixed-view link contract, public-image payment policy, and app-link activation gates are recorded in [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md).

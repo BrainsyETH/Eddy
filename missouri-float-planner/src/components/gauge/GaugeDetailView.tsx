@@ -27,7 +27,8 @@ import { stateName } from '@/lib/navigation/states';
 import SiteFooter from '@/components/ui/SiteFooter';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
-import { pickPrimaryRiverLink } from '@shared/primary-river-link';
+import { chartSharePageRiver, gaugeSharePath, type ChartShareState } from '@shared/chart-share';
+import { thresholdsForUnit } from '@shared/chart-view';
 import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import GaugeHistoryChart from '@/components/gauge/GaugeHistoryChart';
@@ -43,12 +44,18 @@ import {
 
 interface GaugeDetailViewProps {
   siteId: string;
+  initialShareState?: ChartShareState;
+  shareUnavailable?: boolean;
 }
 
-export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
+export default function GaugeDetailView({ siteId, initialShareState, shareUnavailable }: GaugeDetailViewProps) {
+  const [sharedView, setSharedView] = useState(initialShareState);
+  const [restoreFailed, setRestoreFailed] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
-  const [lastYearFor, setLastYearFor] = useState<string | null>(null);
-  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
+  const [lastYearFor, setLastYearFor] = useState<string | null>(
+    initialShareState?.layers.includes('lastYear') ? siteId : null,
+  );
+  const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(initialShareState?.unit ?? null);
 
   // Eddy AI update
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
@@ -69,12 +76,12 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
       const listed = listGauge?.thresholds?.find(l => l.riverId === link.riverId);
       return { ...listed, ...link,
         riverState: listed?.riverState ?? null,
-        altLevelTooLow: listed?.altLevelTooLow ?? null,
-        altLevelLow: listed?.altLevelLow ?? null,
-        altLevelOptimalMin: listed?.altLevelOptimalMin ?? null,
-        altLevelOptimalMax: listed?.altLevelOptimalMax ?? null,
-        altLevelHigh: listed?.altLevelHigh ?? null,
-        altLevelDangerous: listed?.altLevelDangerous ?? null,
+        altLevelTooLow: link.altLevelTooLow ?? listed?.altLevelTooLow ?? null,
+        altLevelLow: link.altLevelLow ?? listed?.altLevelLow ?? null,
+        altLevelOptimalMin: link.altLevelOptimalMin ?? listed?.altLevelOptimalMin ?? null,
+        altLevelOptimalMax: link.altLevelOptimalMax ?? listed?.altLevelOptimalMax ?? null,
+        altLevelHigh: link.altLevelHigh ?? listed?.altLevelHigh ?? null,
+        altLevelDangerous: link.altLevelDangerous ?? listed?.altLevelDangerous ?? null,
       };
     }) ?? null,
   } : null;
@@ -82,7 +89,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
   // happened to order first. See shared/primary-river-link.ts.
-  const primaryRiver = pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
+  const primaryRiver = chartSharePageRiver(gauge?.thresholds, sharedView?.riverId, sharedView?.riverSlug) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
   const primaryUnit = primaryRiver?.thresholdUnit || (gauge?.dischargeCfs != null ? 'cfs' : 'ft');
 
@@ -96,14 +103,14 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Initialize displayUnit from threshold
   useEffect(() => {
-    if (!primaryRiver) return;
+    if (!primaryRiver || sharedView) return;
     const stored = localStorage.getItem(`gauge-unit-${siteId}`);
     if (stored === 'ft' || stored === 'cfs') {
       setDisplayUnit(stored);
     } else {
       setDisplayUnit(primaryRiver.thresholdUnit);
     }
-  }, [primaryRiver, siteId]);
+  }, [primaryRiver, siteId, sharedView]);
 
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
@@ -175,10 +182,10 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Share handler
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/gauges/${siteId}`;
+    const shareUrl = `${window.location.origin}${gaugeSharePath({ provider: 'usgs', siteId })}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.share) {
-      try { await navigator.share({ url: shareUrl }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ url: shareUrl }); return; } catch (error) { if (error instanceof Error && error.name === 'AbortError') return; }
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -281,6 +288,22 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const lastYearOn = lastYearFor !== null && lastYearFor === lastYearSite;
   const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
 
+  const sharedRiver = sharedView && gaugeDetail
+    ? chartSharePageRiver(gaugeDetail.thresholds, sharedView.riverId, sharedView.riverSlug)
+    : null;
+  const missingSharedScale = sharedView?.riverId && !thresholdsForUnit(sharedRiver, sharedView.unit);
+  const sharedViewUnusable = !!(sharedView && gaugeDetail && (gaugeDetail.provider !== 'usgs' || missingSharedScale));
+  // Drop the saved view in place and fall back to latest conditions, rather than
+  // mounting a second copy of this page with its own fetches and timers.
+  useEffect(() => {
+    if (!sharedViewUnusable) return;
+    setSharedView(undefined);
+    setRestoreFailed(true);
+    setDisplayUnit(null);
+    setLastYearFor(null);
+  }, [sharedViewUnusable]);
+  const activeSharedView = sharedViewUnusable ? undefined : sharedView;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
@@ -319,6 +342,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      {(shareUnavailable || restoreFailed) && <p role="status" className="mx-auto max-w-5xl p-4">This chart link could not be restored. Showing the station’s latest conditions.</p>}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
         {/* Back link */}
         <Link
@@ -412,10 +436,20 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         <div className="space-y-6 mb-8">
           {/* Chart */}
           <GaugeHistoryChart
-            key={gauge.usgsSiteId}
+            key={`${gauge.usgsSiteId}:${JSON.stringify(activeSharedView ?? null)}`}
+            initialShareState={activeSharedView}
+            onShowLatest={() => {
+              setSharedView(undefined);
+              setDisplayUnit(primaryUnit);
+              setLastYearFor(null);
+            }}
+            riverId={primaryRiver?.riverId}
+            riverSlug={primaryRiver?.riverSlug ?? undefined}
+            provider={gaugeDetail?.provider}
+            timeZone={gaugeDetail?.timeZone}
             siteId={gauge.usgsSiteId}
             siteName={gauge.name}
-            thresholds={chartThresholds}
+            thresholds={activeSharedView && !activeSharedView.riverId ? null : chartThresholds}
             floodStages={gaugeDetail?.floodStages ?? null}
             latestValue={latestValue}
             displayUnit={effectiveUnit}
