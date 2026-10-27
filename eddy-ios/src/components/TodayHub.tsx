@@ -217,10 +217,11 @@ function RailViewport({ label, items, initialIndex, cardWidth, viewportWidth, ve
 }
 
 function ConditionPill({ river, centered = false }: { river: RiverListItem; centered?: boolean }) {
+  const { isDark } = useTheme();
   const code = river.currentCondition?.code ?? 'unknown';
   return (
-    <View style={[styles.pill, centered ? { alignSelf: 'center' } : null, { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) }]}>
-      <Text style={[styles.pillText, { color: conditionInk(code) }]} numberOfLines={1}>
+    <View style={[styles.pill, centered ? { alignSelf: 'center' } : null, { backgroundColor: conditionBg(code, isDark), borderColor: conditionChipBorder(code, isDark) }]}>
+      <Text style={[styles.pillText, { color: conditionInk(code, isDark) }]} numberOfLines={1}>
         {conditionLabel(code)}
       </Text>
     </View>
@@ -240,7 +241,7 @@ function BestRiverCard({
   onPlan: () => void;
   standalone?: boolean;
 }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const condition = recommendation.river.currentCondition;
   if (!condition) return (
     <View style={[styles.bestPreview, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -264,7 +265,7 @@ function BestRiverCard({
       style={[
         styles.bestPreview,
         standalone ? styles.bestStandalone : null,
-        { backgroundColor: conditionBg(condition.code), borderColor: conditionChipBorder(condition.code) },
+        { backgroundColor: conditionBg(condition.code, isDark), borderColor: conditionChipBorder(condition.code, isDark) },
         elevation(1),
       ]}
     >
@@ -280,7 +281,7 @@ function BestRiverCard({
       </View>
       {facts || age ? (
         <View style={[styles.factRow, { backgroundColor: colors.card }]}>
-          <ControlIcon name="pulse-outline" size={17} color={conditionInk(condition.code)} />
+          <ControlIcon name="pulse-outline" size={17} color={conditionInk(condition.code, isDark)} />
           <View style={styles.flex}>
             {facts ? <Text style={[styles.factText, { color: colors.text }]} numberOfLines={1}>{facts}</Text> : null}
             {age ? <Text style={[styles.factAge, { color: colors.textMuted }]} numberOfLines={1}>{age}</Text> : null}

@@ -2,6 +2,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
+import { sheetControl } from '@/theme/palette';
 import { fonts, type as t } from '@/theme/typography';
 
 export type FloatInfoTopic = 'time' | 'distance';
@@ -19,7 +20,7 @@ export function FloatInfoSheet({ topic, onClose }: { topic: FloatInfoTopic; onCl
     >
       <SafeAreaProvider>
         <SafeAreaView
-          style={[styles.screen, { backgroundColor: colors.card }]}
+          style={[styles.screen, { backgroundColor: colors.sheet }]}
           accessibilityViewIsModal
           onAccessibilityEscape={onClose}
         >
@@ -31,7 +32,7 @@ export function FloatInfoSheet({ topic, onClose }: { topic: FloatInfoTopic; onCl
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={`Close ${title}`}
-              style={[styles.done, { backgroundColor: colors.cardRaised }]}
+              style={[styles.done, sheetControl(colors)]}
             >
               <Text style={[t.sm, { color: colors.interactive }]}>Done</Text>
             </Pressable>

@@ -280,12 +280,12 @@ function GaugeCard({ status, onOpen }: { status: AccessPointGaugeStatus; onOpen:
           style={[
             styles.chip,
             {
-              backgroundColor: conditionBg(status.level),
-              borderColor: conditionChipBorder(status.level),
+              backgroundColor: conditionBg(status.level, isDark),
+              borderColor: conditionChipBorder(status.level, isDark),
             },
           ]}
         >
-          <Text style={[styles.chipText, { color: conditionInk(status.level) }]}>
+          <Text style={[styles.chipText, { color: conditionInk(status.level, isDark) }]}>
             {status.label}
           </Text>
         </View>

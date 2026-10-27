@@ -257,7 +257,7 @@ export function PlanSheet({
       }}
     >
       <SafeAreaProvider>
-      <SafeAreaView edges={resultReady || entry === 'return' ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
+      <SafeAreaView edges={resultReady || entry === 'return' ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]} onAccessibilityEscape={close}>
         <View style={[styles.head, stacked && styles.compactHead]}>
           {!stacked ? heading : null}
           <Pressable onPress={close} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close planner">

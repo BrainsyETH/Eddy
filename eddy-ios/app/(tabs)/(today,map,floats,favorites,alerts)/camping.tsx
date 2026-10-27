@@ -251,7 +251,7 @@ function CampingContent() {
         onRequestClose={() => setRiverPicker(false)}
       >
         <SafeAreaView
-          style={{ flex: 1, backgroundColor: colors.bg, padding: 20 }}
+          style={{ flex: 1, backgroundColor: colors.sheetGrouped, padding: 20 }}
           onAccessibilityEscape={() => setRiverPicker(false)}
         >
           <View

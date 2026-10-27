@@ -7,18 +7,15 @@ import { useSession } from '@/hooks/useSession';
 import { premiumExcerpt } from '@/lib/todayPresentation';
 import { writtenAge } from '@/lib/eddySays';
 import { useTheme } from '@/theme/ThemeProvider';
-import { lightPalette } from '@/theme/palette';
-import { highContrastLightPalette } from '@/theme/contrast';
 import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Parent mounts only for Premium and keys by user: no cross-user prose cache. */
 export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: string; revision: string; onPhoto?: boolean }) {
-  const theme = useTheme();
-  // Photo excerpts keep a warm white surface in either appearance. Pair every
-  // state with light-surface ink so timestamps, loading and Retry stay readable.
-  const photoColors = theme.increaseContrast ? highContrastLightPalette : lightPalette;
-  const colors = onPhoto ? { ...photoColors, text: photoColors.anchorSurface } : theme.colors;
+  const { colors, isDark } = useTheme();
+  // Opaque panels keep every loading/error/content state legible over photos,
+  // without leaving a bright rectangle in the dark appearance.
+  const excerptInk = onPhoto && !isDark ? colors.anchorSurface : colors.textBody;
   const { getAccessToken } = useSession();
   const key = JSON.stringify([slug]);
   const [result, setResult] = useState<{ key: string; data: PremiumEddyRead | null; error: boolean } | null>(null);
@@ -58,11 +55,11 @@ export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: 
     }
   }, [revision, refresh]);
   const current = result?.key === key ? result : null;
-  return <View style={{ marginTop: 10, minHeight: 126, gap: 6, ...(onPhoto ? { backgroundColor: colors.cardRaised, borderRadius: radii.inset, marginHorizontal: -8, paddingHorizontal: 8, paddingVertical: 10 } : {}) }}>
+  return <View style={{ marginTop: 10, minHeight: 126, gap: 6, ...(onPhoto ? { backgroundColor: isDark ? colors.card : colors.cardRaised, borderRadius: radii.inset, marginHorizontal: -8, paddingHorizontal: 8, paddingVertical: 10 } : {}) }}>
     {!current ? <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
       <ActivityIndicator size="small" color={colors.interactive} /><Text style={{ ...t.xs, color: colors.textMuted }}>Loading your Read…</Text>
     </View> : <>
-      {current.data ? <><Text numberOfLines={6} style={{ ...t.sm, fontFamily: fonts.body, color: colors.text, lineHeight: 21 }}>{premiumExcerpt(current.data.fullRead)}</Text><Text style={{ ...t.xs, color: colors.textSubtle }}>{writtenAge(current.data.generatedAt)}</Text></> : null}
+      {current.data ? <><Text numberOfLines={6} style={{ ...t.sm, fontFamily: fonts.body, color: excerptInk, lineHeight: 21 }}>{premiumExcerpt(current.data.fullRead)}</Text><Text style={{ ...t.xs, color: colors.textSubtle }}>{writtenAge(current.data.generatedAt)}</Text></> : null}
       {current.error || !current.data ? <><Text style={{ ...t.xs, color: colors.textMuted }}>{current.error ? (current.data ? 'Couldn’t refresh. Showing the previous Read.' : 'Couldn’t load this Read.') : 'No current Premium Read is available.'}</Text><Pressable onPress={event => { event.stopPropagation(); refresh(true); }} accessibilityRole="button" accessibilityLabel="Retry Premium Read" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ ...t.sm, color: colors.interactive }}>Retry Read</Text></Pressable></> : null}
     </>}
   </View>;

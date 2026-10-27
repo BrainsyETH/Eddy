@@ -21,7 +21,7 @@ interface Props {
 
 /** Compact overview; every count keeps the existing river-list filter shortcut. */
 export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, onOpenRiver }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale >= 1.3;
   const summaries = [
@@ -53,7 +53,7 @@ export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, 
               accessibilityRole="button"
               accessibilityLabel={`${label}, ${counts[key]} ${counts[key] === 1 ? 'river' : 'rivers'}`}
               style={({ pressed }) => [styles.count, stacked && styles.countStacked, {
-                backgroundColor: counts[key] > 0 ? conditionBg(code) : colors.cardRaised,
+                backgroundColor: counts[key] > 0 ? conditionBg(code, isDark) : colors.cardRaised,
                 opacity: pressed ? 0.65 : 1,
               }]}
             >

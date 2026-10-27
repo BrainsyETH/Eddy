@@ -48,7 +48,7 @@ export function AlertSignInSheet({ visible, riverName, onSignedIn, onDismiss }: 
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}
     >
-      <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}>
         <View style={styles.body}>
           <EddyScene name="checkingGauge" size={120} />
 

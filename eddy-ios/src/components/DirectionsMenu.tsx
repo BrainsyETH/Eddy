@@ -82,7 +82,7 @@ function DirectionsMenu({ point, onClose }: { point: DrivePoint; onClose: () => 
             onPress={onClose} accessible={false}
           />
           <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.safeArea} pointerEvents="box-none">
-            <View style={[styles.sheet, { backgroundColor: colors.card }]} accessibilityViewIsModal onAccessibilityEscape={onClose}>
+            <View style={[styles.sheet, { backgroundColor: colors.sheet }]} accessibilityViewIsModal onAccessibilityEscape={onClose}>
               <ScrollView bounces={false} style={styles.scroll} contentContainerStyle={styles.content}>
                 <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Open {point.name} in…</Text>
                 {(['Driving directions', 'Outdoor maps'] as const).map((group) => {

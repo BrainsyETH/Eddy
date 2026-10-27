@@ -83,7 +83,7 @@ function Unavailable({ visible, onDismiss }: { visible: boolean; onDismiss: () =
         onPress={onDismiss}
         accessibilityLabel="Close"
       />
-      <View style={[styles.card, floating(), { backgroundColor: colors.card }]}>
+      <View style={[styles.card, floating(), { backgroundColor: colors.sheet }]}>
         <Text style={[styles.title, { color: colors.text }]}>Photos need a newer app</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Adding a photo needs a newer version of Eddy. Everything else on this screen is up to
