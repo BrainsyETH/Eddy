@@ -13,8 +13,11 @@ const due = (stamp: string | null | undefined, interval: number, now: number) =>
   return !Number.isFinite(at) || at > now || now - at >= interval;
 };
 export function placeRefreshNeeds(place: SavedPlace, now: number) {
+  const needsCampingLookup = place.camping === undefined && (!!place.detailRoute || place.id.startsWith('place:service:'));
   return {
-    details: due(place.detailsDownloadedAt, 24 * 60 * MINUTE, now) || (!!place.gauge && due(place.gauge.downloadedAt, 15 * MINUTE, now)),
+    details: needsCampingLookup || due(place.detailsDownloadedAt, 24 * 60 * MINUTE, now)
+      || (!!place.gauge && due(place.gauge.downloadedAt, 15 * MINUTE, now))
+      || (!!place.camping && due(place.camping.downloadedAt, 15 * MINUTE, now)),
     dam: place.damChoice !== 'none' && (!!place.dam || place.damChoice !== 'auto') && due(place.dam?.downloadedAt, 15 * MINUTE, now),
     association: !!place.riverSlug && place.damChoice !== 'none' && due(place.damsCheckedAt, 24 * 60 * MINUTE, now),
   };

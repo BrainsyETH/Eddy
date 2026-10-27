@@ -10,10 +10,11 @@ import { SavedPlaceDamPicker } from '@/components/SavedPlaceDamPicker';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { DayBars } from '@/components/dam/DayBars';
+import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
 import { DAM_CATALOG } from '@/lib/damCatalog';
 import { refreshSavedPlace, savedPlaces } from '@/lib/savedPlacesStore';
 import { savedScheduleState } from '@/lib/savedPlaces';
-import { savedGaugeDisplay, savedScheduleDayLabel, scheduleGroups } from '@/lib/savedPlaceDisplay';
+import { savedCampingDisplay, savedGaugeDisplay, savedScheduleDayLabel, scheduleGroups } from '@/lib/savedPlaceDisplay';
 import { onForeground } from '@/lib/foreground';
 
 const stamp = (value: string | null) => value && Number.isFinite(Date.parse(value))
@@ -60,6 +61,7 @@ function SavedPlaceContent() {
   </View>;
   const gauge = place.gauge?.reading;
   const display = savedGaugeDisplay(place, now);
+  const camping = savedCampingDisplay(place, now);
   const dam = place.dam?.snapshot;
   const chosenDamId = place.damChoice === 'none' ? null : dam?.id ?? (place.damChoice === 'auto' ? null : place.damChoice);
   const damName = dam?.name ?? DAM_CATALOG.find(d => d.id === chosenDamId)?.name;
@@ -87,6 +89,12 @@ function SavedPlaceContent() {
         <Text style={note}>{place.detailsDownloadedAt ? `Details downloaded ${stamp(place.detailsDownloadedAt)}` : 'Details not downloaded'}</Text>
         {error ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>{error}</Text> : null}
       </View>
+      {camping ? <View style={{ gap: 6 }}>
+        <Text accessibilityRole="header" style={heading}>Campsites</Text>
+        <CampgroundAvailability wrapText availability={camping.availability} name={camping.name} today={camping.today}
+          pending={!camping.availability} pendingLabel="Availability out of date" />
+        <Text style={note}>Checked {camping.age}</Text>
+      </View> : null}
       {gauge ? <View style={{ gap: 6 }}>
         <Text accessibilityRole="header" style={heading}>{gauge.gaugeName}</Text>
         <Text style={[t.xl, { fontFamily: fonts.heading, color: display.band === 'fresh' ? colors.text : colors.textMuted }]}>{display.reading ?? 'Reading unavailable'}</Text>
