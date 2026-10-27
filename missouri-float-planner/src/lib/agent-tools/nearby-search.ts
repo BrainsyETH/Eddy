@@ -114,12 +114,14 @@ export async function findNearbyFloats(
     const distanceByRiver = new Map<string, number>();
     if (near && !input.river && rivers.length) {
       const riverById = new Map(rivers.map((r) => [r.id, r]));
+      const lastEndpointMile = new Map<string, number>();
+      const otherPutInMile = new Map<string, number>();
       for (let offset = 0; offset < 10_000; offset += 500) {
         const rows =
           checked(
             await ctx.db
               .from('access_points')
-              .select('id, river_id, location_orig, location_snap, is_public')
+              .select('id, river_id, location_orig, location_snap, is_public, river_mile_downstream')
               .eq('approved', true)
               .eq('is_float_endpoint', true)
               .in(
@@ -131,16 +133,27 @@ export async function findNearbyFloats(
             'nearby launches',
           ) ?? [];
         for (const row of rows) {
-          if (!row.river_id || (input.publicOnly && row.is_public !== true))
-            continue;
+          if (!row.river_id) continue;
           const river = riverById.get(row.river_id);
           if (!river) continue;
+          const mile = numeric(row.river_mile_downstream);
+          if (input.publicOnly && mile != null) {
+            lastEndpointMile.set(row.river_id, Math.max(mile, lastEndpointMile.get(row.river_id) ?? -Infinity));
+          }
           const point = accessView(
             row as Parameters<typeof accessView>[0],
             river,
           ).coordinates;
           if (!point) continue;
           const distance = geographicMiles(near, point);
+          if (input.publicOnly && row.is_public !== true) {
+            // Keep excluded launches for recovery without changing the public
+            // shortlist, its proximity order, or its route-assessment budget.
+            if (distance <= input.radiusMiles && mile != null) {
+              otherPutInMile.set(row.river_id, Math.min(mile, otherPutInMile.get(row.river_id) ?? Infinity));
+            }
+            continue;
+          }
           distanceByRiver.set(
             row.river_id,
             Math.min(distance, distanceByRiver.get(row.river_id) ?? Infinity),
@@ -149,6 +162,7 @@ export async function findNearbyFloats(
         if (rows.length < 500) break;
         if (offset === 9500) partial = true;
       }
+      otherAccessPair = [...otherPutInMile].some(([riverId, mile]) => mile < (lastEndpointMile.get(riverId) ?? -Infinity));
     }
     const nearby = rivers
       .filter(
@@ -328,7 +342,7 @@ export async function findNearbyFloats(
   // A time mismatch already returns assessed shorter/longer alternatives.
   // With no routes, explain the actual exclusion rather than blaming the time.
   if (!matches.length && !alternatives.length && !unavailableReason && !partial && !budget.signal.aborted) {
-    if (!riverCount) emptyReason = 'no_nearby_rivers';
+    if (!riverCount) emptyReason = otherAccessPair ? 'public_access' : 'no_nearby_rivers';
     else if (!eligiblePairs) emptyReason = otherAccessPair ? 'public_access' : 'access_points';
     else if (screenedOutPairs === eligiblePairs) {
       emptyReason = excludedConditions.size === 1 && excludedConditions.has('too_low') ? 'too_low'

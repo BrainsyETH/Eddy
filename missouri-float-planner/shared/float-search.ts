@@ -107,7 +107,7 @@ const EMPTY_REASONS: Record<FloatSearchEmptyReason, string> = {
   duration_unavailable: 'We couldn’t estimate a float time for the routes checked. Try a nearby river.',
   closures: 'Recorded closures affect the routes checked. Try a nearby river.',
   hazards: 'Recorded hazards keep the routes checked out of suggestions. Try a nearby river.',
-  no_nearby_rivers: 'No rivers with eligible launches were found in this area. Try a wider search.',
+  no_nearby_rivers: 'No rivers with eligible launches were found in this area. Try another location or a wider search.',
   route_checks: 'No routes passed the current condition and access checks. Try another river or a wider search.',
 };
 
