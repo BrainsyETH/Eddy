@@ -1,5 +1,7 @@
 import { CONDITION_SYSTEM } from '@eddy/conditions';
 import { centralDayKey, nextDayKey, scheduleDayLabel, windowLabel } from '@eddy/conditions/dam-schedule-copy';
+import { CAMPING_MAX_AGE_MS } from '@eddy/conditions/camping-freshness';
+import { availabilityHero, availabilityVoiceOver, nightBars } from '../components/map-sheet/availability';
 import { readingBand } from './offline-cache';
 import { savedScheduleState, type SavedPlace } from './savedPlaces';
 import type { DamCatalogEntry } from './damCatalog';
@@ -26,6 +28,28 @@ export function savedGaugeDisplay(place: SavedPlace, now: number) {
     condition: code ? CONDITION_SYSTEM[code].label : null,
     state: band === 'expired' ? 'Out of date' : band === 'stale' ? 'Stale' : null };
 }
+/** Preserve the campsite panel while withholding counts from expired inventory. */
+export function savedCampingDisplay(place: SavedPlace, now: number) {
+  const saved = place.camping;
+  if (!saved) return null;
+  const today = centralDayKey(now);
+  const ageMs = now - Date.parse(saved.availability.fetchedAt);
+  const fresh = Number.isFinite(ageMs) && ageMs >= 0 && ageMs < CAMPING_MAX_AGE_MS;
+  // availabilityHero falls back to the weekend aggregate when its strip is
+  // empty. Once that window starts passing, its old count is no longer an
+  // answer about tonight; a future measured night can still supply the hero.
+  const hasUpcomingNight = nightBars(saved.availability, today).some(bar => bar.mark !== 'none');
+  const upcomingWindow = saved.availability.window.startDate >= today;
+  const availability = fresh && (hasUpcomingNight || upcomingWindow) ? saved.availability : null;
+  const hero = availabilityHero(availability, today, saved.name);
+  const summary = hero ? [hero.count === null ? hero.headline : `${hero.count} ${hero.headline}`,
+    hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : 'Availability needs an update';
+  return {
+    availability, name: saved.name, today, summary,
+    age: shortAge(Number.isFinite(ageMs) && ageMs >= 0 ? ageMs / 3_600_000 : null),
+    accessibilityLabel: availabilityVoiceOver(availability, today, saved.name) ?? summary,
+  };
+}
 export function scheduleGroups(place: SavedPlace, now: number) {
   const today = centralDayKey(now);
   const days = [...(place.dam?.snapshot.schedule ?? [])].sort((a, b) => a.scheduleDate.localeCompare(b.scheduleDate));
@@ -38,6 +62,8 @@ export function savedScheduleDayLabel(day: string, now: number) {
   return scheduleDayLabel(day) + (day.slice(0, 4) !== today.slice(0, 4) ? ` ${day.slice(0, 4)}` : '');
 }
 export function savedPlaceSummary(place: SavedPlace, now: number) {
+  const camping = savedCampingDisplay(place, now);
+  if (camping) return camping.summary;
   if (place.gauge) {
     const gauge = savedGaugeDisplay(place, now);
     return [gauge.reading ?? gauge.state, gauge.reading ? gauge.state : null, gauge.age].filter(Boolean).join(' · ');

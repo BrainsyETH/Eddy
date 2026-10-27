@@ -2,7 +2,8 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import { accessAmenities } from '@/components/map-sheet/accessAmenities';
-import { savedGaugeDisplay, savedPlaceSummary } from '@/lib/savedPlaceDisplay';
+import { CampgroundAvailability } from '@/components/map-sheet/CampgroundAvailability';
+import { savedCampingDisplay, savedGaugeDisplay, savedPlaceSummary } from '@/lib/savedPlaceDisplay';
 import type { SavedPlace } from '@/lib/savedPlaces';
 import { useTheme } from '@/theme/ThemeProvider';
 import { conditionChipBorder, conditionColor, conditionInk, conditionOpaqueBg } from '@/theme/conditions';
@@ -23,18 +24,20 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
   const stacked = width < 360 || fontScale >= 1.3;
   const campground = place.kind === 'campground';
   const kind = campground ? 'Campground' : 'Access point';
-  const gauge = place.gauge ? savedGaugeDisplay(place, now) : null;
+  const camping = savedCampingDisplay(place, now);
+  const gauge = !camping && place.gauge ? savedGaugeDisplay(place, now) : null;
   const code = gauge?.code ?? null;
   const gaugeNotice = gauge ? [gauge.condition ?? gauge.state, gauge.age].filter(Boolean).join(' · ') : null;
   const amenities = accessAmenities(place.amenities);
-  const summary = gauge ? null : savedPlaceSummary(place, now);
+  const summary = camping || gauge ? null : savedPlaceSummary(place, now);
   // Restrictions and amenities get their own rows, without repeating the
   // legacy summary's first tag or raw amenity slugs in the inset panel.
   const detailSummary = summary && !place.tags.includes(summary) && summary !== place.amenities.join(' · ')
     ? summary : null;
   const accessibilityLabel = [
     place.name, kind, place.riverName, ...place.tags,
-    place.gauge?.reading.gaugeName, gauge?.reading ?? (gauge ? 'Reading unavailable' : null), gaugeNotice,
+    camping ? `Campsites, ${camping.accessibilityLabel}, checked ${camping.age}` : null,
+    gauge ? place.gauge?.reading.gaugeName : null, gauge?.reading ?? (gauge ? 'Reading unavailable' : null), gaugeNotice,
     detailSummary, ...amenities.map(amenity => amenity.label),
   ].filter(Boolean).join(', ');
 
@@ -88,7 +91,13 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
               </View>
             ) : null}
 
-            {gauge ? (
+            {camping ? (
+              <View style={styles.camping}>
+                <CampgroundAvailability wrapText availability={camping.availability} name={camping.name} today={camping.today}
+                  pending={!camping.availability} pendingLabel="Update availability" />
+                <Text style={[styles.notice, { color: colors.textMuted }]}>Checked {camping.age}</Text>
+              </View>
+            ) : gauge ? (
               <View style={[styles.readingRow, stacked && styles.readingStacked, { backgroundColor: colors.cardRaised }]}>
                 <View style={[styles.readingContext, stacked && styles.stackedContext]}>
                   <Text style={[styles.gaugeName, { color: colors.text }]}>{place.gauge?.reading.gaugeName}</Text>
@@ -123,7 +132,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
               </View>
             ) : null}
 
-            {!gauge && !detailSummary && !place.tags.length && !amenities.length ? (
+            {!camping && !gauge && !detailSummary && !place.tags.length && !amenities.length ? (
               <View style={styles.openRow}>
                 <Text style={[styles.openText, { color: colors.interactive }]}>View place</Text>
                 <ControlIcon name="chevron-forward" size={12} color={colors.interactive} />
@@ -152,6 +161,7 @@ const styles = StyleSheet.create({
   star: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   details: { marginTop: 12, marginRight: 9, minHeight: 44, justifyContent: 'center' },
   detailsContent: { gap: 10 },
+  camping: { gap: 3 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   tag: { maxWidth: '100%', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
   tagText: { ...t.xs, fontFamily: fonts.medium },

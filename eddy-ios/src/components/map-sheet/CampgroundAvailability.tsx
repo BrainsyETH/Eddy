@@ -86,6 +86,7 @@ export function CampgroundAvailability({
   water = null,
   pending = false,
   pendingLabel,
+  wrapText = false,
   style,
 }: {
   availability: CampsiteAvailabilitySummary | null | undefined;
@@ -135,6 +136,8 @@ export function CampgroundAvailability({
    * stall.
    */
   pendingLabel?: string;
+  /** Favorites and saved details can grow; map peek keeps its fixed height. */
+  wrapText?: boolean;
 }) {
   const { colors, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -190,7 +193,7 @@ export function CampgroundAvailability({
           <View style={styles.words}>
             <Text
               style={[styles.label, { color: pending ? colors.textSubtle : colors.text }]}
-              numberOfLines={largeText ? undefined : 1}
+              numberOfLines={largeText || wrapText ? undefined : 1}
             >
               {hero ? `${largeText && hero.count != null ? `${hero.count} ` : ''}${hero.headline}` : (pendingLabel ?? 'Checking campsites…')}
             </Text>
@@ -198,7 +201,7 @@ export function CampgroundAvailability({
                 line box alive for `closed`, which carries neither a detail nor
                 a caption, and without it this card is a line shorter than the
                 one the slot reserved for it. */}
-            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText ? undefined : 1}>
+            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText || wrapText ? undefined : 1}>
               {(hero ? [hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : '') || ' '}
             </Text>
           </View>

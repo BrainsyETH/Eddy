@@ -1146,13 +1146,15 @@ readings still show their specific qualifier note.
 
 Access points, boat ramps and campgrounds offer **Save/Saved** from the map
 sheet and access toolbar. Favorites → place opens the downloaded details in
-two taps, without a route or a network request. Rows show a cached gauge and
-its age, or today's **scheduled** generation window when available.
+two taps, without a route or a network request. Linked campground availability
+leads the card when Eddy tracks it, including on ordinary access-point saves.
+Otherwise rows show a cached gauge and its age, or today's **scheduled**
+generation window when available.
 
 Saved-place cards share the river favorites' rounded surface, accent stripe,
 and reading pills. Bundled access-point/campground artwork and a category label
 identify each place even offline. The name and river lead; restrictions stay
-visible above the gauge/schedule panel, followed by up to three labeled amenities.
+visible above the availability/gauge/schedule panel, followed by up to three labeled amenities.
 The separate saved star and swipe action both remove only the current account's
 save. Stale readings stay neutral, expired values stay hidden, and narrow or
 large-text layouts stack the artwork and readings without truncating names.
@@ -1174,13 +1176,20 @@ device backups.
 
 Snapshots include labeled parking, road, agency, facilities, fees and tips;
 private access and required fees appear first. They retain coordinates,
-driving location, amenities and contact/booking links, but no campsite
-availability. Saving starts a download. **Refresh** retries explicitly;
+driving location, amenities, contact/booking links and any linked campsite
+availability returned by the existing access/service request. Availability uses
+the same campsite count and night strip as the map, without a water-reading
+corner. Its original provider timestamp stays visible; at 72 hours, with an
+invalid/future timestamp, or after all relevant nights pass, counts are hidden
+and the panel requests an update. Old weekend counts cannot resurface after
+the weekend starts passing. The gauge remains in the saved details.
+Saving starts a download. **Refresh** retries explicitly;
 foregrounding and reconnecting also retry missing/stale downloads while the
 app is active and connected. A batch handles at most four places with two
 workers, with failure backoff from one to thirty minutes. Details and dam
-associations are checked daily; downloaded gauge/dam data after fifteen
-minutes. There is no background polling. Bare access pins remain **Details
+associations are checked daily; downloaded camping/gauge/dam data after fifteen
+minutes. Older saves missing the optional camping field get one lookup through
+the same bounded foreground refresh. There is no background polling. Bare access pins remain **Details
 not downloaded** until their detail request succeeds. Failed downloads keep
 the previous data. A new download never changes an observation timestamp or
 a schedule day's original retrieval time.
