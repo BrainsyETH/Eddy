@@ -855,6 +855,26 @@ try {
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1'
     && new URLSearchParams(location.search).get('takeOut') === 'p-0-0');
 
+  // Deep links survive pending requests, but a completed empty access list
+  // must clear both endpoint IDs instead of retaining an unusable route.
+  emptyAccessRiver = 'jacks-fork';
+  const releaseEmptyAccess = holdAccess(emptyAccessRiver);
+  const emptyAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/jacks-fork/access-points');
+  await page.goto(`${origin}/planner-map-layout-check?river=jacks-fork&putIn=p-2-0&takeOut=p-2-1&vessel=canoe`, { waitUntil: 'domcontentloaded' });
+  await emptyAccessRequest;
+  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
+  assert.deepEqual(await page.evaluate(() => {
+    const params = new URLSearchParams(location.search);
+    return [params.get('putIn'), params.get('takeOut')];
+  }), ['p-2-0', 'p-2-1'], 'loading must preserve deep-link endpoints');
+  releaseEmptyAccess();
+  await page.waitForFunction(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('river') === 'jacks-fork' && !params.has('putIn') && !params.has('takeOut');
+  });
+  assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0);
+  console.log('Delayed access responses hide stale desktop/mobile controls; empty responses clear both deep-link endpoints');
+  emptyAccessRiver = null;
   await page.close();
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
   mobile.on('pageerror', error => errors.push(String(error)));
@@ -904,26 +924,6 @@ try {
   await endpointsVisible(mobile, true);
   await mobile.screenshot({ path: `${out}/mobile-restored-route.png` });
   console.log('Mobile two-tap planning, persistent search results, zoom controls, fullscreen, route fit and Undo passed');
-
-  // Deep links survive pending requests, but a completed empty access list
-  // must clear both endpoint IDs instead of retaining an unusable route.
-  emptyAccessRiver = 'jacks-fork';
-  const releaseEmptyAccess = holdAccess(emptyAccessRiver);
-  const emptyAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/jacks-fork/access-points');
-  await page.goto(`${origin}/planner-map-layout-check?river=jacks-fork&putIn=p-2-0&takeOut=p-2-1&vessel=canoe`, { waitUntil: 'domcontentloaded' });
-  await emptyAccessRequest;
-  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
-  assert.deepEqual(await page.evaluate(() => {
-    const params = new URLSearchParams(location.search);
-    return [params.get('putIn'), params.get('takeOut')];
-  }), ['p-2-0', 'p-2-1'], 'loading must preserve deep-link endpoints');
-  releaseEmptyAccess();
-  await page.waitForFunction(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get('river') === 'jacks-fork' && !params.has('putIn') && !params.has('takeOut');
-  });
-  assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0);
-  console.log('Delayed access responses hide stale desktop/mobile controls; empty responses clear both deep-link endpoints');
   assert.deepEqual(errors, []);
   console.log('Desktop 1440/1024, mobile and runtime checks passed');
 } catch (error) {
