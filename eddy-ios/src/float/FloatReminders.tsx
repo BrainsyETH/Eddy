@@ -54,7 +54,7 @@ export function FloatReminders({ session }: { session: FloatSession }) {
     <View style={[styles.section, { borderColor: colors.border }]}>
       <View style={styles.row}>
         <Text style={[styles.heading, styles.rowText, { color: colors.text }]} accessibilityRole="header">Reminders</Text>
-        <FloatInfoTip title="Float reminders" message={`Take-out reminders arrive about ${TAKE_OUT_LEAD_MILES} river miles ahead. Stop reminders arrive about ${STOP_LEAD_MILES} miles ahead. They work without cell service, using a confirmed river position, and are sent once per stop. A GPS gap can delay or prevent a reminder. Eddy also notifies you near the take-out.`} />
+        <FloatInfoTip title="Float reminders" message={`The take-out reminder arrives about ${TAKE_OUT_LEAD_MILES} river miles ahead, stop reminders about ${STOP_LEAD_MILES} miles ahead, and hazard reminders (dams, portages and serious hazards) about ${HAZARD_LEAD_MILES} miles ahead. They work without cell service, using a confirmed river position, and are sent once each per float. A GPS gap can delay or prevent a reminder. Separately, Eddy prompts you to finish once you reach the take-out.`} />
       </View>
 
       <ReminderPermission enabled={anyOn} />

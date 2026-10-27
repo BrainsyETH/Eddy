@@ -42,7 +42,7 @@ import {
   continuingPastEnd,
   isShortFloat,
 } from '../../../eddy-ios/src/lib/floatEnding';
-import { notificationAccess, canDeliverNotification } from '../../../eddy-ios/src/lib/notificationAccess';
+import { notificationAccess, canDeliverNotification, canRequestNotification } from '../../../eddy-ios/src/lib/notificationAccess';
 import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 const MILE = 1609.344;
@@ -444,7 +444,10 @@ test('local reminder permission distinguishes quiet delivery and does not mistak
   assert.equal(notificationAccess({ granted: false, canAskAgain: true }), 'ask');
   assert.equal(notificationAccess({ granted: false, canAskAgain: false }), 'settings');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false }), 'granted');
-  assert.equal(notificationAccess({ granted: false, canAskAgain: false, provisional: true }), 'quiet');
+  assert.equal(notificationAccess({ granted: false, canAskAgain: false, provisional: true }), 'provisional', 'quiet by iOS, not by the user: the prompt can still upgrade it');
+  assert.equal(canDeliverNotification('provisional'), true);
+  assert.deepEqual(['ask', 'provisional', 'unknown'].map(canRequestNotification), [true, true, true]);
+  assert.deepEqual(['granted', 'quiet', 'settings'].map(canRequestNotification), [false, false, false], 'alerts off in Settings or a denial cannot be prompted away');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsSound: false }), 'quiet');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsAlert: false }), 'quiet');
   for (const state of ['unknown', 'ask', 'settings'] as const) assert.equal(canDeliverNotification(state), false);
