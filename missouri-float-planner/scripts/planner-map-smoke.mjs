@@ -49,7 +49,7 @@ const points = riverMeta.map((river, i) => ['Put-in', 'Take-out', 'Riverside par
     ownership: 'Public',
     description: null,
     amenities: [],
-    imageUrls: [],
+    imageUrls: ['/email/eddy-quote.png'],
     parkingInfo: null,
     roadAccess: null,
     facilities: null,
@@ -238,7 +238,7 @@ try {
   // With JavaScript disabled, viewport state is still unknown. The desktop
   // search must already be visible in the server-rendered HTML.
   const ssrPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, javaScriptEnabled: false });
-  await ssrPage.goto(`${origin}/planner-map-layout-check/ssr`, { waitUntil: 'domcontentloaded' });
+  await ssrPage.goto(`${origin}/planner-map-layout-check/ssr`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   assert(await ssrPage.getByRole('combobox', { name: 'Search rivers and access points' }).isVisible());
   await ssrPage.setViewportSize({ width: 390, height: 844 });
   await ssrPage.getByRole('combobox', { name: 'Search rivers and access points' }).waitFor({ state: 'hidden' });
@@ -266,7 +266,7 @@ try {
   await page.addInitScript(() => localStorage.setItem('eddy-plan-map-filters-v1', JSON.stringify({
     showNetwork: false, showRiverNames: false, showGauges: false, showPOIs: false, showPhotos: false, hiddenPoiCategories: ['spring']
   })));
-  await page.route('**/*', async route => {
+  const routeHandler = async route => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) {
       return route.fulfill({
@@ -321,11 +321,24 @@ try {
           isPrimary: true, riverMile: 5, thresholdUnit: 'cfs', levelTooLow: 50, levelLow: 100,
           levelOptimalMin: 200, levelOptimalMax: 800, levelHigh: 1000, levelDangerous: 2000 }]
       }))
-    };else if (path.startsWith('/api/weather')) result = null;else if (path.startsWith('/api/conditions/')) result = {
+    };else if (path.startsWith('/api/weather/forecast')) result = { days: [], city: 'Van Buren' };else if (path.startsWith('/api/weather')) result = { temp: 72, condition: 'Clear', conditionIcon: '01d', windSpeed: 5, windDirection: 180, humidity: 60, city: 'Van Buren', rain1hInches: 0, rain3hInches: 0 };else if (path.startsWith('/api/conditions/')) result = {
       condition
-    };else if (path === '/api/plan') result = {
-      plan: null
-    };else for (let i = 0; i < riverMeta.length; i++) {
+    };else if (path === '/api/plan') {
+      const i = riverMeta.findIndex(river => river.id === url.searchParams.get('riverId'));
+      const putIn = points[i]?.find(point => point.id === url.searchParams.get('startId'));
+      const takeOut = points[i]?.find(point => point.id === url.searchParams.get('endId'));
+      result = { plan: putIn && takeOut ? {
+        river: { ...riverMeta[i], geometry: geometry[i], bounds: bbox(geometry[i]) }, putIn, takeOut,
+        vessel: { id: 'canoe', name: 'Canoe', slug: 'canoe' },
+        distance: { miles: 7.5, formatted: '7.5 miles' },
+        floatTime: { minutes: 240, formatted: '4 hours', speedMph: 2, timeRange: { min: 210, max: 330 } },
+        driveBack: { minutes: 20, miles: 14, formatted: '20 min', routeSummary: null, routeGeometry: null },
+        condition, hazards: [], warnings: [], route: { type: 'Feature', properties: {}, geometry: {
+          type: 'LineString', coordinates: geometry[i].coordinates.slice(
+            Math.floor((geometry[i].coordinates.length - 1) * 0.25), Math.floor((geometry[i].coordinates.length - 1) * 0.45) + 1),
+        } },
+      } : null };
+    } else for (let i = 0; i < riverMeta.length; i++) {
       const r = riverMeta[i];
       if (path === `/api/rivers/${r.slug}`) {
         if (delayRiver) await new Promise(resolve => setTimeout(resolve, 900));
@@ -338,6 +351,10 @@ try {
       };
       }
       if (path === `/api/rivers/${r.slug}/pois`) result = { pois: [] };
+      if (path === `/api/rivers/${r.slug}/hazards`) result = { hazards: [{
+        id: `hazard-${i}`, name: 'Fixture crossing', type: 'low_water_crossing', severity: 'moderate',
+        coordinates: points[i][2].coordinates, riverMile: 15, description: 'Crossing', portageRequired: false,
+      }] };
       if (path === `/api/rivers/${r.slug}/visuals/pins`) result = { pins: [{
         id: `photo-${i}`, imageUrl: '/email/eddy-quote.png', lat: points[i][2].coordinates.lat + 0.01,
         lng: points[i][2].coordinates.lng + 0.01, conditionCode: 'flowing', matchesCurrent: true,
@@ -362,7 +379,8 @@ try {
       contentType: 'application/json',
       body: JSON.stringify(result)
     });
-  });
+  };
+  await page.route('**/*', routeHandler);
   await page.goto(`${origin}/planner-map-layout-check`, {
     waitUntil: 'domcontentloaded'
   });
@@ -391,6 +409,7 @@ try {
   await page.evaluate(() => { window.firstPlannerMap = window.plannerMap; });
   await page.waitForFunction(() => document.querySelectorAll('.gauge-station-marker').length === 3 && document.querySelectorAll('.poi-marker').length === 3 && document.querySelectorAll('.river-photo-marker').length === 3);
   const attribution = page.locator('.maplibregl-ctrl-attrib');
+  assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   assert.equal(await attribution.getAttribute('open'), null);
   assert.equal(await attribution.evaluate(el => el.classList.contains('maplibregl-compact-show')), false);
   for (const text of ['Your next river day', 'River colors show current', 'Make a day of it']) assert.equal(await page.getByText(text, { exact: false }).count(), 0);
@@ -429,12 +448,12 @@ try {
   });
   // Changing the floating panel width must move the chosen access to the
   // center of the remaining map area, without a fixed camera offset.
-  const panel = page.locator('.pointer-events-none.absolute.top-20');
+  const panel = page.locator('.planner-panel');
   await panel.evaluate(el => { el.style.width = '400px'; });
   await page.waitForFunction(coordinates => {
     const map = window.plannerMap;
     const canvas = map.getCanvas().getBoundingClientRect();
-    const panel = document.querySelector('.pointer-events-none.absolute.top-20').getBoundingClientRect();
+    const panel = document.querySelector('.planner-panel').getBoundingClientRect();
     const point = map.project([coordinates.lng, coordinates.lat]);
     return !map.isMoving() && Math.abs(point.x - (canvas.width + Math.min(canvas.width / 2, panel.right - canvas.left + 24) - 64) / 2) < 2;
   }, points[0][0].coordinates);
@@ -462,9 +481,10 @@ try {
   await page.waitForFunction(() => new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
   console.log('Mouse + keyboard search retains both route endpoints and requests the correct plan');
   const assertDesktopLayout = async () => {
+    await page.locator('.planner-glass.flex-1').waitFor();
     const result = await page.evaluate(() => {
       const box = selector => document.querySelector(selector).getBoundingClientRect();
-      const panel = box('.pointer-events-none.absolute.top-20');
+      const panel = box('.planner-panel');
       const strip = box('.planner-access-strip');
       const map = box('.planner-desktop');
       const nav = box('.maplibregl-ctrl-top-right .maplibregl-ctrl-group');
@@ -481,6 +501,8 @@ try {
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
   await page.screenshot({ path: `${out}/desktop-route.png` });
   await page.getByRole('button', { name: 'All rivers', exact: true }).click();
+  // Let the scheduled camera fit start before waiting for it to finish.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => !window.plannerMap.isMoving());
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
@@ -490,8 +512,11 @@ try {
     'All rivers keeps current-river access data and the saved route');
   await assertDesktopLayout();
   assert.equal(documentRequests, 1, 'River changes must not navigate/reload the document');
-  const riverHit = await page.evaluate(coordinates => {
+  // Poll: after All rivers the network source is re-set asynchronously, and
+  // when the camera doesn't move there's no moveend to wait on first.
+  const riverHit = await (await page.waitForFunction(coordinates => {
     const map = window.plannerMap;
+    if (map.isMoving()) return null;
     const rect = map.getCanvas().getBoundingClientRect();
     for (const coordinate of coordinates) {
       const p = map.project(coordinate);
@@ -502,7 +527,7 @@ try {
       if (map.queryRenderedFeatures(p, { layers: ['condition-network-hit-layer'] }).some(f => f.properties.slug === 'current')) return { x, y };
     }
     return null;
-  }, geometry[0].coordinates);
+  }, geometry[0].coordinates).catch(() => null))?.jsonValue();
   assert(riverHit, 'A condition-colored river must have a clickable segment');
   await page.mouse.click(riverHit.x, riverHit.y);
   await page.getByRole('button', { name: 'All rivers', exact: true }).waitFor();
@@ -538,16 +563,15 @@ try {
   }).count(), 0);
   console.log('Non-endpoints remain viewable and cannot start a float');
   await page.locator('button[data-access-point-id="p-0-0"]').waitFor({ state: 'visible' });
-  const releaseMeramecAccess = holdAccess('meramec');
-  const meramecAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/meramec/access-points');
-  await search.fill('meramec put');
-  await page.getByRole('option', {
-    name: /Meramec Put-in/
-  }).click();
-  await meramecAccessRequest;
-  // Hold the access response until the new river actually renders. A fixed
-  // delay can finish before an assertion and miss the stale-selection window.
-  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Meramec River');
+  // Switching rivers directly: hold the new river's access response until the
+  // river actually renders. A fixed delay can finish before an assertion and
+  // miss the stale-selection window.
+  const releaseJacksAccess = holdAccess('jacks-fork');
+  const jacksAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/jacks-fork/access-points');
+  await search.fill('jacks fork');
+  await page.getByRole('option', { name: /^Jacks Fork River\b/ }).click();
+  await jacksAccessRequest;
+  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
   await page.waitForFunction(() => !document.querySelector('[data-access-point-id^="p-0-"]'));
   assert.equal(await page.locator('button[data-access-point-id]').count(), 0, 'desktop strips must not expose the previous river while access data loads');
   assert.equal(await page.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
@@ -558,39 +582,53 @@ try {
     const map = window.plannerMap;
     const container = map?.getContainer();
     return container?.isConnected && container.closest('[class~="lg:hidden"]') &&
-      (await map.getSource('condition-river-source')?.getData())?.properties?.name === 'Meramec River';
+      (await map.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River';
   });
   assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0, 'mobile markers and strip must not expose previous-river endpoints');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), null);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.waitForFunction(() => window.plannerMap?.getContainer()?.closest('.planner-desktop'));
+  // Dev Strict Mode creates, removes and recreates the map on the same
+  // container; only the live instance still has its canvas in the document.
+  await page.waitForFunction(() => window.plannerMap?.getContainer()?.closest('.planner-desktop')
+    && window.plannerMap.getCanvas().isConnected);
   // Crossing the desktop/mobile breakpoint intentionally replaces the map.
   // Subsequent desktop-only selection must preserve this new instance.
   await page.evaluate(() => { window.resumedDesktopMap = window.plannerMap; });
+  releaseJacksAccess();
+  const jacksStart = page.locator('button[data-access-point-id="p-2-0"]');
+  await jacksStart.waitFor({ state: 'visible' });
+  await jacksStart.click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-2-0');
+  console.log('Direct river switches hide stale access controls while the new river loads');
+  // Previewing another river's access keeps the current route until an
+  // endpoint is explicitly chosen; the preview waits for its own access data.
+  const releaseMeramecAccess = holdAccess('meramec');
+  const meramecAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/meramec/access-points');
+  await search.fill('meramec put');
+  await page.getByRole('option', { name: /Meramec Put-in/ }).click();
+  await meramecAccessRequest;
   await page.getByText('Loading access details…', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
   releaseMeramecAccess();
-  await page.getByRole('button', {
-    name: 'Use as put-in',
-    exact: true
-  }).waitFor();
-  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), null);
-  await page.getByRole('button', {
-    name: 'Use as put-in',
-    exact: true
-  }).click();
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('river')), 'jacks-fork');
+  assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-2-0');
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-1-0');
+  // The new river loads after the endpoint choice; wait for its route panel.
+  await page.locator('.planner-glass.flex-1').waitFor();
   assert(await page.evaluate(() => window.plannerMap === window.resumedDesktopMap));
   assert.equal(documentRequests, 1);
-  console.log('Cross-river selection clears old endpoints and waits for eligible details without replacing the map');
+  console.log('Cross-river inspection preserves the route until an endpoint is chosen');
   await page.waitForFunction(() => !window.plannerMap.isMoving());
   await page.setViewportSize({
     width: 1024,
     height: 768
   });
+  await assertDesktopLayout();
   await page.screenshot({
     path: `${out}/desktop-1024.png`
   });
-  await assertDesktopLayout();
   await page.setViewportSize({
     width: 390,
     height: 844
@@ -612,20 +650,24 @@ try {
     name: 'All rivers',
     exact: true
   }).click();
-  await page.waitForFunction(() => window.plannerMap?.getLayer('planner-access-dots') && window.plannerMap.isSourceLoaded('planner-access-catalog') && !window.plannerMap.isMoving());
-  const dot = await page.evaluate(() => {
+  // Source readiness can precede the scheduled camera fit and the first paint.
+  // Wait for the actual pin at a settled, clickable position.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const dot = await (await page.waitForFunction(() => {
     const map = window.plannerMap;
+    if (!map?.getLayer('planner-access-dots') || !map.isSourceLoaded('planner-access-catalog') || map.isMoving()) return null;
     const f = map.queryRenderedFeatures({
       layers: ['planner-access-dots']
     }).find(f => f.properties.name === 'Current Put-in');
     if (!f) return null;
     const p = map.project(f.geometry.coordinates),
       r = map.getCanvas().getBoundingClientRect();
+    if (document.elementFromPoint(r.x + p.x, r.y + p.y) !== map.getCanvas()) return null;
     return {
       x: r.x + p.x,
       y: r.y + p.y
     };
-  });
+  })).jsonValue();
   assert(dot, 'Overview access pin must actually paint');
   await page.mouse.click(dot.x, dot.y);
   await page.getByRole('region', {
@@ -661,7 +703,8 @@ try {
     name: /Current Put-in/
   }).waitFor();
   await search.press('Escape');
-  assert.equal(await search.getAttribute('aria-expanded'), 'false');
+  // Wait for the re-render rather than reading the attribute once.
+  await page.locator('.planner-search input[aria-expanded="false"]').waitFor();
   console.log('Catalogue failure, retry, and Escape dismissal passed');
   delayRiver = false;
   await page.goto(`${origin}/planner-map-layout-check?river=current&lat=37.4&lng=-91.2&z=10`, { waitUntil: 'domcontentloaded' });
@@ -670,6 +713,149 @@ try {
   const camera = await page.evaluate(() => ({ lat: window.plannerMap.getCenter().lat, lng: window.plannerMap.getCenter().lng, zoom: window.plannerMap.getZoom() }));
   assert(Math.abs(camera.lat - 37.4) < 0.0001 && Math.abs(camera.lng + 91.2) < 0.0001 && Math.abs(camera.zoom - 10) < 0.01);
   console.log('Initial camera deep link survives loading river data and vessel defaults');
+
+  // Complete plans, selection recovery, and fullscreen use the real planner.
+  await page.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-0&takeOut=p-0-1`, { waitUntil: 'domcontentloaded' });
+  const currentEndpoints = points[0].slice(0, 2).map(point => point.coordinates);
+  const endpointsVisible = async (target, mobile = false) => {
+    await target.waitForFunction(({ coords, mobile }) => {
+      const map = window.plannerMap;
+      if (!map || map.isMoving() || !map.getLayer('float-route-layer')) return false;
+      const canvas = map.getCanvas().getBoundingClientRect();
+      const panel = document.querySelector('.planner-panel')?.getBoundingClientRect();
+      const sheetElement = document.querySelector('[data-plan-sheet]');
+      if (mobile && sheetElement?.getAnimations().some(animation => animation.playState === 'running')) return false;
+      const sheet = sheetElement?.getBoundingClientRect();
+      if (mobile && (!sheet || Math.abs(sheet.height - Math.round(innerHeight * 0.42)) > 1)) return false;
+      return coords.every(c => {
+        const p = map.project([c.lng, c.lat]);
+        return p.x > (mobile ? 8 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
+          && p.y > 75 && p.y < (mobile && sheet ? sheet.top - canvas.top - 24 : canvas.height - 85);
+      });
+    }, { coords: currentEndpoints, mobile });
+  };
+  await endpointsVisible(page);
+  assert.equal(await page.evaluate(() => window.plannerMap.getPaintProperty('float-route-layer', 'line-color')), '#F07052');
+  assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
+  await page.locator('button[data-access-point-id="p-0-1"]').click();
+  await page.waitForFunction(() => !new URLSearchParams(location.search).has('takeOut'));
+  assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 0);
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).press('Enter');
+  await endpointsVisible(page);
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Show route');
+  assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
+  await page.waitForFunction(() => !new URLSearchParams(location.search).has('putIn') && !new URLSearchParams(location.search).has('takeOut'));
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
+  await endpointsVisible(page);
+  assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1');
+  await search.fill('meramec');
+  await page.getByRole('option', { name: /^Meramec River\b/ }).click();
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
+  await endpointsVisible(page);
+
+  // The strip still builds a downstream route in two taps, in either order.
+  await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
+  await page.locator('button[data-access-point-id="p-0-1"]').click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1');
+  await page.locator('button[data-access-point-id="p-0-0"]').click();
+  await endpointsVisible(page);
+  assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1');
+
+  // An upstream preview keeps the take-out action and restores automatic ordering.
+  await page.getByRole('button', { name: 'Clear route & start over', exact: true }).click();
+  await search.fill('current take');
+  await page.getByRole('option', { name: /Current Take-out/ }).click();
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
+  await search.fill('current put');
+  await page.getByRole('option', { name: /Current Put-in/ }).click();
+  await page.getByRole('button', { name: 'Use as take-out', exact: true }).click();
+  await endpointsVisible(page);
+  assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(page.url()).searchParams.get('takeOut'), 'p-0-1');
+
+  await page.getByRole('button', { name: 'Expand map', exact: true }).click();
+  await page.locator('.access-point-marker[data-access-point-id="p-0-1"]').click();
+  const useTakeOut = page.getByRole('button', { name: 'Use as take-out', exact: true });
+  await useTakeOut.click(); // A covered button fails Playwright's actual hit test.
+  await endpointsVisible(page);
+  await page.screenshot({ path: `${out}/desktop-fullscreen-route.png` });
+  await page.getByRole('button', { name: 'Collapse map', exact: true }).click();
+  await endpointsVisible(page);
+  const marker = page.locator('.access-point-marker[data-access-point-id="p-0-1"]');
+  await marker.focus();
+  await marker.press('Enter');
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Selected access point');
+  const filters = page.getByRole('button', { name: 'Map filters', exact: true });
+  await page.getByRole('button', { name: 'Expand map', exact: true }).click();
+  await filters.click();
+  await filters.press('Escape');
+  assert.equal(await filters.getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Expand weather details', exact: true }).click();
+  const weather = page.getByRole('button', { name: 'Collapse weather details', exact: true }).last();
+  await weather.press('Escape');
+  assert.equal(await page.getByRole('button', { name: 'Expand weather details', exact: true }).getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Expand weather details');
+  assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 1);
+  await page.getByRole('region', { name: 'Selected access point' }).focus();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.activeElement?.matches('.access-point-marker[data-access-point-id="p-0-1"]'));
+  await page.getByRole('button', { name: 'Collapse map', exact: true }).click();
+  for (const [selector, popup] of [['.gauge-station-marker', '.gauge-station-popup'], ['.poi-marker', '.poi-popup'], ['.hazard-marker', '.hazard-popup']]) {
+    const pin = page.locator(selector).first();
+    await pin.evaluate(el => {
+      const map = window.plannerMap;
+      const canvas = map.getCanvas().getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+      const x = rect.x + rect.width / 2 - canvas.x, y = rect.y + rect.height / 2 - canvas.y;
+      if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
+        if (el.tabIndex !== -1) throw new Error('Offscreen pin is still in the tab order');
+      }
+      map.jumpTo({ center: map.unproject([x, y]) });
+    });
+    await pin.focus();
+    await pin.press('Enter');
+    await page.locator(popup).waitFor();
+    await pin.press('Escape');
+    await page.locator(popup).waitFor({ state: 'hidden' });
+  }
+  // A real pan must survive a panel resize; Show route deliberately restores it.
+  await page.getByRole('button', { name: 'Show route', exact: true }).click();
+  await endpointsVisible(page);
+  const canvas = await page.locator('.maplibregl-canvas').boundingBox();
+  const initialCenter = await page.evaluate(() => window.plannerMap.getCenter().toArray());
+  await page.mouse.move(canvas.x + canvas.width * 0.7, canvas.y + canvas.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width * 0.7 + 100, canvas.y + canvas.height * 0.5 + 60, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForFunction(before => !window.plannerMap.isMoving()
+    && window.plannerMap.getCenter().lng !== before[0], initialCenter);
+  const pannedCenter = await page.evaluate(() => window.plannerMap.getCenter().toArray());
+  await panel.evaluate(el => { el.style.width = '400px'; });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.deepEqual(await page.evaluate(() => window.plannerMap.getCenter().toArray()), pannedCenter);
+  await panel.evaluate(el => { el.style.width = ''; });
+  await page.getByRole('button', { name: 'Show route', exact: true }).click();
+  await endpointsVisible(page);
+  console.log('Desktop route framing, orange route, Undo, fullscreen, keyboard markers and pan recovery passed');
+
+  await page.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-1&takeOut=p-0-0`, { waitUntil: 'domcontentloaded' });
+  await page.getByText('Upstream — paddling against current', { exact: false }).waitFor();
+  // Replacing a put-in downstream of the take-out preserves and orders the pair.
+  await search.fill('current take');
+  await page.getByRole('option', { name: /Current Take-out/ }).click();
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-0'
+    && new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1'
+    && new URLSearchParams(location.search).get('takeOut') === 'p-0-0');
+
   // Deep links survive pending requests, but a completed empty access list
   // must clear both endpoint IDs instead of retaining an unusable route.
   emptyAccessRiver = 'jacks-fork';
@@ -689,6 +875,56 @@ try {
   });
   assert.equal(await page.locator('.access-point-marker, button[data-access-point-id]').count(), 0);
   console.log('Delayed access responses hide stale desktop/mobile controls; empty responses clear both deep-link endpoints');
+  emptyAccessRiver = null;
+  await page.close();
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+  mobile.on('pageerror', error => errors.push(String(error)));
+  await mobile.route('**/*', routeHandler);
+  await mobile.goto(`${origin}/planner-map-layout-check?river=current`, { waitUntil: 'domcontentloaded' });
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').waitFor();
+  assert.equal(await mobile.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
+  assert.equal(await mobile.locator('.maplibregl-ctrl-zoom-in,.maplibregl-ctrl-zoom-out').count(), 2);
+  await mobile.waitForFunction(() => window.plannerMap && !window.plannerMap.isMoving());
+  await mobile.evaluate(c => window.plannerMap.jumpTo({ center: [c.lng, c.lat], zoom: 12 }), points[0][1].coordinates);
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-1"]').tap();
+  await mobile.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1');
+  assert.equal(await mobile.getByRole('region', { name: 'Selected access point' }).count(), 0);
+  await mobile.evaluate(c => window.plannerMap.jumpTo({ center: [c.lng, c.lat], zoom: 12 }), points[0][0].coordinates);
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').tap();
+  await endpointsVisible(mobile, true);
+  assert.equal(new URL(mobile.url()).searchParams.get('putIn'), 'p-0-0');
+  assert.equal(new URL(mobile.url()).searchParams.get('takeOut'), 'p-0-1');
+  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').tap();
+  await mobile.waitForFunction(() => !new URLSearchParams(location.search).has('putIn'));
+  await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
+  const mobileSearch = mobile.getByRole('combobox', { name: 'Search rivers and access points', exact: true });
+  await mobileSearch.fill('take');
+  await mobileSearch.evaluate(el => el.blur());
+  assert.equal(await mobileSearch.getAttribute('aria-expanded'), 'true');
+  await mobile.getByRole('dialog', { name: 'Search rivers and access points', exact: true }).locator('[tabindex="-1"]').tap({ position: { x: 4, y: 4 } });
+  assert.equal(await mobileSearch.getAttribute('aria-expanded'), 'true');
+  await mobile.getByRole('option', { name: /Current Take-out/ }).tap();
+  await mobile.getByRole('button', { name: 'Use as take-out', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.screenshot({ path: `${out}/mobile-completed-route.png` });
+  await mobile.getByRole('button', { name: 'Expand map', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
+  await mobileSearch.fill('put');
+  await mobile.getByRole('option', { name: /Current Put-in/ }).tap();
+  await mobile.getByRole('button', { name: 'Use as put-in', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  assert.equal(new URL(mobile.url()).searchParams.get('takeOut'), 'p-0-1', 'Replacing the start with itself preserves the finish');
+  await mobile.getByRole('button', { name: 'Collapse map', exact: true }).tap();
+  await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
+  await mobileSearch.fill('meramec');
+  await mobile.getByRole('option', { name: /^Meramec River\b/ }).tap();
+  await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
+  await endpointsVisible(mobile, true);
+  await mobile.screenshot({ path: `${out}/mobile-restored-route.png` });
+  console.log('Mobile two-tap planning, persistent search results, zoom controls, fullscreen, route fit and Undo passed');
   assert.deepEqual(errors, []);
   console.log('Desktop 1440/1024, mobile and runtime checks passed');
 } catch (error) {

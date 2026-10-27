@@ -15,6 +15,7 @@ import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { MapProvider } from './map-context';
 import PublicLandsLayer from './PublicLandsLayer';
 import { MAP_OVERLAYS, type MapOverlayKey } from './map-overlays';
+import { ROUTE_COLOR } from './line-style';
 
 // v6 no longer embeds its worker. The version-matched worker and its shared
 // module are emitted by Next config; without this, raster imagery loads but
@@ -158,7 +159,7 @@ interface MapContainerProps {
   onWeatherToggle?: (enabled: boolean) => void;
   showLegend?: boolean;
   /**
-   * Show the route-direction legend rows (downstream/upstream greens).
+   * Show the route-direction legend rows.
    * Pages that render ConditionRiverLayer instead of RouteLayer pass
    * false so green only ever means one thing per surface.
    */
@@ -171,6 +172,12 @@ interface MapContainerProps {
    */
   syncCameraToUrl?: boolean;
   cooperativeGestures?: boolean;
+  /** Extra page-owned buttons appended to the right-hand tool column. */
+  extraTools?: React.ReactNode;
+  /** The planner expands its entire surface so details stay usable. */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  controlsTop?: number;
 }
 
 // RainViewer API types
@@ -193,6 +200,10 @@ export default function MapContainer({
   legendRoute = true,
   syncCameraToUrl = false,
   cooperativeGestures = false,
+  extraTools,
+  expanded,
+  onExpandedChange,
+  controlsTop = 0,
 }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -274,7 +285,8 @@ export default function MapContainer({
     };
   }, [showStylePicker, positionStylePanel]);
   const [legendExpanded, setLegendExpanded] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const isExpanded = expanded ?? localExpanded;
   // ── Public land ──────────────────────────────────────────────────────────
   // Off by default and never persisted, unlike the base style. It answers a
   // question you ask deliberately ("whose ground is that bluff?"), and a
@@ -441,13 +453,13 @@ export default function MapContainer({
 
   // Toggle expanded map (CSS-based, stays within browser window)
   const toggleExpanded = useCallback(() => {
-    setIsExpanded(prev => {
-      const next = !prev;
-      // Resize map after layout change
-      setTimeout(() => map.current?.resize(), 50);
-      return next;
-    });
-  }, []);
+    if (onExpandedChange) onExpandedChange(!isExpanded);
+    else setLocalExpanded(value => !value);
+  }, [isExpanded, onExpandedChange]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => map.current?.resize());
+    return () => cancelAnimationFrame(frame);
+  }, [isExpanded]);
 
   // Lock body scroll while the map is expanded fullscreen. Doing this in an
   // effect (not the click handler) guarantees the previous overflow is always
@@ -464,7 +476,7 @@ export default function MapContainer({
   useEffect(() => {
     if (!isExpanded) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') toggleExpanded();
+      if (e.key === 'Escape' && !e.defaultPrevented) toggleExpanded();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -604,11 +616,10 @@ export default function MapContainer({
       console.debug('Map style image missing:', e.id);
     });
 
-    // Add navigation controls — desktop only. On touch screens pinch/rotate
-    // covers zoom, and the three-button stack eats scarce map height.
-    if (window.matchMedia('(min-width: 768px)').matches) {
-      map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-    }
+    // Zoom always has a single-pointer alternative to pinch gestures.
+    map.current.addControl(new maplibregl.NavigationControl({
+      showCompass: window.matchMedia('(min-width: 768px)').matches,
+    }), 'top-right');
 
     // Join MapLibre's control stack so navigation and Eddy's tools flow
     // together at every size, including the larger desktop brand buttons.
@@ -693,7 +704,8 @@ export default function MapContainer({
     // paint over sibling chrome — notably the AccessPointStrip cards, which
     // otherwise sat *behind* the markers because a bare `relative` parent is
     // not a stacking context.
-    <div className={`isolate ${isExpanded ? 'fixed inset-0 z-50 bg-black' : 'relative w-full h-full min-h-[400px]'}`} role="region" aria-label="Interactive river map">
+    <div className={`isolate ${isExpanded && expanded === undefined ? 'fixed inset-0 z-50 bg-black' : 'relative w-full h-full min-h-[400px]'}`} role="region" aria-label="Interactive river map"
+      style={{ '--map-controls-top': `${controlsTop}px` } as React.CSSProperties}>
       <div
         ref={mapContainer}
         className="w-full h-full"
@@ -859,6 +871,7 @@ export default function MapContainer({
         >
           {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
         </button>
+        {extraTools}
       </div>, controlsHost)}
 
       {/* Attribution follows the same catalog as the controls, so adding an
@@ -900,7 +913,7 @@ export default function MapContainer({
               <LegendItem color="#c7b8a6" label="Access point" />
               {legendRoute && (
                 <>
-                  <LegendItem color="#22c55e" label="Route (downstream)" />
+                  <LegendItem color={ROUTE_COLOR} label="Selected route" />
                   <LegendItem color="#ef4444" label="Route (upstream)" />
                 </>
               )}

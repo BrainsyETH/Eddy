@@ -94,6 +94,12 @@ export interface PlanFiltersProps {
   className?: string;
   /** Overlay the desktop card rather than consuming its available height. */
   floating?: boolean;
+  /**
+   * Icon-only trigger. With `floating` it is chrome-less for embedding in
+   * another card's toolbar (the desktop search card) and its panel opens
+   * right-aligned; without, it is a solid map button (mobile).
+   */
+  compact?: boolean;
 }
 
 export default function PlanFilters({
@@ -119,6 +125,7 @@ export default function PlanFilters({
   readingsAsOf = null,
   className = 'absolute top-4 left-4 z-30',
   floating = false,
+  compact = false,
 }: PlanFiltersProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -130,7 +137,11 @@ export default function PlanFilters({
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      rootRef.current?.querySelector('button')?.focus({ preventScroll: true });
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
@@ -174,14 +185,29 @@ export default function PlanFilters({
       : null;
 
   return (
-    <div ref={rootRef} className={className}>
+    <div
+      ref={rootRef}
+      className={className}
+      // Keyboard counterpart of the outside-click close: tabbing or focusing
+      // elsewhere (the search box, the weather chip) closes the panel, so it
+      // never stays open underneath another popover. A null relatedTarget
+      // (a click on non-focusable panel space) keeps it open.
+      onBlur={(e) => {
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false);
+      }}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Map filters"
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-lg transition-opacity hover:opacity-90"
-        style={{
+        title={compact ? 'Map filters' : undefined}
+        className={compact && floating
+          ? `relative flex items-center rounded-lg p-1.5 transition-colors hover:bg-primary-50 ${open ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'}`
+          : compact
+            ? 'relative flex items-center rounded-lg p-2.5 shadow-lg transition-opacity hover:opacity-90'
+            : 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-lg transition-opacity hover:opacity-90'}
+        style={compact && floating ? undefined : {
           // Solid surface, no color-mix/translucency: older mobile Safari
           // drops unsupported backgrounds entirely, which over satellite
           // imagery means unreadable — the bug this file just fixed.
@@ -189,10 +215,12 @@ export default function PlanFilters({
           color: 'var(--color-text-primary)',
         }}
       >
-        <SlidersHorizontal className="h-4 w-4" />
-        <span>Filters</span>
+        <SlidersHorizontal className={compact ? (floating ? 'h-[18px] w-[18px]' : 'h-5 w-5') : 'h-4 w-4'} />
+        {!compact && <span>Filters</span>}
         {activeFilterCount > 0 && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-primary-600 px-1 text-[11px] font-bold text-white">
+          <span className={`grid place-items-center rounded-full bg-primary-600 font-bold text-white ${compact
+            ? 'absolute -right-1 -top-1 h-4 min-w-4 px-0.5 text-[10px]'
+            : 'h-5 min-w-5 px-1 text-[11px]'}`}>
             {activeFilterCount}
           </span>
         )}
@@ -205,7 +233,7 @@ export default function PlanFilters({
           outgrew short phones. */}
       {open && (
         <div
-          className={`${floating ? 'absolute top-full left-0 z-40' : ''} mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border shadow-2xl`}
+          className={`${floating ? `absolute top-full ${compact ? 'right-0' : 'left-0'} z-40` : ''} mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border shadow-2xl`}
           style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
         >
           {/* Map layers */}

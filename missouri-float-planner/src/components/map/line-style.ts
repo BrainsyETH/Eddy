@@ -8,6 +8,10 @@
 // to gravel-bar framing (z16) instead of going hairline or chunky.
 
 import type * as maplibregl from 'maplibre-gl';
+import { colors } from '@shared/social-brand';
+
+// Same accent token used for the selected route in the iOS map.
+export const ROUTE_COLOR = colors.accent[500];
 
 export const LINE_WIDTH: maplibregl.ExpressionSpecification = [
   'interpolate', ['exponential', 1.5], ['zoom'],

@@ -6,7 +6,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Share2, Download, Check, ChevronRight, Info, CalendarPlus, Mail } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, Info, CalendarPlus, Mail, RotateCcw } from 'lucide-react';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
@@ -37,6 +37,7 @@ interface PlanSidebarProps {
   onRetry?: () => void;
   putInPoint: AccessPoint | null;
   takeOutPoint: AccessPoint | null;
+  onClearRoute: () => void;
   onClearPutIn: () => void;
   onClearTakeOut: () => void;
   onShare: () => void;
@@ -47,6 +48,12 @@ interface PlanSidebarProps {
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
   captureRef?: React.RefObject<HTMLDivElement | null>;
+  /**
+   * Show the river breadcrumb visibly. The desktop search card normally names
+   * the river; after "All rivers" it doesn't, but a retained route still
+   * needs a label.
+   */
+  showRiverLabel?: boolean;
 }
 
 export default function PlanSidebar({
@@ -61,6 +68,7 @@ export default function PlanSidebar({
   onRetry,
   putInPoint,
   takeOutPoint,
+  onClearRoute,
   onClearPutIn,
   onClearTakeOut,
   onShare,
@@ -70,6 +78,7 @@ export default function PlanSidebar({
   onVesselChange,
   onReportIssue,
   pointsAlongRoute = [],
+  showRiverLabel = false,
 }: PlanSidebarProps) {
   const hasBothPoints = putInPoint && takeOutPoint;
 
@@ -81,22 +90,21 @@ export default function PlanSidebar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Sidebar header — breadcrumbs + river name + condition */}
-      <div className="px-4 pt-3 pb-3 border-b border-neutral-100 flex-shrink-0">
+      {/* Usually no visible header: the search card above already names the
+          river (and the page h1 carries it for assistive tech). The
+          breadcrumbs stay for screen readers and their schema.org markup,
+          and appear when their link takes keyboard focus so it is never an
+          invisible tab stop — or always, when the search card isn't naming
+          the river (after "All rivers"). */}
+      <div className={showRiverLabel
+        ? 'flex-shrink-0 px-4 pt-3'
+        : 'sr-only focus-within:not-sr-only focus-within:flex-shrink-0 focus-within:px-4 focus-within:pt-3'}>
         <Breadcrumbs
           items={[
             { label: 'Rivers', href: '/rivers' },
             { label: riverName },
           ]}
-          className="mb-1.5"
         />
-        <div className="min-w-0">
-          <h1 className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
-            {riverName}
-          </h1>
-        </div>
-        {/* "Eddy Says — River Report" moved to the map's top-center overlay
-            (components/plan/MapEddySays) — see the planner map. */}
       </div>
 
       {/* Scrollable content */}
@@ -193,6 +201,56 @@ export default function PlanSidebar({
                     🚣 Raft
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Plan actions — one row under the answer they act on, instead
+                of a two-row footer pinned below the scroll area. */}
+            {!isLastValidFallback && (
+              <div className="mt-3 grid grid-cols-5 gap-1 border-t border-neutral-200/70 pt-2.5">
+                <PlanAction
+                  label="Calendar"
+                  icon={<CalendarPlus size={15} />}
+                  onClick={() => {
+                    downloadFloatPlanIcs({
+                      riverName,
+                      putInName: plan.putIn.name,
+                      takeOutName: plan.takeOut.name,
+                      url: window.location.href,
+                      minutes: plan.floatTime?.timeRange?.max ?? plan.floatTime?.minutes ?? null,
+                      distanceLabel: plan.distance.formatted,
+                    });
+                    trackEvent('plan_shared', { river: riverSlug, method: 'calendar' });
+                  }}
+                />
+                <PlanAction
+                  label="Email"
+                  icon={<Mail size={15} />}
+                  href={buildFloatPlanMailto({
+                    riverName,
+                    putInName: plan.putIn.name,
+                    takeOutName: plan.takeOut.name,
+                    url: typeof window !== 'undefined' ? window.location.href : '',
+                    distanceLabel: plan.distance.formatted,
+                  })}
+                  onClick={() => trackEvent('plan_shared', { river: riverSlug, method: 'email' })}
+                />
+                <PlanAction
+                  label={shareStatus === 'saving' ? 'Saving…' : shareStatus === 'copied' ? 'Copied!' : 'Share'}
+                  icon={shareStatus === 'saving'
+                    ? <span className="w-3.5 h-3.5 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                    : shareStatus === 'copied' ? <Check size={15} /> : <Share2 size={15} />}
+                  onClick={onShare}
+                  disabled={shareStatus === 'saving'}
+                  tone={shareStatus === 'copied' ? 'success' : 'default'}
+                />
+                <PlanAction label="Image" icon={<Download size={15} />} onClick={onDownloadImage} tone="primary" />
+                <PlanAction
+                  label="Clear"
+                  title="Clear route & start over"
+                  icon={<RotateCcw size={15} />}
+                  onClick={onClearRoute}
+                />
               </div>
             )}
           </div>
@@ -293,79 +351,32 @@ export default function PlanSidebar({
         <OutfittersNearby pois={pois} putInPoint={putInPoint} riverSlug={riverSlug} />
       </div>
 
-      {/* Footer — share buttons (sticky at bottom) */}
-      {hasBothPoints && plan && !isLastValidFallback && (
-        <div className="flex-shrink-0 px-4 py-3 border-t border-neutral-100 bg-white">
-          <div className="flex justify-end mb-2">
-            <button
-              onClick={() => {
-                onClearPutIn();
-                onClearTakeOut();
-              }}
-              className="text-xs text-neutral-400 hover:text-neutral-600 underline underline-offset-2 transition-colors"
-            >
-              Clear route &amp; start over
-            </button>
-          </div>
-          <div className="flex gap-2 mb-2">
-            <button
-              onClick={() => {
-                if (!plan) return;
-                downloadFloatPlanIcs({
-                  riverName,
-                  putInName: plan.putIn.name,
-                  takeOutName: plan.takeOut.name,
-                  url: window.location.href,
-                  minutes: plan.floatTime?.timeRange?.max ?? plan.floatTime?.minutes ?? null,
-                  distanceLabel: plan.distance.formatted,
-                });
-                trackEvent('plan_shared', { river: riverSlug, method: 'calendar' });
-              }}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-50 border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              <CalendarPlus size={13} />
-              Calendar
-            </button>
-            <a
-              href={plan ? buildFloatPlanMailto({
-                riverName,
-                putInName: plan.putIn.name,
-                takeOutName: plan.takeOut.name,
-                url: typeof window !== 'undefined' ? window.location.href : '',
-                distanceLabel: plan.distance.formatted,
-              }) : '#'}
-              onClick={() => trackEvent('plan_shared', { river: riverSlug, method: 'email' })}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-50 border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-100 transition-colors"
-            >
-              <Mail size={13} />
-              Email
-            </a>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onShare}
-              disabled={shareStatus === 'saving'}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                shareStatus === 'copied'
-                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                  : 'bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
-              } ${shareStatus === 'saving' ? 'opacity-70 cursor-wait' : ''}`}
-            >
-              {shareStatus === 'saving'
-                ? <span className="w-3 h-3 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
-                : shareStatus === 'copied' ? <Check size={13} /> : <Share2 size={13} />}
-              {shareStatus === 'saving' ? 'Saving…' : shareStatus === 'copied' ? 'Copied!' : 'Share'}
-            </button>
-            <button
-              onClick={onDownloadImage}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary-50 border border-primary-200 text-xs font-medium text-primary-700 hover:bg-primary-100 transition-colors"
-            >
-              <Download size={13} />
-              Image
-            </button>
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+// Stacked icon + label button for the plan action row. Renders a link when
+// given an href (email) so the mailto keeps native link behavior.
+function PlanAction({ label, title, icon, onClick, href, disabled = false, tone = 'default' }: {
+  label: string;
+  title?: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+  href?: string;
+  disabled?: boolean;
+  tone?: 'default' | 'primary' | 'success';
+}) {
+  const className = `flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-semibold transition-colors ${
+    tone === 'success' ? 'text-emerald-700 bg-emerald-50'
+      : tone === 'primary' ? 'text-primary-700 hover:bg-primary-100'
+      : 'text-neutral-600 hover:bg-neutral-100'
+  } ${disabled ? 'opacity-70 cursor-wait' : ''}`;
+  if (href) {
+    return <a href={href} onClick={onClick} title={title ?? label} className={className}>{icon}{label}</a>;
+  }
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={title ?? label} aria-label={title} className={className}>
+      {icon}{label}
+    </button>
   );
 }

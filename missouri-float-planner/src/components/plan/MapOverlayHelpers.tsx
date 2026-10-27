@@ -4,7 +4,7 @@
 // Map-first UX overlays: state-aware interaction hint, live route stats badge,
 // and a marker color legend. These ride on top of the MapContainer.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MousePointerClick, X, MapPin, Info } from 'lucide-react';
 import type { FloatPlan, AccessPoint } from '@/types/api';
 import { formatFloatTimeCompact, formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
@@ -117,48 +117,75 @@ export function RouteStatsBadge({ plan, isLoading = false, className = '' }: Rou
   );
 }
 
+// Natural height of the legend panel (3 access rows + 6 conditions).
+const LEGEND_HEIGHT = 290;
+
 interface MapLegendProps {
   className?: string;
+  /**
+   * Render as a button in the map's right-hand tool column (pass through
+   * MapContainer's extraTools) with the legend opening to its left, instead
+   * of a pill floating in the bottom-right corner.
+   */
+  asControl?: boolean;
 }
 
 // Compact legend for marker colors. Collapsed by default; expands on click.
-export function MapLegend({ className = '' }: MapLegendProps) {
+export function MapLegend({ className = '', asControl = false }: MapLegendProps) {
   const [open, setOpen] = useState(false);
+  // Control placement: measured on open against the map region, so short
+  // windows neither clip the legend nor tuck it under the access strip.
+  const [placement, setPlacement] = useState<{ up: boolean; maxHeight: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const toggleControl = () => {
+    if (open) { setOpen(false); return; }
+    const button = buttonRef.current?.getBoundingClientRect();
+    const region = buttonRef.current?.closest('[role="region"]')?.getBoundingClientRect();
+    if (button && region) {
+      // Leave room for the bottom access strip (~5.5rem) below, and for the
+      // top-center River Report pill above: the tool column lives inside
+      // the map's isolated stacking context, so the legend can't layer over
+      // page overlays and must stay out of their band instead.
+      const below = region.bottom - button.top - 88;
+      const above = button.bottom - region.top - 64;
+      const up = below < LEGEND_HEIGHT && above > below;
+      setPlacement({ up, maxHeight: Math.max(120, up ? above : below) });
+    }
+    setOpen(true);
+  };
+
+  if (asControl) {
+    return (
+      <div className={`relative ${className}`}>
+        <button
+          ref={buttonRef}
+          onClick={toggleControl}
+          className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
+            open ? 'bg-primary-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'
+          }`}
+          title="Map legend"
+          aria-label={open ? 'Hide map legend' : 'Show map legend'}
+          aria-expanded={open}
+        >
+          <Info className="w-5 h-5" aria-hidden="true" />
+        </button>
+        {open && (
+          <div
+            className={`absolute right-full mr-2 ${placement?.up ? 'bottom-0' : 'top-0'}`}
+            style={placement ? { maxHeight: placement.maxHeight } : undefined}
+          >
+            <LegendPanel onClose={() => setOpen(false)} scroll />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`absolute bottom-3 right-3 z-20 pointer-events-auto ${className}`}>
       {open ? (
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Legend</span>
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Close legend"
-              className="p-0.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-            >
-              <X className="w-3 h-3" aria-hidden="true" />
-            </button>
-          </div>
-          <ul className="space-y-1.5">
-            <LegendRow color={PUT_IN_COLOR} label="Put-in" />
-            <LegendRow color={TAKE_OUT_COLOR} label="Take-out" />
-            <LegendRow color={NEUTRAL_COLOR} label="Other access" />
-          </ul>
-          <div className="mt-2 pt-2 border-t border-neutral-200">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              Conditions
-            </span>
-            <ul className="space-y-1.5 mt-1.5">
-              {CONDITION_ORDER.map((code) => (
-                <ConditionRow
-                  key={code}
-                  color={conditionColor(code)}
-                  label={CONDITION_SHORT_LABELS[code]}
-                />
-              ))}
-            </ul>
-          </div>
-        </div>
+        <LegendPanel onClose={() => setOpen(false)} />
       ) : (
         <button
           onClick={() => setOpen(true)}
@@ -169,6 +196,44 @@ export function MapLegend({ className = '' }: MapLegendProps) {
           <span>Legend</span>
         </button>
       )}
+    </div>
+  );
+}
+
+function LegendPanel({ onClose, scroll = false }: { onClose: () => void; scroll?: boolean }) {
+  return (
+    <div className={`bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px] ${
+      scroll ? 'max-h-[inherit] overflow-y-auto overscroll-contain' : ''
+    }`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Legend</span>
+        <button
+          onClick={onClose}
+          aria-label="Close legend"
+          className="p-0.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+        >
+          <X className="w-3 h-3" aria-hidden="true" />
+        </button>
+      </div>
+      <ul className="space-y-1.5">
+        <LegendRow color={PUT_IN_COLOR} label="Put-in" />
+        <LegendRow color={TAKE_OUT_COLOR} label="Take-out" />
+        <LegendRow color={NEUTRAL_COLOR} label="Other access" />
+      </ul>
+      <div className="mt-2 pt-2 border-t border-neutral-200">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+          Conditions
+        </span>
+        <ul className="space-y-1.5 mt-1.5">
+          {CONDITION_ORDER.map((code) => (
+            <ConditionRow
+              key={code}
+              color={conditionColor(code)}
+              label={CONDITION_SHORT_LABELS[code]}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

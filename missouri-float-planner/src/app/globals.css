@@ -801,6 +801,19 @@ h1, h2, h3, h4, h5, h6 {
     outline-offset: 2px;
   }
 }
+/* Mobile planner search: the same card, solid (older mobile Safari drops
+   color-mix/backdrop backgrounds, which over satellite imagery is unreadable). */
+.planner-mobile .planner-glass {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 6px 24px rgb(15 45 53 / 18%);
+}
+/* Focus shows on the card's border, not as a square ring inside it. */
+.planner-mobile .planner-search input:focus-visible { outline: none; }
+.planner-mobile .planner-search:focus-within > .planner-glass {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-300) 35%, transparent), 0 6px 24px rgb(15 45 53 / 18%);
+}
 @media (min-width: 1024px) and (prefers-reduced-transparency: reduce) {
   .planner-desktop .planner-glass { background: var(--color-surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
@@ -1474,4 +1487,14 @@ h1, h2, h3, h4, h5, h6 {
   .dam-support-layout > :only-child { grid-column: 1 / -1; }
   .dam-support-layout > :only-child .dam-measurements { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dam-support-layout > :only-child .dam-measurements > * + * { border-top: 0; padding-top: 0; }
+}
+
+.map-marker-control:focus-visible {
+  outline: 3px solid var(--color-primary-700);
+  outline-offset: 3px;
+}
+
+.maplibregl-ctrl-top-right { top: var(--map-controls-top, 0px); }
+@media (max-width: 767px) {
+  .maplibregl-ctrl-group button { width: 44px; height: 44px; }
 }

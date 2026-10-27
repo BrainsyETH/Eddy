@@ -12,7 +12,6 @@ import type { AccessPoint, NearbyService } from '@/types/api';
 import { ACCESS_POINT_TYPE_ORDER } from '@/constants';
 
 const EDDY_OTTER_FALLBACK = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_the_Otter.png';
-const EDDY_CANOE_IMAGE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
 // Sort types by canonical display order
 function sortTypes(types: string[]): string[] {
@@ -34,7 +33,8 @@ interface AccessPointStripProps {
   riverSlug: string;
 }
 
-// Compact card for the horizontal strip
+// Compact card for the horizontal strip: a small thumbnail for recognition,
+// then name + mile, so the strip stays one short row over the map.
 function AccessPointCard({
   point,
   isPutIn,
@@ -48,74 +48,41 @@ function AccessPointCard({
   onClick: () => void;
   onHover?: () => void;
 }) {
-  const heroImage = point.imageUrls?.[0] || point.npsCampground?.images?.[0]?.url || null;
-  const hasImage = !!heroImage;
-
-  let borderClass = 'border-neutral-200';
-  let bgClass = 'bg-white';
-  let labelText = '';
-
-  if (isPutIn) {
-    // Brand tokens: support (green) = put-in, matching the route line elsewhere.
-    borderClass = 'border-support-500 border-2';
-    bgClass = 'bg-support-50';
-    labelText = 'PUT-IN';
-  } else if (isTakeOut) {
-    // accent (coral) = take-out, matching the route line elsewhere.
-    borderClass = 'border-accent-500 border-2';
-    bgClass = 'bg-accent-50';
-    labelText = 'TAKE-OUT';
-  }
+  // Brand tokens: support (green) = put-in, accent (coral) = take-out,
+  // matching the route line elsewhere.
+  const stateClass = isPutIn
+    ? 'border-support-500 bg-support-50 ring-1 ring-support-500'
+    : isTakeOut
+      ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-500'
+      : 'border-neutral-200 bg-white';
+  const labelText = isPutIn ? 'Put-in' : isTakeOut ? 'Take-out' : '';
+  const thumb = point.imageUrls?.[0] || point.npsCampground?.images?.[0]?.url || null;
 
   return (
     <button
       onClick={onClick}
       onMouseEnter={onHover}
       data-access-point-id={point.id}
-      className={`flex-shrink-0 w-36 rounded-xl overflow-hidden shadow-sm ${borderClass} ${bgClass} transition-all hover:shadow-md active:scale-95`}
+      className={`flex flex-shrink-0 w-48 items-center gap-2 rounded-xl border p-1.5 pr-2.5 text-left shadow-sm transition-all hover:shadow-md active:scale-95 ${stateClass}`}
     >
-      {/* Image or placeholder */}
-      <div className="relative h-20 bg-neutral-100">
-        {hasImage ? (
-          <AccessPointPhoto
-            src={heroImage!}
-            alt={point.name}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+      <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-neutral-400">
+        {thumb ? (
+          <AccessPointPhoto src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-neutral-50">
-            <Image
-              src={EDDY_OTTER_FALLBACK}
-              alt="Eddy the Otter"
-              width={64}
-              height={64}
-              className="w-12 h-12 object-contain opacity-60"
-            />
-          </div>
+          <MapPin size={16} aria-hidden="true" />
         )}
-        {/* Selection label with mile marker */}
-        {labelText ? (
-          <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-            isPutIn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-          }`}>
-            {labelText} · Mile {point.riverMile.toFixed(1)}
-          </div>
-        ) : (
-          /* Mile marker badge - only when not selected */
-          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
-            Mile {point.riverMile.toFixed(1)}
-          </div>
-        )}
-      </div>
-      {/* Info */}
-      <div className="p-2">
-        <p className="text-xs font-semibold text-neutral-900 truncate">{point.name}</p>
-        <p className="text-[10px] text-neutral-500 capitalize truncate">
-          {sortTypes(point.types && point.types.length > 0 ? point.types : [point.type])
-            .map(t => t.replace('_', ' '))
-            .join(' / ')}
-        </p>
-      </div>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold text-neutral-900">{point.name}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-neutral-500">
+          <span className="tabular-nums">Mile {point.riverMile.toFixed(1)}</span>
+          {labelText && (
+            <span className={`rounded px-1 py-px font-bold uppercase tracking-wide text-white ${isPutIn ? 'bg-support-500' : 'bg-accent-500'}`}>
+              {labelText}
+            </span>
+          )}
+        </span>
+      </span>
     </button>
   );
 }
@@ -626,38 +593,27 @@ export default function AccessPointStrip({
 
   return (
     <div className="relative">
-      {/* Branding + scrollable cards row */}
+      {/* Scrollable cards row */}
       <div className="flex items-center">
-        {/* Plan Your Float branding — desktop only; on a phone this column
-            steals ~60px of card width from an already tight strip */}
-        <div className="hidden lg:flex flex-shrink-0 flex-col items-center gap-1 pl-2 pr-2">
-          <Image
-            src={EDDY_CANOE_IMAGE}
-            alt="Eddy the Otter in a canoe"
-            width={120}
-            height={120}
-            className="w-8 h-8 object-contain"
-          />
-          <span className="text-[10px] font-bold text-neutral-600 whitespace-nowrap leading-tight text-center">Tap to<br/>Plan</span>
-        </div>
-
         {/* Scrollable cards area */}
         <div className="relative flex-1 min-w-0">
           {/* Scroll arrows - desktop only, mobile uses native swipe */}
           {showLeftArrow && (
             <button
               onClick={() => scroll('left')}
-              className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
+              aria-label="Scroll access points left"
+              className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 bg-white/90 shadow-md rounded-full hover:bg-white"
             >
-              <ChevronLeft size={20} className="text-neutral-600" />
+              <ChevronLeft size={18} className="text-neutral-600" />
             </button>
           )}
           {showRightArrow && (
             <button
               onClick={() => scroll('right')}
-              className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-white/90 shadow-md rounded-full hover:bg-white"
+              aria-label="Scroll access points right"
+              className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1 bg-white/90 shadow-md rounded-full hover:bg-white"
             >
-              <ChevronRight size={20} className="text-neutral-600" />
+              <ChevronRight size={18} className="text-neutral-600" />
             </button>
           )}
 
