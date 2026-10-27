@@ -31,6 +31,15 @@ ${coordinateText(fix.lngLat)} (${accuracy})
 ${locationLink(fix.lngLat, 'My location')}`;
 }
 export interface AheadItem { id: string; name: string; detail: string; mile: number; distance: number | null; point: LngLat; reportedAt?: string }
+/** A report's state in a list line: waiting on signal, with the reviewers, or given up on. */
+export function reportStatusLabel(status: HazardReport['status']): string {
+  switch (status) {
+    case 'waiting': return 'Pending upload';
+    case 'failed': return 'Not sent';
+    case 'refused': return 'Not accepted';
+    case 'sent': return 'Under review';
+  }
+}
 /** Both positioned and unpositioned lists must be scoped to this float. */
 export function currentFloatReports(session: FloatSession, reports: readonly HazardReport[]) {
   return reports.filter(report => report.riverSlug === session.route.riverSlug && report.status !== 'refused' &&
@@ -52,7 +61,7 @@ export function aheadItems(session: FloatSession, reports: readonly HazardReport
       mile: h.riverMile, point: h.lngLat, distance: null })),
     ...currentFloatReports(session, reports).filter(h => h.riverMile != null && Number.isFinite(h.riverMile) && validCoordinate([h.longitude, h.latitude]))
       .map(h => ({ id: `report:${h.id}`, name: HAZARD_KINDS.find(k => k.id === h.kind)?.label ?? 'Hazard',
-        detail: `Your report · ${h.status === 'waiting' ? 'Pending upload' : 'Under review'}${h.note ? ` · ${h.note}` : ''}`,
+        detail: `Your report · ${reportStatusLabel(h.status)}${h.note ? ` · ${h.note}` : ''}`,
         mile: h.riverMile!, point: [h.longitude, h.latitude] as LngLat, distance: null, reportedAt: h.capturedAt })),
   ];
   return { basis, items: rows.filter(a => a.mile <= session.takeOut.riverMile && a.mile >= (basis?.mile ?? session.startMile ?? session.putIn?.riverMile ?? 0))

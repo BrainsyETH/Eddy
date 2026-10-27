@@ -166,6 +166,23 @@ export async function removeTripDownload(tripKey: string): Promise<void> {
   await AsyncStorage.removeItem(tripPackageKey(tripKey)).catch(() => {});
 }
 
+/** Account deletion: every trip's map and route package. Rejects if any could not be removed. */
+export async function removeAllTripDownloads(): Promise<void> {
+  const manager = getOfflineManager();
+  const tripKeys = new Set<string>();
+  if (manager) {
+    for (const pack of await packs()) {
+      tripKeys.add(pack.name.slice(TRIP_PACK_PREFIX.length).replace(/:\d+$/, ''));
+    }
+  }
+  const keys = await AsyncStorage.getAllKeys();
+  for (const key of keys) {
+    const prefix = tripPackageKey('');
+    if (key.startsWith(prefix)) tripKeys.add(key.slice(prefix.length));
+  }
+  for (const tripKey of tripKeys) await removeTripDownload(tripKey);
+}
+
 export interface StoredTrip {
   tripKey: string;
   bytes: number;

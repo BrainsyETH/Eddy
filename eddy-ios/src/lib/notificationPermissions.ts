@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { notificationAccess, type NotificationAccess } from './notificationAccess';
+import { canRequestNotification, notificationAccess, type NotificationAccess } from './notificationAccess';
 
 function interpret(permission: Notifications.NotificationPermissionsStatus): NotificationAccess {
   return notificationAccess({
@@ -18,7 +18,9 @@ export async function readNotificationAccess(): Promise<NotificationAccess> {
 export async function requestNotificationAccess(): Promise<NotificationAccess> {
   // Re-read: Settings or another screen may have changed permission in the meantime.
   const access = await readNotificationAccess();
-  if (access !== 'ask') return access;
+  // Provisional (quiet) access upgrades through the same prompt; a failed
+  // read is asked again rather than left as a dead Enable button.
+  if (!canRequestNotification(access)) return access;
   try {
     return interpret(await Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true } }));
   } catch { return 'unknown'; }

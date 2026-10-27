@@ -30,16 +30,17 @@ export function PickupContact({ message, disabled = false }: { message?: string 
     catch { setError('Couldn’t save contact'); }
     finally { setBusy(false); }
   };
-  const open = async (url: string) => {
+  const open = async (url: string, app: 'Phone' | 'Messages') => {
     try { await Linking.openURL(url); setError(null); }
-    catch { setError('Couldn’t open app'); }
+    catch { setError(`Couldn’t open ${app} on this device. The number is shown above to dial by hand.`); }
   };
   return <View style={{ gap: 8 }}>
     {!ready ? <Text style={[s.note, { color: colors.textMuted }]}>Loading contact…</Text> : editing ? <>
       <TextInput value={draft.name} onChangeText={name => setDraft(v => ({ ...v, name }))} placeholder="Name" accessibilityLabel="Pickup contact name"
         editable={!busy && !disabled} maxLength={80} style={[styles.input, s.body, { color: colors.text, borderColor: colors.border }]} placeholderTextColor={colors.textMuted} />
       <TextInput value={draft.phone} onChangeText={phone => setDraft(v => ({ ...v, phone }))} placeholder="Phone number" accessibilityLabel="Pickup contact phone number"
-        editable={!busy && !disabled} maxLength={30} keyboardType="phone-pad" autoComplete="tel" style={[styles.input, s.body, { color: colors.text, borderColor: colors.border }]} placeholderTextColor={colors.textMuted} />
+        editable={!busy && !disabled} maxLength={30} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"
+        style={[styles.input, s.body, { color: colors.text, borderColor: colors.border }]} placeholderTextColor={colors.textMuted} />
       <Text style={[s.note, { color: colors.textMuted }]}>Saved on this phone</Text>
       <View style={s.actions}>
         <EssentialsButton label={busy ? 'Saving…' : 'Save'} disabled={busy || disabled} onPress={() => void save()} />
@@ -47,11 +48,15 @@ export function PickupContact({ message, disabled = false }: { message?: string 
         {contact ? <EssentialsButton label="Remove" disabled={busy || disabled} onPress={() => void save(true)} /> : null}
       </View>
     </> : <>
-      {contact ? <Text style={[s.title, { color: colors.text }]}>{contact.name || contact.phone}</Text> : null}
+      {contact ? <>
+        <Text style={[s.title, { color: colors.text }]}>{contact.name || contact.phone}</Text>
+        {/* The number itself, so it can be checked, or dialled by hand. */}
+        {contact.name ? <Text selectable style={[s.note, { color: colors.textMuted }]}>{contact.phone}</Text> : null}
+      </> : null}
       <View style={s.actions}>
         {contact && message !== undefined ? <>
-          <EssentialsButton label="Call" onPress={() => void open(`tel:${contact.phone}`)} />
-          <EssentialsButton label="Message" onPress={() => void open(`sms:${contact.phone}${message ? `&body=${encodeURIComponent(message)}` : ''}`)} />
+          <EssentialsButton label="Call" onPress={() => void open(`tel:${contact.phone}`, 'Phone')} />
+          <EssentialsButton label="Message" onPress={() => void open(`sms:${contact.phone}${message ? `&body=${encodeURIComponent(message)}` : ''}`, 'Messages')} />
         </> : null}
         <EssentialsButton label={contact ? 'Edit contact' : 'Add pickup contact'} disabled={!ready || disabled} onPress={() => {
           setDraft(contact ?? { name: '', phone: '' }); setEditing(true); setError(null);

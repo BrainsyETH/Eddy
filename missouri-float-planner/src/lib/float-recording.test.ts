@@ -112,6 +112,11 @@ test('the tracker state is the recorder’s report for THIS float, flags and all
   assert.equal(trackerState(report(), 'a', true).status, 'recording');
   assert.equal(trackerState(report({ state: 'failed' }), 'a', true).status, 'failed');
   assert.equal(trackerState(report({ journalError: true }), 'a', true).status, 'failed', 'a fix that could not be written is a failure');
+  assert.equal(
+    trackerState(report({ state: 'failed', notInForeground: true }), 'a', true).status,
+    'starting',
+    'a start refused in the background is retried from the foreground, not shown as a failure',
+  );
   const flagged = trackerState(
     report({ update: { authorizationDeniedGlobally: true, accuracyLimited: true }, session: { insufficientlyInUse: true } }),
     'a',

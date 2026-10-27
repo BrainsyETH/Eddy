@@ -35,10 +35,14 @@ import {
   AUTO_END_AWAY_MS,
   AWAY_PROMPT_ID,
   AWAY_PROMPT_MS,
+  CONTINUING_WINDOW_MS,
+  SHORT_FLOAT_MS,
   autoEndAt,
   autoEndCopy,
+  continuingPastEnd,
+  isShortFloat,
 } from '../../../eddy-ios/src/lib/floatEnding';
-import { notificationAccess, canDeliverNotification } from '../../../eddy-ios/src/lib/notificationAccess';
+import { notificationAccess, canDeliverNotification, canRequestNotification } from '../../../eddy-ios/src/lib/notificationAccess';
 import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 const MILE = 1609.344;
@@ -259,7 +263,9 @@ test('a stop is reminded where it actually is, not at a published mile calibrati
 test('the take-out reminder for an off-river take-out says where it really is', () => {
   const copy = reminderCopy({ id: 'take-out', name: 'Buffalo City', kind: 'take-out', milesAway: 0.4, beyondMeters: 1_001 });
   assert.equal(copy.title, 'Buffalo City take-out is approaching');
-  assert.match(copy.body, /About 0\.4 mi ahead to the river’s closest point\. The take-out is about 1\.0 km beyond it/);
+  assert.match(copy.body, /About 0\.4 mi ahead to the river’s closest point\. The take-out is about 0\.6 mi beyond it/);
+  const near = reminderCopy({ id: 'take-out', name: 'Buffalo City', kind: 'take-out', milesAway: 0.4, beyondMeters: 20 });
+  assert.match(near.body, /about 50 ft beyond it/, 'feet under a tenth of a mile, never "0"');
 });
 
 // ── Hazards, and ending a float nobody ended ────────────────────────────────
@@ -370,6 +376,41 @@ test('a float left running ends itself after arriving or leaving the river, neve
   assert.match(autoEndCopy(away).body, /left the Current River/);
 });
 
+test('arrival does not end a float whose paddler keeps going downstream past the take-out', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'pulltite');
+  let { session, t } = paddle(s0, index, 0, 6_000, T0);
+  assert.ok(session.arrivedAt != null);
+  const arrivedAt = session.arrivedAt!;
+  assert.equal(continuingPastEnd(session, t), false, 'at the take-out is not past it');
+
+  // Keeps paddling for over an hour beyond the take-out: still floating, so
+  // the hour after arrival ends nothing.
+  ({ session, t } = paddle(session, index, 6_000, 9_000, t, 0.7));
+  assert.ok(t - arrivedAt > AUTO_END_AFTER_ARRIVAL_MS);
+  assert.equal(continuingPastEnd(session, t), true);
+  assert.equal(autoEndAt(session, t), null);
+
+  // Then stops on the bank for a quarter of an hour: the float ends, and the
+  // recap counts it finished at the take-out it was planned to.
+  const stopped = t + CONTINUING_WINDOW_MS + 10_000;
+  for (let when = t; when <= stopped; when += 10_000) session = applyFix(session, index, fix(at(9_000, 5), when), when);
+  assert.equal(continuingPastEnd(session, stopped), false);
+  assert.equal(autoEndAt(session, stopped), arrivedAt);
+
+  // A GPS gap after moving past the take-out is not evidence of still moving.
+  assert.equal(continuingPastEnd(session, stopped + 2 * CONTINUING_WINDOW_MS), false);
+});
+
+test('a float is short, and can be discarded without a recap, until it has measured something', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
+  assert.equal(isShortFloat(s0, T0 + SHORT_FLOAT_MS + 1), true, 'no confirmed position: nothing measured');
+  const { session, t } = paddle(s0, index, 0, 100, T0);
+  assert.equal(isShortFloat(session, t), true, 'moments old');
+  assert.equal(isShortFloat(session, T0 + SHORT_FLOAT_MS), true, 'under a tenth of a mile');
+  const far = paddle(session, index, 100, 400, t);
+  assert.equal(isShortFloat(far.session, T0 + SHORT_FLOAT_MS), false);
+});
+
 test('away is judged on fresh evidence: a gap, a return to the river, or a bank stop ends nothing', () => {
   const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
   const { session, t } = paddle(s0, index, 0, 3_000, T0);
@@ -403,7 +444,10 @@ test('local reminder permission distinguishes quiet delivery and does not mistak
   assert.equal(notificationAccess({ granted: false, canAskAgain: true }), 'ask');
   assert.equal(notificationAccess({ granted: false, canAskAgain: false }), 'settings');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false }), 'granted');
-  assert.equal(notificationAccess({ granted: false, canAskAgain: false, provisional: true }), 'quiet');
+  assert.equal(notificationAccess({ granted: false, canAskAgain: false, provisional: true }), 'provisional', 'quiet by iOS, not by the user: the prompt can still upgrade it');
+  assert.equal(canDeliverNotification('provisional'), true);
+  assert.deepEqual((['ask', 'provisional', 'unknown'] as const).map(canRequestNotification), [true, true, true]);
+  assert.deepEqual((['granted', 'quiet', 'settings'] as const).map(canRequestNotification), [false, false, false], 'alerts off in Settings or a denial cannot be prompted away');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsSound: false }), 'quiet');
   assert.equal(notificationAccess({ granted: true, canAskAgain: false, allowsAlert: false }), 'quiet');
   for (const state of ['unknown', 'ask', 'settings'] as const) assert.equal(canDeliverNotification(state), false);

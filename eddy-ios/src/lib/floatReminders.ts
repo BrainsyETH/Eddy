@@ -33,7 +33,7 @@
 
 import type { RouteIndex } from '@eddy/geo';
 import { hazardTypeLabel } from '@eddy/hazards';
-import { placeEnd, type FloatSession, type RouteAnchor, type RouteHazard } from './floatSession';
+import { formatBeyond, placeEnd, type FloatSession, type RouteAnchor, type RouteHazard } from './floatSession';
 import { ARRIVED_PROMPT_ID, AWAY_PROMPT_ID, endPromptsDue } from './floatEnding';
 
 /** Heads-up distance before the take-out: about 10-15 minutes on the water. */
@@ -204,12 +204,7 @@ export function settleDelivery(session: FloatSession, attempted: readonly string
 /** The notification a reminder becomes. */
 export function reminderCopy(reminder: DueReminder): { title: string; body: string } {
   const distance = reminder.milesAway < 0.1 ? 'Just ahead' : `About ${reminder.milesAway.toFixed(1)} mi ahead`;
-  const beyond =
-    reminder.beyondMeters == null
-      ? null
-      : reminder.beyondMeters >= 1_000
-        ? `${(reminder.beyondMeters / 1_000).toFixed(1)} km`
-        : `${Math.round(reminder.beyondMeters / 50) * 50} m`;
+  const beyond = reminder.beyondMeters == null ? null : formatBeyond(reminder.beyondMeters);
   switch (reminder.kind) {
     case 'stop':
       return { title: `${reminder.name} coming up`, body: `${distance}, along the river.` };

@@ -40,6 +40,37 @@ export interface ArchiveTransport {
   consent(enabled: boolean): Promise<ContributionPreference>;
 }
 
+/** Rows per upload, and the serialized size one upload stays under: the server refuses bodies over 100,000 characters. */
+export const UPLOAD_MAX_ROWS = 20;
+export const UPLOAD_MAX_CHARS = 90_000;
+/** What a row that no batch could carry is marked with; manual retry resends it. */
+export const TOO_LARGE_REASON = 'This float is too large to back up.';
+
+/**
+ * Split dirty rows into uploads the server accepts: at most UPLOAD_MAX_ROWS
+ * each, and under UPLOAD_MAX_CHARS serialized. A row too large on its own
+ * travels alone, so a 413 names exactly one row.
+ */
+export function uploadBatches<T extends { id: string }>(rows: readonly T[], serialized: (row: T) => number): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
+  let size = 0;
+  for (const row of rows) {
+    const chars = serialized(row);
+    if (current.length > 0 && (current.length >= UPLOAD_MAX_ROWS || size + chars > UPLOAD_MAX_CHARS)) {
+      batches.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(row);
+    size += chars;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
+const isTooLarge = (e: unknown) => e !== null && typeof e === 'object' && 'status' in e && (e as { status?: unknown }).status === 413;
+
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 const nullableString = (v: unknown) => v === null || typeof v === 'string';
 const number = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
@@ -83,7 +114,10 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
   let loaded = false;
   let selected: string | null = null;
   let revision = 0;
+  /** The last local read or write that failed; cleared by the next successful save. */
   let error: string | null = null;
+  /** The last backup attempt that failed; cleared only by a backup that succeeds. A local save must not hide it. */
+  let syncError: string | null = null;
   let syncing = false;
   const retries = new Map<string, { failures: number; at: number }>();
   const blocked = new Set<string>();
@@ -182,10 +216,22 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
         preference: selected ? account(selected).preference : NO_CONTRIBUTION,
         pendingConsentOff: selected ? account(selected).pendingConsentOff === true : false,
         syncing,
-        error,
+        error: error ?? syncError,
         recovered: disk.recovered === true,
         retryAt: selected ? retries.get(selected)?.at ?? null : null,
       };
+    },
+    /**
+     * Where a trip's row lives: the selected account, another account on
+     * this phone (ended under the owner of the time; aliases keep a late
+     * end journal with its original owner), or nowhere.
+     */
+    locate(id: string): 'current' | 'elsewhere' | null {
+      const current = selected ? resolveScope(selected) : null;
+      for (const [owner, archive] of Object.entries(disk.accounts)) {
+        if (archive.rows.some((r) => r.id === id && !r.deleted)) return owner === current ? 'current' : 'elsewhere';
+      }
+      return null;
     },
     async select(scope: string) {
       // Hide the preceding account immediately, even if disk IO takes time.
@@ -269,15 +315,23 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
         await setAccount(owner, { ...current, rows: [row, ...current.rows.filter((r) => r.id !== row.id)] });
       });
     },
-    remove(id: string, scope: string) {
+    /**
+     * Tombstone a row. Resolves false, and changes nothing, when `scope` is
+     * no longer the selected account: the caller must not report a deletion
+     * that did not happen.
+     */
+    remove(id: string, scope: string): Promise<boolean> {
       return run(async () => {
-        if (scope !== token()) return;
+        if (scope !== token()) return false;
         const owner = resolveScope(scope);
-        if (blocked.has(owner)) return;
+        if (blocked.has(owner)) return false;
         const current = account(owner);
-        // Unreadable copies cannot be scoped to one trip. Never retain a deleted
-        // trip inside a recovery copy whose contents we cannot safely interpret.
-        await storage.removeItem(ARCHIVE_RECOVERY_KEY);
+        const row = current.rows.find((r) => r.id === id);
+        if (!row) return false;
+        // Deleting a TRIP also drops the recovery copy of unreadable history:
+        // its contents cannot be scoped to one trip, so the deleted trip must
+        // not survive inside it. Only after the tombstone is on disk, and not
+        // for a saved route, which is not what that copy would resurrect.
         await setAccount(owner, {
           ...current,
           rows: current.rows.map((r) =>
@@ -294,7 +348,12 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
                 }
               : r,
           ),
-        }, true);
+        });
+        if (row.kind === 'completed') {
+          await storage.removeItem(ARCHIVE_RECOVERY_KEY);
+          if (disk.recovered) await save({ ...disk, recovered: false });
+        }
+        return true;
       });
     },
     async retryRejected(scope: string) {
@@ -306,7 +365,14 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
           ? { ...row, backupError: undefined, dirty: true, revision: row.revision + 1 } : row) });
       });
     },
-    async sync(scope: string, api: ArchiveTransport, force = false) {
+    /**
+     * Upload what changed, then (by default) read the account's history back
+     * and merge it. `readRemote` false uploads only: the periodic timer and
+     * the post-edit debounce use it, so a six-hour float does not download
+     * the whole history every minute. Foreground, sign-in and manual sync
+     * still read.
+     */
+    async sync(scope: string, api: ArchiveTransport, force = false, readRemote = true) {
       if (syncing || scope === 'guest' || blocked.has(scope) || selected !== scope) return;
       if (!force && now() < (retries.get(scope)?.at ?? 0)) return;
       syncing = true;
@@ -319,67 +385,87 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
         const localAtStart = await run(async () => account(scope).rows);
         const sent = localAtStart.filter((r) => r.dirty);
         const readVersions = new Map(localAtStart.map((r) => [r.id, r.revision]));
-        for (let i = 0; i < sent.length; i += 20) {
+        const wire = ({ id, kind, payload, deleted, contributionVersion }: LocalArchiveRow): ArchiveRow =>
+          ({ id, kind, payload, deleted, contributionVersion });
+        const acknowledge = (batch: LocalArchiveRow[], results: ArchiveWriteResult[]) => run(async () => {
           if (selected !== scope || blocked.has(scope)) return;
-          const batch = sent.slice(i, i + 20);
-          const results = await api.write(
-            batch
-              .map(({ id, kind, payload, deleted, contributionVersion }) => ({
-                id,
-                kind,
-                payload,
-                deleted,
-                contributionVersion,
-              })),
-          );
+          const byId = new Map(batch.map((row, index) => [row.id, { row, result: results[index] }]));
+          const current = account(scope);
+          await setAccount(scope, { ...current, rows: current.rows.map((row) => {
+            const ack = byId.get(row.id);
+            if (!ack || row.revision !== ack.row.revision) return row;
+            return { ...row, dirty: false, backupError: ack.result.status === 'rejected' ? ack.result.reason : undefined };
+          }) });
+        });
+        // A 413 halves the batch until the oversized row is alone, then marks
+        // it refused so the rows behind it still upload.
+        const upload = async (batch: LocalArchiveRow[]): Promise<void> => {
+          if (selected !== scope || blocked.has(scope)) return;
+          let results: ArchiveWriteResult[];
+          try {
+            results = await api.write(batch.map(wire));
+          } catch (e) {
+            if (!isTooLarge(e)) throw e;
+            if (batch.length === 1) {
+              await acknowledge(batch, [{ status: 'rejected', reason: TOO_LARGE_REASON }]);
+              return;
+            }
+            const half = Math.ceil(batch.length / 2);
+            await upload(batch.slice(0, half));
+            await upload(batch.slice(half));
+            return;
+          }
           if (!Array.isArray(results) || results.length !== batch.length || results.some((r) =>
             !r || (r.status !== 'accepted' && (r.status !== 'rejected' || typeof r.reason !== 'string'))))
             throw new Error('Backup response could not be confirmed. Please retry.');
+          await acknowledge(batch, results);
+        };
+        for (const batch of uploadBatches(sent, (row) => JSON.stringify(wire(row)).length)) {
+          if (selected !== scope || blocked.has(scope)) return;
+          await upload(batch);
+        }
+        if (readRemote) {
+          if (selected !== scope || blocked.has(scope)) return;
+          const consentAtRead = account(scope).preference.version;
+          const remote = await api.read();
           await run(async () => {
             if (selected !== scope || blocked.has(scope)) return;
-            const byId = new Map(batch.map((row, index) => [row.id, { row, result: results[index] }]));
             const current = account(scope);
-            await setAccount(scope, { ...current, rows: current.rows.map((row) => {
-              const ack = byId.get(row.id);
-              if (!ack || row.revision !== ack.row.revision) return row;
-              return { ...row, dirty: false, backupError: ack.result.status === 'rejected' ? ack.result.reason : undefined };
-            }) });
+            const local = new Map(current.rows.map((r) => [r.id, r]));
+            for (const row of remote.rows) {
+              const localRow = local.get(row.id);
+              // A remote tombstone always wins; otherwise keep edits made during IO.
+              if (localRow && !row.deleted && (localRow.backupError ||
+                (localRow.dirty && localRow.revision !== readVersions.get(row.id)))) continue;
+              const merged: LocalArchiveRow = {
+                ...row,
+                revision: localRow?.revision ?? 1,
+                dirty: false,
+                logistics: row.deleted ? undefined : localRow?.logistics,
+              };
+              // One row the server sends in a shape this build cannot read is
+              // skipped, never written: once on disk it would make the whole
+              // history unreadable at the next launch.
+              if (!readableRow(merged)) continue;
+              local.set(row.id, merged);
+            }
+            await setAccount(scope, {
+              ...current,
+              rows: [...local.values()],
+              preference:
+                current.pendingConsentOff || current.preference.version !== consentAtRead
+                  ? current.preference
+                  : remote.preference,
+            });
           });
         }
-        if (selected !== scope || blocked.has(scope)) return;
-        const consentAtRead = account(scope).preference.version;
-        const remote = await api.read();
-        await run(async () => {
-          if (selected !== scope || blocked.has(scope)) return;
-          const current = account(scope);
-          const local = new Map(current.rows.map((r) => [r.id, r]));
-          for (const row of remote.rows) {
-            const localRow = local.get(row.id);
-            // A remote tombstone always wins; otherwise keep edits made during IO.
-            if (localRow && !row.deleted && (localRow.backupError ||
-              (localRow.dirty && localRow.revision !== readVersions.get(row.id)))) continue;
-            local.set(row.id, {
-              ...row,
-              revision: localRow?.revision ?? 1,
-              dirty: false,
-              logistics: row.deleted ? undefined : localRow?.logistics,
-            });
-          }
-          await setAccount(scope, {
-            ...current,
-            rows: [...local.values()],
-            preference:
-              current.pendingConsentOff || current.preference.version !== consentAtRead
-                ? current.preference
-                : remote.preference,
-          });
-        });
         retries.delete(scope);
+        syncError = null;
       } catch (e) {
         if (selected === scope && !blocked.has(scope)) {
           const failures = Math.min((retries.get(scope)?.failures ?? 0) + 1, 5);
           retries.set(scope, { failures, at: now() + Math.min(60000 * 2 ** (failures - 1), 900000) });
-          error = e instanceof Error ? e.message : 'Backup will retry when you reconnect.';
+          syncError = e instanceof Error ? e.message : 'Backup will retry when you reconnect.';
           notify();
         }
       } finally {
@@ -419,6 +505,7 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
         await storage.removeItem(LEGACY_KEY);
         await storage.removeItem(ARCHIVE_RECOVERY_KEY);
         retries.delete(owner);
+        syncError = null;
         const aliases = Object.fromEntries(Object.entries(disk.aliases ?? {}).filter(([, value]) => value !== owner));
         const isCurrent = disk.owner === owner;
         await save({

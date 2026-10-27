@@ -10,7 +10,8 @@
 // stop the app from running for someone who declined them, is on a simulator,
 // or has never signed in.
 
-import { notificationDestination } from '@/lib/notificationDestination';
+import { notificationCommand, notificationDestination } from '@/lib/notificationDestination';
+import { endFloat, getFloatSession } from '@/lib/floatSessionStore';
 import {
   createContext,
   useCallback,
@@ -138,7 +139,20 @@ export function PushProvider({ children }: { children: ReactNode }) {
 
   const routeTo = useCallback(
     (response: Notifications.NotificationResponse) => {
-      const destination = notificationDestination(response.notification.request.content.data);
+      const data = response.notification.request.content.data;
+      if (notificationCommand(response.actionIdentifier, data) === 'finish-float') {
+        // Finish from the arrival prompt: end the float, then show its recap.
+        // An end that could not finalise leaves the float running; River Mode
+        // explains and offers Finish again.
+        const id = getFloatSession()?.id;
+        if (!id) return;
+        void endFloat().then((result) => {
+          if (result === 'not-ended') router.push('/float-mode');
+          else router.push({ pathname: '/float-recap', params: { id } });
+        }).catch((error) => warn('push', 'could not finish the float from its notification', error));
+        return;
+      }
+      const destination = notificationDestination(data);
       if (destination) router.push(destination);
     },
     [router],

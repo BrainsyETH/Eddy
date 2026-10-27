@@ -12,10 +12,11 @@ export function ReminderPermission({ enabled, disabled = false }: { enabled: boo
   const action = enabled && access.state !== 'granted';
   const message = !enabled ? 'Take-out and hazard reminders are off for this float.'
     : access.state === 'granted' ? 'Notifications allowed. GPS gaps or phone settings can delay or silence reminders.'
-    : access.state === 'quiet' ? 'Delivered quietly. Enable alerts and sound in Settings.'
+    : access.state === 'provisional' ? 'Reminders would arrive quietly, with no banner or sound. Allow alerts so a hazard warning can wake your phone.'
+    : access.state === 'quiet' ? 'Alerts or sound are off for Eddy. Turn them on in Settings so reminders can be heard.'
     : access.state === 'settings' ? 'Notifications are off in Settings. Your float can still be recorded.'
     : access.state === 'ask' ? 'Enable notifications for take-out and hazard reminders, even with your phone locked.'
-    : 'Check notification permission to enable float reminders.';
+    : 'Eddy couldn’t read notification permission. Tap to check and enable float reminders.';
   const [error, setError] = useState<string | null>(null);
   const act = async () => {
     setError(null);
@@ -25,11 +26,11 @@ export function ReminderPermission({ enabled, disabled = false }: { enabled: boo
     } else await access.request();
   };
   return <View style={styles.container}>
-    <Text style={[t.sm, { color: colors.textMuted }]} accessibilityLiveRegion="polite">{message}</Text>
+    <Text style={[t.sm, { color: colors.textMuted }]}>{message}</Text>
     {action ? <Pressable onPress={() => void act()} disabled={disabled || access.busy}
       accessibilityRole="button" accessibilityState={{ disabled: disabled || access.busy, busy: access.busy }}
       style={styles.action}>
-      <Text style={[t.base, { color: colors.interactive }]}>{access.busy ? 'Checking…' : settings ? 'Open Settings' : 'Enable notifications'}</Text>
+      <Text style={[t.base, { color: colors.interactive }]}>{access.busy ? 'Checking…' : settings ? 'Open Settings' : access.state === 'provisional' ? 'Allow alerts' : 'Enable notifications'}</Text>
     </Pressable> : null}
     {error ? <Text style={[t.sm, { color: colors.error }]} accessibilityRole="alert">{error}</Text> : null}
   </View>;

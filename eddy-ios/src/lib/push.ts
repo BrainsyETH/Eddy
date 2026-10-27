@@ -51,7 +51,7 @@ export type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unsupport
 // Provisional permission intentionally permits remote delivery without re-prompting.
 // Shared requests ask for alert/sound only: Eddy does not use notification badges.
 function pushPermissionState(access: NotificationAccess): PermissionState {
-  if (access === 'granted' || access === 'quiet') return 'granted';
+  if (access === 'granted' || access === 'quiet' || access === 'provisional') return 'granted';
   if (access === 'ask') return 'undetermined';
   return access === 'settings' ? 'denied' : 'unsupported';
 }

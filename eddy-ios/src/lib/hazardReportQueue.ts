@@ -13,7 +13,14 @@
 //   send whose reply was lost cannot file the report twice.
 //   A refusal (the server read it and said no, e.g. too far from the river)
 //   is final and shown with the server's own sentence. A network failure, a
-//   rate limit or a server error is retried, further apart each time.
+//   rate limit, a server error or a missing route (a deploy in progress) is
+//   retried, further apart each time.
+//   Retrying is not forever: after MAX_ATTEMPTS, or once a report is older
+//   than GIVE_UP_AFTER_MS, it is marked as not sent and shown that way, with
+//   a manual Retry. A report nobody could send for a day is news, not a
+//   background chore.
+//   A report can be withdrawn while it waits (a mistake, the wrong place);
+//   one already sent is with the reviewers and only leaves this list.
 //   One send at a time: a retry timer and a reconnect cannot race each other
 //   into a double post.
 //   Sent means received for review, never "published": reports are checked
@@ -29,7 +36,8 @@ export const HAZARD_KINDS: readonly { id: HazardKind; label: string }[] = [
   { id: 'other', label: 'Something else' },
 ];
 
-export type ReportStatus = 'waiting' | 'sent' | 'refused';
+/** 'failed': every automatic attempt was used up; Retry starts them again. */
+export type ReportStatus = 'waiting' | 'sent' | 'refused' | 'failed';
 
 export interface HazardReport {
   /** Made on the phone; sent as clientReportId on every attempt. */
@@ -69,6 +77,10 @@ const KEEP_DONE_MS = 7 * 24 * 60 * 60_000;
 const FIRST_RETRY_MS = 60_000;
 const MAX_RETRY_MS = 30 * 60_000;
 const CANCELLED_SEND_COOLDOWN_MS = 60_000;
+/** Automatic attempts before a report is marked not sent: about a day at the longest spacing. */
+export const MAX_ATTEMPTS = 50;
+/** A report this old that is still waiting is marked not sent, whatever its attempts. */
+export const GIVE_UP_AFTER_MS = 7 * 24 * 60 * 60_000;
 
 /** Wait before the next attempt after `attempts` failures: 1, 2, 4 … 30 min. */
 export function retryDelay(attempts: number): number {
@@ -77,11 +89,17 @@ export function retryDelay(attempts: number): number {
 
 /**
  * Whether an HTTP status means "no, final" or "try again". A missing status
- * is a network failure. 408 and 429 are transient; any other 4xx means the
- * server read the report and refused it.
+ * is a network failure. 408 and 429 are transient, and so is 404: the route
+ * is missing while a deploy is in progress, not a verdict on the report.
+ * Any other 4xx means the server read the report and refused it.
  */
 export function isFinalRefusal(status: number | undefined): boolean {
-  return status != null && status >= 400 && status < 500 && status !== 408 && status !== 429;
+  return status != null && status >= 400 && status < 500 && status !== 404 && status !== 408 && status !== 429;
+}
+
+/** Whether a waiting report has used up its automatic attempts. */
+export function exhausted(report: Pick<HazardReport, 'attempts' | 'capturedAt'>, now: number): boolean {
+  return report.attempts >= MAX_ATTEMPTS || now - Date.parse(report.capturedAt) > GIVE_UP_AFTER_MS;
 }
 
 /** The text the server stores and a moderator reads. */
@@ -161,7 +179,10 @@ export function createReportQueue(
           const parsed = raw ? (JSON.parse(raw) as HazardReport[]) : [];
           const cutoff = clock() - KEEP_DONE_MS;
           reports = Array.isArray(parsed)
-            ? parsed.filter((r) => r?.id && (r.status === 'waiting' || Date.parse(r.sentAt ?? r.capturedAt) >= cutoff))
+            ? parsed
+              .filter((r) => r?.id && (r.status === 'waiting' || r.status === 'failed' || Date.parse(r.sentAt ?? r.capturedAt) >= cutoff))
+              // A report that aged out while Eddy was closed is not sent.
+              .map((r) => (r.status === 'waiting' && exhausted(r, clock()) ? { ...r, status: 'failed' as const, nextAttemptAt: 0 } : r))
             : [];
           notify();
         } catch (error) {
@@ -230,6 +251,7 @@ export function createReportQueue(
                 const attempts = report.attempts + 1;
                 if (outcome.kind === 'sent') await update(report.id, { status: 'sent', attempts, sentAt: new Date(clock()).toISOString() });
                 else if (outcome.kind === 'refused') await update(report.id, { status: 'refused', attempts, refusal: outcome.message, sentAt: new Date(clock()).toISOString() });
+                else if (exhausted({ attempts, capturedAt: report.capturedAt }, clock())) await update(report.id, { status: 'failed', attempts, nextAttemptAt: 0 });
                 else await update(report.id, { attempts, nextAttemptAt: clock() + retryDelay(attempts) });
               }
             }
@@ -252,6 +274,37 @@ export function createReportQueue(
     nextDueAt(): number | null {
       const waiting = reports.filter((r) => r.status === 'waiting');
       return waiting.length ? Math.min(...waiting.map(dueAt)) : null;
+    },
+
+    /** Start a not-sent report's attempts again, now. Resolves whether it was one. */
+    async retry(id: string): Promise<boolean> {
+      await queue.ensureLoaded();
+      const report = reports.find((r) => r.id === id);
+      if (!report || report.status !== 'failed') return false;
+      await commit((current) => current.map((r) => (r.id === id ? { ...r, status: 'waiting', attempts: 0, nextAttemptAt: 0 } : r)), false);
+      void queue.flush();
+      return true;
+    },
+
+    /**
+     * Take a report off the list. One still waiting is withdrawn, never
+     * sent; one already sent is with the reviewers and only leaves this
+     * phone's list. Resolves whether it was listed.
+     */
+    async remove(id: string): Promise<boolean> {
+      await queue.ensureLoaded();
+      if (!reports.some((r) => r.id === id)) return false;
+      cancelledUntil.delete(id);
+      await commit((current) => current.filter((r) => r.id !== id), true);
+      return true;
+    },
+
+    /** Account deletion: every report, whatever its state. */
+    async clear(): Promise<void> {
+      await queue.ensureLoaded();
+      sendingController?.abort();
+      cancelledUntil.clear();
+      await commit(() => [], true);
     },
   };
   return queue;

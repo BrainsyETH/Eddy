@@ -38,7 +38,8 @@ import { cacheFootprint, clearCache, type CacheFootprint } from '@/lib/riverCach
 import { listTripDownloads, removeTripDownload, type StoredTrip } from '@/float/tripDownloads';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useFloatSession } from '@/hooks/useFloatSession';
-import { floatTracksSize } from '@/float/floatTracks';
+import { floatTracksSize, pendingFloatTrackDeletions, retryFloatTrackDeletions } from '@/float/floatTracks';
+import { warn } from '@/lib/monitoring';
 
 export default function StorageScreen() {
   const { colors, elevation } = useTheme();
@@ -50,12 +51,15 @@ export default function StorageScreen() {
   // a path any render can reach.
   const [trips, setTrips] = useState<StoredTrip[]>([]);
   const [trackBytes, setTrackBytes] = useState(0);
+  const [pendingDeletions, setPendingDeletions] = useState<string[]>([]);
+  const [retryingDeletions, setRetryingDeletions] = useState(false);
   const { floats } = useSavedFloats();
   const activeFloat = useFloatSession();
   const measure = useCallback(() => {
     void cacheFootprint().then(setCache);
     void listTripDownloads().then(setTrips);
     void floatTracksSize().then(setTrackBytes);
+    void pendingFloatTrackDeletions().then(setPendingDeletions);
   }, []);
 
   // Trip maps are deliberate downloads, not cache: each is listed and removed
@@ -67,9 +71,22 @@ export default function StorageScreen() {
     }
     Alert.alert(`Remove the map for ${label}?`, 'The saved float stays. You can download its map again later.', [
       { text: 'Keep', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => void removeTripDownload(tripKey).then(measure) },
+      { text: 'Remove', style: 'destructive', onPress: () => {
+        void removeTripDownload(tripKey).then(measure).catch((error) => {
+          warn('float', 'could not remove a trip download', error);
+          Alert.alert('Could not remove', 'This map could not be removed. Try again.');
+          measure();
+        });
+      } },
     ]);
   }, [activeFloat, measure]);
+
+  // A track whose deletion failed is retried at every launch; here it can be
+  // retried now, and is at least visible instead of counted silently.
+  const retryDeletions = useCallback(() => {
+    setRetryingDeletions(true);
+    void retryFloatTrackDeletions().then(measure).finally(() => setRetryingDeletions(false));
+  }, [measure]);
   useEffect(measure, [measure]);
 
   const confirmClear = useCallback(() => {
@@ -155,7 +172,8 @@ export default function StorageScreen() {
           <View style={[styles.card, styles.tripCard, { backgroundColor: colors.card }, elevation(1)]}>
             <Text style={[styles.rowTitle, { color: colors.text }]}>Trip maps</Text>
             <Text style={[styles.note, { color: colors.textMuted }]}>
-              Maps saved on this phone. Check for Ready offline before you go.
+              Maps saved on this phone. Check for Ready offline before you go. Sizes are approximate: neighbouring
+              sections of a trip share map tiles, which are stored once.
             </Text>
             {trips.map((trip) => {
               const saved = floats.find((f) => f.shortCode === trip.tripKey);
@@ -164,11 +182,11 @@ export default function StorageScreen() {
                 <View key={trip.tripKey} style={styles.tripRow}>
                   <View style={styles.tripText}>
                     <Text style={[styles.note, { color: colors.text }]} numberOfLines={1}>{label}</Text>
-                    <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{trip.status} · {formatBytes(trip.bytes)}</Text>
+                    <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{trip.status} · about {formatBytes(trip.bytes)}</Text>
                   </View>
                   <Pressable
                     onPress={() => confirmRemoveTrip(trip.tripKey, label)}
-                    hitSlop={8}
+                    style={styles.rowButton}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove the map for ${label}`}
                   >
@@ -180,7 +198,7 @@ export default function StorageScreen() {
           </View>
         ) : null}
 
-        {trackBytes > 0 ? (
+        {trackBytes > 0 || pendingDeletions.length > 0 ? (
           <View style={[styles.card, styles.tripCard, { backgroundColor: colors.card }, elevation(1)]}>
             <Text style={[styles.rowTitle, { color: colors.text }]}>Float GPS tracks</Text>
             <Text style={[styles.note, { color: colors.textMuted }]}>
@@ -188,6 +206,23 @@ export default function StorageScreen() {
               float from your history deletes its track.
             </Text>
             <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{formatBytes(trackBytes)}</Text>
+            {pendingDeletions.length > 0 ? (
+              <View style={styles.tripRow}>
+                <Text style={[styles.note, styles.tripText, { color: colors.textMuted }]}>
+                  {pendingDeletions.length === 1 ? 'One track' : `${pendingDeletions.length} tracks`} from deleted floats could not be removed yet and
+                  {pendingDeletions.length === 1 ? ' is' : ' are'} still counted above. Eddy retries each time it opens.
+                </Text>
+                <Pressable
+                  onPress={retryDeletions}
+                  disabled={retryingDeletions}
+                  style={styles.rowButton}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: retryingDeletions, busy: retryingDeletions }}
+                >
+                  <Text style={[styles.secondaryText, { color: colors.interactive }]}>{retryingDeletions ? 'Retrying…' : 'Retry now'}</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -246,4 +281,5 @@ const styles = StyleSheet.create({
   tripCard: { marginTop: 16 },
   tripRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
   tripText: { flex: 1, minWidth: 0 },
+  rowButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });

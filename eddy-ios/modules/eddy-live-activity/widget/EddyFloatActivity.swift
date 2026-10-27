@@ -44,7 +44,7 @@ struct EddyFloatActivity: Widget {
       } compactTrailing: {
         // A bare old distance on the Island looks live: replace it with an
         // explicit status until the river position is reliable again.
-        Text(display.reliable ? "\(context.state.milesText) mi" : display.compactStatus)
+        Text(display.reliable && display.hasMiles ? "\(context.state.milesText) mi" : display.compactStatus)
           .font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(display.tint)
       } minimal: {
         Image(systemName: display.statusSymbol)
@@ -61,6 +61,9 @@ private struct FloatDisplay {
   var state: FloatActivityAttributes.ContentState { context.state }
   var stale: Bool { context.isStale || state.status == "stale" }
   var reliable: Bool { !stale && state.status == "live" }
+  /// The app sends a dash when there is no distance to show (no confirmed
+  /// position, or a start past the take-out); a dash needs no unit.
+  var hasMiles: Bool { state.milesText != "—" }
   var tint: Color { reliable ? riverTeal : .orange }
   var shortStatus: String {
     if state.lastFixAt == nil { return "Finding your position" }
@@ -113,16 +116,19 @@ private struct FloatCard: View {
             .accessibilityHidden(true)
         }
         VStack(alignment: .leading, spacing: 1) {
-          Text(state.riverName).font(.system(.subheadline, design: .rounded).weight(.semibold)).lineLimit(1)
-          Text("To \(state.takeOutName)").font(.caption).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+          Text(state.riverName).font(.system(.subheadline, design: .rounded).weight(.semibold))
+            .lineLimit(1).minimumScaleFactor(0.8)
+          Text("To \(state.takeOutName)").font(.caption).foregroundStyle(.white.opacity(0.75))
+            .lineLimit(1).minimumScaleFactor(0.8)
         }
         Spacer(minLength: 4)
         VStack(alignment: .trailing, spacing: 0) {
-          Text("\(state.milesText) mi")
+          Text(display.hasMiles ? "\(state.milesText) mi" : state.milesText)
             .font(.system(.title2, design: .rounded).weight(.semibold)).monospacedDigit()
-          Text(display.reliable ? (state.beyondText.isEmpty ? "river miles left" : "to mapped end") : "last known")
+          Text(!display.hasMiles ? "no distance yet" : display.reliable ? (state.beyondText.isEmpty ? "river miles left" : "to mapped end") : "last known")
             .font(.caption2).foregroundStyle(.white.opacity(0.75))
         }
+        .accessibilityElement(children: .combine)
       }
       if let progress = state.progress {
         ProgressView(value: progress).tint(display.tint)
@@ -136,6 +142,7 @@ private struct FloatCard: View {
             Text("As of")
             Text(asOf, style: .time)
           }.font(.caption2).foregroundStyle(.white.opacity(0.65))
+            .accessibilityElement(children: .combine)
         }
       }
       // Fixed moving-time copy, never a countdown through a stop.
@@ -146,16 +153,23 @@ private struct FloatCard: View {
       }
       HStack(spacing: 4) {
         Image(systemName: display.reliable ? "location.fill" : display.statusSymbol)
+          .accessibilityHidden(true)
         Text(display.shortStatus).lineLimit(1)
         if !display.reliable, let fix = state.lastFixAt {
-          Text("·")
+          Text("·").accessibilityHidden(true)
           // The system redraws this age even while Eddy is suspended.
           Text(fix, style: .relative).monospacedDigit()
           Text("ago")
         }
       }
       .font(.caption2).foregroundStyle(display.tint)
+      // One VoiceOver element ("Last known position, 3 min ago"), not four.
+      .accessibilityElement(children: .combine)
     }
     .foregroundStyle(.white)
+    // The Lock Screen clips a Live Activity at 160 pt. Five rows fit through
+    // the largest non-accessibility size; above it, text is capped rather
+    // than cut off mid-card.
+    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
   }
 }

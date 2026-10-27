@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import UIKit
 
 /// Records the active float's GPS track, natively, independent of the UI and
 /// of JavaScript. See docs/decisions/0014-float-recording-is-native.md.
@@ -48,13 +49,21 @@ final class FloatRecorder {
   private var updateFlags: [String: Bool] = [:]
   /// Latest flags from the service session's diagnostics.
   private var sessionFlags: [String: Bool] = [:]
+  /// The last fix could not be written to the journal. Held, not one-shot:
+  /// River Mode must keep saying so until a later fix is written, because a
+  /// fix that is not on disk is not recorded, whatever the sessions report.
+  private var journalFailed = false
 
-  /// Set by the module while JS is attached; events are dropped otherwise
+  /// Set by the module while JS is listening; events are dropped otherwise
   /// (the journal still has every fix).
   var emit: ((String, [String: Any]) -> Void)?
 
-  /// Held only while the temporary precise-location prompt is showing.
+  /// Held only while the temporary precise-location prompt is showing, with
+  /// every caller waiting on that one prompt. A second request while it shows
+  /// joins it rather than replacing the manager, which would release the
+  /// prompt's owner and could leave the first caller waiting forever.
   private var accuracyManager: CLLocationManager?
+  private var accuracyWaiters: [(Bool) -> Void] = []
 
   private init() {}
 
@@ -63,17 +72,27 @@ final class FloatRecorder {
   /// whether precise location is on afterwards. Start asks this way first and
   /// sends people to Settings only if it was declined.
   func requestPreciseLocation(done: @escaping (Bool) -> Void) {
+    if accuracyManager != nil {
+      accuracyWaiters.append(done)
+      return
+    }
     let manager = CLLocationManager()
     if manager.accuracyAuthorization == .fullAccuracy {
       done(true)
       return
     }
     accuracyManager = manager
+    accuracyWaiters = [done]
     manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: Self.accuracyPurposeKey) { _ in
       Task { @MainActor in
+        let recorder = FloatRecorder.shared
+        // Only the prompt that is still current settles the waiters.
+        guard recorder.accuracyManager === manager else { return }
         let full = manager.accuracyAuthorization == .fullAccuracy
-        FloatRecorder.shared.accuracyManager = nil
-        done(full)
+        let waiters = recorder.accuracyWaiters
+        recorder.accuracyManager = nil
+        recorder.accuracyWaiters = []
+        for waiter in waiters { waiter(full) }
       }
     }
   }
@@ -90,15 +109,33 @@ final class FloatRecorder {
     ]
     if let sessionId { out["sessionId"] = sessionId }
     if let lastFixTime { out["lastFixAt"] = lastFixTime.timeIntervalSince1970 * 1000 }
+    if journalFailed { out["journalError"] = true }
     return out
   }
 
-  /// Start recording a float. Call only with Eddy in the foreground: a new
-  /// background activity session cannot begin in the background. Recording
-  /// the same float again is a no-op; a different one replaces it.
+  /// Start recording a float. Only with Eddy in the foreground: a background
+  /// activity session created in the background stays "insufficiently in
+  /// use" until Eddy is next opened, and the persisted id would resume it the
+  /// same way. JS checks its own app state, which can lag the native one, so
+  /// the guard is here. A refused start is reported as failed for this float,
+  /// so River Mode offers Retry and the next foreground tries again.
+  /// Recording the same float again is a no-op; a different one replaces it.
   func start(sessionId: String) -> [String: Any] {
     if self.sessionId == sessionId, state == .recording { return status }
+    guard UIApplication.shared.applicationState != .background else {
+      return [
+        "state": State.failed.rawValue,
+        "sessionId": sessionId,
+        "update": [String: Bool](),
+        "session": [String: Bool](),
+        "notInForeground": true,
+      ]
+    }
     if self.sessionId != nil { stopSessions() }
+    // A different float starts clean: the previous float's last fix time
+    // would drop this one's first fixes as out of order, and its flags are
+    // not this float's status.
+    reset()
     UserDefaults.standard.set(sessionId, forKey: Self.activeKey)
     begin(sessionId: sessionId)
     return status
@@ -123,11 +160,19 @@ final class FloatRecorder {
     FloatJournal.shared.close()
     self.sessionId = nil
     state = .idle
+    reset()
+    publishStatus()
+    return status
+  }
+
+  /// Forget everything about the float that was recording: its last fix time,
+  /// its flags and any journal failure. Shared by stop and by a start that
+  /// replaces one float with another.
+  private func reset() {
     updateFlags = [:]
     sessionFlags = [:]
     lastFixTime = nil
-    publishStatus()
-    return status
+    journalFailed = false
   }
 
   private func begin(sessionId: String) {
@@ -137,10 +182,10 @@ final class FloatRecorder {
     serviceSession = service
     backgroundSession = CLBackgroundActivitySession()
 
-    diagnosticsTask = Task { @MainActor [weak self] in
+    diagnosticsTask = Task { @MainActor in
       do {
         for try await diagnostic in service.diagnostics {
-          guard let self, !Task.isCancelled else { return }
+          guard !Task.isCancelled else { return }
           self.sessionFlags = [
             "authorizationDenied": diagnostic.authorizationDenied,
             "authorizationDeniedGlobally": diagnostic.authorizationDeniedGlobally,
@@ -157,14 +202,14 @@ final class FloatRecorder {
       }
     }
 
-    updatesTask = Task { @MainActor [weak self] in
+    updatesTask = Task { @MainActor in
       do {
         for try await update in CLLocationUpdate.liveUpdates(.otherNavigation) {
-          guard let self, !Task.isCancelled else { return }
+          guard !Task.isCancelled else { return }
           self.handle(update, sessionId: sessionId)
         }
       } catch {
-        guard let self, !Task.isCancelled, self.sessionId == sessionId else { return }
+        guard !Task.isCancelled, self.sessionId == sessionId else { return }
         self.state = .failed
         self.publishStatus()
       }
@@ -218,6 +263,11 @@ final class FloatRecorder {
         guard let recorder = FloatRecorder.recording(sessionId) else { return }
         switch result {
         case .success(let range):
+          if recorder.journalFailed {
+            // Writing works again: say so, the same way the failure was said.
+            recorder.journalFailed = false
+            recorder.publishStatus()
+          }
           recorder.emit?("onFixes", [
             "sessionId": sessionId,
             "from": Double(range.from),
@@ -226,10 +276,12 @@ final class FloatRecorder {
           ])
         case .failure:
           // The fix is not on disk, so JS must not count it either; the
-          // journal is the record. Say so rather than drop it silently.
-          var status = recorder.status
-          status["journalError"] = true
-          recorder.emit?("onStatus", status)
+          // journal is the record. Held in `status` (not spliced into one
+          // event) so River Mode keeps saying so until a write succeeds.
+          if !recorder.journalFailed {
+            recorder.journalFailed = true
+            recorder.publishStatus()
+          }
         }
       }
     }

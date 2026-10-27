@@ -114,7 +114,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
       <View style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}>
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Report a hazard here</Text>
-          <Pressable onPress={() => onClose(false)} accessibilityRole="button" hitSlop={12}>
+          <Pressable onPress={() => onClose(false)} accessibilityRole="button" style={styles.cancelButton}>
             <Text style={[styles.cancel, { color: colors.interactive }]}>Cancel</Text>
           </Pressable>
         </View>
@@ -142,7 +142,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
                   onPress={() => setKind(option.id)}
                   style={[styles.kind, { borderColor: selected ? colors.interactive : colors.border, backgroundColor: selected ? colors.selectionBg : colors.card }]}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected }}
+                  accessibilityState={{ checked: selected }}
                 >
                   <Text style={[styles.kindText, { color: selected ? colors.interactive : colors.text }]}>{option.label}</Text>
                 </Pressable>
@@ -154,6 +154,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
           <TextInput
             value={note}
             onChangeText={setNote}
+            accessibilityLabel="Anything else about this hazard, optional"
             placeholder="Which side, how much of the channel, how to get around it"
             placeholderTextColor={colors.textSubtle}
             multiline
@@ -186,13 +187,15 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   title: { ...t.lg, fontFamily: fonts.heading, flex: 1 },
   cancel: { ...t.base, fontFamily: fonts.semibold },
+  cancelButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end', paddingLeft: 12 },
   body: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
   where: { borderRadius: 12, padding: 12 },
   whereText: { ...t.sm, fontFamily: fonts.semibold },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: { ...t.xs, fontFamily: fonts.semibold, marginTop: 4 },
   kinds: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  kind: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8, minHeight: 36, justifyContent: 'center' },
+  // 44 pt tall: a wet thumb's target, and Apple's minimum.
+  kind: { borderWidth: 1, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, minHeight: 44, justifyContent: 'center' },
   kindText: { ...t.sm, fontFamily: fonts.semibold },
   input: { minHeight: 88, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, textAlignVertical: 'top', ...t.base, fontFamily: fonts.body },
   note: { ...t.sm, fontFamily: fonts.body },
