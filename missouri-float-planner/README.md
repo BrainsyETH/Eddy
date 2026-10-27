@@ -64,10 +64,11 @@ Current and Buffalo, followed by complete Rivers and Lakes & Dams sections.
 Featured is a fixed editorial selection, not measured popularity, and respects
 the state filter. All cards are visible without a Show all step: two columns
 on desktop, one on mobile. Search results and explicit sorts use those same
-full components, including river charts, gauge details, Eddy summaries and
-condition artwork, plus dam generator indicators, percentages, readings and
-next scheduled changes. Discovery controls never replace report content with
-compact summary tiles.
+components, including river charts, gauge details, Eddy summaries and condition
+artwork. Dam cards focus on release, water temperature and the generation
+schedule; the generator status/rack and below-dam elevation stay on full reports.
+Unavailable release readings are marked explicitly; turbine flow is not
+substituted for total release.
 
 Hydroelectric dam cards also show today's hourly generation timeline directly,
 using the same `DamTimeline` as the full report. Today means Central time at the
@@ -76,11 +77,12 @@ arrow keys reveal hourly details in place. Only the dam heading and Full report
 link navigate, so inspecting a schedule keeps the current search and filters.
 Additional schedule days remain on the full report.
 
-The header retains Eddy's canoe artwork and the cross-river summary. A compact
-A–Z link directory keeps every destination reachable before JavaScript, including
-when live gauge metadata is unavailable. `/dams` keeps its “Lakes & Dams” heading,
-search title and canonical URL. The USGS observation-delay note remains below
-the reports alongside source and dam-release guidance.
+Both entry points use the “Conditions” heading, Eddy's canoe artwork and the
+cross-river summary. A compact A–Z link directory keeps every destination
+reachable before JavaScript, including when live gauge metadata is unavailable.
+`/dams` keeps its own search title, canonical URL and initial Lakes & Dams filter.
+The USGS observation-delay note remains below the reports alongside source and
+dam-release guidance.
 
 Search matches both lake and dam names against the same destination. Ranking is
 exact name, name prefix, approved alias, words within a name, then related
@@ -116,7 +118,7 @@ invented measurements. The directory does not add reservoir levels or change
 `npm run test:conditions` runs the actual directory layout with local fixtures
 in Chromium at desktop, tablet, 390px and 320px widths. It covers server-rendered
 cards and canonical URLs, populated river charts, Eddy artwork and summaries,
-dam generation/temperature/elevation/schedule information, matching and related
+dam release/temperature/schedule information, matching and related
 labels, state/category filters,
 legacy links, browser history, sorting, request-free typing and overflow.
 No production credentials are needed. Set `PLAYWRIGHT_CHROMIUM_PATH` for an
