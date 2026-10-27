@@ -1224,10 +1224,10 @@ export default function PlanPageClient({
             readingsAsOf={newestReadingAt}
             className="absolute top-[4.25rem] left-3 z-30"
           />
-          {/* Route tools sit under Filters, near the top of the map: at the
-              bottom of the right-hand column the plan sheet covers them on
-              short phones. */}
-          <div className="absolute left-3 top-[7rem] z-30 flex flex-col gap-2">{plannerTools}</div>
+          {/* Route tools sit in a row under Filters, near the top of the map:
+              at the bottom of the right-hand column the plan sheet covers
+              them on short phones, and a second column would too (390x568). */}
+          <div className="absolute left-3 top-[7.25rem] z-30 flex gap-2">{plannerTools}</div>
 
           {/* Hidden once both endpoints are chosen: the fixed z-40 float
               sheet takes the stage and buried/collided with the pill on

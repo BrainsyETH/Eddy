@@ -739,8 +739,8 @@ try {
       if (mobile && (!sheet || Math.abs(sheet.height - Math.round(innerHeight * 0.42)) > 1)) return false;
       return coords.every(c => {
         const p = map.project([c.lng, c.lat]);
-        // Mobile: clear the Filters / route-tools column (left-3, 40px wide).
-        return p.x > (mobile ? 60 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
+        // Mobile: clear Filters and the route-tools row (left-3, ~108px wide).
+        return p.x > (mobile ? 112 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
           && p.y > 75 && p.y < (mobile && sheet ? sheet.top - canvas.top - 24 : canvas.height - 85);
       });
     }, { coords: currentEndpoints, mobile });
@@ -928,10 +928,11 @@ try {
         && Math.abs(sheet.getBoundingClientRect().height - Math.round(innerHeight * 0.42)) <= 1;
     });
     await settledSheet();
-    // Clear and restore the take-out so Undo has history to show.
-    await phone.locator('.access-point-marker[data-access-point-id="p-0-1"]').tap();
+    // Clear and re-pick the take-out: two edits, so Undo stays available.
+    const takeOut = phone.locator('.access-point-marker[data-access-point-id="p-0-1"]');
+    await takeOut.tap();
     await phone.waitForFunction(() => !new URLSearchParams(location.search).has('takeOut'));
-    await phone.getByRole('button', { name: 'Undo route change', exact: true }).tap();
+    await takeOut.tap();
     await phone.waitForFunction(() => new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
     await settledSheet();
     const covered = await phone.evaluate(() => {
