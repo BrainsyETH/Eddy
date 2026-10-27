@@ -52,9 +52,9 @@ export function conditionBg(code: string, isDark: boolean): string {
 
 /** A matched text/icon role for the current badge surface, including photos. */
 export function conditionInk(code: string, isDark: boolean): string {
-  // Keep 40% of the canonical hue. The lighter ink clears 7:1 on dark badge
+  // Keep 30% of the canonical hue. The lighter ink clears 7:1 on dark badge
   // fills and raised surfaces, including the gray and low-water conditions.
-  return isDark ? mix(conditionColor(code), '#FFFFFF', 0.4) : definition(code).ink;
+  return isDark ? mix(conditionColor(code), '#FFFFFF', 0.3) : definition(code).ink;
 }
 
 /**

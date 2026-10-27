@@ -215,7 +215,7 @@ export function FirstRunPicker({ onDone }: Props) {
           snapshot, duplicate inline section, or card reordering on selection. */}
       <Modal visible={reviewOpen} animationType="slide" presentationStyle="pageSheet"
         onRequestClose={() => setReviewOpen(false)}>
-        <SafeAreaView style={[styles.screen, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}>
+        <SafeAreaView style={[styles.screen, { backgroundColor: colors.sheetGrouped }]}>
           <View style={styles.reviewHeader}>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Selected favorites ({count})</Text>
           </View>
@@ -240,7 +240,7 @@ export function FirstRunPicker({ onDone }: Props) {
         </SafeAreaView>
       </Modal>
       <Modal visible={creditsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCreditsOpen(false)}>
-        <SafeAreaView style={[styles.screen, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}>
+        <SafeAreaView style={[styles.screen, { backgroundColor: colors.sheetGrouped }]}>
           <ScrollView contentContainerStyle={styles.body}>
             <Text style={[styles.title, { color: colors.text }]}>Photo credits</Text>
             <Text style={[styles.copy, { color: colors.textMuted }]}>Scenery photos do not show current water conditions. Dam photos are resized and cropped for display.</Text>

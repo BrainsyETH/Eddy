@@ -57,7 +57,7 @@ export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
-      <View style={[styles.sheet, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}>
         <View style={styles.body}>
           {/* The scene IS the offer: this sheet says "we'll watch the gauge for
               you", and the green otter it replaced said only "things are fine",

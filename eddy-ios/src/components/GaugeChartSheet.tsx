@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
+import { sheetControl } from '@/theme/palette';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Page sheets ignore supportedOrientations on iOS. Inside the expanded chart,
@@ -22,7 +23,7 @@ export function GaugeChartSheet({ title, onClose, children, expanded = false }: 
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{title}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={`Close ${title}`} onPress={onClose}
-              style={({ pressed }) => [styles.done, { backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]}>
+              style={({ pressed }) => [styles.done, sheetControl(colors), { opacity: pressed ? 0.65 : 1 }]}>
               <Text style={[styles.doneText, { color: colors.interactive }]}>Done</Text>
             </Pressable>
           </View>

@@ -278,7 +278,7 @@ export function MapLayersSheet({
                 }}
                 style={({ pressed }) => [
                   styles.row,
-                  { backgroundColor: pressed ? colors.cardRaised : 'transparent' },
+                  { backgroundColor: pressed ? colors.cardRaised : 'transparent', opacity: pressed ? 0.7 : 1 },
                 ]}
                 accessibilityRole="switch"
                 accessibilityState={{ checked: on }}

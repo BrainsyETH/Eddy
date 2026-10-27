@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { AccessibilityInfo, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
-import { textStyles } from '@/theme/typography';
+import { fonts, textStyles } from '@/theme/typography';
+import { sheetControl } from '@/theme/palette';
+import { calendarDayColors } from '@/theme/calendar';
 import { calendarDays } from '@/lib/campingCalendar';
 import { dateLabel } from '@/lib/campingHeatmap';
 import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
@@ -93,7 +95,7 @@ export function CampingStayPicker({
         onRequestClose={() => setOpen(false)}
       >
         <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }} onAccessibilityEscape={() => setOpen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.sheetGrouped }} onAccessibilityEscape={() => setOpen(false)}>
           <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} onLayout={(event) => setContentWidth(event.nativeEvent.layout.width - 40)}>
             <Text style={[textStyles.sectionTitle, { color: colors.text }]}>
               Stay dates
@@ -106,7 +108,7 @@ export function CampingStayPicker({
                   key={field}
                   accessibilityRole="button"
                   accessibilityState={{ selected: choosing === field }}
-                  style={button}
+                  style={[button, { borderBottomWidth: 2, borderBottomColor: choosing === field ? colors.interactive : 'transparent' }]}
                   accessibilityLabel={`${field === 'arrival' ? 'Arrival' : 'Departure'}, ${dateLabel(draft[field])}`}
                   onPress={() => {
                     setChoosing(field);
@@ -212,23 +214,26 @@ export function CampingStayPicker({
                   date !== null &&
                   date >= draft.arrival &&
                   date <= draft.departure;
+                const endpoint = date === draft.arrival || date === draft.departure;
+                const dayColors = calendarDayColors(colors, endpoint ? 'endpoint'
+                  : selected ? 'range' : enabled ? 'available' : 'unavailable');
                 return (
                   <Pressable
                     key={date ?? `blank-${i}`}
                     disabled={!enabled}
                     accessible={date !== null}
                     accessibilityRole="button"
-                    accessibilityLabel={date ? dateLabel(date) : undefined}
+                    accessibilityLabel={date ? `${dateLabel(date)}${date === draft.arrival ? '. Arrival' : date === draft.departure ? '. Departure' : ''}` : undefined}
                     accessibilityState={{ disabled: !enabled, selected }}
                     style={{
                       width: '14.2857%',
                       minHeight: 48,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderRadius: 8,
-                      backgroundColor: selected
-                        ? colors.selectionBg
-                        : colors.bg,
+                      borderRadius: endpoint ? 24 : 8,
+                      borderWidth: 1,
+                      borderColor: dayColors.borderColor,
+                      backgroundColor: dayColors.backgroundColor,
                     }}
                     onPress={() => {
                       if (!date) return;
@@ -237,7 +242,8 @@ export function CampingStayPicker({
                   >
                     <Text
                       style={{
-                        color: enabled ? colors.text : colors.textSubtle,
+                        color: dayColors.color,
+                        fontFamily: selected ? fonts.semibold : fonts.body,
                       }}
                     >
                       {date ? Number(date.slice(8)) : ''}
@@ -255,7 +261,9 @@ export function CampingStayPicker({
               accessibilityState={{ disabled: !validDraft }}
               style={{
                 ...button,
+                ...sheetControl(colors),
                 backgroundColor: validDraft ? colors.interactive : colors.cardRaised,
+                borderColor: validDraft ? colors.interactive : colors.borderStrong,
                 borderRadius: 12,
                 alignItems: 'center',
               }}

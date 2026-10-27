@@ -8,6 +8,7 @@ import { startRiverPosition, type FloatSetup } from '@/lib/floatStart';
 import { takeOutChoices } from '@/lib/floatSession';
 import { chooseStartAccess, chooseStartRiver, continueToTakeOut, openStartPicker, type StartField } from '@/lib/floatStartSelection';
 import { useTheme } from '@/theme/ThemeProvider';
+import { sheetControl } from '@/theme/palette';
 import { fonts, type as t } from '@/theme/typography';
 import { routeProblemCopy, type LoadedRoute } from '../loadFloatRoute';
 import { RiverPicker } from './RiverPicker';
@@ -66,7 +67,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
   </Pressable> : null;
   return <Modal visible presentationStyle="pageSheet" animationType={reducedMotion ? 'none' : 'slide'}
     allowSwipeDismissal onRequestClose={close}>
-    <SafeAreaProvider><SafeAreaView style={[local.screen, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}
+    <SafeAreaProvider><SafeAreaView style={[local.screen, { backgroundColor: colors.sheetGrouped }]}
       accessibilityViewIsModal onAccessibilityEscape={close}>
       <View style={local.header}>
         {picker.page === 'rivers' && field !== 'river' && picker.draft.riverSlug ?
@@ -78,7 +79,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
           {field === 'to' ? 'Choose your take-out' : field === 'from' ? 'Choose your put-in' : 'Choose a river'}
         </Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Close selection" onPress={close}
-          style={[local.close, { backgroundColor: colors.cardRaised }]}>
+          style={[local.close, sheetControl(colors)]}>
           <ControlIcon name="close" size={18} color={colors.textMuted} />
         </Pressable>
       </View>
@@ -102,7 +103,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
               <Text style={[styles.body, { color: colors.textMuted }]}>{routeProblemCopy(loaded.reason)}</Text>
               <TextButton label="Try again" onPress={() => sameRiver ? onRetryCurrent() : setReload(value => value + 1)} />
             </Shell> : <>
-              <View style={local.searchContainer}><View style={[local.search, { backgroundColor: colors.cardRaised }]}>
+              <View style={local.searchContainer}><View style={[local.search, sheetControl(colors)]}>
                 <ControlIcon name="search-outline" size={20} color={colors.textMuted} />
                 <TextInput accessibilityLabel="Search access points" placeholder={field === 'to' ? 'Search take-outs' : 'Search put-ins'}
                   placeholderTextColor={colors.textMuted} value={query} onChangeText={setQuery} autoCorrect={false}

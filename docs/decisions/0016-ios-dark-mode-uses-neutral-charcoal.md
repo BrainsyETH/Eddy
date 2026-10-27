@@ -7,8 +7,12 @@ and weakened the distinction between content and actions. Canonical condition
 inks were also too dark on translucent badge fills over dark surfaces, while
 photo-backed Premium Reads retained bright light panels in dark appearance.
 
-The native dark palette now has three neutral surface levels: canvas
-`#161615`, cards `#242423`, and foreground sheets / raised surfaces `#333331`.
+The native dark palette has four neutral surface levels: canvas `#161615`,
+cards `#242423`, foreground sheets `#333331`, and raised controls / selected
+fills `#3F3F3C`. Cards within a sheet may remain darker as inset groups; raised
+controls must use the lighter role. Sheet controls have a visible outline using
+`borderStrong` (`#909088`), also used for level-2 elevation. `sheetGrouped`
+retains the warm page tint in light appearance without per-component conditionals.
 Titles use `#F5F5F0`, body prose `#DEDED8`, supporting text `#C3C3BD`, and
 metadata `#B5B5AF`. The approved direction keeps subtle warmth without a blue
 cast. Use semantic roles from `useTheme()`; colors do not belong in static
@@ -16,7 +20,10 @@ StyleSheets. The authoritative values are in
 [`palette.ts`](../../eddy-ios/src/theme/palette.ts) and
 [DESIGN.md](../../missouri-float-planner/.stitch/DESIGN.md).
 
-Teal continues to identify actions, selections and data. The native teal CTA
+Teal identifies actions, selected text/outlines, small calendar endpoint
+markers and data; ordinary selected backgrounds are neutral. Calendar dates
+have transparent unselected cells, solid endpoints and an outlined range,
+so their selection remains visible on a sheet. The native teal CTA
 decision in [ADR 0007](0007-cta-fill-is-teal-on-native-coral-on-web.md) remains
 in force. Light appearance keeps its warm palette, and native iOS tabs keep
 the system material.
@@ -30,8 +37,10 @@ Read loading, empty, error and retry states follow the panel's appearance.
 
 The shared app-theme tests require at least 4.5:1 for supporting text, 7:1 for
 dark body text and every dark condition label, and a clear title/body/supporting
-hierarchy. Increase Contrast strengthens text and boundaries. These automated
-checks verify color pairs; device verification remains a separate gate.
+hierarchy, including on raised controls and selected surfaces. Control outlines
+and calendar selection markers must clear 3:1 against adjacent surfaces.
+Increase Contrast strengthens text and boundaries. These automated checks
+verify color pairs and selection roles; device verification remains a separate gate.
 
 Before recording this as device-verified, inspect Today, Reads, river and gauge
 detail, alert conditions, and foreground sheets on an iPhone in both appearances,

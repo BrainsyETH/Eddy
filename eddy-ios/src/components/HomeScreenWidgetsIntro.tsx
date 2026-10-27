@@ -17,6 +17,7 @@ import {
   type WidgetGuideKind,
 } from '@/lib/widgetOnboarding';
 import { useTheme } from '@/theme/ThemeProvider';
+import { sheetControl } from '@/theme/palette';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
 // Do not promote widgets to users whose installed native binary predates the
@@ -139,7 +140,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
       <SafeAreaProvider>
         <SafeAreaView
           edges={['top', 'bottom']}
-          style={[styles.sheet, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}
+          style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}
           accessibilityViewIsModal
           onAccessibilityEscape={onClose}
         >
@@ -151,7 +152,7 @@ function WidgetSetupGuide({ onClose }: { onClose: () => void }) {
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close widget setup guide"
-              style={[styles.done, { backgroundColor: colors.cardRaised }]}
+              style={[styles.done, sheetControl(colors)]}
             >
               <Text style={[styles.doneText, { color: colors.interactive }]}>Done</Text>
             </Pressable>

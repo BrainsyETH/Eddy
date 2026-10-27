@@ -101,7 +101,7 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
         </View>
       </View>
       <Modal visible={infoOpen} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal onRequestClose={close}>
-        <SafeAreaView style={[styles.sheet, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]} edges={['top', 'bottom']} onAccessibilityEscape={close}>
+        <SafeAreaView style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]} edges={['top', 'bottom']} onAccessibilityEscape={close}>
           <View style={styles.sheetHeader}>
             <Text accessibilityRole="header" style={[styles.sheetTitle, { color: colors.text }]}>About this reading</Text>
             <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close reading information" style={styles.info}>

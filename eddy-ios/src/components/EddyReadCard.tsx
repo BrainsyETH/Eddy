@@ -132,7 +132,7 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
         >
           <BlurredReadPreview lines={7} withSpacing={false} />
           <View pointerEvents="none" style={styles.lockOverlay}>
-            <View style={[styles.lockBadge, { backgroundColor: isDark ? colors.card : '#16352e', borderColor: '#d2e1db' }]}>
+            <View style={[styles.lockBadge, { backgroundColor: isDark ? colors.card : '#16352e', borderColor: isDark ? colors.borderStrong : '#d2e1db' }]}>
               <ControlIcon name="lock-closed" size={22} color="white" />
             </View>
           </View>

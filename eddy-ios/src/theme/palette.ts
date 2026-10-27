@@ -82,8 +82,10 @@ export const neutral = {
 export const charcoal = {
   canvas: '#161615',
   card: '#242423',
-  raised: '#333331',
+  sheet: '#333331',
+  raised: '#3F3F3C',
   border: '#50504B',
+  borderStrong: '#909088',
   text: '#F5F5F0',
   body: '#DEDED8',
   secondary: '#C3C3BD',
@@ -105,9 +107,13 @@ export interface Palette {
   card: string;
   /** Foreground sheet surface, lighter than content cards in dark mode. */
   sheet: string;
-  /** A raised or selected card. */
+  /** Grouped sheet canvas; retains the warm page tint in light appearance. */
+  sheetGrouped: string;
+  /** Raised controls and panels, lighter than the sheet in dark appearance. */
   cardRaised: string;
   border: string;
+  /** Visible control boundaries and emphasized surface edges. */
+  borderStrong: string;
   text: string;
   /** Readable prose below the emphasis of headings and key values. */
   textBody: string;
@@ -274,14 +280,17 @@ export const darkPalette: Palette = {
   scheme: 'dark',
   bg: charcoal.canvas,
   card: charcoal.card,
-  sheet: charcoal.raised,
+  sheet: charcoal.sheet,
+  sheetGrouped: charcoal.sheet,
   cardRaised: charcoal.raised,
   border: charcoal.border,
+  borderStrong: charcoal.borderStrong,
   text: charcoal.text,
   textBody: charcoal.body,
   textMuted: charcoal.secondary,
   textSubtle: charcoal.subtle,
-  accent: accent[500],
+  // Ink roles must also clear 4.5:1 on the lighter raised surface.
+  accent: accent[400],
   emphasisFill: accent[500],
   onEmphasis: neutral[950],
   // Preserve the established teal action fill and white-label contrast (5.06:1).
@@ -294,13 +303,13 @@ export const darkPalette: Palette = {
   onInteractive: primary[900],
   selectionBg: charcoal.raised,
   selectionText: primary[200],
-  anchorSurface: charcoal.raised,
+  anchorSurface: charcoal.sheet,
   onAnchor: charcoal.text,
-  success: support[500],
+  success: support[300],
   campingCountInk: neutral[950],
   warm: secondary[500],
-  // red-400. The darker red-500 used on light is muddy against near-black stone.
-  error: '#F87171',
+  // red-300 keeps small error labels readable on raised controls and panels.
+  error: '#FCA5A5',
   chrome: charcoal.card,
   rainQuiet: charcoal.subtle,
   rainLikely: primary[300],
@@ -317,15 +326,17 @@ export const darkPalette: Palette = {
  * Light — the warm off-white canvas DESIGN.md actually specifies.
  *
  * Deliberately not white-on-grey: neutral-50 is a warm sandstone tint, and
- * cardRaised uses Sandbar Tan 50 so a selected card warms rather than greys.
+ * cardRaised uses Sandbar Tan 50 for a quiet, warm control fill.
  */
 export const lightPalette: Palette = {
   scheme: 'light',
   bg: neutral[50],
   card: '#FFFFFF',
   sheet: '#FFFFFF',
+  sheetGrouped: neutral[50],
   cardRaised: secondary[50],
   border: neutral[200],
+  borderStrong: neutral[500],
   text: neutral[900],
   textBody: neutral[900],
   textMuted: neutral[600],
@@ -378,7 +389,7 @@ export const lightPalette: Palette = {
  */
 export function elevation(palette: Palette, level: 1 | 2) {
   if (palette.scheme === 'dark') {
-    return { borderWidth: 1, borderColor: palette.border };
+    return { borderWidth: 1, borderColor: level === 2 ? palette.borderStrong : palette.border };
   }
   return {
     borderWidth: 1,
@@ -389,6 +400,11 @@ export function elevation(palette: Palette, level: 1 | 2) {
     shadowOffset: { width: 0, height: level === 1 ? 1 : 3 },
     elevation: level === 1 ? 1 : 3,
   };
+}
+
+/** Filled controls on sheets need a visible boundary as well as a surface lift. */
+export function sheetControl(palette: Palette) {
+  return { backgroundColor: palette.cardRaised, borderWidth: 1, borderColor: palette.borderStrong };
 }
 
 /**

@@ -1,7 +1,8 @@
 import { highContrastDarkPalette, highContrastLightPalette } from '../../../eddy-ios/src/theme/contrast';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { darkPalette, lightPalette } from '../../../eddy-ios/src/theme/palette';
+import { darkPalette, lightPalette, elevation, sheetControl } from '../../../eddy-ios/src/theme/palette';
+import { calendarDayColors } from '../../../eddy-ios/src/theme/calendar';
 import { conditionBg, conditionChipBorder, conditionInk, conditionOpaqueBg, conditionText } from '../../../eddy-ios/src/theme/conditions';
 import { CONDITION_SYSTEM } from '../../shared/condition-system';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -23,7 +24,7 @@ function contrast(ink: string, surface: string): number {
 }
 for (const palette of [lightPalette, darkPalette]) {
   test(`${palette.scheme} supporting text stays readable and subordinate on every standard surface`, () => {
-    for (const surface of [palette.bg, palette.card, palette.cardRaised, palette.sheet, palette.selectionBg]) {
+    for (const surface of [palette.bg, palette.card, palette.cardRaised, palette.sheet, palette.sheetGrouped, palette.selectionBg]) {
       const subtle = contrast(palette.textSubtle, surface);
       const muted = contrast(palette.textMuted, surface);
       const body = contrast(palette.textBody, surface);
@@ -40,13 +41,58 @@ for (const palette of [lightPalette, darkPalette]) {
   });
 }
 
+test('dark raised controls and selections sit above the sheet, with stronger floating edges', () => {
+  const colors = darkPalette;
+  assert.ok(luminance(colors.card) > luminance(colors.bg));
+  assert.ok(luminance(colors.sheet) > luminance(colors.card));
+  assert.ok(luminance(colors.cardRaised) > luminance(colors.sheet));
+  assert.ok(luminance(colors.selectionBg) > luminance(colors.sheet));
+  for (const surface of [colors.card, colors.sheet, colors.cardRaised, colors.selectionBg]) {
+    for (const role of ['error', 'success', 'accent'] as const) {
+      assert.ok(contrast(colors[role], surface) >= 4.5, `${role} text on ${surface}`);
+    }
+  }
+  assert.ok(contrast(elevation(colors, 2).borderColor, colors.sheet) >= 3);
+  assert.ok(contrast(elevation(colors, 2).borderColor, colors.card) > contrast(elevation(colors, 1).borderColor, colors.card));
+});
+
+for (const [name, colors] of [
+  ['light', lightPalette], ['dark', darkPalette],
+  ['light increased contrast', highContrastLightPalette], ['dark increased contrast', highContrastDarkPalette],
+] as const) {
+  test(`${name} sheet controls have visible boundaries and readable labels`, () => {
+    const control = sheetControl(colors);
+    assert.ok(control.borderWidth > 0);
+    for (const surface of [colors.sheet, colors.sheetGrouped, control.backgroundColor]) {
+      assert.ok(contrast(control.borderColor, surface) >= 3, `control boundary on ${surface}`);
+    }
+    for (const ink of [colors.text, colors.textMuted, colors.textSubtle, colors.interactive]) {
+      assert.ok(contrast(ink, control.backgroundColor) >= 4.5, `control label ${ink}`);
+    }
+  });
+
+  test(`${name} calendar selection has visible endpoints and range outlines`, () => {
+    const endpoint = calendarDayColors(colors, 'endpoint');
+    const range = calendarDayColors(colors, 'range');
+    assert.equal(calendarDayColors(colors, 'available').backgroundColor, 'transparent');
+    assert.equal(calendarDayColors(colors, 'unavailable').backgroundColor, 'transparent');
+    assert.notEqual(endpoint.backgroundColor, range.backgroundColor);
+    assert.notEqual(range.backgroundColor, colors.sheetGrouped);
+    assert.ok(contrast(endpoint.backgroundColor, colors.sheetGrouped) >= 3, 'endpoint marker must stand out from sheet');
+    assert.ok(contrast(endpoint.color, endpoint.backgroundColor) >= 4.5);
+    assert.ok(contrast(range.color, range.backgroundColor) >= 4.5);
+    assert.ok(contrast(range.borderColor, range.backgroundColor) >= 3, 'range outline must stand out from fill');
+    assert.ok(contrast(range.borderColor, colors.sheetGrouped) >= 3, 'range outline must stand out from sheet');
+  });
+}
+
 for (const [code, canonical] of Object.entries(CONDITION_SYSTEM)) {
   test(`${code} badge ink stays readable on dark chips, photos and ordinary surfaces`, () => {
     const background = conditionBg(code, true);
     assert.match(background, /^#[0-9a-f]{6}$/i, 'dark chips must be opaque over maps and photos');
     assert.ok(contrast(conditionInk(code, true), background) >= 7, `${code} ink on ${background}`);
     assert.ok(contrast(conditionInk(code, true), conditionOpaqueBg(code, true)) >= 7);
-    for (const surface of [darkPalette.bg, darkPalette.card, darkPalette.sheet]) {
+    for (const surface of [darkPalette.bg, darkPalette.card, darkPalette.sheet, darkPalette.sheetGrouped, darkPalette.cardRaised, darkPalette.selectionBg]) {
       assert.ok(contrast(conditionText(code, true), surface) >= 7, `${code} text on ${surface}`);
     }
   });
@@ -180,7 +226,7 @@ test('condition colours are never redefined in the app', () => {
 
 for (const [base, strong] of [[lightPalette, highContrastLightPalette], [darkPalette, highContrastDarkPalette]]) {
   test(`${base.scheme} increased-contrast roles improve legibility and stay string colors`, () => {
-    for (const surface of [base.bg, base.card, base.cardRaised, base.sheet, base.selectionBg]) {
+    for (const surface of [base.bg, base.card, base.cardRaised, base.sheet, base.sheetGrouped, base.selectionBg]) {
       for (const role of ['text', 'textBody', 'textMuted', 'textSubtle', 'interactive'] as const) {
         assert.ok(contrast(strong[role], surface) >= 7, `${role} must meet 7:1 on ${surface}`);
         assert.ok(contrast(strong[role], surface) >= contrast(base[role], surface));

@@ -259,8 +259,24 @@ Light and dark follow the system setting (`useColorScheme`). Light keeps the
 warm web palette. Native dark appearance uses the neutral charcoal roles in
 `src/theme/palette.ts`, documented in `DESIGN.md` and
 [ADR 0016](../docs/decisions/0016-ios-dark-mode-uses-neutral-charcoal.md): darker
-page canvas, lighter cards, then lighter foreground sheets. Teal identifies
-actions, selections and data rather than ordinary surfaces or supporting text.
+page canvas, lighter cards, foreground sheets, then raised controls. Teal marks
+actions, selected labels/outlines, calendar endpoints and data. Ordinary dark
+surfaces, including selected backgrounds, remain neutral.
+
+Use `sheet` for a plain sheet and `sheetGrouped` for a sheet with grouped
+content; the latter preserves the warm page tint in light appearance. Dark
+content cards inside a sheet may use `card` as an inset group. Controls and
+panels that should appear raised use `cardRaised`, which is lighter than the
+sheet. `sheetControl(colors)` adds a visible neutral outline to filled sheet
+buttons and search fields. `borderStrong` also supplies the brighter neutral
+edge for `elevation(2)`. Dark error, success and coral text use lighter ink
+steps so they remain readable on raised and selected surfaces too.
+
+The camping calendar leaves unselected cells transparent. Arrival/departure
+use solid teal markers; the intervening range has a neutral selected fill,
+teal outline and teal text. The active Arrival/Departure field has an underline,
+and the accessible list retains its checkmark. Selection cannot rely on the
+background fill alone.
 
 **The rule that makes it work:** `StyleSheet.create` runs ONCE at module import,
 so a colour written into a StyleSheet is frozen at whichever scheme the app
@@ -278,7 +294,9 @@ surfaces. Dark text has four levels: near-white `text` for titles and values,
 `textSubtle` for timestamps. Body text clears 7:1 and remains brighter than
 supporting text. Increase Contrast strengthens these roles while retaining
 neutral supporting labels. Mapbox colors remain strings. Native iOS tabs keep
-the system material; the content palette does not repaint the tab bar.
+the system material; the content palette does not repaint the tab bar. Tests
+also require visible control/selection boundaries at 3:1 and verify that raised
+dark controls sit above sheets, alongside text contrast on every surface.
 
 Photo-backed Eddy’s Read cards use an opaque charcoal excerpt panel in dark
 appearance and the existing warm-white panel with teal report text in light.

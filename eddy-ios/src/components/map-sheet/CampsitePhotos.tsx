@@ -62,7 +62,7 @@ export function CampsitePhotos({
         onRequestClose={() => setIndex(null)}
       >
         <SafeAreaView
-          style={[styles.viewer, { backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }]}
+          style={[styles.viewer, { backgroundColor: colors.sheetGrouped }]}
           accessibilityViewIsModal
         >
           <View style={styles.header}>

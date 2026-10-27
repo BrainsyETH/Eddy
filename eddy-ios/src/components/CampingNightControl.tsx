@@ -35,7 +35,7 @@ export function CampingNightControl({ nights, selected, onSelect }: {
     </View>
     <Modal visible={open} presentationStyle="pageSheet" animationType={reducedMotion ? 'none' : 'slide'} onRequestClose={() => setOpen(false)}>
       <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.scheme === 'dark' ? colors.sheet : colors.bg }} onAccessibilityEscape={() => setOpen(false)}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.sheetGrouped }} onAccessibilityEscape={() => setOpen(false)}>
         <View style={styles.heading}>
           <Text accessibilityRole="header" style={[textStyles.sectionTitle, { color: colors.text, flex: 1 }]}>Camping night</Text>
           <Pressable accessibilityRole="button" style={styles.arrow} onPress={() => setOpen(false)}>

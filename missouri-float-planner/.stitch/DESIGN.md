@@ -98,7 +98,8 @@ Not cold grays — these are warm, sandstone-toned neutrals that feel organic an
 ### Native Dark Appearance — Neutral Charcoal
 
 The iOS content palette uses subtly warm charcoal instead of the web system's
-dark teal surfaces. Teal stays on actions, selections and data. Ordinary labels
+dark teal surfaces. Teal marks actions, selected text/outlines, calendar
+endpoints and data. Selected backgrounds stay neutral. Ordinary labels
 are neutral so they do not compete with links. See
 [ADR 0016](../../docs/decisions/0016-ios-dark-mode-uses-neutral-charcoal.md).
 
@@ -106,8 +107,10 @@ are neutral so they do not compete with links. See
 |:---|:---|:---|
 | Canvas | `#161615` | Full-page background |
 | Card | `#242423` | Content cards and opaque photo excerpt panels |
-| Raised / sheet | `#333331` | Selected surfaces and foreground sheets |
+| Sheet | `#333331` | Plain and grouped foreground sheets |
+| Raised / selected | `#3F3F3C` | Raised controls, panels and selected fills |
 | Border | `#50504B` | Quiet surface separation |
+| Strong border | `#909088` | Outlined sheet controls and level-2 elevation |
 | Text | `#F5F5F0` | Titles and key values |
 | Body | `#DEDED8` | Readable prose |
 | Secondary | `#C3C3BD` | Supporting labels |
@@ -116,6 +119,16 @@ are neutral so they do not compete with links. See
 Body text must clear 7:1 and supporting text 4.5:1 on all standard surfaces.
 Increase Contrast strengthens text and control borders. Native tabs retain the
 iOS system material. Light appearance keeps its warm palette.
+
+Cards inside a sheet may remain darker as inset groups; raised controls use the
+lighter raised role. Filled sheet buttons and search fields have neutral
+outlines with at least 3:1 contrast against their fill and surrounding sheet.
+`sheetGrouped` preserves the warm page tint for grouped sheets in light mode.
+Dark text uses coral-400, support-300 and red-300 for branding, success and
+errors respectively, keeping those inks above 4.5:1 on raised surfaces.
+Calendar endpoints use solid teal markers and the selected range has a teal
+outline and text; unselected cells remain transparent. A selected fill alone
+does not establish selection.
 
 Native condition badges derive their dark ink and opaque fills from
 `CONDITION_SYSTEM`; the light appearance retains its canonical tint and ink.

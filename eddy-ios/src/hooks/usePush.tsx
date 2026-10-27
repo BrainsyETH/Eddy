@@ -117,8 +117,9 @@ export function PushProvider({ children }: { children: ReactNode }) {
    * getLastNotificationResponseAsync() resolves with a response the OS already
    * handed us, while the gate is still waiting on disk. And the throw landed in
    * the .catch() below, so it was swallowed — no navigation, no Sentry event,
-   * and a blank gate fallback that is the same colour as the splash in both
-   * themes (#F7F6F3 / #1A1814). Indistinguishable from a hung launch.
+   * and a blank gate fallback that closely resembles the splash. The dark
+   * charcoal canvas now differs slightly from the native splash background,
+   * but an empty fallback can still look like a hung launch.
    *
    * useRootNavigationState() is undefined until the root navigator mounts, so
    * it is the readiness signal. A response that arrives early is parked and
