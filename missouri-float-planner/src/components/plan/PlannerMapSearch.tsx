@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { ArrowUpRight, MapPin, Search, Waves, X } from 'lucide-react';
 import type { RiverListItem } from '@/types/api';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
@@ -23,9 +24,12 @@ interface Props {
   /** Rivers only: no access-point results or category tabs (mobile picker). */
   riversOnly?: boolean;
   inlineResults?: boolean;
+  /** Ends the results with a "Browse all rivers" link to the river index
+   *  (the mobile pickers' route out of the planner to every river). */
+  browseAllRivers?: boolean;
 }
 
-export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false, inlineResults = false }: Props) {
+export default function PlannerMapSearch({ rivers, places, currentSlug, conditions, loading, failed, onRetry, onRiver, onPlace, actions, riversOnly = false, inlineResults = false, browseAllRivers = false }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const resultsOpen = inlineResults || open;
@@ -131,6 +135,9 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
       {!inlineResults && <p className="border-t border-neutral-200/60 px-3 py-2 text-[11px] text-neutral-500">{riversOnly
         ? `${results.length} rivers · Colored by today’s conditions`
         : `${results.length} places · Choose a river or explore an access point`}</p>}
+      {browseAllRivers && <Link href="/rivers" className="block border-t border-neutral-200/60 px-3 py-2.5 text-center text-sm font-semibold text-primary-700 hover:bg-primary-50">
+        Browse all rivers
+      </Link>}
     </div>}
   </div>;
 }

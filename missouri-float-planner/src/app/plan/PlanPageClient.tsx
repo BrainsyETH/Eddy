@@ -997,7 +997,7 @@ export default function PlanPageClient({
         {/* right-16 clears the map's tool column (Layers / expand). */}
         <div className="planner-mobile absolute top-3 left-3 right-16 sm:right-auto sm:w-[380px] z-30 flex flex-col items-start gap-2 lg:hidden">
           <div className="w-full">
-            <PlannerMapSearch riversOnly rivers={rivers ?? []} places={[]} currentSlug={null}
+            <PlannerMapSearch riversOnly browseAllRivers rivers={rivers ?? []} places={[]} currentSlug={null}
               conditions={searchConditions} loading={!rivers} failed={false} onRetry={() => {}}
               onRiver={handleRiverChange} onPlace={() => {}} />
           </div>
@@ -1389,7 +1389,7 @@ function MobileRiverSwitcher({ currentName, rivers, places, conditions, onChange
       <div ref={sheetRef} tabIndex={-1} className="w-full max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-white p-3 pb-safe"
         onClick={event => event.stopPropagation()}>
         <PlannerMapSearch rivers={rivers} places={places} currentSlug={null} conditions={conditions}
-          loading={loading} failed={failed} onRetry={onRetry} inlineResults
+          loading={loading} failed={failed} onRetry={onRetry} inlineResults browseAllRivers
           onRiver={slug => { onChange(slug); setOpen(false); }}
           onPlace={place => { setOpen(false); onPlace(place); }} />
         <button type="button" onClick={() => setOpen(false)} className="mt-2 w-full rounded-xl py-3 text-sm font-semibold text-neutral-600">Cancel</button>
