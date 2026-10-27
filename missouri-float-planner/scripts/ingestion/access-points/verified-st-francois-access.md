@@ -91,9 +91,26 @@ existing facility, all sites and both availability tables were unchanged.
 After application, both launches are approved endpoints and the same facility
 still holds 171 sites.
 
-Both public access-detail APIs and HTML pages return HTTP 200 with the
-campground's existing availability and its park-specific booking link.
-TypeScript and ESLint passed; all **4,085** registered tests passed. The normal
+Both public access-detail APIs return HTTP 200 with the campground's existing
+availability and its park-specific booking link. The browser confirms that
+the Big River page lists both new accesses. Its map cannot render in the cloud
+browser because graphics acceleration is unavailable; the compact map API
+returns all 11 access points.
+
+The browser smoke test also identified two presentation issues. Migration
+**20261027200557** moves approach prose from `directions_override` (used as a
+navigation URL/destination) to `road_access`, retaining coordinate navigation.
+It passed the same two-pass rollback rehearsal. The accompanying web change
+renders top-level availability/booking in `FacilitiesSection` for non-NPS
+campgrounds, including camping linked to a separate launch. Previously only
+NPS camping was displayed there, even when the API returned state-park data.
+This component change requires the PR's web deployment; the data is already
+applied. Regression tests cover a linked launch, booking without a fresh
+calendar, ordinary non-camping access, existing NPS rendering, and both
+launches' navigation URLs.
+
+TypeScript and ESLint passed; all **4,090** registered tests passed, including
+the five new regressions. The normal
 `make` wrappers encounter the environment's blocked `tsx` IPC socket, so token
 lint and the same registered test list ran through `node --import tsx` with
 `TSX_TSCONFIG_PATH=tsconfig.test.json`. The production ledger's ten tests passed
@@ -101,7 +118,7 @@ again after recording the assigned version.
 
 This checkout has no linked Supabase CLI credentials. The three `check-db`
 contracts were therefore evaluated against connector-read production rows
-using the repository's existing comparison functions and SQL: all 145
+using the repository's existing comparison functions and SQL: all 146
 post-baseline migration versions match the files and ledger, the 397 access
 slugs have no unexpected drift (eight documented legacy exceptions remain),
 and the client-access catalog check reports no problems. The dossier validator

@@ -16,8 +16,9 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
   const hasFacilities = !!accessPoint.facilities;
   const hasFee = accessPoint.feeRequired;
   const nps = accessPoint.npsCampground;
+  const hasLinkedCamping = !nps && !!(accessPoint.availability || accessPoint.booking);
 
-  if (!hasAgency && !hasFacilities && !hasFee && !nps) {
+  if (!hasAgency && !hasFacilities && !hasFee && !nps && !hasLinkedCamping) {
     return (
       <p className="text-sm text-neutral-500 italic">
         No facilities information available.
@@ -27,6 +28,30 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
 
   return (
     <div className="space-y-3">
+      {/* State-park and USFS facilities use the top-level camping fields.
+          A located_at link can supply these to a separate canoe launch. */}
+      {hasLinkedCamping && (
+        <div className="space-y-3">
+          <SectionLabel>Camping</SectionLabel>
+          <AvailabilityChip availability={accessPoint.availability} name={accessPoint.name} />
+          {accessPoint.booking && (
+            <a
+              href={accessPoint.booking.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 p-2.5 -mx-2 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors group"
+            >
+              <span className="text-sm text-primary-700 font-medium group-hover:text-primary-800">
+                {accessPoint.booking.source === 'mo_state_parks'
+                  ? 'Make a reservation at Missouri State Parks'
+                  : 'Make a reservation on Recreation.gov'}
+              </span>
+              <ExternalLink className="w-4 h-4 text-primary-600 flex-shrink-0" />
+            </a>
+          )}
+        </div>
+      )}
+
       {/* NPS Campground Data */}
       {nps && (
         <div className="space-y-3">
