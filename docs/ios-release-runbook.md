@@ -241,7 +241,12 @@ are pending checks, not evidence of a device pass.
       `plugins/withFloatActivity.js`), adds
       `NSLocationTemporaryUsageDescriptionDictionary`, and removes
       `expo-task-manager`; `expo-keep-awake` is a direct dependency and
-      `isIosBackgroundLocationEnabled` is `true`. The runtime fingerprint
+      `isIosBackgroundLocationEnabled` is `true`. `app.json` also declares
+      the `com.apple.developer.usernotifications.time-sensitive`
+      entitlement for the on-water reminders: confirm EAS enabled the Time
+      Sensitive Notifications capability on the app identifier (it syncs
+      capabilities from entitlements on build) and that the `.ipa`'s
+      entitlements carry it. The runtime fingerprint
       changes; over-the-air updates cannot deliver this. Phones below iOS 18
       stay on the previous store build.
 - [ ] **First native compile of `modules/eddy-float-recorder`.** It was
@@ -406,7 +411,15 @@ are pending checks, not evidence of a device pass.
       arrival, or after driving well away from the river ("Still floating?" at
       ten minutes, ended at 45), with a "Float ended" notice that opens the
       recap. A long lunch on the bank must NOT end it, nor a GPS gap followed
-      by returning to the river. An off-map take-out (Buffalo City) must not
+      by returning to the river, nor paddling on past the take-out: keep
+      floating downstream for over an hour after arrival and confirm the
+      float continues, then stop for fifteen minutes and confirm it ends
+      with the recap at the planned take-out. The "Arriving at" notice shows
+      a Finish float action: with the phone locked and in a Focus mode, the
+      take-out and hazard reminders still appear (time-sensitive); tapping
+      Finish ends the float and opens its recap; after Finish no float
+      reminder remains in Notification Center. Tap End within the first few
+      minutes: Discard is offered and leaves nothing in history or Storage. An off-map take-out (Buffalo City) must not
       be recorded as reached. Its "Take-out reminder: <take-out>" notice names
       the chosen landing, with "Once you’re off the water, finish your float
       in Eddy to save your recap." Verify that the off-water instruction is
@@ -433,6 +446,16 @@ are pending checks, not evidence of a device pass.
       float" appears, nothing is added to history, and the float keeps
       recording.
 
+- [ ] **GPS quality, VoiceOver and the map dot** on a physical iPhone: under
+      a bluff or tree canopy with fixes worse than 75 m, the panel reads
+      "Weak GPS · ±N m" and the status line explains, never "Waiting for
+      GPS"; the dot shows an accuracy ring and, while moving, a heading
+      needle; the map does not re-frame while sitting still. With VoiceOver
+      on, arrival, a hazard just ahead, the sunset warning and a tracking
+      problem are each spoken once when they appear. In Essentials, Keep
+      screen awake is one tap away and off by default. Open Ready to float
+      with location never asked: no system prompt until the Location card's
+      button is tapped.
 - [ ] **Starting a float and the on-water layout** on a physical iPhone,
       including the smallest supported screen at the largest text size, with
       several warnings showing at once (a tracking line, a sunset warning and

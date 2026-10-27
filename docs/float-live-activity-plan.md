@@ -77,6 +77,9 @@ No estimator, calibration, or route-matching changes are part of this work.
   the existing estimator. Time remaining is a fixed, rounded estimate with an
   as-of date, never an ETA countdown that keeps decreasing during a stop.
 - A dismissed card does not end tracking. Ending the float ends its card.
+  The system's eight-hour expiry is reported as `expired`, distinct from a
+  swipe-away, and Float settings says so with a Show action; neither ends
+  the float.
 - `arrived` says “At the take-out.” `atRiverEnd` says “End of mapped river,”
   and retains the `offLineMeters` explanation. They are different states.
 - Live Activities disabled/unavailable: the in-app float continues normally;

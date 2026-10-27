@@ -72,7 +72,13 @@ Deleting a private saved route does not revoke its public shared link.
 
 Backup POST returns one ordered result per input row. Invalid trips stay local
 with a visible refusal and manual retry; other rows and subsequent batches still
-upload, and cloud restore continues. Acknowledgements persist after each batch,
+upload, and cloud restore continues. Batches are bounded by serialized size as
+well as row count (the server refuses bodies over 100,000 characters); a 413
+halves the batch down to the oversized row, which is marked too large to back
+up rather than resent forever. A server row the client cannot read is skipped
+on merge, never written, so one bad row cannot empty the local history into a
+recovery copy. The periodic timer and the post-edit debounce upload only; the
+full history is read back on foreground, sign-in and manual sync. Acknowledgements persist after each batch,
 without clearing edits made during the request. Network, authentication, storage
 and server failures remain retryable with 1–15 minute exponential backoff while
 the app is open; manual sync can retry immediately. Deploy this response contract
