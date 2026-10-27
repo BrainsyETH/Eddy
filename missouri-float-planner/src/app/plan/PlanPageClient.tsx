@@ -932,7 +932,8 @@ export default function PlanPageClient({
             the access-point catalogue stays a desktop-only download). The
             colored network is the invitation, so no intro copy competes. */}
         <h1 className="sr-only">Build a Route</h1>
-        <div className="planner-mobile absolute top-3 left-3 right-3 sm:right-auto sm:w-[380px] z-30 flex flex-col items-start gap-2 lg:hidden">
+        {/* right-16 clears the map's tool column (Layers / expand). */}
+        <div className="planner-mobile absolute top-3 left-3 right-16 sm:right-auto sm:w-[380px] z-30 flex flex-col items-start gap-2 lg:hidden">
           <div className="w-full">
             <PlannerMapSearch riversOnly rivers={rivers ?? []} places={[]} currentSlug={null}
               conditions={searchConditions} loading={!rivers} failed={false} onRetry={() => {}}
@@ -1081,8 +1082,10 @@ export default function PlanPageClient({
           </MapContainer>
 
           {/* Below the top-center Eddy pill (92% wide on phones — a top-4
-              left-4 button would sit underneath it). */}
+              left-4 button would sit underneath it). Icon-only so the
+              centered route stats beside it never collide. */}
           <PlanFilters
+            compact
             showNetwork={showNetwork}
             onToggleNetwork={toggleNetwork}
             showRiverNames={showRiverNames}

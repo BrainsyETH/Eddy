@@ -51,6 +51,9 @@ export default function WeatherBug({
   }
 
   if (compact) {
+    // Nothing to say without a reading — a placeholder only adds noise to
+    // the toolbar it sits in.
+    if (!weatherLoading && !weather) return null;
     return (
       <div className={`relative ${className}`}>
         <button
@@ -69,9 +72,7 @@ export default function WeatherBug({
               <span className="text-primary-600 [&>svg]:h-4 [&>svg]:w-4">{getConditionIcon(weather.condition)}</span>
               {weather.temp}°
             </>
-          ) : (
-            <span className="text-xs font-normal text-neutral-500">—°</span>
-          )}
+          ) : null}
         </button>
         {isExpanded && (
           <div className="absolute right-0 top-full z-40 mt-2 min-w-[240px] rounded-lg border border-primary-600/30 p-4 shadow-lg backdrop-blur-md glass-card-dark">

@@ -95,8 +95,9 @@ export interface PlanFiltersProps {
   /** Overlay the desktop card rather than consuming its available height. */
   floating?: boolean;
   /**
-   * Icon-only, chrome-less trigger for embedding in another card's toolbar
-   * (the desktop search card). The panel opens right-aligned under it.
+   * Icon-only trigger. With `floating` it is chrome-less for embedding in
+   * another card's toolbar (the desktop search card) and its panel opens
+   * right-aligned; without, it is a solid map button (mobile).
    */
   compact?: boolean;
 }
@@ -187,10 +188,12 @@ export default function PlanFilters({
         aria-expanded={open}
         aria-label="Map filters"
         title={compact ? 'Map filters' : undefined}
-        className={compact
+        className={compact && floating
           ? `relative flex items-center rounded-lg p-1.5 transition-colors hover:bg-primary-50 ${open ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'}`
-          : 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-lg transition-opacity hover:opacity-90'}
-        style={compact ? undefined : {
+          : compact
+            ? 'relative flex items-center rounded-lg p-2.5 shadow-lg transition-opacity hover:opacity-90'
+            : 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-lg transition-opacity hover:opacity-90'}
+        style={compact && floating ? undefined : {
           // Solid surface, no color-mix/translucency: older mobile Safari
           // drops unsupported backgrounds entirely, which over satellite
           // imagery means unreadable — the bug this file just fixed.
@@ -198,7 +201,7 @@ export default function PlanFilters({
           color: 'var(--color-text-primary)',
         }}
       >
-        <SlidersHorizontal className={compact ? 'h-[18px] w-[18px]' : 'h-4 w-4'} />
+        <SlidersHorizontal className={compact ? (floating ? 'h-[18px] w-[18px]' : 'h-5 w-5') : 'h-4 w-4'} />
         {!compact && <span>Filters</span>}
         {activeFilterCount > 0 && (
           <span className={`grid place-items-center rounded-full bg-primary-600 font-bold text-white ${compact
