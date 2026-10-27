@@ -32,7 +32,11 @@ The sheet previews **River level** (small, edited to select a gauge) and
 **Dam generation** and **Daily river report** (medium), with
 illustrative readings explicitly marked as sample data. It teaches Apple's
 Home Screen **touch and hold → Edit → Add Widget → search Eddy** flow, followed
-by the widget-specific customization. iOS owns the widget gallery: no button
+by the widget-specific customization in three short numbered steps. The preview
+replaces feature descriptions; steps have no repeated headings or explanatory
+footer. Lock Screen instructions appear only on supporting binaries, and v1
+Favorites instructions still describe starring rivers instead of Edit Widget.
+iOS owns the widget gallery: no button
 claims that Eddy can install a widget on the user's behalf. Widget discovery
 needs no account, location, or notification permission. Unlike alert rules,
 widgets are not push notifications; their data refresh cadence is controlled
@@ -208,9 +212,9 @@ Gauge and weather requests fail independently. Tapping opens `/river/:slug`.
 This widget does not fetch Premium Eddy Read prose, credentials or account data.
 
 The optional synchronous `widgetLayoutVersion()` native bridge returned 3 for
-these visual layouts (4 with the Lock Screen extension below). In-app setup guidance shows hourly schedule illustrations
-on v3 and later, keeps next-change instructions on v2, and automatic Favorites on
-v1. This change requires a new native iOS binary. Deploy
+these visual layouts (4 with the Lock Screen extension below). In-app previews
+show the hourly schedule on v3 and later and next-change rows on v2. Setup steps
+keep automatic Favorites instructions on v1. This change requires a new native iOS binary. Deploy
 the additive dam widget API before distributing that binary; against an older
 API, the dam widget remains unavailable rather than interpreting an incompatible
 payload. Simulator compilation, static-to-configurable widget upgrade migration,
