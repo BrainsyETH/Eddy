@@ -14,12 +14,18 @@ const out = process.env.CONDITIONS_SMOKE_OUTPUT || '/tmp/eddy-conditions';
 const now = Date.now();
 const at = new Date(now - 600000).toISOString();
 const remoteImageFixture = await readFile('public/icons/eddy-wave.png');
+const originalImages = new Map();
+if (process.env.CONDITIONS_SMOKE_IMAGES) {
+  for (const key of ['canoe', 'green', 'red', 'yellow', 'flood']) originalImages.set(key, await readFile(resolve(process.env.CONDITIONS_SMOKE_IMAGES, `${key}.png`)));
+}
+const historyReadings = Array.from({length:57}, (_,i) => ({timestamp:new Date(now-(56-i)*6*3600000).toISOString(),dischargeCfs:250+i*2+Math.sin(i/5)*90,gaugeHeightFt:2.5+i*.01}));
+const scheduleDates = [now, now+86400000].map(value => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(value));
 const names = [
   ['current', 'Current River', 'MO'], ['buffalo', 'Buffalo River', 'AR'], ['meramec', 'Meramec River', 'MO'],
   ['huzzah', 'Huzzah Creek', 'MO'], ['courtois', 'Courtois Creek', 'MO'], ['jacks-fork', 'Jacks Fork', 'MO'],
   ['niangua', 'Niangua River', 'MO'], ['taneycomo', 'Lake Taneycomo', 'MO'], ['white', 'White River', 'AR'],
 ];
-const rivers = names.map(([slug, name, state]) => ({ id: slug, slug, name, state,
+const rivers = names.map(([slug, name, state], i) => ({ id: slug, slug, name, state, primaryGaugeId:`g-${i}`, primaryGaugeSiteId:`0706700${i}`,
   path: `${root}/detail?river=${slug}`, lengthMiles: 100, description: null, difficultyRating: 'Class I', region: 'Ozarks', riverType: 'spring_fed_float', accessPointCount: 5,
   currentCondition: { code: 'good', label: 'Good', thresholdUnit: 'cfs', dischargeCfs: 400, gaugeHeightFt: 3, readingAgeHours: .2, trend: null },
 }));
@@ -39,8 +45,10 @@ const dams = [
   ['swt-tenkiller-dam', 'Tenkiller Ferry Dam', 'Tenkiller Ferry Lake', 'OK'],
   ['nwk-stockton-dam', 'Stockton Dam', 'Stockton Lake', 'MO'],
 ].map(([id, name, lakeName, state], i) => ({ id, name, lakeName, state, lat: 36 + i*.1, lon: -93,
-  hasTurbines: true, generating: false, generationFloorCfs: 100,
-  metrics: { generationFlow: { value: 20, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 200, unit: 'cfs', at, staleness: 'fresh' } }, schedule: [], sources: ['USACE'],
+  hasTurbines: true, generating: true, generationFloorCfs: 100,
+  generationReference:{units:8, fullGenerationCfs:20000, schedulingCapacityMw:400, source:'SWPA'},
+  metrics: { generationFlow: { value: 10000, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 10500, unit: 'cfs', at, staleness: 'fresh' }, tailwaterTempF:{value:52,unit:'F',at,staleness:'fresh'},tailwaterElevation:{value:650.25,unit:'ft',at,staleness:'fresh'} },
+  schedule: scheduleDates.map(scheduleDate => ({scheduleDate,retrievedAt:at,idle:[],hours:Array.from({length:24},(_,i)=>({hourEnding:i+1,megawatts:i%4<2?200:400,cfs:i%4<2?10000:20000,isRamp:i%2===0}))})), sources: ['USACE','SWPA'],
 }));
 let server, browser;
 let log = '';
@@ -106,8 +114,8 @@ export default function Page() {
     for (const dam of dams) assert(html.includes(`href="/dams/${dam.id}"`), `${dam.name} link renders before JavaScript`);
     if (path === root) {
       const directory = html.match(/<section aria-label="A–Z directory"[\s\S]*?<\/section>/)?.[0];
-      assert(directory, 'full directory renders below previews');
-      for (const river of rivers) assert(directory.includes(`href="${river.path}"`), `${river.name} link renders beyond previews`);
+      assert(directory, 'full directory renders below reports');
+      for (const river of rivers) assert(directory.includes(`href="${river.path}"`), `${river.name} link renders before JavaScript`);
     }
     assert(html.includes(`rel="canonical" href="https://eddy.guide${canonical}"`), 'entry keeps its canonical');
   }
@@ -124,9 +132,12 @@ export default function Page() {
       // Next's image proxy is same-origin but can still fetch a remote CDN on
       // the server. Keep those requests local too, including the header logo.
       if(url.pathname==='/_next/image' && /^https?:/.test(url.searchParams.get('url') ?? '')) {
-        return route.fulfill({contentType:'image/png',body:remoteImageFixture});
+        const source=decodeURIComponent(url.searchParams.get('url') ?? '');
+        const key=source.includes('canoe')?'canoe':['green','red','yellow','flood'].find(color=>source.includes(`_${color}.png`));
+        return route.fulfill({contentType:'image/png',body:originalImages.get(key) ?? remoteImageFixture});
       }
       if(url.pathname==='/api/rivers') return route.fulfill({json:{rivers}});
+      if(/^\/api\/gauges\/[^/]+\/history$/.test(url.pathname)) return route.fulfill({json:{siteId:url.pathname.split('/')[3],siteName:'Fixture gauge',readings:historyReadings}});
       if(url.pathname==='/api/gauges') return route.fulfill({json:{gauges}});
       if(url.pathname==='/api/dams') return route.fulfill({json:{dams}});
       if(url.pathname==='/api/eddy-updates') return route.fulfill({json:{updates:{}}});
@@ -141,11 +152,21 @@ export default function Page() {
     assert.equal(await page.getByRole('region',{name:'A–Z directory'}).getByRole('link').count(), rivers.length + dams.length);
     const featured=page.getByRole('region',{name:'Featured destinations'});
     assert.equal(await featured.locator('[data-destination]').count(),4);
-    assert.equal(await page.locator('[aria-label="Rivers preview"] [data-destination]:visible').count(),width<768?3:6);
-    assert.equal(await page.locator('[aria-label="Lakes & Dams preview"] [data-destination]:visible').count(),width<768?3:6);
+    assert.equal(await page.locator('[data-destination]:visible').count(), rivers.length + dams.length, 'every full card is visible without Show all');
+    await page.locator('[data-destination="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
+    await page.waitForFunction(count => document.querySelectorAll('[data-destination^="river:"] svg[role="img"]').length === count, rivers.length);
+    assert.equal(await page.getByText('Eddy says',{exact:true}).count(), rivers.length);
+    assert.equal(await page.getByRole('img',{name:/Flow.*trend chart/}).count(),rivers.length);
+    assert.equal(await page.getByRole('img',{name:'Eddy the Otter',exact:true}).count(),rivers.length+1);
+    const featuredDam=featured.locator('[data-destination="dam:swl-table-rock-dam"]');
+    assert(await featuredDam.getByText('50%',{exact:true}).isVisible());
+    assert(await featuredDam.getByText('Water temp',{exact:true}).isVisible());
+    assert(await featuredDam.getByText('Below-dam elevation',{exact:true}).isVisible());
+    assert(await featuredDam.getByText(/scheduled/i).first().isVisible());
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: no horizontal overflow`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await page.screenshot({path:`${out}/${label}-all.png`,fullPage:true});
+    await featured.screenshot({path:`${out}/${label}-featured.png`});
     let searches=0;
     const requests=request=>{if(request.url().includes('/api/')||request.headers().rsc==='1') searches++;};
     page.on('request',requests);
@@ -153,6 +174,11 @@ export default function Page() {
     await page.waitForFunction(()=>document.querySelectorAll('[data-result]').length===1);
     assert.equal(await page.locator('[data-result]').getAttribute('data-result'),'dam:ameren-bagnell-dam');
     assert.equal(await page.getByLabel('Sort destinations').inputValue(),'relevance');
+    assert(await page.locator('[data-result]').getByText('Water temp',{exact:true}).isVisible(), 'search retains dam detail');
+    assert(await page.locator('[data-result]').getByText(/scheduled/i).first().isVisible());
+    await search.fill('Current River');
+    await page.locator('[data-result="river:current"]').getByRole('img',{name:/Flow.*trend chart/}).waitFor();
+    assert(await page.getByText('Eddy says',{exact:true}).isVisible(), 'search retains Eddy and the river chart');
     await search.fill('Taneycomo');
     await page.waitForFunction(()=>document.querySelectorAll('[data-result]').length===2);
     assert.deepEqual(await page.locator('[data-result]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('data-result'))),['river:taneycomo','dam:swl-table-rock-dam']);
@@ -163,7 +189,7 @@ export default function Page() {
     page.off('request',requests);
     await page.getByRole('button',{name:'Clear search',exact:true}).click();
     await page.getByLabel('Filter by state').selectOption('OK');
-    assert.equal(await page.locator('[aria-label="Rivers preview"]').count(),0);
+    assert.equal(await page.getByRole('region',{name:'Rivers',exact:true}).count(),0);
     assert.equal(await page.getByText(/No rivers/).count(),0);
     await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'Rivers',exact:true}).click();
     await page.getByText('Oklahoma filter cleared.',{exact:true}).waitFor();
@@ -201,11 +227,10 @@ export default function Page() {
     assert(!new URL(page.url()).searchParams.has('lat'));
     await page.goto(`${origin}${root}?kind=all&state=AR`, {waitUntil:'networkidle'});
     await readyConditions(page);
-    const beforeShowAll=page.url().split('?')[0];
-    await page.getByRole('button',{name:'Show all lakes & dams',exact:true}).click();
-    assert.equal(page.url().split('?')[0],beforeShowAll);
+    const beforeCategory=page.url().split('?')[0];
+    await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'Lakes & Dams',exact:true}).click();
+    assert.equal(page.url().split('?')[0],beforeCategory);
     assert.equal(await page.getByLabel('Filter by state').inputValue(),'AR');
-    assert(await search.evaluate(el=>el===document.activeElement));
     await search.fill('Bull Shoals');
     await page.keyboard.press('Escape');
     assert.equal(await search.inputValue(),'');

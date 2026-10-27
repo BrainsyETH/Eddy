@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { ConditionsDestination } from '@/lib/conditions/directory';
 
-/** Keep the full catalogue reachable in the initial HTML beyond the previews. */
+/** Keep a compact catalogue reachable even when live gauge details cannot load. */
 export default function ConditionsDirectory({ destinations }: { destinations: ConditionsDestination[] }) {
   if (!destinations.length) return null;
   const alphabetical = [...destinations].sort((a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key));

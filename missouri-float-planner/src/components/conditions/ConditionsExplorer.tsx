@@ -11,7 +11,7 @@ import { CONDITION_SYSTEM, conditionChip, type ConditionCode } from '@shared/con
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import RiverCard from '@/components/gauge/RiverCard';
 import DamListCard from '@/components/dam/DamListCard';
-import DestinationPreview from './DestinationPreview';
+import RiverReportFallback from './RiverReportFallback';
 import ConditionsDirectory from './ConditionsDirectory';
 import { stateName } from '@/lib/navigation/states';
 import {
@@ -54,9 +54,8 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
   const [location, setLocation] = useState<Coordinates | null>(null);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'granted' | 'denied' | 'unsupported'>('idle');
   const input = useRef<HTMLInputElement>(null);
-  const controls = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { riverGroups, error: riverError } = useRiverGroups();
+  const { riverGroups, isLoading: riversLoading, error: riverError } = useRiverGroups();
   // Recover a failed server catalogue read without blocking dam discovery.
   // Normal visits use the server catalogue and make no extra river request.
   const riverQuery = useQuery<RiverListItem[]>({
@@ -136,27 +135,33 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
     setQueryString(value);
     window.history[history === 'push' ? 'pushState' : 'replaceState'](null, '', `${window.location.pathname}?${value}${window.location.hash}`);
   }
-  function chooseKind(kind: ConditionsKind, fromPreview = false) {
+  function chooseKind(kind: ConditionsKind) {
     const next = changeConditionsKind(state, kind, destinations);
     setNotice(next.state !== state.state ? `${stateName(state.state)} filter cleared.` : '');
     update(next);
-    if (fromPreview) {
-      controls.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
-      input.current?.focus({ preventScroll: true });
-    }
   }
   function clear() {
     update({ ...parseConditionsState(new URLSearchParams(), state.kind), kind: state.kind, sort: state.sort });
     setNotice(''); input.current?.focus({ preventScroll: true });
   }
   const hasFilters = hasQuery || state.state !== 'all' || state.floatable || [state.condition, state.type, state.diff, state.len].some(value => value !== 'all');
-  const preview = (destination: ConditionsDestination) => <DestinationPreview destination={destination} now={now}
-    relatedLabel={hasQuery ? matchConditionsDestination(destination, state.q)?.relatedLabel : undefined}
-    distance={!hasQuery && state.sort === 'nearest' ? destinationDistance(destination, location) : null} />;
+  const renderDestination = (destination: ConditionsDestination) => {
+    const relatedLabel = hasQuery ? matchConditionsDestination(destination, state.q)?.relatedLabel : undefined;
+    const distance = !hasQuery && state.sort === 'nearest' ? destinationDistance(destination, location) : null;
+    return <div key={destination.key} data-result={destination.key} data-destination={destination.key} className="min-w-0">
+      {relatedLabel && <p className="mb-2 text-sm text-neutral-600">{relatedLabel}</p>}
+      {destination.kind === 'dams'
+        ? <><Link href={destination.href} prefetch={false} className="group block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"><DamListCard dam={destination.dam} now={now} /></Link>
+          {distance != null && <p className="mt-2 text-xs text-neutral-500">{Math.max(1, Math.round(distance))} mi away</p>}</>
+        : destination.group
+          ? <RiverCard riverGroup={destination.group} meta={destination.meta} href={destination.href} distanceMiles={distance} />
+          : <RiverReportFallback river={destination.river} loading={riversLoading} />}
+    </div>;
+  };
 
   return <>
     <Suspense fallback={null}><LocationObserver onChange={observeLocation} /></Suspense>
-    <div ref={controls} className="mb-6 scroll-mt-20 space-y-3 rounded-2xl border border-neutral-200 bg-white p-3 sm:p-4">
+    <div className="mb-6 scroll-mt-20 space-y-3 rounded-2xl border border-neutral-200 bg-white p-3 sm:p-4">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3.5 top-3.5 text-primary-700" size={20} aria-hidden="true" />
         <input ref={input} type="search" aria-label="Search rivers, lakes, or dams" placeholder="Rivers, lakes, or dams"
@@ -220,26 +225,21 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
     {browsing ? <div className="space-y-8">
       {featured.length > 0 && <section aria-label="Featured destinations">
         <h2 className="mb-3 text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Featured</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{featured.map(destination => <div key={destination.key}>{preview(destination)}</div>)}</div>
+        <div className="grid items-start gap-4 md:grid-cols-2">{featured.map(renderDestination)}</div>
       </section>}
       {(['rivers', 'dams'] as const).map(kind => {
         const featuredKeys = new Set(featured.map(destination => destination.key));
         const items = results.filter(destination => destination.kind === kind && !featuredKeys.has(destination.key));
         if (!items.length) return null;
         const label = kind === 'rivers' ? 'Rivers' : 'Lakes & Dams';
-        return <section key={kind} aria-label={`${label} preview`}>
-          <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{label}</h2>
-            <button type="button" disabled={!ready} onClick={() => chooseKind(kind, true)} className="min-h-11 text-sm font-semibold text-primary-800 underline underline-offset-4">Show all {label.toLowerCase()}</button></div>
-          <div className="grid gap-3 md:grid-cols-3">{items.slice(0, 6).map((destination, index) => <div key={destination.key} className={index >= 3 ? 'hidden md:block' : undefined}>{preview(destination)}</div>)}</div>
+        return <section key={kind} aria-label={label}>
+          <h2 className="mb-3 text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>{label}</h2>
+          <div className="grid items-start gap-4 md:grid-cols-2">{items.map(renderDestination)}</div>
         </section>;
       })}
       <ConditionsDirectory destinations={results} />
     </div> : <div className="grid items-start gap-4 md:grid-cols-2">
-      {results.map(destination => <div key={destination.key} data-result={destination.key}>
-        {hasQuery || state.kind === 'all' ? preview(destination)
-          : destination.kind === 'dams' ? <Link href={destination.href} prefetch={false} className="group block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"><DamListCard dam={destination.dam} now={now} /></Link>
-            : destination.group ? <RiverCard riverGroup={destination.group} meta={destination.meta} distanceMiles={state.sort === 'nearest' ? destinationDistance(destination, location) : null} /> : preview(destination)}
-      </div>)}
+      {results.map(renderDestination)}
     </div>}
     {results.length === 0 && <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-center"><p className="text-neutral-700">No matching destinations.</p><button type="button" onClick={clear} className="mt-3 min-h-11 rounded-xl px-4 font-semibold text-primary-800 underline">Clear filters</button></div>}
     {state.kind !== 'rivers' && results.some(destination => destination.kind === 'dams') && <p className="mt-6 max-w-2xl text-xs text-neutral-500">Schedules show planned changes at the dam and can change. Water downstream takes time to rise or fall.</p>}

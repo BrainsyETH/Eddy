@@ -25,9 +25,11 @@ interface RiverCardProps {
   meta?: RiverFilterMeta;
   /** Straight-line distance from the visitor, when the "Nearest me" sort is active. */
   distanceMiles?: number | null;
+  /** Prefer the directory's canonical path over the legacy slug redirect. */
+  href?: string;
 }
 
-export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCardProps) {
+export default function RiverCard({ riverGroup, meta, distanceMiles, href: canonicalHref }: RiverCardProps) {
   const { riverName, riverSlug, condition, primaryGauge, primaryThreshold, allGauges } = riverGroup;
 
   // Compact "at a glance" descriptors, shown as a muted dot-separated line so a
@@ -127,12 +129,12 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
     levelDangerous: primaryThreshold.levelDangerous,
   };
 
-  const href = riverSlug ? `/rivers/${riverSlug}` : '#';
+  const href = canonicalHref ?? (riverSlug ? `/rivers/${riverSlug}` : '#');
 
   return (
     <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300">
       {/* Header: River name + condition + reading */}
-      <Link href={href} className="block">
+      <Link href={href} prefetch={false} className="block">
         <div className="px-4 pt-4 pb-2 sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -242,6 +244,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
         <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-neutral-100">
           <Link
             href={href}
+            prefetch={false}
             className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:gap-2 transition-all"
           >
             Full River Report
@@ -249,6 +252,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
           </Link>
           <Link
             href={riverSlug ? `/plan?river=${riverSlug}&submitPhoto=true` : '#'}
+            prefetch={false}
             className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-teal-600 transition-colors"
           >
             <Camera className="w-3.5 h-3.5" />

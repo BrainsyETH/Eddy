@@ -8,11 +8,14 @@ import { createRequire } from 'node:module';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppRouterContext, type AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
+import { ImageConfigContext } from 'next/dist/shared/lib/image-config-context.shared-runtime';
+import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
 import { accessFeeSchema, publicPageMetadata } from './seo';
 import ArticleByline from '../components/blog/ArticleByline';
 import ConditionsLayout from '../components/conditions/ConditionsLayout';
 import type { ConditionsExplorerProps } from '../components/conditions/ConditionsExplorer';
 import { conditionsDamCatalogue } from './conditions/dam-catalogue';
+import { normalizeGaugeHistory } from '@shared/history-normalize';
 import type { RiverListItem } from '../types/api';
 
 test('Next upgrades require reviewing the copied default crawler list', () => {
@@ -73,20 +76,22 @@ const directoryRivers: RiverListItem[] = Array.from({ length: 12 }, (_, index) =
   };
 });
 
-function renderConditions(overrides: Partial<ConditionsExplorerProps> = {}) {
+function renderConditions(overrides: Partial<ConditionsExplorerProps> = {}, seed?: (client: QueryClient) => void) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  seed?.(client);
   const noop = () => {};
   const router: AppRouterInstance = { back: noop, forward: noop, refresh: noop, push: noop, replace: noop, prefetch: noop, bfcacheId: 'test' };
   try {
     return renderToStaticMarkup(createElement(QueryClientProvider, { client },
+      createElement(ImageConfigContext.Provider, { value: { ...imageConfigDefault, remotePatterns: [{ protocol: 'https', hostname: 'q5skne5bn5nbyxfw.public.blob.vercel-storage.com' }] } },
       createElement(AppRouterContext.Provider, { value: router },
         createElement(SearchParamsContext.Provider, { value: new URLSearchParams() },
-          createElement(ConditionsLayout, { rivers: directoryRivers, ...conditionsDamCatalogue([]), renderedAt: Date.now(), ...overrides }))),
+          createElement(ConditionsLayout, { rivers: directoryRivers, ...conditionsDamCatalogue([]), renderedAt: Date.now(), ...overrides })))),
     ));
   } finally { client.clear(); }
 }
 
-test('the actual Conditions layout links to every destination before JavaScript, beyond its previews', () => {
+test('the actual Conditions layout links to every destination before JavaScript', () => {
   const html = renderConditions();
   assert.match(html, /<h1[^>]*>Conditions<\/h1>/);
   const directory = html.match(/<section aria-label="A–Z directory"[\s\S]*?<\/section>/)?.[0];
@@ -101,6 +106,37 @@ test('the actual Conditions layout links to every destination before JavaScript,
   assert.equal((directory.match(/<a /g) ?? []).length, directoryRivers.length + conditionsDamCatalogue([]).dams.length);
   assert.doesNotMatch(html, /No rivers found/);
   assert.match(html, /USGS readings can lag actual river conditions/);
+  assert.match(html, /Eddy the Otter/);
+  assert.doesNotMatch(html, /Show all rivers/);
+});
+
+test('All renders the original river chart and Eddy report alongside full dam information', () => {
+  const now = Date.parse('2026-10-27T17:00:00Z');
+  const at = new Date(now - 600000).toISOString();
+  const river = directoryRivers[0];
+  const dam = { ...conditionsDamCatalogue([]).dams.find(item => item.id === 'swl-table-rock-dam')!,
+    generationFloorCfs: 100, generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
+    metrics: { generationFlow: { value: 10000, unit: 'cfs', at, staleness: 'fresh' as const },
+      tailwaterTempF: { value: 52, unit: 'F', at, staleness: 'fresh' as const },
+      tailwaterElevation: { value: 650.25, unit: 'ft', at, staleness: 'fresh' as const } },
+    schedule: [{ scheduleDate: '2026-10-27', retrievedAt: at, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 14 ? 200 : 400, cfs: i < 14 ? 10000 : 20000, isRamp: i === 14 })) }],
+  };
+  const html = renderConditions({ rivers: [river], dams: [dam], renderedAt: now }, client => {
+    client.setQueryData(['gaugeStations'], [{
+      id: 'gauge-current', usgsSiteId: '07067000', name: 'Current River at Van Buren', active: true,
+      coordinates: { lat: 37, lng: -91 }, gaugeHeightFt: 3, dischargeCfs: 400, readingTimestamp: at,
+      thresholds: [{ riverId: river.id, riverName: river.name, riverSlug: river.slug, isPrimary: true,
+        thresholdUnit: 'cfs', levelTooLow: 50, levelLow: 100, levelOptimalMin: 200, levelOptimalMax: 800, levelHigh: 1000, levelDangerous: 2000 }],
+    }]);
+    client.setQueryData(['eddyUpdates'], {});
+    client.setQueryData(['gaugeHistory', '07067000', 14, null, null, 'auto', null], normalizeGaugeHistory({
+      siteId: '07067000', readings: [400, 450, 500].map((value, i) => ({ timestamp: new Date(now - (3 - i) * 86400000).toISOString(), dischargeCfs: value, gaugeHeightFt: 3 })),
+    }));
+  });
+  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Water temp', 'Below-dam elevation', '50%', 'Generation scheduled to increase']) assert.ok(html.includes(text), text);
+  assert.match(html, /role="img" aria-label="Flow \(cfs\) trend chart/);
+  assert.ok(html.includes('Eddy_the_Otter_'), 'river report keeps its condition-specific Eddy image');
+  assert.ok(html.includes('canoe'), 'header keeps Eddy’s canoe artwork');
 });
 
 test('the dams entry has its own visible heading and every dam in the initial HTML', () => {
