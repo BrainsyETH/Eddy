@@ -47,6 +47,12 @@ interface PlanSidebarProps {
   onReportIssue?: (point: AccessPoint) => void;
   pointsAlongRoute?: RouteItem[];
   captureRef?: React.RefObject<HTMLDivElement | null>;
+  /**
+   * Show the river breadcrumb visibly. The desktop search card normally names
+   * the river; after "All rivers" it doesn't, but a retained route still
+   * needs a label.
+   */
+  showRiverLabel?: boolean;
 }
 
 export default function PlanSidebar({
@@ -70,6 +76,7 @@ export default function PlanSidebar({
   onVesselChange,
   onReportIssue,
   pointsAlongRoute = [],
+  showRiverLabel = false,
 }: PlanSidebarProps) {
   const hasBothPoints = putInPoint && takeOutPoint;
 
@@ -81,10 +88,15 @@ export default function PlanSidebar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* No visible header: the search card above already names the river
-          (and the page h1 carries it for assistive tech). The breadcrumbs
-          stay for screen readers and their schema.org markup. */}
-      <div className="sr-only">
+      {/* Usually no visible header: the search card above already names the
+          river (and the page h1 carries it for assistive tech). The
+          breadcrumbs stay for screen readers and their schema.org markup,
+          and appear when their link takes keyboard focus so it is never an
+          invisible tab stop — or always, when the search card isn't naming
+          the river (after "All rivers"). */}
+      <div className={showRiverLabel
+        ? 'flex-shrink-0 px-4 pt-3'
+        : 'sr-only focus-within:not-sr-only focus-within:flex-shrink-0 focus-within:px-4 focus-within:pt-3'}>
         <Breadcrumbs
           items={[
             { label: 'Rivers', href: '/rivers' },

@@ -3,7 +3,7 @@
 // src/components/ui/WeatherBug.tsx
 // Weather Bug widget - floating overlay showing weather conditions
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sun, Cloud, CloudRain, Wind, ChevronDown, ChevronUp } from 'lucide-react';
 // Removed: Droplet icon (river gauge status removed from weather modal)
 import { useWeather } from '@/hooks/useWeather';
@@ -43,8 +43,28 @@ export default function WeatherBug({
   compact = false,
 }: WeatherBugProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const compactRef = useRef<HTMLDivElement>(null);
   const { data: weatherData, isLoading: weatherLoading, isError: hasWeatherError } = useWeather(riverSlug);
   const weather = weatherData as WeatherData | null | undefined;
+
+  // The compact chip's details are a popover beside other toolbar popovers
+  // (search results, filters): close on outside click and Escape so only one
+  // is ever open. Focus leaving is handled by onBlur below.
+  useEffect(() => {
+    if (!compact || !isExpanded) return;
+    const onDown = (e: MouseEvent) => {
+      if (compactRef.current && !compactRef.current.contains(e.target as Node)) setIsExpanded(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsExpanded(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [compact, isExpanded]);
 
   if (!riverSlug) {
     return null;
@@ -55,7 +75,13 @@ export default function WeatherBug({
     // the toolbar it sits in.
     if (!weatherLoading && !weather) return null;
     return (
-      <div className={`relative ${className}`}>
+      <div
+        ref={compactRef}
+        className={`relative ${className}`}
+        onBlur={(e) => {
+          if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setIsExpanded(false);
+        }}
+      >
         <button
           onClick={() => setIsExpanded((v) => !v)}
           aria-expanded={isExpanded}

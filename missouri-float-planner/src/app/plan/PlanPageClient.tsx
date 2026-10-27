@@ -872,6 +872,7 @@ export default function PlanPageClient({
             onReportIssue={handleReportAccessPointIssue}
             pointsAlongRoute={pointsAlongRoute}
             captureRef={captureRef}
+            showRiverLabel={showAllRivers}
           />
             </div>}
 

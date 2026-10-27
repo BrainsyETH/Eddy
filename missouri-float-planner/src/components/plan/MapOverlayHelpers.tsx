@@ -4,7 +4,7 @@
 // Map-first UX overlays: state-aware interaction hint, live route stats badge,
 // and a marker color legend. These ride on top of the MapContainer.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MousePointerClick, X, MapPin, Info } from 'lucide-react';
 import type { FloatPlan, AccessPoint } from '@/types/api';
 import { formatFloatTimeCompact, formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
@@ -117,6 +117,9 @@ export function RouteStatsBadge({ plan, isLoading = false, className = '' }: Rou
   );
 }
 
+// Natural height of the legend panel (3 access rows + 6 conditions).
+const LEGEND_HEIGHT = 290;
+
 interface MapLegendProps {
   className?: string;
   /**
@@ -130,12 +133,31 @@ interface MapLegendProps {
 // Compact legend for marker colors. Collapsed by default; expands on click.
 export function MapLegend({ className = '', asControl = false }: MapLegendProps) {
   const [open, setOpen] = useState(false);
+  // Control placement: measured on open against the map region, so short
+  // windows neither clip the legend nor tuck it under the access strip.
+  const [placement, setPlacement] = useState<{ up: boolean; maxHeight: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const toggleControl = () => {
+    if (open) { setOpen(false); return; }
+    const button = buttonRef.current?.getBoundingClientRect();
+    const region = buttonRef.current?.closest('[role="region"]')?.getBoundingClientRect();
+    if (button && region) {
+      // Leave room for the bottom access strip (~5.5rem) below.
+      const below = region.bottom - button.top - 88;
+      const above = button.bottom - region.top - 8;
+      const up = below < LEGEND_HEIGHT && above > below;
+      setPlacement({ up, maxHeight: Math.max(120, up ? above : below) });
+    }
+    setOpen(true);
+  };
 
   if (asControl) {
     return (
       <div className={`relative ${className}`}>
         <button
-          onClick={() => setOpen((v) => !v)}
+          ref={buttonRef}
+          onClick={toggleControl}
           className={`p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
             open ? 'bg-primary-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'
           }`}
@@ -146,8 +168,11 @@ export function MapLegend({ className = '', asControl = false }: MapLegendProps)
           <Info className="w-5 h-5" aria-hidden="true" />
         </button>
         {open && (
-          <div className="absolute right-full top-0 mr-2">
-            <LegendPanel onClose={() => setOpen(false)} />
+          <div
+            className={`absolute right-full mr-2 ${placement?.up ? 'bottom-0' : 'top-0'}`}
+            style={placement ? { maxHeight: placement.maxHeight } : undefined}
+          >
+            <LegendPanel onClose={() => setOpen(false)} scroll />
           </div>
         )}
       </div>
@@ -172,9 +197,11 @@ export function MapLegend({ className = '', asControl = false }: MapLegendProps)
   );
 }
 
-function LegendPanel({ onClose }: { onClose: () => void }) {
+function LegendPanel({ onClose, scroll = false }: { onClose: () => void; scroll?: boolean }) {
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px]">
+    <div className={`bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-neutral-200 p-2.5 min-w-[180px] ${
+      scroll ? 'max-h-[inherit] overflow-y-auto overscroll-contain' : ''
+    }`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Legend</span>
         <button

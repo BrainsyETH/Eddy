@@ -181,7 +181,17 @@ export default function PlanFilters({
       : null;
 
   return (
-    <div ref={rootRef} className={className}>
+    <div
+      ref={rootRef}
+      className={className}
+      // Keyboard counterpart of the outside-click close: tabbing or focusing
+      // elsewhere (the search box, the weather chip) closes the panel, so it
+      // never stays open underneath another popover. A null relatedTarget
+      // (a click on non-focusable panel space) keeps it open.
+      onBlur={(e) => {
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false);
+      }}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

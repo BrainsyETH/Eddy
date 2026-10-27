@@ -33,9 +33,8 @@ interface AccessPointStripProps {
   riverSlug: string;
 }
 
-// Compact card for the horizontal strip: name + mile only, so the strip
-// stays one short row over the map. Photos live in the plan panel and on
-// each access point's page.
+// Compact card for the horizontal strip: a small thumbnail for recognition,
+// then name + mile, so the strip stays one short row over the map.
 function AccessPointCard({
   point,
   isPutIn,
@@ -57,23 +56,33 @@ function AccessPointCard({
       ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-500'
       : 'border-neutral-200 bg-white';
   const labelText = isPutIn ? 'Put-in' : isTakeOut ? 'Take-out' : '';
+  const thumb = point.imageUrls?.[0] || point.npsCampground?.images?.[0]?.url || null;
 
   return (
     <button
       onClick={onClick}
       onMouseEnter={onHover}
       data-access-point-id={point.id}
-      className={`flex-shrink-0 w-40 rounded-xl border px-3 py-2 text-left shadow-sm transition-all hover:shadow-md active:scale-95 ${stateClass}`}
+      className={`flex flex-shrink-0 w-48 items-center gap-2 rounded-xl border p-1.5 pr-2.5 text-left shadow-sm transition-all hover:shadow-md active:scale-95 ${stateClass}`}
     >
-      <p className="truncate text-xs font-semibold text-neutral-900">{point.name}</p>
-      <p className="mt-0.5 flex items-center gap-1.5 text-[10px] text-neutral-500">
-        <span className="tabular-nums">Mile {point.riverMile.toFixed(1)}</span>
-        {labelText && (
-          <span className={`rounded px-1 py-px font-bold uppercase tracking-wide text-white ${isPutIn ? 'bg-support-500' : 'bg-accent-500'}`}>
-            {labelText}
-          </span>
+      <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100 text-neutral-400">
+        {thumb ? (
+          <AccessPointPhoto src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <MapPin size={16} aria-hidden="true" />
         )}
-      </p>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold text-neutral-900">{point.name}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-neutral-500">
+          <span className="tabular-nums">Mile {point.riverMile.toFixed(1)}</span>
+          {labelText && (
+            <span className={`rounded px-1 py-px font-bold uppercase tracking-wide text-white ${isPutIn ? 'bg-support-500' : 'bg-accent-500'}`}>
+              {labelText}
+            </span>
+          )}
+        </span>
+      </span>
     </button>
   );
 }

@@ -90,9 +90,11 @@ export default function PlannerMapSearch({ rivers, places, currentSlug, conditio
           }} />
         {query && <button type="button" aria-label="Clear search" className="rounded-lg p-1 text-neutral-600 hover:bg-neutral-100"
           onClick={() => { setQuery(''); setActive(-1); input.current?.focus(); }}><X size={16} /></button>}
-        {/* Opening a tool closes the results so two popovers never stack. */}
+        {/* Reaching a tool closes the results so two popovers never stack:
+            focus covers keyboard (Tab) and most clicks; pointerdown covers
+            browsers that don't focus a clicked button (Safari). */}
         {actions && <div className="flex shrink-0 items-center gap-0.5 border-l border-neutral-200/70 pl-1.5"
-          onPointerDown={() => setOpen(false)}>{actions}</div>}
+          onPointerDown={() => setOpen(false)} onFocus={() => setOpen(false)}>{actions}</div>}
       </div>
       {current && !open && <div className="flex items-center justify-between gap-2 border-t border-neutral-200/60 px-3.5 py-2">
         <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-primary-800"><Waves size={15} /><span className="truncate">{current.name}</span></span>
