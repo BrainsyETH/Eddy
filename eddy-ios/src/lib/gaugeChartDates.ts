@@ -7,6 +7,19 @@ export function localChartDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+/** Saved chart dates belong to the station calendar, regardless of the device zone. */
+export function initialChartDates(
+  window?: { from: string; to: string },
+  sharedCalendar?: { from: string; to: string },
+  now = new Date(),
+): { from: string; to: string } {
+  if (sharedCalendar) return { ...sharedCalendar };
+  const from = window ? new Date(window.from) : new Date(now);
+  if (!window) from.setDate(from.getDate() - 29);
+  const to = window ? new Date(window.to) : now;
+  return { from: localChartDate(from), to: localChartDate(to) };
+}
+
 /** Parse a calendar date without Date's UTC interpretation of YYYY-MM-DD. */
 export function parseLocalChartDate(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;

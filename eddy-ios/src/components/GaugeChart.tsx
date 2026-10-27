@@ -77,7 +77,7 @@ import { GaugeChartFullscreen } from '@/components/GaugeChartFullscreen';
 import { pinchChartWindow, chartZoomKey, visibleChartTimes } from '@/lib/gaugeChartZoom';
 import { chartTimeAtX, expandedChartHeight, type ChartSelection } from '@/lib/gaugeChartExpansion';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
-import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
+import { validateChartDates, initialChartDates, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
 
 /** Short history first; provider capabilities unlock the longer windows. */
 const RANGES = [
@@ -232,12 +232,12 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   const [showMedian, setShowMedian] = useState(initialShareState?.layers.includes('median') ?? false);
   const [showLastYear, setShowLastYear] = useState(initialShareState?.layers.includes('lastYear') ?? false);
   const [fullScale, setFullScale] = useState(initialShareState?.scale === 'full');
-  const [fromDate, setFromDate] = useState(() => {
-    const date = initialWindow ? new Date(initialWindow.from) : new Date();
-    if (!initialWindow) date.setDate(date.getDate() - 29);
-    return localChartDate(date);
-  });
-  const [toDate, setToDate] = useState(() => localChartDate(initialWindow ? new Date(initialWindow.to) : new Date()));
+  const [fromDate, setFromDate] = useState(
+    () => initialChartDates(initialWindow, initialShareState?.calendar).from,
+  );
+  const [toDate, setToDate] = useState(
+    () => initialChartDates(initialWindow, initialShareState?.calendar).to,
+  );
   const [customWindow, setCustomWindow] = useState<{ from: string; to: string } | undefined>(initialWindow);
   const [dateErrors, setDateErrors] = useState<ChartDateErrors>({});
   const [days, setDays] = useState<number>(initialDays);
