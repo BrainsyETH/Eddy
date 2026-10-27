@@ -915,15 +915,26 @@ try {
   await mobile.waitForFunction(() => !new URLSearchParams(location.search).has('putIn'));
   await mobile.getByRole('button', { name: 'Undo route change', exact: true }).tap();
   await endpointsVisible(mobile, true);
-  // Short phones: the default plan sheet must not cover the route tools.
+  // Short phones (fresh pages: the sheet sizes itself from the viewport it
+  // opens in): the default plan sheet must not cover the route tools.
   for (const size of [{ width: 375, height: 667 }, { width: 390, height: 568 }]) {
-    await mobile.setViewportSize(size);
-    await mobile.waitForFunction(() => {
+    const phone = await browser.newPage({ viewport: size, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+    phone.on('pageerror', error => errors.push(String(error)));
+    await phone.route('**/*', routeHandler);
+    await phone.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-0&takeOut=p-0-1`, { waitUntil: 'domcontentloaded' });
+    const settledSheet = () => phone.waitForFunction(() => {
       const sheet = document.querySelector('[data-plan-sheet]');
       return sheet && !sheet.getAnimations().some(a => a.playState === 'running')
         && Math.abs(sheet.getBoundingClientRect().height - Math.round(innerHeight * 0.42)) <= 1;
     });
-    const covered = await mobile.evaluate(() => {
+    await settledSheet();
+    // Clear and restore the take-out so Undo has history to show.
+    await phone.locator('.access-point-marker[data-access-point-id="p-0-1"]').tap();
+    await phone.waitForFunction(() => !new URLSearchParams(location.search).has('takeOut'));
+    await phone.getByRole('button', { name: 'Undo route change', exact: true }).tap();
+    await phone.waitForFunction(() => new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
+    await settledSheet();
+    const covered = await phone.evaluate(() => {
       const sheetTop = document.querySelector('[data-plan-sheet]').getBoundingClientRect().top;
       return ['Show route', 'Undo route change'].filter(label => {
         const control = document.querySelector(`[aria-label="${label}"]`)?.getBoundingClientRect();
@@ -931,9 +942,9 @@ try {
       });
     });
     assert.deepEqual(covered, [], `route tools must clear the plan sheet at ${size.width}x${size.height}`);
+    await phone.screenshot({ path: `${out}/mobile-tools-${size.width}x${size.height}.png` });
+    await phone.close();
   }
-  await mobile.setViewportSize({ width: 390, height: 844 });
-  await endpointsVisible(mobile, true);
   await mobile.getByRole('button', { name: /Search rivers and access points, currently/ }).tap();
   const mobileSearch = mobile.getByRole('combobox', { name: 'Search rivers and access points', exact: true });
   await mobileSearch.fill('take');

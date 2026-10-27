@@ -1227,7 +1227,7 @@ export default function PlanPageClient({
           {/* Route tools sit under Filters, near the top of the map: at the
               bottom of the right-hand column the plan sheet covers them on
               short phones. */}
-          <div className="absolute left-3 top-[7.25rem] z-30 flex flex-col gap-2">{plannerTools}</div>
+          <div className="absolute left-3 top-[7rem] z-30 flex flex-col gap-2">{plannerTools}</div>
 
           {/* Hidden once both endpoints are chosen: the fixed z-40 float
               sheet takes the stage and buried/collided with the pill on
