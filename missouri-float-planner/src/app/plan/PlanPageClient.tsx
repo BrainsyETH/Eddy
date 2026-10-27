@@ -51,6 +51,7 @@ import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
 import { plannerMapPois } from '@/lib/planner-map-catalog';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
+import { currentPlannerAccessPoints, reconcilePlannerEndpoints } from '@/lib/planner-access';
 
 const PlannerAccessLayer = dynamic(() => import('@/components/map/PlannerAccessLayer'), { ssr: false });
 const PlannerMapFocus = dynamic(() => import('@/components/map/PlannerAccessLayer').then(module => module.PlannerMapFocus), { ssr: false });
@@ -240,8 +241,9 @@ export default function PlanPageClient({
   //
   // `!== false` and not `=== true`: a payload predating the field omits it, and
   // absent means eligible. See the field's note in packages/eddy-types.
-  const { data: visibleAccessPoints, isPlaceholderData: accessPlaceholder, isFetching: accessLoading,
+  const { data: accessPoints, isPlaceholderData: accessPlaceholder, isFetching: accessLoading,
     isError: accessError, refetch: refetchAccess } = useAccessPoints(riverSlug);
+  const visibleAccessPoints = currentPlannerAccessPoints(riverSlug, river?.slug, accessPoints, accessPlaceholder);
   const floatEndpointAccessPoints = useMemo(
     () => visibleAccessPoints?.filter(ap => ap.isFloatEndpoint !== false),
     [visibleAccessPoints],
@@ -363,17 +365,16 @@ export default function PlanPageClient({
     }
   }, [vesselTypes, selectedVesselTypeId, urlVessel]);
 
-  // Validate URL access points belong to the loaded river
+  const validSelection = reconcilePlannerEndpoints(floatEndpointAccessPoints, {
+    putIn: selectedPutIn, takeOut: selectedTakeOut,
+  });
+  // Only a completed, current-river response can invalidate a deep link.
+  // An empty list is authoritative too; placeholder data never reaches here.
   useEffect(() => {
-    if (!accessPlaceholder && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && urlInitialized) {
-      if (selectedPutIn && !floatEndpointAccessPoints.find(ap => ap.id === selectedPutIn)) {
-        setSelectedPutIn(null);
-      }
-      if (selectedTakeOut && !floatEndpointAccessPoints.find(ap => ap.id === selectedTakeOut)) {
-        setSelectedTakeOut(null);
-      }
-    }
-  }, [floatEndpointAccessPoints, selectedPutIn, selectedTakeOut, urlInitialized, accessPlaceholder]);
+    if (!urlInitialized) return;
+    if (selectedPutIn !== validSelection.putIn) setSelectedPutIn(validSelection.putIn);
+    if (selectedTakeOut !== validSelection.takeOut) setSelectedTakeOut(validSelection.takeOut);
+  }, [selectedPutIn, selectedTakeOut, validSelection.putIn, validSelection.takeOut, urlInitialized]);
 
   // River change: clear access point selections (a put-in from one river
   // never makes sense on another)
@@ -427,11 +428,11 @@ export default function PlanPageClient({
     }
   }, [floatEndpointAccessPoints]);
 
-  const planParams = (river && selectedPutIn && selectedTakeOut)
+  const planParams = (river?.slug === riverSlug && !accessPlaceholder && validSelection.putIn && validSelection.takeOut)
     ? {
         riverId: river.id,
-        startId: selectedPutIn,
-        endId: selectedTakeOut,
+        startId: validSelection.putIn,
+        endId: validSelection.takeOut,
         vesselTypeId: selectedVesselTypeId || undefined,
       }
     : null;
@@ -478,7 +479,7 @@ export default function PlanPageClient({
     // non-endpoint and the picker strips are built from the eligible array, so
     // nothing should reach here with one — but this function turns whatever it
     // is handed into a trip endpoint, and that is not a thing to leave open.
-    if (point.isFloatEndpoint === false) return;
+    if (!floatEndpointAccessPoints?.some(current => current.id === point.id)) return;
     if (point.id === selectedPutIn) {
       setSelectedPutIn(null);
       return;
@@ -506,7 +507,7 @@ export default function PlanPageClient({
       trackEvent('takeout_selected', { river: riverSlug ?? '' });
       setBothPoints(selectedPutIn, point.id);
     }
-  }, [selectedPutIn, selectedTakeOut, setBothPoints, riverSlug, river, isDesktop]);
+  }, [selectedPutIn, selectedTakeOut, setBothPoints, riverSlug, river, isDesktop, floatEndpointAccessPoints]);
 
   const handleReportAccessPointIssue = useCallback((point: AccessPoint) => {
     setFeedbackContext({
