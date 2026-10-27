@@ -9,6 +9,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createAgentExecutor } from './executor';
 import { createAgentServer } from './mcp-server';
 import { AGENT_TOOLS } from './catalog';
+import { EDDY_TOOLS } from '../chat/tools';
 import { AGENT_VERSION, RiverNotFoundError, freshness, tripDate } from './contracts';
 import { approximateLocation } from '@shared/float-search';
 import {
@@ -407,6 +408,24 @@ async function sdk(
     await server.close();
   }
 }
+
+test('chat tool schemas retain input defaults, constraints and strict objects after Zod migration', () => {
+  for (const tool of AGENT_TOOLS) {
+    const chat = EDDY_TOOLS.find(candidate => candidate.name === tool.name)!;
+    assert.ok(chat, tool.name);
+    assert.equal(chat.input_schema.type, 'object');
+    assert.equal(chat.input_schema.additionalProperties, false);
+    assert.deepEqual(Object.keys(chat.input_schema.properties ?? {}), Object.keys(tool.input.shape));
+  }
+  const gauges = EDDY_TOOLS.find(tool => tool.name === 'get_gauges')!.input_schema;
+  assert.ok(!gauges.required?.includes('limit'), 'a default must not become a required input');
+  const limit = (gauges.properties as Record<string, { default?: number; maximum?: number }>).limit;
+  assert.equal(limit.default, 20);
+  assert.equal(limit.maximum, 50);
+  const conditions = EDDY_TOOLS.find(tool => tool.name === 'get_conditions')!.input_schema;
+  assert.ok(conditions.required?.includes('slug'));
+  assert.ok(!conditions.required?.includes('putIn'));
+});
 
 test('SDK negotiates all tools, schemas, read-only annotations, instructions and version', async () => {
   await sdk(fixture(), async (client, tracked) => {

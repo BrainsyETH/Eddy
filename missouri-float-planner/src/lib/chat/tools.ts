@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 import { AGENT_TOOLS } from '@/lib/agent-tools/catalog';
 
 const CHAT_ONLY_TOOLS: Anthropic.Tool[] = [
@@ -126,7 +126,9 @@ export const EDDY_TOOLS: Anthropic.Tool[] = [
   ...AGENT_TOOLS.map(tool => ({
     name: tool.name,
     description: tool.description,
-    input_schema: zodToJsonSchema(tool.input, { $refStrategy: 'none' }) as Anthropic.Tool.InputSchema,
+    // Input mode keeps defaulted arguments optional for callers. The strict
+    // catalog schemas still reject unknown fields, and shared shapes stay inline.
+    input_schema: z.toJSONSchema(tool.input, { target: 'draft-7', io: 'input', reused: 'inline' }) as Anthropic.Tool.InputSchema,
   })),
   ...CHAT_ONLY_TOOLS,
 ];

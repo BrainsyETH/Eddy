@@ -1,10 +1,9 @@
 // x402 AI-agent payment configuration — public entry point.
 //
 // Eddy targets x402 V2 (https://x402.org), built on @x402/core@2.18 (the
-// framework-agnostic core) because the official @x402/next adapter requires
-// Next.js >= 16 and this app runs on Next 14. Implementation lives in ./x402/*:
+// framework-agnostic core) through Eddy's App Router adapter. Implementation lives in ./x402/*:
 //   - ./x402/config  — networks, payout addresses, price table, feature flags
-//   - ./x402/engine  — Next 14 adapter + verify/settle orchestration
+//   - ./x402/engine  — App Router adapter + verify/settle orchestration
 //
 // Payment is enforced per-route (browsers pass through free; AI agents pay),
 // so there is no x402 logic in middleware.ts. The whole layer stays dormant
