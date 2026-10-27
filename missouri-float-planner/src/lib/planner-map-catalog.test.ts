@@ -33,7 +33,7 @@ test('access places carry their river identity and coordinates without changing 
   const before = structuredClone(input);
   assert.deepEqual(plannerMapPlaces(input), [{
     id: 'akers', name: 'Akers Ferry', slug: 'akers-ferry', riverId: 'current',
-    riverSlug: 'current', riverName: 'Current River', coordinates: { lng: -91.5, lat: 37.3 },
+    type: 'access', riverSlug: 'current', riverName: 'Current River', coordinates: { lng: -91.5, lat: 37.3 },
   }]);
   assert.deepEqual(input, before);
 });
@@ -79,4 +79,17 @@ test('overview POIs handle empty data, deduplicate shared places and reject inva
     river(null, { id: 'other', pois: [poi()] })));
   assert.equal(result.length, 1);
   assert.equal(result[0].id, 'spring');
+});
+
+
+test('catalogue artwork survives before detailed data and later adopts detailed types and route roles', async () => {
+  const { plannerMarkers } = await import('./planner-markers');
+  const places = plannerMapPlaces(dataset(river([point({ type: 'campground' })])));
+  const route = { riverSlug: 'current', putIn: 'akers', takeOut: null };
+  assert.equal(plannerMarkers(places, [], [], route)[0].symbol, 'campground');
+  const merged = plannerMarkers([...places, { ...places[0], types: ['boat_ramp', 'access'] }], [], [], route);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].symbol, 'boatRamp');
+  assert.equal(merged[0].role, 'put-in');
+  assert.equal(plannerMarkers(places, [], [], { ...route, riverSlug: 'other' })[0].role, undefined);
 });

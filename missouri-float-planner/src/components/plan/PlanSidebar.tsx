@@ -6,7 +6,8 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Share2, Download, Check, ChevronRight, CalendarPlus, Mail, RotateCcw } from 'lucide-react';
+import { Share2, Download, Check, ChevronRight, CalendarPlus, Mail } from 'lucide-react';
+import ClearRouteButton from './ClearRouteButton';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
@@ -89,8 +90,9 @@ export default function PlanSidebar({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {!hideHeader && <div className="shrink-0 border-b-2 border-primary-700 px-4 py-3">
+      {!hideHeader && <div className="flex shrink-0 items-center justify-between border-b-2 border-primary-700 px-4 py-1.5" data-plan-header>
         <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h2>
+        {(putInPoint || takeOutPoint) && <ClearRouteButton onClear={onClearRoute} />}
       </div>}
       {/* Usually no visible header: the search card above already names the
           river (and the page h1 carries it for assistive tech). The
@@ -171,7 +173,7 @@ export default function PlanSidebar({
             {/* Plan actions — one row under the answer they act on, instead
                 of a two-row footer pinned below the scroll area. */}
             {!isLastValidFallback && (
-              <div className="mt-3 grid grid-cols-5 gap-1 border-t border-neutral-200/70 pt-2.5">
+              <div className="mt-3 grid grid-cols-4 gap-1 border-t border-neutral-200/70 pt-2.5">
                 <PlanAction
                   label="Calendar"
                   icon={<CalendarPlus size={15} />}
@@ -209,12 +211,6 @@ export default function PlanSidebar({
                   tone={shareStatus === 'copied' ? 'success' : 'default'}
                 />
                 <PlanAction label="Image" icon={<Download size={15} />} onClick={onDownloadImage} tone="primary" />
-                <PlanAction
-                  label="Clear"
-                  title="Clear route & start over"
-                  icon={<RotateCcw size={15} />}
-                  onClick={onClearRoute}
-                />
               </div>
             )}
           </Card>
