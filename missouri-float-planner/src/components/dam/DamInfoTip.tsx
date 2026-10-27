@@ -7,13 +7,17 @@ import { Info, X } from 'lucide-react';
 export default function DamInfoTip({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   return (
     <>
       <button
         type="button"
         aria-label={`About ${title.toLowerCase()}`}
         aria-haspopup="dialog"
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          dialog.current?.showModal();
+          closeButton.current?.focus({ preventScroll: true });
+        }}
         className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
       >
         <Info className="size-5" aria-hidden="true" />
@@ -27,7 +31,7 @@ export default function DamInfoTip({ title, children }: { title: string; childre
         <div className="p-5 sm:p-6">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 id={id} className="text-lg font-bold">{title}</h3>
-            <button type="button" autoFocus onClick={() => dialog.current?.close()} aria-label="Close explanation" className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 focus-visible:outline-2 focus-visible:outline-primary-600">
+            <button ref={closeButton} type="button" onClick={() => dialog.current?.close()} aria-label="Close explanation" className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 focus-visible:outline-2 focus-visible:outline-primary-600">
               <X className="size-5" aria-hidden="true" />
             </button>
           </div>
