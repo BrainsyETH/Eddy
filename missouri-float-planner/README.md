@@ -97,8 +97,9 @@ Build a Route keeps one MapLibre map mounted while choosing rivers, loading
 river details, and returning to **All rivers**. All rivers zooms back to the
 service area and preserves the current route and its endpoint selections;
 choosing a different river starts that river's plan, with Undo available.
-Mobile pins and strip cards select endpoints directly; tapping a selected
-endpoint clears it. Pairs are ordered downstream regardless of selection order.
+Mobile pins and the access strip on both layouts select endpoints directly;
+tapping a selected endpoint clears it. Pairs are ordered downstream regardless
+of selection order.
 Desktop pins and search results open access previews. Inspecting another river's
 access does not discard the current route. Endpoint edits and river changes can
 be undone; Undo appears only while history exists. Mobile search includes the

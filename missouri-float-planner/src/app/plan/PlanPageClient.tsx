@@ -501,10 +501,11 @@ export default function PlanPageClient({
       changeSelection({ selectedTakeOut: null });
     } else {
       const other = floatEndpointAccessPoints?.find(ap => ap.id === (selectedPutIn ?? selectedTakeOut));
-      changeSelection(other
+      const next = other
         ? orderedPlannerEndpoints(selectedPutIn ? other : point, selectedPutIn ? point : other)
-        : { selectedPutIn: point.id });
-      trackEvent(selectedPutIn ? 'takeout_selected' : 'putin_selected', { river: riverSlug });
+        : { selectedPutIn: point.id, selectedTakeOut: null };
+      changeSelection(next);
+      trackEvent(next.selectedPutIn === point.id ? 'putin_selected' : 'takeout_selected', { river: riverSlug });
       setShowAllRivers(false);
       if (other || isDesktop) {
         if (!other) setFocusPlace({ id: point.id, name: point.name, slug: point.slug,
@@ -775,19 +776,22 @@ export default function PlanPageClient({
     if (!selectedPlace || !previewPoint || previewPoint.isFloatEndpoint === false) return;
     if (endpoint === 'take-out' && !canTakeOut) return;
     const keepTakeOut = selectedPlace.riverSlug === riverSlug && takeOutPoint
-      && takeOutPoint.riverMile > previewPoint.riverMile;
-    changeSelection(endpoint === 'put-in'
-      ? { riverSlug: selectedPlace.riverSlug, selectedPutIn: previewPoint.id, selectedTakeOut: keepTakeOut ? takeOutPoint.id : null }
-      : orderedPlannerEndpoints(putInPoint!, previewPoint));
+      && takeOutPoint.id !== previewPoint.id;
+    const next = endpoint === 'take-out'
+      ? orderedPlannerEndpoints(putInPoint!, previewPoint)
+      : keepTakeOut
+        ? orderedPlannerEndpoints(previewPoint, takeOutPoint)
+        : { selectedPutIn: previewPoint.id, selectedTakeOut: null };
+    changeSelection({ riverSlug: selectedPlace.riverSlug, ...next });
     const targetId = previewPoint.id;
     if (keyboard) requestAnimationFrame(() => {
       const target = document.querySelector<HTMLElement>('[aria-label="Show route"]')
         ?? document.querySelector<HTMLElement>(`.access-point-marker[data-access-point-id="${CSS.escape(targetId)}"]`);
       target?.focus({ preventScroll: true });
     });
-    trackEvent(endpoint === 'put-in' ? 'putin_selected' : 'takeout_selected', { river: selectedPlace.riverSlug });
+    trackEvent(next.selectedPutIn === previewPoint.id ? 'putin_selected' : 'takeout_selected', { river: selectedPlace.riverSlug });
     setSelectedPlace(null);
-    setFocusPlace(endpoint === 'put-in' && !keepTakeOut ? selectedPlace : null);
+    setFocusPlace(next.selectedTakeOut ? null : selectedPlace);
     setFocusRequest(value => value + 1);
   };
   const placeCard = selectedPlace && <PlannerPlaceCard place={selectedPlace} point={previewPoint}
@@ -898,9 +902,10 @@ export default function PlanPageClient({
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             {/* No intro card: the search box and the colored river network
                 are the call to action. Only surface load/error status. */}
-            {!activeRiver && !selectedPlace && riverSlug && (riverLoading || riverError) && <div className="planner-glass rounded-2xl px-4 py-3">
-              {riverLoading && <p className="text-xs text-neutral-600" role="status">Loading river details…</p>}
-              {riverError && <p className="text-xs text-neutral-600" role="status">River details couldn’t load. Choose another river or try again.</p>}
+            {!activeRiver && !selectedPlace && riverSlug && <div className="planner-glass rounded-2xl px-4 py-3">
+              <p className="text-xs text-neutral-600" role="status">{riverError
+                ? 'River details couldn’t load. Choose another river or try again.'
+                : 'Loading river details…'}</p>
             </div>}
             {placeCard && <div className="pointer-events-auto min-h-0 shrink overflow-y-auto rounded-2xl">{placeCard}</div>}
             {activeRiver && putInPoint && !selectedPlace && <div className="planner-glass pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">

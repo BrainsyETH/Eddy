@@ -472,6 +472,7 @@ try {
   await page.waitForFunction(() => new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
   console.log('Mouse + keyboard search retains both route endpoints and requests the correct plan');
   const assertDesktopLayout = async () => {
+    await page.locator('.planner-glass.flex-1').waitFor();
     const result = await page.evaluate(() => {
       const box = selector => document.querySelector(selector).getBoundingClientRect();
       const panel = box('.planner-panel');
@@ -565,6 +566,7 @@ try {
     exact: true
   }).click();
   await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-1-0');
+  await page.getByRole('status').filter({ hasText: 'Loading river details…' }).waitFor();
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   assert.equal(documentRequests, 1);
   console.log('Cross-river inspection preserves the route until an endpoint is chosen');
@@ -573,10 +575,10 @@ try {
     width: 1024,
     height: 768
   });
+  await assertDesktopLayout();
   await page.screenshot({
     path: `${out}/desktop-1024.png`
   });
-  await assertDesktopLayout();
   await page.setViewportSize({
     width: 390,
     height: 844
@@ -598,20 +600,24 @@ try {
     name: 'All rivers',
     exact: true
   }).click();
-  await page.waitForFunction(() => window.plannerMap?.getLayer('planner-access-dots') && window.plannerMap.isSourceLoaded('planner-access-catalog') && !window.plannerMap.isMoving());
-  const dot = await page.evaluate(() => {
+  // Source readiness can precede the scheduled camera fit and the first paint.
+  // Wait for the actual pin at a settled, clickable position.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const dot = await (await page.waitForFunction(() => {
     const map = window.plannerMap;
+    if (!map?.getLayer('planner-access-dots') || !map.isSourceLoaded('planner-access-catalog') || map.isMoving()) return null;
     const f = map.queryRenderedFeatures({
       layers: ['planner-access-dots']
     }).find(f => f.properties.name === 'Current Put-in');
     if (!f) return null;
     const p = map.project(f.geometry.coordinates),
       r = map.getCanvas().getBoundingClientRect();
+    if (document.elementFromPoint(r.x + p.x, r.y + p.y) !== map.getCanvas()) return null;
     return {
       x: r.x + p.x,
       y: r.y + p.y
     };
-  });
+  })).jsonValue();
   assert(dot, 'Overview access pin must actually paint');
   await page.mouse.click(dot.x, dot.y);
   await page.getByRole('region', {
@@ -738,6 +744,13 @@ try {
   assert.equal(await filters.getAttribute('aria-expanded'), 'false');
   assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 1);
   assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Expand weather details', exact: true }).click();
+  const weather = page.getByRole('button', { name: 'Collapse weather details', exact: true }).last();
+  await weather.press('Escape');
+  assert.equal(await page.getByRole('button', { name: 'Expand weather details', exact: true }).getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Expand weather details');
+  assert.equal(await page.getByRole('button', { name: 'Collapse map', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('region', { name: 'Selected access point' }).count(), 1);
   await page.getByRole('region', { name: 'Selected access point' }).focus();
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.activeElement?.matches('.access-point-marker[data-access-point-id="p-0-1"]'));
@@ -782,6 +795,15 @@ try {
 
   await page.goto(`${origin}/planner-map-layout-check?river=current&putIn=p-0-1&takeOut=p-0-0`, { waitUntil: 'domcontentloaded' });
   await page.getByText('Upstream — paddling against current', { exact: false }).waitFor();
+  // Replacing a put-in downstream of the take-out preserves and orders the pair.
+  await search.fill('current take');
+  await page.getByRole('option', { name: /Current Take-out/ }).click();
+  await page.getByRole('button', { name: 'Use as put-in', exact: true }).click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-0'
+    && new URLSearchParams(location.search).get('takeOut') === 'p-0-1');
+  await page.getByRole('button', { name: 'Undo route change', exact: true }).click();
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('putIn') === 'p-0-1'
+    && new URLSearchParams(location.search).get('takeOut') === 'p-0-0');
 
   await page.close();
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });

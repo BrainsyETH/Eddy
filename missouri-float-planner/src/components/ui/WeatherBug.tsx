@@ -56,7 +56,11 @@ export default function WeatherBug({
       if (compactRef.current && !compactRef.current.contains(e.target as Node)) setIsExpanded(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsExpanded(false);
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setIsExpanded(false);
+      compactRef.current?.querySelector('button')?.focus();
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
