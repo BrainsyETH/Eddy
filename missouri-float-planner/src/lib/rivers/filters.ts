@@ -3,7 +3,7 @@
 //
 // No React and no server-only imports live here on purpose: the server page
 // (src/app/rivers/page.tsx) uses buildRiverFilterMeta to derive per-river
-// metadata, and the client grid (RiverReportsGrid) uses the same helpers to
+// metadata, and the Conditions directory uses the same helpers to
 // filter and sort. Keeping the logic pure means both sides agree on exactly how
 // a river is bucketed.
 

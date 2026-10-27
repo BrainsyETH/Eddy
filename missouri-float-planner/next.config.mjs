@@ -12,6 +12,12 @@ const HTML_LIMITED_BOT_UA_RE = /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Sl
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep the fixture browser run within small development containers. These
+  // settings do not apply to normal development or production builds.
+  ...(process.env.NODE_ENV === 'development' && process.env.EDDY_CONDITIONS_SMOKE === '1' ? {
+    experimental: { webpackMemoryOptimizations: true, devMemoryThresholdRestart: false },
+    webpack: (config) => { config.cache = false; return config; },
+  } : {}),
   // geo-tz reads its boundary files through Node's filesystem at runtime.
   serverExternalPackages: ['geo-tz'],
   outputFileTracingIncludes: {

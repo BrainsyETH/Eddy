@@ -1,98 +1,14 @@
-// src/app/rivers/page.tsx
-// River Reports — the canonical, status-first river index. Server-rendered hero
-// (with Eddy's cross-river summary) wrapping the live conditions dashboard.
-
 import type { Metadata } from 'next';
-import SectionNavigation from '@/components/layout/SectionNavigation';
-import { conditionNavigation } from '@/lib/navigation/site-navigation';
-import Image from 'next/image';
-import { Suspense } from 'react';
-import SiteFooter from '@/components/ui/SiteFooter';
-import RiverReportsSnapshot from '@/components/gauge/RiverReportsSnapshot';
+import ConditionsPage from '@/components/conditions/ConditionsPage';
 import { publicPageMetadata } from '@/lib/seo';
-import RiverReportsGrid from '@/components/gauge/RiverReportsGrid';
-import { EDDY_IMAGES } from '@/constants';
-import { buildRiversSummary } from '@/data/eddy-quotes';
-import { pageRivers } from '@/lib/data/public-pages';
-import { buildRiverFilterMeta } from '@/lib/rivers/filters';
 
-export const revalidate = 60; // Public HTML snapshot; live dashboard keeps its own requests
-
+export const revalidate = 60;
 export const metadata: Metadata = publicPageMetadata(
-  'Ozark River Levels & Float Reports',
-  'Live river levels, float conditions and access points for Ozark rivers in Missouri and Arkansas. Find your river and check conditions before you go.',
+  'River Conditions, Lakes & Dam Releases',
+  'Search river levels, float conditions, lake and dam releases, and generation schedules across the Ozarks and beyond.',
   '/rivers',
 );
 
-export default async function RiversPage() {
-  const rivers = await pageRivers();
-
-  // Build Eddy's summary across all rivers (server-side, from current conditions)
-  const conditionCodes = rivers.map(r => r.currentCondition?.code ?? null);
-  const eddySummary = buildRiversSummary(conditionCodes);
-
-  // Per-river metadata (state, type, difficulty tier, length) for the grid's
-  // facet filters. Derived here from the already-fetched river list — the grid
-  // itself is gauge-driven and doesn't otherwise see these fields.
-  const riverMeta = buildRiverFilterMeta(rivers);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
-      {/* Hero */}
-      <section
-        className="relative py-8 md:py-10 text-white overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
-      >
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute bottom-0 left-0 right-0 h-24"
-               style={{ background: 'repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 80px)' }} />
-        </div>
-
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-center gap-6 md:gap-8">
-            <Image
-              src={EDDY_IMAGES.canoe}
-              alt="Eddy the Otter"
-              width={300}
-              height={300}
-              className="h-20 md:h-28 w-auto drop-shadow-[0_4px_24px_rgba(240,112,82,0.3)]"
-              priority
-            />
-            <div>
-              <h1
-                className="text-2xl md:text-4xl font-bold mb-1"
-                style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
-              >
-                River Reports
-              </h1>
-              <p className="text-sm md:text-base text-white/70 max-w-md">
-                {eddySummary}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <SectionNavigation label="Conditions" links={conditionNavigation('rivers')} />
-
-      {/* Live conditions dashboard (filter + search + per-river cards) */}
-      <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
-        <Suspense fallback={<RiverReportsSnapshot rivers={rivers} />}>
-          <RiverReportsGrid riverMeta={riverMeta} initialRivers={rivers} />
-        </Suspense>
-
-        {/* Data attribution */}
-        <div className="mt-8 bg-primary-50 border border-primary-200 rounded-xl p-6">
-          <h2 className="text-base font-bold text-neutral-900 mb-2">About This Data</h2>
-          <p className="text-sm text-neutral-700">
-            All condition data is provided by the <strong>United States Geological Survey (USGS)</strong> through
-            their Water Services API. Readings are updated hourly and typically lag real-time conditions by
-            15-60 minutes.
-          </p>
-        </div>
-      </div>
-
-      <SiteFooter maxWidth="max-w-5xl" className="mt-12" />
-    </div>
-  );
+export default function Page() {
+  return <ConditionsPage />;
 }
