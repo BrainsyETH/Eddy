@@ -18,7 +18,7 @@ interface Props {
 
 /** Uses only the saved snapshot and bundled artwork, including offline. */
 export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale >= 1.3;
   const campground = place.kind === 'campground';
@@ -103,10 +103,10 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
                 </View>
                 {gauge.reading ? (
                   <View style={[styles.readingPill, {
-                    backgroundColor: code ? conditionOpaqueBg(code) : colors.card,
-                    borderColor: code ? conditionChipBorder(code) : colors.border,
+                    backgroundColor: code ? conditionOpaqueBg(code, isDark) : colors.card,
+                    borderColor: code ? conditionChipBorder(code, isDark) : colors.border,
                   }]}>
-                    <Text style={[styles.readingValue, { color: code ? conditionInk(code) : colors.textMuted }]}>{gauge.reading}</Text>
+                    <Text style={[styles.readingValue, { color: code ? conditionInk(code, isDark) : colors.textMuted }]}>{gauge.reading}</Text>
                   </View>
                 ) : null}
               </View>

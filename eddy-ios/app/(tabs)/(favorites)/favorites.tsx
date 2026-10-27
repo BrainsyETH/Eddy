@@ -1,3 +1,4 @@
+import { savedAccessRoute } from '@/lib/accessDetailPresentation';
 // Favorites are local-first: stored names remain usable when conditions
 // cannot load. River cards use the existing /api/gauges catalog for compact
 // reading pills at every linked station, without per-river request fan-out.
@@ -325,7 +326,12 @@ function FavoritesContent() {
     if (item.kind === 'place') return <FavoritePlaceCard
       place={item.place}
       now={now}
-      onPress={() => router.push({ pathname: '/saved-place', params: { id: item.place.id } })}
+      onPress={() => {
+        const accessRoute = savedAccessRoute(item.place);
+        router.push(accessRoute
+          ? { pathname: '/river/[slug]/access/[accessSlug]', params: accessRoute }
+          : { pathname: '/saved-place', params: { id: item.place.id } });
+      }}
       onRemove={() => void savedPlaces.remove(item.entityId, placesOwner).catch(() => Alert.alert('Couldn’t remove place', 'Try again.'))}
     />;
     if (item.kind === 'dam') {
