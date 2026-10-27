@@ -107,7 +107,7 @@ export function buildConditionsDestinations(rivers: RiverListItem[], dams: DamSn
         kind: 'rivers', key, name: river.name, names: [river.name], state: river.state,
         href: river.path, coordinates: group?.primaryGauge.coordinates,
         aliases: ALIASES[key] ?? [],
-        related: [...(RELATED[key] ?? []), ...(group?.allGauges.map(gauge => ({ term: gauge.name, label: gauge.name })) ?? [])],
+        related: [...(RELATED[key] ?? []), ...(group?.allGauges.map(gauge => ({ term: gauge.name, label: `Gauge: ${gauge.name}` })) ?? [])],
         river, group, meta: meta[river.id],
       };
     }),

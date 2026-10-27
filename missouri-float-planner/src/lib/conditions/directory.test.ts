@@ -3,7 +3,13 @@ import test from 'node:test';
 import {
   buildConditionsDestinations, changeConditionsKind, conditionsParams, conditionsStates,
   featuredDestinations, matchConditionsDestination, parseConditionsState, selectConditionsDestinations,
+  FEATURED_DESTINATIONS, DAM_DISCOVERY_ORDER,
 } from './directory';
+import { conditionsDamCatalogue } from './dam-catalogue';
+import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
+import riverConfig from '../../../scripts/config/nhd-rivers.json';
+import { groupGaugesByRiver } from '@/lib/river-groups';
+import type { GaugeStation } from '@/app/api/gauges/route';
 import type { RiverListItem } from '@/types/api';
 import type { DamSnapshot } from '@shared/dam-types';
 
@@ -27,6 +33,44 @@ const dams = [
 ];
 const destinations = buildConditionsDestinations(rivers, dams);
 const state = (query = '', kind: 'all' | 'rivers' | 'dams' = 'all') => parseConditionsState(new URLSearchParams(query), kind);
+
+test('editorial destination IDs exist in the dam registry and river import catalogue', () => {
+  const keys = new Set([
+    ...Object.values(USACE_DAMS).map(item => `dam:${item.id}`),
+    ...riverConfig.rivers.map(item => `river:${item.slug}`),
+  ]);
+  for (const key of [...FEATURED_DESTINATIONS, ...DAM_DISCOVERY_ORDER.map(id => `dam:${id}`)]) assert.ok(keys.has(key), key);
+});
+
+test('a partial stored catalogue keeps individual missing readings without declaring a global outage', () => {
+  const reading = { ...dams[1], generating: false, metrics: { release: { value: 200, unit: 'cfs' as const, at: '2026-10-27T12:00:00Z', staleness: 'fresh' as const } } };
+  const partial = conditionsDamCatalogue([reading]);
+  assert.equal(partial.damsUnavailable, false);
+  assert.equal(partial.dams.length, Object.keys(USACE_DAMS).length);
+  assert.equal(partial.dams.find(item => item.id === reading.id), reading);
+  const missing = partial.dams.find(item => item.id === 'swl-bull-shoals-dam')!;
+  assert.deepEqual(missing.metrics, {});
+  assert.equal(missing.generating, null);
+  assert.equal(conditionsDamCatalogue([]).damsUnavailable, true);
+  assert.equal(conditionsDamCatalogue([{ ...reading, id: 'retired-id' }]).damsUnavailable, true);
+});
+
+test('a related gauge match explains why the river appears below a direct dam match', () => {
+  const white = river('white', 'White River', 'AR');
+  const gauge: GaugeStation = {
+    id: 'gauge', usgsSiteId: '07054501', name: 'White River below Bull Shoals Dam', active: true,
+    coordinates: { lat: 36.3, lng: -92.6 }, gaugeHeightFt: null, dischargeCfs: null,
+    readingTimestamp: null, readingAgeHours: null, readingSuspect: false, qualifierNote: null, thresholdDescriptions: null,
+    thresholds: [{ riverId: white.id, riverName: white.name, riverSlug: white.slug, isPrimary: true,
+      riverState: 'AR', riverMile: null, distanceFromSectionMiles: null,
+      thresholdUnit: 'cfs', levelTooLow: 50, levelLow: 100, levelOptimalMin: 200, levelOptimalMax: 800, levelHigh: 1000, levelDangerous: 2000,
+      floodStageFt: null, altLevelTooLow: null, altLevelLow: null, altLevelOptimalMin: null, altLevelOptimalMax: null, altLevelHigh: null, altLevelDangerous: null }],
+  };
+  const items = buildConditionsDestinations([white], dams, groupGaugesByRiver([gauge]));
+  const matches = selectConditionsDestinations(items, state('q=Bull+Shoals'));
+  assert.deepEqual(matches.map(item => item.key), ['dam:swl-bull-shoals-dam', 'river:white']);
+  assert.equal(matchConditionsDestination(matches[1], 'Bull Shoals')?.relatedLabel, 'Gauge: White River below Bull Shoals Dam');
+});
 
 test('legacy river filters select Rivers while explicit category always wins', () => {
   for (const filter of ['condition=good', 'floatable=1', 'diff=beginner', 'len=medium', 'type=flatwater', 'sort=length_desc']) {

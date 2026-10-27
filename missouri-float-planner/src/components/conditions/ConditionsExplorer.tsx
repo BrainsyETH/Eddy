@@ -12,6 +12,7 @@ import { useRiverGroups } from '@/hooks/useRiverGroups';
 import RiverCard from '@/components/gauge/RiverCard';
 import DamListCard from '@/components/dam/DamListCard';
 import DestinationPreview from './DestinationPreview';
+import ConditionsDirectory from './ConditionsDirectory';
 import { stateName } from '@/lib/navigation/states';
 import {
   DIFFICULTY_TIER_LABELS, LENGTH_BUCKET_LABELS, RIVER_TYPE_LABELS, SORT_LABELS, type Coordinates,
@@ -232,6 +233,7 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
           <div className="grid gap-3 md:grid-cols-3">{items.slice(0, 6).map((destination, index) => <div key={destination.key} className={index >= 3 ? 'hidden md:block' : undefined}>{preview(destination)}</div>)}</div>
         </section>;
       })}
+      <ConditionsDirectory destinations={results} />
     </div> : <div className="grid items-start gap-4 md:grid-cols-2">
       {results.map(destination => <div key={destination.key} data-result={destination.key}>
         {hasQuery || state.kind === 'all' ? preview(destination)

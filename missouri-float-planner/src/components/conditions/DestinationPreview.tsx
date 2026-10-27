@@ -25,6 +25,7 @@ export default function DestinationPreview({ destination, now, relatedLabel, dis
       reading = `${Math.round(flow.value).toLocaleString()} cfs · ${dam.metrics.release ? 'Release' : 'Turbine flow'}${flow.dailyMean ? ' (daily avg)' : ''}`;
       age = relativeAge(flow.at, now);
     }
+    if (!status && !reading) status = 'Readings currently unavailable';
   }
   return <Link href={destination.href} prefetch={false} data-destination={destination.key}
     className="group flex h-full min-w-0 flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors hover:border-primary-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600 sm:p-5">

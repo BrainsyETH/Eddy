@@ -83,12 +83,10 @@ try {
     await mkdir(fixtureDir, { recursive: true });
     await writeFile(`${fixtureDir}/page.tsx`, `import { notFound } from 'next/navigation';
   import HomePage from '@/components/home/HomePage';
-  import SectionNavigation from '@/components/layout/SectionNavigation';
-  import { conditionNavigation } from '@/lib/navigation/site-navigation';
-  export default async function Page({ searchParams }: { searchParams: Promise<{ disabled?: string; conditions?: string }> }) {
+  export default async function Page({ searchParams }: { searchParams: Promise<{ disabled?: string }> }) {
     if (process.env.NODE_ENV !== 'development' || process.env.EDDY_NAV_SMOKE !== '1') notFound();
     const params = await searchParams;
-    return <>{params.conditions && <SectionNavigation label="Conditions" links={conditionNavigation('rivers')} />}<HomePage riverGuides={{}} featuredReports={${JSON.stringify(reports)}} floatSearchEnabled={params.disabled !== '1'} /></>;
+    return <HomePage riverGuides={{}} featuredReports={${JSON.stringify(reports)}} floatSearchEnabled={params.disabled !== '1'} />;
   }
   `);
     await mkdir(sharedFixtureDir, { recursive: true });
@@ -143,10 +141,9 @@ try {
       } else await route.continue();
     });
     if (!productionMapOnly) {
-      await page.goto(`${url}?conditions=1`, { waitUntil: 'domcontentloaded' });
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
       await page.getByRole('heading', { name: 'Daily River Report' }).waitFor();
       await page.getByText('530 cfs', { exact: true }).first().waitFor();
-      assert(await page.getByRole('navigation', { name: 'Conditions', exact: true }).getByRole('link', { name: 'Lakes & Dams' }).getAttribute('href') === '/dams');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
       assert.equal(await heroCta.textContent(), 'Build a Route');

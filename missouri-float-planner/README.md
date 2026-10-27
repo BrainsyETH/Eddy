@@ -65,11 +65,20 @@ Featured is a fixed editorial selection, not measured popularity, and respects
 the state filter. Previews omit those four cards, show three items on mobile or
 six on wider screens, and apply the category filter in place through Show all.
 Category browsing retains the full river and dam cards.
+A compact A–Z link directory follows the previews so every destination is
+reachable in the initial HTML. `/dams` keeps its “Lakes & Dams” heading as well
+as its own search title and canonical URL.
+
+The combined header is deliberately compact: Featured replaces the old river-only
+Eddy summary as the first discovery content, and the hero otter is omitted to
+keep search and both destination types near the top. The USGS observation-delay
+note remains below the directory alongside the source and dam-release guidance.
 
 Search matches both lake and dam names against the same destination. Ranking is
 exact name, name prefix, approved alias, words within a name, then related
 destinations; direct names always beat related matches. Taneycomo can surface
-Table Rock with the explicit label “Releases into Lake Taneycomo”. State names
+Table Rock with the explicit label “Releases into Lake Taneycomo”. Related river
+gauges are labeled “Gauge: …” to explain their matches. State names
 and compound searches such as “bull ar” also match. Search uses Best matches;
 clearing it restores the browse sort. Search runs locally and does not request
 new API data or server navigation on each keystroke. The pure matching, ranking,
@@ -88,8 +97,10 @@ Browser Back, Forward and reload restore the URL selection.
 
 River snapshots retain their 60-second server cache and live gauges their
 10-minute polling; dam summaries keep a separate five-minute cache and client
-refresh. Initial HTML uses stored dam summaries; the client fills any gaps
-through the existing API without blocking the directory on live upstream feeds.
+refresh. Initial HTML uses stored dam summaries; partial snapshots keep that
+five-minute refresh schedule and mark missing readings on the affected cards.
+Only a wholly unavailable stored catalogue triggers an immediate API retry.
+The directory never waits for live upstream dam feeds.
 Missing dam observations keep the destination searchable with no
 invented measurements. The directory does not add reservoir levels or change
 `/api/dams` or iOS payloads.
@@ -101,7 +112,9 @@ legacy links, browser history, sorting, request-free typing and overflow.
 No production credentials are needed. Set `PLAYWRIGHT_CHROMIUM_PATH` for an
 installed browser. Screenshots go to `/tmp/eddy-conditions` (override with
 `CONDITIONS_SMOKE_OUTPUT`). Temporary fixture routes are ignored by Git,
-development-guarded, and removed on exit.
+development-guarded, and removed on exit. The fixture server keeps its Webpack
+memory settings in `scripts/conditions-smoke-server.mjs`; the application config
+contains no browser-test overrides.
 
 ## Find a Route
 
