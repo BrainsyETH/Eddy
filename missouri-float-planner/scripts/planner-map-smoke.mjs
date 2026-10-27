@@ -739,7 +739,8 @@ try {
       if (mobile && (!sheet || Math.abs(sheet.height - Math.round(innerHeight * 0.42)) > 1)) return false;
       return coords.every(c => {
         const p = map.project([c.lng, c.lat]);
-        return p.x > (mobile ? 8 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
+        // Mobile: clear the Filters / route-tools column (left-3, 40px wide).
+        return p.x > (mobile ? 60 : panel.right - canvas.left + 8) && p.x < canvas.width - 44
           && p.y > 75 && p.y < (mobile && sheet ? sheet.top - canvas.top - 24 : canvas.height - 85);
       });
     }, { coords: currentEndpoints, mobile });

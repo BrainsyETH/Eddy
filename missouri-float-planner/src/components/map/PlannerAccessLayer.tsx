@@ -91,7 +91,9 @@ export function PlannerMapFocus({ place, bounds, request, preserveInitialCamera,
         const bottom = Math.max(24, ...bottomOverlays.filter(rect => rect && rect.height > 0)
           .map(rect => canvas.bottom - rect!.top + (mobile ? 32 : 24)));
         const padding = {
-          left: !mobile && panel ? Math.min(canvas.width / 2, Math.max(24, panel.right - canvas.left + 24)) : 24,
+          // Mobile: clear the Filters / route-tools column on the left, as
+          // right: 80 clears the map's own tool column.
+          left: !mobile && panel ? Math.min(canvas.width / 2, Math.max(24, panel.right - canvas.left + 24)) : mobile ? 72 : 24,
           right: mobile ? 80 : 64,
           top: mobile ? 120 : 80,
           bottom: Math.min(Math.max(24, canvas.height - (mobile ? 220 : 180)), bottom),
