@@ -39,6 +39,7 @@
 import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
 
 const SYMBOLS = {
+  today: require('../../assets/eddy/eddy-today.png'),
   weather: require('../../assets/eddy/eddy-weather.png'),
   aiAssistant: require('../../assets/eddy/eddy-ai-assistant.png'),
   gauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),

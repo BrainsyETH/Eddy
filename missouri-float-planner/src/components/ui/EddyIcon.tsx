@@ -28,6 +28,7 @@ import Image from 'next/image';
 
 const ICONS = {
   // Symbols — inline, beside a label.
+  today: { file: 'eddy-today', size: 18, alt: 'Today' },
   gauge: { file: 'eddy-water-droplet', size: 18, alt: 'Gauge' },
   accessPoint: { file: 'eddy-poi', size: 18, alt: 'Access point' },
   weather: { file: 'eddy-weather', size: 18, alt: 'Weather' },
