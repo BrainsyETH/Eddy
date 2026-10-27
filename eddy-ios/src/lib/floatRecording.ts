@@ -48,8 +48,13 @@ export interface RecorderStatus {
   lastFixAt?: number;
   update: RecorderFlags;
   session: RecorderFlags;
-  /** A fix could not be written to the journal. */
+  /**
+   * The last fix could not be written to the journal. Held by the recorder
+   * until a later write succeeds, so the screen keeps saying so meanwhile.
+   */
   journalError?: boolean;
+  /** Start was refused because Eddy was in the background; retry from the foreground. */
+  notInForeground?: boolean;
 }
 
 export function toPositionFix(fix: RecordedFix): PositionFix {
@@ -111,8 +116,11 @@ export function trackerState(report: RecorderStatus | null, activeSessionId: str
   const s = report.session ?? {};
   // A request in progress is iOS asking right now; nothing is denied yet.
   const asking = Boolean(u.authorizationRequestInProgress || s.authorizationRequestInProgress);
+  // A start refused for being in the background is not a failure to show: the
+  // next foreground starts it (floatRecorderSync.ensureRecording).
+  const refused = report.state === 'failed' && report.notInForeground === true;
   return {
-    status: report.state === 'failed' || report.journalError ? 'failed' : report.state === 'recording' ? 'recording' : 'starting',
+    status: refused ? 'starting' : report.state === 'failed' || report.journalError ? 'failed' : report.state === 'recording' ? 'recording' : 'starting',
     servicesOff: Boolean(u.authorizationDeniedGlobally || s.authorizationDeniedGlobally),
     denied: !asking && Boolean(u.authorizationDenied || s.authorizationDenied || u.authorizationRestricted || s.authorizationRestricted),
     preciseOff: Boolean(u.accuracyLimited || s.fullAccuracyDenied),

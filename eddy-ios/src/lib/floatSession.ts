@@ -815,9 +815,16 @@ export function remainingCopy(
   }
 }
 
-/** "1.0 km", "400 m": how far a take-out sits off the mapped river. */
+/**
+ * "0.6 mi", "650 ft": how far a take-out sits off the mapped river, or a
+ * paddler off it. Feet under a tenth of a mile, rounded to fifty and never
+ * below fifty, in the units the rest of the app uses.
+ */
 export function formatBeyond(meters: number): string {
-  return meters >= 1_000 ? `${(meters / 1_000).toFixed(1)} km` : `${Math.round(meters / 50) * 50} m`;
+  const miles = meters / 1609.344;
+  if (miles >= 0.1) return `${miles.toFixed(1)} mi`;
+  const feet = Math.max(50, Math.round((meters * 3.28084) / 50) * 50);
+  return `${feet} ft`;
 }
 
 /** The one-line status above the numbers. */

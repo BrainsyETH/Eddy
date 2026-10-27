@@ -111,7 +111,7 @@ test('off-river destination and actual arrival remain different states', () => {
   const off = floatActivitySnapshot({ ...arrived, takeOut: { ...arrived.takeOut, offLineMeters: 1000 } }, T0 + 40_000).state;
   assert.equal(off.arrived, false);
   assert.equal(off.atRiverEnd, true);
-  assert.match(off.beyondText, /1.0 km off the mapped river/);
+  assert.match(off.beyondText, /0.6 mi off the mapped river/);
   assert.equal(floatActivitySnapshot(arrived, T0 + 600_000).state.status, 'stale');
 });
 

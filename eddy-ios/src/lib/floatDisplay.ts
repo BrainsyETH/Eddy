@@ -23,6 +23,7 @@ export function activityLabel(state: ActivityAvailability): string | null {
     case 'active': return 'Live Activity on your Lock Screen';
     case 'disabled': return 'Live Activity is off';
     case 'error': return 'Live Activity couldn’t update';
+    case 'expired': return 'Live Activity expired · show it again';
     case 'idle':
     case 'dismissed': return 'Show progress with a Live Activity';
     default: return null;

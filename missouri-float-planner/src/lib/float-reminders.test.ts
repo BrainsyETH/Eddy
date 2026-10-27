@@ -259,7 +259,9 @@ test('a stop is reminded where it actually is, not at a published mile calibrati
 test('the take-out reminder for an off-river take-out says where it really is', () => {
   const copy = reminderCopy({ id: 'take-out', name: 'Buffalo City', kind: 'take-out', milesAway: 0.4, beyondMeters: 1_001 });
   assert.equal(copy.title, 'Buffalo City take-out is approaching');
-  assert.match(copy.body, /About 0\.4 mi ahead to the river’s closest point\. The take-out is about 1\.0 km beyond it/);
+  assert.match(copy.body, /About 0\.4 mi ahead to the river’s closest point\. The take-out is about 0\.6 mi beyond it/);
+  const near = reminderCopy({ id: 'take-out', name: 'Buffalo City', kind: 'take-out', milesAway: 0.4, beyondMeters: 20 });
+  assert.match(near.body, /about 50 ft beyond it/, 'feet under a tenth of a mile, never "0"');
 });
 
 // ── Hazards, and ending a float nobody ended ────────────────────────────────

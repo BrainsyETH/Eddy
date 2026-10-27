@@ -27,8 +27,10 @@ private struct Snapshot: Decodable {
 }
 
 public final class EddyLiveActivityModule: Module {
-  private var observation: Task<Void, Never>?
-  private var observedId: String?
+  // Touched only on the main actor: `sync`, `observeCurrentActivity` and
+  // `invalidateObservation` all run there, and so does destruction below.
+  @MainActor private var observation: Task<Void, Never>?
+  @MainActor private var observedId: String?
   private var shortcutObserver: NSObjectProtocol?
 
   public func definition() -> ModuleDefinition {
@@ -61,7 +63,11 @@ public final class EddyLiveActivityModule: Module {
       }
     }
     OnDestroy {
-      self.observation?.cancel()
+      Task { @MainActor [weak self] in
+        self?.observation?.cancel()
+        self?.observation = nil
+        self?.observedId = nil
+      }
       if let observer = self.shortcutObserver { NotificationCenter.default.removeObserver(observer) }
       self.shortcutObserver = nil
     }
@@ -103,8 +109,14 @@ public final class EddyLiveActivityModule: Module {
     observation = Task { @MainActor [weak self] in
       for await state in activity.activityStateUpdates {
         guard !Task.isCancelled, let self, self.observedId == activity.id else { return }
-        if state == .dismissed || state == .ended {
+        // A swipe-away and the system's eight-hour expiry are told apart so
+        // the app can say which happened; neither ends the float.
+        if state == .dismissed {
           self.sendEvent("onActivityState", ["availability": "dismissed"])
+          return
+        }
+        if state == .ended {
+          self.sendEvent("onActivityState", ["availability": "expired"])
           return
         }
       }
@@ -147,7 +159,10 @@ private enum FloatActivities {
       UserDefaults.standard.removeObject(forKey: failedKey)
       return "idle"
     }
-    let content = ActivityContent(state: snapshot.state, staleDate: snapshot.state.staleAt ?? Date())
+    // No usable fix yet means nothing to go stale: the card says it is
+    // finding the position. A stale date in the past would mark a brand-new
+    // card stale before any position existed.
+    let content = ActivityContent(state: snapshot.state, staleDate: snapshot.state.staleAt)
     if let matching {
       UserDefaults.standard.set(snapshot.sessionId, forKey: startedKey)
       UserDefaults.standard.removeObject(forKey: failedKey)
