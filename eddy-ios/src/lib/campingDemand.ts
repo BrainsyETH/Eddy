@@ -49,12 +49,14 @@ export function todayPopularCamping(
 /** Capacity describes the observed reservable inventory, explained in the legend. */
 export function campingPulseHeadline(demand: CampingDemand): string {
   const reading = campingPulseReading(demand);
-  return reading ? `At ${reading.label} capacity` : 'Not enough data';
+  return reading ? `At ${reading.label} capacity${demand.riverSlug === null ? ' across the Ozarks' : ''}` : 'Not enough data';
 }
 
 /** Reservations do not account for first-come, first-served inventory. */
 export function campingPulseFcfsNote(demand: CampingDemand): string | null {
-  return demand.band !== null && demand.booked === 1 ? 'FCFS sites may be available' : null;
+  if (demand.band === null) return null;
+  if (demand.riverSlug === null) return 'FCFS may be available.';
+  return demand.booked === 1 ? 'FCFS sites may be available' : null;
 }
 
 /** Age the oldest counted observation, not the phone's last successful refresh. */

@@ -98,7 +98,7 @@ test('Today rates tonight across the region, weighted by sites, not campground o
   assert.equal(demand.bookedSites, 95);
   assert.equal(demand.booked, 95 / 220);
   assert.equal(demand.band, 'moderate');
-  assert.equal(campingPulseHeadline(demand), 'At 43% capacity');
+  assert.equal(campingPulseHeadline(demand), 'At 43% capacity across the Ozarks');
   assert.equal(campingPulseDetail(demand), '43% of tracked campsites booked');
 });
 
@@ -260,11 +260,11 @@ test('a regional sample with unknown capacity cannot read as Packed', () => {
   assert.equal(demand.band, 'crowded');
   assert.equal(demand.allObservedBooked, true);
   assert.equal(demand.completeCoverage, false);
-  assert.equal(campingPulseHeadline(demand), 'At 100% capacity');
-  assert.equal(campingPulseFcfsNote(demand), 'FCFS sites may be available');
+  assert.equal(campingPulseHeadline(demand), 'At 100% capacity across the Ozarks');
+  assert.equal(campingPulseFcfsNote(demand), 'FCFS may be available.');
   assert.deepEqual(campingPulseReading(demand), { percent: 100, label: '100%' });
   const spoken = campingPulseAccessibilityLabel(demand, 'Ozarks', now.getTime());
-  assert.match(spoken, /Ozarks camping tonight. At 100% capacity. 100% of checked campsites booked/);
+  assert.match(spoken, /Ozarks camping tonight. At 100% capacity across the Ozarks. 100% of checked campsites booked/);
   assert.match(spoken, /Updated 3 hours ago/);
   assert.match(spoken, /First-come, first-served sites may be available/);
   assert.match(spoken, /2 unavailable/);
@@ -307,13 +307,13 @@ test('the summary distinguishes zero bookings, Packed, and an unavailable readin
   const o = riverSample(['current']);
   const night = o.tracked[0].nights[0];
   night.sitesOpen = night.sitesReservable;
-  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'At 0% capacity');
-  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), null);
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'At 0% capacity across the Ozarks');
+  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), 'FCFS may be available.');
   assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 0, label: '0%' });
   night.sitesOpen = 0;
   night.status = 'full';
-  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'At 100% capacity');
-  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), 'FCFS sites may be available');
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'At 100% capacity across the Ozarks');
+  assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), 'FCFS may be available.');
   assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 100, label: '100%' });
   o.tracked[0].nights = [];
   assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Not enough data');
@@ -347,7 +347,7 @@ test('bar widths use actual percentages and labels cannot round away the last op
     assert.ok(Math.abs(reading.percent - bookedSites / 10) < 1e-10);
     assert.equal(reading.label, label);
     assert.ok(campingPulseAccessibilityLabel(todayCampingDemand(o, now.getTime()), 'Current River', now.getTime()).includes(`${label} of tracked campsites booked`));
-    assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), null);
+    assert.equal(campingPulseFcfsNote(todayCampingDemand(o, now.getTime())), 'FCFS may be available.');
   }
 });
 

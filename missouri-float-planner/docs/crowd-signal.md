@@ -14,9 +14,11 @@ Owner decisions (September 29–30, 2026):
 `eddy-ios/src/components/TodayCamping.tsx` uses the **Camping tonight** heading,
 campground symbol and “See all camping” link. Its compact, left-aligned summary has:
 
-- A single capacity headline, for example “At 53% capacity.” Capacity refers to
+- A single capacity headline, for example “At 53% capacity across the Ozarks.” Capacity refers to
   booked sites in the observed reservable inventory; the legend and VoiceOver
   retain the sample and coverage explanation. No second percentage sentence.
+- “FCFS may be available.” directly below every usable regional capacity headline.
+  VoiceOver spells out first-come, first-served.
 - A rounded 0–100% meter filled to the actual booked percentage, with ticks at
   30%, 60% and 85%. Its entire fill changes with availability: green below 30%
   booked, yellow at 30–under 60%, orange at 60–under 85%, red at 85% and above.
