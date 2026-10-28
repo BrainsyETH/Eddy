@@ -1,18 +1,14 @@
 import Image from 'next/image';
 import type { MouseEvent } from 'react';
-import { ArrowRight, Clock, MapPin, Waves } from 'lucide-react';
+import { ArrowRight, Clock } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import ConditionBadge from '@/components/ui/ConditionBadge';
-import Skeleton from '@/components/ui/Skeleton';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { optimizeBlogImage } from '@/lib/blog-image';
-import type { RiverListItem } from '@/types/api';
 import { floatRangeLabel, publicAccessLabel, floatPlanPath, floatSearchEmptyMessage, floatSearchUsedProximity, FLOAT_SEARCH_PROXIMITY_NOTE, FLOAT_SEARCH_LOADING_TITLE, FLOAT_SEARCH_LOADING_DETAIL, type floatSearchRecoveryOptions, type FloatSearchOption } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
-
-const FEATURED_RIVERS = ['current', 'eleven-point', 'buffalo', 'jacks-fork', 'meramec'];
 
 export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
   return <Card variant="panel" role="status" aria-live="polite"
@@ -25,50 +21,6 @@ export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
       {[0, 1, 2].map(i => <span key={i} className="h-2 w-2 rounded-full bg-current motion-safe:animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />)}
     </div>
   </Card>;
-}
-
-export function RiverInspiration({ rivers, selectedRiver, loading, onChoose }: {
-  rivers: RiverListItem[];
-  selectedRiver?: string;
-  loading: boolean;
-  onChoose: (river: RiverListItem) => void;
-}) {
-  const pictured = rivers.filter(r => r.photoUrl && r.accessPointCount >= 2);
-  const featured = [...pictured].sort((a, b) => {
-    const rank = (slug: string) => { const index = FEATURED_RIVERS.indexOf(slug); return index < 0 ? FEATURED_RIVERS.length : index; };
-    return rank(a.slug) - rank(b.slug);
-  }).slice(0, 3);
-  return (
-    <>
-      <div className="mb-5">
-        <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">A little river inspiration</h2>
-        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Pick a river to explore. We’ll check conditions when you find routes.</p>
-      </div>
-      {loading ? <div aria-label="Loading rivers" className="space-y-4"><Skeleton className="h-64 w-full rounded-lg" /><Skeleton className="h-40 w-full rounded-lg" /></div>
-        : featured.length ? <div className="grid gap-5 sm:grid-cols-2">
-          {featured.map((river, index) => <Card key={river.id} variant="framed" as="article" className={`overflow-hidden ${index === 0 ? 'sm:col-span-2' : ''}`}>
-            <div className={`relative ${index === 0 ? 'h-56' : 'h-36'}`}>
-              <Image src={river.photoUrl!} alt={river.name} fill loading={index === 0 ? 'eager' : 'lazy'} unoptimized={!optimizeBlogImage(river.photoUrl!)} sizes={index === 0 ? '(min-width: 1280px) 820px, (min-width: 1024px) 60vw, 100vw' : '(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw'} className="object-cover" />
-            </div>
-            <div className="flex flex-1 flex-col items-start gap-3 p-4 sm:p-5">
-              <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                <h3 className="text-xl font-bold">{river.name}</h3>
-                {river.state && <span className="inline-flex items-center gap-1 text-xs text-[var(--color-text-secondary)]"><MapPin size={13} aria-hidden="true" />{river.state}</span>}
-              </div>
-              {index === 0 && river.description && <p className="line-clamp-2 text-sm text-[var(--color-text-secondary)]">{river.description}</p>}
-              <Button variant="outline" className="mt-auto" aria-pressed={selectedRiver === river.slug} onClick={() => onChoose(river)}>
-                {selectedRiver === river.slug ? 'River selected' : 'Choose river'}<ArrowRight size={15} aria-hidden="true" />
-                <span className="sr-only">: {river.name}</span>
-              </Button>
-            </div>
-          </Card>)}
-        </div> : <Card variant="trip" className="flex min-h-64 flex-col items-start justify-center gap-4 p-6">
-          <Waves size={40} className="text-primary-500" aria-hidden="true" />
-          <h3 style={{ fontFamily: 'var(--font-display)' }} className="text-2xl">There’s a float for your kind of day.</h3>
-          <p className="max-w-md text-[var(--color-text-secondary)]">Choose a town or river, your time on the water, and a Vessel. Eddy will look for routes that fit.</p>
-        </Card>}
-    </>
-  );
 }
 
 export function FloatResults({ snapshot, dirty, busy, onPlan, recoveryOptions, onRecover }: {
@@ -85,8 +37,8 @@ export function FloatResults({ snapshot, dirty, busy, onPlan, recoveryOptions, o
     <>
       <div className="mb-5" aria-live="polite">
         <p className="mb-2 text-sm text-[var(--color-text-secondary)]">{location}</p>
-        <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">{data.matches.length ? `${data.matches.length} ${data.matches.length === 1 ? 'route' : 'routes'} for your day` : 'Let’s find your fit'}</h2>
-        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">About {input.targetHours} hours · <span className="capitalize">{input.vesselType}</span>{input.publicOnly ? ' · Public accesses' : ''}</p>
+        <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">Matching Floats</h2>
+        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{data.matches.length} {data.matches.length === 1 ? 'route' : 'routes'} · About {input.targetHours} hours · <span className="capitalize">{input.vesselType}</span>{input.publicOnly ? ' · Public accesses' : ''}</p>
         <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Checked {new Date(data.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Conditions can change.</p>
       </div>
       {dirty && !busy && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm font-medium">Your choices changed. Update routes to see matching floats.</p></Card>}

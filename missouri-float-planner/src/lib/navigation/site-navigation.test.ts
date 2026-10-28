@@ -20,6 +20,9 @@ test('directories and unrelated pages never turn a state or old query into a sel
 });
 
 test('map and planner URL selections propagate, while search discovery respects the release flag', () => {
+  assert.deepEqual(siteNavigation('/', '', true).map(link => link.label), ['Map', 'Conditions', 'Floats', 'Guides']);
+  assert.deepEqual(siteNavigation('/', '', false).map(link => link.label), ['Map', 'Conditions', 'Guides']);
+  assert.deepEqual(floatNavigation('/plan').map(link => link.label), ['Build a Route', 'Find a Route']);
   for (const path of ['/river-map', '/find-float', '/plan']) {
     assert.equal(navigationRiver(path, 'river=buffalo'), 'buffalo');
     assert.equal(navigationRiver(path, 'river=meramec'), 'meramec');
@@ -43,16 +46,16 @@ test('Map owns the planner, while Conditions and Floats keep distinct active sec
 
 test('switching planning tabs preserves exact endpoints and vessel without copying unrelated state', () => {
   const links = floatNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak&submitPhoto=true&ct=campaign');
-  assert.equal(links[0].href, '/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
-  assert.equal(links[1].href, '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
-  assert.equal(links[1].active, true);
-  assert.equal(floatNavigation('/find-float', 'putIn=orphan')[1].href, '/plan');
-  assert.equal(siteNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak', true).find(link => link.label === 'Map')?.href, links[1].href);
+  assert.equal(links[1].href, '/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
+  assert.equal(links[0].href, '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=kayak');
+  assert.equal(links[0].active, true);
+  assert.equal(floatNavigation('/find-float', 'putIn=orphan')[0].href, '/plan');
+  assert.equal(siteNavigation('/plan', 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak', true).find(link => link.label === 'Map')?.href, links[0].href);
 });
 
 test('finder links retain endpoints without forwarding a vessel its form no longer uses', () => {
   const search = 'river=current&putIn=akers&takeOut=pulltite&vessel=kayak';
-  assert.equal(floatNavigation('/find-float', search)[1].href, '/plan?river=current&putIn=akers&takeOut=pulltite');
+  assert.equal(floatNavigation('/find-float', search)[0].href, '/plan?river=current&putIn=akers&takeOut=pulltite');
   assert.equal(siteNavigation('/find-float', search, true).find(link => link.label === 'Map')?.href, '/plan?river=current&putIn=akers&takeOut=pulltite');
 });
 

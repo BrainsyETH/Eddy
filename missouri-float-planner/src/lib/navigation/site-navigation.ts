@@ -26,10 +26,10 @@ export function navigationRiver(pathname: string, search = ''): string | null {
 }
 
 export function siteNavigation(pathname: string, search: string, floatSearchEnabled: boolean): SiteNavLink[] {
-  const [finder, planner] = floatNavigation(pathname, search);
+  const [planner, finder] = floatNavigation(pathname, search);
   return [
-    { href: '/rivers', label: 'Conditions', active: ['/rivers', '/gauges', '/dams'].some(base => belongsTo(pathname, base)) },
     { href: planner.href, label: 'Map', active: belongsTo(pathname, '/plan') },
+    { href: '/rivers', label: 'Conditions', active: ['/rivers', '/gauges', '/dams'].some(base => belongsTo(pathname, base)) },
     ...(floatSearchEnabled ? [{
       href: finder.href,
       label: 'Floats',
@@ -57,7 +57,7 @@ export function floatNavigation(pathname: string, search = ''): SiteNavLink[] {
   }
   const suffix = route.size ? `?${route}` : '';
   return [
-    { href: `/find-float${suffix}`, label: 'Find a Route', active: pathname === '/find-float' },
     { href: `/plan${suffix}`, label: 'Build a Route', active: pathname === '/plan' },
+    { href: `/find-float${suffix}`, label: 'Find a Route', active: pathname === '/find-float' },
   ];
 }

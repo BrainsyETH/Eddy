@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import FindFloatClient from './FindFloatClient';
 
 export const metadata: Metadata = {
-  title: 'Find a Route',
+  title: 'Floats',
   description:
-    'Find a route near you by time on the river, vessel, and current conditions.',
+    'Explore featured Ozarks floats, find a route for your day, or build your own with Eddy.',
 };
 export default async function FindFloatPage({
   searchParams,
