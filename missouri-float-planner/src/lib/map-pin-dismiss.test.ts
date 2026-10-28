@@ -42,7 +42,7 @@ function scene(planning = false) {
     ...state, pendingAccessSelection, pendingMapPlanFrame,
     pendingRiverFit, setCameraCommand: (command: unknown) => { state.cameraCommand = command; },
     mapPlanning: state.mapPlanRiver === state.selectedSlug,
-    planOpen: false, mapPlanSelection, cancelMapSearch: () => {},
+    planOpen: false, mapPlanSelection, cancelMapSearch: () => {}, setPinCycleText: () => {},
     gestureCount: { current: 0 }, isGaugeIndexId: () => false,
     accessPointForPin: () => ({ point: campOnly, riverSlug: slug }),
     setSelectedPin: (value: unknown) => { state.selectedPin = value; },
@@ -129,4 +129,19 @@ test('Back and close use the same return handler and planning names the route', 
   assert.match(pinSheet, /backLabel=\{mapPlanning \? 'Your route'/);
   assert.match(SCREEN, /riverSheetOpen && riverSheetData && !selectedPin/);
   assert.match(SCREEN, /onClose=\{dismissMapPlan\}/);
+});
+
+test('empty map dismisses details and route sheet without clearing endpoints or moving the camera', () => {
+  const { state, run, pendingRiverFit } = scene(true);
+  state.selectedPin = { id: 'gauge:1' };
+  state.riverSheetOpen = true;
+  run('dismissMapSelection');
+  assert.equal(state.selectedPin, null);
+  assert.equal(state.riverSheetOpen, false);
+  assert.equal(state.mapPlanRiver, null);
+  assert.equal(state.selectedSlug, slug);
+  assert.equal(state.putIn, putIn);
+  assert.equal(state.takeOut, takeOut);
+  assert.equal(state.cameraCommands, 0);
+  assert.equal(pendingRiverFit.current, null);
 });

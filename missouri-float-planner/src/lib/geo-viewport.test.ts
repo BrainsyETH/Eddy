@@ -116,7 +116,8 @@ test('easing back across the fetch threshold is NOT covered by a capped detail a
   // Both halves of the flip: the same answer still covers its own budget, and
   // an UNCAPPED detail answer covers the overview budget too — nothing was
   // dropped, so there is nothing a bigger page could add.
-  assert.ok(requestCovers(detailFetch, easedOutViewport, 300));
+  assert.ok(!requestCovers(detailFetch, easedOutViewport, 300), "a capped page cannot prove a smaller view is complete");
+  assert.ok(requestCovers(detailFetch, detailFetch.bbox, 300), "the exact request can be reused");
   assert.ok(requestCovers({ ...detailFetch, capped: false }, easedOutViewport, 1000));
 });
 

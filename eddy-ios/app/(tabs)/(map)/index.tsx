@@ -123,6 +123,7 @@ import { ZOOM, type LayerKey } from '@/map/layers';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useGaugeIndex } from '@/hooks/useGaugeIndex';
+import { gaugeCoverage } from '@/map/gaugeCoverage';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { useCuratedGauges } from '@/hooks/useCuratedGauges';
 import { useDams } from '@/hooks/useDams';
@@ -284,7 +285,7 @@ function referenceGaugePin(g: MapGaugeLite): MapPin {
   const band = flowBandFor(g);
   const usgs = usgsGaugeUrl(g.siteId);
   return {
-    id: `refgauge:${g.id}`,
+    id: `refgauge:${g.siteId}`,
     name: g.name,
     // The place, for the label under the dot. A national station name is
     // a sentence, and the map has room for a town.
@@ -603,8 +604,8 @@ function MapContent() {
   // on the RiverMap element is a fresh prop identity per render of a screen
   // that renders per keystroke.
   const onZoomToCluster = useCallback(
-    (point: { lng: number; lat: number }) =>
-      void issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat }),
+    (point: { lng: number; lat: number; zoom?: number }) =>
+      void issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat, zoom: point.zoom }),
     [issueCameraCommand],
   );
   // The camera, as of the last time it stopped moving. Only the national gauge
@@ -645,6 +646,8 @@ function MapContent() {
     },
     [],
   );
+  const [placesListOpen, setPlacesListOpen] = useState(false);
+  const [pinCycleText, setPinCycleText] = useState<string | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   // River data can remain selected for a route without presenting its sheet.
   const [riverSheetOpen, setRiverSheetOpen] = useState(false);
@@ -2049,22 +2052,10 @@ function MapContent() {
   // pan from being a request.
   const referenceGauges = useViewportGauges(layers.includes('allGauges'), viewport);
 
-  // ── …and zoomed out, the whole network ─────────────────────────────────────
-  // Below MIN_GAUGE_ZOOM the viewport hook asks for nothing (a continental box
-  // would be capped to the thousand biggest rivers), and the layer used to go
-  // blank there. Every other gauge map fills that view with clustered counts
-  // of the entire network, so this does too: one cached request for every
-  // station, clustered natively by the same source. See useGaugeIndex.
-  const gaugeIndex = useGaugeIndex(layers.includes('allGauges') && referenceGauges.belowMinZoom);
-  // Also held through the HANDOFF: crossing back above the floor, the viewport
-  // hook starts empty, and switching to it at once would blank the layer until
-  // its first answer lands. The index stays until the viewport tier has SETTLED
-  // — a successful answer, even an empty one. Keying this on `loading` instead
-  // dropped the index the moment a first request FAILED, trading a map full of
-  // cached gauges for an empty one.
-  const gaugeIndexMode =
-    layers.includes('allGauges') &&
-    (referenceGauges.belowMinZoom || (gaugeIndex.ready && !referenceGauges.settled));
+  // The complete station index owns coverage at EVERY zoom. Viewport records
+  // supply names and fresher readings without removing omitted small creeks.
+  const gaugeIndex = useGaugeIndex(layers.includes('allGauges'));
+  const gaugeIndexMode = layers.includes('allGauges') && gaugeIndex.ready;
 
   // ── Public land ────────────────────────────────────────────────────────────
   // Same arrangement, same reasons: viewport-scoped, only while its layer is on.
@@ -2091,13 +2082,8 @@ function MapContent() {
    * anyone can reason about, so the set comes first now.
    */
   const layerGauges = useMemo(
-    () =>
-      // The index is already the drawable set: the server leaves curated
-      // stations and unlocated rows out of it.
-      gaugeIndexMode
-        ? gaugeIndex.gauges
-        : referenceGauges.gauges.filter((g) => !g.curated && hasCoordinates(g)),
-    [gaugeIndexMode, gaugeIndex.gauges, referenceGauges.gauges],
+    () => gaugeCoverage(gaugeIndex.gauges, referenceGauges.gauges).filter(hasCoordinates),
+    [gaugeIndex.gauges, referenceGauges.gauges],
   );
 
   /**
@@ -2110,13 +2096,13 @@ function MapContent() {
    * every pan to trim what is off screen anyway would buy nothing.
    */
   const layerGaugesInView = useMemo(() => {
-    if (!gaugeIndexMode || !viewport) return layerGauges;
+    if (!viewport) return [];
     const [west, south, east, north] = viewport.bounds;
     return layerGauges.filter(
       ({ coordinates: { lng, lat } }) =>
         lng >= west && lng <= east && lat >= south && lat <= north,
     );
-  }, [gaugeIndexMode, viewport, layerGauges]);
+  }, [viewport, layerGauges]);
 
   /**
    * That set, narrowed by the chips.
@@ -2220,15 +2206,8 @@ function MapContent() {
       // layer has actually been switched on and fetched something, per the rule
       // above. Below the zoom floor it counts the national index inside the
       // camera, and is undefined until that index has answered.
-      allGauges: layers.includes('allGauges')
-        ? gaugeIndexMode
-          ? gaugeIndex.ready
-            ? applyGaugeFilters(layerGaugesInView, gaugeFilter).length
-            : undefined
-          : referenceGauges.loading && referencePins.length === 0
-            ? undefined
-            : referencePins.length
-        : undefined,
+      allGauges: layers.includes('allGauges') && (gaugeIndex.ready || referenceGauges.settled)
+        ? applyGaugeFilters(layerGaugesInView, gaugeFilter).length : undefined,
       // undefined until the layer has been switched on and answered, per the
       // rule above. Statewide rather than river-scoped, so it does not move
       // with the selection.
@@ -2594,6 +2573,18 @@ function MapContent() {
     setRiverSheetOpen(revealsRiverSheet);
   }, [revealsRiverSheet]);
 
+  const dismissMapSelection = useCallback(() => {
+    cancelMapSearch();
+    setMapPlanRiver(null);
+    setSelectedPin(null);
+    setRiverSheetOpen(false);
+    setPinCycleText(null);
+    setCameraCommand(null);
+    pendingRiverFit.current = null;
+    pendingAccessSelection.current = null;
+    pendingMapPlanFrame.current = null;
+  }, [cancelMapSearch]);
+
   const dismissMapPlan = useCallback(() => {
     setMapPlanRiver(null);
     setCameraCommand(null);
@@ -2741,14 +2732,7 @@ function MapContent() {
         }
         return;
       }
-      // A dot from the zoomed-out index has no name or station uuid to open a
-      // callout with — the index leaves both out to stay one request. Treat
-      // it the way a cluster is treated: zoom toward it. Past the floor the
-      // viewport tier takes over and the same station is a full pin.
-      if (isGaugeIndexId(pin.id.replace(/^refgauge:/, ''))) {
-        onZoomToCluster(pin.coordinates);
-        return;
-      }
+      // Index-only gauges open the same sheet: useGaugeDetail hydrates by siteId.
       const entry = accessPointForPin(pin);
       // The river this tap would newly select, or null when it selects none —
       // either because the pin has no river or because that river is already
@@ -2793,8 +2777,7 @@ function MapContent() {
   /** The same, for the national tier. A different list and a different shape. */
   const pinReferenceGauge = useMemo(() => {
     if (!selectedPin || selectedPin.layer !== 'allGauges') return null;
-    const id = selectedPin.id.replace(/^refgauge:/, '');
-    return visibleReferenceGauges.find((g) => g.id === id) ?? null;
+    return visibleReferenceGauges.find((g) => g.siteId === selectedPin.siteId) ?? null;
   }, [selectedPin, visibleReferenceGauges]);
 
   /**
@@ -2808,7 +2791,7 @@ function MapContent() {
   const onOpenGauge = useCallback(
     (siteId: string) => {
       if (pinGauge) rememberGauge(seedFromMapGauge(pinGauge));
-      else if (pinReferenceGauge) rememberGauge(seedFromMapGaugeLite(pinReferenceGauge));
+      else if (pinReferenceGauge && !isGaugeIndexId(pinReferenceGauge.id)) rememberGauge(seedFromMapGaugeLite(pinReferenceGauge));
       // The pin stays selected across the push — see the note above PinCallout.
       router.push(`/gauge/${encodeURIComponent(siteId)}`);
     },
@@ -2925,6 +2908,11 @@ function MapContent() {
             planEndpoints={planEndpoints}
             selectedPinId={selectedPin?.id ?? null}
             onSelectPin={onSelectPin}
+            onBackgroundPress={dismissMapSelection}
+            placesListOpen={placesListOpen}
+            onClosePlacesList={() => setPlacesListOpen(false)}
+            visibleBounds={viewport?.bounds}
+            onPinCycle={setPinCycleText}
           />
         )}
 
@@ -2973,9 +2961,25 @@ function MapContent() {
                   <Text style={[styles.cancelSearchText, { color: colors.interactive }]}>Cancel</Text>
                 </Pressable>
               ) : !unavailable ? (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable accessibilityRole="button" accessibilityLabel="List places in this map area"
+                  onPress={() => setPlacesListOpen(true)} style={[styles.cancelSearch, { backgroundColor: colors.card }]}>
+                  <ControlIcon name="list-outline" size={22} color={colors.interactive} />
+                </Pressable>
                 <MapLayersButton onPress={() => setLayersOpen(true)} changed={!isDefaultLayers(layers) || gaugeFilter.size > 0} />
+                </View>
               ) : null}
             </View>
+            {pinCycleText && <Text style={[styles.readingsNotice, { color: colors.text, backgroundColor: colors.card }]}>{pinCycleText}</Text>}
+            {layers.includes('allGauges') && (gaugeIndex.error || referenceGauges.error) ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Gauge data could not refresh. Retry"
+                onPress={() => { gaugeIndex.retry(); referenceGauges.retry(); }}
+                style={[styles.readingsNotice, { backgroundColor: colors.card, minHeight: 44 }]}>
+                <Text style={{ color: colors.text }}>{gaugeIndex.error ?? referenceGauges.error} Tap to retry.</Text>
+              </Pressable>
+            ) : layers.includes('allGauges') && !gaugeIndex.ready && gaugeIndex.loading ? (
+              <Text accessibilityLiveRegion="polite" style={[styles.readingsNotice, { color: colors.text, backgroundColor: colors.card }]}>Loading gauge locations…</Text>
+            ) : null}
             {network.readingsFailed && !unavailable ? (
               <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
@@ -3372,7 +3376,7 @@ function MapContent() {
               active={gaugeFilter}
               // Only while the zoomed-out index has not answered: once it
               // has, the layer draws here and there is nothing to explain.
-              belowMinZoom={gaugeIndexMode && !gaugeIndex.ready}
+              belowMinZoom={false}
               // The index is uncapped by construction.
               capped={!gaugeIndexMode && referenceGauges.capped}
               total={referenceGauges.total}
