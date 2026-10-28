@@ -3,13 +3,15 @@
 // the phone's storage and the reports API, plus when to try sending.
 //
 // Sending is tried when a report is added, when Eddy comes to the foreground,
-// and on a timer while anything is waiting. The timer runs while Eddy is in
-// the foreground, and also in the background while a float is active: the
-// recorder's background session keeps Eddy running with the phone locked
-// (ADR 0014), so a report written with no signal goes out once the phone in
-// the dry bag finds some. With no float, a backgrounded Eddy is suspended
-// and the next foreground tries again. All of those funnel into one flush,
-// which sends one at a time and only what is due.
+// on a timer while anything is waiting, and on each recorded GPS fix during a
+// float (flushDueHazardReports). The timer runs in the foreground and, during
+// a float, in the background too; but iOS can hold a JavaScript timer back
+// with the phone locked, so the fix path is what carries a report written
+// with no signal out of the dry bag once the phone finds some: the recorder's
+// background session (ADR 0014) wakes JavaScript with every fix. With no
+// float, a backgrounded Eddy is suspended and the next foreground tries
+// again. All of those funnel into one flush, which sends one at a time and
+// only what is due. Locked-phone delivery is still a device gate.
 
 import { useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
@@ -66,6 +68,25 @@ export function flushHazardReports(budgetMs?: number): Promise<void> {
       timer = setTimeout(() => void flushHazardReports(), Math.max(1_000, due - Date.now()));
     }
   });
+}
+
+/** How long a send started from a GPS fix may run: well inside a background wake. */
+const FIX_FLUSH_BUDGET_MS = 20_000;
+let lastFixFlushAt = 0;
+
+/**
+ * Called on every recorded fix (src/float/recorder.ts). With the phone
+ * locked, iOS can hold back a JavaScript timer even while the recorder keeps
+ * Eddy alive, so the retry timer alone did not prove a report would go out
+ * in the dry bag; a fix delivery is execution time iOS has already granted.
+ * Sends only what is due, at most every 30 seconds, and bounded so a slow
+ * network cannot hold that wake open.
+ */
+export function flushDueHazardReports(now = Date.now()): void {
+  const due = queue.nextDueAt();
+  if (due == null || due > now || now - lastFixFlushAt < 30_000) return;
+  lastFixFlushAt = now;
+  void flushHazardReports(FIX_FLUSH_BUDGET_MS);
 }
 
 /** Start the attempts again for a report Eddy gave up on. */

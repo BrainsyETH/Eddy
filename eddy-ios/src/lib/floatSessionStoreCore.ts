@@ -55,6 +55,12 @@ export const STORAGE_KEY = 'eddy.floatSession.v1';
 /** The id of a float that was ended but whose stored copy may remain. */
 export const ENDED_KEY = 'eddy.floatSession.ended.v1';
 const WRITE_THROTTLE_MS = 15_000;
+/**
+ * How far ahead of the phone's clock a recorded fix may be stamped and still
+ * be accepted: delivery jitter between Core Location and JavaScript, not a
+ * clock that was set back mid-float.
+ */
+export const FUTURE_FIX_SKEW_MS = 5_000;
 const END_RETRY_MS = 15_000;
 /** A reminder the notifier did not accept is tried again after this. */
 const REMINDER_RETRY_MS = 60_000;
@@ -306,11 +312,19 @@ export function createFloatSessionStore(
      * recorder wrote it, and one replayed after a relaunch is a real past
      * position, not a stale reading of where the paddler is now. Reminders
      * below still use the real clock, so a replayed position never prompts.
+     *
+     * But never as of a time ahead of the phone's clock (beyond
+     * FUTURE_FIX_SKEW_MS): judged at its own timestamp, a future-stamped fix
+     * would always pass applyFix's "not in the future" check, and every
+     * reader that trusts the newest fix as the time (River Mode's clock,
+     * Float tools' essentialsClock) would run ahead. Such a fix is refused;
+     * its journal offset still advances, so it is never retried.
      */
     record(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number): void {
       if (!session || !index) return;
       let next = session;
-      for (const fix of fixes) next = applyFix(next, index, fix, journalTo != null ? fix.timestamp : now);
+      const latest = now + FUTURE_FIX_SKEW_MS;
+      for (const fix of fixes) next = applyFix(next, index, fix, journalTo != null ? Math.min(fix.timestamp, latest) : now);
       if (journalTo != null && journalTo !== next.journalTo) next = { ...next, journalTo };
       if (next === session) return;
       const due = dueReminders(next, index, now).filter((reminder) => (retryAt.get(reminder.id) ?? 0) <= now);

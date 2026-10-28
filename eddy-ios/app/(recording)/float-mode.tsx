@@ -36,7 +36,7 @@ import { useAnnounce } from '@/hooks/useAnnounce';
 import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { discardShortFloat, endFloat } from '@/lib/floatSessionStore';
-import { isShortFloat } from '@/lib/floatEnding';
+import { discardCopy, discardReason } from '@/lib/floatEnding';
 import {
   arrivalAnchor,
   arrivalCopy,
@@ -208,14 +208,14 @@ export default function FloatModeScreen() {
   };
 
   const confirmEnd = () => {
-    // An accidental Start (floatEnding.ts isShortFloat): offer to throw it
-    // away rather than file a recap that has to be deleted afterwards.
-    const short = !done && isShortFloat(session, clock);
+    // An accidental Start, or a float that never measured anything
+    // (floatEnding.ts discardReason): offer to throw it away rather than file
+    // a recap that has to be deleted afterwards, and say which case it is.
+    const reason = done ? null : discardReason(session, clock);
+    const short = reason != null;
     Alert.alert(
       done ? 'Finish this float?' : 'End this float?',
-      short
-        ? 'Nothing much has been recorded yet. Discard it, or end it and keep a recap in your float history.'
-        : 'Tracking stops and Eddy saves a recap in your float history.',
+      reason ? discardCopy(reason) : 'Tracking stops and Eddy saves a recap in your float history.',
       [
         { text: 'Keep floating', style: 'cancel' },
         ...(short ? [{
@@ -438,7 +438,7 @@ function ActionButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
     >
-      <EddySymbol name={icon === 'warning-outline' ? 'hazard' : 'river'} size={26} />
+      <EddySymbol name={icon === 'warning-outline' ? 'hazard' : 'floatTools'} size={26} />
       <Text style={[styles.actionText, { color: colors.interactive }]}>{label}</Text>
     </Pressable>
   );

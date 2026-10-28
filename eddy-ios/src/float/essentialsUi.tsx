@@ -1,14 +1,23 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { sheetControl } from '@/theme/palette';
 import { selectionFeedback } from '@/lib/haptics';
 
-export function EssentialsSection({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * One Float tools section. `symbol` puts the Eddy mark for what the section
+ * is beside its heading; only where a mark means exactly that (a gauge for
+ * conditions, the river for what lies ahead), never a near miss.
+ */
+export function EssentialsSection({ title, symbol, children }: { title: string; symbol?: EddySymbolName; children: ReactNode }) {
   const { colors } = useTheme();
   return <View style={[essentialsStyles.section, { borderColor: colors.border }]}>
-    <Text style={[essentialsStyles.heading, { color: colors.text }]} accessibilityRole="header">{title}</Text>
+    <View style={essentialsStyles.headingRow}>
+      {symbol ? <EddySymbol name={symbol} size={26} /> : null}
+      <Text style={[essentialsStyles.heading, essentialsStyles.headingText, { color: colors.text }]} accessibilityRole="header">{title}</Text>
+    </View>
     {children}
   </View>;
 }
@@ -22,6 +31,8 @@ export function EssentialsButton({ label, onPress, disabled = false }: { label: 
 export const essentialsStyles = StyleSheet.create({
   section: { gap: 10, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 16 },
   heading: { ...t.lg, fontFamily: fonts.heading },
+  headingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headingText: { flexShrink: 1 },
   title: { ...t.base, fontFamily: fonts.semibold },
   body: { ...t.base, fontFamily: fonts.body },
   note: { ...t.sm, fontFamily: fonts.body },

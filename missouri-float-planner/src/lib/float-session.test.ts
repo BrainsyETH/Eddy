@@ -1,5 +1,5 @@
 import { IDLE_TRACKER } from '../../../eddy-ios/src/lib/floatRecording';
-import { essentialsPosition, locationMessage, aheadItems, currentFloatReports } from '../../../eddy-ios/src/lib/floatEssentials';
+import { essentialsPosition, locationMessage, aheadItems, aheadSymbol, currentFloatReports, essentialsClock, locationAgeLabel } from '../../../eddy-ios/src/lib/floatEssentials';
 import type { HazardReport } from '../../../eddy-ios/src/lib/hazardReportQueue';
 import { activeFloatStatus, floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel, gpsQualityNote, progressLine } from '../../../eddy-ios/src/lib/floatDisplay';
 import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts, startPlannerParams } from '../../../eddy-ios/src/lib/floatStartSelection';
@@ -1254,6 +1254,44 @@ test('Ahead keeps a dated river-position basis and separates refused or unpositi
   assert.ok(!ahead.items.some(row => /refused|unplaced|old|invalid-time/.test(row.id)));
   assert.deepEqual(currentFloatReports(session, reports).filter(r => r.riverMile == null).map(r => r.id), ['unplaced']);
   assert.ok(ahead.items.every((row, i) => i === 0 || row.mile >= ahead.items[i - 1].mile));
+  // Each row says what it is, so Float tools can show its photo or mark.
+  const mine = ahead.items.find(row => row.id === 'report:mine')!;
+  assert.equal(mine.kind, 'report');
+  assert.equal(mine.sourceId, 'mine');
+  assert.equal(aheadSymbol(mine), 'hazard');
+  const access = ahead.items.find(row => row.kind === 'access');
+  assert.ok(access, 'a mapped access ahead');
+  assert.equal(access.id, `access:${access.sourceId}`);
+  assert.equal(aheadSymbol(access), null, 'an access shows its own photo or place mark');
+  assert.equal(aheadSymbol({ kind: 'hazard', hazardType: 'low_water_dam' }), 'dam');
+  assert.equal(aheadSymbol({ kind: 'hazard', hazardType: 'strainer' }), 'hazard');
+});
+
+test('Float tools reads a fix newer than its display tick as current, never as missing', () => {
+  // The bug: fixes land every second, the display clock ticks every five, so
+  // the newest fix was usually "in the future" at the last tick; Share
+  // location greyed out and the coordinates vanished until the next tick.
+  const { route, index } = prepared();
+  const started = startSession({ id: 'tools-clock', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const tick = T0 + 10_000;
+  const session = applyFix(started.session, index, { lngLat: at(100), accuracyMeters: 8, timestamp: tick + 3_000 }, tick + 3_000);
+  assert.equal(essentialsPosition(session, tick), null, 'read at the tick alone, the fix is rejected');
+  const clock = essentialsClock(session, tick);
+  assert.equal(clock, tick + 3_000);
+  assert.equal(essentialsPosition(session, clock)?.stale, false);
+  assert.ok(locationMessage(session, clock, () => ''), 'Share location stays available');
+  assert.equal(essentialsClock(session, tick + 60_000), tick + 60_000, 'a later tick still wins');
+  assert.equal(essentialsClock(started.session, tick), tick, 'no fix: the tick');
+});
+
+test('the shared location’s age changes at most once a minute', () => {
+  assert.equal(locationAgeLabel(T0, T0 + 4_000), 'Updated just now');
+  assert.equal(locationAgeLabel(T0, T0 + 29_000), 'Updated just now');
+  assert.equal(locationAgeLabel(T0, T0 + 31_000), 'Updated 1 min ago');
+  assert.equal(locationAgeLabel(T0, T0 + 150_000), 'Updated 3 min ago');
+  assert.equal(locationAgeLabel(T0, T0 + 95 * 60_000), 'Updated 1 hr 35 min ago');
+  assert.equal(locationAgeLabel(T0 + 1_000, T0), 'Updated just now', 'a fix a moment ahead of the clock is not negative');
 });
 
 test('Your Float promises tracking only with a healthy recorder and a fresh usable fix', () => {
@@ -1279,4 +1317,25 @@ test('Your Float promises tracking only with a healthy recorder and a fresh usab
   const weak = { ...session, lastFix: { lngLat: at(2_000), at: now + 10_000, accuracyMeters: 500 } };
   assert.match(activeFloatStatus(weak, tracker, now + 10_000).label, /Weak GPS/);
   assert.equal(activeFloatStatus(weak, tracker, now + 10_000).healthy, false);
+});
+
+test('a float saves the take-out photo and those along the stretch for offline, take-out first', async () => {
+  const { stretchPhotoUris } = await import('../../../eddy-ios/src/lib/floatPhotos');
+  const photo = (id: string, mile: number, url?: string): MapAccessPoint => ({ ...point(id, 0, mile), ...(url ? { imageUrls: [url, `${url}-2`] } : {}) });
+  const points = [
+    photo('above', 18, 'https://images.unsplash.com/above'),
+    photo('akers', 20, 'https://images.unsplash.com/akers'),
+    photo('cave', 22, 'https://images.unsplash.com/cave'),
+    photo('no-photo', 23),
+    photo('pulltite', 24, 'https://images.unsplash.com/pulltite'),
+    photo('below', 26, 'https://images.unsplash.com/below'),
+  ];
+  assert.deepEqual(stretchPhotoUris(points, 'pulltite', 'akers'), [
+    'https://images.unsplash.com/pulltite', 'https://images.unsplash.com/akers', 'https://images.unsplash.com/cave',
+  ], 'one photo each, nothing above the start or below the take-out');
+  assert.deepEqual(stretchPhotoUris(points, 'pulltite', null, 21.8), [
+    'https://images.unsplash.com/pulltite', 'https://images.unsplash.com/cave',
+  ], 'a GPS start uses its mile');
+  assert.equal(stretchPhotoUris(points, 'pulltite').length, 4, 'no known start: everything upstream of the take-out');
+  assert.deepEqual(stretchPhotoUris(points, 'missing', 'akers'), []);
 });

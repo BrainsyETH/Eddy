@@ -18,6 +18,7 @@ import { createFloatRecorderSync } from '@/lib/floatRecorderSync';
 import { trackerStatus } from '@/lib/floatTrackerStatus';
 import { warn } from '@/lib/monitoring';
 import { retryFloatTrackDeletions } from './floatTracks';
+import { flushDueHazardReports } from './hazardReports';
 
 const sync = createFloatRecorderSync({
   recorder: floatRecorder,
@@ -45,7 +46,12 @@ export function attachFloatRecorder(): void {
   attached = true;
   sync.sessionChanged();
   if (floatRecorder) {
-    floatRecorder.addListener('onFixes', (event) => void sync.onFixes(event));
+    floatRecorder.addListener('onFixes', (event) => {
+      void sync.onFixes(event);
+      // A fix is execution time iOS granted with the phone locked: use it to
+      // send any hazard report that is due (hazardReports.ts).
+      flushDueHazardReports();
+    });
     floatRecorder.addListener('onStatus', sync.onStatus);
   }
   trackerStatus.onRetry(() => void sync.ensureRecording());

@@ -12,6 +12,7 @@ import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/load
 import { startSession, takeOutChoices } from '@/lib/floatSession';
 import { startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { clearPendingFloatSetup } from '@/float/pendingFloatSetup';
+import { prefetchStretchPhotos } from '@/float/floatPhotos';
 import { startLocationState } from '@/lib/floatPermissions';
 import { beginFloat } from '@/lib/floatSessionStore';
 import { useAppConfig } from '@/hooks/useAppConfig';
@@ -132,6 +133,15 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
       if (result === 'unreadable') {
         setError('Eddy couldn’t check for a float already in progress. Please try again.');
         return;
+      }
+      // Starting is usually the last moment with signal: save the stretch's
+      // access photos for Float tools' Take-out and Ahead. Not awaited; a
+      // photo that misses falls back to its place mark.
+      if (result === 'started') {
+        void prefetchStretchPhotos({
+          points: loaded.accessPoints, riverSlug: loaded.route.riverSlug, takeOutId: made.session.takeOut.id,
+          fromId: params.putInId, fromMile: hit?.riverMile ?? params.previewStartMile,
+        });
       }
       // The active-session subscriber removes setup and presents the root
       // recording view, including if a concurrent start won the race.
