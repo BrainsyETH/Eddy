@@ -201,7 +201,7 @@ activation. The selected route uses the same accent orange as the iOS map,
 separate from river condition colors.
 
 Desktop content filters start enabled each visit and retain changes while
-switching rivers. The regional catalogue supplies access points and POIs;
+switching rivers. USGS gauge layer choices are saved across visits on both layouts. The regional catalogue supplies access points and POIs;
 gauges and verified photo pins remain visible across rivers. Photo queries
 reuse the existing per-river cache/endpoints. Mobile keeps saved filter choices.
 The desktop plan card fills the available height, and the access strip sits to
@@ -214,6 +214,66 @@ available through its info button.
 `npm run test:planner-map` uses real MapLibre with fixture APIs to check map
 continuity, retained endpoints, default filters, camera framing, control/panel
 spacing, attribution, keyboard search, and desktop/mobile layouts.
+
+## Nationwide gauges on both web maps
+
+The planner (`/plan`) and Live River Map (`/river-map`) share **USGS gauges**
+controls: **Eddy-rated** and **Other USGS**, both enabled by default. Explicit
+layer choices persist across both maps and open tabs. On first use, the previous planner
+`showGauges` preference seeds both switches, preserving a saved off choice.
+The national layer uses the complete,
+CDN-cached `/api/gauges/points` index at every zoom, refreshing every 15 minutes
+while enabled; viewport result caps cannot drop smaller stations. It is fetched
+once the browser is idle after the map's own requests, and the last index is
+kept in `localStorage` and painted from there on the next visit. At zoom 8
+and closer, debounced `/api/gauges/map` requests enrich pin and choice-list names
+by site ID. Their 1,000-row cap or a failed name request never replaces the index.
+Selecting a station loads detail from `/api/gauges/[siteId]`, preserving any
+planned route; the planner keeps it in the link as `?gauge=`. Site numbers remain fallbacks until a name is available.
+Freshness updates run at observation boundaries, rather than rebuilding the
+national layer every minute.
+
+Other gauges show measurements and the shared historical flow-comparison colors,
+never a floatability verdict; the filter controls show the color key, and count
+bubbles are parchment with an ink edge so a group never reads as a comparison
+color. Stage-only stations are included. Historical
+observations are opt-in; delayed, suspect and missing-comparison readings do not
+receive a current comparison color. Flow bands combine as alternatives; Reports
+flow and Reports stage narrow together. Filters start clear on each visit.
+
+The planner uses separate MapLibre sources and cluster trees for reference
+gauges and places; access points and POIs draw above the reference layer, whose
+stations are small plain dots with a 10px river-priority hit area. On
+phones, Eddy-rated gauges now cover all rated rivers, matching desktop, rather
+than only the selected river. The SVG Live River Map keeps
+its Ozarks home view and river overlays while allowing nationwide pan/zoom with
+state outlines. Its world-anchored clusters use discrete zoom steps and one
+screen of overscan, keeping centroids stable and filling the view during pans.
+They account for every visible national station, including on phones; coincident
+stations have a choice list. Single stations paint under the curated rivers;
+only small tap targets and count bubbles sit in the marker layer, beneath
+Eddy's gauges, so rivers and empty map stay tappable except right on a dot.
+The layer is one keyboard tab stop, with arrow keys moving between stations.
+Zoom runs from about 60× in to the whole United States. A station opens in
+the same peek/expand sheet as Eddy's gauges. Automatic curated selections retain the original
+Ozarks zoom limits. The old `ContextSiteCard` has been removed. The capped
+`/api/usgs/mo-sites` API and its loader remain deprecated compatibility code:
+remove them together only after checking external traffic and announcing a
+sunset; no removal date is scheduled.
+National readings remain their latest observations when the curated river
+history timeline is scrubbed; the layer dims and the dock says so.
+
+`npm run test:national-gauges` runs fixture-backed Chromium checks of both real
+maps at desktop, 390px and 320px with over 14,000 stations, including dense
+Ozarks stations beside access points, viewport name enrichment/failure/caps,
+legacy preferences, and source stability across an unchanged minute. River Map
+Smoke runs this suite in CI alongside `scripts/mosw-smoke.ts`, whose original
+mobile dismissal coordinate remains unchanged. The full
+`npm run test:planner-map` includes these checks after its route regression suite.
+Use `PLAYWRIGHT_CHROMIUM_PATH` for an installed browser. Run browser checks
+separately from typechecking because the runner creates and removes temporary
+fixture routes. `node --import tsx scripts/build-us-gauge-outlines.ts` regenerates
+the SVG state outlines from the pinned US Census/us-atlas dataset.
 
 ## River and gauge history
 

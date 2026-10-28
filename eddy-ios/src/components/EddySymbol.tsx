@@ -58,6 +58,9 @@ const SYMBOLS = {
   outfitter: require('../../assets/eddy/eddy-outfitter.png'),
   lodging: require('../../assets/eddy/eddy-lodging.png'),
   river: require('../../assets/eddy/eddy-river.png'),
+  // River Mode's Float tools: a wrench crossed over an Eddy paddle. Drawn as
+  // geometry in build-eddy-icons.py, like the bridge and the gravel bar.
+  floatTools: require('../../assets/eddy/eddy-float-tools.png'),
   alertWatch: require('../../assets/eddy/eddy-alert-watch.png'),
   water: require('../../assets/eddy/eddy-water-droplet.png'),
   // The springs layer's mark. The same droplet as `water`, under its own name

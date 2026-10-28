@@ -8,7 +8,7 @@ import test from 'node:test';
 import type { MapAccessPoint } from '@eddy/types';
 import type { LngLat } from '@eddy/geo';
 import { routeFromRiver, startSession, type FloatSession } from '../../../eddy-ios/src/lib/floatSession';
-import { ENDED_KEY, STORAGE_KEY, createFloatSessionStore, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
+import { ENDED_KEY, FUTURE_FIX_SKEW_MS, STORAGE_KEY, createFloatSessionStore, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
 import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
 
 const MILE = 1609.344;
@@ -263,4 +263,21 @@ test('readiness reminder opt-outs are in the first durable session and survive r
   const relaunched = createFloatSessionStore(disk, quiet);
   await relaunched.ensureLoaded();
   assert.deepEqual(relaunched.get()?.reminders, { ...reminders, pending: [] });
+});
+
+test('a recorded fix stamped ahead of the phone clock is refused, so nothing reading the newest fix runs ahead', async () => {
+  const store = createFloatSessionStore(fakeDisk(), quiet);
+  assert.equal(await store.begin(newSession('clock')), 'started');
+  const now = T0 + 60_000;
+  // Delivery jitter: a fix a moment ahead of JavaScript's clock is fine.
+  store.record([{ lngLat: at(100), accuracyMeters: 8, timestamp: now + FUTURE_FIX_SKEW_MS - 1 }], now, 100);
+  assert.equal(store.get()?.lastFix?.at, now + FUTURE_FIX_SKEW_MS - 1);
+  // A clock set back mid-float: the fix is a minute "in the future". Refused,
+  // and its journal offset still advances so it is not read again.
+  store.record([{ lngLat: at(200), accuracyMeters: 8, timestamp: now + 60_000 }], now, 200);
+  assert.equal(store.get()?.lastFix?.at, now + FUTURE_FIX_SKEW_MS - 1, 'the future-stamped fix is not the newest fix');
+  assert.equal(store.get()?.journalTo, 200);
+  // A replayed past fix is still judged at its own time.
+  store.record([{ lngLat: at(300), accuracyMeters: 8, timestamp: now + 10_000 }], now + 20 * 60_000, 300);
+  assert.equal(store.get()?.lastFix?.at, now + 10_000);
 });

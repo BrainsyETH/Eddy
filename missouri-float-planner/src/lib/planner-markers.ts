@@ -1,3 +1,4 @@
+import type { MapGaugeLite } from './gauges/map-index';
 import type { EddyIconName } from '@/components/ui/EddyIcon';
 import type { PlannerMapPlace } from './planner-map-catalog';
 import type { PointOfInterest } from '@/types/nps';
@@ -18,6 +19,7 @@ export type PlannerMarker = {
   | { kind: 'access'; place: PlannerMapPlace }
   | { kind: 'poi'; poi: PointOfInterest }
   | { kind: 'gauge'; gauge: GaugeStation; condition: ConditionCode }
+  | { kind: 'referenceGauge'; gauge: MapGaugeLite }
 );
 
 export function plannerGaugeCondition(gauge: GaugeStation): ConditionCode {
@@ -40,4 +42,9 @@ export function plannerMarkers(places: PlannerMapPlace[], pois: PointOfInterest[
     ...gauges.map((gauge): PlannerMarker => ({ kind: 'gauge', key: `gauge:${gauge.id}`, id: gauge.id,
       name: gauge.name, coordinates: gauge.coordinates, symbol: 'gauge', gauge, condition: plannerGaugeCondition(gauge) })),
   ];
+}
+
+export function referenceGaugeMarkers(gauges: MapGaugeLite[]): PlannerMarker[] {
+  return gauges.map(gauge => ({ kind: 'referenceGauge', key: `reference:${gauge.siteId}`, id: gauge.siteId,
+    name: gauge.name, coordinates: gauge.coordinates, symbol: 'gauge', gauge }));
 }

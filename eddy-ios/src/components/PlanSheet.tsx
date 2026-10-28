@@ -233,6 +233,8 @@ export function PlanSheet({
   const heading = (
     <View style={styles.headText}>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Build a Route'}</Text>
+      {/* The result hides the route crumbs, so the river becomes its change
+          control; while picking, the River crumb already names it. */}
       {resultReady ? (
         <Pressable onPress={onClearRiver} accessibilityRole="button"
           accessibilityLabel={`River: ${river?.name}`} accessibilityHint="Change river"
@@ -240,7 +242,7 @@ export function PlanSheet({
           <Text style={[styles.subtitle, styles.riverName, { color: colors.interactive }]}>{river?.name}</Text>
           <ControlIcon name="chevron-forward" size={14} color={colors.interactive} />
         </Pressable>
-      ) : <Text style={[styles.subtitle, { color: colors.textMuted }]}>{river?.name ?? 'Choose a river'}</Text>}
+      ) : river ? null : <Text style={[styles.subtitle, { color: colors.textMuted }]}>Choose a river</Text>}
     </View>
   );
   const breadcrumb = river && !resultReady ? (

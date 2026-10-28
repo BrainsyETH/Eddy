@@ -41,6 +41,8 @@ import {
   autoEndCopy,
   continuingPastEnd,
   isShortFloat,
+  discardCopy,
+  discardReason,
 } from '../../../eddy-ios/src/lib/floatEnding';
 import { notificationAccess, canDeliverNotification, canRequestNotification } from '../../../eddy-ios/src/lib/notificationAccess';
 import { initialFloatReminders } from '../../../eddy-ios/src/lib/floatReminders';
@@ -409,6 +411,13 @@ test('a float is short, and can be discarded without a recap, until it has measu
   assert.equal(isShortFloat(session, T0 + SHORT_FLOAT_MS), true, 'under a tenth of a mile');
   const far = paddle(session, index, 100, 400, t);
   assert.equal(isShortFloat(far.session, T0 + SHORT_FLOAT_MS), false);
+  // The End dialog says which case it is: a float out all day that never
+  // found the river is not "nothing much recorded".
+  assert.equal(discardReason(session, t), 'young');
+  assert.equal(discardReason(s0, T0 + 3 * 3_600_000), 'unplaced');
+  assert.match(discardCopy('unplaced'), /never placed you on the river/);
+  assert.equal(discardReason(session, T0 + SHORT_FLOAT_MS), 'stationary');
+  assert.equal(discardReason(far.session, T0 + SHORT_FLOAT_MS), null);
 });
 
 test('away is judged on fresh evidence: a gap, a return to the river, or a bank stop ends nothing', () => {

@@ -1,12 +1,10 @@
 'use client';
 
 // The detail rail: RightRail dispatcher + the RailSheet container and every
-// card it can show (river, gauge, campground, access point, POI, context site).
+// card it can show (river, gauge, campground, access point, POI, USGS station).
 // These share so much context that they live together; leaf primitives come
 // from ./shared, the chart from ./Sparkline, the report from ./eddy-report.
 
-import Link from 'next/link';
-import { gaugeFreshnessLabel } from '@shared/gauge-freshness';
 import { useEffect, useRef, useState } from 'react';
 import {
   STAGE_VERDICTS,
@@ -20,7 +18,8 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
-import type { MoContextSite } from '@/lib/usgs/mo-sites';
+import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
+import type { MapGaugeLite } from '@/lib/gauges/map-index';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import { conditionChip } from '@shared/condition-system';
@@ -984,64 +983,23 @@ function PoiCard({
   );
 }
 
-// ─── Time scrubber driven by real per-day percentile array ──────────────
-
-
-export function ContextSiteCard({
-  site,
+/** An unrated USGS station, in the same peek/expand sheet as Eddy's own gauges. */
+export function ReferenceSiteSheet({
+  gauge,
   onClose,
   onSheetExpandedChange,
+  contentRef,
 }: {
-  site: MoContextSite;
+  gauge: MapGaugeLite;
   onClose: () => void;
   onSheetExpandedChange?: (expanded: boolean) => void;
+  /** Lets the map pan a station out from under the sheet. */
+  contentRef?: React.Ref<HTMLDivElement>;
 }) {
   return (
-    <RailSheet onClose={onClose} onExpandedChange={onSheetExpandedChange} z="z-40" tall={false} className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS site ${site.site_no}`}>
-    <div className="p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="uppercase font-bold"
-            style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.18em', color: 'var(--color-accent-700)' }}>
-            USGS Site #{site.site_no}
-          </div>
-          <div className="mt-1 font-bold leading-tight"
-            style={{ fontSize: 16, color: THEME.primaryDark, fontFamily: DISPLAY }}>
-            {site.name ?? 'Unnamed monitoring site'}
-          </div>
-        </div>
-        <CloseBtn onClose={onClose} />
-      </div>
-
-      <div className="mt-3 flex items-baseline gap-2 rounded-md border-2 px-3 py-2.5"
-        style={{ background: 'var(--color-secondary-100)', borderColor: 'var(--color-neutral-300)' }}>
-        <span className="font-bold leading-none" style={{ fontFamily: MONO, fontSize: 22, color: THEME.primary }}>
-          {Math.round(site.dischargeCfs).toLocaleString()}
-        </span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: THEME.inkDim }}>cfs discharge</span>
-        <span className="ml-auto"><DataAgeChip iso={site.readingTimestamp} /></span>
-      </div>
-
-      <p className="mt-2 text-xs">{gaugeFreshnessLabel(site.readingTimestamp)}</p>
-      <Link href={`/gauges/${site.site_no}`} className="mt-3 inline-block text-sm font-bold underline">Gauge details and history →</Link>
-      <p className="mt-2.5" style={{ fontFamily: MONO, fontSize: 10, lineHeight: 1.55, color: THEME.inkDim }}>
-        Statewide context site — Eddy has no float rating here. Flow shown
-        for hydrologic context only.
-      </p>
-
-      <a
-        href={`https://waterdata.usgs.gov/monitoring-location/${site.site_no}`}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 inline-block rounded-md border-2 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em]"
-        style={{
-          background: THEME.cardBg, color: THEME.ink, borderColor: THEME.cardBorder,
-          fontFamily: MONO, boxShadow: `2px 2px 0 ${THEME.cardShadow}`,
-        }}
-      >
-        Full record on USGS →
-      </a>
-    </div>
+    <RailSheet onClose={onClose} onExpandedChange={onSheetExpandedChange} z="z-40" tall={false}
+      className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS gauge ${gauge.siteId}`}>
+      <div ref={contentRef}><ReferenceGaugeCard gauge={gauge} onClose={onClose} framed={false} /></div>
     </RailSheet>
   );
 }

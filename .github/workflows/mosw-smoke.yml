@@ -25,6 +25,22 @@ on:
       # touched api/usgs.
       - 'missouri-float-planner/src/components/gauge/**'
       - 'missouri-float-planner/src/lib/gauge/**'
+      - 'missouri-float-planner/src/hooks/useNationalGauges.ts'
+      - 'missouri-float-planner/src/hooks/useGaugeNames.ts'
+      - 'missouri-float-planner/src/lib/gauges/**'
+      - 'missouri-float-planner/src/app/api/gauges/**'
+      - 'missouri-float-planner/src/data/us-gauge-outlines.json'
+      - 'missouri-float-planner/src/components/map/**'
+      - 'missouri-float-planner/src/components/plan/**'
+      - 'missouri-float-planner/src/app/plan/**'
+      - 'missouri-float-planner/src/lib/planner-markers.ts'
+      - 'missouri-float-planner/shared/flow-band.ts'
+      - 'missouri-float-planner/shared/gauge-freshness.ts'
+      - 'missouri-float-planner/scripts/national-gauges-smoke.mjs'
+      - 'missouri-float-planner/scripts/planner-map-smoke.mjs'
+      - 'missouri-float-planner/scripts/map-smoke-server.mjs'
+      - 'missouri-float-planner/package.json'
+      - 'missouri-float-planner/package-lock.json'
       - 'missouri-float-planner/scripts/mosw-smoke.ts'
       - '.github/workflows/mosw-smoke.yml'
   workflow_dispatch:
@@ -57,12 +73,21 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run smoke
-        run: npx tsx scripts/mosw-smoke.ts
+        run: node --import tsx scripts/mosw-smoke.ts
+
+      - name: National gauges on both maps
+        if: success() || failure()
+        run: npm run test:national-gauges
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mosw-smoke-screenshots
-          path: missouri-float-planner/.smoke/
-          if-no-files-found: ignore
+          path: |
+            missouri-float-planner/.smoke/
+            /tmp/eddy-planner-map/
+          if-no-files-found: warn
+          include-hidden-files: true
