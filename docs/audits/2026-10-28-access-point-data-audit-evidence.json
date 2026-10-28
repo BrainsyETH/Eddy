@@ -1,0 +1,822 @@
+{
+  "audit_date": "2026-10-28",
+  "source_commit": "f08f0f3b86acfd628b32baf1275f136c719069e8",
+  "status": "Read-only audit; proposed corrections have not been applied.",
+  "coverage": {
+    "rivers": 28,
+    "active_rivers": 25,
+    "inactive_rivers": 3,
+    "access_records": 397,
+    "active_river_access_records": 359,
+    "approved_active_river_access_records": 325,
+    "pending_active_river_access_records": 34,
+    "approved_active_river_endpoints": 315,
+    "approved_active_river_non_endpoints": 10,
+    "inactive_river_access_records": 38,
+    "pois": 53,
+    "nps_campgrounds": 34,
+    "nearby_services": 203,
+    "access_service_links": 25,
+    "access_api_requests": 84,
+    "additional_public_api_requests": 7,
+    "offline_bundle_rivers": 25,
+    "offline_bundle_access_records": 325
+  },
+  "api_request_templates": {
+    "web": "https://eddy.guide/api/rivers/{slug}/access-points?include=non_endpoints",
+    "mobile": "https://eddy.guide/api/rivers/{slug}/access-points?include=non_endpoints&view=compact",
+    "legacy": "https://eddy.guide/api/rivers/{slug}/access-points",
+    "offline": "https://eddy.guide/api/offline/bundle"
+  },
+  "limitations": [
+    "Point-in-time database, API, code, and source review; no physical site inspections.",
+    "No installed iOS device verification or end-to-end browser rendering was completed.",
+    "Record snapshots and source links are embedded in the accompanying HTML report.",
+    "Findings distinguish confirmed discrepancies from candidates needing site or operator verification."
+  ],
+  "access_api_results": [
+    {
+      "river": "big-piney",
+      "mode": "web",
+      "count": 18,
+      "ok": true
+    },
+    {
+      "river": "big-piney",
+      "mode": "mobile",
+      "count": 18,
+      "ok": true
+    },
+    {
+      "river": "big-piney",
+      "mode": "legacy",
+      "count": 18,
+      "ok": true
+    },
+    {
+      "river": "big-river",
+      "mode": "web",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "big-river",
+      "mode": "mobile",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "big-river",
+      "mode": "legacy",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "black",
+      "mode": "web",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "black",
+      "mode": "mobile",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "black",
+      "mode": "legacy",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "bourbeuse",
+      "mode": "web",
+      "count": 19,
+      "ok": true
+    },
+    {
+      "river": "bourbeuse",
+      "mode": "mobile",
+      "count": 19,
+      "ok": true
+    },
+    {
+      "river": "bourbeuse",
+      "mode": "legacy",
+      "count": 19,
+      "ok": true
+    },
+    {
+      "river": "bryant-creek",
+      "mode": "web",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "bryant-creek",
+      "mode": "mobile",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "bryant-creek",
+      "mode": "legacy",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "buffalo",
+      "mode": "web",
+      "count": 23,
+      "ok": true
+    },
+    {
+      "river": "buffalo",
+      "mode": "mobile",
+      "count": 23,
+      "ok": true
+    },
+    {
+      "river": "buffalo",
+      "mode": "legacy",
+      "count": 22,
+      "ok": true
+    },
+    {
+      "river": "caddo-river",
+      "mode": "web",
+      "count": 4,
+      "ok": true
+    },
+    {
+      "river": "caddo-river",
+      "mode": "mobile",
+      "count": 4,
+      "ok": true
+    },
+    {
+      "river": "caddo-river",
+      "mode": "legacy",
+      "count": 4,
+      "ok": true
+    },
+    {
+      "river": "courtois",
+      "mode": "web",
+      "count": 6,
+      "ok": true
+    },
+    {
+      "river": "courtois",
+      "mode": "mobile",
+      "count": 6,
+      "ok": true
+    },
+    {
+      "river": "courtois",
+      "mode": "legacy",
+      "count": 6,
+      "ok": true
+    },
+    {
+      "river": "crooked-creek",
+      "mode": "web",
+      "count": 9,
+      "ok": true
+    },
+    {
+      "river": "crooked-creek",
+      "mode": "mobile",
+      "count": 9,
+      "ok": true
+    },
+    {
+      "river": "crooked-creek",
+      "mode": "legacy",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "current",
+      "mode": "web",
+      "count": 34,
+      "ok": true
+    },
+    {
+      "river": "current",
+      "mode": "mobile",
+      "count": 34,
+      "ok": true
+    },
+    {
+      "river": "current",
+      "mode": "legacy",
+      "count": 33,
+      "ok": true
+    },
+    {
+      "river": "eleven-point",
+      "mode": "web",
+      "count": 17,
+      "ok": true
+    },
+    {
+      "river": "eleven-point",
+      "mode": "mobile",
+      "count": 17,
+      "ok": true
+    },
+    {
+      "river": "eleven-point",
+      "mode": "legacy",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "elk",
+      "mode": "web",
+      "count": 3,
+      "ok": true
+    },
+    {
+      "river": "elk",
+      "mode": "mobile",
+      "count": 3,
+      "ok": true
+    },
+    {
+      "river": "elk",
+      "mode": "legacy",
+      "count": 2,
+      "ok": true
+    },
+    {
+      "river": "gasconade",
+      "mode": "web",
+      "count": 24,
+      "ok": true
+    },
+    {
+      "river": "gasconade",
+      "mode": "mobile",
+      "count": 24,
+      "ok": true
+    },
+    {
+      "river": "gasconade",
+      "mode": "legacy",
+      "count": 24,
+      "ok": true
+    },
+    {
+      "river": "huzzah",
+      "mode": "web",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "huzzah",
+      "mode": "mobile",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "huzzah",
+      "mode": "legacy",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "jacks-fork",
+      "mode": "web",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "jacks-fork",
+      "mode": "mobile",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "jacks-fork",
+      "mode": "legacy",
+      "count": 11,
+      "ok": true
+    },
+    {
+      "river": "james",
+      "mode": "web",
+      "count": 5,
+      "ok": true
+    },
+    {
+      "river": "james",
+      "mode": "mobile",
+      "count": 5,
+      "ok": true
+    },
+    {
+      "river": "james",
+      "mode": "legacy",
+      "count": 5,
+      "ok": true
+    },
+    {
+      "river": "kings-river",
+      "mode": "web",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "kings-river",
+      "mode": "mobile",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "kings-river",
+      "mode": "legacy",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "meramec",
+      "mode": "web",
+      "count": 29,
+      "ok": true
+    },
+    {
+      "river": "meramec",
+      "mode": "mobile",
+      "count": 29,
+      "ok": true
+    },
+    {
+      "river": "meramec",
+      "mode": "legacy",
+      "count": 29,
+      "ok": true
+    },
+    {
+      "river": "mulberry",
+      "mode": "web",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "mulberry",
+      "mode": "mobile",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "mulberry",
+      "mode": "legacy",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "niangua",
+      "mode": "web",
+      "count": 20,
+      "ok": true
+    },
+    {
+      "river": "niangua",
+      "mode": "mobile",
+      "count": 20,
+      "ok": true
+    },
+    {
+      "river": "niangua",
+      "mode": "legacy",
+      "count": 20,
+      "ok": true
+    },
+    {
+      "river": "norfork-tailwater",
+      "mode": "web",
+      "count": 5,
+      "ok": true
+    },
+    {
+      "river": "norfork-tailwater",
+      "mode": "mobile",
+      "count": 5,
+      "ok": true
+    },
+    {
+      "river": "norfork-tailwater",
+      "mode": "legacy",
+      "count": 2,
+      "ok": true
+    },
+    {
+      "river": "north-fork-white",
+      "mode": "web",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "north-fork-white",
+      "mode": "mobile",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "north-fork-white",
+      "mode": "legacy",
+      "count": 8,
+      "ok": true
+    },
+    {
+      "river": "spring-river",
+      "mode": "web",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "spring-river",
+      "mode": "mobile",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "spring-river",
+      "mode": "legacy",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "spring-river-mo",
+      "mode": "web",
+      "count": 14,
+      "ok": true
+    },
+    {
+      "river": "spring-river-mo",
+      "mode": "mobile",
+      "count": 14,
+      "ok": true
+    },
+    {
+      "river": "spring-river-mo",
+      "mode": "legacy",
+      "count": 14,
+      "ok": true
+    },
+    {
+      "river": "st-francis",
+      "mode": "web",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "st-francis",
+      "mode": "mobile",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "st-francis",
+      "mode": "legacy",
+      "count": 10,
+      "ok": true
+    },
+    {
+      "river": "taneycomo",
+      "mode": "web",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "taneycomo",
+      "mode": "mobile",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "taneycomo",
+      "mode": "legacy",
+      "count": 5,
+      "ok": true
+    },
+    {
+      "river": "war-eagle-creek",
+      "mode": "web",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "war-eagle-creek",
+      "mode": "mobile",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "war-eagle-creek",
+      "mode": "legacy",
+      "count": 7,
+      "ok": true
+    },
+    {
+      "river": "white",
+      "mode": "web",
+      "count": 26,
+      "ok": true
+    },
+    {
+      "river": "white",
+      "mode": "mobile",
+      "count": 26,
+      "ok": true
+    },
+    {
+      "river": "white",
+      "mode": "legacy",
+      "count": 23,
+      "ok": true
+    }
+  ],
+  "access_api_differences": [],
+  "offline_access_differences": [
+    {
+      "river": "current",
+      "name": "Grubb Hollow",
+      "field": "types",
+      "fresh": [
+        "access",
+        "gravel_bar",
+        "campground"
+      ],
+      "offline": [
+        "access",
+        "gravel_bar"
+      ]
+    }
+  ],
+  "database_validation_results": [
+    {
+      "river_slug": "jacks-fork",
+      "check_name": "threshold_order",
+      "severity": "error",
+      "detail": "thresholds not strictly increasing on gauge Jacks Fork near Mountain View, MO (cfs)"
+    },
+    {
+      "river_slug": "meramec",
+      "check_name": "mileage_segment_implausible",
+      "severity": "warning",
+      "detail": "1 segment(s) quote a mileage the river line cannot support: \"Campbell Bridge\" to \"Riverview Ranch\" quotes 0.20 mi against 0.53 mi of line (ratio 0.38)"
+    },
+    {
+      "river_slug": "niangua",
+      "check_name": "mileage_segment_implausible",
+      "severity": "warning",
+      "detail": "1 segment(s) quote a mileage the river line cannot support: \"Riverfront Campground & Canoe\" to \"Bennett Spring Access\" quotes 0.20 mi against 1.41 mi of line (ratio 0.14)"
+    }
+  ],
+  "false_shower_listings": [
+    {
+      "river": "current",
+      "name": "Akers Group Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Big Tree Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Log Yard Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Clubhouse Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Powder Mill Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Grubb Hollow Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Sinking Creek Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Jerktail Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Broadfoot Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Gooseneck Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "current",
+      "name": "Cedar Grove Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "jacks-fork",
+      "name": "Bachers Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "jacks-fork",
+      "name": "Rymers Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "jacks-fork",
+      "name": "Blue Spring Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "jacks-fork",
+      "name": "Bay Creek Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Kyles Landing",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Ozark Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Woolum",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "South Maumee",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Rush Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Spring Creek Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Steel Creek Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Erbie Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "No water"
+      ]
+    },
+    {
+      "river": "buffalo",
+      "name": "Carver Campground",
+      "showers": [
+        "None"
+      ],
+      "water": [
+        "Yes - seasonal"
+      ]
+    }
+  ]
+}

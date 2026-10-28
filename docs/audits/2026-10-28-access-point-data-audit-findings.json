@@ -1,0 +1,444 @@
+[
+  {
+    "id": "F01",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Alley Spring access card mixes the campground with the mill",
+    "access_slugs": [
+      "jacks-fork/alley-spring"
+    ],
+    "observation": "The only approved Alley access record is 8618c6f4-cbd1-44c6-aa4e-c41f500b732a. It is selectable, linked to Alley Spring Campground, and has campground facilities. Its name is Alley Spring, description centers on the mill, parking says Large parking area near mill, and the hero image is Alley Spring Roller Mill. A separate campground directory record is linked as located_at, and a separate spring/mill POI already exists.",
+    "action": "Make the existing access record display as Alley Spring Campground (optionally label its launch as River Access). Preserve its UUID, current public slug alley-spring, route history, mile, NPS campground link and valid facilities. Replace mill-specific description, parking and hero photo with campground/launch-specific content. Route a campground card's planning action to that access UUID. Keep the spring and mill as a separate non-launch landmark. Confirm the launch/parking entrance before changing coordinates; the campground center is not a substitute for the launch.",
+    "sources": [
+      "https://www.nps.gov/ozar/planyourvisit/alley-spring-campground.htm",
+      "https://www.nps.gov/thingstodo/paddle-jacks-fork-river.htm",
+      "https://www.nps.gov/ozar/planyourvisit/basicinfo.htm"
+    ],
+    "code": [
+      "missouri-float-planner/src/lib/access-points/linked-services.ts",
+      "eddy-ios/src/map/accessLayers.ts"
+    ]
+  },
+  {
+    "id": "F02",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Alley Spring landmark differs between web and mobile data",
+    "poi_ids": [
+      "ed86133d-8f23-4386-b5d4-cc10620ad728"
+    ],
+    "observation": "The active spring/mill POI has is_on_water=false. The live Jacks Fork POI API excludes it; the live iOS offline bundle includes it among springs. The web POI route requires on-water or outfitter, while the bundle selects active springs without that gate.",
+    "action": "Use one explicit policy for off-channel landmarks on both platforms. Keep Alley marked off-channel and visible as a spring/mill attraction with walk/drive context. Do not set is_on_water=true merely to satisfy the web filter, and do not turn the spring into an endpoint.",
+    "sources": [
+      "https://eddy.guide/api/rivers/jacks-fork/pois",
+      "https://eddy.guide/api/offline/bundle"
+    ],
+    "code": [
+      "missouri-float-planner/src/app/api/rivers/[slug]/pois/route.ts",
+      "missouri-float-planner/src/lib/offline/bundle.ts"
+    ]
+  },
+  {
+    "id": "F03",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Pulltite Spring is the name on a campground/launch record",
+    "access_slugs": [
+      "current/pulltite-spring"
+    ],
+    "observation": "The access row is a campground at mile 26.23, linked to Pulltite Campground, and its description is about the launch and camping. There is no separate Pulltite Spring POI in the 53-row POI catalog. Recreation.gov describes the spring/cabin separately across the river from the campground.",
+    "action": "Rename the access display to Pulltite Campground / River Access, retain its stable slug and launch identity, and add a separately verified spring landmark if it belongs in the attraction catalog. Do not move the launch to the spring.",
+    "sources": [
+      "https://www.nps.gov/ozar/planyourvisit/pulltite-campground.htm",
+      "https://www.recreation.gov/camping/campgrounds/234357"
+    ],
+    "code": []
+  },
+  {
+    "id": "F04",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Greer Spring record actually describes Greer Crossing, with the wrong agency and incomplete roles",
+    "access_slugs": [
+      "eleven-point/greer-spring"
+    ],
+    "observation": "The mile-16.6 record describes Greer Crossing's campground, picnic area and concrete ramp, but is named Greer Spring, has only the access role, ownership=NPS and no managing_agency. The Forest Service distinguishes the spring branch at mile 16.0 from Greer Crossing access at 16.6. No separate Greer Spring POI exists in the captured catalog.",
+    "action": "Display Greer Crossing Recreation Area (River Access); preserve the existing ID and public slug. Set ownership/managing agency to USFS and record verified campground/boat-ramp roles. Keep the spring itself separate, with its trail and access limitations. Reconcile stale camping fees/reservation advice against the current operator source before copying them.",
+    "sources": [
+      "https://www.fs.usda.gov/Internet/FSE_DOCUMENTS/stelprdb5200703.pdf",
+      "https://mdc.mo.gov/discover-nature/places/natural-areas/greer-spring"
+    ],
+    "code": []
+  },
+  {
+    "id": "F05",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Four previously reviewed POI type corrections remain unapplied",
+    "poi_ids": [
+      "47a60123-788c-464e-b2b7-59cac17c51fb",
+      "0c45779f-ca96-4b5e-bc31-80eedd0ecdab",
+      "d4c401dd-3ae9-4f5a-90c8-81382ff4b8f3",
+      "1b638dce-9404-486d-acc0-c1c69a529b98"
+    ],
+    "observation": "Live database and public POI responses still classify Welch Spring and Hospital, Medlock Cave and Spring, and Big Spring as cave; Granny Henderson's Cabin is spring. The mobile spring bundle consequently omits the first three and includes the cabin. The repository already contains an exact-ID repair script and a September 20 audit recording these same issues.",
+    "action": "Use the existing guarded repair workflow: the three spring destinations become spring, and the cabin becomes historical_site. Preserve compound cave/historic names and descriptions. Verify refreshed public POI/bundle output after application and protect the reviewed classifications from later imports.",
+    "sources": [
+      "https://www.nps.gov/ozar/learn/nature/springs.htm",
+      "https://www.nps.gov/places/granny-henderson-s-cabin.htm"
+    ],
+    "code": [
+      "missouri-float-planner/scripts/repair-spring-classifications.ts",
+      "docs/audits/2026-09-20-spring-classifications.md"
+    ]
+  },
+  {
+    "id": "F06",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Devils Well is represented as an on-water spring",
+    "poi_ids": [
+      "9b93df42-3683-4fe3-88e8-e7962d107de2"
+    ],
+    "observation": "Devils Well is active, type=spring, is_on_water=true and appears in the live mobile spring list. Its stored snap distance is 1,665 m. NPS describes an inland sinkhole/cavern lake and a 4.6-mile foot trail to Cave Spring.",
+    "action": "Classify it as a geological/cave-lake landmark and mark it off-channel. Preserve discovery through an inland-attraction policy instead of representing it as a spring stop reachable on the float.",
+    "sources": [
+      "https://www.nps.gov/places/devils-well.htm"
+    ],
+    "code": [
+      "missouri-float-planner/src/lib/offline/bundle.ts"
+    ]
+  },
+  {
+    "id": "F07",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Rocky Falls is attached to the wrong river itinerary",
+    "poi_ids": [
+      "294bd282-8ef2-46ed-98f4-4091d079e74a"
+    ],
+    "observation": "Rocky Falls is attached to Jacks Fork, marked on-water and assigned river mile 36.692. Its stored snap distance is 11,580.81 m. NPS places the falls on Rocky Creek, and MDC identifies Rocky Creek as a Current River tributary. It is returned by the live Jacks Fork POI API.",
+    "action": "Remove the Jacks Fork on-water/mile claim. Represent it as an off-channel Rocky Creek attraction associated with the Current River region if appropriate. Verify the actual falls versus parking coordinate independently; do not snap it onto either main river to manufacture an itinerary stop.",
+    "sources": [
+      "https://www.nps.gov/ozar/planyourvisit/hiking-in-the-ozarks.htm",
+      "https://mdc.mo.gov/discover-nature/places/natural-areas/mill-mountain"
+    ],
+    "code": [
+      "missouri-float-planner/src/app/api/rivers/[slug]/pois/route.ts"
+    ]
+  },
+  {
+    "id": "F08",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Grubb Hollow loses its campground role in the offline bundle",
+    "access_slugs": [
+      "current/grubb-hollow"
+    ],
+    "observation": "The live fresh web and compact mobile access responses add campground to Grubb Hollow's types because it has an NPS campground link. The live offline bundle keeps only access and gravel_bar. All other compared access identity, role, eligibility and location fields agree between the fresh API and the 325-record offline catalog.",
+    "action": "Move NPS-linked role normalization into the shared access-point serializer so fresh lists, detail and offline bundle agree. Also correct the stored types for Grubb Hollow, retaining access and gravel_bar.",
+    "sources": [
+      "https://eddy.guide/api/rivers/current/access-points?include=non_endpoints&view=compact",
+      "https://eddy.guide/api/offline/bundle"
+    ],
+    "code": [
+      "missouri-float-planner/src/app/api/rivers/[slug]/access-points/route.ts",
+      "missouri-float-planner/src/lib/offline/shapes.ts",
+      "missouri-float-planner/src/lib/offline/bundle.ts"
+    ]
+  },
+  {
+    "id": "F09",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "24 campground directory entries advertise nonexistent showers",
+    "observation": "Across the live Current, Jacks Fork and Buffalo service responses, 24 synthetic NPS campground entries advertise showers while their stored NPS amenities say showers=[None]. The converter reads potableWater instead of showers, and tests only for the exact string No; even No water passes. Examples include Bay Creek, Blue Spring, Bachers, Rymers, Grubb Hollow, Woolum and South Maumee.",
+    "action": "Derive shower availability from the actual shower field using normalized positive/negative values. Keep potable-water availability separate. Add meaningful fixtures for None, No water, seasonal water without showers, and actual showers. The affected list is reproduced below.",
+    "sources": [],
+    "code": [
+      "missouri-float-planner/src/app/api/rivers/[slug]/services/route.ts"
+    ]
+  },
+  {
+    "id": "F10",
+    "priority": "P1",
+    "confidence": "Confirmed",
+    "title": "Cowskin's actual boat ramp cannot be chosen as a trip endpoint",
+    "access_slugs": [
+      "elk/cowskin-access"
+    ],
+    "observation": "Cowskin is approved on the active Elk River, but is_float_endpoint=false and types contains only access. Its own description and MDC's current page identify a concrete boat ramp and parking. Both fresh clients omit it from endpoint choices by design.",
+    "action": "After confirming current closure status, enable endpoint eligibility and add boat_ramp. Preserve the no-camping classification. Do not bulk-enable every walk-in access flagged by the trust check.",
+    "sources": [
+      "https://mdc.mo.gov/discover-nature/places/cowskin-access",
+      "https://mdc.mo.gov/media/79320"
+    ],
+    "code": [
+      "missouri-float-planner/src/lib/trust/checks/float-endpoint-eligibility.ts"
+    ]
+  },
+  {
+    "id": "F11",
+    "priority": "P1",
+    "confidence": "Confirmed conflict",
+    "title": "Public/private flags contradict the access descriptions",
+    "access_slugs": [
+      "courtois/bass-river-resort",
+      "huzzah/highway-v-bridge",
+      "courtois/highway-8-bridge"
+    ],
+    "observation": "Bass River Resort and Huzzah Highway V Bridge have is_public=true despite private ownership and private-access descriptions. The flag controls both public badges and the iOS permission prompt. Courtois Highway 8 also has public=true/private ownership, but its text deliberately describes a public bank and a private bank, so it needs a more precise destination decision.",
+    "action": "Correct Bass River Resort to private access with its fee/permission context. Reconcile Highway V's specific launch and permissions, then align its flag. For Courtois Highway 8, pin and describe the intended bank; do not automatically privatize a real public right-of-way because another bank is private.",
+    "sources": [
+      "https://bassresort.com/"
+    ],
+    "code": [
+      "eddy-ios/src/components/map-sheet/sheetActions.ts",
+      "eddy-ios/src/components/map-sheet/AccessTabs.tsx",
+      "missouri-float-planner/src/components/river/AccessPointStrip.tsx"
+    ]
+  },
+  {
+    "id": "F12",
+    "priority": "P1",
+    "confidence": "Confirmed inconsistency; location review required",
+    "title": "Lower Big Piney has a misplaced confluence and overlapping bridge endpoints",
+    "access_slugs": [
+      "big-piney/gasconade-confluence",
+      "big-piney/devils-elbow",
+      "big-piney/old-route-66-bridge"
+    ],
+    "observation": "Gasconade River Confluence is placed at 37.836,-92.071, mile 102.7, upstream of both bridge records at mile 104.2; the river geometry ends at the actual confluence near 37.884169,-92.06399, mile 107.90. The two bridge pins are about 21 m apart, share the same mile, and remain selectable despite prose saying no access at the Highway V bridge and no public parking. An older MDC-derived chart distinguishes Highway V, old US 66 and the downstream confluence.",
+    "action": "Reverify all three destinations as one corridor task. Correct the confluence identity/location only from an actual landing source. Distinguish historic bridges from an operator's authorized launch, and merge records only if they truly refer to one arrival point. Do not replace coordinates with the geometric mouth unless it is a verified vehicle-accessible destination.",
+    "sources": [
+      "https://www.floatmissouri.com/plan/missouri-rivers/big-piney-river/"
+    ],
+    "code": []
+  },
+  {
+    "id": "F13",
+    "priority": "P1",
+    "confidence": "Needs verification",
+    "title": "Mammoth Spring State Park is selectable without a verified launch role",
+    "access_slugs": [
+      "spring-river/mammoth-spring-state-park-dam-1"
+    ],
+    "observation": "The active record is endpoint=true but types=[park], with no description, road access or parking details. Facilities mention lake rentals and a put-in below Dam #1, which are different destinations. The existing trust check flags this exact inconsistency.",
+    "action": "Confirm a legal, road-reachable downstream launch and the correct bank/parking destination. Add the appropriate access role and precise directions if confirmed; otherwise keep the park discoverable and disable endpoint eligibility. Neither a park boundary nor a fishing-water description alone settles launchability.",
+    "sources": [
+      "https://www.agfc.com/fishing/where-to-fish/trout-waters/spring-river/"
+    ],
+    "code": [
+      "missouri-float-planner/src/lib/trust/checks/float-endpoint-eligibility.ts"
+    ]
+  },
+  {
+    "id": "F14",
+    "priority": "P2",
+    "confidence": "Needs verification",
+    "title": "Salvation Army Camp card contains Bluff View's identity",
+    "access_slugs": [
+      "jacks-fork/salvation-army-camp"
+    ],
+    "observation": "The approved card is titled Salvation Army Camp, but its prose calls the destination Bluff View and its directions use the Highway O spur. NPS identifies Bluff View as a Jacks Fork access/primitive camping location. A historic alias may be involved; the data does not record one.",
+    "action": "Verify the pinned destination against the NPS map, then use its current public name and preserve the historical name as an alias if warranted. Do not silently reinterpret a private camp as an NPS access.",
+    "sources": [
+      "https://home.nps.gov/ozar/planyourvisit/park-brochure.htm",
+      "https://www.nps.gov/ozar/planyourvisit/primitive-campgrounds.htm"
+    ],
+    "code": []
+  },
+  {
+    "id": "F15",
+    "priority": "P2",
+    "confidence": "Needs verification",
+    "title": "Van Buren has two closely overlapping active city accesses",
+    "access_slugs": [
+      "current/van-buren",
+      "current/van-buren-riverfront-park"
+    ],
+    "observation": "Van Buren City Access and Van Buren Riverfront Park are about 140 m apart at miles 86.55 and 86.57. One card is sparse and the other describes the main city launch/park. A third similarly named record is already unapproved.",
+    "action": "Confirm whether these are two usable launches or duplicate descriptions of one park. If one destination, preserve a canonical access ID and reconcile references before retiring the duplicate. If distinct, name the actual ramps/banks and clarify directions. Proximity alone is insufficient evidence to merge.",
+    "sources": [],
+    "code": []
+  },
+  {
+    "id": "F16",
+    "priority": "P2",
+    "confidence": "Needs verification",
+    "title": "Several same_place links combine different apparent arrival coordinates",
+    "observation": "Eight same_place links span more than 300 m, including Onondaga (~1,033 m), Ozark Outdoors (~1,291 m), Bass (~890 m), Round Spring (~415 m), and two Montauk service links (~1,570 m each). Same_place suppresses the service marker and takes precedence over distance. These can be legitimate property links with inaccurate geocodes, but the schema defines same_place as one arrival point.",
+    "action": "Verify the launch and campground/reception entrance for each link. Correct service geocodes if wrong; use located_at when the destinations are separate within one facility. Keep Alley located_at unless evidence establishes the same arrival point. Sharing planning and camping data does not require erasing a separate arrival destination.",
+    "sources": [],
+    "code": [
+      "eddy-ios/src/map/accessLayers.ts",
+      "missouri-float-planner/src/app/api/services/route.ts",
+      "missouri-float-planner/supabase/migrations/20260811140000_access_point_services.sql"
+    ]
+  },
+  {
+    "id": "F17",
+    "priority": "P2",
+    "confidence": "Confirmed conflict",
+    "title": "Alley and other campground cards contain stale or conflicting details",
+    "access_slugs": [
+      "jacks-fork/alley-spring",
+      "current/pulltite-spring",
+      "current/round-spring",
+      "current/big-spring"
+    ],
+    "observation": "Alley's access facilities say 26 electric sites, its directory description says 28, and the NPS cache says 27. The same NPS row reports 146 total sites and 162 reservable sites, so the provider itself is not internally consistent. Alley directory notes still promise winter first-come camping; Big Spring says some sites are first-come. Their NPS reservation information says reservation-only since January 2025. Pulltite facilities retain $16/night while the current NPS page lists a $20 summer non-electric fee. Round Spring's prose says about 60 sites while the NPS cache says 55.",
+    "action": "Remove stale reservation claims and derive campground detail from one reviewed source with dates. Resolve count definitions and upstream conflicts before publishing a single precise number. Separate day-use/launch fees from campsite fees; fee_required=false does not by itself prove that camping is free.",
+    "sources": [
+      "https://www.nps.gov/ozar/planyourvisit/alley-spring-campground.htm",
+      "https://www.nps.gov/ozar/planyourvisit/pulltite-campground.htm",
+      "https://www.recreation.gov/camping/campgrounds/234046"
+    ],
+    "code": [
+      "missouri-float-planner/src/lib/access-points/detail.ts",
+      "missouri-float-planner/src/app/api/rivers/[slug]/services/route.ts"
+    ]
+  },
+  {
+    "id": "F18",
+    "priority": "P2",
+    "confidence": "Confirmed presentation inconsistency",
+    "title": "Access prose and card mileage use unlabeled different mile systems",
+    "access_slugs": [
+      "big-piney/baptist-camp",
+      "big-piney/mineral-springs",
+      "big-piney/boiling-spring",
+      "big-piney/mason-bridge",
+      "big-piney/slabtown",
+      "courtois/bass-river-resort",
+      "courtois/huzzah-conservation-area-courtois-access",
+      "huzzah/dillard-mill"
+    ],
+    "observation": "Examples: Baptist Camp on Big Piney displays mile 19.1 while its description calls it mile 0.0; Mineral Springs 30.4 versus 14.6; Boiling Spring 42.4 versus 25.8; Bass on Courtois 15.4 versus prose 20.1. Huzzah Dillard Mill has -1.8 in the catalog and 0.0 in prose. Published chart miles and geometric miles can have different origins, so these are not evidence for a bulk mileage rewrite.",
+    "action": "Label source-specific chart miles explicitly or generate in-app mile references from the same canonical index used by the card. Preserve the editorial mile system and verify individual outliers; never globally replace miles with snapped geometry values.",
+    "sources": [],
+    "code": [
+      "missouri-float-planner/src/lib/geo/mile-index.ts",
+      "docs/river-access-data-audit-2026-09-14.md"
+    ]
+  },
+  {
+    "id": "F19",
+    "priority": "P1",
+    "confidence": "Confirmed internal inconsistency",
+    "title": "Two live route segments quote implausibly short distances",
+    "access_slugs": [
+      "niangua/riverfront-campground-canoe",
+      "niangua/bennett-spring-access",
+      "meramec/campbell-bridge",
+      "meramec/riverview-ranch"
+    ],
+    "observation": "A fresh validate_river_data() run flags Riverfront Campground & Canoe to Bennett Spring Access: 0.20 quoted miles versus 1.41 miles of river line. Campbell Bridge to Riverview Ranch: 0.20 versus 0.53. This identifies inconsistent pairs, not which endpoint is wrong.",
+    "action": "Recheck each pair's entrance, launch coordinate and editorial mile before correcting either record. Keep neighboring routes and old saved plans in regression checks.",
+    "sources": [],
+    "code": [
+      "missouri-float-planner/src/lib/geo/mile-index.ts",
+      "docs/river-access-data-audit-2026-09-14.md"
+    ]
+  },
+  {
+    "id": "F20",
+    "priority": "P2",
+    "confidence": "Needs verification",
+    "title": "Four launch pins are over 300 m from their assigned river without an explanation",
+    "access_slugs": [
+      "big-piney/boiling-spring",
+      "courtois/courtois-huzzah-confluence-scotia-bridge",
+      "jacks-fork/mdc-south-prong-access",
+      "meramec/lucky-clover-resort"
+    ],
+    "observation": "PostGIS distance from location_orig to river geometry is ~454 m, 385.5 m, 410 m and 300.3 m respectively; off_channel_reason is null. Buffalo City and Ha Ha Tonka are also distant but already have explicit confluence/lake-arm explanations and are not classified as errors by this audit.",
+    "action": "Verify the actual landing and navigation entrance, and inspect the river geometry. A distant pin can be an entrance or incomplete channel line, so do not force it onto the nearest segment. Record a justified off-channel reason where appropriate.",
+    "sources": [],
+    "code": []
+  },
+  {
+    "id": "F21",
+    "priority": "P2",
+    "confidence": "Confirmed cleanup / targeted role review",
+    "title": "Primary types and roles need a small, explicit cleanup",
+    "access_slugs": [
+      "buffalo/shine-eye",
+      "eleven-point/greenbriar-float-camp",
+      "eleven-point/greer-spring",
+      "north-fork-white/hebron-access-steel-bridge",
+      "north-fork-white/blair-bridge-access"
+    ],
+    "observation": "Shine Eye has primary type gravel_bar with roles=[campground], while Greenbriar has primary type float_camp with roles=[campground]. Consumers that use only the primary type can disagree with multi-role consumers. Greer lacks its described campground and ramp roles; North Fork Hebron/Blair facilities mention primitive campsites but their roles omit campground.",
+    "action": "Align legacy primary types with reviewed roles. Verify campground scope at Hebron and Blair before adding a tag, distinguishing camping at the launch from camping elsewhere. Preserve Shine Eye and the boat-in float camps as non-endpoints.",
+    "sources": [],
+    "code": [
+      "packages/eddy-types/index.ts",
+      "missouri-float-planner/src/lib/planner-map-catalog.ts"
+    ]
+  },
+  {
+    "id": "F22",
+    "priority": "P1",
+    "confidence": "Confirmed code risk; recurrence cause unproven",
+    "title": "NPS sync can overwrite reviewed classification and water-access flags",
+    "observation": "categorizePOI searches combined title and body for spring before other classifications. upsertPlace writes type, active=true and is_on_water=true each time. assignRiversToPOIs only reevaluates records whose river_id is null, so already-associated inland records can retain a newly reset on-water flag. This is a concrete recurrence risk, not proof that this job caused every current discrepancy.",
+    "action": "Persist reviewed overrides/provenance and make sync respect them. Revalidate associations independently of whether river_id is already populated. Add regression fixtures for the cabin, Devils Well, Alley and Rocky Falls; confirm the correction survives a dry-run/provider refresh.",
+    "sources": [],
+    "code": [
+      "missouri-float-planner/src/lib/nps/sync.ts"
+    ]
+  },
+  {
+    "id": "F23",
+    "priority": "P2",
+    "confidence": "Confirmed data gaps",
+    "title": "Many public access cards lack practical arrival details",
+    "observation": "Among 325 approved access records on active rivers, 79 lack descriptions, 102 lack road_access, 102 lack parking_info, 164 lack official_site_url, and 137 lack managing_agency. All 325 have no dedicated driving_lat, so navigation depends on original coordinates or other overrides. These are coverage gaps, not proof that the sites are unusable.",
+    "action": "Prioritize launch-specific road/parking guidance and official sources for selectable endpoints, then complete public/permission and seasonal restrictions. Reuse verified provider links and avoid guessing facilities from a campground or park name.",
+    "sources": [],
+    "code": [
+      "missouri-float-planner/src/lib/access-points/detail.ts"
+    ]
+  },
+  {
+    "id": "F24",
+    "priority": "P2",
+    "confidence": "Naming recommendation",
+    "title": "Clarify campground/launch labels at the remaining spring complexes",
+    "access_slugs": [
+      "current/round-spring",
+      "current/big-spring",
+      "jacks-fork/blue-spring",
+      "eleven-point/turner-s-mill-and-spring"
+    ],
+    "observation": "These names can denote the natural feature, the recreation area or a specific launch. The catalog already has separate spring POIs for Round, Big and Blue. Turner\u2019s Mill and Spring describes the north access while Turner Mill South is a separate approved destination and Turner Mill North is an unapproved duplicate candidate.",
+    "action": "Use consistent destination labels such as Round Spring Campground / River Access, Big Spring Campground / Upper Landing, Blue Spring Campground / River Access, and Turner Mill North Access only after verifying the named launch. Retain opposite-bank launches separately. Check NPS vessel restrictions: the Big Spring lower ramp is not the floater landing; do not infer canoe access from a boat-ramp tag.",
+    "sources": [
+      "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm",
+      "https://www.fs.usda.gov/Internet/FSE_DOCUMENTS/stelprdb5200703.pdf"
+    ],
+    "code": []
+  },
+  {
+    "id": "F25",
+    "priority": "P2",
+    "confidence": "Targeted classification review",
+    "title": "Boat-ramp tags do not distinguish hardened ramps from river landings",
+    "access_slugs": [
+      "jacks-fork/alley-spring",
+      "current/pulltite-spring",
+      "current/akers-ferry",
+      "current/big-spring",
+      "current/round-spring"
+    ],
+    "observation": "Several access cards use boat_ramp for places the current NPS compendium names as river landings. NPS distinguishes maintained hardened ramps, opportunistic river landings and floater-only access. It also separates Big Spring\u2019s upper landing from the lower ramp reserved for trailered boats. A broad tag cannot establish suitability for every vessel.",
+    "action": "Verify the actual destination and use access/gravel_bar for a canoe landing where a hardened ramp is not documented. Keep boat_ramp for verified ramps and carry relevant vessel restrictions in visible access guidance. Do not disable all river landings: many are legitimate canoe endpoints.",
+    "sources": [
+      "https://www.nps.gov/ozar/learn/management/ozar-superintendent-s-compendium.htm"
+    ],
+    "code": [
+      "missouri-float-planner/src/lib/access-points/launch-roles.ts"
+    ]
+  }
+]
