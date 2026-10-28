@@ -98,12 +98,12 @@ export default function DamTimeline({
   const peak = plainLanguage ? schedulePeak(day, reference) : null;
   const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
   const defaultReadout = plainLanguage
-    ? peakWindow && day.hours.some(hour => hour.megawatts !== peak?.megawatts)
-      ? `Most generation: ${peakWindow}`
+    ? peakWindow
+      ? `Peak window: ${peak?.windows.length === 1 && peak.windows[0].from === 1 && peak.windows[0].to === 24 ? 'all day' : peakWindow}`
       : scheduledHoursSummary(day.hours)
     : 'Select an hour for details';
   const readout = (
-    <p aria-live="polite" className={`${plainLanguage ? 'mt-2 min-h-10' : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums text-neutral-600`}>
+    <p aria-live="polite" className={`${plainLanguage ? 'mt-2 min-h-10' : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-accent-800' : 'text-neutral-600'}`}>
       {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
     </p>
   );
@@ -140,6 +140,13 @@ export default function DamTimeline({
           );
         }}
       >
+        {peak?.windows.map(window => <div
+          key={window.from}
+          aria-hidden="true"
+          data-peak-window
+          className="pointer-events-none absolute inset-y-0 rounded-t-sm border-t-2 border-accent-500 bg-accent-100/60"
+          style={{ left: `${((window.from - 1) / HOURS) * 100}%`, width: `${((window.to - window.from + 1) / HOURS) * 100}%` }}
+        />)}
         {hours.map((hour, index) => {
           const bar = hour ? scheduledBar(hour.megawatts, reference) : null;
           const generating = (hour?.megawatts ?? 0) > 0;
@@ -149,7 +156,7 @@ export default function DamTimeline({
           const past = elapsed !== null && index + 1 <= Math.floor(elapsed);
 
           return (
-            <div key={index} className="flex h-full flex-1 items-end px-[0.5px]">
+            <div key={index} className="relative z-10 flex h-full flex-1 items-end px-[0.5px]">
               {hour === null ? (
                 // An hour SWPA did not publish. Neither scheduled nor idle, and
                 // it must not draw like either.
@@ -161,7 +168,7 @@ export default function DamTimeline({
                 <div
                   className={[
                     'w-full rounded-sm',
-                    generating ? fillClass(bar?.fraction ?? 0) : 'bg-neutral-200',
+                    generating ? (peak && hour.megawatts === peak.megawatts ? 'bg-accent-500' : fillClass(bar?.fraction ?? 0)) : 'bg-neutral-200',
                     past ? 'opacity-45' : '',
                     hovered === index ? 'ring-2 ring-primary-900' : '',
                   ]
@@ -179,7 +186,8 @@ export default function DamTimeline({
 
         {elapsed !== null && (
           <div
-            className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary-900"
+            data-schedule-now
+            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-primary-900"
             style={{ left: `${(elapsed / HOURS) * 100}%` }}
           />
         )}

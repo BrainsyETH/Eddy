@@ -26,6 +26,7 @@ export default function GenerationCard({ dam, now, availability }: {
           {dam.generationReference && <p>{generationReferenceCitation(dam.generationReference)}. {RACK_ESTIMATE_NOTE}</p>}
           {dam.nameplate && <p>{dam.nameplate.units} generating units · {dam.nameplate.megawatts} MW nameplate capacity. Nameplate capacity and the published scheduling reference can differ.</p>}
           {hasSchedule && <>
+            <p>Orange marks the day’s highest scheduled generation. The dark line marks the current time.</p>
             <p>Southwestern Power Administration posts schedules each afternoon. Its “hour ending” labels describe the preceding hour; Eddy displays the start of each interval.</p>
             <p>Every day uses the same chart scale{dam.generationReference ? `: ${dam.generationReference.schedulingCapacityMw} MW of scheduling capacity` : ''}, so different days can be compared.</p>
           </>}

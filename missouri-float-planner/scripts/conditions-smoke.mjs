@@ -190,6 +190,8 @@ export default function Page() {
     assert.equal(await schedules.locator('details,[role="tab"]').count(),0,'today is visible without a disclosure or day selector');
     const schedule=featuredDam.getByRole('region',{name:'Today’s generation schedule',exact:true});
     const timeline=schedule.getByRole('img');
+    assert(await featuredDam.locator('.bg-secondary-100').count(), 'directory uses the warm reading panel');
+    assert(await schedule.locator('[data-peak-window]').count(), 'directory shares peak highlighting');
     assert.equal(await timeline.evaluate(node=>node.closest('a')),null,'chart interaction is separate from navigation');
     const beforeTimeline=page.url();
     await timeline.scrollIntoViewIfNeeded();
@@ -198,7 +200,7 @@ export default function Page() {
     const hourPosition={x:bounds.width*1.5/24,y:bounds.height/2};
     if(width<900) await timeline.tap({position:hourPosition});
     else await timeline.hover({position:hourPosition});
-    await schedule.getByText('1 AM–2 AM · 200 MW · 50% of capacity · ~10,000 cfs',{exact:true}).waitFor();
+    await schedule.getByText('1 AM–2 AM · ~10,000 cfs scheduled',{exact:true}).waitFor();
     assert.equal(page.url(),beforeTimeline,'hover or tap does not navigate');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: hourly readout fits`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
@@ -211,9 +213,9 @@ export default function Page() {
     await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).focus();
     await timeline.focus();
     await timeline.press('ArrowRight');
-    await schedule.getByText('12 AM–1 AM · 200 MW · 50% of capacity',{exact:true}).waitFor();
+    await schedule.getByText('12 AM–1 AM · 200 megawatts scheduled',{exact:true}).waitFor();
     await timeline.press('ArrowRight');
-    await schedule.getByText('1 AM–2 AM · 200 MW · 50% of capacity · ~10,000 cfs',{exact:true}).waitFor();
+    await schedule.getByText('1 AM–2 AM · ~10,000 cfs scheduled',{exact:true}).waitFor();
     assert.equal(page.url(),beforeTimeline,'keyboard exploration does not navigate');
     await timeline.press('Tab');
     assert.equal(await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).evaluate(node=>node===document.activeElement),true,'keyboard focus moves from the chart to Full report');

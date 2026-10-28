@@ -135,7 +135,7 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
       siteId: '07067000', readings: [400, 450, 500].map((value, i) => ({ timestamp: new Date(now - (3 - i) * 86400000).toISOString(), dischargeCfs: value, gaugeHeightFt: 3 })),
     }));
   });
-  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Increases at 2 PM.', 'Today’s generation schedule', 'Select an hour for details', 'Full report']) assert.ok(html.includes(text), text);
+  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Increases at 2 PM.', 'Today’s generation schedule', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(html.includes(text), text);
   assert.doesNotMatch(html, /Generating now|of full generation|Below-dam elevation/);
   assert.match(html, /role="img" aria-label="Flow \(cfs\) trend chart/);
   assert.ok(html.includes('Eddy_the_Otter_'), 'river report keeps its condition-specific Eddy image');
@@ -157,7 +157,7 @@ test('dam cards render only today’s timeline and roll over at Central midnight
     const html = renderConditions({ rivers: [], dams: [dam], renderedAt: Date.parse(instant) });
     assert.equal((html.match(/role="img"/g) ?? []).length, 1, 'one visible timeline, even with multiple schedule days');
     assert.match(html, new RegExp(`aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is ${capacity}%`));
-    assert.match(html, /Central time at the dam/);
+    assert.match(html, /Central time · Schedule may change/);
     assert.doesNotMatch(html, /<details|role="tab"/);
     for (const link of html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/g)) assert.ok(!link[0].includes('tabindex="0"'), 'timeline is never nested in a navigation link');
   }
