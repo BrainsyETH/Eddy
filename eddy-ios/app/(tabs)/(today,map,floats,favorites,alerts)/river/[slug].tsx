@@ -382,15 +382,23 @@ export default function RiverDetailScreen() {
   const readScroll = useRef<ScrollView>(null);
   const readAnchor = useRef<{ key: string; y: number | null; done: boolean }>({ key: '', y: null, done: false });
   const readTargetKey = JSON.stringify([slug, focus]);
-  const scrollToRead = () => {
-    const anchor = readAnchor.current;
-    if (focus !== 'read' || anchor.key !== readTargetKey || anchor.y === null || anchor.done) return;
+  // The Hazards section's own anchor, for `focus=hazards` — a plan's "Below
+  // your take-out" row lands here. Same mechanism as the read's, kept apart so
+  // one section's layout cannot overwrite the other's position.
+  const hazardsAnchor = useRef<{ key: string; y: number | null; done: boolean }>({ key: '', y: null, done: false });
+  const scrollToAnchor = (
+    target: 'read' | 'hazards',
+    ref: typeof readAnchor,
+  ) => {
+    const anchor = ref.current;
+    if (focus !== target || anchor.key !== readTargetKey || anchor.y === null || anchor.done) return;
     requestAnimationFrame(() => {
-      if (readAnchor.current !== anchor || anchor.done) return;
+      if (ref.current !== anchor || anchor.done) return;
       readScroll.current?.scrollTo({ y: Math.max(-readTopInset, (anchor.y ?? 0) - readTopInset - 12), animated: true });
       anchor.done = true;
     });
   };
+  const scrollToRead = () => scrollToAnchor('read', readAnchor);
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
@@ -625,7 +633,8 @@ export default function RiverDetailScreen() {
    */
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
   const [subscribeError, setSubscribeError] = useState<string | null>(null);
-  const [showAllHazards, setShowAllHazards] = useState(false);
+  // Arriving for the hazards means all of them, not only the critical ones.
+  const [showAllHazards, setShowAllHazards] = useState(focus === 'hazards');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   /**
    * The community photo being reported, when the sheet was opened by its flag.
@@ -1347,7 +1356,7 @@ export default function RiverDetailScreen() {
 
       <ScrollView ref={readScroll} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
         onContentSizeChange={() => { if (displayedOutlook || !outlookLoading) scrollToRead(); }}
-        onScrollBeginDrag={() => { readAnchor.current.done = true; }}>
+        onScrollBeginDrag={() => { readAnchor.current.done = true; hazardsAnchor.current.done = true; }}>
         {/* The way back to the rule that fired the push this screen answered.
             Renders nothing on ordinary navigation — only a notification tap
             carries the params. First in the scroll: the person it serves just
@@ -1622,9 +1631,15 @@ export default function RiverDetailScreen() {
           />
         ) : null}
         {sortedHazards.length > 0 || source.hazards === 'loading' ? (
+          <View onLayout={(event) => {
+            if (hazardsAnchor.current.key !== readTargetKey) hazardsAnchor.current = { key: readTargetKey, y: null, done: false };
+            hazardsAnchor.current.y = event.nativeEvent.layout.y;
+            if (source.hazards !== 'loading') scrollToAnchor('hazards', hazardsAnchor);
+          }}>
           <CollapsibleSection
             title="Hazards"
             leading={<EddySymbol name="hazard" size={18} />}
+            defaultExpanded={focus === 'hazards'}
             summary={
               source.hazards === 'loading' ? 'Loading hazards…' : criticalCount > 0
                   ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
@@ -1689,6 +1704,7 @@ export default function RiverDetailScreen() {
               </Pressable>
             ) : null}
           </CollapsibleSection>
+          </View>
         ) : null}
 
         {/* ── Access points ───────────────────────────────────── */}

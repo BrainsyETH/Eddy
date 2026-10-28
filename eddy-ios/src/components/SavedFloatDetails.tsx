@@ -69,7 +69,11 @@ export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }:
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Maps may need a connection or maps downloaded in advance. Access details can change; confirm permission before entering private land.
         </Text>
-        <PlanDownstreamDams dams={details.damsBelowTakeOut} />
+        <PlanDownstreamDams
+          dams={details.damsBelowTakeOut}
+          riverSlug={saved.riverSlug}
+          onOpenDetail={(destination) => navigate(() => router.push(destination))}
+        />
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.heading, { color: colors.text }]}>Cautions saved with this trip</Text>
           {!details.hazardsUnavailable || details.hazardsSavedAt ? (

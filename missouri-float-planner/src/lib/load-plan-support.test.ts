@@ -9,9 +9,10 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import type { AccessPointDetailResponse, FloatPlan, RiverService } from '@eddy/types';
 import { loadPlanSupport, type PlanSupportDeps } from '../../../eddy-ios/src/lib/loadPlanSupport';
-import { planAccessDestination, planCampingDestination } from '../../../eddy-ios/src/lib/planDestinations';
+import { planAccessDestination, planCampingDestination, planHazardDestination } from '../../../eddy-ios/src/lib/planDestinations';
 import { createPlanDetailNavigation } from '../../../eddy-ios/src/lib/planDetailNavigation';
 import { accessAvailability } from '../../../eddy-ios/src/components/map-sheet/availabilitySource';
 
@@ -203,6 +204,25 @@ test('camping links carry the exact facility and displayed night; older payloads
   assert.deepEqual(planCampingDestination('current', point, availability, '2026-10-03', false), place);
   assert.equal(planAccessDestination('current', {}), null);
   assert.equal(planAccessDestination('', point), null);
+});
+
+test('the low-water dams below a take-out open the river at its hazards', () => {
+  // They were the one list in the plan that went nowhere. A hazard has no
+  // screen of its own; the river screen is where hazards are explained.
+  assert.deepEqual(planHazardDestination('current'), {
+    pathname: '/river/[slug]', params: { slug: 'current', focus: 'hazards' },
+  });
+  assert.equal(planHazardDestination(''), null);
+  const rows = readFileSync('../eddy-ios/src/components/PlanDownstreamDams.tsx', 'utf8');
+  assert.match(rows, /onPress=\{destination \? \(\) => onOpenDetail\(destination\) : undefined\}/);
+  for (const caller of ['PlanResult.tsx', 'SavedFloatDetails.tsx']) {
+    assert.match(readFileSync(`../eddy-ios/src/components/${caller}`, 'utf8'), /<PlanDownstreamDams[\s\S]*?onOpenDetail=/,
+      `${caller} must let the rows open`);
+  }
+  const river = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/river/[slug].tsx', 'utf8');
+  assert.match(river, /useState\(focus === 'hazards'\)/, 'arriving for the hazards shows all of them');
+  assert.match(river, /defaultExpanded=\{focus === 'hazards'\}/, 'and opens the section');
+  assert.match(river, /scrollToAnchor\('hazards', hazardsAnchor\)/, 'and scrolls to it');
 });
 
 test('camping links follow the panel when tonight is unmeasured or only a weekend summary exists', () => {
