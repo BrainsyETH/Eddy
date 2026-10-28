@@ -1302,8 +1302,17 @@ Old, suspect, unknown-time and unrated readings use a neutral pill; short age
 and qualifier notes remain visible. The river header omits the condition label,
 and cards omit Eddy's Read excerpt. Favorites does not fetch Reads. Until the
 gauge catalog arrives, cards retain the river headline and scale as a fallback.
-Dam rows show lake/state metadata and a short schedule summary with “Subject
-to change” inline; the detail screen carries the full schedule context.
+Dam favorites follow the Home Screen Dam generation widget: identity and a
+separate star above observed turbine flow beside today's hourly MW schedule.
+The chart uses the day's labeled MW peak, Central-time ticks and a current-hour
+marker; missing hours are hollow, while zero MW stays a short solid bar.
+The card shares the widget packet's validation and freshness rules: older
+readings are neutral, and stale or absent schedules show an explicit fallback.
+Lake/state, observation age, “At the dam” and “Subject to change” remain visible.
+Narrow and large-text layouts stack the reading above the schedule. The card
+opens dam details, and the separate 44-point star removes the favorite. Search
+results retain the compact dam row. This uses existing Favorites data and adds
+no request or native dependency; device verification is unconfirmed.
 
 Individual gauge Favorites also show the condition scale in the station's rated
 unit and a seasonal flow comparison, such as “Lower than usual for mid October”.

@@ -21,7 +21,7 @@ import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
 import { FavoritePlaceCard } from '@/components/FavoritePlaceCard';
 import { GaugeRow } from '@/components/GaugeRow';
-import { DamRow } from '@/components/dam/DamRow';
+import { DamFavoriteCard } from '@/components/dam/DamFavoriteCard';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
@@ -376,15 +376,10 @@ function FavoritesContent() {
         );
       }
       return (
-        <DamRow
+        <DamFavoriteCard
           dam={dam}
           onPress={() => router.push(`/dam/${dam.id}`)}
-          // Everything in this list is starred; the row is what unstars it.
-          starred
           onToggleStar={() => toggleStar(item)}
-          // The reason somebody starred a dam. /api/dams already carries
-          // today's schedule, so this is a render, not a request.
-          showSchedule
         />
       );
     }
