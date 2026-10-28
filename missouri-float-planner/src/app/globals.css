@@ -840,7 +840,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 .reference-cluster-face {
   min-width: 26px; height: 26px; padding: 0 5px; display: grid; place-items: center;
-  border: 2px solid #2D2A24; border-radius: 9999px; background: #F2EAD8; color: #2D2A24;
+  border: 2px solid #2D2A24; border-radius: 6px; background: #F2EAD8; color: #2D2A24;
+  box-shadow: 2px 2px 0 var(--color-neutral-700);
   font-size: 11px; font-weight: 700; pointer-events: none;
 }
 

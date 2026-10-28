@@ -42,7 +42,7 @@ export default function GaugeMapFilters({ state, dark = false, note }: {
         {FLOW_BAND_ORDER.map(key => <li key={key} className="flex items-center gap-1"><Swatch color={FLOW_BAND_SYSTEM[key].solid} />{FLOW_BAND_SYSTEM[key].label}</li>)}
         <li className="flex items-center gap-1"><Swatch color={FLOW_BAND_UNKNOWN_SOLID} />No comparison</li>
         <li className="flex items-center gap-1">
-          <span aria-hidden className="grid h-3.5 place-items-center rounded-full border px-0.5 text-[8px] font-bold"
+          <span aria-hidden className="grid h-3.5 place-items-center rounded-[3px] border px-0.5 text-[8px] font-bold"
             style={{ minWidth: 14, background: REFERENCE_CLUSTER_FILL, borderColor: REFERENCE_CLUSTER_INK, color: REFERENCE_CLUSTER_INK }}>3</span>Group
         </li>
       </ul>
