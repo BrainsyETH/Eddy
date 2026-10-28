@@ -78,14 +78,19 @@ rail, forecasts and timeline, using `/api/usgs/mo-statewide`. The separate
 zoom. Both gauge tiers default on and share saved choices with the web planner.
 No phone or viewport row cap drops stations: SVG screen-space clusters retain
 every visible station and expand on selection. Coincident stations offer a list.
+At zoom 8 and closer, `/api/gauges/map` enriches station names by site ID;
+the index still owns membership and readings even when names are capped or
+unavailable. Existing planner gauges-off preferences migrate to both switches.
 
 The initial camera still frames Missouri and Arkansas. Users can zoom out and
 pan nationwide; simplified Census state outlines provide geographic context.
 Selecting an unrated station loads `/api/gauges/[siteId]` and opens readings,
 observation time, comparison where available, and a link to its full chart.
 Historical readings are opt-in. Unknown, delayed and suspect comparisons remain
-neutral. The existing capped `/api/usgs/mo-sites` endpoint remains available,
-but this map no longer fetches it. Failed refreshes retain previous observations
+neutral. The capped `/api/usgs/mo-sites` endpoint and its loader are deprecated
+compatibility code. They can be removed together after an external-traffic audit
+and announced sunset; no removal date is set. The unused `ContextSiteCard` is
+removed. Failed refreshes retain previous observations
 with a visible retry message in the gauge controls.
 
 ## 4. Design approach
@@ -133,8 +138,15 @@ never re-runs on client nav back/forward within a session.
   reduced motion. If the measured cost breaks the frame budget, the
   layer auto-degrades (halve particles) before it ever drops the map
   below target.
-- **National nodes:** a 64px screen grid groups all visible stations without
-  discharge-based truncation; markers remain SVG and regroup after camera settle.
+- **National nodes:** a world-anchored grid with discrete zoom steps (32–64px
+  cells) groups stations without discharge-based truncation. Whole cells within
+  one screen of overscan preserve centroids and fill newly exposed areas while
+  panning. Freshness invalidates the index only at observation boundaries.
+- **National outlines:** the statically imported JSON is 104,920 bytes, 34,686
+  bytes gzipped, and contributes 104,704 bytes to an esbuild-minified client map
+  module (dependencies external). This measures asset contribution, not the
+  full Next.js production bundle. It stays in the map client chunk; no extra
+  runtime request is needed.
 - **Starfield:** static seeded canvas, redrawn only on resize/camera
   settle — not per frame.
 - **Assets:** hillshade raster ~250 KB, lazy below the fold of nothing

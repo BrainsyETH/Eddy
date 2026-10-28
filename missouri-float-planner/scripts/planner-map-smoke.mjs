@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { runNationalGaugeChecks, nationalGaugeIndex, nationalGaugeDetail } from './national-gauges-smoke.mjs';
+import { waitForMapData, runNationalGaugeChecks, nationalGaugeIndex, nationalGaugeDetail, addNearbyGaugeFixtures, gaugeViewportFixture } from './national-gauges-smoke.mjs';
 const port = 3144,
   origin = `http://127.0.0.1:${port}`;
 const fixtureDir = resolve('src/app/planner-map-layout-check');
@@ -58,6 +58,7 @@ const points = riverMeta.map((river, i) => ['Put-in', 'Take-out', 'Riverside par
     feeNotes: null
   };
 }));
+const nearbyGaugeIndex = addNearbyGaugeFixtures(points[0]);
 async function selectAccessMarker(page, id, touch = false) {
   const marker = page.locator(`.access-point-marker[data-access-point-id="${id}"]`);
   const grouped = await marker.getAttribute('data-cluster-count');
@@ -280,7 +281,7 @@ try {
   let documentRequests = 0;
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documentRequests++; });
   await page.addInitScript(() => localStorage.setItem('eddy-plan-map-filters-v1', JSON.stringify({
-    showNetwork: false, showRiverNames: false, showGauges: false, showPOIs: false, showPhotos: false, hiddenPoiCategories: ['spring']
+    showNetwork: false, showRiverNames: false, showGauges: true, showPOIs: false, showPhotos: false, hiddenPoiCategories: ['spring']
   })));
   const routeHandler = async route => {
     const url = new URL(route.request().url());
@@ -308,7 +309,8 @@ try {
     if (!url.pathname.startsWith('/api/')) return route.continue();
     const path = url.pathname;
     let result = {};
-    if (path === '/api/gauges/points') return route.fulfill({ json: nationalFixture ? nationalGaugeIndex : { v: 1, rows: [] } });
+    if (path === '/api/gauges/points') return route.fulfill({ json: nationalFixture ? nationalGaugeIndex : nearbyGaugeIndex });
+    if (path === '/api/gauges/map') return route.fulfill({ json: gaugeViewportFixture(nationalFixture ? nationalGaugeIndex : nearbyGaugeIndex, url) });
     if (path.startsWith('/api/gauges/')) return route.fulfill({ json: { gauge: nationalGaugeDetail(path.split('/').pop()) } });
     if (path === '/api/usgs/mo-history-bundle' || path === '/api/usgs/mo-forecast') return route.fulfill({ json: { entries: [], generatedAt: timestamp, days: 30 } });
     if (path === '/api/usgs/mo-dataset') {
@@ -430,7 +432,7 @@ try {
     path: `${out}/initial-debug.png`
   });
   await page.waitForFunction(() => window.plannerMap?.getLayer('condition-network-layer') && window.plannerMap?.getLayer('planner-place-hits'));
-  await page.waitForFunction(() => window.plannerMap?.getSource('planner-places')?.getData().then(data => data.features.length === 18));
+  await waitForMapData(page, () => window.plannerMap?.getSource('planner-places')?.getData().then(data => data.features.length === 18));
   await page.waitForFunction(() => window.plannerMap?.queryRenderedFeatures({
     layers: ['condition-network-layer']
   }).length > 0);
@@ -443,7 +445,7 @@ try {
     loaded: window.plannerMap.isSourceLoaded('condition-network-source')
   })));
   await page.evaluate(() => { window.firstPlannerMap = window.plannerMap; });
-  await page.waitForFunction(async () => { const data = await window.plannerMap.getSource('planner-places').getData(); return data.features.filter(f => f.properties.key.startsWith('gauge:')).length === 3 && data.features.filter(f => f.properties.key.startsWith('poi:')).length === 3 && document.querySelectorAll('.river-photo-marker').length === 3; });
+  await waitForMapData(page, async () => { const data = await window.plannerMap.getSource('planner-places').getData(); return data.features.filter(f => f.properties.key.startsWith('gauge:')).length === 3 && data.features.filter(f => f.properties.key.startsWith('poi:')).length === 3 && document.querySelectorAll('.river-photo-marker').length === 3; });
   const attribution = page.locator('.maplibregl-ctrl-attrib');
   assert.equal(await page.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   assert.equal(await attribution.getAttribute('open'), null);
@@ -643,14 +645,14 @@ try {
   await search.fill('jacks fork');
   await page.getByRole('option', { name: /^Jacks Fork River\b/ }).click();
   await jacksAccessRequest;
-  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
+  await waitForMapData(page, async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
   await page.waitForFunction(() => !document.querySelector('.planner-access-strip [data-access-point-id^="p-0-"]'));
   assert.equal(await page.locator('.planner-access-strip button[data-access-point-id]').count(), 0, 'desktop strips must not expose the previous river while access data loads');
   assert.equal(await page.getByRole('button', { name: 'Use as put-in', exact: true }).count(), 0);
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap),
     'switching rivers retains the desktop map while access data is pending');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForFunction(async () => {
+  await waitForMapData(page, async () => {
     const map = window.plannerMap;
     const container = map?.getContainer();
     return container?.isConnected && container.closest('[class~="lg:hidden"]') &&
@@ -658,7 +660,7 @@ try {
   });
   // River and place sources finish independently during the responsive map
   // handoff. Inspect controls after the new place source and its marker frame.
-  await page.waitForFunction(async () => {
+  await waitForMapData(page, async () => {
     const map = window.plannerMap;
     const source = map?.getSource('planner-places');
     return source && map.isSourceLoaded('planner-places') && (await source.getData()).features.every(f => !f.properties.key.startsWith('access:'));
@@ -992,7 +994,7 @@ try {
   const emptyAccessRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/rivers/jacks-fork/access-points');
   await page.goto(`${origin}/planner-map-layout-check?river=jacks-fork&putIn=p-2-0&takeOut=p-2-1&vessel=canoe`, { waitUntil: 'domcontentloaded' });
   await emptyAccessRequest;
-  await page.waitForFunction(async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
+  await waitForMapData(page, async () => (await window.plannerMap?.getSource('condition-river-source')?.getData())?.properties?.name === 'Jacks Fork River');
   assert.deepEqual(await page.evaluate(() => {
     const params = new URLSearchParams(location.search);
     return [params.get('putIn'), params.get('takeOut')];
@@ -1074,9 +1076,9 @@ try {
   mobile.on('pageerror', error => errors.push(String(error)));
   await mobile.route('**/*', routeHandler);
   await mobile.goto(`${origin}/planner-map-layout-check?river=current`, { waitUntil: 'domcontentloaded' });
-  // A default-visible national gauge can share this access point's cluster.
+  // Access points may share a curated place cluster; reference gauges use a separate source.
   // Wait for catalog membership before the explicit close-up below.
-  await mobile.waitForFunction(async () => {
+  await waitForMapData(mobile, async () => {
     const source = window.plannerMap?.getSource('planner-places');
     return source && (await source.getData()).features.some(feature => feature.properties.key === 'access:p-0-0');
   });
@@ -1188,7 +1190,7 @@ try {
   console.log('Mobile details-first planning, persistent search results, zoom controls, fullscreen, route fit and Undo passed');
   }
   nationalFixture = true;
-  await runNationalGaugeChecks({ browser, origin, out, routeHandler });
+  await runNationalGaugeChecks({ browser, origin, out, routeHandler, accessPoints: points[0] });
   assert.deepEqual(errors, []);
   console.log('Desktop/mobile map and national gauge checks passed');
 } catch (error) {

@@ -48,6 +48,7 @@ import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
 import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
 import PlannerPoiCard from '@/components/plan/PlannerPoiCard';
+import NationalGaugeViewport from '@/components/map/NationalGaugeViewport';
 import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
 import { useNationalGauges } from '@/hooks/useNationalGauges';
 import type { MapGaugeLite } from '@/lib/gauges/map-index';
@@ -926,7 +927,7 @@ export default function PlanPageClient({
     setFocusMode('reveal'); setFocusRequest(value => value + 1);
   };
   const currentGauge = selectedGauge && (allGaugeStations?.find(gauge => gauge.id === selectedGauge.id) ?? selectedGauge);
-  const inspectedCard = placeGroup ? <PlannerPlaceChoices places={placeGroup.places} onSelect={handleMarkerSelect} onClose={closePlace} />
+  const inspectedCard = placeGroup ? <PlannerPlaceChoices places={placeGroup.places.map(place => place.kind === 'referenceGauge' ? { ...place, name: nationalGauges.names.get(place.gauge.siteId) ?? place.name } : place)} onSelect={handleMarkerSelect} onClose={closePlace} />
     : selectedReferenceGauge ? <ReferenceGaugeCard gauge={selectedReferenceGauge} onClose={closePlace} />
     : currentGauge ? <PlannerGaugeCard gauge={currentGauge} onClose={closePlace} />
     : selectedPoi ? <PlannerPoiCard poi={selectedPoi} onClose={closePlace} /> : placeCard;
@@ -934,13 +935,20 @@ export default function PlanPageClient({
   const highlightedPlace = selectedPlace ?? placeGroup?.anchor ?? ((selectedPoi || selectedGauge || selectedReferenceGauge) ? focusPlace : localPlaces.find(place => place.id === expandedEndpointId) ?? null);
   const selectedMarkerKey = selectedPlace ? `access:${selectedPlace.id}` : selectedPoi ? `poi:${selectedPoi.id}`
     : selectedReferenceGauge ? `reference:${selectedReferenceGauge.siteId}` : selectedGauge ? `gauge:${selectedGauge.id}` : expandedEndpointId ? `access:${expandedEndpointId}` : null;
-  const markers = useMemo(() => [...plannerMarkers([
+  const referenceMarkers = useMemo(() => referenceGaugeMarkers(nationalGauges.gauges), [nationalGauges.gauges]);
+  const markers = useMemo(() => plannerMarkers([
     ...(isDesktop ? catalog.places.filter(place => !(activeRiver && !accessPlaceholder && visibleAccessPoints && place.riverSlug === activeRiver.slug)) : []), ...localPlaces,
     ...(selectedPlace ? [{ ...selectedPlace, ...(previewPoint ? { type: previewPoint.type, types: previewPoint.types } : {}) }] : []),
   ], isDesktop ? visibleDesktopPois : filteredPois, showGauges ? allGaugeStations ?? [] : [],
-  { riverSlug, putIn: selectedPutIn, takeOut: selectedTakeOut }), ...referenceGaugeMarkers(nationalGauges.gauges)],
-  [nationalGauges.gauges, isDesktop, catalog.places, activeRiver, accessPlaceholder, visibleAccessPoints, localPlaces, selectedPlace, previewPoint, visibleDesktopPois, filteredPois, showGauges, allGaugeStations, riverSlug, selectedPutIn, selectedTakeOut]);
-  const markerLayer = <PlannerMarkerLayer places={markers} selectedKey={selectedMarkerKey} onSelect={handleMarkerSelect} onGroup={handleGroup} onDismiss={closePlace} />;
+  { riverSlug, putIn: selectedPutIn, takeOut: selectedTakeOut }),
+  [ isDesktop, catalog.places, activeRiver, accessPlaceholder, visibleAccessPoints, localPlaces, selectedPlace, previewPoint, visibleDesktopPois, filteredPois, showGauges, allGaugeStations, riverSlug, selectedPutIn, selectedTakeOut]);
+  const markerLayer = <>
+    <NationalGaugeViewport onChange={nationalGauges.onViewportChange} />
+    <PlannerMarkerLayer layer="reference" places={referenceMarkers} selectedKey={selectedReferenceGauge ? selectedMarkerKey : null}
+      onSelect={handleMarkerSelect} onGroup={handleGroup} onDismiss={closePlace} />
+    <PlannerMarkerLayer places={markers} selectedKey={selectedReferenceGauge ? null : selectedMarkerKey}
+      onSelect={handleMarkerSelect} onGroup={handleGroup} onDismiss={closePlace} />
+  </>;
   const mapSelection = highlightedPlace && <PlannerMapSelection place={highlightedPlace}>
     {useCallout ? inspectedCard : null}
   </PlannerMapSelection>;

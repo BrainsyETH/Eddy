@@ -50,22 +50,88 @@ export function filterMapGauges(gauges: MapGaugeLite[], active: ReadonlySet<Gaug
 }
 
 export interface GaugeLayers { rated: boolean; other: boolean }
-export function restoreGaugeLayers(raw: string | null): GaugeLayers {
+export function restoreGaugeLayers(raw: string | null, legacyRaw: string | null = null): GaugeLayers {
   const defaults = { rated: true, other: true };
   try {
+    if (raw === null) {
+      const legacy = JSON.parse(legacyRaw ?? 'null');
+      if (typeof legacy?.showGauges === 'boolean') return { rated: legacy.showGauges, other: legacy.showGauges };
+    }
     const value = JSON.parse(raw ?? 'null');
     return { rated: typeof value?.rated === 'boolean' ? value.rated : defaults.rated,
       other: typeof value?.other === 'boolean' ? value.other : defaults.other };
   } catch { return defaults; }
 }
 
+export interface GaugeViewport { bounds: [number, number, number, number]; zoom: number }
+export const GAUGE_NAME_ZOOM = 8;
+
+/** Small padded CDN keys, split at the date line rather than requesting an invalid box. */
+export function gaugeNameRequests(viewport: GaugeViewport | null): string[] {
+  if (!viewport || viewport.zoom < GAUGE_NAME_ZOOM || viewport.bounds.some(n => !Number.isFinite(n))) return [];
+  const [w, s, e, n] = viewport.bounds;
+  const span = e >= w ? e - w : e + 360 - w;
+  const pad = span * 0.2, latPad = Math.max(0, n - s) * 0.2;
+  const south = Math.max(-90, Math.floor((s - latPad) * 20) / 20);
+  const north = Math.min(90, Math.ceil((n + latPad) * 20) / 20);
+  if (north < south || span <= 0) return [];
+  if (span + 2 * pad >= 360) return [[-180, south, 180, north].join(',')];
+  const west = ((w - pad + 180) % 360 + 360) % 360 - 180;
+  const east = west + span + 2 * pad;
+  const boxes = east > 180 ? [[west, 180], [-180, east - 360]] : [[west, east]];
+  return boxes.map(([left, right]) => [Math.max(-180, Math.floor(left * 20) / 20), south,
+    Math.min(180, Math.ceil(right * 20) / 20), north].join(','));
+}
+
+export function mergeGaugeNames(previous: ReadonlyMap<string, string>, rows: unknown[]): ReadonlyMap<string, string> {
+  let next: Map<string, string> | null = null;
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || !('siteId' in row) || !('name' in row)) continue;
+    const { siteId, name } = row;
+    if (typeof siteId !== 'string' || !/^\d{8,15}$/.test(siteId) || typeof name !== 'string' || !name.trim() || name === `USGS ${siteId}`) continue;
+    if ((next ?? previous).get(siteId) === name) continue;
+    next ??= new Map(previous); next.set(siteId, name);
+  }
+  return next ?? previous;
+}
+
+/** Names never change index membership, coordinates, or the latest reading. */
+export function enrichGaugeNames(index: MapGaugeLite[], names: ReadonlyMap<string, string>): MapGaugeLite[] {
+  let changed = false;
+  const result = index.map(gauge => {
+    const name = names.get(gauge.siteId);
+    if (!name || name === gauge.name) return gauge;
+    changed = true; return { ...gauge, name };
+  });
+  return changed ? result : index;
+}
+
+/** No polling renders: wake only when an observation crosses a freshness boundary. */
+export function nextFreshnessChange(gauges: MapGaugeLite[], now: number): number | null {
+  let next = Infinity;
+  for (const gauge of gauges) {
+    const time = Date.parse(gauge.readingTimestamp ?? '');
+    if (!Number.isFinite(time)) continue;
+    for (const boundary of [time - 300_000, time + 6 * 3_600_000 + 1, time + 24 * 3_600_000 + 1]) {
+      if (boundary > now && boundary < next) next = boundary;
+    }
+  }
+  return Number.isFinite(next) ? next : null;
+}
+
 /** SVG map screen grid: every visible station belongs to exactly one marker, without a row cap. */
 export function clusterGaugePoints<T extends { x: number; y: number }>(points: T[], view: { x: number; y: number; w: number; h: number }, pixelWidth: number) {
-  const cell = 64 * view.w / Math.max(1, pixelWidth);
+  // A world-anchored grid changes only when the zoom crosses a discrete step.
+  // Whole edge cells keep their membership/centroid while panning. One screen
+  // of overscan fills newly exposed areas before the gesture commits.
+  const cell = 64 * 2 ** Math.floor(Math.log2(view.w / Math.max(1, pixelWidth)));
+  const minX = Math.floor((view.x - view.w) / cell), maxX = Math.floor((view.x + 2 * view.w) / cell);
+  const minY = Math.floor((view.y - view.h) / cell), maxY = Math.floor((view.y + 2 * view.h) / cell);
   const groups = new Map<string, T[]>();
   for (const p of points) {
-    if (p.x < view.x || p.x > view.x + view.w || p.y < view.y || p.y > view.y + view.h) continue;
-    const key = `${Math.floor((p.x - view.x) / cell)}:${Math.floor((p.y - view.y) / cell)}`;
+    const x = Math.floor(p.x / cell), y = Math.floor(p.y / cell);
+    if (x < minX || x > maxX || y < minY || y > maxY) continue;
+    const key = `${cell}:${x}:${y}`;
     const group = groups.get(key);
     if (group) group.push(p); else groups.set(key, [p]);
   }

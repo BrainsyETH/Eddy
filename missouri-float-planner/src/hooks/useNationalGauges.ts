@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { decodeMapIndex, filterMapGauges, restoreGaugeLayers, type GaugeFilter, type GaugeLayers } from '@/lib/gauges/map-index';
+import { decodeMapIndex, filterMapGauges, restoreGaugeLayers, nextFreshnessChange, enrichGaugeNames, type GaugeFilter, type GaugeLayers } from '@/lib/gauges/map-index';
+
+import { useGaugeNames } from './useGaugeNames';
 
 const STORAGE_KEY = 'eddy-web-gauge-layers-v1';
 const EMPTY: ReturnType<typeof decodeMapIndex> = [];
@@ -21,19 +23,18 @@ export function useNationalGauges() {
   }, []);
   const [restored, setRestored] = useState(false);
   const [filters, setFilters] = useState<Set<GaugeFilter>>(() => new Set());
-  const [now, setNow] = useState(() => Date.now());
+  const [freshnessNow, setFreshnessNow] = useState(Date.now);
   useEffect(() => {
     try {
-      const saved = restoreGaugeLayers(localStorage.getItem(STORAGE_KEY));
+      const saved = restoreGaugeLayers(localStorage.getItem(STORAGE_KEY), localStorage.getItem('eddy-plan-map-filters-v1'));
       layersRef.current = saved;
       setLayerState(saved);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
     } catch { /* private storage */ }
     setRestored(true);
   }, []);
   useEffect(() => {
-    if (!layers.other) { setFilters(new Set()); return; }
-    const tick = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(tick);
+    if (!layers.other) setFilters(new Set());
   }, [layers.other]);
   const query = useQuery({
     queryKey: ['national-gauge-index'],
@@ -46,13 +47,26 @@ export function useNationalGauges() {
     staleTime: 15 * 60_000, refetchInterval: 15 * 60_000,
     retry: 2, refetchOnWindowFocus: true,
   });
-  const gauges = useMemo(() => restored && layers.other ? filterMapGauges(query.data ?? EMPTY, filters, now) : EMPTY,
-    [restored, layers.other, query.data, filters, now]);
+  const enrichment = useGaugeNames(restored && layers.other);
+  useEffect(() => {
+    if (!layers.other || !query.data) return;
+    const now = Date.now();
+    const next = nextFreshnessChange(query.data, now);
+    if (next === null) return;
+    const update = () => setFreshnessNow(Date.now());
+    const timer = setTimeout(update, Math.min(next - now, 2_147_483_647));
+    const resume = () => { if (!document.hidden && Date.now() >= next) update(); };
+    document.addEventListener('visibilitychange', resume);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', resume); };
+  }, [layers.other, query.data, freshnessNow]);
+  const gauges = useMemo(() => restored && layers.other
+    ? filterMapGauges(enrichGaugeNames(query.data ?? EMPTY, enrichment.names), filters, Math.max(freshnessNow, Date.now())) : EMPTY,
+    [restored, layers.other, query.data, enrichment.names, filters, freshnessNow]);
   const toggleFilter = useCallback((key: GaugeFilter) => setFilters(previous => {
     const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key); return next;
   }), []);
-  return { layers, setLayers, filters, toggleFilter, clearFilters: () => setFilters(new Set()), gauges,
+  return { ...enrichment, layers, setLayers, filters, toggleFilter, clearFilters: () => setFilters(new Set()), gauges,
     loading: layers.other && (!restored || query.isLoading), error: layers.other && query.isError,
-    hasData: query.data !== undefined, retry: () => { void query.refetch(); } };
+    hasData: query.data !== undefined, retry: () => { void query.refetch(); enrichment.retryNames(); } };
 }
 export type NationalGaugeState = ReturnType<typeof useNationalGauges>;

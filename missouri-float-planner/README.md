@@ -219,11 +219,17 @@ spacing, attribution, keyboard search, and desktop/mobile layouts.
 
 The planner (`/plan`) and Live River Map (`/river-map`) share **USGS gauges**
 controls: **Eddy-rated** and **Other USGS**, both enabled by default. Explicit
-layer choices persist across both maps. The national layer uses the complete,
+layer choices persist across both maps. On first use, the previous planner
+`showGauges` preference seeds both switches, preserving a saved off choice.
+The national layer uses the complete,
 CDN-cached `/api/gauges/points` index at every zoom, refreshing every 15 minutes
-while enabled; viewport result caps cannot drop smaller stations. Selecting a
-station loads its name and detail from `/api/gauges/[siteId]`, preserving any
-planned route. Initial map labels use the USGS site number until detail is loaded.
+while enabled; viewport result caps cannot drop smaller stations. At zoom 8
+and closer, debounced `/api/gauges/map` requests enrich pin and choice-list names
+by site ID. Their 1,000-row cap or a failed name request never replaces the index.
+Selecting a station loads detail from `/api/gauges/[siteId]`, preserving any
+planned route. Site numbers remain fallbacks until a name is available.
+Freshness updates run at observation boundaries, rather than rebuilding the
+national layer every minute.
 
 Other gauges show measurements and the shared historical flow-comparison colors,
 never a floatability verdict. Stage-only stations are included. Historical
@@ -231,16 +237,28 @@ observations are opt-in; delayed, suspect and missing-comparison readings do not
 receive a current comparison color. Flow bands combine as alternatives; Reports
 flow and Reports stage narrow together. Filters start clear on each visit.
 
-The planner clusters all places through MapLibre. The SVG Live River Map keeps
+The planner uses separate MapLibre sources and cluster trees for reference
+gauges and places; access points and POIs draw above the reference layer. On
+phones, Eddy-rated gauges now cover all rated rivers, matching desktop, rather
+than only the selected river. The SVG Live River Map keeps
 its Ozarks home view and river overlays while allowing nationwide pan/zoom with
-state outlines. Its screen-space clusters account for every visible national
-station, including on phones; coincident stations have a choice list. The old
-capped `/api/usgs/mo-sites` layer is replaced, while the API remains available.
+state outlines. Its world-anchored clusters use discrete zoom steps and one
+screen of overscan, keeping centroids stable and filling the view during pans.
+They account for every visible national station, including on phones; coincident
+stations have a choice list. Automatic curated selections retain the original
+Ozarks zoom limits. The old `ContextSiteCard` has been removed. The capped
+`/api/usgs/mo-sites` API and its loader remain deprecated compatibility code:
+remove them together only after checking external traffic and announcing a
+sunset; no removal date is scheduled.
 National readings remain their latest observations when the curated river
 history timeline is scrubbed.
 
 `npm run test:national-gauges` runs fixture-backed Chromium checks of both real
-maps at desktop, 390px and 320px with over 14,000 stations. The full
+maps at desktop, 390px and 320px with over 14,000 stations, including dense
+Ozarks stations beside access points, viewport name enrichment/failure/caps,
+legacy preferences, and source stability across an unchanged minute. River Map
+Smoke runs this suite in CI alongside `scripts/mosw-smoke.ts`, whose original
+mobile dismissal coordinate remains unchanged. The full
 `npm run test:planner-map` includes these checks after its route regression suite.
 Use `PLAYWRIGHT_CHROMIUM_PATH` for an installed browser. Run browser checks
 separately from typechecking because the runner creates and removes temporary

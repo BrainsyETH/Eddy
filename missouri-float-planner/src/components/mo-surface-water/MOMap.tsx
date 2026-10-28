@@ -20,7 +20,7 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
-import { clusterGaugePoints, referenceColor, type MapGaugeLite } from '@/lib/gauges/map-index';
+import { clusterGaugePoints, referenceColor, GAUGE_NAME_ZOOM, type GaugeViewport, type MapGaugeLite } from '@/lib/gauges/map-index';
 import usStates from '@/data/us-gauge-outlines.json';
 import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
@@ -121,6 +121,7 @@ interface MOMapProps {
   flowPaused?: boolean;
   /** National reference gauges (no Eddy float rating). */
   nationalGauges: MapGaugeLite[];
+  onGaugeViewport: (viewport: GaugeViewport) => void;
   selectedContextSiteId?: string | null;
   onClickContextSite?: (site: MapGaugeLite | null) => void;
   /** True when the right rail is pinned open — the zoom cluster slides
@@ -1151,19 +1152,31 @@ export default function MOMap(props: MOMapProps) {
     );
   }, [basemapLakePaths, basemapRiverPaths, lit, reducedMotion]);
 
+  const nationalViewport = useMemo<GaugeViewport>(() => {
+    const [x0, y0] = project(0, 0), [x1, y1] = project(1, 1);
+    const west = (view.x - x0) / (x1 - x0), east = (view.x + view.w - x0) / (x1 - x0);
+    return { bounds: [west, (view.y + view.h - y0) / (y1 - y0), east, (view.y - y0) / (y1 - y0)],
+      zoom: Math.log2(360 * Math.max(1, stageSizeRef.current.w) / (512 * (east - west))) };
+  }, [view, project]);
+  const onGaugeViewport = props.onGaugeViewport;
+  useEffect(() => { onGaugeViewport(nationalViewport); }, [nationalViewport, onGaugeViewport]);
   const nationalClusters = useMemo(() => clusterGaugePoints(nationalNodes, view, stageSizeRef.current.w), [nationalNodes, view]);
   const [gaugeChoices, setGaugeChoices] = useState<MapGaugeLite[]>([]);
   const gaugeChoicesRef = useRef<HTMLElement>(null);
   const visibleGaugeChoices = useMemo(() => {
     const visible = new Set(props.nationalGauges.map(g => g.siteId));
-    return gaugeChoices.filter(g => visible.has(g.siteId));
+    const current = new Map(props.nationalGauges.map(g => [g.siteId, g]));
+    return gaugeChoices.filter(g => visible.has(g.siteId)).map(g => current.get(g.siteId)!);
   }, [gaugeChoices, props.nationalGauges]);
   useEffect(() => { if (visibleGaugeChoices.length) gaugeChoicesRef.current?.focus(); }, [visibleGaugeChoices]);
   const openNationalGroup = (group: (typeof nationalClusters)[number]) => {
     if (group.members.length === 1) { props.onClickContextSite?.(group.members[0].gauge); return; }
     const xs = group.members.map(p => p.x), ys = group.members.map(p => p.y);
     const spread = Math.max(Math.max(...xs) - Math.min(...xs), (Math.max(...ys) - Math.min(...ys)) * stageAspect);
-    if (spread < HOME_VIEW.w / 1000 || view.w <= HOME_VIEW.w / 999) {
+    if (nationalViewport.zoom < GAUGE_NAME_ZOOM) {
+      const w = view.w / 2 ** (GAUGE_NAME_ZOOM + 0.5 - nationalViewport.zoom);
+      setView(clampView({ x: group.x - w / 2, y: group.y - w / stageAspect / 2, w, h: w / stageAspect }));
+    } else if (spread < HOME_VIEW.w / 1000 || view.w <= HOME_VIEW.w / 999) {
       setGaugeChoices(group.members.map(p => p.gauge));
     } else {
       const w = Math.max(HOME_VIEW.w / 1000, Math.min(view.w * 0.6, spread * 1.5));
@@ -1176,9 +1189,10 @@ export default function MOMap(props: MOMapProps) {
     {nationalClusters.map(group => {
       const gauge = group.members[0].gauge, count = group.members.length;
       const selected = count === 1 && props.selectedContextSiteId === gauge.siteId;
+      const inView = group.x >= view.x && group.x <= view.x + view.w && group.y >= view.y && group.y <= view.y + view.h;
       const label = count > 1 ? `${count} USGS gauges. Zoom in or choose a station` : `${gauge.name}. Open gauge details`;
       return <g key={count === 1 ? gauge.siteId : group.key} transform={`translate(${group.x} ${group.y})`}
-        role="button" tabIndex={0} aria-label={label} data-usgs-site-id={count === 1 ? gauge.siteId : undefined}
+        role="button" tabIndex={inView ? 0 : -1} aria-hidden={!inView} data-gauge-visible={inView} aria-label={label} data-usgs-site-id={count === 1 ? gauge.siteId : undefined}
         data-gauge-cluster-count={count > 1 ? count : undefined} style={{ cursor: 'pointer', pointerEvents: 'all' }}
         onClick={guardClick(() => openNationalGroup(group))}
         onKeyDown={event => {
@@ -1459,7 +1473,11 @@ export default function MOMap(props: MOMapProps) {
     // bbox centers in the band; clampView bounds zoom + pan (long rivers cap
     // at the max-out zoom and fit best-effort).
     const from = { ...viewRef.current };
-    const needW = Math.max(bbox.w / 0.9, (bbox.h / (visibleFrac * 0.8)) * stageAspect);
+    // Manual navigation can reach the national network and individual stations.
+    // Automatic curated selection retains its established neighborhood framing:
+    // the new national zoom range must not magnify a tiny river to 1000×.
+    const needW = Math.max(HOME_VIEW.w / 9, Math.min(HOME_VIEW.w * 1.06,
+      Math.max(bbox.w / 0.9, (bbox.h / (visibleFrac * 0.8)) * stageAspect)));
     const to = clampView({
       x: bbox.x + bbox.w / 2 - needW / 2,
       y: bbox.y + bbox.h / 2 - (needW / stageAspect) * (visibleFrac / 2),
@@ -1533,17 +1551,19 @@ export default function MOMap(props: MOMapProps) {
         props.onHoverRiver(null);
         props.onHoverGauge(null, null);
       }}
-      onClick={(e) => {
+      onClick={() => {
         // Empty-area click clears focus — but only if we didn't just pan
         // or finish a pinch.
         if (dragRef.current?.moved || hadMultiTouchRef.current) return;
-        if (e.target === svgRef.current || e.target === e.currentTarget) {
-          props.onFocusRiver(null);
-          props.onFocusGauge(null);
-          props.onClickCampground(null);
-          props.onClickAccessPoint(null);
-          props.onClickPoi(null);
-        }
+        // Interactive features stop propagation in guardClick. Any remaining
+        // click is background, including state fills, terrain and SVG decoration.
+        props.onFocusRiver(null);
+        props.onFocusGauge(null);
+        props.onClickCampground(null);
+        props.onClickAccessPoint(null);
+        props.onClickPoi(null);
+        props.onClickContextSite?.(null);
+        setGaugeChoices([]);
       }}
     >
     {/* Distant sky — static, screen-fixed, behind the landmass. */}

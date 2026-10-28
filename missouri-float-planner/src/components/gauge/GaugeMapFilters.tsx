@@ -40,6 +40,7 @@ export default function GaugeMapFilters({ state, dark = false }: { state: Nation
       </details>
       {state.loading && <p role="status" className="text-xs">Loading USGS gauges…</p>}
       {state.error && <p role="status" className="text-xs">{state.hasData ? 'Gauge refresh failed. Showing previous observations.' : 'USGS gauges could not load.'} <button type="button" className="min-h-11 underline" onClick={state.retry}>Retry gauges</button></p>}
+      {state.namesError && <p role="status" className="text-xs">Station names could not refresh. Site numbers remain available. <button type="button" className="min-h-11 underline" onClick={state.retryNames}>Retry names</button></p>}
       {!state.loading && !state.error && state.gauges.length === 0 && <p role="status" className="text-xs">No gauges match these filters.</p>}
     </>}
   </section>;

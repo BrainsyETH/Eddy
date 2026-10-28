@@ -687,6 +687,7 @@ export default function MOSurfaceWaterApp() {
           showFlow={showFlow}
           showRiverLabels={showRiverLabels}
           nationalGauges={nationalGauges.gauges}
+          onGaugeViewport={nationalGauges.onViewportChange}
           selectedContextSiteId={selectedSite?.siteId ?? null}
           onClickContextSite={selectSite}
           railOpen={railOpen}

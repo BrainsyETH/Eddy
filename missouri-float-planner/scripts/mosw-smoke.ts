@@ -15,7 +15,7 @@
 
 import { chromium, type Page, type Route } from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const PORT = 3117;
@@ -209,10 +209,20 @@ const FIXTURES: Record<string, unknown> = {
   '/api/usgs/mo-statewide': statewide,
   '/api/usgs/mo-history-bundle': history,
   '/api/usgs/mo-forecast': forecast,
-  '/api/usgs/mo-sites': sites,
+  '/api/gauges/points': { v: 1, rows: sites.sites.map((site, index) => [site.site_no, site.lon, site.lat, site.dischargeCfs, 2 + index, Math.floor(Date.parse(site.readingTimestamp) / 1000), 0, 50]) },
+  '/api/gauges/map': { capped: false, total: sites.sites.length, gauges: sites.sites.map(site => ({ siteId: site.site_no, name: site.name })) },
 };
 
-async function interceptApis(page: Page) {
+async function interceptApis(page: Page, baseUrl: string) {
+  page.on('pageerror', error => console.error('Browser error:', error));
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/_next/image' || url.hostname.endsWith('.public.blob.vercel-storage.com')) {
+      return route.fulfill({ contentType: 'image/png', body: readFileSync(path.join(__dirname, '../../eddy-ios/assets/otter/standard.png')) });
+    }
+    if (url.origin !== new URL(baseUrl).origin) return route.fulfill({ status: 204 });
+    return route.continue();
+  });
   await page.route('**/api/usgs/**', (route: Route) => {
     const pathname = new URL(route.request().url()).pathname;
     const body = FIXTURES[pathname];
@@ -222,9 +232,16 @@ async function interceptApis(page: Page) {
     // Eddy gauge reports etc. — harmless 404, the UI degrades by design.
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
-  await page.route('**/api/gauge*/**', (route: Route) =>
-    route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
-  );
+  await page.route('**/api/gauge*/**', (route: Route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const body = FIXTURES[pathname];
+    if (body) return route.fulfill({ json: body });
+    const site = sites.sites.find(site => pathname === `/api/gauges/${site.site_no}`);
+    if (site) return route.fulfill({ json: { gauge: { id: site.site_no, siteId: site.site_no, name: site.name,
+      curated: false, coordinates: { lng: site.lon, lat: site.lat }, dischargeCfs: site.dischargeCfs, gaugeHeightFt: 2,
+      readingTimestamp: site.readingTimestamp, readingSuspect: false, flowPercentile: 50 } } });
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
 }
 
 // ── Harness ──────────────────────────────────────────────────────────────
@@ -250,19 +267,21 @@ async function waitForServer(url: string, timeoutMs = 120_000) {
 
 async function main() {
   const urlArg = process.argv.indexOf('--url');
-  const baseUrl = urlArg > -1 ? process.argv[urlArg + 1] : `http://localhost:${PORT}`;
+  const baseUrl = urlArg > -1 ? process.argv[urlArg + 1] : `http://127.0.0.1:${PORT}`;
   let server: ChildProcess | null = null;
 
   if (urlArg === -1) {
     console.log(`Starting next dev on :${PORT}…`);
-    server = spawn('npx', ['next', 'dev', '-p', String(PORT)], {
+    server = spawn(process.execPath, ['--max-old-space-size=4096', 'scripts/map-smoke-server.mjs', String(PORT)], {
       cwd: path.join(__dirname, '..'),
-      stdio: 'ignore',
-      env: { ...process.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, EDDY_PLANNER_SMOKE: '1', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
       detached: true,
     });
   }
 
+  server?.stdout?.on('data', data => process.stdout.write(data));
+  server?.stderr?.on('data', data => process.stderr.write(data));
   mkdirSync(OUT_DIR, { recursive: true });
   const target = `${baseUrl}/river-map`;
   await waitForServer(target);
@@ -276,13 +295,13 @@ async function main() {
   const executablePath =
     process.env.PLAYWRIGHT_CHROMIUM_PATH ??
     (existsSync(fallbackChromium) ? fallbackChromium : undefined);
-  const browser = await chromium.launch(executablePath ? { executablePath } : {});
+  const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
   try {
     // ── 1. Desktop: first particle frame + dock honesty ──
     console.log('\nDesktop run:');
     {
       const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-      await interceptApis(page);
+      await interceptApis(page, baseUrl);
 
       let firstFrameAt: number | null = null;
       const firstFrame = new Promise<void>((resolve) => {
@@ -322,6 +341,12 @@ async function main() {
       check('gauge-less river says so', /no live gauge/i.test(dockText));
       check('percentile in plain language on rows', /P\d+ · .*normal/i.test(dockText));
 
+      check('national gauge layer renders its index fixture', await page.locator('[data-national-gauges] [data-gauge-visible="true"]').count() > 0);
+      const gaugeFilters = page.getByRole('region', { name: 'USGS gauge filters' });
+      await gaugeFilters.getByRole('button', { name: /^Other USGS/ }).click();
+      check('Other USGS toggle removes the reference layer', await page.locator('[data-national-gauges] [role="button"]').count() === 0);
+      await gaugeFilters.getByRole('button', { name: /^Other USGS/ }).click();
+      await page.locator('[data-national-gauges] [data-gauge-visible="true"]').first().waitFor();
       await page.screenshot({ path: path.join(OUT_DIR, 'desktop.png') });
 
       // Pin the shared-gauge river → RiverCard shows the disclosure + the
@@ -345,7 +370,7 @@ async function main() {
     console.log('\nReduced-motion run:');
     {
       const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-      await interceptApis(page);
+      await interceptApis(page, baseUrl);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       let sawFlow = false;
       page.on('console', (msg) => {
@@ -365,7 +390,7 @@ async function main() {
         isMobile: true,
         hasTouch: true,
       });
-      await interceptApis(page);
+      await interceptApis(page, baseUrl);
       await page.goto(target, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3500);
       await page.screenshot({ path: path.join(OUT_DIR, 'mobile-map.png') });
@@ -470,9 +495,11 @@ async function main() {
         // closes the sheet (replaces the old backdrop-tap dismiss). The point
         // must clear the floating live chip (top-left) and the zoom cluster
         // (right edge) — with no backdrop these are tappable again.
+        console.log('Map dismiss hit target:', await page.evaluate(() => ({ tag: document.elementFromPoint(300, 200)?.tagName, interactive: !!document.elementFromPoint(300, 200)?.closest('[role=button]') })));
         await page.mouse.click(300, 200);
         await page.waitForTimeout(400);
         check('tapping the map above the sheet closes it', (await page.locator('[role="dialog"]').count()) === 0);
+        await page.screenshot({ path: path.join(OUT_DIR, 'mobile-map-dismiss.png') });
       }
       check('mobile screenshots captured', true, OUT_DIR);
       await page.close();
