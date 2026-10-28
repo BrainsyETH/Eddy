@@ -233,7 +233,8 @@ export function PlanSheet({
   const heading = (
     <View style={styles.headText}>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Build a Route'}</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>{river?.name ?? 'Choose a river'}</Text>
+      {/* Once a river is chosen its crumb names it; a subtitle would say it twice. */}
+      {river ? null : <Text style={[styles.subtitle, { color: colors.textMuted }]}>Choose a river</Text>}
     </View>
   );
   const breadcrumb = river ? (
