@@ -5,7 +5,9 @@ import { accessTypeLabel, type MapAccessPoint } from '@eddy/types';
 import { milesBetween, type Coords } from '@eddy/geo';
 import { ControlIcon } from './ControlIcon';
 import { EddyScene } from './EddyScene';
+import { EddySymbol } from './EddySymbol';
 import { PlanAccessPhoto } from './PlanAccessPhoto';
+import { accessKindLabels, formatRiverMiles, timelineGapLabel } from '@/lib/accessPickerCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
@@ -114,24 +116,28 @@ export function PlanAccessPicker({
             </Pressable>
           ) : null}
           <View style={styles.timelineIntro}>
-            <Text style={[styles.optionName, { color: colors.text }]}>
+            <Text style={[styles.introTitle, { color: colors.text }]}>
               {downstreamOrder ? '↓ Upstream to downstream' : 'Nearest to you'}
             </Text>
             <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
               {downstreamOrder
-                ? 'Follow the river miles. Distances are along the river; spacing is not to scale.'
+                ? 'Distances follow the river. Spacing is not to scale.'
                 : 'Sorted by straight-line distance from you, not river order.'}
             </Text>
           </View>
           {downstreamOrder && fromPoint ? (
             <View style={styles.timelineRow}>
               <View style={styles.timelineRail} accessible={false} importantForAccessibility="no-hide-descendants">
-                <View style={[styles.timelineLine, { backgroundColor: colors.border }]} />
-                <View style={[styles.timelineDot, { backgroundColor: colors.interactive, borderColor: colors.bg }]} />
+                <View style={[styles.timelineLine, styles.lineBelow, { backgroundColor: colors.border }]} />
+                {/* Eddy's own access-point mark: the put-in is a place, not a step. */}
+                <View style={[styles.originMark, { backgroundColor: colors.selectionBg, borderColor: colors.interactive }]}>
+                  <EddySymbol name="accessPoint" size={16} />
+                </View>
               </View>
-              <View style={styles.timelineContent}>
-                <Text style={[styles.mileLabel, { color: colors.interactive }]}>YOUR PUT-IN · MILE {fromPoint.riverMile.toFixed(1)}</Text>
+              <View style={[styles.timelineContent, styles.originContent]}>
+                <Text style={[styles.originLabel, { color: colors.interactive }]}>Your put-in</Text>
                 <Text style={[styles.optionName, { color: colors.text }]}>{fromPoint.name}</Text>
+                <Text style={[styles.optionMeta, { color: colors.textMuted }]}>Mile {fromPoint.riverMile.toFixed(1)}</Text>
               </View>
             </View>
           ) : null}
@@ -141,32 +147,48 @@ export function PlanAccessPicker({
         const selected = point.id === selectedId;
         const miles = fromMile != null ? point.riverMile - fromMile : null;
         const away = distances?.get(point.id) ?? null;
-        const previous = index > 0 ? ordered[index - 1] : fromPoint;
-        const gap = previous ? point.riverMile - previous.riverMile : null;
-        const segmentLabel = gap == null ? null : gap === 0
-          ? 'Same river mile as previous access'
-          : `${gap < 0.1 ? '<0.1' : gap.toFixed(1)} mi downstream ${index === 0 ? `from ${originLabel}` : 'from previous access'}`;
+        const awayLabel = away != null ? `${away < 10 ? away.toFixed(1) : away.toFixed(0)} mi away · straight line` : null;
+        const gapLabel = downstreamOrder ? timelineGapLabel(point, ordered[index - 1], index) : null;
+        const last = index === ordered.length - 1;
+        const mileLabel = `Mile ${point.riverMile.toFixed(1)}`;
+        // One headline distance per row: the one that decides this choice.
+        // From a put-in that is the float it makes; on the put-in step it is
+        // how far away the place is, else where it sits on the river.
+        const headline = miles != null
+          ? `${formatRiverMiles(miles)} mi from ${originLabel}`
+          : !downstreamOrder && awayLabel ? awayLabel : mileLabel;
+        // Straight-line, and labelled "away" rather than "drive" for exactly
+        // that reason — an Ozark put-in eight miles off can be forty minutes of
+        // gravel road.
+        const details = [
+          headline === mileLabel ? null : mileLabel,
+          headline === awayLabel ? null : awayLabel,
+          point.isPublic ? 'Public' : null,
+          ...accessKindLabels(point),
+        ].filter(Boolean).join(' · ');
         return (
-          <View style={!downstreamOrder ? styles.nearestItem : undefined}>
-            {downstreamOrder && segmentLabel ? (
+          <View>
+            {gapLabel ? (
               <View style={styles.timelineRow}>
                 <View style={styles.timelineRail} accessible={false} importantForAccessibility="no-hide-descendants">
-                  <View style={[styles.timelineLine, styles.segmentLine, { backgroundColor: colors.border }]} />
+                  <View style={[styles.timelineLine, { backgroundColor: colors.border }]} />
                 </View>
-                <Text style={[styles.segmentLabel, { color: colors.textMuted }]}>{segmentLabel}</Text>
+                <Text style={[styles.segmentLabel, { color: colors.textMuted }]}>{gapLabel}</Text>
               </View>
             ) : null}
-            <View style={styles.timelineRow}>
+            <View style={[styles.timelineRow, !downstreamOrder && styles.nearestItem]}>
               {downstreamOrder ? (
                 <View style={styles.timelineRail} accessible={false} importantForAccessibility="no-hide-descendants">
-                  {index < ordered.length - 1 ? <View style={[styles.timelineLine, { backgroundColor: colors.border }]} /> : null}
+                  <View style={[
+                    styles.timelineLine,
+                    index === 0 && !fromPoint ? styles.lineBelow : last ? styles.lineAbove : null,
+                    { backgroundColor: colors.border },
+                    last && index === 0 && !fromPoint ? styles.hidden : null,
+                  ]} />
                   <View style={[styles.timelineDot, { backgroundColor: selected ? colors.interactive : colors.bg, borderColor: colors.interactive }]} />
                 </View>
               ) : null}
               <View style={styles.timelineContent}>
-                {downstreamOrder ? (
-                  <Text style={[styles.mileLabel, { color: colors.interactive }]}>MILE {point.riverMile.toFixed(1)}{miles != null ? ` · ${miles < 0.1 ? '<0.1' : miles.toFixed(1)} mi from ${originLabel}` : ''}</Text>
-                ) : null}
                 <Pressable
                   key={point.id}
                   onPress={() => onSelect(point)}
@@ -183,34 +205,22 @@ export function PlanAccessPicker({
                   accessibilityLabel={`${point.name}, river mile ${point.riverMile.toFixed(1)}${miles != null ? `, ${miles < 0.1 ? 'less than 0.1' : miles.toFixed(1)} miles downstream from ${originLabel}` : ''}, ${point.isPublic ? 'public access' : 'private access, check permission'}, ${accessTypeLabel(point.type)}${away != null ? `, ${away.toFixed(1)} miles away` : ''}`}
                   accessibilityState={{ selected }}
                 >
-                  <PlanAccessPhoto point={point} style={styles.accessPhoto} compactFallback />
-                  <View style={styles.accessDetails}>
-                    <View style={styles.optionBody}>
-                      <Text style={[styles.optionName, { color: colors.text }]}>
-                        {point.name}
-                      </Text>
-                      <Text style={[styles.accessStatus, { color: colors.text }]}>
-                        {point.isPublic ? 'Public access' : 'Private access · Check permission'}
-                      </Text>
-                      <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
-                        {[
-                          accessTypeLabel(point.type),
-                          !downstreamOrder ? `Mile ${point.riverMile.toFixed(1)}` : null,
-                          // The number that actually decides a take-out. Reading it off
-                          // two river miles in your head is exactly the arithmetic an
-                          // app should be doing for you.
-                          !downstreamOrder && miles != null ? `${miles.toFixed(1)} mi from ${originLabel}` : null,
-                          // Straight-line, and labelled "away" rather than "drive" for
-                          // exactly that reason — an Ozark put-in eight miles off can be
-                          // forty minutes of gravel road.
-                          away != null ? `${away < 10 ? away.toFixed(1) : away.toFixed(0)} mi away · straight line` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Text>
-                    </View>
-                    {selected ? <ControlIcon name="checkmark-circle" size={22} color={colors.interactive} /> : null}
+                  {/* A thumbnail, not a hero: the decision is comparing stops,
+                      so several have to fit on one screen. */}
+                  <PlanAccessPhoto point={point} style={styles.accessPhoto} />
+                  <View style={styles.optionBody}>
+                    <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={2}>
+                      {point.name}
+                    </Text>
+                    <Text style={[styles.headline, { color: colors.interactive }]}>{headline}</Text>
+                    {details ? (
+                      <Text style={[styles.optionMeta, { color: colors.textMuted }]}>{details}</Text>
+                    ) : null}
+                    {point.isPublic ? null : (
+                      <Text style={[styles.accessStatus, { color: colors.text }]}>Private · Check permission</Text>
+                    )}
                   </View>
+                  {selected ? <ControlIcon name="checkmark-circle" size={22} color={colors.interactive} /> : null}
                 </Pressable>
               </View>
             </View>
@@ -222,21 +232,26 @@ export function PlanAccessPicker({
 }
 
 const styles = StyleSheet.create({
-  accessCard: { borderRadius: radii.card, borderWidth: 1 },
-  accessDetails: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
+  accessCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: radii.card, borderWidth: 1 },
   accessList: { padding: 16 },
-  accessPhoto: { width: '100%', aspectRatio: 16 / 9, borderTopLeftRadius: radii.card - 1, borderTopRightRadius: radii.card - 1 },
-  accessStatus: { ...t.sm, fontFamily: fonts.semibold, marginTop: 4 },
+  accessPhoto: { width: 72, height: 72, borderRadius: radii.card - 4 },
+  accessStatus: { ...t.xs, fontFamily: fonts.semibold, marginTop: 2 },
   centered: { flexGrow: 1, flexShrink: 0, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   flex: { flex: 1 },
-  mileLabel: { ...t.sm, fontFamily: fonts.mono, marginBottom: 8 },
+  headline: { ...t.sm, fontFamily: fonts.monoMedium, marginTop: 2 },
+  hidden: { opacity: 0 },
+  introTitle: { ...t.base, fontFamily: fonts.heading },
+  lineAbove: { bottom: '50%' },
+  lineBelow: { top: '50%' },
   nearestItem: { marginBottom: 12 },
   optionBody: { flex: 1, minWidth: 0 },
-  optionMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
-  optionName: { ...t.sm, fontFamily: fonts.semibold },
-  segmentLabel: { flex: 1, ...t.sm, fontFamily: fonts.body, paddingVertical: 14 },
-  segmentLine: { top: 0 },
+  optionMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  optionName: { ...t.base, fontFamily: fonts.semibold },
+  originContent: { paddingVertical: 8 },
+  originLabel: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.6 },
+  originMark: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  segmentLabel: { flex: 1, ...t.xs, fontFamily: fonts.body, paddingVertical: 6 },
   sortRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -251,10 +266,10 @@ const styles = StyleSheet.create({
   },
   sortText: { ...t.sm, fontFamily: fonts.semibold },
   statusContent: { flexGrow: 1, padding: 16 },
-  timelineContent: { flex: 1, minWidth: 0 },
-  timelineDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, marginTop: 3 },
-  timelineIntro: { gap: 4, marginBottom: 16 },
-  timelineLine: { position: 'absolute', width: 2, top: 8, bottom: 0 },
-  timelineRail: { width: 24, alignItems: 'center', marginRight: 8 },
+  timelineContent: { flex: 1, minWidth: 0, paddingVertical: 4 },
+  timelineDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
+  timelineIntro: { gap: 4, marginBottom: 12 },
+  timelineLine: { position: 'absolute', width: 2, top: 0, bottom: 0 },
+  timelineRail: { width: 28, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   timelineRow: { flexDirection: 'row', alignItems: 'stretch' },
 });
