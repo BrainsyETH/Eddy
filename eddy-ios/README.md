@@ -2120,5 +2120,6 @@ selection, cluster expansion and its failure fallback, empty-map dismissal with
 an existing route and reopening the still-selected river,
 rapid tap/pan while a query is pending, POIs near each sheet edge, remembered
 camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
-10.5, pan responsiveness with Other USGS gauges on, failed-first-load/retry,
-VoiceOver list selection, and largest text sizes.
+10.5, pan responsiveness and fast fling with Other USGS gauges on (fling beyond
+the padded area and check for briefly empty edges before the camera settles),
+failed-first-load/retry, VoiceOver list selection, and largest text sizes.

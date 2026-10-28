@@ -1627,22 +1627,11 @@ export function RiverMap({
     'pins-places-index': useCallback(source => registerClusterSource('pins-places-index', source), [registerClusterSource]),
     'pins-services-index': useCallback(source => registerClusterSource('pins-services-index', source), [registerClusterSource]),
   };
-  // Query only mounted POI layers, including overview dots and route endpoints.
-  // Basemap roads, labels and land polygons have no role in resolving a POI tap.
-  const pinHitLayers = useMemo(() => {
-    const ids = ['plan-endpoints-center-badge', 'plan-endpoints-bottom-badge',
-      'plan-endpoints-icon', 'plan-endpoints-label'];
-    for (const key of layers) {
-      if (key === 'allGauges') ids.push('pins-allGauges-dot', 'pins-allGauges-label');
-      else if (key === 'access') ids.push('pins-access-overview', 'pins-access-icon', 'pins-access-label');
-      else if (['gauges', 'dams', 'hazards', 'campgrounds', 'boatRamps', 'springs', 'outfitters', 'lodging'].includes(key)) {
-        ids.push(...['overview', 'badge', 'icon', 'label'].map(part => `pins-${key}-${part}`));
-      }
-    }
-    if (layers.some(key => ['access', 'campgrounds', 'boatRamps'].includes(key))) ids.push('pins-places-index-dot');
-    if (layers.some(key => ['outfitters', 'lodging'].includes(key))) ids.push('pins-services-index-dot');
-    return ids;
-  }, [layers]);
+  // Each rendered POI layer registers its own ID. This render-local collection
+  // belongs to the onMapPress closure below, so conditional layers and the dot
+  // fallback stay in sync without querying absent layers or basemap features.
+  const pinHitLayers: string[] = [];
+  const pinHitLayerId = (id: string) => { pinHitLayers.push(id); return id; };
   const mapSize = useRef({ width: 0, height: 0 });
   const interactionEpoch = useRef(0);
   const tapSequence = useRef(0);
@@ -2014,7 +2003,7 @@ export function RiverMap({
         ) : null}
         {icon && compactUntilZoom !== undefined ? (
           <Mapbox.CircleLayer
-            id={`pins-${id}-overview`}
+            id={pinHitLayerId(`pins-${id}-overview`)}
             filter={solo}
             minZoomLevel={minZoom}
             maxZoomLevel={compactUntilZoom}
@@ -2032,7 +2021,7 @@ export function RiverMap({
         ) : null}
         {icon?.themed ? (
           <Mapbox.CircleLayer
-            id={`pins-${id}-badge`}
+            id={pinHitLayerId(`pins-${id}-badge`)}
             filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
@@ -2049,7 +2038,7 @@ export function RiverMap({
         ) : null}
         {icon ? (
           <Mapbox.SymbolLayer
-            id={`pins-${id}-icon`}
+            id={pinHitLayerId(`pins-${id}-icon`)}
             filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
@@ -2067,7 +2056,7 @@ export function RiverMap({
           />
         ) : (
           <Mapbox.CircleLayer
-            id={`pins-${id}-circle`}
+            id={pinHitLayerId(`pins-${id}-circle`)}
             filter={solo}
             minZoomLevel={minZoom}
             style={{
@@ -2091,7 +2080,7 @@ export function RiverMap({
             in words and in behaviour, which is where it survives being glanced
             at. */}
         <Mapbox.SymbolLayer
-          id={`pins-${id}-label`}
+          id={pinHitLayerId(`pins-${id}-label`)}
           filter={solo}
           // The PIN floor, not the mark floor. A label is allowed to arrive
           // after its pin, never before it — and the pin arrives at `minZoom`:
@@ -2198,7 +2187,7 @@ export function RiverMap({
           }}
         />
         <Mapbox.CircleLayer
-          id="pins-allGauges-dot"
+          id={pinHitLayerId('pins-allGauges-dot')}
           filter={['!', ['has', 'point_count']]}
           style={{
             circleColor: ['get', 'color'],
@@ -2221,7 +2210,7 @@ export function RiverMap({
           }}
         />
         <Mapbox.SymbolLayer
-          id="pins-allGauges-label"
+          id={pinHitLayerId('pins-allGauges-label')}
           filter={['!', ['has', 'point_count']]}
           // ZOOM.names, with every other label on the map. This tier used to
           // name its dots the moment they stopped being bubbles, which put
@@ -2314,7 +2303,7 @@ export function RiverMap({
         }}
       />
       <Mapbox.CircleLayer
-        id={`pins-${id}-index-dot`}
+        id={pinHitLayerId(`pins-${id}-index-dot`)}
         filter={['!', ['has', 'point_count']]}
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
@@ -2359,7 +2348,7 @@ export function RiverMap({
       shape={pinShapes.access}
     >
       <Mapbox.CircleLayer
-        id="pins-access-overview"
+        id={pinHitLayerId('pins-access-overview')}
         // The family index draws everything below here. Without the floor the
         // two would both paint at statewide zoom — bubbles with a full scatter
         // of dots under them, which is the crowding this was meant to end.
@@ -2376,7 +2365,7 @@ export function RiverMap({
         }}
       />
       <Mapbox.SymbolLayer
-        id="pins-access-icon"
+        id={pinHitLayerId('pins-access-icon')}
         minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
@@ -2391,7 +2380,7 @@ export function RiverMap({
           The private cue at this zoom is the callout and the confirmation
           dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
-        id="pins-access-label"
+        id={pinHitLayerId('pins-access-label')}
         minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],
@@ -2920,7 +2909,7 @@ export function RiverMap({
         {(['center', 'bottom'] as const).map(anchor => (
           <Mapbox.CircleLayer
             key={anchor}
-            id={`plan-endpoints-${anchor}-badge`}
+            id={pinHitLayerId(`plan-endpoints-${anchor}-badge`)}
             filter={['==', ['get', 'anchor'], anchor]}
             style={{
               circleRadius: selectedPinId
@@ -2936,7 +2925,7 @@ export function RiverMap({
           />
         ))}
         <Mapbox.SymbolLayer
-          id="plan-endpoints-icon"
+          id={pinHitLayerId('plan-endpoints-icon')}
           style={{
             iconImage: ['get', 'image'],
             iconSize: selectedPinId
@@ -2946,7 +2935,7 @@ export function RiverMap({
           }}
         />
         <Mapbox.SymbolLayer
-          id="plan-endpoints-label"
+          id={pinHitLayerId('plan-endpoints-label')}
           style={{
             textField: ['get', 'label'],
             textSize: 12,

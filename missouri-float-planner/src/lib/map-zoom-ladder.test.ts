@@ -178,7 +178,7 @@ test('the label floor is the pin floor, not the mark floor', () => {
   // nameless dams anyway. So this pins the EFFECTIVE floor: a label may wait
   // for its pin (`minZoom`) and for its own rung (`labelMinZoom`), and for
   // nothing else.
-  const label = /id=\{`pins-\$\{id\}-label`\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
+  const label = /id=\{pinHitLayerId\(`pins-\$\{id\}-label`\)\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
   assert.ok(label, 'pinLayer must declare a floor on its label layer');
   assert.match(label[1], /labelMinZoom/, 'the label rung still applies');
   assert.match(label[1], /minZoom \?\? 0/, 'a label is allowed to wait for its pin');

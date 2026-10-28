@@ -105,6 +105,10 @@ test('revealing a POI leaves a visible point alone and moves a point covered by 
 function scene() {
   const selected: string[] = []; let dismissed = 0;
   const zooms: Array<{ lng: number; lat: number; zoom?: number }> = [];
+  const pinHitLayers: string[] = [];
+  const pinHitLayerId = handler('pinHitLayerId', { pinHitLayers });
+  for (const id of ['pins-allGauges-dot', 'pins-allGauges-label', 'pins-access-icon',
+    'pins-hazards-badge', 'pins-places-index-dot', 'plan-endpoints-icon']) pinHitLayerId(id);
   const queryRenderedFeaturesInRect: (box?: number[], filter?: unknown[], layers?: string[]) => Promise<{ features: object[] }> =
     async () => ({ features: [] });
   const pins = new Map(['gauge:1', 'access:2'].map(id => [id, { id, name: id }]));
@@ -113,7 +117,7 @@ function scene() {
     AccessibilityInfo: { announceForAccessibility: () => {} }, onPinCycle: () => {},
     onSelectPin: (pin: { id: string }) => selected.push(pin.id),
     interactionEpoch: { current: 0 }, tapSequence: { current: 0 },
-    pinHitLayers: handler('pinHitLayers', { layers: ['allGauges', 'access', 'hazards'] })(),
+    pinHitLayers,
     clusterSources: { current: new Map() },
     onZoomToCluster: (point: { lng: number; lat: number; zoom?: number }) => { zooms.push(point); }, onNetworkPress: () => {},
     warn: () => {}, onBackgroundPress: () => { dismissed++; },
@@ -124,7 +128,7 @@ function scene() {
     press: handler('onMapPress', { ...context, selectPinHits }) as (event: object) => Promise<void> };
 }
 const tap = { properties: { screenPointX: 100, screenPointY: 200 } };
-test('POI hit testing queries enabled pin layers, including family dots and route endpoints', async () => {
+test('POI hit testing queries only the IDs registered by rendered pins', async () => {
   const s = scene();
   const queries: string[][] = [];
   s.context.mapRef.current.queryRenderedFeaturesInRect = async (_box, _filter, layers) => {
@@ -133,10 +137,55 @@ test('POI hit testing queries enabled pin layers, including family dots and rout
   };
   await s.press(tap);
   assert.equal(queries.length, 1);
-  for (const id of ['pins-allGauges-dot', 'pins-allGauges-label', 'pins-access-icon',
-    'pins-hazards-badge', 'pins-places-index-dot', 'plan-endpoints-icon']) assert.ok(queries[0].includes(id));
+  assert.equal(queries[0], s.context.pinHitLayers);
   for (const id of ['pins-dams-icon', 'pins-services-index-dot', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
   assert.deepEqual(s.selected, ['access:2']);
+});
+
+test('every rendered POI layer registers its hit-test ID, including the unused dot fallback', () => {
+  const source = ts.createSourceFile('RiverMap.tsx', mapText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const pinHitLayers: string[] = [];
+  const pinHitLayerId = handler('pinHitLayerId', { pinHitLayers });
+  const evaluate = (node: ts.Node) => runInNewContext(
+    ts.transpile(`(${node.getText(source)})`, { target: ts.ScriptTarget.ES2022 }),
+    { pinHitLayerId, id: 'fixture', anchor: 'center' },
+  );
+  const attribute = (node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, name: string) => {
+    const attr = node.attributes.properties.find(p => ts.isJsxAttribute(p) && p.name.getText(source) === name);
+    if (!attr || !ts.isJsxAttribute(attr)) return undefined;
+    return attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : attr.initializer;
+  };
+  let checked = 0;
+  function visit(node: ts.Node) {
+    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && /^Mapbox\..*Layer$/.test(node.tagName.getText(source))) {
+      let parent: ts.Node | undefined = node.parent;
+      while (parent && !(ts.isJsxElement(parent) && parent.openingElement.tagName.getText(source) === 'Mapbox.ShapeSource')) parent = parent.parent;
+      if (parent && ts.isJsxElement(parent)) {
+        const sourceId = attribute(parent.openingElement, 'id');
+        assert.ok(sourceId, 'ShapeSource needs an ID');
+        const name = evaluate(sourceId) as string;
+        if (name.startsWith('pins-') || name === 'plan-endpoints') {
+          const filter = attribute(node, 'filter');
+          // Cluster bubbles/counts are resolved separately through their source.
+          const cluster = filter && ts.isArrayLiteralExpression(filter) &&
+            filter.elements.length === 2 && filter.elements.every(ts.isStringLiteral) &&
+            filter.elements[0].text === 'has' && filter.elements[1].text === 'point_count';
+          if (!cluster) {
+            const id = attribute(node, 'id');
+            assert.ok(id && ts.isCallExpression(id) && id.expression.getText(source) === 'pinHitLayerId',
+              `${name}: ${id?.getText(source)} must register its ID with pinHitLayerId`);
+            const renderedId = evaluate(id);
+            assert.equal(pinHitLayers.at(-1), renderedId, 'the rendered ID must enter the same list queried by onMapPress');
+            checked++;
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(checked > 0, 'the guard must inspect actual rendered POI layers');
+  assert.ok(pinHitLayers.includes('pins-fixture-circle'), 'the dot fallback must be covered even without a current caller');
 });
 test('real map handler cycles cross-source hits despite reversed order and duplicate icon/label hits', async () => {
   const s = scene(); let reverse = false;
