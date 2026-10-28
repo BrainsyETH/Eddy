@@ -48,11 +48,14 @@ import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
 import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
 import PlannerPoiCard from '@/components/plan/PlannerPoiCard';
+import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
+import { useNationalGauges } from '@/hooks/useNationalGauges';
+import type { MapGaugeLite } from '@/lib/gauges/map-index';
 import PlannerGaugeCard from '@/components/plan/PlannerGaugeCard';
 import PlannerPlaceChoices from '@/components/plan/PlannerPlaceChoices';
 import ClearRouteButton from '@/components/plan/ClearRouteButton';
 import Button from '@/components/ui/Button';
-import { plannerMarkers, type PlannerMarker } from '@/lib/planner-markers';
+import { plannerMarkers, referenceGaugeMarkers, type PlannerMarker } from '@/lib/planner-markers';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import type { PointOfInterest } from '@/types/nps';
 import { orderedPlannerEndpoints, plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
@@ -132,7 +135,8 @@ export default function PlanPageClient({
   const [selectedVesselTypeId, setSelectedVesselTypeId] = useState<string | null>(null);
   const [urlInitialized, setUrlInitialized] = useState(false);
   // Gauges default ON — condition-colored gauge pins are core map content.
-  const [showGauges, setShowGauges] = useState(true);
+  const nationalGauges = useNationalGauges();
+  const showGauges = nationalGauges.layers.rated;
   // Map content filters (see components/plan/PlanFilters). Everything
   // defaults on — nearby-rivers network, river name labels, gauges, POIs;
   // hiddenPoiCategories is empty = all shown, so a paddler's category
@@ -144,7 +148,6 @@ export default function PlanPageClient({
   const [hiddenPoiCategories, setHiddenPoiCategories] = useState<Set<string>>(() => new Set());
   const toggleNetwork = useCallback(() => setShowNetwork((v) => !v), []);
   const toggleRiverNames = useCallback(() => setShowRiverNames((v) => !v), []);
-  const toggleGauges = useCallback(() => setShowGauges((v) => !v), []);
   const togglePOIs = useCallback(() => setShowPOIs((v) => !v), []);
   const togglePhotos = useCallback(() => setShowPhotos((v) => !v), []);
   const togglePoiCategory = useCallback((c: string) => {
@@ -193,7 +196,6 @@ export default function PlanPageClient({
       const saved = JSON.parse(raw) as Record<string, unknown>;
       if (typeof saved.showNetwork === 'boolean') setShowNetwork(saved.showNetwork);
       if (typeof saved.showRiverNames === 'boolean') setShowRiverNames(saved.showRiverNames);
-      if (typeof saved.showGauges === 'boolean') setShowGauges(saved.showGauges);
       if (typeof saved.showPOIs === 'boolean') setShowPOIs(saved.showPOIs);
       if (typeof saved.showPhotos === 'boolean') setShowPhotos(saved.showPhotos);
       if (Array.isArray(saved.hiddenPoiCategories)) {
@@ -213,7 +215,6 @@ export default function PlanPageClient({
         JSON.stringify({
           showNetwork,
           showRiverNames,
-          showGauges,
           showPOIs,
           showPhotos,
           hiddenPoiCategories: Array.from(hiddenPoiCategories),
@@ -222,7 +223,7 @@ export default function PlanPageClient({
     } catch {
       // Storage full/blocked — persistence is best-effort.
     }
-  }, [showNetwork, showRiverNames, showGauges, showPOIs, showPhotos, hiddenPoiCategories]);
+  }, [showNetwork, showRiverNames, showPOIs, showPhotos, hiddenPoiCategories]);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<FeedbackContext | undefined>(undefined);
   const [showVisualSubmitForm, setShowVisualSubmitForm] = useState(searchParams.get('submitPhoto') === 'true');
@@ -302,12 +303,18 @@ export default function PlanPageClient({
   const [selectedPlace, setSelectedPlace] = useState<PlannerMapPlace | null>(null);
   const [selectedPoi, setSelectedPoi] = useState<PointOfInterest | null>(null);
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
+  const [selectedReferenceGauge, setSelectedReferenceGauge] = useState<MapGaugeLite | null>(null);
   const [selectedGauge, setSelectedGauge] = useState<GaugeStation | null>(null);
   const [placeGroup, setPlaceGroup] = useState<{ places: PlannerMarker[]; anchor: PlannerMapPlace } | null>(null);
   const [fullDetails, setFullDetails] = useState(false);
   const resetOtherInspection = useCallback(() => {
-    setSelectedGauge(null); setPlaceGroup(null); setFullDetails(false);
+    setSelectedGauge(null); setSelectedReferenceGauge(null); setPlaceGroup(null); setFullDetails(false);
   }, []);
+  useEffect(() => {
+    if (selectedReferenceGauge && !nationalGauges.gauges.some(gauge => gauge.siteId === selectedReferenceGauge.siteId)) {
+      setSelectedReferenceGauge(null);
+    }
+  }, [selectedReferenceGauge, nationalGauges.gauges]);
   const previewAccess = useAccessPoints(selectedPlace?.riverSlug ?? null);
   const searchConditions = useMemo(() => new Map(
     (conditionNetwork?.features ?? []).map(feature => [feature.properties.slug, feature.properties]),
@@ -489,7 +496,7 @@ export default function PlanPageClient({
   const closePlace = useCallback(() => dismissPlace(true), [dismissPlace]);
   // Dismiss on an actual outside click, not a drag or a move between marker and card.
   useEffect(() => {
-    if (!selectedPlace && !selectedPoi && !selectedGauge && !placeGroup && !expandedEndpointId) return;
+    if (!selectedPlace && !selectedPoi && !selectedGauge && !selectedReferenceGauge && !placeGroup && !expandedEndpointId) return;
     let down: { x: number; y: number } | null = null;
     const pointerDown = (event: PointerEvent) => { down = { x: event.clientX, y: event.clientY }; };
     const click = (event: MouseEvent) => {
@@ -503,7 +510,7 @@ export default function PlanPageClient({
     document.addEventListener('pointerdown', pointerDown, true);
     document.addEventListener('click', click);
     return () => { document.removeEventListener('pointerdown', pointerDown, true); document.removeEventListener('click', click); };
-  }, [selectedPlace, selectedPoi, selectedGauge, placeGroup, expandedEndpointId, dismissPlace]);
+  }, [selectedPlace, selectedPoi, selectedGauge, selectedReferenceGauge, placeGroup, expandedEndpointId, dismissPlace]);
   const previewPoint = !previewAccess.isPlaceholderData
     ? previewAccess.data?.find(point => point.id === selectedPlace?.id) : undefined;
 
@@ -887,7 +894,7 @@ export default function PlanPageClient({
     return () => cancelAnimationFrame(frame);
   });
   const hasRoute = !!(putInPoint || takeOutPoint);
-  const useCallout = isDesktop === true && (!!placeGroup || (hasRoute && !fullDetails && !selectedGauge));
+  const useCallout = isDesktop === true && (!!placeGroup || (hasRoute && !fullDetails && !selectedGauge && !selectedReferenceGauge));
   const placeCard = selectedPlace && <PlannerPlaceCard compact={useCallout} place={selectedPlace} point={previewPoint}
     loading={previewAccess.isFetching || previewAccess.isPlaceholderData} failed={previewAccess.isError}
     onRetry={() => { void previewAccess.refetch(); }} canTakeOut={canTakeOut} onClose={closePlace}
@@ -904,7 +911,8 @@ export default function PlanPageClient({
       previewReturnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
     setSelectedPlace(null); setSelectedPoi(null); resetOtherInspection(); setExpandedEndpointId(null);
-    setSelectedGauge(marker.gauge);
+    if (marker.kind === 'referenceGauge') setSelectedReferenceGauge(marker.gauge);
+    else setSelectedGauge(marker.gauge);
     setFocusPlace({ id: marker.id, name: marker.name, slug: '', riverId: '', riverSlug: '', riverName: '', coordinates: marker.coordinates });
     setFocusMode('reveal'); setFocusRequest(value => value + 1);
   };
@@ -919,18 +927,19 @@ export default function PlanPageClient({
   };
   const currentGauge = selectedGauge && (allGaugeStations?.find(gauge => gauge.id === selectedGauge.id) ?? selectedGauge);
   const inspectedCard = placeGroup ? <PlannerPlaceChoices places={placeGroup.places} onSelect={handleMarkerSelect} onClose={closePlace} />
+    : selectedReferenceGauge ? <ReferenceGaugeCard gauge={selectedReferenceGauge} onClose={closePlace} />
     : currentGauge ? <PlannerGaugeCard gauge={currentGauge} onClose={closePlace} />
     : selectedPoi ? <PlannerPoiCard poi={selectedPoi} onClose={closePlace} /> : placeCard;
   const panelInspection = !!inspectedCard && !useCallout;
-  const highlightedPlace = selectedPlace ?? placeGroup?.anchor ?? ((selectedPoi || selectedGauge) ? focusPlace : localPlaces.find(place => place.id === expandedEndpointId) ?? null);
+  const highlightedPlace = selectedPlace ?? placeGroup?.anchor ?? ((selectedPoi || selectedGauge || selectedReferenceGauge) ? focusPlace : localPlaces.find(place => place.id === expandedEndpointId) ?? null);
   const selectedMarkerKey = selectedPlace ? `access:${selectedPlace.id}` : selectedPoi ? `poi:${selectedPoi.id}`
-    : selectedGauge ? `gauge:${selectedGauge.id}` : expandedEndpointId ? `access:${expandedEndpointId}` : null;
-  const markers = useMemo(() => plannerMarkers([
+    : selectedReferenceGauge ? `reference:${selectedReferenceGauge.siteId}` : selectedGauge ? `gauge:${selectedGauge.id}` : expandedEndpointId ? `access:${expandedEndpointId}` : null;
+  const markers = useMemo(() => [...plannerMarkers([
     ...(isDesktop ? catalog.places.filter(place => !(activeRiver && !accessPlaceholder && visibleAccessPoints && place.riverSlug === activeRiver.slug)) : []), ...localPlaces,
     ...(selectedPlace ? [{ ...selectedPlace, ...(previewPoint ? { type: previewPoint.type, types: previewPoint.types } : {}) }] : []),
-  ], isDesktop ? visibleDesktopPois : filteredPois, showGauges ? (isDesktop ? allGaugeStations : gaugeStations) ?? [] : [],
-  { riverSlug, putIn: selectedPutIn, takeOut: selectedTakeOut }),
-  [isDesktop, catalog.places, activeRiver, accessPlaceholder, visibleAccessPoints, localPlaces, selectedPlace, previewPoint, visibleDesktopPois, filteredPois, showGauges, allGaugeStations, gaugeStations, riverSlug, selectedPutIn, selectedTakeOut]);
+  ], isDesktop ? visibleDesktopPois : filteredPois, showGauges ? allGaugeStations ?? [] : [],
+  { riverSlug, putIn: selectedPutIn, takeOut: selectedTakeOut }), ...referenceGaugeMarkers(nationalGauges.gauges)],
+  [nationalGauges.gauges, isDesktop, catalog.places, activeRiver, accessPlaceholder, visibleAccessPoints, localPlaces, selectedPlace, previewPoint, visibleDesktopPois, filteredPois, showGauges, allGaugeStations, riverSlug, selectedPutIn, selectedTakeOut]);
   const markerLayer = <PlannerMarkerLayer places={markers} selectedKey={selectedMarkerKey} onSelect={handleMarkerSelect} onGroup={handleGroup} onDismiss={closePlace} />;
   const mapSelection = highlightedPlace && <PlannerMapSelection place={highlightedPlace}>
     {useCallout ? inspectedCard : null}
@@ -989,8 +998,7 @@ export default function PlanPageClient({
         onToggleNetwork={toggleNetwork}
         showRiverNames={showRiverNames}
         onToggleRiverNames={toggleRiverNames}
-        showGauges={showGauges}
-        onToggleGauges={toggleGauges}
+        gaugeState={nationalGauges}
         showFlow={flowOn}
         onToggleFlow={toggleFlow}
         showPOIs={showPOIs}
@@ -1210,8 +1218,7 @@ export default function PlanPageClient({
             onToggleNetwork={toggleNetwork}
             showRiverNames={showRiverNames}
             onToggleRiverNames={toggleRiverNames}
-            showGauges={showGauges}
-            onToggleGauges={toggleGauges}
+            gaugeState={nationalGauges}
             showFlow={flowOn}
             onToggleFlow={toggleFlow}
             showPOIs={showPOIs}
@@ -1226,7 +1233,7 @@ export default function PlanPageClient({
             onToggleCondition={toggleCondition}
             onClearConditionFilter={clearConditionFilter}
             readingsAsOf={newestReadingAt}
-            className="absolute top-[4.25rem] left-3 z-30"
+            className="absolute top-[4.25rem] left-3 z-50"
           />
           {/* Route tools sit in a row under Filters, near the top of the map:
               at the bottom of the right-hand column the plan sheet covers

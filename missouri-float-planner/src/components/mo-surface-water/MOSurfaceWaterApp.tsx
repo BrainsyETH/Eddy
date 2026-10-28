@@ -12,7 +12,9 @@
 // row lights the reach; scrubbing the timeline repaints the rows. On
 // mobile the dock becomes a slide-in drawer behind a floating live chip.
 
-import { gaugeFreshness } from '@shared/gauge-freshness';
+import { useNationalGauges } from '@/hooks/useNationalGauges';
+import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
+import type { MapGaugeLite } from '@/lib/gauges/map-index';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -35,8 +37,6 @@ import type {
   MoForecastEntry,
   MoForecastResponse,
 } from '@/app/api/usgs/mo-forecast/route';
-import type { MoSitesResponse } from '@/app/api/usgs/mo-sites/route';
-import type { MoContextSite } from '@/lib/usgs/mo-sites';
 import { useRiverMapSelection } from '@/hooks/useRiverMapSelection';
 import { computeTodayVerdicts, FLOATABLE } from './derive';
 import DataDock, { type DockRiverReading, type DockRiverTrend } from './Dock';
@@ -45,7 +45,6 @@ import {
   TimeScrubber,
   DetailModal,
   GaugeHoverOverlay,
-  ContextSiteCard,
   flatlineDays,
   type ModalSelection,
 } from './Chrome';
@@ -63,11 +62,15 @@ export default function MOSurfaceWaterApp() {
   const [statewide, setStatewide] = useState<MoStatewideResponse | null>(null);
   const [historyBundle, setHistoryBundle] = useState<MoHistoryBundleResponse | null>(null);
   const [forecast, setForecast] = useState<MoForecastResponse | null>(null);
-  const [moSites, setMoSites] = useState<MoSitesResponse | null>(null);
-  const [selectedSite, setSelectedSite] = useState<MoContextSite | null>(null);
+  const nationalGauges = useNationalGauges();
+  const [selectedSite, setSelectedSite] = useState<MapGaugeLite | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Set when live fetch failed and we hydrated from the local snapshot. */
   const [staleCacheAt, setStaleCacheAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedSite && !nationalGauges.gauges.some(gauge => gauge.siteId === selectedSite.siteId)) setSelectedSite(null);
+  }, [selectedSite, nationalGauges.gauges]);
 
   const [hoveredRiverId, setHoveredRiverId] = useState<string | null>(null);
   const rivers: MORiver[] = useMemo(() => dataset?.rivers ?? [], [dataset]);
@@ -133,11 +136,8 @@ export default function MOSurfaceWaterApp() {
   const showCampgrounds = false;
   const showAccessPoints = false;
   const showPOIs = false;
-  const [showGauges, setShowGauges] = useState(true);
+  const showGauges = nationalGauges.layers.rated;
   const [showTerrain, setShowTerrain] = useState(true);
-  const [showHistorical, setShowHistorical] = useState(false);
-  const contextSites = (moSites?.sites ?? []).filter(site => showHistorical || gaugeFreshness(site.readingTimestamp) !== 'historical');
-  const [showSites, setShowSites] = useState(true);
   const [showFlow, setShowFlow] = useState(true);
   // River name labels — off by default; an opt-in overlay for orienting to
   // which reach is which without clicking through.
@@ -208,15 +208,6 @@ export default function MOSurfaceWaterApp() {
       }
     };
     load();
-    // Statewide context sites load independently — strictly optional, so
-    // their failure (or slowness) never gates the curated experience.
-    const loadSites = () => {
-      fetch('/api/usgs/mo-sites')
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => { if (!aborted && j) setMoSites(j); })
-        .catch(() => {});
-    };
-    loadSites();
     let lastLiveFetchAt = Date.now();
     const refreshLive = () => {
       lastLiveFetchAt = Date.now();
@@ -224,7 +215,6 @@ export default function MOSurfaceWaterApp() {
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => { if (!aborted && j) setStatewide(j); })
         .catch(() => {});
-      loadSites();
     };
     // refresh the live snapshots every 15 minutes
     const id = setInterval(refreshLive, 15 * 60 * 1000);
@@ -537,7 +527,7 @@ export default function MOSurfaceWaterApp() {
     clearAllOverlays();
     if (id) setFocusedRiverId(id);
   }, [clearAllOverlays, setFocusedRiverId]);
-  const selectSite = useCallback((site: MoContextSite | null) => {
+  const selectSite = useCallback((site: MapGaugeLite | null) => {
     clearAllOverlays();
     if (site) setSelectedSite(site);
   }, [clearAllOverlays]);
@@ -655,20 +645,13 @@ export default function MOSurfaceWaterApp() {
         sharedGaugeByRiver={sharedGaugeByRiver}
         gaugeCount={gauges.length}
         telemetry={telemetry}
-        showGauges={showGauges}
-        setShowGauges={setShowGauges}
+        gaugeState={nationalGauges}
         showTerrain={showTerrain}
         setShowTerrain={setShowTerrain}
-        showHistorical={showHistorical}
-        setShowHistorical={setShowHistorical}
-        showSites={showSites}
-        setShowSites={setShowSites}
         showFlow={showFlow}
         setShowFlow={setShowFlow}
         showRiverLabels={showRiverLabels}
         setShowRiverLabels={setShowRiverLabels}
-        siteCount={contextSites.length}
-        sitesCapped={moSites?.capped ?? false}
         onHoverRiver={setHoveredRiverId}
         onFocusRiver={selectRiver}
         open={dockOpen}
@@ -703,9 +686,8 @@ export default function MOSurfaceWaterApp() {
           showTerrain={showTerrain}
           showFlow={showFlow}
           showRiverLabels={showRiverLabels}
-          contextSites={contextSites}
-          showSites={showSites}
-          selectedContextSiteId={selectedSite?.site_no ?? null}
+          nationalGauges={nationalGauges.gauges}
+          selectedContextSiteId={selectedSite?.siteId ?? null}
           onClickContextSite={selectSite}
           railOpen={railOpen}
           onHoverRiver={setHoveredRiverId}
@@ -715,7 +697,7 @@ export default function MOSurfaceWaterApp() {
           onClickCampground={handleClickCampground}
           onClickAccessPoint={handleClickAccess}
           onClickPoi={handleClickPoi}
-          flowPaused={sheetExpanded || modalSelection != null || dockOpen}
+          flowPaused={sheetExpanded || modalSelection != null || dockOpen || selectedSite != null}
         />
         </div>
 
@@ -773,11 +755,9 @@ export default function MOSurfaceWaterApp() {
         </div>
 
         {selectedSite && (
-          <ContextSiteCard
-            site={selectedSite}
-            onClose={() => setSelectedSite(null)}
-            onSheetExpandedChange={setSheetExpanded}
-          />
+          <div className="absolute inset-x-3 bottom-3 z-30 max-h-[55dvh] overflow-y-auto md:inset-x-auto md:bottom-auto md:right-4 md:top-14 md:w-80 md:max-h-[75dvh]">
+            <ReferenceGaugeCard gauge={selectedSite} onClose={() => setSelectedSite(null)} />
+          </div>
         )}
 
         {error && (

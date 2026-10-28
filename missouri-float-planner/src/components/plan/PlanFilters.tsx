@@ -13,13 +13,14 @@
 // the default is "everything on" and a paddler's choices persist as they
 // switch rivers.
 
+import GaugeMapFilters from '@/components/gauge/GaugeMapFilters';
+import type { NationalGaugeState } from '@/hooks/useNationalGauges';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   SlidersHorizontal,
   Waves,
   Type,
-  Gauge,
   Wind,
   Sailboat,
   Tent,
@@ -61,9 +62,7 @@ export interface PlanFiltersProps {
   /** River name labels along the condition-colored lines. */
   showRiverNames: boolean;
   onToggleRiverNames: () => void;
-  /** USGS gauge station pins. */
-  showGauges: boolean;
-  onToggleGauges: () => void;
+  gaugeState: NationalGaugeState;
   /** Animated downstream flow particles (presentation, session-only). */
   showFlow: boolean;
   onToggleFlow: () => void;
@@ -107,8 +106,7 @@ export default function PlanFilters({
   onToggleNetwork,
   showRiverNames,
   onToggleRiverNames,
-  showGauges,
-  onToggleGauges,
+  gaugeState,
   showFlow,
   onToggleFlow,
   showPOIs,
@@ -157,7 +155,7 @@ export default function PlanFilters({
   const activeFilterCount =
     (showNetwork ? 0 : 1) +
     (showRiverNames ? 0 : 1) +
-    (showGauges ? 0 : 1) +
+    (gaugeState.layers.rated ? 0 : 1) + (gaugeState.layers.other ? 0 : 1) + (gaugeState.filters.size ? 1 : 0) +
     (conditionFilter.size > 0 ? 1 : 0) +
     (!showPOIs ? 1 : Math.min(hiddenCategories.size, categories.length));
 
@@ -255,13 +253,7 @@ export default function PlanFilters({
               on={showRiverNames}
               onClick={onToggleRiverNames}
             />
-            <ToggleRow
-              icon={Gauge}
-              label="Gauge stations"
-              sublabel="Live USGS readings"
-              on={showGauges}
-              onClick={onToggleGauges}
-            />
+            <GaugeMapFilters state={gaugeState} />
             <ToggleRow
               icon={Wind}
               label="Water flow"

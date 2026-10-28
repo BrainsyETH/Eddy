@@ -6,6 +6,8 @@
 // is scrubbed the rows repaint to that day. Desktop: a fixed left panel.
 // Mobile: a slide-in drawer behind a floating live chip.
 
+import GaugeMapFilters from '@/components/gauge/GaugeMapFilters';
+import type { NationalGaugeState } from '@/hooks/useNationalGauges';
 import { useMemo, useRef, useState } from 'react';
 import {
   STAGE_VERDICTS,
@@ -72,20 +74,13 @@ export default function DataDock({
   sharedGaugeByRiver,
   gaugeCount,
   telemetry,
-  showGauges,
-  setShowGauges,
+  gaugeState,
   showTerrain,
   setShowTerrain,
-  showSites,
-  setShowSites,
-  showHistorical,
-  setShowHistorical,
   showFlow,
   setShowFlow,
   showRiverLabels,
   setShowRiverLabels,
-  siteCount,
-  sitesCapped,
   onHoverRiver,
   onFocusRiver,
   open,
@@ -114,21 +109,13 @@ export default function DataDock({
   gaugeCount: number;
   /** Statewide observatory aggregates (see MOSurfaceWaterApp). */
   telemetry: { reporting: number; rising: number; falling: number; risk72h: number };
-  showGauges: boolean;
-  setShowGauges: (v: boolean) => void;
+  gaugeState: NationalGaugeState;
   showTerrain: boolean;
   setShowTerrain: (v: boolean) => void;
-  showSites: boolean;
-  showHistorical: boolean;
-  setShowHistorical: (v: boolean) => void;
-  setShowSites: (v: boolean) => void;
   showFlow: boolean;
   setShowFlow: (v: boolean) => void;
   showRiverLabels: boolean;
   setShowRiverLabels: (v: boolean) => void;
-  /** Context-site count + cap disclosure for the layers row. */
-  siteCount: number;
-  sitesCapped: boolean;
   onHoverRiver: (id: string | null) => void;
   onFocusRiver: (id: string | null) => void;
   /** Mobile drawer state; ignored on md+ where the dock is always shown. */
@@ -306,7 +293,7 @@ export default function DataDock({
             className="mt-1.5"
             style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '0.08em', color: PARCH_FAINT }}
           >
-            Missouri · {rivers.length} float rivers · {gaugeCount} gauges · refreshes every {cadenceMin} min
+            Ozarks · {rivers.length} float rivers · {gaugeCount} rated gauges · refreshes every {cadenceMin} min
           </div>
         </div>
 
@@ -559,7 +546,7 @@ export default function DataDock({
 
         {/* ── Legend + layer toggle ── */}
         <div
-          className="px-4 py-3"
+          className="max-h-[45dvh] shrink-0 overflow-y-auto px-4 py-3"
           style={{
             borderTop: '1px solid rgba(242,234,216,0.1)',
             // Keep the toggles clear of the iOS home indicator when the
@@ -573,30 +560,13 @@ export default function DataDock({
           <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
+          <GaugeMapFilters state={gaugeState} dark />
           <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-            <LayerToggle
-              label="Gauges"
-              glyph="◎"
-              on={showGauges}
-              onToggle={() => setShowGauges(!showGauges)}
-            />
             <LayerToggle
               label="Terrain"
               glyph="▲"
               on={showTerrain}
               onToggle={() => setShowTerrain(!showTerrain)}
-            />
-            <LayerToggle
-              label="Sites"
-              glyph="◦"
-              on={showSites}
-              onToggle={() => setShowSites(!showSites)}
-            />
-            <LayerToggle
-              label="Include historical"
-              glyph="◷"
-              on={showHistorical}
-              onToggle={() => setShowHistorical(!showHistorical)}
             />
             <LayerToggle
               label="Flow"
@@ -611,11 +581,7 @@ export default function DataDock({
               onToggle={() => setShowRiverLabels(!showRiverLabels)}
             />
           </div>
-          {showSites && siteCount > 0 && (
-            <div className="mt-1.5" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.05em', color: PARCH_FAINT }}>
-              {siteCount} statewide USGS sites{sitesCapped ? ' (top by flow — capped)' : ''} · neutral, no float rating
-            </div>
-          )}
+
         </div>
       </aside>
     </>

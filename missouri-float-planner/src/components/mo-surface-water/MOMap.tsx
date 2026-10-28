@@ -20,7 +20,8 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
-import type { MoContextSite } from '@/lib/usgs/mo-sites';
+import { clusterGaugePoints, referenceColor, type MapGaugeLite } from '@/lib/gauges/map-index';
+import usStates from '@/data/us-gauge-outlines.json';
 import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
 import moBasemap from '@/data/mo-rivers-basemap.json';
@@ -118,11 +119,10 @@ interface MOMapProps {
   /** Temporarily stop the flow animation (expanded sheet / modal / dock
    *  covering the map) without unmounting the layer. */
   flowPaused?: boolean;
-  /** Statewide context sites (neutral, no condition rating). */
-  contextSites?: MoContextSite[];
-  showSites?: boolean;
+  /** National reference gauges (no Eddy float rating). */
+  nationalGauges: MapGaugeLite[];
   selectedContextSiteId?: string | null;
-  onClickContextSite?: (site: MoContextSite | null) => void;
+  onClickContextSite?: (site: MapGaugeLite | null) => void;
   /** True when the right rail is pinned open — the zoom cluster slides
    *  left so it never hides underneath the rail. */
   railOpen?: boolean;
@@ -164,26 +164,6 @@ function strokeWidthForRiver(
 function magnitudeR(cfs: number | null | undefined, base: number, span: number): number {
   if (cfs == null || cfs <= 0) return base;
   return base + Math.min(1, Math.sqrt(cfs) / Math.sqrt(60000)) * span;
-}
-
-// Ray-cast point-in-polygon against a single ring.
-function insideRing(lon: number, lat: number, ring: Array<[number, number]>): boolean {
-  let inside = false;
-  const n = ring.length;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const [xi, yi] = ring[i];
-    const [xj, yj] = ring[j];
-    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-// Inside EITHER state — context sites arrive bbox-filtered (includes slivers
-// of neighboring states); only in-region sites render on the map.
-function insideRegion(lon: number, lat: number): boolean {
-  return REGION_RINGS.some((ring) => insideRing(lon, lat, ring));
 }
 
 // Round a raw distance down to a tidy 1/2/5 × 10ⁿ value for the scale bar.
@@ -460,48 +440,17 @@ export default function MOMap(props: MOMapProps) {
     return out;
   }, [project]);
 
-  // Small-screen flag (sampled once) — phones render far fewer context
-  // nodes so the SVG tree stays light (up to 900 groups × 3 circles is the
-  // single biggest reconciliation + per-zoom DOM-write cost on the map).
+  // Small-screen flag controls the curated selection camera and decoration.
   const [isSmallScreen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches,
   );
 
-  // Context sites — projected once, filtered to in-state points. These
-  // are NEUTRAL: location, magnitude (size), and freshness (opacity)
-  // only. No condition color — they carry no curated thresholds. Capped to
-  // the highest-flow ~180 on phones (biggest first) for performance.
-  const contextNodes = useMemo(() => {
-    const sites = props.contextSites ?? [];
-    const out: Array<{
-      site: MoContextSite;
-      x: number;
-      y: number;
-      r: number;
-      fresh: boolean;
-    }> = [];
-    const staleCutoff = Date.now() - 2 * 3600e3;
-    for (const s of sites) {
-      if (!insideRegion(s.lon, s.lat)) continue;
-      const [x, y] = project(s.lon, s.lat);
-      out.push({
-        site: s,
-        x,
-        y,
-        // Smaller than any curated gauge chip so the two classes read
-        // apart in a static screenshot, not just on hover.
-        r: magnitudeR(s.dischargeCfs, 1.4, 4.2),
-        fresh: s.readingTimestamp != null && Date.parse(s.readingTimestamp) > staleCutoff,
-      });
-    }
-    const CONTEXT_CAP_MOBILE = 180;
-    if (isSmallScreen && out.length > CONTEXT_CAP_MOBILE) {
-      out.sort((a, b) => (b.site.dischargeCfs ?? 0) - (a.site.dischargeCfs ?? 0));
-      return out.slice(0, CONTEXT_CAP_MOBILE);
-    }
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.contextSites, project, isSmallScreen]);
+  const nationalNodes = useMemo(() => props.nationalGauges.map(gauge => {
+    const [x, y] = project(gauge.coordinates.lng, gauge.coordinates.lat);
+    return { gauge, x, y };
+  }), [props.nationalGauges, project]);
+  const nationalPaths = useMemo(() => usStates.map(state => ({ name: state.name,
+    path: state.rings.map(ring => polygonToPath(ring as [number, number][], project)).join(' ') })), [project]);
 
   // Cities visible in the framed area (plus a small buffer outside, so the
   // nearest metro still anchors the user's orientation).
@@ -594,24 +543,19 @@ export default function MOMap(props: MOMapProps) {
 
   const clampView = useCallback(
     (v: { x: number; y: number; w: number; h: number }) => {
-      // Zoom range is relative to the home framing: ~9× in (rivers readable),
-      // and barely past home out (home already shows the whole region, so
-      // there's nothing to gain by drifting into open space). Height is
-      // derived from the live stage aspect so the view never letterboxes.
-      const minW = HOME_VIEW.w / 9;
-      const maxW = HOME_VIEW.w * 1.06;
+      // Keep the Ozarks home view, but let the national network be explored.
+      // This equirectangular projector remains valid outside the home bounds.
+      const minW = HOME_VIEW.w / 1000;
+      const maxW = HOME_VIEW.w * 55;
       const nw = Math.max(minW, Math.min(maxW, v.w));
       const nh = nw / stageAspect;
-      // Pan limits: keep the view centre within the region (+ slack) so the
-      // states can't be dragged off-screen.
-      const rcx = regionBounds.x + regionBounds.w / 2;
-      const rcy = regionBounds.y + regionBounds.h / 2;
-      const mX = regionBounds.w * 0.55, mY = regionBounds.h * 0.55;
-      const ccx = Math.max(rcx - mX, Math.min(rcx + mX, v.x + v.w / 2));
-      const ccy = Math.max(rcy - mY, Math.min(rcy + mY, v.y + v.h / 2));
+      const [west, south] = project(-180, -20);
+      const [east, north] = project(180, 85);
+      const ccx = Math.max(west, Math.min(east, v.x + v.w / 2));
+      const ccy = Math.max(north, Math.min(south, v.y + v.h / 2));
       return { x: ccx - nw / 2, y: ccy - nh / 2, w: nw, h: nh };
     },
-    [HOME_VIEW, stageAspect, regionBounds],
+    [HOME_VIEW, stageAspect, project],
   );
 
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -1104,7 +1048,8 @@ export default function MOMap(props: MOMapProps) {
       h: v.h * factor,
     }));
   }, [clampView]);
-  const zoomedIn = view.w < HOME_VIEW.w * 0.99;
+  const awayFromHome = Math.abs(view.w - HOME_VIEW.w) > HOME_VIEW.w * 0.01
+    || Math.abs(view.x - HOME_VIEW.x) > HOME_VIEW.w * 0.01 || Math.abs(view.y - HOME_VIEW.y) > HOME_VIEW.h * 0.01;
 
   // Click handlers on individual features need to ignore the tail of a
   // drag-pan; otherwise dragging across a river or gauge focuses it on
@@ -1206,46 +1151,48 @@ export default function MOMap(props: MOMapProps) {
     );
   }, [basemapLakePaths, basemapRiverPaths, lit, reducedMotion]);
 
-  // Context-site markers. `kStable` is in deps, so this recomputes on a zoom
-  // commit but stays stable across a pan (kStable constant) — React skips
-  // the up-to-180 groups while panning.
-  const contextLayer = useMemo(() => {
-    if (props.showSites === false || contextNodes.length === 0) return null;
-    const style: React.CSSProperties | undefined = reducedMotion
-      ? undefined
-      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms var(--ease-default) 850ms' };
-    return (
-      <g style={style}>
-        {contextNodes.map((n) => {
-          const selected = props.selectedContextSiteId === n.site.site_no;
-          const rr = n.r * kStable;
-          return (
-            <g
-              key={n.site.site_no}
-              transform={`translate(${n.x} ${n.y})`}
-              className="mosw-ctx"
-              style={{ cursor: 'pointer', opacity: selected ? 1 : n.fresh ? 0.8 : 0.4 }}
-              onClick={guardClick(() => props.onClickContextSite?.(n.site))}
-            >
-              <title>
-                {`${n.site.name ?? `USGS ${n.site.site_no}`} · ${Math.round(n.site.dischargeCfs)} cfs — context site, no float rating`}
-              </title>
-              <circle r={Math.max(9 * kStable, rr * 2)} fill="transparent" pointerEvents="all" />
-              <circle r={rr * 1.9} fill="#1D525F" opacity={0.14} pointerEvents="none" />
-              <circle
-                r={rr}
-                fill={n.fresh ? '#1D525F' : '#6B7E85'}
-                stroke={selected ? '#F07052' : 'rgba(15,45,53,0.35)'}
-                strokeWidth={(selected ? 1.8 : 0.7) * kStable}
-                pointerEvents="none"
-              />
-            </g>
-          );
-        })}
-      </g>
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextNodes, kStable, props.selectedContextSiteId, props.showSites, lit, reducedMotion, guardClick, props.onClickContextSite]);
+  const nationalClusters = useMemo(() => clusterGaugePoints(nationalNodes, view, stageSizeRef.current.w), [nationalNodes, view]);
+  const [gaugeChoices, setGaugeChoices] = useState<MapGaugeLite[]>([]);
+  const gaugeChoicesRef = useRef<HTMLElement>(null);
+  const visibleGaugeChoices = useMemo(() => {
+    const visible = new Set(props.nationalGauges.map(g => g.siteId));
+    return gaugeChoices.filter(g => visible.has(g.siteId));
+  }, [gaugeChoices, props.nationalGauges]);
+  useEffect(() => { if (visibleGaugeChoices.length) gaugeChoicesRef.current?.focus(); }, [visibleGaugeChoices]);
+  const openNationalGroup = (group: (typeof nationalClusters)[number]) => {
+    if (group.members.length === 1) { props.onClickContextSite?.(group.members[0].gauge); return; }
+    const xs = group.members.map(p => p.x), ys = group.members.map(p => p.y);
+    const spread = Math.max(Math.max(...xs) - Math.min(...xs), (Math.max(...ys) - Math.min(...ys)) * stageAspect);
+    if (spread < HOME_VIEW.w / 1000 || view.w <= HOME_VIEW.w / 999) {
+      setGaugeChoices(group.members.map(p => p.gauge));
+    } else {
+      const w = Math.max(HOME_VIEW.w / 1000, Math.min(view.w * 0.6, spread * 1.5));
+      setView(clampView({ x: group.x - w / 2, y: group.y - w / stageAspect / 2, w, h: w / stageAspect }));
+    }
+  };
+  // Pixel-sized accessible controls; grid groups contain every visible station.
+  const gaugePixel = view.w / Math.max(1, stageSizeRef.current.w);
+  const nationalLayer = <g data-national-gauges>
+    {nationalClusters.map(group => {
+      const gauge = group.members[0].gauge, count = group.members.length;
+      const selected = count === 1 && props.selectedContextSiteId === gauge.siteId;
+      const label = count > 1 ? `${count} USGS gauges. Zoom in or choose a station` : `${gauge.name}. Open gauge details`;
+      return <g key={count === 1 ? gauge.siteId : group.key} transform={`translate(${group.x} ${group.y})`}
+        role="button" tabIndex={0} aria-label={label} data-usgs-site-id={count === 1 ? gauge.siteId : undefined}
+        data-gauge-cluster-count={count > 1 ? count : undefined} style={{ cursor: 'pointer', pointerEvents: 'all' }}
+        onClick={guardClick(() => openNationalGroup(group))}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openNationalGroup(group); }
+          if (event.key === 'Escape') { event.stopPropagation(); props.onClickContextSite?.(null); }
+        }}>
+        <title>{label}</title>
+        <circle r={22 * gaugePixel} fill="transparent" />
+        <circle r={(count > 1 ? 14 : 5) * gaugePixel} fill={count > 1 ? '#256574' : referenceColor(gauge)}
+          stroke={selected ? '#F07052' : '#F2EAD8'} strokeWidth={(selected ? 3 : 1.5) * gaugePixel} />
+        {count > 1 && <text textAnchor="middle" dy="0.35em" fill="white" fontSize={11 * gaugePixel} fontWeight={700} pointerEvents="none">{count}</text>}
+      </g>;
+    })}
+  </g>;
 
   // site_no+river → curated gauge row. The marker loop used to run
   // rivers.find × gauges.find per marker per render — O(rivers×gauges)
@@ -1305,7 +1252,7 @@ export default function MOMap(props: MOMapProps) {
   // not the continuously-changing view object.
   const otterZoom = view.w < HOME_VIEW.w * 0.5;
 
-  // Gauge markers, memoized like contextLayer: recomputes on zoom commits,
+  // Curated gauge markers: recompute on zoom commits,
   // data ticks, and hover/focus id changes — but NOT on pans or on the
   // hover-position renders that fire for every pointer move on a marker.
   const gaugeLayer = useMemo(() => {
@@ -1447,7 +1394,7 @@ export default function MOMap(props: MOMapProps) {
   const fittedSelRef = useRef<string | null>(null);
   const selectionKey = `${props.focusedGaugeId ?? ''}|${props.focusedRiverId ?? ''}|${props.selectedContextSiteId ?? ''}`;
   useEffect(() => {
-    if (!isSmallScreen || entryPhase !== 'done') return;
+    if ((!isSmallScreen && !props.selectedContextSiteId) || entryPhase !== 'done') return;
     if (selectionKey === '||') { fittedSelRef.current = null; return; }
     if (fittedSelRef.current === selectionKey) return;
 
@@ -1478,8 +1425,8 @@ export default function MOMap(props: MOMapProps) {
         if (minX < Infinity) bbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
       }
     } else if (props.selectedContextSiteId) {
-      const s = (props.contextSites ?? []).find((x) => x.site_no === props.selectedContextSiteId);
-      if (s) bbox = pointBox(s.lon, s.lat);
+      const s = props.nationalGauges.find((x) => x.siteId === props.selectedContextSiteId);
+      if (s) bbox = pointBox(s.coordinates.lng, s.coordinates.lat);
     }
     const stage = stageRef.current;
     if (!bbox || !stage) return;
@@ -1488,6 +1435,22 @@ export default function MOMap(props: MOMapProps) {
     // The band of the stage still visible above the peek sheet.
     const rect = stage.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
+    // National gauge inspection only pans when the card covers the station.
+    // Preserve the zoom the user chose, including a close-up of co-located sites.
+    if (props.selectedContextSiteId) {
+      const current = viewRef.current;
+      const x = bbox.x + bbox.w / 2, y = bbox.y + bbox.h / 2;
+      const px = (x - current.x) / current.w * rect.width;
+      const py = (y - current.y) / current.h * rect.height;
+      const card = document.querySelector('[aria-label="Selected USGS gauge"]')?.getBoundingClientRect();
+      const right = !isSmallScreen && card ? Math.max(80, card.left - rect.left - 24) : rect.width - 24;
+      const bottom = isSmallScreen && card ? Math.max(80, card.top - rect.top - 24) : rect.height - 24;
+      if (px >= 24 && px <= right && py >= 24 && py <= bottom) return;
+      const next = clampView({ ...current,
+        x: x - Math.max(24, Math.min(right, px)) / rect.width * current.w,
+        y: y - Math.max(24, Math.min(bottom, py)) / rect.height * current.h });
+      applyView(next); setView(next); return;
+    }
     const sheetTop = window.innerHeight - Math.round(window.innerHeight * SHEET_PEEK_FRACTION);
     const visibleFrac = Math.max(0.25, (Math.min(rect.bottom, sheetTop) - rect.top) / rect.height);
 
@@ -1619,6 +1582,9 @@ export default function MOMap(props: MOMapProps) {
         </clipPath>
       </defs>
 
+      <g pointerEvents="none" fill="#D4CDBD" stroke="#83989A" strokeWidth={gaugePixel * 0.7}>
+        {nationalPaths.map(state => <path key={state.name} d={state.path}><title>{state.name}</title></path>)}
+      </g>
       {/* Shadow caster — a dark copy of the state, blurred via the filter.
           The parchment group paints over its fill, leaving only the soft
           halo around MO's edges. */}
@@ -1712,12 +1678,6 @@ export default function MOMap(props: MOMapProps) {
           );
         })}
       </g>
-
-      {/* Statewide context sites — every active MO stream gauge with a
-          current discharge reading. Neutral teal glow nodes: size encodes
-          flow (sqrt), dimmed when the reading is older than 2 h. They sit
-          UNDER the curated layer so the product's rivers stay foreground. */}
-      {contextLayer}
 
       {/* Rivers — outer "casing" + per-gauge segmented main stroke. Each
           river is split at midpoints between its gauges and painted in
@@ -2004,10 +1964,16 @@ export default function MOMap(props: MOMapProps) {
           Each marker has an invisible 14px screen hit-target as the
           first child so clicks register reliably even when the visible
           dot is only a few pixels across. (Memoized above — gaugeLayer.) */}
+      {nationalLayer}
       {gaugeLayer}
     </svg>
     </div>
 
+    {visibleGaugeChoices.length > 0 && <section ref={gaugeChoicesRef} tabIndex={-1} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setGaugeChoices([]); } }} aria-label="Choose a USGS gauge" className="absolute left-4 right-4 top-14 z-30 max-h-72 overflow-y-auto rounded-xl bg-white p-3 text-neutral-900 shadow-xl md:left-auto md:w-80">
+      <div className="flex items-center justify-between"><h2 className="font-bold">USGS gauges here</h2><button type="button" className="min-h-11 px-3" onClick={() => setGaugeChoices([])}>Close</button></div>
+      {visibleGaugeChoices.map(g => <button key={g.siteId} type="button" className="block min-h-11 w-full border-t border-neutral-200 text-left"
+        onClick={() => { setGaugeChoices([]); props.onClickContextSite?.(g); }}>{g.name}</button>)}
+    </section>}
     {/* Title — screen-space overlay (not inside the pan/zoom SVG), so it
         stays pinned at the top and never clips as the map fills the stage or
         the user zooms. Desktop only: on phones the dock masthead + FAB
@@ -2022,7 +1988,7 @@ export default function MOMap(props: MOMapProps) {
         fontWeight: 500,
       }}
     >
-      MISSOURI &amp; ARKANSAS · LIVE RIVER NETWORK
+      OZARKS RIVERS · NATIONWIDE USGS GAUGES
     </div>
 
     {/* The color key and source attribution used to live here as two floating
@@ -2068,15 +2034,15 @@ export default function MOMap(props: MOMapProps) {
         type="button"
         aria-label="Reset view"
         onClick={resetView}
-        disabled={!zoomedIn}
+        disabled={!awayFromHome}
         className="w-9 h-9 grid place-items-center rounded-md border-2 select-none"
         style={{
-          background: zoomedIn ? '#FAF8F4' : '#E8E2D5',
-          color: zoomedIn ? '#2D2A24' : '#857D70',
+          background: awayFromHome ? '#FAF8F4' : '#E8E2D5',
+          color: awayFromHome ? '#2D2A24' : '#857D70',
           borderColor: '#3F3B33',
           fontSize: 9.5, fontWeight: 700, letterSpacing: '0', lineHeight: 1,
-          boxShadow: zoomedIn ? '2px 2px 0 #1A1814' : 'none',
-          cursor: zoomedIn ? 'pointer' : 'default',
+          boxShadow: awayFromHome ? '2px 2px 0 #1A1814' : 'none',
+          cursor: awayFromHome ? 'pointer' : 'default',
         }}
         title="Reset view (or double-click the map)"
       >RESET</button>

@@ -18,7 +18,7 @@ export default function PlannerPlaceChoices({ places, onSelect, onClose }: {
     <ul className="max-h-60 overflow-y-auto divide-y divide-neutral-200">
       {places.map(place => <li key={place.key}><Button variant="ghost" onClick={() => onSelect(place)} className="min-h-12 w-full !justify-start gap-3 text-left">
         <EddyIcon name={place.symbol} size={28} /><span className="min-w-0"><span className="block font-semibold">{place.name}</span>
-          <span className="block text-xs font-normal text-neutral-600">{place.kind === 'gauge' ? 'Gauge' : place.kind === 'poi' ? place.poi.type.replaceAll('_', ' ') : 'Access point'}</span></span>
+          <span className="block text-xs font-normal text-neutral-600">{place.kind === 'referenceGauge' ? 'USGS gauge · Not Eddy-rated' : place.kind === 'gauge' ? 'Gauge' : place.kind === 'poi' ? place.poi.type.replaceAll('_', ' ') : 'Access point'}</span></span>
       </Button></li>)}
     </ul>
   </section>;

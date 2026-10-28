@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { runNationalGaugeChecks, nationalGaugeIndex, nationalGaugeDetail } from './national-gauges-smoke.mjs';
 const port = 3144,
   origin = `http://127.0.0.1:${port}`;
 const fixtureDir = resolve('src/app/planner-map-layout-check');
@@ -212,7 +213,7 @@ try {
   await writeFile(`${fixtureDir}/Fixture.tsx`, `'use client'; import {useEffect,useState} from 'react'; import * as maplibregl from 'maplibre-gl'; import Plan from '@/app/plan/PlanPageClient'; export default function Fixture(){const[ready,setReady]=useState(false); useEffect(()=>{const original=maplibregl.Map.prototype.addSource;maplibregl.Map.prototype.addSource=function(...args){(window as unknown as {plannerMap:maplibregl.Map}).plannerMap=this;return original.apply(this,args);};setReady(true);return()=>{maplibregl.Map.prototype.addSource=original;};},[]);return ready?<Plan initialRiverSlug={null} defaultBounds={[-92.5,36.5,-90.4,38.6]}/>:null;}`);
   await mkdir(`${fixtureDir}/ssr`, { recursive: true });
   await writeFile(`${fixtureDir}/ssr/page.tsx`, `import { notFound } from 'next/navigation'; import Plan from '@/app/plan/PlanPageClient'; export const dynamic = 'force-dynamic'; export default function Page(){if(process.env.NODE_ENV!=='development'||process.env.EDDY_PLANNER_SMOKE!=='1')notFound();return <Plan initialRiverSlug={null}/>;}`);
-  server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', String(port)], {
+  server = spawn(process.execPath, ['scripts/map-smoke-server.mjs', String(port)], {
     detached: true,
     env: {
       ...process.env,
@@ -240,6 +241,7 @@ try {
     await new Promise(r => setTimeout(r, 500));
   }
   assert(ready, log.slice(-5000));
+  assert((await fetch(`${origin}/river-map`)).ok, 'Prewarm the second map before browser hydration');
   browser = await chromium.launch({
     headless: true,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH,
@@ -272,6 +274,7 @@ try {
   page.on('console', m => {
     if (m.type() === 'error' && /Error adding|layers\.|sources\.|expression|GeoJSON|TypeError|error occurred|Something went wrong|synchronously unmount/i.test(m.text())) errors.push(m.text());
   });
+  let nationalFixture = false;
   let failCatalog = false,
     delayRiver = false, emptyAccessRiver = null, clusterFixture = false;
   let documentRequests = 0;
@@ -305,6 +308,9 @@ try {
     if (!url.pathname.startsWith('/api/')) return route.continue();
     const path = url.pathname;
     let result = {};
+    if (path === '/api/gauges/points') return route.fulfill({ json: nationalFixture ? nationalGaugeIndex : { v: 1, rows: [] } });
+    if (path.startsWith('/api/gauges/')) return route.fulfill({ json: { gauge: nationalGaugeDetail(path.split('/').pop()) } });
+    if (path === '/api/usgs/mo-history-bundle' || path === '/api/usgs/mo-forecast') return route.fulfill({ json: { entries: [], generatedAt: timestamp, days: 30 } });
     if (path === '/api/usgs/mo-dataset') {
       if (failCatalog && !url.searchParams.has('slim')) return route.fulfill({
         status: 503,
@@ -409,6 +415,7 @@ try {
       body: JSON.stringify(result)
     });
   };
+  if (!process.env.NATIONAL_GAUGES_ONLY) {
   await page.route('**/*', routeHandler);
   await page.goto(`${origin}/planner-map-layout-check`, {
     waitUntil: 'domcontentloaded'
@@ -443,12 +450,12 @@ try {
   assert.equal(await attribution.evaluate(el => el.classList.contains('maplibregl-compact-show')), false);
   for (const text of ['Your next river day', 'River colors show current', 'Make a day of it']) assert.equal(await page.getByText(text, { exact: false }).count(), 0);
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
-  for (const name of ['Nearby rivers', 'River names', 'Gauge stations', 'Water flow', 'Points of interest', 'River photos']) {
+  for (const name of ['Nearby rivers', 'River names', 'USGS gauges', 'Water flow', 'Points of interest', 'River photos']) {
     assert.equal(await page.getByRole('button', { name: new RegExp(name) }).getAttribute('aria-pressed'), 'true');
   }
-  await page.getByRole('button', { name: /Gauge stations/ }).click();
+  await page.getByRole('button', { name: /USGS gauges/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('.gauge-station-marker').length === 0);
-  await page.getByRole('button', { name: /Gauge stations/ }).click();
+  await page.getByRole('button', { name: /USGS gauges/ }).click();
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
   console.log('All desktop filters start enabled; statewide gauges, POIs and collapsed attribution verified');
   delayRiver = true;
@@ -1067,7 +1074,14 @@ try {
   mobile.on('pageerror', error => errors.push(String(error)));
   await mobile.route('**/*', routeHandler);
   await mobile.goto(`${origin}/planner-map-layout-check?river=current`, { waitUntil: 'domcontentloaded' });
-  await mobile.locator('.access-point-marker[data-access-point-id="p-0-0"]').waitFor();
+  // A default-visible national gauge can share this access point's cluster.
+  // Wait for catalog membership before the explicit close-up below.
+  await mobile.waitForFunction(async () => {
+    const source = window.plannerMap?.getSource('planner-places');
+    return source && (await source.getData()).features.some(feature => feature.properties.key === 'access:p-0-0');
+  });
+  await mobile.locator('.access-point-marker').first().waitFor();
+  await mobile.locator('.maplibregl-ctrl-zoom-in').waitFor();
   await mobile.evaluate(() => { window.firstMobilePlannerMap = window.plannerMap; });
   assert.equal(await mobile.getByRole('button', { name: 'Undo route change', exact: true }).count(), 0);
   assert.equal(await mobile.locator('.maplibregl-ctrl-zoom-in,.maplibregl-ctrl-zoom-out').count(), 2);
@@ -1172,8 +1186,11 @@ try {
   await endpointsVisible(mobile, true);
   await mobile.screenshot({ path: `${out}/mobile-restored-route.png` });
   console.log('Mobile details-first planning, persistent search results, zoom controls, fullscreen, route fit and Undo passed');
+  }
+  nationalFixture = true;
+  await runNationalGaugeChecks({ browser, origin, out, routeHandler });
   assert.deepEqual(errors, []);
-  console.log('Desktop 1440/1024, mobile and runtime checks passed');
+  console.log('Desktop/mobile map and national gauge checks passed');
 } catch (error) {
   console.error(error);
   console.error(log.slice(-4500));

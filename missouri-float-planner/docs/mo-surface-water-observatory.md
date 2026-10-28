@@ -70,24 +70,23 @@ MapLibre + terrarium DEM on this same dataset — noted in the punch list.
 
 ## 3. Data scope decision
 
-**Curated-emphasized within statewide context.**
+**Curated Ozarks rivers within the national USGS gauge network.**
 
-- **Curated layer (the product):** the 8 curated rivers and their ~10
-  bound gauges, painted with the seven-level taxonomy, animated flow,
-  detail rail, forecast-aware flood override. Live via the existing
-  provider (`/api/usgs/mo-statewide`, 15-min refresh).
-- **Context layer (the observatory):** all active Missouri stream
-  gauges with a current discharge reading, rendered as **neutral**
-  glowing nodes — size encodes discharge (sqrt scale), color is a
-  single neutral teal, **no condition dressing** (they carry no curated
-  thresholds, and dressing them up would be dishonest). One new route
-  `/api/usgs/mo-sites` calls the modern OGC API (one
-  `monitoring-locations` request + one `latest-continuous` request,
-  server-cached 15 min — no rate concerns; Missouri has roughly 400–550
-  active stream sites). Render ceiling 600 nodes; if exceeded, keep the
-  highest-discharge sites (stated in the HUD as "top N by flow").
-- Context fetch failure degrades to curated-only silently-visible
-  (HUD shows "context sites unavailable") — never a broken map.
+The curated river layer retains its condition colors, animated flow, detail
+rail, forecasts and timeline, using `/api/usgs/mo-statewide`. The separate
+**Other USGS** layer uses the complete `/api/gauges/points` catalog at every
+zoom. Both gauge tiers default on and share saved choices with the web planner.
+No phone or viewport row cap drops stations: SVG screen-space clusters retain
+every visible station and expand on selection. Coincident stations offer a list.
+
+The initial camera still frames Missouri and Arkansas. Users can zoom out and
+pan nationwide; simplified Census state outlines provide geographic context.
+Selecting an unrated station loads `/api/gauges/[siteId]` and opens readings,
+observation time, comparison where available, and a link to its full chart.
+Historical readings are opt-in. Unknown, delayed and suspect comparisons remain
+neutral. The existing capped `/api/usgs/mo-sites` endpoint remains available,
+but this map no longer fetches it. Failed refreshes retain previous observations
+with a visible retry message in the gauge controls.
 
 ## 4. Design approach
 
@@ -116,8 +115,8 @@ never re-runs on client nav back/forward within a session.
 
 | Channel | Meaning |
 |---|---|
-| Node size (sqrt of cfs) | Discharge magnitude (curated + context) |
-| Node color | Taxonomy condition (curated only); neutral teal (context) |
+| Node size | Discharge magnitude for curated gauges; fixed dots or count clusters for other USGS gauges |
+| Node color | Taxonomy condition for curated gauges; shared flow-comparison ramp or neutral when unavailable for other USGS gauges |
 | Node pulse | Live + elevated (high/dangerous or ≥P75) |
 | River line color | Taxonomy condition, gradient between gauges |
 | Particle speed | Condition band (too_low ≈ still → dangerous ≈ sprint) |
@@ -134,8 +133,8 @@ never re-runs on client nav back/forward within a session.
   reduced motion. If the measured cost breaks the frame budget, the
   layer auto-degrades (halve particles) before it ever drops the map
   below target.
-- **Node ceiling:** 600 context nodes rendered (decimate by discharge);
-  markers stay SVG (cheap at this count — no per-frame React work).
+- **National nodes:** a 64px screen grid groups all visible stations without
+  discharge-based truncation; markers remain SVG and regroup after camera settle.
 - **Starfield:** static seeded canvas, redrawn only on resize/camera
   settle — not per frame.
 - **Assets:** hillshade raster ~250 KB, lazy below the fold of nothing

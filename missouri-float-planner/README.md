@@ -201,7 +201,7 @@ activation. The selected route uses the same accent orange as the iOS map,
 separate from river condition colors.
 
 Desktop content filters start enabled each visit and retain changes while
-switching rivers. The regional catalogue supplies access points and POIs;
+switching rivers. USGS gauge layer choices are saved across visits on both layouts. The regional catalogue supplies access points and POIs;
 gauges and verified photo pins remain visible across rivers. Photo queries
 reuse the existing per-river cache/endpoints. Mobile keeps saved filter choices.
 The desktop plan card fills the available height, and the access strip sits to
@@ -214,6 +214,38 @@ available through its info button.
 `npm run test:planner-map` uses real MapLibre with fixture APIs to check map
 continuity, retained endpoints, default filters, camera framing, control/panel
 spacing, attribution, keyboard search, and desktop/mobile layouts.
+
+## Nationwide gauges on both web maps
+
+The planner (`/plan`) and Live River Map (`/river-map`) share **USGS gauges**
+controls: **Eddy-rated** and **Other USGS**, both enabled by default. Explicit
+layer choices persist across both maps. The national layer uses the complete,
+CDN-cached `/api/gauges/points` index at every zoom, refreshing every 15 minutes
+while enabled; viewport result caps cannot drop smaller stations. Selecting a
+station loads its name and detail from `/api/gauges/[siteId]`, preserving any
+planned route. Initial map labels use the USGS site number until detail is loaded.
+
+Other gauges show measurements and the shared historical flow-comparison colors,
+never a floatability verdict. Stage-only stations are included. Historical
+observations are opt-in; delayed, suspect and missing-comparison readings do not
+receive a current comparison color. Flow bands combine as alternatives; Reports
+flow and Reports stage narrow together. Filters start clear on each visit.
+
+The planner clusters all places through MapLibre. The SVG Live River Map keeps
+its Ozarks home view and river overlays while allowing nationwide pan/zoom with
+state outlines. Its screen-space clusters account for every visible national
+station, including on phones; coincident stations have a choice list. The old
+capped `/api/usgs/mo-sites` layer is replaced, while the API remains available.
+National readings remain their latest observations when the curated river
+history timeline is scrubbed.
+
+`npm run test:national-gauges` runs fixture-backed Chromium checks of both real
+maps at desktop, 390px and 320px with over 14,000 stations. The full
+`npm run test:planner-map` includes these checks after its route regression suite.
+Use `PLAYWRIGHT_CHROMIUM_PATH` for an installed browser. Run browser checks
+separately from typechecking because the runner creates and removes temporary
+fixture routes. `node --import tsx scripts/build-us-gauge-outlines.ts` regenerates
+the SVG state outlines from the pinned US Census/us-atlas dataset.
 
 ## River and gauge history
 

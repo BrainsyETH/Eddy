@@ -6,6 +6,7 @@ import type { FeatureCollection, Point } from 'geojson';
 import { useMap } from './map-context';
 import { enableMarkerKeyboard } from './marker-keyboard';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
+import { referenceColor } from '@/lib/gauges/map-index';
 import type { PlannerMarker } from '@/lib/planner-markers';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 
@@ -86,7 +87,8 @@ export default function PlannerMarkerLayer(props: Props) {
         const inspected = !!item && item.key === selectedKey;
         const count = cluster ? Number(properties.point_count) : 1;
         const condition = item?.kind === 'gauge' ? item.condition : null;
-        const signature = `${item?.key}:${item?.name}:${item?.symbol}:${item?.role}:${condition}:${inspected}:${count}`;
+        const reference = item?.kind === 'referenceGauge' ? referenceColor(item.gauge) : null;
+        const signature = `${reference}:${item?.key}:${item?.name}:${item?.symbol}:${item?.role}:${condition}:${inspected}:${count}`;
         const existing = rendered.get(key);
         if (existing?.signature === signature) {
           existing.marker.setLngLat([coordinates.lng, coordinates.lat]);
@@ -97,11 +99,12 @@ export default function PlannerMarkerLayer(props: Props) {
         existing?.marker.remove();
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `planner-map-marker ${item?.kind === 'access' ? 'access-point-marker' : item?.kind === 'gauge' ? 'gauge-station-marker' : item?.kind === 'poi' ? 'poi-marker' : 'planner-cluster-marker'}`;
+        button.className = `planner-map-marker ${item?.kind === 'access' ? 'access-point-marker' : item?.kind === 'gauge' || item?.kind === 'referenceGauge' ? 'gauge-station-marker' : item?.kind === 'poi' ? 'poi-marker' : 'planner-cluster-marker'}`;
         button.dataset.plannerMarker = key;
         if (item?.kind === 'access') button.dataset.accessPointId = item.id;
         if (item?.kind === 'poi') button.dataset.poiId = item.id;
-        if (item?.kind === 'gauge') button.dataset.gaugeId = item.id;
+        if (item?.kind === 'gauge' || item?.kind === 'referenceGauge') button.dataset.gaugeId = item.id;
+        if (item?.kind === 'referenceGauge') button.dataset.usgsSiteId = item.gauge.siteId;
         if (item?.role) button.dataset.endpointRole = item.role;
         if (inspected) button.dataset.selectedPlaceId = item!.id;
         if (cluster) button.dataset.clusterCount = String(count);
@@ -114,6 +117,7 @@ export default function PlannerMarkerLayer(props: Props) {
           art.alt = ''; art.width = 28; art.height = 28;
           art.draggable = false; face.appendChild(art);
           if (condition) face.style.borderColor = CONDITION_COLORS[condition];
+          if (reference) { face.style.borderColor = reference; face.style.backgroundColor = reference; }
         } else face.textContent = String(count);
         button.appendChild(face);
         if (item && cluster) {
@@ -128,7 +132,7 @@ export default function PlannerMarkerLayer(props: Props) {
           button.appendChild(label);
         }
         const label = cluster ? `${count} places here${item ? `, ${item.name}` : ''}. Choose a place`
-          : `${item!.name}${item!.role ? `, ${item!.role}` : ''}${condition ? `, ${CONDITION_SHORT_LABELS[condition]}` : ''}. Open ${item!.kind === 'gauge' ? 'gauge' : 'place'} details`;
+          : `${item!.name}${item!.role ? `, ${item!.role}` : ''}${condition ? `, ${CONDITION_SHORT_LABELS[condition]}` : ''}. Open ${item!.kind === 'gauge' || item!.kind === 'referenceGauge' ? 'gauge' : 'place'} details`;
         enableMarkerKeyboard(button, label, () => latest.current.onDismiss());
         button.tabIndex = screen.x >= 0 && screen.y >= 0 && screen.x <= canvas.clientWidth && screen.y <= canvas.clientHeight ? 0 : -1;
         // A pin is a control, not a map gesture surface. In particular, two
