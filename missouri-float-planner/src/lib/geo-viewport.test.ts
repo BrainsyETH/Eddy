@@ -95,8 +95,8 @@ test('containment is inclusive on the edges', () => {
 // ── requestCovers ───────────────────────────────────────────────────────────
 // The one eligibility rule for "is a fetch needed", shared by the memory-cache
 // scan and the last-request shortcut in useViewportGauges. The regression it
-// pins: bounds containment alone must not let a capped answer keep standing in
-// for a request with a bigger budget.
+// pins: capped answers can answer repeated requests for their padded target,
+// but cannot stand in for a smaller target or a different budget.
 
 test('easing back across the fetch threshold is NOT covered by a capped detail answer', () => {
   // The reported scenario, as the pure decision: at z10.6 the hook fetched the
@@ -111,19 +111,34 @@ test('easing back across the fetch threshold is NOT covered by a capped detail a
     capped: true,
   };
   const easedOutViewport: Bounds = [-92.2, 37.2, -91.2, 37.9]; // inside the padding
+  const target = quantizeBbox(padBbox(easedOutViewport), 10.4);
   assert.ok(bboxContains(detailFetch.bbox, easedOutViewport), 'the scenario needs containment');
-  assert.ok(!requestCovers(detailFetch, easedOutViewport, 1000), 'a capped 300 does not answer a 1000 budget');
-  // Both halves of the flip: the same answer still covers its own budget, and
-  // an UNCAPPED detail answer covers the overview budget too — nothing was
-  // dropped, so there is nothing a bigger page could add.
-  assert.ok(requestCovers(detailFetch, easedOutViewport, 300));
-  assert.ok(requestCovers({ ...detailFetch, capped: false }, easedOutViewport, 1000));
+  assert.ok(!requestCovers(detailFetch, easedOutViewport, 1000, target), 'a capped 300 does not answer a 1000 budget');
+  // Even the same budget cannot reuse a capped answer for a different target.
+  // An uncapped answer needs only raw-view containment: it omitted no stations.
+  assert.ok(!requestCovers(detailFetch, easedOutViewport, 300, target), 'a changed target needs a fresh capped page');
+  assert.ok(requestCovers({ ...detailFetch, capped: false }, easedOutViewport, 1000, target));
+});
+
+test('capped padded requests cover their raw viewport and idle echoes, but not a narrower target', () => {
+  for (const [zoom, limit] of [[7, 1000], [11, 300]]) {
+    const bounds: Bounds = [-92.21, 37.21, -91.21, 37.91];
+    const target = quantizeBbox(padBbox(bounds, 0.2), zoom);
+    const last: ViewportRequest = { bbox: target, limit, capped: true };
+    assert.notDeepEqual(target, bounds, 'the real hook stores padded targets, not raw bounds');
+    assert.ok(requestCovers(last, bounds, limit, target));
+    const echo: Bounds = [-92.210001, 37.210001, -91.210001, 37.910001];
+    assert.ok(requestCovers(last, echo, limit, quantizeBbox(padBbox(echo, 0.2), zoom)));
+    assert.ok(!requestCovers(last, bounds, limit === 300 ? 1000 : 300, target));
+    const valley: Bounds = [-91.8, 37.5, -91.7, 37.6];
+    assert.ok(!requestCovers(last, valley, limit, quantizeBbox(padBbox(valley, 0.2), zoom)));
+  }
 });
 
 test('requestCovers still requires containment, and null covers nothing', () => {
   const last: ViewportRequest = { bbox: [-92, 37, -91, 38], limit: 1000, capped: false };
-  assert.ok(!requestCovers(last, [-93, 37, -91, 38], 1000), 'a wider camera needs a fetch');
-  assert.ok(!requestCovers(null, [-92, 37, -91, 38], 1000));
+  assert.ok(!requestCovers(last, [-93, 37, -91, 38], 1000, [-93, 37, -91, 38]), 'a wider camera needs a fetch');
+  assert.ok(!requestCovers(null, [-92, 37, -91, 38], 1000, [-92, 37, -91, 38]));
 });
 
 // ── mergeViewportItems ──────────────────────────────────────────────────────

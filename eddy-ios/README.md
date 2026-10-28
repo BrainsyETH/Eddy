@@ -729,20 +729,23 @@ The ordering is the durable fix, not the chip removal. `layerGauges` in
 anything narrows it, and the filter, the counts and the pins all read from that.
 Narrowing a set the layer will never draw is not a filter anyone can reason about.
 
-Two disclosures the strip owes and did not make: the layer draws nothing below
-`MIN_ALL_GAUGES_ZOOM` (7) while the map's own cold start opens at 6.2, so
-switching it on from the opening view drew nothing and reported 0 with no reason
-given; and `/api/gauges/map` caps a viewport at 300, ordered curated-first then by
-discharge, so a viewport holding 1,240 quietly drew 300 and looked complete.
-`belowMinZoom`, `capped` and `total` had all been coming back from
-`useViewportGauges` unrendered. Both now say so in the strip.
+Viewport detail requests stop below zoom 5.5 and are capped at 1,000 stations
+below zoom 10.5, then 300. A capped response is reused for the same padded,
+quantized request target and budget, including idle echoes of its raw viewport;
+it cannot establish completeness for a smaller target. Loading and refresh
+failures have separate states, and a failed refresh retains existing pins with
+a visible Retry action.
 
-Below that floor the layer is no longer empty. `useGaugeIndex` fetches
-`/api/gauges/points` — every non-curated station as compact tuples (no name, no
-uuid), CDN-cached and kept on disk — and the screen feeds it into the same
-clustered source, so a zoomed-out map shows the whole network as counts, the way
-other gauge maps do. Tapping an index dot zooms toward it; past the floor the
-viewport tier supplies the full record and the callout.
+The national station index (`/api/gauges/points`) supplies locations at every
+zoom while Other USGS gauges is enabled. Viewport responses enrich stations by
+USGS site ID; a capped page never replaces the complete index. Map selection
+IDs also use site IDs, so enrichment does not change which marker is selected.
+Below zoom 5.5 the map source receives the national index. At closer zooms it
+receives only stations within the padded, quantized viewport, without a count
+cap. The full index remains in memory; each viewport response updates regional
+geometry instead of sending the whole country across the native bridge.
+Index-only gauges open the normal detail sheet and hydrate by site ID; synthetic
+index IDs are never seeded into the favorite-capable gauge detail screen.
 
 Every pin is a `CircleLayer` plus a text `SymbolLayer`, never a sprite icon. The
 icon names in Mapbox's outdoors style are not a contract we control, and a
@@ -2090,3 +2093,33 @@ and VoiceOver escape, double taps, return to the planner, offline saved trips,
 large text on a small phone, both appearances, and Reduce Motion.
 
 Shared chart views retain the timezone saved in the link. New links include a river slug alongside its UUID for recovery after a catalog reseed. Image attachments report unavailable context rather than substituting current readings; link sharing stays available during image preparation. See [ADR 0015](../docs/decisions/0015-gauge-and-chart-sharing.md) for compatibility and device-release gates.
+
+### Map interaction contract
+
+A map-level 44-point query resolves POIs across active sources. Repeated taps
+cycle through a stable, deduplicated set, including gauges and access points
+sharing a coordinate; a pan resets the cycle. The sheet displays the selected
+place and a small hint explains cycling. Selection order is alphabetical by
+stable pin ID (`access:` before `gauge:` before `hazard:`), independently of
+rendering priority; hazard marks still draw above other pins. Cluster taps ask
+the owning source for its expansion zoom, falling back to two more zoom levels
+if that query fails or returns an invalid value.
+
+POI selection preserves zoom and moves the camera only if the marker's touch
+area would be obscured by the measured sheet/chrome. Every new gesture cancels
+stale asynchronous work and updates the remembered camera. A blank-map tap
+closes selection details and exits map-plan mode while retaining the selected
+river, endpoints and calculated route. It does not reframe the camera. Tapping
+the still-selected river opens its details again.
+The list beside Layers exposes enabled-layer places in the current area as
+native, searchable rows, including colocated places and cluster members.
+Gauge refresh failures retain available data and expose a Retry action.
+
+Before release, verify on a physical iPhone: repeated cross-layer/colocated
+selection, cluster expansion and its failure fallback, empty-map dismissal with
+an existing route and reopening the still-selected river,
+rapid tap/pan while a query is pending, POIs near each sheet edge, remembered
+camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
+10.5, pan responsiveness and fast fling with Other USGS gauges on (fling beyond
+the padded area and check for briefly empty edges before the camera settles),
+failed-first-load/retry, VoiceOver list selection, and largest text sizes.

@@ -233,29 +233,17 @@ export interface ViewportRequest {
   capped: boolean;
 }
 
-/**
- * True when a previous request still answers this viewport — the ONE
- * eligibility rule, shared by the memory cache and the last-request shortcut.
- *
- * Containment alone is not enough, and treating it as enough was a bug: a
- * CAPPED answer under one limit does not answer the same ground under a
- * bigger one. Fetch a capped 300 at detail zoom, ease out across the fetch
- * threshold, and the viewport is still inside the padded box — but the map is
- * owed the 1000-row overview, and a bounds-only check would sit on the 300
- * until the camera crossed the padding, where the missing hundreds then
- * arrived all at once. That cliff reads exactly like the intermittent
- * behaviour this whole chain exists to remove.
- *
- * An UNCAPPED answer holds everything in its box, so it satisfies any limit;
- * a capped one satisfies only the limit it was fetched under.
- */
+/** Complete payloads cover raw sub-views. A capped payload covers only the
+ * same padded, quantized request target and budget, not every contained view.
+ * Pass both: comparing a stored target with raw camera bounds misses idle echoes. */
 export function requestCovers(
   last: ViewportRequest | null,
   bounds: Bounds,
   limit: number,
+  target: Bounds,
 ): boolean {
   if (!last) return false;
-  if (last.limit !== limit && last.capped) return false;
+  if (last.capped) return last.limit === limit && last.bbox.every((n, i) => n === target[i]);
   return bboxContains(last.bbox, bounds);
 }
 

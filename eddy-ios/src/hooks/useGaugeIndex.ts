@@ -1,5 +1,5 @@
 // eddy-ios/src/hooks/useGaugeIndex.ts
-// The national gauge layer, zoomed out: every station, clustered on-device.
+// Complete station locations at every zoom, clustered on-device.
 //
 // useViewportGauges stops asking below MIN_GAUGE_ZOOM, because a continental
 // viewport request is one the server caps at 1,000 and orders by discharge —
@@ -12,8 +12,8 @@
 // the same clustered source the viewport tier draws into. Mapbox clusters it
 // natively, so the phone draws a few dozen bubbles, not fourteen thousand dots.
 //
-//   1. LAZY        — nothing is fetched until the layer is on AND the camera is
-//                    below the floor. Most sessions never pay for it.
+//   1. LAZY        — nothing is fetched until the layer is enabled. Coverage is then
+//                    retained across zooms; viewport payloads only enrich it.
 //   2. STALE-FIRST — the last body is kept on disk and paints immediately on
 //                    the next launch; a network refresh follows when it is
 //                    older than REFRESH_MS — checked every minute while the
@@ -52,9 +52,10 @@ export interface GaugeIndexState {
   /** True once any answer — disk or network — has been decoded. */
   ready: boolean;
   loading: boolean;
+  error: string | null;
 }
 
-const EMPTY: GaugeIndexState = { gauges: [], ready: false, loading: false };
+const EMPTY: GaugeIndexState = { gauges: [], ready: false, loading: false, error: null };
 
 // Module scope, like the other map caches: remounting the map tab must not
 // throw away a 14,000-row decode.
@@ -78,10 +79,11 @@ function writeDisk(stored: Stored): void {
   void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored)).catch(() => {});
 }
 
-export function useGaugeIndex(enabled: boolean): GaugeIndexState {
+export function useGaugeIndex(enabled: boolean): GaugeIndexState & { retry: () => void } {
   const [state, setState] = useState<GaugeIndexState>(() =>
-    memoryGauges ? { gauges: memoryGauges, ready: true, loading: false } : EMPTY,
+    memoryGauges ? { gauges: memoryGauges, ready: true, loading: false, error: null } : EMPTY,
   );
+  const [retryTick, setRetryTick] = useState(0);
   const inFlight = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -93,14 +95,14 @@ export function useGaugeIndex(enabled: boolean): GaugeIndexState {
     const apply = (stored: Stored) => {
       memory = stored;
       memoryGauges = decodeGaugePoints(stored.body);
-      setState({ gauges: memoryGauges, ready: true, loading: false });
+      setState({ gauges: memoryGauges, ready: true, loading: false, error: null });
     };
 
     const refresh = async () => {
       if (inFlight.current) return;
       const controller = new AbortController();
       inFlight.current = controller;
-      setState((prev) => ({ ...prev, loading: true }));
+      setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
         const body = await fetchGaugePoints(controller.signal);
         const stored = { fetchedAt: Date.now(), body };
@@ -114,7 +116,7 @@ export function useGaugeIndex(enabled: boolean): GaugeIndexState {
           lastFailureAt = Date.now();
           warn('map', 'gauge index load failed', { message: err instanceof Error ? err.message : String(err) });
         }
-        setState((prev) => ({ ...prev, loading: false }));
+        setState((prev) => ({ ...prev, loading: false, error: 'Gauge locations couldn’t refresh.' }));
       } finally {
         if (inFlight.current === controller) inFlight.current = null;
       }
@@ -152,10 +154,10 @@ export function useGaugeIndex(enabled: boolean): GaugeIndexState {
       clearInterval(tick);
       subscription.remove();
     };
-  }, [enabled]);
+  }, [enabled, retryTick]);
 
   // Abort on unmount so a backgrounded map is not still downloading.
   useEffect(() => () => inFlight.current?.abort(), []);
 
-  return state;
+  return { ...state, retry: () => { lastFailureAt = 0; setRetryTick(n => n + 1); } };
 }

@@ -89,11 +89,11 @@ export interface ViewportGaugesState {
    * True once a payload — network, memory or disk — has been applied since the
    * layer was last reset (switched off, or zoomed below the floor). An empty
    * `gauges` with settled=true is an ANSWER; with settled=false it is nothing
-   * yet, including a request that failed. The map holds the national index
-   * across the zoom-floor handoff until this turns true, so a failed first
-   * request cannot blank a layer that has data to show.
+   * yet, including a request that failed. This describes viewport enrichment;
+   * the complete national index remains the source of station locations.
    */
   settled: boolean;
+  error: string | null;
 }
 
 const EMPTY: ViewportGaugesState = {
@@ -103,6 +103,7 @@ const EMPTY: ViewportGaugesState = {
   loading: false,
   belowMinZoom: false,
   settled: false,
+  error: null,
 };
 
 interface CacheEntry {
@@ -120,7 +121,8 @@ interface CacheEntry {
  * Eligibility is requestCovers — the same rule the last-request shortcut in
  * the effect applies, deliberately shared: an UNCAPPED entry satisfies any
  * limit (the server returned every gauge in its box, so a different cap could
- * not learn more), a capped one only its own. Without the uncapped half the
+ * not learn more). A capped entry covers only the same padded, quantized
+ * request target and limit. Without the uncapped half the
  * limit flip at GAUGE_FETCH_DETAIL_ZOOM invalidated the whole cache — zooming
  * across that line refetched a viewport whose complete answer was already in
  * hand, and the layer blinked while the identical payload came back.
@@ -129,6 +131,7 @@ function containingEntry(
   entries: Map<string, CacheEntry>,
   bounds: Bounds,
   limit: number,
+  target: Bounds,
 ): CacheEntry | null {
   const newestFirst = [...entries.values()].reverse();
   return (
@@ -137,6 +140,7 @@ function containingEntry(
         { bbox: entry.bbox, limit: entry.limit, capped: entry.payload.capped },
         bounds,
         limit,
+        target,
       ),
     ) ?? null
   );
@@ -221,7 +225,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       drawnKey.current = key;
       const payload = mergeViewportPayload(drawnGauges.current, hit.payload, hit.bbox);
       drawnGauges.current = payload.gauges;
-      setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
+      setState({ ...payload, loading: false, belowMinZoom: false, settled: true, error: null });
       return;
     }
 
@@ -232,7 +236,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     inFlight.current = controller;
     inFlightKey.current = key;
 
-    setState((prev) => ({ ...prev, loading: true, belowMinZoom: false }));
+    setState((prev) => ({ ...prev, loading: true, error: null, belowMinZoom: false }));
 
     try {
       const startedAt = Date.now();
@@ -292,15 +296,14 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       // box — see mergeViewportItems. A capped wide answer must not yank the
       // gauges the reader was just looking at; an uncapped one replaces.
       drawnGauges.current = payload.gauges;
-      setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
+      setState({ ...payload, loading: false, belowMinZoom: false, settled: true, error: null });
     } catch (err) {
       if (controller.signal.aborted) return;
       if (err instanceof Error && err.message === 'Request cancelled') return;
 
-      // Keep whatever is drawn. This layer is additive context; losing it
-      // silently is far better than blanking it and announcing a failure for
-      // something nobody asked for.
-      setState((prev) => ({ ...prev, loading: false }));
+      // Keep usable data, but expose failure separately from an empty answer.
+      // The map offers an explicit retry without requiring a pan or layer toggle.
+      setState((prev) => ({ ...prev, loading: false, error: 'Gauge details couldn’t refresh.' }));
     } finally {
       if (inFlight.current === controller) {
         inFlight.current = null;
@@ -355,7 +358,8 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     }
 
     const limit = viewport.zoom < GAUGE_FETCH_DETAIL_ZOOM ? OVERVIEW_LIMIT : DETAIL_LIMIT;
-    const covering = containingEntry(cache.current, viewport.bounds, limit);
+    const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
+    const covering = containingEntry(cache.current, viewport.bounds, limit, target);
     if (covering) {
       cache.current.delete(covering.key);
       cache.current.set(covering.key, covering);
@@ -373,7 +377,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
         drawnKey.current = covering.key;
         const payload = mergeViewportPayload(drawnGauges.current, covering.payload, covering.bbox);
         drawnGauges.current = payload.gauges;
-        setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
+        setState({ ...payload, loading: false, belowMinZoom: false, settled: true, error: null });
       }
       logViewportDecision('cache-contains', {
         zoom: viewport.zoom,
@@ -393,7 +397,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       }
       // Disk is stale-first, never cache-only. It earns an immediate frame but
       // the live request below still replaces it.
-    } else if (requestCovers(lastRequested.current, viewport.bounds, limit)) {
+    } else if (requestCovers(lastRequested.current, viewport.bounds, limit, target)) {
       // Same eligibility rule as containingEntry, and it must be: a
       // bounds-only check here let a capped detail answer keep answering an
       // overview camera that had eased back across the fetch threshold —
@@ -407,7 +411,6 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       return;
     }
 
-    const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
     const targetKey = `${limit}:${target.join(',')}`;
     // Already asking for exactly this box? Let the answer land. Mapbox can
     // emit several idle events for one settled camera, and aborting the
@@ -478,7 +481,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
             drawnKey.current = stored.key;
             const payload = mergeViewportPayload(drawnGauges.current, stored.payload, stored.bbox);
             drawnGauges.current = payload.gauges;
-            setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
+            setState({ ...payload, loading: false, belowMinZoom: false, settled: true, error: null });
 
             const touched = touchViewportGaugeIndex(diskIndex.current, stored.key);
             if (touched !== diskIndex.current) {
@@ -500,5 +503,9 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
   // Abort on unmount so a backgrounded map is not still fetching.
   useEffect(() => () => inFlight.current?.abort(), []);
 
-  return state;
+  const retry = useCallback(() => {
+    cache.current.clear(); lastRequested.current = null;
+    setRefreshTick(n => n + 1);
+  }, []);
+  return { ...state, retry };
 }

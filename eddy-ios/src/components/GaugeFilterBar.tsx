@@ -124,12 +124,6 @@ interface Props {
   active: ReadonlySet<GaugeFilterKey>;
   onToggle: (key: GaugeFilterKey) => void;
   onClear: () => void;
-  /**
-   * The camera is below MIN_GAUGE_ZOOM and the national index (useGaugeIndex)
-   * has not answered yet — or could not — so the layer draws nothing. Once the
-   * index lands the layer draws the whole network here and this is false.
-   */
-  belowMinZoom?: boolean;
   /** The server dropped low-flow gauges to meet its cap. */
   capped?: boolean;
   /** How many were in the viewport before the cap. Only read when capped. */
@@ -141,7 +135,6 @@ function GaugeFilterBarComponent({
   active,
   onToggle,
   onClear,
-  belowMinZoom = false,
   capped = false,
   total = 0,
 }: Props) {
@@ -176,19 +169,6 @@ function GaugeFilterBarComponent({
 
   const filtering = active.size > 0;
   const matching = applyGaugeFilters(gauges, active).length;
-
-  // Nothing is drawn and nothing has been fetched, so there is nothing to
-  // narrow — chips over an empty set are five zeroes and a reason nobody gave.
-  // The one useful thing to say here is what would make the layer work.
-  if (belowMinZoom) {
-    return (
-      <View style={[styles.bar, { borderLeftColor: colors.border }]}>
-        <Text style={[styles.hint, { color: colors.textSubtle }]}>
-          Zoom in slightly to see USGS gauges.
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.bar, { borderLeftColor: colors.border }]}>

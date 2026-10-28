@@ -9,6 +9,7 @@ export type MapCameraCommand =
       lat: number;
       /** Omit to preserve the live native camera zoom at execution time. */
       zoom?: number;
+      revealOnly?: boolean;
       zoomDelta?: number;
       maxZoom?: number;
       waitForSheet?: boolean;
@@ -33,7 +34,7 @@ export type MapCameraAction =
   | { type: 'poiSelected'; lng: number; lat: number }
   | { type: 'searchResultSelected'; lng: number; lat: number; zoom?: number }
   | { type: 'locationRequested'; lng: number; lat: number; zoom: number }
-  | { type: 'clusterSelected'; lng: number; lat: number }
+  | { type: 'clusterSelected'; lng: number; lat: number; zoom?: number }
   /**
    * A float plan, framed while the reader is looking at it.
    *
@@ -76,6 +77,7 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         lng: action.lng,
         lat: action.lat,
         duration: 350,
+        revealOnly: true,
         waitForSheet: true,
       };
     case 'searchResultSelected':
@@ -102,7 +104,7 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         type: 'showPoint',
         lng: action.lng,
         lat: action.lat,
-        zoomDelta: 2,
+        ...(action.zoom === undefined ? { zoomDelta: 2 } : { zoom: action.zoom }),
         maxZoom: 16,
         duration: 450,
       };

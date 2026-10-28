@@ -230,6 +230,7 @@ test('river and POI selection have distinct camera behavior', () => {
     lng: -91.3,
     lat: 37.2,
     duration: 350,
+    revealOnly: true,
     waitForSheet: true,
   });
 });
