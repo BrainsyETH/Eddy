@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { mapPlanSelection } from '../../../eddy-ios/src/map/planSelection';
 import { mapAccessPointPin } from '../../../eddy-ios/src/map/accessPin';
+import { pinStarItem, pinStarProps } from '../../../eddy-ios/src/lib/pinStar';
 import type { MapAccessPoint } from '../../../packages/eddy-types';
 
 const SCREEN = readFileSync(join(process.cwd(), '..', 'eddy-ios', 'app', '(tabs)', '(map)', 'index.tsx'), 'utf8');
@@ -124,7 +125,7 @@ test('the real map handler selects Bay Creek without a confirmation sheet', () =
 });
 
 test('Back and close use the same return handler and planning names the route', () => {
-  const pinSheet = SCREEN.slice(SCREEN.indexOf('<PinSheet'), SCREEN.indexOf('starred={pinGauge'));
+  const pinSheet = SCREEN.slice(SCREEN.indexOf('<PinSheet'), SCREEN.indexOf('{...pinStarProps('));
   assert.match(pinSheet, /onClose=\{dismissPin\}/);
   assert.match(pinSheet, /onBack=\{mapPlanning .*\? dismissPin : null\}/);
   assert.match(pinSheet, /backLabel=\{mapPlanning \? 'Your route'/);
@@ -157,4 +158,32 @@ test('tapping the still-selected river after background dismissal reopens its sh
   assert.equal(state.selectedSlug, slug);
   assert.equal(state.putIn, putIn);
   assert.equal(state.takeOut, takeOut);
+});
+
+test('rated gauges, national gauges and dams star from the map as their screens store them', () => {
+  const rated = { id: 'g-uuid', name: 'Current at Van Buren', usgsSiteId: '07067000', provider: 'usgs',
+    thresholds: [{ isPrimary: false, riverSlug: 'jacks-fork' }, { isPrimary: true, riverSlug: 'current' }] };
+  assert.deepEqual(pinStarItem({ layer: 'gauges', name: 'x' }, rated, null), {
+    kind: 'gauge', entityId: 'g-uuid', name: rated.name, slug: 'current', usgsSiteId: '07067000', provider: 'usgs',
+  });
+  // The national tier rates no river: an honest empty slug, an unknown provider.
+  const national = { id: 'n-uuid', name: 'Creek near Town', siteId: '07000001' };
+  assert.deepEqual(pinStarItem({ layer: 'allGauges', name: 'x' }, null, national), {
+    kind: 'gauge', entityId: 'n-uuid', name: national.name, slug: '', usgsSiteId: '07000001', provider: null,
+  });
+  // An index-decoded gauge has no gauge_stations id; a star under it is a star under nothing.
+  assert.equal(pinStarItem({ layer: 'allGauges', name: 'x' }, null, { ...national, id: 'idx:07000001' }), null);
+  assert.deepEqual(pinStarItem({ layer: 'dams', name: 'Bull Shoals', damId: 'bull-shoals', riverSlug: 'white' }, null, null),
+    { kind: 'dam', entityId: 'bull-shoals', name: 'Bull Shoals', slug: 'white' });
+  // Hazards and springs have no star store at all.
+  assert.equal(pinStarItem({ layer: 'hazards', name: 'x' }, null, null), null);
+
+  const toggled: unknown[] = [];
+  const props = pinStarProps(pinStarItem({ layer: 'dams', name: 'Dam', damId: 'd' }, null, null),
+    (kind, id) => kind === 'dam' && id === 'd', (item) => toggled.push(item));
+  assert.equal(props.starred, true);
+  props.onToggleStar?.();
+  assert.equal(toggled.length, 1);
+  assert.deepEqual(pinStarProps(null, () => true, () => {}), { starred: false, onToggleStar: null });
+  assert.match(SCREEN, /\{\.\.\.pinStarProps\(pinStarItem\(selectedPin, pinGauge, pinReferenceGauge\), isStarred, toggleStar\)\}/);
 });

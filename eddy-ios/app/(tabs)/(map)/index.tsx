@@ -163,6 +163,7 @@ import {
 } from '@/components/MapLayersSheet';
 import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
 import { readMapCamera, writeMapCamera, type StoredMapCamera } from '@/lib/mapCamera';
+import { pinStarItem, pinStarProps } from '@/lib/pinStar';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
@@ -3305,23 +3306,9 @@ function MapContent() {
               onBack={mapPlanning || (revealsRiverSheet && riverSheetData) ? dismissPin : null}
               backLabel={mapPlanning ? 'Your route' : revealsRiverSheet ? riverSheetData?.name ?? null : null}
               onClose={dismissPin}
-              starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
-              onToggleStar={
-                pinGauge
-                  ? () =>
-                      toggleStar({
-                        kind: 'gauge',
-                        entityId: pinGauge.id,
-                        name: pinGauge.name,
-                        // The river it is PRIMARY for, which is where a starred
-                        // gauge taps through to. Empty when it rates none.
-                        slug:
-                          pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
-                        usgsSiteId: pinGauge.usgsSiteId,
-                        provider: pinGauge.provider,
-                      })
-                  : null
-              }
+              // Rated gauges, national-tier gauges and dams, each stored as its
+              // own screen stores it. Saved places override this in PinSheet.
+              {...pinStarProps(pinStarItem(selectedPin, pinGauge, pinReferenceGauge), isStarred, toggleStar)}
               onPlanTo={(nearby) => {
                 if (pinAccessPoint) onPlanToNearby(nearby, pinAccessPoint);
               }}
