@@ -10,6 +10,7 @@ import {
 } from '../../../eddy-ios/src/map/accessLayers';
 import {
   groupLayerRows,
+  layerDrawOrder,
   layerRowCount,
   mergeRestoredLayers,
 } from '../../../eddy-ios/src/map/layerRows';
@@ -326,6 +327,23 @@ test('grouping drops nothing and duplicates nothing', () => {
   assert.deepEqual([...placed].sort(), SHEET.map((r) => r.key).sort());
 });
 
+test('the places list orders its sections as the Layers sheet orders its rows', () => {
+  // Tiers follow the row that switches them; grouped rows follow the headings.
+  const rows = [
+    { key: 'access', tiers: ['access', 'boatRamps'] },
+    { key: 'gauges', tiers: ['gauges', 'allGauges'] },
+    { key: 'campgrounds', section: 'stay' },
+    { key: 'outfitters', section: 'services' },
+    { key: 'lodging', section: 'stay' },
+  ] as const;
+  assert.deepEqual(layerDrawOrder(rows, SECTIONS), [
+    'access', 'boatRamps', 'gauges', 'allGauges', 'campgrounds', 'lodging', 'outfitters',
+  ]);
+  const sheet = readFileSync(join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'MapPlacesSheet.tsx'), 'utf8');
+  assert.match(sheet, /layerDrawOrder\(SHEET_LAYERS, LAYER_SECTIONS\)/, 'the places list must use the sheet order');
+  assert.doesNotMatch(sheet, /return MAP_LAYERS\s*\.map/, 'not the raw catalog order');
+});
+
 test('catalog order is preserved inside every group', () => {
   // Reordering is not a heading's job either. `lodging` follows `campgrounds`
   // here because the catalog says so, not because the section rearranged them.
@@ -566,4 +584,18 @@ test('the visible info button does not claim a VoiceOver stop it cannot hold', (
     /accessibilityLabel=\{`About \$\{layer\.label\}`\}/,
     'the nested pressable must not re-declare itself as a focusable button'
   );
+});
+
+test('every layers-sheet control is a laid-out 44pt target that names its action', () => {
+  const sheet = readFileSync(
+    join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'MapLayersSheet.tsx'),
+    'utf8'
+  );
+  // The tier pill stays 32pt as a drawing; the Pressable around it is the target.
+  assert.match(sheet, /style=\{\(\{ pressed \}\) => \[styles\.tierHit,/);
+  assert.match(sheet, /tierHit: \{ minHeight: 44,/);
+  // Reset: no hitSlop standing in for a target, and a label with its object.
+  assert.match(sheet, /accessibilityLabel="Reset layers to default"/);
+  assert.match(sheet, /resetButton: \{ minHeight: 44, minWidth: 44,/);
+  assert.doesNotMatch(sheet, /onPress=\{onReset\} hitSlop/);
 });

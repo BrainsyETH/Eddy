@@ -43,7 +43,8 @@ import { SearchBar } from '@/components/SearchBar';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { MAP_LAYERS } from '@/map/layers';
+import { LAYER_SECTIONS, MAP_LAYERS, SHEET_LAYERS } from '@/map/layers';
+import { layerDrawOrder } from '@/map/layerRows';
 import type { MapPin } from '@/map/RiverMap';
 
 const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
@@ -135,12 +136,18 @@ export function MapPlacesSheet({ title, pins, searchable = false, center = null,
     const ordered = [...matching].sort((a, b) =>
       distance(a) - distance(b) || a.name.localeCompare(b.name));
     if (!searchable) return ordered.length ? [{ key: 'all', title: null, data: ordered }] : [];
-    // The Layers sheet's order, so the two lists agree about what comes first.
-    return MAP_LAYERS
-      .map((layer) => ({
-        key: layer.key,
-        title: layer.label,
-        data: ordered.filter((pin) => pin.layer === layer.key),
+    // The Layers sheet's order — its rows under their headings, each row's
+    // tiers beside it — so the two lists agree about what comes first. The raw
+    // catalog order this used put rentals between camping and lodging.
+    // Any layer no sheet row switches still lists, last, so the order can never
+    // drop a place the map is drawing.
+    const keys = layerDrawOrder(SHEET_LAYERS, LAYER_SECTIONS);
+    for (const layer of MAP_LAYERS) if (!keys.includes(layer.key)) keys.push(layer.key);
+    return keys
+      .map((key) => ({
+        key,
+        title: MAP_LAYERS.find((layer) => layer.key === key)?.label ?? key,
+        data: ordered.filter((pin) => pin.layer === key),
       }))
       .filter((section) => section.data.length > 0);
   }, [pins, query, searchable, center]);
