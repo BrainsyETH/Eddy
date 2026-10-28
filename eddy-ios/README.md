@@ -2130,6 +2130,22 @@ places sheet. Cluster taps ask the owning source for its expansion zoom,
 falling back to two more zoom levels if that query fails or returns an invalid
 value. There is no tap cycling and no hint banner.
 
+Every count on the map — native clusters and the two family indexes — breaks
+into pins at the same zoom (`ZOOM.cluster`), and with three exceptions every
+layer takes the same rungs: a `ZOOM.min` floor, marks at `ZOOM.places`, names
+at `ZOOM.names`. Hazards never cluster and resolve at `ZOOM.cluster` (a safety
+rule); the selected place is drawn by its own source on top of every place
+layer, at a larger scale and named at every zoom, even if its layer is
+switched off while its sheet is open. Pin sources are mounted for the life of
+the map and empty when their layer is off: a source mounted on a toggle lands
+at the top of the native style and paints over hazards. Hazards are the last
+pin source, over the route endpoints and the selection. Map marks use the
+light palette in both appearances, because the basemap is light in both. A tap
+picks the mark nearest the finger, measuring a bottom-anchored pin from its
+bulb; overlapping counts resolve the same way. A tap on public land opens a
+callout naming the parcel and its access class — ownership, not permission —
+and leaves the open sheet alone.
+
 POI selection preserves zoom and moves the camera only if the marker's touch
 area would be obscured by the measured sheet/chrome. Every new gesture cancels
 stale asynchronous work and updates the remembered camera. A blank-map tap

@@ -92,6 +92,7 @@ test('each gesture reports once, including gestures after an app-driven camera m
     gestureLatched: { current: false }, interactionEpoch: { current: 0 }, tapSequence: { current: 0 },
     gestureStarted,
     pendingCommand: { current: null }, appliedCommandId: { current: null }, liveCamera: { current: null },
+    flightEndsAt: { current: 0 },
     onCameraCommandConsumed: () => {}, onUserGesture: () => { calls++; },
   };
   const run = handler('onCameraChanged', context);
@@ -138,6 +139,12 @@ function scene(options: { stacks?: Array<{ id: string; ids: string[]; lng: numbe
     onZoomToCluster: (point: { lng: number; lat: number; zoom?: number }) => { zooms.push(point); }, onNetworkPress: () => {},
     warn: () => {}, onBackgroundPress: () => { dismissed++; },
     mapRef: { current: { queryRenderedFeaturesInRect } },
+    // What selectPinHits reads to lift a bottom-anchored mark to its bulb, and
+    // what onMapPress reads before trying public land.
+    PIN_ICONS: { pin: { anchor: 'bottom' }, drop: { anchor: 'center' } },
+    LAYER_SHAPE: { access: 'pin', gauges: 'drop' },
+    ACCESS_BADGE_LIFT: 11, ZOOM: { places: 9.5 },
+    layers: [] as string[], setPublicLand: () => {},
   };
   const selectPinHits = handler('selectPinHits', context);
   return { context, selected, zooms, choices, dismissed: () => dismissed,
@@ -360,8 +367,8 @@ test('only individually drawn, enabled, non-hazard places stack; the selection a
   assert.deepEqual(stacks({ selectedPinId: 'access:2' }), [['access:1', 'gauge:3']]);
   assert.deepEqual(stacks({ endpointIds: new Set(['access:1']) }), [['access:2', 'gauge:3']]);
   assert.deepEqual(stacks({ layers: ['access', 'campgrounds'] }), [['access:1', 'access:2']], 'a layer that is off draws nothing to stack');
-  assert.deepEqual(stacks({ visibleViewport: { bounds: [-91.46, 37.14, -91.43, 37.17], zoom: 8.6 } }), [['access:1', 'access:2']],
-    'at 8.x the gauge is still inside its native cluster, so it stays out');
+  assert.deepEqual(stacks({ visibleViewport: { bounds: [-91.46, 37.14, -91.43, 37.17], zoom: 8.6 } }), [['access:1', 'access:2', 'gauge:3']],
+    'native clusters break at ZOOM.cluster like the family index, so at 8.x the gauge is a mark and stacks');
   assert.deepEqual(stacks({ visibleViewport: { bounds: [-91.46, 37.14, -91.43, 37.17], zoom: 7.9 } }), [],
     'below the cluster rung the family index already groups places');
   assert.deepEqual(stacks({ visibleViewport: { bounds: [-80, 30, -79, 31], zoom: 15.2 } }), [], 'off-screen places do not stack');
@@ -371,15 +378,69 @@ test('only individually drawn, enabled, non-hazard places stack; the selection a
 
 test('stacked members leave their own layers, and the stack paints below hazards', () => {
   for (const shape of ['accessShape', 'outfitterShape', 'lodgingShape', 'boatRampShape', 'campgroundShape']) {
-    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+', colors\\), layerHiddenIds\\)`), shape);
+    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\), layerHiddenIds\\)`), shape);
   }
   for (const shape of ['gaugeShape', 'springShape', 'damShape', 'referenceShape']) {
-    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+', colors\\), stackedOnlyIds\\)`), shape);
+    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\), stackedOnlyIds\\)`), shape);
   }
-  assert.match(mapText, /const hazardShape = useMemo\(\s*\(\) => featureCollection\(hazardPins, layerColorFor\('hazards', colors\)\),/);
+  assert.match(mapText, /const hazardShape = useMemo\(\s*\(\) => featureCollection\(hazardPins, layerColorFor\('hazards'\)\),/);
   const stacksAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-stacks"');
   const hazardsAt = mapText.indexOf("pinLayer('hazards'", stacksAt);
   assert.ok(stacksAt > 0 && hazardsAt > stacksAt, 'hazards draw over stacks');
+});
+
+// ── Draw order and the selection, from the second device pass ───────────────
+
+test('hazards are the last pin source: over the route endpoints and the selection', () => {
+  const endpointsAt = mapText.indexOf('<Mapbox.ShapeSource id="plan-endpoints"');
+  const selectedAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-selected"');
+  const hazardsAt = mapText.indexOf("{pinLayer('hazards'");
+  assert.ok(endpointsAt > 0 && selectedAt > endpointsAt, 'the selection draws over the route endpoints');
+  assert.ok(hazardsAt > selectedAt, 'a put-in badge or a selection must never cover a hazard triangle');
+  assert.equal(mapText.indexOf('<Mapbox.ShapeSource', hazardsAt), -1, 'nothing pin-like draws after hazards');
+});
+
+test('pin sources are mounted for the life of the map, never behind layerOn', () => {
+  // @rnmapbox puts a newly mounted layer at the TOP of the style, so a source
+  // mounted on a toggle jumped over hazards. Off means an empty collection.
+  assert.doesNotMatch(mapText, /\{layerOn\('\w+'\)[\s\S]{0,40}\? (pinLayer|contextGaugeLayer|familyIndexLayer|accessLayer)\(/);
+  assert.match(mapText, /shape=\{layerOn\(id\) \? pinShapes\[id\] : EMPTY_COLLECTION\}/);
+  assert.match(mapText, /shape=\{layerOn\('allGauges'\) \? referenceShape : EMPTY_COLLECTION\}/);
+  assert.match(mapText, /shape=\{layerOn\('access'\) \? pinShapes\.access : EMPTY_COLLECTION\}/);
+});
+
+test('the selected place has its own source, and every layer leaves it out', () => {
+  const selected = mapText.slice(mapText.indexOf('<Mapbox.ShapeSource id="pins-selected"'), mapText.indexOf("{pinLayer('hazards'"));
+  assert.match(selected, /iconSize: SELECTED_SCALE/);
+  assert.match(selected, /id=\{pinHitLayerId\('pins-selected-label'\)\}[\s\S]*?textAllowOverlap: true/, 'the selected name is always drawn');
+  // No layer styles its own selection any more: it is filtered out instead.
+  const before = mapText.slice(0, mapText.indexOf('<Mapbox.ShapeSource id="plan-endpoints"'));
+  assert.doesNotMatch(before, /\['==', \['get', 'id'\], selectedPinId\]/);
+  assert.match(mapText, /const solo = unselected\(/);
+  for (const id of ['pins-access-overview', 'pins-access-badge', 'pins-access-icon', 'pins-access-label', 'pins-allGauges-dot']) {
+    assert.match(mapText, new RegExp(`pinHitLayerId\\('${id}'\\)\\}\\s*filter=\\{unselected\\(`), `${id} leaves out the selection`);
+  }
+  const unselected = handler('unselected', { selectedPinId: 'gauge:1' });
+  assert.deepEqual(JSON.parse(JSON.stringify(unselected(['!', ['has', 'point_count']]))),
+    ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'id'], 'gauge:1']]);
+  assert.equal(handler('unselected', { selectedPinId: null })(undefined), undefined);
+});
+
+test('a bottom-anchored mark is measured from its bulb, not its tip', () => {
+  // Access pin tip at the origin; a gauge 14pt above it at z12. A finger on
+  // the pin's bulb, 11pt above the tip, means the pin.
+  const zoom = 12;
+  // Mercator: a screen point spans cos(lat) as many degrees of latitude as of longitude.
+  const ptLat = (points: number) => ((points * 360) / (512 * 2 ** zoom)) * Math.cos((37 * Math.PI) / 180);
+  const tip = { lng: -91.4, lat: 37 };
+  const hits: Array<{ id: string; lng: number; lat: number; lift?: number }> = [
+    { id: 'access:1', ...tip, lift: 11 },
+    { id: 'gauge:2', lng: tip.lng, lat: tip.lat + ptLat(14) },
+  ];
+  const bulb = { lng: tip.lng, lat: tip.lat + ptLat(11) };
+  assert.equal(nearestHitId(hits, bulb, zoom), 'access:1');
+  assert.equal(nearestHitId(hits.map(({ lift: _lift, ...hit }) => hit), bulb, zoom), 'gauge:2',
+    'measured from the tip, as it was, the gauge stole the tap');
 });
 
 // ── Chrome regressions from the first device pass ─────────────────────────────

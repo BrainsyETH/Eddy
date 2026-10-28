@@ -144,24 +144,34 @@ export function stackTap(stack: Pick<PinStack, 'expansionZoom'>, zoom: number): 
   return { type: 'choose' };
 }
 
+/** A mark under the finger. `lift` is how far, in points, the mark's visual
+ * centre sits ABOVE its coordinate — a bottom-anchored pin's tip is the place,
+ * but its bulb is what a finger aims at. */
+export interface HitCandidate extends StackCandidate {
+  lift?: number;
+}
+
 /**
  * Of the marks under a finger, the one nearest to it. Duplicate hits from a
  * mark's icon and label layers collapse to one ID. Mercator distance is the
  * right comparison: the projection is conformal, so nearer on the map is
- * nearer on screen.
+ * nearer on screen — measured at `zoom`, so a mark's `lift` is in screen
+ * points. Without the lift a gauge just above an access pin's bulb won a tap
+ * aimed at the bulb, because the access pin was measured from its tip.
  */
 export function nearestHitId(
-  hits: readonly StackCandidate[],
+  hits: readonly HitCandidate[],
   tap: { lng: number; lat: number } | null,
+  zoom = 0,
 ): string | null {
   if (!hits.length) return null;
   if (!tap) return hits[0].id;
-  const [tx, ty] = project(tap.lng, tap.lat, 0);
+  const [tx, ty] = project(tap.lng, tap.lat, zoom);
   let best = hits[0];
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const hit of hits) {
-    const [x, y] = project(hit.lng, hit.lat, 0);
-    const distance = Math.hypot(x - tx, y - ty);
+    const [x, y] = project(hit.lng, hit.lat, zoom);
+    const distance = Math.hypot(x - tx, y - (hit.lift ?? 0) - ty);
     if (distance < bestDistance) {
       best = hit;
       bestDistance = distance;

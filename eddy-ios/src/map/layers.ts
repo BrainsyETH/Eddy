@@ -460,10 +460,12 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
  * must not disappear into a count — and take their mark at ZOOM.cluster rather
  * than waiting for PLACES, so they resolve as soon as the bubbles break. That is
  * a safety rule, and it is the only one. Lakes & dams once kept their labels at
- * every zoom and drew below the floor as "landmarks"; on a device that read as
- * one layer shouting its names over a map where nothing else was named, so they
- * climb the ladder with everything else. The raster has its own pair. Nothing
- * invents a rung of its own.
+ * every zoom and drew below the floor as "landmarks", and rated gauges were
+ * named a rung early and drew below the floor too; on a device each read as one
+ * layer shouting over a map where nothing else was named, so they climb the
+ * ladder with everything else. The selected place is not a layer: it is drawn
+ * and named on top at every zoom while its sheet is open. The raster has its
+ * own pair. Nothing invents a rung of its own.
  */
 export const ZOOM = {
   /** Below this, statewide layers neither draw nor fetch. */
@@ -492,7 +494,8 @@ export const ZOOM = {
 export const MIN_GAUGE_ZOOM = ZOOM.min;
 
 /**
- * Where curated gauges change from overview dots to full staff marks + labels.
+ * Where curated gauges change from overview dots to full staff marks. Their
+ * names wait for ZOOM.names, like every other layer's.
  *
  * Forty full symbols and place names obscure a statewide phone map; forty small
  * coloured dots do not. Keeping representation separate from visibility is the
