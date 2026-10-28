@@ -13,6 +13,7 @@ const symbols: Partial<Record<NonNullable<Props['name']>, SFSymbol>> = {
   'close-circle': 'xmark.circle.fill', 'close-circle-outline': 'xmark.circle',
   locate: 'location.fill', 'locate-outline': 'location',
   layers: 'square.3.layers.3d', 'layers-outline': 'square.3.layers.3d',
+  list: 'list.bullet', 'list-outline': 'list.bullet',
   search: 'magnifyingglass', 'search-outline': 'magnifyingglass', checkmark: 'checkmark',
   'map-outline': 'map', 'navigate-outline': 'location.north',
   'information-circle-outline': 'info.circle', 'ellipsis-horizontal': 'ellipsis',

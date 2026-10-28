@@ -2096,14 +2096,16 @@ Shared chart views retain the timezone saved in the link. New links include a ri
 
 ### Map interaction contract
 
-A map-level 44-point query resolves POIs across active sources. Repeated taps
-cycle through a stable, deduplicated set, including gauges and access points
-sharing a coordinate; a pan resets the cycle. The sheet displays the selected
-place and a small hint explains cycling. Selection order is alphabetical by
-stable pin ID (`access:` before `gauge:` before `hazard:`), independently of
-rendering priority; hazard marks still draw above other pins. Cluster taps ask
-the owning source for its expansion zoom, falling back to two more zoom levels
-if that query fails or returns an invalid value.
+A map-level 44-point query resolves POIs across active sources, and the mark
+nearest the finger wins. Places that overlap become one numbered stack, by the
+web planner's rule (`src/map/pinStacks.ts`): marks within 56pt of each other at
+the current whole zoom, across every layer drawn as individual marks at that
+zoom. Hazards, route endpoints and the selected place never stack. Tapping a
+stack below zoom 13 eases in to the zoom where it splits, capped at 15, when
+that is more than half a level away; otherwise it opens "N places here" in the
+places sheet. Cluster taps ask the owning source for its expansion zoom,
+falling back to two more zoom levels if that query fails or returns an invalid
+value. There is no tap cycling and no hint banner.
 
 POI selection preserves zoom and moves the camera only if the marker's touch
 area would be obscured by the measured sheet/chrome. Every new gesture cancels
@@ -2111,12 +2113,22 @@ stale asynchronous work and updates the remembered camera. A blank-map tap
 closes selection details and exits map-plan mode while retaining the selected
 river, endpoints and calculated route. It does not reframe the camera. Tapping
 the still-selected river opens its details again.
-The list beside Layers exposes enabled-layer places in the current area as
-native, searchable rows, including colocated places and cluster members.
+Places in this area is the list button beside Locate, not in the search row,
+which keeps its full width. It opens the same branded sheet as a stack: rows
+grouped by layer in the Layers sheet's order, each mark in its layer's
+outlined well, nearest the middle of the map first, with a filter from seven
+places. It is also the VoiceOver route to places on the map.
 Gauge refresh failures retain available data and expose a Retry action.
 
-Before release, verify on a physical iPhone: repeated cross-layer/colocated
-selection, cluster expansion and its failure fallback, empty-map dismissal with
+Map sheets clip at their host, which ends at the tab bar, so a resting sheet
+never paints through the floating glass tab bar. "Plan a float" sits in a row
+with a definite width; a content-sized row made its 55% cap circular and
+truncated the label.
+
+Before release, verify on a physical iPhone: numbered stacks at Alley Spring
+(zoom in from 11, choose at 15), nearest-mark taps between close marks, the
+places list and its filter with the keyboard up, sheets resting above the tab
+bar, an untruncated "Plan a float", cluster expansion and its failure fallback, empty-map dismissal with
 an existing route and reopening the still-selected river,
 rapid tap/pan while a query is pending, POIs near each sheet edge, remembered
 camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and

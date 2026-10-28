@@ -1,10 +1,3 @@
-/** Stable selection independent of native draw order and duplicate label/icon hits. */
-export function nextPinId(ids: readonly string[], selected: string | null | undefined): string | null {
-  const unique = [...new Set(ids)].sort();
-  if (!unique.length) return null;
-  return unique[(unique.indexOf(selected ?? '') + 1) % unique.length];
-}
-
 export function pointNeedsReveal(
   point: readonly number[], size: { width: number; height: number },
   padding: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number },
