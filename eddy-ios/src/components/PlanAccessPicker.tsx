@@ -119,11 +119,9 @@ export function PlanAccessPicker({
             <Text style={[styles.introTitle, { color: colors.text }]}>
               {downstreamOrder ? '↓ Upstream to downstream' : 'Nearest to you'}
             </Text>
-            <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
-              {downstreamOrder
-                ? 'Distances follow the river. Spacing is not to scale.'
-                : 'Sorted by straight-line distance from you, not river order.'}
-            </Text>
+            {!downstreamOrder ? <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
+              Sorted by straight-line distance from you, not river order.
+            </Text> : null}
           </View>
           {downstreamOrder && fromPoint ? (
             <View style={styles.timelineRow}>
