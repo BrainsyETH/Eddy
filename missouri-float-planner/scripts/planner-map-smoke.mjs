@@ -453,11 +453,11 @@ try {
   for (const text of ['Your next river day', 'River colors show current', 'Make a day of it']) assert.equal(await page.getByText(text, { exact: false }).count(), 0);
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
   for (const name of ['Nearby rivers', 'River names', 'USGS gauges', 'Water flow', 'Points of interest', 'River photos']) {
-    assert.equal(await page.getByRole('button', { name: new RegExp(name) }).getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.getByRole('button', { name: new RegExp(`^${name}`) }).getAttribute('aria-pressed'), 'true');
   }
-  await page.getByRole('button', { name: /USGS gauges/ }).click();
+  await page.getByRole('button', { name: /^USGS gauges/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('.gauge-station-marker').length === 0);
-  await page.getByRole('button', { name: /USGS gauges/ }).click();
+  await page.getByRole('button', { name: /^USGS gauges/ }).click();
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
   console.log('All desktop filters start enabled; statewide gauges, POIs and collapsed attribution verified');
   delayRiver = true;
@@ -1021,7 +1021,7 @@ try {
     const choose = async name => {
       if (touch) await cluster.tap(); else { await cluster.focus(); await cluster.press('Enter'); }
       await nearby.getByRole('region', { name: 'Choose a place' }).waitFor();
-      const row = nearby.getByRole('region', { name: 'Choose a place' }).getByRole('button', { name: new RegExp(name) });
+      const row = nearby.getByRole('region', { name: 'Choose a place' }).getByRole('button', { name: new RegExp(`^${name}`) });
       if (touch) await row.tap(); else await row.click();
     };
     await choose('Current gauge');

@@ -42,7 +42,7 @@ function scene(planning = false) {
     ...state, pendingAccessSelection, pendingMapPlanFrame,
     pendingRiverFit, setCameraCommand: (command: unknown) => { state.cameraCommand = command; },
     mapPlanning: state.mapPlanRiver === state.selectedSlug,
-    planOpen: false, mapPlanSelection, cancelMapSearch: () => {}, setPinCycleText: () => {},
+    planOpen: false, mapPlanSelection, cancelMapSearch: () => {},
     gestureCount: { current: 0 }, isGaugeIndexId: () => false,
     accessPointForPin: () => ({ point: campOnly, riverSlug: slug }),
     setSelectedPin: (value: unknown) => { state.selectedPin = value; },

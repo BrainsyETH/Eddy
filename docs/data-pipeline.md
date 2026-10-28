@@ -75,6 +75,11 @@ conditions every write on an unchanged `updated_at`, and reads every row back.
 The preview prints current values, which are the rollback. `access` touches only
 access points, which the NPS sync does not rewrite. Apply `landmarks` together
 with the spring repair above, and only on a deployment that includes the sync change.
+`van-buren` merges Van Buren City Access into Van Buren Riverfront Park: the
+duplicate is retired (`approved = false`), not deleted, and its URL redirects
+through `src/lib/access-points/merged-slugs.ts`. Merge any future duplicate the
+same way: move references to the canonical ID first, list the retired slug there,
+and remove it from the seed, which re-approves whatever it upserts.
 
 ## Checks & validation (read-only, safe always)
 

@@ -323,7 +323,14 @@ SELECT
 FROM rivers r WHERE r.slug = 'current'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
--- Van Buren
+-- Van Buren Riverfront Park
+--
+-- One town launch at the Hwy 60 bridge. Production carried it twice, as
+-- 'van-buren' (Van Buren City Access) and 'van-buren-riverfront-park', about
+-- 140 m apart; on 2026-10-28 the first was retired (approved = false) into the
+-- second, and its URL redirects (src/lib/access-points/merged-slugs.ts). This
+-- row used to seed 'van-buren' with approved = EXCLUDED.approved, so a re-seed
+-- would have brought the duplicate back.
 --
 -- river_mile_downstream is set HERE, unlike its neighbours in this file, and
 -- that is the point. The miles for this river live in
@@ -346,15 +353,15 @@ INSERT INTO access_points (
 )
 SELECT 
     r.id,
-    'Van Buren City Access',
-    'van-buren',
-    ST_SetSRID(ST_MakePoint(-91.0150, 36.9936), 4326),
+    'Van Buren Riverfront Park',
+    'van-buren-riverfront-park',
+    ST_SetSRID(ST_MakePoint(-91.01423, 36.99250), 4326),
     'boat_ramp',
     true,
     'city',
-    'Town of Van Buren access with concrete ramp. Near Big Spring.',
+    'Town of Van Buren riverfront park and concrete boat ramp at the Hwy 60 bridge. Near Big Spring.',
     ARRAY['parking', 'restrooms', 'boat_ramp'],
-    'Paved lot near downtown',
+    'Paved town parking near the riverfront park.',
     false,
     true,
     85.9
