@@ -1,7 +1,9 @@
 import sanitizeHtml from 'sanitize-html';
 
-/** Use complete, published points. Never invent advice or cut off qualifiers. */
-export function blogHighlights(data: unknown): string[] {
+/** Use complete, published points. Never invent advice or cut off qualifiers.
+ *  `limit` is 3 for the template caption (three paragraphs); the caption model
+ *  is handed more so it can pick the two or three a person would mention. */
+export function blogHighlights(data: unknown, limit = 3): string[] {
   if (!data || typeof data !== 'object') return [];
   const guide = data as Record<string, unknown>;
   const plain = (value: unknown) => typeof value === 'string'
@@ -39,5 +41,5 @@ export function blogHighlights(data: unknown): string[] {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).slice(0, 3);
+  }).slice(0, limit);
 }

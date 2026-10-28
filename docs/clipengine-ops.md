@@ -353,16 +353,23 @@ checks, and it must be listened to before approving voice quality or level.
   Captions are written at publish time by the `social_caption` model (the
   same switchable workload the clip reels use, see `/admin/ai-models`) in
   Eddy's voice (`src/lib/eddy/voice.ts`, shared with the river updates). The
-  model is given only the river's curated opening (`blog-voice.ts`, authored
-  from `EDDY_KNOWLEDGE.md` and the published guides) and up to three complete
-  published local details, pro tips and pre-launch notes, and is asked for
-  two to four short connected paragraphs, no bullets or headline fragments,
-  no repeated SEO title, no URL, no hashtags, ending on the planning CTA.
-  The same accuracy lint as the clips runs on the draft; a figure or seasonal
-  pattern is allowed only when the guide points state it, and "good to go" /
-  "safe to launch" language never passes. One retry, then the deterministic
-  template (opening, the same points as paragraphs, CTA) posts instead, also
-  when there is no `ANTHROPIC_API_KEY` or the API fails.
+  model is given the river's curated opening (`blog-voice.ts`, authored from
+  `EDDY_KNOWLEDGE.md` and the published guides) as the ANGLE to paraphrase,
+  plus up to nine complete published local details, pro tips and pre-launch
+  notes, and is asked to pick two or three and say them the way a friend
+  would out loud: two or three short paragraphs, at most one instruction per
+  paragraph, no bullets or label sentences, no repeated SEO title, no URL, no
+  hashtags, ending on the planning CTA. The prompt shows robotic-vs-human
+  example pairs rather than adjectives. The same accuracy lint as the clips
+  runs on the draft, with guide-only checks: any seven-word run copied from
+  the opening or the points is rejected (facts stay, wording must change),
+  so is brochure diction ("outing", "interchangeable", "prior to"), a figure
+  or seasonal pattern passes only when the guide points state it, and
+  "good to go" / "safe to launch" never passes. Em-dashes are replaced with
+  the river-update helper. One retry, then the deterministic template
+  (opening, three points as paragraphs, CTA) posts instead, also when there is
+  no `ANTHROPIC_API_KEY` or the API fails. Dedup is against the last few guide
+  posts only, so Float Pick spec sheets do not set the register.
   `social_posts.metadata.caption_source` records `model` or `template` per
   post. Unknown rivers and general articles use their title; legacy blogs
   without structured highlights use their description. Oversized/malformed

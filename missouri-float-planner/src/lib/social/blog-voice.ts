@@ -1,3 +1,5 @@
+import { replaceEmDashes } from '@/lib/eddy/parse-response';
+
 /**
  * Editorial openings for evergreen guides, written from EDDY_KNOWLEDGE.md and
  * the published river guides. Voice: generate-update.ts + river-guide-style.md
@@ -6,9 +8,10 @@
  * Facts and practical advice below the opening still come from the live guide.
  *
  * The openings do two jobs: they are the first line of the deterministic
- * template caption (the fallback), and they are offered to the caption model
- * as the river's suggested hook so a generated post starts from the same
- * curated voice rather than a cold river name.
+ * template caption (the fallback), and they give the caption model the river's
+ * ANGLE, the idea to open on. The model must put that idea in its own words:
+ * the lint rejects a draft that copies the sentence, because a line that reads
+ * well once reads canned by the third time the river rotates up.
  */
 export const GUIDE_OPENINGS: Readonly<Record<string, string>> = {
   current: 'Leave a little room in your Current River plans for a gravel-bar lunch. And possibly a second lunch.',
@@ -69,14 +72,16 @@ function isNoiseLine(line: string): boolean {
  * the canonical CTA as the LAST line, exactly once. The model is asked for this
  * order; this is the backstop for a draft that reworded the CTA, pasted the
  * article URL (the `link` param already renders the card), or appended a
- * hashtag block (a Facebook link post does not carry one).
+ * hashtag block (a Facebook link post does not carry one). Em-dashes become
+ * commas with the same helper the river updates use: nobody types them in a
+ * Facebook post, and they are the quickest tell that a model did.
  */
 export function finalizeGuideBody(body: string): string {
   const kept = body
     .replace(/\r\n/g, '\n')
     .split('\n')
     .filter((line) => !isGuideCtaLine(line) && !isNoiseLine(line))
-    .map((line) => line.replace(/\s*https?:\/\/\S+/gi, '').trimEnd())
+    .map((line) => replaceEmDashes(line.replace(/\s*https?:\/\/\S+/gi, '')).trimEnd())
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();

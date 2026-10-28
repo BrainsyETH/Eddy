@@ -166,15 +166,16 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
     return generateTemplateFallback(params);
   }
 
-  // Get recent captions for dedup
-  const recentCaptions = await getRecentCaptions(5);
-
   const now = new Date();
   const season = getCurrentSeason(now);
   const { dateStr } = getLocalDateStrings(MISSOURI_TZ, now);
 
   if (params.guide) {
-    const prompt = buildGuidePrompt(params.guide, params.riverName, params.ctaLine, recentCaptions, dateStr, season);
+    // Dedup against the last few GUIDE posts only. The unfiltered list is
+    // mostly Float Pick spec sheets, and a model shown five of those writes a
+    // sixth; its own recent guide posts are what it must not repeat.
+    const recentGuides = await getRecentCaptions(4, 'blog_feature');
+    const prompt = buildGuidePrompt(params.guide, params.riverName, params.ctaLine, recentGuides, dateStr, season);
     const ctx: AccuracyContext = {
       season,
       hasLiveData: false,
@@ -183,6 +184,9 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
     };
     return draftWithLint(prompt, ctx, params.model, () => generateTemplateFallback(params));
   }
+
+  // Get recent captions for dedup
+  const recentCaptions = await getRecentCaptions(5);
 
   const hookExamples = HOOK_EXAMPLES[params.hookStyle].join('\n- ');
 
@@ -261,36 +265,46 @@ export function buildGuidePrompt(
   season: AccuracyContext['season'],
 ): string {
   const points = guide.points.map((p, i) => `${i + 1}. ${p}`).join('\n');
-  return `Write the text of a Facebook page post for Eddy (eddy.guide), the Ozarks float trip planner. The post links to Eddy's published river guide for ${riverName}; Facebook shows the article card (title and photo) under your text, so the text is what makes someone stop and read.
+  return `Write a Facebook post for Eddy (eddy.guide), the Ozarks float trip planner. It links to Eddy's river guide for ${riverName}; Facebook shows the article card (title and photo) under your text.
 
-VOICE: ${EDDY_VOICE} You are talking to one person who is thinking about floating this river sometime, not reading them a brochure.
+WHO IS TALKING: ${EDDY_VOICE}
 
-SHAPE:
-- 50 to 110 words, in 2 to 4 short paragraphs of one to three sentences each. Separate paragraphs with a blank line.
-- The first line is the hook: under 125 characters, specific to this river, and it must earn the stop. A SUGGESTED OPENING is given below; use it as the first line, or write a better one in the same spirit.
-- Write one connected thought, not a list. Fold two or three of the GUIDE POINTS into natural sentences with transitions, the way a local would explain them over the counter. Do NOT output bullets, headings, bold labels, or short headline fragments followed by a sentence. Do NOT copy a point's label as its own sentence.
-- Plain, friendly, concrete. Contractions are fine. One light question is fine. No exclamation pileups.
-- Do NOT repeat the article title (the card shows it). No URL, no hashtags, no "link in bio".
-- Minimal emoji: none in the body; the call to action carries its own.
-${ctaRule(ctaLine)}
+HOW IT SHOULD SOUND: like a friend who knows this river answering "so what's the deal with ${riverName}?" out loud. Say your draft in your head. If a sentence is something nobody would say to a friend, rewrite it.
+- Lead with what a person would actually care about: why go, what surprises people, what trips people up. Then the one or two practical things that follow from it.
+- Mix short sentences and longer ones. Use contractions. Plain words: "stretch" not "reach", "trip" not "outing", "the water's cold" not "cold water is part of the character".
+- At most one instruction per paragraph. A post that is a string of commands (walk this, keep that, know this) is the failure mode.
+- One question is fine. No exclamation pileups, no dashes as a crutch, no tidy three-part parallel sentences, no sentence that is just a label.
 
-FACTS (critical — do not violate):
-- Every place, access, spring, outfitter, mile, distance, rating, number and warning must come from the SUGGESTED OPENING or the GUIDE POINTS below. Do NOT add any detail that is not there, however plausible.
-- Keep every qualifier and warning the points carry (a "not interchangeable", a "do not", a "check first"). Do not soften or drop them to sound breezier.
+The difference, with made-up generic examples (do not reuse their details):
+ROBOTIC: "The spring itself is a land stop. Keep the dam and spillway out of your paddling plan entirely. They're not part of the float."
+HUMAN: "The spring is the kind of place you walk around for an hour, not something you paddle. The dam below it isn't part of any float, so save the river for after."
+ROBOTIC: "The upper trips and the lower floats are different outings, not interchangeable."
+HUMAN: "Up top you're hopping ledges. Lower down it's a lazy float. Figure out which one you're signing up for before you book a shuttle."
+
+FACTS (critical):
+- Use only the ANGLE and the GUIDE POINTS below. Put them in your own words. Do not copy a sentence, a phrase, or a label from them; a draft that repeats the guide's wording is rejected.
+- Pick the two or three points a person would bring up and skip the rest. Keep the meaning of any warning you use (a "not the same trip", a "check first", a "stay off") and say it like a person.
+- Nothing else: no place, access, spring, outfitter, mile, distance, number, rating, or history that is not in the points, however plausible.
 - This is an evergreen guide, NOT today's conditions. Do NOT state or imply current water levels, flow, temperature, or that the river is running well right now. Do NOT manufacture urgency ("this weekend", "before it drops", "catch it now").
 - Never tell the reader they are "cleared", "good to go", or that it is "safe to launch". Eddy shows the live gauge; the reader decides.
-- SEASON: Today is ${dateStr}, so it is ${season} in Missouri. Do not claim or imply that any other season is happening now. Quoting a seasonal pattern that a GUIDE POINT states (for example what a stretch does in late summer) is fine.
+- SEASON: Today is ${dateStr}, so it is ${season} in Missouri. Do not claim or imply that any other season is happening now. Mentioning a seasonal pattern that a GUIDE POINT states (for example what a stretch does in late summer) is fine.
 - NO INVENTED PERSONAL HISTORY: no "we were just out there", no "I've floated this a hundred times". Knowledgeable guide, not a fake anecdote.
 - No marketing buzzwords: "unlock", "discover", "hidden gem", "adventure awaits", "bucket list".
 
+SHAPE:
+- 45 to 100 words, in 2 or 3 short paragraphs separated by a blank line.
+- The first line is under 125 characters and specific to this river. It should make someone who knows the river nod and someone who doesn't want to read on.
+- Do not repeat the article title (the card shows it). No URL, no hashtags, no "link in bio", no emoji in the body.
+${ctaRule(ctaLine)}
+
 RIVER: ${riverName}
 ARTICLE TITLE (do not repeat): ${guide.title}
-SUGGESTED OPENING: ${guide.opening ?? '(none; write your own)'}
-GUIDE POINTS (the only facts allowed):
-${points || '(none; use only the suggested opening)'}
+ANGLE (the idea to open on, in your own words, not this sentence): ${guide.opening ?? '(none; pick the angle from the points)'}
+GUIDE POINTS (the only facts allowed; use two or three):
+${points || '(none; use only the angle)'}
 
-RECENT CAPTIONS (do not reuse these hooks or their phrasing):
-${recentCaptions.map((c) => `- ${c.slice(0, 100)}`).join('\n') || '- (none)'}
+YOUR LAST FEW GUIDE POSTS (do not repeat their openings or their structure):
+${recentCaptions.map((c) => `- ${c.slice(0, 160).replace(/\s+/g, ' ')}`).join('\n') || '- (none)'}
 
 FORMAT YOUR RESPONSE AS:
 HOOK: [the first line, under 125 chars]
@@ -427,6 +441,33 @@ const SEASON_PATTERNS: Record<AccuracyContext['season'], RegExp[]> = {
   ],
 };
 
+// Words that mark text as copied from a guide rather than said by a person.
+// Short and deliberate: each one appeared in a published post that read
+// robotic, or is the kind of hedge nobody says out loud.
+const STIFF_PHRASES =
+  /\b(interchangeable|outings?|land stop|focal point|prior to|ensure|utilize|it is important|note that|keep in mind|be sure to|planning conversation)\b/i;
+
+/** How many consecutive words in a row count as copying rather than reusing a name. */
+const COPIED_RUN_WORDS = 7;
+
+const normalizeWords = (s: string) =>
+  s.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+
+/**
+ * The first run of COPIED_RUN_WORDS consecutive words in `draft` that also
+ * appears, in order, in `grounding`; null when the draft is in its own words.
+ * Place names are a few words long, so a seven-word window never flags one.
+ */
+export function copiedRun(draft: string, grounding: string): string | null {
+  const haystack = ` ${normalizeWords(grounding).join(' ')} `;
+  const words = normalizeWords(draft);
+  for (let i = 0; i + COPIED_RUN_WORDS <= words.length; i++) {
+    const run = words.slice(i, i + COPIED_RUN_WORDS).join(' ');
+    if (haystack.includes(` ${run} `)) return run;
+  }
+  return null;
+}
+
 /**
  * Deterministic accuracy lint for a generated caption. Returns a list of
  * human-readable violations (empty = clean). This is the backstop that turns
@@ -485,6 +526,18 @@ export function findAccuracyViolations(draft: Pick<GeneratedCaption, 'caption' |
   if (!ctx.allowLocation) {
     const loc = text.match(/#missouri\w*/i) || text.match(/\bmissouri\b/i);
     if (loc) violations.push(`claims Missouri ("${loc[0]}") but the clip location is unconfirmed`);
+  }
+
+  if (grounding) {
+    // Copied wording. The guide points are the facts, not the prose: a run of
+    // several words lifted from them (or from the curated opening) is what
+    // makes a post read like the bullets it came from.
+    const copied = copiedRun(draft.caption, grounding);
+    if (copied) violations.push(`copies the guide's wording instead of saying it in its own words: "${copied}"`);
+
+    // Guidebook diction a person would not use out loud.
+    const stiff = text.match(STIFF_PHRASES);
+    if (stiff) violations.push(`uses brochure wording "${stiff[0]}" — say it the way a person would`);
   }
 
   // Go / no-go language. Eddy is a planning input, not the safety authority
@@ -549,15 +602,17 @@ function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
 }
 
 /**
- * Fetch recent captions for deduplication.
+ * Fetch recent captions for deduplication, optionally of one post type.
  */
-async function getRecentCaptions(count: number): Promise<string[]> {
+async function getRecentCaptions(count: number, postType?: string): Promise<string[]> {
   try {
     const supabase = createAdminClient();
-    const { data } = await supabase
+    let query = supabase
       .from('social_posts')
       .select('caption')
-      .eq('status', 'published')
+      .eq('status', 'published');
+    if (postType) query = query.eq('post_type', postType);
+    const { data } = await query
       .order('created_at', { ascending: false })
       .limit(count);
 

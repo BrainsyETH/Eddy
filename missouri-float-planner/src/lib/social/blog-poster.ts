@@ -49,11 +49,16 @@ export interface BlogPostResult {
 
 export type CaptionSource = 'model' | 'template';
 
+/** How many published points the model is shown. It uses two or three; seeing
+ *  the rest is what lets it pick the ones a person would actually bring up
+ *  instead of the first bullet of each section. */
+export const MODEL_POINT_LIMIT = 9;
+
 /** The facts a guide caption may use: the curated opening plus the published
  *  highlights (or the description for a legacy blog without structured data). */
-export function guideCaptionPoints(blog: BlogRow): { opening?: string; points: string[] } {
+export function guideCaptionPoints(blog: BlogRow, limit = 3): { opening?: string; points: string[] } {
   const opening = blog.river_slug ? GUIDE_OPENINGS[blog.river_slug] : undefined;
-  const highlights = blogHighlights(blog.guide_data);
+  const highlights = blogHighlights(blog.guide_data, limit);
   const description = blog.description?.trim();
   const points = highlights.length ? highlights : description ? [description] : [];
   return { opening, points };
@@ -86,7 +91,7 @@ export async function composeBlogCaption(
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
 
   try {
-    const { opening, points } = guideCaptionPoints(blog);
+    const { opening, points } = guideCaptionPoints(blog, MODEL_POINT_LIMIT);
     const generated = await generateCaption({
       model,
       contentType: 'educational',
