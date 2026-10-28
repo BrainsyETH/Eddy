@@ -9,13 +9,12 @@
 // list stays exactly where links expect it.
 //
 // ── What it deliberately does not show ────────────────────────────────────
-// No float times on saved cards (see SavedFloatRow). Start a Float and Return
-// to float appear only where the floatMode flag is on (development and preview
-// builds, or the server flag; see floatModeFeature.ts), and so do the offline
+// No float times on saved cards (see SavedFloatRow). New starts require the
+// floatMode flag; Your Float always resumes an active recording. The offline
 // lines on saved floats, read from the same rules as each trip's own card. Featured Floats are the first three of the
 // curated picks in the same daily rotation Today used, swiped one at a time.
 
-import { floatEntryAction } from '@/lib/floatEntry';
+import { YourFloatButton } from '@/float/YourFloatButton';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -43,7 +42,7 @@ import { SectionHead } from '@/components/SectionHead';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useCachedRiverPhotos } from '@/hooks/useCachedRiverPhotos';
 import { useAppConfig } from '@/hooks/useAppConfig';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useHasFloatSession } from '@/hooks/useFloatSession';
 import { useOfflineBadges } from '@/float/useOfflineBadges';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { dailyFavoriteFloats } from '@/lib/todayFloats';
@@ -73,7 +72,7 @@ function FloatHomeContent() {
   const { colors, elevation } = useTheme();
   const { floats: saved, ready, forget } = useSavedFloats();
   const { features, featuresReady } = useAppConfig();
-  const activeFloat = useFloatSession();
+  const activeFloat = useHasFloatSession();
   const savedPreview = saved.slice(0, SAVED_PREVIEW_COUNT);
   const photos = useCachedRiverPhotos();
   const offline = useOfflineBadges(
@@ -138,29 +137,16 @@ function FloatHomeContent() {
 
         <View style={[styles.gutter, styles.actions]}>
           {!featuresReady && !activeFloat ? <ActivityIndicator accessibilityLabel="Loading float options" color={colors.interactive} /> : null}
-          {floatEntryAction(!!activeFloat, featuresReady && !!features.floatMode) ? (
+          {activeFloat ? <YourFloatButton /> : featuresReady && features.floatMode ? (
             <Pressable
-              onPress={() => navigate(() => router.push(activeFloat ? '/float-mode' : '/float-start'))}
+              onPress={() => navigate(() => router.push('/float-start'))}
               accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.findCard,
-                { backgroundColor: colors.accentFill, opacity: pressed ? 0.8 : 1 },
-              ]}
+              style={({ pressed }) => [styles.findCard, { backgroundColor: colors.accentFill, opacity: pressed ? 0.8 : 1 }]}
             >
-              {activeFloat ? (
-                <ControlIcon name="navigate-outline" size={24} color={colors.onAccent} />
-              ) : (
-                <FloatActionIcon name="startFloat" color={colors.onAccent} />
-              )}
+              <FloatActionIcon name="startFloat" color={colors.onAccent} />
               <View style={styles.welcomeText}>
-                <Text style={[styles.findTitle, { color: colors.onAccent }]}>
-                  {activeFloat ? 'Return to float' : 'Start a Float'}
-                </Text>
-                <Text style={[styles.subtitle, { color: colors.onAccent }]}>
-                  {activeFloat
-                    ? `${activeFloat.route.riverName} · to ${activeFloat.takeOut.name}`
-                    : 'Track your trip on the river'}
-                </Text>
+                <Text style={[styles.findTitle, { color: colors.onAccent }]}>Start a Float</Text>
+                <Text style={[styles.subtitle, { color: colors.onAccent }]}>Track your trip on the river</Text>
               </View>
               <ControlIcon name="chevron-forward" size={17} color={colors.onAccent} />
             </Pressable>

@@ -1,3 +1,4 @@
+import { activeFloatColors } from '../../../eddy-ios/src/theme/float';
 import { highContrastDarkPalette, highContrastLightPalette } from '../../../eddy-ios/src/theme/contrast';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -238,3 +239,16 @@ for (const [base, strong] of [[lightPalette, highContrastLightPalette], [darkPal
     }
   });
 }
+
+test('Your Float uses readable Trail Green status colors in both appearances and increased contrast', () => {
+  for (const colors of [lightPalette, darkPalette, highContrastLightPalette, highContrastDarkPalette]) {
+    for (const healthy of [true, false]) {
+      const surface = activeFloatColors(colors, healthy);
+      assert.ok(contrast(surface.textColor, surface.backgroundColor) >= 4.5, `${colors.scheme} status text`);
+      assert.ok(contrast(surface.ink, surface.backgroundColor) >= 3, `${colors.scheme} status icon`);
+      assert.ok(contrast(colors.text, surface.backgroundColor) >= 4.5, `${colors.scheme} title`);
+      assert.ok(contrast(surface.borderColor, surface.backgroundColor) >= 3, `${colors.scheme} boundary`);
+      if (healthy) assert.equal(surface.ink, colors.success);
+    }
+  }
+});

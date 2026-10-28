@@ -21,6 +21,7 @@
 // produced it would be a plan nobody trusts.
 
 import { floatEntryAction } from '@/lib/floatEntry';
+import { YourFloatButton } from '@/float/YourFloatButton';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useIsFocused, useRouter } from 'expo-router';
 import {
@@ -58,7 +59,7 @@ import { createPlanActions } from '@/lib/planActions';
 import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 import type { PlanDetailDestination } from '@/lib/planDestinations';
 import { usePlanSupport } from '@/hooks/usePlanSupport';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useHasFloatSession } from '@/hooks/useFloatSession';
 import { useAppConfig } from '@/hooks/useAppConfig';
 
 interface Props {
@@ -123,7 +124,7 @@ export function PlanSheet({
   const { step, putIn, takeOut, plan, calculating, error } = state;
   const resultReady = Boolean(river && !riverLoading && step === 'result' && !calculating && !error && plan && plan.river.id === river.id);
   const router = useRouter();
-  const activeFloat = useFloatSession();
+  const activeFloat = useHasFloatSession();
   const focused = useIsFocused();
   const closeRequested = useRef(false);
   const [detailNavigation] = useState(createPlanDetailNavigation);
@@ -382,15 +383,15 @@ export function PlanSheet({
                 ))}
               </ScrollView>
             ) : null}
-            {entry ? (
+            {entry === 'return' ? <YourFloatButton onPress={onStart} /> : entry ? (
               <Pressable
                 onPress={onStart}
                 style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
                 accessibilityRole="button"
-                accessibilityHint={activeFloat ? 'Returns to your float in progress' : 'Review this route before starting tracking'}
+                accessibilityHint="Review this route before starting tracking"
               >
                 <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Float this route</Text>
               </Pressable>
             ) : null}
             {resultReady ? <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>

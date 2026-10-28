@@ -70,7 +70,12 @@ export function flushHazardReports(budgetMs?: number): Promise<void> {
 
 /** Start the attempts again for a report Eddy gave up on. */
 export function retryHazardReport(id: string): Promise<boolean> {
-  return queue.retry(id);
+  return queue.retry(id).then(async (retried) => {
+    // The queue retries once itself; rejoin the scheduler so another network
+    // failure still gets the normal automatic attempts.
+    if (retried) await flushHazardReports();
+    return retried;
+  });
 }
 
 export function addHazardReport(report: Parameters<typeof queue.add>[0]): Promise<void> {

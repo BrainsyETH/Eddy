@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  hazardReportFeedback,
   GIVE_UP_AFTER_MS,
   MAX_ATTEMPTS,
   REPORTS_KEY,
@@ -321,4 +322,26 @@ test('a delivered response at the background deadline still records success', as
   await queue.flush(10);
   assert.equal(queue.list()[0].status, 'sent');
   assert.equal(queue.list()[0].attempts, 1);
+});
+
+test('report confirmation follows delivery and never calls a local save sent', async () => {
+  for (const outcome of [{ kind: 'sent' }, { kind: 'retry' }, { kind: 'refused', message: 'Location must be within 2 km of the selected river' }] as const) {
+    const queue = createReportQueue(disk(), async () => outcome, () => {}, () => T0);
+    await queue.add(input('confirmation'));
+    const saved = hazardReportFeedback(queue.list()[0]);
+    assert.match(saved.message, /Thanks! Report saved/);
+    assert.doesNotMatch(saved.message, /sent for review/);
+    await queue.flush();
+    const feedback = hazardReportFeedback(queue.list()[0]);
+    if (outcome.kind === 'sent') assert.match(feedback.message, /Thanks! Report sent for review/);
+    else if (outcome.kind === 'retry') assert.equal(feedback.message, saved.message);
+    else {
+      assert.equal(feedback.error, true);
+      assert.match(feedback.message, /Location must be within 2 km/);
+      assert.equal(feedback.retry, false, 'a permanent location refusal cannot be fixed by re-sending');
+    }
+  }
+  const failed = hazardReportFeedback({ status: 'failed' });
+  assert.equal(failed.retry, true);
+  assert.match(failed.message, /saved on your phone/);
 });

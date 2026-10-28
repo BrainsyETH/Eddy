@@ -71,6 +71,7 @@
 // says so: "≈" and "to its gauge", never a drive time. A river with no gauge
 // sorts last rather than pretending to a distance of zero.
 
+import { YourFloatButton } from '@/float/YourFloatButton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -1478,6 +1479,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
           ) : null}
           </View> : (
             <View>
+              {browseMode === 'today' ? <YourFloatButton style={{ marginHorizontal: 16, marginBottom: 14 }} /> : null}
               {(nativeToday || browseMode !== 'today') && statusNotice ? <View style={styles.header}>{statusNotice}</View> : null}
               {browseMode === 'today' ? (
                 <TodayHub

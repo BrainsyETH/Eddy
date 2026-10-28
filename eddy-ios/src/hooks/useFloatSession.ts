@@ -19,6 +19,14 @@ export function useFloatSession(): FloatSession | null {
   return useSyncExternalStore(subscribeFloatSession, getFloatSession, getFloatSession);
 }
 
+const hasFloat = () => getFloatSession() != null || floatSessionLoadFailed();
+
+/** Keep the large map independent of every GPS fix; the button subscribes to details. */
+export function useHasFloatSession(): boolean {
+  useEffect(() => { void ensureFloatSessionLoaded(); }, []);
+  return useSyncExternalStore(subscribeFloatSession, hasFloat, hasFloat);
+}
+
 /**
  * True while the stored float could not be read: a null session then means
  * "unknown", not "no float". Reads again on mount and each foreground, and

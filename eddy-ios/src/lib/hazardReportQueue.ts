@@ -65,6 +65,15 @@ export interface HazardReport {
 
 export type SendOutcome = { kind: 'sent' } | { kind: 'refused'; message: string } | { kind: 'retry' };
 
+export function hazardReportFeedback(report: Pick<HazardReport, 'status' | 'refusal'>) {
+  switch (report.status) {
+    case 'waiting': return { message: 'Thanks! Report saved. Eddy will send it when connected.', error: false, retry: false };
+    case 'sent': return { message: 'Thanks! Report sent for review.', error: false, retry: false };
+    case 'refused': return { message: `Report not sent. ${report.refusal ?? 'It wasn’t accepted.'}`, error: true, retry: false };
+    case 'failed': return { message: 'Couldn’t send your report. It’s saved on your phone.', error: true, retry: true };
+  }
+}
+
 export interface ReportStorage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;

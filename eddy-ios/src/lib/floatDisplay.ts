@@ -1,6 +1,23 @@
 import { boundsForLine, MAX_ACCURACY_M, type LngLat } from '@eddy/geo';
 import { formatDuration, STALE_POSITION_MS, type FloatSession } from './floatSession';
 import type { ActivityAvailability } from './floatActivity';
+import type { TrackerState } from './floatTrackerStatus';
+
+/** The active-float entry must not promise healthy tracking from session existence alone. */
+export function activeFloatStatus(session: FloatSession, tracker: TrackerState, now: number) {
+  const position = floatDisplayPosition(session, now);
+  const river = session.route.riverName;
+  const blocked = tracker.servicesOff || tracker.denied || tracker.preciseOff || tracker.notInUse;
+  const attention = blocked || tracker.status === 'failed' || tracker.status === 'unavailable';
+  const weak = gpsQualityNote(session, now);
+  const healthy = tracker.status === 'recording' && !attention && !!position && !position.dimmed && !weak;
+  const label = attention ? `Tracking needs attention · ${river}`
+    : weak ? `Weak GPS · ${river}`
+    : healthy ? `Tracking on the ${river}`
+    : position && !session.awaitingFix && !session.gpsPosition?.restored && tracker.status === 'recording' ? `Location delayed · ${river}`
+    : `Finding GPS · ${river}`;
+  return { label, healthy, at: position?.at ?? null };
+}
 
 /** Display uses the recorder's GPS stream, never a second location subscription. */
 export function floatDisplayPosition(session: FloatSession, now: number): {
