@@ -270,3 +270,46 @@ test('every fetch-skipping path applies the one eligibility rule', () => {
     'no fetch-skipping path may fall back to bounds-only containment',
   );
 });
+
+// ── A COUNT IS A COUNT ────────────────────────────────────────────────────
+//
+// Every cluster on the map wears one of two count badges — the web planner's
+// rounded square — and neither carries a condition colour: white for Eddy's
+// own layers, parchment for the USGS reference tier. Rated clusters were once
+// painted with the worst verdict inside them, which made a count's colour mean
+// a verdict on one badge and a category on the next. The verdict lives on the
+// river lines and the individual pins.
+
+test('every cluster count wears a badge, never a coloured bubble', () => {
+  const countLayers = [...CODE.matchAll(/<Mapbox\.(\w+)\s+id=\{?[`'"]([^`'"]+)[`'"]\}?\s+filter=\{\['has', 'point_count'\]\}/g)];
+  assert.equal(countLayers.length, 6, 'three clustered builders, each a badge and a count');
+  for (const [, kind, id] of countLayers) {
+    assert.equal(kind, 'SymbolLayer', `${id}: a count is a badge image, not a circle`);
+  }
+  assert.doesNotMatch(CODE, /clusterProperties=/, 'a cluster reduces nothing: its count is the only summary it shows');
+  assert.doesNotMatch(CODE, /conditionColor\([^)]*\)[^;]*point_count/, 'no count is painted with a condition colour');
+});
+
+test('only the USGS reference tier wears the parchment badge', () => {
+  const reference = sourceBlock('id="pins-allGauges"');
+  assert.match(reference, /style=\{USGS_COUNT_BADGE\}/);
+  assert.match(reference, /style=\{USGS_COUNT_TEXT\}/);
+  assert.equal(CODE.match(/style=\{USGS_COUNT_BADGE\}/g)?.length, 1, 'no Eddy layer borrows the reference face');
+  assert.ok((CODE.match(/style=\{PLACE_COUNT_BADGE\}/g)?.length ?? 0) >= 2, 'rated gauges, dams and places wear the place face');
+});
+
+test('every count badge image is registered and on disk', () => {
+  const keys = [...new Set([...CODE.matchAll(/eddy-count-[a-z-]+-map/g)].map((m) => m[0]))];
+  const expanded = keys.flatMap((key) => key.includes('${') ? [] : [key]);
+  for (const face of ['place', 'usgs']) expanded.push(`eddy-count-${face}-map`, `eddy-count-${face}-wide-map`);
+  for (const key of new Set(expanded)) {
+    const registration = new RegExp(`'${key}': \\{ image: require\\('\\.\\./\\.\\./assets/map/([a-z-]+)\\.png'\\), sdf: false \\}`);
+    const file = CODE.match(registration)?.[1];
+    assert.ok(file, `${key} must be registered in PIN_IMAGES as full-colour art`);
+    // React Native resolves the bare name to its @3x file; that file must exist.
+    assert.doesNotThrow(
+      () => readFileSync(join(process.cwd(), '..', 'eddy-ios', 'assets', 'map', `${file}@3x.png`)),
+      `${file}@3x.png must exist — regenerate with eddy-ios/scripts/build-map-icons.py`,
+    );
+  }
+});

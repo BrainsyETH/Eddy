@@ -131,23 +131,6 @@ export function floatableRank(code: string): number {
   return WEEKEND_SEVERITY[code] ?? WEEKEND_SEVERITY.unknown;
 }
 
-/**
- * Alarm rank — MOST ALARMING FIRST, so 0 is `dangerous` and higher is calmer.
- *
- * The other ordering, and the counterpart to floatableRank above: this is
- * CONDITION_SYSTEM's own `severity`, which alerts and digests are ordered by.
- * The map's gauge clusters take the MINIMUM of it across their members, which
- * is how a bubble ends up wearing the worst news it contains rather than an
- * average of six verdicts — see the cluster paint in RiverMap.
- *
- * Named `alarmRank` rather than `severity` on purpose. Two functions called
- * something-rank sitting next to each other invite a reader to check which is
- * which; two called `severity` and `floatableRank` invite them not to.
- */
-export function alarmRank(code: string): number {
-  return CONDITION_SYSTEM[code as ConditionCode]?.severity ?? CONDITION_SYSTEM.unknown.severity;
-}
-
 /** Opaque fills prevent a photo or map from changing a badge's text contrast. */
 export function conditionOpaqueBg(code: string, isDark: boolean): string {
   return opaqueBg(code, isDark ? darkPalette.card : '#FFFFFF');

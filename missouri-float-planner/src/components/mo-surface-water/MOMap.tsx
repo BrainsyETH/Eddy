@@ -1245,7 +1245,9 @@ export default function MOMap(props: MOMapProps) {
         <title>{label}</title>
         <circle r={count > 1 ? bubble + 3 * gaugePixel : 9 * gaugePixel} fill="transparent" />
         {count > 1 ? <>
-          <circle r={bubble} fill={REFERENCE_CLUSTER_FILL} stroke={REFERENCE_CLUSTER_INK} strokeWidth={1.5 * gaugePixel} />
+          {/* A rounded square, like every count on the planner and the iOS map: a square is a count, a dot is a station. */}
+          <rect x={-bubble} y={-bubble} width={2 * bubble} height={2 * bubble} rx={0.45 * bubble}
+            fill={REFERENCE_CLUSTER_FILL} stroke={REFERENCE_CLUSTER_INK} strokeWidth={1.5 * gaugePixel} />
           <text textAnchor="middle" dy="0.35em" fill={REFERENCE_CLUSTER_INK} fontSize={(nationalWide ? 11 : 8.5) * gaugePixel}
             fontWeight={700} pointerEvents="none">{count}</text>
         </> : selected && <circle r={6 * gaugePixel} fill={referenceColor(gauge)} stroke="#F07052" strokeWidth={3 * gaugePixel} />}

@@ -228,8 +228,7 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
   // ── THE OTHER `false` TIER: reference, not verdict ─────────────────────
   // Every station here is one Eddy has declined to rate, and at the opening
   // statewide view its clusters (~500 stations in a Missouri frame) out-shout
-  // the ~45 rated dots beside them — in CLUSTER_FILL, which is the rated row's
-  // own teal. The tier is one chip away, and searching for an unrated station
+  // the ~45 rated dots beside them. The tier is one chip away, and searching for an unrated station
   // switches it on (see the search handler on the map screen). See the
   // DEFAULT_LAYERS docblock for the history.
   allGauges: false,
@@ -601,10 +600,11 @@ export const MAP_LAYERS: LayerDef[] = [
     // on the map surface paired the condition ladder with its words until a
     // pin was tapped. One derived sentence closes that: derived from
     // CONDITION_ORDER so a new code reaches it without anyone remembering to,
-    // which is the same argument CLUSTER_CONDITION_COLOR makes in RiverMap.
+    // and it names the count badges too, the one mark the ladder does not
+    // cover: a square is a count, never a verdict.
     info: `Rated stations wear a condition colour, graded against each river's own ladder — ${CONDITION_ORDER.map(
       (code) => conditionLabel(code),
-    ).join(' · ')}. Grey means the station has no current rating.`,
+    ).join(' · ')}. Grey means the station has no current rating. Numbered squares count stations: white for Eddy's, tan for other USGS gauges.`,
     accessibilityHint: 'Live USGS readings on the water',
     tiers: ['gauges', 'allGauges'],
     // The rated tier is one statewide list; the national tier holds whatever

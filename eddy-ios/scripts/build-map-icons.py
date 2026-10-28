@@ -213,6 +213,44 @@ def route_finish(size: int = 54) -> tuple[Image.Image, tuple[int, int]]:
     return mask, (size, size)
 
 
+# Count badges: the web planner's numbered marker (globals.css
+# `.planner-marker-face`) as map art. A rounded square, a 2pt ring and a hard
+# 2pt offset shadow, in points; drawn @3x. The number is NOT in the art: the
+# layer writes it, so one image serves every count.
+#
+# The shadow sits inside a 2pt margin on EVERY side, not just bottom-right, so
+# the face is centred in the canvas and a centre-anchored count lands in the
+# middle of it without an offset to keep in step.
+BADGE_RING = 2
+BADGE_RADIUS = 6
+BADGE_SHADOW = 2
+BADGE_SHADOW_COLOR = "#524D43"  # neutral-700, the web marker's shadow
+
+
+def count_badge(face_w: int, face_h: int, fill: str, ring: str) -> Image.Image:
+    """A full-colour count badge, `face_w` x `face_h` points, at @3x."""
+    scale = 3 * SS
+    margin = BADGE_SHADOW
+    w, h = face_w + 2 * margin, face_h + 2 * margin
+    art = Image.new("RGBA", (w * scale, h * scale), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(art)
+
+    def box(left: float, top: float, inset: float = 0) -> tuple[float, float, float, float]:
+        return (
+            (left + inset) * scale,
+            (top + inset) * scale,
+            (left + face_w - inset) * scale - 1,
+            (top + face_h - inset) * scale - 1,
+        )
+
+    draw.rounded_rectangle(box(margin + BADGE_SHADOW, margin + BADGE_SHADOW),
+                           radius=BADGE_RADIUS * scale, fill=BADGE_SHADOW_COLOR)
+    draw.rounded_rectangle(box(margin, margin), radius=BADGE_RADIUS * scale, fill=ring)
+    draw.rounded_rectangle(box(margin, margin, BADGE_RING),
+                           radius=(BADGE_RADIUS - BADGE_RING) * scale, fill=fill)
+    return art.resize((w * 3, h * 3), Image.LANCZOS)
+
+
 def themed_icon(source_name: str, size: int = 66) -> Image.Image:
     """Fit one transparent Eddy utility mark into a map-sized square."""
     source = EDDY / f"{source_name}.png"
@@ -314,6 +352,29 @@ def main() -> None:
     }
     for name, source_name in themed.items():
         icon = themed_icon(source_name)
+        target = OUT / f"{name}@3x.png"
+        icon.save(target, optimize=True)
+        print(f"{name + '@3x.png':24} {icon.width}x{icon.height}  {target.stat().st_size // 1024} KB")
+
+    # Count badges. Every number on the map wears one of two faces, and neither
+    # is a condition colour: a count of gauges has no single reading, so the
+    # individual pins say condition and the badge says only "this many".
+    #   white + Deep River Teal ring — Eddy's own layers (rated gauges, places,
+    #     dams, and the numbered stacks);
+    #   parchment + charcoal ring — the USGS reference tier, matching the web's
+    #     `.reference-cluster-face`.
+    # Clusters are 28pt (a statewide view holds dozens), widening to 40pt for
+    # three-character counts; stacks are the web marker's own 34pt.
+    place, usgs = ("#FFFFFF", "#1D525F"), ("#F2EAD8", "#2D2A24")
+    badges = {
+        "count-place": (28, 28, *place),
+        "count-place-wide": (40, 28, *place),
+        "count-usgs": (28, 28, *usgs),
+        "count-usgs-wide": (40, 28, *usgs),
+        "count-stack": (34, 34, *place),
+    }
+    for name, (face_w, face_h, fill, ring) in badges.items():
+        icon = count_badge(face_w, face_h, fill, ring)
         target = OUT / f"{name}@3x.png"
         icon.save(target, optimize=True)
         print(f"{name + '@3x.png':24} {icon.width}x{icon.height}  {target.stat().st_size // 1024} KB")

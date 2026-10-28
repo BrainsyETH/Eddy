@@ -73,8 +73,7 @@ import {
   portageNote,
   severityLabel,
 } from '@eddy/hazards';
-import { CONDITION_ORDER } from '@eddy/conditions';
-import { alarmRank, conditionColor, conditionLabel } from '@/theme/conditions';
+import { conditionColor, conditionLabel } from '@/theme/conditions';
 import { neutral, primary, type Palette } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
@@ -186,6 +185,13 @@ const PIN_IMAGES = {
   'eddy-lodging-map': { image: require('../../assets/map/eddy-lodging.png'), sdf: false },
   'eddy-dam-map': { image: require('../../assets/map/eddy-dam.png'), sdf: false },
   'eddy-spring-map': { image: require('../../assets/map/eddy-spring.png'), sdf: false },
+  // Count badges — see PLACE_COUNT_BADGE. Full colour, never SDF: SDF would
+  // flatten the face, ring and shadow into one tint.
+  'eddy-count-place-map': { image: require('../../assets/map/count-place.png'), sdf: false },
+  'eddy-count-place-wide-map': { image: require('../../assets/map/count-place-wide.png'), sdf: false },
+  'eddy-count-usgs-map': { image: require('../../assets/map/count-usgs.png'), sdf: false },
+  'eddy-count-usgs-wide-map': { image: require('../../assets/map/count-usgs-wide.png'), sdf: false },
+  'eddy-count-stack-map': { image: require('../../assets/map/count-stack.png'), sdf: false },
 };
 
 /** iOS emits this even when addMissingImageToStyle starts a native reload.
@@ -236,59 +242,54 @@ function accessMatch(pick: (code: PublicLandAccess) => string): unknown[] {
 }
 
 /**
- * Cluster fill for the national gauge layer.
+ * Count badges: every number on the map, in one of two faces.
  *
- * Mid teal from the brand scale, and pointedly NOT a flow-band or condition
- * colour: a cluster of forty gauges has no single reading and therefore no
- * band. Painting it with one would average five verdicts into a sixth that
- * nobody computed.
+ * The web planner's numbered marker (globals.css `.planner-marker-face`) — a
+ * rounded square, a 2pt ring, a hard offset shadow — drawn as map art by
+ * scripts/build-map-icons.py. Two faces and no third:
+ *
+ *   place — white, Deep River Teal ring. Eddy's own layers: rated gauges,
+ *           the place families, dams, and the numbered stacks.
+ *   usgs  — parchment, charcoal ring. The USGS reference tier, the same face
+ *           the web gives its reference clusters.
+ *
+ * ── A count wears no condition colour ──────────────────────────────────────
+ * Rated clusters used to be painted with the worst verdict inside them. That
+ * made the colour of a count mean two different things — a verdict on one
+ * badge, a layer's category on the badge beside it — and a red square reading
+ * "12" still could not say which of the twelve was in flood. The verdict lives
+ * where it can be acted on: the coloured river lines at every zoom, and the
+ * individual pins once a tap or a pinch breaks the cluster.
+ *
+ * Badges are full-colour images, not circles, because Mapbox has no square
+ * primitive; the number is the layer's text, so one image serves every count.
+ * Module constants, because a fresh array per render is a style prop that never
+ * compares equal — a native paint update for a value that never changes.
  */
-const CLUSTER_FILL = primary[600];
+const COUNT_INK = primary[900];
+const USGS_COUNT_INK = neutral[900];
 
-/**
- * A rated-gauge cluster's aggregate: the WORST verdict inside it.
- *
- * ── Why the rated tier clusters at all now ─────────────────────────────────
- *
- * It did not, and this file argued at length that it must not: "a rated pin
- * disappearing into a grey bubble would break the one promise that layer makes,
- * which is that its colour is a verdict you can act on." The promise is right.
- * The grey bubble was the problem with it.
- *
- * `clusterProperties` reduces over the members, so a cluster is not obliged to
- * be an average of five verdicts — it can be the most alarming one, which is
- * the only summary of mixed river conditions that is safe to show. Ten gauges
- * where one is in flood collapse into a RED bubble, not a teal count. Nothing
- * is hidden that mattered: the worst news survives the collapse, and one tap
- * expands it into the individual dots.
- *
- * `min`, because CONDITION_SYSTEM ranks most-alarming FIRST — dangerous is 0.
- * See alarmRank, which is the only place that ordering is read.
- */
-const CLUSTER_WORST = {
-  worst: [['min', ['accumulated'], ['get', 'worst']], ['get', 'severity']],
-} as const;
+/** Three-character counts ("100", "1.2k") take the 40pt face, not the 28pt one. */
+const countBadgeStyle = (face: 'place' | 'usgs') => ({
+  iconImage: ['step', ['get', 'point_count'], `eddy-count-${face}-map`, 100, `eddy-count-${face}-wide-map`],
+  // A count that collision detection drops is a cluster that silently vanishes.
+  iconAllowOverlap: true,
+  iconIgnorePlacement: true,
+});
+const PLACE_COUNT_BADGE = countBadgeStyle('place');
+const USGS_COUNT_BADGE = countBadgeStyle('usgs');
 
-/**
- * Paint a cluster in the colour of the worst condition it holds.
- *
- * Built from the ladder rather than written out, so a new condition code is
- * carried here by adding it to CONDITION_SYSTEM and nothing else. The fallback
- * is the neutral teal the national tier uses — correct for a bubble whose
- * members carry no verdict at all.
- *
- * A module constant rather than something built during render: condition colour
- * does not depend on the theme (the tints composite over both schemes — see
- * theme/conditions), and a fresh array on every pass is a style prop that never
- * compares equal, which is a native paint update per render for a value that
- * never changes.
- */
-const CLUSTER_CONDITION_COLOR: unknown[] = [
-  'match',
-  ['get', 'worst'],
-  ...CONDITION_ORDER.flatMap((code) => [alarmRank(code), conditionColor(code)]),
-  CLUSTER_FILL,
-];
+/** The number inside a badge. Dark ink on a solid face needs no halo. */
+const countTextStyle = (ink: string) => ({
+  textField: ['get', 'point_count_abbreviated'],
+  textSize: 12,
+  textColor: ink,
+  // A badge with no number in it lies about being one place. Never dropped.
+  textAllowOverlap: true,
+  textIgnorePlacement: true,
+});
+const PLACE_COUNT_TEXT = countTextStyle(COUNT_INK);
+const USGS_COUNT_TEXT = countTextStyle(USGS_COUNT_INK);
 
 /**
  * What onMapIdle hands back, structurally.
@@ -904,11 +905,6 @@ function featureCollection(
           pin.color ?? (typeof defaultColor === 'string' ? defaultColor : defaultColor(pin)),
         magnitude: pin.magnitude ?? 0,
         privateAccess: pin.privateAccess ?? false,
-        // Written on every feature so a CLUSTER can reduce over it — see
-        // CLUSTER_WORST and the gauge layer's paint. A pin with no condition
-        // lands on `unknown`, which is the calmest rank and therefore never
-        // wins a bubble it has nothing to say about.
-        severity: alarmRank(pin.code ?? 'unknown'),
       },
       geometry: {
         type: 'Point' as const,
@@ -1493,9 +1489,9 @@ export function RiverMap({
    * ONE population under three questions: the resolver hands out one marker per
    * place with an `owner` deciding its mark, so these three can never
    * double-count a place between them. `services` is rentals and cabins, the
-   * same arrangement over the directory. Gauges keep their own two families:
-   * a rated bubble carries the worst verdict inside it, which is a claim about
-   * water that a bubble full of cabins must not join.
+   * same arrangement over the directory. Gauges keep their own two sources: a
+   * count of gauges answers a question about water that a count mixing in
+   * cabins could not.
    */
   const placesIndexShape = useMemo(
     () =>
@@ -2003,11 +1999,10 @@ export function RiverMap({
      */
     compactUntilZoom?: number,
     /**
-     * Collapse this layer into count bubbles below `maxZoom`.
+     * Collapse this layer into count badges below `maxZoom`.
      *
-     * Only the rated gauge tier passes it. The bubble wears the worst verdict
-     * it contains rather than a neutral fill — see CLUSTER_WORST, which is what
-     * makes clustering a layer of verdicts defensible at all.
+     * Rated gauges and dams pass it. The badge is the neutral place face, never
+     * a verdict — see PLACE_COUNT_BADGE.
      */
     clustering?: { radius: number; maxZoom: number },
   ) => {
@@ -2037,23 +2032,16 @@ export function RiverMap({
         cluster={clustering !== undefined}
         clusterRadius={clustering?.radius}
         clusterMaxZoomLevel={clustering?.maxZoom}
-        clusterProperties={clustering ? CLUSTER_WORST : undefined}
       >
         {clustering ? (
-          <Mapbox.CircleLayer
+          <Mapbox.SymbolLayer
             id={`pins-${id}-cluster`}
             filter={['has', 'point_count']}
-            // The layer's own floor applies to its bubbles too, or a tier that
+            // The layer's own floor applies to its badges too, or a tier that
             // is meant to be silent at continental zoom announces itself there
             // as one very large count.
             minZoomLevel={minZoom}
-            style={{
-              circleColor: CLUSTER_CONDITION_COLOR,
-              circleOpacity: 0.92,
-              circleStrokeWidth: 1.5,
-              circleStrokeColor: '#FFFFFF',
-              circleRadius: ['step', ['get', 'point_count'], 14, 10, 17, 30, 20],
-            }}
+            style={PLACE_COUNT_BADGE}
           />
         ) : null}
         {clustering ? (
@@ -2061,23 +2049,7 @@ export function RiverMap({
             id={`pins-${id}-cluster-count`}
             filter={['has', 'point_count']}
             minZoomLevel={minZoom}
-            style={{
-              textField: ['get', 'point_count_abbreviated'],
-              textSize: 11,
-              // Dark ink, not white: these bubbles wear condition colours, and
-              // three of the six — good, flowing, high — are light enough that
-              // white on them fails the contrast every other condition surface
-              // in this app is held to. The canonical inks are darker still,
-              // but they are per-code and a count must not need a `match` to
-              // stay legible.
-              textColor: LABEL_INK,
-              textHaloColor: LABEL_HALO,
-              textHaloWidth: 1,
-              // A circle with no number in it is a dot that lies about being
-              // one gauge. Never dropped by collision detection.
-              textAllowOverlap: true,
-              textIgnorePlacement: true,
-            }}
+            style={PLACE_COUNT_TEXT}
           />
         ) : null}
         {icon && compactUntilZoom !== undefined ? (
@@ -2194,15 +2166,14 @@ export function RiverMap({
   /**
    * The national tier: thousands of dots, so this one clusters.
    *
-   * A SIBLING of pinLayer, not a flag on it. pinLayer is shared by six layers
-   * and clustering it would change how curated gauges, access points and
-   * hazards all render — and CURATED GAUGES MUST NEVER CLUSTER. A rated pin
-   * disappearing into a grey bubble would break the one promise that layer
-   * makes, which is that its colour is a verdict you can act on.
+   * A SIBLING of pinLayer, not a flag on it: its source is fed by the viewport
+   * and the national index rather than a pin list, and it clusters at every
+   * zoom up to ZOOM.cluster rather than only when a caller asks.
    *
    * Everything here is deliberately quieter than a curated pin: smaller radius,
-   * a 1pt halo instead of 2, labels held back two more zoom levels. The tier is
-   * reference, and it should look like reference.
+   * a 1pt halo instead of 2, labels held back two more zoom levels, and the
+   * parchment count badge rather than Eddy's white one. The tier is reference,
+   * and it should look like reference.
    */
   const contextGaugeLayer = () => {
     // No early return on an empty list, for the reason above networkShape — and
@@ -2228,42 +2199,24 @@ export function RiverMap({
         // one layer into pins while the other was still bubbles.
         clusterMaxZoomLevel={ZOOM.cluster}
       >
-        <Mapbox.CircleLayer
+        {/* The parchment face: reference data, quieter than Eddy's own
+            counts, and the same face the web gives these clusters. Neutral
+            ALWAYS — a cluster mixes gauges running high with gauges running
+            low, so it has no band and must not borrow one.
+
+            Style keys are prefixed (textAllowOverlap, never allowOverlap): an
+            unprefixed name is not a Mapbox property, and @rnmapbox throws on it
+            at RENDER time, which once took the whole map down. tsc does not
+            catch it — the style prop is typed loosely. */}
+        <Mapbox.SymbolLayer
           id="pins-allGauges-cluster"
           filter={['has', 'point_count']}
-          style={{
-            // Neutral, ALWAYS. A cluster mixes gauges running high with gauges
-            // running low, so it has no band and must not borrow one — the
-            // average of five verdicts is not a verdict.
-            circleColor: CLUSTER_FILL,
-            circleOpacity: 0.9,
-            circleStrokeWidth: 1.5,
-            circleStrokeColor: '#FFFFFF',
-            circleRadius: ['step', ['get', 'point_count'], 14, 20, 18, 100, 22],
-          }}
+          style={USGS_COUNT_BADGE}
         />
         <Mapbox.SymbolLayer
           id="pins-allGauges-count"
           filter={['has', 'point_count']}
-          style={{
-            textField: ['get', 'point_count_abbreviated'],
-            textSize: 11,
-            textColor: '#FFFFFF',
-            // No halo: white on the cluster's own dark teal is already legible,
-            // and a halo at this size closes up the counter's inner shapes.
-            //
-            // textAllowOverlap, NOT allowOverlap. The unprefixed name is not a
-            // Mapbox style property and @rnmapbox throws "allowOverlap is not a
-            // valid Mapbox layer style" at RENDER time — which took down the
-            // whole map the moment the layer was switched on. The style prop is
-            // typed loosely enough that tsc passed it.
-            //
-            // The value matters as well as the name: a cluster's count must
-            // never be dropped by collision detection. A circle with no number
-            // in it is a dot that lies about being one gauge.
-            textAllowOverlap: true,
-            textIgnorePlacement: true,
-          }}
+          style={USGS_COUNT_TEXT}
         />
         <Mapbox.CircleLayer
           id={pinHitLayerId('pins-allGauges-dot')}
@@ -2323,15 +2276,13 @@ export function RiverMap({
    * a coloured dot; both are legible at a zoom where a 22pt tent is not, and
    * neither needs to know which of the family's layers it came from. The dot
    * still wears its own layer's colour, so a lone campground is green and a lone
-   * put-in is teal — the sheet's rows stay a legend for what is on the map.
-   *
-   * @param tint The family's bubble fill. Its LAYERS keep their own colours;
-   *   this is the one colour a mixed count is allowed to have.
+   * put-in is teal — the sheet's rows stay a legend for what is on the map. A
+   * count wears the place badge for both families: a mixed count has no one
+   * layer's colour to claim.
    */
   const familyIndexLayer = (
     id: 'places' | 'services',
     shape: ReturnType<typeof featureCollection>,
-    tint: string,
   ) => (
     <Mapbox.ShapeSource
       id={`pins-${id}-index`}
@@ -2345,41 +2296,22 @@ export function RiverMap({
       clusterRadius={46}
       clusterMaxZoomLevel={ZOOM.cluster}
     >
-      <Mapbox.CircleLayer
+      <Mapbox.SymbolLayer
         id={`pins-${id}-index-cluster`}
         filter={['has', 'point_count']}
         // ZOOM.min is the ladder's floor: nothing statewide draws below it, and
         // a family that ignored it would announce a continental view as one very
-        // large count. Same reasoning pinLayer's own cluster circle carries.
+        // large count. Same reasoning pinLayer's own cluster badge carries.
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
-        style={{
-          circleColor: tint,
-          circleOpacity: 0.92,
-          circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 1.5,
-          circleRadius: ['step', ['get', 'point_count'], 13, 5, 16, 12, 19],
-        }}
+        style={PLACE_COUNT_BADGE}
       />
       <Mapbox.SymbolLayer
         id={`pins-${id}-index-count`}
         filter={['has', 'point_count']}
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
-        style={{
-          textField: ['get', 'point_count_abbreviated'],
-          textSize: 10,
-          // Dark ink and a halo, NOT white — the rule the rated-gauge bubble
-          // already states: a count must not need a `match` to stay legible.
-          // These two families wear teal and tan, and white fails the second.
-          textColor: LABEL_INK,
-          textHaloColor: LABEL_HALO,
-          textHaloWidth: 1,
-          // A circle with no number in it is a dot that lies about being one
-          // place. Never dropped by collision detection.
-          textAllowOverlap: true,
-          textIgnorePlacement: true,
-        }}
+        style={PLACE_COUNT_TEXT}
       />
       <Mapbox.CircleLayer
         id={pinHitLayerId(`pins-${id}-index-dot`)}
@@ -2796,10 +2728,10 @@ export function RiverMap({
           family is on — an empty family draws nothing, and the source staying
           mounted through a toggle is the same teardown rule pinLayer follows. */}
       {layerOn('access') || layerOn('campgrounds') || layerOn('boatRamps')
-        ? familyIndexLayer('places', placesIndexShape, colors.interactive)
+        ? familyIndexLayer('places', placesIndexShape)
         : null}
       {layerOn('outfitters') || layerOn('lodging')
-        ? familyIndexLayer('services', servicesIndexShape, colors.warm)
+        ? familyIndexLayer('services', servicesIndexShape)
         : null}
 
       {layerOn('access') ? accessLayer() : null}
@@ -2857,14 +2789,13 @@ export function RiverMap({
           "where is the water?" immediately; the staff marks and place names
           arrive at GAUGE_DETAIL_ZOOM.
 
-          ── Rated gauges cluster now, and keep their verdict ──────────────
-          They used to be the one pin layer that never collapsed, on the
-          argument that a verdict hidden in a grey bubble is a verdict
-          withheld. That was an argument against GREY, and it is answered: a
-          rated cluster is painted with the worst condition inside it (see
-          CLUSTER_WORST). At statewide zoom the Ozarks now read as a handful of
-          coloured counts instead of forty overlapping dots, and a river in
-          flood is redder for it, not quieter.
+          ── Rated gauges cluster, and the count is only a count ───────────
+          For a while a rated cluster was painted with the worst condition
+          inside it. It is the neutral place badge now (see PLACE_COUNT_BADGE):
+          a coloured count meant a verdict beside counts whose colour meant a
+          category, and it still could not say WHICH gauge was in flood. The
+          verdict stays where it can be acted on — the coloured river lines at
+          every zoom, and these pins once the cluster breaks.
 
           It collapses on the same rung as everything else — ZOOM.cluster — so
           the map changes character once as you pan in rather than six times.
@@ -2890,11 +2821,9 @@ export function RiverMap({
           data, and the floor was protecting a cost that had been paid on
           launch.
 
-          Clustered, this is the most useful thing on a zoomed-out map: a
-          handful of counts, each painted with the WORST condition it holds, so
-          "where is there water, and is any of it dangerous" survives all the
-          way out. Ungated it is also cheap — the set is bounded and already in
-          memory. */}
+          Clustered, this answers "where are Eddy's gauges" all the way out,
+          over river lines that already say what the water is doing. Ungated it
+          is also cheap — the set is bounded and already in memory. */}
       {layerOn('gauges')
         ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, undefined, GAUGE_DETAIL_ZOOM, {
             radius: 40,
@@ -2915,13 +2844,9 @@ export function RiverMap({
           lines only. Nothing thinned it, because iconAllowOverlap is true here
           on purpose: silently dropping a pin is the worse failure.
 
-          So it takes the rungs everything else takes: count bubbles to
+          So it takes the rungs everything else takes: count badges to
           ZOOM.cluster, overview dots to ZOOM.places, then the mark. A dam
-          cluster paints CLUSTER_FILL rather than a verdict colour, because
-          every dam feature carries severity `unknown` (rank 6) and
-          CLUSTER_CONDITION_COLOR only has arms for the six real codes — so the
-          bubble takes the fallback, which is exactly what that fallback is for.
-          A dam publishes no condition for a bubble to summarise.
+          cluster wears the same place badge as every other Eddy count.
 
           ── THE LABELS STAY ON AT EVERY ZOOM, WHICH IS THE EXCEPTION ────────
           labelMinZoom is 0, not ZOOM.names, and it is the one layer off the
@@ -2981,29 +2906,19 @@ export function RiverMap({
           The floor is the ladder's own — below it there is no river to read a
           hazard against, and every other statewide layer is silent there. */}
       {/* ── Numbered stacks, the web planner's mark ───────────────────────
-          A white face, a brand-coloured ring and a hard offset shadow, as on
-          eddy.guide's planner: the number is how many places are under it.
+          The place count badge at the web's own 34pt: a white rounded
+          square, a Deep River Teal ring and a hard offset shadow, as on
+          eddy.guide's planner. The number is how many places are under it.
           Above every place layer, because it stands in for their members,
           and below hazards, which never join a stack and must paint on top.
-          Sized like the web's 34pt face; the tap target is the 44pt query
-          box around the finger. */}
+          The tap target is the 44pt query box around the finger. */}
       <Mapbox.ShapeSource id="pins-stacks" shape={stackShape}>
-        <Mapbox.CircleLayer
-          id={pinHitLayerId('pins-stacks-shadow')}
-          style={{
-            circleRadius: 17,
-            circleColor: LABEL_INK,
-            circleOpacity: 0.85,
-            circleTranslate: [2, 2],
-          }}
-        />
-        <Mapbox.CircleLayer
+        <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-stacks-face')}
           style={{
-            circleRadius: 17,
-            circleColor: '#FFFFFF',
-            circleStrokeWidth: 2,
-            circleStrokeColor: colors.interactive,
+            iconImage: 'eddy-count-stack-map',
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
           }}
         />
         <Mapbox.SymbolLayer
@@ -3012,8 +2927,8 @@ export function RiverMap({
             textField: ['to-string', ['get', 'count']],
             textSize: 14,
             // The face is white in both schemes, like every pin badge here, so
-            // its number is the dark label ink rather than colors.text.
-            textColor: LABEL_INK,
+            // its number is the brand's darkest teal rather than colors.text.
+            textColor: COUNT_INK,
             textAllowOverlap: true,
             textIgnorePlacement: true,
           }}
