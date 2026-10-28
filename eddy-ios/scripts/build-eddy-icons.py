@@ -428,6 +428,25 @@ def generate(name: str) -> Image.Image:
     raise SystemExit(f"unknown generated symbol: {name}")
 
 
+def write_if_changed(art: Image.Image, target: Path) -> bool:
+    """Save `art` unless `target` already holds the same pixels.
+
+    Re-encoding an unchanged drawing still produced different PNG bytes (the
+    palette order and compression vary with the Pillow build), so every run
+    rewrote every icon and left a set of binary diffs that changed nothing on
+    screen. Comparing decoded RGBA instead means a run touches only what it
+    actually redrew.
+    """
+    if target.exists():
+        with Image.open(target) as current:
+            old = current.convert("RGBA")
+        new = art.convert("RGBA")
+        if old.size == new.size and old.tobytes() == new.tobytes():
+            return False
+    art.save(target, optimize=True)
+    return True
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     WEB_OUT.mkdir(parents=True, exist_ok=True)
@@ -444,21 +463,22 @@ def main() -> None:
         if name in WEB_ICONS:
             targets.append(WEB_OUT / f"{name}.png")
 
-        for target in targets:
-            art.save(target, optimize=True)
+        written = [write_if_changed(art, target) for target in targets]
 
         where = "+".join("ios" if t.parent == OUT else "web" for t in targets)
         size = targets[0].stat().st_size // 1024
-        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  {where}")
+        state = "written" if any(written) else "unchanged"
+        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  {where}  {state}")
 
     for name in GENERATED_SYMBOLS:
         art = generate(name)
         target = OUT / f"{name}.png"
-        art.save(target, optimize=True)
+        written = [write_if_changed(art, target)]
         if name in WEB_ICONS:
-            art.save(WEB_OUT / f"{name}.png", optimize=True)
+            written.append(write_if_changed(art, WEB_OUT / f"{name}.png"))
         size = target.stat().st_size // 1024
-        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  ios")
+        state = "written" if any(written) else "unchanged"
+        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  ios  {state}")
 
     bundled_names = ICONS + GENERATED_SYMBOLS
     bundled = sum((OUT / f"{n}.png").stat().st_size for n in bundled_names)

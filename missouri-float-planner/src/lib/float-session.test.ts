@@ -1318,3 +1318,24 @@ test('Your Float promises tracking only with a healthy recorder and a fresh usab
   assert.match(activeFloatStatus(weak, tracker, now + 10_000).label, /Weak GPS/);
   assert.equal(activeFloatStatus(weak, tracker, now + 10_000).healthy, false);
 });
+
+test('a float saves the take-out photo and those along the stretch for offline, take-out first', async () => {
+  const { stretchPhotoUris } = await import('../../../eddy-ios/src/lib/floatPhotos');
+  const photo = (id: string, mile: number, url?: string): MapAccessPoint => ({ ...point(id, 0, mile), ...(url ? { imageUrls: [url, `${url}-2`] } : {}) });
+  const points = [
+    photo('above', 18, 'https://images.unsplash.com/above'),
+    photo('akers', 20, 'https://images.unsplash.com/akers'),
+    photo('cave', 22, 'https://images.unsplash.com/cave'),
+    photo('no-photo', 23),
+    photo('pulltite', 24, 'https://images.unsplash.com/pulltite'),
+    photo('below', 26, 'https://images.unsplash.com/below'),
+  ];
+  assert.deepEqual(stretchPhotoUris(points, 'pulltite', 'akers'), [
+    'https://images.unsplash.com/pulltite', 'https://images.unsplash.com/akers', 'https://images.unsplash.com/cave',
+  ], 'one photo each, nothing above the start or below the take-out');
+  assert.deepEqual(stretchPhotoUris(points, 'pulltite', null, 21.8), [
+    'https://images.unsplash.com/pulltite', 'https://images.unsplash.com/cave',
+  ], 'a GPS start uses its mile');
+  assert.equal(stretchPhotoUris(points, 'pulltite').length, 4, 'no known start: everything upstream of the take-out');
+  assert.deepEqual(stretchPhotoUris(points, 'missing', 'akers'), []);
+});

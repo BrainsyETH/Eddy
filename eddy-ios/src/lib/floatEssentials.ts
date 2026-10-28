@@ -9,8 +9,10 @@ import type { LngLat } from '@eddy/geo';
  * five seconds while fixes land every second or so, so a fix is usually
  * newer than the last tick; read at the tick, essentialsPosition took it for
  * a future fix, returned null, and greyed Share location out until the next
- * tick. A fix the session accepted is itself proof of the time (applyFix
- * refuses future fixes at ingest), as River Mode's own clock already assumes.
+ * tick. A fix the session accepted is itself proof of the time: the store
+ * refuses recorded fixes stamped more than a few seconds ahead of the phone's
+ * clock (floatSessionStoreCore.ts FUTURE_FIX_SKEW_MS), as River Mode's own
+ * clock already assumes.
  */
 export function essentialsClock(session: FloatSession, now: number): number {
   return Math.max(now, session.lastFix?.at ?? 0, session.gpsPosition?.at ?? 0, session.last?.at ?? 0);

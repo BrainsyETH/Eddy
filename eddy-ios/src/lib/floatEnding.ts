@@ -77,10 +77,33 @@ export function continuingPastEnd(session: FloatSession, now: number): boolean {
  * River Mode offers Discard alongside End while this holds.
  */
 export function isShortFloat(session: FloatSession, now: number): boolean {
-  if (now - session.startedAt < SHORT_FLOAT_MS) return true;
+  return discardReason(session, now) != null;
+}
+
+/**
+ * Why Discard is on offer, so the End dialog can say so plainly. "Unplaced"
+ * matters most: a float that never found the river after hours is short by
+ * this rule (nothing was measured), and "nothing much has been recorded"
+ * reads wrong to someone who has been out all day under poor GPS.
+ */
+export function discardReason(session: FloatSession, now: number): 'young' | 'unplaced' | 'stationary' | null {
   const latest = session.samples[session.samples.length - 1];
-  if (!latest || session.startMile == null) return true;
-  return Math.abs(latest.riverMile - session.startMile) < SHORT_FLOAT_MILES;
+  const placed = latest != null && session.startMile != null;
+  if (now - session.startedAt < SHORT_FLOAT_MS) return 'young';
+  if (!placed) return 'unplaced';
+  return Math.abs(latest.riverMile - session.startMile!) < SHORT_FLOAT_MILES ? 'stationary' : null;
+}
+
+/** The End dialog's message when Discard is on offer. */
+export function discardCopy(reason: 'young' | 'unplaced' | 'stationary'): string {
+  switch (reason) {
+    case 'young':
+      return 'This float just started, so nothing much has been recorded. Discard it, or end it and keep a recap in your float history.';
+    case 'unplaced':
+      return 'Eddy never placed you on the river, so there’s no distance to keep. Discard it, or end it and keep a recap of your time in your float history.';
+    case 'stationary':
+      return 'Eddy recorded less than a tenth of a mile of progress. Discard it, or end it and keep a recap in your float history.';
+  }
 }
 
 export const ARRIVED_PROMPT_ID = 'arrived';
