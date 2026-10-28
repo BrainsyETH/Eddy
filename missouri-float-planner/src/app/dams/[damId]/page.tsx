@@ -93,7 +93,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
             <p className="mt-2 text-sm text-neutral-600">{[dam.lakeName ?? 'Dam conditions', river?.name, dam.state].filter(Boolean).join(' · ')}</p>
           </div>
           <nav aria-label="Dam sections" className="flex flex-wrap items-center gap-2 text-sm">
-            <StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} />
+            <StationShareButton station={{ provider: 'usace', siteId: damId }} title={dam.name} label="Share" />
             <Button href="#dam-resources" variant="ghost" size="sm" className="min-h-11">{dam.infoPhone ? 'Release line & links' : 'Related links'}</Button>
           </nav>
         </header>

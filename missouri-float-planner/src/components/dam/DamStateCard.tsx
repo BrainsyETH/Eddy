@@ -133,7 +133,7 @@ export default function DamStateCard({
       : nowNextClauses(state, dam.schedule, dam.generationReference, now);
 
   return (
-    <Card variant="framed" className="min-w-0 p-5 sm:p-6">
+    <Card variant={secondary ? 'panel' : 'framed'} className="min-w-0 p-5 sm:p-6">
       {secondary ? (
         <h2
           className="text-xl font-semibold text-primary-800"

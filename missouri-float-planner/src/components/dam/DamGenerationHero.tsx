@@ -18,8 +18,6 @@ import {
   generatorRack,
   releaseComparison,
   speaksForNow,
-  OTHER_RELEASE_NOTE,
-  RACK_ESTIMATE_SHORT,
   ABOVE_FULL_GENERATION_LABEL,
 } from '@shared/dam-generation';
 
@@ -53,40 +51,35 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
 
   return (
     <section aria-label="Observed generation" className="min-w-0">
-      <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">
-        <Zap className="size-4 shrink-0 text-primary-200" aria-hidden="true" /> {status}
+      <h2 className="flex flex-wrap items-center gap-2 pr-8 text-base font-semibold text-primary-900 sm:pr-0">
+        <Zap className="size-4 shrink-0 text-accent-700" aria-hidden="true" /> {status}
         {dim && <span className="rounded-full bg-accent-100 px-2 py-0.5 text-xs font-bold text-accent-900">Outdated reading</span>}
       </h2>
 
       {/* Flow leads; the rack adds scale against the published reference.
-          Its decorative cells are hidden from assistive technology. Dimming
-          alone barely reads on the dark panel, so an old reading also says so
-          in words beside the status. */}
+          Its decorative cells are hidden from assistive technology. An old
+          reading also says so in words beside the status. */}
       <div className={dim ? 'opacity-70' : undefined}>
         {state.kind !== 'unavailable' && (
-          <p className="mt-3 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-white">
-            {Math.round(state.turbineCfs).toLocaleString()} <span className="text-base tracking-normal text-primary-200">cfs</span>
-            <span className="mt-1 block font-sans text-sm font-normal tracking-normal text-primary-100">through the turbines</span>
+          <p className="mt-3 font-mono text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight text-primary-900">
+            {Math.round(state.turbineCfs).toLocaleString()} <span className="text-base tracking-normal text-neutral-600">cfs</span>
+            <span className="mt-1 block font-sans text-sm font-normal tracking-normal text-neutral-700">through the turbines</span>
           </p>
         )}
-        {observedAt && <p className="mt-2 text-xs text-primary-200">Last reading {observedAt}</p>}
+        {observedAt && <p className="mt-2 text-xs text-neutral-600">Last reading {observedAt}</p>}
         {rack && <div className="mt-5 flex flex-wrap items-center gap-3">
-          <DamGeneratorRack rack={rack} inverse />
-          {percent && ref && state.kind === 'generating' && <p className="text-sm font-bold text-white">
-            {percent} <span className="font-normal text-primary-100">{FULL_GENERATION_SHORT_LABEL}</span>
+          <DamGeneratorRack rack={rack} />
+          {percent && ref && state.kind === 'generating' && <p className="text-sm font-bold text-primary-900">
+            ~{percent} <span className="font-normal text-neutral-700">{FULL_GENERATION_SHORT_LABEL}</span>
           </p>}
         </div>}
-        {/* One caption under the rack rather than two orphaned lines. */}
-        {rack && <p className="mt-2 text-xs text-primary-200">
-          {state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && `${ABOVE_FULL_GENERATION_LABEL} · `}
-          {RACK_ESTIMATE_SHORT}
-        </p>}
+        {rack && state.kind === 'generating' && state.fraction !== null && state.fraction > 1 && <p className="mt-2 text-xs text-neutral-600">{ABOVE_FULL_GENERATION_LABEL}</p>}
       </div>
 
       {voiceOver && <p className="sr-only">{voiceOver}</p>}
 
       {dam.metrics.release && (
-        <div className="mt-6 border-t border-primary-600 pt-5">
+        <div className="mt-6 border-t border-secondary-300 pt-5">
           {/* The age is not optional. Turbine flow above carries one, and two
               adjacent measurements with different ages look synchronised when
               only one of them is dated — which is exactly the impression that
@@ -94,29 +87,28 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
           <p
             className={
               readingStaleness(dam.metrics.release.at, now) === 'fresh'
-                ? 'text-sm text-primary-100'
-                : 'text-sm text-primary-100 opacity-70'
+                ? 'text-sm text-neutral-700'
+                : 'text-sm text-neutral-700 opacity-70'
             }
           >
-            <span className="block text-xs font-medium text-primary-200">
+            <span className="block text-xs font-medium text-neutral-600">
               {dam.metrics.release.dailyMean ? 'Total release at dam (daily avg)' : 'Total release at dam'}
             </span>{' '}
-            <span className="mt-1 block font-mono text-xl text-white">
+            <span className="mt-1 block font-mono text-xl text-primary-900">
               {cfs(dam.metrics.release.value)}
             </span>
-            <span className="mt-1 block text-xs text-primary-200">
+            <span className="mt-1 block text-xs text-neutral-600">
               {relativeAge(dam.metrics.release.at, now)}
             </span>
           </p>
           {comparison.kind === 'other-release' && (
             <>
-              <p className="mt-4 text-sm text-primary-100">
+              <p className="mt-4 text-sm text-neutral-700">
                 <span className="font-medium">Not through turbines</span>{' '}
-                <span className="font-mono text-white">
+                <span className="font-mono text-primary-900">
                   {cfs(comparison.otherCfs)}
                 </span>
               </p>
-              <p className="mt-1 text-xs leading-relaxed text-primary-200">{OTHER_RELEASE_NOTE}</p>
             </>
           )}
         </div>

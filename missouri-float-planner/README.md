@@ -231,15 +231,18 @@ changes can reset immediately instead of retaining the bottom of the old page.
 Dam pages keep measured generation and the posted schedule in one card, with
 separate labelled sections. Desktop and landscape phones place the reading
 beside the wider hourly chart; portrait phones stack them. The first available
-schedule day is expanded, and later days can be opened individually. History
-shows completed observations by default; an explicit toggle includes upcoming
-scheduled hours. Missing observations remain gaps and retain the full day axis.
+schedule day is expanded, and later days can be opened individually. The generation pattern
+always includes upcoming scheduled hours alongside measured history. Missing observations remain gaps and retain the full day axis.
 
-The detail dashboard uses Eddy's static framed cards, with a deep-teal observed
-panel, turbine flow as the primary reading, and the next scheduled change above
-the existing hourly chart. History takes the wider lower column; supporting
-dam and lake measurements sit alongside it on desktop. Framed cards keep the
-brand's border and offset shadow without moving charts on hover. This layout
+The detail dashboard uses a static framed generation card with a warm sand
+observed panel, turbine flow as the primary reading, and the next scheduled
+change above the hourly chart. Date headings lead straight into the
+chart; hourly details and the strongest scheduled window sit below it. Flow
+estimates stay out of ramp hours, and megawatts are spelled out in hourly
+details and explained in the info dialog. Dam and lake measurements sit above
+the full-width generation pattern at every screen size, on quiet panel cards.
+The Share action has an icon, native touch sharing, and desktop copy feedback.
+Framed cards keep the brand's border and offset shadow without moving charts on hover. This layout
 does not infer downstream arrival times or add an AI conditions assessment.
 
 Info buttons hold reference/methodology explanations. Reading age, schedule

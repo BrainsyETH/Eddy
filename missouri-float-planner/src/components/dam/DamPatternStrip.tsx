@@ -21,11 +21,10 @@
 // idle treatment. A gap drawn as an empty bar says the units were off, which is
 // a claim about the river during an outage.
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import type { DamPatternDay, DamScheduleDay } from '@/lib/data/dams';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
@@ -34,7 +33,6 @@ import {
   patternRowLabel as rowLabel,
   patternRowVoiceOver as rowVoiceOver,
   patternRows,
-  generationHistoryRows,
   patternSpanLabel,
   type GenerationReference,
   type PatternRow as Row,
@@ -54,15 +52,12 @@ export default function DamPatternStrip({
   /** The same server-seeded display clock used by the hourly schedule. */
   now: number;
 }) {
-  const [showUpcoming, setShowUpcoming] = useState(false);
-  const allRows = useMemo<Row[]>(
+  const rows = useMemo<Row[]>(
     () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
     [now, pattern, schedule, reference, generationFloorCfs]
   );
 
-  const rows = showUpcoming ? allRows : generationHistoryRows(allRows);
-  const canShowUpcoming = allRows.some((row) => row.scheduled);
-  const slots = new Map(allRows.map((row) => [row.dayKey, row.cells.length]));
+  const slots = new Map(rows.map((row) => [row.dayKey, row.cells.length]));
 
   if (rows.length === 0) return null;
 
@@ -75,18 +70,18 @@ export default function DamPatternStrip({
   const hasScheduled = rows.some((r) => r.cells.some((c) => c.kind === 'scheduled'));
 
   return (
-    <Card as="section" variant="framed" className="min-w-0 p-5 sm:p-6">
+    <Card as="section" variant="panel" className="min-w-0 p-5 sm:p-6">
       <div className="flex items-center gap-2">
         <Activity className="h-4 w-4 text-primary-700" aria-hidden="true" />
         <h2
           className="flex-1 text-xl font-semibold text-primary-800"
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          {showUpcoming ? 'Generation pattern' : 'Generation history'}
+          Generation pattern
         </h2>
-        <DamInfoTip title="Generation history">
-          <p>Solid bars are measured generation. Outlined bars show the posted schedule when upcoming hours are included. Missing readings are gaps, not evidence that generation stopped.</p>
-          <p>Today includes completed hours only in the history view. All times are Central time at the dam. Past generation does not predict future releases.</p>
+        <DamInfoTip title="Generation pattern">
+          <p>Solid bars show measured generation. Outlined bars show upcoming scheduled generation. Gaps mean a reading is missing, not that generation stopped.</p>
+          <p>Today switches from measured hours to the posted schedule at the now marker. All times are Central time at the dam. Past generation does not predict future releases.</p>
         </DamInfoTip>
       </div>
       {/* WHICH DAYS. The hour axis under the rows has always said what a column
@@ -219,9 +214,6 @@ export default function DamPatternStrip({
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2">
         <span className="text-xs text-neutral-500">Central time · At the dam</span>
-        {canShowUpcoming && <Button variant="ghost" size="sm" aria-pressed={showUpcoming} onClick={() => setShowUpcoming(!showUpcoming)} className="min-h-11">
-          {showUpcoming ? 'Hide upcoming schedule' : 'Include upcoming schedule'}
-        </Button>}
       </div>
     </Card>
   );

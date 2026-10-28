@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import AppLink from '@/components/AppLink';
 import { useAppDevice } from '@/components/useAppDevice';
 import { damWidgetHeadline, getDamAppPromotion } from '@/lib/dam-app-promotion';
@@ -27,8 +28,11 @@ export default function DamAppCTA({ damId, damName }: { damId: string; damName: 
   if (!dam || device === 'android') return null;
 
   return (
-    <aside ref={ref} aria-label="Eddy for iPhone" data-dam-app-cta={dam.id} className="flex flex-wrap items-center justify-between gap-x-4 border-t border-neutral-200 px-5 py-2 sm:px-6">
-      <p className="py-1 text-sm font-medium text-primary-800">{damWidgetHeadline(damName)}</p>
+    <aside ref={ref} aria-label="Eddy for iPhone" data-dam-app-cta={dam.id} className="flex flex-wrap items-center justify-between gap-x-4 border-t border-neutral-200 bg-secondary-50 px-5 py-3 sm:px-6">
+      <div className="flex items-center gap-3">
+        <Image src="/icons/eddy-wave.png" alt="" width={40} height={46} className="h-11 w-auto shrink-0" />
+        <p className="py-1 text-sm font-medium text-neutral-800">{damWidgetHeadline(damName)}</p>
+      </div>
       <AppLink
         campaign={dam.campaign}
         damId={dam.id}

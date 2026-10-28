@@ -23,9 +23,11 @@
 
 import { useMemo, useRef, useState } from 'react';
 import type { DamScheduleDay, ScheduledHour } from '@/lib/data/dams';
-import { hourEndingLabel, scheduleHoursElapsed } from '@shared/dam-schedule-copy';
+import { hourEndingLabel, scheduleHoursElapsed, scheduledHoursSummary } from '@shared/dam-schedule-copy';
 import {
   scheduledBar,
+  schedulePeak,
+  schedulePeakWindowLabel,
   scheduleDayVoiceOver,
   type GenerationReference,
 } from '@shared/dam-generation';
@@ -47,9 +49,17 @@ function fillClass(fraction: number): string {
 }
 
 /** The readout line for one hour, or the day's summary when nothing is hovered. */
-function hourReadout(hour: ScheduledHour, ref: GenerationReference | null | undefined): string {
+function hourReadout(hour: ScheduledHour, ref: GenerationReference | null | undefined, plainLanguage: boolean): string {
   const window = `${hourEndingLabel(hour.hourEnding)}–${hourEndingLabel(hour.hourEnding + 1)}`;
   if (hour.megawatts <= 0) return `${window} · no generation scheduled`;
+
+  if (plainLanguage) {
+    // Ramp hours have no reliable flow estimate. Retain the published power
+    // figure in full instead of turning it into an unsupported river reading.
+    return !hour.isRamp && hour.cfs !== null
+      ? `${window} · ~${Math.round(hour.cfs).toLocaleString()} cfs scheduled`
+      : `${window} · ${hour.megawatts.toLocaleString()} megawatts scheduled`;
+  }
 
   const bar = scheduledBar(hour.megawatts, ref);
   const share = bar ? ` · ${Math.round(bar.fraction * 100)}% of capacity` : '';
@@ -64,11 +74,14 @@ export default function DamTimeline({
   day,
   reference,
   now,
+  plainLanguage = false,
 }: {
   day: DamScheduleDay;
   reference?: GenerationReference | null;
   /** Shared display instant; identical on the server and first client render. */
   now: number;
+  /** Detail pages put a concise readout below the chart, close to its axis. */
+  plainLanguage?: boolean;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -82,6 +95,18 @@ export default function DamTimeline({
   }, [day.hours]);
 
   const hoveredHour = hovered === null ? null : hours[hovered];
+  const peak = plainLanguage ? schedulePeak(day, reference) : null;
+  const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
+  const defaultReadout = plainLanguage
+    ? peakWindow && day.hours.some(hour => hour.megawatts !== peak?.megawatts)
+      ? `Most generation: ${peakWindow}`
+      : scheduledHoursSummary(day.hours)
+    : 'Select an hour for details';
+  const readout = (
+    <p aria-live="polite" className={`${plainLanguage ? 'mt-2 min-h-10' : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums text-neutral-600`}>
+      {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
+    </p>
+  );
 
   function hourFromPointer(clientX: number) {
     const rect = rowRef.current?.getBoundingClientRect();
@@ -94,9 +119,7 @@ export default function DamTimeline({
     <div>
       {/* The date disclosure already summarizes the day. Keep the full summary
           on the chart's accessible label and reserve this line for exploration. */}
-      <p aria-live="polite" className="mb-1 min-h-[1.25rem] text-xs tabular-nums text-neutral-600">
-        {hoveredHour ? hourReadout(hoveredHour, reference) : 'Select an hour for details'}
-      </p>
+      {!plainLanguage && readout}
 
       <div
         ref={rowRef}
@@ -169,6 +192,7 @@ export default function DamTimeline({
         <span>6 PM</span>
         <span>midnight</span>
       </div>
+      {plainLanguage && readout}
     </div>
   );
 }

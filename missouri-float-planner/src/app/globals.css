@@ -1477,25 +1477,20 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dam detail: wide charts on desktop and landscape phones, stacked in portrait. */
 .dam-generation-layout { display: grid; }
-.dam-observed { background: var(--color-primary-800); color: white; }
+.dam-observed { background: var(--color-secondary-100); color: var(--color-neutral-900); }
 .dam-support-layout { display: grid; gap: 1.5rem; align-items: start; }
 .dam-resource-links > * { max-width: 100%; white-space: normal; }
 .dam-measurements { display: grid; gap: 1.25rem; }
 .dam-measurements > * + * { border-top: 1px solid var(--color-neutral-200); padding-top: 1.25rem; }
-@media (min-width: 480px) and (max-width: 1099px) {
+@media (min-width: 480px) {
   .dam-measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dam-measurements > * + * { border-top: 0; padding-top: 0; }
 }
 @media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
   .dam-generation-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr); }
-  /* Side by side, the schedule is already in view. */
-  .dam-next-glance { display: none; }
 }
 @media (min-width: 1100px) {
-  .dam-support-layout { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
-  .dam-support-layout > :only-child { grid-column: 1 / -1; }
-  .dam-support-layout > :only-child .dam-measurements { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .dam-support-layout > :only-child .dam-measurements > * + * { border-top: 0; padding-top: 0; }
+  .dam-measurements { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 }
 
 .map-marker-control:focus-visible {
