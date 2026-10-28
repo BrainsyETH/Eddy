@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 import { damWidgetSnapshot } from '../../shared/dam-widget';
+import * as generation from '../../shared/dam-generation';
+import * as scheduleCopy from '../../shared/dam-schedule-copy';
 import { damFavoriteDisplay } from '../../../eddy-ios/src/lib/damFavoriteDisplay';
 import type { DamSnapshot } from '../../shared/dam-types';
 import { USACE_DAMS, hasPowerhouse } from './flow-providers/usace-registry';
@@ -178,4 +182,104 @@ test('dam favorites preserve zero generation, unknown hours and projects without
   assert.match(display.scheduleDescription, /5 AM: unavailable/);
   dam.hasTurbines = false;
   assert.equal(damFavoriteDisplay(dam, now).status, 'No powerhouse');
+});
+
+test('Favorites renders release flow and age for Clearwater and Wappapello, turbine flow for powerhouses', () => {
+  // Execute the screen's actual dam branch and both real card components.
+  // Native hosts and hooks are stubbed; checking only the presentation helper
+  // missed the regression where the screen chose a turbine-only card for every dam.
+  type Element = { type: unknown; props: Record<string, unknown> };
+  type Component = (props: Record<string, unknown>) => unknown;
+  const nodes: Element[] = [];
+  const jsx = (type: unknown, props: Record<string, unknown>) => {
+    if (typeof type === 'function') return type(props);
+    const element = { type, props };
+    nodes.push(element);
+    return element;
+  };
+  const dependencies: Record<string, unknown> = {
+    'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    react: { memo: (component: Component) => component, useMemo: (read: () => unknown) => read() },
+    'react-native': {
+      Pressable: 'Pressable', Text: 'Text', View: 'View',
+      StyleSheet: { create: (styles: unknown) => styles },
+      useWindowDimensions: () => ({ width: 393, fontScale: 1 }),
+    },
+    '@/components/ControlIcon': { ControlIcon: 'ControlIcon' },
+    '@/components/KindMark': { KindMark: 'KindMark' },
+    '@/components/dam/DayBars': { DayBars: 'DayBars' },
+    '@/hooks/useObservationClock': { useObservationClock: () => now },
+    '@/lib/damFavoriteDisplay': { damFavoriteDisplay },
+    '@/theme/ThemeProvider': { useTheme: () => ({ colors: {}, elevation: () => ({}) }) },
+    '@/theme/typography': { fonts: {}, type: {} },
+    '@/theme/layout': { radii: {} },
+    '@eddy/conditions/dam-generation': generation,
+    '@eddy/conditions/dam-schedule-copy': scheduleCopy,
+  };
+  function compile(source: string, context: Record<string, unknown> = {}) {
+    const exports: Record<string, Component> = {};
+    runInNewContext(ts.transpileModule(source, { compilerOptions: {
+      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+    } }).outputText, { exports, ...context, require: (name: string) => {
+      assert.ok(name in dependencies, `Unexpected card dependency: ${name}`);
+      return dependencies[name];
+    } });
+    return exports;
+  }
+  const components = Object.assign({}, ...['DamRow', 'DamFavoriteCard'].map(name => compile(
+    readFileSync(new URL(`../../../eddy-ios/src/components/dam/${name}.tsx`, import.meta.url), 'utf8')
+  )));
+  const screen = ts.createSourceFile('favorites.tsx', readFileSync(new URL(
+    '../../../eddy-ios/app/(tabs)/(favorites)/favorites.tsx', import.meta.url
+  ), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let branch: ts.IfStatement | undefined;
+  function visit(node: ts.Node) {
+    if (ts.isIfStatement(node) && node.expression.getText(screen) === "item.kind === 'dam'") branch = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(screen);
+  assert.ok(branch, 'Favorites must retain a render branch for saved dams');
+  const damById = new Map<string, DamSnapshot>();
+  const opened: string[] = [];
+  const unstarred: string[] = [];
+  const render = compile(`export function render(item) { ${branch.getText(screen)} }`, {
+    ...components, damById, router: { push: (path: string) => opened.push(path) },
+    toggleStar: (item: { entityId: string }) => unstarred.push(item.entityId),
+  }).render;
+  const text = () => nodes.filter(node => node.type === 'Text')
+    .map(node => [node.props.children].flat().join('')).join('\n');
+
+  for (const id of ['swl-clearwater-dam', 'mvs-wappapello']) {
+    const registry = USACE_DAMS[id];
+    assert.ok(registry, id);
+    assert.equal(hasPowerhouse(registry), false);
+    assert.ok(registry.series.release);
+    for (const value of [4200, 0]) {
+      const dam: DamSnapshot = { ...fixture(), id, name: registry.name, hasTurbines: false,
+        metrics: { release: { value, unit: 'cfs', at: new Date(now - 3600_000).toISOString(), staleness: 'fresh' } },
+        generating: null, schedule: [] };
+      damById.set(id, dam);
+      nodes.length = 0;
+      render({ kind: 'dam', entityId: id });
+      assert.ok(text().includes(`${value.toLocaleString()} cfs`), `${id} must retain its release reading`);
+      assert.match(text(), /an hour ago/);
+      assert.doesNotMatch(text(), /Turbine flow|No powerhouse|Observation unavailable/);
+      const star = nodes.find(node => node.props.accessibilityLabel === `Unstar ${dam.name}`);
+      assert.ok(star);
+      (star.props.onPress as () => void)();
+      assert.equal(unstarred.at(-1), id);
+      const row = nodes.find(node => node.type === 'Pressable' && !node.props.accessibilityLabel);
+      assert.ok(row);
+      (row.props.onPress as () => void)();
+      assert.equal(opened.at(-1), `/dam/${id}`);
+    }
+  }
+  const powerhouse = fixture();
+  powerhouse.metrics.release = { ...powerhouse.metrics.generationFlow!, value: 4200 };
+  damById.set(powerhouse.id, powerhouse);
+  nodes.length = 0;
+  render({ kind: 'dam', entityId: powerhouse.id });
+  assert.match(text(), /Turbine flow/);
+  assert.match(text(), /6,600/);
+  assert.doesNotMatch(text(), /4,200/);
 });

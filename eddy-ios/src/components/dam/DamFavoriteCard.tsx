@@ -79,6 +79,8 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
                   {schedule.hours.map(hour => {
                     const selected = hour.hourEnding === moment.scheduleHour;
                     const mw = hour.megawatts;
+                    // A missing hour is unknown, not zero generation: preserve
+                    // the widget's hollow gap instead of an idle baseline bar.
                     return (
                       <View key={hour.hourEnding} style={styles.slot}>
                         {selected ? <View style={[styles.nowMarker, { borderTopColor: colors.accent }]} /> : null}
