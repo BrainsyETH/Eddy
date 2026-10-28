@@ -15,8 +15,11 @@ guide and before the feedback link, when float search is enabled for the web.
 
 Planner shuttle controls use **Shuttle Route** with “Directions from point-to-point”
 and always-visible Google and Apple icons, both receiving road-coordinate
-endpoints. onX is available only as a single-POI map shortcut. Gaia is omitted
-from web POI controls because its coordinate link does not select a place.
+endpoints. Single-POI controls retain onX, Gaia, Google, and Apple. onX and
+Gaia are labeled as location map shortcuts. Gaia's coordinate URL centers the
+map; it does not create or select a waypoint. Gaia's current web parser accepts
+both `lat`/`lon`/`zoom` and `loc=zoom/longitude/latitude`; selected-place links
+require separate Gaia waypoint or OSM feature data.
 Planner POI controls use compact, always-visible icons with 44px targets,
 accessible labels, and app-name tooltips.
 

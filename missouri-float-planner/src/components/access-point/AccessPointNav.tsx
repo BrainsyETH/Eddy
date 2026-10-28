@@ -16,6 +16,7 @@ import {
 // Navigation app icon URLs from Vercel blob storage
 const NAV_APP_ICONS: Record<string, string> = {
   onx: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/onx.png',
+  gaia: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/gaia.jpeg',
   google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/google-maps.png',
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
@@ -34,10 +35,10 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
     name: accessPoint.name,
   });
 
-  // Gaia only centers a map, without selecting the POI. onX remains a
-  // single-place map shortcut; only Google and Apple support shuttle URLs.
+  // onX and Gaia are single-location map shortcuts. Keep both available for
+  // POIs, but offer only Google and Apple for point-to-point shuttle routes.
   const navLinks = generateNavLinks(coords, accessPoint.directionsOverride).filter(
-    link => link.app !== 'gaia' && (!origin || link.app === 'google' || link.app === 'apple')
+    link => !origin || link.app === 'google' || link.app === 'apple'
   );
   // Driving apps receive both endpoints, using road coordinates.
   if (origin) {
@@ -68,7 +69,7 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
   };
 
   return (
-    <div className={compact ? "flex shrink-0 items-center gap-1" : origin ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"}>
+    <div className={compact ? "flex shrink-0 items-center gap-1" : origin ? "grid grid-cols-2 gap-2" : "grid grid-cols-4 gap-2"}>
       {navLinks.map((link) => (
         <a
           key={link.app}
@@ -76,10 +77,10 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => handleClick(e, link)}
-          aria-label={link.app === 'onx'
+          aria-label={link.app === 'onx' || link.app === 'gaia'
             ? `Open ${accessPoint.name} in ${link.label}`
             : `${origin ? `Shuttle from ${origin.name} to` : 'Directions to'} ${accessPoint.name} in ${link.label}`}
-          title={link.app === 'onx' ? `${link.label}: view place on map` : link.label}
+          title={link.app === 'onx' || link.app === 'gaia' ? `View location in ${link.label}` : link.label}
           className={compact
             ? "flex h-11 w-11 items-center justify-center rounded-lg hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-colors no-underline"
             : "flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px] no-underline"}
