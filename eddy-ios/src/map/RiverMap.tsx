@@ -84,6 +84,7 @@ import {
   gaugeRiverSlug,
 } from '@/lib/gaugeCondition';
 import type { NetworkCollection } from '@/lib/statewideNetwork';
+import type { PlaceRiver } from '@/lib/placeRiver';
 import type { MilePost } from '@eddy/geo';
 import { loadMapbox, STYLE_URL } from './runtime';
 import { mapAccessPointPin } from './accessPin';
@@ -663,7 +664,7 @@ export function mapGaugePin(g: MapGauge): MapPin {
  * not land here" is not a description either — and both are shown when both
  * apply, because a private spring in the wrong place is two surprises.
  */
-export function mapSpringPin(s: MapSpring): MapPin {
+export function mapSpringPin(s: MapSpring & PlaceRiver): MapPin {
   const notes: string[] = [];
   if (s.positionSource === 'derived') {
     notes.push(
@@ -682,6 +683,9 @@ export function mapSpringPin(s: MapSpring): MapPin {
     name: s.name,
     layer: 'springs' as const,
     subtitle: [
+      // The river first: "Mile 12" means nothing until it says of what. The
+      // tag comes from where the spring was stored — see lib/placeRiver.ts.
+      s.riverName ?? null,
       s.riverMile != null ? `Mile ${s.riverMile}` : null,
       // "Approximate" earns a place in the SUBTITLE as well as the note. The
       // subtitle is what a reader skims before deciding to open anything, and
@@ -693,6 +697,8 @@ export function mapSpringPin(s: MapSpring): MapPin {
     coordinates: s.coordinates,
     instruction: notes.length > 0 ? notes.join('\n\n') : null,
     body: s.description,
+    // What puts "View river" on the callout.
+    riverSlug: s.riverSlug ?? null,
   };
 }
 
@@ -700,15 +706,19 @@ export function mapSpringPin(s: MapSpring): MapPin {
  * The canonical presentation object for a hazard. Exported for search, like
  * the two builders above it — found by name or tapped on the map, one shape.
  */
-export function mapHazardPin(h: Hazard): MapPin {
+export function mapHazardPin(h: Hazard & PlaceRiver): MapPin {
   const code = hazardConditionCode(h.severity);
   return {
     id: `hazard:${h.id}`,
     name: h.name,
     layer: 'hazards' as const,
-    subtitle: [hazardTypeLabel(h.type), h.riverMile ? `Mile ${h.riverMile}` : null]
+    // Which river, as the spring pin above says it. A hazard found from the
+    // statewide map is a reason to choose a different river, so it has to
+    // say which one. Still no Directions: see sheetActions.
+    subtitle: [hazardTypeLabel(h.type), h.riverName ?? null, h.riverMile ? `Mile ${h.riverMile}` : null]
       .filter(Boolean)
       .join(' · '),
+    riverSlug: h.riverSlug ?? null,
     coordinates: h.coordinates,
     // Severity, not one flat red. A `caution` shoal and a low-water dam
     // are both hazards and they are not the same news.
