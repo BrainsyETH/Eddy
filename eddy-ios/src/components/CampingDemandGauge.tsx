@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { type CampingDemand } from '@eddy/conditions/camping-demand';
-import { campingPulseHeadline, campingPulseDetail, campingPulseAccessibilityLabel } from '@/lib/campingDemand';
+import { campingPulseHeadline, campingPulseDetail, campingPulseAccessibilityLabel, campingPulseFcfsNote } from '@/lib/campingDemand';
 import { CampingDemandMeter } from './CampingDemandMeter';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
@@ -8,6 +8,7 @@ import { fonts, textStyles } from '@/theme/typography';
 export function CampingDemandGauge({ demand, now }: { demand: CampingDemand; now: number }) {
   const { colors } = useTheme();
   const headline = campingPulseHeadline(demand);
+  const fcfsNote = campingPulseFcfsNote(demand);
 
   return (
     <View
@@ -15,7 +16,10 @@ export function CampingDemandGauge({ demand, now }: { demand: CampingDemand; now
       accessibilityLabel={campingPulseAccessibilityLabel(demand, 'Ozarks', now)}
       style={styles.summary}
     >
-      <Text style={[styles.headline, { color: colors.text }]}>{headline}</Text>
+      <Text style={[styles.headline, { color: colors.text }]}>{headline}{demand.band !== null ? '.' : ''}</Text>
+      {fcfsNote ? (
+        <Text style={[textStyles.caption, { color: colors.textMuted }]}>{fcfsNote}</Text>
+      ) : null}
       {demand.band === null ? (
         <Text style={[textStyles.caption, { color: colors.textMuted }]}>{campingPulseDetail(demand)}</Text>
       ) : null}
