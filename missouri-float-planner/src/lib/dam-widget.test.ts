@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { damWidgetSnapshot } from '../../shared/dam-widget';
+import { damFavoriteDisplay } from '../../../eddy-ios/src/lib/damFavoriteDisplay';
 import type { DamSnapshot } from '../../shared/dam-types';
 import { USACE_DAMS, hasPowerhouse } from './flow-providers/usace-registry';
 
@@ -126,4 +127,55 @@ test('cached schedules retain their dates while timeline freshness and midnight 
   // There is no matching day: the client must not relabel yesterday's bars.
   assert.equal(packet.scheduleDays.find(day => day.date === nextDay.scheduleDate), undefined);
   assert.equal(packet.entries.at(-1)!.scheduleCurrent, false);
+});
+
+test('dam favorites show the widget turbine reading, not total release or estimated schedule flow', () => {
+  const dam = fixture();
+  dam.metrics.release = { ...dam.metrics.generationFlow!, value: 9900 };
+  dam.schedule[0].hours[12].cfs = 15000;
+  dam.schedule[0].hours[12].megawatts = 275;
+  const display = damFavoriteDisplay(dam, now);
+  assert.equal(display.moment.turbineCfs, 6600);
+  assert.equal(display.observedAge, 'an hour ago');
+  assert.equal(display.status, 'Generating');
+  assert.equal(display.peak, 275);
+  assert.match(display.scheduleDescription, /12 PM: 275 megawatts, current hour/);
+  assert.match(display.scheduleDescription, /Central time, subject to change/);
+
+  delete dam.metrics.generationFlow;
+  const missing = damFavoriteDisplay(dam, now);
+  assert.equal(missing.moment.turbineCfs, null);
+  assert.equal(missing.status, 'Unavailable');
+  assert.equal(missing.observedAge, null);
+  assert.ok(missing.schedule); // A schedule is independent of the observation.
+});
+
+test('dam favorites expire cached facts and never use tomorrow as today', () => {
+  const dam = fixture();
+  const older = damFavoriteDisplay(dam, now + 3 * 3600_000);
+  assert.equal(older.status, 'Older reading');
+  assert.equal(older.moment.current, false);
+  assert.equal(older.schedule, null);
+  assert.equal(older.scheduleNotice, 'Check schedule');
+  assert.doesNotMatch(older.scheduleDescription, /100 megawatts/);
+  dam.schedule[0].scheduleDate = '2026-10-18';
+  const tomorrowOnly = damFavoriteDisplay(dam, now);
+  assert.equal(tomorrowOnly.schedule, null);
+  assert.equal(tomorrowOnly.scheduleNotice, 'Not posted today');
+  dam.schedule = [];
+  assert.equal(damFavoriteDisplay(dam, now).scheduleNotice, 'Not posted');
+});
+
+test('dam favorites preserve zero generation, unknown hours and projects without a powerhouse', () => {
+  const dam = fixture();
+  dam.metrics.generationFlow!.value = 0;
+  dam.schedule[0].hours.splice(5, 1);
+  const display = damFavoriteDisplay(dam, now);
+  assert.equal(display.status, 'No generation');
+  assert.equal(display.moment.turbineCfs, 0);
+  assert.equal(display.schedule!.hours[5].megawatts, null);
+  assert.equal(display.schedule!.hours[14].megawatts, 0);
+  assert.match(display.scheduleDescription, /5 AM: unavailable/);
+  dam.hasTurbines = false;
+  assert.equal(damFavoriteDisplay(dam, now).status, 'No powerhouse');
 });
