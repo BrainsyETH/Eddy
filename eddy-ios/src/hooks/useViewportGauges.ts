@@ -121,7 +121,8 @@ interface CacheEntry {
  * Eligibility is requestCovers — the same rule the last-request shortcut in
  * the effect applies, deliberately shared: an UNCAPPED entry satisfies any
  * limit (the server returned every gauge in its box, so a different cap could
- * not learn more). A capped entry covers only the exact requested box and limit. Without the uncapped half the
+ * not learn more). A capped entry covers only the same padded, quantized
+ * request target and limit. Without the uncapped half the
  * limit flip at GAUGE_FETCH_DETAIL_ZOOM invalidated the whole cache — zooming
  * across that line refetched a viewport whose complete answer was already in
  * hand, and the layer blinked while the identical payload came back.
@@ -130,6 +131,7 @@ function containingEntry(
   entries: Map<string, CacheEntry>,
   bounds: Bounds,
   limit: number,
+  target: Bounds,
 ): CacheEntry | null {
   const newestFirst = [...entries.values()].reverse();
   return (
@@ -138,6 +140,7 @@ function containingEntry(
         { bbox: entry.bbox, limit: entry.limit, capped: entry.payload.capped },
         bounds,
         limit,
+        target,
       ),
     ) ?? null
   );
@@ -355,7 +358,8 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
     }
 
     const limit = viewport.zoom < GAUGE_FETCH_DETAIL_ZOOM ? OVERVIEW_LIMIT : DETAIL_LIMIT;
-    const covering = containingEntry(cache.current, viewport.bounds, limit);
+    const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
+    const covering = containingEntry(cache.current, viewport.bounds, limit, target);
     if (covering) {
       cache.current.delete(covering.key);
       cache.current.set(covering.key, covering);
@@ -393,7 +397,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       }
       // Disk is stale-first, never cache-only. It earns an immediate frame but
       // the live request below still replaces it.
-    } else if (requestCovers(lastRequested.current, viewport.bounds, limit)) {
+    } else if (requestCovers(lastRequested.current, viewport.bounds, limit, target)) {
       // Same eligibility rule as containingEntry, and it must be: a
       // bounds-only check here let a capped detail answer keep answering an
       // overview camera that had eased back across the fetch threshold —
@@ -407,7 +411,6 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       return;
     }
 
-    const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
     const targetKey = `${limit}:${target.join(',')}`;
     // Already asking for exactly this box? Let the answer land. Mapbox can
     // emit several idle events for one settled camera, and aborting the

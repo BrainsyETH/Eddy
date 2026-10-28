@@ -730,14 +730,20 @@ anything narrows it, and the filter, the counts and the pins all read from that.
 Narrowing a set the layer will never draw is not a filter anyone can reason about.
 
 Viewport detail requests stop below zoom 5.5 and are capped at 1,000 stations
-below zoom 10.5, then 300. A capped response cannot establish completeness for
-a smaller viewport. Loading and refresh failures have separate states, and a
-failed refresh retains existing pins with a visible Retry action.
+below zoom 10.5, then 300. A capped response is reused for the same padded,
+quantized request target and budget, including idle echoes of its raw viewport;
+it cannot establish completeness for a smaller target. Loading and refresh
+failures have separate states, and a failed refresh retains existing pins with
+a visible Retry action.
 
 The national station index (`/api/gauges/points`) supplies locations at every
 zoom while Other USGS gauges is enabled. Viewport responses enrich stations by
 USGS site ID; a capped page never replaces the complete index. Map selection
 IDs also use site IDs, so enrichment does not change which marker is selected.
+Below zoom 5.5 the map source receives the national index. At closer zooms it
+receives only stations within the padded, quantized viewport, without a count
+cap. The full index remains in memory; each viewport response updates regional
+geometry instead of sending the whole country across the native bridge.
 Index-only gauges open the normal detail sheet and hydrate by site ID; synthetic
 index IDs are never seeded into the favorite-capable gauge detail screen.
 
@@ -2093,19 +2099,26 @@ Shared chart views retain the timezone saved in the link. New links include a ri
 A map-level 44-point query resolves POIs across active sources. Repeated taps
 cycle through a stable, deduplicated set, including gauges and access points
 sharing a coordinate; a pan resets the cycle. The sheet displays the selected
-place and a small hint explains cycling. Cluster taps ask the owning source for
-its expansion zoom. Hazard marks retain their separate rendering priority.
+place and a small hint explains cycling. Selection order is alphabetical by
+stable pin ID (`access:` before `gauge:` before `hazard:`), independently of
+rendering priority; hazard marks still draw above other pins. Cluster taps ask
+the owning source for its expansion zoom, falling back to two more zoom levels
+if that query fails or returns an invalid value.
 
 POI selection preserves zoom and moves the camera only if the marker's touch
 area would be obscured by the measured sheet/chrome. Every new gesture cancels
 stale asynchronous work and updates the remembered camera. A blank-map tap
-closes selection details without clearing the planned route or fitting a river.
+closes selection details and exits map-plan mode while retaining the selected
+river, endpoints and calculated route. It does not reframe the camera. Tapping
+the still-selected river opens its details again.
 The list beside Layers exposes enabled-layer places in the current area as
 native, searchable rows, including colocated places and cluster members.
 Gauge refresh failures retain available data and expose a Retry action.
 
 Before release, verify on a physical iPhone: repeated cross-layer/colocated
-selection, cluster expansion, empty-map dismissal with an existing route,
+selection, cluster expansion and its failure fallback, empty-map dismissal with
+an existing route and reopening the still-selected river,
 rapid tap/pan while a query is pending, POIs near each sheet edge, remembered
 camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
-10.5, failed-first-load/retry, VoiceOver list selection, and largest text sizes.
+10.5, pan responsiveness with Other USGS gauges on, failed-first-load/retry,
+VoiceOver list selection, and largest text sizes.

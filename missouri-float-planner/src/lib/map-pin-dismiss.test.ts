@@ -50,6 +50,7 @@ function scene(planning = false) {
     setRevealsRiverSheet: (value: boolean) => { state.revealsRiverSheet = value; },
     setMapPlanRiver: (value: string | null) => { state.mapPlanRiver = value; },
     issueCameraCommand: () => { state.cameraCommands++; },
+    selectRiver: (nextSlug: string) => { state.selectedSlug = nextSlug; },
     planner: { step: state.step, putIn: state.putIn, takeOut: state.takeOut,
       putInOptions: [putIn, takeOut], takeOutOptions: [takeOut],
       choosePutIn: (point: MapAccessPoint) => { state.putIn = point; },
@@ -144,4 +145,16 @@ test('empty map dismisses details and route sheet without clearing endpoints or 
   assert.equal(state.takeOut, takeOut);
   assert.equal(state.cameraCommands, 0);
   assert.equal(pendingRiverFit.current, null);
+});
+
+test('tapping the still-selected river after background dismissal reopens its sheet', () => {
+  const { state, run } = scene(true);
+  run('dismissMapSelection');
+  assert.equal(state.riverSheetOpen, false);
+  run('onSelectNetworkRiver', slug, { lng: -91.4, lat: 37.1 });
+  assert.equal(state.riverSheetOpen, true);
+  assert.equal(state.mapPlanRiver, null);
+  assert.equal(state.selectedSlug, slug);
+  assert.equal(state.putIn, putIn);
+  assert.equal(state.takeOut, takeOut);
 });

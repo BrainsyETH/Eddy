@@ -80,7 +80,7 @@ import type {
 // PUBLIC_LAND_OWNERSHIP_NOTE is no longer read here: the caveat moved onto the
 // layer definition as `info` and is shown behind the row's ⓘ. See layers.ts.
 import { hasCoordinates, isGaugeIndexId } from '@eddy/types';
-import { boundsForLine, milePosts } from '@eddy/geo';
+import { boundsForLine, milePosts, padBbox, quantizeBbox } from '@eddy/geo';
 import {
   formatFloatTimeRangeCompact,
   formatFloatTimeCompact,
@@ -119,11 +119,11 @@ import {
   SERVICE_OWNER_LAYER,
 } from '@/map/accessLayers';
 import { SERVICE_LAYER_KEYS, serviceOnLayer } from '@/map/serviceLayers';
-import { ZOOM, type LayerKey } from '@/map/layers';
+import { MIN_GAUGE_ZOOM, ZOOM, type LayerKey } from '@/map/layers';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useGaugeIndex } from '@/hooks/useGaugeIndex';
-import { gaugeCoverage } from '@/map/gaugeCoverage';
+import { gaugeCoverage, gaugeRenderSubset } from '@/map/gaugeCoverage';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { useCuratedGauges } from '@/hooks/useCuratedGauges';
 import { useDams } from '@/hooks/useDams';
@@ -225,10 +225,8 @@ const NO_SERVICES: RiverService[] = [];
 /**
  * The layer rows whose pins vanish below ZOOM.min, the ladder's floor.
  *
- * The other three rows explain their own emptiness differently: allGauges
- * through the GaugeFilterBar's belowMinZoom hint, publicLand through its own
- * z7 note, and weatherRadar draws down to MIN_RADAR_ZOOM (4) so it has no
- * floor problem to explain.
+ * Other USGS gauges have national coverage at every zoom. Public land explains
+ * its z7 floor separately; weather radar draws down to MIN_RADAR_ZOOM (4).
  */
 const FLOOR_GATED_PIN_ROWS = new Set<LayerKey>([
   'access',
@@ -2091,9 +2089,8 @@ function MapContent() {
    *
    * The viewport tier holds only what is on screen, so its counts were always
    * "in view". The index holds the country, and the strip's heading says "in
-   * view", so the index is narrowed here before anything counts it. The MAP
-   * still draws the whole index: re-clustering fourteen thousand points on
-   * every pan to trim what is off screen anyway would buy nothing.
+   * view", so the index is narrowed here before anything counts it. Pins use
+   * a padded area instead, so a small pan has stations ready beyond each edge.
    */
   const layerGaugesInView = useMemo(() => {
     if (!viewport) return [];
@@ -2120,10 +2117,16 @@ function MapContent() {
     [layerGauges, gaugeFilter],
   );
 
-  const referencePins = useMemo<MapPin[]>(
-    () => visibleReferenceGauges.map(referenceGaugePin),
-    [visibleReferenceGauges],
-  );
+  // The complete index stays in memory, but closer views send only a padded
+  // area to Mapbox. Primitive bounds keep idle echoes / pans in the same cell
+  // from rebuilding identical GeoJSON. Counts and selected-gauge data retain
+  // the full coverage above; there is no station-count cap on this subset.
+  const [gaugeWest, gaugeSouth, gaugeEast, gaugeNorth] = viewport && viewport.zoom >= MIN_GAUGE_ZOOM
+    ? quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom) : [null, null, null, null];
+  const referencePins = useMemo<MapPin[]>(() => gaugeRenderSubset(visibleReferenceGauges,
+    gaugeWest === null || gaugeSouth === null || gaugeEast === null || gaugeNorth === null
+      ? null : [gaugeWest, gaugeSouth, gaugeEast, gaugeNorth],
+  ).map(referenceGaugePin), [visibleReferenceGauges, gaugeWest, gaugeSouth, gaugeEast, gaugeNorth]);
 
   /**
    * The access family, resolved for the sheet's numbers and its overlap notes.
@@ -3347,8 +3350,7 @@ function MapContent() {
         // that narrows the layer it hangs under.
         renderLayerDetail={(key, on) => {
           // The camera, not the switch, is why this layer is empty — say so
-          // where the switch is, exactly as the gauge tier's own belowMinZoom
-          // hint does. Parcels need a river to be read against, and the
+          // where the switch is. Parcels need a river to be read against, and the
           // opening statewide view sits below the layer's z7 floor.
           if (key === 'publicLand' && on && publicLands.belowMinZoom) {
             return <LayerZoomHint text="Zoom in to see public land boundaries." />;
@@ -3374,9 +3376,6 @@ function MapContent() {
               // count in the strip is a count of pins you can actually see.
               gauges={layerGaugesInView}
               active={gaugeFilter}
-              // Only while the zoomed-out index has not answered: once it
-              // has, the layer draws here and there is nothing to explain.
-              belowMinZoom={false}
               // The index is uncapped by construction.
               capped={!gaugeIndexMode && referenceGauges.capped}
               total={referenceGauges.total}

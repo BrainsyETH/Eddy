@@ -233,15 +233,17 @@ export interface ViewportRequest {
   capped: boolean;
 }
 
-/** Complete payloads cover sub-views. A capped payload covers only its exact
- * requested box and budget: geographic containment is not data completeness. */
+/** Complete payloads cover raw sub-views. A capped payload covers only the
+ * same padded, quantized request target and budget, not every contained view.
+ * Pass both: comparing a stored target with raw camera bounds misses idle echoes. */
 export function requestCovers(
   last: ViewportRequest | null,
   bounds: Bounds,
   limit: number,
+  target: Bounds,
 ): boolean {
   if (!last) return false;
-  if (last.capped) return last.limit === limit && last.bbox.every((n, i) => n === bounds[i]);
+  if (last.capped) return last.limit === limit && last.bbox.every((n, i) => n === target[i]);
   return bboxContains(last.bbox, bounds);
 }
 

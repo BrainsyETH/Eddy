@@ -4,29 +4,50 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { nextPinId, gestureStarted, pointNeedsReveal } from '../../../eddy-ios/src/map/mapInteraction';
-import { gaugeCoverage } from '../../../eddy-ios/src/map/gaugeCoverage';
-import { requestCovers } from '../../../packages/eddy-geo';
+import { gaugeCoverage, gaugeRenderSubset } from '../../../eddy-ios/src/map/gaugeCoverage';
+import { padBbox, quantizeBbox, requestCovers, type Bounds } from '../../../packages/eddy-geo';
 import { decodeGaugePoints } from '../../../packages/eddy-types';
 import { cameraCommandFor } from '../../../eddy-ios/src/map/cameraBehavior';
 
 const mapText = readFileSync('../eddy-ios/src/map/RiverMap.tsx', 'utf8');
-const source = ts.createSourceFile('RiverMap.tsx', mapText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-function handler(name: string, context: Record<string, unknown>) {
+function handler(name: string, context: Record<string, unknown>, code = mapText) {
+  const source = ts.createSourceFile('source.tsx', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let arrow: ts.Node | undefined;
   function visit(node: ts.Node) {
     if (ts.isVariableDeclaration(node) && node.name.getText(source) === name && node.initializer) {
       arrow = ts.isCallExpression(node.initializer) ? node.initializer.arguments[0] : node.initializer;
     }
+    if (ts.isFunctionDeclaration(node) && node.name?.text === name) arrow = node;
     ts.forEachChild(node, visit);
   }
-  visit(source); assert.ok(arrow);
+  visit(source); assert.ok(arrow, `Expected handler ${name}; update this harness if it moves or is renamed`);
   return runInNewContext(ts.transpile(`(${arrow.getText(source)})`, { target: ts.ScriptTarget.ES2022 }), context);
 }
 
 test('capped statewide results do not cover a valley under the same budget', () => {
   const broad = { bbox: [-96, 34, -88, 41] as [number, number, number, number], limit: 1000, capped: true };
-  assert.equal(requestCovers(broad, [-92.1, 37.1, -91.9, 37.3], 1000), false);
-  assert.equal(requestCovers({ ...broad, capped: false }, [-92.1, 37.1, -91.9, 37.3], 300), true);
+  const bounds: Bounds = [-92.1, 37.1, -91.9, 37.3];
+  const target = quantizeBbox(padBbox(bounds), 7);
+  assert.equal(requestCovers(broad, bounds, 1000, target), false);
+  assert.equal(requestCovers({ ...broad, capped: false }, bounds, 300, target), true);
+});
+
+test('the real cache scan reuses capped memory and disk payloads for their raw viewport', () => {
+  const containingEntry = handler('containingEntry', { requestCovers },
+    readFileSync('../eddy-ios/src/hooks/useViewportGauges.ts', 'utf8'));
+  for (const [zoom, limit] of [[7, 1000], [11, 300]]) {
+    const bounds: Bounds = [-92.21, 37.21, -91.21, 37.91];
+    const target = quantizeBbox(padBbox(bounds), zoom);
+    for (const source of ['network', 'disk']) {
+      const entry = { key: `${limit}:${target.join(',')}`, bbox: target, limit, source, payload: { capped: true } };
+      const cache = new Map([[entry.key, entry]]);
+      for (let echo = 0; echo < 3; echo++) {
+        assert.equal(containingEntry(cache, [...bounds], limit, target), entry);
+      }
+      const valley: Bounds = [-91.8, 37.5, -91.7, 37.6];
+      assert.equal(containingEntry(cache, valley, limit, quantizeBbox(padBbox(valley), zoom)), null);
+    }
+  }
 });
 
 test('a partial viewport enriches the index without dropping a small creek or duplicating a station', () => {
@@ -42,6 +63,20 @@ test('a partial viewport enriches the index without dropping a small creek or du
   assert.equal(merged[1].siteId, '002');
   assert.equal(gaugeCoverage(index, [{ ...full, curated: true }]).length, 1);
   assert.equal(gaugeCoverage(index, [{ ...full, readingTimestamp: null, dischargeCfs: null }])[0].dischargeCfs, 20);
+});
+
+test('regional gauge geometry keeps padded-edge stations and omits distant stations without capping', () => {
+  const [gauge] = decodeGaugePoints({ v: 1, rows: [['001', -91.5, 37.5, 5, 1, 1793180000, 0, null]] });
+  const regional = Array.from({ length: 1100 }, (_, i) => ({ ...gauge, siteId: String(i) }));
+  const edge = { ...gauge, siteId: 'edge', coordinates: { lng: -92.1, lat: 37.5 } };
+  const distant = Array.from({ length: 12900 }, (_, i) => ({ ...gauge, siteId: `far-${i}`, coordinates: { lng: -120, lat: 45 } }));
+  const all = [...regional, edge, ...distant];
+  const target = quantizeBbox(padBbox([-92, 37, -91, 38]), 11);
+  const subset = gaugeRenderSubset(all, target);
+  assert.equal(subset.length, 1101, 'all local stations survive even above a viewport response cap');
+  assert.ok(subset.includes(edge), 'padding covers a station just beyond the visible edge');
+  assert.ok(!subset.includes(distant[0]));
+  assert.equal(gaugeRenderSubset(all, null), all, 'the continental source retains its stable national set');
 });
 
 test('each gesture reports once, including gestures after an app-driven camera move', () => {
@@ -69,21 +104,40 @@ test('revealing a POI leaves a visible point alone and moves a point covered by 
 
 function scene() {
   const selected: string[] = []; let dismissed = 0;
+  const zooms: Array<{ lng: number; lat: number; zoom?: number }> = [];
+  const queryRenderedFeaturesInRect: (box?: number[], filter?: unknown[], layers?: string[]) => Promise<{ features: object[] }> =
+    async () => ({ features: [] });
   const pins = new Map(['gauge:1', 'access:2'].map(id => [id, { id, name: id }]));
   const context = {
     byId: pins, cycle: { current: null }, nextPinId,
     AccessibilityInfo: { announceForAccessibility: () => {} }, onPinCycle: () => {},
     onSelectPin: (pin: { id: string }) => selected.push(pin.id),
     interactionEpoch: { current: 0 }, tapSequence: { current: 0 },
-    clusterSources: { current: new Map() }, onZoomToCluster: () => {}, onNetworkPress: () => {},
+    pinHitLayers: handler('pinHitLayers', { layers: ['allGauges', 'access', 'hazards'] })(),
+    clusterSources: { current: new Map() },
+    onZoomToCluster: (point: { lng: number; lat: number; zoom?: number }) => { zooms.push(point); }, onNetworkPress: () => {},
     warn: () => {}, onBackgroundPress: () => { dismissed++; },
-    mapRef: { current: { queryRenderedFeaturesInRect: async () => ({ features: [] as object[] }) } },
+    mapRef: { current: { queryRenderedFeaturesInRect } },
   };
   const selectPinHits = handler('selectPinHits', context);
-  return { context, selected, dismissed: () => dismissed,
+  return { context, selected, zooms, dismissed: () => dismissed,
     press: handler('onMapPress', { ...context, selectPinHits }) as (event: object) => Promise<void> };
 }
 const tap = { properties: { screenPointX: 100, screenPointY: 200 } };
+test('POI hit testing queries enabled pin layers, including family dots and route endpoints', async () => {
+  const s = scene();
+  const queries: string[][] = [];
+  s.context.mapRef.current.queryRenderedFeaturesInRect = async (_box, _filter, layers) => {
+    queries.push(layers ?? []);
+    return { features: [{ properties: { id: 'access:2' } }] };
+  };
+  await s.press(tap);
+  assert.equal(queries.length, 1);
+  for (const id of ['pins-allGauges-dot', 'pins-allGauges-label', 'pins-access-icon',
+    'pins-hazards-badge', 'pins-places-index-dot', 'plan-endpoints-icon']) assert.ok(queries[0].includes(id));
+  for (const id of ['pins-dams-icon', 'pins-services-index-dot', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
+  assert.deepEqual(s.selected, ['access:2']);
+});
 test('real map handler cycles cross-source hits despite reversed order and duplicate icon/label hits', async () => {
   const s = scene(); let reverse = false;
   s.context.mapRef.current.queryRenderedFeaturesInRect = async () => {
@@ -129,7 +183,24 @@ test('real cluster handler passes the full native feature to the owning source',
   s.context.mapRef.current.queryRenderedFeaturesInRect = async () => ({ features: [feature] });
   await s.press(tap);
   assert.equal(queried, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(s.zooms)), [{ lng: -91, lat: 37, zoom: 9 }]);
   assert.equal(s.dismissed(), 0);
+});
+
+test('failed and invalid cluster expansion queries fall back to the existing camera zoom step', async () => {
+  for (const result of ['reject', NaN, Infinity] as const) {
+    const s = scene();
+    const feature = { properties: { cluster_id: 12 }, geometry: { coordinates: [-91, 37] } };
+    s.context.clusterSources.current.set('pins-allGauges', {
+      getClusterExpansionZoom: async () => { if (result === 'reject') throw new Error('source changed'); return result; },
+    });
+    s.context.mapRef.current.queryRenderedFeaturesInRect = async () => ({ features: [feature] });
+    await s.press(tap);
+    assert.deepEqual(JSON.parse(JSON.stringify(s.zooms)), [{ lng: -91, lat: 37 }]);
+    const command = cameraCommandFor({ type: 'clusterSelected', ...s.zooms[0] }, 1);
+    assert.equal(command?.type === 'showPoint' && command.zoomDelta, 2);
+    assert.equal(s.dismissed(), 0);
+  }
 });
 
 test('a stale cluster expansion cannot clear a newer selection cycle', async () => {
@@ -145,6 +216,7 @@ test('a stale cluster expansion cannot clear a newer selection cycle', async () 
   });
   s.context.mapRef.current.queryRenderedFeaturesInRect = async () => ({ features: [feature] });
   await s.press(tap);
+  assert.equal(s.zooms.length, 0);
   assert.equal(s.context.cycle.current, newerCycle);
   assert.equal(s.dismissed(), 0);
 });

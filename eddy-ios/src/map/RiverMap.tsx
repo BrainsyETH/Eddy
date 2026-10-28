@@ -1616,6 +1616,33 @@ export function RiverMap({
   const cameraRef = useRef<MapCameraRef | null>(null);
   const mapRef = useRef<MapQueryRef | null>(null);
   const clusterSources = useRef(new Map<string, ClusterSourceRef>());
+  const registerClusterSource = useCallback((id: string, source: ClusterSourceRef | null) => {
+    if (source) clusterSources.current.set(id, source);
+    else clusterSources.current.delete(id);
+  }, []);
+  const clusterSourceRefs: Record<string, (source: ClusterSourceRef | null) => void> = {
+    'pins-gauges': useCallback(source => registerClusterSource('pins-gauges', source), [registerClusterSource]),
+    'pins-dams': useCallback(source => registerClusterSource('pins-dams', source), [registerClusterSource]),
+    'pins-allGauges': useCallback(source => registerClusterSource('pins-allGauges', source), [registerClusterSource]),
+    'pins-places-index': useCallback(source => registerClusterSource('pins-places-index', source), [registerClusterSource]),
+    'pins-services-index': useCallback(source => registerClusterSource('pins-services-index', source), [registerClusterSource]),
+  };
+  // Query only mounted POI layers, including overview dots and route endpoints.
+  // Basemap roads, labels and land polygons have no role in resolving a POI tap.
+  const pinHitLayers = useMemo(() => {
+    const ids = ['plan-endpoints-center-badge', 'plan-endpoints-bottom-badge',
+      'plan-endpoints-icon', 'plan-endpoints-label'];
+    for (const key of layers) {
+      if (key === 'allGauges') ids.push('pins-allGauges-dot', 'pins-allGauges-label');
+      else if (key === 'access') ids.push('pins-access-overview', 'pins-access-icon', 'pins-access-label');
+      else if (['gauges', 'dams', 'hazards', 'campgrounds', 'boatRamps', 'springs', 'outfitters', 'lodging'].includes(key)) {
+        ids.push(...['overview', 'badge', 'icon', 'label'].map(part => `pins-${key}-${part}`));
+      }
+    }
+    if (layers.some(key => ['access', 'campgrounds', 'boatRamps'].includes(key))) ids.push('pins-places-index-dot');
+    if (layers.some(key => ['outfitters', 'lodging'].includes(key))) ids.push('pins-services-index-dot');
+    return ids;
+  }, [layers]);
   const mapSize = useRef({ width: 0, height: 0 });
   const interactionEpoch = useRef(0);
   const tapSequence = useRef(0);
@@ -1818,7 +1845,7 @@ export function RiverMap({
     const current = () => sequence === tapSequence.current && epoch === interactionEpoch.current;
     const box = [y - 22, x - 22, y + 22, x + 22];
     try {
-      const hits = await map.queryRenderedFeaturesInRect(box);
+      const hits = await map.queryRenderedFeaturesInRect(box, [], pinHitLayers);
       if (!current()) return;
       if (selectPinHits(hits?.features ?? [])) return;
       // Queried native features omit source identity. Query cluster layers with
@@ -1829,9 +1856,15 @@ export function RiverMap({
         const feature = result?.features.find(f => typeof f.properties?.cluster_id === 'number');
         const coords = feature?.geometry?.coordinates;
         if (feature && coords) {
-          const zoom = await source.getClusterExpansionZoom(feature);
+          let zoom: number | undefined;
+          try {
+            const expansion = await source.getClusterExpansionZoom(feature);
+            if (Number.isFinite(expansion)) zoom = expansion;
+          } catch (error) {
+            warn('map', 'cluster expansion unavailable; using camera zoom fallback', error);
+          }
           if (!current()) return;
-          if (Number.isFinite(zoom)) onZoomToCluster?.({ lng: coords[0], lat: coords[1], zoom });
+          onZoomToCluster?.({ lng: coords[0], lat: coords[1], ...(zoom === undefined ? {} : { zoom }) });
           cycle.current = null; onPinCycle?.(null);
           return;
         }
@@ -1932,10 +1965,7 @@ export function RiverMap({
         id={`pins-${id}`}
         shape={pinShapes[id]}
         // The map-level handler needs the owning source to expand a cluster.
-        ref={clustering ? (source: ClusterSourceRef | null) => {
-          if (source) clusterSources.current.set(`pins-${id}`, source);
-          else clusterSources.current.delete(`pins-${id}`);
-        } : undefined}
+        ref={clustering ? clusterSourceRefs[`pins-${id}`] : undefined}
         cluster={clustering !== undefined}
         clusterRadius={clustering?.radius}
         clusterMaxZoomLevel={clustering?.maxZoom}
@@ -2122,10 +2152,7 @@ export function RiverMap({
       <Mapbox.ShapeSource
         id="pins-allGauges"
         shape={referenceShape}
-        ref={(source: ClusterSourceRef | null) => {
-          if (source) clusterSources.current.set('pins-allGauges', source);
-          else clusterSources.current.delete('pins-allGauges');
-        }}
+        ref={clusterSourceRefs['pins-allGauges']}
         cluster
         clusterRadius={50}
         // ZOOM.cluster, like every other clustered layer. It was 11 — three
@@ -2241,10 +2268,7 @@ export function RiverMap({
     <Mapbox.ShapeSource
       id={`pins-${id}-index`}
       shape={shape}
-      ref={(source: ClusterSourceRef | null) => {
-        if (source) clusterSources.current.set(`pins-${id}-index`, source);
-        else clusterSources.current.delete(`pins-${id}-index`);
-      }}
+      ref={clusterSourceRefs[`pins-${id}-index`]}
       cluster
       // 46: between access's old 42 and the national tier's 50. A family holds
       // more members in the same ground than any single layer did, and a radius
