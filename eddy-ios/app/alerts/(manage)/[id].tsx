@@ -17,6 +17,7 @@ import { useAlertEditGuard } from '@/hooks/useAlertEditGuard';
 import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
 import { alertDraftChanged, parseThresholdInput, type AlertDraft } from '@/lib/alertCreation';
 import { groupAlertRules } from '@/lib/alertGroups';
+import { staleReadingNote } from '@/lib/alertCopy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -411,7 +412,9 @@ export default function EditAlertScreen() {
                   ? 'Held off by the river alert above, which is paused.'
                   : 'Paused here, and held off by the river alert above too.'
                 : rule.enabled
-                  ? 'Watching for changes.'
+                  ? staleReadingNote(rule)
+                    ? `${staleReadingNote(rule)}. Nothing is sent until it reports again.`
+                    : 'Watching for changes.'
                   : spent
                     ? 'Already sent — switch on to watch again.'
                     : 'Paused — nothing will be sent.'}

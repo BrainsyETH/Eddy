@@ -22,14 +22,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useNavigation, useRouter } from 'expo-router';
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { ControlIcon } from '@/components/ControlIcon';
 import { FloatStatusDot } from '@/float/FloatStatusDot';
 import { floatDisplayPosition, fixAgeLabel, gpsQualityNote, progressLine } from '@/lib/floatDisplay';
 import { useFloatMapFocus } from '@/float/mapFocus';
 import { FloatMap } from '@/float/FloatMap';
 import { HazardReportSheet } from '@/float/HazardReportSheet';
-import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { useTrackingLine } from '@/float/useTrackingLine';
 import { useAnnounce } from '@/hooks/useAnnounce';
 import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
@@ -66,23 +64,15 @@ export default function FloatModeScreen() {
   const root = useNavigation('/');
   const { colors, elevation } = useTheme();
   const tracking = useTrackingLine();
-  const [keepAwake] = useKeepAwakePreference();
   const [reporting, setReporting] = useState(false);
   // Finish is applying the last of the recorded track before saving.
   const [finishing, setFinishing] = useState(false);
   const focused = useIsFocused();
 
-  // Only while this screen is showing and a float is active (#1448): leaving
-  // the screen or ending the float releases it. Keyed on whether a float is
-  // active, not the session object, which changes with every GPS fix and used
-  // to release and re-acquire the wake lock each time.
+  // Keep screen awake is held by the recording layout, so the Essentials
+  // sheet presenting over this screen does not release it.
   const floatActive = session != null;
   const now = useFloatDisplayClock(focused && floatActive);
-  useEffect(() => {
-    if (!keepAwake || !focused || !floatActive) return;
-    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
-    return () => void deactivateKeepAwake(KEEP_AWAKE_TAG);
-  }, [keepAwake, focused, floatActive]);
 
   // Recomputed when a fix lands or the clock ticks. A fix newer than the last
   // tick is itself the latest known time, so a fresh position never reads as
@@ -470,8 +460,6 @@ function ActionButton({
     </Pressable>
   );
 }
-
-const KEEP_AWAKE_TAG = 'float-mode';
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },

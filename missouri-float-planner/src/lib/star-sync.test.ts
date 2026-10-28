@@ -12,6 +12,7 @@ import {
   type ServerStar,
   type StarKind,
 } from '../../../packages/eddy-sync/index';
+import { clientStarredAt } from './star-time';
 
 /** Rivers by default, so every pre-gauge case below reads exactly as it did. */
 const mergeStars = (l: LocalStar[], s: ServerStar[], kind: StarKind = 'river') =>
@@ -498,4 +499,30 @@ test('after a sign-out the guest identity keeps the stars local and pushes nothi
   // "Your favorites stay on this device" — on it, not in the next guest
   // account, which may be the one the next person links their Apple ID to.
   assert.equal(starSyncPolicy('A', { id: 'guest-2', anonymous: true }), 'local-only');
+});
+
+// ── the star's own time (src/lib/star-time.ts) ──────────────────────────────
+
+
+test('a star dated on the device keeps a quick unstar from coming back', () => {
+  // Star at T1, unstar at T2 = T1 + 600 ms; the POST lands at T1 + 800 ms.
+  // Dated by the server, the row would be newer than the unstar and win.
+  const t1 = '2026-10-28T12:00:00.000Z';
+  const t2 = '2026-10-28T12:00:00.600Z';
+  const landed = Date.parse('2026-10-28T12:00:00.800Z');
+  const stored = clientStarredAt(t1, landed)!;
+  const plan = mergeStars([local('current', false, t2)], [server('current', stored)]);
+  assert.deepEqual(plan.toUnstar, ['current']);
+  assert.equal(visibleStars(plan.merged).length, 0);
+});
+
+test('a device time is bounded: never after the server, never nonsense', () => {
+  const now = Date.parse('2026-10-28T12:00:00.000Z');
+  // A fast phone is pulled back to now, which only ever favours a later unstar.
+  assert.equal(clientStarredAt('2026-10-28T13:00:00.000Z', now), '2026-10-28T12:00:00.000Z');
+  assert.equal(clientStarredAt('2026-10-27T09:00:00.000Z', now), '2026-10-27T09:00:00.000Z');
+  assert.equal(clientStarredAt('1970-01-01T00:00:00.000Z', now), undefined);
+  assert.equal(clientStarredAt('yesterday', now), undefined);
+  assert.equal(clientStarredAt(12345, now), undefined);
+  assert.equal(clientStarredAt(undefined, now), undefined);
 });

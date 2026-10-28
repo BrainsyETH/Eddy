@@ -23,7 +23,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { describeAlertRule, type AlertRule } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { lastSentNote } from '@/lib/alertCopy';
+import { lastSentNote, staleReadingNote } from '@/lib/alertCopy';
 import { EddySymbol } from '@/components/EddySymbol';
 
 interface Props {
@@ -97,6 +97,7 @@ function AlertRuleRowInner({
   const spent = isSpent(rule);
   const dimmed = !rule.enabled || spent || gated;
   const sentNote = lastSentNote(rule);
+  const staleNote = staleReadingNote(rule);
 
   return (
     <Pressable
@@ -185,6 +186,10 @@ function AlertRuleRowInner({
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
             Already sent — tap to set it again
           </Text>
+        ) : staleNote ? (
+          // Outranks "Last sent" for the same reason as the two above: the rule
+          // is armed and cannot fire until its station reports again.
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>{staleNote}</Text>
         ) : sentNote ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>{sentNote}</Text>
         ) : null}

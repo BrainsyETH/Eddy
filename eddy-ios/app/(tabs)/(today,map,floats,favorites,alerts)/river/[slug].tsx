@@ -143,6 +143,7 @@ import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { selectEddySays } from '@/lib/eddySays';
 import { observationAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
+import { observedStamp } from '@/lib/observedStamp';
 
 /**
  * What the one-tap bell subscribes to.
@@ -1392,7 +1393,7 @@ export default function RiverDetailScreen() {
           ageWarning={summaryLastKnown}
           offline={cachedReading}
           details={[
-            { label: 'Observed', value: shownReadingTimestamp ? new Date(shownReadingTimestamp).toLocaleString() : null },
+            { label: 'Observed', value: observedStamp(shownReadingTimestamp) },
             { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
           ]}
         >

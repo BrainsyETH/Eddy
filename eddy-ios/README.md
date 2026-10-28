@@ -1200,7 +1200,10 @@ than inheriting the previous person's. After a sign-out the stars stay on the
 device, as the sign-out alert says, but the guest identity that follows does
 not push them to the server, because that guest may be the identity the next
 person links their Apple ID to. The rule is `starSyncPolicy` in
-`packages/eddy-sync`. Pushes run one request each: a river the server no
+`packages/eddy-sync`. A star POST carries the time it was made on the device,
+which the server stores as the row's `created_at` (bounded to never be after
+the server's own clock; `src/lib/star-time.ts`), so a quick star-then-unstar
+on one phone is compared on that phone's clock and is not resurrected. Pushes run one request each: a river the server no
 longer knows (a 404) or a rate limit on one entity cannot stall the rest of
 the sync, and a star tapped before the store has loaded is folded into the
 loaded list rather than replaced by it. Pull-to-refresh on Favorites also
@@ -1433,7 +1436,8 @@ for why safety data can never sit behind a wall.
 Essentials keeps the `/float-options` route so existing notification and Live Activity
 links keep working. It leads with raw location sharing and the take-out, followed by
 Ahead, the optional pickup contact, timestamped gauge readings, and the Keep screen
-awake switch (one tap away, off unless chosen). Settings are
+awake switch (one tap away, off unless chosen; held by the recording layout, so it
+stays on while Essentials is open over River Mode). Settings are
 collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
 status and actionable errors. Hazard instructions are never truncated.
 Live Activity status, including update errors and the system's eight-hour expiry
@@ -1788,10 +1792,16 @@ identity: the route and the RLS policy in migration `00183` both enforce it.
 Signing out and deleting an account each unregister first, while the token can
 still authenticate. They unregister without opting the device out: the
 persisted opt-out belongs to the Notifications switch alone, so the next
-account to sign in (or the same one) registers again as usual. Because that
-unregister is best-effort, `/api/me/device-tokens` also releases a token from
-any other account before registering it: a push token names the phone, and
-the account leaving it must not keep being notified on it. Signing out is
+account to sign in (or the same one) registers again as usual. An unregister
+that cannot be sent (no signal, or a session that could not be refreshed) is
+recorded on the device as a release owed (`src/lib/pushLedger.ts`) and sent on
+a later launch to `/api/device-tokens/release`, which needs no account: the
+push token and the row id the server returned at registration are the proof.
+Independently, `/api/me/device-tokens` releases a token from any other
+account before registering it: a push token names the phone, and the account
+leaving it must not keep being notified on it. The same ledger skips a
+registration that would change nothing (same account and token, within a
+day), so foregrounding does not spend the route's fail-closed limit. Signing out is
 local to the device (`scope: 'local'`); it does not revoke the account's
 sessions elsewhere.
 

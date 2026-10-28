@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response: AlertRulesResponse = {
-      rules: sortRules(((data ?? []) as unknown as GaugeAlertRow[]).map(toGaugeRule)),
+      rules: sortRules(((data ?? []) as unknown as GaugeAlertRow[]).map((row) => toGaugeRule(row))),
     };
     return jsonPrivate(response);
   } catch (error) {

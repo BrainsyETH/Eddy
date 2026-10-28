@@ -147,41 +147,57 @@ finding is real, or plausible, and left for a separate change, with why.
 - A non-JSON error page from the search endpoint is reported as the server
   error it is, not "check your connection".
 
-## Open
+## Fixed in a follow-up (same branch)
 
-Real or plausible, deliberately not changed here.
+The items first listed as open, addressed after the initial pass:
 
-- **Stars: a quick star-then-unstar can be resurrected.** The tombstone rule
-  compares the device clock to the server's `created_at`; the server row from
-  this device's own push can post-date the unstar, and clock skew widens the
-  window. Needs the server to accept a client `starredAt` (or a per-entry
-  `pushedAt`) rather than a client-only patch. (`packages/eddy-sync`)
-- **Push: a failed unregister on sign-out is not retried.** The server-side
-  re-key covers the next account on the same phone; a phone nobody signs in to
-  again keeps the previous account's token until that account's next
-  registration elsewhere. A persisted pending-unregister would close it.
-- **Alerts:** a second river "Eddy's call" alert silently overwrites the
-  first (product decision); a rule on a gauge that stopped reporting still
-  reads "Watching" (the audit's open item 4); the token re-registers on every
-  foreground against a fail-closed limit; the primer can show before the
-  permission state is known; quiet-hours validates an off window.
-- **Planner deep link whose endpoint no longer exists** opens an empty
-  planner with no message. Needs a "fresh data arrived" flag from
-  `usePlannerData` to tell "waiting" from "gone".
-- **Older server + a recap with a start note** stalls the rows behind it in
-  the same sync batch; partitioning note-bearing rows last would free them.
-- **Cancelling a trip download mid-creation** may leave a pack behind
-  (unverified on device; a small `AbortController` through `startTripDownload`).
-- **Saved places:** a corrupt or forward-version blob is a permanent error
-  with no recovery path short of reinstall.
-- **Today:** observation times print in device time beside charts drawn in
-  station time; the whole river list re-renders every minute because `age()`
-  returns new objects; the snooze hook is dead code; a 400 from the history
-  endpoint is offered a retry that cannot succeed.
-- **Feedback, upload and report limits are per IP**, which carrier NAT
-  collapses; keying on the verified user where one exists would help on a
-  busy weekend.
-- **Keep-awake under the Essentials form sheet** may drop while the sheet is
-  up (depends on `useIsFocused` under react-native-screens; verify on device).
-- **Device verification** of everything above, as the README already says for
-  River Mode, remains unconfirmed.
+- **Stars: a quick star-then-unstar could be resurrected.** A star POST now
+  carries the device's edit time and the server stores it as `created_at`,
+  bounded so it is never after the server's clock (`src/lib/star-time.ts`).
+  This device's later unstar is compared on its own clock. Tested.
+- **Push: a failed unregister on sign-out was never retried.** It is recorded
+  on the device as a release owed (`pushLedger.ts`) and sent on a later launch
+  to the new `POST /api/device-tokens/release`, which takes the push token
+  plus the row id returned at registration, needs no account, is rate limited
+  per IP and fails closed. The same ledger skips a registration that would
+  change nothing within a day, so foregrounding no longer spends the
+  fail-closed device-token limit. Tested.
+- **Alerts:** saving a second river "Eddy's call" alert now asks before
+  replacing the first. A gauge rule whose station has had no usable reading
+  for longer than the gate accepts says "Waiting on the gauge" on its row and
+  edit screen instead of "Watching for changes" (audit finding 4; the
+  serializer now returns `lastReadingAt` and `readingStale`, tested). The
+  primer reads the OS permission at save time rather than the not-yet-loaded
+  state.
+- **Planner deep link to an endpoint that no longer exists** now says so once
+  the access list is final (`loadPlannerResource` reports `settled`).
+- **Older server and a noted recap:** recaps with a start note upload last in
+  their own batches; a refusal no longer holds back deletions and other rows.
+  Tested.
+- **Cancelling a trip download mid-creation** halts pack creation and waits for
+  the pack in flight before deleting them all.
+- **Saved places:** a corrupt collection is set aside under its own key and
+  the list starts fresh with a one-time note. A collection from a newer build
+  is still never overwritten (an existing test pins that), and now says to
+  update Eddy instead of a load error. Tested.
+- **Today:** observation times name their zone, in the station's when the
+  gauge reports one; a 400 from the history endpoint is an answer, not a
+  retry; the unused snooze hook and its helpers are removed.
+- **Report limits:** a report signed with a session is limited per account,
+  with a looser per-IP backstop; unsigned reports keep the per-IP limit.
+- **Keep screen awake** is held by the recording layout, so it stays on while
+  the Essentials sheet is open over River Mode.
+
+## Left as they are, deliberately
+
+- **Quiet hours validates an off window.** An existing test ("equal times are
+  invalid … even when disabled") pins this as the intended rule.
+- **The Today list re-renders once a minute.** Reading ages genuinely change
+  every minute; holding row objects steady would delay the freshness and
+  staleness cut-offs. Correctness is unaffected.
+- **Feedback and photo upload limits stay per IP.** The app sends no session
+  with either, and adding one to feedback or hazard reports would turn an
+  unrefreshable token into a 401, which the hazard queue treats as a final
+  refusal. Reports, which already verify a sent token, are keyed per account.
+- **Device verification** of everything in this review remains unconfirmed,
+  as the README already says for River Mode.

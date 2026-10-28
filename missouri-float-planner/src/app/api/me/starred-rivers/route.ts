@@ -17,9 +17,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jsonPrivate } from '@/lib/api-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/supabase/request';
+import { clientStarredAt } from '@/lib/star-time';
 import type { StarredRiversResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
+
+/** `created_at` from the device's edit time, or nothing (the column defaults to now()). */
+function starTime(raw: unknown): { created_at?: string } {
+  const at = clientStarredAt(raw);
+  return at ? { created_at: at } : {};
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (limited) return limited;
 
     const body = await request.json().catch(() => null) as
-      | { riverId?: string; riverSlug?: string }
+      | { riverId?: string; riverSlug?: string; starredAt?: unknown }
       | null;
     if (!body?.riverId && !body?.riverSlug) {
       return jsonPrivate({ error: 'riverId or riverSlug required' }, { status: 400 });
@@ -106,7 +113,8 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from('starred_rivers')
       .upsert(
-        { user_id: user.id, river_id: riverId },
+        // The device's own edit time when it sent one (src/lib/star-time.ts).
+        { user_id: user.id, river_id: riverId, ...starTime(body.starredAt) },
         { onConflict: 'user_id,river_id', ignoreDuplicates: true }
       );
 

@@ -2538,6 +2538,18 @@ export interface AlertRule {
   firedAt: string | null;
   lastTriggeredAt: string | null;
   createdAt: string;
+  /**
+   * Gauge rules only: when the alert engine last had a reading from this
+   * station it could act on. Absent from servers that predate it.
+   */
+  lastReadingAt?: string | null;
+  /**
+   * Gauge rules only: the engine has had no usable reading for longer than it
+   * accepts one (the station stopped reporting, or keeps reporting data it
+   * refuses), so the rule is armed and cannot fire. Without this the rule read
+   * "Watching for changes" while every pass skipped it.
+   */
+  readingStale?: boolean;
 }
 
 export interface AlertRulesResponse {

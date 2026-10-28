@@ -432,9 +432,29 @@ export function createFloatArchive(
             throw new Error('Backup response could not be confirmed. Please retry.');
           await acknowledge(batch, results);
         };
-        for (const batch of uploadBatches(sent, (row) => JSON.stringify(wire(row)).length)) {
+        // Recaps carrying a start note go LAST, in batches of their own. An
+        // older server cannot take the field, and the upload refuses those
+        // rows rather than strip the note (floatArchiveUpload.ts). Mixed into
+        // one batch, a single noted recap held back every deletion and saved
+        // route behind it until the backend was upgraded.
+        const noted = (row: LocalArchiveRow) =>
+          row.kind === 'completed' && !row.deleted && (row.payload as CompletedFloat | null)?.startNote !== undefined;
+        const size = (row: LocalArchiveRow) => JSON.stringify(wire(row)).length;
+        for (const batch of uploadBatches(sent.filter((row) => !noted(row)), size)) {
           if (selected !== scope || blocked.has(scope)) return;
           await upload(batch);
+        }
+        let notedFailure: unknown = null;
+        for (const batch of uploadBatches(sent.filter(noted), size)) {
+          if (selected !== scope || blocked.has(scope)) return;
+          try {
+            await upload(batch);
+          } catch (e) {
+            // Kept, not thrown yet: the account's history is still read back
+            // below, and the failure is reported (and retried) after it.
+            notedFailure = e;
+            break;
+          }
         }
         if (readRemote) {
           if (selected !== scope || blocked.has(scope)) return;
@@ -476,6 +496,7 @@ export function createFloatArchive(
           // before the recap that is the only place to ask for it again.
           if (deletedElsewhere.length > 0) onRemoteDeleted(deletedElsewhere);
         }
+        if (notedFailure) throw notedFailure;
         retries.delete(scope);
         syncError = null;
       } catch (e) {

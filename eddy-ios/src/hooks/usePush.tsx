@@ -33,6 +33,7 @@ import {
   getPermissionState,
   installForegroundHandler,
   requestPermission,
+  settleOwedRelease,
   syncRegistration,
   unregisterThisDevice,
   type PermissionState,
@@ -244,6 +245,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
 
     if (state !== 'granted' || !signedIn) {
       setRegistered(false);
+      // A release owed from an earlier sign-out needs no account, only signal.
+      void settleOwedRelease();
       return;
     }
 
@@ -253,11 +256,11 @@ export function PushProvider({ children }: { children: ReactNode }) {
     }
 
     const token = await getAccessToken();
-    if (!token) return;
+    if (!token || !userId) return;
 
-    const result = await syncRegistration(token);
+    const result = await syncRegistration(token, userId);
     setRegistered(result.ok);
-  }, [signedIn, getAccessToken]);
+  }, [signedIn, userId, getAccessToken]);
 
   // Re-sync on every launch and whenever the signed-in user changes. Expo push
   // tokens rotate, and a stale one fails silently — the user simply stops
@@ -305,13 +308,15 @@ export function PushProvider({ children }: { children: ReactNode }) {
       }
       setOptedOut(false);
       const token = await getAccessToken();
-      if (token) {
-        const result = await syncRegistration(token);
+      if (token && userId) {
+        // Forced: the device was opted out, so whatever the ledger says, the
+        // server row is gone and must be written again.
+        const result = await syncRegistration(token, userId, { force: true });
         setRegistered(result.ok);
       }
     }
     return state;
-  }, [signedIn, getAccessToken, features.push]);
+  }, [signedIn, userId, getAccessToken, features.push]);
 
   const disable = useCallback(async () => {
     let persisted = true;
@@ -321,16 +326,14 @@ export function PushProvider({ children }: { children: ReactNode }) {
       persisted = false;
       warn('push', 'Could not persist this device push opt-out', error);
     }
-    const token = await getAccessToken();
-    if (token) await unregisterThisDevice(token);
+    await unregisterThisDevice(await getAccessToken());
     if (persisted) setOptedOut(true);
     setRegistered(false);
     return persisted;
   }, [getAccessToken]);
 
   const unregister = useCallback(async () => {
-    const token = await getAccessToken();
-    if (token) await unregisterThisDevice(token);
+    await unregisterThisDevice(await getAccessToken());
     setRegistered(false);
   }, [getAccessToken]);
 

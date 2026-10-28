@@ -156,7 +156,7 @@ export default function ConfigureAlertScreen() {
   const confirmingDiscard = useRef(false);
   const [completion, setCompletion] = useState<{ seedNote: string | null; primed: boolean } | null>(null);
   const { colors, elevation } = useTheme();
-  const { add, refresh } = useAlertRules();
+  const { add, refresh, rulesFor } = useAlertRules();
   // Reuse the one-tap bell's session and permission policy. This task renders
   // sign-in and the primer inline, without adding another modal.
   const gate = useAlertGate();
@@ -492,6 +492,29 @@ export default function ConfigureAlertScreen() {
     metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
   ]);
 
+  // A river holds ONE "Eddy's call" alert: the route upserts on (user, river),
+  // replacing the kind, clearing what it last sent and switching it back on.
+  // Saving a second one used to do that silently, over a paused alert the
+  // person had chosen to keep paused. Ask first.
+  const existingRiverAlert = scope === 'river' && mode === 'condition' && riverId
+    ? rulesFor('river', riverId).find((rule) => rule.source === 'river_condition') ?? null
+    : null;
+  const requestSave = useCallback(() => {
+    if (!existingRiverAlert) {
+      void save();
+      return;
+    }
+    const kind = CONDITION_KINDS.find((option) => option.value === existingRiverAlert.conditionKind)?.label;
+    Alert.alert(
+      `You already have an alert for ${targetName}`,
+      `${kind ? `It is set to ${kind}` : 'It is set'}${existingRiverAlert.enabled ? '' : ' and paused'}. Saving replaces it with this one${existingRiverAlert.enabled ? '' : ' and turns it back on'}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Replace', style: 'destructive', onPress: () => void save() },
+      ],
+    );
+  }, [existingRiverAlert, save, targetName]);
+
   const cancel = { label: 'Cancel', onPress: close, disabled: saving || signingIn || enablingPush };
   if (loading) {
     return <AlertCreationFrame secondary={cancel}>
@@ -587,7 +610,7 @@ export default function ConfigureAlertScreen() {
 
   return (
     <AlertCreationFrame error={error} secondary={cancel}
-      primary={{ label: saving ? 'Saving…' : 'Save', onPress: () => void save(), disabled: !canSave, busy: saving }}>
+      primary={{ label: saving ? 'Saving…' : 'Save', onPress: requestSave, disabled: !canSave, busy: saving }}>
       <Stack.Screen options={{ title: 'New alert', gestureEnabled: true }} />
       <ScrollView
         contentContainerStyle={styles.content}

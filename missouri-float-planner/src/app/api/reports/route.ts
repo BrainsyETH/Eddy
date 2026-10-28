@@ -227,7 +227,15 @@ export async function POST(request: NextRequest) {
     const existing = await alreadyFiled();
     if (existing) return filedResponse(existing);
 
-    const submissionLimit = await rateLimit(`reports:${ip}`, 5, 15 * 60 * 1000, { failClosed: true });
+    // A signed submission is limited per ACCOUNT: carrier NAT puts thousands
+    // of phones behind one address, and on a busy river weekend a per-IP five
+    // was spent by strangers. The address keeps a looser backstop, because an
+    // anonymous account is free to mint. Unsigned submissions (the website,
+    // older builds) keep the per-IP limit as before.
+    const submissionLimit = submitter
+      ? (await rateLimit(`reports:user:${submitter.userId}`, 5, 15 * 60 * 1000, { failClosed: true })) ??
+        (await rateLimit(`reports:ip-backstop:${ip}`, 25, 15 * 60 * 1000, { failClosed: true }))
+      : await rateLimit(`reports:${ip}`, 5, 15 * 60 * 1000, { failClosed: true });
     if (submissionLimit) return submissionLimit;
 
     // Reports are safety-relevant and must be anchored to the river they name.

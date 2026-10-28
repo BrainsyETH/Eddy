@@ -856,6 +856,35 @@ test('start notes survive disk, backup and reinstall; an older server leaves the
   assert.deepEqual(reinstalled.snapshot().rows[0].payload, trip);
 });
 
+test('on an older server a noted recap waits alone; other recaps and deletions still back up', async () => {
+  // A recap with a start note sat in the first batch (newest first) and the
+  // capability refusal aborted the whole sync, so a deletion and an ordinary
+  // recap behind it waited for the backend upgrade too.
+  const local = createFloatArchive(disk());
+  await local.select('A');
+  const remote = server();
+  await local.addCompleted(summary('old-trip'), 'A');
+  await local.sync('A', remote.api);
+  await local.remove('old-trip', 'A');
+  await local.addCompleted(summary('plain-trip'), 'A');
+  await local.addCompleted({ ...summary('noted-trip'), putInId: null, putInName: null, startNote: 'Recording started 3.2 mi below Akers' }, 'A');
+  // A clock past the module's capability cache, which an earlier test filled
+  // with a positive answer.
+  const later = () => Date.now() + 60 * 60_000;
+  const api: ArchiveTransport = { ...remote.api, write: rows => uploadFloatArchive(rows, {
+    capabilities: async () => null,
+    write: batch => remote.api.write(batch),
+  }, later) };
+  await local.sync('A', api, true);
+  const row = (id: string) => local.snapshot().rows.find(r => r.id === id)!;
+  assert.equal(row('plain-trip').dirty, false, 'an ordinary recap is not held behind the noted one');
+  assert.equal(row('old-trip').dirty, false, 'nor is a deletion');
+  assert.equal(remote.rows.get('old-trip')!.deleted, true);
+  assert.equal(row('noted-trip').dirty, true, 'the noted recap waits for a server that takes the note');
+  assert.equal(remote.rows.has('noted-trip'), false);
+  assert.match(local.snapshot().error!, /saved on this phone/);
+});
+
 test('old recaps and deletions keep their upload contract without a capability request', async () => {
   const old = summary();
   const rows: ArchiveRow[] = [

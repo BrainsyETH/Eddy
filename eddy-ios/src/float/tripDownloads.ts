@@ -110,11 +110,22 @@ export const TRIP_STYLE_URL = STYLE_URL;
  * iOS serializes actual tile + style work in withSerialMapboxOffline; awaiting
  * createPack/resume here alone would only serialize the start requests.
  */
-export async function startTripDownload(chunks: readonly TripChunk[], onError: (message: string) => void): Promise<void> {
+export async function startTripDownload(
+  chunks: readonly TripChunk[],
+  onError: (message: string) => void,
+  /**
+   * Aborted when the paddler stops the download while its packs are still
+   * being created. Without it, packs created after Stop and remove had
+   * iterated the store were never deleted, and the card showed "Map partly
+   * saved" with no route package behind it.
+   */
+  signal?: AbortSignal,
+): Promise<void> {
   const manager = getOfflineManager();
   if (!manager) throw new Error('Maps are unavailable in this build.');
   const existing = new Map((await packs()).map((pack) => [pack.name, pack]));
   for (const [index, chunk] of chunks.entries()) {
+    if (signal?.aborted) return;
     const pack = existing.get(chunk.name);
     const operation = pack ? 'resume' : 'create';
     const failure = (error: unknown) => {

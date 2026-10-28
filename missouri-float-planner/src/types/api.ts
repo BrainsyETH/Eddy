@@ -1281,6 +1281,10 @@ export interface AlertRule {
   firedAt: string | null;
   lastTriggeredAt: string | null;
   createdAt: string;
+  /** Gauge rules only: when the alert engine last had a reading it could act on. */
+  lastReadingAt?: string | null;
+  /** Gauge rules only: armed, but no usable reading for longer than the gate accepts. */
+  readingStale?: boolean;
 }
 
 /** Response for GET /api/me/alerts */

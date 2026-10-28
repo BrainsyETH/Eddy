@@ -80,11 +80,15 @@ const OWNER_KEY = 'eddy.stars.owner.v1';
  */
 async function pushPlan(
   plan: SyncPlan,
-  star: (id: string) => Promise<void>,
+  kind: StarKind,
+  star: (id: string, starredAt: string | undefined) => Promise<void>,
   unstar: (id: string) => Promise<void>,
 ): Promise<{ settled: string[]; failed: number }> {
+  // Each star carries the time it was made here, so the server row it creates
+  // is dated on this phone's clock (see starRiver in the API client).
+  const editedAt = new Map(plan.merged.filter((e) => e.kind === kind).map((e) => [e.entityId, e.updatedAt]));
   const results = await Promise.allSettled([
-    ...plan.toStar.map((id) => star(id)),
+    ...plan.toStar.map((id) => star(id, editedAt.get(id))),
     ...plan.toUnstar.map((id) => unstar(id)),
   ]);
   const settled = plan.toUnstar.filter((_, i) => results[plan.toStar.length + i].status === 'fulfilled');
@@ -319,7 +323,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       // gauge tombstone the moment one of the two fetches failed.
       if (riverServer) {
         const plan = mergeStars(merged, riverServer, 'river');
-        const pushed = await pushPlan(plan, (id) => starRiver(token, id), (id) => unstarRiver(token, id));
+        const pushed = await pushPlan(plan, 'river', (id, at) => starRiver(token, id, at), (id) => unstarRiver(token, id));
         merged = plan.merged;
         settledIds.push(...pushed.settled);
         failedPushes += pushed.failed;
@@ -328,7 +332,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       if (epoch !== deletionEpoch.current) return;
       if (gaugeServer) {
         const plan = mergeStars(merged, gaugeServer, 'gauge');
-        const pushed = await pushPlan(plan, (id) => starGauge(token, id), (id) => unstarGauge(token, id));
+        const pushed = await pushPlan(plan, 'gauge', (id, at) => starGauge(token, id, at), (id) => unstarGauge(token, id));
         merged = plan.merged;
         settledIds.push(...pushed.settled);
         failedPushes += pushed.failed;
@@ -337,7 +341,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       if (epoch !== deletionEpoch.current) return;
       if (damServer) {
         const plan = mergeStars(merged, damServer, 'dam');
-        const pushed = await pushPlan(plan, (id) => starDam(token, id), (id) => unstarDam(token, id));
+        const pushed = await pushPlan(plan, 'dam', (id, at) => starDam(token, id, at), (id) => unstarDam(token, id));
         merged = plan.merged;
         settledIds.push(...pushed.settled);
         failedPushes += pushed.failed;
