@@ -1,5 +1,5 @@
 // src/components/access-point/AccessPointNav.tsx
-// Navigation buttons for deep linking to Onx, Gaia, Google Maps, Apple Maps
+// Navigation controls for supported POI and point-to-point links
 
 'use client';
 
@@ -16,7 +16,6 @@ import {
 // Navigation app icon URLs from Vercel blob storage
 const NAV_APP_ICONS: Record<string, string> = {
   onx: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/onx.png',
-  gaia: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/gaia.jpeg',
   google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/google-maps.png',
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
@@ -35,9 +34,12 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
     name: accessPoint.name,
   });
 
-  const navLinks = generateNavLinks(coords, accessPoint.directionsOverride);
-  // Outdoor apps retain their supported destination map links. Driving apps
-  // receive both endpoints, using road coordinates instead of the river pin.
+  // Gaia only centers a map, without selecting the POI. onX remains a
+  // single-place map shortcut; only Google and Apple support shuttle URLs.
+  const navLinks = generateNavLinks(coords, accessPoint.directionsOverride).filter(
+    link => link.app !== 'gaia' && (!origin || link.app === 'google' || link.app === 'apple')
+  );
+  // Driving apps receive both endpoints, using road coordinates.
   if (origin) {
     const start = getNavCoordinates(origin);
     const source = `${start.lat},${start.lng}`;
@@ -60,13 +62,13 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
     // Let modified clicks (new tab, middle-click) use the plain href
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     // Universal driving links work directly in browsers and installed map apps.
-    if (origin && (link.app === 'google' || link.app === 'apple')) return;
+    if (origin) return;
     e.preventDefault();
     handleNavClick(link, platform);
   };
 
   return (
-    <div className={compact ? "flex shrink-0 items-center gap-1" : "grid grid-cols-4 gap-2"}>
+    <div className={compact ? "flex shrink-0 items-center gap-1" : origin ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"}>
       {navLinks.map((link) => (
         <a
           key={link.app}
@@ -74,10 +76,10 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => handleClick(e, link)}
-          aria-label={origin && (link.app === 'onx' || link.app === 'gaia')
+          aria-label={link.app === 'onx'
             ? `Open ${accessPoint.name} in ${link.label}`
             : `${origin ? `Shuttle from ${origin.name} to` : 'Directions to'} ${accessPoint.name} in ${link.label}`}
-          title={origin && (link.app === 'onx' || link.app === 'gaia') ? `${link.label}: view take-out on map` : link.label}
+          title={link.app === 'onx' ? `${link.label}: view place on map` : link.label}
           className={compact
             ? "flex h-11 w-11 items-center justify-center rounded-lg hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-colors no-underline"
             : "flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px] no-underline"}

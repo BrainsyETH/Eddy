@@ -31,7 +31,6 @@ import {
 // Navigation app icon URLs from Vercel blob storage
 const NAV_APP_ICONS: Record<string, string> = {
   onx: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/onx.png',
-  gaia: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/gaia.jpeg',
   google: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/google-maps.png',
   apple: 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/nav-icons/Apple_Maps_Logo.png',
 };
@@ -880,11 +879,11 @@ function AccessPointDetailCard({
 
       {/* Navigation Apps - Always visible */}
       <div className="px-3 py-2 border-t border-neutral-100">
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-3 gap-1">
           {generateNavLinks(
             { lat: point.coordinates.lat, lng: point.coordinates.lng, label: point.name },
             point.directionsOverride
-          ).map((link: NavLink) => (
+          ).filter(link => link.app !== 'gaia').map((link: NavLink) => (
             <button
               key={link.app}
               onClick={() => handleNavClick(link, detectPlatform())}

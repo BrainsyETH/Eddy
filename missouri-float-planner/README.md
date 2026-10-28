@@ -14,9 +14,11 @@ River pages place “Find a float on this river” near the bottom, after the ri
 guide and before the feedback link, when float search is enabled for the web.
 
 Planner shuttle controls use **Shuttle Route** with “Directions from point-to-point”
-and always-visible app icons. Google and Apple receive both road-coordinate
-endpoints; onX and Gaia open the take-out map. POI directions use compact,
-always-visible icons with 44px targets, accessible labels, and app-name tooltips.
+and always-visible Google and Apple icons, both receiving road-coordinate
+endpoints. onX is available only as a single-POI map shortcut. Gaia is omitted
+from web POI controls because its coordinate link does not select a place.
+Planner POI controls use compact, always-visible icons with 44px targets,
+accessible labels, and app-name tooltips.
 
 ## Web navigation
 
