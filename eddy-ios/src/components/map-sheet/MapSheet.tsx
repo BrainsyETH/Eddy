@@ -442,8 +442,15 @@ function MeasuredMapSheet({
     [scrollY, panRef, detent, atFull, budget, resetKey, setBodyReady],
   );
 
+  // ── THE ROOT CLIPS ──────────────────────────────────────────────────────
+  // The sheet is laid out at full height and slid DOWN to rest, so at peek
+  // most of it sits below this root's bottom edge, which is the top of the
+  // tab bar. Unclipped, that hidden part painted through the translucent
+  // floating tab bar and into the strip beneath it: blurred page tabs behind
+  // the bar and a stray "View full details" row under it. The host already
+  // stops at the tab bar, so clipping here is exactly the visible sheet.
   return (
-    <View collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onRootLayout}>
+    <View collapsable={false} style={[StyleSheet.absoluteFill, styles.clip]} pointerEvents="box-none" onLayout={onRootLayout}>
       {/* Not a Pressable: at every detent this sheet offers, tapping the map
           behind it should reach the MAP — selecting another pin, panning — and
           a scrim that swallowed those taps would turn the glance into a modal.
@@ -553,6 +560,7 @@ function MeasuredMapSheet({
 }
 
 const styles = StyleSheet.create({
+  clip: { overflow: 'hidden' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: {
     position: 'absolute',

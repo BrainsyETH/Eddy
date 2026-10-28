@@ -47,9 +47,10 @@ import { serviceContactActions, type ServiceContactAction } from '@/lib/serviceC
 // of invisible labels.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
-import { MapPlacesList } from '@/components/MapPlacesList';
-import { nextPinId, gestureStarted, pointNeedsReveal } from './mapInteraction';
+import { StyleSheet, View } from 'react-native';
+import { MapPlacesSheet } from '@/components/MapPlacesSheet';
+import { gestureStarted, pointNeedsReveal } from './mapInteraction';
+import { nearestHitId, pinStacks, stackTap, type PinStack, type StackCandidate } from './pinStacks';
 import type {
   CampsiteAvailabilitySummary,
   Hazard,
@@ -862,8 +863,11 @@ interface Props {
   onBackgroundPress?: () => void;
   placesListOpen?: boolean;
   onClosePlacesList?: () => void;
-  visibleBounds?: MapBounds;
-  onPinCycle?: (text: string | null) => void;
+  /**
+   * The camera as of its last stop. Overlapping places are grouped into
+   * numbered stacks at this zoom, and the places list reads its bounds.
+   */
+  visibleViewport?: { bounds: MapBounds; zoom: number };
 }
 
 /**
@@ -943,7 +947,7 @@ export function RiverMap({
   planRoute,
   planEndpoints,
   selectedPinId,
-  onSelectPin, onBackgroundPress, placesListOpen, onClosePlacesList, visibleBounds, onPinCycle,
+  onSelectPin, onBackgroundPress, placesListOpen, onClosePlacesList, visibleViewport,
 }: Props) {
   const Mapbox = loadMapbox();
   const { colors } = useTheme();
@@ -1305,6 +1309,81 @@ export function RiverMap({
   const endpointIds = useMemo(() => new Set(endpointPins.map(({ pin }) => pin.id)), [endpointPins]);
 
   /**
+   * ── OVERLAPPING PLACES BECOME NUMBERED STACKS ──────────────────────────
+   *
+   * The web planner's rule, in map/pinStacks.ts: places within 56pt of each
+   * other at the current zoom draw as one numbered mark. Only marks that are
+   * drawn individually at this zoom take part; below a clustered layer's
+   * ceiling its native bubbles already do this job. Three things never stack:
+   * hazards (a hazard must never disappear into a count), route endpoints
+   * (they have their own source and badge) and the selected place (the open
+   * sheet is about it, so it stays visible beside whatever else is there).
+   *
+   * Computed from the camera's last STOP, never per frame, and padded like
+   * the gauge request box so a mark just off screen still groups with its
+   * neighbour on screen.
+   */
+  const stacks = useMemo<PinStack[]>(() => {
+    if (!visibleViewport || visibleViewport.zoom < ZOOM.cluster) return [];
+    const { bounds: [west, south, east, north], zoom } = visibleViewport;
+    const padLng = (east - west) * 0.2;
+    const padLat = (north - south) * 0.2;
+    // Gauges, dams and the national tier cluster natively through
+    // ZOOM.cluster, so their marks are individual only above that level.
+    const nativeClusterCeiling = Math.floor(zoom) <= ZOOM.cluster;
+    const candidates: StackCandidate[] = [];
+    const add = (list: readonly MapPin[] | null | undefined, clustered = false) => {
+      if (clustered && nativeClusterCeiling) return;
+      for (const pin of list ?? []) {
+        if (!layers.includes(pin.layer) || pin.id === selectedPinId || endpointIds.has(pin.id)) continue;
+        const { lng, lat } = pin.coordinates;
+        if (lng < west - padLng || lng > east + padLng || lat < south - padLat || lat > north + padLat) continue;
+        candidates.push({ id: pin.id, lng, lat });
+      }
+    };
+    add(accessPins);
+    add(campgroundPins);
+    add(boatRampPins);
+    add(springPins);
+    add(outfitterPins);
+    add(lodgingPins);
+    add(gaugePins, true);
+    add(referenceGauges, true);
+    add(dams, true);
+    return pinStacks(candidates, zoom);
+  }, [
+    visibleViewport, layers, selectedPinId, endpointIds, accessPins, campgroundPins,
+    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, referenceGauges, dams,
+  ]);
+  const stacksById = useMemo(() => new Map(stacks.map((stack) => [stack.id, stack])), [stacks]);
+  // PRIMITIVE KEYS, so a camera stop that regroups nothing re-uploads nothing.
+  // `stacks` is a new array on every stop; these strings only change when a
+  // stack forms, splits or moves, and every layer shape below depends on them
+  // rather than on the array.
+  const stackedKey = stacks.flatMap((stack) => stack.ids).sort().join('|');
+  const stackFeaturesKey = JSON.stringify(stacks.map((stack) => [stack.id, stack.ids.length, stack.lng, stack.lat]));
+  /** Endpoints and stacked members, left out of their own layers' shapes. */
+  const layerHiddenIds = useMemo(
+    () => new Set([...endpointIds, ...(stackedKey ? stackedKey.split('|') : [])]),
+    [endpointIds, stackedKey],
+  );
+  const stackedOnlyIds = useMemo(
+    () => new Set(stackedKey ? stackedKey.split('|') : []),
+    [stackedKey],
+  );
+  const stackShape = useMemo(() => ({
+    type: 'FeatureCollection' as const,
+    features: (JSON.parse(stackFeaturesKey) as [string, number, number, number][]).map(
+      ([id, count, lng, lat]) => ({
+        type: 'Feature' as const,
+        id,
+        properties: { id, count },
+        geometry: { type: 'Point' as const, coordinates: [lng, lat] },
+      }),
+    ),
+  }), [stackFeaturesKey]);
+
+  /**
    * Each pin layer's FeatureCollection, built once per change of its inputs.
    *
    * Same argument as networkShape and detailShape above, and it was the one
@@ -1322,28 +1401,28 @@ export function RiverMap({
   // other five, and a rebuilt collection is a re-upload of that layer's pins
   // whether or not a feature in it changed.
   const accessShape = useMemo(
-    () => featureCollection(accessPins, layerColorFor('access', colors), endpointIds),
-    [accessPins, colors, endpointIds],
+    () => featureCollection(accessPins, layerColorFor('access', colors), layerHiddenIds),
+    [accessPins, colors, layerHiddenIds],
   );
   const outfitterShape = useMemo(
-    () => featureCollection(outfitterPins, layerColorFor('outfitters', colors), endpointIds),
-    [outfitterPins, colors, endpointIds],
+    () => featureCollection(outfitterPins, layerColorFor('outfitters', colors), layerHiddenIds),
+    [outfitterPins, colors, layerHiddenIds],
   );
   const lodgingShape = useMemo(
-    () => featureCollection(lodgingPins, layerColorFor('lodging', colors), endpointIds),
-    [lodgingPins, colors, endpointIds],
+    () => featureCollection(lodgingPins, layerColorFor('lodging', colors), layerHiddenIds),
+    [lodgingPins, colors, layerHiddenIds],
   );
   const boatRampShape = useMemo(
-    () => featureCollection(boatRampPins, layerColorFor('boatRamps', colors), endpointIds),
-    [boatRampPins, colors, endpointIds],
+    () => featureCollection(boatRampPins, layerColorFor('boatRamps', colors), layerHiddenIds),
+    [boatRampPins, colors, layerHiddenIds],
   );
   const campgroundShape = useMemo(
-    () => featureCollection(campgroundPins, layerColorFor('campgrounds', colors), endpointIds),
-    [campgroundPins, colors, endpointIds],
+    () => featureCollection(campgroundPins, layerColorFor('campgrounds', colors), layerHiddenIds),
+    [campgroundPins, colors, layerHiddenIds],
   );
   const gaugeShape = useMemo(
-    () => featureCollection(gaugePins, layerColorFor('gauges', colors)),
-    [gaugePins, colors],
+    () => featureCollection(gaugePins, layerColorFor('gauges', colors), stackedOnlyIds),
+    [gaugePins, colors, stackedOnlyIds],
   );
   const hazardShape = useMemo(
     () => featureCollection(hazardPins, layerColorFor('hazards', colors)),
@@ -1351,12 +1430,12 @@ export function RiverMap({
   );
 
   const springShape = useMemo(
-    () => featureCollection(springPins, layerColorFor('springs', colors)),
-    [springPins, colors],
+    () => featureCollection(springPins, layerColorFor('springs', colors), stackedOnlyIds),
+    [springPins, colors, stackedOnlyIds],
   );
   const damShape = useMemo(
-    () => featureCollection(dams ?? [], layerColorFor('dams', colors)),
-    [dams, colors],
+    () => featureCollection(dams ?? [], layerColorFor('dams', colors), stackedOnlyIds),
+    [dams, colors, stackedOnlyIds],
   );
   // The national tier's collection. This was built inline inside
   // contextGaugeLayer — the one source in this file that was — so every render
@@ -1365,8 +1444,8 @@ export function RiverMap({
   // reference gauges per sheet settle. Same argument, and same fix, as every
   // memo above it.
   const referenceShape = useMemo(
-    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges', colors)),
-    [referenceGauges, colors],
+    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges', colors), stackedOnlyIds),
+    [referenceGauges, colors, stackedOnlyIds],
   );
 
   /**
@@ -1635,7 +1714,8 @@ export function RiverMap({
   const mapSize = useRef({ width: 0, height: 0 });
   const interactionEpoch = useRef(0);
   const tapSequence = useRef(0);
-  const cycle = useRef<{ ids: string[]; selected: string } | null>(null);
+  // A stack's "N places here" choice. Owned here, beside the stacks it lists.
+  const [stackChoice, setStackChoice] = useState<MapPin[] | null>(null);
   // Invalidate async native queries when the map goes away.
   useEffect(() => () => { interactionEpoch.current++; tapSequence.current++; }, []);
   const reducedMotion = useReducedMotion(true);
@@ -1656,18 +1736,11 @@ export function RiverMap({
     pendingCommand.current = cameraCommand ?? null;
   }, [cameraCommand]);
   const gestureLatched = useRef(false);
+  // A layer change invalidates a tap whose native query is still in flight.
   useEffect(() => {
-    cycle.current = null;
     interactionEpoch.current++;
     tapSequence.current++;
-    onPinCycle?.(null);
-  }, [layers, onPinCycle]);
-  useEffect(() => {
-    if (!selectedPinId || !cycle.current?.ids.includes(selectedPinId)) {
-      cycle.current = null;
-      onPinCycle?.(null);
-    }
-  }, [selectedPinId, onPinCycle]);
+  }, [layers]);
 
   /**
    * The camera moved. Ref-only, and STABLE.
@@ -1690,8 +1763,6 @@ export function RiverMap({
       if (gestureStarted(gestureLatched.current, gestureActive)) {
         interactionEpoch.current++;
         tapSequence.current++;
-        cycle.current = null;
-        onPinCycle?.(null);
         onUserGesture?.();
       }
       gestureLatched.current = gestureActive;
@@ -1711,7 +1782,7 @@ export function RiverMap({
         gestureActive,
       };
     },
-    [onCameraCommandConsumed, onUserGesture, onPinCycle],
+    [onCameraCommandConsumed, onUserGesture],
   );
 
   useEffect(() => {
@@ -1803,25 +1874,34 @@ export function RiverMap({
 
   const layerOn = (key: LayerKey) => layers.includes(key);
 
-  const selectPinHits = (features: RenderedFeature[]) => {
-    const ids = [...new Set(features.flatMap(f => {
-      const id = f.properties?.id;
-      return typeof id === 'string' && byId.has(id) ? [id] : [];
-    }))];
-    if (!ids.length) return false;
-    // Preserve the stack through sheet presentation / automatic reveal. A user
-    // pan clears it. Native label/icon duplication and ordering do not matter.
-    const previous = cycle.current;
-    const candidates = previous && ids.some(id => previous.ids.includes(id))
-      ? [...new Set([...previous.ids.filter(id => byId.has(id)), ...ids])] : ids;
-    const id = nextPinId(candidates, previous?.selected)!;
-    cycle.current = { ids: candidates, selected: id };
-    const text = candidates.length > 1
-      ? `${[...candidates].sort().indexOf(id) + 1} of ${candidates.length} places · Tap again to cycle` : null;
-    onPinCycle?.(text);
-    const pin = byId.get(id)!;
-    if (text) AccessibilityInfo.announceForAccessibility(`${pin.name}. ${text}`);
-    onSelectPin?.(pin);
+  /**
+   * A tap that landed on places: the mark nearest the finger wins.
+   *
+   * The query box is 44pt, so it can reach two marks that are not stacked.
+   * The one under the finger is the one meant, whatever order the native
+   * layers return them in. A numbered stack follows the web planner's rule:
+   * ease in to where it splits while zoomed out, otherwise list its members.
+   */
+  const selectPinHits = (features: RenderedFeature[], tap: number[] | undefined) => {
+    const hits: StackCandidate[] = [];
+    for (const feature of features) {
+      const id = feature.properties?.id;
+      if (typeof id !== 'string') continue;
+      const stack = stacksById.get(id);
+      const pin = stack ? null : byId.get(id);
+      if (stack) hits.push({ id, lng: stack.lng, lat: stack.lat });
+      else if (pin) hits.push({ id, lng: pin.coordinates.lng, lat: pin.coordinates.lat });
+    }
+    const id = nearestHitId(hits, tap && tap.length >= 2 ? { lng: tap[0], lat: tap[1] } : null);
+    if (!id) return false;
+    const stack = stacksById.get(id);
+    if (stack) {
+      const action = stackTap(stack, liveCamera.current?.zoom ?? visibleViewport?.zoom ?? 0);
+      if (action.type === 'zoom') onZoomToCluster?.({ lng: stack.lng, lat: stack.lat, zoom: action.zoom });
+      else setStackChoice(stack.ids.flatMap((member) => byId.get(member) ?? []));
+      return true;
+    }
+    onSelectPin?.(byId.get(id)!);
     return true;
   };
 
@@ -1836,7 +1916,7 @@ export function RiverMap({
     try {
       const hits = await map.queryRenderedFeaturesInRect(box, [], pinHitLayers);
       if (!current()) return;
-      if (selectPinHits(hits?.features ?? [])) return;
+      if (selectPinHits(hits?.features ?? [], event.geometry?.coordinates)) return;
       // Queried native features omit source identity. Query cluster layers with
       // their source refs only when no individual POI matched the tap.
       for (const [sourceId, source] of clusterSources.current) {
@@ -1854,7 +1934,6 @@ export function RiverMap({
           }
           if (!current()) return;
           onZoomToCluster?.({ lng: coords[0], lat: coords[1], ...(zoom === undefined ? {} : { zoom }) });
-          cycle.current = null; onPinCycle?.(null);
           return;
         }
       }
@@ -1864,7 +1943,7 @@ export function RiverMap({
         const coords = event.geometry?.coordinates;
         onNetworkPress({ features: rivers.features, coordinates: coords ? { longitude: coords[0], latitude: coords[1] } : undefined });
       } else {
-        cycle.current = null; onPinCycle?.(null); onBackgroundPress?.();
+        onBackgroundPress?.();
       }
     } catch (error) {
       // Failed hit-testing is not an empty-map tap; preserve the selection.
@@ -2901,6 +2980,46 @@ export function RiverMap({
           rule rather than a tuning: a hazard must never disappear into a count.
           The floor is the ladder's own — below it there is no river to read a
           hazard against, and every other statewide layer is silent there. */}
+      {/* ── Numbered stacks, the web planner's mark ───────────────────────
+          A white face, a brand-coloured ring and a hard offset shadow, as on
+          eddy.guide's planner: the number is how many places are under it.
+          Above every place layer, because it stands in for their members,
+          and below hazards, which never join a stack and must paint on top.
+          Sized like the web's 34pt face; the tap target is the 44pt query
+          box around the finger. */}
+      <Mapbox.ShapeSource id="pins-stacks" shape={stackShape}>
+        <Mapbox.CircleLayer
+          id={pinHitLayerId('pins-stacks-shadow')}
+          style={{
+            circleRadius: 17,
+            circleColor: LABEL_INK,
+            circleOpacity: 0.85,
+            circleTranslate: [2, 2],
+          }}
+        />
+        <Mapbox.CircleLayer
+          id={pinHitLayerId('pins-stacks-face')}
+          style={{
+            circleRadius: 17,
+            circleColor: '#FFFFFF',
+            circleStrokeWidth: 2,
+            circleStrokeColor: colors.interactive,
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id={pinHitLayerId('pins-stacks-count')}
+          style={{
+            textField: ['to-string', ['get', 'count']],
+            textSize: 14,
+            // The face is white in both schemes, like every pin badge here, so
+            // its number is the dark label ink rather than colors.text.
+            textColor: LABEL_INK,
+            textAllowOverlap: true,
+            textIgnorePlacement: true,
+          }}
+        />
+      </Mapbox.ShapeSource>
+
       {layerOn('hazards')
         ? pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.min, ZOOM.cluster)
         : null}
@@ -2948,13 +3067,32 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
     </Mapbox.MapView>
-    {placesListOpen && <MapPlacesList
-      pins={[...byId.values()].filter(pin => layers.includes(pin.layer) && visibleBounds &&
-        pin.coordinates.lng >= visibleBounds[0] && pin.coordinates.lng <= visibleBounds[2] &&
-        pin.coordinates.lat >= visibleBounds[1] && pin.coordinates.lat <= visibleBounds[3])}
-      onClose={() => onClosePlacesList?.()}
-      onSelect={pin => { onClosePlacesList?.(); onSelectPin?.(pin); }}
-    />}
+    {placesListOpen ? (
+      <MapPlacesSheet
+        title="Places in this area"
+        searchable
+        pins={[...byId.values()].filter((pin) => {
+          const bounds = visibleViewport?.bounds;
+          if (!bounds || !layers.includes(pin.layer)) return false;
+          const { lng, lat } = pin.coordinates;
+          return lng >= bounds[0] && lng <= bounds[2] && lat >= bounds[1] && lat <= bounds[3];
+        })}
+        center={visibleViewport ? [
+          (visibleViewport.bounds[0] + visibleViewport.bounds[2]) / 2,
+          (visibleViewport.bounds[1] + visibleViewport.bounds[3]) / 2,
+        ] : null}
+        onClose={() => onClosePlacesList?.()}
+        onSelect={(pin) => { onClosePlacesList?.(); onSelectPin?.(pin); }}
+      />
+    ) : null}
+    {stackChoice ? (
+      <MapPlacesSheet
+        title={`${stackChoice.length} places here`}
+        pins={stackChoice}
+        onClose={() => setStackChoice(null)}
+        onSelect={(pin) => { setStackChoice(null); onSelectPin?.(pin); }}
+      />
+    ) : null}
     </View>
   );
 }

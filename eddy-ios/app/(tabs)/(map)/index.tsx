@@ -645,7 +645,6 @@ function MapContent() {
     [],
   );
   const [placesListOpen, setPlacesListOpen] = useState(false);
-  const [pinCycleText, setPinCycleText] = useState<string | null>(null);
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   // River data can remain selected for a route without presenting its sheet.
   const [riverSheetOpen, setRiverSheetOpen] = useState(false);
@@ -2581,7 +2580,6 @@ function MapContent() {
     setMapPlanRiver(null);
     setSelectedPin(null);
     setRiverSheetOpen(false);
-    setPinCycleText(null);
     setCameraCommand(null);
     pendingRiverFit.current = null;
     pendingAccessSelection.current = null;
@@ -2914,8 +2912,7 @@ function MapContent() {
             onBackgroundPress={dismissMapSelection}
             placesListOpen={placesListOpen}
             onClosePlacesList={() => setPlacesListOpen(false)}
-            visibleBounds={viewport?.bounds}
-            onPinCycle={setPinCycleText}
+            visibleViewport={viewport ?? undefined}
           />
         )}
 
@@ -2964,16 +2961,9 @@ function MapContent() {
                   <Text style={[styles.cancelSearchText, { color: colors.interactive }]}>Cancel</Text>
                 </Pressable>
               ) : !unavailable ? (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Pressable accessibilityRole="button" accessibilityLabel="List places in this map area"
-                  onPress={() => setPlacesListOpen(true)} style={[styles.cancelSearch, { backgroundColor: colors.card }]}>
-                  <ControlIcon name="list-outline" size={22} color={colors.interactive} />
-                </Pressable>
                 <MapLayersButton onPress={() => setLayersOpen(true)} changed={!isDefaultLayers(layers) || gaugeFilter.size > 0} />
-                </View>
               ) : null}
             </View>
-            {pinCycleText && <Text style={[styles.readingsNotice, { color: colors.text, backgroundColor: colors.card }]}>{pinCycleText}</Text>}
             {layers.includes('allGauges') && (gaugeIndex.error || referenceGauges.error) ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Gauge data could not refresh. Retry"
                 onPress={() => { gaugeIndex.retry(); referenceGauges.retry(); }}
@@ -3054,6 +3044,7 @@ function MapContent() {
           pointerEvents="box-none"
         >
           <View style={styles.controlRow} pointerEvents="box-none">
+          <View style={styles.controlGroup} pointerEvents="box-none">
           {/* Locate. The ONLY thing that ever asks for location permission on
               this screen — see useLocation for why the prompt is never spent on
               launch. A granted tap recentres; the map keeps the fix for the rest
@@ -3084,6 +3075,30 @@ function MapContent() {
               )}
             </FloatingControlSurface>
           ) : null}
+
+          {/* Places in this area. Beside Locate, in the same glass, rather
+              than in the search row: a third control there cost the search
+              field its placeholder ("Search rivers, gauges, dams and m"),
+              and this row has the room and sits under the thumb. */}
+          {!unavailable && !mapSearchOpen ? (
+            <FloatingControlSurface style={styles.locateButton}>
+              {glass => (
+                <Pressable
+                  onPress={() => setPlacesListOpen(true)}
+                  style={({ pressed }) => [
+                    styles.locateButton,
+                    { opacity: pressed && !glass ? 0.7 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Places in this area"
+                  accessibilityHint="Lists the places your layers show in this part of the map"
+                >
+                  <ControlIcon name="list" size={19} color={colors.interactive} />
+                </Pressable>
+              )}
+            </FloatingControlSurface>
+          ) : null}
+          </View>
 
           {/* ── THERE IS NO CONDITION LEGEND HERE ANY MORE ───────────
               It sat in this row, open by default, on the argument that the map
@@ -3532,6 +3547,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
   },
+  // Locate and the places list, side by side on the row's baseline.
+  controlGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   // Hard into the corner. 16/12 rather than MAP_CHROME_BOTTOM because the
   // Mapbox ornaments run along the map's bottom LEFT and end around x=149 —
   // there is nothing on the right for this to clear.
@@ -3586,7 +3603,12 @@ const styles = StyleSheet.create({
   // the plan row (clear + plan button) under it, both still right-aligned and
   // clear of the Mapbox wordmark on the left.
   planClusterStacked: { flexDirection: 'column', alignItems: 'flex-end' },
-  planRow: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  // A DEFINITE WIDTH, for the reason planCluster spells out. Without a float
+  // the cluster is a ROW, so alignSelf: 'stretch' acts vertically and this row
+  // shrank to its content. planButton's maxWidth: '55%' then resolved against a
+  // width derived from that same button, and Yoga clamped it to "Plan a f…"
+  // again. width: '100%' spans the cluster in both the row and stacked layouts.
+  planRow: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   activeFloatButton: { maxWidth: '55%' },
   planButtonText: { ...t.sm, fontFamily: fonts.heading },
   // Left of the plan button and the same height, so the two read as one row of
