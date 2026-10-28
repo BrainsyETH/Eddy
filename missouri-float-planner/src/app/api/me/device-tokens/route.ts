@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jsonPrivate } from '@/lib/api-utils';
 import { requireUser, requirePermanentUser } from '@/lib/supabase/request';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/rate-limit';
 import { isExpoPushToken } from '@/lib/push/expo';
 
@@ -48,6 +49,25 @@ export async function POST(request: NextRequest) {
     }
 
     const platform = body?.platform === 'android' ? 'android' : 'ios';
+
+    // A push token names a DEVICE, and a device changes hands between
+    // accounts: A signs out (the unregister is best-effort and may never
+    // land), B signs in on the same phone. The row for this token then still
+    // belongs to A. The upsert below runs under A-or-B's RLS, so for B it
+    // raises on the ON CONFLICT update (the row is not B's), the route
+    // answers 500, B is never registered, and A's alerts keep arriving on the
+    // phone B now holds. Re-key the token first: whoever is registering it
+    // holds the device, and the previous owner must not be notified on it.
+    // Service role, because by construction the row is not the caller's.
+    const { error: rekeyError } = await createAdminClient()
+      .from('device_tokens')
+      .delete()
+      .eq('expo_push_token', expoPushToken)
+      .neq('user_id', user.id);
+    if (rekeyError) {
+      console.error('Error releasing device token from its previous account:', rekeyError);
+      return jsonPrivate({ error: 'Could not register device' }, { status: 500 });
+    }
 
     // Re-registering the same token must refresh it rather than fail, and must
     // clear any disabled flag — a reinstall produces a token that previously

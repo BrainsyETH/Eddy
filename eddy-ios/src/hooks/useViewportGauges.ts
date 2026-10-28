@@ -386,6 +386,9 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
         inFlight.current?.abort();
         inFlight.current = null;
         inFlightKey.current = null;
+        // The aborted request's handlers return early and never clear the
+        // loading they set; nothing is on the wire now, so say so.
+        setState((prev) => (prev.loading ? { ...prev, loading: false } : prev));
         return;
       }
       // Disk is stale-first, never cache-only. It earns an immediate frame but

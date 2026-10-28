@@ -108,8 +108,20 @@ function readableArchive(v: unknown): v is DiskArchive {
       object(a.preference) && typeof a.preference.enabled === 'boolean' && nullableString(a.preference.version));
 }
 
-/** One atomic local document, account scoped; deletion tombstones win on every device. */
-export function createFloatArchive(storage: SessionStorage, now: () => number = Date.now) {
+/**
+ * One atomic local document, account scoped; deletion tombstones win on every device.
+ *
+ * `onRemoteDeleted` hears the ids of completed floats a sync tombstoned on
+ * the strength of another device's deletion. The recap is the only screen
+ * that deletes a float's raw GPS track, and it has just disappeared: without
+ * this the track outlived the recap on the phone that recorded it, with no
+ * control left to remove it, which is not what Storage promises.
+ */
+export function createFloatArchive(
+  storage: SessionStorage,
+  now: () => number = Date.now,
+  onRemoteDeleted: (ids: readonly string[]) => void = () => {},
+) {
   let disk: DiskArchive = { version: 1, owner: 'guest', accounts: {}, guestKey: guestKey() };
   let loaded = false;
   let selected: string | null = null;
@@ -428,6 +440,7 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
           if (selected !== scope || blocked.has(scope)) return;
           const consentAtRead = account(scope).preference.version;
           const remote = await api.read();
+          const deletedElsewhere: string[] = [];
           await run(async () => {
             if (selected !== scope || blocked.has(scope)) return;
             const current = account(scope);
@@ -437,6 +450,7 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
               // A remote tombstone always wins; otherwise keep edits made during IO.
               if (localRow && !row.deleted && (localRow.backupError ||
                 (localRow.dirty && localRow.revision !== readVersions.get(row.id)))) continue;
+              if (row.deleted && localRow && !localRow.deleted && localRow.kind === 'completed') deletedElsewhere.push(row.id);
               const merged: LocalArchiveRow = {
                 ...row,
                 revision: localRow?.revision ?? 1,
@@ -458,6 +472,9 @@ export function createFloatArchive(storage: SessionStorage, now: () => number = 
                   : remote.preference,
             });
           });
+          // Only once the tombstones are on disk: a track must never go
+          // before the recap that is the only place to ask for it again.
+          if (deletedElsewhere.length > 0) onRemoteDeleted(deletedElsewhere);
         }
         retries.delete(scope);
         syncError = null;

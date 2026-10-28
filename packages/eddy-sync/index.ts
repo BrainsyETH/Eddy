@@ -334,6 +334,52 @@ export function migrateStars(raw: unknown): LocalStar[] {
 }
 
 /**
+ * Folds stars toggled BEFORE the disk read landed into the loaded store.
+ *
+ * A tap from a deep link, widget or Live Activity can arrive while the store
+ * is still being read. Replacing the loaded list with that tap, or the tap
+ * with the loaded list, loses one of them: the first wrote the whole store as
+ * a single entry, the second forgot the tap in memory. The tap is the newer
+ * edit, so it wins for its own entity and everything else comes from disk.
+ */
+export function mergeLoadedStars(loaded: LocalStar[], pending: LocalStar[]): LocalStar[] {
+  if (pending.length === 0) return loaded;
+  const taken = new Set(pending.map((entry) => starKey(entry.kind, entry.entityId)));
+  return [...pending, ...loaded.filter((entry) => !taken.has(starKey(entry.kind, entry.entityId)))];
+}
+
+/** The signed-in identity a sync is about to reconcile with. */
+export interface StarSyncUser {
+  id: string;
+  /** A guest identity that has not been linked to an account. */
+  anonymous: boolean;
+}
+
+/**
+ * How the local store meets the server for this identity:
+ *
+ *   merge       reconcile both ways (mergeStars). The usual case, including a
+ *               guest's stars being adopted by the account they sign in to.
+ *   replace     a DIFFERENT signed-in account last owned this store. Its stars
+ *               stay its own: drop the local set and take this account's.
+ *   local-only  signed out after using an account, now on a guest identity.
+ *               The stars stay on the device, as promised at sign-out, but are
+ *               not pushed to the guest: that guest may become the next
+ *               account to sign in on this phone.
+ *
+ * `lastOwner` is the id of the last permanent account the store was
+ * reconciled with, or null when there has not been one. One phone, two
+ * people: without this rule, A's favourites quietly became B's the moment B
+ * signed in, on every device B owns.
+ */
+export type StarSyncPolicy = 'merge' | 'replace' | 'local-only';
+
+export function starSyncPolicy(lastOwner: string | null, user: StarSyncUser): StarSyncPolicy {
+  if (!lastOwner || lastOwner === user.id) return 'merge';
+  return user.anonymous ? 'local-only' : 'replace';
+}
+
+/**
  * @deprecated Use {@link migrateStars}, which reads every stored version.
  * Kept as an alias so the rename lands in one commit without a flag day.
  */

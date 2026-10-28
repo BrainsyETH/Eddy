@@ -47,6 +47,19 @@ export function useAccount(): AccountState {
     async (signal?: AbortSignal) => {
       const token = await getAccessToken();
       if (!token) {
+        // No token with a session in hand is a refresh that could not run:
+        // an access token that expired overnight, read again at a put-in
+        // with no bars. That is "could not ask", the same as a failed
+        // request, and must never read as "no account": clearing the
+        // entitlement here turned the contract's explicit false on a paying
+        // subscriber and locked their read for the day.
+        if (userId) {
+          if (!signal?.aborted) {
+            setError('Could not reach your account. Check your connection.');
+            setLoaded(true);
+          }
+          return;
+        }
         setProfile(null);
         setEntitlement(null);
         setError(null);
@@ -70,7 +83,7 @@ export function useAccount(): AccountState {
         if (!signal?.aborted) setLoaded(true);
       }
     },
-    [getAccessToken],
+    [getAccessToken, userId],
   );
 
   useEffect(() => {

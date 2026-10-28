@@ -15,7 +15,7 @@
 import { AlertCreationFrame } from '@/components/AlertCreationFrame';
 import { useAlertEditGuard } from '@/hooks/useAlertEditGuard';
 import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
-import { alertDraftChanged, type AlertDraft } from '@/lib/alertCreation';
+import { alertDraftChanged, parseThresholdInput, type AlertDraft } from '@/lib/alertCreation';
 import { groupAlertRules } from '@/lib/alertGroups';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -159,8 +159,8 @@ export default function EditAlertScreen() {
     // Save, and therefore renders straight from the rule.
   }, [rule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const parsedValue = Number(value);
-  const parsedMax = Number(valueMax);
+  const parsedValue = parseThresholdInput(value);
+  const parsedMax = parseThresholdInput(valueMax);
   const isThreshold = rule?.mode === 'threshold';
   const valueValid = !isThreshold || (Number.isFinite(parsedValue) && value.trim() !== '');
   const maxValid = !isThreshold || comparator !== 'between' || (Number.isFinite(parsedMax) && parsedMax > parsedValue);

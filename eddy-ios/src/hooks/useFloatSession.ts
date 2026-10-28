@@ -7,6 +7,7 @@ import type { FloatSession } from '@/lib/floatSession';
 import {
   ensureFloatSessionLoaded,
   floatSessionLoadFailed,
+  floatSessionLoaded,
   getFloatSession,
   subscribeFloatSession,
 } from '@/lib/floatSessionStore';
@@ -17,6 +18,19 @@ export function useFloatSession(): FloatSession | null {
     void ensureFloatSessionLoaded();
   }, []);
   return useSyncExternalStore(subscribeFloatSession, getFloatSession, getFloatSession);
+}
+
+/**
+ * False until the stored float has been read once. A screen reached cold
+ * (a Live Activity tap, the arrival notification) renders before that read
+ * lands; until it does, a null session means nothing, and "No float in
+ * progress" or an automatic Back would be answering a question not yet asked.
+ */
+export function useFloatSessionLoaded(): boolean {
+  useEffect(() => {
+    void ensureFloatSessionLoaded();
+  }, []);
+  return useSyncExternalStore(subscribeFloatSession, floatSessionLoaded, floatSessionLoaded);
 }
 
 /**

@@ -426,12 +426,17 @@ export function useEddySearch({
       return;
     }
     const controller = new AbortController();
-    setSearching(true);
     // Back off as failures accumulate, so a route that genuinely is not there
     // costs one slow retry per search rather than one per keystroke — and a
     // server that recovers is noticed on the very next query.
     const delay = DEBOUNCE_MS * Math.min(2 ** failures.current, MAX_BACKOFF_MULTIPLE);
+    // "Searching…" only once a request is actually on the wire. During a long
+    // backoff the last known failure stays up instead: offline, every new
+    // word otherwise showed a spinner for up to eight seconds before admitting
+    // what the previous one already knew.
+    if (failures.current === 0) setSearching(true);
     const timer = setTimeout(async () => {
+      setSearching(true);
       const outcome = await searchEddy(
         trimmed,
         controller.signal,

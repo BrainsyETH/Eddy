@@ -26,7 +26,7 @@ import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { useSavedPlaces } from '@/hooks/useSavedPlaces';
-import { savedPlaces } from '@/lib/savedPlacesStore';
+import { autoRefreshSavedPlaces, savedPlaces } from '@/lib/savedPlacesStore';
 import type { SavedPlace } from '@/lib/savedPlaces';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
@@ -189,7 +189,9 @@ function FavoritesContent() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([load(), savedPlaces.load()]);
+    // Saved places refresh themselves on reconnect and foreground only; a
+    // pull is the one way to ask for a campground's availability now.
+    await Promise.all([load(), savedPlaces.load().then(() => autoRefreshSavedPlaces(() => true, { force: true }))]);
     setRefreshing(false);
   }, [load]);
 

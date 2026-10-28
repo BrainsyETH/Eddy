@@ -13,7 +13,7 @@ import { focusFloatMap } from '@/float/mapFocus';
 import { useHazardReports } from '@/float/hazardReports';
 import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { useTrackingLine } from '@/float/useTrackingLine';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatSession, useFloatSessionLoaded } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { useTheme } from '@/theme/ThemeProvider';
 import { aheadItems, currentFloatReports, essentialsRouteFeatures, coordinateText, essentialsPosition, locationLink, locationMessage, reportStatusLabel } from '@/lib/floatEssentials';
@@ -48,7 +48,11 @@ export default function FloatOptionsScreen() {
   const end = session?.takeOut;
   const features = useMemo(() => route && end ? essentialsRouteFeatures(route, startMile, putIn, end) : null, [route, startMile, putIn, end]);
   const ahead = useMemo(() => session ? aheadItems(session, reports, now, features) : null, [session, reports, now, features]);
-  useEffect(() => { if (!session && router.canGoBack()) router.back(); }, [session, router]);
+  // Only once the stored float has been read: a Live Activity tap opens this
+  // sheet cold, before the read lands, and going back on a null that meant
+  // "not known yet" closed it on the paddler who had just asked for it.
+  const loaded = useFloatSessionLoaded();
+  useEffect(() => { if (loaded && !session && router.canGoBack()) router.back(); }, [loaded, session, router]);
   if (!session) return null;
   const fix = essentialsPosition(session, now);
   const view = viewSession(session, now);

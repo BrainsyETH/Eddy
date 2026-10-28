@@ -29,7 +29,10 @@ export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: 
     pending.current = controller;
     void (async () => {
       const token = await getAccessToken();
-      if (!token) throw new ApiError('No active session', 401);
+      // No status: a token that could not be refreshed (offline, overnight)
+      // is "could not ask", which keeps the Read already on screen. Only a
+      // real 401/403 from the server clears it.
+      if (!token) throw new ApiError('No active session');
       return fetchPremiumEddyRead(slug, token, controller.signal);
     })().then(data => {
       if (controller.signal.aborted) return;

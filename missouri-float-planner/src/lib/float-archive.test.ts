@@ -445,6 +445,31 @@ test('offline deletion beats old cloud copies and stale devices cannot resurrect
   assert.equal(other.snapshot().rows[0].deleted, true);
 });
 
+test('a recap deleted on another device tells this one to drop its raw track, exactly once', async () => {
+  // The recording phone keeps the float's GPS journal; the recap is the only
+  // screen that deletes it. When the recap is tombstoned from elsewhere the
+  // phone must still hear which track to remove, after the tombstone is on
+  // disk and never for a row it had already tombstoned itself.
+  const dropped: string[][] = [];
+  const recorder = createFloatArchive(disk(), Date.now, (ids) => dropped.push([...ids]));
+  const remote = server();
+  await recorder.select('A');
+  await recorder.addCompleted(summary(), 'A');
+  await recorder.sync('A', remote.api);
+  const other = createFloatArchive(disk());
+  await other.select('A');
+  await other.sync('A', remote.api);
+  await other.remove('trip', 'A');
+  await other.sync('A', remote.api);
+  assert.deepEqual(dropped, []);
+  await recorder.sync('A', remote.api);
+  assert.deepEqual(dropped, [['trip']]);
+  assert.equal(recorder.snapshot().rows[0].deleted, true);
+  // Already a tombstone here: nothing new to drop on the next read.
+  await recorder.sync('A', remote.api);
+  assert.deepEqual(dropped, [['trip']]);
+});
+
 test('local edits made during sync survive the response; switching scope drops an old response', async () => {
   const local = createFloatArchive(disk());
   await local.select('A');

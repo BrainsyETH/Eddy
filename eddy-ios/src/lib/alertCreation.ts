@@ -19,6 +19,19 @@ export function alertDraftChanged(draft: AlertDraft, initial: AlertDraft): boole
     (draft.comparator === 'between' && draft.valueMax.trim() !== initial.valueMax.trim());
 }
 
+/**
+ * A threshold as typed. The decimal pad offers only the locale's separator,
+ * which in much of the world is a comma; `Number('3,40')` is NaN, so Save
+ * stayed disabled with nothing to say why, and the prefilled "3.40" could
+ * not even be retyped. Either separator reads as the decimal point; thousands
+ * grouping is not accepted, so "1,250" is 1.25 and the hint below says so.
+ */
+export function parseThresholdInput(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return NaN;
+  return Number(trimmed.replace(',', '.'));
+}
+
 export function alertAnchor(value: number | null, metric: AlertMetric): string {
   return value == null ? '' : metric === 'discharge_cfs' ? String(Math.round(value)) : value.toFixed(2);
 }

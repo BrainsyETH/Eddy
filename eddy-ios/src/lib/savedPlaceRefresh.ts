@@ -72,11 +72,16 @@ export function createSavedPlaceRefresher(store: ReturnType<typeof createSavedPl
   };
 }
 
-/** One foreground batch, at most four places and two workers; no background timer. */
+/**
+ * One foreground batch, at most four places and two workers; no background
+ * timer. `force` is a pull-to-refresh: it skips the attempt backoff (a place
+ * that failed earlier is otherwise held for up to half an hour) but still
+ * refreshes only what is due, so a pull cannot re-download fresh details.
+ */
 export function createPlaceAutoRefresh(store: ReturnType<typeof createSavedPlacesStore>, refresh: ReturnType<typeof createSavedPlaceRefresher>, clock = Date.now) {
   const attempts = new Map<string, { at: number; failures: number }>();
   let running: Promise<void> | null = null;
-  return (canRun: () => boolean) => {
+  return (canRun: () => boolean, options: { force?: boolean } = {}) => {
     if (running) return running;
     const { owner, scopeToken, ready, places } = store.snapshot();
     if (!ready || !canRun()) return Promise.resolve();
@@ -84,7 +89,7 @@ export function createPlaceAutoRefresh(store: ReturnType<typeof createSavedPlace
     const eligible = places.filter(place => {
       const attempt = attempts.get(`${owner}:${place.id}`);
       const wait = attempt?.failures ? Math.min(30 * MINUTE, MINUTE * 2 ** (attempt.failures - 1)) : 15 * MINUTE;
-      return (!attempt || now - attempt.at >= wait) && Object.values(placeRefreshNeeds(place, now)).some(Boolean);
+      return (options.force || !attempt || now - attempt.at >= wait) && Object.values(placeRefreshNeeds(place, now)).some(Boolean);
     }).sort((a, b) => Number(!!a.detailsDownloadedAt) - Number(!!b.detailsDownloadedAt)
       || (attempts.get(`${owner}:${a.id}`)?.at ?? 0) - (attempts.get(`${owner}:${b.id}`)?.at ?? 0)).slice(0, 4);
     running = (async () => {

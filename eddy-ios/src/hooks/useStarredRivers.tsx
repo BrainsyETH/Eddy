@@ -29,12 +29,15 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   addStars,
+  mergeLoadedStars,
   mergeStars,
   migrateStars,
+  starSyncPolicy,
   toggleLocal,
   visibleStars,
   type LocalStar,
   type StarKind,
+  type SyncPlan,
 } from '@eddy/sync';
 import {
   fetchStarredDams,
@@ -58,6 +61,35 @@ import { createStorageQueue } from '@/lib/storageQueue';
 // longer what it holds.
 const STORAGE_KEY = 'eddy.stars.v3';
 const LEGACY_KEYS = ['eddy.starredRivers.v2', 'eddy.starredRivers.v1'];
+// The last signed-in (non-anonymous) account this store was reconciled with.
+// One phone can carry two people's sign-ins; see starSyncPolicy in @eddy/sync
+// for why the store must know whose stars it holds before it pushes them.
+const OWNER_KEY = 'eddy.stars.owner.v1';
+
+/**
+ * Push one kind's plan, each request on its own: one river the server no
+ * longer knows (a 404), or a rate limit on one POST, must not abandon every
+ * other push and the whole merge behind it. A pass that gave up on the first
+ * failure never persisted anything, never pruned a tombstone, and never
+ * reached the kinds queued after it, on every launch, for as long as that one
+ * entity stayed broken.
+ *
+ * Resolves the unstars the server acknowledged (their tombstones have done
+ * their job) and how many pushes failed; a failed star stays starred locally
+ * and is pushed again next pass, a failed unstar keeps its tombstone.
+ */
+async function pushPlan(
+  plan: SyncPlan,
+  star: (id: string) => Promise<void>,
+  unstar: (id: string) => Promise<void>,
+): Promise<{ settled: string[]; failed: number }> {
+  const results = await Promise.allSettled([
+    ...plan.toStar.map((id) => star(id)),
+    ...plan.toUnstar.map((id) => unstar(id)),
+  ]);
+  const settled = plan.toUnstar.filter((_, i) => results[plan.toStar.length + i].status === 'fulfilled');
+  return { settled, failed: results.filter((r) => r.status === 'rejected').length };
+}
 
 /** A starred river or gauge, as the UI consumes it. */
 export interface StarredItem {
@@ -146,6 +178,14 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   const mutationGen = useRef(0);
   const syncInFlight = useRef(false);
   const syncQueued = useRef(false);
+  // Read inside sync() like the entries: the session a pass reconciles with
+  // must be the one at the time it runs, not the one a stale closure saw.
+  const sessionRef = useRef(session);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  // `undefined` until read from disk once; null when no account has synced.
+  const ownerRef = useRef<string | null | undefined>(undefined);
   // The trailing pass is started through this rather than by sync() naming
   // itself: a useCallback whose body references its own binding cannot be
   // memoized by the React compiler, which fails the lint outright. Written in
@@ -167,19 +207,30 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const epoch = deletionEpoch.current;
 
+    // A tap that landed before the read (a deep link or widget straight into
+    // a river screen) is already in the ref and on disk as the WHOLE store;
+    // the loaded list must fold it in, not replace it, or the tap vanishes
+    // from memory now and from disk at the next write.
+    const adopt = (loaded: LocalStar[], persistAnyway: boolean) => {
+      if (cancelled || deletionEpoch.current !== epoch) return;
+      const pending = entriesRef.current;
+      const merged = mergeLoadedStars(loaded, pending);
+      entriesRef.current = merged;
+      setEntries(merged);
+      if (persistAnyway || pending.length > 0) persist(merged);
+    };
+
     (async () => {
       try {
         const current = await AsyncStorage.getItem(STORAGE_KEY);
         if (current) {
-          if (!cancelled && deletionEpoch.current === epoch) setEntries(migrateStars(JSON.parse(current)));
+          adopt(migrateStars(JSON.parse(current)), false);
           return;
         }
         for (const key of LEGACY_KEYS) {
           const legacy = await AsyncStorage.getItem(key);
           if (!legacy) continue;
-          const migrated = migrateStars(JSON.parse(legacy));
-          if (!cancelled && deletionEpoch.current === epoch) setEntries(migrated);
-          if (!cancelled && deletionEpoch.current === epoch) persist(migrated);
+          adopt(migrateStars(JSON.parse(legacy)), true);
           return;
         }
       } catch {
@@ -216,6 +267,28 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       const token = await getAccessToken();
       if (!token || epoch !== deletionEpoch.current) return;
 
+      // Whose stars this store holds, before any of them are pushed. A guest
+      // identity that follows a sign-out keeps the device's stars local; a
+      // different account signing in starts from its own server set.
+      const user = sessionRef.current?.user;
+      if (!user) return;
+      if (ownerRef.current === undefined) {
+        ownerRef.current = await AsyncStorage.getItem(OWNER_KEY).catch(() => null);
+        if (epoch !== deletionEpoch.current) return;
+      }
+      const policy = starSyncPolicy(ownerRef.current, { id: user.id, anonymous: user.is_anonymous ?? true });
+      if (policy === 'local-only') return;
+      if (policy === 'replace') {
+        entriesRef.current = [];
+        mutationGen.current += 1;
+        setEntries([]);
+        persist([]);
+      }
+      if (!(user.is_anonymous ?? true) && ownerRef.current !== user.id) {
+        ownerRef.current = user.id;
+        void writes.current.run(() => AsyncStorage.setItem(OWNER_KEY, user.id)).catch(() => {});
+      }
+
       // Captured with the snapshot below, and checked against it before this
       // pass is allowed to publish anything.
       const gen = mutationGen.current;
@@ -238,6 +311,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
 
       let merged = entriesRef.current;
       const settledIds: string[] = [];
+      let failedPushes = 0;
 
       // One kind at a time, chained. mergeStars carries the other kind through
       // untouched — see the note in @eddy/sync for why merging both against a
@@ -245,35 +319,32 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       // gauge tombstone the moment one of the two fetches failed.
       if (riverServer) {
         const plan = mergeStars(merged, riverServer, 'river');
-        await Promise.all([
-          ...plan.toStar.map((id) => starRiver(token, id)),
-          ...plan.toUnstar.map((id) => unstarRiver(token, id)),
-        ]);
+        const pushed = await pushPlan(plan, (id) => starRiver(token, id), (id) => unstarRiver(token, id));
         merged = plan.merged;
-        settledIds.push(...plan.toUnstar);
+        settledIds.push(...pushed.settled);
+        failedPushes += pushed.failed;
       }
 
       if (epoch !== deletionEpoch.current) return;
       if (gaugeServer) {
         const plan = mergeStars(merged, gaugeServer, 'gauge');
-        await Promise.all([
-          ...plan.toStar.map((id) => starGauge(token, id)),
-          ...plan.toUnstar.map((id) => unstarGauge(token, id)),
-        ]);
+        const pushed = await pushPlan(plan, (id) => starGauge(token, id), (id) => unstarGauge(token, id));
         merged = plan.merged;
-        settledIds.push(...plan.toUnstar);
+        settledIds.push(...pushed.settled);
+        failedPushes += pushed.failed;
       }
 
       if (epoch !== deletionEpoch.current) return;
       if (damServer) {
         const plan = mergeStars(merged, damServer, 'dam');
-        await Promise.all([
-          ...plan.toStar.map((id) => starDam(token, id)),
-          ...plan.toUnstar.map((id) => unstarDam(token, id)),
-        ]);
+        const pushed = await pushPlan(plan, (id) => starDam(token, id), (id) => unstarDam(token, id));
         merged = plan.merged;
-        settledIds.push(...plan.toUnstar);
+        settledIds.push(...pushed.settled);
+        failedPushes += pushed.failed;
       }
+      // Logged, never surfaced: the local store is authoritative, and the
+      // next pass pushes again whatever did not land.
+      if (failedPushes > 0) warn('stars', 'some star pushes failed', { failedPushes });
 
       // The local set moved while this pass was on the wire, so `merged` is
       // built on a snapshot that no longer describes what the user wants.
@@ -384,9 +455,10 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     clearedUserId.current = session?.user.id ?? null;
     syncQueued.current = false;
     entriesRef.current = [];
+    ownerRef.current = null;
     setEntries([]);
     setSyncing(false);
-    await writes.current.run(() => AsyncStorage.multiRemove([STORAGE_KEY, ...LEGACY_KEYS]));
+    await writes.current.run(() => AsyncStorage.multiRemove([STORAGE_KEY, OWNER_KEY, ...LEGACY_KEYS]));
   }, [session?.user.id]);
 
   const value = useMemo<StarredRiversValue>(() => {

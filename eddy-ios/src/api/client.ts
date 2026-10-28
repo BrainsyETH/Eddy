@@ -509,38 +509,48 @@ export async function fetchStarredDams(
   }
 }
 
+/**
+ * A star write that the server did not accept as this user. `authed` answers
+ * null for a rejected session (401/403) on purpose; here that is a failure,
+ * not a success: a tombstone pruned on the strength of a DELETE that never
+ * happened lets the next sync pull the star straight back.
+ */
+function pushed(result: unknown): void {
+  if (result === null) throw new ApiError('Not signed in', 401);
+}
+
 export async function starDam(token: string, damId: string): Promise<void> {
-  await authed('/api/me/starred-dams', token, { method: 'POST', body: { damId } });
+  pushed(await authed('/api/me/starred-dams', token, { method: 'POST', body: { damId } }));
 }
 
 export async function unstarDam(token: string, damId: string): Promise<void> {
-  await authed(`/api/me/starred-dams?damId=${encodeURIComponent(damId)}`, token, {
+  pushed(await authed(`/api/me/starred-dams?damId=${encodeURIComponent(damId)}`, token, {
     method: 'DELETE',
-  });
+  }));
 }
 
 export async function starRiver(token: string, riverId: string): Promise<void> {
-  await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId } });
+  pushed(await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId } }));
 }
 
 export async function unstarRiver(token: string, riverId: string): Promise<void> {
-  await authed(
+  pushed(await authed(
     `/api/me/starred-rivers?riverId=${encodeURIComponent(riverId)}`,
     token,
     { method: 'DELETE' },
-  );
+  ));
 }
 
 export async function starGauge(token: string, gaugeId: string): Promise<void> {
-  await authed('/api/me/starred-gauges', token, { method: 'POST', body: { gaugeId } });
+  pushed(await authed('/api/me/starred-gauges', token, { method: 'POST', body: { gaugeId } }));
 }
 
 export async function unstarGauge(token: string, gaugeId: string): Promise<void> {
-  await authed(
+  pushed(await authed(
     `/api/me/starred-gauges?gaugeId=${encodeURIComponent(gaugeId)}`,
     token,
     { method: 'DELETE' },
-  );
+  ));
 }
 
 /**
@@ -2553,9 +2563,13 @@ async function floatSearchPost<T>(path: string, body: unknown, signal?: AbortSig
       method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify(body), signal: deadline.signal,
     });
-    const data = await response.json();
-    if (!response.ok) throw new ApiError(data.error || 'Search is unavailable. Please try again.', response.status);
-    return data;
+    // Status first: an edge error page is not JSON, and parsing it before
+    // looking at the status turned a 502 into "check your connection".
+    if (!response.ok) {
+      const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      throw new ApiError(typeof failure?.error === 'string' ? failure.error : 'Search is unavailable. Please try again.', response.status);
+    }
+    return await response.json();
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(signal?.aborted ? 'Request cancelled' : 'Search could not finish. Check your connection and try again.');

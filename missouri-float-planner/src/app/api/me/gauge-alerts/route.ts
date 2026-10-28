@@ -33,6 +33,13 @@ import { GAUGE_ALERT_SELECT, toGaugeRule, sortRules, type GaugeAlertRow } from '
 import { seedCrossingState } from '@/lib/alerts/rule-seed';
 import type { AlertComparator, AlertMetric, AlertRulesResponse } from '@/types/api';
 
+/** A finite number within the threshold column's range (numeric(12,2)), else null. */
+function thresholdNumber(raw: unknown): number | null {
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  return Number.isFinite(value) && Math.abs(value) < 1e9 ? value : null;
+}
+
+
 export const dynamic = 'force-dynamic';
 
 const VALID_MODES = ['condition', 'threshold'] as const;
@@ -52,6 +59,7 @@ export const MAX_RULES_PER_USER = 25;
 
 /** USGS parameter code for discharge. A station without it reports no cfs. */
 const DISCHARGE_PARAMETER = '00060';
+const STAGE_PARAMETER = '00065';
 
 export async function GET(request: NextRequest) {
   try {
@@ -227,14 +235,17 @@ export async function POST(request: NextRequest) {
         return jsonPrivate({ error: `comparator must be one of ${VALID_COMPARATORS.join(', ')}` }, { status: 400 });
       }
 
-      const value = Number(body.thresholdValue);
-      if (!Number.isFinite(value)) {
+      // A number, and one the numeric(12,2) column can hold: Number(null) is
+      // 0 and Number(1e12) is finite, and both used to pass straight through
+      // to a 500 or a silent zero threshold.
+      const value = thresholdNumber(body.thresholdValue);
+      if (value === null) {
         return jsonPrivate({ error: 'thresholdValue must be a number' }, { status: 400 });
       }
       let valueMax: number | null = null;
       if (comparator === 'between') {
-        valueMax = Number(body.thresholdValueMax);
-        if (!Number.isFinite(valueMax) || valueMax <= value) {
+        valueMax = thresholdNumber(body.thresholdValueMax);
+        if (valueMax === null || valueMax <= value) {
           return jsonPrivate(
             { error: 'thresholdValueMax must be greater than thresholdValue' },
             { status: 400 }
@@ -252,6 +263,18 @@ export async function POST(request: NextRequest) {
       ) {
         return jsonPrivate(
           { error: 'This gauge does not report discharge. Set a gauge height instead.', code: 'no_discharge' },
+          { status: 422 }
+        );
+      }
+
+      // The mirror: a stage rule on a station that reports only discharge.
+      if (
+        metric === 'gauge_height_ft' &&
+        station.parameter_codes != null &&
+        !station.parameter_codes.includes(STAGE_PARAMETER)
+      ) {
+        return jsonPrivate(
+          { error: 'This gauge does not report gauge height. Set a discharge level instead.', code: 'no_stage' },
           { status: 422 }
         );
       }
