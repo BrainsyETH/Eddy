@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
+import { EddySymbol } from '@/components/EddySymbol';
 import { PlanAccessPicker } from '@/components/PlanAccessPicker';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { startRiverPosition, type FloatSetup } from '@/lib/floatStart';
@@ -92,7 +93,7 @@ export function RoutePicker({ field: openedField, draft, loaded: currentRoute, l
           }} /> : <>
           <Pressable accessibilityRole="button" accessibilityLabel={`Change river${route ? `, ${route.riverName}` : ''}`}
             onPress={changeRiver} style={local.river}>
-            <ControlIcon name="water-outline" size={18} color={colors.textMuted} />
+            <EddySymbol name="river" size={22} />
             <Text style={[t.sm, local.grow, { color: colors.textMuted }]} numberOfLines={1}>{route?.riverName ?? 'River'}</Text>
             <Text style={[t.sm, { color: colors.interactive }]}>Change</Text>
             <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
