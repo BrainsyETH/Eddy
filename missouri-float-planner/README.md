@@ -33,18 +33,25 @@ vessel instead of forwarding an old URL value. The map's URL is the source of
 its river/gauge selection and condition filters, including browser history and
 query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
-The homepage shows **Daily River Report**, real condition cards, the two route
-actions, river guides, and the iPhone app. The hero links to Build a Route. The
+The homepage shows **River and Dam Conditions**, the two route actions, river
+guides, and the iPhone app. Its two report columns reuse the Conditions directory's
+`RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
+Each column shows one report, rotating horizontally every eight seconds while
+visible; the columns stack on mobile and support swipe and previous/next arrows.
+Hover temporarily holds rotation. Keyboard focus or pointer interaction stops
+automatic rotation for the visit, and reduced motion disables it. There is no
+rotation button or extra explanatory copy. Dam summaries share the directory's
+stored five-minute cache and refresh. The hero links to Build a Route. The
 Live River Map card opens `/river-map` without a separate header link.
-River reports appear directly under the heading without a second alert summary.
-Report photos prefer the bundled guide covers over older external URLs. Eddy's
+Reports appear directly under the heading without a second alert summary. Eddy's
 existing colors, fonts, artwork, and condition badges are reused. Website widgets
 remain in the footer.
 
 `npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
 and 320px widths, including keyboard/touch navigation and river selection across
 the planner, map history, refresh, the finder, shared-plan tab isolation, and
-report photo loading. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
+report charts, dam timelines, and carousel interactions. Set `NAV_SMOKE_HOME_ONLY=1`
+to run only the homepage and navigation checks. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
 Playwright Chromium, starts a local development server, and removes its temporary
 fixture routes afterward. It does not require production credentials.
 Screenshots go to `/tmp/eddy-navigation`

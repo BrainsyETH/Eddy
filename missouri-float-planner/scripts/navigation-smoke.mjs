@@ -14,14 +14,25 @@ const fixtureDir = resolve('src/app/navigation-layout-check');
 const sharedFixtureDir = resolve('src/app/plan/navigation-layout-check');
 const out = process.env.NAV_SMOKE_OUTPUT || '/tmp/eddy-navigation';
 const productionMapOnly = process.env.NAV_SMOKE_PRODUCTION_MAP === '1';
+const homeOnly = process.env.NAV_SMOKE_HOME_ONLY === '1';
 const timestamp = new Date(Date.now() - 15 * 60_000).toISOString();
 const riverMeta = [
   { id: 'r-current', slug: 'current', name: 'Current River', state: 'MO', value: 530 },
   { id: 'r-meramec', slug: 'meramec', name: 'Meramec River', state: 'MO', value: 320 },
   { id: 'r-buffalo', slug: 'buffalo', name: 'Buffalo National River', state: 'AR', value: 140 },
 ];
-const guidePhotos = JSON.parse(await readFile('src/data/guide-photos.json', 'utf8'));
-const reports = riverMeta.map(r => ({ slug: r.slug, name: r.name, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}`, photoUrl: guidePhotos.find(photo => photo.riverSlug === r.slug)?.cardUrl ?? null }));
+const reports = riverMeta.map((r, i) => ({ ...r, path: `/rivers/${r.state === 'MO' ? 'missouri' : 'arkansas'}/${r.slug}`,
+  lengthMiles: 50, description: null, difficultyRating: 'Class I', region: 'Ozarks', riverType: 'spring_fed_float', accessPointCount: 3,
+  primaryGaugeSiteId: `0706700${i}`, currentCondition: { code: 'good', label: 'Good', thresholdUnit: 'cfs', gaugeHeightFt: 3, dischargeCfs: r.value, readingAgeHours: .25, trend: null },
+}));
+const scheduleDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const dams = [['swl-table-rock-dam', 'Table Rock Dam', 'Table Rock Lake'], ['swl-bull-shoals-dam', 'Bull Shoals Dam', 'Bull Shoals Lake']].map(([id, name, lakeName]) => ({
+  id, name, lakeName, state: 'MO', lat: 36.6, lon: -93.3, hasTurbines: true, generating: true,
+  generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
+  metrics: { release: { value: 10500, unit: 'cfs', at: timestamp, staleness: 'fresh' }, tailwaterTempF: { value: 52, unit: 'F', at: timestamp, staleness: 'fresh' } },
+  schedule: [{ scheduleDate, retrievedAt: timestamp, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 12 ? 200 : 400, cfs: i < 12 ? 10000 : 20000, isRamp: i === 12 })) }], sources: ['USACE', 'SWPA'],
+}));
+const historyReadings = Array.from({ length: 57 }, (_, i) => ({ timestamp: new Date(Date.now() - (56 - i) * 6 * 3600000).toISOString(), dischargeCfs: 400 + Math.sin(i / 5) * 90, gaugeHeightFt: 3 + Math.sin(i / 5) * .3 }));
 const gauges = riverMeta.map((r, i) => ({
   id: `g-${i}`, usgsSiteId: `0706700${i}`, name: `${r.name} gauge`, active: true,
   coordinates: { lng: -91.5 + i * .15, lat: 37.2 + i * .1 },
@@ -51,6 +62,7 @@ const stressStatewide = { ...statewide, gauges: stressRivers.map((r, i) => ({
 const api = {
   '/api/gauges': { gauges },
   '/api/eddy-updates': { updates: {} },
+  '/api/dams': { dams },
   '/api/rivers': { rivers: riverMeta.map(r => ({ ...r, lengthMiles: 50, accessPointCount: 3, path: reports.find(p => p.slug === r.slug).path })) },
   '/api/usgs/mo-dataset': dataset,
   '/api/usgs/mo-statewide': statewide,
@@ -58,12 +70,12 @@ const api = {
   '/api/usgs/mo-forecast': { generatedAt: timestamp, entries: [] },
   '/api/usgs/mo-sites': { generatedAt: timestamp, capped: false, sites: [] },
 };
-let server, browser;
+let server, browser, activePage;
 let serverLog = '';
 const browserErrors = [];
 async function cleanup() {
   server?.kill('SIGKILL');
-  await Promise.race([browser?.close(), new Promise(done => setTimeout(done, 5000))]);
+  await Promise.race([browser?.close().catch(() => {}), new Promise(done => setTimeout(done, 5000))]);
   await rm(fixtureDir, { recursive: true, force: true });
   await rm(sharedFixtureDir, { recursive: true, force: true });
   // Next's generated dev types can still import the removed fixture. They are
@@ -86,7 +98,7 @@ try {
   export default async function Page({ searchParams }: { searchParams: Promise<{ disabled?: string }> }) {
     if (process.env.NODE_ENV !== 'development' || process.env.EDDY_NAV_SMOKE !== '1') notFound();
     const params = await searchParams;
-    return <HomePage riverGuides={{}} featuredReports={${JSON.stringify(reports)}} floatSearchEnabled={params.disabled !== '1'} />;
+    return <HomePage riverGuides={{}} featuredReports={${JSON.stringify(reports)}} featuredDams={${JSON.stringify(dams)}} renderedAt={Date.now()} floatSearchEnabled={params.disabled !== '1'} />;
   }
   `);
     await mkdir(sharedFixtureDir, { recursive: true });
@@ -99,8 +111,9 @@ try {
   }
   await mkdir(out, { recursive: true });
   const modeArgs = productionMapOnly ? ['start'] : ['dev', '--webpack'];
-  server = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...modeArgs, '--hostname', '127.0.0.1', '--port', String(port)], {
-    env: { ...process.env, EDDY_NAV_SMOKE: '1', FLOAT_SEARCH_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
+  const serverArgs = homeOnly ? ['scripts/conditions-smoke-server.mjs', String(port)] : ['node_modules/next/dist/bin/next', ...modeArgs, '--hostname', '127.0.0.1', '--port', String(port)];
+  server = spawn(process.execPath, serverArgs, {
+    env: { ...process.env, EDDY_NAV_SMOKE: '1', EDDY_CONDITIONS_SMOKE: homeOnly ? '1' : '0', FLOAT_SEARCH_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_GA_ID: '', NEXT_PUBLIC_GA_MEASUREMENT_ID: '', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-only' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.on('data', data => { serverLog += data; });
@@ -121,10 +134,13 @@ try {
   const viewports = productionMapOnly ? [['mobile', 390, 844]] : [['desktop', 1440, 1000], ['mobile', 390, 844], ['small', 320, 720]];
   for (const [name, width, height] of viewports) {
     const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 900, reducedMotion: 'reduce' });
+    activePage = page;
+    page.setDefaultTimeout(60000);
     page.on('pageerror', error => browserErrors.push(error.message));
     let stressMap = false, mapRequests = 0;
     await page.route('**/api/**', async route => {
       const path = new URL(route.request().url()).pathname;
+      if (/^\/api\/gauges\/[^/]+\/history$/.test(path)) return route.fulfill({ json: { siteId: path.split('/')[3], siteName: 'Fixture gauge', readings: historyReadings } });
       if (path.startsWith('/api/usgs/mo-')) mapRequests++;
       if (path === '/api/usgs/mo-dataset') await new Promise(done => setTimeout(done, 300));
       const response = stressMap && path === '/api/usgs/mo-dataset' ? stressDataset : stressMap && path === '/api/usgs/mo-statewide' ? stressStatewide : api[path] ?? {};
@@ -138,12 +154,37 @@ try {
         await route.fulfill({ contentType: 'image/png', body: await readFile(process.env.NAV_SMOKE_CANOE) });
       } else if (imageUrl.includes('Eddy_favicon') && process.env.NAV_SMOKE_FAVICON) {
         await route.fulfill({ contentType: 'image/png', body: await readFile(process.env.NAV_SMOKE_FAVICON) });
+      } else if (imageUrl.includes('/Eddy_Otter/')) {
+        await route.fulfill({ contentType: 'image/png', body: await readFile('public/icons/eddy-wave.png') });
       } else await route.continue();
     });
     if (!productionMapOnly) {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
-      await page.getByRole('heading', { name: 'Daily River Report' }).waitFor();
-      await page.getByText('530 cfs', { exact: true }).first().waitFor();
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 });
+      await page.evaluate(() => document.fonts.ready);
+      await page.getByRole('heading', { name: 'River and Dam Conditions' }).waitFor();
+      const riverCarousel = page.getByRole('region', { name: 'River reports', exact: true });
+      const damCarousel = page.getByRole('region', { name: 'Dam reports', exact: true });
+      const activeRiver = riverCarousel.locator('[data-home-report]:not([inert])');
+      const activeDam = damCarousel.locator('[data-home-report]:not([inert])');
+      await activeRiver.getByRole('img', { name: /Flow.*trend chart/ }).waitFor();
+      assert.equal(await activeRiver.getByText('Eddy says', { exact: true }).count(), 1);
+      assert(await activeDam.getByText('10,500 cfs', { exact: true }).isVisible());
+      assert(await activeDam.getByRole('heading', { name: 'Today’s generation schedule' }).isVisible());
+      assert.equal(await page.getByRole('button', { name: /pause|resume rotation/i }).count(), 0);
+      assert.equal(await riverCarousel.getByRole('link', { name: 'All Rivers' }).getAttribute('href'), '/rivers?kind=rivers');
+      assert.equal(await damCarousel.getByRole('link', { name: 'All Dams' }).getAttribute('href'), '/dams');
+      await riverCarousel.getByRole('button', { name: 'Next river report' }).click();
+      await activeRiver.getByRole('heading', { name: 'Meramec River', exact: true }).waitFor();
+      assert.equal(await activeDam.getAttribute('data-home-report'), 'dam:swl-table-rock-dam', 'manual river navigation is independent');
+      await riverCarousel.getByRole('button', { name: 'Previous river report' }).click();
+      await activeRiver.getByRole('heading', { name: 'Current River', exact: true }).waitFor();
+      await damCarousel.getByRole('button', { name: 'Next dam report' }).click();
+      await activeDam.getByRole('heading', { name: 'Bull Shoals Dam', exact: true }).waitFor();
+      await damCarousel.getByRole('button', { name: 'Previous dam report' }).click();
+      await activeDam.getByRole('heading', { name: 'Table Rock Dam', exact: true }).waitFor();
+      const riverBox = await riverCarousel.boundingBox();
+      const damBox = await damCarousel.boundingBox();
+      assert(width >= 768 ? Math.abs(riverBox.y - damBox.y) < 2 : damBox.y >= riverBox.y + riverBox.height, `${name}: columns match the viewport`);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
       assert.equal(await heroCta.textContent(), 'Build a Route');
@@ -152,11 +193,6 @@ try {
       const conditionMap = page.getByRole('link', { name: 'Open the Live River Map', exact: true });
       assert.equal(await conditionMap.getAttribute('href'), '/river-map');
       assert.equal(await conditionMap.locator('p').count(), 0);
-      const buffaloPhoto = page.locator('a[data-ga-label="buffalo"][data-ga-event="home_river_report"] img');
-      await buffaloPhoto.scrollIntoViewIfNeeded();
-      await buffaloPhoto.evaluate(img => img.decode());
-      assert(await buffaloPhoto.evaluate(img => img.complete && img.naturalWidth > 0), 'Buffalo report image loads from the actual bundled asset');
-      assert((await buffaloPhoto.getAttribute('src')).includes('buffalo-card.webp'));
       await page.evaluate(() => scrollTo(0, 0));
       await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
       await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
@@ -176,6 +212,25 @@ try {
         assert(await nav.getByRole('link', { name: 'Map', exact: true }).evaluate(el => el === document.activeElement));
       }
       console.log(`PASS ${name}: real homepage cards, section links, layout, and keyboard/touch menu`);
+      if (width === 1440) {
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await riverCarousel.scrollIntoViewIfNeeded();
+        await page.mouse.move(0, 0);
+        await page.waitForFunction(() => document.querySelector('[data-home-report="river:meramec"]')?.inert === false, null, { timeout: 20000 });
+        assert.equal(await activeDam.getAttribute('data-home-report'), 'dam:swl-bull-shoals-dam', 'both reports advance automatically');
+        await activeDam.getByRole('link').first().focus();
+        await page.waitForTimeout(8500);
+        assert.equal(await activeDam.getAttribute('data-home-report'), 'dam:swl-bull-shoals-dam', 'focus holds the report without a pause button');
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await riverCarousel.scrollIntoViewIfNeeded();
+        await page.mouse.move(0, 0);
+        await page.waitForTimeout(8500);
+        assert.equal(await activeRiver.getAttribute('data-home-report'), 'river:current', 'reduced motion disables automatic rotation');
+        console.log('PASS automatic rotation, interaction hold, and reduced motion');
+      }
+      if (homeOnly) { await page.close(); continue; }
       if (width === 1440) {
         // Native-history transitions exercise the same Next hooks used by the map.
         await page.evaluate(() => history.replaceState(null, '', '/rivers/missouri/current'));
@@ -265,6 +320,11 @@ try {
   console.log(productionMapOnly ? 'PASS production map filter performance' : `PASS screenshots: ${out}`);
 } catch (error) {
   console.error(error);
+  console.error('Browser exceptions:', browserErrors);
+  if (activePage && !activePage.isClosed()) {
+    await activePage.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {});
+    await writeFile(`${out}/failure.html`, await activePage.content()).catch(() => {});
+  }
   console.error(serverLog.slice(-7000));
   process.exitCode = 1;
 } finally { await cleanup(); }
