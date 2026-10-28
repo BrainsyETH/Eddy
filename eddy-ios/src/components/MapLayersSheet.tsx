@@ -477,36 +477,36 @@ export function MapLayersSheet({
                             },
                           ]}
                         >
-                        {/* The mark where there is one, the dot where there is
-                            not. Both are doing the same job — saying which
-                            tier this is — but a dot can only say it by colour,
-                            and these two tiers are told apart by whether Eddy
-                            graded them, which is a thing a colour cannot say
-                            and a face can. The tint is not lost: it is the
-                            chip's border, exactly as in the well above. */}
-                        {tierMark ? (
-                          <EddySymbol
-                            name={tierMark}
-                            size={15}
-                            style={{ opacity: tierOn ? 1 : DIMMED }}
-                          />
-                        ) : (
-                          <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
-                        )}
-                        <Text
-                          style={[
-                            styles.tierText,
-                            { color: tierOn ? colors.text : colors.textMuted },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {tier.tierLabel ?? tier.label}
-                        </Text>
-                        {tierCount != null ? (
-                          <Text style={[styles.tierCount, { color: colors.textSubtle }]}>
-                            {tierCount}
+                          {/* The mark where there is one, the dot where there is
+                              not. Both are doing the same job — saying which
+                              tier this is — but a dot can only say it by colour,
+                              and these two tiers are told apart by whether Eddy
+                              graded them, which is a thing a colour cannot say
+                              and a face can. The tint is not lost: it is the
+                              chip's border, exactly as in the well above. */}
+                          {tierMark ? (
+                            <EddySymbol
+                              name={tierMark}
+                              size={15}
+                              style={{ opacity: tierOn ? 1 : DIMMED }}
+                            />
+                          ) : (
+                            <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
+                          )}
+                          <Text
+                            style={[
+                              styles.tierText,
+                              { color: tierOn ? colors.text : colors.textMuted },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {tier.tierLabel ?? tier.label}
                           </Text>
-                        ) : null}
+                          {tierCount != null ? (
+                            <Text style={[styles.tierCount, { color: colors.textSubtle }]}>
+                              {tierCount}
+                            </Text>
+                          ) : null}
                         </View>
                       </Pressable>
                     );

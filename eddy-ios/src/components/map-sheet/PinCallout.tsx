@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  calloutPrimaryText: { ...t.sm, fontFamily: fonts.semibold },
+  calloutPrimaryText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'center' },
   calloutLinks: { marginTop: 4 },
   calloutLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   calloutLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },

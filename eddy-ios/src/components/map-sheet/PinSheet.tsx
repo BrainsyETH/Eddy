@@ -546,6 +546,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  primaryText: { ...t.sm, fontFamily: fonts.semibold },
+  // Shrinks so a long label wraps inside its button instead of overflowing it.
+  primaryText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'center' },
   page: { paddingHorizontal: 16 },
 });
