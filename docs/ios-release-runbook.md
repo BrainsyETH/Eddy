@@ -455,7 +455,12 @@ are pending checks, not evidence of a device pass.
       problem are each spoken once when they appear. In Essentials, Keep
       screen awake is one tap away and off by default. Open Ready to float
       with location never asked: no system prompt until the Location card's
-      button is tapped.
+      button is tapped. Start a float (or download its map) with signal,
+      then go to airplane mode: Float tools' Take-out card and Ahead rows
+      show their access photos; a place with no photo shows its Eddy mark.
+      Open Float tools mid-float for a minute: Share location stays enabled
+      throughout. End a float that never found the river after a long wait:
+      the dialog says Eddy never placed you on the river.
 - [ ] **Starting a float and the on-water layout** on a physical iPhone,
       including the smallest supported screen at the largest text size, with
       several warnings showing at once (a tracking line, a sunset warning and

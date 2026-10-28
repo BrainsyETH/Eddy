@@ -39,8 +39,10 @@ masters, including Today, retain their alpha channel for app integration.
 
 ## Generated utility icons
 
-Bridge and gravel-bar marks are reproducible geometry in
-`eddy-ios/scripts/build-eddy-icons.py`. The script applies the same utility-symbol
+Bridge, gravel-bar, dam and Float tools marks are reproducible geometry in
+`eddy-ios/scripts/build-eddy-icons.py`. Float tools is a coral wrench crossed
+over an Eddy paddle; a toolbox was tried first and read as a briefcase at
+button size. The script applies the same utility-symbol
 palette, thick outline, transparency, crop, and 300px export template as the
 concept-derived icons and writes them directly to `eddy-ios/assets/eddy/`.
 Generic Access intentionally reuses `eddy-poi.png`: it is the broad fallback

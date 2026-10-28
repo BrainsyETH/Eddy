@@ -33,6 +33,7 @@ import { warn } from '@/lib/monitoring';
 import { readStylePackInspection } from '../../modules/eddy-style-pack';
 import type { StylePackRead } from '@/lib/stylePackRead';
 import { onForeground } from '@/lib/foreground';
+import { prefetchStretchPhotos } from './floatPhotos';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -247,6 +248,9 @@ export function TripDownloadCard({
         return;
       }
       const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId, pkg.fromLngLat);
+      // "Download for offline" also saves the stretch's access photos, so
+      // Float tools shows them at the river; not part of map readiness.
+      void prefetchStretchPhotos({ riverSlug: pkg.route.riverSlug, takeOutId: pkg.toId, fromId: pkg.fromId || null });
       styleWaitReported.current = false;
       setDownloading(true);
       const controller = new AbortController();
