@@ -21,7 +21,7 @@
 // it is tapped, so that is what decides the shape; the tab bar is the only
 // thing the late request is allowed to add.
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type {
@@ -41,7 +41,7 @@ import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, SheetPresentation, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
-import { PlaceHead } from './PlaceHead';
+import { BackRow, PlaceHead, STACK_ACTIONS_FROM } from './PlaceHead';
 import { AccessGaugeSelector } from './AccessGaugeSelector';
 import { LinkRow } from './sections';
 import { SheetTabBar } from './SheetTabBar';
@@ -244,8 +244,13 @@ function PinSheetSelection(input: PinSheetProps) {
   // A gauge keeps the tabbed shell whatever its tab count, and the
   // `activeTabs.length > 1` check further down means a one-tab station simply
   // shows no bar.
+  //
+  // Back and close travel SEPARATELY, as they do in the header below. This
+  // used to hand the callout `onBack ?? onClose` as its close, so a dam or a
+  // hazard opened from a river sheet showed only an × labelled "Close" that in
+  // fact went back — and never the named "‹ Current River" row a put-in had.
   if (!accessPoint && !isGaugePin && activeTabs.length <= 1) {
-    return <PinCallout {...props} onClose={props.onBack ?? props.onClose} />;
+    return <PinCallout {...props} />;
   }
 
   const renderAccessTab = (key: TabKey) => {
@@ -391,6 +396,8 @@ function PinSheetHeader({
   backLabel?: string | null;
 }) {
   const { colors } = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > STACK_ACTIONS_FROM;
   const { showDirections, directionsMenu } = useDirectionsMenu();
   const slot = peekSlot;
   // 'ready' means the question has been ANSWERED, not that the answer is
@@ -420,30 +427,9 @@ function PinSheetHeader({
           Present only when a river sheet was genuinely on screen before this
           pin — which is NOT the same as a river being selected, because a pin
           tap can select the river itself. The caller records that at selection
-          time; see revealsRiverSheet on the Map tab.
-
-          A 44pt LAID-OUT target, not a 24pt row that looks like one. The
-          compact look is a styling choice and the target is not: this sheet
-          already carries a documented wrong-action bug from two controls that
-          were the right size only with hitSlop (PlaceHead's header). The
-          negative bottom margin recovers the spacing so the row still READS as
-          light — the same trick as PlaceHead's EDGE_BLEED — and it is negative
-          on the bottom rather than overlapping PlaceHead below, because iOS
-          hit-tests later siblings first and an overlap would be silently eaten
-          by the identity row. */}
-      {onBack ? (
-        <Pressable
-          onPress={onBack}
-          style={({ pressed }) => [styles.back, { opacity: pressed ? 0.6 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={backLabel ? `Back to ${backLabel}` : 'Back'}
-        >
-          <ControlIcon name="chevron-back" size={16} color={colors.interactive} />
-          <Text style={[styles.backText, { color: colors.interactive }]} numberOfLines={1}>
-            {backLabel ?? 'Back'}
-          </Text>
-        </Pressable>
-      ) : null}
+          time; see revealsRiverSheet on the Map tab. The 44pt target and why it
+          is laid out rather than hitSlopped are BackRow's (PlaceHead.tsx). */}
+      {onBack ? <BackRow onBack={onBack} label={backLabel} /> : null}
 
       <PlaceHead
         pin={pin}
@@ -472,10 +458,12 @@ function PinSheetHeader({
       ) : gaugeFacts ? (
         // A gauge needs no reservation: every word of this row is on the pin
         // before the sheet opens. See GaugeReadingRow.
-        <GaugeReadingRow facts={gaugeFacts} compact />
+        <GaugeReadingRow facts={gaugeFacts} compact tint={pin.color} />
       ) : null}
 
-      <View style={styles.actions}>
+      {/* Stacked at the larger text sizes, as the map planner's fields are:
+          two flex:1 buttons side by side truncated "Use as take-out". */}
+      <View style={[styles.actions, stacked && styles.actionsStacked]}>
         {/* Offered only where a float can actually start or end. `useFloatPlan`
             refuses a non-endpoint, and a button that silently refuses is worse
             than no button: it closes the sheet and opens an empty planner, so
@@ -486,6 +474,7 @@ function PinSheetHeader({
             onPress={onPlanAction}
             style={({ pressed }) => [
               styles.primary,
+              stacked && styles.primaryStacked,
               {
                 backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill,
                 borderColor: pressed ? colors.accentFillPressed : colors.accentFill,
@@ -497,7 +486,7 @@ function PinSheetHeader({
             }
           >
             <ControlIcon name="flag-outline" size={15} color={colors.onAccent} />
-            <Text style={[styles.primaryText, { color: colors.onAccent }]} numberOfLines={1}>
+            <Text style={[styles.primaryText, { color: colors.onAccent }]}>
               {planAsTakeOut ? 'Use as take-out' : 'Use as put-in'}
             </Text>
           </Pressable>
@@ -507,13 +496,14 @@ function PinSheetHeader({
             onPress={() => showDirections(detail && detail.accessPoint.id === accessPoint?.id ? detail.accessPoint : accessPoint ?? pin)}
             style={({ pressed }) => [
               styles.primary,
+              stacked && styles.primaryStacked,
               { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
             ]}
             accessibilityRole="button"
             accessibilityLabel={`Directions to ${pin.name}`}
           >
             <ControlIcon name="navigate-outline" size={15} color={colors.text} />
-            <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.primaryText, { color: colors.text }]}>
               Directions
             </Text>
           </Pressable>
@@ -539,18 +529,11 @@ const styles = StyleSheet.create({
   // Matches RiverSheet's headerLink so the two sheets' one way out sits at
   // the same offset under the same kind of row.
   headerLink: { marginTop: 2 },
-  // 44 laid out, ~34 spent. See the call site for why the target is real and
-  // why the margin is negative on the bottom rather than the top.
-  back: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    minHeight: 44,
-    marginBottom: -10,
-    marginLeft: -4,
-  },
-  backText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 11 },
+  actionsStacked: { flexDirection: 'column' },
+  // Sized by its label in the column: `flex: 1` there would set a zero height
+  // basis and clip a wrapped label to the 44pt floor.
+  primaryStacked: { flex: 0 },
   primary: {
     flex: 1,
     flexDirection: 'row',
