@@ -50,6 +50,13 @@ const dams = [
   metrics: { generationFlow: { value: 10000, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 10500, unit: 'cfs', at, staleness: 'fresh' }, tailwaterTempF:{value:52,unit:'F',at,staleness:'fresh'},tailwaterElevation:{value:650.25,unit:'ft',at,staleness:'fresh'} },
   schedule: scheduleDates.map(scheduleDate => ({scheduleDate,retrievedAt:at,idle:[],hours:Array.from({length:24},(_,i)=>({hourEnding:i+1,megawatts:i%4<2?200:400,cfs:i%4<2?10000:20000,isRamp:i%2===0}))})), sources: ['USACE','SWPA'],
 }));
+// A single low peak and older schedule reproduce the compact-card review case.
+dams[1].metrics.release.value = 722;
+dams[1].metrics.tailwaterTempF.value = 58.1;
+dams[1].schedule = dams[1].schedule.map(day => ({ ...day,
+  retrievedAt: new Date(now - 91 * 60000).toISOString(),
+  hours: day.hours.map((hour, i) => ({ ...hour, megawatts: i === 17 ? 200 : i === 16 || i === 18 ? 100 : 40, isRamp: false })),
+}));
 let server, browser;
 let log = '';
 async function readyConditions(page) {
@@ -191,7 +198,13 @@ export default function Page() {
     const schedule=featuredDam.getByRole('region',{name:'Today’s generation schedule',exact:true});
     const timeline=schedule.getByRole('img');
     assert(await featuredDam.locator('.bg-secondary-100').count(), 'directory uses the warm reading panel');
-    assert(await schedule.locator('[data-peak-window]').count(), 'directory shares peak highlighting');
+    assert.equal(await schedule.locator('[data-peak-window]').count(), 0, 'directory has no duplicate peak band');
+    assert.equal(await timeline.locator('.bg-accent-500').count(), 1, 'only Now is orange');
+    assert((await featuredDam.locator('.bg-secondary-100').boundingBox()).height<140,`${label}: compact dam header`);
+    await featuredDam.getByRole('button', {name:'About table rock dam schedule',exact:true}).click();
+    const scheduleInfo=page.getByRole('dialog', {name:'Table Rock Dam schedule',exact:true});
+    assert(await scheduleInfo.getByText(/Schedule checked/).isVisible(), 'full schedule provenance remains in the info dialog');
+    await scheduleInfo.getByRole('button', {name:'Close explanation',exact:true}).click();
     assert.equal(await timeline.evaluate(node=>node.closest('a')),null,'chart interaction is separate from navigation');
     const beforeTimeline=page.url();
     await timeline.scrollIntoViewIfNeeded();
@@ -205,7 +218,16 @@ export default function Page() {
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: hourly readout fits`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await featuredDam.screenshot({path:`${out}/${label}-dam-hour.png`});
-    assert((await featuredDam.boundingBox()).height<550,`${label}: dam card stays compact with an hourly readout`);
+    assert((await featuredDam.boundingBox()).height<430,`${label}: dam card stays compact with an hourly readout`);
+    const bullShoals=featured.locator('[data-destination="dam:swl-bull-shoals-dam"]');
+    assert(await bullShoals.getByText('May have changed', {exact:true}).isVisible(), 'outdated schedule keeps a visible warning');
+    assert((await bullShoals.boundingBox()).height<430,`${label}: outdated schedules stay compact`);
+    await bullShoals.getByRole('button', {name:'About bull shoals dam schedule',exact:true}).click();
+    const olderScheduleInfo=page.getByRole('dialog', {name:'Bull Shoals Dam schedule',exact:true});
+    assert(await olderScheduleInfo.getByText(/may have been revised since/).isVisible());
+    await olderScheduleInfo.getByRole('button', {name:'Close explanation',exact:true}).click();
+    await bullShoals.screenshot({path:`${out}/${label}-bull-shoals.png`});
+    console.log(`${label} card heights: Table Rock ${Math.round((await featuredDam.boundingBox()).height)}px; Bull Shoals ${Math.round((await bullShoals.boundingBox()).height)}px`);
     // Reset pointer inspection explicitly. Compact cards no longer need to
     // scroll when the report link receives focus, so hover can otherwise stay.
     await page.mouse.move(0,0);

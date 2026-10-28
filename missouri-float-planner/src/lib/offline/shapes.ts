@@ -348,6 +348,21 @@ export function accessPointCoordinates(
   return { lng, lat };
 }
 
+/**
+ * The point's roles, plus `campground` when it links an NPS campground.
+ *
+ * Lives here, in the one mapper both the per-river route and the offline bundle
+ * call, because it used to live only in the route: Grubb Hollow showed as a
+ * campground on a fresh load and lost the tag in the offline bundle, so the
+ * same pin changed meaning when the phone went out of signal on the river.
+ */
+function withLinkedCampgroundRole(row: AccessPointRow): AccessPointType[] {
+  const types = (row.types || (row.type ? [row.type] : [])) as AccessPointType[];
+  return row.nps_campground_id && !types.includes('campground')
+    ? [...types, 'campground']
+    : types;
+}
+
 export function toAccessPoint(
   row: AccessPointRow,
   npsById: ReadonlyMap<string, NPSCampgroundInfo>,
@@ -372,7 +387,7 @@ export function toAccessPoint(
     riverMile:
       row.river_mile_downstream != null ? parseFloat(String(row.river_mile_downstream)) : 0,
     type: row.type as AccessPointType,
-    types: (row.types || (row.type ? [row.type] : [])) as AccessPointType[],
+    types: withLinkedCampgroundRole(row),
     isPublic: row.is_public ?? false,
     // `!== false`, so a row read before the column existed (an old offline
     // bundle, a projection that did not select it) stays eligible. Defaulting

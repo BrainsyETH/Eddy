@@ -33,18 +33,25 @@ vessel instead of forwarding an old URL value. The map's URL is the source of
 its river/gauge selection and condition filters, including browser history and
 query-only navigation. Loading catalogue data never replaces an incoming deep link.
 
-The homepage shows **Daily River Report**, real condition cards, the two route
-actions, river guides, and the iPhone app. The hero links to Build a Route. The
+The homepage shows **River and Dam Conditions**, the two route actions, river
+guides, and the iPhone app. Its two report columns reuse the Conditions directory's
+`RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
+Each column shows one report, rotating horizontally every eight seconds while
+visible; the columns stack on mobile and support swipe and previous/next arrows.
+Hover temporarily holds rotation. Keyboard focus or pointer interaction stops
+automatic rotation for the visit, and reduced motion disables it. There is no
+rotation button or extra explanatory copy. Dam summaries share the directory's
+stored five-minute cache and refresh. The hero links to Build a Route. The
 Live River Map card opens `/river-map` without a separate header link.
-River reports appear directly under the heading without a second alert summary.
-Report photos prefer the bundled guide covers over older external URLs. Eddy's
+Reports appear directly under the heading without a second alert summary. Eddy's
 existing colors, fonts, artwork, and condition badges are reused. Website widgets
 remain in the footer.
 
 `npm run test:navigation` runs fixture-backed browser checks at desktop, 390px,
 and 320px widths, including keyboard/touch navigation and river selection across
 the planner, map history, refresh, the finder, shared-plan tab isolation, and
-report photo loading. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
+report charts, dam timelines, and carousel interactions. Set `NAV_SMOKE_HOME_ONLY=1`
+to run only the homepage and navigation checks. It also times filter toggles with 60 rivers at 6× CPU slowdown. It uses
 Playwright Chromium, starts a local development server, and removes its temporary
 fixture routes afterward. It does not require production credentials.
 Screenshots go to `/tmp/eddy-navigation`
@@ -67,8 +74,11 @@ on desktop, one on mobile. Search results and explicit sorts use those same
 components, including river charts, gauge details, Eddy summaries and condition
 artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
-Dam cards share the full report’s framed border, warm reading surface, next-change
-callout, and orange peak windows, while keeping only today’s schedule.
+Dam cards share the full report’s framed border and warm reading surface, with a
+compact header, inline next change, and shorter chart for today’s schedule.
+Teal generation bars and an orange Now marker match iOS. The footer combines the
+report link, Central time, and schedule age; longer provenance lives in the info
+dialog, with “May have changed” still visible when the schedule is outdated.
 Unavailable release readings are marked explicitly; turbine flow is not
 substituted for total release.
 
@@ -241,9 +251,9 @@ with a clock change also carry their own correctly positioned time labels. Missi
 The detail dashboard uses a static framed generation card with a warm sand
 observed panel, turbine flow as the primary reading, and the next scheduled
 change above the hourly chart. Date headings lead straight into the
-chart; hourly details and the peak window share one line below it. Orange bars
-and a light orange band mark every contiguous peak window. The dark now marker
-stays distinct. Flow
+chart; hourly details and the peak window share one line below it. Generation
+uses teal bars, while an orange Now marker matches iOS. Peak windows are named
+without a second band above the bars. Flow
 estimates stay out of ramp hours, and megawatts are spelled out in hourly
 details and explained in the info dialog. Dam and lake measurements sit above
 the full-width generation pattern at every screen size, on quiet panel cards.
@@ -253,7 +263,8 @@ Framed cards keep the brand's border and offset shadow without moving charts on 
 does not infer downstream arrival times or add an AI conditions assessment.
 
 Info buttons hold reference/methodology explanations. Reading age, schedule
-check age, stale provenance, and release differences stay visible. The HTML
+check age, stale indicators, and release differences stay visible; compact
+directory cards put full schedule provenance in their info dialog. The HTML
 snapshot renders on the server, with one shared display clock for readings,
 the hourly schedule and the history strip on the client.
 Visible pages refresh that same cached server snapshot every five minutes and

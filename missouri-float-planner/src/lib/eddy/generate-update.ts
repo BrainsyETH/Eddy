@@ -21,6 +21,7 @@ import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/conditi
 import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 import { getOutlookDates } from '@/lib/river-outlook';
+import { EDDY_VOICE } from '@/lib/eddy/voice';
 
 
 export interface GaugeContext {
@@ -300,7 +301,7 @@ WHO READS THIS: someone deciding whether to float this river soon. Beside your t
 
 KNOW YOUR STRETCH: A good guide knows which water a gauge speaks for. Before writing, work out which stretch this reading covers from the gauge's town, any section named in the user message, and the local knowledge. Know where the river changes character around it, such as a big spring or tributary coming in, a dam, or a reach that loses water, but only from what the supplied notes say. Write about the float this gauge covers. When the notes say another stretch can differ a lot from this gauge, say so in one plain line as a pattern and point the reader to that stretch's own gauge. Never describe another stretch's conditions today, and never invent where the river changes.
 
-VOICE: A local outfitter who checks the gauges every morning and tells it straight, the way you would talk to a customer at the counter. Warm, lively, and a little playful when conditions allow, with the feel of someone who enjoys this river. Use concrete imagery and natural turns of phrase, not forced jokes, otter puns, or stock catchphrases. Keep warnings direct. Plain words, friendly, concise, not a report. Use river terms naturally: put-in, take-out, riffle, gravel bar, chute.
+VOICE: ${EDDY_VOICE}
 
 OUTPUT FORMAT (strict):
 Your response MUST begin with the exact [CLAIMS] line supplied in the authoritative facts. Then write three blocks, each starting with its marker on its own line: [SUMMARY], [EDDY_READ], [FULL]. Use each marker once, as a header only, never inside your prose. Output nothing else.

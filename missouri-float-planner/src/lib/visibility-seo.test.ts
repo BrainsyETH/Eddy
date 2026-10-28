@@ -157,7 +157,7 @@ test('dam cards render only today’s timeline and roll over at Central midnight
     const html = renderConditions({ rivers: [], dams: [dam], renderedAt: Date.parse(instant) });
     assert.equal((html.match(/role="img"/g) ?? []).length, 1, 'one visible timeline, even with multiple schedule days');
     assert.match(html, new RegExp(`aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is ${capacity}%`));
-    assert.match(html, /Central time · Schedule may change/);
+    assert.match(html, /Central time · Checked/);
     assert.doesNotMatch(html, /<details|role="tab"/);
     for (const link of html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/g)) assert.ok(!link[0].includes('tabindex="0"'), 'timeline is never nested in a navigation link');
   }

@@ -75,6 +75,7 @@ export default function DamTimeline({
   reference,
   now,
   plainLanguage = false,
+  compact = false,
 }: {
   day: DamScheduleDay;
   reference?: GenerationReference | null;
@@ -82,6 +83,8 @@ export default function DamTimeline({
   now: number;
   /** Detail pages put a concise readout below the chart, close to its axis. */
   plainLanguage?: boolean;
+  /** Directory cards use a shorter plot while retaining a full touch target. */
+  compact?: boolean;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -103,7 +106,7 @@ export default function DamTimeline({
       : scheduledHoursSummary(day.hours)
     : 'Select an hour for details';
   const readout = (
-    <p aria-live="polite" className={`${plainLanguage ? 'mt-2 min-h-10' : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-accent-800' : 'text-neutral-600'}`}>
+    <p aria-live="polite" className={`${plainLanguage ? (compact ? 'mt-1 min-h-4' : 'mt-2 min-h-10') : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-600'}`}>
       {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
     </p>
   );
@@ -126,7 +129,7 @@ export default function DamTimeline({
         role="img"
         aria-label={summary}
         tabIndex={0}
-        className="relative flex h-20 items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        className={`relative flex ${compact ? 'h-14' : 'h-20'} items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
         onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
@@ -140,13 +143,6 @@ export default function DamTimeline({
           );
         }}
       >
-        {peak?.windows.map(window => <div
-          key={window.from}
-          aria-hidden="true"
-          data-peak-window
-          className="pointer-events-none absolute inset-y-0 rounded-t-sm border-t-2 border-accent-500 bg-accent-100/60"
-          style={{ left: `${((window.from - 1) / HOURS) * 100}%`, width: `${((window.to - window.from + 1) / HOURS) * 100}%` }}
-        />)}
         {hours.map((hour, index) => {
           const bar = hour ? scheduledBar(hour.megawatts, reference) : null;
           const generating = (hour?.megawatts ?? 0) > 0;
@@ -166,9 +162,10 @@ export default function DamTimeline({
                 />
               ) : (
                 <div
+                  data-peak-hour={peak && hour.megawatts === peak.megawatts ? hour.hourEnding : undefined}
                   className={[
                     'w-full rounded-sm',
-                    generating ? (peak && hour.megawatts === peak.megawatts ? 'bg-accent-500' : fillClass(bar?.fraction ?? 0)) : 'bg-neutral-200',
+                    generating ? fillClass(bar?.fraction ?? 0) : 'bg-neutral-200',
                     past ? 'opacity-45' : '',
                     hovered === index ? 'ring-2 ring-primary-900' : '',
                   ]
@@ -184,13 +181,14 @@ export default function DamTimeline({
         {/* Half-capacity hairline, so a bar's height reads against something. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-1/2 h-px bg-neutral-200" />
 
-        {elapsed !== null && (
+        {elapsed !== null && <>
           <div
             data-schedule-now
-            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-primary-900"
+            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-500"
             style={{ left: `${(elapsed / HOURS) * 100}%` }}
           />
-        )}
+          <span aria-hidden="true" className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[9px] font-semibold text-accent-800" style={{ left: `clamp(14px, ${(elapsed / HOURS) * 100}%, calc(100% - 14px))` }}>Now</span>
+        </>}
       </div>
 
       <div className="mt-1 flex justify-between text-[10px] text-neutral-400">

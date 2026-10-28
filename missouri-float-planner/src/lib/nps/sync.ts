@@ -207,6 +207,62 @@ function slugify(text: string): string {
 }
 
 /**
+ * The columns one sync run writes for an NPS place.
+ *
+ * NPS owns the place's content (name, prose, photos, position). Eddy owns what
+ * the place IS on the map: `type`, `active` and `is_on_water`. Those three are
+ * written only when the row is created, as a first guess for
+ * assignRiversToPOIs to refine, and never on a refresh.
+ *
+ * They used to be rewritten every Sunday. categorizePOI matches "spring"
+ * anywhere in a page's prose before it looks for anything else, and every
+ * place was reset to active and on-water, so the weekly cron undid each
+ * reviewed correction: migration 20260905125455 fixed Big Spring, Welch Spring
+ * and Granny Henderson's Cabin, and the next sync put all three back, and
+ * re-surfaced Devils Well, an inland sinkhole the migration had left dark.
+ */
+export function placeColumns(
+  place: NPSPlaceRaw,
+  { isNew, syncedAt }: { isNew: boolean; syncedAt: string },
+): Record<string, unknown> {
+  const images = (place.images || []).map(img => ({
+    url: img.url,
+    title: img.title,
+    altText: img.altText,
+    caption: img.caption,
+    credit: img.credit,
+  }));
+
+  const content = {
+    nps_id: place.id,
+    name: place.title,
+    slug: slugify(place.title),
+    description: place.listingDescription || place.title,
+    body_text: place.bodyText || null,
+    source: 'nps',
+    nps_url: place.url || null,
+    latitude: parseFloat(place.latitude),
+    longitude: parseFloat(place.longitude),
+    images: JSON.stringify(images),
+    amenities: place.amenities || [],
+    tags: place.tags || [],
+    last_synced_at: syncedAt,
+    raw_data: JSON.stringify(place),
+  };
+
+  if (!isNew) return content;
+
+  return {
+    ...content,
+    type: categorizePOI(place.title, place.bodyText || ''),
+    active: true,
+    // A first guess: assignRiversToPOIs sets it false for a place too far from
+    // any river, and it only revisits rows with no river yet.
+    is_on_water: true,
+  };
+}
+
+/**
  * Upsert a single NPS place as a point_of_interest
  * Returns true if newly created (vs. updated)
  */
@@ -219,21 +275,6 @@ async function upsertPlace(supabase: SupabaseClient, place: NPSPlaceRaw): Promis
 
   if (isNaN(lat) || isNaN(lng)) return false;
 
-  const type = categorizePOI(place.title, place.bodyText || '');
-
-  // Check if this is on the water (strict filter)
-  // We'll initially set all physical POIs with real coords as potentially on water,
-  // then refine with the river proximity check
-  const isOnWater = true; // Will be refined by assignRiversToPOIs
-
-  const images = (place.images || []).map(img => ({
-    url: img.url,
-    title: img.title,
-    altText: img.altText,
-    caption: img.caption,
-    credit: img.credit,
-  }));
-
   // Check if exists
   const { data: existing } = await supabase
     .from('points_of_interest')
@@ -242,31 +283,11 @@ async function upsertPlace(supabase: SupabaseClient, place: NPSPlaceRaw): Promis
     .maybeSingle();
 
   const isNew = !existing;
+  const columns = placeColumns(place, { isNew, syncedAt: new Date().toISOString() });
 
-  const { error } = await supabase
-    .from('points_of_interest')
-    .upsert(
-      {
-        nps_id: place.id,
-        name: place.title,
-        slug: slugify(place.title),
-        description: place.listingDescription || place.title,
-        body_text: place.bodyText || null,
-        type,
-        source: 'nps',
-        nps_url: place.url || null,
-        latitude: lat,
-        longitude: lng,
-        images: JSON.stringify(images),
-        amenities: place.amenities || [],
-        tags: place.tags || [],
-        active: true,
-        is_on_water: isOnWater,
-        last_synced_at: new Date().toISOString(),
-        raw_data: JSON.stringify(place),
-      },
-      { onConflict: 'nps_id' }
-    );
+  const { error } = isNew
+    ? await supabase.from('points_of_interest').upsert(columns, { onConflict: 'nps_id' })
+    : await supabase.from('points_of_interest').update(columns).eq('nps_id', place.id);
 
   if (error) throw new Error(`Place upsert failed: ${error.message}`);
 
