@@ -1307,9 +1307,12 @@ identity and a separate star above observed turbine flow beside today's hourly
 MW schedule.
 The chart uses the day's labeled MW peak, Central-time ticks and a current-hour
 marker; missing hours are hollow, while zero MW stays a short solid bar.
-The card shares the widget packet's validation and freshness rules: older
-readings are neutral, and stale or absent schedules show an explicit fallback.
-Lake/state, observation age, “At the dam” and “Subject to change” remain visible.
+The card shares the widget packet's validation and observation freshness rules:
+older readings are neutral. Today's posted schedule stays visible even when its
+retrieval is old or unknown. Only a missing schedule for the current Central-time
+day shows the not-posted fallback; earlier and upcoming days never stand in for
+today. Lake/state, observation age and “At the dam” remain visible. The card
+omits “Subject to change,” including from its VoiceOver description.
 Narrow and large-text layouts stack the reading above the schedule. The card
 opens dam details, and the separate 44-point star removes the favorite. Search
 results retain the compact dam row. This uses existing Favorites data and adds

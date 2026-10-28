@@ -101,7 +101,6 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
                 <ControlIcon name="calendar-outline" size={20} color={colors.textSubtle} />
                 <Text style={[styles.notice, { color: colors.textMuted }]}>{scheduleNotice}</Text>
               </View>}
-              <Text style={[t.xs, { color: colors.textSubtle }]}>Subject to change</Text>
             </View>
           </View>
           <View style={styles.footer}>

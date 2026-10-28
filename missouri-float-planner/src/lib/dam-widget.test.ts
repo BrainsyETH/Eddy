@@ -144,7 +144,8 @@ test('dam favorites show the widget turbine reading, not total release or estima
   assert.equal(display.status, 'Generating');
   assert.equal(display.peak, 275);
   assert.match(display.scheduleDescription, /12 PM: 275 megawatts, current hour/);
-  assert.match(display.scheduleDescription, /Central time, subject to change/);
+  assert.match(display.scheduleDescription, /Central time/);
+  assert.doesNotMatch(display.scheduleDescription, /subject to change/i);
 
   delete dam.metrics.generationFlow;
   const missing = damFavoriteDisplay(dam, now);
@@ -154,20 +155,43 @@ test('dam favorites show the widget turbine reading, not total release or estima
   assert.ok(missing.schedule); // A schedule is independent of the observation.
 });
 
-test('dam favorites expire cached facts and never use tomorrow as today', () => {
+test('dam favorites age observations without hiding today\'s schedule or borrowing another day', () => {
   const dam = fixture();
   const older = damFavoriteDisplay(dam, now + 3 * 3600_000);
   assert.equal(older.status, 'Older reading');
   assert.equal(older.moment.current, false);
-  assert.equal(older.schedule, null);
-  assert.equal(older.scheduleNotice, 'Check schedule');
-  assert.doesNotMatch(older.scheduleDescription, /100 megawatts/);
+  assert.equal(older.schedule?.date, '2026-10-17');
+  assert.equal(older.moment.scheduleHour, 16);
+  assert.match(older.scheduleDescription, /100 megawatts/);
   dam.schedule[0].scheduleDate = '2026-10-18';
   const tomorrowOnly = damFavoriteDisplay(dam, now);
   assert.equal(tomorrowOnly.schedule, null);
   assert.equal(tomorrowOnly.scheduleNotice, 'Not posted today');
+  dam.schedule[0].scheduleDate = '2026-10-16';
+  assert.equal(damFavoriteDisplay(dam, now).schedule, null);
+  dam.schedule[0].scheduleDate = '2026-10-17';
+  const midnight = Date.parse('2026-10-18T05:00:00Z');
+  assert.equal(damFavoriteDisplay(dam, midnight).schedule, null);
   dam.schedule = [];
   assert.equal(damFavoriteDisplay(dam, now).scheduleNotice, 'Not posted');
+});
+
+test('dam favorites keep today\'s posted hours despite stale or unknown retrieval metadata', () => {
+  for (const retrievedAt of [null, 'invalid', new Date(now - 3 * 3600_000).toISOString(), new Date(now + 3600_000).toISOString()]) {
+    const dam = fixture();
+    dam.schedule[0].retrievedAt = retrievedAt;
+    // Even an incomplete cached day preserves its hour positions and gaps.
+    dam.schedule[0].hours.splice(5, 1);
+    const display = damFavoriteDisplay(dam, now);
+    assert.equal(display.moment.scheduleCurrent, false);
+    assert.ok(display.schedule);
+    assert.equal(display.schedule.date, '2026-10-17');
+    assert.equal(display.schedule.hours.length, 24);
+    assert.equal(display.schedule.hours[5].megawatts, null);
+    assert.equal(display.schedule.hours[6].megawatts, 100);
+    assert.equal(display.schedule.hours[14].megawatts, 0);
+    assert.equal(display.observedAge, 'an hour ago');
+  }
 });
 
 test('dam favorites preserve zero generation, unknown hours and projects without a powerhouse', () => {
@@ -282,4 +306,16 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
   assert.match(text(), /Turbine flow/);
   assert.match(text(), /6,600/);
   assert.doesNotMatch(text(), /4,200/);
+
+  powerhouse.schedule[0].retrievedAt = new Date(now - 3 * 3600_000).toISOString();
+  nodes.length = 0;
+  render({ kind: 'dam', entityId: powerhouse.id });
+  assert.match(text(), /100 MW/);
+  assert.match(text(), /12a/);
+  assert.match(text(), /Observed an hour ago/);
+  assert.doesNotMatch(text(), /Check schedule|Subject to change/);
+  const details = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
+  assert.ok(details);
+  assert.match(String(details.props.accessibilityLabel), /12 PM: 100 megawatts, current hour/);
+  assert.doesNotMatch(String(details.props.accessibilityLabel), /subject to change/i);
 });
