@@ -119,7 +119,13 @@ import {
   SERVICE_OWNER_LAYER,
 } from '@/map/accessLayers';
 import { SERVICE_LAYER_KEYS, serviceOnLayer } from '@/map/serviceLayers';
-import { MIN_GAUGE_ZOOM, ZOOM, type LayerKey } from '@/map/layers';
+import { MIN_GAUGE_ZOOM, MIN_PUBLIC_LAND_ZOOM, MIN_RADAR_ZOOM, ZOOM, type LayerKey } from '@/map/layers';
+import {
+  absorbingAccessEntry,
+  accessPinLayer,
+  layersBelowFloor,
+  locationNearNetwork,
+} from '@/map/mapInteraction';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useGaugeIndex } from '@/hooks/useGaugeIndex';
@@ -140,7 +146,7 @@ import { rememberGauge, seedFromMapGauge, seedFromMapGaugeLite } from '@/lib/gau
 import { usgsGaugeUrl } from '@/lib/directions';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddySearch } from '@/hooks/useEddySearch';
-import { useFloatPlan } from '@/hooks/useFloatPlan';
+import { useFloatPlan, type FloatPlanState } from '@/hooks/useFloatPlan';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds, type StatewideRiverGauge } from '@/lib/statewideNetwork';
@@ -225,19 +231,25 @@ const NO_SERVICES: RiverService[] = [];
 /**
  * The layer rows whose pins vanish below ZOOM.min, the ladder's floor.
  *
- * Other USGS gauges have national coverage at every zoom. Public land explains
- * its z7 floor separately; weather radar draws down to MIN_RADAR_ZOOM (4).
+ * Every pin layer rides the same rungs, the gauge tiers and dams included, and
+ * springs were simply missing from this list. Public land explains its z7
+ * floor separately; weather radar draws down to MIN_RADAR_ZOOM (4).
  */
 const FLOOR_GATED_PIN_ROWS = new Set<LayerKey>([
   'access',
   'boatRamps',
   'gauges',
+  'allGauges',
   'hazards',
   'dams',
+  'springs',
   'campgrounds',
   'outfitters',
   'lodging',
 ]);
+
+/** The floor hint's reason, shared by the layers sheet and the map itself. */
+const FLOOR_HINT_REASON = 'nothing draws this far out.';
 
 /**
  * A per-river layer's data, tagged with the river it was fetched for.
@@ -329,22 +341,8 @@ function referenceGaugePin(g: MapGaugeLite): MapPin {
  */
 function gaugeResultPin(result: SearchResult, gauges: MapGauge[] | null): MapPin | null {
   if (result.gauge?.curated === false) {
-    if (!result.coordinates || !result.siteId) return null;
-    return referenceGaugePin({
-      id: result.id,
-      siteId: result.siteId,
-      name: result.name,
-      coordinates: result.coordinates,
-      dischargeCfs: result.gauge.dischargeCfs,
-      gaugeHeightFt: result.gauge.gaugeHeightFt,
-      readingTimestamp: result.gauge.readingTimestamp,
-      readingAgeHours: result.gauge.readingAgeHours,
-      // The search row does not carry qualifier codes; an unflagged reading is
-      // the same assumption the row itself made when it printed the number.
-      readingSuspect: false,
-      curated: false,
-      flowPercentile: result.gauge.flowPercentile,
-    });
+    const lite = referenceGaugeLite(result);
+    return lite ? referenceGaugePin(lite) : null;
   }
   // Curated: the full MapGauge — thresholds, condition, qualifier — is already
   // in memory (ensureGauges fires on search focus), and it is the only shape
@@ -355,16 +353,42 @@ function gaugeResultPin(result: SearchResult, gauges: MapGauge[] | null): MapPin
 }
 
 /**
+ * A NATIONAL-tier gauge result as the layer's own record, or null when the row
+ * cannot be placed. Shared by the pin above and the search handler's filter
+ * check, so the station the chips are asked about is the one that will draw.
+ */
+function referenceGaugeLite(result: SearchResult): MapGaugeLite | null {
+  if (result.gauge?.curated !== false) return null;
+  if (!result.coordinates || !result.siteId) return null;
+  return {
+    id: result.id,
+    siteId: result.siteId,
+    name: result.name,
+    coordinates: result.coordinates,
+    dischargeCfs: result.gauge.dischargeCfs,
+    gaugeHeightFt: result.gauge.gaugeHeightFt,
+    readingTimestamp: result.gauge.readingTimestamp,
+    readingAgeHours: result.gauge.readingAgeHours,
+    // The search row does not carry qualifier codes; an unflagged reading is
+    // the same assumption the row itself made when it printed the number.
+    readingSuspect: false,
+    curated: false,
+    flowPercentile: result.gauge.flowPercentile,
+  };
+}
+
+/**
  * The pin a service SEARCH RESULT opens, and the layer that owns it.
  *
  * Owner is decided from what the row IS — every mark it holds, by the same
  * SERVICE_MARK_PRIORITY the resolver uses — rather than from which layers are
  * currently on, because the caller is about to switch the owning layer on
- * anyway. Two knowing simplifications against the resolver, both stated:
- * absorption into an access point is not consulted (a searched row opens its
- * own record even where the map draws the composed place), and the cue line
- * names every mark the row holds rather than only the live ones — for a
- * callout somebody asked for by name, more is honest.
+ * anyway. Absorption into an access point is the CALLER's question
+ * (absorbingAccessEntry): a row the map draws as a put-in opens as that put-in,
+ * and this pin is only for one that draws as itself. One knowing
+ * simplification against the resolver: the cue line names every mark the row
+ * holds rather than only the live ones — for a callout somebody asked for by
+ * name, more is honest.
  */
 function serviceResultPin(s: RiverService): { pin: MapPin; layer: LayerKey } | null {
   const held = SERVICE_MARK_PRIORITY.filter((owner) =>
@@ -536,6 +560,13 @@ function MapContent() {
   // Not persisted, for the same reason the condition filter is not: a filter
   // restored from last week reads as gauges having gone missing.
   const [gaugeFilter, setGaugeFilter] = useState<ReadonlySet<GaugeFilterKey>>(() => new Set());
+  const toggleGaugeFilter = useCallback((key: GaugeFilterKey) =>
+    setGaugeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    }), []);
   /**
    * A filter must not outlive the layer it narrows.
    *
@@ -666,22 +697,32 @@ function MapContent() {
      * calendar vanish and a gauge reading take its place — because the sheet
      * had quietly become a put-in. Tapping the same pin again looked fine,
      * since by then the river was already selected and this path never ran.
+     *
+     * Null when nothing was tapped — a search result or a deep link — and the
+     * point's own types decide, the way RiverMap's endpoints do (accessPinLayer).
      */
-    layer: LayerKey;
+    layer: LayerKey | null;
   } | null>(null);
-  /**
-   * A pin set in the same breath as a river selection, and complete already.
-   *
-   * `pendingAccessSelection` carries a pin that must be REBUILT when the
-   * river's access points land, and the selection effect spares the open
-   * callout only for it. A gauge or hazard picked from search needs the other
-   * half of that bargain and none of the machinery: its pin is built whole
-   * from data already in memory, so all it needs is to not be cleared by the
-   * river change its own tap caused. One-shot: consumed by the selection
-   * effect, and disposed at the top of selectRiver so a stale token can never
-   * spare a pin across some later, unrelated navigation.
+  /*
+   * There was a `pinSurvivesSelection` token here, sparing a searched gauge's
+   * pin from the river change its result caused. A gauge result no longer
+   * selects a river — tapping a gauge pin never did — so the token had no
+   * remaining reader and went with it.
    */
-  const pinSurvivesSelection = useRef<string | null>(null);
+  /**
+   * A plan action waiting for its river to become the planner's.
+   *
+   * "Use as put-in" (or a Float trips row) on a put-in that is NOT on the
+   * selected river — which happens when a plan exists and tapping the pin
+   * deliberately did not switch rivers under it. The planner is keyed on the
+   * selected river and resets on a change, so the action is applied once the
+   * switch has landed, against the fresh planner. See the effect below
+   * useFloatPlan.
+   */
+  const deferredPlanAction = useRef<{
+    riverSlug: string;
+    run: (planner: FloatPlanState) => void;
+  } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [mapPlanRiver, setMapPlanRiver] = useState<string | null>(null);
   const mapPlanIntent = useRef<{ token: string; gestures: number } | null>(null);
@@ -867,13 +908,7 @@ function MapContent() {
     // there would blink the callout out and then put back the same one, which
     // reads as the tap having failed and been retried by itself.
     //
-    // A survival token is the same exemption for a pin that is already whole —
-    // a gauge or hazard chosen from search, whose selection of this river is a
-    // side effect of its own opening. Consumed here, once.
-    const keepPin =
-      pendingAccessSelection.current?.riverSlug === slug ||
-      pinSurvivesSelection.current === slug;
-    if (pinSurvivesSelection.current === slug) pinSurvivesSelection.current = null;
+    const keepPin = pendingAccessSelection.current?.riverSlug === slug;
     if (!keepPin) setSelectedPin(null);
 
     // The app seeds every river's static data on launch. Read that first so the
@@ -908,7 +943,13 @@ function MapContent() {
         if (pending?.riverSlug === slug) {
           const point = points.find((candidate) => candidate.id === pending.id);
           // The TAPPED layer, not 'access'. See pendingAccessSelection.layer.
-          if (point) setSelectedPin(mapAccessPointPin(point, slug, pending.layer));
+          //
+          // And only into an empty slot or over the same place: anything else
+          // on screen is something the reader chose after asking for this one.
+          if (point) {
+            const pin = mapAccessPointPin(point, slug, pending.layer ?? accessPinLayer(point));
+            setSelectedPin((current) => (current === null || current.id === pin.id ? pin : current));
+          }
           // Found or stale, this request answered it. Never let a missing row
           // reopen unexpectedly when the person returns to the river later.
           pendingAccessSelection.current = null;
@@ -962,8 +1003,11 @@ function MapContent() {
   type RiverCameraIntent =
     /** Frame the whole river. The river IS what the reader asked to see. */
     | { camera: 'fitRiver' }
-    /** A searched point on it; the river selection is a side effect. */
-    | { camera: 'searchResult'; lng: number; lat: number }
+    /**
+     * A searched point on it; the river selection is a side effect.
+     * `waitForSheet` when the result opens a pin sheet — see the action.
+     */
+    | { camera: 'searchResult'; lng: number; lat: number; waitForSheet?: boolean }
     /**
      * A tapped point on it — a pin, or the river line itself. The river
      * selection is a side effect, and the current zoom is kept.
@@ -979,11 +1023,12 @@ function MapContent() {
       // Whatever this call asks for supersedes a fit still waiting on geometry:
       // the reader has navigated again, and the older river is not owed a frame.
       pendingRiverFit.current = null;
-      // And a survival token from an earlier selection is spent or stale
-      // either way — the caller that wants THIS selection to spare a pin sets
-      // the token after this call returns. Disposing it here, at the single
-      // place a selection changes, is what keeps it one-shot.
-      pinSurvivesSelection.current = null;
+      // And a put-in waiting to reopen belongs to an earlier navigation. Left
+      // set, choosing another river and then coming back to this one reopened
+      // a sheet the reader had long since moved past. A caller that wants
+      // THIS selection to open a put-in sets it after this call returns.
+      pendingAccessSelection.current = null;
+      deferredPlanAction.current = null;
       switch (intent.camera) {
         case 'fitRiver': {
           // Clearing a selection has no river to frame; `hold` is the honest
@@ -1017,6 +1062,7 @@ function MapContent() {
             type: 'searchResultSelected',
             lng: intent.lng,
             lat: intent.lat,
+            waitForSheet: intent.waitForSheet,
           });
           return;
         case 'pin':
@@ -1292,18 +1338,82 @@ function MapContent() {
     });
   }, [damPins]);
 
+  // ── Float plan ──────────────────────────────────────────────────
+  // Declared ahead of search: a named place opens differently while a plan
+  // holds the selected river (see openNamedAccess), and a useCallback may not
+  // read state declared after it.
+  const plannerAccessPoints = useMemo(
+    () => (plannerAccess?.slug === selectedSlug ? plannerAccess.items : []),
+    [plannerAccess, selectedSlug],
+  );
+  // Planning needs a river ID and ordered access points, not the river's heavy
+  // full-resolution geometry. The id comes from the statewide network first:
+  // that dataset is on disk from the first paint, while /api/rivers is the one
+  // request on this screen with nothing behind it. Keying the planner on the
+  // list's id meant a plan started before that list landed was reset (put-in,
+  // take-out and all) the moment it did, and a plan started offline on a
+  // curated river was told the river "cannot be planned yet".
+  const planner = useFloatPlan(
+    (selectedSlug ? network.bySlug.get(selectedSlug)?.id : null) ?? selected?.id ?? null,
+    plannerAccessPoints,
+  );
+  const mapPlanning = mapPlanRiver === selectedSlug && planner.putIn != null;
+
+  /**
+   * Whether a plan — a put-in at least — is keeping the selected river.
+   *
+   * The planner is keyed on the selected river and resets when it changes, so
+   * opening a place on ANOTHER river must not change it while this is true.
+   * Gauges, dams, hazards and services never did; access points used to, and a
+   * tap on one across the state silently threw the plan away. The river now
+   * changes only when the reader acts on that place — see deferredPlanAction.
+   */
+  const planHoldsRiver = selectedSlug !== null && (planner.putIn !== null || planner.plan !== null);
+
+  /**
+   * Whether the compact planner is waiting for a put-in or take-out tap.
+   *
+   * Then a tap that misses — blank map, or the river line the pins sit on —
+   * is a near-miss at a pin, not a request to stop planning. It used to end
+   * planning outright and leave the put-in behind with nothing drawing it.
+   * Such a tap now dismisses the open pin and nothing else.
+   */
+  const choosingEndpoint = mapPlanning && planner.step !== 'result';
+
+  /**
+   * Apply a deferred plan action once its river is the planner's.
+   *
+   * Declared after useFloatPlan on purpose: effects run in declaration order,
+   * so on the commit that switches rivers the planner's own reset runs first
+   * and this lands on top of it. The empty-state check is what makes it wait
+   * for the reset rather than act on the old river's put-in — the action's
+   * caller resets the planner in the same breath as the switch, so the first
+   * render on the new river already reads empty.
+   */
+  useEffect(() => {
+    const deferred = deferredPlanAction.current;
+    if (!deferred || deferred.riverSlug !== selectedSlug) return;
+    if (planner.putIn || planner.takeOut || planner.plan) return;
+    deferredPlanAction.current = null;
+    deferred.run(planner);
+  }, [selectedSlug, planner]);
+
   // ── Search ──────────────────────────────────────────────────────
   // No `kinds`: this field is unscoped and wants everything. Naming the server
   // kinds would be identical — parseKinds() treats an absent list as every
   // kind — so the omission is the honest spelling of "everything". Dams,
   // hazards and services are matched locally out of what this screen already
   // holds; the server is never asked for them.
+  const networkRivers = useMemo(() => [...network.bySlug.values()], [network.bySlug]);
   const search = useEddySearch({
     rivers,
     gauges,
     dams: true,
     hazards: drawnHazards,
     services,
+    // Rivers, put-ins and rated gauges as the map draws them off disk, for
+    // when the live source of each is not answering. See searchFallback.ts.
+    fallback: { rivers: networkRivers, accessPoints: drawnAccessPoints },
   });
 
   const mapSearchOpen = searchFocused || search.query.length > 0;
@@ -1315,143 +1425,188 @@ function MapContent() {
     setSearchFocused(false);
     Keyboard.dismiss();
   }, [clearSearch]);
+
+  /**
+   * Open an access point that was NAMED rather than tapped — a search result,
+   * a service the map draws as an access point, a "View on map" deep link.
+   *
+   * One implementation because "put this place on the screen and open its
+   * sheet" is one behaviour, and it has to land where a tap on the same pin
+   * lands: the same layer (the point's own types, as RiverMap's endpoints
+   * decide it, when no icon was touched), the same river rule (a plan on
+   * another river holds the selection — see planHoldsRiver), and a camera that
+   * waits for the sheet it is opening.
+   *
+   * `pendingAccessSelection` carries the pin across the river switch, and is
+   * what opens it once the river's own response lands when the point is not
+   * held yet. It is set only while a selection effect will actually answer it:
+   * when the river is ALREADY selected that effect never re-runs, so a token
+   * left behind used to reopen this put-in at some unrelated later moment.
+   * The one case that still switches rivers under a plan is a point not held
+   * at all — a landing added since the bundle — because only the river's own
+   * response can produce it.
+   */
+  const openNamedAccess = useCallback(
+    (accessId: string, riverSlug: string, layer: LayerKey | null) => {
+      const known = drawnAccessPoints.find((entry) => entry.point.id === accessId) ?? null;
+      const slug = known?.riverSlug ?? riverSlug;
+      const pinLayer = layer ?? (known ? accessPinLayer(known.point) : null);
+      const pin = known ? mapAccessPointPin(known.point, slug, pinLayer ?? 'access') : null;
+      const at = known?.point.coordinates ?? null;
+      const hold = known !== null && planHoldsRiver && slug !== selectedSlug;
+      const answered =
+        slug === selectedSlug &&
+        (known !== null || (plannerAccess?.slug === slug && plannerAccess.settled));
+      if (hold && at) {
+        issueCameraCommand({ type: 'searchResultSelected', lng: at.lng, lat: at.lat, waitForSheet: true });
+      } else {
+        selectRiver(
+          slug,
+          at
+            ? { camera: 'searchResult', lng: at.lng, lat: at.lat, waitForSheet: pin !== null }
+            : { camera: 'fitRiver' },
+        );
+      }
+      // After selectRiver, which disposes any earlier token.
+      pendingAccessSelection.current =
+        hold || answered ? null : { id: accessId, riverSlug: slug, layer: pinLayer };
+      // Drawable when the camera lands, for somebody who switched it off.
+      enableLayer(pinLayer ?? 'access');
+      if (pin) setSelectedPin(pin);
+    },
+    [
+      drawnAccessPoints,
+      planHoldsRiver,
+      selectedSlug,
+      plannerAccess,
+      issueCameraCommand,
+      selectRiver,
+      enableLayer,
+    ],
+  );
+
   const onSelectResult = useCallback((result: SearchResult) => {
     cancelMapSearch();
     setSelectedPin(null);
+    // No Back: a result arrives from a query, so whatever sheet was on screen
+    // is not what × should reveal.
     setRevealsRiverSheet(false);
     setRiverSheetOpen(false);
     pendingMapPlanFrame.current = null;
-    if (result.kind === 'river') setMapPlanRiver(null);
-    if (result.kind === 'access_point' && result.riverSlug) {
-      // The whole network's put-ins are on the map now, so this no longer has
-      // to wait for the chosen river's response to open a callout — the point
-      // is almost always already in hand, whichever river it is on. The pending
-      // reference stays for the case it is not: a landing added since the last
-      // bundle, on a river this session has not opened.
-      const known = drawnAccessPoints.find((entry) => entry.point.id === result.id);
-      if (known) {
-        // No Back: a result arrives from a query, and it switches the river
-        // below it, so whatever sheet was on screen is not what × should reveal.
-        setRevealsRiverSheet(false);
-        setSelectedPin(mapAccessPointPin(known.point, known.riverSlug ?? result.riverSlug));
-      }
-      // Set in BOTH cases, and that is load-bearing. Choosing a result switches
-      // the river below, and the selection effect drops the open callout on a
-      // river change unless this says the callout is the reason for it. Without
-      // it the pin we just set would be cleared one render later — which is the
-      // shape of the bug the statewide layer would otherwise have introduced
-      // into search. When the point was not already held, this is also what
-      // opens it once the river's own response lands.
-      // 'access', and correctly so: a search result did not come from an icon,
-      // so there is no tapped layer to preserve.
-      pendingAccessSelection.current = {
-        id: result.id,
-        riverSlug: result.riverSlug,
-        layer: 'access',
-      };
-    } else {
-      pendingAccessSelection.current = null;
-    }
 
-    // A gauge or an access point is a POINT, so the camera goes to it rather
-    // than refitting the whole river — otherwise choosing "Cedar Grove Access"
-    // and watching the map fit ninety miles of Current River is indistinguish-
-    // able from nothing happening.
-    //
-    // COORDINATES ARE THE ONLY REQUIREMENT for that. This used to demand a
-    // riverSlug as well, which silently excluded the entire national tier: an
-    // uncurated USGS station has no river_gauges row, so its slug is null —
-    // while /api/search has returned st_x/st_y for it since 00196. Choosing
-    // "Bush Kill at Shoemakers" cleared the field and moved nothing, which is
-    // indistinguishable from a broken search box.
-    //
-    // ── And a RIVER result is the case with no point at all ──────────────────
-    //
-    // /api/search sets `coordinates: null` on every river row — a river is a
-    // line, not a place — so a coordinates-only rule leaves the commonest search
-    // in the app doing nothing to the camera. Selecting the river is what that
-    // result means, and fitting it is what the reader asked for.
-    if (result.riverSlug) {
-      selectRiver(
-        result.riverSlug,
-        result.coordinates
-          ? { camera: 'searchResult', lng: result.coordinates.lng, lat: result.coordinates.lat }
-          : { camera: 'fitRiver' },
-      );
-      setRiverSheetOpen(result.kind === 'river');
-    } else if (result.coordinates) {
-      // A national-tier station: a point that belongs to no curated river, so
-      // there is no selection to make — only somewhere to go.
+    if (result.kind === 'access_point' && result.riverSlug) {
+      openNamedAccess(result.id, result.riverSlug, null);
+      return;
+    }
+    if (result.kind === 'service') {
+      const service = (services ?? []).find((s) => s.id === result.id);
+      const opened = service ? serviceResultPin(service) : null;
+      if (!service || !opened) return;
+      enableLayer(opened.layer);
+      // A service the map draws AS an access point opens as that access
+      // point: a `service:` pin is one the map never drew, so nothing on
+      // screen was selected. The service's own layer is kept, so the sheet
+      // opens on what was searched for — the way the composed pin does.
+      const host = absorbingAccessEntry(service, drawnAccessPoints);
+      if (host?.riverSlug) {
+        openNamedAccess(host.point.id, host.riverSlug, opened.layer);
+        return;
+      }
+      pendingAccessSelection.current = null;
       issueCameraCommand({
         type: 'searchResultSelected',
-        lng: result.coordinates.lng,
-        lat: result.coordinates.lat,
+        lng: opened.pin.coordinates.lng,
+        lat: opened.pin.coordinates.lat,
+        waitForSheet: true,
       });
+      setSelectedPin(opened.pin);
+      return;
     }
 
-    // Turn on the layer the result lives in, so what was searched for is
-    // visible when the map arrives. Most are on by default, so this usually
-    // covers the person who switched one off and then searched for exactly
-    // that kind of thing — but the national gauge tier opens OFF, so for an
-    // unrated station this is the ordinary path, not the exception.
+    pendingAccessSelection.current = null;
+
+    // ── Of what is left, a RIVER is the one result that selects anything ──
     //
-    // WHICH gauge layer depends on the tier. `gauges` is the curated one;
-    // layerGauges filters the national layer down to `!curated`, so switching on
-    // `gauges` for a reference station flies the camera to a dot that layer will
-    // never draw. Unknown tier is treated as curated, which is the safe way
-    // round: the curated layer is the smaller set and drawing it costs nothing.
+    // /api/search sets `coordinates: null` on every river row — a river is a
+    // line, not a place — so selecting it and fitting it is what the reader
+    // asked for. Every other kind is a POINT: the camera goes to it rather
+    // than refitting a river, and choosing "Cedar Grove Access" no longer
+    // looks like nothing happened.
+    if (result.kind === 'river' && result.riverSlug) {
+      setMapPlanRiver(null);
+      selectRiver(result.riverSlug, { camera: 'fitRiver' });
+      setRiverSheetOpen(true);
+      return;
+    }
+
+    // The pin the result opens, built first: whether a sheet is about to
+    // open decides whether the camera waits for it.
+    let pin: MapPin | null = null;
     if (result.kind === 'gauge') {
-      const layer: LayerKey = result.gauge?.curated === false ? 'allGauges' : 'gauges';
-      enableLayer(layer);
-      // ── AND THE CALLOUT OPENS, exactly as an access result's does ────────
-      // The camera arriving on an unmarked spot was the access-point bug one
-      // layer over: choosing "Van Buren" and then hunting for the dot you
-      // named. Set AFTER selectRiver above, which disposes survival tokens at
-      // its top — the token below has to outlive this handler, not precede it.
-      const pin = gaugeResultPin(result, gauges);
-      if (pin) {
-        setRevealsRiverSheet(false);
-        // The river change this selection caused must not clear the pin it
-        // opened. Only when a river was actually selected — a national
-        // station belongs to none and nothing will try to clear it.
-        if (result.riverSlug) pinSurvivesSelection.current = result.riverSlug;
-        setSelectedPin(pin);
+      // WHICH gauge layer depends on the tier. `gauges` is the curated one;
+      // layerGauges filters the national layer down to `!curated`, so
+      // switching on `gauges` for a reference station flies the camera to a
+      // dot that layer will never draw. Unknown tier is treated as curated,
+      // which is the safe way round: the curated layer is the smaller set.
+      const national = result.gauge?.curated === false;
+      enableLayer(national ? 'allGauges' : 'gauges');
+      // ── And the flow-band chips must not hide it ─────────────────────────
+      // Enabling the layer kept whatever filter narrowed it, so a station
+      // outside the active band flew the camera to an empty spot. Widened
+      // only as far as this station needs: the chips cleared, and stale
+      // readings let in only when it is itself a historical one.
+      const lite = national ? referenceGaugeLite(result) : null;
+      if (lite && applyGaugeFilters([lite], gaugeFilter).length === 0) {
+        setGaugeFilter(
+          applyGaugeFilters([lite], new Set()).length > 0
+            ? new Set()
+            : new Set<GaugeFilterKey>(['historical']),
+        );
       }
-    } else if (result.kind === 'access_point') {
-      enableLayer('access');
+      pin = gaugeResultPin(result, gauges);
     } else if (result.kind === 'dam') {
       // The catalog is the spine, so this pin exists before /api/dams has ever
       // answered — a searched dam opens with its identity now and its live
       // release figures whenever they land, same as a tapped one.
       enableLayer('dams');
-      const pin = damPins.find((p) => p.damId === result.id);
-      if (pin) {
-        setSelectedPin(pin);
-      }
+      pin = damPins.find((p) => p.damId === result.id) ?? null;
     } else if (result.kind === 'hazard') {
       enableLayer('hazards');
       const hazard = drawnHazards.find((h) => h.id === result.id);
-      if (hazard && hasCoordinates(hazard)) {
-        setSelectedPin(mapHazardPin(hazard));
-      }
-    } else if (result.kind === 'service') {
-      const service = (services ?? []).find((s) => s.id === result.id);
-      const opened = service ? serviceResultPin(service) : null;
-      if (opened) {
-        enableLayer(opened.layer);
-        setSelectedPin(opened.pin);
-      }
+      pin = hazard && hasCoordinates(hazard) ? mapHazardPin(hazard) : null;
     }
-    // None of the three new kinds carries a riverSlug (see localMatches), so
-    // none selects a river and none needs a survival token: the camera block
-    // above flew to the point, and nothing will try to clear the pin.
+
+    // ── SEARCH AND TAP LAND IN THE SAME STATE ────────────────────────────
+    //
+    // Tapping a gauge, dam or hazard pin selects no river: the callout is
+    // about the station or the danger, not the trip, and selecting the river
+    // would reset a plan being built on another one. A curated gauge result
+    // carries its river's slug and used to select that river anyway; now it,
+    // like the rest, only moves the camera. COORDINATES are the only
+    // requirement, which is also what lets an uncurated national station (no
+    // river at all) go anywhere. A gauge row with no coordinates has no point
+    // to show and no pin to open, so its river is the only answer left.
+    const target = pin?.coordinates ?? result.coordinates;
+    if (target) {
+      issueCameraCommand({
+        type: 'searchResultSelected',
+        lng: target.lng,
+        lat: target.lat,
+        waitForSheet: pin !== null,
+      });
+    } else if (result.riverSlug) {
+      selectRiver(result.riverSlug, { camera: 'fitRiver' });
+    }
+    if (pin) setSelectedPin(pin);
   }, [
-    drawnAccessPoints,
     drawnHazards,
+    drawnAccessPoints,
     gauges,
+    gaugeFilter,
     services,
     damPins,
     cancelMapSearch,
+    openNamedAccess,
     selectRiver,
     issueCameraCommand,
     enableLayer,
@@ -1461,11 +1616,10 @@ function MapContent() {
    * ── "View on map", arriving from an access point's own screen ────────────
    *
    * That screen pushes `/` with the point's id and river, and this is what makes
-   * the map act on it. Deliberately the SAME three steps `onSelectResult` takes
-   * for an access-point search result — select the pin if the map already holds
-   * it, record a pending selection either way, move the camera to the point —
-   * because "put this place on the screen and open its sheet" is one behaviour
-   * and two implementations of it would drift.
+   * the map act on it. Deliberately the SAME implementation an access-point
+   * search result uses — openNamedAccess — because "put this place on the
+   * screen and open its sheet" is one behaviour and two implementations of it
+   * had already drifted (the deep link opened campgrounds as bare put-ins).
    *
    * ── CONSUMED ONCE, AND THE PARAMS ARE THEN CLEARED ──────────────────────
    * Route params outlive the navigation that carried them: the tab keeps them
@@ -1477,8 +1631,9 @@ function MapContent() {
    * ── AND IT WAITS FOR THE POINT ──────────────────────────────────────────
    * `pendingAccessSelection` is the existing mechanism for "select this the
    * moment its river's access points arrive", which is the common case on a
-   * cold launch into the map. Setting it in both branches is what makes the
-   * deep link work before the network has answered — see the selection effect.
+   * cold launch into the map. Setting it whenever the river's response is
+   * still to come is what makes the deep link work before the network has
+   * answered — see the selection effect.
    */
   const focusParams = useLocalSearchParams<{
     focusAccess?: string;
@@ -1512,33 +1667,17 @@ function MapContent() {
       // this river's sheet, so × has no river sheet to reveal underneath.
       setRevealsRiverSheet(false);
 
-      const known = drawnAccessPoints.find((entry) => entry.point.id === accessId);
-      if (known) {
-        setSelectedPin(mapAccessPointPin(known.point, known.riverSlug ?? riverSlug));
-      }
-      // Set in BOTH cases, for the reason onSelectResult documents: the
-      // selection effect drops an open callout on a river change unless this
-      // says the callout is the reason for it. It is also what opens the sheet
-      // when the point is NOT yet held — a cold launch straight into the map.
-      pendingAccessSelection.current = { id: accessId, riverSlug, layer: 'access' };
-
-      const coordinates = known?.point.coordinates ?? null;
-      selectRiver(
-        riverSlug,
-        coordinates
-          ? { camera: 'searchResult', lng: coordinates.lng, lat: coordinates.lat }
-          : { camera: 'fitRiver' },
-      );
-
-      // The put-in has to be drawable when the camera lands, for somebody who
-      // switched the access layer off earlier in the session.
-      enableLayer('access');
+      // Whatever was open is not this place. Cleared rather than left for the
+      // pending selection to replace: that only fills an empty slot.
+      setSelectedPin(null);
+      // The same steps a search result takes — see openNamedAccess.
+      openNamedAccess(accessId, riverSlug, null);
 
       // Clears the params so a later return to this tab does not re-select a
       // place the reader looked at once and has since closed.
       router.setParams({ focusAccess: undefined, focusRiver: undefined });
     },
-    [drawnAccessPoints, clearSearch, selectRiver, router, enableLayer],
+    [clearSearch, openNamedAccess, router],
   );
 
   useEffect(() => {
@@ -1565,23 +1704,6 @@ function MapContent() {
     focusOnAccess(focusAccess, focusRiver);
   }, [focusAccess, focusRiver, focusOnAccess]);
 
-  // ── Float plan ──────────────────────────────────────────────────
-  const plannerAccessPoints = useMemo(
-    () => (plannerAccess?.slug === selectedSlug ? plannerAccess.items : []),
-    [plannerAccess, selectedSlug],
-  );
-  // Planning needs a river ID and ordered access points, not the river's heavy
-  // full-resolution geometry. The id comes from the statewide network first:
-  // that dataset is on disk from the first paint, while /api/rivers is the one
-  // request on this screen with nothing behind it. Keying the planner on the
-  // list's id meant a plan started before that list landed was reset (put-in,
-  // take-out and all) the moment it did, and a plan started offline on a
-  // curated river was told the river "cannot be planned yet".
-  const planner = useFloatPlan(
-    (selectedSlug ? network.bySlug.get(selectedSlug)?.id : null) ?? selected?.id ?? null,
-    plannerAccessPoints,
-  );
-  const mapPlanning = mapPlanRiver === selectedSlug && planner.putIn != null;
 
   /**
    * Legacy callers of the Map URL can request a return destination. Today
@@ -1684,11 +1806,15 @@ function MapContent() {
 
   // Memoised for identity: built inline it was a fresh object per render,
   // re-rendering the endpoint markers' shape sources with unchanged contents.
+  //
+  // A lone put-in draws whenever one is chosen, not only while the compact
+  // planner is open. Closing the planner mid-flow used to leave the put-in set
+  // but undrawn — invisible, yet still offered "Use as take-out" against.
   const planEndpoints = useMemo(
     () =>
       planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut }
-        : mapPlanning && planner.putIn ? { putIn: planner.putIn, takeOut: null } : null,
-    [planner.plan, planner.putIn, mapPlanning],
+        : planner.putIn ? { putIn: planner.putIn, takeOut: null } : null,
+    [planner.plan, planner.putIn],
   );
 
   const plannerDistances = useMemo(() => {
@@ -1990,12 +2116,26 @@ function MapContent() {
       // not been replaced yet, so it either skipped the calculation entirely or
       // ran it against the previous put-in. See planFloat's header.
       const downstream = nearby.direction === 'downstream';
-      planner.planFloat(downstream ? from : other, downstream ? other : from);
+      const start = downstream ? from : other;
+      const end = downstream ? other : from;
+      // A put-in on another river than the plan's (planHoldsRiver kept the
+      // selection): the float is built once that river is the planner's.
+      const slug = drawnAccessPoints.find((entry) => entry.point.id === from.id)?.riverSlug ?? null;
+      if (slug && slug !== selectedSlug) {
+        planner.reset();
+        selectRiver(slug, { camera: 'hold' });
+        deferredPlanAction.current = { riverSlug: slug, run: (fresh) => fresh.planFloat(start, end) };
+        // The open sheet is about a put-in on that river; it survives the
+        // switch so closing the planner still returns to it (see below).
+        pendingAccessSelection.current = { id: from.id, riverSlug: slug, layer: selectedPin?.layer ?? null };
+      } else {
+        planner.planFloat(start, end);
+      }
       // PlanSheet is a modal over this selection. Keep PinSheet mounted so
       // closing the planner returns to the same access, tab and scroll position.
       setPlanOpen(true);
     },
-    [drawnAccessPoints, planner],
+    [drawnAccessPoints, planner, selectedSlug, selectedPin, selectRiver],
   );
 
   /**
@@ -2298,6 +2438,22 @@ function MapContent() {
   const conditionCode = drawn?.currentCondition?.code ?? 'unknown';
 
   /**
+   * Whether the map should say the camera is why nothing is drawing.
+   *
+   * The same test the layers sheet applies per row, asked of every row that
+   * is on: only when ALL of them draw nothing does the map look broken, and
+   * only then is a sentence over it worth its space.
+   */
+  const floorHintVisible =
+    !unavailable &&
+    !mapSearchOpen &&
+    layersBelowFloor(layers, viewport?.zoom ?? null, FLOOR_GATED_PIN_ROWS, {
+      floor: ZOOM.min,
+      publicLand: MIN_PUBLIC_LAND_ZOOM,
+      radar: MIN_RADAR_ZOOM,
+    });
+
+  /**
    * ── The selected river's NAME AND VERDICT NOW LIVE IN THE SHEET ──────────
    *
    * They were resolved here for a header line drawn above the map, which has
@@ -2322,6 +2478,11 @@ function MapContent() {
   // ALREADY granted on a previous run (useLocation resolves that without
   // prompting), otherwise the whole network. Never a river nobody picked.
   //
+  // The position counts only NEAR the network (locationNearNetwork): zoom 8.5
+  // over a phone in another state is a regional view with no river Eddy covers
+  // anywhere in it, which reads as an empty or broken map. Far away, the
+  // network is the more useful opening, and Locate is still one tap.
+  //
   // This is handed to Mapbox as defaultSettings only. A later render can never
   // replay it over a gesture or selection. THE ACCEPTED RACE: the map does not
   // mount until the statewide collection has features, and the one-key camera
@@ -2329,13 +2490,15 @@ function MapContent() {
   // opens exactly as it always has and the stored camera is NOT applied late.
   // A fly-to over a map the reader is already looking at is the jolt the
   // startup-location effect below refuses, for the same reason.
+  const nearbyCoords =
+    location.coords && locationNearNetwork(location.coords, network.bounds) ? location.coords : null;
   const initialCamera: InitialMapCamera | null = storedCamera
     ? { type: 'center', lng: storedCamera.lng, lat: storedCamera.lat, zoom: storedCamera.zoom }
-    : location.coords
+    : nearbyCoords
       ? {
           type: 'center',
-          lng: location.coords.lng,
-          lat: location.coords.lat,
+          lng: nearbyCoords.lng,
+          lat: nearbyCoords.lat,
           // Regional, not local. The question this answers is "which rivers are
           // near me", and that is unanswerable at street zoom.
           zoom: 8.5,
@@ -2411,14 +2574,17 @@ function MapContent() {
       return;
     }
     startupLocationSettled.current = true;
+    // Far from every river: the map opened on the network and stays there,
+    // for the reason initialCamera gives.
+    if (!nearbyCoords) return;
     // The coordinates were in hand when the map mounted, so defaultSettings
     // already used them. Flying to where we opened is not a fix, it is a jolt.
     if (!openedWithoutLocation.current) return;
     if (selectedSlug || hasGestured.current || cameraCommandId.current > 0) return;
     issueCameraCommand({
       type: 'locationRequested',
-      lng: location.coords.lng,
-      lat: location.coords.lat,
+      lng: nearbyCoords.lng,
+      lat: nearbyCoords.lat,
       // The same regional framing initialCamera would have used.
       zoom: 8.5,
     });
@@ -2426,6 +2592,7 @@ function MapContent() {
     unavailable,
     network.collection.features.length,
     location.coords,
+    nearbyCoords,
     storedCamera,
     selectedSlug,
     issueCameraCommand,
@@ -2531,6 +2698,11 @@ function MapContent() {
       // A map selection also exits focused search, so its sheet can appear
       // on this tap rather than waiting for a separate Cancel.
       cancelMapSearch();
+      if (choosingEndpoint) {
+        setSelectedPin(null);
+        pendingAccessSelection.current = null;
+        return;
+      }
       setMapPlanRiver(null);
       pendingMapPlanFrame.current = null;
       selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
@@ -2538,7 +2710,7 @@ function MapContent() {
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },
-    [cancelMapSearch, selectRiver],
+    [cancelMapSearch, selectRiver, choosingEndpoint],
   );
 
   /**
@@ -2577,14 +2749,15 @@ function MapContent() {
 
   const dismissMapSelection = useCallback(() => {
     cancelMapSearch();
-    setMapPlanRiver(null);
+    // Mid-plan, a blank tap closes the pin over the planner, not the planner.
+    if (!choosingEndpoint) setMapPlanRiver(null);
     setSelectedPin(null);
     setRiverSheetOpen(false);
     setCameraCommand(null);
     pendingRiverFit.current = null;
     pendingAccessSelection.current = null;
     pendingMapPlanFrame.current = null;
-  }, [cancelMapSearch]);
+  }, [cancelMapSearch, choosingEndpoint]);
 
   const dismissMapPlan = useCallback(() => {
     setMapPlanRiver(null);
@@ -2736,10 +2909,17 @@ function MapContent() {
       // Index-only gauges open the same sheet: useGaugeDetail hydrates by siteId.
       const entry = accessPointForPin(pin);
       // The river this tap would newly select, or null when it selects none —
-      // either because the pin has no river or because that river is already
-      // the chosen one. Bound once so the narrowing holds below.
+      // because the pin has no river, because that river is already the
+      // chosen one, or because a plan is holding the selected river. In that
+      // last case the sheet opens about its own river (the pin carries its
+      // slug) and the river changes only if the reader acts on the place —
+      // see deferredPlanAction. Gauge, dam, hazard and service taps never
+      // switched rivers; an access tap that did wiped the plan without a word.
+      // Bound once so the narrowing holds below.
       const newRiverSlug =
-        entry?.riverSlug && entry.riverSlug !== selectedSlug ? entry.riverSlug : null;
+        entry?.riverSlug && entry.riverSlug !== selectedSlug && !planHoldsRiver
+          ? entry.riverSlug
+          : null;
       setRevealsRiverSheet(source === 'river-sheet' && riverSheetOpen && newRiverSlug === null);
       setRiverSheetOpen(false);
       // A POI owns the centre, never the zoom. The command waits for the sheet's
@@ -2748,12 +2928,13 @@ function MapContent() {
       // river animation was still moving when this tap landed.
       const { lng, lat } = pin.coordinates;
       if (newRiverSlug && entry) {
+        selectRiver(newRiverSlug, { camera: 'pin', lng, lat });
+        // After selectRiver, which disposes any earlier token.
         pendingAccessSelection.current = {
           id: entry.point.id,
           riverSlug: newRiverSlug,
           layer: pin.layer,
         };
-        selectRiver(newRiverSlug, { camera: 'pin', lng, lat });
       } else {
         // NOT selectRiver(null, …): this pin selects no river, which is a
         // different thing from clearing the one already selected. Tapping a
@@ -2763,7 +2944,7 @@ function MapContent() {
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, cancelMapSearch, selectedSlug, riverSheetOpen, selectRiver, issueCameraCommand, onZoomToCluster, mapPlanning, planOpen, planner],
+    [accessPointForPin, cancelMapSearch, selectedSlug, riverSheetOpen, selectRiver, issueCameraCommand, onZoomToCluster, mapPlanning, planOpen, planner, planHoldsRiver],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -2986,6 +3167,18 @@ function MapContent() {
                 <Text style={[styles.readingsNoticeText, { color: colors.error }]}>{riversError}</Text>
               </View>
             ) : null}
+            {/* The layers sheet's floor hint, on the map itself: below the
+                ladder's floor every switched-on layer draws nothing, and the
+                reader is looking at the map, not the sheet, when it happens.
+                Never takes a touch, and leaves the moment the camera is close
+                enough for something to draw. */}
+            {floorHintVisible ? (
+              <View pointerEvents="none" style={[styles.readingsNotice, styles.floorHint, { backgroundColor: colors.cardRaised }]}>
+                <Text accessibilityLiveRegion="polite" style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
+                  {`Zoom in to see your layers — ${FLOOR_HINT_REASON}`}
+                </Text>
+              </View>
+            ) : null}
           </Animated.View>
           {search.active ? (
             <View style={styles.resultsOverlay} pointerEvents="box-none">
@@ -2996,8 +3189,11 @@ function MapContent() {
                 // "Couldn't search" and "nothing matched" are different claims,
                 // and the second used to stand in for the first: with the server
                 // half backed off, a put-in name found nothing and the message
-                // blamed the data. Access points live server-side only, so the
-                // honest message names what is still being searched.
+                // blamed the data. With the server down the field still searches
+                // what the map draws from disk — rivers, put-ins, rated gauges
+                // by site number, dams, hazards and mapped services (see
+                // searchFallback.ts) — so the message names that, and nothing
+                // it cannot reach: other USGS gauges come only from the server.
                 //
                 // And "couldn't search" is itself two claims. A phone with no
                 // signal should be told to check its connection; a phone on a
@@ -3007,9 +3203,9 @@ function MapContent() {
                 // The hook says which it was.
                 emptyMessage={
                   search.serverFailure === 'offline'
-                    ? 'Search is unreachable right now — only what the map already holds can match. Check your connection.'
+                    ? 'Search is unreachable — only what the map has loaded can match, not other USGS gauges. Check your connection.'
                     : search.serverFailure === 'server'
-                      ? 'Search isn’t answering right now — only what the map already holds can match. Try again in a moment.'
+                      ? 'Search isn’t answering — only what the map has loaded can match, not other USGS gauges. Try again in a moment.'
                       : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
                 }
               />
@@ -3163,11 +3359,16 @@ function MapContent() {
               back was to open the sheet and press "Plan a different stretch",
               which reads as starting another one, not discarding this one. So
               someone who just wanted a clean map had no reason to open the
-              planner at all. It belongs where the plan is visible. */}
-          {!unavailable && planner.plan && !mapSearchOpen ? (
+              planner at all. It belongs where the plan is visible.
+
+              A PUT-IN ALONE counts. It stays drawn after the compact planner
+              closes mid-flow, and without this it could only be cleared by
+              reopening the planner it was just closed out of. */}
+          {!unavailable && (planner.plan || planner.putIn) && !mapSearchOpen ? (
             <Pressable
               onPress={() => {
                 planner.reset();
+                setMapPlanRiver(null);
               }}
               style={({ pressed }) => [
                 styles.clearPlanButton,
@@ -3175,7 +3376,7 @@ function MapContent() {
                 { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Clear this float plan"
+              accessibilityLabel={planner.plan ? 'Clear this float plan' : 'Clear the chosen put-in'}
             >
               <ControlIcon name="close" size={18} color={colors.textMuted} />
             </Pressable>
@@ -3275,7 +3476,12 @@ function MapContent() {
             <PinSheet
               pin={selectedPin}
               accessPoint={pinAccessPoint}
+              // Only against a put-in the reader can see: one being planned on
+              // the map, or a finished plan's. A put-in left behind by a
+              // closed planner is drawn, but offering to end a float at it
+              // from an unrelated sheet is a plan the reader did not start.
               canSetTakeOut={
+                (mapPlanning || planner.plan != null) &&
                 pinAccessPoint != null && planner.takeOutOptions.some(point => point.id === pinAccessPoint.id)
               }
               riverHasGauges={riverHasGauges}
@@ -3283,13 +3489,29 @@ function MapContent() {
               riverGaugeCount={network.bySlug.get(selectedPin.riverSlug ?? '')?.gauges?.length ?? 0}
               onSetPutIn={() => {
                 if (!pinAccessPoint) return;
-                planner.choosePutIn(pinAccessPoint);
-                setMapPlanRiver(selectedSlug);
+                // Cleared in both handlers: the river's access response landing
+                // after this tap used to reopen the pin over the planner.
+                pendingAccessSelection.current = null;
+                const pinRiver = pinAccess?.riverSlug ?? selectedSlug;
+                if (pinRiver && pinRiver !== selectedSlug) {
+                  // The pin opened without switching rivers because a plan held
+                  // the selection. Acting on it is the reader choosing this
+                  // river: the old plan goes, and the put-in is set once the
+                  // planner belongs to the new river (deferredPlanAction).
+                  const point = pinAccessPoint;
+                  planner.reset();
+                  selectRiver(pinRiver, { camera: 'hold' });
+                  deferredPlanAction.current = { riverSlug: pinRiver, run: (fresh) => fresh.choosePutIn(point) };
+                } else {
+                  planner.choosePutIn(pinAccessPoint);
+                }
+                setMapPlanRiver(pinRiver);
                 setSelectedPin(null);
                 setPlanOpen(false);
               }}
               onSetTakeOut={() => {
                 if (!pinAccessPoint) return;
+                pendingAccessSelection.current = null;
                 planner.chooseTakeOut(pinAccessPoint);
                 setMapPlanRiver(selectedSlug);
                 setSelectedPin(null);
@@ -3383,7 +3605,23 @@ function MapContent() {
             viewport.zoom < ZOOM.min &&
             FLOOR_GATED_PIN_ROWS.has(key)
           ) {
-            return <LayerZoomHint text="Zoom in to see these — nothing draws this far out." />;
+            const hint = <LayerZoomHint text={`Zoom in to see these — ${FLOOR_HINT_REASON}`} />;
+            // The national tier keeps its filter chips under the hint: they
+            // still narrow what draws once the camera is close enough.
+            if (key !== 'allGauges') return hint;
+            return (
+              <>
+                {hint}
+                <GaugeFilterBar
+                  gauges={layerGaugesInView}
+                  active={gaugeFilter}
+                  capped={!gaugeIndexMode && referenceGauges.capped}
+                  total={referenceGauges.total}
+                  onToggle={toggleGaugeFilter}
+                  onClear={() => setGaugeFilter(new Set())}
+                />
+              </>
+            );
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar
@@ -3394,14 +3632,7 @@ function MapContent() {
               // The index is uncapped by construction.
               capped={!gaugeIndexMode && referenceGauges.capped}
               total={referenceGauges.total}
-              onToggle={(k) =>
-                setGaugeFilter((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(k)) next.delete(k);
-                  else next.add(k);
-                  return next;
-                })
-              }
+              onToggle={toggleGaugeFilter}
               onClear={() => setGaugeFilter(new Set())}
             />
           ) : null;
@@ -3415,6 +3646,7 @@ function MapContent() {
         visible={planOpen}
         onViewMap={() => {
           setSelectedPin(null);
+          pendingAccessSelection.current = null;
           setMapPlanRiver(selectedSlug);
           if (planner.putIn && planner.takeOut) pendingMapPlanFrame.current = {
             from: planner.putIn.id, to: planner.takeOut.id, gestures: gestureCount.current,
@@ -3524,6 +3756,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   readingsNoticeText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
+  // Sized to its sentence rather than the search row's width: a hint, not a banner.
+  floorHint: { alignSelf: 'flex-start' },
   mapArea: { flex: 1, overflow: 'hidden' },
   resultsOverlay: { flexShrink: 1, minHeight: 0, marginTop: 8 },
   sheetHost: { position: 'absolute', bottom: 0 },

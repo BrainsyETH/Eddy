@@ -3,7 +3,16 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { gestureStarted, pointNeedsReveal } from '../../../eddy-ios/src/map/mapInteraction';
+import {
+  absorbingAccessEntry,
+  accessPinLayer,
+  gestureStarted,
+  layersBelowFloor,
+  locationNearNetwork,
+  pointNeedsReveal,
+} from '../../../eddy-ios/src/map/mapInteraction';
+import { fallbackMatches } from '../../../eddy-ios/src/hooks/searchFallback';
+import type { MapAccessPoint, RiverService } from '../../../packages/eddy-types';
 import {
   nearestHitId, pinStacks, stackExpansionZoom, stackTap, STACK_MAX_ZOOM, STACK_RADIUS,
 } from '../../../eddy-ios/src/map/pinStacks';
@@ -404,4 +413,235 @@ test('the search row keeps its width; the places list sits beside Locate in the 
   assert.equal((controls.match(/<FloatingControlSurface style=\{styles\.locateButton\}/g) ?? []).length, 2);
   assert.match(readFileSync('../eddy-ios/src/components/ControlIcon.tsx', 'utf8'), /list: 'list\.bullet'/,
     'an SF Symbol, like Locate and Layers beside it');
+});
+
+// ── Planning, search and tap flows on the map screen ──────────────────────────
+//
+// The screen has no runner of its own, so its flow rules are asserted two ways:
+// the pure helpers they lean on are called directly, and the handler wiring is
+// read out of the source, as the camera tests above do.
+
+function accessPoint(over: Partial<MapAccessPoint> = {}): MapAccessPoint {
+  return {
+    id: 'ap-1',
+    name: 'Akers Ferry',
+    riverMile: 22.4,
+    type: 'access',
+    isPublic: true,
+    coordinates: { lng: -91.2301, lat: 37.2789 },
+    ...over,
+  } as MapAccessPoint;
+}
+
+function directoryRow(over: Partial<RiverService> = {}): RiverService {
+  return {
+    id: 'svc-1',
+    name: 'Akers Ferry Campground',
+    type: 'campground',
+    phone: null,
+    website: null,
+    city: 'Salem',
+    state: 'MO',
+    latitude: 37.2789,
+    longitude: -91.2301,
+    description: null,
+    servicesOffered: [],
+    ...over,
+  } as RiverService;
+}
+
+test('a named access point opens on the layer its types give it, as route endpoints do', () => {
+  assert.equal(accessPinLayer(accessPoint({ types: ['access', 'campground'] })), 'campgrounds');
+  assert.equal(accessPinLayer(accessPoint({ types: ['access', 'boat_ramp'] })), 'boatRamps');
+  assert.equal(accessPinLayer(accessPoint({ types: ['access'] })), 'access');
+  // Older rows carry only `type`, which accessPointTypes reads as the set.
+  assert.equal(accessPinLayer(accessPoint({ type: 'campground', types: undefined })), 'campgrounds');
+  // The fallback is RiverMap's; if that rule changes, this one has to follow.
+  assert.match(
+    mapText,
+    /types\.includes\('campground'\) \? 'campgrounds'\s*: types\.includes\('boat_ramp'\) \? 'boatRamps' : 'access'/,
+  );
+});
+
+test('a searched service the map draws as an access point opens as that access point', () => {
+  const host = { point: accessPoint(), riverSlug: 'current' };
+  const far = { point: accessPoint({ id: 'far', coordinates: { lng: -91.9, lat: 37.9 } }), riverSlug: 'current' };
+  // Camping rows fold into a put-in on the same spot.
+  assert.equal(absorbingAccessEntry(directoryRow(), [far, host]), host);
+  // A rental on the same spot is not absorbed by proximity — only camping is.
+  assert.equal(absorbingAccessEntry(directoryRow({ type: 'outfitter' }), [host]), null);
+  // An explicit link is the last word, however far apart the two rows are...
+  assert.equal(absorbingAccessEntry(directoryRow({ type: 'outfitter', accessPointId: 'far' }), [host, far]), far);
+  // ...including when the linked put-in is not on the map: the row draws alone.
+  assert.equal(absorbingAccessEntry(directoryRow({ accessPointId: 'missing' }), [host]), null);
+});
+
+test('the map opens on the user only when the user is near the network', () => {
+  const bounds: [number, number, number, number] = [-94, 36, -90, 39];
+  assert.equal(locationNearNetwork({ lng: -91.5, lat: 37.5 }, bounds), true);
+  // Just over the state line still counts — padded by a fifth of the span.
+  assert.equal(locationNearNetwork({ lng: -94.6, lat: 37 }, bounds), true);
+  // Denver does not.
+  assert.equal(locationNearNetwork({ lng: -104.99, lat: 39.74 }, bounds), false);
+  assert.equal(locationNearNetwork({ lng: -91.5, lat: 37.5 }, null), false);
+  assert.match(SCREEN, /const nearbyCoords =\s*location\.coords && locationNearNetwork\(location\.coords, network\.bounds\)/);
+  assert.match(SCREEN, /: nearbyCoords\s*\? \{\s*type: 'center'/, 'initialCamera opens on the position only when near');
+  assert.match(
+    SCREEN,
+    /if \(!nearbyCoords\) return;[\s\S]{0,400}type: 'locationRequested',\s*lng: nearbyCoords\.lng/,
+    'the late-location fly-to must apply the same test',
+  );
+});
+
+test('the on-map floor hint shows only when every switched-on layer draws nothing', () => {
+  const gated = new Set(['access', 'gauges', 'springs', 'dams', 'allGauges']);
+  const rungs = { floor: 5.5, publicLand: 7, radar: 4 };
+  assert.equal(layersBelowFloor(['access', 'gauges'], 5, gated, rungs), true);
+  assert.equal(layersBelowFloor(['access', 'gauges'], 5.5, gated, rungs), false);
+  // Radar still draws down to 4, so the map is not empty.
+  assert.equal(layersBelowFloor(['access', 'weatherRadar'], 5, gated, rungs), false);
+  assert.equal(layersBelowFloor(['access', 'weatherRadar'], 3.5, gated, rungs), true);
+  assert.equal(layersBelowFloor(['access', 'publicLand'], 5, gated, rungs), true);
+  // Nothing on, or a camera that has not reported, is no reason to speak.
+  assert.equal(layersBelowFloor([], 3, gated, rungs), false);
+  assert.equal(layersBelowFloor(['access'], null, gated, rungs), false);
+
+  const floorRows = /const FLOOR_GATED_PIN_ROWS = new Set<LayerKey>\(\[([\s\S]*?)\]\);/.exec(SCREEN);
+  assert.ok(floorRows, 'FLOOR_GATED_PIN_ROWS moved');
+  for (const key of ['springs', 'dams', 'gauges', 'allGauges']) {
+    assert.match(floorRows[1], new RegExp(`'${key}'`), `${key} rides the same rungs and must be floor-gated`);
+  }
+  assert.match(SCREEN, /layersBelowFloor\(layers, viewport\?\.zoom \?\? null, FLOOR_GATED_PIN_ROWS/);
+  assert.match(SCREEN, /\{floorHintVisible \? \(\s*<View pointerEvents="none"/, 'the map hint must never take a touch');
+});
+
+test('a missed tap while choosing an endpoint keeps planning, and the put-in stays drawn', () => {
+  assert.match(SCREEN, /const choosingEndpoint = mapPlanning && planner\.step !== 'result';/);
+  const dismiss = /const dismissMapSelection = useCallback\(\(\) => \{([\s\S]*?)\}, \[/.exec(SCREEN);
+  assert.ok(dismiss);
+  assert.match(
+    dismiss[1],
+    /if \(!choosingEndpoint\) setMapPlanRiver\(null\);/,
+    'a blank tap mid-plan must close the pin, not the planner',
+  );
+  const river = /const onSelectNetworkRiver = useCallback\(([\s\S]*?)\n {2}\);/.exec(SCREEN);
+  assert.ok(river);
+  assert.match(
+    river[1],
+    /if \(choosingEndpoint\) \{[\s\S]{0,160}return;\s*\}\s*setMapPlanRiver\(null\);/,
+    'a river-line tap mid-plan must not end planning or switch rivers',
+  );
+  // Drawn whenever chosen, never gated on the compact planner being open.
+  assert.match(SCREEN, /: planner\.putIn \? \{ putIn: planner\.putIn, takeOut: null \} : null,/);
+  // "Use as take-out" only against a put-in being planned or a finished plan's.
+  assert.match(SCREEN, /canSetTakeOut=\{\s*\(mapPlanning \|\| planner\.plan != null\) &&/);
+  // And a put-in alone can be cleared from the map.
+  assert.match(SCREEN, /\{!unavailable && \(planner\.plan \|\| planner\.putIn\) && !mapSearchOpen \? \(/);
+});
+
+test('an access pin on another river does not switch rivers under a plan', () => {
+  assert.match(
+    SCREEN,
+    /const planHoldsRiver = selectedSlug !== null && \(planner\.putIn !== null \|\| planner\.plan !== null\);/,
+  );
+  assert.match(SCREEN, /entry\?\.riverSlug && entry\.riverSlug !== selectedSlug && !planHoldsRiver/);
+  // Acting on the place is what switches, and the put-in lands on the new
+  // river's planner rather than the old one's.
+  assert.match(
+    SCREEN,
+    /planner\.reset\(\);\s*selectRiver\(pinRiver, \{ camera: 'hold' \}\);\s*deferredPlanAction\.current = \{ riverSlug: pinRiver, run: \(fresh\) => fresh\.choosePutIn\(point\) \};/,
+  );
+  // The deferred action runs after useFloatPlan's reset, which only holds if
+  // the effect is declared after the hook.
+  const hook = SCREEN.indexOf('const planner = useFloatPlan(');
+  const applies = SCREEN.indexOf('const deferred = deferredPlanAction.current;');
+  assert.ok(hook > 0 && applies > hook, 'the deferred plan action must be applied after the planner resets');
+});
+
+test('search and tap land in the same state for gauges', () => {
+  const body = /const onSelectResult = useCallback\(\(result: SearchResult\) => \{([\s\S]*?)\n {2}\}, \[/.exec(SCREEN);
+  assert.ok(body);
+  const gaugeBranch = body[1].slice(body[1].indexOf("if (result.kind === 'gauge')"));
+  // A tapped gauge selects no river; neither does a searched one with a point.
+  assert.match(gaugeBranch, /if \(target\) \{\s*issueCameraCommand\(\{\s*type: 'searchResultSelected'/);
+  assert.match(gaugeBranch, /\} else if \(result\.riverSlug\) \{\s*selectRiver\(result\.riverSlug, \{ camera: 'fitRiver' \}\);/);
+  // And a station hidden by the flow-band chips widens them instead of
+  // flying to an empty spot.
+  assert.match(gaugeBranch, /applyGaugeFilters\(\[lite\], gaugeFilter\)\.length === 0/);
+});
+
+test('a put-in chosen from its sheet is not reopened by the river response landing late', () => {
+  for (const name of ['onSetPutIn', 'onSetTakeOut']) {
+    const start = SCREEN.indexOf(`${name}={() => {`);
+    assert.ok(start > 0, `${name} moved`);
+    const body = SCREEN.slice(start, SCREEN.indexOf('}}', start));
+    assert.match(body, /pendingAccessSelection\.current = null;/, `${name} must cancel the pending reopen`);
+  }
+  assert.match(
+    SCREEN,
+    /setSelectedPin\(\(current\) => \(current === null \|\| current\.id === pin\.id \? pin : current\)\);/,
+    'a landing response may only fill an empty slot or refresh the same place',
+  );
+});
+
+test('a pending put-in never outlives the navigation that asked for it', () => {
+  const select = /const selectRiver = useCallback\(([\s\S]*?)switch \(intent\.camera\)/.exec(SCREEN);
+  assert.ok(select);
+  assert.match(
+    select[1],
+    /pendingAccessSelection\.current = null;/,
+    'choosing another river and then this one reopened an old put-in',
+  );
+  // Set only while a selection effect will answer it — not for a river that
+  // is already selected and whose response has already landed.
+  assert.match(SCREEN, /hold \|\| answered \? null : \{ id: accessId, riverSlug: slug, layer: pinLayer \}/);
+  // Search and deep links share the one opener.
+  assert.match(SCREEN, /openNamedAccess\(result\.id, result\.riverSlug, null\)/);
+  assert.match(SCREEN, /openNamedAccess\(accessId, riverSlug, null\)/);
+});
+
+test('a search result that opens a sheet waits for it, and one that opens nothing does not', () => {
+  const waiting = cameraCommandFor({ type: 'searchResultSelected', lng: -91, lat: 37, waitForSheet: true }, 1);
+  assert.equal(waiting && 'waitForSheet' in waiting && waiting.waitForSheet, true);
+  const bare = cameraCommandFor({ type: 'searchResultSelected', lng: -91, lat: 37 }, 2);
+  assert.equal(
+    bare && 'waitForSheet' in bare,
+    false,
+    'a result with no sheet must not queue its move until some unrelated sheet opens',
+  );
+  assert.match(SCREEN, /waitForSheet: pin !== null/);
+});
+
+test('offline search falls back to what the map draws from disk', () => {
+  const rivers = [{
+    id: 'r1',
+    slug: 'current',
+    name: 'Current River',
+    region: 'Ozarks',
+    gauges: [{ site_id: '07067000', lon: -91.0, lat: 37.0, is_primary: true }],
+  }];
+  const accessPoints = [{ point: accessPoint({ name: 'Cedar Grove', slug: 'cedar-grove' }), riverSlug: 'current' }];
+  const none = { rivers: false, gauges: false, accessPoints: false };
+
+  // Live sources answering: nothing added, so nothing duplicates them.
+  assert.deepEqual(fallbackMatches('cedar', { rivers, accessPoints, missing: none }), []);
+
+  const put = fallbackMatches('cedar', { rivers, accessPoints, missing: { ...none, accessPoints: true } });
+  assert.equal(put.length, 1);
+  assert.equal(put[0].kind, 'access_point');
+  assert.equal(put[0].riverSlug, 'current');
+  assert.equal(put[0].riverName, 'Current River');
+  assert.deepEqual(put[0].coordinates, accessPoints[0].point.coordinates);
+
+  const river = fallbackMatches('current', { rivers, accessPoints, missing: { ...none, rivers: true } });
+  assert.deepEqual(river.map((r) => [r.kind, r.riverSlug]), [['river', 'current']]);
+
+  const gauge = fallbackMatches('0706', { rivers, accessPoints, missing: { ...none, gauges: true } });
+  assert.equal(gauge.length, 1);
+  assert.equal(gauge[0].siteId, '07067000');
+  assert.deepEqual(gauge[0].coordinates, { lng: -91.0, lat: 37.0 });
+  // No reading is claimed from a copy that holds none.
+  assert.equal(gauge[0].gauge, null);
+
+  assert.match(SCREEN, /fallback: \{ rivers: networkRivers, accessPoints: drawnAccessPoints \}/);
 });
