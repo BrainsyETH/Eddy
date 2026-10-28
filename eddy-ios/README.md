@@ -333,8 +333,10 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 ### Floats discovery controls
 
 The Floats hub leads with Start a Float, or Your Float for an active recording.
-Today puts the same Your Float card before other content; Map replaces its planner
-button with the compact version while recording. The shared `YourFloatButton`
+Today puts the same Your Float card before other content; Map shows the compact
+version above its plan row while recording, so a plan built before the float can
+still be reopened or cleared, and the planner stays reachable. Like the plan
+button, it hides while a map sheet is open. The shared `YourFloatButton`
 also replaces Return to float on saved routes and in the planner, preserving the
 planner's sheet-dismissal navigation. It uses the existing canoe artwork and
 Trail Green palette, with “Tracking on the

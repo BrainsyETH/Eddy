@@ -2,6 +2,7 @@ import { hasLadder } from '@eddy/conditions/condition-ladder';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
 import { readingAge } from '@/lib/readingCopy';
+import { observedStamp } from '@/lib/observedStamp';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { fetchCondition, fetchRiverDetail } from '@/api/client';
@@ -40,8 +41,8 @@ export function EssentialsConditions({ slug, now }: { slug: string; now: number 
   }, [slug, reload]);
   const age = reading ? observationAgeHours(reading.readingTimestamp, reading.readingAgeHours, reading.cachedAt, now) : null;
   const band = readingBand(age);
-  const stamp = reading?.readingTimestamp && Number.isFinite(Date.parse(reading.readingTimestamp))
-    ? new Date(reading.readingTimestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
+  // Zone named, like the gauge and river screens (observedStamp.ts).
+  const stamp = observedStamp(reading?.readingTimestamp);
   const primary = reading?.thresholdUnit === 'ft' ? reading.gaugeHeightFt : reading?.dischargeCfs;
   const unit = reading?.thresholdUnit === 'ft' ? 'ft' : 'cfs';
   const usable = reading && band !== 'expired' && primary != null && Number.isFinite(primary);
@@ -54,7 +55,8 @@ export function EssentialsConditions({ slug, now }: { slug: string; now: number 
         verdict={rated ? { code: usable ? reading.code : 'unknown', lastKnown } : undefined}
         thresholds={reading?.thresholds}
         readingTimestamp={reading?.readingTimestamp}
-        stationName={reading?.gaugeName}
+        // The visible label only: passing the name as stationName as well
+        // printed it a second time in the card's Station row.
         stationLabel={reading?.gaugeName}
         age={band === 'expired' && reading ? 'Reading is out of date' : readingAge(age)}
         ageWarning={!!reading && lastKnown}

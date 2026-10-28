@@ -16,9 +16,9 @@ export default function RecordingLayout() {
   const params = useGlobalSearchParams<{ coldRecording?: string }>();
   const cold = useRef(params.coldRecording === '1');
   const { colors } = useTheme();
-  // "Keep screen awake" holds while River Mode is showing, Essentials sheet
+  // "Keep screen awake" holds while River Mode is showing, Float tools sheet
   // included. It was held by the River Mode screen itself, which loses focus
-  // the moment the Essentials form sheet presents over it: the screen could
+  // the moment the Float tools form sheet presents over it: the screen could
   // sleep while the paddler was reading the take-out or calling their pickup.
   // This group is focused for as long as anything in it is presented, and a
   // float that ends (the recap) releases it.

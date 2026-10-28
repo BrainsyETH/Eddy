@@ -3117,11 +3117,24 @@ function MapContent() {
             button reads "View float" and RESUMES state the reader already
             built, which competes with nothing: the sheet has no way back to an
             existing plan, so hiding it there would strand it. */}
-        {hiddenChrome.controls || (sheetOpen && !planner.plan && !hasActiveFloat) ? null : (
+        {/* An active float does not override the open-sheet rule: the
+            cluster sitting over an access or river sheet covered its content,
+            and Your Float stays one tap away once the sheet closes (and on
+            Today and Floats meanwhile). */}
+        {hiddenChrome.controls || (sheetOpen && !planner.plan) ? null : (
         <Animated.View
-          style={[styles.planCluster, { left: insets.left + 16, right: insets.right + 12, bottom: geometry.bottomInset + PLAN_CLUSTER_BOTTOM }, controlsStyle]}
+          style={[styles.planCluster, hasActiveFloat && styles.planClusterStacked, { left: insets.left + 16, right: insets.right + 12, bottom: geometry.bottomInset + PLAN_CLUSTER_BOTTOM }, controlsStyle]}
           pointerEvents="box-none"
         >
+          {/* YOUR FLOAT SITS ABOVE THE PLAN ROW, NOT IN PLACE OF IT. Replacing
+              the plan button left a plan built before the float stranded on
+              the map: no "View float" to reopen it and no clear button, until
+              the float ended. The planner is also how the next stretch gets
+              planned while this one is under way. */}
+          {!mapSearchOpen && hasActiveFloat ? (
+            <YourFloatButton compact style={styles.activeFloatButton} />
+          ) : null}
+          <View style={styles.planRow} pointerEvents="box-none">
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
               build a float and dismiss the sheet to look at the water between
               its ends — but nothing on the map could undo it. The only way
@@ -3129,7 +3142,7 @@ function MapContent() {
               which reads as starting another one, not discarding this one. So
               someone who just wanted a clean map had no reason to open the
               planner at all. It belongs where the plan is visible. */}
-          {!hasActiveFloat && !unavailable && planner.plan && !mapSearchOpen ? (
+          {!unavailable && planner.plan && !mapSearchOpen ? (
             <Pressable
               onPress={() => {
                 planner.reset();
@@ -3149,9 +3162,7 @@ function MapContent() {
           {/* The screen's one primary action, floated over the map so the map
               keeps every pixel it can. It changes label rather than multiplying:
               once a plan exists this is how you get back to it. */}
-          {!mapSearchOpen && hasActiveFloat ? (
-            <YourFloatButton compact style={styles.activeFloatButton} />
-          ) : !unavailable && !mapSearchOpen ? (
+          {!unavailable && !mapSearchOpen ? (
             <Pressable
               onPress={() => setPlanOpen(true)}
               style={({ pressed }) => [
@@ -3186,6 +3197,7 @@ function MapContent() {
               </Text>
             </Pressable>
           ) : null}
+          </View>
         </Animated.View>
         )}
 
@@ -3567,6 +3579,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 999,
   },
+  // With a float in progress the cluster becomes a column: Your Float above,
+  // the plan row (clear + plan button) under it, both still right-aligned and
+  // clear of the Mapbox wordmark on the left.
+  planClusterStacked: { flexDirection: 'column', alignItems: 'flex-end' },
+  planRow: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   activeFloatButton: { maxWidth: '55%' },
   planButtonText: { ...t.sm, fontFamily: fonts.heading },
   // Left of the plan button and the same height, so the two read as one row of

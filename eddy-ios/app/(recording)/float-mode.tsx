@@ -22,7 +22,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useNavigation, useRouter } from 'expo-router';
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { EddySymbol } from '@/components/EddySymbol';
 import { FloatActionIcon } from '@/components/FloatActionIcon';
 import { HazardReportFeedback } from '@/float/HazardReportFeedback';
@@ -73,7 +72,7 @@ export default function FloatModeScreen() {
   const [finishing, setFinishing] = useState(false);
   const focused = useIsFocused();
 
-  // Keep screen awake is held by the recording layout, so the Essentials
+  // Keep screen awake is held by the recording layout, so the Float tools
   // sheet presenting over this screen does not release it.
   const floatActive = session != null;
   const now = useFloatDisplayClock(focused && floatActive);
