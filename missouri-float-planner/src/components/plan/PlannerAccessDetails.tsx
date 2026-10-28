@@ -23,7 +23,7 @@ export default function PlannerAccessDetails({ point, riverSlug }: { point: Acce
   const photos = [...new Set([...current.imageUrls, ...(current.npsCampground?.images.map(photo => photo.url) ?? [])])];
   const [photoIndex, setPhotoIndex] = useState(0);
   const index = photoIndex % Math.max(1, photos.length);
-  return <div className="space-y-4 text-sm text-neutral-700">
+  return <div className="space-y-3 text-sm text-neutral-700">
     {photos.length > 0 && <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-neutral-100">
       <AccessPointPhoto src={photos[index]} alt={`${point.name}, photo ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />
       {photos.length > 1 && <>
@@ -33,10 +33,10 @@ export default function PlannerAccessDetails({ point, riverSlug }: { point: Acce
       </>}
     </div>}
     {query.data?.gaugeStatus && <AccessPointGauge gaugeStatus={query.data.gaugeStatus} />}
-    <details className="rounded-lg border-2 border-neutral-200 bg-white p-3">
-      <summary className="cursor-pointer font-semibold text-primary-700"><span className="inline-flex items-center gap-2"><EddyIcon name="road" size={24} />Directions</span></summary>
-      <div className="mt-3"><AccessPointNav accessPoint={current} /></div>
-    </details>
+    <div className="flex flex-wrap items-center justify-between gap-x-2 border-t border-neutral-200 pt-1">
+      <span className="text-xs font-semibold text-primary-700">Directions</span>
+      <AccessPointNav accessPoint={current} compact />
+    </div>
     {current.description && <p className="leading-relaxed">{current.description}</p>}
     {query.isPending && <p role="status" className="text-xs text-neutral-500">Loading more about this place…</p>}
     {query.isError && <p role="status" className="text-xs text-neutral-600">More details couldn’t load. <button type="button" className="font-semibold text-primary-700 underline" onClick={() => void query.refetch()}>Try again</button></p>}

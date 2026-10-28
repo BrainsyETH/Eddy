@@ -13,6 +13,11 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 River pages place “Find a float on this river” near the bottom, after the river
 guide and before the feedback link, when float search is enabled for the web.
 
+Planner shuttle controls use **Shuttle Route** with “Directions from point-to-point”
+and always-visible app icons. Google and Apple receive both road-coordinate
+endpoints; onX and Gaia open the take-out map. POI directions use compact,
+always-visible icons with 44px targets, accessible labels, and app-name tooltips.
+
 ## Web navigation
 
 The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a

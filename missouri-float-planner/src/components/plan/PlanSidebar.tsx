@@ -6,7 +6,8 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Share2, Download, Check, ChevronRight, CalendarPlus, Mail } from 'lucide-react';
+import { Share2, Download, Check, CalendarPlus, Mail } from 'lucide-react';
+import ShuttleRoute from './ShuttleRoute';
 import ClearRouteButton from './ClearRouteButton';
 import type { AccessPoint, FloatPlan, ConditionCode } from '@/types/api';
 import { getEddyImageForCondition } from '@/constants';
@@ -232,26 +233,7 @@ export default function PlanSidebar({
 
         {/* Shuttle route — above put-in/take-out cards */}
         {hasBothPoints && plan && (
-          <a
-            href={(() => {
-              const origin = plan.putIn.directionsOverride
-                ? encodeURIComponent(plan.putIn.directionsOverride)
-                : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
-              const dest = plan.takeOut.directionsOverride
-                ? encodeURIComponent(plan.takeOut.directionsOverride)
-                : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
-              return `https://www.google.com/maps/dir/${origin}/${dest}`;
-            })()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary flex items-center justify-between w-full px-3 py-2"
-          >
-            <div className="flex items-center gap-2">
-              <EddyIcon name="road" size={26} />
-              <span className="text-xs font-medium text-neutral-700">Drive Route</span>
-            </div>
-            <ChevronRight size={14} className="text-primary-400" />
-          </a>
+          <ShuttleRoute plan={plan} />
         )}
 
         {/* Put-in card */}

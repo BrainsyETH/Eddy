@@ -1,5 +1,6 @@
 'use client';
 
+import ShuttleRoute from './ShuttleRoute';
 import PlanDownstreamDams from '@/components/plan/PlanDownstreamDams';
 
 import { unknownConditionLabel } from '@shared/condition-availability';
@@ -1083,39 +1084,7 @@ function JourneyCenter({
         )}
       </div>
 
-      {/* Shuttle - Minimal button design */}
-      <div className="space-y-2">
-        <a
-          href={(() => {
-            const origin = plan.putIn.directionsOverride
-              ? encodeURIComponent(plan.putIn.directionsOverride)
-              : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
-            const dest = plan.takeOut.directionsOverride
-              ? encodeURIComponent(plan.takeOut.directionsOverride)
-              : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
-            return `https://www.google.com/maps/dir/${origin}/${dest}`;
-          })()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
-                <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
-                <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
-                <path d="M14 6l-4 5h9"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-neutral-800">Drive Route</p>
-              <p className="text-xs text-neutral-500">View in Google Maps</p>
-            </div>
-          </div>
-          <ChevronRight size={18} className="text-primary-400 group-hover:text-primary-600 transition-colors" />
-        </a>
-      </div>
+      <ShuttleRoute plan={plan} />
 
       {/* Road Access Warnings */}
       {plan.warnings.length > 0 && (
@@ -1521,36 +1490,7 @@ export function MobileBottomSheet({
         </div>
 
         {/* 2. Shuttle */}
-        <div className="space-y-2 mb-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Shuttle</p>
-          <a
-            href={(() => {
-              const origin = plan.putIn.directionsOverride
-                ? encodeURIComponent(plan.putIn.directionsOverride)
-                : `${plan.putIn.coordinates.lat},${plan.putIn.coordinates.lng}`;
-              const dest = plan.takeOut.directionsOverride
-                ? encodeURIComponent(plan.takeOut.directionsOverride)
-                : `${plan.takeOut.coordinates.lat},${plan.takeOut.coordinates.lng}`;
-              return `https://www.google.com/maps/dir/${origin}/${dest}`;
-            })()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg bg-primary-50 hover:bg-primary-100 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
-                  <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>
-                  <path d="M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9"/>
-                  <path d="M14 6l-4 5h9"/>
-                </svg>
-              </div>
-              <span className="text-sm font-medium text-neutral-800">Drive Route</span>
-            </div>
-            <ChevronRight size={16} className="text-primary-400" />
-          </a>
-        </div>
+        <div className="mb-3"><ShuttleRoute plan={plan} /></div>
 
         {/* Road Access Warnings */}
         {plan.warnings.length > 0 && (

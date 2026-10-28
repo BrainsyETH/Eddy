@@ -11,6 +11,7 @@ import { unknownConditionLabel } from '@shared/condition-availability';
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import ShuttleRoute from './ShuttleRoute';
 import { Share2, MapPin, Flag, Navigation, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
@@ -401,23 +402,7 @@ export default function PlanSummary({
                 <span className="truncate">Directions to Put-In</span>
                 <ExternalLink className="w-3.5 h-3.5 ml-auto flex-shrink-0 opacity-80" />
               </a>
-              <a
-                href={(() => {
-                  const origin = displayPlan.putIn.directionsOverride
-                    ? encodeURIComponent(displayPlan.putIn.directionsOverride)
-                    : `${displayPlan.putIn.coordinates.lat},${displayPlan.putIn.coordinates.lng}`;
-                  const dest = displayPlan.takeOut.directionsOverride
-                    ? encodeURIComponent(displayPlan.takeOut.directionsOverride)
-                    : `${displayPlan.takeOut.coordinates.lat},${displayPlan.takeOut.coordinates.lng}`;
-                  return `https://www.google.com/maps/dir/${origin}/${dest}`;
-                })()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs font-bold text-white border-2 border-neutral-900 bg-primary-600 shadow-[2px_2px_0_#0F2D35] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0_#0F2D35] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
-              >
-                <span className="truncate">Drive Route</span>
-                <ExternalLink className="w-3.5 h-3.5 ml-auto flex-shrink-0 opacity-80" />
-              </a>
+              <ShuttleRoute plan={displayPlan} />
             </div>
           </div>
         </div>

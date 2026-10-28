@@ -23,9 +23,11 @@ const NAV_APP_ICONS: Record<string, string> = {
 
 interface AccessPointNavProps {
   accessPoint: Pick<AccessPointDetail, 'coordinates' | 'name' | 'directionsOverride'> & Partial<Pick<AccessPointDetail, 'drivingLat' | 'drivingLng'>>;
+  compact?: boolean;
+  origin?: AccessPointNavProps['accessPoint'];
 }
 
-export default function AccessPointNav({ accessPoint }: AccessPointNavProps) {
+export default function AccessPointNav({ accessPoint, compact = false, origin }: AccessPointNavProps) {
   const coords = getNavCoordinates({
     drivingLat: accessPoint.drivingLat,
     drivingLng: accessPoint.drivingLng,
@@ -34,17 +36,37 @@ export default function AccessPointNav({ accessPoint }: AccessPointNavProps) {
   });
 
   const navLinks = generateNavLinks(coords, accessPoint.directionsOverride);
+  // Outdoor apps retain their supported destination map links. Driving apps
+  // receive both endpoints, using road coordinates instead of the river pin.
+  if (origin) {
+    const start = getNavCoordinates(origin);
+    const source = `${start.lat},${start.lng}`;
+    const destination = `${coords.lat},${coords.lng}`;
+    for (const link of navLinks) {
+      if (link.app === 'google') {
+        const params = new URLSearchParams({ api: '1', origin: source, destination, travelmode: 'driving' });
+        link.webFallback = `https://www.google.com/maps/dir/?${params}`;
+        link.deepLink = link.webFallback;
+      } else if (link.app === 'apple') {
+        const params = new URLSearchParams({ saddr: source, daddr: destination, dirflg: 'd' });
+        link.webFallback = `https://maps.apple.com/?${params}`;
+        link.deepLink = link.webFallback;
+      }
+    }
+  }
   const platform = detectPlatform();
 
   const handleClick = (e: React.MouseEvent, link: NavLink) => {
     // Let modified clicks (new tab, middle-click) use the plain href
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    // Universal driving links work directly in browsers and installed map apps.
+    if (origin && (link.app === 'google' || link.app === 'apple')) return;
     e.preventDefault();
     handleNavClick(link, platform);
   };
 
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className={compact ? "flex shrink-0 items-center gap-1" : "grid grid-cols-4 gap-2"}>
       {navLinks.map((link) => (
         <a
           key={link.app}
@@ -52,22 +74,28 @@ export default function AccessPointNav({ accessPoint }: AccessPointNavProps) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => handleClick(e, link)}
-          className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px] no-underline"
+          aria-label={origin && (link.app === 'onx' || link.app === 'gaia')
+            ? `Open ${accessPoint.name} in ${link.label}`
+            : `${origin ? `Shuttle from ${origin.name} to` : 'Directions to'} ${accessPoint.name} in ${link.label}`}
+          title={origin && (link.app === 'onx' || link.app === 'gaia') ? `${link.label}: view take-out on map` : link.label}
+          className={compact
+            ? "flex h-11 w-11 items-center justify-center rounded-lg hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-colors no-underline"
+            : "flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px] no-underline"}
         >
           <div className="flex items-center justify-center w-8 h-8">
             {NAV_APP_ICONS[link.app] ? (
               <Image
                 src={NAV_APP_ICONS[link.app]}
-                alt={link.label}
-                width={28}
-                height={28}
+                alt=""
+                width={compact ? 24 : 28}
+                height={compact ? 24 : 28}
                 className="rounded object-contain"
               />
             ) : (
               <span className="text-xl">{link.icon}</span>
             )}
           </div>
-          <span className="text-xs font-semibold text-neutral-900">{link.label}</span>
+          {!compact && <span className="text-xs font-semibold text-neutral-900">{link.label}</span>}
         </a>
       ))}
     </div>
