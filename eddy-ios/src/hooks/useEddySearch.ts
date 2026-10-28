@@ -41,6 +41,7 @@ import { stationCaption } from '@/lib/gaugeProvider';
 import { DAM_CATALOG, damSubtitle } from '@/lib/damCatalog';
 import { mappableService } from '@/map/mappable';
 import { serviceTypeLabel } from '@/map/serviceLayers';
+import { fallbackMatches, type FallbackSources } from '@/hooks/searchFallback';
 
 /** Matches the server's floor — below this a query matches most of the data. */
 const MIN_QUERY_LENGTH = 2;
@@ -121,6 +122,14 @@ interface Options {
    * you guessed one's name.
    */
   browse?: boolean;
+  /**
+   * What the map draws from disk, for when a live source is missing.
+   *
+   * Rivers match from here while /api/rivers has not answered; put-ins and
+   * rated gauges while the server half is failing. Without it, offline search
+   * could not find a put-in whose pin was on screen. See searchFallback.ts.
+   */
+  fallback?: Pick<FallbackSources, 'rivers' | 'accessPoints'> | null;
 }
 
 interface SearchState {
@@ -348,6 +357,7 @@ export function useEddySearch({
   kinds,
   enabled = true,
   browse = false,
+  fallback = null,
 }: Options): SearchState {
   const [query, setQuery] = useState('');
   // The server's answer AND the query it answers, in one piece of state.
@@ -414,9 +424,27 @@ export function useEddySearch({
   // array without an array literal re-running the effect on every keystroke.
   const kindKey = kinds?.length ? kinds.join(',') : '';
 
+  // The on-disk fallback only stands in for a source that is not answering:
+  // rivers while the list is missing, put-ins and rated gauges while the
+  // server half is failing. Online, the server's rows would duplicate these
+  // under different ids and names.
+  const fallbackRivers = fallback?.rivers ?? null;
+  const fallbackAccess = fallback?.accessPoints ?? null;
+  const serverDown = serverFailure !== null;
   const local = useMemo(
-    () => localMatches(trimmed, { rivers, gauges, dams, hazards, services }),
-    [trimmed, rivers, gauges, dams, hazards, services],
+    () => [
+      ...fallbackMatches(trimmed, {
+        rivers: fallbackRivers,
+        accessPoints: fallbackAccess,
+        missing: {
+          rivers: rivers === null,
+          gauges: gauges === null && serverDown,
+          accessPoints: serverDown,
+        },
+      }),
+      ...localMatches(trimmed, { rivers, gauges, dams, hazards, services }),
+    ],
+    [trimmed, rivers, gauges, dams, hazards, services, fallbackRivers, fallbackAccess, serverDown],
   );
 
   useEffect(() => {
