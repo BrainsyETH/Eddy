@@ -186,7 +186,7 @@ The items first listed as open, addressed after the initial pass:
 - **Report limits:** a report signed with a session is limited per account,
   with a looser per-IP backstop; unsigned reports keep the per-IP limit.
 - **Keep screen awake** is held by the recording layout, so it stays on while
-  the Essentials sheet is open over River Mode.
+  the Float tools sheet is open over River Mode.
 
 ## Left as they are, deliberately
 
