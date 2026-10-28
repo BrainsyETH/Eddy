@@ -15,8 +15,9 @@
 import { AlertCreationFrame } from '@/components/AlertCreationFrame';
 import { useAlertEditGuard } from '@/hooks/useAlertEditGuard';
 import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
-import { alertDraftChanged, type AlertDraft } from '@/lib/alertCreation';
+import { alertDraftChanged, parseThresholdInput, type AlertDraft } from '@/lib/alertCreation';
 import { groupAlertRules } from '@/lib/alertGroups';
+import { staleReadingNote } from '@/lib/alertCopy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -159,8 +160,8 @@ export default function EditAlertScreen() {
     // Save, and therefore renders straight from the rule.
   }, [rule?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const parsedValue = Number(value);
-  const parsedMax = Number(valueMax);
+  const parsedValue = parseThresholdInput(value);
+  const parsedMax = parseThresholdInput(valueMax);
   const isThreshold = rule?.mode === 'threshold';
   const valueValid = !isThreshold || (Number.isFinite(parsedValue) && value.trim() !== '');
   const maxValid = !isThreshold || comparator !== 'between' || (Number.isFinite(parsedMax) && parsedMax > parsedValue);
@@ -411,7 +412,9 @@ export default function EditAlertScreen() {
                   ? 'Held off by the river alert above, which is paused.'
                   : 'Paused here, and held off by the river alert above too.'
                 : rule.enabled
-                  ? 'Watching for changes.'
+                  ? staleReadingNote(rule)
+                    ? `${staleReadingNote(rule)}. Nothing is sent until it reports again.`
+                    : 'Watching for changes.'
                   : spent
                     ? 'Already sent — switch on to watch again.'
                     : 'Paused — nothing will be sent.'}

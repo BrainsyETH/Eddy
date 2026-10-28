@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { blockingQualifiers, gateReading, isFlatlined, type GateInput } from './gate';
+import { gaugeRuleReadingStale } from './rule-serialize';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const FRESH = new Date('2026-07-25T11:45:00.000Z').toISOString();
@@ -207,4 +208,21 @@ test('staleness is judged before qualifiers', () => {
     gateReading(input({ readingAt: old, qualifiers: ['Ice'] })),
     { ok: false, reason: 'stale' }
   );
+});
+
+// ── a rule that cannot fire because its gauge stopped reporting ─────────────
+
+
+test('a gauge rule with no usable reading past the gate window says so', () => {
+  // Audit finding 4: a rule whose station stopped reporting was skipped as
+  // gated on every pass and still read "Watching for changes".
+  const now = Date.parse('2026-10-28T18:00:00Z');
+  const base = { enabled: true, created_at: '2026-10-01T00:00:00Z' };
+  assert.equal(gaugeRuleReadingStale({ ...base, last_reading_at: '2026-10-28T16:30:00Z' }, 'usgs', now), false);
+  assert.equal(gaugeRuleReadingStale({ ...base, last_reading_at: '2026-10-28T14:30:00Z' }, 'usgs', now), true, 'past 3 h for USGS');
+  assert.equal(gaugeRuleReadingStale({ ...base, last_reading_at: '2026-10-28T14:30:00Z' }, 'nws', now), false, 'NWS gets 6 h, like the gate');
+  assert.equal(gaugeRuleReadingStale({ ...base, last_reading_at: null }, 'usgs', now), true, 'never had one');
+  assert.equal(gaugeRuleReadingStale({ enabled: true, created_at: '2026-10-28T17:00:00Z', last_reading_at: null }, 'usgs', now), false,
+    'a rule younger than the window is not stale yet');
+  assert.equal(gaugeRuleReadingStale({ ...base, enabled: false, last_reading_at: null }, 'usgs', now), false, 'a paused rule is paused, not stale');
 });

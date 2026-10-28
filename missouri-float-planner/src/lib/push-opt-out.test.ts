@@ -5,6 +5,16 @@ import {
   setDeviceOptedOut,
   type PushOptOutStorage,
 } from '../../../eddy-ios/src/lib/pushOptOut';
+import {
+  EMPTY_PUSH_LEDGER,
+  REREGISTER_AFTER_MS,
+  needsRegistration,
+  readPushLedger,
+  registered,
+  released,
+  unregistered,
+  writePushLedger,
+} from '../../../eddy-ios/src/lib/pushLedger';
 
 function memoryStorage(): PushOptOutStorage {
   const values = new Map<string, string>();
@@ -31,4 +41,62 @@ test('storage write failures are observable so the UI cannot claim persistence',
   };
   assert.equal(await isDeviceOptedOut(storage), false);
   await assert.rejects(setDeviceOptedOut(true, storage), /unavailable/);
+});
+
+// ── the registration ledger (pushLedger.ts) ─────────────────────────────────
+
+
+const TOKEN = 'ExponentPushToken[abc]';
+const ROW = '11111111-2222-4333-8444-555555555555';
+
+test('an unchanged registration is not sent again within a day', () => {
+  // Every foreground used to POST, against a fail-closed 30-per-15-minutes
+  // limit: heavy app switching turned a healthy row into "Connecting now".
+  const ledger = registered('A', TOKEN, ROW, 1_000);
+  assert.equal(needsRegistration(ledger, 'A', TOKEN, 1_000 + 60_000), false);
+  assert.equal(needsRegistration(ledger, 'A', TOKEN, 1_000 + REREGISTER_AFTER_MS), true, 'a day refreshes last_seen_at');
+  assert.equal(needsRegistration(ledger, 'B', TOKEN, 2_000), true, 'another account');
+  assert.equal(needsRegistration(ledger, 'A', 'ExponentPushToken[rotated]', 2_000), true, 'a rotated token');
+  assert.equal(needsRegistration(ledger, 'A', TOKEN, 0), true, 'a clock behind the record');
+  assert.equal(needsRegistration(EMPTY_PUSH_LEDGER, 'A', TOKEN, 0), true);
+});
+
+test('a sign-out whose unregister could not be sent leaves a release owed', () => {
+  const ledger = registered('A', TOKEN, ROW, 1_000);
+  const owed = unregistered(ledger, false);
+  assert.deepEqual(owed.release, { expoPushToken: TOKEN, deviceId: ROW });
+  assert.equal(owed.registration, null, 'the next account registers afresh');
+  assert.deepEqual(released(owed).release, null);
+});
+
+test('a sign-out that reached the server owes nothing', () => {
+  assert.deepEqual(unregistered(registered('A', TOKEN, ROW, 1_000), true), EMPTY_PUSH_LEDGER);
+});
+
+test('without the row id there is nothing a release could prove, so none is owed', () => {
+  assert.equal(unregistered(registered('A', TOKEN, null, 1_000), false).release, null);
+});
+
+test('a registration that lands clears any release still owed', () => {
+  // The owed release named this token's row; after a re-registration that row
+  // belongs to the account that just signed in, and releasing it would
+  // unregister them.
+  const owed = unregistered(registered('A', TOKEN, ROW, 1_000), false);
+  assert.ok(owed.release);
+  assert.equal(registered('B', TOKEN, 'row-b', 2_000).release, null);
+});
+
+test('the ledger round-trips and an unreadable one reads as empty', async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    async getItem(key: string) { return values.get(key) ?? null; },
+    async setItem(key: string, value: string) { values.set(key, value); },
+  };
+  const owed = unregistered(registered('A', TOKEN, ROW, 1_000), false);
+  await writePushLedger(owed, storage);
+  assert.deepEqual(await readPushLedger(storage), owed);
+  values.set('eddy.push.ledger.v1', '{not json');
+  assert.deepEqual(await readPushLedger(storage), EMPTY_PUSH_LEDGER);
+  values.set('eddy.push.ledger.v1', JSON.stringify({ registration: { userId: 7 }, release: { expoPushToken: TOKEN } }));
+  assert.deepEqual(await readPushLedger(storage), EMPTY_PUSH_LEDGER, 'malformed parts are dropped, not trusted');
 });

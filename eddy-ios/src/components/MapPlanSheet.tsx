@@ -80,7 +80,7 @@ export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChoos
           {plan && !calculating && !error ? <>
             <Text style={[textStyles.sectionTitle, { color: colors.text }]}>{plan.distance.formatted}</Text>
             <Text style={[t.base, { color: colors.text }]}>{plan.floatTime?.formatted ?? 'Float time unavailable'}</Text>
-            {plan.warnings.map(warning => <Text key={warning} style={[t.sm, { color: colors.text }]}>{warning}</Text>)}
+            {plan.warnings.map((warning, index) => <Text key={`${index}:${warning}`} style={[t.sm, { color: colors.text }]}>{warning}</Text>)}
             <Pressable onPress={onOpenPlan} accessibilityRole="button"
               style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 }]}>
               <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>View full plan</Text>

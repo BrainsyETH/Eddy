@@ -1568,9 +1568,16 @@ function MapContent() {
     [plannerAccess, selectedSlug],
   );
   // Planning needs a river ID and ordered access points, not the river's heavy
-  // full-resolution geometry. RiverListItem already carries that ID, so the
-  // planner becomes usable as soon as cached access points arrive.
-  const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
+  // full-resolution geometry. The id comes from the statewide network first:
+  // that dataset is on disk from the first paint, while /api/rivers is the one
+  // request on this screen with nothing behind it. Keying the planner on the
+  // list's id meant a plan started before that list landed was reset (put-in,
+  // take-out and all) the moment it did, and a plan started offline on a
+  // curated river was told the river "cannot be planned yet".
+  const planner = useFloatPlan(
+    (selectedSlug ? network.bySlug.get(selectedSlug)?.id : null) ?? selected?.id ?? null,
+    plannerAccessPoints,
+  );
   const mapPlanning = mapPlanRiver === selectedSlug && planner.putIn != null;
 
   /**
@@ -2617,39 +2624,32 @@ function MapContent() {
       return;
     }
 
-    // Denied, with nothing remembered to fall back on: the one case where the
-    // tap used to produce a brief spinner and nothing else. iOS will not
-    // re-show the dialog, so the honest answer names the door — the same
-    // Linking.openSettings escape the Today tab's distance sort and Profile's
-    // push denial already offer.
-    if (location.status === 'denied') {
-      Alert.alert(
-        'Location is off for Eddy',
-        'Turn it on in Settings to see yourself on the map.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-        ],
-      );
-      return;
-    }
-
-    // Permission held, and still no fix — airplane mode, indoors, a cold GPS.
-    // The other case where the tap spun and then did nothing, and unlike a
-    // denial it is worth trying again, so the alert says how rather than
-    // where.
-    //
-    // Asked of the OS rather than read off `location.status`: the status the
-    // hook set during the request above is not in this closure, which holds
-    // the render's value from BEFORE the tap. Reading it here would show this
-    // alert on the second failed tap and stay silent on the first — the one
-    // the person is looking at. getForegroundPermissionsAsync reports the
-    // grant and never prompts, so with a grant in hand and no coordinates, no
-    // fix is the only thing that can be true.
+    // Nothing to show. Both answers below are asked of the OS rather than
+    // read off `location.status`: the status the hook set during the request
+    // above is not in this closure, which holds the render's value from
+    // BEFORE the tap. Reading it would stay silent on the first failed tap
+    // (the one the person is looking at) and only speak on the second.
+    // getForegroundPermissionsAsync reports the decision and never prompts.
     const { status: permission } = await Location.getForegroundPermissionsAsync();
     if (permission === Location.PermissionStatus.GRANTED) {
+      // Permission held, and still no fix — airplane mode, indoors, a cold
+      // GPS. Worth trying again, so the alert says how rather than where.
       Alert.alert('No location fix yet', 'Try again outside or with Wi-Fi on.');
+      return;
     }
+    // Denied (just now, or long ago), with nothing remembered to fall back
+    // on: the case where the tap used to produce a brief spinner and nothing
+    // else. iOS will not re-show the dialog, so the honest answer names the
+    // door — the same Linking.openSettings escape the Today tab's distance
+    // sort and Profile's push denial already offer.
+    Alert.alert(
+      'Location is off for Eddy',
+      'Turn it on in Settings to see yourself on the map.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+      ],
+    );
   }, [location, issueCameraCommand]);
 
   const pinAccess = accessPointForPin(selectedPin);
@@ -2868,8 +2868,24 @@ function MapContent() {
           // arrived. Once either has, the map draws: switching rivers keeps the
           // one already on screen until the next lands, and a river loading over
           // an already-drawn network needs no spinner at all.
+          //
+          // A first-ever launch with no signal has nothing on disk to draw and
+          // a request that failed: that is not "loading", and a spinner that
+          // never ends is the one answer this screen must not give. The focus
+          // retry in useStatewideNetwork asks again the next time the tab is
+          // looked at.
           <View style={styles.centered}>
-            <ActivityIndicator color={colors.interactive} />
+            {network.geometryFailed && !network.collection.features.length ? (
+              <View style={styles.networkUnavailable}>
+                <ControlIcon name="cloud-offline-outline" size={22} color={colors.textMuted} />
+                <Text style={[styles.networkUnavailableTitle, { color: colors.text }]}>Couldn’t load the river map</Text>
+                <Text style={[styles.networkUnavailableBody, { color: colors.textMuted }]}>
+                  Eddy needs a connection the first time it draws the rivers. It will try again when you come back to this tab.
+                </Text>
+              </View>
+            ) : (
+              <ActivityIndicator color={colors.interactive} />
+            )}
           </View>
         ) : (
           <RiverMap
@@ -3477,6 +3493,9 @@ const styles = StyleSheet.create({
   resultsOverlay: { flexShrink: 1, minHeight: 0, marginTop: 8 },
   sheetHost: { position: 'absolute', bottom: 0 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  networkUnavailable: { alignItems: 'center', gap: 8, paddingHorizontal: 32 },
+  networkUnavailableTitle: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
+  networkUnavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   unavailableTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   unavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   // Bottom-anchored column. MAP_CHROME_BOTTOM clears the Mapbox ornaments,

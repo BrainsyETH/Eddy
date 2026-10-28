@@ -875,9 +875,10 @@ the only effect would be a silent retry behind a spinner.
 
 Precise coordinates are used on the device for distance sorting. Today sends
 coordinates rounded to 0.05 degrees to Eddy for local weather. Find a Route
-uses the same rounding for the `near` coordinates sent to Eddy when Search is
-tapped, including when the finder automatically selected Near you under an
-existing grant. Acquiring a fix and filling Near you alone sends no route
+rounds the `near` coordinates sent to Eddy when Search is tapped to 0.01
+degrees (about a kilometre; `approximateLocation` in `shared/float-search.ts`,
+which the server applies again), including when the finder automatically
+selected Near you under an existing grant. Acquiring a fix and filling Near you alone sends no route
 search; selecting a river instead omits `near`. Do not describe location as
 never leaving the device.
 
@@ -1191,6 +1192,23 @@ The separate saved star and swipe action both remove only the current account's
 save. Stale readings stay neutral, expired values stay hidden, and narrow or
 large-text layouts stack the artwork and readings without truncating names.
 
+Starred rivers, gauges and dams live in one local store (`eddy.stars.v3`)
+that remembers the last signed-in account it was reconciled with. A guest's
+stars are adopted once by the first account to sign in. A *different*
+signed-in account replaces the local set with its own server stars rather
+than inheriting the previous person's. After a sign-out the stars stay on the
+device, as the sign-out alert says, but the guest identity that follows does
+not push them to the server, because that guest may be the identity the next
+person links their Apple ID to. The rule is `starSyncPolicy` in
+`packages/eddy-sync`. A star POST carries the time it was made on the device,
+which the server stores as the row's `created_at` (bounded to never be after
+the server's own clock; `src/lib/star-time.ts`), so a quick star-then-unstar
+on one phone is compared on that phone's clock and is not resurrected. Pushes run one request each: a river the server no
+longer knows (a 404) or a rate limit on one entity cannot stall the rest of
+the sync, and a star tapped before the store has loaded is folded into the
+loaded list rather than replaced by it. Pull-to-refresh on Favorites also
+refreshes saved places, past their automatic backoff.
+
 Places are stored in versioned `eddy.savedPlaces.v2:<owner>` collections:
 one for each signed-in account and one for guests. Switching accounts hides
 the previous collection immediately and restores the selected account's
@@ -1418,7 +1436,8 @@ for why safety data can never sit behind a wall.
 Essentials keeps the `/float-options` route so existing notification and Live Activity
 links keep working. It leads with raw location sharing and the take-out, followed by
 Ahead, the optional pickup contact, timestamped gauge readings, and the Keep screen
-awake switch (one tap away, off unless chosen). Settings are
+awake switch (one tap away, off unless chosen; held by the recording layout, so it
+stays on while Essentials is open over River Mode). Settings are
 collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
 status and actionable errors. Hazard instructions are never truncated.
 Live Activity status, including update errors and the system's eight-hour expiry
@@ -1559,7 +1578,10 @@ Options expands to full height and scrolls, with hazard reporting before
 reminders. Details and limitations use info buttons.
 
 Closing returns to the actual origin and recording continues; a cold recording
-link closes to Floats.
+link closes to Floats. A screen opened cold from a Live Activity or the
+arrival notification waits for the stored float to be read
+(`useFloatSessionLoaded`) before concluding there is none; the notification's
+Finish action does the same before ending the float.
 Standalone planners are removed when handing off, so Back cannot reopen an
 empty, dismissed planner. Persisted session `saved`/`quick` kinds remain for
 recovery compatibility, not as separate setup experiences.
@@ -1768,7 +1790,20 @@ reached on a simulator, where `Device.isDevice` is false. It comes from the same
 Registration requires a signed-in account, because push identity is purchase
 identity: the route and the RLS policy in migration `00183` both enforce it.
 Signing out and deleting an account each unregister first, while the token can
-still authenticate.
+still authenticate. They unregister without opting the device out: the
+persisted opt-out belongs to the Notifications switch alone, so the next
+account to sign in (or the same one) registers again as usual. An unregister
+that cannot be sent (no signal, or a session that could not be refreshed) is
+recorded on the device as a release owed (`src/lib/pushLedger.ts`) and sent on
+a later launch to `/api/device-tokens/release`, which needs no account: the
+push token and the row id the server returned at registration are the proof.
+Independently, `/api/me/device-tokens` releases a token from any other
+account before registering it: a push token names the phone, and the account
+leaving it must not keep being notified on it. The same ledger skips a
+registration that would change nothing (same account and token, within a
+day), so foregrounding does not spend the route's fail-closed limit. Signing out is
+local to the device (`scope: 'local'`); it does not revoke the account's
+sessions elsewhere.
 
 Eddy Settings shows a switch only when the app can change notification state.
 When iOS has denied permission, the row opens iOS Settings instead; when the

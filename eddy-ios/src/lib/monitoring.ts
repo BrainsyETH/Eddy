@@ -37,6 +37,7 @@ import Constants from 'expo-constants';
 import { pickEnvironment } from '@/lib/app-environment';
 import { isContextBag, redactContext, redactText, redactValue } from '@/lib/redact';
 import { scrubEvent } from '@/lib/scrub-event';
+import { routeOf } from '@/lib/requestTiming';
 import {
   createReportBudget,
   fingerprintOf,
@@ -136,6 +137,14 @@ function initSentry(): void {
       scrubFloatSearchBreadcrumb(crumb);
       if (crumb.message) crumb.message = redactText(crumb.message);
       if (crumb.data) crumb.data = redactContext(crumb.data) as typeof crumb.data;
+      // The default fetch/xhr breadcrumb records the full request URL: the
+      // search text, the river slug, the gauge id, the viewport bbox. The
+      // redaction table catches coordinates and tokens, not those. The route
+      // name is what a crash needs; requestTiming already treats a slug as a
+      // location record for the same reason.
+      if ((crumb.category === 'fetch' || crumb.category === 'xhr') && crumb.data && typeof crumb.data.url === 'string') {
+        crumb.data = { ...crumb.data, url: routeOf(crumb.data.url) };
+      }
       return crumb;
     },
   });

@@ -33,6 +33,7 @@
 import { useCallback, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { usePush } from '@/hooks/usePush';
+import { getPermissionState } from '@/lib/push';
 import { useSession } from '@/hooks/useSession';
 
 /** What actually happened, so a caller can navigate deterministically. */
@@ -102,7 +103,13 @@ export function useAlertGate(): AlertGate {
         // waiting to be delivered, which is the strongest case this app will
         // ever have. Asking earlier burns it on a hypothetical. See the header
         // of src/lib/push.ts for why there is exactly one chance at this.
-        const primed = primes && permission === 'undetermined';
+        //
+        // Asked of the OS now rather than read off `permission`: that is
+        // 'undetermined' until the first read after launch resolves, so an
+        // alert saved in the first second on a phone that had long since
+        // granted (or denied) showed a primer for a decision already made.
+        const current = primes ? await getPermissionState().catch(() => permission) : permission;
+        const primed = primes && current === 'undetermined';
         if (primed) setPrimerOpen(true);
         // RETURNED, not read back off state. A caller deciding whether to pop
         // the screen has to know now; `primerOpen` has not re-rendered yet,

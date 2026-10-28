@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AccessPointDetailResponse, CampsiteAvailabilitySummary, DamSnapshot, RiverService } from '../../../packages/eddy-types';
-import { createSavedPlacesStore, decodeSavedPlaces, placeFromAccess, placeFromPin, placeFromService, savedScheduleState, wholeRiverDam, SAVED_PLACES_KEY, savedPlacesKey, savedPlacesOwner } from '../../../eddy-ios/src/lib/savedPlaces';
+import { createSavedPlacesStore, decodeSavedPlaces, placeFromAccess, placeFromPin, placeFromService, savedScheduleState, wholeRiverDam, SAVED_PLACES_KEY, savedPlacesKey, savedPlacesOwner, unreadablePlacesKey } from '../../../eddy-ios/src/lib/savedPlaces';
 import { createSavedPlaceRefresher, refreshedDam, createPlaceAutoRefresh, placeRefreshNeeds } from '../../../eddy-ios/src/lib/savedPlaceRefresh';
 import { accessDetailPresentation, retainNewerSavedObservations } from '../../../eddy-ios/src/lib/accessDetailPresentation';
 
@@ -674,4 +674,31 @@ test('saved camping caption names measured availability and qualifies first-come
   assert.match(savedCampingDisplay(campingPlace(window), Date.parse(now))?.caption ?? '', /available for Oct 25–27/);
   const stale = availability({ fetchedAt: '2026-10-01T00:00:00Z' });
   assert.equal(savedCampingDisplay(campingPlace(stale), Date.parse(now))?.caption, '');
+});
+
+test('a corrupt collection is set aside and the list stays writable', async () => {
+  // A truncated or garbled blob used to hold "Couldn't load saved places"
+  // forever and fail every Save. A NEWER build's collection is different, and
+  // still never overwritten (the test above); it gets an "Update Eddy" message.
+  for (const raw of ['{not json', '{"version":2}', '[]']) {
+    const disk = memory();
+    disk.values.set(savedPlacesKey('guest'), raw);
+    const store = createSavedPlacesStore(disk);
+    await store.load();
+    assert.equal(store.snapshot().error, null);
+    assert.equal(store.snapshot().recovered, true);
+    assert.equal(disk.values.get(unreadablePlacesKey('guest')), raw, 'the original is kept untouched');
+    await store.save(placeFromAccess(detail, '2026-10-28T12:00:00.000Z'));
+    assert.equal(store.snapshot().places.length, 1, 'saving works again');
+  }
+});
+
+test('a newer build\'s collection says to update Eddy, and is still never overwritten', async () => {
+  const disk = memory();
+  disk.values.set(savedPlacesKey('guest'), '{"version":3,"places":[]}');
+  const store = createSavedPlacesStore(disk);
+  await store.load();
+  assert.match(store.snapshot().error ?? '', /newer version of Eddy/);
+  assert.equal(store.snapshot().recovered, undefined);
+  assert.equal(disk.values.get(savedPlacesKey('guest')), '{"version":3,"places":[]}');
 });

@@ -21,6 +21,7 @@ export function usePlannerData(initialRiver?: string) {
     slug: string;
     points: MapAccessPoint[];
     error: string | null;
+    settled: boolean;
   } | null>(null);
   const { isStarred } = useStarredRivers();
   useEffect(() => {
@@ -44,7 +45,7 @@ export function usePlannerData(initialRiver?: string) {
       readCached: async () => (await readRiver(slug))?.payload.accessPoints,
       fetchFresh: (signal) => fetchRiverAccessPoints(slug, signal),
       signal: controller.signal,
-      publish: (points, error) => setAccess({ slug, points: points ?? [], error }),
+      publish: (points, error, settled) => setAccess({ slug, points: points ?? [], error, settled }),
       errorMessage: 'Could not load access points. Check your connection and try again.',
     });
     return () => controller.abort();
@@ -70,6 +71,8 @@ export function usePlannerData(initialRiver?: string) {
     accessPoints: access?.slug === slug ? access.points : NO_POINTS,
     accessLoading: !!slug && access?.slug !== slug,
     accessError: access?.slug === slug ? access.error : null,
+    /** No newer access list is coming for this river (see loadPlannerResource). */
+    accessSettled: access?.slug === slug && access.settled,
     retry: () => {
       setIndex((current) => ({ ...current, loading: current.rows.length === 0, error: null }));
       setAccess(null);

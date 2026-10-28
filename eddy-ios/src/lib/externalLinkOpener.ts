@@ -1,5 +1,12 @@
 type OpenUrl = (url: string) => Promise<unknown>;
 
+/**
+ * Non-web schemes the app will hand to the system: a call, a text, an email,
+ * and the two navigation apps the directions chooser offers deep links for
+ * (directionsChoices.ts). Nothing else a server record could carry.
+ */
+const SYSTEM_SCHEMES = new Set(['tel:', 'sms:', 'mailto:', 'comgooglemaps:', 'waze:']);
+
 /** Native-free so the handoff, fallback and duplicate-tap rules can be tested. */
 export function createExternalLinkOpener({ openBrowser, openSystem, openBookingApp, onError }: {
   openBrowser: OpenUrl;
@@ -17,6 +24,10 @@ export function createExternalLinkOpener({ openBrowser, openSystem, openBookingA
       const { protocol } = parsed;
       if (protocol !== 'https:' && protocol !== 'http:') {
         // Contact rows can contain telephone/email links as well as websites.
+        // Only those: every other scheme a record could carry (an app store
+        // link, a third-party app's) is refused rather than handed to the
+        // system on the strength of a server field.
+        if (!SYSTEM_SCHEMES.has(protocol)) throw new Error(`Unsupported link: ${protocol}`);
         await openSystem(target);
         return;
       }

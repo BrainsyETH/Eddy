@@ -139,14 +139,37 @@ function mergeGuestPlaces(account: SavedPlace[], guest: SavedPlace[]) {
   return [...rows.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 const claimedOwner = (raw: string | null): string | null => {
-  const owner = raw ? JSON.parse(raw)?.claimedBy : null;
+  // A corrupt guest collection has no claim; it must not fail the load of
+  // the account being opened (the guest's own load recovers it).
+  let owner: unknown = null;
+  try { owner = raw ? JSON.parse(raw)?.claimedBy : null; } catch { owner = null; }
   return typeof owner === 'string' && owner !== 'guest' ? owner : null;
+};
+/** Guest places worth moving into an account; an unreadable guest list has none. */
+const claimableGuest = (raw: string | null): SavedPlace[] => {
+  try { return decodeSavedPlaces(raw); } catch { return []; }
 };
 const encodePlaces = (places: SavedPlace[], claimedBy?: string) => JSON.stringify({ version: 2, places, ...(claimedBy ? { claimedBy } : {}) });
 
 /** Scope changes hide old rows immediately; late work can only touch its original scope. */
+/** A well-formed collection from a later schema, which this build must leave alone. */
+function newerPlacesVersion(raw: string | null): boolean {
+  try {
+    const version = raw ? JSON.parse(raw)?.version : null;
+    return typeof version === 'number' && version > 2;
+  } catch {
+    return false;
+  }
+}
+
+/** Where a corrupt collection is set aside, untouched. */
+export const unreadablePlacesKey = (owner: string) => `${savedPlacesKey(owner)}.unreadable`;
+
 export function createSavedPlacesStore(storage: Storage) {
-  let state: { owner: string; scopeToken: number; ready: boolean; places: SavedPlace[]; error: string | null } =
+  // `recovered`: this account's stored collection could not be read (corrupt,
+  // or written by a newer build and opened after a rollback) and was set
+  // aside, so the list started fresh. Shown once as a note, never as an error.
+  let state: { owner: string; scopeToken: number; ready: boolean; places: SavedPlace[]; error: string | null; recovered?: boolean } =
     { owner: 'guest', scopeToken: 0, ready: false, places: [], error: null };
   let loading: Promise<void> | null = null;
   let claimGuest = false;
@@ -163,7 +186,7 @@ export function createSavedPlacesStore(storage: Storage) {
       await writes.catch(() => {});
       let raw = await storage.getItem(savedPlacesKey(owner));
       const guestRaw = owner === 'guest' ? raw : await storage.getItem(SAVED_PLACES_KEY);
-      if (current() && (claimedOwner(guestRaw) || shouldClaimGuest && decodeSavedPlaces(guestRaw).length)) {
+      if (current() && (claimedOwner(guestRaw) || shouldClaimGuest && claimableGuest(guestRaw).length)) {
         const transfer = writes.catch(() => {}).then(async () => {
           if (!current()) return raw;
           // Re-read inside the write queue; an older transfer may have finished.
@@ -171,7 +194,7 @@ export function createSavedPlacesStore(storage: Storage) {
           const pendingOwner = claimedOwner(source);
           const target = pendingOwner ?? (shouldClaimGuest ? owner : null);
           if (!target || target === 'guest' || !current()) return raw;
-          const guest = decodeSavedPlaces(source);
+          const guest = claimableGuest(source);
           if (!guest.length) return raw;
           const account = decodeSavedPlaces(await storage.getItem(savedPlacesKey(target)));
           if (!current()) return raw;
@@ -187,7 +210,27 @@ export function createSavedPlacesStore(storage: Storage) {
         writes = transfer.then(() => {}, () => {});
         raw = await transfer;
       }
-      if (current()) publish({ ...state, ready: true, places: decodeSavedPlaces(raw), error: null });
+      let places: SavedPlace[];
+      try {
+        places = decodeSavedPlaces(raw);
+      } catch {
+        // Written by a NEWER build (a rollback, a TestFlight downgrade): never
+        // overwritten, because the newer build will read it again. Say what
+        // fixes it rather than a load error that reads like a broken phone.
+        if (newerPlacesVersion(raw)) {
+          if (current()) publish({ ...state, ready: true, places: [], error: 'Your saved places were saved by a newer version of Eddy. Update Eddy to see and change them.' });
+          return;
+        }
+        // Corrupt, not unavailable. Holding the error used to make every
+        // later Save fail ("Couldn't save changes") with no way out short of
+        // reinstalling. Set the collection aside as it was, then start fresh.
+        await writes.catch(() => {});
+        if (raw != null) await storage.setItem(unreadablePlacesKey(owner), raw);
+        await storage.removeItem(savedPlacesKey(owner));
+        if (current()) publish({ ...state, ready: true, places: [], error: null, recovered: true });
+        return;
+      }
+      if (current()) publish({ ...state, ready: true, places, error: null });
     })().catch(() => { if (current()) publish({ ...state, ready: true, places: [], error: 'Couldn’t load saved places' }); })
       .finally(() => { if (loading === task) loading = null; });
     loading = task;

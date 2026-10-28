@@ -9,7 +9,12 @@ export async function loadPlannerResource<T>({
   readCached: () => Promise<T | null | undefined>;
   fetchFresh: (signal: AbortSignal) => Promise<T>;
   signal: AbortSignal;
-  publish: (value: T | null, error: string | null) => void;
+  /**
+   * `settled` is true once nothing newer is coming: the fresh answer, or the
+   * cached one the failed fetch fell back on. A caller deciding that something
+   * is MISSING must wait for it; a cached list can simply predate it.
+   */
+  publish: (value: T | null, error: string | null, settled: boolean) => void;
   errorMessage: string;
 }) {
   let fresh = false;
@@ -18,15 +23,18 @@ export async function loadPlannerResource<T>({
     .then(readCached)
     .then((value) => {
       cachedValue = value ?? null;
-      if (!signal.aborted && !fresh && cachedValue !== null) publish(cachedValue, null);
+      if (!signal.aborted && !fresh && cachedValue !== null) publish(cachedValue, null, false);
     })
     .catch(() => {});
   try {
     const value = await fetchFresh(signal);
     fresh = true;
-    if (!signal.aborted) publish(value, null);
+    if (!signal.aborted) publish(value, null, true);
   } catch {
     await cached;
-    if (!signal.aborted && cachedValue === null) publish(null, errorMessage);
+    if (signal.aborted) return;
+    if (cachedValue === null) publish(null, errorMessage, true);
+    // The cached list stands, and it is now the final answer this load has.
+    else publish(cachedValue, null, true);
   }
 }

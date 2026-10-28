@@ -83,6 +83,8 @@ export function createFloatSessionStore(
   let loading: Promise<void> | null = null;
   /** The last load could not read storage; the next ensureLoaded tries again. */
   let loadFailed = false;
+  /** One read of the stored float has succeeded; null from get() now means "no float". */
+  let loaded = false;
   let dirty = false;
   let writeTimer: ReturnType<typeof setTimeout> | null = null;
   /** A start in flight, holding the slot until it lands or fails. */
@@ -184,10 +186,10 @@ export function createFloatSessionStore(
       loading ??= (async () => {
         try {
           await this.loadOnce();
-          if (loadFailed) {
-            loadFailed = false;
-            notify();
-          }
+          const changed = loadFailed || !loaded;
+          loadFailed = false;
+          loaded = true;
+          if (changed) notify();
         } catch (error) {
           warn('could not read the float session', error);
           loading = null;
@@ -233,8 +235,11 @@ export function createFloatSessionStore(
         await storage.removeItem(STORAGE_KEY);
         return;
       }
-      // Cleared first, so subscribers never see the float and the failure together.
+      // Cleared first, so subscribers never see the float and the failure
+      // together; and loaded before publishing, so the one notification that
+      // carries the float also says the read is done.
       loadFailed = false;
+      loaded = true;
       publish(restored, built.index);
     },
 
@@ -244,6 +249,15 @@ export function createFloatSessionStore(
      */
     loadFailed(): boolean {
       return loadFailed;
+    },
+
+    /**
+     * Whether the stored float has been read at least once. Until then a null
+     * session is "not known yet", not "no float": a screen opened cold from a
+     * Live Activity or a notification must wait rather than say there is none.
+     */
+    isLoaded(): boolean {
+      return loaded;
     },
 
     get(): FloatSession | null {

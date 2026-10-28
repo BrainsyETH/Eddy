@@ -120,6 +120,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { pickPrimaryRiverLink } from '@eddy/conditions/primary-river-link';
+import { observedStamp } from '@/lib/observedStamp';
 
 /**
  * The unit to lead with, and to draw the chart in.
@@ -702,7 +703,7 @@ export default function GaugeDetailScreen() {
             ageWarning={!readingIsCurrent}
             details={[
               { label: 'Source', value: stationCaption(gauge.provider, gauge.siteId) },
-              { label: 'Observed', value: gauge.readingTimestamp ? new Date(gauge.readingTimestamp).toLocaleString() : null },
+              { label: 'Observed', value: observedStamp(gauge.readingTimestamp, gauge.timeZone) },
               { label: 'Seasonal comparison', value: percentile ? `${percentile} for flow` : gauge.seasonalContextUnavailableReason ?? 'No current seasonal comparison available' },
               { label: 'Historical record', value: gauge.seasonalContext?.yearsOfRecord ? `${gauge.seasonalContext.yearsOfRecord} years of discharge records` : null },
               { label: 'NWS stages', value: stages ? `${stageSummary(stages)}${stages.lid ? ` · NWS ${stages.lid}` : ''}` : null },
@@ -713,7 +714,7 @@ export default function GaugeDetailScreen() {
                 { label: 'Historical dissolved oxygen', measurement: gauge.historicalWaterQuality?.dissolvedOxygen, value: `${gauge.historicalWaterQuality?.dissolvedOxygen?.valueMgL} mg/L` },
               ].filter(({ measurement }) => measurement).map(({ label, measurement, value: measurementValue }) => ({
                 label: `${!isCurrentWaterMeasurement(measurement) && !label.startsWith('Historical') ? 'Historical ' : ''}${label}`,
-                value: `${measurementValue} · ${new Date(measurement!.observedAt).toLocaleString()}${measurement!.measuredAtName ? ` · ${measurement!.measuredAtName}` : ''}`,
+                value: [measurementValue, observedStamp(measurement!.observedAt, gauge.timeZone), measurement!.measuredAtName].filter(Boolean).join(' · '),
               })),
             ]}
           >

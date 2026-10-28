@@ -218,13 +218,31 @@ test('closing or switching rivers cancels both late cache and network updates', 
 
 test('offline planners keep cached endpoints, including a valid empty list, and expose retryable missing data', async () => {
   for (const cached of [['cached'], [], null]) {
-    const seen: { value: string[] | null; error: string | null }[] = [];
+    const seen: { value: string[] | null; error: string | null; settled: boolean }[] = [];
     await loadPlannerResource<string[]>({
       readCached: async () => cached, fetchFresh: async () => { throw new Error('Offline'); },
-      signal: new AbortController().signal, publish: (value, error) => { seen.push({ value, error }); }, errorMessage: 'Unavailable',
+      signal: new AbortController().signal, publish: (value, error, settled) => { seen.push({ value, error, settled }); }, errorMessage: 'Unavailable',
     });
-    assert.deepEqual(seen, [{ value: cached, error: cached === null ? 'Unavailable' : null }]);
+    // The cached list is shown at once, then confirmed as the final answer
+    // once the network has failed: a caller looking for a missing endpoint
+    // waits for that second publish instead of guessing.
+    assert.deepEqual(seen, cached === null
+      ? [{ value: null, error: 'Unavailable', settled: true }]
+      : [{ value: cached, error: null, settled: false }, { value: cached, error: null, settled: true }]);
   }
+});
+
+test('only the fresh answer, or the fallback after a failed fetch, is final', async () => {
+  const fresh = deferred<string[]>();
+  const seen: boolean[] = [];
+  const request = loadPlannerResource({
+    readCached: async () => ['cached'], fetchFresh: () => fresh.promise,
+    signal: new AbortController().signal, publish: (_value, _error, settled) => { seen.push(settled); }, errorMessage: 'Unavailable',
+  });
+  await flush();
+  fresh.resolve(['fresh']);
+  await request;
+  assert.deepEqual(seen, [false, true]);
 });
 
 

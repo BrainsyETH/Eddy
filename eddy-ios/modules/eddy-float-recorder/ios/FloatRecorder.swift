@@ -244,8 +244,12 @@ final class FloatRecorder {
       publishStatus()
     }
     guard let location = update.location, location.horizontalAccuracy >= 0 else { return }
-    // A stationary update repeats the last fix; record each fix once.
-    if let lastFixTime, location.timestamp <= lastFixTime { return }
+    // A stationary update repeats the last fix; record each fix once. Only an
+    // exact repeat is dropped: ordering is JS's call (river-progress.ts
+    // rejects out-of-order fixes). Dropping everything "not newer" here let a
+    // clock corrected backwards mid-float silence the journal for as long as
+    // the correction, and the journal is the record.
+    if let lastFixTime, location.timestamp == lastFixTime { return }
     lastFixTime = location.timestamp
     let fix = RecordedFix(
       t: (location.timestamp.timeIntervalSince1970 * 1000).rounded(),

@@ -27,10 +27,18 @@ import { useNavigationAction } from '@/hooks/useNavigationAction';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { SavedTripDownload } from '@/float/SavedTripDownload';
 
+/**
+ * A share code as the server mints them. The route param is whatever followed
+ * /plan/ in a link anyone could have typed; a code that does not look like one
+ * is treated as expired rather than fetched or echoed back into a share sheet.
+ */
+const SHORT_CODE = /^[A-Za-z0-9_-]{1,64}$/;
+
 export default function SavedFloatScreen() {
-  const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
+  const params = useLocalSearchParams<{ shortCode: string }>();
+  const shortCode = typeof params.shortCode === 'string' && SHORT_CODE.test(params.shortCode) ? params.shortCode : undefined;
   const { colors } = useTheme();
-  const { floats, isSaved, remember, forgetPlan, updateLogistics } = useSavedFloats();
+  const { floats, ready: savedReady, isSaved, remember, forgetPlan, updateLogistics } = useSavedFloats();
 
   const [state, setState] = useState(emptySavedFloatState<FloatPlan>);
   const { plan, loading, error, checkedAt, showSaved } = state.shortCode === shortCode
@@ -52,6 +60,7 @@ export default function SavedFloatScreen() {
       : 'Eddy needs a connection to read this float against today’s river.',
   }), [updateLogistics]);
   const load = useCallback(() => shortCode ? loader.load(shortCode) : Promise.resolve(), [loader, shortCode]);
+  const invalidCode = !shortCode;
 
   useEffect(() => {
     void load();
@@ -144,15 +153,21 @@ export default function SavedFloatScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon="square.and.arrow.up"
-          accessibilityLabel="Share this float"
-          onPress={() => void onShare()}
-        >
-          Share
-        </Stack.Toolbar.Button>
-        {/* Saving needs the live plan's stretch identity, as before. */}
-        {plan ? (
+        {/* Nothing to share until the float is known: a link that answered
+            404 is not offered under Eddy's name. */}
+        {plan || stub ? (
+          <Stack.Toolbar.Button
+            icon="square.and.arrow.up"
+            accessibilityLabel="Share this float"
+            onPress={() => void onShare()}
+          >
+            Share
+          </Stack.Toolbar.Button>
+        ) : null}
+        {/* Saving needs the live plan's stretch identity, as before, and a
+            history that has finished loading: remember() is a silent no-op
+            until then, which read as a star that would not fill. */}
+        {plan && savedReady ? (
           <Stack.Toolbar.Button
             icon={saved ? 'star.fill' : 'star'}
             selected={saved}
@@ -187,11 +202,13 @@ export default function SavedFloatScreen() {
           <View style={styles.centered}>
             <Otter mood="flag" size={110} />
             <Text style={[styles.centeredText, { color: colors.text }]}>
-              {error ?? 'Could not load this float'}
+              {invalidCode ? 'This float is no longer available. The link may have expired.' : error ?? 'Could not load this float'}
             </Text>
-            <Pressable onPress={() => void load()} style={styles.retryButton} accessibilityRole="button">
-              <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
-            </Pressable>
+            {invalidCode ? null : (
+              <Pressable onPress={() => void load()} style={styles.retryButton} accessibilityRole="button">
+                <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
+              </Pressable>
+            )}
           </View>
         </ScrollView>
       )}

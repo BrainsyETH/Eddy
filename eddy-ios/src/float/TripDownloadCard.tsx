@@ -99,6 +99,9 @@ export function TripDownloadCard({
   const [checking, setChecking] = useState(false);
   const mounted = useRef(true);
   const starting = useRef(false);
+  // The pack creation in flight, so Stop and remove can halt it and wait for
+  // the last pack it started before deleting them all.
+  const creation = useRef<{ controller: AbortController; done: Promise<void> } | null>(null);
   const checkInFlight = useRef<Promise<void> | null>(null);
   const checkGeneration = useRef(0);
   const styleWaitReported = useRef(false);
@@ -246,15 +249,22 @@ export function TripDownloadCard({
       const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId, pkg.fromLngLat);
       styleWaitReported.current = false;
       setDownloading(true);
-      try {
-        await startTripDownload(chunks, (message) => {
-          if (!mounted.current) return;
-          setError(message);
-          setDownloading(false);
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Download could not start.');
+      const controller = new AbortController();
+      const run = startTripDownload(chunks, (message) => {
+        if (!mounted.current) return;
+        setError(message);
         setDownloading(false);
+      }, controller.signal);
+      creation.current = { controller, done: run.then(() => {}, () => {}) };
+      try {
+        await run;
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setError(err instanceof Error ? err.message : 'Download could not start.');
+          setDownloading(false);
+        }
+      } finally {
+        if (creation.current?.controller === controller) creation.current = null;
       }
       void refresh();
     } finally {
@@ -277,7 +287,12 @@ export function TripDownloadCard({
           style: 'destructive',
           onPress: () => {
             setDownloading(false);
-            void removeTripDownload(tripKey)
+            // Halt pack creation first and let the pack it is creating land,
+            // so the removal below sees, and deletes, every one of them.
+            const inFlight = creation.current;
+            inFlight?.controller.abort();
+            void (inFlight?.done ?? Promise.resolve())
+              .then(() => removeTripDownload(tripKey))
               .then(() => { setError(null); return refresh(); })
               // A failed native delete leaves the pack: say so, rather than an
               // unhandled rejection and a card that silently keeps it.

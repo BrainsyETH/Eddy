@@ -22,19 +22,40 @@ export default function PlanRouteScreen() {
   const [visible, setVisible] = useState(true);
   const closing = useRef(false);
   const consumed = useRef(false);
+  // Launches only: an access point that is no longer a float endpoint is gone
+  // from this plan as surely as one that was removed.
+  const usable = (id?: string) => data.accessPoints.find((point) => point.id === id && point.isFloatEndpoint !== false);
+  // The link named a put-in or take-out the river's settled access list no
+  // longer offers (a featured float cached for an hour, a removed launch). An
+  // empty picker with no word about why read as the link failing. Shown until
+  // the paddler picks or clears a river themselves.
+  const [noticeCleared, setNoticeCleared] = useState(false);
+  const linkedStopGone = !noticeCleared && !!data.river && data.slug === params.focusRiver &&
+    data.accessSettled && !data.accessError &&
+    Boolean((params.planPutIn && !usable(params.planPutIn)) || (params.planTakeOut && !usable(params.planTakeOut)));
+  const notice = linkedStopGone && data.river
+    ? `A stop in that float is no longer available on the ${data.river.name}. Choose another.`
+    : null;
   useEffect(() => {
     if (consumed.current || closing.current || !data.river || data.accessLoading || data.accessError) return;
     if (data.slug !== params.focusRiver) return;
-    const putIn = data.accessPoints.find((point) => point.id === params.planPutIn);
-    const takeOut = data.accessPoints.find((point) => point.id === params.planTakeOut);
+    const find = (id?: string) => data.accessPoints.find((point) => point.id === id && point.isFloatEndpoint !== false);
+    const putIn = find(params.planPutIn);
+    const takeOut = find(params.planTakeOut);
+    const missing = (params.planPutIn && !putIn) || (params.planTakeOut && !takeOut);
     // A cached list may predate these endpoints; let the fresh response finish
     // the handoff unless the user has already chosen a different river.
-    if ((params.planPutIn && !putIn) || (params.planTakeOut && !takeOut)) return;
+    if (missing && !data.accessSettled) return;
     consumed.current = true;
+    if (missing) {
+      // Keep what still exists; the notice above says what does not.
+      if (putIn) planner.choosePutIn(putIn);
+      return;
+    }
     if (putIn && takeOut) planner.planFloat(putIn, takeOut, params.planVesselTypeId);
     else if (putIn) planner.choosePutIn(putIn);
     else if (takeOut) planner.chooseTakeOut(takeOut);
-  }, [data.river, data.slug, data.accessPoints, data.accessLoading, data.accessError, params, planner]);
+  }, [data.river, data.slug, data.accessPoints, data.accessLoading, data.accessError, data.accessSettled, params, planner]);
   const close = useCallback(
     (reason?: 'started' | 'map') => {
       closing.current = reason === undefined;
@@ -65,13 +86,16 @@ export default function PlanRouteScreen() {
         riverDistances={null}
         onSelectRiver={(river) => {
           consumed.current = true;
+          setNoticeCleared(true);
           data.setSlug(river.slug);
         }}
         onClearRiver={() => {
           consumed.current = true;
+          setNoticeCleared(true);
           planner.reset();
           data.setSlug(null);
         }}
+        notice={notice}
         riverLoading={data.accessLoading}
         accessError={data.accessError}
         onRetryAccess={data.retry}

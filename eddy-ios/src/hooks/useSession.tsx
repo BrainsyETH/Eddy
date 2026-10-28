@@ -269,7 +269,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.auth.signOut();
+    // THIS device only. The default scope is 'global', which revokes every
+    // refresh token the account holds: the subscriber's iPad then loses its
+    // session at its next refresh, launches as a fresh anonymous user, and
+    // shows a free plan until they sign in with Apple again there. Signing
+    // out of one phone is not a request to sign out of all of them.
+    await supabase.auth.signOut({ scope: 'local' });
     setSession(null);
   }, []);
 

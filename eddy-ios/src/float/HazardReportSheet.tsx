@@ -42,13 +42,16 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
   const [error, setError] = useState<string | null>(null);
 
   // A fresh position; the last known one if GPS is slow; the float's own last
-  // confirmed position as a last resort. Read once, when the sheet opens.
-  const [opened] = useState(() => ({ position: session.position }));
+  // RAW fix as a last resort, never the point snapped onto the river line: a
+  // report filed from a snapped point would always read "near river mile X"
+  // with no accuracy to caveat it, for a hazard that may sit on the bank.
+  // Read once, when the sheet opens.
+  const [opened] = useState(() => ({ fix: session.lastFix ?? session.gpsPosition ?? null }));
   useEffect(() => {
     let cancelled = false;
     type Found = Omit<Here, 'minutesOld'>;
-    const fallback: Found | null = opened.position
-      ? { latitude: opened.position.lngLat[1], longitude: opened.position.lngLat[0], accuracyMeters: null, at: opened.position.at }
+    const fallback: Found | null = opened.fix
+      ? { latitude: opened.fix.lngLat[1], longitude: opened.fix.lngLat[0], accuracyMeters: opened.fix.accuracyMeters ?? null, at: opened.fix.at }
       : null;
     const fromFix = (fix: Location.LocationObject | null): Found | null =>
       fix ? { latitude: fix.coords.latitude, longitude: fix.coords.longitude, accuracyMeters: fix.coords.accuracy ?? null, at: fix.timestamp } : null;

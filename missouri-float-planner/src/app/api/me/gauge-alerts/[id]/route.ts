@@ -14,6 +14,13 @@ import { GAUGE_ALERT_SELECT, toGaugeRule, type GaugeAlertRow } from '@/lib/alert
 import { seedCrossingState } from '@/lib/alerts/rule-seed';
 import type { AlertComparator, AlertMetric } from '@/types/api';
 
+/** A finite number within the threshold column's range (numeric(12,2)), else null. */
+function thresholdNumber(raw: unknown): number | null {
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  return Number.isFinite(value) && Math.abs(value) < 1e9 ? value : null;
+}
+
+
 export const dynamic = 'force-dynamic';
 
 const VALID_KINDS = ['floatable', 'safety', 'all'];
@@ -92,14 +99,17 @@ export async function PATCH(
         return jsonPrivate({ error: `comparator must be one of ${VALID_COMPARATORS.join(', ')}` }, { status: 400 });
       }
 
-      const value = Number(body.thresholdValue ?? existing.threshold_value);
-      if (!Number.isFinite(value)) {
+      // A number, and one the numeric(12,2) column can hold: Number(null) is
+      // 0 and Number(1e12) is finite, and both used to pass straight through
+      // to a 500 or a silent zero threshold.
+      const value = thresholdNumber(body.thresholdValue ?? existing.threshold_value);
+      if (value === null) {
         return jsonPrivate({ error: 'thresholdValue must be a number' }, { status: 400 });
       }
       let valueMax: number | null = null;
       if (comparator === 'between') {
-        valueMax = Number(body.thresholdValueMax ?? existing.threshold_value_max);
-        if (!Number.isFinite(valueMax) || valueMax <= value) {
+        valueMax = thresholdNumber(body.thresholdValueMax ?? existing.threshold_value_max);
+        if (valueMax === null || valueMax <= value) {
           return jsonPrivate(
             { error: 'thresholdValueMax must be greater than thresholdValue' },
             { status: 400 }

@@ -509,38 +509,51 @@ export async function fetchStarredDams(
   }
 }
 
-export async function starDam(token: string, damId: string): Promise<void> {
-  await authed('/api/me/starred-dams', token, { method: 'POST', body: { damId } });
+/**
+ * A star write that the server did not accept as this user. `authed` answers
+ * null for a rejected session (401/403) on purpose; here that is a failure,
+ * not a success: a tombstone pruned on the strength of a DELETE that never
+ * happened lets the next sync pull the star straight back.
+ */
+function pushed(result: unknown): void {
+  if (result === null) throw new ApiError('Not signed in', 401);
+}
+
+// `starredAt` is this device's edit time. The server stores it as the row's
+// created_at (bounded; src/lib/star-time.ts there), so a later unstar on this
+// phone is compared with this phone's clock, not the moment the POST landed.
+export async function starDam(token: string, damId: string, starredAt?: string): Promise<void> {
+  pushed(await authed('/api/me/starred-dams', token, { method: 'POST', body: { damId, starredAt } }));
 }
 
 export async function unstarDam(token: string, damId: string): Promise<void> {
-  await authed(`/api/me/starred-dams?damId=${encodeURIComponent(damId)}`, token, {
+  pushed(await authed(`/api/me/starred-dams?damId=${encodeURIComponent(damId)}`, token, {
     method: 'DELETE',
-  });
+  }));
 }
 
-export async function starRiver(token: string, riverId: string): Promise<void> {
-  await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId } });
+export async function starRiver(token: string, riverId: string, starredAt?: string): Promise<void> {
+  pushed(await authed('/api/me/starred-rivers', token, { method: 'POST', body: { riverId, starredAt } }));
 }
 
 export async function unstarRiver(token: string, riverId: string): Promise<void> {
-  await authed(
+  pushed(await authed(
     `/api/me/starred-rivers?riverId=${encodeURIComponent(riverId)}`,
     token,
     { method: 'DELETE' },
-  );
+  ));
 }
 
-export async function starGauge(token: string, gaugeId: string): Promise<void> {
-  await authed('/api/me/starred-gauges', token, { method: 'POST', body: { gaugeId } });
+export async function starGauge(token: string, gaugeId: string, starredAt?: string): Promise<void> {
+  pushed(await authed('/api/me/starred-gauges', token, { method: 'POST', body: { gaugeId, starredAt } }));
 }
 
 export async function unstarGauge(token: string, gaugeId: string): Promise<void> {
-  await authed(
+  pushed(await authed(
     `/api/me/starred-gauges?gaugeId=${encodeURIComponent(gaugeId)}`,
     token,
     { method: 'DELETE' },
-  );
+  ));
 }
 
 /**
@@ -1130,7 +1143,11 @@ export async function fetchGaugeHistory(
     // only the successful-response arm changes shape.
     return (normalizeGaugeHistory(raw) as GaugeHistoryResponse | null) ?? null;
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return null;
+    // 404, and 400 too: the server read this exact request and said this
+    // station or range has no history it can serve (a provider without daily
+    // values, a custom range it refuses). That is an answer, cacheable for
+    // this key, not a failure offered a "Try again" that can never succeed.
+    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) return null;
     return undefined;
   }
 }
@@ -2148,15 +2165,18 @@ export async function registerDeviceToken(
     deviceName?: string;
     appVersion?: string;
   },
-): Promise<boolean> {
+): Promise<{ ok: boolean; deviceId: string | null }> {
   try {
-    const result = await authed('/api/me/device-tokens', token, {
+    const result = await authed<{ device?: { id?: unknown } }>('/api/me/device-tokens', token, {
       method: 'POST',
       body: device,
     });
-    return result !== null;
+    // The row id is kept: it is half of what lets this install release the
+    // row later, once the account's own credentials are gone (pushLedger.ts).
+    const id = result?.device?.id;
+    return { ok: result !== null, deviceId: typeof id === 'string' ? id : null };
   } catch {
-    return false;
+    return { ok: false, deviceId: null };
   }
 }
 
@@ -2169,10 +2189,33 @@ export async function registerDeviceToken(
  * server still accepts the query form from installed clients.
  */
 export async function unregisterDeviceToken(token: string, expoPushToken: string): Promise<void> {
-  await authed('/api/me/device-tokens', token, {
+  const result = await authed('/api/me/device-tokens', token, {
     method: 'DELETE',
     body: { expoPushToken },
   });
+  // A rejected session is not an unregister: the row is still there.
+  if (result === null) throw new ApiError('Not signed in', 401);
+}
+
+/**
+ * Finish an unregister the device could not send at sign-out
+ * (src/lib/pushLedger.ts). No account: the push token and the row id from its
+ * registration are the proof. Resolves true once nothing more is owed,
+ * including when the server had no such row.
+ */
+export async function releaseDeviceToken(expoPushToken: string, deviceId: string): Promise<boolean> {
+  const deadline = withDeadline();
+  try {
+    const response = await fetchOnce(`${BASE_URL}/api/device-tokens/release`, deadline, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
+      body: JSON.stringify({ expoPushToken, deviceId }),
+    });
+    // 400 is a pair the server will never accept: retrying it forever helps nobody.
+    return response.ok || response.status === 400;
+  } catch {
+    return false;
+  }
 }
 
 // ── Dams ─────────────────────────────────────────────────────────────────────
@@ -2553,9 +2596,13 @@ async function floatSearchPost<T>(path: string, body: unknown, signal?: AbortSig
       method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify(body), signal: deadline.signal,
     });
-    const data = await response.json();
-    if (!response.ok) throw new ApiError(data.error || 'Search is unavailable. Please try again.', response.status);
-    return data;
+    // Status first: an edge error page is not JSON, and parsing it before
+    // looking at the status turned a 502 into "check your connection".
+    if (!response.ok) {
+      const failure = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      throw new ApiError(typeof failure?.error === 'string' ? failure.error : 'Search is unavailable. Please try again.', response.status);
+    }
+    return await response.json();
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(signal?.aborted ? 'Request cancelled' : 'Search could not finish. Check your connection and try again.');

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       console.error('Error listing gauge alerts:', gaugeResult.error);
       partial = true;
     } else {
-      rules.push(...((gaugeResult.data ?? []) as unknown as GaugeAlertRow[]).map(toGaugeRule));
+      rules.push(...((gaugeResult.data ?? []) as unknown as GaugeAlertRow[]).map((row) => toGaugeRule(row)));
     }
 
     if (partial && rules.length === 0) {
