@@ -20,6 +20,14 @@ export function useFloatSession(): FloatSession | null {
   return useSyncExternalStore(subscribeFloatSession, getFloatSession, getFloatSession);
 }
 
+const hasFloat = () => getFloatSession() != null || floatSessionLoadFailed();
+
+/** Keep the large map independent of every GPS fix; the button subscribes to details. */
+export function useHasFloatSession(): boolean {
+  useEffect(() => { void ensureFloatSessionLoaded(); }, []);
+  return useSyncExternalStore(subscribeFloatSession, hasFloat, hasFloat);
+}
+
 /**
  * False until the stored float has been read once. A screen reached cold
  * (a Live Activity tap, the arrival notification) renders before that read

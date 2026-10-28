@@ -12,6 +12,8 @@ import { HAZARD_KINDS, type HazardReport } from '@/lib/hazardReportQueue';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { HazardReportSheet } from './HazardReportSheet';
+import { HazardReportFeedback } from './HazardReportFeedback';
+import { EddySymbol } from '@/components/EddySymbol';
 import { removeHazardReport, retryHazardReport, useHazardReports } from './hazardReports';
 
 function statusLine(report: HazardReport): string {
@@ -32,6 +34,7 @@ function statusLine(report: HazardReport): string {
 export function FloatHazardReports({ session }: { session: FloatSession }) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
+  const [reportedId, setReportedId] = useState<string | null>(null);
   const reports = useHazardReports().filter((report) => report.riverSlug === session.route.riverSlug).slice(0, 5);
   const remove = (report: HazardReport) => {
     const label = HAZARD_KINDS.find((k) => k.id === report.kind)?.label ?? 'this report';
@@ -56,9 +59,11 @@ export function FloatHazardReports({ session }: { session: FloatSession }) {
         style={({ pressed }) => [styles.button, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
       >
-        <ControlIcon name="warning-outline" size={18} color={colors.interactive} />
+        <EddySymbol name="hazard" size={26} />
         <Text style={[styles.buttonText, { color: colors.interactive }]}>Report a hazard here</Text>
       </Pressable>
+
+      {reportedId ? <HazardReportFeedback reportId={reportedId} onDismiss={() => setReportedId(null)} /> : null}
 
       {reports.map((report) => (
         <View key={report.id} style={styles.report}>
@@ -81,7 +86,7 @@ export function FloatHazardReports({ session }: { session: FloatSession }) {
         </View>
       ))}
 
-      {open ? <HazardReportSheet onClose={() => setOpen(false)} session={session} /> : null}
+      {open ? <HazardReportSheet onClose={(id) => { setOpen(false); if (id) setReportedId(id); }} session={session} /> : null}
     </View>
   );
 }

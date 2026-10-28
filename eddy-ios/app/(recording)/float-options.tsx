@@ -1,4 +1,4 @@
-// Essentials keeps the existing route used by Live Activity and notification links.
+// Float tools keeps the existing route used by Live Activity and notification links.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Share, Switch, Text, View, useWindowDimensions } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,7 +37,6 @@ export default function FloatOptionsScreen() {
   const reports = useHazardReports();
   const tracking = useTrackingLine();
   const [keepAwake, setKeepAwake] = useKeepAwakePreference();
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showAll, setShowAll] = useState(section === 'ahead');
   const [error, setError] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
@@ -71,7 +70,7 @@ export default function FloatOptionsScreen() {
   return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: colors.bg }} keyboardShouldPersistTaps="handled"
     contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: Math.max(insets.bottom, 16) + 20 }}>
     <View style={{ flexDirection: fontScale > 1.3 ? 'column' : 'row', alignItems: fontScale > 1.3 ? 'stretch' : 'center', justifyContent: 'space-between', gap: 12 }}>
-      <Text style={[s.heading, { color: colors.text }]} accessibilityRole="header">Essentials</Text>
+      <Text style={[s.heading, { color: colors.text }]} accessibilityRole="header">Float tools</Text>
       <EssentialsButton label="Done" onPress={() => router.back()} />
     </View>
     <EssentialsSection title="Your location">
@@ -120,7 +119,6 @@ export default function FloatOptionsScreen() {
     </View>)}</EssentialsSection> : null}
     <EssentialsSection title="Pickup contact"><PickupContact message={locationMessage(session, now, timeLabel)} /></EssentialsSection>
     <EssentialsSection title="River conditions"><EssentialsConditions slug={session.route.riverSlug} now={now} /></EssentialsSection>
-    {/* One tap away, not under Float settings: on the water this is the switch people reach for. */}
     <EssentialsSection title="Screen">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
         <View style={{ flex: 1, gap: 2 }}>
@@ -130,14 +128,9 @@ export default function FloatOptionsScreen() {
         <Switch value={keepAwake} onValueChange={value => void setKeepAwake(value)} accessibilityLabel="Keep screen awake while River Mode is showing" />
       </View>
     </EssentialsSection>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded: settingsOpen }} onPress={() => setSettingsOpen(v => !v)} style={{ minHeight: 56, justifyContent: 'center' }}>
-      <Text style={[s.title, { color: colors.interactive }]}>{settingsOpen ? 'Hide settings' : 'Float settings'}</Text>
-    </Pressable>
-    {settingsOpen ? <>
-      {tracking.line && tracking.line.action !== 'info' ? <EssentialsButton label={tracking.line.text} onPress={tracking.act} /> : null}
-      <FloatReminders session={session} />
-      <EssentialsSection title="Live Activity"><FloatActivityControl /></EssentialsSection>
-      <FloatHazardReports session={session} />
-    </> : null}
+    {tracking.line && tracking.line.action !== 'info' ? <EssentialsButton label={tracking.line.text} onPress={tracking.act} /> : null}
+    <FloatReminders session={session} />
+    <EssentialsSection title="Lock Screen"><FloatActivityControl /></EssentialsSection>
+    <EssentialsSection title="Your reports"><FloatHazardReports session={session} /></EssentialsSection>
   </ScrollView>;
 }

@@ -16,6 +16,8 @@ import { HAZARD_KINDS, newReportId, type HazardKind } from '@/lib/hazardReportQu
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { addHazardReport } from './hazardReports';
+import { successFeedback } from '@/lib/haptics';
+import { EddySymbol } from '@/components/EddySymbol';
 
 /** A fresh fix is worth waiting this long for; then the last known one is used. */
 const FIX_TIMEOUT_MS = 10_000;
@@ -32,7 +34,7 @@ interface Here {
 }
 
 /** Mounted only while open, so every report starts from a clean sheet. */
-export function HazardReportSheet({ onClose, session }: { onClose: (saved: boolean) => void; session: FloatSession }) {
+export function HazardReportSheet({ onClose, session }: { onClose: (reportId?: string) => void; session: FloatSession }) {
   const { colors } = useTheme();
   const [kind, setKind] = useState<HazardKind | null>(null);
   const [note, setNote] = useState('');
@@ -92,8 +94,9 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
     setSaving(true);
     setError(null);
     try {
+      const id = newReportId();
       await addHazardReport({
-        id: newReportId(),
+        id,
         riverSlug: session.route.riverSlug,
         riverName: session.route.riverName,
         latitude: here.latitude,
@@ -104,7 +107,8 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
         kind,
         note,
       });
-      onClose(true);
+      successFeedback();
+      onClose(id);
     } catch {
       setError('Eddy couldn’t save this on your phone. Free up some storage and try again.');
     } finally {
@@ -113,11 +117,12 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
   };
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => onClose(false)}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { if (!saving) onClose(); }}>
       <View style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}>
         <View style={styles.head}>
+          <EddySymbol name="hazard" size={30} />
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Report a hazard here</Text>
-          <Pressable onPress={() => onClose(false)} accessibilityRole="button" style={styles.cancelButton}>
+          <Pressable onPress={() => onClose()} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving }} style={styles.cancelButton}>
             <Text style={[styles.cancel, { color: colors.interactive }]}>Cancel</Text>
           </Pressable>
         </View>
@@ -187,7 +192,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (saved: boole
 
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 16 },
   title: { ...t.lg, fontFamily: fonts.heading, flex: 1 },
   cancel: { ...t.base, fontFamily: fonts.semibold },
   cancelButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end', paddingLeft: 12 },

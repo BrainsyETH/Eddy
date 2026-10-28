@@ -44,7 +44,7 @@ export default function RecordingLayout() {
     headerBackButtonDisplayMode: 'generic', contentStyle: { backgroundColor: colors.bg } }}>
     <Stack.Screen name="float-mode" dangerouslySingular={recordingScreenId}
       options={{ title: 'River Mode', headerLeft: closeButton }} />
-    <Stack.Screen name="float-options" dangerouslySingular={recordingScreenId} options={{ title: 'Essentials', presentation: 'formSheet',
+    <Stack.Screen name="float-options" dangerouslySingular={recordingScreenId} options={{ title: 'Float tools', presentation: 'formSheet',
         sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: true, headerShown: false }} />
     <Stack.Screen name="float-recap" dangerouslySingular={recordingScreenId}
       options={{ title: 'Float recap', headerLeft: closeButton }} />

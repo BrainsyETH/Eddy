@@ -332,7 +332,15 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 
 ### Floats discovery controls
 
-The Floats hub leads with Start a Float, or Return to float for a float already in progress.
+The Floats hub leads with Start a Float, or Your Float for an active recording.
+Today puts the same Your Float card before other content; Map replaces its planner
+button with the compact version while recording. The shared `YourFloatButton`
+also replaces Return to float on saved routes and in the planner, preserving the
+planner's sheet-dismissal navigation. It uses the existing canoe artwork and
+Trail Green palette, with “Tracking on the
+[river name]” only while GPS and the recorder are healthy. Starting, delayed,
+weak-GPS and blocked states say so and lose the green treatment. Labels wrap at
+large text sizes. New-start feature flags never hide an existing recording.
 Build a Route (choose endpoints) and Find a Route (suggestions for a time and
 location) share a secondary row. Build a Route takes the accent styling when
 River Mode is disabled. Both use the same planner and result actions.
@@ -1019,7 +1027,7 @@ artwork from `design/float-action-icons/`. These are transparent templates at
 40 points with 1x/2x/3x exports, tinted at render time: `onAccent` on filled
 buttons and `interactive` on cards, including light, dark, and increased-contrast
 themes. Keep facial and map details transparent and preserve the aspect ratio.
-Return to float retains its navigation control. Regenerate with
+Your Float reuses the Start a Float canoe template with the Trail Green tracking treatment. Regenerate with
 `node eddy-ios/scripts/build-float-action-icons.cjs` after installing web dependencies.
 
 The active app icon uses the polished Eddy artwork in `assets/icon-polished-light.png`.
@@ -1431,17 +1439,16 @@ blur:
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`
 for why safety data can never sit behind a wall.
 
-### River Mode essentials
+### River Mode tools
 
-Essentials keeps the `/float-options` route so existing notification and Live Activity
+Float tools keeps the `/float-options` route so existing notification and Live Activity
 links keep working. It leads with raw location sharing and the take-out, followed by
 Ahead, the optional pickup contact, timestamped gauge readings, and the Keep screen
-awake switch (one tap away, off unless chosen; held by the recording layout, so it
-stays on while Essentials is open over River Mode). Settings are
-collapsed. Keep labels short; reserve secondary copy for accuracy, stale data, report
+awake switch (one tap away, off unless chosen). Reminders, Lock Screen controls
+and report history are directly visible, without a nested settings toggle. Keep labels short; reserve secondary copy for accuracy, stale data, report
 status and actionable errors. Hazard instructions are never truncated.
 Live Activity status, including update errors and the system's eight-hour expiry
-(reported as `expired`, distinct from a swipe-away), remains inside Float settings.
+(reported as `expired`, distinct from a swipe-away), remains in the Lock Screen section.
 A hazard report can be withdrawn while it waits; a report Eddy gave up sending
 (a day of attempts, or a week old) says so with Retry.
 
@@ -1472,9 +1479,19 @@ first. Only overlapping choices use a modal; single selections stay over the map
 Show on map commands are consumed once. Recenter, Show route, or closing the marker
 card clears the temporary highlight. Reopening River Mode does not replay a target.
 
-Essentials reads cached conditions first, then refreshes on open or on request.
+Float tools reads cached conditions first, then refreshes on open or on request.
 `fetchCondition` caches successful readings with their observation timestamp for
-the next offline open. Tracking and progress remain independent of the network.
+the next offline open. Tracking and progress remain independent of the network. Conditions reuse
+`ReadingSummaryCard`, including the canonical mascot, ladder, observation age
+and stale/expired handling. The toolbar labels are Tools, Report and End float;
+ending remains the explicit way to stop a float and choose a different river.
+There is no river-switch action that discards an active session.
+
+Saving a hazard report acknowledges local storage immediately, then updates the
+visible, dismissible confirmation when the API receives or refuses it. Only a
+server acknowledgement says “sent for review”; offline reports stay “saved”.
+Failures show their reason and exhausted attempts offer Retry. The existing
+2 km corridor validation and admin moderation remain unchanged.
 
 Device verification remains unconfirmed: test wet-case taps, overlapping layers,
 VoiceOver, largest text sizes, offline/stale GPS, coarse fresh fixes, restored sessions,

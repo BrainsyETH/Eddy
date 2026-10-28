@@ -1,3 +1,7 @@
+import { hasLadder } from '@eddy/conditions/condition-ladder';
+import { isReadingStale } from '@eddy/conditions/reading-staleness';
+import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
+import { readingAge } from '@/lib/readingCopy';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { fetchCondition, fetchRiverDetail } from '@/api/client';
@@ -40,13 +44,27 @@ export function EssentialsConditions({ slug, now }: { slug: string; now: number 
     ? new Date(reading.readingTimestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null;
   const primary = reading?.thresholdUnit === 'ft' ? reading.gaugeHeightFt : reading?.dischargeCfs;
   const unit = reading?.thresholdUnit === 'ft' ? 'ft' : 'cfs';
+  const usable = reading && band !== 'expired' && primary != null && Number.isFinite(primary);
+  const lastKnown = band !== 'fresh' || isReadingStale(age);
+  const rated = reading?.code === 'dangerous' || (reading?.thresholds && hasLadder(reading.thresholds));
   return <View style={{ gap: 8 }}>
-    {reading?.gaugeName ? <Text style={[s.title, { color: colors.text }]}>{reading.gaugeName}</Text> : null}
-    <Text style={[s.body, { color: colors.text }]}>{reading && band !== 'expired' && primary != null
-      ? `${primary.toLocaleString(undefined, { maximumFractionDigits: unit === 'ft' ? 2 : 0 })} ${unit}` : busy ? 'Loading…' : 'Reading unavailable'}</Text>
-    {reading ? <Text style={[s.note, { color: colors.textMuted }]}>{[saved ? 'Saved' : null, stamp ?? 'Time unavailable', band === 'stale' ? 'Stale' : band === 'expired' ? 'Out of date' : null].filter(Boolean).join(' · ')}</Text> : null}
-    {reading?.accuracyWarning ? <Text style={[s.note, { color: colors.error }]}>{reading.accuracyWarningReason || 'Reading may be unreliable'}</Text> : null}
-    {error ? <Text style={[s.note, { color: colors.textMuted }]}>Refresh unavailable</Text> : null}
-    <EssentialsButton label="Refresh" disabled={busy} onPress={() => setReload(n => n + 1)} />
+    {!reading && busy ? <Text style={[s.note, { color: colors.textMuted }]}>Loading conditions…</Text> : (
+      <ReadingSummaryCard
+        reading={usable ? { value: primary, unit } : null}
+        verdict={rated ? { code: usable ? reading.code : 'unknown', lastKnown } : undefined}
+        thresholds={reading?.thresholds}
+        readingTimestamp={reading?.readingTimestamp}
+        stationName={reading?.gaugeName}
+        stationLabel={reading?.gaugeName}
+        age={band === 'expired' && reading ? 'Reading is out of date' : readingAge(age)}
+        ageWarning={!!reading && lastKnown}
+        offline={!!reading && saved}
+        details={[{ label: 'Observed', value: stamp }]}
+      >
+        {reading?.accuracyWarning ? <Text style={[s.note, { color: colors.error }]}>{reading.accuracyWarningReason || 'Reading may be unreliable'}</Text> : null}
+        {error ? <Text style={[s.note, { color: colors.textMuted }]}>Couldn’t refresh conditions.</Text> : null}
+      </ReadingSummaryCard>
+    )}
+    <EssentialsButton label={busy ? 'Refreshing…' : 'Refresh conditions'} disabled={busy} onPress={() => setReload(n => n + 1)} />
   </View>;
 }

@@ -271,17 +271,6 @@ async function discardWithoutRecap(sessionId: string): Promise<boolean> {
 }
 
 /**
- * End a float that never reached its river, without a recap: nothing was
- * measured, so history gets no empty entry. Refused (false) once a position
- * on the river has been confirmed; use endFloat or discardShortFloat then.
- */
-export function cancelUnstartedFloat(): Promise<boolean> {
-  const session = store.get();
-  if (!session || session.samples.length > 0) return Promise.resolve(false);
-  return discardWithoutRecap(session.id);
-}
-
-/**
  * Discard an accidental float (floatEnding.ts isShortFloat): no recap, no
  * history entry, journal deleted. Refused (false) once the float has
  * measured enough to be worth keeping; use endFloat then.

@@ -40,6 +40,8 @@
 // The native module cannot run in Expo Go, so instead of a red screen the tab
 // explains itself and the other four tabs keep working — see src/map/runtime.ts.
 
+import { YourFloatButton } from '@/float/YourFloatButton';
+import { useHasFloatSession } from '@/hooks/useFloatSession';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -693,6 +695,7 @@ function MapContent() {
   const { isStarred, toggleStar } = useStarredRivers();
   const unavailable = mapUnavailableReason();
   const { colors, floating } = useTheme();
+  const hasActiveFloat = useHasFloatSession();
   const location = useLocation();
   /**
    * Has the user asked to be located ON THIS SCREEN, this session?
@@ -3114,7 +3117,7 @@ function MapContent() {
             button reads "View float" and RESUMES state the reader already
             built, which competes with nothing: the sheet has no way back to an
             existing plan, so hiding it there would strand it. */}
-        {hiddenChrome.controls || (sheetOpen && !planner.plan) ? null : (
+        {hiddenChrome.controls || (sheetOpen && !planner.plan && !hasActiveFloat) ? null : (
         <Animated.View
           style={[styles.planCluster, { left: insets.left + 16, right: insets.right + 12, bottom: geometry.bottomInset + PLAN_CLUSTER_BOTTOM }, controlsStyle]}
           pointerEvents="box-none"
@@ -3126,7 +3129,7 @@ function MapContent() {
               which reads as starting another one, not discarding this one. So
               someone who just wanted a clean map had no reason to open the
               planner at all. It belongs where the plan is visible. */}
-          {!unavailable && planner.plan && !mapSearchOpen ? (
+          {!hasActiveFloat && !unavailable && planner.plan && !mapSearchOpen ? (
             <Pressable
               onPress={() => {
                 planner.reset();
@@ -3146,7 +3149,9 @@ function MapContent() {
           {/* The screen's one primary action, floated over the map so the map
               keeps every pixel it can. It changes label rather than multiplying:
               once a plan exists this is how you get back to it. */}
-          {!unavailable && !mapSearchOpen ? (
+          {!mapSearchOpen && hasActiveFloat ? (
+            <YourFloatButton compact style={styles.activeFloatButton} />
+          ) : !unavailable && !mapSearchOpen ? (
             <Pressable
               onPress={() => setPlanOpen(true)}
               style={({ pressed }) => [
@@ -3562,6 +3567,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 999,
   },
+  activeFloatButton: { maxWidth: '55%' },
   planButtonText: { ...t.sm, fontFamily: fonts.heading },
   // Left of the plan button and the same height, so the two read as one row of
   // map controls rather than two unrelated floating things.

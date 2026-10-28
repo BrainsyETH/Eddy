@@ -856,11 +856,3 @@ export function statusCopy(view: FloatView, now: number): string {
       return view.arrived ? 'You’re at the take-out.' : 'Live';
   }
 }
-
-/**
- * Offer "wrong river?" once GPS has put a float that never reached its river
- * well away from it. Nothing has been measured, so cancelling loses nothing.
- */
-export function offerRiverChange(view: FloatView): boolean {
-  return !view.confirmed && view.status === 'off-route' && (view.awayMeters ?? 0) > AWAY_FROM_RIVER_M;
-}

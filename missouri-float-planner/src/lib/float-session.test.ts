@@ -1,6 +1,7 @@
+import { IDLE_TRACKER } from '../../../eddy-ios/src/lib/floatRecording';
 import { essentialsPosition, locationMessage, aheadItems, currentFloatReports } from '../../../eddy-ios/src/lib/floatEssentials';
 import type { HazardReport } from '../../../eddy-ios/src/lib/hazardReportQueue';
-import { floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel, gpsQualityNote, progressLine } from '../../../eddy-ios/src/lib/floatDisplay';
+import { activeFloatStatus, floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel, gpsQualityNote, progressLine } from '../../../eddy-ios/src/lib/floatDisplay';
 import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts, startPlannerParams } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { createGpsRiverLookup } from '../../../eddy-ios/src/lib/gpsRiverLookup';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
@@ -23,7 +24,6 @@ import {
   arrivalAnchor,
   arrivalCopy,
   arrivalOutlook,
-  offerRiverChange,
   mapFeatures,
   markerDistance,
   withHazards,
@@ -630,7 +630,6 @@ test('a quick start away from the river says so, instead of "finding your spot" 
   assert.equal(near.confirmed, false);
   assert.equal(near.milesLeft, null);
   assert.match(statusCopy(near, t), /not on the Current River yet \(about 0\.2 mi away\)/);
-  assert.equal(offerRiverChange(near), false, 'a nearby bank is not the wrong river');
   // Then on the river: confirmed, and measured from there.
   for (let s = 0; s < 3; s += 1) {
     t += 10_000;
@@ -641,7 +640,7 @@ test('a quick start away from the river says so, instead of "finding your spot" 
   assert.equal(on.confirmed, true);
 });
 
-test('far from the chosen river before any position, Eddy offers to change it', () => {
+test('far from the chosen river before any position, Eddy reports off-route without discarding the session', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 'away2', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
   assert.ok(started.ok);
@@ -653,11 +652,9 @@ test('far from the chosen river before any position, Eddy offers to change it', 
   }
   const view = viewSession(session, t);
   assert.equal(view.status, 'off-route');
-  assert.equal(offerRiverChange(view), true);
   // Once GPS goes quiet it says so, rather than still claiming where you are.
   const later = t + 5 * 60_000;
   assert.equal(viewSession(session, later).status, 'stale');
-  assert.equal(offerRiverChange(viewSession(session, later)), false);
 });
 
 test('fixes still being confirmed read as finding your spot, not waiting for GPS', () => {
@@ -1257,4 +1254,29 @@ test('Ahead keeps a dated river-position basis and separates refused or unpositi
   assert.ok(!ahead.items.some(row => /refused|unplaced|old|invalid-time/.test(row.id)));
   assert.deepEqual(currentFloatReports(session, reports).filter(r => r.riverMile == null).map(r => r.id), ['unplaced']);
   assert.ok(ahead.items.every((row, i) => i === 0 || row.mile >= ahead.items[i - 1].mile));
+});
+
+test('Your Float promises tracking only with a healthy recorder and a fresh usable fix', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'entry', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const session = float(started.session, index, 2_000, T0, 60, 1);
+  const now = T0 + 60_000;
+  const tracker = { ...IDLE_TRACKER, status: 'recording' as const };
+  assert.equal(activeFloatStatus(session, tracker, now).label, 'Tracking on the Current River');
+  assert.equal(activeFloatStatus(session, tracker, now).healthy, true);
+  for (const extra of [{ denied: true }, { preciseOff: true }, { servicesOff: true }, { notInUse: true }, { status: 'failed' as const }, { status: 'unavailable' as const }]) {
+    const status = activeFloatStatus(session, { ...tracker, ...extra }, now);
+    assert.equal(status.healthy, false);
+    assert.match(status.label, /needs attention/);
+  }
+  assert.match(activeFloatStatus(started.session, { ...tracker, status: 'starting' }, now).label, /Finding GPS/);
+  const delayed = activeFloatStatus(session, tracker, now + 5 * 60_000);
+  assert.equal(delayed.healthy, false);
+  assert.match(delayed.label, /Location delayed/);
+  const restored: FloatSession = { ...session, awaitingFix: true, gpsPosition: session.gpsPosition ? { ...session.gpsPosition, restored: true } : undefined };
+  assert.equal(activeFloatStatus(restored, tracker, now).healthy, false);
+  const weak = { ...session, lastFix: { lngLat: at(2_000), at: now + 10_000, accuracyMeters: 500 } };
+  assert.match(activeFloatStatus(weak, tracker, now + 10_000).label, /Weak GPS/);
+  assert.equal(activeFloatStatus(weak, tracker, now + 10_000).healthy, false);
 });

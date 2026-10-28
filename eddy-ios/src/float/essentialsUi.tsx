@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { sheetControl } from '@/theme/palette';
+import { selectionFeedback } from '@/lib/haptics';
 
 export function EssentialsSection({ title, children }: { title: string; children: ReactNode }) {
   const { colors } = useTheme();
@@ -12,8 +14,8 @@ export function EssentialsSection({ title, children }: { title: string; children
 }
 export function EssentialsButton({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
   const { colors } = useTheme();
-  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }}
-    style={({ pressed }) => [essentialsStyles.button, { borderColor: colors.border, opacity: disabled ? 0.5 : pressed ? 0.65 : 1 }]}>
+  return <Pressable onPress={() => { selectionFeedback(); onPress(); }} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }}
+    style={({ pressed }) => [essentialsStyles.button, sheetControl(colors), { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 }]}>
     <Text style={[t.base, { color: colors.interactive, fontFamily: fonts.semibold }]}>{label}</Text>
   </Pressable>;
 }

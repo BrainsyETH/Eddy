@@ -6,6 +6,7 @@
 // Foreground refresh keeps the plan mounted without claiming old water is current.
 
 import { floatEntryAction } from '@/lib/floatEntry';
+import { YourFloatButton } from '@/float/YourFloatButton';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -22,7 +23,7 @@ import { SavedFloatDetails } from '@/components/SavedFloatDetails';
 import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLoader';
 import { onForeground } from '@/lib/foreground';
 import { networkHintsOffline } from '@/lib/networkHint';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useHasFloatSession } from '@/hooks/useFloatSession';
 import { useNavigationAction } from '@/hooks/useNavigationAction';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { SavedTripDownload } from '@/float/SavedTripDownload';
@@ -46,7 +47,7 @@ export default function SavedFloatScreen() {
 
   const stub = floats.find((f) => f.shortCode === shortCode) ?? null;
   const router = useRouter();
-  const activeFloat = useFloatSession();
+  const activeFloat = useHasFloatSession();
   const navigate = useNavigationAction();
   const { features } = useAppConfig();
 
@@ -132,13 +133,13 @@ export default function SavedFloatScreen() {
             ? `${stub.putInName} → ${stub.takeOutName}`
             : ' '}
       </Text>
-      {entry ? (
+      {entry === 'return' ? <YourFloatButton style={styles.activeFloat} /> : entry ? (
         <Pressable
           onPress={onStart}
           style={({ pressed }) => [styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
           accessibilityRole="button"
         >
-          <Text style={[styles.startText, { color: colors.onAccent }]}>{activeFloat ? 'Return to float' : 'Float this route'}</Text>
+          <Text style={[styles.startText, { color: colors.onAccent }]}>Float this route</Text>
         </Pressable>
       ) : null}
       {canDownload && shortCode ? (
@@ -230,5 +231,6 @@ const styles = StyleSheet.create({
   link: { ...t.sm, fontFamily: fonts.semibold },
   startButton: { minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   startText: { ...t.base, fontFamily: fonts.semibold },
+  activeFloat: { marginTop: 12 },
   download: { marginTop: 12 },
 });

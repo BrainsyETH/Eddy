@@ -7,22 +7,26 @@
 // carries on.
 //
 // Miles, progress and time left use data copied onto the phone at float start.
-// The background map can use the network. Essentials also refreshes conditions
+// The background map can use the network. Float tools also refresh conditions
 // when opened or on request; successful readings are cached by fetchCondition.
 //
 // ── Layout: the map, then one glanceable panel ──────────────────────────────
 // Made for a wet thumb in sunlight. The map takes the screen; under it a
 // compact panel holds the numbers (miles left, time left, arrival), the next
-// hazard, at most one tracking line, and three large buttons: Essentials, Report hazard
+// hazard, at most one tracking line, and three large buttons: Tools, Report
 // and End/Finish. Reminders, the Lock Screen card, keep-awake and past hazard
-// reports live in Essentials (float-options.tsx), a sheet, so End is never
+// reports live in Float tools (float-options.tsx), a sheet, so End is never
 // scrolled under a list of switches.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useNavigation, useRouter } from 'expo-router';
-import { ControlIcon } from '@/components/ControlIcon';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { EddySymbol } from '@/components/EddySymbol';
+import { FloatActionIcon } from '@/components/FloatActionIcon';
+import { HazardReportFeedback } from '@/float/HazardReportFeedback';
+import { selectionFeedback } from '@/lib/haptics';
 import { FloatStatusDot } from '@/float/FloatStatusDot';
 import { floatDisplayPosition, fixAgeLabel, gpsQualityNote, progressLine } from '@/lib/floatDisplay';
 import { useFloatMapFocus } from '@/float/mapFocus';
@@ -32,7 +36,7 @@ import { useTrackingLine } from '@/float/useTrackingLine';
 import { useAnnounce } from '@/hooks/useAnnounce';
 import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
-import { cancelUnstartedFloat, discardShortFloat, endFloat } from '@/lib/floatSessionStore';
+import { discardShortFloat, endFloat } from '@/lib/floatSessionStore';
 import { isShortFloat } from '@/lib/floatEnding';
 import {
   arrivalAnchor,
@@ -41,7 +45,6 @@ import {
   formatBeyond,
   indexRoute,
   mapFeatures,
-  offerRiverChange,
   remainingCopy,
   statusCopy,
   viewSession,
@@ -65,6 +68,7 @@ export default function FloatModeScreen() {
   const { colors, elevation } = useTheme();
   const tracking = useTrackingLine();
   const [reporting, setReporting] = useState(false);
+  const [reportedId, setReportedId] = useState<string | null>(null);
   // Finish is applying the last of the recorded track before saving.
   const [finishing, setFinishing] = useState(false);
   const focused = useIsFocused();
@@ -185,7 +189,6 @@ export default function FloatModeScreen() {
   const currentMile = view.confirmed ? (session.samples[session.samples.length - 1]?.riverMile ?? null) : null;
   const live = view.status === 'live';
   const waitingAtLaunch = !view.confirmed && view.status === 'off-route' && session.last?.nearPutIn;
-  const wrongRiver = offerRiverChange(view) && !waitingAtLaunch;
   const progress = progressLine(session, clock);
   const status = waitingAtLaunch
     ? `Near ${session.putIn?.name} · waiting for the mapped river`
@@ -271,26 +274,6 @@ export default function FloatModeScreen() {
     );
   };
 
-  // Nothing has been measured, so changing the river loses nothing: no recap.
-  const changeRiver = () => {
-    Alert.alert('Choose another river?', `This float on the ${view.riverName} ends without a recap, since Eddy never found you on it.`, [
-      { text: 'Keep this river', style: 'cancel' },
-      {
-        text: 'Choose another',
-        onPress: () => {
-          endingHere.current = true;
-          void cancelUnstartedFloat().then((cancelled) => {
-            if (cancelled) {
-              if (root.canGoBack()) root.goBack();
-              router.push({ pathname: '/float-start', params: { boatType: session.boatType ?? undefined } });
-            }
-            else endingHere.current = false;
-          });
-        },
-      },
-    ]);
-  };
-
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right', 'bottom']}>
       <View style={styles.map}>
@@ -316,9 +299,13 @@ export default function FloatModeScreen() {
           <FloatStatusDot at={displayed?.at ?? null} fresh={fresh} />
           <Text style={[styles.caption, { color: colors.textMuted }]}>{freshness}</Text>
         </View>
-        <Text style={[styles.route, { color: colors.textMuted }]}>
-          {view.riverName} · to {view.takeOutName}
-        </Text>
+        <View style={styles.routeHeader}>
+          <FloatActionIcon name="startFloat" size={34} color={colors.interactive} />
+          <View style={styles.flex}>
+            <Text style={[styles.riverName, { color: colors.text }]}>{view.riverName}</Text>
+            <Text style={[styles.route, { color: colors.textMuted }]}>To {view.takeOutName}</Text>
+          </View>
+        </View>
         <Text style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}>
           {status}
         </Text>
@@ -375,7 +362,7 @@ export default function FloatModeScreen() {
 
         {hazard ? (
           <Pressable style={styles.hazardRow} accessibilityRole="button" accessibilityHint="Open upcoming accesses and hazards" onPress={() => router.push({ pathname: '/float-options', params: { section: 'ahead' } })}>
-            <ControlIcon name="warning-outline" size={16} color={colors.error} />
+            <EddySymbol name="hazard" size={26} />
             <Text style={[styles.note, styles.flex, { color: colors.text }]}>
               <Text style={styles.emphasis}>
                 {hazard.milesAway < 0.1 ? 'Just ahead' : `${hazard.milesAway.toFixed(1)} mi`}:
@@ -396,14 +383,11 @@ export default function FloatModeScreen() {
           )
         ) : null}
 
-        {wrongRiver ? (
-          <Notice label={`Not on the ${view.riverName}? Tap to choose another river.`} onPress={changeRiver} />
-        ) : null}
-
         </ScrollView>
+        {reportedId ? <HazardReportFeedback reportId={reportedId} onDismiss={() => setReportedId(null)} /> : null}
         <View style={[styles.actions, stacked && styles.stackedActions]}>
-          <ActionButton icon="ellipsis-horizontal" label="Essentials" onPress={() => router.push('/float-options')} />
-          <ActionButton icon="warning-outline" label="Report hazard" onPress={() => setReporting(true)} accessibilityLabel="Report a hazard here" />
+          <ActionButton icon="ellipsis-horizontal" label="Tools" onPress={() => router.push('/float-options')} />
+          <ActionButton icon="warning-outline" label="Report" onPress={() => setReporting(true)} accessibilityLabel="Report a hazard here" />
           <Pressable
             onPress={confirmEnd}
             disabled={finishing}
@@ -422,7 +406,7 @@ export default function FloatModeScreen() {
         </View>
       </View>
 
-      {reporting ? <HazardReportSheet onClose={() => setReporting(false)} session={session} /> : null}
+      {reporting ? <HazardReportSheet onClose={(id) => { setReporting(false); if (id) setReportedId(id); }} session={session} /> : null}
     </SafeAreaView>
   );
 }
@@ -450,18 +434,20 @@ function ActionButton({
   const { colors } = useTheme();
   return (
     <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.action, { borderColor: colors.border, borderWidth: 1, opacity: pressed ? 0.6 : 1 }]}
+      onPress={() => { selectionFeedback(); onPress(); }}
+      style={({ pressed }) => [styles.action, { backgroundColor: colors.cardRaised, borderColor: colors.borderStrong, borderWidth: 1, opacity: pressed ? 0.7 : 1 }]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
     >
-      <ControlIcon name={icon} size={18} color={colors.interactive} />
+      <EddySymbol name={icon === 'warning-outline' ? 'hazard' : 'river'} size={26} />
       <Text style={[styles.actionText, { color: colors.interactive }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  routeHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  riverName: { ...t.lg, fontFamily: fonts.heading },
   screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
   centeredText: { textAlign: 'center' },
