@@ -18,10 +18,11 @@ export default function GenerationCard({ dam, now, availability }: {
   const release = dam.metrics.release;
   const hasObserved = dam.hasTurbines || Boolean(release);
   return (
-    <Card as="section" variant="framed">
-      <div className="flex items-center justify-between gap-3 border-b border-primary-700 bg-secondary-50 px-5 py-1 sm:px-6">
-        <p className="text-xs font-bold uppercase tracking-wider text-primary-800">{dam.hasTurbines ? 'Generation overview' : 'Release overview'}</p>
+    <Card as="section" variant="framed" className="relative">
+      <div className="absolute right-3 top-3 z-10">
         <DamInfoTip title="Generation and schedule">
+          <p>Water flow is measured in cubic feet per second (cfs). Megawatts (MW) measure electrical output, not water flow. The schedule charts show the planned power output; select an hour for its details.</p>
+          <p>Total release can include water that does not pass through the turbines. Eddy cannot identify which outlet carries the difference.</p>
           {dam.generationReference && <p>{generationReferenceCitation(dam.generationReference)}. {RACK_ESTIMATE_NOTE}</p>}
           {dam.nameplate && <p>{dam.nameplate.units} generating units · {dam.nameplate.megawatts} MW nameplate capacity. Nameplate capacity and the published scheduling reference can differ.</p>}
           {hasSchedule && <>
@@ -34,17 +35,17 @@ export default function GenerationCard({ dam, now, availability }: {
       </div>
       <div className={hasObserved ? 'dam-generation-layout' : undefined}>
         {hasObserved && <div className="dam-observed p-5 sm:p-6">{dam.hasTurbines ? <DamGenerationHero dam={dam} now={now} /> : release && <div>
-          <h2 className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary-200">
+          <h2 className="flex flex-wrap items-center gap-2 pr-8 text-xs font-bold uppercase tracking-wide text-neutral-700">
             {release.dailyMean ? 'Release at dam · Daily average' : 'Release at dam'}
             {!release.dailyMean && readingStaleness(release.at, now) !== 'fresh' && <span className="rounded-full bg-accent-100 px-2 py-0.5 normal-case tracking-normal text-accent-900">Outdated reading</span>}
           </h2>
-          <p className={`mt-4 font-mono text-4xl text-white${readingStaleness(release.at, now) === 'fresh' ? '' : ' opacity-70'}`}>{Math.round(release.value).toLocaleString()} <span className="text-base text-primary-200">cfs</span></p>
-          <p className="mt-2 text-xs text-primary-200">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
+          <p className={`mt-4 font-mono text-4xl text-primary-900${readingStaleness(release.at, now) === 'fresh' ? '' : ' opacity-70'}`}>{Math.round(release.value).toLocaleString()} <span className="text-base text-neutral-600">cfs</span></p>
+          <p className="mt-2 text-xs text-neutral-600">{relativeAge(release.at, now) ? `Last reading ${relativeAge(release.at, now)}` : 'Reading time unavailable'}</p>
         </div>}</div>}
         <div className="min-w-0 p-5 sm:p-6">
           {hasSchedule ? <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} /> : (
             <div className="flex min-h-28 flex-col justify-center">
-              <h2 className="text-base font-bold text-neutral-900">{availability.title}</h2>
+              <h2 className="pr-8 text-base font-bold text-neutral-900">{availability.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600">{availability.detail}</p>
               {dam.infoPhone && <a className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary-700 underline underline-offset-4" href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}>Recorded release line · {dam.infoPhone}</a>}
             </div>

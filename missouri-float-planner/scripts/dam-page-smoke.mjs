@@ -69,22 +69,22 @@ try {
   await writeFile(`${route}/page.tsx`, `import { notFound } from 'next/navigation';
 import DamDetail from '@/components/dam/DamDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
+import StationShareButton from '@/components/gauge/StationShareButton';
 const variants = ${JSON.stringify(variants)};
 export default async function Page({ searchParams }: { searchParams: Promise<{ variant?: string }> }) {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
   const { variant = 'normal' } = await searchParams;
   const dam = variants[variant as keyof typeof variants] as import('@shared/dam-types').DamSnapshot;
-  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1 className="mb-6 text-3xl font-bold">{dam.name}</h1><DamDetail dam={dam} renderedAt={${now}} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Fixture availability explanation.' }} /></div><SiteFooter maxWidth="max-w-7xl" /></div>;
+  return <div className="min-h-screen bg-neutral-50"><div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><header className="mb-6 flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-semibold text-primary-800" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h1><StationShareButton station={{ provider: 'usace', siteId: dam.id }} title={dam.name} label="Share" /></header><DamDetail dam={dam} renderedAt={${now}} availability={{ title: dam.hasTurbines ? 'Schedule currently unavailable' : 'Gate-operated releases', detail: 'Fixture availability explanation.' }} /></div><SiteFooter maxWidth="max-w-7xl" /></div>;
 }
 `);
   await mkdir(`${route}/list`, { recursive: true });
   await writeFile(`${route}/list/page.tsx`, `import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import DamListCard from '@/components/dam/DamListCard';
 const variants = ${JSON.stringify(variants)};
 export default function Page() {
   if (process.env.NODE_ENV !== 'development' || process.env.EDDY_DAM_SMOKE !== '1') notFound();
-  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <Link key={key} data-variant={key} href="/dam-layout-check" className="group block min-w-0 rounded-2xl"><DamListCard dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></Link>)}</div></div>;
+  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"><h1>Lakes &amp; dams</h1><div className="grid gap-4 md:grid-cols-2">{Object.entries(variants).map(([key, dam]) => <div key={key} data-variant={key}><DamListCard href="/dam-layout-check" dam={{ ...dam, tailwaterFishery: 'trout' } as import('@shared/dam-types').DamSnapshot} now={${now}} /></div>)}</div></div>;
 }
 `);
   const ignored = spawnSync('git', ['check-ignore', '--quiet', `${route}/page.tsx`]);
@@ -123,21 +123,21 @@ export default function Page() {
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
     await page.goto(`${url}/list`, { waitUntil: 'networkidle' });
-    const list = page.locator('a[data-variant]');
-    assert.equal(await list.locator('button, a, input, select').count(), 0, 'whole-card links have no nested controls');
+    const list = page.locator('[data-variant]');
+    assert.equal(await list.locator('a a, a button, a [tabindex]').count(), 0, 'navigation links do not contain chart controls');
     assert(!(await list.allTextContents()).join(' ').includes('Fishery below dam'), 'fishery stays off list cards');
     const normal = page.locator('[data-variant="normal"]');
-    assert((await normal.innerText()).includes('50%'), 'list shows measured generation scale');
+    assert((await normal.innerText()).includes('16,200 cfs'), 'list shows total release');
     assert((await normal.innerText()).includes('56.0 °F'), 'list shows water temperature');
-    assert((await normal.innerText()).includes('estimated from flow'), 'rack remains an estimate');
+    assert(!(await normal.innerText()).includes('estimated from flow'), 'rack stays on the full report');
     assert(!(await page.locator('[data-variant="noTemp"]').innerText()).includes('°F'), 'missing temperature is not fabricated');
     assert(!(await page.locator('[data-variant="noReference"]').innerText()).includes('%'), 'no reference means no percentage');
-    assert((await page.locator('[data-variant="stale"]').innerText()).includes('Generating at last reading'), 'old readings do not claim now');
+    assert(!(await page.locator('[data-variant="stale"]').innerText()).includes('Generating now'), 'list does not claim a current turbine state');
     assert((await page.locator('[data-variant="stale"]').innerText()).includes('may have been revised'), 'old schedule retains its provenance');
     assert(!(await page.locator('[data-variant="scheduleOnly"]').innerText()).includes('No turbine generation observed'), 'missing readings are not idle');
     assert((await page.locator('[data-variant="gateDaily"]').innerText()).includes('daily avg'), 'daily release is labelled');
     assert(!(await page.locator('[data-variant="gate"]').innerText()).includes('generation'), 'gate-only dam has no generation visual');
-    assert((await page.locator('[data-variant="idle"]').innerText()).includes('No turbine generation observed'), 'idle generation uses the published floor');
+    assert((await page.locator('[data-variant="idle"]').innerText()).includes('16,200 cfs'), 'release stays independent of turbine state');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: list has no horizontal overflow`);
     const first = await list.nth(0).boundingBox();
     const second = await list.nth(1).boundingBox();
@@ -161,6 +161,7 @@ export default function Page() {
     const detail = page.locator('[data-dam-detail]');
     assert(await detail.isVisible());
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: horizontal page overflow`);
+    await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
     const a = await page.locator('.dam-observed').boundingBox();
     const b = await page.getByRole('region', { name: 'Generation schedule', exact: true }).boundingBox();
     assert(wide ? b.x > a.x + a.width - 2 : b.y >= a.y + a.height, `${name}: responsive column placement`);
@@ -169,7 +170,7 @@ export default function Page() {
     assert(await cta.evaluate(el => Boolean(el.closest('section')?.querySelector('[aria-label="Generation schedule"]'))), 'app action belongs to the generation card footer');
     const ctaBox = await cta.boundingBox();
     const ctaLinkBox = await cta.getByRole('link', { name: 'Get Eddy for iPhone' }).boundingBox();
-    const historyBox = await page.getByRole('heading', { name: 'Generation history', exact: true }).boundingBox();
+    const historyBox = await page.getByRole('heading', { name: 'Generation pattern', exact: true }).boundingBox();
     assert(ctaBox.y >= b.y + b.height && historyBox.y > ctaBox.y + ctaBox.height, `${name}: app action follows schedule and precedes history`);
     assert(ctaLinkBox.height >= 44 && ctaLinkBox.x >= 0 && ctaLinkBox.x + ctaLinkBox.width <= width, `${name}: app action fits and has a touch target`);
     const days = page.locator('details');
@@ -178,10 +179,28 @@ export default function Page() {
     assert.equal(await days.nth(1).getAttribute('open'), null);
     await days.nth(1).locator('summary').click();
     assert.equal(await days.nth(1).getAttribute('open'), '');
-    await page.getByRole('button', { name: 'Include upcoming schedule' }).click();
-    assert.equal(await page.getByRole('button', { name: 'Hide upcoming schedule' }).getAttribute('aria-pressed'), 'true');
-    await page.getByRole('button', { name: 'Hide upcoming schedule' }).click();
-    assert(await page.getByRole('heading', { name: 'Generation history', exact: true }).isVisible());
+    assert.equal(await page.getByRole('button', { name: /upcoming schedule/i }).count(), 0, 'upcoming hours need no toggle');
+    const pattern = page.getByRole('heading', { name: 'Generation pattern', exact: true }).locator('..').locator('..');
+    assert(await pattern.getByText('Scheduled', { exact: true }).isVisible(), 'scheduled hours show by default');
+    const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
+    const measurementsBox = await measurements.boundingBox();
+    const patternBox = await pattern.boundingBox();
+    assert(measurementsBox.y + measurementsBox.height <= patternBox.y, 'dam and lake readings are above the pattern');
+    const scheduleText = await page.getByRole('region', { name: 'Generation schedule', exact: true }).innerText();
+    assert(!/Peak scheduled release|\bMW\b|Select an hour|no break in the schedule/.test(scheduleText), 'schedule avoids stacked jargon and instructions');
+    assert.equal(await detail.getByText('Next scheduled change', { exact: true }).count(), 1, 'next change is stated once');
+    const share = page.getByRole('button', { name: 'Share Bull Shoals Dam', exact: true });
+    assert.equal(await share.locator('svg').count(), 1, 'Share has an icon');
+    assert((await share.boundingBox()).height >= 44, 'Share has a touch-sized target');
+    await page.evaluate(() => {
+      window.sharedDam = null;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async data => { window.sharedDam = data; } });
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async url => { window.sharedDam = { url }; } } });
+    });
+    await share.click();
+    const shared = await page.evaluate(() => window.sharedDam);
+    assert.equal(shared.url, `${origin}/share/gauge/usace/${dam.id}`, 'share retains the existing dam deep-link contract');
+    if (!await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) assert(await page.getByRole('status').getByText('Link copied.').isVisible());
     const trigger = page.getByRole('button', { name: 'About generation and schedule' });
     await trigger.click();
     assert(await page.getByRole('dialog').isVisible());
@@ -204,12 +223,15 @@ export default function Page() {
       await page.waitForTimeout(1500);
       assert.equal(refreshes, 1, 'focus refreshes are coalesced');
       assert.equal(await days.nth(1).getAttribute('open'), '', 'refresh preserves open dates');
-      assert.match(await detail.getByRole('img', { name: /^Today:/ }).getAttribute('aria-label'), /of 11 hours/);
+      assert.match(await detail.getByRole('img', { name: /^Today:/ }).getAttribute('aria-label'), /generation scheduled in 8 of 24 hours/);
+      const patternMarker = detail.getByRole('img', { name: /^Today:/ }).locator('.pointer-events-none[style]');
+      const markerBefore = await patternMarker.evaluate(el => el.style.left);
       // Move wall time across noon without firing interval callbacks. A return
       // to the tab must advance both charts immediately from the page clock.
       await page.clock.setFixedTime(new Date('2026-10-16T17:00:00Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-      await detail.getByRole('img', { name: /^Today:.*of 12 hours/ }).waitFor();
+      await page.waitForFunction(() => document.querySelector('[data-dam-detail] [aria-label^="Today:"] .pointer-events-none')?.style.left === '50%');
+      assert.notEqual(await patternMarker.evaluate(el => el.style.left), markerBefore, 'pattern advances across the hour');
       const scheduleMarker = days.first().getByRole('img').locator('.pointer-events-none[style]');
       assert.equal(await scheduleMarker.evaluate(el => el.style.left), '50%', 'schedule and history advance together on focus');
       console.log('PASS shared clock across an hour boundary');
@@ -222,7 +244,7 @@ export default function Page() {
       await chart.scrollIntoViewIfNeeded();
       const box = await chart.boundingBox();
       await page.touchscreen.tap(box.x + box.width * 0.6, box.y + box.height / 2);
-      assert(await days.first().getByText(/2 PM–3 PM · 200 MW/).isVisible(), 'tap retains the hourly readout');
+      assert(await days.first().getByText(/2 PM–3 PM · ~13,000 cfs scheduled/).isVisible(), 'tap retains the hourly readout');
     }
     await days.nth(1).locator('summary').click();
     await page.getByRole('heading', { level: 1 }).click();
