@@ -73,6 +73,13 @@ export interface StatewideNetwork {
    * lying quietly.
    */
   readingsFailed: boolean;
+  /**
+   * The geometry request itself failed. Only meaningful with an empty
+   * collection: with a disk copy drawn, a failed top-up is nothing to show.
+   * With nothing drawn, it is the difference between "loading" and "could
+   * not load", which a spinner alone cannot tell.
+   */
+  geometryFailed: boolean;
 }
 
 export function useStatewideNetwork(): StatewideNetwork {
@@ -242,5 +249,5 @@ export function useStatewideNetwork(): StatewideNetwork {
 
   // The raw readings come out too, so a caller that needs to grade ONE river
   // gauge by gauge can build the shared index rather than re-deriving one.
-  return { collection, bounds, bySlug, readings, loading: rivers === null, readingsFailed };
+  return { collection, bounds, bySlug, readings, loading: rivers === null, readingsFailed, geometryFailed };
 }

@@ -19,7 +19,7 @@
 // scrolled under a list of switches.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useNavigation, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -32,10 +32,9 @@ import { floatDisplayPosition, fixAgeLabel, gpsQualityNote, progressLine } from 
 import { useFloatMapFocus } from '@/float/mapFocus';
 import { FloatMap } from '@/float/FloatMap';
 import { HazardReportSheet } from '@/float/HazardReportSheet';
-import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { useTrackingLine } from '@/float/useTrackingLine';
 import { useAnnounce } from '@/hooks/useAnnounce';
-import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
+import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { discardShortFloat, endFloat } from '@/lib/floatSessionStore';
 import { isShortFloat } from '@/lib/floatEnding';
@@ -60,6 +59,7 @@ const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'n
 export default function FloatModeScreen() {
   const session = useFloatSession();
   const stored = useFloatSessionUnreadable();
+  const loaded = useFloatSessionLoaded();
   const mapFocus = useFloatMapFocus();
   const { fontScale, width } = useWindowDimensions();
   const stacked = fontScale > 1.3 || width < 360;
@@ -67,24 +67,16 @@ export default function FloatModeScreen() {
   const root = useNavigation('/');
   const { colors, elevation } = useTheme();
   const tracking = useTrackingLine();
-  const [keepAwake] = useKeepAwakePreference();
   const [reporting, setReporting] = useState(false);
   const [reportedId, setReportedId] = useState<string | null>(null);
   // Finish is applying the last of the recorded track before saving.
   const [finishing, setFinishing] = useState(false);
   const focused = useIsFocused();
 
-  // Only while this screen is showing and a float is active (#1448): leaving
-  // the screen or ending the float releases it. Keyed on whether a float is
-  // active, not the session object, which changes with every GPS fix and used
-  // to release and re-acquire the wake lock each time.
+  // Keep screen awake is held by the recording layout, so the Essentials
+  // sheet presenting over this screen does not release it.
   const floatActive = session != null;
   const now = useFloatDisplayClock(focused && floatActive);
-  useEffect(() => {
-    if (!keepAwake || !focused || !floatActive) return;
-    void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
-    return () => void deactivateKeepAwake(KEEP_AWAKE_TAG);
-  }, [keepAwake, focused, floatActive]);
 
   // Recomputed when a fix lands or the clock ticks. A fix newer than the last
   // tick is itself the latest known time, so a fresh position never reads as
@@ -145,7 +137,9 @@ export default function FloatModeScreen() {
   const fresh = recording && displayed != null && !displayed.dimmed;
   const time = view ? remainingCopy(view.estimate, view.takeOutBeyondMeters != null) : null;
   const anchor = view ? arrivalAnchor(view, clock) : null;
-  const outlook = view && anchor && ends ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
+  // No arrival to place on a clock for a float that began below its take-out:
+  // the panel hides the line, and VoiceOver must not hear a sunset warning for it.
+  const outlook = view && !view.startedPastTakeOut && anchor && ends ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
   const arrival = outlook ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null) : null;
   const hazard = view?.nextHazard ?? null;
   // At the take-out, or as close as the mapped river goes to one off it.
@@ -162,6 +156,17 @@ export default function FloatModeScreen() {
       if (root.canGoBack()) root.goBack();
       router.navigate('/(tabs)/(floats)/float-home');
     };
+    // Opened cold, before the stored float has been read: wait for the
+    // answer rather than show "No float in progress" for a float that is
+    // recording. The store's own failure state comes next if the read fails.
+    if (!loaded && !stored.unreadable) {
+      return (
+        <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['left', 'right', 'bottom']}>
+          <ActivityIndicator color={colors.interactive} />
+          <Text style={[styles.note, styles.centeredText, { color: colors.textMuted }]}>Opening your float…</Text>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['left', 'right', 'bottom']}>
         {stored.unreadable ? <>
@@ -222,8 +227,18 @@ export default function FloatModeScreen() {
             setFinishing(true);
             void discardShortFloat().then((discarded) => {
               setFinishing(false);
-              if (discarded) leaveAfterDiscard();
-              else endingHere.current = false;
+              if (discarded) {
+                leaveAfterDiscard();
+                return;
+              }
+              // The float grew past "short" while the alert was open (the
+              // store judges it afresh). Silence here read as a broken
+              // button; say so, and leave End float as the way out.
+              endingHere.current = false;
+              Alert.alert(
+                'This float has recorded enough to keep',
+                'Eddy measured more while this was open, so it can’t be discarded. Use End float to save a recap instead.',
+              );
             });
           },
         }] : []),
@@ -429,8 +444,6 @@ function ActionButton({
     </Pressable>
   );
 }
-
-const KEEP_AWAKE_TAG = 'float-mode';
 
 const styles = StyleSheet.create({
   routeHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },

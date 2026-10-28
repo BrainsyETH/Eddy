@@ -58,7 +58,7 @@ import { AlertCreationFrame } from '@/components/AlertCreationFrame';
 import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
 import { useSession } from '@/hooks/useSession';
 import { usePreventRemove } from 'expo-router/react-navigation';
-import { alertAnchor, alertDraftChanged, createAlertSaveTask } from '@/lib/alertCreation';
+import { alertAnchor, alertDraftChanged, createAlertSaveTask, parseThresholdInput } from '@/lib/alertCreation';
 import { successFeedback } from '@/lib/haptics';
 import { ConditionCodeChips } from '@/components/ConditionCodeChips';
 import { Otter } from '@/components/Otter';
@@ -66,6 +66,8 @@ import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { readingAge } from '@/lib/readingCopy';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useAlertGate } from '@/hooks/useAlertGate';
+import { usePush } from '@/hooks/usePush';
+import { notificationDetail } from '@/lib/notificationCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -154,10 +156,11 @@ export default function ConfigureAlertScreen() {
   const confirmingDiscard = useRef(false);
   const [completion, setCompletion] = useState<{ seedNote: string | null; primed: boolean } | null>(null);
   const { colors, elevation } = useTheme();
-  const { add, refresh } = useAlertRules();
+  const { add, refresh, rulesFor } = useAlertRules();
   // Reuse the one-tap bell's session and permission policy. This task renders
   // sign-in and the primer inline, without adding another modal.
   const gate = useAlertGate();
+  const push = usePush();
 
   const [context, setContext] = useState<Context | null>(null);
   const [loading, setLoading] = useState(true);
@@ -323,8 +326,8 @@ export default function ConfigureAlertScreen() {
     setValueMax('');
   }, [context, metric, currentValue]);
 
-  const parsedValue = Number(value);
-  const parsedMax = Number(valueMax);
+  const parsedValue = parseThresholdInput(value);
+  const parsedMax = parseThresholdInput(valueMax);
   const valueValid = Number.isFinite(parsedValue) && value.trim() !== '';
   const maxValid = comparator !== 'between' || (valueMax.trim() !== '' && Number.isFinite(parsedMax) && parsedMax > parsedValue);
 
@@ -489,6 +492,29 @@ export default function ConfigureAlertScreen() {
     metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
   ]);
 
+  // A river holds ONE "Eddy's call" alert: the route upserts on (user, river),
+  // replacing the kind, clearing what it last sent and switching it back on.
+  // Saving a second one used to do that silently, over a paused alert the
+  // person had chosen to keep paused. Ask first.
+  const existingRiverAlert = scope === 'river' && mode === 'condition' && riverId
+    ? rulesFor('river', riverId).find((rule) => rule.source === 'river_condition') ?? null
+    : null;
+  const requestSave = useCallback(() => {
+    if (!existingRiverAlert) {
+      void save();
+      return;
+    }
+    const kind = CONDITION_KINDS.find((option) => option.value === existingRiverAlert.conditionKind)?.label;
+    Alert.alert(
+      `You already have an alert for ${targetName}`,
+      `${kind ? `It is set to ${kind}` : 'It is set'}${existingRiverAlert.enabled ? '' : ' and paused'}. Saving replaces it with this one${existingRiverAlert.enabled ? '' : ' and turns it back on'}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Replace', style: 'destructive', onPress: () => void save() },
+      ],
+    );
+  }, [existingRiverAlert, save, targetName]);
+
   const cancel = { label: 'Cancel', onPress: close, disabled: saving || signingIn || enablingPush };
   if (loading) {
     return <AlertCreationFrame secondary={cancel}>
@@ -544,7 +570,16 @@ export default function ConfigureAlertScreen() {
           <Text style={[styles.stepBody, { color: colors.textMuted }]}>
             Gauge reporting and processing mean alerts can trail the river by roughly 20–75 minutes. Check conditions again before getting on the water.
           </Text>
-        </> : null}
+        </> : push.permission === 'denied' || push.optedOut || (push.permission === 'granted' && !push.registered) ? (
+          // "Alert saved" with no way to deliver it is a promise the phone
+          // cannot keep. Say so here, where the alert was made, with the
+          // same sentence Settings uses, instead of leaving it to be
+          // discovered when nothing arrives.
+          <Text style={[styles.stepBody, { color: colors.textMuted }]}>
+            {notificationDetail({ permission: push.permission, registered: push.registered, optedOut: push.optedOut })}
+            {push.permission === 'denied' || push.optedOut ? ' You can turn notifications on in Settings.' : ''}
+          </Text>
+        ) : null}
       </ScrollView>
     </AlertCreationFrame>;
   }
@@ -575,7 +610,7 @@ export default function ConfigureAlertScreen() {
 
   return (
     <AlertCreationFrame error={error} secondary={cancel}
-      primary={{ label: saving ? 'Saving…' : 'Save', onPress: () => void save(), disabled: !canSave, busy: saving }}>
+      primary={{ label: saving ? 'Saving…' : 'Save', onPress: requestSave, disabled: !canSave, busy: saving }}>
       <Stack.Screen options={{ title: 'New alert', gestureEnabled: true }} />
       <ScrollView
         contentContainerStyle={styles.content}
@@ -771,7 +806,11 @@ export default function ConfigureAlertScreen() {
                 {metric === 'discharge_cfs' ? 'cfs' : 'ft'}
               </Text>
             </View>
-            {!maxValid ? (
+            {value.trim() !== '' && !valueValid ? (
+              <Text style={[styles.hint, { color: colors.error }]}>
+                Enter a number, such as 3.4 or 3,4.
+              </Text>
+            ) : !maxValid ? (
               <Text style={[styles.hint, { color: colors.error }]}>
                 The upper level has to be higher than the lower one.
               </Text>

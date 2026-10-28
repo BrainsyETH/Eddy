@@ -8,6 +8,7 @@
 // trace of it that leaves the server.
 
 import type { AlertRule, AlertSubscriptionKind, AlertMetric, AlertComparator } from '@/types/api';
+import { maxReadingAgeHours } from './gate';
 
 /** PostgREST types a to-one embed as an array; at runtime it is one object. */
 export function one<T>(value: T | T[] | null | undefined): T | null {
@@ -32,6 +33,7 @@ interface StationEmbed {
   usgs_site_id: string | null;
   site_id_external: string | null;
   curated: boolean;
+  provider?: string | null;
 }
 
 export interface GaugeAlertRow {
@@ -51,6 +53,8 @@ export interface GaugeAlertRow {
   one_shot_fired_at: string | null;
   parent_subscription_id: string | null;
   created_at: string;
+  /** The last reading the engine acted on (gauge-threshold.ts writes it only past the gate). */
+  last_reading_at?: string | null;
   rivers?: RiverEmbed | RiverEmbed[] | null;
   gauge_stations?: StationEmbed | StationEmbed[] | null;
 }
@@ -59,10 +63,27 @@ export interface GaugeAlertRow {
 export const GAUGE_ALERT_SELECT =
   'id, river_id, gauge_station_id, scope, mode, condition_kind, metric, comparator, ' +
   'threshold_value, threshold_value_max, enabled, one_shot, last_triggered_at, ' +
-  'one_shot_fired_at, parent_subscription_id, created_at, ' +
-  'rivers(name, slug), gauge_stations!inner(name, usgs_site_id, site_id_external, curated)';
+  'one_shot_fired_at, parent_subscription_id, created_at, last_reading_at, ' +
+  'rivers(name, slug), gauge_stations!inner(name, usgs_site_id, site_id_external, curated, provider)';
 
-export function toGaugeRule(row: GaugeAlertRow): AlertRule {
+/**
+ * The rule is armed but has had nothing to act on for longer than the gate
+ * accepts a reading: the station stopped reporting, or reports what the gate
+ * refuses. A rule younger than that window is not stale yet, whatever it holds.
+ */
+export function gaugeRuleReadingStale(
+  row: Pick<GaugeAlertRow, 'enabled' | 'last_reading_at' | 'created_at'>,
+  provider: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!row.enabled) return false;
+  const limitMs = maxReadingAgeHours(provider) * 3_600_000;
+  const lastAt = row.last_reading_at ? Date.parse(row.last_reading_at) : NaN;
+  const since = Number.isFinite(lastAt) ? lastAt : Date.parse(row.created_at);
+  return Number.isFinite(since) && now - since > limitMs;
+}
+
+export function toGaugeRule(row: GaugeAlertRow, now: number = Date.now()): AlertRule {
   const river = one(row.rivers);
   const station = one(row.gauge_stations);
 
@@ -105,6 +126,8 @@ export function toGaugeRule(row: GaugeAlertRow): AlertRule {
     // 20260802143000_gauge_alert_parent_subscription.sql.
     parentId: row.parent_subscription_id ?? null,
     createdAt: row.created_at,
+    lastReadingAt: row.last_reading_at ?? null,
+    readingStale: gaugeRuleReadingStale(row, station?.provider, now),
   };
 }
 

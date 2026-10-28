@@ -107,7 +107,12 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { session, getAccessToken } = useSession();
+  const { session, isAnonymous, getAccessToken } = useSession();
+  // Bumped by every mutation. A list fetch that started before a mutation
+  // must not publish: the tab refreshes on focus and foreground, and a GET
+  // resolving after a PATCH put the switch straight back to what it was, with
+  // the server paused and nothing on screen saying so.
+  const mutationGen = useRef(0);
 
   // Read inside the mutations without being a dependency of them: a stale
   // closure would revert an optimistic edit to a list from two changes ago.
@@ -123,7 +128,12 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
-      const token = await getAccessToken();
+      // An anonymous session holds a token the list route accepts, and it
+      // answers [] — which this screen drew as "No alerts yet" with a + that
+      // ends in the sign-in sheet. Alerts need an account; an anonymous user
+      // is signed out as far as this tab is concerned, and gets its sign-in
+      // state, the way quiet hours already treats them.
+      const token = isAnonymous ? null : await getAccessToken();
       if (!token) {
         // Genuinely signed out. Not a failure — the screen's sign-in state is
         // the correct thing to draw, so the flag is cleared rather than set.
@@ -132,11 +142,13 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
         setReady(true);
         return;
       }
+      const gen = mutationGen.current;
       try {
         const next = await fetchAlertRules(token, signal);
         // A null here is an unusable session, not an empty list — pass it
         // straight through rather than flattening it to [].
-        setRules(next);
+        // A mutation since this fetch began knows better than its answer.
+        if (mutationGen.current === gen) setRules(next);
         setLoadFailed(false);
       } catch (err) {
         // Offline keeps whatever we last had. Blanking the list would tell
@@ -152,7 +164,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
         setReady(true);
       }
     },
-    [getAccessToken],
+    [getAccessToken, isAnonymous],
   );
 
   // Reloads when the user changes: signing in with Apple upgrades an anonymous
@@ -192,6 +204,7 @@ export function AlertRulesProvider({ children }: { children: ReactNode }) {
       affected: AlertRule[] = [rule],
     ): Promise<T> => {
       const before = rulesRef.current;
+      mutationGen.current += 1;
       if (before) setRules(optimistic(before));
 
       // Revert ONLY what this mutation touched, as it was — never the whole

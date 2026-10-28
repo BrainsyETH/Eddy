@@ -11,7 +11,7 @@
 // or has never signed in.
 
 import { notificationCommand, notificationDestination } from '@/lib/notificationDestination';
-import { endFloat, getFloatSession } from '@/lib/floatSessionStore';
+import { endFloat, ensureFloatSessionLoaded, floatSessionLoadFailed, getFloatSession } from '@/lib/floatSessionStore';
 import {
   createContext,
   useCallback,
@@ -33,6 +33,7 @@ import {
   getPermissionState,
   installForegroundHandler,
   requestPermission,
+  settleOwedRelease,
   syncRegistration,
   unregisterThisDevice,
   type PermissionState,
@@ -48,9 +49,20 @@ interface PushValue {
    * see PushPrimer and the note in src/lib/push.ts.
    */
   enable: () => Promise<PermissionState>;
-  /** Stop this device receiving. Used by sign-out and account deletion. */
-  /** Returns false when the device was unregistered but the preference was not persisted. */
+  /**
+   * The Notifications switch: stop this device receiving AND remember that
+   * choice on disk, so no later launch or sign-in registers it again.
+   * Returns false when the device was unregistered but the preference was not persisted.
+   */
   disable: () => Promise<boolean>;
+  /**
+   * Sign-out and account deletion: take this device's token off the account
+   * that is leaving, WITHOUT opting the device out. The next account to sign
+   * in registers as usual. Calling disable() here used to leave the device
+   * opted out for good: after signing back in, alerts were saved, permission
+   * was granted, and nothing ever registered a token again.
+   */
+  unregister: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -60,6 +72,7 @@ const PushContext = createContext<PushValue>({
   registered: false,
   enable: async () => 'undetermined',
   disable: async () => false,
+  unregister: async () => {},
   refresh: async () => {},
 });
 
@@ -144,9 +157,20 @@ export function PushProvider({ children }: { children: ReactNode }) {
         // Finish from the arrival prompt: end the float, then show its recap.
         // An end that could not finalise leaves the float running; River Mode
         // explains and offers Finish again.
-        const id = getFloatSession()?.id;
-        if (!id) return;
-        void endFloat().then((result) => {
+        //
+        // On a cold start the stored float is still being read when the
+        // navigator mounts, so the session is awaited rather than read: a
+        // tap that found nothing loaded used to be dropped on the floor, with
+        // the float left recording and nothing on screen to say so. A float
+        // that cannot be read, or none at all, opens River Mode, which shows
+        // the honest state either way.
+        void ensureFloatSessionLoaded().then(async () => {
+          const id = getFloatSession()?.id;
+          if (!id || floatSessionLoadFailed()) {
+            router.push('/float-mode');
+            return;
+          }
+          const result = await endFloat();
           if (result === 'not-ended') router.push('/float-mode');
           else router.push({ pathname: '/float-recap', params: { id } });
         }).catch((error) => warn('push', 'could not finish the float from its notification', error));
@@ -221,6 +245,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
 
     if (state !== 'granted' || !signedIn) {
       setRegistered(false);
+      // A release owed from an earlier sign-out needs no account, only signal.
+      void settleOwedRelease();
       return;
     }
 
@@ -230,11 +256,11 @@ export function PushProvider({ children }: { children: ReactNode }) {
     }
 
     const token = await getAccessToken();
-    if (!token) return;
+    if (!token || !userId) return;
 
-    const result = await syncRegistration(token);
+    const result = await syncRegistration(token, userId);
     setRegistered(result.ok);
-  }, [signedIn, getAccessToken]);
+  }, [signedIn, userId, getAccessToken]);
 
   // Re-sync on every launch and whenever the signed-in user changes. Expo push
   // tokens rotate, and a stale one fails silently — the user simply stops
@@ -282,13 +308,15 @@ export function PushProvider({ children }: { children: ReactNode }) {
       }
       setOptedOut(false);
       const token = await getAccessToken();
-      if (token) {
-        const result = await syncRegistration(token);
+      if (token && userId) {
+        // Forced: the device was opted out, so whatever the ledger says, the
+        // server row is gone and must be written again.
+        const result = await syncRegistration(token, userId, { force: true });
         setRegistered(result.ok);
       }
     }
     return state;
-  }, [signedIn, getAccessToken, features.push]);
+  }, [signedIn, userId, getAccessToken, features.push]);
 
   const disable = useCallback(async () => {
     let persisted = true;
@@ -298,16 +326,20 @@ export function PushProvider({ children }: { children: ReactNode }) {
       persisted = false;
       warn('push', 'Could not persist this device push opt-out', error);
     }
-    const token = await getAccessToken();
-    if (token) await unregisterThisDevice(token);
+    await unregisterThisDevice(await getAccessToken());
     if (persisted) setOptedOut(true);
     setRegistered(false);
     return persisted;
   }, [getAccessToken]);
 
+  const unregister = useCallback(async () => {
+    await unregisterThisDevice(await getAccessToken());
+    setRegistered(false);
+  }, [getAccessToken]);
+
   const value = useMemo<PushValue>(
-    () => ({ permission, optedOut, registered, enable, disable, refresh }),
-    [permission, optedOut, registered, enable, disable, refresh],
+    () => ({ permission, optedOut, registered, enable, disable, unregister, refresh }),
+    [permission, optedOut, registered, enable, disable, unregister, refresh],
   );
 
   return <PushContext.Provider value={value}>{children}</PushContext.Provider>;

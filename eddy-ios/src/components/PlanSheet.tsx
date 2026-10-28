@@ -91,6 +91,8 @@ interface Props {
    * different reason.
    */
   userCoords?: Coords | null;
+  /** A one-line note above the pickers, e.g. a linked endpoint that no longer exists. */
+  notice?: string | null;
 }
 
 export function PlanSheet({
@@ -113,6 +115,7 @@ export function PlanSheet({
   state,
   accessPoints,
   userCoords,
+  notice,
 }: Props) {
   const { colors } = useTheme();
   const { floats, remember, isSaved, forgetPlan, ready: savedFloatsReady } = useSavedFloats();
@@ -240,7 +243,11 @@ export function PlanSheet({
   ) : null;
   // Large titles/names must scroll too: three full-size rows fixed above two
   // persistent actions would leave no result viewport on a small iPhone.
-  const contentHeader = stacked ? <View style={styles.contentHeader}>{heading}{breadcrumb}</View> : undefined;
+  const stackedHeader = stacked ? <View style={styles.contentHeader}>{heading}{breadcrumb}</View> : undefined;
+  const noticeLine = notice ? (
+    <Text accessibilityRole="alert" style={[styles.errorText, { color: colors.text }]}>{notice}</Text>
+  ) : null;
+  const contentHeader = stackedHeader || noticeLine ? <>{stackedHeader}{noticeLine}</> : undefined;
   const actionErrors = [actionState?.saveError, actionState?.shareError].filter((message): message is string => Boolean(message));
 
   return (

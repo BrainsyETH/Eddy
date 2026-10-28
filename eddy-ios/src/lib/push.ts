@@ -24,7 +24,8 @@ import type { NotificationAccess } from './notificationAccess';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { registerDeviceToken, unregisterDeviceToken } from '@/api/client';
+import { registerDeviceToken, releaseDeviceToken, unregisterDeviceToken } from '@/api/client';
+import { needsRegistration, readPushLedger, registered, released, unregistered, writePushLedger } from '@/lib/pushLedger';
 import { warn } from '@/lib/monitoring';
 
 /**
@@ -123,32 +124,69 @@ export interface RegistrationResult {
  * side effects, so it is safe to call on every launch — which is the intent:
  * tokens rotate, and a stale one silently stops receiving.
  */
-export async function syncRegistration(token: string): Promise<RegistrationResult> {
+export async function syncRegistration(
+  token: string,
+  userId: string,
+  options: { force?: boolean; now?: number } = {},
+): Promise<RegistrationResult> {
   const state = await getPermissionState();
   if (state !== 'granted') return { ok: false, token: null, state };
 
   const pushToken = await getExpoPushToken();
   if (!pushToken) return { ok: false, token: null, state };
 
-  const ok = await registerDeviceToken(token, {
+  // Anything owed from a sign-out goes first, so the release and this
+  // registration cannot cross on the server.
+  await settleOwedRelease();
+
+  // Nothing changed since the last registration the server confirmed: same
+  // account, same token, within a day. Every foreground used to POST again,
+  // against a fail-closed limit (pushLedger.ts).
+  const now = options.now ?? Date.now();
+  const ledger = await readPushLedger();
+  if (!options.force && !needsRegistration(ledger, userId, pushToken, now)) {
+    return { ok: true, token: pushToken, state };
+  }
+
+  const result = await registerDeviceToken(token, {
     expoPushToken: pushToken,
     platform: Platform.OS === 'android' ? 'android' : 'ios',
     deviceName: Device.modelName ?? undefined,
     appVersion: Constants.expoConfig?.version ?? undefined,
   });
+  if (result.ok) await writePushLedger(registered(userId, pushToken, result.deviceId, now));
 
-  return { ok, token: pushToken, state };
+  return { ok: result.ok, token: pushToken, state };
 }
 
 /**
- * Stop this device receiving.
- *
- * Called on sign-out and before account deletion. Failure is swallowed: the
- * backend prunes tokens that fail with DeviceNotRegistered anyway, so a missed
- * unregister costs a few wasted sends rather than a wrong notification.
+ * Send a release owed from an earlier sign-out, if there is one and there is
+ * signal now. Safe to call at any time; never throws.
  */
-export async function unregisterThisDevice(token: string): Promise<void> {
-  const pushToken = await getExpoPushToken();
-  if (!pushToken) return;
-  await unregisterDeviceToken(token, pushToken).catch(() => {});
+export async function settleOwedRelease(): Promise<void> {
+  const ledger = await readPushLedger();
+  if (!ledger.release) return;
+  if (await releaseDeviceToken(ledger.release.expoPushToken, ledger.release.deviceId)) {
+    await writePushLedger(released(await readPushLedger()));
+  }
+}
+
+/**
+ * Stop this device receiving for the account that holds `token`.
+ *
+ * Called on sign-out, before account deletion, and by the Notifications
+ * switch. A DELETE that does not land is no longer forgotten: the leaving
+ * account would keep being notified on this phone. It is recorded as a
+ * release owed (pushLedger.ts) and sent on a later launch with signal.
+ * Resolves whether the server took it now.
+ */
+export async function unregisterThisDevice(token: string | null): Promise<boolean> {
+  const ledger = await readPushLedger();
+  const pushToken = (await getExpoPushToken()) ?? ledger.registration?.expoPushToken ?? null;
+  if (!pushToken) return true;
+  // No token (a session that could not be refreshed offline) is a DELETE
+  // that cannot be sent: owed, the same as one that failed.
+  const delivered = token ? await unregisterDeviceToken(token, pushToken).then(() => true, () => false) : false;
+  await writePushLedger(unregistered(ledger, delivered));
+  return delivered;
 }

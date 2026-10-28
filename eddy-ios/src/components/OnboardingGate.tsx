@@ -136,7 +136,9 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       const next = snapshot ? stepAfterLegal(snapshot) : 'app';
       // Recorded BEFORE the picker renders, so an onboarding interrupted by a
       // kill resumes there instead of being lost to the migration branch.
-      if (next === 'picker') void markPersonalizationPending();
+      // Awaited: a kill between the write being queued and landing would
+      // otherwise skip the picker for good on a brand-new install.
+      if (next === 'picker') await markPersonalizationPending().catch(() => {});
       setStep(next);
       setSaving(false);
     }

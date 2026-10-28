@@ -1221,14 +1221,17 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
       // in tens of miles, so a fix remembered from the last session answers it
       // exactly as well as a fresh one — the dialog only appears when there is
       // genuinely nothing to sort by. See useLocation.
-      const [requested] = await Promise.all([
+      const [requested, loadedGauges] = await Promise.all([
         location.coords ? Promise.resolve(location.coords) : location.request(),
         ensureGauges(),
       ]);
-      // Only commit to the ordering if a position actually arrived. Selecting
-      // "Near me" and then being shown an unchanged list with no explanation is
-      // worse than the selection not sticking.
-      if (requested) setSort('nearest');
+      // Only commit to the ordering if a position actually arrived AND there
+      // are gauge coordinates to measure to. Selecting "Near me" and then being
+      // shown an unchanged list with no explanation is worse than the
+      // selection not sticking; with no gauges the list would keep its
+      // condition order under a note claiming "Nearest first". The gauge
+      // error line names the failure and pull-to-refresh retries it.
+      if (requested && loadedGauges.length > 0) setSort('nearest');
     },
     [nearest, location, ensureGauges],
   );

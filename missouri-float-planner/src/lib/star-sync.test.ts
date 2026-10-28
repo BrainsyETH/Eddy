@@ -2,14 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   addStars,
+  mergeLoadedStars,
   mergeStars as mergeStarsRaw,
   migrateStars,
+  starSyncPolicy,
   toggleLocal,
   visibleStars,
   type LocalStar,
   type ServerStar,
   type StarKind,
 } from '../../../packages/eddy-sync/index';
+import { clientStarredAt } from './star-time';
 
 /** Rivers by default, so every pre-gauge case below reads exactly as it did. */
 const mergeStars = (l: LocalStar[], s: ServerStar[], kind: StarKind = 'river') =>
@@ -444,4 +447,82 @@ test('newly followed stars survive a sync that the server has not seen', () => {
   const plan = mergeStarsRaw(followed, [], 'river');
   assert.deepEqual(plan.toStar, ['r1']);
   assert.equal(visibleStars(plan.merged).length, 1);
+});
+
+// ── a tap that lands before the disk read ───────────────────────────────────
+
+test('a star tapped before the store loaded is kept, and the rest comes from disk', () => {
+  // Deep link straight to a river, tap the star, and the AsyncStorage read is
+  // still in flight. Replacing memory with the loaded list lost the tap; the
+  // tap had already written the whole store as one entry, so the next write
+  // would have lost everything else too.
+  const loaded = [local('current', true, EARLY), local('jacks-fork', true, EARLY)];
+  const pending = toggleLocal([], { kind: 'river', entityId: 'eleven-point', name: 'Eleven Point', slug: 'eleven-point' }, LATE);
+  const merged = mergeLoadedStars(loaded, pending);
+  assert.deepEqual(visibleStars(merged).map((e) => e.entityId), ['eleven-point', 'current', 'jacks-fork']);
+});
+
+test('a pre-load tap on an entity the disk also holds is the newer edit', () => {
+  const loaded = [local('current', true, EARLY)];
+  // Unstarred before the read landed: the tombstone wins over the disk copy.
+  const pending = [local('current', false, LATE)];
+  const merged = mergeLoadedStars(loaded, pending);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].starred, false);
+});
+
+test('with nothing pending the loaded list is returned as it is', () => {
+  const loaded = [local('current', true, EARLY)];
+  assert.equal(mergeLoadedStars(loaded, []), loaded);
+});
+
+// ── whose stars the store holds ─────────────────────────────────────────────
+
+test('a store nobody signed in to merges with whoever signs in first', () => {
+  // The guest's stars are adopted by the account: the first-run picker's
+  // follows must survive the sign-in that comes right after it.
+  assert.equal(starSyncPolicy(null, { id: 'A', anonymous: true }), 'merge');
+  assert.equal(starSyncPolicy(null, { id: 'A', anonymous: false }), 'merge');
+});
+
+test('the same account coming back merges as usual', () => {
+  assert.equal(starSyncPolicy('A', { id: 'A', anonymous: false }), 'merge');
+});
+
+test('a different signed-in account replaces the previous one\'s stars rather than inheriting them', () => {
+  // One phone, two people: A signs out, B signs in. A's favourites must not
+  // become B's on every device B owns.
+  assert.equal(starSyncPolicy('A', { id: 'B', anonymous: false }), 'replace');
+});
+
+test('after a sign-out the guest identity keeps the stars local and pushes nothing', () => {
+  // "Your favorites stay on this device" — on it, not in the next guest
+  // account, which may be the one the next person links their Apple ID to.
+  assert.equal(starSyncPolicy('A', { id: 'guest-2', anonymous: true }), 'local-only');
+});
+
+// ── the star's own time (src/lib/star-time.ts) ──────────────────────────────
+
+
+test('a star dated on the device keeps a quick unstar from coming back', () => {
+  // Star at T1, unstar at T2 = T1 + 600 ms; the POST lands at T1 + 800 ms.
+  // Dated by the server, the row would be newer than the unstar and win.
+  const t1 = '2026-10-28T12:00:00.000Z';
+  const t2 = '2026-10-28T12:00:00.600Z';
+  const landed = Date.parse('2026-10-28T12:00:00.800Z');
+  const stored = clientStarredAt(t1, landed)!;
+  const plan = mergeStars([local('current', false, t2)], [server('current', stored)]);
+  assert.deepEqual(plan.toUnstar, ['current']);
+  assert.equal(visibleStars(plan.merged).length, 0);
+});
+
+test('a device time is bounded: never after the server, never nonsense', () => {
+  const now = Date.parse('2026-10-28T12:00:00.000Z');
+  // A fast phone is pulled back to now, which only ever favours a later unstar.
+  assert.equal(clientStarredAt('2026-10-28T13:00:00.000Z', now), '2026-10-28T12:00:00.000Z');
+  assert.equal(clientStarredAt('2026-10-27T09:00:00.000Z', now), '2026-10-27T09:00:00.000Z');
+  assert.equal(clientStarredAt('1970-01-01T00:00:00.000Z', now), undefined);
+  assert.equal(clientStarredAt('yesterday', now), undefined);
+  assert.equal(clientStarredAt(12345, now), undefined);
+  assert.equal(clientStarredAt(undefined, now), undefined);
 });

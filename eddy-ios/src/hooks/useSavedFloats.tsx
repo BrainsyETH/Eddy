@@ -77,14 +77,19 @@ export function matchesPlan(entry: SavedFloat, plan: FloatPlan): boolean {
 export function SavedFloatsProvider({ children }: { children: ReactNode }) {
   const archive = useFloatArchive();
   const scope = archive.scopeToken;
-  const floats = useMemo(
-    () =>
-      archive.rows
-        .filter((r) => r.kind === 'saved' && !r.deleted && r.payload)
-        .map((r) => ({ ...r.payload, ...(r.logistics ? { logistics: r.logistics } : {}) }) as SavedFloat)
-        .sort((a, b) => b.savedAt.localeCompare(a.savedAt)),
-    [archive.rows],
-  );
+  const floats = useMemo(() => {
+    const sorted = archive.rows
+      .filter((r) => r.kind === 'saved' && !r.deleted && r.payload)
+      .map((r) => ({ ...r.payload, ...(r.logistics ? { logistics: r.logistics } : {}) }) as SavedFloat)
+      .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+    // One row per share code. Two devices on one account that each favourite
+    // the same shared link before syncing write two rows with different ids
+    // and the same code; the lists key on the code, so both would render as
+    // twins with colliding keys. The newest save stands in; forget() still
+    // tombstones every row behind the code, so the twin is retired with it.
+    const seen = new Set<string>();
+    return sorted.filter((entry) => !seen.has(entry.shortCode) && seen.add(entry.shortCode));
+  }, [archive.rows]);
   const attempt = useCallback((operation: Promise<unknown>) => {
     void operation.catch(() =>
       Alert.alert('Could not save changes', 'Please try again. Your previous saved data is still on this phone.'),

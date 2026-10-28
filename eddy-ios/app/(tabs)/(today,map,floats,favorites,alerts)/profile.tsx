@@ -124,7 +124,7 @@ function ProfileContent() {
     forgetSession,
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
-  const { permission, optedOut, registered, enable, disable } = usePush();
+  const { permission, optedOut, registered, enable, disable, unregister } = usePush();
   const { features } = useAppConfig();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
@@ -261,6 +261,13 @@ function ProfileContent() {
   }, [signInWithApple, refresh]);
 
   const handleRestore = useCallback(async () => {
+    // The purchases SDK is configured only for a signed-in account
+    // (identifyUser), so a restore before sign-in can only throw, and used
+    // to be reported as the App Store being unreachable.
+    if (!signedIn) {
+      Alert.alert('Sign in to restore', 'Sign in with Apple first, then restore your purchases here.');
+      return;
+    }
     setBusy('restore');
     try {
       const result = await restorePurchases();
@@ -297,7 +304,7 @@ function ProfileContent() {
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, refresh, settleConfirmPending, beginConfirmPending]);
+  }, [signedIn, getAccessToken, refresh, settleConfirmPending, beginConfirmPending]);
 
   /**
    * Same ref-not-state reasoning as the paywall's copy of this flag: nothing
@@ -432,8 +439,9 @@ function ProfileContent() {
 
       // Unregister first, while the token still authenticates. After deletion
       // the device_tokens row is gone with the cascade anyway; doing it here
-      // covers the case where deletion fails partway.
-      await disable().catch(() => {});
+      // covers the case where deletion fails partway. Unregister, not
+      // disable: a deletion that fails must not leave the device opted out.
+      await unregister().catch(() => {});
 
       const result = token ? await deleteAccount(token) : null;
 
@@ -460,7 +468,7 @@ function ProfileContent() {
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, forgetSession, disable, clearStars, clearSavedFloats, placesOwner, session, signedIn]);
+  }, [getAccessToken, forgetSession, unregister, clearStars, clearSavedFloats, placesOwner, session, signedIn]);
 
   const handleDelete = useCallback(() => {
     // Two steps, and the first names what is lost. This is the only
@@ -498,15 +506,16 @@ function ProfileContent() {
         onPress: () => {
           // Unregister BEFORE signing out: the call needs the token that is
           // about to be discarded. Otherwise this device keeps receiving
-          // alerts for an account no longer on it.
+          // alerts for an account no longer on it. Unregister, not disable:
+          // the device is not opting out, the account is leaving it.
           void (async () => {
-            await disable();
+            await unregister().catch(() => {});
             await signOut();
           })();
         },
       },
     ]);
-  }, [signOut, disable]);
+  }, [signOut, unregister]);
 
   const handleAlertToggle = useCallback(
     async (next: boolean) => {
@@ -633,7 +642,9 @@ function ProfileContent() {
                     ? 'Premium is active'
                     : entitlement?.billingIssue
                       ? 'Premium is inactive'
-                      : 'Free plan'}
+                      : error && !entitlement
+                        ? 'Subscription unknown'
+                        : 'Free plan'}
                 </Text>
                 <Text
                   style={[
@@ -643,6 +654,10 @@ function ProfileContent() {
                 >
                   {!loaded
                     ? 'Checking…'
+                    : error && !entitlement
+                      // Not "Free plan": a subscriber at a put-in with one bar
+                      // has not lost anything, Eddy just could not ask.
+                      ? 'Couldn’t check your subscription. Pull down to try again when you have a connection.'
                     : confirmPending && !entitlement?.isActive
                       ? 'Purchase found — your account is catching up. Pull down to check again.'
                       : entitlement?.billingIssue && !entitlement.isActive
@@ -654,7 +669,7 @@ function ProfileContent() {
               </View>
             </View>
 
-            {loaded && !entitlement?.isActive && (!confirmPending || confirmWindowClosed) && (
+            {loaded && !entitlement?.isActive && !(error && !entitlement) && (!confirmPending || confirmWindowClosed) && (
               <Pressable
                 onPress={handlePremiumAction}
                 disabled={busy !== null}

@@ -166,7 +166,9 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
   // sign-in step also means the prices shown are the ones this Apple ID will
   // actually be charged.
   useEffect(() => {
-    if (!visible || !signedIn || !userId) return;
+    // `blocked` (no key, no native module) already renders the unavailable
+    // state; asking the SDK anyway only files a report per open.
+    if (!visible || !signedIn || !userId || blocked) return;
 
     let cancelled = false;
     (async () => {
@@ -180,7 +182,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
     return () => {
       cancelled = true;
     };
-  }, [visible, signedIn, userId, isAnonymous]);
+  }, [visible, signedIn, userId, isAnonymous, blocked]);
 
   const handleSignIn = useCallback(async () => {
     setBusy('apple');

@@ -33,10 +33,14 @@ export function FloatReminders({ session }: { session: FloatSession }) {
   const fired = new Set(settings.fired);
   const pending = new Set(settings.pending ?? []);
   // The same calibrated line the reminders are measured on.
+  // Keyed on the parts that place a stop, not the session, which changes
+  // with every fix: rebuilding the calibrated index once a second while this
+  // sheet is open is work for nothing.
+  const { route, startMile, putIn, takeOut } = session;
   const stops = useMemo(() => {
-    const built = indexRoute(session.route);
-    return built.ok ? reminderStops(session, built.index) : [];
-  }, [session]);
+    const built = indexRoute(route);
+    return built.ok ? reminderStops({ route, startMile, putIn, takeOut } as FloatSession, built.index) : [];
+  }, [route, startMile, putIn, takeOut]);
   const stateOf = (id: string, waiting: string) => (fired.has(id) ? 'Sent.' : pending.has(id) ? 'Sending…' : waiting);
   const hazardsOn = settings.hazards !== false;
   const seriousHazards = (session.route.hazards ?? []).filter(

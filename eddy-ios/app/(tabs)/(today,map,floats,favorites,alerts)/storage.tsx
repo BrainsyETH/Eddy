@@ -85,7 +85,10 @@ export default function StorageScreen() {
   // retried now, and is at least visible instead of counted silently.
   const retryDeletions = useCallback(() => {
     setRetryingDeletions(true);
-    void retryFloatTrackDeletions().then(measure).finally(() => setRetryingDeletions(false));
+    void retryFloatTrackDeletions()
+      .catch(() => {})
+      .then(measure)
+      .finally(() => setRetryingDeletions(false));
   }, [measure]);
   useEffect(measure, [measure]);
 

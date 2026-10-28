@@ -26,7 +26,7 @@ import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { useSavedPlaces } from '@/hooks/useSavedPlaces';
-import { savedPlaces } from '@/lib/savedPlacesStore';
+import { autoRefreshSavedPlaces, savedPlaces } from '@/lib/savedPlacesStore';
 import type { SavedPlace } from '@/lib/savedPlaces';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
@@ -105,7 +105,7 @@ export default function FavoritesScreen() {
 
 function FavoritesContent() {
   const { starred, toggleStar, ready } = useStarredRivers();
-  const { places, ready: placesReady, owner: placesOwner, error: placesError } = useSavedPlaces();
+  const { places, ready: placesReady, owner: placesOwner, error: placesError, recovered: placesRecovered } = useSavedPlaces();
   const favorites = useMemo<FavoriteItem[]>(() => [...starred, ...places.map(place => ({
     kind: 'place' as const, entityId: place.id, name: place.name, starredAt: place.savedAt, place,
   }))].sort((a, b) => b.starredAt.localeCompare(a.starredAt)), [starred, places]);
@@ -189,7 +189,9 @@ function FavoritesContent() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([load(), savedPlaces.load()]);
+    // Saved places refresh themselves on reconnect and foreground only; a
+    // pull is the one way to ask for a campground's availability now.
+    await Promise.all([load(), savedPlaces.load().then(() => autoRefreshSavedPlaces(() => true, { force: true }))]);
     setRefreshing(false);
   }, [load]);
 
@@ -251,6 +253,11 @@ function FavoritesContent() {
               <AccountIconButton />
             </View>
             {placesError ? <Text accessibilityRole="alert" style={[styles.offlineText, { color: colors.error }]}>{placesError}</Text> : null}
+            {placesRecovered ? (
+              <Text style={[styles.offlineText, { color: colors.textMuted }]}>
+                Eddy couldn’t read your saved places from an earlier version, so it kept a copy and started this list fresh.
+              </Text>
+            ) : null}
             {refreshFailed || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />

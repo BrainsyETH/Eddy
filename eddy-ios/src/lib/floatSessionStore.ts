@@ -149,6 +149,11 @@ export function floatSessionLoadFailed(): boolean {
   return store.loadFailed();
 }
 
+/** The stored float has been read once; see floatSessionStoreCore.isLoaded. */
+export function floatSessionLoaded(): boolean {
+  return store.isLoaded();
+}
+
 /** The current session: always this, never a value remembered from a load. */
 export function getFloatSession(): FloatSession | null {
   return store.get();
@@ -188,11 +193,19 @@ async function autoEnd(sessionId: string): Promise<boolean> {
   const endedAt = session?.id === sessionId ? autoEndAt(session, Date.now()) : null;
   if (!session || endedAt == null) return false;
   stopRecording(session.id);
-  await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
+  const saved = await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
   await dismissFloatNotifications();
   if (canDeliverNotification(await readNotificationAccess())) {
+    // The notice must not claim a recap that storage has not taken yet; the
+    // end is retried until it lands, and the recap screen says "finishing".
+    const copy = autoEndCopy(session);
     await Notifications.scheduleNotificationAsync({
-      content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
+      content: {
+        ...copy,
+        ...(saved ? {} : { body: copy.body.replace(/ and saved your recap\.$/, '. Your recap will appear in your float history shortly.') }),
+        sound: true,
+        data: { floatEnded: session.id },
+      },
       trigger: null,
     }).catch((error) => warn('float', 'could not show the float-ended notice', error));
   }

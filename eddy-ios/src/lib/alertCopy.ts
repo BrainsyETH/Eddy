@@ -74,6 +74,24 @@ export function lastSentNote(
 }
 
 /**
+ * A gauge rule that is armed and cannot fire: the alert engine has had no
+ * reading from its station that it would act on for longer than it accepts
+ * one (`readingStale`, from the server). Says when the last usable one was, or
+ * that there has not been one yet. Null for every other rule, so a caller can
+ * let this outrank "Watching for changes" without testing anything itself.
+ */
+export function staleReadingNote(
+  rule: Pick<AlertRule, 'source' | 'enabled' | 'readingStale' | 'lastReadingAt'>,
+  now: Date = new Date(),
+): string | null {
+  if (rule.source !== 'gauge' || !rule.enabled || !rule.readingStale) return null;
+  const last = relativeTime(rule.lastReadingAt ?? null, now);
+  return last
+    ? `Waiting on the gauge · last usable reading ${last}`
+    : 'Waiting on the gauge · no usable reading yet';
+}
+
+/**
  * "June", or "June 2025" once the year stops being obvious.
  *
  * A month is as precise as this line should get. The exact minute a rule was

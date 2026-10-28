@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
 import { useSession } from '@/hooks/useSession';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
-import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
+import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy } from '@/float/loadFloatRoute';
 import { LocationGate } from '@/float/start/LocationGate';
@@ -43,6 +43,7 @@ export default function FloatStartScreen() {
   const params = useLocalSearchParams<Params>();
   const active = useFloatSession();
   const stored = useFloatSessionUnreadable();
+  const loaded = useFloatSessionLoaded();
   const { colors } = useTheme();
   const [restored, setRestored] = useState<Awaited<ReturnType<typeof readPendingFloatSetup>> | undefined>();
   useEffect(() => {
@@ -51,6 +52,10 @@ export default function FloatStartScreen() {
     return () => { current = false; };
   }, []);
   if (active) return <ResumeActiveFloat />;
+  // Not known yet: a cold deep link reaches here before the stored float is
+  // read, and Ready to float would start GPS and river detection for a setup
+  // it is about to swap for River Mode.
+  if (!loaded && !stored.unreadable) return <Shell><ActivityIndicator /></Shell>;
   if (stored.unreadable) return (
     <Shell>
       <Text style={[styles.title, { color: colors.text }]}>Eddy couldn’t check for a float in progress</Text>
