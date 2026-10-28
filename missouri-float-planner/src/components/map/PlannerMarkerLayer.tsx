@@ -60,13 +60,14 @@ export default function PlannerMarkerLayer(props: Props) {
     let frame = 0;
     const rendered = renderedRef.current;
     map.addSource(SOURCE, { type: 'geojson', data: features(latest.current.places, latest.current.selectedKey),
-      cluster: true, clusterRadius: 56, maxzoom: 24, clusterMaxZoom: 22,
+      cluster: true, clusterRadius: referenceLayer ? 44 : 56, maxzoom: 24, clusterMaxZoom: 22,
       clusterProperties: { inspected: ['+', ['get', 'inspected']], putIn: ['+', ['get', 'putIn']], takeOut: ['+', ['get', 'takeOut']] },
     });
     // Load source tiles and give river hit testing a place-priority layer.
     // The accessible HTML pins below own the actual appearance and actions.
+    // A plain reference dot only claims the river right around itself.
     map.addLayer({ id: hitLayer, type: 'circle', source: SOURCE,
-      paint: { 'circle-radius': 22, 'circle-opacity': 0 } });
+      paint: { 'circle-radius': referenceLayer ? 10 : 22, 'circle-opacity': 0 } });
 
     const update = () => {
       if (disposed || !map.isSourceLoaded(SOURCE)) return;
@@ -107,7 +108,8 @@ export default function PlannerMarkerLayer(props: Props) {
         existing?.marker.remove();
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `planner-map-marker ${item?.kind === 'access' ? 'access-point-marker' : item?.kind === 'gauge' || item?.kind === 'referenceGauge' ? 'gauge-station-marker' : item?.kind === 'poi' ? 'poi-marker' : 'planner-cluster-marker'}`;
+        button.className = `planner-map-marker ${referenceLayer ? cluster ? 'reference-cluster-marker' : 'gauge-station-marker reference-gauge-marker'
+          : item?.kind === 'access' ? 'access-point-marker' : item?.kind === 'gauge' ? 'gauge-station-marker' : item?.kind === 'poi' ? 'poi-marker' : 'planner-cluster-marker'}`;
         button.dataset.plannerMarker = key;
         if (referenceLayer) {
           button.dataset.referenceGauge = 'true';
@@ -124,17 +126,21 @@ export default function PlannerMarkerLayer(props: Props) {
         if (cluster) button.dataset.clusterCount = String(count);
         button.setAttribute('aria-pressed', String(inspected));
         const face = document.createElement('span');
-        face.className = 'planner-marker-face';
-        if (item) {
+        face.className = referenceLayer ? cluster ? 'reference-cluster-face' : 'reference-gauge-dot' : 'planner-marker-face';
+        if (referenceLayer) {
+          // Plain dots and parchment counts: Eddy-rated gauges keep the full
+          // pin and stay the strongest signal.
+          if (cluster) face.textContent = String(count);
+          else if (reference) face.style.backgroundColor = reference;
+        } else if (item) {
           const art = document.createElement('img');
           art.src = condition ? getEddyImageForCondition(condition) : eddyIconUrl(item.symbol);
           art.alt = ''; art.width = 28; art.height = 28;
           art.draggable = false; face.appendChild(art);
           if (condition) face.style.borderColor = CONDITION_COLORS[condition];
-          if (reference) { face.style.borderColor = reference; face.style.backgroundColor = reference; }
         } else face.textContent = String(count);
         button.appendChild(face);
-        if (item && cluster) {
+        if (item && cluster && !referenceLayer) {
           const badge = document.createElement('span');
           badge.className = 'planner-marker-count'; badge.textContent = String(count); button.appendChild(badge);
         }

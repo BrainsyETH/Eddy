@@ -75,6 +75,7 @@ export default function DataDock({
   gaugeCount,
   telemetry,
   gaugeState,
+  gaugeNote,
   showTerrain,
   setShowTerrain,
   showFlow,
@@ -110,6 +111,8 @@ export default function DataDock({
   /** Statewide observatory aggregates (see MOSurfaceWaterApp). */
   telemetry: { reporting: number; rising: number; falling: number; risk72h: number };
   gaugeState: NationalGaugeState;
+  /** Shown with the gauge color key (e.g. while the timeline replays a day). */
+  gaugeNote?: string | null;
   showTerrain: boolean;
   setShowTerrain: (v: boolean) => void;
   showFlow: boolean;
@@ -560,7 +563,7 @@ export default function DataDock({
           <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.04em', color: PARCH_FAINT, lineHeight: 1.5 }}>
             Reaches fade between gauges — color is the float verdict at the nearest gauge.
           </div>
-          <GaugeMapFilters state={gaugeState} dark />
+          <GaugeMapFilters state={gaugeState} dark note={gaugeNote} />
           <div className="mt-2.5 grid grid-cols-2 gap-1.5">
             <LayerToggle
               label="Terrain"

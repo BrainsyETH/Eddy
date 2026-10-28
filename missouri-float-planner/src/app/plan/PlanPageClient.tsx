@@ -67,7 +67,8 @@ import { currentPlannerAccessPoints, reconcilePlannerEndpoints } from '@/lib/pla
 const PlannerMapSelection = dynamic(() => import('@/components/map/PlannerMapSelection'), { ssr: false });
 const PlannerMarkerLayer = dynamic(() => import('@/components/map/PlannerMarkerLayer'), { ssr: false });
 const PlannerMapFocus = dynamic(() => import('@/components/map/PlannerAccessLayer').then(module => module.PlannerMapFocus), { ssr: false });
-const ACCESS_PRIORITY_LAYERS = ['planner-place-hits'];
+// PLANNER_PLACE_HITS and REFERENCE_GAUGE_HITS; literal so the map chunk stays dynamic.
+const ACCESS_PRIORITY_LAYERS = ['planner-place-hits', 'planner-reference-gauge-hits'];
 
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
 const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
@@ -926,6 +927,30 @@ export default function PlanPageClient({
     setPlaceGroup({ places, anchor }); setFocusPlace(anchor);
     setFocusMode('reveal'); setFocusRequest(value => value + 1);
   };
+  // `?gauge=` keeps an inspected unrated station in a shared planner link; it
+  // reopens once the national index (which owns that layer) has loaded.
+  const pendingUrlGauge = useRef(searchParams.get('gauge'));
+  useEffect(() => {
+    const gauge = pendingUrlGauge.current && nationalGauges.gauges.find(g => g.siteId === pendingUrlGauge.current);
+    if (!gauge) {
+      // A station the loaded index no longer shows stops holding the URL.
+      if (pendingUrlGauge.current && nationalGauges.hasData && !nationalGauges.loading) pendingUrlGauge.current = null;
+      return;
+    }
+    pendingUrlGauge.current = null;
+    setSelectedReferenceGauge(gauge);
+    setFocusPlace({ id: gauge.siteId, name: gauge.name, slug: '', riverId: '', riverSlug: '', riverName: '', coordinates: gauge.coordinates });
+    setFocusMode('reveal'); setFocusRequest(value => value + 1);
+  }, [nationalGauges.gauges, nationalGauges.hasData, nationalGauges.loading]);
+  const selectedReferenceSiteId = selectedReferenceGauge?.siteId ?? null;
+  useEffect(() => {
+    if (pendingUrlGauge.current) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('gauge') === selectedReferenceSiteId) return;
+    if (selectedReferenceSiteId) url.searchParams.set('gauge', selectedReferenceSiteId);
+    else url.searchParams.delete('gauge');
+    window.history.replaceState(null, '', url);
+  }, [selectedReferenceSiteId]);
   const currentGauge = selectedGauge && (allGaugeStations?.find(gauge => gauge.id === selectedGauge.id) ?? selectedGauge);
   const inspectedCard = placeGroup ? <PlannerPlaceChoices places={placeGroup.places.map(place => place.kind === 'referenceGauge' ? { ...place, name: nationalGauges.names.get(place.gauge.siteId) ?? place.name } : place)} onSelect={handleMarkerSelect} onClose={closePlace} />
     : selectedReferenceGauge ? <ReferenceGaugeCard gauge={selectedReferenceGauge} onClose={closePlace} />

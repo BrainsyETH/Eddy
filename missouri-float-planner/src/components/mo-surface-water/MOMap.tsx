@@ -20,7 +20,9 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
-import { clusterGaugePoints, referenceColor, GAUGE_NAME_ZOOM, type GaugeViewport, type MapGaugeLite } from '@/lib/gauges/map-index';
+import {
+  clusterGaugePoints, referenceColor, GAUGE_NAME_ZOOM, REFERENCE_CLUSTER_FILL, REFERENCE_CLUSTER_INK, type GaugeViewport, type MapGaugeLite,
+} from '@/lib/gauges/map-index';
 import usStates from '@/data/us-gauge-outlines.json';
 import { getEddyImageForCondition } from '@/constants';
 import moOutline from '@/data/mo-outline.json';
@@ -121,6 +123,12 @@ interface MOMapProps {
   flowPaused?: boolean;
   /** National reference gauges (no Eddy float rating). */
   nationalGauges: MapGaugeLite[];
+  /** Dims the national layer, e.g. while the timeline replays a past day
+   *  that only Eddy's own rivers have history for. */
+  nationalDimmed?: boolean;
+  /** The open reference-gauge sheet, so selecting a station only pans when
+   *  the sheet would cover it. */
+  referenceCardRef?: React.RefObject<HTMLElement | null>;
   onGaugeViewport: (viewport: GaugeViewport) => void;
   selectedContextSiteId?: string | null;
   onClickContextSite?: (site: MapGaugeLite | null) => void;
@@ -542,16 +550,19 @@ export default function MOMap(props: MOMapProps) {
     | null
   >(null);
 
+  // Zoom range relative to the home framing. In: ~60× (a few km across —
+  // enough to split stations at one bridge; coincident ones get a list, and
+  // the basemap has no detail past this). Out: ~14×, the whole United
+  // States including Alaska and Hawaii; the pan box keeps the camera over
+  // the 50 states and the Caribbean territories.
+  const minViewW = HOME_VIEW.w / 60;
   const clampView = useCallback(
     (v: { x: number; y: number; w: number; h: number }) => {
-      // Keep the Ozarks home view, but let the national network be explored.
       // This equirectangular projector remains valid outside the home bounds.
-      const minW = HOME_VIEW.w / 1000;
-      const maxW = HOME_VIEW.w * 55;
-      const nw = Math.max(minW, Math.min(maxW, v.w));
+      const nw = Math.max(HOME_VIEW.w / 60, Math.min(HOME_VIEW.w * 14, v.w));
       const nh = nw / stageAspect;
-      const [west, south] = project(-180, -20);
-      const [east, north] = project(180, 85);
+      const [west, south] = project(-180, 17);
+      const [east, north] = project(-64, 72);
       const ccx = Math.max(west, Math.min(east, v.x + v.w / 2));
       const ccy = Math.max(north, Math.min(south, v.y + v.h / 2));
       return { x: ccx - nw / 2, y: ccy - nh / 2, w: nw, h: nh };
@@ -1176,34 +1187,68 @@ export default function MOMap(props: MOMapProps) {
     if (nationalViewport.zoom < GAUGE_NAME_ZOOM) {
       const w = view.w / 2 ** (GAUGE_NAME_ZOOM + 0.5 - nationalViewport.zoom);
       setView(clampView({ x: group.x - w / 2, y: group.y - w / stageAspect / 2, w, h: w / stageAspect }));
-    } else if (spread < HOME_VIEW.w / 1000 || view.w <= HOME_VIEW.w / 999) {
+    } else if (spread < minViewW / 20 || view.w <= minViewW * 1.001) {
       setGaugeChoices(group.members.map(p => p.gauge));
     } else {
-      const w = Math.max(HOME_VIEW.w / 1000, Math.min(view.w * 0.6, spread * 1.5));
+      const w = Math.max(minViewW, Math.min(view.w * 0.6, spread * 1.5));
       setView(clampView({ x: group.x - w / 2, y: group.y - w / stageAspect / 2, w, h: w / stageAspect }));
     }
   };
-  // Pixel-sized accessible controls; grid groups contain every visible station.
+  // Curated-first layering. Single stations are small dots painted UNDER the
+  // curated rivers (nationalMarks, base SVG); the marker SVG holds only small
+  // transparent targets and parchment count bubbles, beneath Eddy's gauges,
+  // so a river, a rated gauge or empty map stays tappable except right on a
+  // dot. Bubbles stay small at home zoom and grow once out past the region.
   const gaugePixel = view.w / Math.max(1, stageSizeRef.current.w);
-  const nationalLayer = <g data-national-gauges>
+  const nationalWide = view.w > HOME_VIEW.w * 1.3;
+  const nationalOpacity = props.nationalDimmed ? 0.35 : 1;
+  const nationalMarks = <g data-national-gauge-marks aria-hidden pointerEvents="none" opacity={nationalOpacity}>
+    {nationalClusters.map(group => group.members.length === 1 && <circle key={group.key}
+      cx={group.x} cy={group.y} r={3.5 * gaugePixel} fill={referenceColor(group.members[0].gauge)}
+      stroke="#F2EAD8" strokeWidth={gaugePixel} />)}
+  </g>;
+  // Keyboard: the layer is ONE tab stop ahead of Eddy's gauges; arrow keys
+  // move between its in-view stations and Tab leaves for the rated gauges.
+  // Otherwise every station would be a tab stop before the gauges the page
+  // is about.
+  const focusNationalItem = (from: Element, step: 1 | -1 | 0) => {
+    const items = [...(from.closest('[data-national-gauges]')?.querySelectorAll<SVGGElement>('[data-gauge-visible="true"]') ?? [])];
+    const index = items.indexOf(from as SVGGElement);
+    (step === 0 || index < 0 ? items[0] : items[(index + step + items.length) % items.length])?.focus();
+  };
+  const visibleNationalCount = nationalClusters.reduce((n, group) =>
+    group.x >= view.x && group.x <= view.x + view.w && group.y >= view.y && group.y <= view.y + view.h ? n + group.members.length : n, 0);
+  const nationalLayer = <g data-national-gauges role="group" tabIndex={visibleNationalCount ? 0 : -1} opacity={nationalOpacity}
+    aria-label={`Other USGS gauges in view: ${visibleNationalCount}. Use arrow keys to move between them`}
+    onKeyDown={event => {
+      if (event.target !== event.currentTarget) return;
+      if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Enter'].includes(event.key)) {
+        event.preventDefault(); focusNationalItem(event.currentTarget, 0);
+      }
+    }}>
     {nationalClusters.map(group => {
       const gauge = group.members[0].gauge, count = group.members.length;
       const selected = count === 1 && props.selectedContextSiteId === gauge.siteId;
       const inView = group.x >= view.x && group.x <= view.x + view.w && group.y >= view.y && group.y <= view.y + view.h;
       const label = count > 1 ? `${count} USGS gauges. Zoom in or choose a station` : `${gauge.name}. Open gauge details`;
+      const bubble = (nationalWide ? 13 : 9) * gaugePixel;
       return <g key={count === 1 ? gauge.siteId : group.key} transform={`translate(${group.x} ${group.y})`}
-        role="button" tabIndex={inView ? 0 : -1} aria-hidden={!inView} data-gauge-visible={inView} aria-label={label} data-usgs-site-id={count === 1 ? gauge.siteId : undefined}
+        role="button" tabIndex={-1} aria-hidden={!inView} data-gauge-visible={inView} aria-label={label} data-usgs-site-id={count === 1 ? gauge.siteId : undefined}
         data-gauge-cluster-count={count > 1 ? count : undefined} style={{ cursor: 'pointer', pointerEvents: 'all' }}
         onClick={guardClick(() => openNationalGroup(group))}
         onKeyDown={event => {
+          const move = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : null;
+          if (move) { event.preventDefault(); event.stopPropagation(); focusNationalItem(event.currentTarget, move); }
           if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openNationalGroup(group); }
           if (event.key === 'Escape') { event.stopPropagation(); props.onClickContextSite?.(null); }
         }}>
         <title>{label}</title>
-        <circle r={22 * gaugePixel} fill="transparent" />
-        <circle r={(count > 1 ? 14 : 5) * gaugePixel} fill={count > 1 ? '#256574' : referenceColor(gauge)}
-          stroke={selected ? '#F07052' : '#F2EAD8'} strokeWidth={(selected ? 3 : 1.5) * gaugePixel} />
-        {count > 1 && <text textAnchor="middle" dy="0.35em" fill="white" fontSize={11 * gaugePixel} fontWeight={700} pointerEvents="none">{count}</text>}
+        <circle r={count > 1 ? bubble + 3 * gaugePixel : 9 * gaugePixel} fill="transparent" />
+        {count > 1 ? <>
+          <circle r={bubble} fill={REFERENCE_CLUSTER_FILL} stroke={REFERENCE_CLUSTER_INK} strokeWidth={1.5 * gaugePixel} />
+          <text textAnchor="middle" dy="0.35em" fill={REFERENCE_CLUSTER_INK} fontSize={(nationalWide ? 11 : 8.5) * gaugePixel}
+            fontWeight={700} pointerEvents="none">{count}</text>
+        </> : selected && <circle r={6 * gaugePixel} fill={referenceColor(gauge)} stroke="#F07052" strokeWidth={3 * gaugePixel} />}
       </g>;
     })}
   </g>;
@@ -1456,7 +1501,7 @@ export default function MOMap(props: MOMapProps) {
       const x = bbox.x + bbox.w / 2, y = bbox.y + bbox.h / 2;
       const px = (x - current.x) / current.w * rect.width;
       const py = (y - current.y) / current.h * rect.height;
-      const card = document.querySelector('[aria-label="Selected USGS gauge"]')?.getBoundingClientRect();
+      const card = props.referenceCardRef?.current?.getBoundingClientRect();
       const right = !isSmallScreen && card ? Math.max(80, card.left - rect.left - 24) : rect.width - 24;
       const bottom = isSmallScreen && card ? Math.max(80, card.top - rect.top - 24) : rect.height - 24;
       if (px >= 24 && px <= right && py >= 24 && py <= bottom) return;
@@ -1698,6 +1743,9 @@ export default function MOMap(props: MOMapProps) {
           );
         })}
       </g>
+
+      {/* Other USGS stations — dots under the curated rivers. */}
+      {nationalMarks}
 
       {/* Rivers — outer "casing" + per-gauge segmented main stroke. Each
           river is split at midpoints between its gauges and painted in
