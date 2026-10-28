@@ -190,6 +190,13 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
       .select('*')
       .eq('type', 'spring')
       .eq('active', true)
+      // On-water only, the same gate as /api/rivers/[slug]/pois. The app's
+      // layer promises "Named springs on the river", and without this the
+      // bundle drew off-channel landmarks the web hid: Alley Spring and Mill
+      // showed on iOS and not on the web, and an inland sinkhole a mile from
+      // the Current was drawn as a spring on the water. An off-channel
+      // landmark belongs in the prose of the access card a floater stops at.
+      .eq('is_on_water', true)
       .order('river_mile', { ascending: true, nullsFirst: false }),
     geometryBySlug(),
     getServiceAreaBounds(),

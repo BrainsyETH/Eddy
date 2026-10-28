@@ -105,6 +105,16 @@ test('the per-river routes and the bundle map rows with the same functions', () 
   }
 });
 
+test('the bundle and the river POI route apply the same on-water gate to springs', () => {
+  // The bundle once selected every active spring while the web route required
+  // on-water, so Alley Spring and Mill showed on iOS and not on the web, and
+  // an inland sinkhole was drawn as a spring on the Current.
+  const bundle = read(BUNDLE_LIB);
+  const springs = bundle.slice(bundle.indexOf(".from('points_of_interest')"));
+  assert.match(springs.slice(0, springs.indexOf('.order(')), /\.eq\('is_on_water', true\)/);
+  assert.match(read('src/app/api/rivers/[slug]/pois/route.ts'), /is_on_water\.eq\.true/);
+});
+
 // ── the mappers themselves ────────────────────────────────────────────────
 
 const hazardRow = (over: Partial<HazardRow> = {}): HazardRow => ({
@@ -180,6 +190,27 @@ test('an access point falls back to snapped coordinates when it has no original'
     NO_LIVE_AVAILABILITY,
   );
   assert.deepEqual(mapped?.coordinates, { lng: -91.5, lat: 37.2 });
+});
+
+test('a linked NPS campground adds the campground role in the shared mapper', () => {
+  // Grubb Hollow: the per-river route added this tag after mapping and the
+  // offline bundle did not, so the pin lost its campground role offline.
+  const linked = accessRow({ types: ['access', 'gravel_bar'], nps_campground_id: 'cg-1' });
+  assert.deepEqual(
+    toAccessPoint(linked, new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types,
+    ['access', 'gravel_bar', 'campground'],
+  );
+  const tagged = accessRow({ types: ['campground', 'access'], nps_campground_id: 'cg-1' });
+  assert.deepEqual(
+    toAccessPoint(tagged, new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types,
+    ['campground', 'access'],
+    'an already-tagged row is not tagged twice',
+  );
+  assert.deepEqual(
+    toAccessPoint(accessRow({ types: ['access'] }), new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types,
+    ['access'],
+    'an unlinked row gains nothing',
+  );
 });
 
 test('an access point with no types list falls back to its single type', () => {

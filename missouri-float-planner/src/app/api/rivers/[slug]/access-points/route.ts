@@ -109,9 +109,6 @@ async function _GET(
         if (!point) {
           console.warn(`Access point ${ap.id} (${ap.name}) has unusable coordinates, skipping`);
         }
-        if (point && ap.nps_campground_id && !point.types.includes('campground')) {
-          point.types = [...point.types, 'campground'];
-        }
         return point;
       })
       .filter((ap): ap is NonNullable<typeof ap> => ap !== null);

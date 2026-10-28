@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { parseNpsImages, parseJsonish } from '@/lib/services/npsCampground';
+import { npsAmenityOffered } from '@/lib/nps/campground-amenities';
 import { loadAvailability } from '@/lib/camping/read';
 
 export const dynamic = 'force-dynamic';
@@ -179,11 +180,13 @@ async function _GET(
         const feeNote = firstFee ? `$${firstFee.cost}/night` : null;
 
         // Build amenities list from NPS data
-        const amenitiesObj = parseJsonish<{ potableWater?: string[] }>(cg.amenities) ?? {};
+        // Each amenity from its own field: showers used to be read from
+        // potableWater, so every primitive camp with "No water" had showers.
+        const amenitiesObj =
+          parseJsonish<{ showers?: unknown; potableWater?: unknown }>(cg.amenities) ?? {};
         const offeredServices: string[] = ['camping_primitive'];
-        if (Array.isArray(amenitiesObj.potableWater) && amenitiesObj.potableWater.some((v) => v !== 'No')) {
-          offeredServices.push('showers');
-        }
+        if (npsAmenityOffered(amenitiesObj.showers)) offeredServices.push('showers');
+        if (npsAmenityOffered(amenitiesObj.potableWater)) offeredServices.push('potable_water');
 
         npsCampgrounds.push({
           id: cg.id,

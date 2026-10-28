@@ -60,6 +60,22 @@ support first. No schema migration is required. See
 `scripts/audit-spring-classifications.sql` is a read-only database-wide candidate
 report. See `docs/audits/2026-09-20-spring-classifications.md` for scope and verification.
 
+The weekly NPS sync (`/api/cron/sync-nps`) owns an NPS place's content, not its
+classification: `placeColumns` in `src/lib/nps/sync.ts` writes `type`, `active`
+and `is_on_water` only when it creates a row. Before that change, every Sunday
+run rewrote all three, which is how the first spring repair was undone. A POI
+repair is durable only on a deployment that includes that change.
+
+## Access-point audit repairs (October 2026)
+
+`scripts/repair-access-audit-2026-10.ts --part access|landmarks` previews exact-ID
+corrections from the October 28, 2026 access-point audit; `--apply` uses the
+shared project guard, checks each field holds its expected or target value,
+conditions every write on an unchanged `updated_at`, and reads every row back.
+The preview prints current values, which are the rollback. `access` touches only
+access points, which the NPS sync does not rewrite. Apply `landmarks` together
+with the spring repair above, and only on a deployment that includes the sync change.
+
 ## Checks & validation (read-only, safe always)
 
 | Script | Run | Purpose |
