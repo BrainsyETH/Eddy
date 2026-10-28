@@ -37,6 +37,9 @@ const variants = {
   beaver: { ...dam, id: 'swl-beaver-dam', name: 'Beaver Dam' },
   norfork: { ...dam, id: 'swl-norfork-dam', name: 'Norfork Dam' },
   noReference: { ...dam, generationReference: undefined },
+  splitPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map((hour, i) => ({ ...hour, megawatts: (i >= 6 && i < 8) || (i >= 16 && i < 19) ? 200 : 100 })) }] },
+  allDayPeak: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [], hours: day('2026-10-16').hours.map(hour => ({ ...hour, megawatts: 200 })) }] },
+  noGeneration: { ...dam, schedule: [{ ...day('2026-10-16'), idle: [{ from: 1, to: 24 }], hours: day('2026-10-16').hours.map(hour => ({ ...hour, megawatts: 0, cfs: 0 })) }] },
   idle: { ...dam, generating: false, metrics: { ...dam.metrics, generationFlow: metric(20) } },
   noTemp: { ...dam, metrics: { ...dam.metrics, tailwaterTempF: undefined } },
   stale: { ...dam, metrics: { ...dam.metrics, generationFlow: { ...dam.metrics.generationFlow, at: '2026-10-15T10:00:00Z' } }, schedule: dam.schedule.map(d => ({ ...d, retrievedAt: '2026-10-14T10:00:00Z' })) },
@@ -182,6 +185,21 @@ export default function Page() {
     assert.equal(await page.getByRole('button', { name: /upcoming schedule/i }).count(), 0, 'upcoming hours need no toggle');
     const pattern = page.getByRole('heading', { name: 'Generation pattern', exact: true }).locator('..').locator('..');
     assert(await pattern.getByText('Scheduled', { exact: true }).isVisible(), 'scheduled hours show by default');
+    const axes = pattern.locator('[data-pattern-time-axis]');
+    assert.equal(await axes.count(), 2, 'time rulers sit above and below the daily rows');
+    for (const axis of await axes.all()) {
+      const labels = axis.locator('div > span');
+      assert.deepEqual(await labels.allTextContents(), ['12 AM', '6 AM', 'Noon', '6 PM', '12 AM']);
+      const boxes = await labels.evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { left: r.left, right: r.right }; }));
+      assert(boxes.slice(1).every((box, i) => box.left >= boxes[i].right - 1), `${name}: time labels do not overlap`);
+    }
+    assert.equal(await pattern.getByRole('img').first().locator('[data-pattern-time-guide]').count(), 3, 'each day has six-hour guides');
+    const peakBand = days.first().locator('[data-peak-window]');
+    assert.equal(await peakBand.count(), 1);
+    assert.equal(await peakBand.evaluate(el => el.style.left), '50%');
+    assert(Math.abs(parseFloat(await peakBand.evaluate(el => el.style.width)) - 100 / 3) < 0.01, 'peak band spans exactly noon through 8 PM');
+    assert.equal(await days.first().locator('[role="img"] .bg-accent-500').count(), 8, 'only the eight peak bars use orange');
+    assert(await days.first().getByText('Peak window: 12–8 PM', { exact: true }).isVisible());
     const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
     const measurementsBox = await measurements.boundingBox();
     const patternBox = await pattern.boundingBox();
@@ -224,15 +242,15 @@ export default function Page() {
       assert.equal(refreshes, 1, 'focus refreshes are coalesced');
       assert.equal(await days.nth(1).getAttribute('open'), '', 'refresh preserves open dates');
       assert.match(await detail.getByRole('img', { name: /^Today:/ }).getAttribute('aria-label'), /generation scheduled in 8 of 24 hours/);
-      const patternMarker = detail.getByRole('img', { name: /^Today:/ }).locator('.pointer-events-none[style]');
+      const patternMarker = detail.getByRole('img', { name: /^Today:/ }).locator('[data-pattern-now]');
       const markerBefore = await patternMarker.evaluate(el => el.style.left);
       // Move wall time across noon without firing interval callbacks. A return
       // to the tab must advance both charts immediately from the page clock.
       await page.clock.setFixedTime(new Date('2026-10-16T17:00:00Z'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-      await page.waitForFunction(() => document.querySelector('[data-dam-detail] [aria-label^="Today:"] .pointer-events-none')?.style.left === '50%');
+      await page.waitForFunction(() => document.querySelector('[data-dam-detail] [aria-label^="Today:"] [data-pattern-now]')?.style.left === '50%');
       assert.notEqual(await patternMarker.evaluate(el => el.style.left), markerBefore, 'pattern advances across the hour');
-      const scheduleMarker = days.first().getByRole('img').locator('.pointer-events-none[style]');
+      const scheduleMarker = days.first().getByRole('img').locator('[data-schedule-now]');
       assert.equal(await scheduleMarker.evaluate(el => el.style.left), '50%', 'schedule and history advance together on focus');
       console.log('PASS shared clock across an hour boundary');
     }
@@ -253,13 +271,19 @@ export default function Page() {
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
-  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'forecast'])) {
+  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration'])) {
     const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/*', r => new URL(r.request().url()).origin === origin ? r.continue() : r.abort());
     await page.goto(`${url}?variant=${variant}`, { waitUntil: 'networkidle' });
     const text = await page.locator('[data-dam-detail]').innerText();
+    if (variant === 'splitPeak') {
+      assert.equal(await page.locator('[data-peak-window]').count(), 2, 'both disconnected peak windows are highlighted');
+      assert(await page.getByText('Peak window: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
+    }
+    if (variant === 'allDayPeak') assert(await page.getByText('Peak window: all day', { exact: true }).isVisible());
+    if (variant === 'noGeneration') assert.equal(await page.locator('[data-peak-window]').count(), 0, 'an idle day has no peak window');
     if (variant === 'stale') assert(text.includes('may have been revised'), 'stale schedule provenance visible');
     if (variant === 'scheduleOnly') assert(text.includes('Generation schedule') && !text.includes('No turbine generation observed'), 'missing readings are not idle');
     if (variant === 'gate') assert(text.includes('2,200') && text.includes('Gate-operated releases'), 'gate-only dam retains its release');

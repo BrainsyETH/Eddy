@@ -26,6 +26,7 @@ import { Activity } from 'lucide-react';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import type { DamPatternDay, DamScheduleDay } from '@/lib/data/dams';
+import { PATTERN_TIME_TICKS, patternTimeTicks } from '@/lib/dam-pattern-time';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
 // planned, a gap is neither — is one a port can quietly get backwards.
@@ -37,6 +38,16 @@ import {
   type GenerationReference,
   type PatternRow as Row,
 } from '@shared/dam-generation';
+
+function PatternTimeAxis({ ticks = PATTERN_TIME_TICKS }: { ticks?: typeof PATTERN_TIME_TICKS }) {
+  return <div data-pattern-time-axis aria-hidden="true" className="flex items-center gap-2 text-[9px] tabular-nums text-neutral-600 sm:text-[10px]">
+    <span className="w-8 shrink-0 sm:w-11" />
+    <div className="relative h-4 min-w-0 flex-1">
+      {ticks.map(tick => <span key={tick.hour} className="absolute whitespace-nowrap" style={{ left: `${tick.position * 100}%`, transform: `translateX(${tick.hour === 0 ? '0' : tick.hour === 24 ? '-100%' : '-50%'})` }}>{tick.label}</span>)}
+    </div>
+    <span className="w-12 shrink-0 sm:w-16" />
+  </div>;
+}
 
 export default function DamPatternStrip({
   pattern,
@@ -58,6 +69,7 @@ export default function DamPatternStrip({
   );
 
   const slots = new Map(rows.map((row) => [row.dayKey, row.cells.length]));
+  const starts = new Map(pattern.map(day => [day.scheduleDate, day.startUtc]));
 
   if (rows.length === 0) return null;
 
@@ -123,8 +135,12 @@ export default function DamPatternStrip({
         )}
       </ul>
 
-      <div className="mt-4 space-y-1">
-        {rows.map((row, index) => (
+      <div className="mt-4"><PatternTimeAxis /></div>
+      <div className="mt-1 space-y-2">
+        {rows.map((row, index) => {
+          const ticks = patternTimeTicks(row, starts.get(row.dayKey), now);
+          const hasClockChange = ticks.some((tick, index) => tick.position !== PATTERN_TIME_TICKS[index].position);
+          return (
           <div key={row.dayKey}>
             {/* The line between what happened and what is planned. Drawn once,
                 where the rows change kind. */}
@@ -133,7 +149,7 @@ export default function DamPatternStrip({
             )}
             <div className="flex items-center gap-2">
               <span
-                className={`w-11 shrink-0 text-[10px] tabular-nums ${
+                className={`w-8 shrink-0 text-[10px] tabular-nums sm:w-11 ${
                   row.today ? 'font-bold text-neutral-900' : 'text-neutral-500'
                 }`}
               >
@@ -145,8 +161,15 @@ export default function DamPatternStrip({
                 aria-label={row.today && row.cells.length === 0 ? 'Today: no completed hours yet.' : rowVoiceOver(row)}
                 className="relative flex h-8 min-w-0 flex-1 items-end sm:h-9"
               >
+                {ticks.slice(1, -1).map(tick => <div
+                  key={tick.hour}
+                  aria-hidden="true"
+                  data-pattern-time-guide={tick.hour}
+                  className="pointer-events-none absolute inset-y-0 border-l border-neutral-200"
+                  style={{ left: `${tick.position * 100}%` }}
+                />)}
                 {row.cells.map((cell, i) => (
-                  <div key={i} className="flex h-full shrink-0 items-end px-[0.5px]" style={{ width: `${100 / (slots.get(row.dayKey) || 24)}%` }}>
+                  <div key={i} className="relative flex h-full shrink-0 items-end px-[0.5px]" style={{ width: `${100 / (slots.get(row.dayKey) || 24)}%` }}>
                     {cell.kind === 'missing' ? (
                       <div className="h-full w-full rounded-[1px] border border-dashed border-neutral-300" />
                     ) : cell.kind === 'future' ? (
@@ -188,6 +211,7 @@ export default function DamPatternStrip({
                     the marker is trying to name anyway. */}
                 {row.splitIndex !== null && (
                   <div
+                    data-pattern-now
                     className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary-900"
                     style={{ left: `${(row.splitIndex / (slots.get(row.dayKey) || 24)) * 100}%` }}
                   />
@@ -195,22 +219,19 @@ export default function DamPatternStrip({
               </div>
 
               <span
-                className={`w-16 shrink-0 text-right text-[10px] ${
+                className={`w-12 shrink-0 text-right text-[10px] sm:w-16 ${
                   row.scheduleStale ? 'font-medium text-accent-700' : 'text-neutral-500'
                 }`}
               >
                 {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'outdated' : 'scheduled') : ''}
               </span>
             </div>
+            {hasClockChange && <PatternTimeAxis ticks={ticks} />}
           </div>
-        ))}
+        ); })}
       </div>
 
-      <div className="mt-2 flex justify-between pl-[3.25rem] pr-16 text-[10px] text-neutral-500">
-        <span>midnight</span>
-        <span>noon</span>
-        <span>midnight</span>
-      </div>
+      <div className="mt-2"><PatternTimeAxis /></div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2">
         <span className="text-xs text-neutral-500">Central time · At the dam</span>

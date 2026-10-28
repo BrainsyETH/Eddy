@@ -67,6 +67,8 @@ on desktop, one on mobile. Search results and explicit sorts use those same
 components, including river charts, gauge details, Eddy summaries and condition
 artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
+Dam cards share the full report’s framed border, warm reading surface, next-change
+callout, and orange peak windows, while keeping only today’s schedule.
 Unavailable release readings are marked explicitly; turbine flow is not
 substituted for total release.
 
@@ -232,16 +234,21 @@ Dam pages keep measured generation and the posted schedule in one card, with
 separate labelled sections. Desktop and landscape phones place the reading
 beside the wider hourly chart; portrait phones stack them. The first available
 schedule day is expanded, and later days can be opened individually. The generation pattern
-always includes upcoming scheduled hours alongside measured history. Missing observations remain gaps and retain the full day axis.
+always includes upcoming scheduled hours alongside measured history. Six-hour
+time labels above and below the pattern align with guides in every row; days
+with a clock change also carry their own correctly positioned time labels. Missing observations remain gaps and retain the full day axis.
 
 The detail dashboard uses a static framed generation card with a warm sand
 observed panel, turbine flow as the primary reading, and the next scheduled
 change above the hourly chart. Date headings lead straight into the
-chart; hourly details and the strongest scheduled window sit below it. Flow
+chart; hourly details and the peak window share one line below it. Orange bars
+and a light orange band mark every contiguous peak window. The dark now marker
+stays distinct. Flow
 estimates stay out of ramp hours, and megawatts are spelled out in hourly
 details and explained in the info dialog. Dam and lake measurements sit above
 the full-width generation pattern at every screen size, on quiet panel cards.
-The Share action has an icon, native touch sharing, and desktop copy feedback.
+The header keeps only Share, with its icon, native touch sharing, and desktop
+copy feedback. The bottom phone action reads “Release Line: [number]”.
 Framed cards keep the brand's border and offset shadow without moving charts on hover. This layout
 does not infer downstream arrival times or add an AI conditions assessment.
 
