@@ -246,7 +246,8 @@ try {
   browser = await chromium.launch({
     headless: true,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH,
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader']
+    // Allow WebGL software fallback without forcing SVG/canvas through ANGLE.
+    args: ['--no-sandbox', '--enable-unsafe-swiftshader']
   });
   // With JavaScript disabled, viewport state is still unknown. The desktop
   // search must already be visible in the server-rendered HTML.
