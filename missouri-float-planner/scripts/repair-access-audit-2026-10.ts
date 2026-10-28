@@ -15,6 +15,9 @@
  *              Sunday cron rewrites type, active and is_on_water on every NPS
  *              place, which is how the September 5 spring repair was undone.
  *              Run scripts/repair-spring-classifications.ts at the same time.
+ *   van-buren  Merges Van Buren City Access into Van Buren Riverfront Park.
+ *              Apply on a deployment that includes the redirect in
+ *              src/lib/access-points/merged-slugs.ts, or the old URL 404s.
  *
  * Every row is checked for identity (id + slug or name) and for each field
  * holding either its expected current value or its target, before the first
@@ -132,9 +135,43 @@ const LANDMARKS: Correction[] = [
   },
 ];
 
+// One town launch recorded twice (audit F15). Riverfront Park is canonical: it
+// has the full prose, the photos, the closer pin and the saved-plan and photo
+// references. City Access contributes its city ownership and concrete-ramp
+// fact, then is retired. Nothing references its ID (checked 2026-10-28); its
+// URL redirects via src/lib/access-points/merged-slugs.ts. Order matters: the
+// canonical row is completed before the duplicate leaves the pickers.
+const VAN_BUREN: Correction[] = [
+  {
+    id: '330ae0ce-dd7d-4c37-8784-d887bd4503e4',
+    identity: { column: 'slug', value: 'van-buren-riverfront-park' },
+    why: 'Canonical record for the Van Buren town launch; takes City Access ownership and ramp detail.',
+    from: {
+      ownership: null,
+      managing_agency: null,
+      facilities:
+        'Town amenities: restaurants, gas station, coffee shop, lodging. The park itself has basic riverfront access. No campground at the park, but Big Spring Campground is 4 miles south.',
+    },
+    to: {
+      ownership: 'city',
+      managing_agency: 'Municipal',
+      facilities:
+        'Concrete boat ramp at the riverfront park. Town amenities nearby: restaurants, gas station, coffee shop, lodging. No campground at the park; Big Spring Campground is 4 miles south.',
+    },
+  },
+  {
+    id: '660218df-726a-4340-a392-7b2613eba202',
+    identity: { column: 'slug', value: 'van-buren' },
+    why: 'Duplicate of Van Buren Riverfront Park, about 140 m away. Retired, not deleted.',
+    from: { approved: true },
+    to: { approved: false },
+  },
+];
+
 const PARTS = {
   access: { table: 'access_points', corrections: ACCESS },
   landmarks: { table: 'points_of_interest', corrections: LANDMARKS },
+  'van-buren': { table: 'access_points', corrections: VAN_BUREN },
 } as const;
 
 const same = (a: unknown, b: unknown) => {
@@ -146,7 +183,7 @@ async function main() {
   const apply = process.argv.includes('--apply');
   const partArg = process.argv[process.argv.indexOf('--part') + 1];
   if (!process.argv.includes('--part') || !(partArg in PARTS)) {
-    throw new Error('Pass --part access or --part landmarks.');
+    throw new Error(`Pass --part with one of: ${Object.keys(PARTS).join(', ')}.`);
   }
   const { table, corrections } = PARTS[partArg as keyof typeof PARTS];
   const db = getScriptClient({ script: `repair-access-audit-2026-10:${partArg}`, write: apply });

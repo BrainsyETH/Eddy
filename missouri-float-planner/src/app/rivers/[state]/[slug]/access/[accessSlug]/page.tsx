@@ -3,7 +3,8 @@
 // content is in the initial HTML (crawlable, no client fetch waterfall). Only
 // the Share action is a client island.
 
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { mergedAccessSlug } from '@/lib/access-points/merged-slugs';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { pageAccess } from '@/lib/data/public-pages';
@@ -46,6 +47,9 @@ export default async function AccessPointDetailPage({ params }: Props) {
   const result = await pageAccess(riverSlug, accessSlug);
 
   if (!result.ok) {
+    // A duplicate merged into another record keeps its old URL working.
+    const mergedInto = mergedAccessSlug(riverSlug, accessSlug);
+    if (mergedInto) permanentRedirect(`${riverHref}/access/${mergedInto}`);
     notFound();
   }
 
