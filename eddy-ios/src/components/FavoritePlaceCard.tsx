@@ -9,6 +9,14 @@ import { conditionChipBorder, conditionColor, conditionInk, conditionOpaqueBg } 
 import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
 
+/** The kind line and the mark each saved kind wears — the map's own mark for it. */
+const KIND_DISPLAY: Record<SavedPlace['kind'], { label: string; symbol: 'accessPoint' | 'campground' | 'outfitter' | 'lodging' }> = {
+  access: { label: 'Access point', symbol: 'accessPoint' },
+  campground: { label: 'Campground', symbol: 'campground' },
+  outfitter: { label: 'Outfitter', symbol: 'outfitter' },
+  lodging: { label: 'Lodging', symbol: 'lodging' },
+};
+
 interface Props {
   place: SavedPlace;
   now: number;
@@ -21,8 +29,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale >= 1.3;
-  const campground = place.kind === 'campground';
-  const kind = campground ? 'Campground' : 'Access point';
+  const { label: kind, symbol } = KIND_DISPLAY[place.kind] ?? KIND_DISPLAY.access;
   const camping = savedCampingDisplay(place, now);
   const gauge = !camping && place.gauge ? savedGaugeDisplay(place, now) : null;
   const code = gauge?.code ?? null;
@@ -55,7 +62,7 @@ export function FavoritePlaceCard({ place, now, onPress, onRemove }: Props) {
             style={({ pressed }) => [styles.headMain, stacked && styles.headStacked, { opacity: pressed ? 0.65 : 1 }]}
           >
             <View style={[styles.artwork, { backgroundColor: colors.selectionBg }]}>
-              <EddySymbol name={campground ? 'campground' : 'accessPoint'} size={38} />
+              <EddySymbol name={symbol} size={38} />
             </View>
             <View style={[styles.identity, stacked && styles.stackedIdentity]}>
               <Text style={[styles.kind, { color: colors.interactive }]}>{kind}</Text>
