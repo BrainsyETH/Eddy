@@ -8,6 +8,22 @@ import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/p
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
 import { floatDurationLabel, savedFloatPhoto } from '../../../eddy-ios/src/lib/floatPresentation';
 import { compactFloatTime } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
+import { planFloatTip } from '../../../eddy-ios/src/lib/planFloatTip';
+
+test('native plan results omit only the legacy Jacks Fork paragraph, preserving other guidance', () => {
+  const legacy = 'The Jacks Fork rises and falls FAST after rain. Flash floods are a serious concern. If rain is forecast or the gauge is rising, postpone your trip.';
+  for (const slug of ['jacks-fork', 'jacks-fork-river']) {
+    assert.equal(planFloatTip({ slug, floatTip: legacy }), null);
+    assert.equal(planFloatTip({ slug, floatTip: ` ${legacy}\n` }), null);
+    const revised = 'Check local access closures before leaving.';
+    assert.equal(planFloatTip({ slug, floatTip: revised }), revised);
+  }
+  assert.equal(planFloatTip({ slug: 'current-river', floatTip: legacy }), legacy);
+  const accessTip = 'Arrange launch and landing with a public access or outfitter.';
+  assert.equal(planFloatTip({ slug: 'elk-river', floatTip: accessTip }), accessTip);
+  assert.equal(planFloatTip({ slug: 'current-river', floatTip: null }), null);
+  assert.equal(planFloatTip({ slug: 'current-river' }), null);
+});
 
 const link = { shortCode: 'float1', url: 'https://eddy.guide/float/float1' };
 const plan = {

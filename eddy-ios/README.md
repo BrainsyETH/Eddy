@@ -823,10 +823,20 @@ Two rules the flow is built around:
 Nothing in the plan flow is gated. It is the reason someone opens Eddy on a
 Thursday night.
 
-**What the answer says** is now mostly logistics, following the website's plan
-page rather than the app's old shape. Warnings, then the time and the two numbers
-that decide the day, then the reading it was built from with a tap through to
-USGS, then *Getting there* — put-in, take-out and the shuttle leg, each handed to
+**What the answer says** starts with live warnings, then one *Your route* card:
+connected put-in/take-out rows, View on Map, distance beside the full float-time
+range, the estimate's basis/extra-time note and vessel. Narrow screens and large
+text stack the metrics. The finished planner hides its duplicate River / Put-in /
+Take-out tiles; the river subtitle and endpoint rows retain the same change
+actions, with chevrons. The selection steps and compact map planner still use
+their route controls. Saved/shared results use the same summary with read-only
+endpoints and keep their existing verification behavior.
+
+Only the exact legacy Jacks Fork rapid-rise paragraph is omitted from native
+results (`planFloatTip`); other river tips and revised Jacks Fork guidance remain.
+This does not alter stored river data, web guidance, live warnings or hazards.
+The water reading follows with a tap through to USGS, then *Getting there* —
+put-in, take-out and the shuttle leg, each handed to
 Apple Maps (`src/lib/directions.ts`; Apple rather than Google because it is
 guaranteed present and so can never bounce to a web page). Below that: hazards on
 the stretch, the access points **between** the two ends — which are bail-outs, and

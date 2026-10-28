@@ -13,7 +13,7 @@ import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 // ── What the answer says, in order ──────────────────────────────────────────
 //   1. warnings, if any            — a worse gauge in the span, a flood, a
 //                                    stale reading. Before the numbers, always.
-//   2. how long, how far, shuttle  — the questions people came with
+//   2. route, distance and time   — one summary, with editable endpoints
 //   3. the water it was built from — a plan is only as good as its reading
 //   4. getting there               — destinations handed to a chosen map app
 //   5. hazards along the route     — free, and never summarised away
@@ -48,7 +48,8 @@ import {
 import { primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { FloatTimeEstimate } from './FloatTimeEstimate';
+import { FloatTimeEstimate, FloatTimeEstimateNote } from './FloatTimeEstimate';
+import { planFloatTip } from '@/lib/planFloatTip';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, usgsGaugeUrl } from '@/lib/directions';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
@@ -84,11 +85,16 @@ interface Props {
   initialScrollOffset?: number;
   onScrollOffsetChange?: (offset: number) => void;
   onOpenDetail?: (destination: PlanDetailDestination) => void;
+  /** The active planner can edit endpoints; saved results remain read-only. */
+  onChooseStep?: (step: 'put-in' | 'take-out') => void;
 }
 
-export function PlanResult({ plan, verification, actions, accessPoints, header, support, initialScrollOffset, onScrollOffsetChange, onOpenDetail, contentInsetAdjustmentBehavior = 'never' }: Props) {
+export function PlanResult({ plan, verification, actions, accessPoints, header, support, initialScrollOffset, onScrollOffsetChange, onOpenDetail, onChooseStep, contentInsetAdjustmentBehavior = 'never' }: Props) {
   const { colors, elevation, isDark } = useTheme();
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
+  const stackedMetrics = fontScale > 1.15 || width < 375 || !plan.floatTime;
+  const typicalTime = plan.estimateBasis === 'typical' || plan.condition.code === 'unknown';
+  const floatTip = planFloatTip(plan.river);
   const router = useRouter();
   const focused = useIsFocused();
   const [detailNavigation] = useState(createPlanDetailNavigation);
@@ -162,77 +168,82 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
         </View>
       ) : null}
 
-      {/* ── The stretch ─────────────────────────────────────────────
-          THE DRAWN ROUTE IS GONE FROM HERE. A 116pt SVG strip used to open this
-          card with the shape of the stretch — no basemap, no scale, no north
-          arrow, no context of any kind. On the screen it was meant to help, a
-          bare squiggle answers nothing: it cannot say where the stretch is,
-          which way the water runs, or what is beside it, and the map tab draws
-          the same line on an actual map one tap away. It cost the top of the
-          card that carries the two numbers people opened this for.
-
-          If a picture of the route belongs here it needs a basemap and the
-          licence question that comes with one — not a line with no world under
-          it. See git history for the removed component. */}
+      {/* One route summary replaces the result's duplicate selection tiles.
+          The endpoint rows retain their picker actions in the active planner. */}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-        <View style={styles.segmentRow}>
-          <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={fontScale > 1.3 ? undefined : 2}>
-            {plan.putIn.name} → {plan.takeOut.name}
-          </Text>
-          <Text style={[styles.segmentDistance, { color: colors.text }]}>
-            {plan.distance.formatted}
-          </Text>
+        <View style={[styles.routeHeader, fontScale > 1.3 && styles.stacked]}>
+          <Text accessibilityRole="header" style={[styles.routeTitle, { color: colors.text }]}>Your route</Text>
+          <Pressable onPress={() => openDetail(floatMapDestination({ focusRiver: plan.river.slug,
+            planPutIn: plan.putIn.id, planTakeOut: plan.takeOut.id, planVesselTypeId: plan.vessel.id }))}
+            accessibilityRole="button" accessibilityLabel="View this float route on the map" style={styles.mapButton}>
+            <ControlIcon name="map-outline" size={18} color={colors.interactive} />
+            <Text style={[t.sm, styles.mapLabel, { fontFamily: fonts.semibold, color: colors.interactive }]}>View on Map</Text>
+          </Pressable>
         </View>
 
-        <Pressable onPress={() => openDetail(floatMapDestination({ focusRiver: plan.river.slug,
-          planPutIn: plan.putIn.id, planTakeOut: plan.takeOut.id, planVesselTypeId: plan.vessel.id }))}
-          accessibilityRole="button" accessibilityLabel="View this float route on the map" style={styles.mapButton}>
-          <ControlIcon name="map-outline" size={18} color={colors.interactive} />
-          <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.interactive }]}>View on Map</Text>
-        </Pressable>
+        <RouteEndpoint label="Put-in" name={plan.putIn.name} position="start"
+          onPress={onChooseStep ? () => onChooseStep('put-in') : undefined} />
+        <View style={[styles.routeConnector, { backgroundColor: colors.interactive }]} />
+        <RouteEndpoint label="Take-out" name={plan.takeOut.name} position="end"
+          onPress={onChooseStep ? () => onChooseStep('take-out') : undefined} />
 
-        <CurrentPlanValue unverified={unverified} label={verification?.state === 'checking' ? 'Updating float time…' : 'Float time needs current conditions.'}>
-        {plan.floatTime ? (
-          <FloatTimeEstimate
-            timeRange={plan.floatTime.timeRange}
-            formatted={plan.floatTime.formatted}
-            typical={plan.estimateBasis === 'typical' || plan.condition.code === 'unknown'}
-          />
-        ) : plan.floatTimeWithheldReason === 'regulated' ? (
-          <>
-            {/* TWO SILENCES, TWO SENTENCES — floatTimeWithholding's own rule.
-                A tailwater's missing time is uncertainty about WHEN, not a
-                verdict about whether, so it takes the plain ink rather than
-                the condition colour: painted with the ladder it read as a
-                second rating, and at ordinary generation that colour could be
-                GREEN under a headline about refusing an estimate. "Wait for
-                it to drop" was wrong twice here — the water is not high, and
-                waiting does not help. */}
-            <Text style={[styles.headline, { color: colors.text }]}>
-              No single float time
-            </Text>
-            <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              Dam releases can change mid-float, so one estimate would be wrong the moment the
-              units start or stop. Check the dam’s schedule before you go.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.headline, { color: conditionColor(plan.condition.code) }]}>
-              No float time
-            </Text>
-            <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {plan.condition.code === 'dangerous'
-                ? 'Eddy does not estimate a time in this water. Wait for it to drop.'
-                : 'A float-time estimate is unavailable for this route.'}
-            </Text>
-          </>
-        )}
-        </CurrentPlanValue>
+        <View style={[styles.metrics, stackedMetrics && styles.stacked, { borderTopColor: colors.border }]}>
+          <View style={!stackedMetrics ? styles.distanceMetric : undefined}>
+            <View style={styles.metricLabelRow}>
+              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Distance</Text>
+            </View>
+            <Text style={[styles.metricValue, { color: colors.text }]}>{plan.distance.formatted}</Text>
+          </View>
+
+          <View style={!stackedMetrics ? [styles.timeMetric, { borderLeftColor: colors.border }] : undefined}>
+            <CurrentPlanValue unverified={unverified} label={verification?.state === 'checking' ? 'Updating float time…' : 'Float time needs current conditions.'}>
+              {plan.floatTime ? (
+                <FloatTimeEstimate
+                  timeRange={plan.floatTime.timeRange}
+                  formatted={plan.floatTime.formatted}
+                  typical={typicalTime}
+                />
+              ) : plan.floatTimeWithheldReason === 'regulated' ? (
+                <>
+                  {/* TWO SILENCES, TWO SENTENCES — floatTimeWithholding's own rule.
+                      A tailwater's missing time is uncertainty about WHEN, not a
+                      verdict about whether, so it takes the plain ink rather than
+                      the condition colour: painted with the ladder it read as a
+                      second rating, and at ordinary generation that colour could be
+                      GREEN under a headline about refusing an estimate. "Wait for
+                      it to drop" was wrong twice here — the water is not high, and
+                      waiting does not help. */}
+                  <Text style={[styles.headline, { color: colors.text }]}>
+                    No single float time
+                  </Text>
+                  <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
+                    Dam releases can change mid-float, so one estimate would be wrong the moment the
+                    units start or stop. Check the dam’s schedule before you go.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.headline, { color: conditionColor(plan.condition.code) }]}>
+                    No float time
+                  </Text>
+                  <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
+                    {plan.condition.code === 'dangerous'
+                      ? 'Eddy does not estimate a time in this water. Wait for it to drop.'
+                      : 'A float-time estimate is unavailable for this route.'}
+                  </Text>
+                </>
+              )}
+            </CurrentPlanValue>
+          </View>
+        </View>
+
+        {plan.floatTime ? <CurrentPlanValue unverified={unverified}>
+          <FloatTimeEstimateNote typical={typicalTime} />
+        </CurrentPlanValue> : null}
 
         {plan.vessel?.name ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>Vessel: {plan.vessel.name}</Text> : null}
 
-        {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
+        {floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{floatTip}</Text> : null}
       </View>
 
       {/* The water the plan was built from. A float time is a function of the
@@ -310,16 +321,34 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
   );
 }
 
+function RouteEndpoint({ label, name, position, onPress }: { label: string; name: string; position: 'start' | 'end'; onPress?: () => void }) {
+  const { colors } = useTheme();
+  const content = <>
+    <View pointerEvents="none" style={[styles.endpointConnector,
+      position === 'start' ? styles.connectorStart : styles.connectorEnd, { backgroundColor: colors.interactive }]} />
+    <EddySymbol name="accessPoint" size={24} style={{ backgroundColor: colors.card }} />
+    <View style={styles.endpointText}>
+      <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.routeEndpointName, { color: colors.text }]}>{name}</Text>
+    </View>
+    {onPress ? <ControlIcon name="chevron-forward" size={16} color={colors.interactive} /> : null}
+  </>;
+  return onPress ? <Pressable onPress={onPress} accessibilityRole="button"
+    accessibilityLabel={`${label}: ${name}`} accessibilityHint={`Change ${label.toLowerCase()}`}
+    style={({ pressed }) => [styles.routeEndpoint, { opacity: pressed ? 0.6 : 1 }]}>{content}</Pressable>
+    : <View style={styles.routeEndpoint}>{content}</View>;
+}
+
 /** Keep measured space and the parent scroll view, but hide stale verdicts
  * from sight, touch and VoiceOver until revalidation succeeds. */
-function CurrentPlanValue({ unverified, label, children }: { unverified: boolean; label: string; children: ReactNode }) {
+function CurrentPlanValue({ unverified, label, children }: { unverified: boolean; label?: string; children: ReactNode }) {
   const { colors } = useTheme();
   return <View>
     <View style={unverified ? { opacity: 0 } : undefined} pointerEvents={unverified ? 'none' : 'auto'}
       accessibilityElementsHidden={unverified} importantForAccessibility={unverified ? 'no-hide-descendants' : 'auto'}>
       {children}
     </View>
-    {unverified ? <View style={[StyleSheet.absoluteFill, { justifyContent: 'center' }]}>
+    {unverified && label ? <View style={[StyleSheet.absoluteFill, { justifyContent: 'center' }]}>
       <Text style={[styles.verificationText, { color: colors.textMuted }]}>{label}</Text>
     </View> : null}
   </View>;
@@ -497,7 +526,8 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
 }
 
 const styles = StyleSheet.create({
-  mapButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mapButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  mapLabel: { flexShrink: 1 },
   verification: { marginBottom: 12, minHeight: 48 },
   verificationLabel: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   verificationText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
@@ -509,10 +539,21 @@ const styles = StyleSheet.create({
   warningText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   cardTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 6 },
-  // Route and distance share a baseline and can wrap on narrow screens.
-  segmentRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 },
-  segment: { ...t.sm, fontFamily: fonts.semibold, flexGrow: 1, flexShrink: 1, flexBasis: '65%' },
-  segmentDistance: { ...t.sm, fontFamily: fonts.medium },
+  routeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  routeTitle: { ...t.lg, fontFamily: fonts.heading, flexShrink: 1 },
+  routeEndpoint: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  routeEndpointName: { ...t.base, fontFamily: fonts.semibold, marginTop: 2 },
+  routeConnector: { width: 1, height: 12, marginLeft: 12 },
+  endpointConnector: { position: 'absolute', left: 12, width: 1 },
+  connectorStart: { top: '50%', bottom: 0 },
+  connectorEnd: { top: 0, bottom: '50%' },
+  metrics: { flexDirection: 'row', gap: 12, marginTop: 16, paddingTop: 8, borderTopWidth: 1 },
+  stacked: { flexDirection: 'column', alignItems: 'stretch' },
+  distanceMetric: { flex: 1, minWidth: 0, gap: 4 },
+  timeMetric: { flex: 2, minWidth: 0, paddingLeft: 12, borderLeftWidth: 1 },
+  metricLabelRow: { minHeight: 44, justifyContent: 'center' },
+  metricLabel: { ...t.sm, fontFamily: fonts.medium },
+  metricValue: { ...t.xl, fontFamily: fonts.semibold, fontVariant: ['tabular-nums'] },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
   headlineNote: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
   conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },

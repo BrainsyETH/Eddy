@@ -233,10 +233,17 @@ export function PlanSheet({
   const heading = (
     <View style={styles.headText}>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Build a Route'}</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>{river?.name ?? 'Choose a river'}</Text>
+      {resultReady ? (
+        <Pressable onPress={onClearRiver} accessibilityRole="button"
+          accessibilityLabel={`River: ${river?.name}`} accessibilityHint="Change river"
+          style={({ pressed }) => [styles.riverButton, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.subtitle, styles.riverName, { color: colors.interactive }]}>{river?.name}</Text>
+          <ControlIcon name="chevron-forward" size={14} color={colors.interactive} />
+        </Pressable>
+      ) : <Text style={[styles.subtitle, { color: colors.textMuted }]}>{river?.name ?? 'Choose a river'}</Text>}
     </View>
   );
-  const breadcrumb = river ? (
+  const breadcrumb = river && !resultReady ? (
     <PlanRouteFields state={state} riverName={river.name} onChooseRiver={onClearRiver}
       onChooseStep={state.goToStep} stacked={stacked}
       style={[styles.breadcrumb, stacked && styles.breadcrumbStacked, { borderBottomColor: colors.border }]} />
@@ -356,6 +363,7 @@ export function PlanSheet({
         ) : (
           <PlanResult
             plan={plan}
+            onChooseStep={state.goToStep}
             support={support}
             initialScrollOffset={scrollPositions.get(plan) ?? 0}
             onScrollOffsetChange={(offset) => { scrollPositions.set(plan, offset); }}
@@ -550,6 +558,8 @@ const styles = StyleSheet.create({
   headText: { flexShrink: 1 },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
+  riverButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, minHeight: 44 },
+  riverName: { flexShrink: 1 },
   breadcrumb: {
     flexDirection: 'row',
     paddingHorizontal: 20,

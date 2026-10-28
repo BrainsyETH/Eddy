@@ -50,12 +50,17 @@ export function FloatTimeEstimate({
           <Text style={[styles.value, { color: colors.text }]}>{formatted.replace(/^~/, '')}</Text>
         )}
       </View>
-      <Text style={[styles.note, { color: colors.textMuted }]}>
-        {typical ? 'Not adjusted to current water.' : 'Allow extra time for long stops or fishing.'}
-      </Text>
       {showInfo ? <FloatInfoSheet topic="time" onClose={() => setShowInfo(false)} /> : null}
     </View>
   );
+}
+
+/** Full-width supporting copy below the distance/time row. */
+export function FloatTimeEstimateNote({ typical }: { typical: boolean }) {
+  const { colors } = useTheme();
+  return <Text style={[styles.note, { color: colors.textMuted }]}>
+    {typical ? 'Not adjusted to current water.' : 'Allow extra time for long stops or fishing.'}
+  </Text>;
 }
 
 function Duration({ minutes }: { minutes: number }) {
@@ -72,14 +77,14 @@ function Duration({ minutes }: { minutes: number }) {
 }
 
 const styles = StyleSheet.create({
-  estimate: { marginTop: 16, gap: 6 },
+  estimate: { gap: 4 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   info: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   label: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
-  range: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 10, rowGap: 2 },
-  rangeEnd: { flexDirection: 'row', alignItems: 'baseline', gap: 10, flexShrink: 1 },
-  value: { ...t['3xl'], fontFamily: fonts.semibold, fontVariant: ['tabular-nums'], flexShrink: 1 },
-  unit: { ...t.lg, fontFamily: fonts.medium },
-  separator: { ...t['2xl'], fontFamily: fonts.body },
-  note: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
+  range: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 5, rowGap: 2 },
+  rangeEnd: { flexDirection: 'row', alignItems: 'baseline', gap: 5, flexShrink: 1 },
+  value: { ...t.xl, fontFamily: fonts.semibold, fontVariant: ['tabular-nums'], flexShrink: 1 },
+  unit: { ...t.base, fontFamily: fonts.medium },
+  separator: { ...t.xl, fontFamily: fonts.body },
+  note: { ...t.sm, fontFamily: fonts.body, marginTop: 12 },
 });
