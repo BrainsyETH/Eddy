@@ -20,6 +20,7 @@ import { aheadItems, aheadSymbol, currentFloatReports, essentialsClock, essentia
 import { formatBeyond, viewSession } from '@/lib/floatSession';
 import { HAZARD_KINDS } from '@/lib/hazardReportQueue';
 import { PlaceThumb } from '@/float/PlaceThumb';
+import { EddySymbol } from '@/components/EddySymbol';
 import { useRouteAccessPoints } from '@/float/useRouteAccessPoints';
 import { fonts, type as t } from '@/theme/typography';
 import { selectionFeedback } from '@/lib/haptics';
@@ -76,7 +77,10 @@ export default function FloatOptionsScreen() {
   return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: colors.bg }} keyboardShouldPersistTaps="handled"
     contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: Math.max(insets.bottom, 16) + 20 }}>
     <View style={{ flexDirection: fontScale > 1.3 ? 'column' : 'row', alignItems: fontScale > 1.3 ? 'stretch' : 'center', justifyContent: 'space-between', gap: 12 }}>
-      <Text style={[s.heading, { color: colors.text }]} accessibilityRole="header">Float tools</Text>
+      <View style={styles.titleRow}>
+        <EddySymbol name="floatTools" size={30} />
+        <Text style={[s.heading, styles.title, { color: colors.text }]} accessibilityRole="header">Float tools</Text>
+      </View>
       <EssentialsButton label="Done" onPress={() => router.back()} />
     </View>
     <EssentialsSection title="Your location">
@@ -158,6 +162,8 @@ export default function FloatOptionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  title: { flexShrink: 1 },
   coordinates: { fontVariant: ['tabular-nums'] },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   placeText: { flex: 1, minWidth: 0, gap: 3 },

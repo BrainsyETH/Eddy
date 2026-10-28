@@ -30,7 +30,7 @@ Two things have to happen to make one of those files bundleable:
 
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "design/eddy-emoji"
@@ -142,6 +142,7 @@ GENERATED_SYMBOLS = (
     "eddy-bridge",
     "eddy-dam",
     "eddy-gravel-bar",
+    "eddy-float-tools",
 )
 
 # How far a pixel may sit from the corner it is being compared against and still
@@ -350,6 +351,71 @@ def draw_gravel_bar() -> Image.Image:
     return finish_generated(canvas)
 
 
+def draw_float_tools() -> Image.Image:
+    """Draw River Mode's tools mark: a coral wrench crossed over an Eddy paddle.
+
+    The wrench says "tools"; the paddle makes it the river's toolkit rather
+    than a generic settings wrench. A toolbox was tried first and read as a
+    briefcase at button size.
+
+    The wrench is built as a silhouette and its teal edge is GROWN from that
+    silhouette, rather than drawn shape by shape, so the open jaw keeps a clean
+    outline at its tips; stroking the head, handle and slot separately left
+    stray teal edges inside the jaw.
+    """
+    canvas, _, s = generated_canvas()
+    n = SIZE * s
+    teal = "#073F4C"
+    blue = "#2099C8"
+    coral = "#F26649"
+    light = "#FAF8F2"
+    sand = "#F4C16E"
+
+    def paddle() -> Image.Image:
+        layer = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(layer)
+        cx, length = n / 2, 246
+        top = (SIZE - length) / 2 * s
+        bottom = top + length * s
+        draw.rounded_rectangle((cx - 13 * s, top + 70 * s, cx + 13 * s, bottom), radius=13 * s, fill=teal)
+        draw.rounded_rectangle((cx - 6 * s, top + 76 * s, cx + 6 * s, bottom - 8 * s), radius=6 * s, fill=sand)
+        draw.rounded_rectangle((cx - 35 * s, top, cx + 35 * s, top + 110 * s), radius=33 * s, fill=teal)
+        draw.rounded_rectangle((cx - 23 * s, top + 12 * s, cx + 23 * s, top + 98 * s), radius=23 * s, fill=blue)
+        draw.rounded_rectangle((cx - 22 * s, bottom - 34 * s, cx + 22 * s, bottom), radius=14 * s, fill=teal)
+        return layer
+
+    def wrench() -> Image.Image:
+        length, head, handle, edge, slot, depth = 232, 50, 20, 11, 19, 40
+        mask = Image.new("L", (n, n), 0)
+        draw = ImageDraw.Draw(mask)
+        cx = n / 2
+        top = (SIZE - length) / 2 * s
+        bottom = top + length * s
+        hub = top + head * s
+        draw.rounded_rectangle((cx - handle * s, hub, cx + handle * s, bottom), radius=handle * s, fill=255)
+        draw.ellipse((cx - head * s, hub - head * s, cx + head * s, hub + head * s), fill=255)
+        # The jaw: a slot open at the top with a rounded seat.
+        seat = hub - head * s + depth * s
+        draw.rectangle((cx - slot * s, 0, cx + slot * s, seat), fill=0)
+        draw.ellipse((cx - slot * s, seat - slot * s, cx + slot * s, seat + slot * s), fill=0)
+        # Open then close: rounds the jaw tips without moving any edge.
+        body = mask.filter(ImageFilter.MinFilter(9)).filter(ImageFilter.MaxFilter(9))
+        outline = body.filter(ImageFilter.MaxFilter(2 * edge * s + 1))
+        layer = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+        layer.paste(Image.new("RGBA", (n, n), teal), (0, 0), outline)
+        layer.paste(Image.new("RGBA", (n, n), coral), (0, 0), body)
+        # The same small highlight stroke the sticker set uses.
+        ImageDraw.Draw(layer).line(
+            (cx - handle * s * 0.45, hub + head * s * 0.95, cx - handle * s * 0.45, bottom - 30 * s),
+            fill=light, width=7 * s,
+        )
+        return layer
+
+    canvas.alpha_composite(paddle().rotate(40, resample=Image.BICUBIC))
+    canvas.alpha_composite(wrench().rotate(-40, resample=Image.BICUBIC))
+    return finish_generated(canvas)
+
+
 def generate(name: str) -> Image.Image:
     if name == "eddy-bridge":
         return draw_bridge()
@@ -357,6 +423,8 @@ def generate(name: str) -> Image.Image:
         return draw_dam()
     if name == "eddy-gravel-bar":
         return draw_gravel_bar()
+    if name == "eddy-float-tools":
+        return draw_float_tools()
     raise SystemExit(f"unknown generated symbol: {name}")
 
 

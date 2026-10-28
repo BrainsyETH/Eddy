@@ -438,7 +438,7 @@ function ActionButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
     >
-      <EddySymbol name={icon === 'warning-outline' ? 'hazard' : 'river'} size={26} />
+      <EddySymbol name={icon === 'warning-outline' ? 'hazard' : 'floatTools'} size={26} />
       <Text style={[styles.actionText, { color: colors.interactive }]}>{label}</Text>
     </Pressable>
   );
