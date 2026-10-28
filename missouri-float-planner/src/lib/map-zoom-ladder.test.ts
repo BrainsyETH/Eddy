@@ -106,7 +106,7 @@ test('the family index covers exactly the band the layers leave', () => {
   // Both families share one builder, so this is one check for both of them.
   const block = sourceBlock('const familyIndexLayer');
   const caps = [...block.matchAll(/maxZoomLevel=\{([^}]*)\}/g)].map((m) => m[1]);
-  assert.ok(caps.length >= 3, 'the index draws bubbles, counts and dots');
+  assert.ok(caps.length >= 2, 'the index draws count badges and dots');
   for (const cap of caps) {
     assert.equal(cap, 'ZOOM.cluster', 'the index must stop where its layers start');
   }
@@ -282,7 +282,7 @@ test('every fetch-skipping path applies the one eligibility rule', () => {
 
 test('every cluster count wears a badge, never a coloured bubble', () => {
   const countLayers = [...CODE.matchAll(/<Mapbox\.(\w+)\s+id=\{?[`'"]([^`'"]+)[`'"]\}?\s+filter=\{\['has', 'point_count'\]\}/g)];
-  assert.equal(countLayers.length, 6, 'three clustered builders, each a badge and a count');
+  assert.equal(countLayers.length, 3, 'three clustered builders, one count layer each');
   for (const [, kind, id] of countLayers) {
     assert.equal(kind, 'SymbolLayer', `${id}: a count is a badge image, not a circle`);
   }
@@ -290,10 +290,21 @@ test('every cluster count wears a badge, never a coloured bubble', () => {
   assert.doesNotMatch(CODE, /conditionColor\([^)]*\)[^;]*point_count/, 'no count is painted with a condition colour');
 });
 
+test('a badge and its number are one symbol', () => {
+  // They were two layers once, and on device every badge drew with no number:
+  // the count layer landed beneath the opaque face. Mapbox draws a symbol's
+  // text over its own icon only WITHIN one layer, so both belong to one style.
+  const style = CODE.slice(CODE.indexOf('const countBadgeStyle'), CODE.indexOf('const PLACE_COUNT_BADGE'));
+  assert.match(style, /iconImage:/);
+  assert.match(style, /textField: \['get', 'point_count_abbreviated'\]/);
+  const stacks = sourceBlock('<Mapbox.ShapeSource id="pins-stacks"');
+  assert.equal(stacks.match(/<Mapbox\.\w+Layer/g)?.length, 1, 'the stack face carries its own number');
+  assert.match(stacks, /iconImage: 'eddy-count-stack-map',\s*textField:/);
+});
+
 test('only the USGS reference tier wears the parchment badge', () => {
   const reference = sourceBlock('id="pins-allGauges"');
   assert.match(reference, /style=\{USGS_COUNT_BADGE\}/);
-  assert.match(reference, /style=\{USGS_COUNT_TEXT\}/);
   assert.equal(CODE.match(/style=\{USGS_COUNT_BADGE\}/g)?.length, 1, 'no Eddy layer borrows the reference face');
   assert.ok((CODE.match(/style=\{PLACE_COUNT_BADGE\}/g)?.length ?? 0) >= 2, 'rated gauges, dams and places wear the place face');
 });
