@@ -3,7 +3,7 @@
 // implementation now lives in ./chrome/*; this file keeps the original
 // import path ('./Chrome') stable for MOSurfaceWaterApp and MOMap.
 
-export { RightRail, SHEET_PEEK_FRACTION, ContextSiteCard } from './chrome/rail';
+export { RightRail, SHEET_PEEK_FRACTION, ReferenceSiteSheet } from './chrome/rail';
 export { TimeScrubber } from './chrome/TimeScrubber';
 export { DetailModal, type ModalSelection } from './chrome/DetailModal';
 export { GaugeHoverOverlay } from './chrome/GaugeHoverOverlay';

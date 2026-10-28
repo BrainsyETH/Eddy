@@ -4,7 +4,7 @@ import MOSurfaceWaterApp from '@/components/mo-surface-water/MOSurfaceWaterApp';
 export const metadata: Metadata = {
   title: 'Live River Map — Eddy',
   description:
-    'Missouri float water, live: every curated river painted by its USGS gauges with animated flow, a data dock with the statewide floater’s verdict and 30-day trends, gauge detail, forecast-aware flood warnings, and a drag-to-replay month timeline.',
+    'Live Ozarks river conditions and nationwide USGS gauges, with flow and stage filters, station details, river forecasts, and 30-day trends.',
   alternates: { canonical: '/river-map' },
 };
 

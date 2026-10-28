@@ -826,6 +826,23 @@ h1, h2, h3, h4, h5, h6 {
 .planner-map-marker:focus-visible {
   outline: 3px solid var(--color-primary-500); outline-offset: 4px; border-radius: 6px;
 }
+/* Unrated USGS stations: plain dots under every planner pin (stacking is set
+   inline by PlannerMarkerLayer). Hex values are REFERENCE_CLUSTER_FILL / _INK
+   in src/lib/gauges/map-index.ts. */
+.planner-map-marker.reference-gauge-marker { width: 28px; height: 28px; }
+.planner-map-marker.reference-cluster-marker { width: 36px; height: 36px; }
+.reference-gauge-dot {
+  width: 12px; height: 12px; border-radius: 9999px; border: 2px solid white;
+  box-shadow: 0 0 0 1px var(--color-neutral-700); pointer-events: none;
+}
+.reference-gauge-marker[aria-pressed="true"] .reference-gauge-dot {
+  width: 18px; height: 18px; box-shadow: 0 0 0 2px var(--color-neutral-900);
+}
+.reference-cluster-face {
+  min-width: 26px; height: 26px; padding: 0 5px; display: grid; place-items: center;
+  border: 2px solid #2D2A24; border-radius: 9999px; background: #F2EAD8; color: #2D2A24;
+  font-size: 11px; font-weight: 700; pointer-events: none;
+}
 
 /* ===== BADGES ===== */
 

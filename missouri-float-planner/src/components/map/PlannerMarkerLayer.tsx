@@ -1,18 +1,21 @@
 'use client';
 
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Marker, type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection, Point } from 'geojson';
 import { useMap } from './map-context';
 import { enableMarkerKeyboard } from './marker-keyboard';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
+import { referenceColor } from '@/lib/gauges/map-index';
 import type { PlannerMarker } from '@/lib/planner-markers';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
 
-const SOURCE = 'planner-places';
+export const REFERENCE_GAUGE_SOURCE = 'planner-reference-gauges';
+export const REFERENCE_GAUGE_HITS = 'planner-reference-gauge-hits';
 export const PLANNER_PLACE_HITS = 'planner-place-hits';
 
 interface Props {
+  layer?: 'places' | 'reference';
   places: PlannerMarker[];
   selectedKey: string | null;
   onSelect: (place: PlannerMarker) => void;
@@ -28,9 +31,15 @@ function features(places: PlannerMarker[], selectedKey: string | null): FeatureC
   })) };
 }
 
-/** MapLibre clusters all three place types together; HTML keeps pins keyboard-accessible. */
+/** Independent instances own independent cluster trees; reference gauges never absorb places. */
 export default function PlannerMarkerLayer(props: Props) {
   const map = useMap();
+  const referenceLayer = props.layer === 'reference';
+  const SOURCE = referenceLayer ? REFERENCE_GAUGE_SOURCE : 'planner-places';
+  const hitLayer = referenceLayer ? REFERENCE_GAUGE_HITS : PLANNER_PLACE_HITS;
+  const byKey = useMemo(() => new Map(props.places.map(place => [place.key, place])), [props.places]);
+  const byKeyRef = useRef(byKey);
+  useLayoutEffect(() => { byKeyRef.current = byKey; }, [byKey]);
   const latest = useRef(props);
   const renderedRef = useRef(new Map<string, { marker: Marker; signature: string; itemKey?: string; cluster: boolean }>());
   useLayoutEffect(() => {
@@ -51,18 +60,19 @@ export default function PlannerMarkerLayer(props: Props) {
     let frame = 0;
     const rendered = renderedRef.current;
     map.addSource(SOURCE, { type: 'geojson', data: features(latest.current.places, latest.current.selectedKey),
-      cluster: true, clusterRadius: 56, maxzoom: 24, clusterMaxZoom: 22,
+      cluster: true, clusterRadius: referenceLayer ? 44 : 56, maxzoom: 24, clusterMaxZoom: 22,
       clusterProperties: { inspected: ['+', ['get', 'inspected']], putIn: ['+', ['get', 'putIn']], takeOut: ['+', ['get', 'takeOut']] },
     });
     // Load source tiles and give river hit testing a place-priority layer.
     // The accessible HTML pins below own the actual appearance and actions.
-    map.addLayer({ id: PLANNER_PLACE_HITS, type: 'circle', source: SOURCE,
-      paint: { 'circle-radius': 22, 'circle-opacity': 0 } });
+    // A plain reference dot only claims the river right around itself.
+    map.addLayer({ id: hitLayer, type: 'circle', source: SOURCE,
+      paint: { 'circle-radius': referenceLayer ? 10 : 22, 'circle-opacity': 0 } });
 
     const update = () => {
       if (disposed || !map.isSourceLoaded(SOURCE)) return;
       const { places, selectedKey } = latest.current;
-      const byKey = new Map(places.map(place => [place.key, place]));
+      const byKey = byKeyRef.current;
       const selected = selectedKey ? byKey.get(selectedKey) : undefined;
       const putIn = places.find(place => place.role === 'put-in');
       const takeOut = places.find(place => place.role === 'take-out');
@@ -73,7 +83,7 @@ export default function PlannerMarkerLayer(props: Props) {
         if (feature.geometry.type !== 'Point') continue;
         const properties = feature.properties;
         const cluster = properties.cluster === true;
-        const key = cluster ? `cluster:${properties.cluster_id}` : String(properties.key);
+        const key = cluster ? `${referenceLayer ? 'reference-cluster' : 'cluster'}:${properties.cluster_id}` : String(properties.key);
         if (visible.has(key)) continue;
         const item = cluster ? properties.inspected && selected ? selected
           : properties.putIn && putIn ? putIn : properties.takeOut && takeOut ? takeOut : undefined
@@ -86,7 +96,8 @@ export default function PlannerMarkerLayer(props: Props) {
         const inspected = !!item && item.key === selectedKey;
         const count = cluster ? Number(properties.point_count) : 1;
         const condition = item?.kind === 'gauge' ? item.condition : null;
-        const signature = `${item?.key}:${item?.name}:${item?.symbol}:${item?.role}:${condition}:${inspected}:${count}`;
+        const reference = item?.kind === 'referenceGauge' ? referenceColor(item.gauge) : null;
+        const signature = `${referenceLayer && map.getZoom() >= 10.5}::${reference}:${item?.key}:${item?.name}:${item?.symbol}:${item?.role}:${condition}:${inspected}:${count}`;
         const existing = rendered.get(key);
         if (existing?.signature === signature) {
           existing.marker.setLngLat([coordinates.lng, coordinates.lat]);
@@ -97,18 +108,31 @@ export default function PlannerMarkerLayer(props: Props) {
         existing?.marker.remove();
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `planner-map-marker ${item?.kind === 'access' ? 'access-point-marker' : item?.kind === 'gauge' ? 'gauge-station-marker' : item?.kind === 'poi' ? 'poi-marker' : 'planner-cluster-marker'}`;
+        button.className = `planner-map-marker ${referenceLayer ? cluster ? 'reference-cluster-marker' : 'gauge-station-marker reference-gauge-marker'
+          : item?.kind === 'access' ? 'access-point-marker' : item?.kind === 'gauge' ? 'gauge-station-marker' : item?.kind === 'poi' ? 'poi-marker' : 'planner-cluster-marker'}`;
         button.dataset.plannerMarker = key;
+        if (referenceLayer) {
+          button.dataset.referenceGauge = 'true';
+          // Access points/POIs stay on top, even when a reference is selected.
+          button.style.zIndex = '1';
+          if (cluster) button.dataset.referenceClusterCount = String(count);
+        }
         if (item?.kind === 'access') button.dataset.accessPointId = item.id;
         if (item?.kind === 'poi') button.dataset.poiId = item.id;
-        if (item?.kind === 'gauge') button.dataset.gaugeId = item.id;
+        if (item?.kind === 'gauge' || item?.kind === 'referenceGauge') button.dataset.gaugeId = item.id;
+        if (item?.kind === 'referenceGauge') button.dataset.usgsSiteId = item.gauge.siteId;
         if (item?.role) button.dataset.endpointRole = item.role;
         if (inspected) button.dataset.selectedPlaceId = item!.id;
         if (cluster) button.dataset.clusterCount = String(count);
         button.setAttribute('aria-pressed', String(inspected));
         const face = document.createElement('span');
-        face.className = 'planner-marker-face';
-        if (item) {
+        face.className = referenceLayer ? cluster ? 'reference-cluster-face' : 'reference-gauge-dot' : 'planner-marker-face';
+        if (referenceLayer) {
+          // Plain dots and parchment counts: Eddy-rated gauges keep the full
+          // pin and stay the strongest signal.
+          if (cluster) face.textContent = String(count);
+          else if (reference) face.style.backgroundColor = reference;
+        } else if (item) {
           const art = document.createElement('img');
           art.src = condition ? getEddyImageForCondition(condition) : eddyIconUrl(item.symbol);
           art.alt = ''; art.width = 28; art.height = 28;
@@ -116,19 +140,19 @@ export default function PlannerMarkerLayer(props: Props) {
           if (condition) face.style.borderColor = CONDITION_COLORS[condition];
         } else face.textContent = String(count);
         button.appendChild(face);
-        if (item && cluster) {
+        if (item && cluster && !referenceLayer) {
           const badge = document.createElement('span');
           badge.className = 'planner-marker-count'; badge.textContent = String(count); button.appendChild(badge);
         }
-        if (item && (inspected || item.role)) {
+        if (item && (inspected || item.role || (referenceLayer && map.getZoom() >= 10.5))) {
           const label = document.createElement('span');
           label.className = 'planner-marker-label';
           const role = item.role === 'put-in' ? 'Put-in' : item.role === 'take-out' ? 'Take-out' : '';
-          label.textContent = inspected ? [role, item.name].filter(Boolean).join(' · ') : role;
+          label.textContent = inspected || referenceLayer ? [role, item.name].filter(Boolean).join(' · ') : role;
           button.appendChild(label);
         }
-        const label = cluster ? `${count} places here${item ? `, ${item.name}` : ''}. Choose a place`
-          : `${item!.name}${item!.role ? `, ${item!.role}` : ''}${condition ? `, ${CONDITION_SHORT_LABELS[condition]}` : ''}. Open ${item!.kind === 'gauge' ? 'gauge' : 'place'} details`;
+        const label = cluster ? `${count} ${referenceLayer ? 'USGS gauges' : 'places'} here${item ? `, ${item.name}` : ''}. Choose ${referenceLayer ? 'a gauge' : 'a place'}`
+          : `${item!.name}${item!.role ? `, ${item!.role}` : ''}${condition ? `, ${CONDITION_SHORT_LABELS[condition]}` : ''}. Open ${item!.kind === 'gauge' || item!.kind === 'referenceGauge' ? 'gauge' : 'place'} details`;
         enableMarkerKeyboard(button, label, () => latest.current.onDismiss());
         button.tabIndex = screen.x >= 0 && screen.y >= 0 && screen.x <= canvas.clientWidth && screen.y <= canvas.clientHeight ? 0 : -1;
         // A pin is a control, not a map gesture surface. In particular, two
@@ -154,7 +178,7 @@ export default function PlannerMarkerLayer(props: Props) {
             }
             const leaves = await source.getClusterLeaves(properties.cluster_id, count, 0);
             if (disposed) return;
-            const current = new Map(latest.current.places.map(place => [place.key, place]));
+            const current = byKeyRef.current;
             const members = leaves.flatMap(leaf => { const place = current.get(String(leaf.properties?.key)); return place ? [place] : []; });
             latest.current.onGroup(members, coordinates);
           } catch {
@@ -175,12 +199,12 @@ export default function PlannerMarkerLayer(props: Props) {
       map.off('sourcedata', schedule); map.off('moveend', schedule); map.off('resize', schedule);
       for (const entry of rendered.values()) entry.marker.remove();
       rendered.clear();
-      if (map.getLayer(PLANNER_PLACE_HITS)) map.removeLayer(PLANNER_PLACE_HITS);
+      if (map.getLayer(hitLayer)) map.removeLayer(hitLayer);
       if (map.getSource(SOURCE)) map.removeSource(SOURCE);
     };
-  }, [map]);
+  }, [map, SOURCE, hitLayer, referenceLayer]);
   useLayoutEffect(() => {
     (map.getSource(SOURCE) as GeoJSONSource | undefined)?.setData(features(props.places, props.selectedKey));
-  }, [map, props.places, props.selectedKey]);
+  }, [map, SOURCE, props.places, props.selectedKey]);
   return null;
 }
