@@ -4,6 +4,11 @@
  * (warm local outfitter, concrete imagery, light playfulness, direct warnings).
  * No invented trips, current-condition claims, forced otter puns or superlatives.
  * Facts and practical advice below the opening still come from the live guide.
+ *
+ * The openings do two jobs: they are the first line of the deterministic
+ * template caption (the fallback), and they are offered to the caption model
+ * as the river's suggested hook so a generated post starts from the same
+ * curated voice rather than a cold river name.
  */
 export const GUIDE_OPENINGS: Readonly<Record<string, string>> = {
   current: 'Leave a little room in your Current River plans for a gravel-bar lunch. And possibly a second lunch.',
@@ -32,3 +37,48 @@ export const GUIDE_OPENINGS: Readonly<Record<string, string>> = {
   mulberry: 'The Mulberry is a keep-your-paddle-handy kind of river. Pick the run with as much care as the company.',
   'caddo-river': 'Put Glenwood on the map and leave a little room for river time. The Caddo can take it from there.',
 };
+
+/**
+ * The guide post's closing line. Facebook renders the clickable article card
+ * under the message, so the CTA points at the card rather than carrying a URL.
+ */
+export const GUIDE_CAPTION_CTA = 'Get the guide and plan it on Eddy 👇';
+
+/** A line that is (a variant of) the guide CTA, matched so it can be moved last. */
+function isGuideCtaLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (t.toLowerCase() === GUIDE_CAPTION_CTA.toLowerCase()) return true;
+  if (/plan (it|this|that|your (float|trip|day)) on eddy/i.test(t)) return true;
+  return /\b(guide|article)\b/i.test(t) && /\beddy\b/i.test(t) && t.includes('👇');
+}
+
+/** A line the model added that the link post must not carry: a bare URL, a
+ *  hashtag block, or a leftover "HOOK:"/"CAPTION:" label. */
+function isNoiseLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (/^(https?:\/\/|www\.)\S+$/i.test(t)) return true;
+  if (/^(#\w+\s*)+$/.test(t)) return true;
+  if (/^(HOOK|CAPTION|HASHTAGS):/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * The guide caption body in its promised shape: short prose paragraphs, then
+ * the canonical CTA as the LAST line, exactly once. The model is asked for this
+ * order; this is the backstop for a draft that reworded the CTA, pasted the
+ * article URL (the `link` param already renders the card), or appended a
+ * hashtag block (a Facebook link post does not carry one).
+ */
+export function finalizeGuideBody(body: string): string {
+  const kept = body
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => !isGuideCtaLine(line) && !isNoiseLine(line))
+    .map((line) => line.replace(/\s*https?:\/\/\S+/gi, '').trimEnd())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return kept ? `${kept}\n\n${GUIDE_CAPTION_CTA}` : GUIDE_CAPTION_CTA;
+}

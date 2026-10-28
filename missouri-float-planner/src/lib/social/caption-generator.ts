@@ -2,12 +2,17 @@
 // AI-powered caption generation using Anthropic Claude.
 // Ported from ClawsifiedInfo generate-caption.sh
 //
-// Generates Instagram captions with hook <125 chars, "knowledgeable local" tone,
-// source attribution for YouTube clips, and recent caption deduplication.
+// Two callers share one model call, one accuracy lint and one dedup pass:
+//   - clip reels (Instagram/Facebook): hook <125 chars, "knowledgeable local"
+//     tone, creator attribution, no live-data claims;
+//   - the weekday river-guide post (Facebook link post): the same Eddy voice
+//     as the river updates, grounded ONLY on the published guide's points.
+// Pass `guide` for the second; everything else is the clip path.
 
 import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { EDDY_VOICE } from '@/lib/eddy/voice';
 import { clipCreditLine } from './clip-credit';
 import { getLocalParts, getLocalDateStrings } from './local-time';
 import type { HookStyle, ContentCategory } from './types';
@@ -63,12 +68,30 @@ interface CaptionParams {
     sourceUrl?: string;
     description?: string;
   };
+  /**
+   * Present for the weekday river-guide Facebook post. Switches the prompt to
+   * the guide rules (evergreen, grounded on the published points, no hashtags,
+   * no URL) and lets the lint accept figures and seasonal patterns that the
+   * guide itself states.
+   */
+  guide?: GuideCaptionContext;
 }
 
-interface GeneratedCaption {
+export interface GuideCaptionContext {
+  /** The article title (shown by the link card, so the caption must not repeat it). */
+  title: string;
+  /** Eddy's curated one-line opening for this river, when one exists. */
+  opening?: string;
+  /** Complete, published points from the guide — the only facts allowed. */
+  points: string[];
+}
+
+export interface GeneratedCaption {
   caption: string;
   hook: string;
   hashtags: string[];
+  /** Whether the model wrote this or the deterministic template did. */
+  source: 'model' | 'template';
 }
 
 // Hook style examples. Kept honest on purpose: the model imitates these, so none
@@ -146,16 +169,27 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
   // Get recent captions for dedup
   const recentCaptions = await getRecentCaptions(5);
 
+  const now = new Date();
+  const season = getCurrentSeason(now);
+  const { dateStr } = getLocalDateStrings(MISSOURI_TZ, now);
+
+  if (params.guide) {
+    const prompt = buildGuidePrompt(params.guide, params.riverName, params.ctaLine, recentCaptions, dateStr, season);
+    const ctx: AccuracyContext = {
+      season,
+      hasLiveData: false,
+      allowLocation: true,
+      grounding: [params.guide.opening ?? '', ...params.guide.points].join('\n'),
+    };
+    return draftWithLint(prompt, ctx, params.model, () => generateTemplateFallback(params));
+  }
+
   const hookExamples = HOOK_EXAMPLES[params.hookStyle].join('\n- ');
 
   const attributionLines = buildAttributionLines(params);
   const attributionPrompt = attributionLines.length
     ? `ATTRIBUTION (required): this clip is sourced from another creator. Include these lines verbatim, each on its own line, directly before the call to action, and do not omit or reword them (an @handle is the creator's Instagram account — keep it exactly as written):\n${attributionLines.join('\n')}`
     : '';
-
-  const now = new Date();
-  const season = getCurrentSeason(now);
-  const { dateStr } = getLocalDateStrings(MISSOURI_TZ, now);
 
   // Live data is only present when the caller supplies a condition code or a
   // gauge reading. Clip reposts do not, so those captions must never state a
@@ -210,6 +244,73 @@ CAPTION: [full caption including the hook as the first line]
 HASHTAGS: [5-8 hashtags, comma-separated]`;
 
   const ctx: AccuracyContext = { season, hasLiveData, allowLocation };
+  return draftWithLint(prompt, ctx, params.model, () => generateTemplateFallback(params));
+}
+
+/**
+ * The prompt for the weekday river-guide Facebook post. Exported so a test can
+ * pin what the model is told without a model call: the voice, the grounding,
+ * the evergreen rule, and that nothing clip-specific leaks in.
+ */
+export function buildGuidePrompt(
+  guide: GuideCaptionContext,
+  riverName: string,
+  ctaLine: string | undefined,
+  recentCaptions: string[],
+  dateStr: string,
+  season: AccuracyContext['season'],
+): string {
+  const points = guide.points.map((p, i) => `${i + 1}. ${p}`).join('\n');
+  return `Write the text of a Facebook page post for Eddy (eddy.guide), the Ozarks float trip planner. The post links to Eddy's published river guide for ${riverName}; Facebook shows the article card (title and photo) under your text, so the text is what makes someone stop and read.
+
+VOICE: ${EDDY_VOICE} You are talking to one person who is thinking about floating this river sometime, not reading them a brochure.
+
+SHAPE:
+- 50 to 110 words, in 2 to 4 short paragraphs of one to three sentences each. Separate paragraphs with a blank line.
+- The first line is the hook: under 125 characters, specific to this river, and it must earn the stop. A SUGGESTED OPENING is given below; use it as the first line, or write a better one in the same spirit.
+- Write one connected thought, not a list. Fold two or three of the GUIDE POINTS into natural sentences with transitions, the way a local would explain them over the counter. Do NOT output bullets, headings, bold labels, or short headline fragments followed by a sentence. Do NOT copy a point's label as its own sentence.
+- Plain, friendly, concrete. Contractions are fine. One light question is fine. No exclamation pileups.
+- Do NOT repeat the article title (the card shows it). No URL, no hashtags, no "link in bio".
+- Minimal emoji: none in the body; the call to action carries its own.
+${ctaRule(ctaLine)}
+
+FACTS (critical — do not violate):
+- Every place, access, spring, outfitter, mile, distance, rating, number and warning must come from the SUGGESTED OPENING or the GUIDE POINTS below. Do NOT add any detail that is not there, however plausible.
+- Keep every qualifier and warning the points carry (a "not interchangeable", a "do not", a "check first"). Do not soften or drop them to sound breezier.
+- This is an evergreen guide, NOT today's conditions. Do NOT state or imply current water levels, flow, temperature, or that the river is running well right now. Do NOT manufacture urgency ("this weekend", "before it drops", "catch it now").
+- Never tell the reader they are "cleared", "good to go", or that it is "safe to launch". Eddy shows the live gauge; the reader decides.
+- SEASON: Today is ${dateStr}, so it is ${season} in Missouri. Do not claim or imply that any other season is happening now. Quoting a seasonal pattern that a GUIDE POINT states (for example what a stretch does in late summer) is fine.
+- NO INVENTED PERSONAL HISTORY: no "we were just out there", no "I've floated this a hundred times". Knowledgeable guide, not a fake anecdote.
+- No marketing buzzwords: "unlock", "discover", "hidden gem", "adventure awaits", "bucket list".
+
+RIVER: ${riverName}
+ARTICLE TITLE (do not repeat): ${guide.title}
+SUGGESTED OPENING: ${guide.opening ?? '(none; write your own)'}
+GUIDE POINTS (the only facts allowed):
+${points || '(none; use only the suggested opening)'}
+
+RECENT CAPTIONS (do not reuse these hooks or their phrasing):
+${recentCaptions.map((c) => `- ${c.slice(0, 100)}`).join('\n') || '- (none)'}
+
+FORMAT YOUR RESPONSE AS:
+HOOK: [the first line, under 125 chars]
+CAPTION: [the full post text including the hook as the first line, paragraphs separated by blank lines, ending on the call to action]
+HASHTAGS: none`;
+}
+
+/**
+ * Draft, lint, and retry once with the lint's complaints fed back. If both
+ * drafts trip the lint, or the API fails, return the caller's deterministic
+ * fallback — never a caption we know is inaccurate.
+ */
+async function draftWithLint(
+  prompt: string,
+  ctx: AccuracyContext,
+  model: ResolvedModel,
+  fallback: () => GeneratedCaption,
+): Promise<GeneratedCaption> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return fallback();
 
   try {
     const client = new Anthropic({ apiKey });
@@ -233,12 +334,12 @@ HASHTAGS: [5-8 hashtags, comma-separated]`;
         );
       }
 
-      const response = await trackedAnthropic('social_caption', params.model.id, () => client.messages.create({
-        model: params.model.id,
-        max_tokens: params.model.maxTokens,
+      const response = await trackedAnthropic('social_caption', model.id, () => client.messages.create({
+        model: model.id,
+        max_tokens: model.maxTokens,
         // Omitted entirely unless the model needs it. A thinking model left
         // un-disabled would spend this budget reasoning about a caption.
-        ...(params.model.thinking ? { thinking: params.model.thinking } : {}),
+        ...(model.thinking ? { thinking: model.thinking } : {}),
         messages,
       }));
 
@@ -264,15 +365,15 @@ HASHTAGS: [5-8 hashtags, comma-separated]`;
     }
 
     console.warn(`${LOG_PREFIX} Caption failed accuracy lint twice, using template fallback`);
-    return generateTemplateFallback(params);
+    return fallback();
   } catch (error) {
     console.error(`${LOG_PREFIX} Claude API error:`, error);
-    return generateTemplateFallback(params);
+    return fallback();
   }
 }
 
 /** Parse the HOOK/CAPTION/HASHTAGS block the model is asked to return. */
-function parseDraft(text: string): GeneratedCaption {
+export function parseDraft(text: string): GeneratedCaption {
   const hookMatch = text.match(/HOOK:\s*(.+)/);
   const captionMatch = text.match(/CAPTION:\s*([\s\S]*?)(?=HASHTAGS:|$)/);
   const hashtagsMatch = text.match(/HASHTAGS:\s*(.+)/);
@@ -282,10 +383,10 @@ function parseDraft(text: string): GeneratedCaption {
   const hashtags = hashtagsMatch?.[1]
     ?.split(',')
     .map((h) => h.trim())
-    .filter((h: string) => h.length > 0)
+    .filter((h: string) => h.length > 0 && h.toLowerCase() !== 'none')
     .map((h: string) => (h.startsWith('#') ? h : `#${h}`)) || [];
 
-  return { caption, hook, hashtags };
+  return { caption, hook, hashtags, source: 'model' };
 }
 
 /** Re-serialize a draft back into the HOOK/CAPTION/HASHTAGS format for a retry. */
@@ -293,10 +394,16 @@ function renderDraft(d: GeneratedCaption): string {
   return `HOOK: ${d.hook}\nCAPTION: ${d.caption}\nHASHTAGS: ${d.hashtags.join(', ')}`;
 }
 
-interface AccuracyContext {
+export interface AccuracyContext {
   season: 'winter' | 'spring' | 'summer' | 'fall';
   hasLiveData: boolean;
   allowLocation: boolean;
+  /**
+   * Text the caption is allowed to repeat even where a rule would otherwise
+   * fire: the published guide points. "310 ft" or "late summer" is a
+   * fabrication in a clip caption and a quotation in a guide caption.
+   */
+  grounding?: string;
 }
 
 // Seasonal words/phrases/hashtags that are a lie when it is NOT that season.
@@ -326,16 +433,27 @@ const SEASON_PATTERNS: Record<AccuracyContext['season'], RegExp[]> = {
  * the prompt's "do not" rules into something that actually catches a bad draft
  * before it publishes — dedup never checked accuracy, only novelty.
  */
-export function findAccuracyViolations(draft: GeneratedCaption, ctx: AccuracyContext): string[] {
+export function findAccuracyViolations(draft: Pick<GeneratedCaption, 'caption' | 'hashtags'>, ctx: AccuracyContext): string[] {
   const violations: string[] = [];
   const text = `${draft.caption}\n${draft.hashtags.join(' ')}`;
+  const grounding = (ctx.grounding ?? '').toLowerCase();
+  // A match that the supplied grounding text itself contains is a quotation,
+  // not an invention. Only the guide path supplies grounding.
+  const grounded = (m: string) => grounding.length > 0 && grounding.includes(m.toLowerCase());
+  // A season word is grounded only as the phrase the guide used: "late summer"
+  // quoted from a point is fine, "this summer" built around the same word is
+  // still a claim about now.
+  const groundedPhrase = (m: RegExpMatchArray) => {
+    const before = text.slice(0, m.index ?? 0).trimEnd().split(/\s+/).pop() ?? '';
+    return grounded(`${before} ${m[0]}`.trim());
+  };
 
   // Out-of-season references (any season that is not the current one).
   for (const [name, patterns] of Object.entries(SEASON_PATTERNS)) {
     if (name === ctx.season) continue;
     for (const re of patterns) {
       const m = text.match(re);
-      if (m) {
+      if (m && !groundedPhrase(m)) {
         violations.push(`references "${m[0]}" but the current season is ${ctx.season}`);
         break;
       }
@@ -348,7 +466,7 @@ export function findAccuracyViolations(draft: GeneratedCaption, ctx: AccuracyCon
       text.match(/\b\d+(\.\d+)?\s?(ft|feet|foot)\b/i) ||
       text.match(/\b\d+(\.\d+)?\s?°/) ||
       text.match(/\b\d+(\.\d+)?\s?(degrees?|cfs)\b/i);
-    if (numeric) violations.push(`states a specific figure "${numeric[0]}" with no live data provided`);
+    if (numeric && !grounded(numeric[0])) violations.push(`states a specific figure "${numeric[0]}" with no live data provided`);
 
     // Rating the water or manufacturing scarcity with no data behind it.
     const claim = text.match(
@@ -369,6 +487,12 @@ export function findAccuracyViolations(draft: GeneratedCaption, ctx: AccuracyCon
     if (loc) violations.push(`claims Missouri ("${loc[0]}") but the clip location is unconfirmed`);
   }
 
+  // Go / no-go language. Eddy is a planning input, not the safety authority
+  // (docs/river-guide-style.md, "Go / no-go guidance"): show the gauge, let
+  // the reader decide. Never grounded — a guide point would not say it either.
+  const clearance = text.match(/\b(good to go|safe to (launch|float|paddle)|you'?re cleared|cleared to (launch|float|go))\b/i);
+  if (clearance) violations.push(`tells the reader they are "${clearance[0]}" — Eddy never clears a float`);
+
   // Marketing buzzwords and fabricated personal history.
   const buzz = text.match(/\b(unlock|hidden gem|adventure awaits|bucket[- ]?list)\b/i);
   if (buzz) violations.push(`uses banned marketing phrase "${buzz[0]}"`);
@@ -386,6 +510,10 @@ export function findAccuracyViolations(draft: GeneratedCaption, ctx: AccuracyCon
 function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
   const { hookStyle, riverName, conditionCode } = params;
   const allowLocation = params.allowLocationHashtags !== false;
+
+  // The guide poster owns its own deterministic caption (buildBlogCaption);
+  // an empty template draft tells it to use that rather than a clip template.
+  if (params.guide) return { caption: '', hook: '', hashtags: [], source: 'template' };
 
   // Honest by construction: no manufactured scarcity, no "right now" recency
   // claim over reposted footage, and conditions are only stated when real data
@@ -417,7 +545,7 @@ function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
     ? ['#MissouriFloat', '#FloatTrip', riverTag, '#RiverLife', '#Kayaking']
     : ['#FloatTrip', '#Paddling', '#Ozarks', '#RiverLife', '#Kayaking'];
 
-  return { caption, hook, hashtags };
+  return { caption, hook, hashtags, source: 'template' };
 }
 
 /**

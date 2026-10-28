@@ -350,16 +350,24 @@ checks, and it must be listened to before approving voice quality or level.
   Never-shared guides go first, then least recently shared; publication date
   and ID break ties. This is evergreen discovery, independent of today's river
   conditions. It keeps the clickable article card and Facebook-only format.
-  Captions use river-specific openings authored from `EDDY_KNOWLEDGE.md` and
-  the published guides, following the warm, lightly playful outfitter voice
-  in `generate-update.ts` and `docs/river-guide-style.md`. They continue with
-  up to three complete published local details, pro tips and pre-launch notes
-  in short paragraphs, then one planning CTA. No repeated SEO title, forced
-  jokes, fake personal outings or implied current conditions. The text is
-  curated, with no new model call at publishing time. Unknown rivers and
-  general articles fall back to their title; legacy blogs without structured
-  highlights keep their description. Oversized/malformed points are skipped,
-  never cut mid-advice. The website guides themselves are unchanged.
+  Captions are written at publish time by the `social_caption` model (the
+  same switchable workload the clip reels use, see `/admin/ai-models`) in
+  Eddy's voice (`src/lib/eddy/voice.ts`, shared with the river updates). The
+  model is given only the river's curated opening (`blog-voice.ts`, authored
+  from `EDDY_KNOWLEDGE.md` and the published guides) and up to three complete
+  published local details, pro tips and pre-launch notes, and is asked for
+  two to four short connected paragraphs, no bullets or headline fragments,
+  no repeated SEO title, no URL, no hashtags, ending on the planning CTA.
+  The same accuracy lint as the clips runs on the draft; a figure or seasonal
+  pattern is allowed only when the guide points state it, and "good to go" /
+  "safe to launch" language never passes. One retry, then the deterministic
+  template (opening, the same points as paragraphs, CTA) posts instead, also
+  when there is no `ANTHROPIC_API_KEY` or the API fails.
+  `social_posts.metadata.caption_source` records `model` or `template` per
+  post. Unknown rivers and general articles use their title; legacy blogs
+  without structured highlights use their description. Oversized/malformed
+  points are skipped, never cut mid-advice. The website guides themselves are
+  unchanged.
 - **Float Pick:** selection, posting schedule and captions are unchanged.
   Place-photo reveals follow the renderer rules above.
 - **Eddy’s Read:** newly generated social Reads compare two or three rivers.

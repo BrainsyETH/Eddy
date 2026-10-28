@@ -7,10 +7,20 @@
 // Rotation is fair: the least-recently-shared published guide goes next
 // (blog_posts.last_shared_at; NULL = never shared → first). Shared with the
 // post-blog cron and the admin "post blog now" button.
+//
+// The caption is written by the same model call the clip reels use
+// (caption-generator, `social_caption` workload), in Eddy's voice, grounded
+// ONLY on the river's curated opening and the guide's published points, and
+// checked by the same accuracy lint. When there is no key, the API fails, or
+// two drafts trip the lint, the deterministic template below posts instead —
+// the same facts, just stitched rather than written.
 
 import { blogHighlights } from './blog-highlights';
-import { GUIDE_OPENINGS } from './blog-voice';
+import { generateCaption } from './caption-generator';
+import { GUIDE_CAPTION_CTA, GUIDE_OPENINGS, finalizeGuideBody } from './blog-voice';
 import { hasMetaCredentials, publishLinkToFacebook } from './meta-client';
+import { riverDisplayLong } from './river-display';
+import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 
 const SITE = 'https://eddy.guide';
 
@@ -31,25 +41,68 @@ export interface BlogPostResult {
   skipped?: string;
   blogSlug?: string;
   caption?: string;
+  /** Whether the model wrote the caption or the template did. */
+  captionSource?: CaptionSource;
   postId?: string;
   error?: string;
 }
 
-// A river-specific Eddy opening followed by complete, published advice in
-// short paragraphs. The link card already supplies the SEO article title.
-// Unknown rivers and general articles retain their title/description. The URL
-// is NOT put in the message — the `link` param generates the clickable card.
-export function buildBlogCaption(blog: BlogRow): string {
+export type CaptionSource = 'model' | 'template';
+
+/** The facts a guide caption may use: the curated opening plus the published
+ *  highlights (or the description for a legacy blog without structured data). */
+export function guideCaptionPoints(blog: BlogRow): { opening?: string; points: string[] } {
   const opening = blog.river_slug ? GUIDE_OPENINGS[blog.river_slug] : undefined;
-  const lines: string[] = [opening || blog.title];
   const highlights = blogHighlights(blog.guide_data);
-  if (highlights.length) {
-    lines.push(...highlights);
-  } else if (blog.description?.trim()) {
-    lines.push(blog.description.trim());
-  }
-  lines.push('Get the guide and plan it on Eddy 👇');
+  const description = blog.description?.trim();
+  const points = highlights.length ? highlights : description ? [description] : [];
+  return { opening, points };
+}
+
+// The deterministic caption and the model's fallback: a river-specific Eddy
+// opening followed by complete, published advice in short paragraphs. The link
+// card already supplies the SEO article title. Unknown rivers and general
+// articles retain their title/description. The URL is NOT put in the message —
+// the `link` param generates the clickable card.
+export function buildBlogCaption(blog: BlogRow): string {
+  const { opening, points } = guideCaptionPoints(blog);
+  const lines: string[] = [opening || blog.title, ...points, GUIDE_CAPTION_CTA];
   return lines.join('\n\n');
+}
+
+// A draft shorter than this cannot be a real post (the CTA alone is 32 chars);
+// treat it as the model returning nothing usable.
+const MIN_MODEL_DRAFT_CHARS = 60;
+
+/**
+ * The caption that posts: the model's draft in Eddy's voice when it clears the
+ * lint, else the template. Both end on GUIDE_CAPTION_CTA and carry no URL.
+ */
+export async function composeBlogCaption(
+  blog: BlogRow,
+  model: ResolvedModel,
+): Promise<{ caption: string; source: CaptionSource }> {
+  const fallback = { caption: buildBlogCaption(blog), source: 'template' as const };
+  if (!process.env.ANTHROPIC_API_KEY) return fallback;
+
+  try {
+    const { opening, points } = guideCaptionPoints(blog);
+    const generated = await generateCaption({
+      model,
+      contentType: 'educational',
+      hookStyle: 'story',
+      riverName: blog.river_slug ? riverDisplayLong(blog.river_slug) : blog.title,
+      ctaLine: GUIDE_CAPTION_CTA,
+      guide: { title: blog.title, opening, points },
+    });
+    if (generated.source !== 'model') return fallback;
+    const body = finalizeGuideBody(generated.caption);
+    if (body.length < MIN_MODEL_DRAFT_CHARS) return fallback;
+    return { caption: body, source: 'model' };
+  } catch (err) {
+    console.error('[blog-poster] AI caption failed, using template:', err);
+    return fallback;
+  }
 }
 
 // Publish the next guide as a Facebook link post. Records a social_posts row and
@@ -77,12 +130,16 @@ export async function publishBlogFeature(supabase: any): Promise<BlogPostResult>
   if (!blog) return { ok: false, skipped: 'no published blog to share' };
 
   const url = `${SITE}/blog/${blog.slug}`;
-  const caption = buildBlogCaption(blog);
+  // Resolved once per post so a model switch cannot land mid-publish.
+  const { social_caption: captionModel } = await resolveModels();
+  const { caption, source: captionSource } = await composeBlogCaption(blog, captionModel);
   const coverUrl = blog.og_image_url || blog.featured_image_url || null;
 
   // Record the row up front (publishing) so a mid-publish crash is visible.
   // media_type is 'image' (the OG image is the row's media); the publish path
-  // itself is a link post. The blog URL lives in metadata for retries/auditing.
+  // itself is a link post. The blog URL lives in metadata for retries/auditing,
+  // and caption_source says whether a human reading the history is looking at
+  // the model's prose or the template's.
   const { data: record, error: insertError } = await supabase
     .from('social_posts')
     .insert({
@@ -94,7 +151,7 @@ export async function publishBlogFeature(supabase: any): Promise<BlogPostResult>
       media_type: 'image',
       hashtags: [],
       status: 'publishing',
-      metadata: { link_url: url, blog_slug: blog.slug, blog_id: blog.id },
+      metadata: { link_url: url, blog_slug: blog.slug, blog_id: blog.id, caption_source: captionSource },
     })
     .select('id')
     .single();
@@ -121,5 +178,5 @@ export async function publishBlogFeature(supabase: any): Promise<BlogPostResult>
       .eq('id', blog.id);
   }
 
-  return { ok: result.success, blogSlug: blog.slug, caption, postId: result.postId, error: result.error };
+  return { ok: result.success, blogSlug: blog.slug, caption, captionSource, postId: result.postId, error: result.error };
 }
