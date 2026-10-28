@@ -17,7 +17,8 @@
  *              Run scripts/repair-spring-classifications.ts at the same time.
  *   van-buren  Merges Van Buren City Access into Van Buren Riverfront Park.
  *              Apply on a deployment that includes the redirect in
- *              src/lib/access-points/merged-slugs.ts, or the old URL 404s.
+ *              src/lib/access-points/merged-slugs.ts, or the old URL 404s
+ *              until it does.
  *
  * Every row is checked for identity (id + slug or name) and for each field
  * holding either its expected current value or its target, before the first
