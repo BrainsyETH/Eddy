@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { blogHighlights } from './blog-highlights';
 import { buildBlogCaption } from './blog-poster';
 import { blogFeatureDue } from './blog-schedule';
-import { GUIDE_OPENINGS } from './blog-voice';
+import { GUIDE_CAPTION_CTA, GUIDE_OPENINGS } from './blog-voice';
 import { selectWeekendReads, weekendReadDue, weekendReadExclusion, weekendReadCaption, weekendReadText, type WeekendReadSource } from './weekend-read';
 import { buildPostContext } from './post-context';
 import { POST_TYPES } from './post-types';
@@ -29,7 +29,7 @@ test('Blog posts reuse complete published highlights and preserve qualifications
   assert.ok(caption.startsWith(GUIDE_OPENINGS.current));
   assert.ok(!caption.includes('•'));
   assert.ok(!caption.includes('River guide'));
-  assert.ok(caption.endsWith('Get the guide and plan it on Eddy 👇'));
+  assert.ok(caption.endsWith(GUIDE_CAPTION_CTA));
   assert.ok(highlights.every(point => caption.includes(`\n\n${point}\n\n`)));
   assert.ok(!caption.includes('Teaser.'));
 });
@@ -44,7 +44,7 @@ test('guide captions retain source advice and distinguish the two Spring Rivers'
   assert.ok(!ar.includes('Carthage'));
   for (const river_slug of [null, 'a-new-river']) {
     assert.equal(buildBlogCaption({ ...base, river_slug }),
-      'A published guide\n\nA complete published description.\n\nGet the guide and plan it on Eddy 👇');
+      `A published guide\n\nA complete published description.\n\n${GUIDE_CAPTION_CTA}`);
   }
 });
 

@@ -7,11 +7,9 @@ import { replaceEmDashes } from '@/lib/eddy/parse-response';
  * No invented trips, current-condition claims, forced otter puns or superlatives.
  * Facts and practical advice below the opening still come from the live guide.
  *
- * The openings do two jobs: they are the first line of the deterministic
- * template caption (the fallback), and they give the caption model the river's
- * ANGLE, the idea to open on. The model must put that idea in its own words:
- * the lint rejects a draft that copies the sentence, because a line that reads
- * well once reads canned by the third time the river rotates up.
+ * These are the first line of the deterministic TEMPLATE caption, the one
+ * that posts when there is no model. The model-written post does not see
+ * them: it writes its own opener from the guide's material.
  */
 export const GUIDE_OPENINGS: Readonly<Record<string, string>> = {
   current: 'Leave a little room in your Current River plans for a gravel-bar lunch. And possibly a second lunch.',
@@ -42,19 +40,11 @@ export const GUIDE_OPENINGS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The guide post's closing line. Facebook renders the clickable article card
- * under the message, so the CTA points at the card rather than carrying a URL.
+ * The template caption's closing line. A soft nod, not a pitch: Facebook
+ * renders the clickable article card under the message, so the line only
+ * has to make the card feel like the natural next thing.
  */
-export const GUIDE_CAPTION_CTA = 'Get the guide and plan it on Eddy 👇';
-
-/** A line that is (a variant of) the guide CTA, matched so it can be moved last. */
-function isGuideCtaLine(line: string): boolean {
-  const t = line.trim();
-  if (!t) return false;
-  if (t.toLowerCase() === GUIDE_CAPTION_CTA.toLowerCase()) return true;
-  if (/plan (it|this|that|your (float|trip|day)) on eddy/i.test(t)) return true;
-  return /\b(guide|article)\b/i.test(t) && /\beddy\b/i.test(t) && t.includes('👇');
-}
+export const GUIDE_CAPTION_CTA = 'There’s more in the guide below.';
 
 /** A line the model added that the link post must not carry: a bare URL, a
  *  hashtag block, or a leftover "HOOK:"/"CAPTION:" label. */
@@ -68,22 +58,19 @@ function isNoiseLine(line: string): boolean {
 }
 
 /**
- * The guide caption body in its promised shape: short prose paragraphs, then
- * the canonical CTA as the LAST line, exactly once. The model is asked for this
- * order; this is the backstop for a draft that reworded the CTA, pasted the
- * article URL (the `link` param already renders the card), or appended a
- * hashtag block (a Facebook link post does not carry one). Em-dashes become
- * commas with the same helper the river updates use: nobody types them in a
- * Facebook post, and they are the quickest tell that a model did.
+ * Tidy a model-written guide post: drop any pasted URL (the `link` param
+ * already renders the card), hashtag blocks and format labels, and turn
+ * em-dashes into commas with the helper the river updates use. Nobody types
+ * an em-dash into a Facebook post; it is the quickest tell that a model did.
+ * The wording itself is the model's; what it may say is enforced by the lint.
  */
 export function finalizeGuideBody(body: string): string {
-  const kept = body
+  return body
     .replace(/\r\n/g, '\n')
     .split('\n')
-    .filter((line) => !isGuideCtaLine(line) && !isNoiseLine(line))
+    .filter((line) => !isNoiseLine(line))
     .map((line) => replaceEmDashes(line.replace(/\s*https?:\/\/\S+/gi, '')).trimEnd())
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return kept ? `${kept}\n\n${GUIDE_CAPTION_CTA}` : GUIDE_CAPTION_CTA;
 }

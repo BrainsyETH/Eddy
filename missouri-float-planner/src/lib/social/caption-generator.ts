@@ -80,10 +80,8 @@ interface CaptionParams {
 export interface GuideCaptionContext {
   /** The article title (shown by the link card, so the caption must not repeat it). */
   title: string;
-  /** Eddy's curated one-line opening for this river, when one exists. */
-  opening?: string;
-  /** Complete, published points from the guide — the only facts allowed. */
-  points: string[];
+  /** The guide's interesting parts, as complete plain text — the only facts allowed. */
+  material: string[];
 }
 
 export interface GeneratedCaption {
@@ -175,12 +173,12 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
     // mostly Float Pick spec sheets, and a model shown five of those writes a
     // sixth; its own recent guide posts are what it must not repeat.
     const recentGuides = await getRecentCaptions(4, 'blog_feature');
-    const prompt = buildGuidePrompt(params.guide, params.riverName, params.ctaLine, recentGuides, dateStr, season);
+    const prompt = buildGuidePrompt(params.guide, params.riverName, recentGuides, dateStr, season);
     const ctx: AccuracyContext = {
       season,
       hasLiveData: false,
       allowLocation: true,
-      grounding: [params.guide.opening ?? '', ...params.guide.points].join('\n'),
+      grounding: params.guide.material.join('\n'),
     };
     return draftWithLint(prompt, ctx, params.model, () => generateTemplateFallback(params));
   }
@@ -259,58 +257,54 @@ HASHTAGS: [5-8 hashtags, comma-separated]`;
 export function buildGuidePrompt(
   guide: GuideCaptionContext,
   riverName: string,
-  ctaLine: string | undefined,
   recentCaptions: string[],
   dateStr: string,
   season: AccuracyContext['season'],
 ): string {
-  const points = guide.points.map((p, i) => `${i + 1}. ${p}`).join('\n');
-  return `Write a Facebook post for Eddy (eddy.guide), the Ozarks float trip planner. It links to Eddy's river guide for ${riverName}; Facebook shows the article card (title and photo) under your text.
+  const material = guide.material.map((p, i) => `${i + 1}. ${p}`).join('\n');
+  return `Write a short, friendly Facebook post for Eddy (eddy.guide), the Ozarks float trip planner. It goes above a link card for Eddy's river guide to ${riverName}; Facebook shows the card (title and photo) under your text.
 
 WHO IS TALKING: ${EDDY_VOICE}
 
-HOW IT SHOULD SOUND: like a friend who knows this river answering "so what's the deal with ${riverName}?" out loud. Say your draft in your head. If a sentence is something nobody would say to a friend, rewrite it.
-- Lead with what a person would actually care about: why go, what surprises people, what trips people up. Then the one or two practical things that follow from it.
-- Mix short sentences and longer ones. Use contractions. Plain words: "stretch" not "reach", "trip" not "outing", "the water's cold" not "cold water is part of the character".
-- At most one instruction per paragraph. A post that is a string of commands (walk this, keep that, know this) is the failure mode.
-- One question is fine. No exclamation pileups, no dashes as a crutch, no tidy three-part parallel sentences, no sentence that is just a label.
+THE POST: pick ONE thing from the guide material below that a person would find interesting (a spring, a place, a stretch of river, something that makes this river different) and talk about it the way you'd mention it to a friend who's thinking about going. Then end with one easy sentence that nods to the guide without asking for anything.
 
-The difference, with made-up generic examples (do not reuse their details):
-ROBOTIC: "The spring itself is a land stop. Keep the dam and spillway out of your paddling plan entirely. They're not part of the float."
-HUMAN: "The spring is the kind of place you walk around for an hour, not something you paddle. The dam below it isn't part of any float, so save the river for after."
-ROBOTIC: "The upper trips and the lower floats are different outings, not interchangeable."
-HUMAN: "Up top you're hopping ledges. Lower down it's a lazy float. Figure out which one you're signing up for before you book a shuttle."
-
-FACTS (critical):
-- Use only the ANGLE and the GUIDE POINTS below. Put them in your own words. Do not copy a sentence, a phrase, or a label from them; a draft that repeats the guide's wording is rejected.
-- Pick the two or three points a person would bring up and skip the rest. Keep the meaning of any warning you use (a "not the same trip", a "check first", a "stay off") and say it like a person.
-- Nothing else: no place, access, spring, outfitter, mile, distance, number, rating, or history that is not in the points, however plausible.
-- This is an evergreen guide, NOT today's conditions. Do NOT state or imply current water levels, flow, temperature, or that the river is running well right now. Do NOT manufacture urgency ("this weekend", "before it drops", "catch it now").
-- Never tell the reader they are "cleared", "good to go", or that it is "safe to launch". Eddy shows the live gauge; the reader decides.
-- SEASON: Today is ${dateStr}, so it is ${season} in Missouri. Do not claim or imply that any other season is happening now. Mentioning a seasonal pattern that a GUIDE POINT states (for example what a stretch does in late summer) is fine.
-- NO INVENTED PERSONAL HISTORY: no "we were just out there", no "I've floated this a hundred times". Knowledgeable guide, not a fake anecdote.
-- No marketing buzzwords: "unlock", "discover", "hidden gem", "adventure awaits", "bucket list".
-
-SHAPE:
-- 45 to 100 words, in 2 or 3 short paragraphs separated by a blank line.
-- The first line is under 125 characters and specific to this river. It should make someone who knows the river nod and someone who doesn't want to read on.
-- Do not repeat the article title (the card shows it). No URL, no hashtags, no "link in bio", no emoji in the body.
-${ctaRule(ctaLine)}
+HOW:
+- 3 to 5 sentences, 35 to 70 words. One or two short paragraphs.
+- One topic. Not a tour, not a list, not a summary of the guide.
+- Friendly and plain. Talk to the reader. Contractions are fine. One question is fine.
+- Say what the guide says and stop there. Do not explain WHY something is the way it is, or what it causes, unless the material states that connection itself. Do not add a place, number, mile, name, rating, or bit of history that is not in the material, however plausible.
+- No instructions and no warnings. Nothing that tells the reader to do, book, check, bring, avoid, or confirm anything. This post is about something nice, not about getting the trip right.
+- Everyday words. Say "stretch" not "reach", "trip" not "outing", "rocky steps" or "little drops" not "ledges", "shallow" not "bony". No paddling jargon, no gauge talk.
+- No current conditions. Do not say or imply what the water is doing right now, and no urgency ("this weekend", "right now", "before it drops"). It is ${season} (today is ${dateStr}); do not imply another season is happening now.
+- No invented personal history ("we were just out there"), no marketing words ("unlock", "discover", "hidden gem", "adventure awaits", "bucket list").
+- The last sentence mentions the guide once, lightly, as a thing that exists, not a thing to go get. Fine: "There's a lot more about it in the guide." "We put what we know about it in the guide." Not fine: anything with "check out", "get", "grab", "download", "click", "plan it", "link", or a pointing emoji.
+- Do not repeat the article title (the card shows it). No URL, no hashtags, no emoji.
+- Do not copy a sentence or phrase from the material; put it in your own words.
 
 RIVER: ${riverName}
 ARTICLE TITLE (do not repeat): ${guide.title}
-ANGLE (the idea to open on, in your own words, not this sentence): ${guide.opening ?? '(none; pick the angle from the points)'}
-GUIDE POINTS (the only facts allowed; use two or three):
-${points || '(none; use only the angle)'}
+GUIDE MATERIAL (the only facts allowed; pick one thing):
+${material}
 
-YOUR LAST FEW GUIDE POSTS (do not repeat their openings or their structure):
+YOUR LAST FEW GUIDE POSTS (don't open the same way or pick the same kind of thing):
 ${recentCaptions.map((c) => `- ${c.slice(0, 160).replace(/\s+/g, ' ')}`).join('\n') || '- (none)'}
 
 FORMAT YOUR RESPONSE AS:
-HOOK: [the first line, under 125 chars]
-CAPTION: [the full post text including the hook as the first line, paragraphs separated by blank lines, ending on the call to action]
+HOOK: [the first sentence]
+CAPTION: [the full post, 35 to 70 words, ending with the sentence that nods to the guide]
 HASHTAGS: none`;
 }
+
+// Words that turn a nod into a pitch. Checked on guide posts only.
+const PITCH_PHRASES =
+  /\b(check (it )?out|get the guide|grab|download|click|tap|sign up|plan it on|link in bio|read (the full|more)|learn more|head (over )?to)\b|👇|👉/i;
+
+// Paddling vocabulary a casual floater would not use or might not know.
+const JARGON =
+  /\b(bony|riffles?|chutes?|ledge runs?|ledges|cfs|class [i1-5v]+(?:\s*[-–]\s*[iv1-5]+)?|strainers?|portag(e|es|ing)|eddy out|put-?ins?|take-?outs?|gauge height|float key)\b/i;
+
+/** Hard cap on a guide post; the prompt asks for 35 to 70 words. */
+const GUIDE_MAX_WORDS = 85;
 
 /**
  * Draft, lint, and retry once with the lint's complaints fed back. If both
@@ -538,6 +532,17 @@ export function findAccuracyViolations(draft: Pick<GeneratedCaption, 'caption' |
     // Guidebook diction a person would not use out loud.
     const stiff = text.match(STIFF_PHRASES);
     if (stiff) violations.push(`uses brochure wording "${stiff[0]}" — say it the way a person would`);
+
+    const jargon = draft.caption.match(JARGON);
+    if (jargon) violations.push(`uses paddling jargon "${jargon[0]}" — use an everyday word`);
+
+    // The nod to the guide: present, and a nod rather than a pitch.
+    const pitch = draft.caption.match(PITCH_PHRASES);
+    if (pitch) violations.push(`pitches with "${pitch[0]}" — mention the guide lightly, do not sell it`);
+    if (!/\bguide\b/i.test(draft.caption)) violations.push('never mentions the guide — end with one light sentence that does');
+
+    const words = draft.caption.trim().split(/\s+/).filter(Boolean).length;
+    if (words > GUIDE_MAX_WORDS) violations.push(`runs ${words} words — keep it to one thing, 35 to 70 words`);
   }
 
   // Go / no-go language. Eddy is a planning input, not the safety authority
