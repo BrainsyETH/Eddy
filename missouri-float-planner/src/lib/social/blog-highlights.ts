@@ -1,7 +1,16 @@
 import sanitizeHtml from 'sanitize-html';
 
+// sanitize-html strips tags but leaves the text HTML-escaped ("Wild &amp;
+// Scenic"), which a caption would carry verbatim. Decode the entities guide
+// prose actually uses.
+const ENTITIES: Record<string, string> = {
+  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': '’', '&apos;': '’', '&nbsp;': ' ',
+};
 const plain = (value: unknown) => typeof value === 'string'
-  ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, ' ').trim()
+  ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} })
+      .replace(/&(amp|lt|gt|quot|#39|apos|nbsp);/g, (m) => ENTITIES[m] ?? m)
+      .replace(/\s+/g, ' ')
+      .trim()
   : '';
 
 const bullet = (value: unknown) => {
