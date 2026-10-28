@@ -94,17 +94,6 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     const marker = page.locator('[data-usgs-site-id="10000001"]');
     await marker.waitFor();
     await page.waitForFunction(() => document.querySelector('[data-usgs-site-id="10000001"]')?.getAttribute('aria-label')?.includes('Test creek 10000001'));
-    if (width === 1440) {
-      await page.clock.install();
-      await page.evaluate(() => {
-        const source = window.plannerMap.getSource('planner-reference-gauges');
-        const original = source.setData.bind(source);
-        window.referenceSourceUpdates = 0;
-        source.setData = (...args) => { window.referenceSourceUpdates++; return original(...args); };
-      });
-      await page.clock.fastForward(61_000);
-      assert.equal(await page.evaluate(() => window.referenceSourceUpdates), 0, 'A minute without freshness changes does not rebuild the national source');
-    }
     await marker.focus(); await marker.press('Enter');
     await page.getByRole('heading', { name: 'Test creek 10000001' }).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('putIn'), 'p-0-0');
@@ -203,6 +192,17 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
   await legacy.getByRole('button', { name: 'Retry names', exact: true }).click();
   await legacy.waitForFunction(() => document.querySelector('[data-usgs-site-id="10000001"]')?.getAttribute('aria-label')?.includes('Test creek 10000001'));
   assert.equal(await legacy.evaluate(async () => (await window.plannerMap.getSource('planner-reference-gauges').getData()).features.length), total, 'Capped name response cannot drop index stations');
+  // Keep mocked animation/timer APIs off the pages used for navigation and
+  // screenshots. Test source stability last, in this disposable context.
+  await legacy.clock.install();
+  await legacy.evaluate(() => {
+    const source = window.plannerMap.getSource('planner-reference-gauges');
+    const original = source.setData.bind(source);
+    window.referenceSourceUpdates = 0;
+    source.setData = (...args) => { window.referenceSourceUpdates++; return original(...args); };
+  });
+  await legacy.clock.fastForward(61_000);
+  assert.equal(await legacy.evaluate(() => window.referenceSourceUpdates), 0, 'A minute without freshness changes does not rebuild the national source');
   await legacy.close();
   console.log('Legacy migration, failed/capped viewport enrichment, and unchanged-minute source identity passed');
 }
