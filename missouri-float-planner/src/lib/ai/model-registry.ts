@@ -165,7 +165,7 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
   },
   social_caption: {
     label: 'Social captions',
-    description: 'Instagram captions for clip posts, behind the deterministic accuracy lint.',
+    description: 'Captions for clip reels and the weekday river-guide Facebook post, behind the deterministic accuracy lint.',
     default: 'claude-sonnet-4-6',
     // Haiku is deliberately absent for now. The accuracy lint would catch
     // fabrication, but nobody has read Haiku captions, and "the lint will catch
