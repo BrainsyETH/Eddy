@@ -49,7 +49,6 @@ import { primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { FloatTimeEstimate, FloatTimeEstimateNote } from './FloatTimeEstimate';
-import { planFloatTip } from '@/lib/planFloatTip';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, usgsGaugeUrl } from '@/lib/directions';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
@@ -94,7 +93,6 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
   const { fontScale, width } = useWindowDimensions();
   const stackedMetrics = fontScale > 1.15 || width < 375 || !plan.floatTime;
   const typicalTime = plan.estimateBasis === 'typical' || plan.condition.code === 'unknown';
-  const floatTip = planFloatTip(plan.river);
   const router = useRouter();
   const focused = useIsFocused();
   const [detailNavigation] = useState(createPlanDetailNavigation);
@@ -243,7 +241,7 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
 
         {plan.vessel?.name ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>Vessel: {plan.vessel.name}</Text> : null}
 
-        {floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{floatTip}</Text> : null}
+        {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
       </View>
 
       {/* The water the plan was built from. A float time is a function of the
