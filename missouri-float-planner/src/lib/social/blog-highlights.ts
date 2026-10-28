@@ -4,7 +4,7 @@ import sanitizeHtml from 'sanitize-html';
 // Scenic"), which a caption would carry verbatim. Decode the entities guide
 // prose actually uses.
 const ENTITIES: Record<string, string> = {
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': '’', '&apos;': '’', '&nbsp;': ' ',
+  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'", '&nbsp;': ' ',
 };
 const plain = (value: unknown) => typeof value === 'string'
   ? sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} })

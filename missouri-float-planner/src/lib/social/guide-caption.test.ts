@@ -88,7 +88,7 @@ test('the model is shown the guide’s interesting parts and never its advice bu
   assert.ok(!material.some((m) => m.includes('<')));
   // Stripped HTML must not leave entities behind for the model to copy.
   const escaped = guideMaterial({ hero: { lede: 'Missouri&#39;s wildest Wild &amp; Scenic river, <em>remote</em> &nbsp;and quiet.' } });
-  assert.deepEqual(escaped, ['Missouri’s wildest Wild & Scenic river, remote and quiet.']);
+  assert.deepEqual(escaped, ["Missouri's wildest Wild & Scenic river, remote and quiet."]);
   // A legacy blog with no structured data falls back to its description.
   assert.deepEqual(guideCaptionMaterial({ ...springRiver, guide_data: null }), [springRiver.description]);
   assert.deepEqual(guideMaterial(null), []);
