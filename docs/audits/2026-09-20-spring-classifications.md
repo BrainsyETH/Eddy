@@ -3,6 +3,13 @@
 Status: corrections prepared, **not applied to production**. No database/admin
 credentials were available in this session. Do not mark the map fixed yet.
 
+Update, October 28, 2026: the recurrence cause is established. The rows the
+September 5 migration corrected still carry that migration's `updated_at`, and
+their `last_synced_at` is the October 25 NPS sync, which rewrote `type`,
+`active` and `is_on_water` without touching `updated_at`. The sync now writes
+those three only when it creates a row (`placeColumns` in `src/lib/nps/sync.ts`).
+Apply the repair below only on a deployment that includes that change.
+
 Read-only live audit: `/api/offline/bundle` and `/api/rivers/{slug}/pois` for
 all 24 rivers in that bundle, covering 28 public POIs, with no failed requests.
 The public POI endpoint filters active/on-water records (except outfitters), so
