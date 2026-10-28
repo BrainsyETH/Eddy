@@ -262,34 +262,38 @@ function accessMatch(pick: (code: PublicLandAccess) => string): unknown[] {
  * individual pins once a tap or a pinch breaks the cluster.
  *
  * Badges are full-colour images, not circles, because Mapbox has no square
- * primitive; the number is the layer's text, so one image serves every count.
+ * primitive; the number is the symbol's text, so one image serves every count.
  * Module constants, because a fresh array per render is a style prop that never
  * compares equal — a native paint update for a value that never changes.
+ *
+ * ── ONE LAYER: THE BADGE AND ITS NUMBER ARE THE SAME SYMBOL ────────────────
+ * The image and the number were first two SymbolLayers, badge then count, the
+ * way the circle bubbles had been. On device every badge drew and no number
+ * did — the count layer evidently reached the native style beneath the badge
+ * layer, and an opaque face covers whatever is under it. Within ONE symbol
+ * layer Mapbox always draws a symbol's text over its own icon, so the stacking
+ * cannot depend on the order layers reach the style.
  */
 const COUNT_INK = primary[900];
 const USGS_COUNT_INK = neutral[900];
 
-/** Three-character counts ("100", "1.2k") take the 40pt face, not the 28pt one. */
-const countBadgeStyle = (face: 'place' | 'usgs') => ({
+const countBadgeStyle = (face: 'place' | 'usgs', ink: string) => ({
+  // Three-character counts ("100", "1.2k") take the 40pt face, not the 28pt one.
   iconImage: ['step', ['get', 'point_count'], `eddy-count-${face}-map`, 100, `eddy-count-${face}-wide-map`],
-  // A count that collision detection drops is a cluster that silently vanishes.
-  iconAllowOverlap: true,
-  iconIgnorePlacement: true,
-});
-const PLACE_COUNT_BADGE = countBadgeStyle('place');
-const USGS_COUNT_BADGE = countBadgeStyle('usgs');
-
-/** The number inside a badge. Dark ink on a solid face needs no halo. */
-const countTextStyle = (ink: string) => ({
   textField: ['get', 'point_count_abbreviated'],
   textSize: 12,
+  // Dark ink on a solid face needs no halo.
   textColor: ink,
-  // A badge with no number in it lies about being one place. Never dropped.
+  // A count that collision detection drops is a cluster that silently
+  // vanishes, and a badge with no number lies about being one place. Neither
+  // half of the symbol may be dropped, and neither may push anything else.
+  iconAllowOverlap: true,
+  iconIgnorePlacement: true,
   textAllowOverlap: true,
   textIgnorePlacement: true,
 });
-const PLACE_COUNT_TEXT = countTextStyle(COUNT_INK);
-const USGS_COUNT_TEXT = countTextStyle(USGS_COUNT_INK);
+const PLACE_COUNT_BADGE = countBadgeStyle('place', COUNT_INK);
+const USGS_COUNT_BADGE = countBadgeStyle('usgs', USGS_COUNT_INK);
 
 /**
  * What onMapIdle hands back, structurally.
@@ -2044,14 +2048,6 @@ export function RiverMap({
             style={PLACE_COUNT_BADGE}
           />
         ) : null}
-        {clustering ? (
-          <Mapbox.SymbolLayer
-            id={`pins-${id}-cluster-count`}
-            filter={['has', 'point_count']}
-            minZoomLevel={minZoom}
-            style={PLACE_COUNT_TEXT}
-          />
-        ) : null}
         {icon && compactUntilZoom !== undefined ? (
           <Mapbox.CircleLayer
             id={pinHitLayerId(`pins-${id}-overview`)}
@@ -2213,11 +2209,6 @@ export function RiverMap({
           filter={['has', 'point_count']}
           style={USGS_COUNT_BADGE}
         />
-        <Mapbox.SymbolLayer
-          id="pins-allGauges-count"
-          filter={['has', 'point_count']}
-          style={USGS_COUNT_TEXT}
-        />
         <Mapbox.CircleLayer
           id={pinHitLayerId('pins-allGauges-dot')}
           filter={['!', ['has', 'point_count']]}
@@ -2305,13 +2296,6 @@ export function RiverMap({
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
         style={PLACE_COUNT_BADGE}
-      />
-      <Mapbox.SymbolLayer
-        id={`pins-${id}-index-count`}
-        filter={['has', 'point_count']}
-        minZoomLevel={ZOOM.min}
-        maxZoomLevel={ZOOM.cluster}
-        style={PLACE_COUNT_TEXT}
       />
       <Mapbox.CircleLayer
         id={pinHitLayerId(`pins-${id}-index-dot`)}
@@ -2913,22 +2897,19 @@ export function RiverMap({
           and below hazards, which never join a stack and must paint on top.
           The tap target is the 44pt query box around the finger. */}
       <Mapbox.ShapeSource id="pins-stacks" shape={stackShape}>
+        {/* One symbol, image and number together — see PLACE_COUNT_BADGE for
+            why a separate count layer drew underneath the face. */}
         <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-stacks-face')}
           style={{
             iconImage: 'eddy-count-stack-map',
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
-          }}
-        />
-        <Mapbox.SymbolLayer
-          id={pinHitLayerId('pins-stacks-count')}
-          style={{
             textField: ['to-string', ['get', 'count']],
             textSize: 14,
             // The face is white in both schemes, like every pin badge here, so
             // its number is the brand's darkest teal rather than colors.text.
             textColor: COUNT_INK,
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
             textAllowOverlap: true,
             textIgnorePlacement: true,
           }}
