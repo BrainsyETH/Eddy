@@ -118,7 +118,7 @@ export default function Page() {
     const html=await (await fetch(`${origin}${path}`)).text();
     assert(html.includes('Table Rock Dam') && html.includes('Bull Shoals Dam'), 'destinations render before JavaScript');
     assert(html.includes('>Conditions</h1>'), 'both entries use the shared Conditions heading');
-    assert.equal((html.match(/<section aria-label="Today’s generation schedule"/g) ?? []).length, dams.length, 'today’s schedules render before JavaScript');
+    for (const day of ['Today', 'Tomorrow']) assert.equal((html.match(new RegExp(`<section aria-label="${day}’s generation schedule"`, 'g')) ?? []).length, dams.length, `${day} schedules render before JavaScript`);
     for (const dam of dams) assert(html.includes(`href="/dams/${dam.id}"`), `${dam.name} link renders before JavaScript`);
     if (path === root) {
       const directory = html.match(/<section aria-label="A–Z directory"[\s\S]*?<\/section>/)?.[0];
@@ -193,8 +193,11 @@ export default function Page() {
     await page.screenshot({path:`${out}/${label}-top.png`});
     const schedules=page.getByRole('region',{name:'Today’s generation schedule',exact:true});
     assert.equal(await schedules.count(),dams.length);
-    assert.equal(await schedules.getByRole('img').count(),dams.length,'one visible timeline per dam, even with two days available');
+    assert.equal(await schedules.getByRole('img').count(),dams.length,'today timeline remains visible for each dam');
     assert.equal(await schedules.locator('details,[role="tab"]').count(),0,'today is visible without a disclosure or day selector');
+    const tomorrowSchedules=page.getByRole('region',{name:'Tomorrow’s generation schedule',exact:true});
+    assert.equal(await tomorrowSchedules.getByRole('img').count(),dams.length,'tomorrow timelines render on every dam card');
+    assert.equal(await tomorrowSchedules.locator('[data-schedule-now]').count(),0,'tomorrow never has a Now marker');
     const schedule=featuredDam.getByRole('region',{name:'Today’s generation schedule',exact:true});
     const timeline=schedule.getByRole('img');
     assert(await featuredDam.locator('.bg-secondary-100').count(), 'directory uses the warm reading panel');
@@ -203,7 +206,7 @@ export default function Page() {
     assert((await featuredDam.locator('.bg-secondary-100').boundingBox()).height<140,`${label}: compact dam header`);
     await featuredDam.getByRole('button', {name:'About table rock dam schedule',exact:true}).click();
     const scheduleInfo=page.getByRole('dialog', {name:'Table Rock Dam schedule',exact:true});
-    assert(await scheduleInfo.getByText(/Schedule checked/).isVisible(), 'full schedule provenance remains in the info dialog');
+    assert.equal(await scheduleInfo.getByText(/Schedule checked/).count(), 2, 'both days retain full schedule provenance in the info dialog');
     await scheduleInfo.getByRole('button', {name:'Close explanation',exact:true}).click();
     assert.equal(await timeline.evaluate(node=>node.closest('a')),null,'chart interaction is separate from navigation');
     const beforeTimeline=page.url();
@@ -218,13 +221,13 @@ export default function Page() {
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: hourly readout fits`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await featuredDam.screenshot({path:`${out}/${label}-dam-hour.png`});
-    assert((await featuredDam.boundingBox()).height<430,`${label}: dam card stays compact with an hourly readout`);
+    assert((await featuredDam.boundingBox()).height<650,`${label}: two-day dam card stays compact with an hourly readout`);
     const bullShoals=featured.locator('[data-destination="dam:swl-bull-shoals-dam"]');
-    assert(await bullShoals.getByText('May have changed', {exact:true}).isVisible(), 'outdated schedule keeps a visible warning');
-    assert((await bullShoals.boundingBox()).height<430,`${label}: outdated schedules stay compact`);
+    assert(await bullShoals.getByRole('region', {name:'Today’s generation schedule',exact:true}).getByText(/May have changed/).isVisible(), 'outdated schedule keeps a visible warning');
+    assert((await bullShoals.boundingBox()).height<650,`${label}: two-day outdated schedules stay compact`);
     await bullShoals.getByRole('button', {name:'About bull shoals dam schedule',exact:true}).click();
     const olderScheduleInfo=page.getByRole('dialog', {name:'Bull Shoals Dam schedule',exact:true});
-    assert(await olderScheduleInfo.getByText(/may have been revised since/).isVisible());
+    assert.equal(await olderScheduleInfo.getByText(/may have been revised since/).count(), 2);
     await olderScheduleInfo.getByRole('button', {name:'Close explanation',exact:true}).click();
     await bullShoals.screenshot({path:`${out}/${label}-bull-shoals.png`});
     console.log(`${label} card heights: Table Rock ${Math.round((await featuredDam.boundingBox()).height)}px; Bull Shoals ${Math.round((await bullShoals.boundingBox()).height)}px`);
@@ -240,7 +243,13 @@ export default function Page() {
     await schedule.getByText('1 AM–2 AM · ~10,000 cfs scheduled',{exact:true}).waitFor();
     assert.equal(page.url(),beforeTimeline,'keyboard exploration does not navigate');
     await timeline.press('Tab');
-    assert.equal(await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).evaluate(node=>node===document.activeElement),true,'keyboard focus moves from the chart to Full report');
+    const tomorrow=featuredDam.getByRole('region',{name:'Tomorrow’s generation schedule',exact:true});
+    const tomorrowChart=tomorrow.getByRole('img');
+    assert.equal(await tomorrowChart.evaluate(node=>node===document.activeElement),true,'keyboard focus moves from today to tomorrow');
+    await tomorrowChart.press('ArrowRight');
+    await tomorrow.getByText('12 AM–1 AM · 200 megawatts scheduled',{exact:true}).waitFor();
+    await tomorrowChart.press('Tab');
+    assert.equal(await featuredDam.getByRole('link',{name:'Full report for Table Rock Dam',exact:true}).evaluate(node=>node===document.activeElement),true,'keyboard focus moves from tomorrow to Full report');
     await page.mouse.move(0,0);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: no horizontal overflow`);
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
@@ -293,7 +302,8 @@ export default function Page() {
     assert.equal(await page.getByLabel('Filter by difficulty').count(),0);
     assert.equal(await page.locator('[data-result]').count(),dams.length);
     assert(await page.getByRole('heading',{name:'Conditions',exact:true,level:1}).isVisible());
-    assert.equal(await schedules.getByRole('img').count(),dams.length,'the dams entry retains hourly timelines');
+    assert.equal(await schedules.getByRole('img').count(),dams.length,'the dams entry retains today’s timelines');
+    assert.equal(await tomorrowSchedules.getByRole('img').count(),dams.length,'the dams entry retains tomorrow’s timelines');
     await page.addStyleTag({content:'nextjs-portal { display:none; }'});
     await page.screenshot({path:`${out}/${label}-dams.png`,fullPage:true});
     await page.getByRole('group',{name:'Destination type'}).getByRole('button',{name:'All',exact:true}).click();
@@ -339,6 +349,8 @@ export default function Page() {
       const missing = page.locator('[data-result="dam:nwk-stockton-dam"]');
       assert.equal(await missing.getByText('Unavailable',{exact:true}).count(),2);
       assert(await missing.getByText('Today’s generation schedule is unavailable.',{exact:true}).isVisible());
+      assert(await missing.getByText('Tomorrow’s generation schedule hasn’t been posted yet.',{exact:true}).isVisible());
+      assert.equal(await missing.getByRole('img').count(),0,'missing schedules do not draw zero-generation bars');
       page.off('request', countDamRequests);
       await page.goto(`${origin}${root}/fallback`,{waitUntil:'networkidle'});
       await readyConditions(page);

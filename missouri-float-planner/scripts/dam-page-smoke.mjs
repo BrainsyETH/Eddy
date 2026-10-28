@@ -27,7 +27,7 @@ const dam = {
   generationReference: { units: 8, fullGenerationCfs: 26400, schedulingCapacityMw: 391, source: 'SWPA' },
   nameplate: { units: 8, megawatts: 340 }, infoPhone: '870-431-5311',
   metrics: { generationFlow: metric(13200), release: metric(16200), tailwaterElevation: { ...metric(455.12, 'ft'), trend: { hours: 3, delta: 1.2 } }, poolElevation: metric(659.4, 'ft'), tailwaterTempF: metric(56, 'F'), inflow: metric(3000) },
-  schedule: [day('2026-10-16'), day('2026-10-17')],
+  schedule: [day('2026-10-16'), day('2026-10-17'), day('2026-10-18')],
   pattern: ['2026-10-14', '2026-10-15', '2026-10-16'].map((scheduleDate, i) => ({ scheduleDate, startUtc: `${scheduleDate}T05:00:00Z`, turbineCfs: Array.from({ length: 24 }, (_, h) => h === 7 ? null : i === 2 && h > 10 ? null : h > 12 ? 13200 : 0), totalReleaseCfs: Array(24).fill(null) })),
   sources: ['USACE CWMS', 'SWPA'],
 };
@@ -47,6 +47,10 @@ const variants = {
   gate: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: metric(2200) } },
   gateDaily: { ...dam, hasTurbines: false, generating: null, generationReference: undefined, nameplate: undefined, schedule: [], pattern: [], metrics: { release: { ...metric(2200), dailyMean: true, at: '2026-10-15T16:30:00Z' } } },
   missing: { ...dam, schedule: [] },
+  missingTomorrow: { ...dam, schedule: [day('2026-10-16'), day('2026-10-18')] },
+  tomorrowOnly: { ...dam, schedule: [day('2026-10-17')] },
+  emptyTomorrow: { ...dam, schedule: [day('2026-10-16'), { ...day('2026-10-17'), hours: [] }] },
+  staleTomorrow: { ...dam, schedule: [day('2026-10-16'), { ...day('2026-10-17'), retrievedAt: '2026-10-14T10:00:00Z' }] },
   forecast: { ...dam, schedule: [], generationForecast: { timeZone: 'America/Chicago', retrievedAt: at, source: 'U.S. Army Corps of Engineers, Nashville District', windows: [
     { startUtc: '2026-10-16T16:00:00Z', endUtc: '2026-10-16T23:00:00Z', generating: true, peakCfs: 13200 },
     { startUtc: '2026-10-16T23:00:00Z', endUtc: '2026-10-17T12:00:00Z', generating: false, peakCfs: null },
@@ -176,12 +180,15 @@ export default function Page() {
     const historyBox = await page.getByRole('heading', { name: 'Generation pattern', exact: true }).boundingBox();
     assert(ctaBox.y >= b.y + b.height && historyBox.y > ctaBox.y + ctaBox.height, `${name}: app action follows schedule and precedes history`);
     assert(ctaLinkBox.height >= 44 && ctaLinkBox.x >= 0 && ctaLinkBox.x + ctaLinkBox.width <= width, `${name}: app action fits and has a touch target`);
-    const days = page.locator('details');
+    const days = page.locator('section[aria-label="Today’s generation schedule"], section[aria-label="Tomorrow’s generation schedule"]');
     assert.equal(await days.count(), 2);
-    assert.equal(await days.nth(0).getAttribute('open'), '');
-    assert.equal(await days.nth(1).getAttribute('open'), null);
-    await days.nth(1).locator('summary').click();
-    assert.equal(await days.nth(1).getAttribute('open'), '');
+    for (const day of await days.all()) assert(await day.getByRole('img').isVisible(), 'today and tomorrow are visible without a toggle');
+    assert.equal(await days.nth(1).locator('[data-schedule-now]').count(), 0, 'tomorrow has no Now marker');
+    const laterDay = page.locator('details');
+    assert.equal(await laterDay.count(), 1, 'additional posted days remain on the full report');
+    assert.equal(await laterDay.getAttribute('open'), null);
+    await laterDay.locator('summary').click();
+    assert.equal(await laterDay.getAttribute('open'), '');
     assert.equal(await page.getByRole('button', { name: /upcoming schedule/i }).count(), 0, 'upcoming hours need no toggle');
     const pattern = page.getByRole('heading', { name: 'Generation pattern', exact: true }).locator('..').locator('..');
     assert(await pattern.getByText('Scheduled', { exact: true }).isVisible(), 'scheduled hours show by default');
@@ -233,13 +240,14 @@ export default function Page() {
       await page.clock.fastForward(65_000);
       const after = await detail.getByText(/Last reading/).first().textContent();
       assert.notEqual(after, before, 'reading ages advance without navigation');
-      assert.equal(await days.nth(1).getAttribute('open'), '', 'clock preserves open dates');
+      assert.equal(await laterDay.getAttribute('open'), '', 'clock preserves open dates');
       let refreshes = 0;
       page.on('request', request => { if (request.headers().rsc === '1') refreshes++; });
       await page.evaluate(() => { window.dispatchEvent(new Event('focus')); window.dispatchEvent(new Event('focus')); });
       await page.waitForTimeout(1500);
       assert.equal(refreshes, 1, 'focus refreshes are coalesced');
-      assert.equal(await days.nth(1).getAttribute('open'), '', 'refresh preserves open dates');
+      assert.equal(await laterDay.getAttribute('open'), '', 'refresh preserves open dates');
+      assert(await days.nth(1).getByRole('img').isVisible(), 'refresh retains tomorrow');
       assert.match(await detail.getByRole('img', { name: /^Today:/ }).getAttribute('aria-label'), /generation scheduled in 8 of 24 hours/);
       const patternMarker = detail.getByRole('img', { name: /^Today:/ }).locator('[data-pattern-now]');
       const markerBefore = await patternMarker.evaluate(el => el.style.left);
@@ -263,14 +271,26 @@ export default function Page() {
       await page.touchscreen.tap(box.x + box.width * 0.6, box.y + box.height / 2);
       assert(await days.first().getByText(/2 PM–3 PM · ~13,000 cfs scheduled/).isVisible(), 'tap retains the hourly readout');
     }
-    await days.nth(1).locator('summary').click();
+    await laterDay.locator('summary').click();
+    const tomorrowChart = days.nth(1).getByRole('img');
+    await tomorrowChart.focus();
+    await page.keyboard.press('ArrowRight');
+    assert(await days.nth(1).getByText('12 AM–1 AM · no generation scheduled', { exact: true }).isVisible(), 'tomorrow supports keyboard exploration');
+    if (name === 'desktop') {
+      await page.clock.setFixedTime(new Date('2026-10-17T05:01:00Z'));
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await days.first().getByText('Sat, Oct 17', { exact: true }).waitFor();
+      assert(await days.nth(1).getByText('Sun, Oct 18', { exact: true }).isVisible(), 'day labels roll at Central midnight');
+      assert.equal(await days.first().locator('[data-schedule-now]').count(), 1);
+      assert.equal(await days.nth(1).locator('[data-schedule-now]').count(), 0);
+    }
     await page.getByRole('heading', { level: 1 }).click();
     await page.addStyleTag({ content: 'nextjs-portal { display: none; }' });
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
     await page.close();
     console.log(`PASS ${name}: layout, disclosures, history, dialog, release provenance`);
   }
-  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration'])) {
+  for (const variant of (appOnly ? [] : ['stale', 'scheduleOnly', 'gate', 'gateDaily', 'missing', 'missingTomorrow', 'tomorrowOnly', 'emptyTomorrow', 'staleTomorrow', 'forecast', 'splitPeak', 'allDayPeak', 'noGeneration'])) {
     const page = await browser.newPage({ viewport: { width: 1024, height: 900 } });
     await page.clock.install({ time: now });
     page.on('pageerror', e => errors.push(e.message));
@@ -287,6 +307,19 @@ export default function Page() {
     if (variant === 'scheduleOnly') assert(text.includes('Generation schedule') && !text.includes('No turbine generation observed'), 'missing readings are not idle');
     if (variant === 'gate') assert(text.includes('2,200') && text.includes('Gate-operated releases'), 'gate-only dam retains its release');
     if (variant === 'gateDaily') assert(/daily average/i.test(text) && text.includes('yesterday'), `daily release remains labelled and dated: ${text}`);
+    if (['missingTomorrow', 'emptyTomorrow'].includes(variant)) {
+      const tomorrow = page.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true });
+      assert(await tomorrow.getByText('Tomorrow’s generation schedule hasn’t been posted yet.', { exact: true }).isVisible());
+      assert.equal(await tomorrow.getByRole('img').count(), 0, 'missing tomorrow is not replaced with a later date or zero generation');
+    }
+    if (variant === 'tomorrowOnly') {
+      assert(await page.getByText('Today’s generation schedule is unavailable.', { exact: true }).isVisible());
+      assert(await page.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).getByRole('img').isVisible());
+    }
+    if (variant === 'staleTomorrow') {
+      assert.equal(await page.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByText(/May have changed/).count(), 0);
+      assert(await page.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).getByText(/May have changed/).isVisible());
+    }
     if (variant === 'missing') assert(text.includes('Schedule currently unavailable') && text.includes('13,200'), 'missing schedule retains observed readings');
     if (variant === 'forecast') {
       assert(text.includes('Generation forecast') && text.includes('Forecast checked'), 'operating forecast retains freshness');

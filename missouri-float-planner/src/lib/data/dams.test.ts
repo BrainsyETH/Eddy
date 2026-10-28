@@ -210,7 +210,7 @@ function storedDetail(now: number, overrides?: Partial<DamSnapshot>): DamSnapsho
 
 test('a summary carries only what a list shows', () => {
   const now = Date.parse('2026-08-31T12:00:00Z');
-  const summary = summaryOf(storedDetail(now));
+  const summary = summaryOf(storedDetail(now), now);
   assert.ok(summary, 'a registry dam must project');
   assert.deepEqual(summary.metrics.tailwaterTempF, storedDetail(now).metrics.tailwaterTempF,
     'water temperature and its original timestamp must survive into the list');
@@ -246,7 +246,33 @@ test('a summary is what the live summary path would have built', () => {
   }
   const expected = buildSnapshot(dam, narrowed, detail.schedule.slice(0, SUMMARY_SCHEDULE_DAYS));
 
-  assert.deepEqual(summaryOf(detail), expected);
+  assert.deepEqual(summaryOf(detail, now), expected);
+});
+
+test('stored summaries roll their calendar window at Central midnight without losing tomorrow', () => {
+  const before = Date.parse('2026-09-01T04:59:00Z');
+  const detail = storedDetail(before);
+  assert.deepEqual(summaryOf(detail, before)?.schedule.map(day => day.scheduleDate), ['2026-08-31', '2026-09-01']);
+  assert.deepEqual(summaryOf(detail, Date.parse('2026-09-01T05:00:00Z'))?.schedule.map(day => day.scheduleDate), ['2026-09-01', '2026-09-02']);
+  assert.deepEqual(detail.schedule.map(day => day.scheduleDate), ['2026-08-31', '2026-09-01', '2026-09-02'], 'projection preserves the stored snapshot');
+});
+
+test('summary windows follow Central calendar days through both clock changes', () => {
+  for (const [instant, today, tomorrow] of [
+    ['2026-03-09T04:30:00Z', '2026-03-08', '2026-03-09'],
+    ['2026-11-01T05:30:00Z', '2026-11-01', '2026-11-02'],
+    ['2026-11-02T05:30:00Z', '2026-11-01', '2026-11-02'],
+  ]) {
+    const now = Date.parse(instant);
+    const detail = storedDetail(now, { schedule: [scheduleDay(tomorrow), scheduleDay('2026-01-01'), scheduleDay(today)] });
+    assert.deepEqual(summaryOf(detail, now)?.schedule.map(day => day.scheduleDate), [today, tomorrow]);
+  }
+});
+
+test('summary windows leave missing dates empty instead of substituting later schedules', () => {
+  const now = Date.parse('2026-08-31T12:00:00Z');
+  const detail = storedDetail(now, { schedule: [scheduleDay('2026-08-31'), scheduleDay('2026-09-02')] });
+  assert.deepEqual(summaryOf(detail, now)?.schedule.map(day => day.scheduleDate), ['2026-08-31']);
 });
 
 test('a summary drops the sections only a detail page draws', () => {
@@ -275,7 +301,7 @@ test('a summary drops the sections only a detail page draws', () => {
     },
   });
 
-  const summary = summaryOf(detail);
+  const summary = summaryOf(detail, now);
   assert.ok(summary);
   assert.ok(!summary.pattern, 'a week of hourly pattern has no place on a list row');
   assert.ok(!summary.generationForecast, 'nor nine days of forecast');
@@ -287,7 +313,7 @@ test('a dam the registry no longer carries does not project', () => {
   // can render must not be served.
   const now = Date.parse('2026-08-31T12:00:00Z');
   const orphan = { ...storedDetail(now), id: 'swl-a-dam-that-was-removed' };
-  assert.equal(summaryOf(orphan), null);
+  assert.equal(summaryOf(orphan, now), null);
 });
 
 test('a stored reading ages instead of insisting it is fresh', () => {

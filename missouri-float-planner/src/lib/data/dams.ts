@@ -46,6 +46,7 @@ import {
 import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history';
 import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
+import { centralDayKey, nextDayKey } from '@shared/dam-schedule-copy';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -795,7 +796,7 @@ export async function fetchDamSummary(
  * registry entry for identity, and a stored row for a removed project is
  * exactly the row that must not be served.
  */
-export function summaryOf(snapshot: DamSnapshot): DamSnapshot | null {
+export function summaryOf(snapshot: DamSnapshot, now = Date.now()): DamSnapshot | null {
   const dam = getUsaceDam(snapshot.id);
   if (!dam) return null;
 
@@ -805,10 +806,17 @@ export function summaryOf(snapshot: DamSnapshot): DamSnapshot | null {
     if (value) metrics[metric] = value;
   }
 
-  // A stored detail carries DETAIL_SCHEDULE_DAYS; the list wants the first
-  // SUMMARY_SCHEDULE_DAYS of them. readSchedule returns days in order, so this
-  // is the same window fetchDamSummary would have asked for.
-  return buildSnapshot(dam, metrics, snapshot.schedule.slice(0, SUMMARY_SCHEDULE_DAYS));
+  // A snapshot can survive Central midnight. Select the current calendar
+  // window instead of retaining yesterday and dropping a posted tomorrow.
+  // Missing days stay missing; a later posted date must not fill their slot.
+  const schedule: DamScheduleDay[] = [];
+  let date = centralDayKey(now);
+  for (let offset = 0; offset < SUMMARY_SCHEDULE_DAYS; offset++) {
+    const day = snapshot.schedule.find(day => day.scheduleDate === date);
+    if (day) schedule.push(day);
+    date = nextDayKey(date);
+  }
+  return buildSnapshot(dam, metrics, schedule);
 }
 
 /**

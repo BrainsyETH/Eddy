@@ -23,7 +23,7 @@ export const pageDamSummaries = unstable_cache(async () => {
   const now = Date.now();
   const stored = await readStoredSnapshots({ now });
   return [...stored.values()].flatMap(snapshot => {
-    const summary = summaryOf(refreshStaleness(snapshot, now));
+    const summary = summaryOf(refreshStaleness(snapshot, now), now);
     return summary ? [summary] : [];
   });
 }, ['conditions-dam-summaries-v1'], { revalidate: 300 });
