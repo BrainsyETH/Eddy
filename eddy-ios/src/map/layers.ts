@@ -456,12 +456,14 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
  * families so that switching a layer on can no longer take pins OUT of a
  * cluster.
  *
- * A layer may sit out a rung, and two do. Hazards never cluster — a hazard must
- * not disappear into a count — and take their mark at ZOOM.cluster rather than
- * waiting for PLACES, so they resolve as soon as the bubbles break. Lakes &
- * dams keep their labels at every zoom: there are two dozen, they are
- * landmarks, and an unnamed dot cannot be told from the lake it sits on. The
- * raster has its own pair. Nothing invents a rung of its own.
+ * A layer may sit out a rung, and one does. Hazards never cluster — a hazard
+ * must not disappear into a count — and take their mark at ZOOM.cluster rather
+ * than waiting for PLACES, so they resolve as soon as the bubbles break. That is
+ * a safety rule, and it is the only one. Lakes & dams once kept their labels at
+ * every zoom and drew below the floor as "landmarks"; on a device that read as
+ * one layer shouting its names over a map where nothing else was named, so they
+ * climb the ladder with everything else. The raster has its own pair. Nothing
+ * invents a rung of its own.
  */
 export const ZOOM = {
   /** Below this, statewide layers neither draw nor fetch. */
@@ -604,7 +606,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // cover: a square is a count, never a verdict.
     info: `Rated stations wear a condition colour, graded against each river's own ladder — ${CONDITION_ORDER.map(
       (code) => conditionLabel(code),
-    ).join(' · ')}. Grey means the station has no current rating. Numbered squares count stations: white for Eddy's, tan for other USGS gauges.`,
+    ).join(' · ')}. Grey means the station has no current rating. Numbered squares count what is under them: white for Eddy's places and gauges, tan for other USGS gauges.`,
     accessibilityHint: 'Live USGS readings on the water',
     tiers: ['gauges', 'allGauges'],
     // The rated tier is one statewide list; the national tier holds whatever

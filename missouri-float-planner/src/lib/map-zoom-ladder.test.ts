@@ -155,27 +155,40 @@ test('hazards resolve a rung early and never cluster', () => {
     'a hazard becomes a triangle as soon as the bubbles break, not at ZOOM.places',
   );
   // THE ONE RULE HERE THAT IS NOT A TUNING. A hazard must never disappear into
-  // a count: a bubble reading "3" where a low-water dam is cannot be acted on,
-  // and unlike a gauge cluster there is no worst-verdict fill that would make
-  // it honest. pinLayer clusters only when handed a clustering object.
+  // a count: a badge reading "3" where a low-water dam is cannot be acted on.
+  // pinLayer clusters only when handed a clustering object.
   assert.equal(args.length, 5, 'hazards must not be handed a clustering config');
 });
 
-test('lakes & dams keep their names at every zoom', () => {
-  // ~24 of them, and they are landmarks: an unnamed dot cannot be told from the
-  // lake it sits on. Deliberately the one layer off the label rung.
+test('lakes & dams climb the ladder with no exception', () => {
+  // They once kept their names at every zoom and drew below the floor, as
+  // "landmarks". On a device that made the dams the only named thing on a
+  // statewide map. A dam is a place: its name waits for ZOOM.names, and it
+  // honours the ZOOM.min floor like every other clustered layer.
   const args = pinLayerArgs().get('dams');
   assert.ok(args, 'dams must be drawn through pinLayer');
-  assert.equal(args[2], '0', 'dam labels are on at every zoom, on purpose');
+  assert.equal(args[2], 'ZOOM.names', 'dam names arrive when every other name does');
+  assert.equal(args[3], 'ZOOM.min', 'dams observe the ladder floor like everything else');
+  assert.equal(args[4], 'ZOOM.places', 'the full dam mark arrives with the other place marks');
+});
+
+test('no place layer is named before the names rung', () => {
+  // The general form of the rule above, so the next "landmark" exception fails
+  // here rather than on a device. Gauges are the one layer named earlier, at
+  // GAUGE_DETAIL_ZOOM, where they gain their full staff mark.
+  for (const [key, args] of pinLayerArgs()) {
+    if (key === 'gauges') continue;
+    assert.equal(args[2], 'ZOOM.names', `${key} must not be named before ZOOM.names`);
+  }
 });
 
 test('the label floor is the pin floor, not the mark floor', () => {
   // The other half of the test above, and the half that was missing when it
-  // went wrong: `labelMinZoom: 0` on the dams call is only a promise if the
-  // shared label layer honours it. It once clamped to `compactUntilZoom`,
-  // which silently re-floored dam labels to ZOOM.places — the argument said 0,
-  // the assertion on the argument passed, and the 8–9.5 dot band drew
-  // nameless dams anyway. So this pins the EFFECTIVE floor: a label may wait
+  // went wrong: a layer's `labelMinZoom` is only a promise if the shared label
+  // layer honours it. It once clamped to `compactUntilZoom`, which silently
+  // re-floored labels to ZOOM.places — the argument said one rung, the
+  // assertion on the argument passed, and the map drew another. So this pins
+  // the EFFECTIVE floor: a label may wait
   // for its pin (`minZoom`) and for its own rung (`labelMinZoom`), and for
   // nothing else.
   const label = /id=\{pinHitLayerId\(`pins-\$\{id\}-label`\)\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
@@ -185,7 +198,7 @@ test('the label floor is the pin floor, not the mark floor', () => {
   assert.doesNotMatch(
     label[1],
     /compactUntilZoom/,
-    'clamping labels to compactUntilZoom silently re-floors dam labels to ZOOM.places',
+    'clamping labels to compactUntilZoom silently re-floors every label to ZOOM.places',
   );
 });
 

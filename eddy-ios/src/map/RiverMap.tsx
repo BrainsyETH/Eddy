@@ -1979,11 +1979,9 @@ export function RiverMap({
      *
      * ZOOM.names for the place layers, where thirty overlapping put-in names
      * at river zoom are noise. Gauges pass GAUGE_DETAIL_ZOOM, so a station is
-     * named from the moment it draws as a full staff mark. Dams pass 0 — the
-     * one layer off the label rung, because two dozen landmarks are told
-     * apart by name or not at all. Collision detection still drops labels
-     * that would overlap, so the statewide view thins itself rather than
-     * turning into a wall of text.
+     * named from the moment it draws as a full staff mark. No layer passes
+     * less than its marks rung: dams once passed 0, and a statewide view with
+     * only the dams named read as that layer shouting over the map.
      */
     labelMinZoom: number = ZOOM.names,
     /**
@@ -2785,7 +2783,7 @@ export function RiverMap({
           the map changes character once as you pan in rather than six times.
           See the ladder in map/layers.ts.
 
-          ── AND IT HAS NO FLOOR, FOR THE REASON THE DAMS DO NOT ─────────────
+          ── AND IT HAS NO FLOOR ─────────────────────────────────────────────
           This passed MIN_GAUGE_ZOOM, so zooming out past the statewide view
           emptied the layer — the reported symptom, "I still don't see USGS
           gauges zoomed way out".
@@ -2814,63 +2812,24 @@ export function RiverMap({
             maxZoom: ZOOM.cluster,
           })
         : null}
-      {/* ── ON THE LADDER, like every other statewide layer ──────────────────
-          This passed labelMinZoom 0 and nothing else: no floor, no overview
-          representation, no clustering. The justification was "ten pins
-          statewide, so labels are on at every zoom — an unnamed dot cannot be
-          told from the lake it sits on", and that was true of a layer that held
-          ten Missouri dams.
+      {/* ── ON THE LADDER, like every other statewide layer, with NO exception ─
+          Count badges to ZOOM.cluster, overview dots to ZOOM.places, the mark,
+          then the name at ZOOM.names — the same rungs as every place layer, and
+          the same ZOOM.min floor.
 
-          The catalog is twenty-four now and spans six states, from Denison on
-          the Red to Wolf Creek in Kentucky. The camera that fits them is
-          continental, and there the layer drew twenty-four full marks with
-          twenty-four labels in one knot — over a rung the ladder says is for
-          lines only. Nothing thinned it, because iconAllowOverlap is true here
-          on purpose: silently dropping a pin is the worse failure.
-
-          So it takes the rungs everything else takes: count badges to
-          ZOOM.cluster, overview dots to ZOOM.places, then the mark. A dam
-          cluster wears the same place badge as every other Eddy count.
-
-          ── THE LABELS STAY ON AT EVERY ZOOM, WHICH IS THE EXCEPTION ────────
-          labelMinZoom is 0, not ZOOM.names, and it is the one layer off the
-          label rung. Two dozen dams are LANDMARKS: an unnamed dot cannot be
-          told from the lake it sits on, and there are few enough of them that
-          collision detection thins the names on its own rather than producing
-          the wall of text a statewide access layer would. An earlier pass here
-          moved them onto the rung with everything else; map-zoom-ladder.test.ts
-          pins them back off it, deliberately, and is right to.
-
-          Below ZOOM.cluster a bubble carries its count instead — the label
-          layer's `solo` filter keeps per-dam names off clusters — so "every
-          zoom" means every zoom at which a dam draws as itself. For one
-          stretch the shared label floor clamped this layer to ZOOM.places
-          anyway (see the label layer's note), so the 8–9.5 dot band drew
-          nameless dams while this comment and the test both claimed
-          otherwise; the test now asserts the EFFECTIVE floor, not just the
-          argument.
-
-          ── AND IT KEEPS NO FLOOR, WHICH THE OTHER TIERS DO ─────────────────
-
-          The obvious fourth change was minZoom: ZOOM.min, and it is wrong here.
-          The ladder's floor is a FETCH gate as much as a paint one — "a
-          continental view asks for nothing", and MIN_GAUGE_ZOOM exists to stop
-          a continental gauge request. Dams ask for nothing at any zoom: the
-          pins come from DAM_CATALOG in the binary (see lib/damCatalog.ts), so
-          the cost the floor is protecting against does not exist for them.
-
-          What a floor would cost is real: switch the layer on from a
-          zoomed-out camera and it would draw NOTHING, which is precisely the
-          "empty layer reads as broken" failure the shipped catalog was written
-          to end. Two or three teal counts over six states answer "where are
-          they" without crowding anything. Clustered, a continental view of
-          this layer is cheap and legible; ungated and unclustered, it was the
-          knot above.
+          Dams used to sit out two of those. Their labels were on at every zoom
+          ("two dozen landmarks — an unnamed dot cannot be told from the lake it
+          sits on"), and they kept no floor, because the pins ship in the binary
+          and a floor here protects no fetch. On a device both read as the dam
+          layer being louder than the map around it: a statewide view with one
+          kind of place named and nothing else, and dam badges where every other
+          layer had already gone quiet. A dam is a place like a campground is;
+          its name arrives when names do, and the sheet names it on a tap.
 
           Drawn before hazards so the low-water-dam layer still paints on top:
           where both land in one place, the one that can kill you is on top. */}
       {layerOn('dams')
-        ? pinLayer('dams', 'dam', 0, undefined, ZOOM.places, {
+        ? pinLayer('dams', 'dam', ZOOM.names, ZOOM.min, ZOOM.places, {
             radius: 40,
             maxZoom: ZOOM.cluster,
           })
