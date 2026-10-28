@@ -194,11 +194,10 @@ export default function Page() {
       assert(boxes.slice(1).every((box, i) => box.left >= boxes[i].right - 1), `${name}: time labels do not overlap`);
     }
     assert.equal(await pattern.getByRole('img').first().locator('[data-pattern-time-guide]').count(), 3, 'each day has six-hour guides');
-    const peakBand = days.first().locator('[data-peak-window]');
-    assert.equal(await peakBand.count(), 1);
-    assert.equal(await peakBand.evaluate(el => el.style.left), '50%');
-    assert(Math.abs(parseFloat(await peakBand.evaluate(el => el.style.width)) - 100 / 3) < 0.01, 'peak band spans exactly noon through 8 PM');
-    assert.equal(await days.first().locator('[role="img"] .bg-accent-500').count(), 8, 'only the eight peak bars use orange');
+    assert.equal(await days.first().locator('[data-peak-window]').count(), 0, 'no second peak band above the bars');
+    assert.deepEqual(await days.first().locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [13, 14, 15, 16, 17, 18, 19, 20]);
+    assert.equal(await days.first().locator('[role="img"] .bg-accent-500').count(), 1, 'orange is reserved for the Now marker, as on iOS');
+    assert(await days.first().getByText('Now', { exact: true }).isVisible());
     assert(await days.first().getByText('Peak window: 12–8 PM', { exact: true }).isVisible());
     const measurements = page.getByRole('heading', { name: 'Dam & lake', exact: true }).locator('..');
     const measurementsBox = await measurements.boundingBox();
@@ -279,11 +278,11 @@ export default function Page() {
     await page.goto(`${url}?variant=${variant}`, { waitUntil: 'networkidle' });
     const text = await page.locator('[data-dam-detail]').innerText();
     if (variant === 'splitPeak') {
-      assert.equal(await page.locator('[data-peak-window]').count(), 2, 'both disconnected peak windows are highlighted');
+      assert.deepEqual(await page.locator('[data-peak-hour]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.peakHour))), [7, 8, 17, 18, 19], 'both disconnected peak windows are retained');
       assert(await page.getByText('Peak window: 6–8 AM and 4–7 PM', { exact: true }).isVisible());
     }
     if (variant === 'allDayPeak') assert(await page.getByText('Peak window: all day', { exact: true }).isVisible());
-    if (variant === 'noGeneration') assert.equal(await page.locator('[data-peak-window]').count(), 0, 'an idle day has no peak window');
+    if (variant === 'noGeneration') assert.equal(await page.locator('[data-peak-hour]').count(), 0, 'an idle day has no peak window');
     if (variant === 'stale') assert(text.includes('may have been revised'), 'stale schedule provenance visible');
     if (variant === 'scheduleOnly') assert(text.includes('Generation schedule') && !text.includes('No turbine generation observed'), 'missing readings are not idle');
     if (variant === 'gate') assert(text.includes('2,200') && text.includes('Gate-operated releases'), 'gate-only dam retains its release');
