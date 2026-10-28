@@ -47,7 +47,9 @@ import { serviceContactActions, type ServiceContactAction } from '@/lib/serviceC
 // of invisible labels.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { MapPlacesList } from '@/components/MapPlacesList';
+import { nextPinId, gestureStarted, pointNeedsReveal } from './mapInteraction';
 import type {
   CampsiteAvailabilitySummary,
   Hazard,
@@ -305,6 +307,13 @@ type MapIdleState = {
   };
   gestures?: { isGestureActive?: boolean };
 };
+
+type RenderedFeature = { properties?: Record<string, unknown>; geometry?: { type?: string; coordinates?: number[] } };
+interface MapQueryRef {
+  getPointInView: (coordinate: number[]) => Promise<number[]>;
+  queryRenderedFeaturesInRect: (box: number[], filter?: unknown[], layers?: string[]) => Promise<{ features: RenderedFeature[] } | undefined>;
+}
+interface ClusterSourceRef { getClusterExpansionZoom: (feature: RenderedFeature) => Promise<number>; }
 
 interface MapCameraRef {
   setCamera: (stop: {
@@ -795,7 +804,7 @@ interface Props {
     center?: [number, number];
   }) => void;
   /** A tapped cluster: the caller issues a one-shot closer camera command. */
-  onZoomToCluster?: (point: { lng: number; lat: number }) => void;
+  onZoomToCluster?: (point: { lng: number; lat: number; zoom?: number }) => void;
   hazards: Hazard[];
   /**
    * Named springs, from the offline bundle rather than a request.
@@ -850,6 +859,11 @@ interface Props {
   /** The open callout's pin, used only to give its map mark a selected state. */
   selectedPinId?: string | null;
   onSelectPin?: (pin: MapPin) => void;
+  onBackgroundPress?: () => void;
+  placesListOpen?: boolean;
+  onClosePlacesList?: () => void;
+  visibleBounds?: MapBounds;
+  onPinCycle?: (text: string | null) => void;
 }
 
 /**
@@ -929,7 +943,7 @@ export function RiverMap({
   planRoute,
   planEndpoints,
   selectedPinId,
-  onSelectPin,
+  onSelectPin, onBackgroundPress, placesListOpen, onClosePlacesList, visibleBounds, onPinCycle,
 }: Props) {
   const Mapbox = loadMapbox();
   const { colors } = useTheme();
@@ -1600,6 +1614,30 @@ export function RiverMap({
   });
 
   const cameraRef = useRef<MapCameraRef | null>(null);
+  const mapRef = useRef<MapQueryRef | null>(null);
+  const clusterSources = useRef(new Map<string, ClusterSourceRef>());
+  const registerClusterSource = useCallback((id: string, source: ClusterSourceRef | null) => {
+    if (source) clusterSources.current.set(id, source);
+    else clusterSources.current.delete(id);
+  }, []);
+  const clusterSourceRefs: Record<string, (source: ClusterSourceRef | null) => void> = {
+    'pins-gauges': useCallback(source => registerClusterSource('pins-gauges', source), [registerClusterSource]),
+    'pins-dams': useCallback(source => registerClusterSource('pins-dams', source), [registerClusterSource]),
+    'pins-allGauges': useCallback(source => registerClusterSource('pins-allGauges', source), [registerClusterSource]),
+    'pins-places-index': useCallback(source => registerClusterSource('pins-places-index', source), [registerClusterSource]),
+    'pins-services-index': useCallback(source => registerClusterSource('pins-services-index', source), [registerClusterSource]),
+  };
+  // Each rendered POI layer registers its own ID. This render-local collection
+  // belongs to the onMapPress closure below, so conditional layers and the dot
+  // fallback stay in sync without querying absent layers or basemap features.
+  const pinHitLayers: string[] = [];
+  const pinHitLayerId = (id: string) => { pinHitLayers.push(id); return id; };
+  const mapSize = useRef({ width: 0, height: 0 });
+  const interactionEpoch = useRef(0);
+  const tapSequence = useRef(0);
+  const cycle = useRef<{ ids: string[]; selected: string } | null>(null);
+  // Invalidate async native queries when the map goes away.
+  useEffect(() => () => { interactionEpoch.current++; tapSequence.current++; }, []);
   const reducedMotion = useReducedMotion(true);
   const appliedCommandId = useRef<number | null>(null);
   const liveCamera = useRef<{ center: [number, number]; zoom: number; gestureActive: boolean } | null>(
@@ -1618,6 +1656,18 @@ export function RiverMap({
     pendingCommand.current = cameraCommand ?? null;
   }, [cameraCommand]);
   const gestureLatched = useRef(false);
+  useEffect(() => {
+    cycle.current = null;
+    interactionEpoch.current++;
+    tapSequence.current++;
+    onPinCycle?.(null);
+  }, [layers, onPinCycle]);
+  useEffect(() => {
+    if (!selectedPinId || !cycle.current?.ids.includes(selectedPinId)) {
+      cycle.current = null;
+      onPinCycle?.(null);
+    }
+  }, [selectedPinId, onPinCycle]);
 
   /**
    * The camera moved. Ref-only, and STABLE.
@@ -1637,11 +1687,15 @@ export function RiverMap({
       const zoom = state.properties?.zoom;
       if (!center || typeof zoom !== 'number') return;
       const gestureActive = Boolean(state.gestures?.isGestureActive);
+      if (gestureStarted(gestureLatched.current, gestureActive)) {
+        interactionEpoch.current++;
+        tapSequence.current++;
+        cycle.current = null;
+        onPinCycle?.(null);
+        onUserGesture?.();
+      }
+      gestureLatched.current = gestureActive;
       if (gestureActive) {
-        if (!gestureLatched.current) {
-          gestureLatched.current = true;
-          onUserGesture?.();
-        }
         const command = pendingCommand.current;
         // A gesture wins even over a command waiting for sheet measurement.
         // Marking it consumed prevents the delayed command from snapping the
@@ -1657,7 +1711,7 @@ export function RiverMap({
         gestureActive,
       };
     },
-    [onCameraCommandConsumed, onUserGesture],
+    [onCameraCommandConsumed, onUserGesture, onPinCycle],
   );
 
   useEffect(() => {
@@ -1685,15 +1739,27 @@ export function RiverMap({
               )
             : undefined
           : cameraCommand.zoom;
-      cameraRef.current.setCamera({
-        centerCoordinate: [cameraCommand.lng, cameraCommand.lat],
+      const epoch = interactionEpoch.current;
+      const commandId = cameraCommand.id;
+      const apply = async () => {
+        if (cameraCommand.revealOnly && mapRef.current) {
+          try {
+            const point = await mapRef.current.getPointInView([cameraCommand.lng, cameraCommand.lat]);
+            if (!pointNeedsReveal(point, mapSize.current, cameraPadding)) return;
+          } catch { return; } // A missing style/measurement is not a reason to jump.
+        }
+        if (interactionEpoch.current !== epoch || appliedCommandId.current !== commandId) return;
+        cameraRef.current?.setCamera({
+          centerCoordinate: [cameraCommand.lng, cameraCommand.lat],
         // Undefined is intentional for a POI: Mapbox then changes the centre
         // without changing the live native zoom, even if a river fit is still
         // moving and onMapIdle has not published its final value yet.
         zoomLevel,
         padding: cameraPadding,
         ...cameraAnimation(cameraCommand, reducedMotion),
-      });
+        });
+      };
+      void apply();
       return;
     }
 
@@ -1737,48 +1803,73 @@ export function RiverMap({
 
   const layerOn = (key: LayerKey) => layers.includes(key);
 
-  // `features[0]` on a stack of overlapping pins is whichever feature the
-  // native hit-test returns first — an ARBITRARY winner, not a ranked one. A
-  // gauge sitting on a put-in resolves to either. Known and accepted for now;
-  // disambiguation (cycling the stack on a repeated tap) is deliberately out
-  // of scope until the interaction is designed rather than implied.
-  const onPress = (event: { features?: { properties?: Record<string, unknown> }[] }) => {
-    const id = event.features?.[0]?.properties?.id;
-    const match = typeof id === 'string' ? byId.get(id) : undefined;
-    if (match) onSelectPin?.(match);
+  const selectPinHits = (features: RenderedFeature[]) => {
+    const ids = [...new Set(features.flatMap(f => {
+      const id = f.properties?.id;
+      return typeof id === 'string' && byId.has(id) ? [id] : [];
+    }))];
+    if (!ids.length) return false;
+    // Preserve the stack through sheet presentation / automatic reveal. A user
+    // pan clears it. Native label/icon duplication and ordering do not matter.
+    const previous = cycle.current;
+    const candidates = previous && ids.some(id => previous.ids.includes(id))
+      ? [...new Set([...previous.ids.filter(id => byId.has(id)), ...ids])] : ids;
+    const id = nextPinId(candidates, previous?.selected)!;
+    cycle.current = { ids: candidates, selected: id };
+    const text = candidates.length > 1
+      ? `${[...candidates].sort().indexOf(id) + 1} of ${candidates.length} places · Tap again to cycle` : null;
+    onPinCycle?.(text);
+    const pin = byId.get(id)!;
+    if (text) AccessibilityInfo.announceForAccessibility(`${pin.name}. ${text}`);
+    onSelectPin?.(pin);
+    return true;
   };
 
-  /**
-   * A tap on a clusterable layer is either a place or a bubble of places.
-   *
-   * A cluster feature has `point_count` and no id of ours, so it zooms in
-   * instead of opening a callout. Recentring at zoom + 2 rather than asking the
-   * source for getClusterExpansionZoom: that call needs a ShapeSource ref
-   * threaded through this render, and two levels reliably splits a cluster at
-   * clusterRadius 50 — the user cannot tell the difference, and the ref can
-   * break silently.
-   */
-  const onClusterablePress = (event: {
-    features?: { properties?: Record<string, unknown>; geometry?: { coordinates?: number[] } }[];
-    coordinates?: { latitude: number; longitude: number };
-  }) => {
-    const feature = event.features?.[0];
-    const props = feature?.properties;
-    if (!props) return;
-
-    if (props.point_count !== undefined) {
-      const coords = feature?.geometry?.coordinates;
-      const lng = typeof coords?.[0] === 'number' ? coords[0] : event.coordinates?.longitude;
-      const lat = typeof coords?.[1] === 'number' ? coords[1] : event.coordinates?.latitude;
-      if (lng !== undefined && lat !== undefined) {
-        onZoomToCluster?.({ lng, lat });
+  const onMapPress = async (event: { properties?: Record<string, unknown>; geometry?: { coordinates?: number[] } }) => {
+    const map = mapRef.current;
+    const x = event.properties?.screenPointX, y = event.properties?.screenPointY;
+    if (!map || typeof x !== 'number' || typeof y !== 'number') return;
+    const sequence = ++tapSequence.current;
+    const epoch = ++interactionEpoch.current;
+    const current = () => sequence === tapSequence.current && epoch === interactionEpoch.current;
+    const box = [y - 22, x - 22, y + 22, x + 22];
+    try {
+      const hits = await map.queryRenderedFeaturesInRect(box, [], pinHitLayers);
+      if (!current()) return;
+      if (selectPinHits(hits?.features ?? [])) return;
+      // Queried native features omit source identity. Query cluster layers with
+      // their source refs only when no individual POI matched the tap.
+      for (const [sourceId, source] of clusterSources.current) {
+        const result = await map.queryRenderedFeaturesInRect(box, [], [`${sourceId}-cluster`]);
+        if (!current()) return;
+        const feature = result?.features.find(f => typeof f.properties?.cluster_id === 'number');
+        const coords = feature?.geometry?.coordinates;
+        if (feature && coords) {
+          let zoom: number | undefined;
+          try {
+            const expansion = await source.getClusterExpansionZoom(feature);
+            if (Number.isFinite(expansion)) zoom = expansion;
+          } catch (error) {
+            warn('map', 'cluster expansion unavailable; using camera zoom fallback', error);
+          }
+          if (!current()) return;
+          onZoomToCluster?.({ lng: coords[0], lat: coords[1], ...(zoom === undefined ? {} : { zoom }) });
+          cycle.current = null; onPinCycle?.(null);
+          return;
+        }
       }
-      return;
+      const rivers = await map.queryRenderedFeaturesInRect(box, [], ['network-fill']);
+      if (!current()) return;
+      if (rivers?.features.length) {
+        const coords = event.geometry?.coordinates;
+        onNetworkPress({ features: rivers.features, coordinates: coords ? { longitude: coords[0], latitude: coords[1] } : undefined });
+      } else {
+        cycle.current = null; onPinCycle?.(null); onBackgroundPress?.();
+      }
+    } catch (error) {
+      // Failed hit-testing is not an empty-map tap; preserve the selection.
+      warn('map', 'map selection unavailable', error);
     }
-
-    const id = props.id;
-    const match = typeof id === 'string' ? byId.get(id) : undefined;
-    if (match) onSelectPin?.(match);
   };
 
   /**
@@ -1862,9 +1953,8 @@ export function RiverMap({
       <Mapbox.ShapeSource
         id={`pins-${id}`}
         shape={pinShapes[id]}
-        // A tap on a clustered source may be a place or a bubble of places;
-        // onClusterablePress is the handler that can tell the difference.
-        onPress={clustering ? onClusterablePress : onPress}
+        // The map-level handler needs the owning source to expand a cluster.
+        ref={clustering ? clusterSourceRefs[`pins-${id}`] : undefined}
         cluster={clustering !== undefined}
         clusterRadius={clustering?.radius}
         clusterMaxZoomLevel={clustering?.maxZoom}
@@ -1913,7 +2003,7 @@ export function RiverMap({
         ) : null}
         {icon && compactUntilZoom !== undefined ? (
           <Mapbox.CircleLayer
-            id={`pins-${id}-overview`}
+            id={pinHitLayerId(`pins-${id}-overview`)}
             filter={solo}
             minZoomLevel={minZoom}
             maxZoomLevel={compactUntilZoom}
@@ -1931,7 +2021,7 @@ export function RiverMap({
         ) : null}
         {icon?.themed ? (
           <Mapbox.CircleLayer
-            id={`pins-${id}-badge`}
+            id={pinHitLayerId(`pins-${id}-badge`)}
             filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
@@ -1948,7 +2038,7 @@ export function RiverMap({
         ) : null}
         {icon ? (
           <Mapbox.SymbolLayer
-            id={`pins-${id}-icon`}
+            id={pinHitLayerId(`pins-${id}-icon`)}
             filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
@@ -1966,7 +2056,7 @@ export function RiverMap({
           />
         ) : (
           <Mapbox.CircleLayer
-            id={`pins-${id}-circle`}
+            id={pinHitLayerId(`pins-${id}-circle`)}
             filter={solo}
             minZoomLevel={minZoom}
             style={{
@@ -1990,7 +2080,7 @@ export function RiverMap({
             in words and in behaviour, which is where it survives being glanced
             at. */}
         <Mapbox.SymbolLayer
-          id={`pins-${id}-label`}
+          id={pinHitLayerId(`pins-${id}-label`)}
           filter={solo}
           // The PIN floor, not the mark floor. A label is allowed to arrive
           // after its pin, never before it — and the pin arrives at `minZoom`:
@@ -2051,7 +2141,7 @@ export function RiverMap({
       <Mapbox.ShapeSource
         id="pins-allGauges"
         shape={referenceShape}
-        onPress={onClusterablePress}
+        ref={clusterSourceRefs['pins-allGauges']}
         cluster
         clusterRadius={50}
         // ZOOM.cluster, like every other clustered layer. It was 11 — three
@@ -2097,7 +2187,7 @@ export function RiverMap({
           }}
         />
         <Mapbox.CircleLayer
-          id="pins-allGauges-dot"
+          id={pinHitLayerId('pins-allGauges-dot')}
           filter={['!', ['has', 'point_count']]}
           style={{
             circleColor: ['get', 'color'],
@@ -2120,7 +2210,7 @@ export function RiverMap({
           }}
         />
         <Mapbox.SymbolLayer
-          id="pins-allGauges-label"
+          id={pinHitLayerId('pins-allGauges-label')}
           filter={['!', ['has', 'point_count']]}
           // ZOOM.names, with every other label on the map. This tier used to
           // name its dots the moment they stopped being bubbles, which put
@@ -2167,7 +2257,7 @@ export function RiverMap({
     <Mapbox.ShapeSource
       id={`pins-${id}-index`}
       shape={shape}
-      onPress={onClusterablePress}
+      ref={clusterSourceRefs[`pins-${id}-index`]}
       cluster
       // 46: between access's old 42 and the national tier's 50. A family holds
       // more members in the same ground than any single layer did, and a radius
@@ -2213,7 +2303,7 @@ export function RiverMap({
         }}
       />
       <Mapbox.CircleLayer
-        id={`pins-${id}-index-dot`}
+        id={pinHitLayerId(`pins-${id}-index-dot`)}
         filter={['!', ['has', 'point_count']]}
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
@@ -2256,10 +2346,9 @@ export function RiverMap({
       // together now, one rung lower down the render, and this source picks the
       // places up at ZOOM.cluster with nothing hidden in between.
       shape={pinShapes.access}
-      onPress={onPress}
     >
       <Mapbox.CircleLayer
-        id="pins-access-overview"
+        id={pinHitLayerId('pins-access-overview')}
         // The family index draws everything below here. Without the floor the
         // two would both paint at statewide zoom — bubbles with a full scatter
         // of dots under them, which is the crowding this was meant to end.
@@ -2276,7 +2365,7 @@ export function RiverMap({
         }}
       />
       <Mapbox.SymbolLayer
-        id="pins-access-icon"
+        id={pinHitLayerId('pins-access-icon')}
         minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
@@ -2291,7 +2380,7 @@ export function RiverMap({
           The private cue at this zoom is the callout and the confirmation
           dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
-        id="pins-access-label"
+        id={pinHitLayerId('pins-access-label')}
         minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],
@@ -2307,7 +2396,11 @@ export function RiverMap({
   );
 
   return (
+    <View style={styles.fill}>
     <Mapbox.MapView
+      ref={mapRef}
+      onLayout={(event: { nativeEvent: { layout: { width: number; height: number } } }) => { mapSize.current = event.nativeEvent.layout; }}
+      onPress={onMapPress}
       style={[styles.fill, { backgroundColor: colors.bg }]}
       styleURL={STYLE_URL}
       scaleBarEnabled={false}
@@ -2498,7 +2591,7 @@ export function RiverMap({
           filter reads as broken rather than filtered — the same call the
           website's Observatory made. The selected river is drawn separately
           below and is never dimmed. */}
-      <Mapbox.ShapeSource id="network" shape={networkShape} onPress={onNetworkPress}>
+      <Mapbox.ShapeSource id="network" shape={networkShape}>
         {/* Casing first: a dark outline under the colour keeps a thin river
             legible over both the green forest and the pale gravel of the
             outdoors style, which the condition colour alone does not. */}
@@ -2812,11 +2905,11 @@ export function RiverMap({
         ? pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.min, ZOOM.cluster)
         : null}
 
-      <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures} onPress={onPress}>
+      <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>
         {(['center', 'bottom'] as const).map(anchor => (
           <Mapbox.CircleLayer
             key={anchor}
-            id={`plan-endpoints-${anchor}-badge`}
+            id={pinHitLayerId(`plan-endpoints-${anchor}-badge`)}
             filter={['==', ['get', 'anchor'], anchor]}
             style={{
               circleRadius: selectedPinId
@@ -2832,7 +2925,7 @@ export function RiverMap({
           />
         ))}
         <Mapbox.SymbolLayer
-          id="plan-endpoints-icon"
+          id={pinHitLayerId('plan-endpoints-icon')}
           style={{
             iconImage: ['get', 'image'],
             iconSize: selectedPinId
@@ -2842,7 +2935,7 @@ export function RiverMap({
           }}
         />
         <Mapbox.SymbolLayer
-          id="plan-endpoints-label"
+          id={pinHitLayerId('plan-endpoints-label')}
           style={{
             textField: ['get', 'label'],
             textSize: 12,
@@ -2855,6 +2948,14 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
     </Mapbox.MapView>
+    {placesListOpen && <MapPlacesList
+      pins={[...byId.values()].filter(pin => layers.includes(pin.layer) && visibleBounds &&
+        pin.coordinates.lng >= visibleBounds[0] && pin.coordinates.lng <= visibleBounds[2] &&
+        pin.coordinates.lat >= visibleBounds[1] && pin.coordinates.lat <= visibleBounds[3])}
+      onClose={() => onClosePlacesList?.()}
+      onSelect={pin => { onClosePlacesList?.(); onSelectPin?.(pin); }}
+    />}
+    </View>
   );
 }
 

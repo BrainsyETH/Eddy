@@ -178,7 +178,7 @@ test('the label floor is the pin floor, not the mark floor', () => {
   // nameless dams anyway. So this pins the EFFECTIVE floor: a label may wait
   // for its pin (`minZoom`) and for its own rung (`labelMinZoom`), and for
   // nothing else.
-  const label = /id=\{`pins-\$\{id\}-label`\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
+  const label = /id=\{pinHitLayerId\(`pins-\$\{id\}-label`\)\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
   assert.ok(label, 'pinLayer must declare a floor on its label layer');
   assert.match(label[1], /labelMinZoom/, 'the label rung still applies');
   assert.match(label[1], /minZoom \?\? 0/, 'a label is allowed to wait for its pin');
@@ -244,8 +244,8 @@ test('the national fetch flip is decoupled from the marks rung', () => {
 });
 
 test('every fetch-skipping path applies the one eligibility rule', () => {
-  // requestCovers (tested in geo-viewport.test.ts) is the rule: containment
-  // AND (same limit, or an uncapped answer). Two paths in the hook can skip a
+  // requestCovers (tested in geo-viewport.test.ts) is the rule: an uncapped
+  // containing answer, or the same padded target and budget. Two paths can skip a
   // fetch — the memory-cache scan and the last-request shortcut — and the
   // regression this pins is the shortcut judging by bounds alone: a capped
   // detail answer kept standing in for the overview budget after the camera
@@ -254,7 +254,7 @@ test('every fetch-skipping path applies the one eligibility rule', () => {
   const hook = codeOf('src', 'hooks', 'useViewportGauges.ts');
   assert.match(
     hook,
-    /requestCovers\(lastRequested\.current, viewport\.bounds, limit\)/,
+    /requestCovers\(lastRequested\.current, viewport\.bounds, limit, target\)/,
     'the last-request shortcut must ask requestCovers, never bare containment',
   );
   assert.match(
@@ -262,6 +262,8 @@ test('every fetch-skipping path applies the one eligibility rule', () => {
     /newestFirst\.find\(\(entry\) =>\s*requestCovers\(/,
     'the memory-cache scan judges entries with the same rule',
   );
+  assert.match(hook, /const target = quantizeBbox\(padBbox\(viewport.bounds, 0.2\), viewport.zoom\);\s*const covering = containingEntry\(cache.current, viewport.bounds, limit, target\)/,
+    'cache lookup must receive the same padded target as the network request');
   assert.doesNotMatch(
     hook,
     /bboxContains/,

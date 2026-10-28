@@ -6,7 +6,8 @@ import { unstable_cache } from 'next/cache';
 import { createPublicReadClient } from '@/lib/supabase/public-read';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getRivers } from './rivers';
-import { fetchDamDetail, fetchRiverDam } from './dams';
+import { fetchDamDetail, fetchRiverDam, refreshStaleness, summaryOf } from './dams';
+import { readStoredSnapshots } from './dam-snapshot-store';
 import { fetchRiverReaches } from './river-reaches';
 import { getAccessPointDetail } from '@/lib/access-points/detail';
 
@@ -16,6 +17,16 @@ import { getAccessPointDetail } from '@/lib/access-points/detail';
 export const pageRivers = unstable_cache(getRivers, ['page-rivers-v1'], { revalidate: 60 });
 export const pageDam = unstable_cache(fetchDamDetail, ['page-dam-v1'], { revalidate: 60 });
 export const pageRiverDam = unstable_cache(fetchRiverDam, ['page-river-dam-v1'], { revalidate: 60 });
+// Shared by Conditions and the homepage. Read stored summaries so public HTML
+// never waits for upstream dam providers; the existing client query refreshes.
+export const pageDamSummaries = unstable_cache(async () => {
+  const now = Date.now();
+  const stored = await readStoredSnapshots({ now });
+  return [...stored.values()].flatMap(snapshot => {
+    const summary = summaryOf(refreshStaleness(snapshot, now));
+    return summary ? [summary] : [];
+  });
+}, ['conditions-dam-summaries-v1'], { revalidate: 300 });
 export const pageRiverReaches = unstable_cache(fetchRiverReaches, ['page-river-reaches-v1'], { revalidate: 60 });
 export const pageCondition = unstable_cache(async (id: string) => {
   const { data, error } = await createAdminClient().rpc('get_river_condition', { p_river_id: id });

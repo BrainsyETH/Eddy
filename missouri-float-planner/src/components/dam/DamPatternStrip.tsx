@@ -212,7 +212,7 @@ export default function DamPatternStrip({
                 {row.splitIndex !== null && (
                   <div
                     data-pattern-now
-                    className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary-900"
+                    className="pointer-events-none absolute inset-y-0 w-0.5 bg-accent-500"
                     style={{ left: `${(row.splitIndex / (slots.get(row.dayKey) || 24)) * 100}%` }}
                   />
                 )}

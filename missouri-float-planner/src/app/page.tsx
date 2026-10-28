@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import HomePage, { FEATURED_RIVER_SLUGS } from '@/components/home/HomePage';
 import { getRiverGuides } from '@/lib/data/rivers';
-import { pageRivers } from '@/lib/data/public-pages';
+import { pageDamSummaries, pageRivers } from '@/lib/data/public-pages';
 import { floatSearchLaunch } from '@/lib/float-search-launch';
+import { conditionsDamCatalogue } from '@/lib/conditions/dam-catalogue';
+import { DAM_DISCOVERY_ORDER } from '@/lib/conditions/directory';
 
 export const metadata: Metadata = {
   alternates: {
@@ -14,15 +16,17 @@ export const metadata: Metadata = {
 export const revalidate = 300; // ISR every 5 minutes
 
 export default async function Home() {
-  const [riverGuides, rivers] = await Promise.all([
+  const [riverGuides, rivers, damSummaries] = await Promise.all([
     getRiverGuides(FEATURED_RIVER_SLUGS),
-    pageRivers(),
+    pageRivers().catch(() => []),
+    pageDamSummaries().catch(() => []),
   ]);
-  const featuredReports = ['current', 'meramec', 'buffalo'].flatMap(slug => {
+  const featuredReports = ['current', 'meramec', 'buffalo', 'eleven-point', 'jacks-fork', 'huzzah'].flatMap(slug => {
     const river = rivers.find(item => item.slug === slug);
-    // Reviewed guide covers are bundled with the app; prefer them over older
-    // third-party photo URLs, including Buffalo's Wikimedia redirect.
-    return river ? [{ slug, name: river.name, path: river.path, photoUrl: riverGuides[slug]?.image ?? river.photoUrl ?? null }] : [];
+    return river ? [river] : [];
   });
-  return <HomePage riverGuides={riverGuides} featuredReports={featuredReports} floatSearchEnabled={floatSearchLaunch().web} />;
+  const catalogue = conditionsDamCatalogue(damSummaries);
+  const featuredDams = DAM_DISCOVERY_ORDER.flatMap(id => catalogue.dams.filter(dam => dam.id === id));
+  return <HomePage riverGuides={riverGuides} featuredReports={featuredReports} featuredDams={featuredDams}
+    renderedAt={Date.now()} damsUnavailable={catalogue.damsUnavailable} floatSearchEnabled={floatSearchLaunch().web} />;
 }
