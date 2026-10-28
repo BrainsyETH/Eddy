@@ -62,6 +62,9 @@ test('the layer decides, because it is the icon the finger landed on', () => {
   assert.equal(placeSymbol({ layer: 'hazards' }, null), 'hazard');
   assert.equal(placeSymbol({ layer: 'outfitters' }, null), 'outfitter');
   assert.equal(placeSymbol({ layer: 'lodging' }, null), 'lodging');
+  // The map draws a spring as the Eddy droplet. Falling through to the generic
+  // access pin put the put-in mark on a place that is often private ground.
+  assert.equal(placeSymbol({ layer: 'springs' }, null), 'spring');
 });
 
 test('a layer that answers overrides the point that disagrees', () => {
@@ -140,6 +143,7 @@ test('every name it can return exists in the Eddy catalog', () => {
     gravelBar: true,
     lodging: true,
     outfitter: true,
+    spring: true,
   };
   const catalog = readFileSync(
     join(process.cwd(), '../eddy-ios/src/components/EddySymbol.tsx'),
