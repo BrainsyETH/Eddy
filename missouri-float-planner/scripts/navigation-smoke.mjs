@@ -200,13 +200,13 @@ try {
         const toggle = page.getByRole('button', { name: 'Open menu' });
         await toggle.tap();
         const mobile = page.getByRole('navigation', { name: 'Mobile navigation' });
-        assert.deepEqual(await mobile.getByRole('link').allTextContents(), ['Conditions', 'Map', 'Floats', 'Guides', 'Get the App']);
+        assert.deepEqual(await mobile.getByRole('link').allTextContents(), ['Map', 'Conditions', 'Floats', 'Guides', 'Get the App']);
         await page.keyboard.press('Escape');
         assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
         assert(await toggle.evaluate(el => el === document.activeElement));
       } else {
         const nav = page.getByRole('navigation', { name: 'Main navigation' });
-        assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Conditions', 'Map', 'Floats', 'Guides']);
+        assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Map', 'Conditions', 'Floats', 'Guides']);
         await nav.getByRole('link', { name: 'Conditions' }).focus();
         await page.keyboard.press('Tab');
         assert(await nav.getByRole('link', { name: 'Map', exact: true }).evaluate(el => el === document.activeElement));
@@ -257,19 +257,20 @@ try {
         await page.getByRole('dialog', { name: 'Meramec River', exact: true }).waitFor();
         await nav.getByRole('link', { name: 'Floats' }).click();
         await page.waitForURL('**/find-float?river=meramec');
-        await page.getByRole('heading', { name: 'Find a Route', exact: true }).waitFor();
+        await page.getByRole('heading', { name: 'Floats', exact: true, level: 1 }).waitFor();
         // The catalogue resolves the URL slug to its display name after hydration.
         await page.waitForFunction(() => document.querySelector('#float-destination')?.value === 'Meramec River');
         assert.equal(await page.getByLabel('Town or river', { exact: true }).inputValue(), 'Meramec River');
         await page.getByLabel('Town or river', { exact: true }).fill('Current');
         await page.getByRole('option', { name: 'Current River', exact: true }).click();
         await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/plan?river=current"]'));
-        assert.equal(await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).getAttribute('href'), '/plan?river=current');
+        assert.equal(await page.getByRole('link', { name: 'Build a Route', exact: true }).getAttribute('href'), '/plan?river=current');
         await page.goto(`${origin}/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak`, { waitUntil: 'networkidle' });
+        await page.locator('summary').filter({ hasText: 'Filters' }).click();
         await page.getByRole('button', { name: 'kayak', exact: true }).click();
         await page.getByRole('button', { name: 'canoe', exact: true }).click();
         assert.equal(await page.getByRole('button', { name: 'canoe', exact: true }).getAttribute('aria-pressed'), 'true');
-        assert.equal(await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite');
+        assert.equal(await page.getByRole('link', { name: 'Build a Route', exact: true }).getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite');
         await page.goto(`${origin}/plan/navigation-layout-check`, { waitUntil: 'networkidle' });
         await page.getByRole('heading', { name: 'Shared plan fixture' }).waitFor();
         assert.equal(await page.getByRole('navigation', { name: 'Floats', exact: true }).count(), 0, 'shared plans must not inherit the planner tabs');

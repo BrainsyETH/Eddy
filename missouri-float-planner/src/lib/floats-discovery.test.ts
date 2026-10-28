@@ -12,6 +12,28 @@ import { dailyFavoriteFloats } from '../../../eddy-ios/src/lib/todayFloats';
 import { canDefaultToCurrentLocation, selectSearchLocation, selectSearchRiver } from '../../../eddy-ios/src/lib/floatSearchSelection';
 import type { FloatSearchInput } from '../../shared/float-search';
 import { loadPlannerResource } from '../../../eddy-ios/src/lib/plannerResource';
+import { featuredFloatsForDay, featuredFloatPath, type FeaturedFloat } from './featured-floats';
+import type { FavoriteFloatSummary } from '../../../packages/eddy-types';
+
+test('web featured floats follow the iOS daily selection without changing the source catalogue', () => {
+  const rows = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id }));
+  for (const day of ['2026-10-28', '2026-10-29', '2026-12-31']) {
+    const localDate = new Date(`${day}T23:30:00`);
+    assert.deepEqual(featuredFloatsForDay(rows, localDate), dailyFavoriteFloats(rows, day));
+    assert.deepEqual(featuredFloatsForDay([...rows].reverse(), localDate), dailyFavoriteFloats(rows, day));
+  }
+  assert.deepEqual(rows.map(row => row.id), ['a', 'b', 'c', 'd', 'e', 'f']);
+  // The web's deployed projection must remain assignable from the native API type.
+  const fromNative = (float: FavoriteFloatSummary): FeaturedFloat => float;
+  assert.equal(typeof fromNative, 'function');
+});
+
+test('featured route links carry their exact endpoints, including escaped identifiers', () => {
+  const href = featuredFloatPath({ riverSlug: 'current', putInId: 'a&b', takeOutId: 'end point' });
+  const url = new URL(href, 'https://eddy.guide');
+  assert.equal(url.pathname, '/plan');
+  assert.deepEqual(Object.fromEntries(url.searchParams), { river: 'current', putIn: 'a&b', takeOut: 'end point' });
+});
 
 test('a fresh build cannot inherit a featured route, and finder keeps its exact vessel and endpoints', () => {
   const pick = {

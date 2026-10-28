@@ -20,13 +20,13 @@ always-visible icons with 44px targets, accessible labels, and app-name tooltips
 
 ## Web navigation
 
-The main links are **Conditions**, **Map**, **Floats**, and **Guides**, with a
+The main links are **Map**, **Conditions**, **Floats**, and **Guides**, with a
 separate app link. Conditions opens a shared, searchable directory at `/rivers`;
 `/dams` opens the same interface with Lakes & Dams selected and retains its own
 metadata and canonical URL. `/gauges` remains part of Conditions. Map opens Build a Route at
 `/plan`. Floats links to `/find-float` when web discovery is enabled and is hidden
-otherwise. The planning page links use the iOS
-labels **Find a Route** and **Build a Route**. The planner tabs belong only to
+otherwise. The planner links place **Build a Route** before **Find a Route**.
+Floats uses a **Build a Route** header CTA instead of a second tab bar. The planner tabs belong only to
 `/plan`, never shared plans at `/plan/[shortCode]`. These are normal links, with
 no hover menus or nested mobile menus.
 
@@ -147,25 +147,37 @@ contains no browser-test overrides. Set `CONDITIONS_SMOKE_IMAGES` to a directory
 with the original `canoe.png`, `green.png`, `yellow.png`, `red.png` and `flood.png`
 assets for visual review; otherwise image requests use a local Eddy fixture.
 
-## Find a Route
+## Floats
 
-The finder places preferences beside photo-led discovery/results on desktop
-and stacks them on narrow screens. One destination field offers rivers from
-the catalogue and town suggestions after a 350ms pause. The destination field
-uses a combobox/listbox: arrow keys move through suggestions while input keeps
-focus, Enter chooses, Escape dismisses, and Tab moves to the next control.
-Selecting a river clears the nearby location; selecting a town or device
-location clears the river. Typed text must be resolved to a selection before
-searching. Coordinates and town
-suggestions stay in memory; only the Vessel preference is saved locally.
+`/find-float` is the Floats landing page. A **Build a Route** header CTA retains
+river/endpoint context. The compact **Find a Route** form sits above discovery:
+destination, time, nearby radius, and submit, with Vessel and public-access
+preferences inside a Filters disclosure. The header order is Map, Conditions,
+Floats, Guides on desktop and mobile.
 
-Duration presets retain the full 0.5–12 hour custom selection. Results are a
+**Featured Floats** uses the same `/api/favorite-floats?v=2` catalogue and local-day
+rotation as iOS: three photo cards initially, with Show all floats revealing the
+rest. Each card opens its exact put-in and take-out directly on `/plan`. Route
+photos fall back through the API alternatives, the river photo, and Eddy artwork.
+Typical canoe times stay labeled; unavailable or dam-dependent times are never
+invented. Featured floats remain visible below submitted **Matching Floats** and
+are separate from the finder's condition-aware results. Catalogue loading,
+empty, and retry states leave the finder and builder available.
+
+One destination field offers rivers from the catalogue and town suggestions
+after a 350ms pause. Its combobox/listbox supports arrow keys, Enter, Escape,
+and Tab while preserving input focus. Selecting a river clears nearby location;
+selecting a town or device location clears the river. Typed text must resolve
+to a selection before searching. Coordinates and town suggestions stay in
+memory; only the Vessel preference is saved locally.
+
+The time selector retains the full 0.5–12 hour range. Results are a
 snapshot of the submitted preferences: editing keeps them visible with an
 update notice, and disables their planner actions until refreshed. Failed
 refreshes retain the previous snapshot. The existing 30-minute expiry still
 removes expired results, including on focus and return from the planner.
-Condition badges, cautions, and estimate provenance remain visible. Inspiration
-photos come from the river catalogue and make no current-condition claim.
+Condition badges, cautions, and estimate provenance remain visible. Featured
+photos are editorial imagery and make no current-condition claim.
 The Vessel icon parity test compares web and iOS SVG geometry and strokes.
 
 Searching shows the locally bundled Eddy checking a gauge with “Eddy’s reading
