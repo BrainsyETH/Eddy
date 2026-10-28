@@ -15,7 +15,7 @@
 // two drafts trip the lint, the deterministic template below posts instead —
 // the same facts, just stitched rather than written.
 
-import { blogHighlights } from './blog-highlights';
+import { blogHighlights, guideMaterial } from './blog-highlights';
 import { generateCaption } from './caption-generator';
 import { GUIDE_CAPTION_CTA, GUIDE_OPENINGS, finalizeGuideBody } from './blog-voice';
 import { hasMetaCredentials, publishLinkToFacebook } from './meta-client';
@@ -49,14 +49,24 @@ export interface BlogPostResult {
 
 export type CaptionSource = 'model' | 'template';
 
-/** The facts a guide caption may use: the curated opening plus the published
- *  highlights (or the description for a legacy blog without structured data). */
+/** The template caption's material: the curated opening plus three published
+ *  advice points (or the description for a legacy blog without structured data). */
 export function guideCaptionPoints(blog: BlogRow): { opening?: string; points: string[] } {
   const opening = blog.river_slug ? GUIDE_OPENINGS[blog.river_slug] : undefined;
   const highlights = blogHighlights(blog.guide_data);
   const description = blog.description?.trim();
   const points = highlights.length ? highlights : description ? [description] : [];
   return { opening, points };
+}
+
+/** What the model may talk about: the guide's interesting parts (lede, intro,
+ *  springs and places, why-different notes), or the description for a legacy
+ *  blog without structured data. Never the advice bullets. */
+export function guideCaptionMaterial(blog: BlogRow): string[] {
+  const material = guideMaterial(blog.guide_data);
+  if (material.length) return material;
+  const description = blog.description?.trim();
+  return description ? [description] : [];
 }
 
 // The deterministic caption and the model's fallback: a river-specific Eddy
@@ -70,13 +80,13 @@ export function buildBlogCaption(blog: BlogRow): string {
   return lines.join('\n\n');
 }
 
-// A draft shorter than this cannot be a real post (the CTA alone is 32 chars);
-// treat it as the model returning nothing usable.
+// A draft shorter than this cannot be a real post; treat it as the model
+// returning nothing usable.
 const MIN_MODEL_DRAFT_CHARS = 60;
 
 /**
- * The caption that posts: the model's draft in Eddy's voice when it clears the
- * lint, else the template. Both end on GUIDE_CAPTION_CTA and carry no URL.
+ * The caption that posts: the model's short, friendly post about one thing in
+ * the guide when it clears the lint, else the template. Neither carries a URL.
  */
 export async function composeBlogCaption(
   blog: BlogRow,
@@ -86,14 +96,14 @@ export async function composeBlogCaption(
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
 
   try {
-    const { opening, points } = guideCaptionPoints(blog);
+    const material = guideCaptionMaterial(blog);
+    if (!material.length) return fallback;
     const generated = await generateCaption({
       model,
       contentType: 'educational',
       hookStyle: 'story',
       riverName: blog.river_slug ? riverDisplayLong(blog.river_slug) : blog.title,
-      ctaLine: GUIDE_CAPTION_CTA,
-      guide: { title: blog.title, opening, points },
+      guide: { title: blog.title, material },
     });
     if (generated.source !== 'model') return fallback;
     const body = finalizeGuideBody(generated.caption);

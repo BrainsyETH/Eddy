@@ -350,24 +350,29 @@ checks, and it must be listened to before approving voice quality or level.
   Never-shared guides go first, then least recently shared; publication date
   and ID break ties. This is evergreen discovery, independent of today's river
   conditions. It keeps the clickable article card and Facebook-only format.
-  Captions are written at publish time by the `social_caption` model (the
-  same switchable workload the clip reels use, see `/admin/ai-models`) in
-  Eddy's voice (`src/lib/eddy/voice.ts`, shared with the river updates). The
-  model is given only the river's curated opening (`blog-voice.ts`, authored
-  from `EDDY_KNOWLEDGE.md` and the published guides) and up to three complete
-  published local details, pro tips and pre-launch notes, and is asked for
-  two to four short connected paragraphs, no bullets or headline fragments,
-  no repeated SEO title, no URL, no hashtags, ending on the planning CTA.
-  The same accuracy lint as the clips runs on the draft; a figure or seasonal
-  pattern is allowed only when the guide points state it, and "good to go" /
-  "safe to launch" language never passes. One retry, then the deterministic
-  template (opening, the same points as paragraphs, CTA) posts instead, also
-  when there is no `ANTHROPIC_API_KEY` or the API fails.
+  The caption is a short, friendly post about one interesting thing in the
+  guide, ending with a light nod to the guide (not a call to action). It is
+  written at publish time by the `social_caption` model (the same switchable
+  workload the clip reels use, see `/admin/ai-models`) in Eddy's voice
+  (`src/lib/eddy/voice.ts`, shared with the river updates). The model sees
+  the guide's interesting parts only (`guideMaterial`: lede, intro, springs
+  and places, why-different notes), never its pro tips or pre-launch notes,
+  and is asked for 35 to 70 words on one topic, with no instructions, no
+  warnings, no explaining cause and effect the guide does not state, no
+  jargon, no repeated SEO title, no URL, no hashtags. The clip accuracy lint
+  runs on the draft plus guide-only checks: any seven-word run copied from
+  the material, brochure or paddling jargon ("outing", "ledges", "put-in"),
+  pitch words ("check out", "get the guide", "download", pointing emoji), a
+  missing mention of the guide, or more than 85 words is rejected; a figure
+  or seasonal pattern passes only when the material states it; "good to go"
+  / "safe to launch" never passes. Em-dashes become commas via the
+  river-update helper. One retry, then the deterministic template (the
+  curated opening in `blog-voice.ts`, three advice points as paragraphs, a
+  soft closing line) posts instead, also when there is no `ANTHROPIC_API_KEY`
+  or the API fails. Dedup is against the last few guide posts only.
   `social_posts.metadata.caption_source` records `model` or `template` per
-  post. Unknown rivers and general articles use their title; legacy blogs
-  without structured highlights use their description. Oversized/malformed
-  points are skipped, never cut mid-advice. The website guides themselves are
-  unchanged.
+  post. Legacy blogs without structured data use their description. The
+  website guides themselves are unchanged.
 - **Float Pick:** selection, posting schedule and captions are unchanged.
   Place-photo reveals follow the renderer rules above.
 - **Eddy’s Read:** newly generated social Reads compare two or three rivers.
