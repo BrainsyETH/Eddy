@@ -22,6 +22,7 @@ import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRi
 import { FavoritePlaceCard } from '@/components/FavoritePlaceCard';
 import { GaugeRow } from '@/components/GaugeRow';
 import { DamFavoriteCard } from '@/components/dam/DamFavoriteCard';
+import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
@@ -375,6 +376,17 @@ function FavoritesContent() {
           </View>
         );
       }
+      // The widget card reports turbine flow. Flood-control dams such as
+      // Clearwater and Wappapello have release readings but no powerhouse.
+      if (!dam.hasTurbines) return (
+        <DamRow
+          dam={dam}
+          onPress={() => router.push(`/dam/${dam.id}`)}
+          starred
+          showSchedule
+          onToggleStar={() => toggleStar(item)}
+        />
+      );
       return (
         <DamFavoriteCard
           dam={dam}
