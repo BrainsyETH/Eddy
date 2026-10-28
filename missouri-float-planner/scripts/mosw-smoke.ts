@@ -11,7 +11,10 @@
 //   2. prefers-reduced-motion: the flow layer must never start (no log).
 //   3. Dock honesty: 'readings as of' stamp, shared-gauge disclosure row,
 //      per-row 24h trend arrow, 'no live gauge' for a gauge-less river.
-//   4. Screenshots (desktop + mobile) to eyeball contrast and layout.
+//   4. The national USGS layer: dots paint under the curated rivers, the
+//      whole layer is one keyboard tab stop, close-up views get station
+//      names, and a station opens in the same peek sheet as Eddy's gauges.
+//   5. Screenshots (desktop + mobile) to eyeball contrast and layout.
 
 import { chromium, type Page, type Route } from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -362,6 +365,35 @@ async function main() {
       await page.waitForTimeout(500);
       const flatText = (await page.textContent('body')) ?? '';
       check('flatlined reading disclosed', /unchanged 3 days/i.test(flatText));
+      await page.keyboard.press('Escape');
+
+      // Curated-first layering for the national layer.
+      check('national dots paint under the curated rivers', await page.evaluate(() => {
+        const dots = document.querySelector('[data-national-gauge-marks]');
+        const river = document.querySelector('path[stroke^="url(#mo-river-grad"]');
+        return !!dots?.querySelector('circle') && !!river && !!(dots.compareDocumentPosition(river) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }));
+      const tabStops = await page.evaluate(() => ({
+        layer: document.querySelector('[data-national-gauges]')?.getAttribute('tabindex'),
+        items: document.querySelectorAll('[data-national-gauges] [tabindex="0"]').length,
+      }));
+      check('national layer is one tab stop', tabStops.layer === '0' && tabStops.items === 0, JSON.stringify(tabStops));
+      await page.locator('[data-national-gauges]').focus();
+      await page.keyboard.press('ArrowRight');
+      check('arrow keys reach stations inside the layer', await page.evaluate(() =>
+        document.activeElement?.getAttribute('data-gauge-visible') === 'true'));
+      await page.keyboard.press('Escape');
+
+      // Close in, the viewport route names stations; one opens in the sheet.
+      for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+      const named = page.locator('[data-usgs-site-id="07000001"]');
+      await page.waitForFunction(() => /Context Creek/.test(
+        document.querySelector('[data-usgs-site-id="07000001"]')?.getAttribute('aria-label') ?? ''), null, { timeout: 8000 }).catch(() => {});
+      check('close-up stations are named', /Context Creek/.test((await named.getAttribute('aria-label').catch(() => null)) ?? ''));
+      await named.dispatchEvent('click');
+      const stationSheet = page.locator('[role="dialog"][aria-label="USGS gauge 07000001"]');
+      await stationSheet.waitFor({ timeout: 8000 }).catch(() => {});
+      check('a station opens in the detail sheet', (await stationSheet.count()) === 1);
 
       await page.close();
     }

@@ -1,7 +1,7 @@
 'use client';
 
 // The detail rail: RightRail dispatcher + the RailSheet container and every
-// card it can show (river, gauge, campground, access point, POI).
+// card it can show (river, gauge, campground, access point, POI, USGS station).
 // These share so much context that they live together; leaf primitives come
 // from ./shared, the chart from ./Sparkline, the report from ./eddy-report.
 
@@ -18,6 +18,8 @@ import {
   type StageVerdict,
 } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
+import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
+import type { MapGaugeLite } from '@/lib/gauges/map-index';
 import type { MoHistoryBundleEntry } from '@/app/api/usgs/mo-history-bundle/route';
 import type { MoForecastEntry } from '@/app/api/usgs/mo-forecast/route';
 import { conditionChip } from '@shared/condition-system';
@@ -978,5 +980,26 @@ function PoiCard({
         </a>
       )}
     </div>
+  );
+}
+
+/** An unrated USGS station, in the same peek/expand sheet as Eddy's own gauges. */
+export function ReferenceSiteSheet({
+  gauge,
+  onClose,
+  onSheetExpandedChange,
+  contentRef,
+}: {
+  gauge: MapGaugeLite;
+  onClose: () => void;
+  onSheetExpandedChange?: (expanded: boolean) => void;
+  /** Lets the map pan a station out from under the sheet. */
+  contentRef?: React.Ref<HTMLDivElement>;
+}) {
+  return (
+    <RailSheet onClose={onClose} onExpandedChange={onSheetExpandedChange} z="z-40" tall={false}
+      className="md:w-[min(330px,calc(100vw-24px))]" ariaLabel={`USGS gauge ${gauge.siteId}`}>
+      <div ref={contentRef}><ReferenceGaugeCard gauge={gauge} onClose={onClose} framed={false} /></div>
+    </RailSheet>
   );
 }

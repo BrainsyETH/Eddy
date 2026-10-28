@@ -34,6 +34,14 @@ export function referenceBand(g: Pick<MapGaugeLite, 'readingSuspect' | 'readingT
   return g.readingSuspect || gaugeFreshness(g.readingTimestamp, now) !== 'live' ? null : flowBand(g.flowPercentile);
 }
 
+/**
+ * Count bubbles for grouped unrated stations. Parchment with an ink edge, so a
+ * group can never be read as one station's flow comparison: every color of
+ * the teal/stone ramp (FLOW_BAND_SYSTEM) is a filled dot.
+ */
+export const REFERENCE_CLUSTER_FILL = '#F2EAD8';
+export const REFERENCE_CLUSTER_INK = '#2D2A24';
+
 export function referenceColor(g: MapGaugeLite, now = Date.now()): string {
   const band = referenceBand(g, now);
   return band ? FLOW_BAND_SYSTEM[band].solid : FLOW_BAND_UNKNOWN_SOLID;

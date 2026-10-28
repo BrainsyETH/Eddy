@@ -78,14 +78,25 @@ rail, forecasts and timeline, using `/api/usgs/mo-statewide`. The separate
 zoom. Both gauge tiers default on and share saved choices with the web planner.
 No phone or viewport row cap drops stations: SVG screen-space clusters retain
 every visible station and expand on selection. Coincident stations offer a list.
+The curated product stays foreground. Single unrated stations are small dots
+painted under the curated rivers; the marker layer holds only small transparent
+targets and parchment count bubbles, beneath the curated gauges, so a river, a
+rated gauge or empty map stays tappable except right on a dot. Bubbles stay
+small at the home zoom and grow once the camera is out past the region. The
+layer is a single keyboard tab stop ahead of the curated gauges, with arrow keys
+moving between its in-view stations.
 At zoom 8 and closer, `/api/gauges/map` enriches station names by site ID;
 the index still owns membership and readings even when names are capped or
 unavailable. Existing planner gauges-off preferences migrate to both switches.
 
-The initial camera still frames Missouri and Arkansas. Users can zoom out and
-pan nationwide; simplified Census state outlines provide geographic context.
-Selecting an unrated station loads `/api/gauges/[siteId]` and opens readings,
-observation time, comparison where available, and a link to its full chart.
+The initial camera still frames Missouri and Arkansas. Users can zoom from about
+60× in out to the whole United States and pan across the 50 states and the
+Caribbean territories; simplified Census state outlines provide geographic
+context. Selecting an unrated station loads `/api/gauges/[siteId]` and opens
+readings, observation time, comparison where available, and a link to its full
+chart, in the same peek/expand sheet as a curated gauge. While the timeline
+replays a past day, the national layer dims and the dock notes that it shows
+latest readings.
 Historical readings are opt-in. Unknown, delayed and suspect comparisons remain
 neutral. The capped `/api/usgs/mo-sites` endpoint and its loader are deprecated
 compatibility code. They can be removed together after an external-traffic audit

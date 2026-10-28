@@ -8,13 +8,14 @@ import { referenceBand, type MapGaugeLite } from '@/lib/gauges/map-index';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import Button from '@/components/ui/Button';
 
-export default function ReferenceGaugeCard({ gauge, onClose }: { gauge: MapGaugeLite; onClose: () => void }) {
+/** `framed={false}` when a host (the River Map sheet) already draws the card. */
+export default function ReferenceGaugeCard({ gauge, onClose, framed = true }: { gauge: MapGaugeLite; onClose: () => void; framed?: boolean }) {
   const card = useRef<HTMLElement>(null);
   const query = useGaugeDetail(gauge.siteId);
   const reading = query.data ?? gauge;
   useEffect(() => { card.current?.focus({ preventScroll: true }); }, [gauge.siteId]);
   return <section ref={card} tabIndex={-1} data-planner-inspection aria-label="Selected USGS gauge"
-    className="card-framed space-y-3 p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+    className={`${framed ? 'card-framed ' : ''}space-y-3 p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
     onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); } }}>
     <div className="flex items-start gap-2">
       <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-primary-700">USGS · {gauge.siteId}</p>

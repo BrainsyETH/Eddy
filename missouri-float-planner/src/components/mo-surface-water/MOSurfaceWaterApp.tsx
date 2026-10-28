@@ -13,9 +13,8 @@
 // mobile the dock becomes a slide-in drawer behind a floating live chip.
 
 import { useNationalGauges } from '@/hooks/useNationalGauges';
-import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
 import type { MapGaugeLite } from '@/lib/gauges/map-index';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   classifyStageFromThresholds,
@@ -45,6 +44,7 @@ import {
   TimeScrubber,
   DetailModal,
   GaugeHoverOverlay,
+  ReferenceSiteSheet,
   flatlineDays,
   type ModalSelection,
 } from './Chrome';
@@ -64,6 +64,7 @@ export default function MOSurfaceWaterApp() {
   const [forecast, setForecast] = useState<MoForecastResponse | null>(null);
   const nationalGauges = useNationalGauges();
   const [selectedSite, setSelectedSite] = useState<MapGaugeLite | null>(null);
+  const referenceCardRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   /** Set when live fetch failed and we hydrated from the local snapshot. */
   const [staleCacheAt, setStaleCacheAt] = useState<string | null>(null);
@@ -646,6 +647,7 @@ export default function MOSurfaceWaterApp() {
         gaugeCount={gauges.length}
         telemetry={telemetry}
         gaugeState={nationalGauges}
+        gaugeNote={isToday ? null : 'Replaying a past day for Eddy\u2019s rivers. Other gauges show their latest readings.'}
         showTerrain={showTerrain}
         setShowTerrain={setShowTerrain}
         showFlow={showFlow}
@@ -688,6 +690,8 @@ export default function MOSurfaceWaterApp() {
           showRiverLabels={showRiverLabels}
           nationalGauges={nationalGauges.gauges}
           onGaugeViewport={nationalGauges.onViewportChange}
+          nationalDimmed={!isToday}
+          referenceCardRef={referenceCardRef}
           selectedContextSiteId={selectedSite?.siteId ?? null}
           onClickContextSite={selectSite}
           railOpen={railOpen}
@@ -698,7 +702,7 @@ export default function MOSurfaceWaterApp() {
           onClickCampground={handleClickCampground}
           onClickAccessPoint={handleClickAccess}
           onClickPoi={handleClickPoi}
-          flowPaused={sheetExpanded || modalSelection != null || dockOpen || selectedSite != null}
+          flowPaused={sheetExpanded || modalSelection != null || dockOpen}
         />
         </div>
 
@@ -756,9 +760,8 @@ export default function MOSurfaceWaterApp() {
         </div>
 
         {selectedSite && (
-          <div className="absolute inset-x-3 bottom-3 z-30 max-h-[55dvh] overflow-y-auto md:inset-x-auto md:bottom-auto md:right-4 md:top-14 md:w-80 md:max-h-[75dvh]">
-            <ReferenceGaugeCard gauge={selectedSite} onClose={() => setSelectedSite(null)} />
-          </div>
+          <ReferenceSiteSheet gauge={selectedSite} onClose={() => setSelectedSite(null)}
+            onSheetExpandedChange={setSheetExpanded} contentRef={referenceCardRef} />
         )}
 
         {error && (
