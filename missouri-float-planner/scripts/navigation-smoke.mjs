@@ -26,11 +26,14 @@ const reports = riverMeta.map((r, i) => ({ ...r, path: `/rivers/${r.state === 'M
   primaryGaugeSiteId: `0706700${i}`, currentCondition: { code: 'good', label: 'Good', thresholdUnit: 'cfs', gaugeHeightFt: 3, dischargeCfs: r.value, readingAgeHours: .25, trend: null },
 }));
 const scheduleDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const tomorrowDate = new Date(`${scheduleDate}T00:00:00Z`);
+tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
+const scheduleDates = [scheduleDate, tomorrowDate.toISOString().slice(0, 10)];
 const dams = [['swl-table-rock-dam', 'Table Rock Dam', 'Table Rock Lake'], ['swl-bull-shoals-dam', 'Bull Shoals Dam', 'Bull Shoals Lake']].map(([id, name, lakeName]) => ({
   id, name, lakeName, state: 'MO', lat: 36.6, lon: -93.3, hasTurbines: true, generating: true,
   generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
   metrics: { release: { value: 10500, unit: 'cfs', at: timestamp, staleness: 'fresh' }, tailwaterTempF: { value: 52, unit: 'F', at: timestamp, staleness: 'fresh' } },
-  schedule: [{ scheduleDate, retrievedAt: timestamp, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 12 ? 200 : 400, cfs: i < 12 ? 10000 : 20000, isRamp: i === 12 })) }], sources: ['USACE', 'SWPA'],
+  schedule: scheduleDates.map(scheduleDate => ({ scheduleDate, retrievedAt: timestamp, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 12 ? 200 : 400, cfs: i < 12 ? 10000 : 20000, isRamp: i === 12 })) })), sources: ['USACE', 'SWPA'],
 }));
 const historyReadings = Array.from({ length: 57 }, (_, i) => ({ timestamp: new Date(Date.now() - (56 - i) * 6 * 3600000).toISOString(), dischargeCfs: 400 + Math.sin(i / 5) * 90, gaugeHeightFt: 3 + Math.sin(i / 5) * .3 }));
 const gauges = riverMeta.map((r, i) => ({
@@ -169,7 +172,9 @@ try {
       await activeRiver.getByRole('img', { name: /Flow.*trend chart/ }).waitFor();
       assert.equal(await activeRiver.getByText('Eddy says', { exact: true }).count(), 1);
       assert(await activeDam.getByText('10,500 cfs', { exact: true }).isVisible());
-      assert(await activeDam.getByRole('heading', { name: 'Today’s generation schedule' }).isVisible());
+      assert(await activeDam.getByRole('heading', { name: 'Generation schedule' }).isVisible());
+      for (const day of ['Today', 'Tomorrow']) assert(await activeDam.getByRole('region', { name: `${day}’s generation schedule`, exact: true }).getByRole('img').isVisible());
+      assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).locator('[data-schedule-now]').count(), 0);
       assert.equal(await page.getByRole('button', { name: /pause|resume rotation/i }).count(), 0);
       assert.equal(await riverCarousel.getByRole('link', { name: 'All Rivers' }).getAttribute('href'), '/rivers?kind=rivers');
       assert.equal(await damCarousel.getByRole('link', { name: 'All Dams' }).getAttribute('href'), '/dams');
@@ -185,6 +190,14 @@ try {
       const riverBox = await riverCarousel.boundingBox();
       const damBox = await damCarousel.boundingBox();
       assert(width >= 768 ? Math.abs(riverBox.y - damBox.y) < 2 : damBox.y >= riverBox.y + riverBox.height, `${name}: columns match the viewport`);
+      if (width >= 768) {
+        const riverCard = await activeRiver.locator(':scope > div').boundingBox();
+        const damCard = await activeDam.locator('article').boundingBox();
+        assert(Math.abs(riverCard.height - damCard.height) < 2, `${name}: river and dam cards have equal heights`);
+        const riverControls = await riverCarousel.getByRole('link', { name: 'All Rivers' }).boundingBox();
+        const damControls = await damCarousel.getByRole('link', { name: 'All Dams' }).boundingBox();
+        assert(Math.abs(riverControls.y - damControls.y) < 2, `${name}: carousel controls align`);
+      }
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
       assert.equal(await heroCta.textContent(), 'Build a Route');
@@ -207,9 +220,9 @@ try {
       } else {
         const nav = page.getByRole('navigation', { name: 'Main navigation' });
         assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Map', 'Conditions', 'Floats', 'Guides']);
-        await nav.getByRole('link', { name: 'Conditions' }).focus();
+        await nav.getByRole('link', { name: 'Map', exact: true }).focus();
         await page.keyboard.press('Tab');
-        assert(await nav.getByRole('link', { name: 'Map', exact: true }).evaluate(el => el === document.activeElement));
+        assert(await nav.getByRole('link', { name: 'Conditions', exact: true }).evaluate(el => el === document.activeElement));
       }
       console.log(`PASS ${name}: real homepage cards, section links, layout, and keyboard/touch menu`);
       if (width === 1440) {

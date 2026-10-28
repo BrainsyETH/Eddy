@@ -1,9 +1,8 @@
 import Link from 'next/link';
-import { ChevronRight, Clock, Thermometer, Waves } from 'lucide-react';
+import { ChevronRight, Thermometer, Waves } from 'lucide-react';
 import type { DamMetricValue, DamSnapshot } from '@/lib/data/dams';
-import { centralDayKey, relativeAge, readingStaleness, retrievalSentence, scheduleIsStale } from '@shared/dam-schedule-copy';
-import { scheduledChangeSummary, scheduledClauseProvenance } from '@shared/dam-generation';
-import DamTimeline from './DamTimeline';
+import { relativeAge, readingStaleness, retrievalSentence } from '@shared/dam-schedule-copy';
+import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 
@@ -22,19 +21,11 @@ function Reading({ label, value, metric, now, icon }: {
 
 /** Schedule and essential readings; navigation stays separate from the timeline. */
 export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now: number; href: string }) {
-  const scheduled = dam.hasTurbines ? scheduledChangeSummary(dam.schedule, dam.generationReference, now) : null;
-  const scheduleAge = scheduled ? scheduledClauseProvenance(dam.schedule, dam.generationReference, now) : null;
-  const todayKey = centralDayKey(now);
-  const today = dam.schedule.find(day => day.scheduleDate === todayKey && day.hours.length > 0);
-  const retrieval = today ? retrievalSentence(today.retrievedAt, now, 'Schedule') : null;
-  const provenance = scheduleAge ?? retrieval;
-  const checkedAge = today ? relativeAge(today.retrievedAt, now) : null;
-  const outdatedSchedule = Boolean(scheduleAge) || Boolean(today && scheduleIsStale(today.retrievedAt, now));
   const flow = dam.metrics.release;
   const temperature = dam.metrics.tailwaterTempF;
 
   return (
-    <Card as="article" variant="framed" className="h-full min-w-0">
+    <Card as="article" variant="framed" className="flex h-full min-w-0 flex-col">
       <div className="border-b border-neutral-200 bg-secondary-100 px-4 py-3 sm:px-5">
         <Link href={href} prefetch={false} className="group flex min-h-11 items-center justify-between gap-3 rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
           <div className="min-w-0">
@@ -50,30 +41,22 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
         </dl>
       </div>
 
-      <div className="px-4 py-2 sm:px-5">
+      <div className="flex flex-1 flex-col px-4 py-2 sm:px-5">
         {dam.hasTurbines && (
-          <section aria-label="Today’s generation schedule">
-            <div className="flex items-center justify-between gap-1">
-              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-primary-800"><Clock className="size-4 shrink-0" aria-hidden="true" />Today’s generation schedule</h4>
+          <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} compact info={
               <DamInfoTip title={`${dam.name} schedule`}>
                 <p>All times are Central time at the dam. Schedules may change without notice.</p>
-                <p>Teal bars show scheduled generation; orange marks Now. Select an hour for its details.</p>
-                {provenance && <p>{provenance}</p>}
+                <p>Teal bars show scheduled generation on the same capacity scale for both days; orange marks Now on today’s chart. Select an hour for its details.</p>
+                {dam.schedule.map(day => <p key={day.scheduleDate}>{day.scheduleDate}: {retrievalSentence(day.retrievedAt, now, 'Schedule')}</p>)}
               </DamInfoTip>
-            </div>
-            {scheduled && <p className="mb-3 text-sm font-semibold text-primary-900"><span className="font-normal text-neutral-500">Next: </span>{scheduled}</p>}
-            {today ? <>
-              <DamTimeline key={today.scheduleDate} day={today} reference={dam.generationReference} now={now} plainLanguage compact />
-            </> : <p className="text-sm text-neutral-500">Today’s generation schedule is unavailable.</p>}
-          </section>
+          } />
         )}
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <Link href={href} prefetch={false} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded text-sm font-semibold text-primary-700 hover:text-primary-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
             Full report<span className="sr-only"> for {dam.name}</span><ChevronRight className="size-4" aria-hidden="true" />
           </Link>
           {dam.hasTurbines && <div className="text-right text-[11px] leading-4 text-neutral-500">
-            <p>Central time{checkedAge ? ` · Checked ${checkedAge}` : ''}</p>
-            {outdatedSchedule && <p className="text-accent-700">May have changed</p>}
+            <p>Central time</p>
           </div>}
         </div>
       </div>

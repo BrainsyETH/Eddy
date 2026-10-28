@@ -109,12 +109,12 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
     track.scrollTo({ left: index * track.clientWidth, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
   }
 
-  return <div ref={section} className="grid items-start gap-5 md:grid-cols-2"
+  return <div ref={section} className="grid items-stretch gap-5 md:grid-cols-2"
     onFocusCapture={() => { interacted.current = true; }}
     onPointerDownCapture={() => { interacted.current = true; }}>
-    {KINDS.map(kind => <section key={kind} aria-label={kind === 'rivers' ? 'River reports' : 'Dam reports'} aria-roledescription="carousel" className="min-w-0">
+    {KINDS.map(kind => <section key={kind} aria-label={kind === 'rivers' ? 'River reports' : 'Dam reports'} aria-roledescription="carousel" className="flex min-w-0 flex-col">
       <div ref={element => { tracks.current[kind] = element; }}
-        className="relative flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="relative flex flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={event => {
           const track = event.currentTarget;
           if (!track.clientWidth) return;
@@ -126,7 +126,7 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
         }}>
         {reports[kind].map((destination, index) => <div key={destination.key} role="group" aria-roledescription="slide"
           aria-label={`${index + 1} of ${reports[kind].length}: ${destination.name}`} inert={index !== positions[kind]}
-          data-home-report={destination.key} className="w-full min-w-0 shrink-0 snap-start snap-always">
+          data-home-report={destination.key} className="flex w-full min-w-0 shrink-0 snap-start snap-always flex-col [&>*]:flex-1">
           {destination.kind === 'dams'
             ? <DamListCard dam={destination.dam} now={now} href={destination.href} />
             : destination.group

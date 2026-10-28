@@ -132,7 +132,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
   const href = canonicalHref ?? (riverSlug ? `/rivers/${riverSlug}` : '#');
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300">
+    <div className="flex flex-col bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300">
       {/* Header: River name + condition + reading */}
       <Link href={href} prefetch={false} className="block">
         <div className="px-4 pt-4 pb-2 sm:px-5">
@@ -201,7 +201,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
       </Link>
 
       {/* Eddy Says blurb */}
-      <div className="px-4 pb-4 pt-1 sm:px-5">
+      <div className="mt-auto px-4 pb-4 pt-1 sm:px-5">
         <div className="border rounded-lg overflow-hidden" style={surfaceStyle}>
           <div className="flex items-start gap-2.5 px-3 py-2.5">
             <div className="flex-shrink-0 w-9 h-9 relative">

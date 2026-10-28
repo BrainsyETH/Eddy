@@ -58,7 +58,7 @@ async function damSummaries(now: number): Promise<DamSnapshot[]> {
   for (const id of ids) {
     const snapshot = stored.get(id);
     if (!snapshot) continue;
-    const summary = summaryOf(refreshStaleness(snapshot, now));
+    const summary = summaryOf(refreshStaleness(snapshot, now), now);
     if (summary) fromStore.set(id, summary);
   }
 

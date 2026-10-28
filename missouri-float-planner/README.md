@@ -46,6 +46,8 @@ query-only navigation. Loading catalogue data never replaces an incoming deep li
 The homepage shows **River and Dam Conditions**, the two route actions, river
 guides, and the iPhone app. Its two report columns reuse the Conditions directory's
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
+Desktop cards stretch to the same height with aligned report footers and carousel
+controls; stacked mobile cards keep their natural height.
 Each column shows one report, rotating horizontally every eight seconds while
 visible; the columns stack on mobile and support swipe and previous/next arrows.
 Hover temporarily holds rotation. Keyboard focus or pointer interaction stops
@@ -85,19 +87,25 @@ components, including river charts, gauge details, Eddy summaries and condition
 artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
 Dam cards share the full report’s framed border and warm reading surface, with a
-compact header, inline next change, and shorter chart for today’s schedule.
-Teal generation bars and an orange Now marker match iOS. The footer combines the
-report link, Central time, and schedule age; longer provenance lives in the info
-dialog, with “May have changed” still visible when the schedule is outdated.
+compact header, inline next change, and stacked compact charts for Today and Tomorrow.
+Teal generation bars and an orange Now marker match iOS. Each day shows its own
+schedule check age and stale indicator. The footer combines the report link and
+Central time; longer provenance lives in the info dialog, with “May have changed”
+still visible when the schedule is outdated.
 Unavailable release readings are marked explicitly; turbine flow is not
 substituted for total release.
 
-Hydroelectric dam cards also show today's hourly generation timeline directly,
-using the same `DamTimeline` as the full report. Today means Central time at the
-dam; another day's schedule never substitutes for a missing one. Hover, tap or
+Hydroelectric dam cards and full reports share `GenerationSchedule`, showing
+Today and Tomorrow directly with the same `DamTimeline`, date labels, per-day
+freshness, and capacity scale. Dates use the Central calendar at the dam,
+including clock changes; another day's schedule never substitutes for a missing
+one. Unposted tomorrow schedules show a message instead of a zero-generation
+chart, and only today carries the Now marker. Hover, tap or
 arrow keys reveal hourly details in place. Only the dam heading and Full report
 link navigate, so inspecting a schedule keeps the current search and filters.
-Additional schedule days remain on the full report.
+Days after tomorrow remain collapsed on the full report. Stored summaries select
+the current Central calendar window, so a snapshot from before midnight keeps
+a posted tomorrow rather than retaining yesterday’s slot.
 
 Both entry points use the “Conditions” heading, Eddy's canoe artwork and the
 cross-river summary. A compact A–Z link directory keeps every destination
@@ -134,8 +142,8 @@ five-minute refresh schedule and mark missing readings on the affected cards.
 Only a wholly unavailable stored catalogue triggers an immediate API retry.
 The directory never waits for live upstream dam feeds.
 Missing dam observations keep the destination searchable with no
-invented measurements. The directory does not add reservoir levels or change
-`/api/dams` or iOS payloads.
+invented measurements. The directory does not add reservoir levels; `/api/dams` and iOS payload
+shapes stay unchanged.
 
 `npm run test:conditions` runs the actual directory layout with local fixtures
 in Chromium at desktop, tablet, 390px and 320px widths. It covers server-rendered
@@ -324,8 +332,9 @@ changes can reset immediately instead of retaining the bottom of the old page.
 
 Dam pages keep measured generation and the posted schedule in one card, with
 separate labelled sections. Desktop and landscape phones place the reading
-beside the wider hourly chart; portrait phones stack them. The first available
-schedule day is expanded, and later days can be opened individually. The generation pattern
+beside the wider hourly chart; portrait phones stack them. Today and Tomorrow
+are always visible when schedule data is available; later posted days can be
+opened individually. The generation pattern
 always includes upcoming scheduled hours alongside measured history. Six-hour
 time labels above and below the pattern align with guides in every row; days
 with a clock change also carry their own correctly positioned time labels. Missing observations remain gaps and retain the full day axis.
