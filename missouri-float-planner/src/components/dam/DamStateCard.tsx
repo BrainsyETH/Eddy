@@ -15,7 +15,8 @@
 //  - Stale readings drop their emphasis rather than being hidden — a number
 //    with an honest age beats no number.
 
-import { Waves, Zap, Thermometer, Droplets, Fish, Ruler, Clock } from 'lucide-react';
+import { Zap, Clock } from 'lucide-react';
+import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 import type { DamSnapshot } from '@/lib/data/dams';
 import Card from '@/components/ui/Card';
 // One freshness voice across the dam surfaces, and across web and iOS. See
@@ -57,7 +58,8 @@ function Stat({
   sub,
   dim,
 }: {
-  icon: React.ReactNode;
+  /** The same Eddy mark the app's DamStateCard draws for this stat. */
+  icon: EddyIconName;
   label: string;
   value: string;
   suffix?: string;
@@ -66,8 +68,10 @@ function Stat({
 }) {
   return (
     <div className={dim ? 'opacity-60' : undefined}>
-      <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
-        {icon}
+      {/* min-h-8 holds the row at the 28px mark's height, so a stat whose
+          art is shorter does not sit higher than its neighbours. */}
+      <div className="flex min-h-8 items-center gap-1.5 text-xs font-medium text-neutral-500">
+        <EddyIcon name={icon} size={28} />
         {label}
       </div>
       <div className="mt-1 font-mono text-xl text-primary-800">
@@ -204,7 +208,7 @@ export default function DamStateCard({
             dams on the detail page. The index still needs its own figure. */}
         {release && !secondary && (
           <Stat
-            icon={<Waves className="h-3.5 w-3.5" />}
+            icon="release"
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}
             value={formatCfs(release.value)}
             sub={
@@ -229,7 +233,7 @@ export default function DamStateCard({
             tailwaterMovementSentence for why the age can never be dropped. */}
         {tailwaterStage && (
           <Stat
-            icon={<Ruler className="h-3.5 w-3.5" />}
+            icon="damGauge"
             label="River level below dam"
             value={`${tailwaterStage.value.toFixed(2)} ft`}
             sub={tailwaterMovementSentence(tailwaterStage, now)}
@@ -238,7 +242,7 @@ export default function DamStateCard({
         )}
         {tailwaterTemp && (
           <Stat
-            icon={<Thermometer className="h-3.5 w-3.5" />}
+            icon="waterTemperature"
             label="Water temp below dam"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
@@ -247,7 +251,7 @@ export default function DamStateCard({
         )}
         {pool && (
           <Stat
-            icon={<Droplets className="h-3.5 w-3.5" />}
+            icon="damGauge"
             label="Lake level"
             value={`${pool.value.toFixed(2)} ft`}
             sub={floodPool ? `${floodPool.value.toFixed(0)}% flood pool` : relativeAge(pool.at, now)}
@@ -261,7 +265,7 @@ export default function DamStateCard({
             operator is actually targeting. */}
         {inflow && (
           <Stat
-            icon={<Droplets className="h-3.5 w-3.5" />}
+            icon="inflow"
             label={inflow.dailyMean ? 'Inflow (daily avg)' : 'Inflow'}
             value={formatCfs(inflow.value)}
             // Age included for the same reason as the tailwater reading: this
@@ -282,7 +286,7 @@ export default function DamStateCard({
             below Stockton. */}
         {dam.tailwaterFishery && (
           <Stat
-            icon={<Fish className="h-3.5 w-3.5" />}
+            icon="fishery"
             label="Fishery below dam"
             value={dam.tailwaterFishery === 'trout' ? 'Trout' : 'Warmwater'}
             sub={
