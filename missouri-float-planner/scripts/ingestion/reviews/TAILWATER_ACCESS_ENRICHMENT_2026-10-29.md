@@ -21,7 +21,7 @@ exact prior facilities text where it was replaced.
 | Field | Before | After |
 | --- | --- | --- |
 | Description | 8 | 38 (the 8 reviewed on 2026-10-17 kept as they were) |
-| Fee | 38 "no fee" by column default | 2 fee, 4 verified free, 32 unknown (NULL) |
+| Fee | 38 "no fee" by column default | 2 fee, 3 verified free, 33 unknown (NULL) |
 | Parking info | 0 | 27 |
 | Road access | 0 | 19 |
 | Road surface | 0 | 5 |
@@ -30,8 +30,8 @@ exact prior facilities text where it was replaced.
 
 Fees: Dam-Quarry Boat Ramp (Corps day-use fee) and Dam-Quarry Campground
 ($24–$80 a night) charge. Cotter Access, Armstrong Hole and Roundhouse Shoals
-(Cotter ordinance: city parks free unless reserved) and Calico Rock (city
-parks "free and open to the public") are free. No official source states that
+(Cotter ordinance: city parks free unless reserved) are free; Calico Rock was
+set free from a city statement and returned to unknown after review (below). No official source states that
 AGFC or MDC accesses are free, so those stay unknown. The access page now
 shows "No fee" only for an explicit `false` (see this PR's FacilitiesSection
 change).
@@ -57,17 +57,20 @@ station), and the unsourced "~20/~40 rigs" counts on four Taneycomo ramps.
 - **Managing agency:** the column has no Arkansas Game and Fish value, so AGFC
   ramps stay blank there; ownership already says AGFC.
 
+## Decisions after review (2026-10-29, Evan)
+
+- **Gaston's Access** is a private access: `is_public = false`, ownership
+  `private`, managing agency `Private`. It stays an access point and a float
+  endpoint, so White's `tailwaterPilot.floatEndpoints` is unchanged.
+- **Empire Park** is public; who owns it does not matter for Eddy. Already
+  `is_public = true`; no change.
+- **Calico Rock** is an AGFC access (ownership already `AGFC`). Its description
+  now says so, and its fee returns to unknown, because the only "free" source
+  was the city's statement about city parks.
+
 ## Open questions from the research
 
-- **Gaston's Access:** only AGFC's GIS lists the ramp as AGFC-owned; AGFC's
-  tailwater map and its 2018 list of public accesses omit it. It is a published
-  float endpoint. Confirm it is public before relying on it.
-- **Empire Park:** MDC calls it "Empire Electric Park" and an MDC map shows an
-  Empire District Electric recreation area nearby, so stored "City" ownership
-  may be wrong.
 - **Branson City Ramp:** the city does not say whether non-guests of the RV
   park may launch there.
-- **Calico Rock:** AGFC lists the ramp as AGFC-owned while the city lists a
-  boat ramp among its parks; ownership unresolved.
 - The Corps' Little Rock District site and several AGFC pages returned 403 to
   the research, so the Dam-Quarry fee amount was not found.
