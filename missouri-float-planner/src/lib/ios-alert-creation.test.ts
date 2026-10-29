@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { alertAnchor, alertDraftChanged, createAlertSaveTask, type AlertDraft } from '../../../eddy-ios/src/lib/alertCreation';
 import { hourLabel, quietDraftChanged, quietWindowValid } from '../../../eddy-ios/src/lib/quietHours';
 import { alertCheckedLabel, shouldRefreshAlerts, ALERT_STALE_MS } from '../../../eddy-ios/src/lib/alertFreshness';
@@ -132,4 +133,15 @@ test('public sources independently expire after 15 minutes, not every focus', ()
   assert.equal(alertCheckedLabel(null, now), null);
   assert.equal(alertCheckedLabel(now, now), 'Last checked just now');
   assert.equal(alertCheckedLabel(now - 7_200_000, now), 'Last checked 2h ago');
+});
+
+test('the saved-alert screen waits for registration before saying Eddy will retry', () => {
+  // After signing in on this screen, `registered` is false until the
+  // registration that follows sign-in lands. The retry sentence there read as
+  // a failure for a phone that was fine; the screen now re-checks once on
+  // save and shows a neutral line until that settles.
+  const screen = readFileSync('../eddy-ios/app/alerts/(create)/configure.tsx', 'utf8');
+  assert.match(screen, /void pushRefresh\.current\(\)\.catch\(\(\) => undefined\)\.finally\(\(\) => setPushCheck\('settled'\)\)/);
+  assert.match(screen, /!push\.registered && pushCheck === 'checking'\s*\?\s*'Connecting this iPhone for notifications…'/);
+  assert.doesNotMatch(screen, /setCompletion\(\{/, 'every completion goes through showCompletion');
 });

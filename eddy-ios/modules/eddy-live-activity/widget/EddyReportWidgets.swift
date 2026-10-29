@@ -111,7 +111,8 @@ private struct DamGenerationCard: View {
                 .accessibilityLabel("Observed turbine flow, " + (moment?.turbineCfs.map { "\($0) cubic feet per second" } ?? "unavailable"))
               HStack(spacing: 3) {
                 Image(systemName: moment?.current == true && moment?.generationKind == "generating" ? "bolt.fill" :
-                  (moment?.current == true && moment?.generationKind == "not-generating" ? "bolt.slash" : "questionmark.circle"))
+                  (moment?.current == true && moment?.generationKind == "not-generating"
+                    ? (moment?.minimumFlow == true ? "drop" : "bolt.slash") : "questionmark.circle"))
                   .accessibilityHidden(true)
                 Text(moment?.compactStatus ?? "Unavailable").lineLimit(2)
               }.font(.caption2.weight(.medium))
@@ -159,7 +160,9 @@ private struct DamScheduleChart: View {
       HStack(spacing: 3) {
         Text("Schedule · CT").fontWeight(.semibold)
         Spacer(minLength: 0)
-        if day.hours.contains(where: { $0.megawatts != nil }) {
+        if day.minimumFlowOnly {
+          Text("Minimum flow").foregroundStyle(.secondary)
+        } else if day.hours.contains(where: { $0.megawatts != nil }) {
           Text("\(day.peak.formatted(.number.precision(.fractionLength(0)))) MW")
             .foregroundStyle(.secondary).accessibilityLabel("Schedule peak \(day.peak.formatted()) megawatts")
         }
@@ -175,8 +178,10 @@ private struct DamScheduleChart: View {
             }
             if let mw = hour.megawatts {
               RoundedRectangle(cornerRadius: 1.5)
-                .fill(mw > 0 ? WidgetBrand.water(dark: scheme == .dark) : Color.secondary.opacity(0.45))
-                .frame(height: mw > 0 ? max(5, height * mw / max(day.peak, 1)) : 3)
+                // Minimum flow is a low baseline like an idle hour, never a
+                // generation bar.
+                .fill(hour.generating ? WidgetBrand.water(dark: scheme == .dark) : Color.secondary.opacity(0.45))
+                .frame(height: hour.generating ? max(5, height * mw / max(day.peak, 1)) : 3)
             } else {
               // A missing hour is hollow, visibly different from a zero bar.
               RoundedRectangle(cornerRadius: 1.5).strokeBorder(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [2]))
@@ -184,7 +189,9 @@ private struct DamScheduleChart: View {
             }
           }.frame(maxWidth: .infinity, maxHeight: height + 7, alignment: .bottom)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(hour.label): " + (hour.megawatts.map { "\($0.formatted()) megawatts scheduled" } ?? "schedule unavailable") + (selected ? ", current hour" : ""))
+            .accessibilityLabel("\(hour.label): " + (hour.megawatts == nil ? "schedule unavailable"
+              : hour.minimumFlow == true ? "minimum flow scheduled"
+              : "\(hour.megawatts!.formatted()) megawatts scheduled") + (selected ? ", current hour" : ""))
         }
       }
       HStack(spacing: 0) {

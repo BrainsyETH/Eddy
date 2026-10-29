@@ -182,6 +182,12 @@ function ProfileContent() {
   const [firstRunCleared, setFirstRunCleared] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
+  // "Couldn't check" is for a permanent account only: it may be a subscriber,
+  // who must never be shown Free. A guest cannot hold an entitlement (purchases
+  // are configured only for a signed-in account, see src/lib/purchases.ts), so
+  // a failed profile read on a guest still means Free plan and the paywall,
+  // which signs them in before buying.
+  const subscriptionUnknown = signedIn && Boolean(error) && !entitlement;
 
   /**
    * The other half of confirmPending: one more server poll, then the truth.
@@ -658,7 +664,7 @@ function ProfileContent() {
                     ? 'Premium is active'
                     : entitlement?.billingIssue
                       ? 'Premium is inactive'
-                      : error && !entitlement
+                      : subscriptionUnknown
                         ? 'Subscription unknown'
                         : 'Free plan'}
                 </Text>
@@ -670,7 +676,7 @@ function ProfileContent() {
                 >
                   {!loaded
                     ? 'Checking…'
-                    : error && !entitlement
+                    : subscriptionUnknown
                       // Not "Free plan": a subscriber at a put-in with one bar
                       // has not lost anything, Eddy just could not ask.
                       ? 'Couldn’t check your subscription. Pull down to try again when you have a connection.'
@@ -685,7 +691,7 @@ function ProfileContent() {
               </View>
             </View>
 
-            {loaded && !entitlement?.isActive && !(error && !entitlement) && (!confirmPending || confirmWindowClosed) && (
+            {loaded && !entitlement?.isActive && !subscriptionUnknown && (!confirmPending || confirmWindowClosed) && (
               <Pressable
                 onPress={handlePremiumAction}
                 disabled={busy !== null}

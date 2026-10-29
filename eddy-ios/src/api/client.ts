@@ -1146,10 +1146,20 @@ export async function fetchGaugeHistory(
     // only the successful-response arm changes shape.
     return (normalizeGaugeHistory(raw) as GaugeHistoryResponse | null) ?? null;
   } catch (err) {
-    // 404, and 400 too: the server read this exact request and said this
-    // station or range has no history it can serve (a provider without daily
-    // values, a custom range it refuses). That is an answer, cacheable for
-    // this key, not a failure offered a "Try again" that can never succeed.
+    // A 400 to a request that carried `tz` may be the server refusing that
+    // zone (one a shared link or an older cache carried, or one this phone's
+    // ICU knows and the server's does not). That says nothing about the
+    // station, so it must not be cached as "no history": ask once more
+    // without it and let the server use the station's own zone, which the
+    // response then reports in `timeZone`.
+    if (err instanceof ApiError && err.status === 400 && stationCalendar && timeZone && !signal?.aborted) {
+      return fetchGaugeHistory(siteId, days, signal, window, resolution, stationCalendar, undefined);
+    }
+    // 404, and a 400 to a request without a zone: the server read this exact
+    // request and said this station or range has no history it can serve (a
+    // provider without daily values, a custom range it refuses). That is an
+    // answer, cacheable for this key, not a failure offered a "Try again"
+    // that can never succeed.
     if (err instanceof ApiError && (err.status === 404 || err.status === 400)) return null;
     return undefined;
   }

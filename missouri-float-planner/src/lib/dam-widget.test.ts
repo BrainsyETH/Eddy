@@ -6,7 +6,7 @@ import ts from 'typescript';
 import { damWidgetSnapshot } from '../../shared/dam-widget';
 import * as generation from '../../shared/dam-generation';
 import * as scheduleCopy from '../../shared/dam-schedule-copy';
-import { damFavoriteDisplay } from '../../../eddy-ios/src/lib/damFavoriteDisplay';
+import { damFavoriteDisplay, packetHourGenerating } from '../../../eddy-ios/src/lib/damFavoriteDisplay';
 import type { DamSnapshot } from '../../shared/dam-types';
 import { USACE_DAMS, hasPowerhouse } from './flow-providers/usace-registry';
 
@@ -233,7 +233,7 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
     '@/components/KindMark': { KindMark: 'KindMark' },
     '@/components/dam/DayBars': { DayBars: 'DayBars' },
     '@/hooks/useObservationClock': { useObservationClock: () => now },
-    '@/lib/damFavoriteDisplay': { damFavoriteDisplay },
+    '@/lib/damFavoriteDisplay': { damFavoriteDisplay, packetHourGenerating },
     '@/theme/ThemeProvider': { useTheme: () => ({ colors: {}, elevation: () => ({}) }) },
     '@/theme/typography': { fonts: {}, type: {} },
     '@/theme/layout': { radii: {} },
@@ -318,4 +318,85 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
   assert.ok(details);
   assert.match(String(details.props.accessibilityLabel), /12 PM: 100 megawatts, current hour/);
   assert.doesNotMatch(String(details.props.accessibilityLabel), /subject to change/i);
+
+  // Bull Shoals on a minimum-flow day: the card says "Minimum flow", never
+  // "No generation", and draws every posted hour as a low baseline, not a
+  // full-height generation bar captioned with its 7 MW.
+  const bullShoals = minimumFlowFixture();
+  damById.set(bullShoals.id, bullShoals);
+  nodes.length = 0;
+  render({ kind: 'dam', entityId: bullShoals.id });
+  assert.match(text(), /Minimum flow/);
+  assert.doesNotMatch(text(), /No generation|7 MW/);
+  // The hour bars: the card's `bar` style (radius 1.5) plus a per-hour height.
+  const heights = nodes.map(node => [node.props.style].flat() as Array<Record<string, unknown> | undefined>)
+    .filter(styles => styles[0]?.borderRadius === 1.5)
+    .map(styles => styles[1]?.height);
+  assert.equal(heights.length, 24);
+  assert.ok(heights.every(height => height === 3), `minimum-flow hours drew generation bars: ${heights}`);
+  const minimumDetails = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
+  assert.match(String(minimumDetails!.props.accessibilityLabel), /Minimum flow\./);
+  assert.match(String(minimumDetails!.props.accessibilityLabel), /12 PM: minimum flow, current hour/);
+});
+
+/** Bull Shoals passing its minimum flow through a unit at low output. */
+function minimumFlowFixture(): DamSnapshot {
+  const dam = fixture();
+  dam.minimumFlowThroughTurbine = true;
+  dam.generationFloorCfs = 850;
+  dam.generating = false;
+  dam.metrics.generationFlow!.value = 730;
+  dam.schedule[0].hours = Array.from({ length: 24 }, (_, i) => ({
+    hourEnding: i + 1, megawatts: 7, cfs: 500, isRamp: false, minimumFlow: true,
+  }));
+  return dam;
+}
+
+test('a minimum-flow day reads "Minimum flow" with no generation bars or peak, on Favorites and in the widget packet', () => {
+  const dam = minimumFlowFixture();
+  const packet = damWidgetSnapshot(dam, now);
+  assert.equal(packet.entries[0].status, 'Minimum flow');
+  assert.equal(packet.entries[0].minimumFlow, true);
+  assert.deepEqual(packet.scheduleDays[0].hours[0], { hourEnding: 1, label: '12 AM', megawatts: 7, minimumFlow: true });
+  const display = damFavoriteDisplay(dam, now);
+  assert.equal(display.status, 'Minimum flow');
+  assert.equal(display.peak, 0);
+  assert.equal(display.scheduleCaption, 'Minimum flow');
+  assert.ok(display.schedule!.hours.every(hour => !packetHourGenerating(hour)));
+  assert.doesNotMatch(display.scheduleDescription, /megawatts|no generation/i);
+  assert.match(display.scheduleDescription, /12 PM: minimum flow, current hour/);
+  // An older reading keeps its age wording; it never becomes "No generation".
+  assert.equal(damFavoriteDisplay(dam, now + 3 * 3600_000).status, 'Older reading');
+});
+
+test('a mixed day scales and captions only the scheduled generation', () => {
+  const dam = minimumFlowFixture();
+  for (let i = 10; i < 16; i++) dam.schedule[0].hours[i] = { hourEnding: i + 1, megawatts: 200, cfs: 9000, isRamp: false };
+  dam.metrics.generationFlow!.value = 9000;
+  dam.generating = true;
+  const display = damFavoriteDisplay(dam, now);
+  assert.equal(display.status, 'Generating');
+  assert.equal(display.peak, 200);
+  assert.equal(display.scheduleCaption, '200 MW');
+  assert.equal(display.schedule!.hours.filter(packetHourGenerating).length, 6);
+  assert.match(display.scheduleDescription, /9 AM: minimum flow; 10 AM: 200 megawatts/);
+});
+
+test('dams without minimum flow keep their packet shape, caption and status', () => {
+  const packet = damWidgetSnapshot(fixture(), now);
+  assert.equal(packet.entries[0].minimumFlow, false);
+  assert.ok(packet.scheduleDays[0].hours.every(hour => !('minimumFlow' in hour)));
+  const display = damFavoriteDisplay(fixture(), now);
+  assert.equal(display.scheduleCaption, '100 MW');
+  const idle = fixture();
+  idle.metrics.generationFlow!.value = 20;
+  idle.schedule[0].hours.forEach(hour => { hour.megawatts = 0; });
+  const idleDisplay = damFavoriteDisplay(idle, now);
+  assert.equal(idleDisplay.status, 'No generation');
+  assert.equal(idleDisplay.scheduleCaption, '0 MW');
+  // A server from before #1655 sends no minimumFlow flag: the hour is read as
+  // posted load, exactly as older builds did.
+  assert.equal(packetHourGenerating({ megawatts: 7 }), true);
+  assert.equal(packetHourGenerating({ megawatts: null }), false);
+  assert.equal(packetHourGenerating({ megawatts: 0 }), false);
 });

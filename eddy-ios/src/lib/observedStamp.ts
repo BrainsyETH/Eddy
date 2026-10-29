@@ -19,6 +19,18 @@ function deviceZone(): string {
   }
 }
 
+/**
+ * The zone a gauge chart draws in: the station's when the history response
+ * names it, otherwise the phone's, as builds before the station calendar did.
+ * A response without `timeZone` (an older deploy, or a station whose zone the
+ * server could not look up) is not a statement that the station keeps UTC;
+ * labelling a Missouri gauge's 9 PM reading "2 AM" was the regression. Only a
+ * zone actually named UTC draws, and says, UTC.
+ */
+export function historyTimeZone(zone?: string | null): string {
+  return zone || deviceZone();
+}
+
 export function observedStamp(timestamp: string | null | undefined, timeZone?: string | null): string | null {
   if (!timestamp || !Number.isFinite(Date.parse(timestamp))) return null;
   try {

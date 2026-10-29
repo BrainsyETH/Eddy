@@ -61,6 +61,21 @@ import Foundation
     let legacy = try JSONDecoder().decode(WidgetDamPacket.self, from: Data(legacyJSON.utf8))
     precondition(legacy.scheduleDays == nil && legacy.entries[0].generationKind == nil)
     precondition(legacy.todaySchedule(at: now) == nil)
+    // Minimum flow (a unit at low output) is never a generation bar, a peak,
+    // or "No generation"; packets without the key keep the old reading.
+    var minimumDay = schedule
+    minimumDay.hours = minimumDay.hours.map { hour in
+      var copy = hour
+      if copy.megawatts != nil { copy.megawatts = 7; copy.minimumFlow = true }
+      return copy
+    }
+    precondition(minimumDay.peak == 0 && minimumDay.minimumFlowOnly && !minimumDay.hours.contains(where: \.generating))
+    precondition(schedule.peak == 100 && !schedule.minimumFlowOnly)
+    var minimumMoment = damMoment
+    minimumMoment.generationKind = "not-generating"
+    precondition(minimumMoment.compactStatus == "No generation")
+    minimumMoment.minimumFlow = true
+    precondition(minimumMoment.compactStatus == "Minimum flow")
     let forecast = WidgetForecastCache(retrievedAt: now.timeIntervalSince1970 * 1000,
       response: WidgetForecastResponse(river: "current", location: "Akers", forecast: [
         WidgetForecastDay(date: formatter.string(from: now), tempHigh: 74, tempLow: 51, condition: "Clear", precipitation: 20)

@@ -8,6 +8,7 @@ import { captureNativeChart, nativeChartView } from '@/lib/chartSharing';
 import { ChartShareControl } from '@/components/ChartShareControl';
 import { ControlIcon } from '@/components/ControlIcon';
 import { chartDateRange } from '@/lib/chartDateRange';
+import { historyTimeZone } from '@/lib/observedStamp';
 import { Component, useCallback, useMemo, useState, useRef, useLayoutEffect, useId, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
@@ -261,7 +262,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   const lastYearEligible = lastYearAvailable(unitOverride ?? unit, resolveHistoryCapabilities(provider, historyCapabilities), days);
   const selectedWindow = historyState.matchesRequest ? historyState.history?.requestedWindow ?? null : null;
   // Custom windows are sent as local midnight, so local dates are the picked dates.
-  const lastYearDates = useMemo(() => selectedWindow ? windowCalendarDates(selectedWindow, historyState.history?.timeZone ?? 'UTC') : null, [selectedWindow, historyState.history?.timeZone]);
+  const lastYearDates = useMemo(() => selectedWindow ? windowCalendarDates(selectedWindow, historyTimeZone(historyState.history?.timeZone)) : null, [selectedWindow, historyState.history?.timeZone]);
   const lastYearWindow = useMemo(
     () => showLastYear && lastYearEligible && lastYearDates ? priorYearWindow(lastYearDates) : null,
     [showLastYear, lastYearEligible, lastYearDates],
@@ -457,7 +458,7 @@ function GaugeChartView({
   const prepared = useMemo(() => nativeChartView({
     readings: history?.readings ?? [], forecast: history?.forecast ?? [], typical: history?.typical ?? [],
     prior: lastYearShown && matchesRequest ? lastYear.readings ?? [] : [],
-    loaded: history?.requestedWindow ?? { from: '', to: '' }, timeZone: history?.timeZone ?? 'UTC', unit: drawnUnit,
+    loaded: history?.requestedWindow ?? { from: '', to: '' }, timeZone: historyTimeZone(history?.timeZone), unit: drawnUnit,
     layers: [...(showTypical ? ['typical' as const] : []), ...(showMedian ? ['median' as const] : []), ...(lastYearShown ? ['lastYear' as const] : [])],
     scale: fullScale ? 'full' : 'loaded', references: domainContext,
   }), [history, lastYearShown, matchesRequest, lastYear.readings, drawnUnit, showTypical, showMedian, fullScale, domainContext]);
@@ -778,7 +779,7 @@ function GaugeChartView({
   const readoutZone = readoutPoint?.kind === 'observed'
     ? zones.find(zone => readoutPoint.point.v <= zone.max || zone.openEnded) : null;
   /** The same date last year, or nothing — never a neighbouring day. */
-  const priorFor = (at: ScrubbedPoint | null) => at?.kind === 'observed' ? priorYearPointFor(priorPoints, at.point, history?.timeZone ?? 'UTC') : null;
+  const priorFor = (at: ScrubbedPoint | null) => at?.kind === 'observed' ? priorYearPointFor(priorPoints, at.point, historyTimeZone(history?.timeZone)) : null;
   const priorText = (at: ScrubbedPoint | null) => {
     const prior = priorFor(at);
     return prior ? `Last year · ${formatReading(prior.v, 'cfs')} · ${priorDate(prior.sourceDate)}` : 'Last year · —';
@@ -821,7 +822,7 @@ function GaugeChartView({
    * stepped-to reading is announced through accessibilityValue below.
    */
   const plotSummary = (() => {
-    const window = history?.requestedWindow ? `${chartStamp(history.requestedWindow.from, history.timeZone ?? 'UTC')} to ${chartStamp(history.requestedWindow.to, history.timeZone ?? 'UTC')}` : drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
+    const window = history?.requestedWindow ? `${chartStamp(history.requestedWindow.from, historyTimeZone(history.timeZone))} to ${chartStamp(history.requestedWindow.to, historyTimeZone(history.timeZone))}` : drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
     const measure = drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height';
     const bits = [
       newest
@@ -856,7 +857,7 @@ function GaugeChartView({
   const spokenValue = (() => {
     const at = readoutPoint;
     if (!at) return null;
-    const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t, history?.timeZone ?? 'UTC')}`];
+    const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t, historyTimeZone(history?.timeZone))}`];
     if (at.kind === 'forecast') bits.push('NWS forecast');
     else {
       if (history?.resolution === 'daily') bits.push(observedLabel);
@@ -940,7 +941,7 @@ function GaugeChartView({
     setDateErrors({});
   };
   const applyDates = () => {
-    const result = validateChartDates(fromDate, toDate, Date.now(), history?.timeZone ?? 'UTC');
+    const result = validateChartDates(fromDate, toDate, Date.now(), historyTimeZone(history?.timeZone));
     if (result.errors) { setDateErrors(result.errors); return; }
     setDateErrors({}); clearScrub(); chooseDays(result.days);
     setCustomWindow(result.window); closeSheet();
@@ -1013,13 +1014,13 @@ function GaugeChartView({
             <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Last year · daily average</Text>
           </View> : null}
         </View> : null}
-        {history && (!history.timeZone || history.timeZone === 'UTC') ? (
+        {history && historyTimeZone(history.timeZone) === 'UTC' ? (
           <Text style={[styles.caption, { color: colors.textMuted }]}>Times shown in UTC</Text>
         ) : null}
         {history && !matchesRequest ? <View style={styles.rangeStatus}>
           <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
             {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}
-            Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to, history.timeZone ?? 'UTC') : drawnRangeLabel.toLowerCase()}.
+            Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to, historyTimeZone(history.timeZone)) : drawnRangeLabel.toLowerCase()}.
           </Text>
           {!loading ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
             <Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text>
@@ -1029,7 +1030,7 @@ function GaugeChartView({
           compact={width > availableHeight && fontScale <= 1.5}
           value={readoutPoint ? formatReading(readoutPoint.point.v, drawnUnit) : '—'}
           band={readoutPoint?.kind === 'observed' ? readoutZone?.label : undefined}
-          time={readoutPoint ? scrubTime(readoutPoint.point.t, history?.timeZone ?? 'UTC') : 'Touch the chart to explore'}
+          time={readoutPoint ? scrubTime(readoutPoint.point.t, historyTimeZone(history?.timeZone)) : 'Touch the chart to explore'}
           source={readoutPoint?.kind === 'forecast' ? 'NWS forecast' : observedLabel}
           quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null}
           comparison={priorPoints.length ? priorText(readoutPoint) : null} /> : null}
@@ -1093,12 +1094,12 @@ function GaugeChartView({
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
                 {nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
-              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, viewport ? (viewport.end - viewport.start) / 86_400_000 : drawnDays, history?.timeZone ?? 'UTC')}</SvgText>)}
+              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, viewport ? (viewport.end - viewport.start) / 86_400_000 : drawnDays, historyTimeZone(history?.timeZone))}</SvgText>)}
             </Svg>
             {scrubbed && !expanded && active ? <GaugeChartReadout key={`${drawnUnit}-${fontScale}`} width={width} height={chartHeight}
               point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
               finger={finger}
-              value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t, history?.timeZone ?? 'UTC')}
+              value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t, historyTimeZone(history?.timeZone))}
               source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers}
               comparison={priorPoints.length && scrubbed.kind === 'observed' ? priorText(scrubbed) : null} /> : null}
           </View>
