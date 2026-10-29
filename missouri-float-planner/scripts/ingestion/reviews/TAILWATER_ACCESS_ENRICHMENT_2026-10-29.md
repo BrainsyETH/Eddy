@@ -64,13 +64,13 @@ station), and the unsourced "~20/~40 rigs" counts on four Taneycomo ramps.
   endpoint, so White's `tailwaterPilot.floatEndpoints` is unchanged.
 - **Empire Park** is public; who owns it does not matter for Eddy. Already
   `is_public = true`; no change.
+- **Branson City Ramp** is public and anyone can launch, not only RV park
+  guests. Description and tip now say so (the RV office hours tip is removed).
 - **Calico Rock** is an AGFC access (ownership already `AGFC`). Its description
   now says so, and its fee returns to unknown, because the only "free" source
   was the city's statement about city parks.
 
 ## Open questions from the research
 
-- **Branson City Ramp:** the city does not say whether non-guests of the RV
-  park may launch there.
 - The Corps' Little Rock District site and several AGFC pages returned 403 to
   the research, so the Dam-Quarry fee amount was not found.
