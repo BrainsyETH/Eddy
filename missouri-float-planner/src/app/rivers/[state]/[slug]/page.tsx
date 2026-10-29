@@ -12,7 +12,7 @@ import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { stateSlug, stateName } from '@/lib/navigation/states';
-import NearbyServices from '@/components/river/NearbyServices';
+import RiverServices from '@/components/river/RiverServices';
 import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
@@ -496,9 +496,8 @@ export default async function RiverGuidePage({ params }: Props) {
           </section>
 
           {river.float_tip && <p className="mt-5 text-sm text-neutral-600">{river.float_tip}</p>}
-          <section className="mt-8" aria-label="Campgrounds and nearby services">
-            <NearbyServices riverSlug={slug} defaultOpen />
-          </section>
+          {/* Campgrounds and Outfitters as two short lists, as in the app. */}
+          <RiverServices riverSlug={slug} sectionClassName="scroll-mt-28 pt-10" />
 
           {/* ===== River guide (blog) ===== */}
           {guidePost && (

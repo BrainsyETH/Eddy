@@ -116,6 +116,9 @@ const config: Config = {
       },
       fontFamily: {
         heading: ['var(--font-heading)', 'system-ui', 'sans-serif'],
+        // Fredoka, the brand display face. Without this entry `font-display`
+        // compiled to nothing and headings fell back to the body font.
+        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
         body: ['var(--font-body)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'monospace'],
         // Fallback for legacy code
