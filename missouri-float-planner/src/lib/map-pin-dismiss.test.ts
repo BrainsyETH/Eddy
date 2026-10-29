@@ -188,6 +188,28 @@ test('tapping the still-selected river after background dismissal reopens its sh
   assert.equal(state.takeOut, takeOut);
 });
 
+// While the compact planner waits for an endpoint, a tap that misses a pin is a
+// near-miss, not a request to stop. Ending planning there left the put-in set
+// with nothing drawing it and "Use as take-out" offered against it.
+test('a missed tap while choosing an endpoint closes only the pin', () => {
+  for (const step of ['put-in', 'take-out']) {
+    const { state, run } = scene(true);
+    state.step = step;
+    state.selectedPin = { id: 'gauge:1' };
+    run('dismissMapSelection');
+    assert.equal(state.selectedPin, null);
+    assert.equal(state.mapPlanRiver, slug, `blank tap at ${step} ended planning`);
+
+    state.selectedPin = { id: 'gauge:1' };
+    run('onSelectNetworkRiver', 'current', { lng: -91.4, lat: 37.1 });
+    assert.equal(state.selectedPin, null);
+    assert.equal(state.mapPlanRiver, slug, `river tap at ${step} ended planning`);
+    assert.equal(state.selectedSlug, slug, 'a river-line tap mid-plan switched rivers');
+    assert.equal(state.riverSheetOpen, false);
+    assert.equal(state.putIn, putIn);
+  }
+});
+
 test('rated gauges, national gauges and dams star from the map as their screens store them', () => {
   const rated = { id: 'g-uuid', name: 'Current at Van Buren', usgsSiteId: '07067000', provider: 'usgs',
     thresholds: [{ isPrimary: false, riverSlug: 'jacks-fork' }, { isPrimary: true, riverSlug: 'current' }] };

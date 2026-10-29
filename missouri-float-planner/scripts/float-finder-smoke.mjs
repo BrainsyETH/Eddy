@@ -129,7 +129,7 @@ try {
     assert(await page.locator('[role="group"] button').evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth)), `${width}: preference labels must not clip`);
     await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
     await page.screenshot({ path: `${out}/initial-${width}.png`, fullPage: true });
-    const destination = page.getByRole('combobox', { name: 'Town or river', exact: true });
+    const destination = page.getByRole('combobox', { name: 'Where', exact: true });
     const suggestions = page.getByRole('listbox', { name: 'Destinations' });
     assert.equal(await destination.getAttribute('aria-autocomplete'), 'list');
     const assertActive = async name => {
@@ -165,10 +165,10 @@ try {
     await assertActive('Huzzah Creek');
     await page.keyboard.press('Tab');
     assert.equal(await destination.getAttribute('aria-expanded'), 'false');
-    assert(await page.getByLabel('Time on the river', { exact: true }).evaluate(button => button === document.activeElement), 'Tab skips suggestions without selecting');
+    assert(await page.getByRole('button', { name: 'Day trip', exact: true }).evaluate(button => button === document.activeElement), 'Tab skips suggestions without selecting');
     assert(await search.isDisabled());
     await destination.fill('No such destination');
-    await page.getByText('No towns found. Try adding a state.').waitFor();
+    await page.getByText('No matches. Try adding a state.').waitFor();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     assert.equal(await destination.getAttribute('aria-activedescendant'), null);
@@ -212,32 +212,32 @@ try {
     assert.equal(searches.at(-1).targetHours, 4);
     assert.equal(searches.at(-1).publicOnly, true);
     assert.equal(await page.getByText('Expect shallow stretches.').count(), 1);
-    assert.equal(await page.getByText('Typical conditions', { exact: true }).count(), 1);
+    assert.equal(await page.getByText('Typical estimate', { exact: true }).count(), 1);
+    assert.equal(await page.getByText(/Times include ordinary stops|Your choices changed/).count(), 0, 'no inline explainer copy');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: results overflow`);
     await page.screenshot({ path: `${out}/results-${width}.png`, fullPage: true });
     assert.equal(await featured.getByRole('article').count(), 3, 'featured floats remain below matches');
     const matchesBox = await page.getByRole('region', { name: 'Matching Floats', exact: true }).boundingBox();
     const featuredBox = await featured.boundingBox();
     assert(matchesBox.y < featuredBox.y, 'matching floats precede editorial floats');
-    // Dirty results stay in place and retain the submitted values.
-    await page.locator('summary').filter({ hasText: 'Filters' }).click();
-    await page.getByRole('button', { name: 'kayak', exact: true }).click();
-    await page.getByText('Your choices changed. Update routes to see matching floats.').waitFor();
+    // Changed choices dim the results in place; only the button says what to do.
+    await page.getByRole('button', { name: 'Canoe', exact: true }).click();
+    await page.getByRole('button', { name: 'Update routes', exact: true }).waitFor();
     assert.equal(await page.getByRole('heading', { name: /Akers Ferry.*Pulltite/ }).count(), 1);
-    assert.equal(await page.getByRole('link', { name: 'Build this route' }).count(), 0);
+    assert.equal(await page.locator('[inert]').getByRole('link', { name: /^View float plan/ }).count(), 2, 'stale cards cannot open a plan');
     mode = 'error';
     await page.getByRole('button', { name: 'Update routes', exact: true }).click();
     await page.locator('p[role="alert"]').waitFor();
     assert.equal(await page.getByRole('heading', { name: /Akers Ferry.*Pulltite/ }).count(), 1);
     mode = 'normal';
     await page.getByRole('button', { name: 'Update routes', exact: true }).click();
-    const plannerLink = page.getByRole('link', { name: 'Build this route' }).first();
+    const plannerLink = page.locator('section[aria-label="Matching Floats"] > div:not([inert])').getByRole('link', { name: /^View float plan/ }).first();
     await plannerLink.waitFor();
-    assert.equal(await plannerLink.getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=kayak-id');
+    assert.equal(await page.locator('[inert]').count(), 0);
+    assert.equal(await plannerLink.getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite&vessel=canoe-id');
     // Entering an unselected place cannot accidentally search the old river.
     await destination.fill('Salem');
     assert.equal(await destination.getAttribute('aria-activedescendant'), null, 'typing resets the active option');
-    assert(await page.getByRole('button', { name: 'Update routes', exact: true }).isDisabled());
     await page.getByRole('option', { name: 'Salem, Missouri', exact: true }).waitFor();
     await page.keyboard.press('ArrowDown');
     await assertActive('Salem, Missouri');
@@ -254,15 +254,17 @@ try {
     await page.getByRole('button', { name: 'Update routes', exact: true }).click();
     await plannerLink.waitFor();
     assert.deepEqual(searches.at(-1).near, { lat: 37.12, lng: -91.99 });
-    // River selection must drop both the old location and its radius control.
+    // A river keeps your own location for drive times but drops the radius.
     await destination.fill('Buffalo');
     await page.getByRole('option', { name: 'Buffalo River', exact: true }).click();
     assert.equal(await page.getByLabel('Search radius').count(), 0);
+    assert.equal(await destination.inputValue(), 'Buffalo River · Near you');
     mode = 'partial';
     await page.getByRole('button', { name: 'Update routes', exact: true }).click();
-    await page.getByText(/This is a partial search/).waitFor();
-    assert.equal(searches.at(-1).near, undefined);
-    await page.getByRole('heading', { name: 'A little shorter or longer' }).waitFor();
+    await page.getByText('Some rivers couldn’t be checked.').waitFor();
+    assert.deepEqual(searches.at(-1).near, { lat: 37.12, lng: -91.99 });
+    assert.equal(searches.at(-1).river, 'buffalo');
+    await page.getByRole('heading', { name: 'Shorter or longer' }).waitFor();
     if (width === 1440) {
       // Older responses cannot overwrite more recent input/results.
       mode = 'held';
@@ -294,11 +296,11 @@ try {
       await page.getByText(/No routes found with these choices/).waitFor();
       await destination.fill('Huzzah');
       await page.getByRole('option', { name: 'Huzzah Creek', exact: true }).click();
-      assert.equal(await page.getByRole('button', { name: 'Search nearby rivers', exact: true }).count(), 0, 'dirty results cannot launch recovery for the previous river');
+      assert.equal(await page.locator('[inert]').getByRole('button', { name: 'Search nearby rivers', exact: true }).count(), await page.getByRole('button', { name: 'Search nearby rivers', exact: true }).count(), 'dirty results cannot launch recovery for the previous river');
       mode = 'too-low';
       await page.getByRole('button', { name: 'Update routes', exact: true }).click();
       await page.getByText(/Water is currently too low/).waitFor();
-      assert.equal(await page.getByRole('link', { name: 'Build this route' }).count(), 0);
+      assert.equal(await page.getByRole('link', { name: /^View float plan/ }).count(), 0);
       await page.screenshot({ path: `${out}/huzzah-too-low.png`, fullPage: true });
       mode = 'normal';
       const priorInput = searches.at(-1);
@@ -329,11 +331,22 @@ try {
       await plannerLink.waitFor();
       assert.equal(searches.at(-1).publicOnly, false);
       assert.equal(searches.at(-1).river, 'huzzah');
-      assert.equal(await page.getByLabel('Public accesses only').isChecked(), false);
+      await page.getByRole('button', { name: /^Filters/ }).click();
+      assert.equal(await page.getByRole('button', { name: 'Public access only', exact: true }).getAttribute('aria-pressed'), 'false');
+      // Filters and trip length travel in the request body.
+      await page.getByRole('button', { name: 'Camping', exact: true }).click();
+      await page.getByRole('button', { name: '2 days', exact: true }).click();
+      await page.getByRole('button', { name: 'Update routes', exact: true }).click();
+      await plannerLink.waitFor();
+      assert.deepEqual(searches.at(-1).filters, { camping: true });
+      assert.equal(searches.at(-1).days, 2);
+      await page.screenshot({ path: `${out}/filters-${width}.png`, fullPage: true });
+      await page.getByRole('button', { name: 'Reset', exact: true }).click();
+      await page.getByRole('button', { name: 'Day trip', exact: true }).click();
       mode = 'expires';
       await page.getByRole('button', { name: 'Update routes', exact: true }).click();
-      await page.getByText(/These results have expired/).waitFor({ timeout: 10000 });
-      assert.equal(await page.getByRole('link', { name: 'Build this route' }).count(), 0);
+      await page.getByText(/Results expired/).waitFor({ timeout: 10000 });
+      assert.equal(await page.getByRole('link', { name: /^View float plan/ }).count(), 0);
       townFailure = true;
       await destination.fill('Salem');
       await page.getByText('Town search is unavailable. Choose a river or use your location.').waitFor();

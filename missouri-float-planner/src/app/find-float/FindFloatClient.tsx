@@ -2,40 +2,41 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, ChevronDown, Map, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import BuildRouteIcon from '@/components/ui/BuildRouteIcon';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Segmented from '@/components/ui/Segmented';
 import VesselIcon from '@/components/ui/VesselIcon';
 import { useRivers } from '@/hooks/useRivers';
 import {
-  approximateLocation, FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY,
+  approximateLocation, FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, FLOAT_SEARCH_DEFAULT_BOAT,
+  FLOAT_RADIUS_MILES, FLOAT_TRIP_DAYS, floatBoatLabel, floatSearchIdentity, floatSearchRequest,
   floatSearchIsFresh, FLOAT_SEARCH_MAX_AGE_MS, FLOAT_SEARCH_EXPIRED_MESSAGE,
-  floatSearchRecoveryOptions,
-  type FloatBoat, type FloatSearchInput, type FloatSearchResponse,
+  floatSearchRecoveryOptions, floatTripLabel,
+  type FloatBoat, type FloatSearchInput, type FloatSearchResponse, type FloatSort,
 } from '@shared/float-search';
 import DestinationSearch, { type SearchDestination } from './DestinationSearch';
+import FloatFilters from './FloatFilters';
 import { FloatResults, FloatSearchLoading } from './FloatResults';
 import FeaturedFloats from './FeaturedFloats';
 import { floatNavigation } from '@/lib/navigation/site-navigation';
 
 export type SearchSnapshot = { input: FloatSearchInput; location: string; data: FloatSearchResponse };
-type State = { input: FloatSearchInput; location: string; result: SearchSnapshot | null };
+type Source = SearchDestination['source'];
+type State = { input: FloatSearchInput; location: string; source?: Source; result: SearchSnapshot | null; sort: FloatSort };
 // Browser-memory only: returning from the planner restores the session.
 // Coordinates and town results must never be written to disk or the URL.
 let previous: { state: State; scroll: number; initialRiver: string } | null = null;
 const EMPTY_RIVERS: NonNullable<ReturnType<typeof useRivers>['data']> = [];
-
-function searchIdentity(input: FloatSearchInput) {
-  return JSON.stringify([input.river, input.near?.lat, input.near?.lng, input.radiusMiles, input.targetHours, input.vesselType, input.publicOnly]);
-}
+const HOURS = Array.from({ length: 24 }, (_, i) => (i + 1) / 2);
 
 export default function FindFloatClient({ initialRiver }: { initialRiver: string }) {
   const searchParams = useSearchParams();
   const [planner] = floatNavigation('/find-float', searchParams.toString());
   const [state, setState] = useState<State>({
-    input: { river: initialRiver || undefined, radiusMiles: 100, targetHours: 5, vesselType: 'canoe', publicOnly: true },
-    location: '', result: null,
+    input: { river: initialRiver || undefined, radiusMiles: 100, targetHours: 5, vesselType: FLOAT_SEARCH_DEFAULT_BOAT, publicOnly: true, days: 1 },
+    location: '', result: null, sort: 'best',
   });
   const [busy, setBusy] = useState<'location' | 'search' | null>(null);
   const [error, setError] = useState('');
@@ -45,11 +46,14 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
   const locationAttempt = useRef(0);
   const { data: rivers = EMPTY_RIVERS, isError: riversFailed } = useRivers();
   const { input, result } = state;
+  const riverName = input.river ? rivers.find(r => r.slug === input.river)?.name ?? input.river : '';
+  // A river keeps a visible starting point (your location or a named launch) for drive times.
   const destinationName = input.river
-    ? rivers.find(r => r.slug === input.river)?.name ?? input.river
+    ? state.source === 'access' ? state.location : input.near && state.source === 'current' ? `${riverName} · Near you` : riverName
     : state.location;
-  const dirty = Boolean(result && searchIdentity(result.input) !== searchIdentity(input));
+  const dirty = Boolean(result && floatSearchIdentity(result.input) !== floatSearchIdentity(input));
   const canSearch = Boolean(input.near || input.river);
+  const days = input.days ?? 1;
 
   useEffect(() => {
     if (previous?.initialRiver === initialRiver) {
@@ -86,7 +90,7 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     };
   }, [result]);
 
-  function update(patch: Partial<FloatSearchInput>, location?: string) {
+  function update(patch: Partial<FloatSearchInput>, location?: string, source?: Source) {
     if (Object.hasOwn(patch, 'river')) {
       const params = new URLSearchParams(window.location.search);
       if (patch.river) params.set('river', patch.river);
@@ -99,7 +103,7 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     locationAttempt.current++;
     setBusy(null);
     setError('');
-    setState(s => ({ ...s, input: { ...s.input, ...patch }, ...(location !== undefined ? { location } : {}) }));
+    setState(s => ({ ...s, input: { ...s.input, ...patch }, ...(location !== undefined ? { location, source } : {}) }));
     if (patch.vesselType) {
       try { localStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType); }
       catch { /* Optional preference. */ }
@@ -107,7 +111,14 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
   }
 
   function chooseDestination(destination: SearchDestination) {
-    update({ river: destination.river, near: destination.near ? approximateLocation(destination.near) : undefined }, destination.name);
+    const near = destination.near ? approximateLocation(destination.near) : undefined;
+    if (destination.river && !near) {
+      // Choosing a river keeps your own location for drive times, never a town.
+      const keep = state.source === 'current' ? input.near : undefined;
+      update({ river: destination.river, near: keep }, keep ? 'Your approximate location' : '', keep ? 'current' : undefined);
+    } else {
+      update({ river: destination.river, near }, destination.name, destination.source);
+    }
   }
 
   async function search(submitted = { ...input }, location = destinationName) {
@@ -123,12 +134,12 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     try {
       const response = await fetch('/api/float-search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitted), cache: 'no-store',
+        body: JSON.stringify(floatSearchRequest(submitted)), cache: 'no-store',
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25_000)]),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Please try again.');
-      if (!controller.signal.aborted) setState(s => ({ ...s, result: { input: submitted, location, data } }));
+      if (!controller.signal.aborted) setState(s => ({ ...s, sort: 'best', result: { input: submitted, location, data } }));
     } catch (e) {
       if (!controller.signal.aborted) setError(e instanceof Error && e.name !== 'TimeoutError' ? e.message : 'Search took too long. Please try again.');
     } finally {
@@ -148,10 +159,12 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     }
     navigator.geolocation.getCurrentPosition(position => {
       if (attempt !== locationAttempt.current) return;
-      chooseDestination({ name: 'Your approximate location', near: { lat: position.coords.latitude, lng: position.coords.longitude } });
+      const near = approximateLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+      // Within a chosen river, your location orders launches and adds drive times.
+      update({ near }, 'Your approximate location', 'current');
     }, () => {
       if (attempt !== locationAttempt.current) return;
-      setError('Location was not available. Choose a town or river above.');
+      setError('Location was not available. Choose a town or river.');
       setBusy(null);
     }, { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 });
   }
@@ -175,62 +188,61 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     <div className="mx-auto max-w-7xl px-4 py-7 text-[var(--color-text-primary)] sm:px-6 lg:py-9">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 style={{ fontFamily: 'var(--font-display)' }} className="text-4xl font-semibold sm:text-5xl">Floats</h1>
-        <Button href={planner.href} variant="outline" onClick={rememberBrowsing}><Map size={18} aria-hidden="true" />Build a Route</Button>
+        <Button href={planner.href} variant="outline" onClick={rememberBrowsing}><BuildRouteIcon size={24} />Build a Route</Button>
       </header>
       <div className="space-y-8">
         <Card variant="framed" as="section" aria-labelledby="route-finder-heading" className="min-w-0" style={{ overflow: 'visible' }}>
-          <form className="p-4 sm:p-5" onSubmit={e => { e.preventDefault(); void search(); }}>
-            <h2 id="route-finder-heading" className="mb-3 flex items-center gap-2 text-lg font-bold"><Search size={18} aria-hidden="true" />Find a Route</h2>
-            <div className={`grid items-end gap-4 sm:grid-cols-2 ${input.near ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]'}`}>
-              <div className="min-w-0 sm:col-span-2 lg:col-span-1">
-                <DestinationSearch key={destinationVersion} rivers={rivers} selected={destinationName} locating={busy === 'location'} riversFailed={riversFailed}
-                  onChoose={chooseDestination} onClear={() => update({ river: undefined, near: undefined }, '')} onLocate={locate} />
-              </div>
-              <div className="min-w-0">
-                <label htmlFor="float-duration" className="block text-sm font-semibold">Time on the river</label>
-                <select id="float-duration" className="input mt-2" value={input.targetHours} onChange={e => update({ targetHours: Number(e.target.value) })}>
-                  {Array.from({ length: 24 }, (_, i) => (i + 1) / 2).map(h => <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}</option>)}
-                </select>
-              </div>
-              {input.near && <label className="block min-w-0 text-sm font-semibold">Search radius
+          <form className="space-y-5 p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void search(); }}>
+            <h2 id="route-finder-heading" style={{ fontFamily: 'var(--font-display)' }} className="text-2xl font-semibold">Find a Route</h2>
+            <div className={`grid items-end gap-4 ${input.near && !input.river ? 'sm:grid-cols-[minmax(0,1fr)_180px]' : ''}`}>
+              <DestinationSearch key={destinationVersion} rivers={rivers} selected={destinationName} locating={busy === 'location'} riversFailed={riversFailed}
+                usingLocation={state.source === 'current' && Boolean(input.near)}
+                onChoose={chooseDestination} onClear={() => update({ river: undefined, near: undefined }, '', undefined)} onLocate={locate} />
+              {input.near && !input.river && <label className="block min-w-0 text-sm font-semibold">Search radius
                 <select className="input mt-2" value={input.radiusMiles} onChange={e => update({ radiusMiles: Number(e.target.value) })}>
-                  {[25, 50, 100, 150, 200, 300].map(mi => <option key={mi} value={mi}>{mi} miles</option>)}
+                  {FLOAT_RADIUS_MILES.map(mi => <option key={mi} value={mi}>Within {mi} miles</option>)}
                 </select>
               </label>}
-              <Button type="submit" className={`w-full ${input.near ? 'sm:col-span-2 lg:col-span-1' : ''}`} disabled={!canSearch || busy !== null}>
-                {busy === 'search' ? 'Finding routes…' : result ? 'Update routes' : 'Find routes'}<ArrowRight size={18} aria-hidden="true" />
-              </Button>
             </div>
-            <details className="group mt-4 border-t border-[var(--color-border)] pt-1">
-              <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
-                <SlidersHorizontal size={16} aria-hidden="true" /><span className="font-semibold">Filters</span>
-                <span className="text-[var(--color-text-secondary)]"><span className="capitalize">{input.vesselType}</span> · {input.publicOnly ? 'Public accesses' : 'All accesses'}</span>
-                <ChevronDown size={16} aria-hidden="true" className="ml-auto shrink-0 group-open:rotate-180" />
-              </summary>
-              <div className="grid items-end gap-4 pb-3 pt-2 sm:grid-cols-[minmax(0,440px)_1fr]">
-                <fieldset className="min-w-0">
-                  <legend className="mb-3 text-sm font-semibold">Vessel</legend>
-                  <Segmented size="md" stretch aria-label="Vessel"
-                    value={input.vesselType} onChange={vesselType => update({ vesselType })}
-                    options={FLOAT_BOATS.map(boat => ({ value: boat, label: <span className="flex flex-col items-center gap-2 capitalize"><VesselIcon vessel={boat} />{boat}</span> }))} />
-                </fieldset>
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
-                  <input type="checkbox" className="h-4 w-4 accent-primary-600" checked={input.publicOnly} onChange={e => update({ publicOnly: e.target.checked })} />Public accesses only
-                </label>
+            <div className="grid items-end gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,1.3fr)]">
+              <fieldset className="min-w-0">
+                <legend className="mb-2 text-sm font-semibold">Trip length</legend>
+                <Segmented size="md" stretch aria-label="Trip length" value={days}
+                  onChange={value => update({ days: value })}
+                  options={FLOAT_TRIP_DAYS.map(value => ({ value, label: floatTripLabel(value) }))} />
+              </fieldset>
+              <div className="min-w-0">
+                <label htmlFor="float-duration" className="mb-2 block text-sm font-semibold">Time on the river</label>
+                <select id="float-duration" className="input" value={input.targetHours} onChange={e => update({ targetHours: Number(e.target.value) })}>
+                  {HOURS.map(h => <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}{days > 1 ? ' a day' : ''}</option>)}
+                </select>
               </div>
-            </details>
-            <p className="text-xs text-[var(--color-text-secondary)]">Times include ordinary stops.{input.near ? ' Radius is straight-line distance to the put-in, not driving distance. Eddy uses an approximate location.' : ''}</p>
-            {error && <p role="alert" className="mt-3 text-sm text-[var(--color-error)]">{error}</p>}
+              <fieldset className="min-w-0 md:col-span-2 lg:col-span-1">
+                <legend className="mb-2 text-sm font-semibold">Vessel</legend>
+                <Segmented size="md" stretch aria-label="Vessel"
+                  value={input.vesselType} onChange={vesselType => update({ vesselType })}
+                  options={FLOAT_BOATS.map(boat => ({ value: boat, label: <span className="flex items-center justify-center gap-2"><VesselIcon vessel={boat} size={20} />{floatBoatLabel(boat)}</span> }))} />
+              </fieldset>
+            </div>
+            <div className="border-t border-[var(--color-border)] pt-4">
+              <FloatFilters input={input} onChange={update}>
+                {error && <p role="alert" className="text-sm text-[var(--color-error)]">{error}</p>}
+                <Button type="submit" className="w-full sm:w-auto" disabled={!canSearch || busy !== null}>
+                  {busy === 'search' ? 'Finding routes…' : result ? 'Update routes' : 'Find routes'}<ArrowRight size={18} aria-hidden="true" />
+                </Button>
+              </FloatFilters>
+            </div>
           </form>
         </Card>
         {(expired || result || busy === 'search') && <section className="min-w-0" aria-label="Matching Floats">
-          {expired && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm">{FLOAT_SEARCH_EXPIRED_MESSAGE}</p></Card>}
+          {expired && <p role="status" className="mb-5 text-sm font-medium">{FLOAT_SEARCH_EXPIRED_MESSAGE}</p>}
           {busy === 'search' && <FloatSearchLoading compact={Boolean(result)} />}
-          {result && <FloatResults snapshot={result} dirty={dirty} busy={busy !== null} onPlan={remember}
+          {result && <FloatResults snapshot={result} riverPhoto={slug => rivers.find(r => r.slug === slug)?.photoUrl} stale={dirty || busy !== null} sort={state.sort} onSort={sort => setState(s => ({ ...s, sort }))} onPlan={remember}
             recoveryOptions={floatSearchRecoveryOptions(result.input, result.data, rivers.find(r => r.slug === result.input.river))}
             onRecover={option => {
               const location = option.location ?? result.location;
-              update(option.input, location);
+              const source = option.location ? 'town' : state.source;
+              update(option.input, location, source);
               setDestinationVersion(v => v + 1);
               void search(option.input, location);
             }} />}

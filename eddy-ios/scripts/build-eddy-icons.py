@@ -46,6 +46,10 @@ WEB_OUT = ROOT / "missouri-float-planner/public/icons"
 # (inline, ~18pt) and EddyScene.tsx (hero, ~110pt).
 SYMBOLS = (
     "eddy-today",
+    "eddy-release",
+    "eddy-water-temperature",
+    "eddy-inflow",
+    "eddy-fishery",
     "eddy-weather",
     "eddy-ai-assistant",
     "eddy-water-droplet",
@@ -85,7 +89,12 @@ SYMBOLS = (
 # PNG diff. Declaring the difference is cheaper than trusting it.
 # The approved Today master also has real transparency, including the spaces
 # between the rays, sun, and river bands used by the native tab's alpha mask.
-PRE_CUT = frozenset({"eddy-road", "eddy-parking", "eddy-restroom", "eddy-today"})
+PRE_CUT = frozenset({
+    "eddy-road", "eddy-parking", "eddy-restroom", "eddy-today",
+    # Generated dam-reading masters already have transparent backgrounds.
+    "eddy-release", "eddy-water-temperature",
+    "eddy-inflow", "eddy-fishery",
+})
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot
 # to live in and the app has six of them. The rest of the catalog's scenes are
@@ -111,6 +120,8 @@ ICONS = SYMBOLS + SCENES
 # and the app has empty states the web has no equivalent for.
 WEB_ICONS = (
     "eddy-today",
+    "eddy-release",
+    "eddy-water-temperature",
     "eddy-boat-ramp",
     "eddy-campground",
     "eddy-bridge",

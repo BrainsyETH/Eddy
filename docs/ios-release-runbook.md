@@ -190,7 +190,11 @@ These are pending device and release checks, not evidence of a device pass.
       until that action; denied/unavailable location still permits town/river search.
       Type quickly and dismiss during town lookup; stale responses must not replace results.
       New users start with Kayak, and a selected vessel survives reopening and
-      plan retry. Check public-access toggle copy, time-slider VoiceOver, keyboard
+      plan retry. Open Filters: switches toggle at maximum Dynamic Type, Reset
+      and Done work, and the row shows the count. Change trip length and a filter
+      after a search: results dim and ignore taps until Update routes. Pick an
+      access point and a river with Current location; cards show a drive time and
+      Sort offers Shortest drive. Check time-slider VoiceOver, keyboard
       dismissal, footer clearance and returning to the same search results.
       Scroll results in light/dark mode: the native title and Back control stay
       readable. Cards show a photo (route, river, then illustration fallback),

@@ -9,9 +9,14 @@ export function canDefaultToCurrentLocation(
   return !hasChosen && !input.river && !input.near && status === 'ready';
 }
 
-/** A river search must not inherit a hidden location from an earlier nearby search. */
-export function selectSearchRiver(river: string): Pick<FloatSearchInput, 'river' | 'near'> {
-  return { river, near: undefined };
+/** A river search must not inherit a hidden location from an earlier town
+ * search. Only a visible starting point (your own location, or a chosen
+ * launch) may stay, to order launches and add drive times. */
+export function selectSearchRiver(
+  river: string,
+  visibleNear?: FloatSearchInput['near'],
+): Pick<FloatSearchInput, 'river' | 'near'> {
+  return { river, near: visibleNear };
 }
 export function selectSearchLocation(
   near: NonNullable<FloatSearchInput['near']>,

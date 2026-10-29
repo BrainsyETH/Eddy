@@ -11,7 +11,7 @@ import { createAgentServer } from './mcp-server';
 import { AGENT_TOOLS } from './catalog';
 import { EDDY_TOOLS } from '../chat/tools';
 import { AGENT_VERSION, RiverNotFoundError, freshness, tripDate } from './contracts';
-import { approximateLocation, floatSearchRecoveryOptions } from '@shared/float-search';
+import { approximateLocation, floatSearchRecoveryOptions, FLOAT_FILTER_KEYS } from '@shared/float-search';
 import {
   readMcpBody,
   MAX_BODY_BYTES,
@@ -1179,7 +1179,7 @@ function floatSearchPost(f: ReturnType<typeof fixture>) {
       findNearbyFloats: (db: Db, input: Parameters<typeof findNearbyFloats>[1], options: Parameters<typeof findNearbyFloats>[2]) =>
         findNearbyFloats(db, input, { ...options, sources: f.sources, now: NOW }),
     },
-    '@shared/float-search': { approximateLocation },
+    '@shared/float-search': { approximateLocation, FLOAT_FILTER_KEYS },
     '@/lib/agent-tools/contracts': { RiverNotFoundError },
   };
   const exports = {} as { POST: (request: Request) => Promise<Response> };
@@ -1531,4 +1531,131 @@ test('duration loading and final estimation agree on the selected gauge and refe
     }
     assert.equal(times[0] === times[1], !references, 'different gauge medians must change modeled time');
   }
+});
+
+test('Find a Float filters only remove routes and explain an empty result as a filter mismatch', async () => {
+  const f = fixture({ points: 4 });
+  const base = { ...nearbyInput, near: undefined, river: 'current' };
+  const unfiltered = await findNearbyFloats(f.db, base, { sources: f.sources, now: NOW });
+  assert.ok(unfiltered.matches.length + unfiltered.alternatives.length > 0);
+  const filtered = await findNearbyFloats(f.db, { ...base, filters: { restrooms: true } }, { sources: f.sources, now: NOW });
+  assert.deepEqual([...filtered.matches, ...filtered.alternatives], []);
+  assert.equal(filtered.emptyReason, 'filters');
+  assert.equal(filtered.evaluated, 0, 'filtered pairs never reach full route checks');
+  assert.deepEqual(floatSearchRecoveryOptions({ ...base, filters: { restrooms: true } }, filtered)[0],
+    { label: 'Clear filters', input: { ...base, filters: undefined } });
+  f.tables.access_points[0].amenities = ['parking', 'restrooms'];
+  const restrooms = await findNearbyFloats(f.db, { ...base, filters: { restrooms: true } }, { sources: f.sources, now: NOW });
+  const routes = [...restrooms.matches, ...restrooms.alternatives];
+  assert.ok(routes.length > 0);
+  assert.ok(routes.every(route => route.putIn.id === f.tables.access_points[0].id || route.takeOut.id === f.tables.access_points[0].id));
+  assert.ok(routes.every(route => route.highlights?.[0] === 'Restrooms'), 'a matched filter is named first on the card');
+});
+
+test('river filters use the river type and the leading difficulty class', async () => {
+  const { difficultyClass } = await import('./float-filters');
+  assert.equal(difficultyClass('Class I (beginner)'), 1);
+  assert.equal(difficultyClass('Class I (occasional Class I-II riffles)'), 1);
+  assert.equal(difficultyClass('Class I-II (II+ to III at high water)'), 2);
+  assert.equal(difficultyClass('Class II-IV (upper whitewater)'), 4);
+  assert.equal(difficultyClass(null), null);
+  const f = fixture({ points: 4 });
+  const base = { ...nearbyInput, near: undefined, river: 'current' };
+  f.tables.rivers[0].difficulty_rating = 'Class I-II';
+  const hard = await findNearbyFloats(f.db, { ...base, filters: { beginner: true, springFed: true } }, { sources: f.sources, now: NOW });
+  assert.equal(hard.emptyReason, 'filters');
+  f.tables.rivers[0].difficulty_rating = 'Class I';
+  const easy = await findNearbyFloats(f.db, { ...base, filters: { beginner: true, springFed: true } }, { sources: f.sources, now: NOW });
+  assert.ok(easy.matches.length + easy.alternatives.length > 0);
+});
+
+test('fee, road and portage filters exclude only recorded problems', async () => {
+  const { pairPasses } = await import('./float-filters');
+  const point = (mile: number, extra = {}) => ({ amenities: [], fee_required: null, nps_campground_id: null, road_surface: [], river_mile_downstream: mile, ...extra });
+  assert.equal(pairPasses(point(0), point(8), { noFees: true, smoothRoads: true, noPortages: true }), true, 'unknown data never fails a rule-out filter');
+  assert.equal(pairPasses(point(0, { fee_required: true }), point(8), { noFees: true }), false);
+  assert.equal(pairPasses(point(0, { road_surface: ['paved', 'gravel_unmaintained'] }), point(8), { smoothRoads: true }), false);
+  assert.equal(pairPasses(point(0), point(8), { noPortages: true }, [4]), false);
+  assert.equal(pairPasses(point(0), point(3), { noPortages: true }, [4]), true);
+  assert.equal(pairPasses(point(0), point(4), { noPortages: true }, [4]), true, 'a portage at the take-out is not on the route');
+  assert.equal(pairPasses(point(4), point(8), { noPortages: true }, [4.004]), true, 'nor one at the put-in');
+  assert.equal(pairPasses(point(0, { nps_campground_id: 'x' }), point(8), { camping: true }), true);
+  const f = fixture({ points: 4 });
+  f.tables.river_hazards.push({ id: 'dam', river_id: uuid(1), active: true, portage_required: true, river_mile_downstream: 6, name: 'Low dam', type: 'low_water_dam', severity: 'warning' });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current', filters: { noPortages: true } }, { sources: f.sources, now: NOW });
+  assert.ok(result.matches.length + result.alternatives.length > 0, 'routes beside the portage remain');
+  for (const route of [...result.matches, ...result.alternatives]) {
+    const miles = [route.putIn.id, route.takeOut.id].map(id => f.tables.access_points.find(p => p.id === id)!.river_mile_downstream);
+    assert.ok(!(miles[0] <= 6 && miles[1] >= 6), 'no route crosses the recorded portage');
+  }
+});
+
+test('multi-day trips match the total time on the river', async () => {
+  const f = fixture({ points: 6 });
+  const base = { ...nearbyInput, near: undefined, river: 'current' };
+  const oneDay = await findNearbyFloats(f.db, { ...base, targetHours: 6 }, { sources: f.sources, now: NOW });
+  const twoDays = await findNearbyFloats(fixture({ points: 6 }).db, { ...base, targetHours: 3, days: 2 }, { sources: f.sources, now: NOW });
+  assert.ok(oneDay.matches.length > 0);
+  assert.deepEqual(twoDays.matches.map(m => m.id), oneDay.matches.map(m => m.id));
+  assert.ok(twoDays.matches.every(m => m.timeRange.min <= 360 && m.timeRange.max >= 360));
+});
+
+test('rejected route checks are replaced up to the attempt cap', async () => {
+  const { MAX_ROUTE_ATTEMPTS } = await import('./nearby-search');
+  const f = fixture({ points: 8, closure: true });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current' }, { sources: f.sources, now: NOW });
+  assert.deepEqual([...result.matches, ...result.alternatives], []);
+  assert.equal(result.evaluated, MAX_ROUTE_ATTEMPTS);
+  assert.equal(result.emptyReason, 'closures');
+});
+
+test('drive times come from the rounded origin only and never block results', async () => {
+  const f = fixture({ points: 4 });
+  const origins: unknown[] = [];
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: { lat: 37.0049, lng: -91.0051 } }, {
+    sources: f.sources, now: NOW,
+    driveFrom: async (origin, destinations) => { origins.push(origin); return new Map(destinations.map(d => [d.id, 42])); },
+  });
+  assert.deepEqual(origins, [{ lat: 37, lng: -91.01 }]);
+  assert.ok(result.matches.length > 0 && result.matches.every(m => m.driveMinutes === 42));
+  const failing = await findNearbyFloats(fixture({ points: 4 }).db, nearbyInput, {
+    sources: f.sources, now: NOW, driveFrom: async () => { throw new Error('offline'); },
+  });
+  assert.ok(failing.matches.length > 0 && failing.matches.every(m => m.driveMinutes === null));
+  let called = false;
+  await findNearbyFloats(fixture({ points: 4 }).db, { ...nearbyInput, near: undefined, river: 'current' }, {
+    sources: f.sources, now: NOW, driveFrom: async () => { called = true; return new Map(); },
+  });
+  assert.equal(called, false, 'a river search without a starting point has no drive');
+});
+
+test('float-search HTTP accepts trip length and known filters only', async () => {
+  const f = fixture({ points: 4 });
+  const ok = await floatSearchPost(f)({ ...nearbyInput, river: 'current', days: 2, targetHours: 3, filters: { springFed: true } });
+  assert.equal(ok.status, 200);
+  for (const body of [{ days: 4 }, { filters: { pets: true } }, { filters: { springFed: 'yes' } }]) {
+    const response = await floatSearchPost(fixture())({ ...nearbyInput, river: 'current', ...body });
+    assert.equal(response.status, 400, JSON.stringify(body));
+  }
+});
+
+test('a hazard at the put-in or take-out never blocks or demotes that route', async () => {
+  const { hazardRoutePosition } = await import('@shared/route-hazards');
+  assert.equal(hazardRoutePosition(4, 4, 8), 'put_in');
+  assert.equal(hazardRoutePosition(8.005, 4, 8), 'take_out');
+  assert.equal(hazardRoutePosition(4.05, 4, 8), 'inside');
+  const f = fixture({ points: 3 });
+  f.tables.river_hazards.push({ id: 'dam', river_id: uuid(1), active: true, severity: 'danger', portage_required: true, river_mile_downstream: 4, name: 'Mill dam', type: 'low_water_dam' });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current', targetHours: 3 }, { sources: f.sources, now: NOW });
+  const routes = [...result.matches, ...result.alternatives];
+  const ids = (a: number, b: number) => `${uuid(10 + a)}:${uuid(10 + b)}`;
+  assert.ok(routes.some(r => r.id === ids(0, 1)), 'ending at the dam survives');
+  assert.ok(routes.some(r => r.id === ids(1, 2)), 'starting at the dam survives');
+  assert.ok(!routes.some(r => r.id === ids(0, 2)), 'floating through the dam stays blocked');
+  const landing = routes.find(r => r.id === ids(0, 1))!;
+  assert.equal(landing.conditional, false, 'an endpoint hazard is not a caution');
+  assert.ok(landing.cautions.includes('Mill dam is at the take-out; land above it.'));
+  const plan = (await f.execute('plan_float', { river: 'current', putIn: 'launch-0', takeOut: 'launch-1', vesselType: 'canoe' })).data as any;
+  assert.deepEqual(plan.hazards.atEndpoints, [{ id: 'dam', at: 'take_out' }]);
+  assert.equal(plan.routeAssessment.cautionReasons.some((r: { code: string }) => r.code === 'portage_required'), false);
 });

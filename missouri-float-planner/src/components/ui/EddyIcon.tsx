@@ -31,6 +31,8 @@ const ICONS = {
   // Symbols — inline, beside a label.
   today: { file: 'eddy-today', size: 18, alt: 'Today' },
   gauge: { file: 'eddy-water-droplet', size: 18, alt: 'Gauge' },
+  release: { file: 'eddy-release', size: 32, alt: 'Release' },
+  waterTemperature: { file: 'eddy-water-temperature', size: 32, alt: 'Water temperature' },
   accessPoint: { file: 'eddy-poi', size: 18, alt: 'Access point' },
   boatRamp: { file: 'eddy-boat-ramp', size: 24, alt: 'Boat ramp' },
   campground: { file: 'eddy-campground', size: 24, alt: 'Campground' },

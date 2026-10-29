@@ -13,6 +13,7 @@ import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
 import { accessFeeSchema, publicPageMetadata } from './seo';
 import ArticleByline from '../components/blog/ArticleByline';
 import ConditionsLayout from '../components/conditions/ConditionsLayout';
+import GenerationSchedule from '../components/dam/GenerationSchedule';
 import type { ConditionsExplorerProps } from '../components/conditions/ConditionsExplorer';
 import { conditionsDamCatalogue } from './conditions/dam-catalogue';
 import { normalizeGaugeHistory } from '@shared/history-normalize';
@@ -135,7 +136,9 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
       siteId: '07067000', readings: [400, 450, 500].map((value, i) => ({ timestamp: new Date(now - (3 - i) * 86400000).toISOString(), dischargeCfs: value, gaugeHeightFt: 3 })),
     }));
   });
-  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Increases at 2 PM.', 'Today’s generation schedule', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(html.includes(text), text);
+  const textContent = html.replace(/<[^>]*>/g, '');
+  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  assert.match(html, /aria-label="Today’s generation schedule"/);
   assert.doesNotMatch(html, /Generating now|of full generation|Below-dam elevation/);
   assert.match(html, /role="img" aria-label="Flow \(cfs\) trend chart/);
   assert.ok(html.includes('Eddy_the_Otter_'), 'river report keeps its condition-specific Eddy image');
@@ -191,9 +194,7 @@ test('dam cards distinguish missing days from idle schedules and retain each day
   }
   for (const schedule of [[], [scheduleDay('2026-10-27', 200)], [scheduleDay('2026-10-29', 400)], [{ ...scheduleDay('2026-10-28', 0), hours: [] }]]) {
     const html = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule }], renderedAt });
-    const tomorrow = scheduleSection(html, 'Tomorrow');
-    assert.match(tomorrow, /Tomorrow’s generation schedule hasn’t been posted yet/);
-    assert.doesNotMatch(tomorrow, /role="img"|No generation scheduled at any hour/, 'never substitute a later date or invented idle bars');
+    assert.doesNotMatch(html, /Tomorrow|hasn’t been posted/, 'an unposted day has no heading, date, chart or empty-state block');
   }
   const idle = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [scheduleDay('2026-10-27', 0), scheduleDay('2026-10-28', 0)] }], renderedAt });
   for (const label of ['Today', 'Tomorrow'] as const) assert.match(scheduleSection(idle, label), /role="img" aria-label="No generation scheduled at any hour/);
@@ -204,6 +205,28 @@ test('dam cards distinguish missing days from idle schedules and retain each day
   assert.match(stale, /It may have been revised since/);
   const noTurbines = renderConditions({ rivers: [], dams: [{ ...scheduledDam, hasTurbines: false, schedule: [] }], renderedAt });
   assert.doesNotMatch(noTurbines, /Today’s generation schedule|Tomorrow’s generation schedule/);
+});
+
+test('compact and full generation schedules hide empty tomorrow but keep posted zero and partial days', () => {
+  const now = Date.parse('2026-10-27T17:00:00Z');
+  const today = scheduleDay('2026-10-27', 200);
+  const tomorrow = scheduleDay('2026-10-28', 0);
+  const later = scheduleDay('2026-10-29', 400);
+  for (const compact of [true, false]) {
+    const render = (schedule: DamScheduleDay[]) => renderToStaticMarkup(createElement(GenerationSchedule, {
+      schedule, reference: scheduledDam.generationReference, now, compact,
+    }));
+    for (const schedule of [[today, later], [today, { ...tomorrow, hours: [] }, later]]) {
+      const html = render(schedule);
+      assert.doesNotMatch(html, /Tomorrow|hasn’t been posted/);
+      assert.match(scheduleSection(html, 'Today'), /role="img"/);
+      assert.equal(html.includes('<details'), !compact, 'later days retain the full report’s disclosure');
+    }
+    assert.match(scheduleSection(render([today, tomorrow]), 'Tomorrow'), /No generation scheduled at any hour/);
+    const partial = render([today, { ...tomorrow, hours: [{ ...tomorrow.hours[0], megawatts: 200 }] }]);
+    assert.match(scheduleSection(partial, 'Tomorrow'), /role="img"/);
+    assert.match(scheduleSection(partial, 'Tomorrow'), /border-dashed/, 'missing hours remain gaps in a posted partial day');
+  }
 });
 
 test('the dams entry uses the shared Conditions heading and links every dam before JavaScript', () => {

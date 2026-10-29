@@ -101,12 +101,14 @@ import {
 } from '@/map/RiverMap';
 import {
   cameraCommandFor,
+  compassVisible,
   planFramingDecision,
   type MapCameraAction,
   type MapCameraCommand,
 } from '@/map/cameraBehavior';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { mapUnavailableReason } from '@/map/runtime';
+import { MapCompass } from '@/map/MapCompass';
 // `accessOverlapNote` and `LAYER_ROLE` are no longer read here. The resolver
 // still computes the representation buckets — they are the invariant its own
 // tests assert — but the sheet no longer prints them: "138 drawn as access
@@ -673,6 +675,26 @@ function MapContent() {
       void issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat, zoom: point.zoom }),
     [issueCameraCommand],
   );
+  /**
+   * The compass. The live bearing goes to a shared value, which turns the
+   * needle on the UI thread; React hears only when the compass should appear
+   * or go, through the ref-guarded state below. RiverMap calls this on every
+   * camera frame, so a setState per call would be a render per frame.
+   */
+  const mapHeading = useSharedValue(0);
+  const [mapRotated, setMapRotated] = useState(false);
+  const mapRotatedRef = useRef(false);
+  const onHeadingChange = useCallback(
+    (heading: number) => {
+      mapHeading.set(heading);
+      const rotated = compassVisible(heading);
+      if (rotated === mapRotatedRef.current) return;
+      mapRotatedRef.current = rotated;
+      setMapRotated(rotated);
+    },
+    [mapHeading],
+  );
+  const onCompass = useCallback(() => void issueCameraCommand({ type: 'northRequested' }), [issueCameraCommand]);
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
@@ -3155,6 +3177,7 @@ function MapContent() {
             cameraCommand={cameraCommand}
             onCameraCommandConsumed={onCameraCommandConsumed}
             onUserGesture={onUserGesture}
+            onHeadingChange={onHeadingChange}
             // `locateAsked` first: the puck is a native location consumer of
             // its own, so it waits for an explicit ask rather than for a status
             // that can arrive on its own. See the state's declaration.
@@ -3367,6 +3390,13 @@ function MapContent() {
                 </Pressable>
               )}
             </FloatingControlSurface>
+          ) : null}
+
+          {/* The compass, only while the map is turned off north. LAST in the
+              row so its arrival never shifts Locate or Places under a thumb
+              that was already reaching for them. See MapCompass. */}
+          {!unavailable && !mapSearchOpen && mapRotated ? (
+            <MapCompass heading={mapHeading} onPress={onCompass} />
           ) : null}
           </View>
 

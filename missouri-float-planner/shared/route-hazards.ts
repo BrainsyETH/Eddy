@@ -16,6 +16,19 @@ interface HazardRow {
   river_mile_downstream: number | string | null;
 }
 
+/** Mile tolerance for "the same place": access and hazard miles come from the
+ * same river geometry, so only rounding separates a dam from the access at it. */
+export const ENDPOINT_HAZARD_TOLERANCE_MILES = 0.01;
+
+/** Where a located hazard sits relative to a route. A hazard at the put-in is
+ * launched below, and one at the take-out is landed above, so neither is
+ * floated through or portaged on that route. */
+export function hazardRoutePosition(mile: number, startMile: number, takeOutMile: number): 'put_in' | 'take_out' | 'inside' | 'outside' {
+  if (Math.abs(mile - startMile) <= ENDPOINT_HAZARD_TOLERANCE_MILES) return 'put_in';
+  if (Math.abs(mile - takeOutMile) <= ENDPOINT_HAZARD_TOLERANCE_MILES) return 'take_out';
+  return mile > startMile && mile < takeOutMile ? 'inside' : 'outside';
+}
+
 /** Callers query active hazards on this river through take-out + the buffer. */
 export function splitRouteHazards<T extends HazardRow>(rows: readonly T[], startMile: number, takeOutMile: number) {
   const hazards: T[] = [];

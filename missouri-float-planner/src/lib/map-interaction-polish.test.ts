@@ -126,7 +126,7 @@ function scene(options: { stacks?: Array<{ id: string; ids: string[]; lng: numbe
   const pinHitLayers: string[] = [];
   const pinHitLayerId = handler('pinHitLayerId', { pinHitLayers });
   for (const id of ['pins-allGauges-dot', 'pins-allGauges-label', 'pins-access-icon',
-    'pins-hazards-badge', 'pins-places-index-dot', 'plan-endpoints-icon']) pinHitLayerId(id);
+    'pins-hazards-badge', 'pins-statewide-index-dot', 'plan-endpoints-icon']) pinHitLayerId(id);
   const queryRenderedFeaturesInRect: (box?: number[], filter?: unknown[], layers?: string[]) => Promise<{ features: object[] }> =
     async () => ({ features: [] });
   // A gauge and a campground 30m apart, as at Alley Spring.
@@ -170,7 +170,7 @@ test('POI hit testing queries only the IDs registered by rendered pins', async (
   await s.press(tap);
   assert.equal(queries.length, 1);
   assert.equal(queries[0], s.context.pinHitLayers);
-  for (const id of ['pins-dams-icon', 'pins-services-index-dot', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
+  for (const id of ['pins-dams-icon', 'pins-allGauges-cluster', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
   assert.deepEqual(s.selected, ['access:2']);
 });
 
@@ -412,7 +412,7 @@ test('hazards are the last pin source: over the route endpoints and the selectio
 test('pin sources are mounted for the life of the map, never behind layerOn', () => {
   // @rnmapbox puts a newly mounted layer at the TOP of the style, so a source
   // mounted on a toggle jumped over hazards. Off means an empty collection.
-  assert.doesNotMatch(mapText, /\{layerOn\('\w+'\)[\s\S]{0,40}\? (pinLayer|contextGaugeLayer|familyIndexLayer|accessLayer)\(/);
+  assert.doesNotMatch(mapText, /\{layerOn\('\w+'\)[\s\S]{0,40}\? (pinLayer|contextGaugeLayer|statewideIndexLayer|accessLayer)\(/);
   assert.match(mapText, /shape=\{layerOn\(id\) \? pinShapes\[id\] : EMPTY_COLLECTION\}/);
   assert.match(mapText, /shape=\{layerOn\('allGauges'\) \? referenceShape : EMPTY_COLLECTION\}/);
   assert.match(mapText, /shape=\{layerOn\('access'\) \? pinShapes\.access : EMPTY_COLLECTION\}/);

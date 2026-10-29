@@ -87,7 +87,8 @@ components, including river charts, gauge details, Eddy summaries and condition
 artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
 Dam cards share the full report’s framed border and warm reading surface, with a
-compact header, inline next change, and stacked compact charts for Today and Tomorrow.
+deep-teal header, Geist headings and monospaced readings with quieter units.
+The inline next change sits above compact charts for Today and any posted Tomorrow.
 Teal generation bars and an orange Now marker match iOS. Each day shows its own
 schedule check age and stale indicator. The footer combines the report link and
 Central time; longer provenance lives in the info dialog, with “May have changed”
@@ -96,11 +97,11 @@ Unavailable release readings are marked explicitly; turbine flow is not
 substituted for total release.
 
 Hydroelectric dam cards and full reports share `GenerationSchedule`, showing
-Today and Tomorrow directly with the same `DamTimeline`, date labels, per-day
+Today and any posted Tomorrow directly with the same `DamTimeline`, date labels, per-day
 freshness, and capacity scale. Dates use the Central calendar at the dam,
 including clock changes; another day's schedule never substitutes for a missing
-one. Unposted tomorrow schedules show a message instead of a zero-generation
-chart, and only today carries the Now marker. Hover, tap or
+one. An unposted or empty tomorrow is omitted entirely; a posted zero-generation
+or partial day stays visible. Only today carries the Now marker. Hover, tap or
 arrow keys reveal hourly details in place. Only the dam heading and Full report
 link navigate, so inspecting a schedule keeps the current search and filters.
 Days after tomorrow remain collapsed on the full report. Stored summaries select
@@ -163,9 +164,10 @@ assets for visual review; otherwise image requests use a local Eddy fixture.
 ## Floats
 
 `/find-float` is the Floats landing page. A **Build a Route** header CTA retains
-river/endpoint context. The compact **Find a Route** form sits above discovery:
-destination, time, nearby radius, and submit, with Vessel and public-access
-preferences inside a Filters disclosure. The header order is Map, Conditions,
+river/endpoint context. The **Find a Route** form sits above discovery:
+Where and nearby radius, then trip length, time and vessel, then a Filters row
+that shares a line with the submit button. Its inputs, filters and result cards
+match the iOS finder; see `docs/find-a-float.md`. The header order is Map, Conditions,
 Floats, Guides on desktop and mobile.
 
 **Featured Floats** uses the same `/api/favorite-floats?v=2` catalogue and local-day
@@ -177,11 +179,11 @@ invented. Featured floats remain visible below submitted **Matching Floats** and
 are separate from the finder's condition-aware results. Catalogue loading,
 empty, and retry states leave the finder and builder available.
 
-One destination field offers rivers from the catalogue and town suggestions
-after a 350ms pause. Its combobox/listbox supports arrow keys, Enter, Escape,
-and Tab while preserving input focus. Selecting a river clears nearby location;
-selecting a town or device location clears the river. Typed text must resolve
-to a selection before searching. Coordinates and town suggestions stay in
+One Where field offers rivers from the catalogue, then access points and towns
+after a 300ms pause. Its combobox/listbox supports arrow keys, Enter (the
+highlighted or top suggestion), Escape, and Tab while preserving input focus.
+Unfinished typing never clears the current choice. Selecting a town clears the
+river; selecting a river keeps device location (for drive times) but not a town. Coordinates and town suggestions stay in
 memory; only the Vessel preference is saved locally.
 
 The time selector retains the full 0.5–12 hour range. Results are a
@@ -332,9 +334,9 @@ changes can reset immediately instead of retaining the bottom of the old page.
 
 Dam pages keep measured generation and the posted schedule in one card, with
 separate labelled sections. Desktop and landscape phones place the reading
-beside the wider hourly chart; portrait phones stack them. Today and Tomorrow
-are always visible when schedule data is available; later posted days can be
-opened individually. The generation pattern
+beside the wider hourly chart; portrait phones stack them. Today keeps an
+unavailable state when missing; Tomorrow appears only when it has posted hours.
+Later posted days can be opened individually. The generation pattern
 always includes upcoming scheduled hours alongside measured history. Six-hour
 time labels above and below the pattern align with guides in every row; days
 with a clock change also carry their own correctly positioned time labels. Missing observations remain gaps and retain the full day axis.

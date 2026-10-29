@@ -114,7 +114,9 @@ export function screenCandidates(
   screen?: Screening,
   durationFor?: (putIn: Access, takeOut: Access) => TripDuration | null,
   canStart: (point: Access) => boolean = () => true,
+  options: { limit?: number; pairAllowed?: (putIn: Access, takeOut: Access) => boolean; skipLow?: boolean } = {},
 ) {
+  const limit = options.limit ?? MAX_ESTIMATES;
   const eligible = points
     .filter(
       (p) =>
@@ -138,6 +140,7 @@ export function screenCandidates(
     screenedOutPairs: 0,
     eligiblePairs: 0,
     unavailableDurationPairs: 0,
+    filteredPairs: 0,
   };
   const excludedConditions = new Set<string>();
   const first = Number(eligible[0]?.river_mile_downstream ?? 0);
@@ -195,6 +198,10 @@ export function screenCandidates(
         for (const spanCode of spanExcluded) excludedConditions.add(spanCode);
         continue;
       }
+      if ((options.pairAllowed && !options.pairAllowed(putIn, takeOut)) || (options.skipLow && code === 'low')) {
+        counts.filteredPairs++;
+        continue;
+      }
       const duration = durationFor ? durationFor(putIn, takeOut) : calculateTripDuration({
         miles: end - start, condition: 'flowing', speeds: { speedLowWater: speedMph, speedNormal: speedMph, speedHighWater: speedMph },
       });
@@ -227,7 +234,7 @@ export function screenCandidates(
           Number(c.takeOut.river_mile_downstream),
         ),
     );
-  while (pool.length && candidates.length < MAX_ESTIMATES) {
+  while (pool.length && candidates.length < limit) {
     pool.sort(
       (a, b) =>
         Number(!(a.duration.timeRange.min <= targetHours * 60 && a.duration.timeRange.max >= targetHours * 60)) -

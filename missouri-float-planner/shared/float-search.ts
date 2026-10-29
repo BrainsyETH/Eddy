@@ -1,6 +1,21 @@
 /** Shared transport and pure ordering rules for Find a Float. All times are
  * trip minutes, including ordinary stops; proximity is geographic miles. */
 export type FloatBoat = 'canoe' | 'kayak' | 'raft' | 'tube';
+/** Days on the river; `targetHours` is per day. */
+export type FloatTripDays = 1 | 2 | 3;
+/** Each filter narrows the routes; an omitted or false key never relaxes a safety check. */
+export interface FloatSearchFilters {
+  restrooms?: boolean;
+  camping?: boolean;
+  noFees?: boolean;
+  smoothRoads?: boolean;
+  beginner?: boolean;
+  springFed?: boolean;
+  noPortages?: boolean;
+  goodConditions?: boolean;
+  shuttle?: boolean;
+}
+export type FloatFilterKey = keyof FloatSearchFilters;
 export interface FloatSearchInput {
   near?: { lat: number; lng: number };
   river?: string;
@@ -8,6 +23,59 @@ export interface FloatSearchInput {
   targetHours: number;
   vesselType: FloatBoat;
   publicOnly: boolean;
+  days?: FloatTripDays;
+  filters?: FloatSearchFilters;
+}
+export const FLOAT_SEARCH_DEFAULT_BOAT: FloatBoat = 'kayak';
+export const FLOAT_TRIP_DAYS: FloatTripDays[] = [1, 2, 3];
+export const FLOAT_RADIUS_MILES = [25, 50, 100, 150, 200, 300] as const;
+export function floatTripLabel(days: FloatTripDays = 1) {
+  return days === 1 ? 'Day trip' : `${days} days`;
+}
+export const FLOAT_FILTER_GROUPS: Array<{ title: string; filters: Array<{ key: FloatFilterKey; label: string }> }> = [
+  { title: 'Access', filters: [
+    { key: 'restrooms', label: 'Restrooms' },
+    { key: 'camping', label: 'Camping' },
+    { key: 'noFees', label: 'No fees' },
+    { key: 'smoothRoads', label: 'No rough roads' },
+  ] },
+  { title: 'River', filters: [
+    { key: 'beginner', label: 'Beginner friendly' },
+    { key: 'springFed', label: 'Spring-fed' },
+    { key: 'noPortages', label: 'No portages' },
+    { key: 'goodConditions', label: 'Good conditions only' },
+  ] },
+  { title: 'Services', filters: [{ key: 'shuttle', label: 'Outfitter shuttle' }] },
+];
+export const FLOAT_FILTER_KEYS = FLOAT_FILTER_GROUPS.flatMap(group => group.filters.map(filter => filter.key));
+/** The enabled keys only, so request bodies and search identity ignore `false`. */
+export function activeFloatFilters(filters?: FloatSearchFilters): FloatSearchFilters | undefined {
+  const on = FLOAT_FILTER_KEYS.filter(key => filters?.[key] === true);
+  return on.length ? Object.fromEntries(on.map(key => [key, true])) : undefined;
+}
+/** Changes from the defaults: each enabled filter, plus including private accesses. */
+export function floatFilterCount(input: Pick<FloatSearchInput, 'filters' | 'publicOnly'>) {
+  return Object.keys(activeFloatFilters(input.filters) ?? {}).length + (input.publicOnly ? 0 : 1);
+}
+export function floatTargetMinutes(input: Pick<FloatSearchInput, 'targetHours' | 'days'>) {
+  return input.targetHours * (input.days ?? 1) * 60;
+}
+/** The exact body both apps submit: defaults are explicit and false filters are dropped. */
+export function floatSearchRequest(input: FloatSearchInput): FloatSearchInput {
+  const filters = activeFloatFilters(input.filters);
+  return {
+    ...(input.near ? { near: approximateLocation(input.near) } : {}),
+    ...(input.river ? { river: input.river } : {}),
+    radiusMiles: input.radiusMiles,
+    targetHours: input.targetHours,
+    vesselType: input.vesselType,
+    publicOnly: input.publicOnly,
+    ...((input.days ?? 1) > 1 ? { days: input.days } : {}),
+    ...(filters ? { filters } : {}),
+  };
+}
+export function floatSearchIdentity(input: FloatSearchInput) {
+  return JSON.stringify(floatSearchRequest(input));
 }
 export interface DurationChoice {
   id: string;
@@ -83,6 +151,10 @@ export interface FloatSearchOption extends DurationChoice {
   url: string;
   description: string | null;
   photo?: { url: string; caption: string } | null;
+  /** Road minutes from the search origin to the put-in, when routing answered. */
+  driveMinutes?: number | null;
+  /** Short facts that matched or describe the route, e.g. "Camping". */
+  highlights?: string[];
 }
 export interface FloatSearchResponse {
   matches: FloatSearchOption[];
@@ -95,7 +167,7 @@ export interface FloatSearchResponse {
   emptyReason?: FloatSearchEmptyReason;
 }
 
-export type FloatSearchEmptyReason = 'too_low' | 'high_water' | 'water_conditions' | 'public_access' | 'access_points' | 'conditions_unavailable' | 'duration_unavailable' | 'closures' | 'hazards' | 'no_nearby_rivers' | 'route_checks';
+export type FloatSearchEmptyReason = 'too_low' | 'high_water' | 'water_conditions' | 'public_access' | 'access_points' | 'conditions_unavailable' | 'duration_unavailable' | 'closures' | 'hazards' | 'no_nearby_rivers' | 'route_checks' | 'filters';
 
 const EMPTY_REASONS: Record<FloatSearchEmptyReason, string> = {
   too_low: 'Water is currently too low on the routes checked. Try a nearby river or check back when levels rise.',
@@ -109,6 +181,7 @@ const EMPTY_REASONS: Record<FloatSearchEmptyReason, string> = {
   hazards: 'Recorded hazards keep the routes checked out of suggestions. Try a nearby river.',
   no_nearby_rivers: 'No rivers with eligible launches were found in this area. Try another location or a wider search.',
   route_checks: 'No routes passed the current condition and access checks. Try another river or a wider search.',
+  filters: 'No routes match these filters. Clear filters or try a nearby river.',
 };
 
 export function floatSearchEmptyReasonMessage(reason: FloatSearchEmptyReason) {
@@ -120,12 +193,22 @@ export const FLOAT_SEARCH_LOADING_DETAIL = 'Finding routes for your day.';
 
 export const REGULATED_DURATION_MESSAGE = 'Duration matching is unavailable on this river because dam releases can change the current mid-float. Check the river page for release information.';
 export const FLOAT_SEARCH_MAX_AGE_MS = 30 * 60 * 1000;
-/** Proximity orders similar fits only; it is straight-line, so never shown as a distance. */
-export const FLOAT_SEARCH_PROXIMITY_NOTE = 'Among similar fits, put-ins closer to your starting point are listed first. Plan a float to see the drive.';
 export function floatSearchUsedProximity(result: Pick<FloatSearchResponse, 'matches' | 'alternatives'>) {
   return [...result.matches, ...result.alternatives].some((option) => option.nearbyMiles != null);
 }
-export const FLOAT_SEARCH_EXPIRED_MESSAGE = 'These results have expired. Your choices are saved; search again for current conditions.';
+export const FLOAT_SEARCH_EXPIRED_MESSAGE = 'Results expired. Search again for current conditions.';
+/** Shown behind an info button on both apps, never as inline subtext. */
+export const FLOAT_TIME_INFO = [
+  'Eddy uses published trip times when available. Otherwise, estimates use your vessel, route distance, and available river data.',
+  'River flow can change your pace. Eddy uses current readings when available; estimates based on typical conditions are labeled.',
+  'Trip times allow for typical stops. A time range is a guide, not an arrival time.',
+  'Opening a float checks the route again, so its estimate can change.',
+];
+export const FLOAT_DISTANCE_INFO = [
+  'Drive times are road estimates from your starting point to the put-in.',
+  'Search radius is a straight line to the put-in, so the drive can be longer.',
+  'River miles are the distance you float between the put-in and take-out.',
+];
 export function floatSearchIsFresh(result: Pick<FloatSearchResponse, 'estimatedAt'>, now = Date.now()) {
   const age = now - Date.parse(result.estimatedAt);
   return Number.isFinite(age) && age >= 0 && age < FLOAT_SEARCH_MAX_AGE_MS;
@@ -147,6 +230,9 @@ export function floatSearchRecoveryOptions(
 ) {
   const options: Array<{ label: string; input: FloatSearchInput; location?: string }> = [];
   if (result.matches.length || result.alternatives.length || result.partial) return options;
+  if (result.emptyReason === 'filters' && activeFloatFilters(input.filters)) {
+    options.push({ label: 'Clear filters', input: { ...input, filters: undefined } });
+  }
   if (input.publicOnly && result.emptyReason === 'public_access') {
     options.push({ label: 'Include other accesses', input: { ...input, publicOnly: false } });
   }
@@ -168,8 +254,37 @@ export interface FloatSearchPlace {
   id: string;
   name: string;
   near: { lat: number; lng: number };
+  /** An Eddy access point: searching it selects its river, ordered from this launch. */
+  kind?: 'town' | 'access';
+  river?: string;
+  riverName?: string;
+}
+
+export type FloatSort = 'best' | 'drive' | 'shortest' | 'longest';
+export const FLOAT_SORTS: Array<{ value: FloatSort; label: string }> = [
+  { value: 'best', label: 'Best match' },
+  { value: 'drive', label: 'Shortest drive' },
+  { value: 'shortest', label: 'Shortest float' },
+  { value: 'longest', label: 'Longest float' },
+];
+export function floatSortsFor(options: Array<Pick<FloatSearchOption, 'driveMinutes'>>) {
+  return FLOAT_SORTS.filter(sort => sort.value !== 'drive' || options.some(option => option.driveMinutes != null));
+}
+/** Reorders a returned section only; it never changes which routes qualified. */
+export function sortFloatOptions<T extends Pick<FloatSearchOption, 'minutes' | 'driveMinutes'>>(options: T[], sort: FloatSort): T[] {
+  if (sort === 'best') return options;
+  const value = (option: T) => sort === 'drive' ? option.driveMinutes ?? Infinity : option.minutes;
+  return [...options].sort((a, b) => sort === 'longest' ? value(b) - value(a) : value(a) - value(b));
+}
+export function driveLabel(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60), rest = minutes % 60;
+  return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
 }
 export const FLOAT_BOATS: FloatBoat[] = ['canoe', 'kayak', 'raft', 'tube'];
+export function floatBoatLabel(boat: FloatBoat) {
+  return boat[0].toUpperCase() + boat.slice(1);
+}
 export const FLOAT_BOAT_STORAGE_KEY = 'eddy.float-search.boat.v1';
 export function floatRangeLabel(range: { min: number; max: number }) {
   const hours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
