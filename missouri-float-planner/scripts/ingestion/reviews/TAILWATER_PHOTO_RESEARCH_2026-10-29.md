@@ -17,8 +17,8 @@ public `/photo-credits` page. A database write fills an empty `image_urls` only.
 | --- | --- | --- | --- | --- |
 | Dry Run Creek (Norfork) | Robert Pos / USFWS | Public domain | Existing October 4 entry | Written 2026-10-29 |
 | Cotter Access (White) | Brandonrush, Commons `Cotter,_AR_004.jpg` | CC BY-SA 4.0 | Geotag 170 m from pin; Big Spring Park, not the ramp | Written 2026-10-29 |
-| White Hole Access (White) | Creed Chapman / USFWS | Public domain | USFWS file name "whitehole stocking", caption "public boat ramp below Bull Shoals Dam"; ramp visible | Not yet |
-| Dam-Quarry Campground (Norfork) | USACE Mountain Home Project Office, Recreation.gov facility 232565 "PARK ENTRANCE" | Public domain presumed (federal staff credit; Recreation.gov states no licence) | Facility media record | Not yet |
+| White Hole Access (White) | Creed Chapman / USFWS | Public domain | USFWS file name "whitehole stocking", caption "public boat ramp below Bull Shoals Dam"; ramp visible | Written 2026-10-29 |
+| Dam-Quarry Campground (Norfork) | USACE Mountain Home Project Office, Recreation.gov facility 232565 "PARK ENTRANCE" | Public domain presumed (federal staff credit; Recreation.gov states no licence) | Facility media record | Written 2026-10-29 |
 
 ## Rejected near-misses
 
