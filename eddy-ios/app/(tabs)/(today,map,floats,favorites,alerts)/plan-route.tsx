@@ -28,9 +28,9 @@ export default function PlanRouteScreen() {
   // The link named a put-in or take-out the river's settled access list no
   // longer offers (a featured float cached for an hour, a removed launch). An
   // empty picker with no word about why read as the link failing. Shown until
-  // the paddler picks or clears a river themselves.
+  // the paddler picks or clears a river themselves, or completes a plan.
   const [noticeCleared, setNoticeCleared] = useState(false);
-  const linkedStopGone = !noticeCleared && !!data.river && data.slug === params.focusRiver &&
+  const linkedStopGone = !noticeCleared && !planner.plan && !!data.river && data.slug === params.focusRiver &&
     data.accessSettled && !data.accessError &&
     Boolean((params.planPutIn && !usable(params.planPutIn)) || (params.planTakeOut && !usable(params.planTakeOut)));
   const notice = linkedStopGone && data.river

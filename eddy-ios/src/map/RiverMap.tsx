@@ -1930,11 +1930,13 @@ export function RiverMap({
     appliedCommandId.current = cameraCommand.id;
     onCameraCommandConsumed?.(cameraCommand.id);
     if (cameraCommand.type === 'resetHeading') {
-      // Heading ALONE. A stop with no centre, zoom or padding leaves all three
-      // where the reader put them; north-up is a turn in place, not a move.
+      // Heading, and the padding already in force. No centre or zoom, so both
+      // stay where the reader put them. Padding is NOT optional: @rnmapbox's
+      // iOS camera fills every missing side with 0, which slid the map by half
+      // the sheet's height and could put the open place under the sheet.
       const animation = cameraAnimation(cameraCommand, reducedMotion);
       flightEndsAt.current = Date.now() + (animation.animationDuration ?? 0);
-      cameraRef.current.setCamera({ heading: 0, ...animation });
+      cameraRef.current.setCamera({ heading: 0, padding: cameraPadding, ...animation });
       return;
     }
     if (cameraCommand.type === 'showPoint') {
@@ -2030,10 +2032,15 @@ export function RiverMap({
    * A layer filter that also leaves out the selected place, which
    * selectedShape draws on top. Filters are layer properties: changing one
    * re-evaluates the layer without re-uploading its source.
+   *
+   * NEVER UNDEFINED. @rnmapbox's iOS layer applies a filter only when it is a
+   * non-empty array, so going back to `undefined` when the sheet closed left
+   * the last `!= selected` filter on the layer: the place stayed hidden with
+   * nothing drawing it. With no selection the filter matches no pin id, which
+   * keeps every pin and still replaces the old filter natively.
    */
-  const unselected = (filter?: unknown[]): unknown[] | undefined => {
-    if (!selectedPinId) return filter;
-    const notSelected = ['!=', ['get', 'id'], selectedPinId];
+  const unselected = (filter?: unknown[]): unknown[] => {
+    const notSelected = ['!=', ['get', 'id'], selectedPinId ?? ''];
     return filter ? ['all', filter, notSelected] : notSelected;
   };
 
@@ -2047,12 +2054,16 @@ export function RiverMap({
    */
   const selectPinHits = (features: RenderedFeature[], tap: number[] | undefined) => {
     const zoom = liveCamera.current?.zoom ?? visibleViewport?.zoom ?? 0;
+    // The selection layer can draw a pin byId no longer holds (its layer
+    // switched off, an offline search result): a tap on it is still a tap on
+    // that place, not on the river or the background.
+    const pinFor = (id: string) => byId.get(id) ?? (id === selectedPinId && selectedPin?.id === id ? selectedPin : undefined);
     const hits: HitCandidate[] = [];
     for (const feature of features) {
       const id = feature.properties?.id;
       if (typeof id !== 'string') continue;
       const stack = stacksById.get(id);
-      const pin = stack ? null : byId.get(id);
+      const pin = stack ? null : pinFor(id);
       if (stack) hits.push({ id, lng: stack.lng, lat: stack.lat });
       else if (pin) {
         // A bottom-anchored mark is aimed at by its bulb, not its tip — but
@@ -2071,7 +2082,8 @@ export function RiverMap({
       else setStackChoice(stack.ids.flatMap((member) => byId.get(member) ?? []));
       return true;
     }
-    onSelectPin?.(byId.get(id)!);
+    const pin = pinFor(id);
+    if (pin) onSelectPin?.(pin);
     return true;
   };
 

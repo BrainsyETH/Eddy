@@ -22,6 +22,7 @@ import {
   type TrackerState,
 } from '../../../eddy-ios/src/lib/floatRecording';
 import { createFloatRecorderSync, failedReport, type RecorderBridge } from '../../../eddy-ios/src/lib/floatRecorderSync';
+import { autoEndAt } from '../../../eddy-ios/src/lib/floatEnding';
 import { trackingLine } from '../../../eddy-ios/src/lib/floatTrackerStatus';
 
 const MILE = 1609.344;
@@ -34,14 +35,14 @@ function point(id: string, x: number): MapAccessPoint {
   return { id, name: id, riverMile: 20 + x / MILE, type: 'access', isPublic: true, coordinates: { lng, lat } };
 }
 
-function newSession(id = 'rec'): FloatSession {
+function newSession(id = 'rec', takeOutId = 'round-spring'): FloatSession {
   const prepared = routeFromRiver(
     { slug: 'current', name: 'Current River', geometry: { type: 'LineString', coordinates: Array.from({ length: 101 }, (_, i) => at(i * 100)) } },
-    [point('akers', 0), point('round-spring', 10_000)],
+    [point('akers', 0), point('pulltite', 5_000), point('round-spring', 10_000)],
     null,
   );
   assert.ok(prepared.ok);
-  const started = startSession({ id, kind: 'saved', route: prepared.route, index: prepared.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  const started = startSession({ id, kind: 'saved', route: prepared.route, index: prepared.index, putInId: 'akers', takeOutId, now: T0 });
   assert.ok(started.ok);
   return started.session;
 }
@@ -340,7 +341,7 @@ test('a recorder left running with no float is stopped; one whose float could no
   assert.equal(bridge.calls.length, before);
 });
 
-test('a journal that cannot be read at Finish leaves the float active and recording, not saved short', async () => {
+test('a journal that cannot be read at Finish leaves the float active and recording, not saved short, until the paddler stops it', async () => {
   const journal = fakeJournal();
   for (let i = 0; i < 10; i += 1) journal.append(paddle(i));
   const recaps: FloatSession[] = [];
@@ -355,4 +356,95 @@ test('a journal that cannot be read at Finish leaves the float active and record
   assert.deepEqual(recaps, []);
   assert.deepEqual(bridge.calls, [`stop:${id}`, `start:${id}`], 'recording starts again so nothing is missed meanwhile');
   assert.equal(trackers[trackers.length - 1].status, 'recording');
+});
+
+test('recovery judges the automatic end on the whole journal, not on its first pages', async () => {
+  // Planned to Pulltite (x = 5 km), but paddled on past it for over an hour.
+  // The early pages hold an arrival more than an hour before "now"; only the
+  // later ones show the paddler still moving downstream.
+  const journal = fakeJournal();
+  const fixes = Array.from({ length: 840 }, (_, i) => paddle(i));
+  for (const fix of fixes) journal.append(fix);
+  const now = fixes[fixes.length - 1].t + 10_000;
+
+  const { disk } = memoryDisk();
+  const store = createFloatSessionStore(disk, () => {});
+  await store.begin(newSession('rec', 'pulltite'));
+  const judged: Array<{ settle: boolean; end: number | null }> = [];
+  const sync = createFloatRecorderSync({
+    recorder: mockBridge(journal, 50),
+    getSession: () => store.get(),
+    ensureLoaded: () => store.ensureLoaded(),
+    loadFailed: () => store.loadFailed(),
+    record: (batch, at, journalTo, settle) => {
+      store.record(batch, at, journalTo);
+      judged.push({ settle, end: autoEndAt(store.get(), at) });
+      return null;
+    },
+    isForeground: () => true,
+    setTracker: () => {},
+    warn: () => {},
+    now: () => now,
+  });
+  await sync.catchUp();
+
+  assert.equal(store.get()!.journalTo, journal.read(0).next, 'the whole journal was read');
+  assert.ok(store.get()!.arrivedAt != null, 'the planned take-out was reached');
+  assert.ok(judged.some((j) => !j.settle && j.end != null), 'an early page alone looks like an ending');
+  const settled = judged.filter((j) => j.settle);
+  assert.equal(settled.length, 1, 'judged once, after the last page');
+  assert.equal(settled[0].end, null, 'the whole journal shows the paddler carrying on');
+});
+
+test('tracking can be stopped when the journal cannot be read, and stays stopped until the recap is saved', async () => {
+  const journal = fakeJournal();
+  for (let i = 0; i < 10; i += 1) journal.append(paddle(i));
+  const recaps: Array<{ session: FloatSession }> = [];
+  const { disk } = memoryDisk();
+  const store = createFloatSessionStore(disk, () => {}, async () => [], async (session) => { recaps.push({ session }); });
+  await store.begin(newSession());
+  const bridge = mockBridge(journal);
+  const sync = createFloatRecorderSync({
+    recorder: bridge,
+    getSession: () => store.get(),
+    ensureLoaded: () => store.ensureLoaded(),
+    loadFailed: () => store.loadFailed(),
+    record: (fixes, now, journalTo) => {
+      store.record(fixes, now, journalTo);
+      return null;
+    },
+    isForeground: () => true,
+    setTracker: () => {},
+    warn: () => {},
+  });
+  const id = store.get()!.id;
+  const read = bridge.read;
+  bridge.read = async () => {
+    throw new Error('EIO');
+  };
+  assert.equal(await sync.finish(id), false);
+  assert.equal(bridge.state, 'recording', 'not stopped yet: the paddler has not chosen');
+
+  // The paddler stops tracking anyway: the GPS goes off and stays off, even
+  // across a relaunch, while the float waits for its recap.
+  const stoppedAt = T0 + 30 * 60_000;
+  await store.stopTracking(stoppedAt);
+  bridge.state = 'idle';
+  const relaunched = createFloatSessionStore(disk, () => {});
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.get()!.trackingStoppedAt, stoppedAt);
+  bridge.calls.length = 0;
+  await sync.ensureRecording();
+  assert.deepEqual(bridge.calls, [], 'a stopped float is never started again');
+  bridge.state = 'recording';
+  await sync.ensureRecording();
+  assert.deepEqual(bridge.calls, [`stop:${id}`], 'a recorder iOS resumed for it is stopped');
+  assert.equal(await sync.finish(id), false);
+  assert.equal(bridge.state, 'idle', 'a failed Finish leaves a stopped float stopped');
+  assert.deepEqual(recaps, []);
+
+  // The journal reads again: the recap is saved from all of it.
+  bridge.read = read;
+  assert.equal(await sync.finish(id), true);
+  assert.equal(store.get()!.journalTo, journal.read(0).next);
 });

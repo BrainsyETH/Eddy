@@ -61,8 +61,12 @@ export interface RecorderSyncDeps {
   getSession(): FloatSession | null;
   ensureLoaded(): Promise<void>;
   loadFailed(): boolean;
-  /** recordFixes: resolves the automatic end it triggered, if any. */
-  record(fixes: readonly PositionFix[], now: number, journalTo: number): Promise<boolean> | null;
+  /**
+   * recordFixes: resolves the automatic end it triggered, if any. `settle`
+   * false applies the fixes without judging an automatic end: more of the
+   * journal is still to be read, and it may show the paddler carried on.
+   */
+  record(fixes: readonly PositionFix[], now: number, journalTo: number, settle: boolean): Promise<boolean> | null;
   isForeground(): boolean;
   setTracker(state: TrackerState): void;
   warn(message: string, detail?: unknown): void;
@@ -88,23 +92,39 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
     publish();
   };
 
-  const apply = async (fixes: RecordedFix[], journalTo: number) => {
-    const ended = deps.record(fixes.map(toPositionFix), now(), journalTo);
+  const apply = async (fixes: RecordedFix[], journalTo: number, settle = true) => {
+    const ended = deps.record(fixes.map(toPositionFix), now(), journalTo, settle);
     if (ended) await ended;
   };
 
-  /** Read the journal from the session's offset to its end. Runs inside `ingest`. */
+  /**
+   * Read the journal from the session's offset to its end. Runs inside `ingest`.
+   *
+   * RECONCILE FIRST, THEN JUDGE. Recovery reads the journal a page at a time,
+   * and an early page can look like an ending (arrived an hour ago, or away
+   * for 45 minutes) that later pages contradict. Pages are applied unsettled,
+   * and the automatic end is judged once, on the whole journal. A read that
+   * fails part-way judges nothing: the next delivery or catch-up finishes it.
+   */
   const readThrough = async () => {
     if (!recorder) return;
+    let unsettled = false;
     for (;;) {
       const session = deps.getSession();
       if (!session) return;
       const cursor = session.journalTo ?? 0;
       const page = await recorder.read(session.id, cursor, JOURNAL_PAGE_BYTES);
-      if (deps.getSession()?.id !== session.id || page.next <= cursor) return;
-      await apply(page.fixes, page.next);
-      if (page.next >= page.end) return;
+      if (deps.getSession()?.id !== session.id) return;
+      // No complete line past the cursor (only a torn write is left): the
+      // journal is read as far as it can be.
+      if (page.next <= cursor) break;
+      const last = page.next >= page.end;
+      await apply(page.fixes, page.next, last);
+      unsettled = !last;
+      if (last) return;
     }
+    const session = deps.getSession();
+    if (unsettled && session) await apply([], session.journalTo ?? 0, true);
   };
 
   /**
@@ -126,6 +146,14 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
         const report = await recorder.status();
         if (report.state !== 'idle' && !deps.getSession()) onStatus(await recorder.stop(null));
         else onStatus(report);
+        return;
+      }
+      // Stopped at Finish while its recap waits on the journal: never start
+      // again, and stop a recorder iOS resumed for it.
+      if (session.trackingStoppedAt != null) {
+        const report = await recorder.status();
+        const running = report.state !== 'idle' && (report.sessionId == null || report.sessionId === session.id);
+        onStatus(running ? await recorder.stop(session.id) : report);
         return;
       }
       if (!deps.isForeground()) {
@@ -181,7 +209,9 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
      *
      * Resolves false when the journal could not be read to its end: the float
      * must not be finalised from an incomplete checkpoint. Recording is then
-     * started again, the float stays active, and Finish can be retried.
+     * started again, the float stays active, and Finish can be retried, or
+     * the paddler can stop tracking anyway (floatSessionStore stopTracking),
+     * which this then leaves stopped.
      *
      * An automatic end (floatEnding.ts) happens inside a batch being applied
      * and does not come here: it ends at the arrival or departure that batch

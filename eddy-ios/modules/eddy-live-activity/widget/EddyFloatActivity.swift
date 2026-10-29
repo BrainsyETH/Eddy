@@ -41,14 +41,22 @@ struct EddyFloatActivity: Widget {
         Image(systemName: display.statusSymbol)
           .foregroundStyle(display.tint)
           .accessibilityLabel(display.shortStatus)
+          // The compact and minimal regions are sized by the camera housing,
+          // not by their content: Apple's layout gives them no room to grow,
+          // so these few glyphs alone keep a Dynamic Type cap. The Lock Screen
+          // card and the expanded Island adapt instead (FloatCard).
+          .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
       } compactTrailing: {
         // A bare old distance on the Island looks live: replace it with an
         // explicit status until the river position is reliable again.
         Text(display.reliable && display.hasMiles ? "\(context.state.milesText) mi" : display.compactStatus)
           .font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(display.tint)
+          .lineLimit(1).minimumScaleFactor(0.7)
+          .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
       } minimal: {
         Image(systemName: display.statusSymbol)
           .foregroundStyle(display.tint).accessibilityLabel(display.shortStatus)
+          .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
       }
       .widgetURL(floatURL)
       .keylineTint(riverTeal)
@@ -105,10 +113,68 @@ private struct FloatDisplay {
 private struct FloatCard: View {
   let context: ActivityViewContext<FloatActivityAttributes>
   var expanded = false
+  @Environment(\.dynamicTypeSize) private var typeSize
   private var display: FloatDisplay { FloatDisplay(context: context) }
   private var state: FloatActivityAttributes.ContentState { context.state }
 
   var body: some View {
+    // The Lock Screen clips a Live Activity at 160 pt. Five rows fit through
+    // the largest non-accessibility size. At accessibility sizes the card
+    // keeps what a glance needs (distance, estimate, whether the position is
+    // current) stacked full width and drops the rest; ViewThatFits falls back
+    // to distance and status alone when even that is too tall. No blanket
+    // Dynamic Type cap: the essentials grow with the reader's setting.
+    Group {
+      if typeSize.isAccessibilitySize {
+        ViewThatFits(in: .vertical) {
+          accessibleCard(showEstimate: true)
+          accessibleCard(showEstimate: false)
+        }
+      } else {
+        standardCard
+      }
+    }
+    .foregroundStyle(.white)
+  }
+
+  private var milesLine: String {
+    if !display.hasMiles { return "No distance yet" }
+    if !display.reliable { return "\(state.milesText) mi · last known" }
+    return state.beyondText.isEmpty ? "\(state.milesText) mi left" : "\(state.milesText) mi to mapped end"
+  }
+
+  private func accessibleCard(showEstimate: Bool) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text(milesLine)
+        .font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
+        .lineLimit(1).minimumScaleFactor(0.5)
+      if showEstimate {
+        Text(display.estimate).font(.footnote.weight(.semibold))
+          .lineLimit(2).minimumScaleFactor(0.6)
+      }
+      statusRow.lineLimit(1).minimumScaleFactor(0.6)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private var statusRow: some View {
+    HStack(spacing: 4) {
+      Image(systemName: display.reliable ? "location.fill" : display.statusSymbol)
+        .accessibilityHidden(true)
+      Text(display.shortStatus).lineLimit(1)
+      if !display.reliable, let fix = state.lastFixAt {
+        Text("·").accessibilityHidden(true)
+        // The system redraws this age even while Eddy is suspended.
+        Text(fix, style: .relative).monospacedDigit()
+        Text("ago")
+      }
+    }
+    .font(.caption2).foregroundStyle(display.tint)
+    // One VoiceOver element ("Last known position, 3 min ago"), not four.
+    .accessibilityElement(children: .combine)
+  }
+
+  private var standardCard: some View {
     VStack(alignment: .leading, spacing: 5) {
       HStack(spacing: 8) {
         if !expanded {
@@ -125,6 +191,7 @@ private struct FloatCard: View {
         VStack(alignment: .trailing, spacing: 0) {
           Text(display.hasMiles ? "\(state.milesText) mi" : state.milesText)
             .font(.system(.title2, design: .rounded).weight(.semibold)).monospacedDigit()
+            .lineLimit(1).minimumScaleFactor(0.7)
           Text(!display.hasMiles ? "no distance yet" : display.reliable ? (state.beyondText.isEmpty ? "river miles left" : "to mapped end") : "last known")
             .font(.caption2).foregroundStyle(.white.opacity(0.75))
         }
@@ -151,25 +218,7 @@ private struct FloatCard: View {
       } else if !state.estimateNote.isEmpty && !state.arrived && !state.pastEnd {
         Text(state.estimateNote).font(.caption2).foregroundStyle(.white.opacity(0.7)).lineLimit(1).minimumScaleFactor(0.8)
       }
-      HStack(spacing: 4) {
-        Image(systemName: display.reliable ? "location.fill" : display.statusSymbol)
-          .accessibilityHidden(true)
-        Text(display.shortStatus).lineLimit(1)
-        if !display.reliable, let fix = state.lastFixAt {
-          Text("·").accessibilityHidden(true)
-          // The system redraws this age even while Eddy is suspended.
-          Text(fix, style: .relative).monospacedDigit()
-          Text("ago")
-        }
-      }
-      .font(.caption2).foregroundStyle(display.tint)
-      // One VoiceOver element ("Last known position, 3 min ago"), not four.
-      .accessibilityElement(children: .combine)
+      statusRow
     }
-    .foregroundStyle(.white)
-    // The Lock Screen clips a Live Activity at 160 pt. Five rows fit through
-    // the largest non-accessibility size; above it, text is capped rather
-    // than cut off mid-card.
-    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
   }
 }

@@ -631,7 +631,7 @@ function MapContent() {
    * The gesture count is carried with it so a fit that arrives late can tell
    * whether the reader took the camera in the meantime; see `gestureCount`.
    */
-  const pendingRiverFit = useRef<{ slug: string; gestures: number } | null>(null);
+  const pendingRiverFit = useRef<{ slug: string; gestures: number; waitForSheet: boolean } | null>(null);
   /**
    * How many times the reader has moved the map themselves.
    *
@@ -1059,8 +1059,13 @@ function MapContent() {
    * the point is that it has to be given out loud.
    */
   type RiverCameraIntent =
-    /** Frame the whole river. The river IS what the reader asked to see. */
-    | { camera: 'fitRiver' }
+    /**
+     * Frame the whole river. The river IS what the reader asked to see.
+     * `waitForSheet` only when a sheet opens with it: the fit waits for that
+     * sheet's layout, and with none coming (the planner, a plan link, a gauge
+     * search row) it never ran and could fire much later, out of nowhere.
+     */
+    | { camera: 'fitRiver'; waitForSheet: boolean }
     /**
      * A searched point on it; the river selection is a side effect.
      * `waitForSheet` when the result opens a pin sheet — see the action.
@@ -1095,7 +1100,7 @@ function MapContent() {
           const river = network.bySlug.get(slug);
           const bounds = river ? riverBounds(river) : null;
           if (bounds) {
-            issueCameraCommand({ type: 'riverSelected', bounds });
+            issueCameraCommand({ type: 'riverSelected', bounds, waitForSheet: intent.waitForSheet });
             return;
           }
           // ── THE FIT IS DEFERRED, NOT DROPPED ──────────────────────────────
@@ -1112,7 +1117,7 @@ function MapContent() {
           // point is not yet held either — so the intent falls to `fitRiver`
           // against an empty `bySlug`, and the reader watches the sheet open
           // over a map still sitting on the other side of the state.
-          pendingRiverFit.current = { slug, gestures: gestureCount.current };
+          pendingRiverFit.current = { slug, gestures: gestureCount.current, waitForSheet: intent.waitForSheet };
           return;
         }
         case 'searchResult':
@@ -1162,7 +1167,7 @@ function MapContent() {
     if (!river) return; // Still hydrating; ask again on the next arrival.
     pendingRiverFit.current = null;
     const bounds = riverBounds(river);
-    if (bounds) issueCameraCommand({ type: 'riverSelected', bounds });
+    if (bounds) issueCameraCommand({ type: 'riverSelected', bounds, waitForSheet: pending.waitForSheet });
   }, [network.bySlug, selectedSlug, issueCameraCommand]);
 
   /**
@@ -1553,7 +1558,8 @@ function MapContent() {
           slug,
           at
             ? { camera: 'searchResult', lng: at.lng, lat: at.lat, waitForSheet: pin !== null }
-            : { camera: 'fitRiver' },
+            // The access sheet opens once the river's points arrive.
+            : { camera: 'fitRiver', waitForSheet: true },
         );
       }
       // After selectRiver, which disposes any earlier token.
@@ -1623,7 +1629,7 @@ function MapContent() {
     // looks like nothing happened.
     if (result.kind === 'river' && result.riverSlug) {
       setMapPlanRiver(null);
-      selectRiver(result.riverSlug, { camera: 'fitRiver' });
+      selectRiver(result.riverSlug, { camera: 'fitRiver', waitForSheet: true });
       setRiverSheetOpen(true);
       return;
     }
@@ -1684,7 +1690,7 @@ function MapContent() {
         waitForSheet: pin !== null,
       });
     } else if (result.riverSlug) {
-      selectRiver(result.riverSlug, { camera: 'fitRiver' });
+      selectRiver(result.riverSlug, { camera: 'fitRiver', waitForSheet: false });
     }
     if (pin) setSelectedPin(pin);
   }, [
@@ -1835,7 +1841,7 @@ function MapContent() {
     if (mapPlanIntent.current?.token !== token) mapPlanIntent.current = { token, gestures: gestureCount.current };
 
     if (selectedSlug !== focusRiver) {
-      selectRiver(focusRiver, { camera: 'fitRiver' });
+      selectRiver(focusRiver, { camera: 'fitRiver', waitForSheet: false });
       return;
     }
     if (plannerAccess?.slug !== focusRiver) return;
@@ -2795,7 +2801,7 @@ function MapContent() {
       }
       setMapPlanRiver(null);
       pendingMapPlanFrame.current = null;
-      selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
+      selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver', waitForSheet: true });
       setRiverSheetOpen(true);
       setSelectedPin(null);
       pendingAccessSelection.current = null;
@@ -3756,7 +3762,8 @@ function MapContent() {
         // on wherever they had been.
         onSelectRiver={(river) => {
           setSelectedPin(null);
-          selectRiver(river.slug, { camera: 'fitRiver' });
+          // No sheet opens behind the planner, so nothing to wait for.
+          selectRiver(river.slug, { camera: 'fitRiver', waitForSheet: false });
         }}
         onClearRiver={() => {
           planner.reset();

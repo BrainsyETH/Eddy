@@ -143,6 +143,8 @@ export function createReportQueue(
   let loading: Promise<void> | null = null;
   let sending: Promise<void> | null = null;
   let sendingController: AbortController | null = null;
+  /** The report whose request is in flight, so withdrawing it can abort it. */
+  let inFlightId: string | null = null;
   // A time-budget cancellation is not a delivery failure, but GPS callbacks
   // must not retry it every few seconds. Memory-only: relaunch clears this
   // cooldown while preserving the report's real, persisted failure backoff.
@@ -244,11 +246,19 @@ export function createReportQueue(
                 if (signal.aborted) break;
                 tried.add(report.id);
                 let outcome: SendOutcome;
+                inFlightId = report.id;
                 try {
                   outcome = await send(report, signal);
                 } catch (error) {
                   if (!signal.aborted) warn('hazard report send failed', error);
                   outcome = { kind: 'retry' };
+                } finally {
+                  inFlightId = null;
+                }
+                // Withdrawn while it was being sent: it is off the list.
+                if (!reports.some((r) => r.id === report.id)) {
+                  cancelledUntil.delete(report.id);
+                  break;
                 }
                 // A server success/refusal remains authoritative even if the
                 // budget expired while its response was being processed.
@@ -304,6 +314,9 @@ export function createReportQueue(
       await queue.ensureLoaded();
       if (!reports.some((r) => r.id === id)) return false;
       cancelledUntil.delete(id);
+      // Withdrawing the report being sent stops its request; the next flush
+      // carries on with the rest.
+      if (inFlightId === id) sendingController?.abort();
       await commit((current) => current.filter((r) => r.id !== id), true);
       return true;
     },

@@ -826,3 +826,17 @@ test('the SDK still exports both receipt-in-use codes under those names', () => 
   assert.match(declaration, /MISSING_RECEIPT_FILE_ERROR = "9"/);
   assert.match(declaration, /RECEIPT_ALREADY_IN_USE_ERROR = "7"/);
 });
+
+test('Restore while signed out signs in and continues, never a dead-end alert', () => {
+  // Guideline 3.1.1: a reviewer taps Restore signed out. Purchases need a
+  // permanent account (identifyUser refuses anonymous ids), so the tap signs
+  // in with Apple, configures the SDK itself, then restores.
+  const profile = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx', 'utf8');
+  const start = profile.indexOf('const handleRestore = useCallback(');
+  const body = profile.slice(start, profile.indexOf('const redeemPending', start));
+  assert.doesNotMatch(body, /Sign in to restore/);
+  const signIn = body.indexOf('await signInWithApple()');
+  const identify = body.indexOf('identifyUser(user.id');
+  const restore = body.indexOf('await restorePurchases()');
+  assert.ok(signIn !== -1 && signIn < identify && identify < restore, 'sign in, then configure, then restore');
+});

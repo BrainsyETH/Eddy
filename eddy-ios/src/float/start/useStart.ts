@@ -8,7 +8,7 @@ import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { currentStartFix, useFloatStartLocation } from '@/hooks/useFloatStartLocation';
-import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
+import { loadFloatRoute, refreshFloatHazards, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
 import { startSession, takeOutChoices } from '@/lib/floatSession';
 import { startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { clearPendingFloatSetup } from '@/float/pendingFloatSetup';
@@ -100,13 +100,17 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
         setError('This take-out is behind you. Choose one downstream.');
         return;
       }
+      // The route may come from the phone alone: ask for its hazards once,
+      // briefly, and start with what the phone has if that does not answer.
+      const route = await refreshFloatHazards(loaded.route, loaded.index);
+      if (!focused.current) return;
       const speed = Number(params.plannerMph);
       const made = startSession({
         id: params.sessionId!,
         kind: saved ? 'saved' : 'quick',
         shortCode: params.shortCode,
         downloadKey: params.downloadKey,
-        route: loaded.route,
+        route,
         index: loaded.index,
         putInId: params.putInId,
         takeOutId: params.takeOutId ?? '',

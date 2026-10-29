@@ -125,8 +125,7 @@ private struct DamGenerationCard: View {
                 Text("Today’s schedule · CT").font(.caption2.weight(.semibold)).lineLimit(1)
                 HStack(spacing: 6) {
                   Image(systemName: "calendar.badge.clock").font(.title3)
-                  Text(moment?.scheduleCurrent == true ? (entry.packet?.scheduleDays == nil ? "Open schedule" : "Not posted today") :
-                    (moment?.scheduleCheckedAt == nil ? "Not posted" : "Check schedule"))
+                  Text(entry.packet?.scheduleDays == nil && moment?.scheduleCurrent == true ? "Open schedule" : "Not posted today")
                     .font(.caption).lineLimit(2)
                 }.foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: compact ? 35 : 48, alignment: .leading)
               }

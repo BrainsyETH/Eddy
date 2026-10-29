@@ -192,13 +192,16 @@ invalid hour. A coral pointer marks the current local hour, including the
 source's repeated/skipped wall-clock slots on DST days. Hour-ending labels
 come from the shared schedule rules. This is not total release or downstream flow.
 The additive v1 `scheduleDays` data retains its original Central calendar date.
-Only a fresh schedule matching today's date can draw; a stale schedule or an
-older server without hourly data shows a short unavailable/open-schedule state.
+Any schedule matching today's date draws, including one whose check has aged
+out — the footer's observed time already conveys staleness, so the widget does
+not swap the chart for a "check schedule" prompt. No schedule for today shows
+"Not posted today"; an older server without hourly data shows "Open schedule".
 Existing binaries still receive the next-change summary they understand.
 Missing, negative, daily-mean and invalid/future measurements are unavailable,
 not zero. Cached timelines carry hourly and exact observation/schedule expiry
 transitions: after two hours observations lose present-tense language; after
-90 minutes (or unknown check time) the schedule asks to check Eddy. The final
+90 minutes (or unknown check time) the next-change summary older binaries show
+asks to check Eddy. The final
 entry remains stale indefinitely during an outage. Network failures preserve
 original timestamps; 404 clears the selected dam’s cache.
 

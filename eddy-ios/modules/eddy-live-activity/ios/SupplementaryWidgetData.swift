@@ -112,9 +112,10 @@ struct WidgetDamPacket: Codable {
   func moment(at date: Date) -> WidgetDamMoment? {
     entries.last { $0.date <= date.timeIntervalSince1970 * 1000 }
   }
+  // Today's posted schedule stays visible after the check ages out; the
+  // footer's observed time already says how old the data is.
   func todaySchedule(at date: Date) -> WidgetDamScheduleDay? {
-    guard let moment = moment(at: date), moment.scheduleCurrent,
-      let day = moment.scheduleDate else { return nil }
+    guard let moment = moment(at: date), let day = moment.scheduleDate else { return nil }
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = TimeZone(identifier: "America/Chicago")
