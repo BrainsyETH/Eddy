@@ -126,7 +126,7 @@ function ProfileContent() {
     forgetSession,
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
-  const { permission, optedOut, registered, enable, disable, unregister } = usePush();
+  const { permission, optedOut, registered, held, enable, disable, unregister, refresh: refreshPush } = usePush();
   const { features } = useAppConfig();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
@@ -182,6 +182,12 @@ function ProfileContent() {
   const [firstRunCleared, setFirstRunCleared] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
+  // "Couldn't check" is for a permanent account only: it may be a subscriber,
+  // who must never be shown Free. A guest cannot hold an entitlement (purchases
+  // are configured only for a signed-in account, see src/lib/purchases.ts), so
+  // a failed profile read on a guest still means Free plan and the paywall,
+  // which signs them in before buying.
+  const subscriptionUnknown = signedIn && Boolean(error) && !entitlement;
 
   /**
    * The other half of confirmPending: one more server poll, then the truth.
@@ -566,7 +572,7 @@ function ProfileContent() {
 
   const notificationSummary = signedIn
     ? features.push
-      ? notificationDetail({ permission, optedOut, registered })
+      ? notificationDetail({ permission, optedOut, registered, held })
       : 'Temporarily unavailable. Alerts still appear in the Alerts tab.'
     : '';
   const notificationControl = notificationControlKind(features.push, permission);
@@ -588,7 +594,9 @@ function ProfileContent() {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              void refresh().finally(() => setRefreshing(false));
+              // Push too: "pull down to try again" is the retry the
+              // notification sentence offers (a held device, a failed sync).
+              void Promise.allSettled([refresh(), refreshPush()]).finally(() => setRefreshing(false));
             }}
             tintColor={colors.interactive}
           />
@@ -658,7 +666,7 @@ function ProfileContent() {
                     ? 'Premium is active'
                     : entitlement?.billingIssue
                       ? 'Premium is inactive'
-                      : error && !entitlement
+                      : subscriptionUnknown
                         ? 'Subscription unknown'
                         : 'Free plan'}
                 </Text>
@@ -670,7 +678,7 @@ function ProfileContent() {
                 >
                   {!loaded
                     ? 'Checking…'
-                    : error && !entitlement
+                    : subscriptionUnknown
                       // Not "Free plan": a subscriber at a put-in with one bar
                       // has not lost anything, Eddy just could not ask.
                       ? 'Couldn’t check your subscription. Pull down to try again when you have a connection.'
@@ -685,7 +693,7 @@ function ProfileContent() {
               </View>
             </View>
 
-            {loaded && !entitlement?.isActive && !(error && !entitlement) && (!confirmPending || confirmWindowClosed) && (
+            {loaded && !entitlement?.isActive && !subscriptionUnknown && (!confirmPending || confirmWindowClosed) && (
               <Pressable
                 onPress={handlePremiumAction}
                 disabled={busy !== null}

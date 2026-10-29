@@ -21,11 +21,21 @@ export function useFloatSession(): FloatSession | null {
 }
 
 const hasFloat = () => getFloatSession() != null || floatSessionLoadFailed();
+const floatActive = () => getFloatSession() != null;
 
 /** Keep the large map independent of every GPS fix; the button subscribes to details. */
 export function useHasFloatSession(): boolean {
   useEffect(() => { void ensureFloatSessionLoaded(); }, []);
   return useSyncExternalStore(subscribeFloatSession, hasFloat, hasFloat);
+}
+
+/**
+ * A float is active, without the session itself: re-renders when one starts
+ * or ends, not on every GPS fix (a fix replaces the session object).
+ */
+export function useFloatActive(): boolean {
+  useEffect(() => { void ensureFloatSessionLoaded(); }, []);
+  return useSyncExternalStore(subscribeFloatSession, floatActive, floatActive);
 }
 
 /**

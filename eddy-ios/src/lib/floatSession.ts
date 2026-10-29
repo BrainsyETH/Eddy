@@ -207,12 +207,16 @@ export interface FloatSession {
    * for a take-out off the mapped river: see riverEndAt.
    */
   arrivedAt?: number | null;
-  /** The accounting as it stood at arrival: the recap of a float that stopped there. */
+  /**
+   * The accounting as it stood at arrival (or, for a take-out off the mapped
+   * river, at the river's end): the recap of a float that stopped there.
+   */
   arrivalTotals?: FloatTotals | null;
   /**
-   * After arriving, a confirmed position more than ARRIVAL_MILES downstream
-   * of the take-out: the paddler carried on, so arrival no longer ends the
-   * float's time or distance.
+   * After arriving (or reaching the river's end), a confirmed position more
+   * than ARRIVAL_MILES downstream of the take-out: the paddler carried on, so
+   * arrival no longer ends the float's time or distance. It is not the end
+   * either: floatAccount ends such a float where its movement stopped.
    */
   pastTakeOut?: boolean;
   /**
@@ -220,7 +224,9 @@ export interface FloatSession {
    * White): when a confirmed position first reached the river's closest point
    * to it. Tracking can follow no further, but the paddler has NOT arrived:
    * the take-out is still offLineMeters away, so this is never reported as
-   * reaching it.
+   * reaching it. The float's measured time ends here all the same, like an
+   * arrival (floatAccount): what follows is off the line and unmeasured, so
+   * the panel, the recap and an automatic end all stop at this moment.
    */
   riverEndAt?: number | null;
   /**
@@ -513,14 +519,22 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
       next.startMile < session.takeOut.riverMile &&
       stretchProgress(next.startMile, session.takeOut.riverMile, step.result.riverMile).remainingMiles <= ARRIVAL_MILES
     ) {
-      // Off the mapped river, the line's end is not the take-out.
-      if (session.takeOut.offLineMeters != null) next.riverEndAt = session.riverEndAt ?? fix.timestamp;
-      else if (session.arrivedAt == null) {
+      // Off the mapped river, the line's end is not the take-out, but it is
+      // where measuring ends: its accounting is kept the same way.
+      if (session.takeOut.offLineMeters != null) {
+        if (session.riverEndAt == null) {
+          next.riverEndAt = fix.timestamp;
+          next.arrivalTotals = next.totals ?? null;
+        }
+      } else if (session.arrivedAt == null) {
         next.arrivedAt = fix.timestamp;
         next.arrivalTotals = next.totals ?? null;
       }
     }
-    if (next.arrivedAt != null && step.result.riverMile - session.takeOut.riverMile > ARRIVAL_MILES) next.pastTakeOut = true;
+    if (
+      (next.arrivedAt ?? next.riverEndAt) != null &&
+      step.result.riverMile - session.takeOut.riverMile > ARRIVAL_MILES
+    ) next.pastTakeOut = true;
   }
   return next;
 }
@@ -529,23 +543,47 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
  * The float's time and accounting, through `until` (now, or the moment it
  * ended). Reaching the take-out and ending the float are different things:
  *  - reached and stayed: the float ended there, with the accounting as it
- *    stood then;
- *  - carried on past the take-out, or never reached it: it runs to `until`,
- *    leaving out a run (a stop, usually) that began at or after it, which is
- *    where an automatic end is dated (floatEnding.ts autoEndAt).
+ *    stood then. For a take-out off the mapped river, "there" is the river's
+ *    end (riverEndAt): nothing after it can be measured;
+ *  - carried on past it: it ends where that movement stopped
+ *    (pastTakeOutEnd), whenever Finish is tapped, unless the paddler is
+ *    moving on the river at `until`;
+ *  - never reached it: it runs to `until`.
+ * Either way a run (a stop, usually) that began at or after the end is left
+ * out, which is where an automatic end is dated (floatEnding.ts autoEndAt).
+ * The panel's clock and the recap both read this, so they always agree.
  * Sessions from before arrivalTotals stopped accounting at arrival, so their
  * totals are already the arrival's.
  */
 export function floatAccount(session: FloatSession, until: number): { until: number; totals: FloatTotals } {
   const totals = session.totals ?? EMPTY_FLOAT_TOTALS;
-  if (session.arrivedAt != null && !session.pastTakeOut) {
-    return { until: session.arrivedAt, totals: session.arrivalTotals ?? totals };
+  const reached = session.arrivedAt ?? session.riverEndAt ?? null;
+  if (reached != null && !session.pastTakeOut) {
+    return { until: Math.min(until, reached), totals: session.arrivalTotals ?? totals };
   }
-  const trailing = totals.anchor != null && totals.runMs > 0 && totals.anchor.timestamp >= until;
+  const end = reached != null ? pastTakeOutEnd(session, reached, until) : until;
+  const trailing = totals.anchor != null && totals.runMs > 0 && totals.anchor.timestamp >= end;
   return {
-    until,
+    until: end,
     totals: trailing ? { ...totals, runMs: 0, runMiles: 0, runDistanceMiles: 0 } : totals,
   };
+}
+
+/**
+ * Where a float that carried on past its take-out ends, read at `until`.
+ * Still moving on the river (a fresh confirmed position, not in a stop):
+ * `until`. Otherwise it ended where its movement stopped: the start of the
+ * stop it is in, or its last confirmed position if it went quiet (landed a
+ * little below the mapped take-out and walked up to the car). Never before
+ * it reached the take-out, never after `until`.
+ */
+function pastTakeOutEnd(session: FloatSession, reached: number, until: number): number {
+  const totals = session.totals;
+  const last = totals?.last;
+  if (!totals || !last) return until;
+  const stopped = totals.anchor != null && totals.runMs >= STAY_MIN_MS;
+  if (!stopped && until - last.timestamp <= STALE_POSITION_MS) return until;
+  return Math.min(until, Math.max(reached, movementEndedAt(session) ?? reached));
 }
 
 /**

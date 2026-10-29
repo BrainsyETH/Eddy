@@ -6,6 +6,8 @@
 // and precedence is exactly the kind of thing that looks right in review and
 // is wrong in the one state nobody tried.
 
+import type { DeviceClaimState } from './deviceClaim';
+
 export type NotificationPermission = 'granted' | 'denied' | 'undetermined' | 'unsupported';
 export type NotificationControlKind = 'switch' | 'settings-link' | 'status';
 
@@ -30,10 +32,13 @@ export function notificationDetail({
   permission,
   registered,
   optedOut = false,
+  held = null,
 }: {
   permission: NotificationPermission;
   registered: boolean;
   optedOut?: boolean;
+  /** Another account holds this iPhone's token (deviceClaim.ts). */
+  held?: DeviceClaimState | null;
 }): string {
   if (permission === 'unsupported') {
     // A simulator has no APNs connection, so no token can ever be issued. Not
@@ -48,6 +53,16 @@ export function notificationDetail({
   }
   if (permission === 'undetermined') {
     return 'Get a push when a followed river becomes floatable or dangerous.';
+  }
+  if (!registered && held) {
+    // Not a connection problem, so not "will retry": a reinstall left this
+    // iPhone's alerts on the account it used before, and only a confirmation
+    // pushed to this iPhone can move them. Say what is happening and the one
+    // thing that finishes or retries it.
+    const lead = 'This iPhone’s alerts are still linked to the Eddy account it used before.';
+    if (held === 'limited') return `${lead} Tap the confirmation Eddy already sent, or pull down in Eddy Settings to send another in an hour.`;
+    if (held === 'unavailable') return `${lead} Eddy couldn’t send a confirmation just now. Pull down in Eddy Settings to try again.`;
+    return `${lead} Eddy sent this iPhone a confirmation and finishes as soon as it arrives. If nothing changes, pull down in Eddy Settings to try again.`;
   }
   if (!registered) {
     return 'Connecting now. Eddy will retry on the next launch.';

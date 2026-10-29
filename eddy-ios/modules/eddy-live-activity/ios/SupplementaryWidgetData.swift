@@ -79,11 +79,14 @@ struct WidgetDamMoment: Codable {
   var generationKind: String? = nil
   var scheduleDate: String? = nil
   var scheduleHour: Int? = nil
+  /// Additive to v1: the observed flow is a minimum-flow release (a unit at
+  /// low output), not idle. Absent in older packets.
+  var minimumFlow: Bool? = nil
   var compactStatus: String {
     guard current else { return turbineCfs == nil ? "Unavailable" : "Older reading" }
     switch generationKind {
     case "generating": return "Generating"
-    case "not-generating": return "No generation"
+    case "not-generating": return minimumFlow == true ? "Minimum flow" : "No generation"
     default: return status
     }
   }
@@ -92,12 +95,17 @@ struct WidgetDamScheduleHour: Codable, Identifiable {
   var hourEnding: Int
   var label: String
   var megawatts: Double?
+  /// Additive to v1: a minimum-flow hour is not scheduled generation.
+  var minimumFlow: Bool? = nil
   var id: Int { hourEnding }
+  var generating: Bool { (megawatts ?? 0) > 0 && minimumFlow != true }
 }
 struct WidgetDamScheduleDay: Codable {
   var date: String
   var hours: [WidgetDamScheduleHour]
-  var peak: Double { hours.compactMap(\.megawatts).max() ?? 0 }
+  /// Scheduled generation only: minimum-flow hours never set the scale.
+  var peak: Double { hours.filter(\.generating).compactMap(\.megawatts).max() ?? 0 }
+  var minimumFlowOnly: Bool { peak == 0 && hours.contains { $0.minimumFlow == true } }
   var valid: Bool {
     hours.map(\.hourEnding) == Array(1...24)
       && hours.allSatisfy { $0.megawatts == nil || ($0.megawatts!.isFinite && $0.megawatts! >= 0) }

@@ -3,25 +3,93 @@
 ## Current release
 
 - **Release in progress:** 1.5 (`eddy-ios/app.json` is `1.5.0`, repository
-  version checked 2026-10-26; this does not confirm a submitted or live build)
+  version checked 2026-10-29; this does not confirm a submitted or live build)
 - **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
   line with the version and the date you checked.
-- **Status confirmed:** 2026-10-12 from `app.json`, PR #1488 CI, and read-only
-  public production/API and database checks. App Store Connect, EAS build history,
-  TestFlight and physical-device state remain unconfirmed.
+- **Status confirmed:** 2026-10-29 from `app.json`, `make check` on `main`
+  `97bcd980`, and read-only public production/API and database checks. App
+  Store Connect, EAS build history, TestFlight and physical-device state remain
+  unconfirmed. The maintainer states the last build was made from `e4c5a80e`
+  (the 1.5.0 bump); that is not read from an EAS record.
 
 `missouri-float-planner/src/lib/ios-release-runbook.test.ts` fails when the
 `app.json` version above stops matching the real one, so a version bump has
 to touch this section. It cannot check the store line; that one is on you.
 
-See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the last recorded
-submission assessment and release order; it does not verify 1.5. The shipped-build
-baseline is unconfirmed.
+See **[`release-readiness-1.5.md`](release-readiness-1.5.md)** for the current
+submission assessment and release order, and
+[`release-readiness-1.4.md`](release-readiness-1.4.md) for the one before it.
 The 1.2 report's gates below stay unticked until evidence closes them; a later
 version number does not close them. The 1.4, River Mode, and history sections
-below remain the device checklist.
+below remain the device checklist, and the 1.5 section adds the delta since
+the October 26 bump.
+
+### 1.5 delta gates — October 29, 2026
+
+The native fingerprint moved between `e4c5a80e` (`1878861f…`) and `97bcd980`
+(`39c237f6…`): a new binary, never an OTA update. The reasons and the code
+review are in the 1.5 report; these are the gates it adds.
+
+- [ ] **Confirm the baseline.** The live build's EAS `gitCommitHash` is
+      `e4c5a80e` and its `runtimeVersion` is `1878861f…`; if not, re-measure
+      the delta from the real commit.
+- [ ] **Time Sensitive Notifications capability** is on the App ID
+      (`com.apple.developer.usernotifications.time-sensitive` is new in
+      `app.json`); the build and the upload pass without an entitlement
+      mismatch.
+- [ ] **The widget extension compiles** with the minimum-flow fields, and
+      `eddy-ios/scripts/check-condition-widgets.swift` passes (first run on a
+      machine with Swift; the Linux audit environment had none).
+- [ ] **Favorites dam card and widget on a Bull Shoals minimum-flow day** read
+      "Minimum flow", not "No generation" over a full chart (1.5 report,
+      finding 1, fixed in code), on the production-profile build.
+- [ ] **Manual Finish after landing past the mapped take-out** does not count
+      the time on the bank (finding 2, fixed in code): land 200 m below the
+      take-out, wait ten minutes, Finish, and check the recap's elapsed and
+      stopped time; then a float that carries on paddling past it.
+- [ ] **Stacked places hide under their numbered mark** (finding 5 now hides
+      them with a Mapbox `in` filter instead of leaving them out of the data):
+      zoom so pins merge and split, and check no member draws under its stack
+      and taps land on the stack.
+- [ ] **Sign in on a phone whose push token another account holds** with the
+      owed release delivered and with it blocked: registration succeeds with
+      the ledger's row id (finding 10).
+- [ ] **Reinstall without signing out, then sign in to another account**
+      (finding 10's review follow-up): the iOS token survives, the ledger
+      does not. Registration is refused, the server pushes a confirmation,
+      Eddy redeems it without showing it, and Settings reads "will get a
+      push". Repeat with Eddy in the background (the confirmation shows; a
+      tap finishes it).
+- [ ] **River Mode on a device:** a 10-minute airplane-mode gap mid-float adds
+      gap distance and "GPS gap" time; moving time and speeds; arrival, then
+      carrying on past the take-out; Discard for a sub-5-minute float; "Stop
+      tracking" when the journal cannot be read; the arrival notification's
+      Finish action; the "ahead of you" reminder under a Focus mode.
+- [ ] **Live Activity** at an accessibility Dynamic Type size (Lock Screen and
+      expanded Island), the compact Island with no distance yet, the eight-hour
+      expiry message, and swipe-away.
+- [ ] **Native recorder durability:** iOS relaunches Eddy in the background
+      after a kill, the float continues, then a hard power-off; the journal
+      keeps all but the last minute.
+- [ ] **Map:** statewide index below z8, stacks above, places list, compass
+      reset, public-land tap, "View on map" from Camping and from Favorites,
+      offline search, plan sheet endpoint editing; confirm no hitch after each
+      zoom with Camping and Other gauges on (findings 5 and 6, fixed in code)
+      on the oldest supported iPhone; "View on map" for a removed place says it
+      is no longer listed.
+- [ ] **Account and push:** Restore while signed out; sign out then sign in on
+      the same device (token re-keyed, owed release delivered); provisional
+      permission upgraded in app; fresh install, no account, no network shows
+      a Premium call-to-action (finding 7).
+- [ ] **Dark mode on every tab** and onboarding at the largest text size.
+- [ ] **Trust Ledger:** the `jacks-fork` threshold-order critical and the
+      global "reconciliation refused (check_error)" critical (both open at
+      2026-10-29 21:00 UTC) are resolved or their judgement recorded.
+- [ ] **Store metadata:** screenshots match the new map, dark mode, Favorites
+      and Today; reviewer notes say River Mode is on (`floatMode: true` read
+      2026-10-29) and that backup and contributions need Apple sign-in.
 
 ### October 13 freshness update candidate
 

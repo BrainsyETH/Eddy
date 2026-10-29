@@ -7,6 +7,10 @@ import type { TrackerState } from './floatTrackerStatus';
 export function activeFloatStatus(session: FloatSession, tracker: TrackerState, now: number) {
   const position = floatDisplayPosition(session, now);
   const river = session.route.riverName;
+  // Stopped at Finish while the recap waits on the journal: the session says
+  // so durably, whatever the recorder last reported (its idle report is an
+  // event, and "Finding GPS" or "Tracking on" would both be wrong here).
+  if (session.trackingStoppedAt != null) return { label: `Tracking stopped · ${river}`, healthy: false, at: position?.at ?? null };
   const blocked = tracker.servicesOff || tracker.denied || tracker.preciseOff || tracker.notInUse;
   const attention = blocked || tracker.status === 'failed' || tracker.status === 'unavailable';
   const weak = gpsQualityNote(session, now);
@@ -51,9 +55,13 @@ export function gpsQualityNote(session: FloatSession, now: number): { accuracyMe
   return { accuracyMeters: Math.ceil(raw.accuracyMeters) };
 }
 
-/** The panel's clock: the recap's, and it also rests at the mapped river's end. */
+/**
+ * The panel's clock is the recap's (floatAccount): it rests at arrival, at
+ * the mapped river's end, and where a float that went past its take-out
+ * stopped, so Finish never shows a different time from the screen.
+ */
 function panelUntil(session: FloatSession, now: number): number {
-  return session.arrivedAt == null && session.riverEndAt != null ? session.riverEndAt : floatAccount(session, now).until;
+  return floatAccount(session, now).until;
 }
 
 /**

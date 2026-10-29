@@ -92,3 +92,20 @@ test('Settings offers a switch only when push can change on this device', () => 
   assert.equal(notificationControlKind(false, 'granted'), 'status');
   assert.equal(notificationControlKind(false, 'denied'), 'status');
 });
+
+test('a reinstall that left alerts on another account says how it finishes, not "will retry"', () => {
+  // Retrying cannot recover a missing proof, so the old sentence was a promise
+  // nothing kept. The held state names the account problem and the one action.
+  const held = { permission: 'granted' as const, registered: false };
+  for (const state of ['sent', 'unknown', 'limited', 'unavailable'] as const) {
+    const detail = notificationDetail({ ...held, held: state });
+    assert.match(detail, /still linked to the Eddy account it used before/);
+    assert.doesNotMatch(detail, /next launch/);
+    assert.match(detail, /Eddy Settings/);
+  }
+  assert.match(notificationDetail({ ...held, held: 'sent' }), /finishes as soon as it arrives/);
+  assert.match(notificationDetail({ ...held, held: 'limited' }), /in an hour/);
+  // Higher blockers still win, and an ordinary failure keeps its sentence.
+  assert.match(notificationDetail({ ...held, held: 'sent', optedOut: true }), /stopped on this device/);
+  assert.match(notificationDetail(held), /Connecting now/);
+});

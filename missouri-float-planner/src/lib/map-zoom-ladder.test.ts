@@ -129,7 +129,18 @@ test('one statewide index counts every Eddy layer, gauges and dams included', ()
     assert.match(shape, new RegExp(`\\.\\.\\.(\\()?${list}`), `${list} must be counted in the index`);
   }
   assert.doesNotMatch(shape, /hazardPins|referenceGauges/, 'hazards never join a count; the reference tier keeps its own');
-  assert.match(shape, /filter\(\(pin\) => layers\.includes\(pin\.layer\)\)/, 'a count holds only layers that are on');
+  assert.match(shape, /filter\(\(pin\) => on\.has\(pin\.layer\)\)/, 'a count holds only layers that are on');
+  // Keyed on the switches that can change a count, so toggling radar, public
+  // land, hazards or the USGS tier does not rebuild and re-upload the index.
+  assert.match(shape, /\[accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, indexLayersKey, endpointIds\]/);
+  assert.doesNotMatch(shape, /\blayers\b/, 'the index must not depend on the whole layers array');
+  const outside = /const OUTSIDE_INDEX[^=]*= new Set\(\[([^\]]*)\]\)/.exec(CODE)?.[1] ?? '';
+  for (const layer of ['weatherRadar', 'publicLand', 'hazards', 'allGauges']) {
+    assert.match(outside, new RegExp(`'${layer}'`), `${layer} cannot change a count`);
+  }
+  for (const member of ['access', 'campgrounds', 'boatRamps', 'springs', 'outfitters', 'lodging', 'gauges', 'dams']) {
+    assert.doesNotMatch(outside, new RegExp(`'${member}'`), `${member} is counted, so its switch must rebuild the index`);
+  }
   // And nothing else counts Eddy pins: the only other clustered source is the
   // USGS reference tier.
   const sources = [...CODE.matchAll(/<Mapbox\.ShapeSource[^>]*?\n?\s*cluster\n/g)];

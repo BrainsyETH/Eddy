@@ -8,6 +8,7 @@ import {
 import {
   EMPTY_PUSH_LEDGER,
   REREGISTER_AFTER_MS,
+  heldDeviceId,
   needsRegistration,
   readPushLedger,
   registered,
@@ -84,6 +85,16 @@ test('a registration that lands clears any release still owed', () => {
   const owed = unregistered(registered('A', TOKEN, ROW, 1_000), false);
   assert.ok(owed.release);
   assert.equal(registered('B', TOKEN, 'row-b', 2_000).release, null);
+});
+
+test('a registration carries the row id this install holds for the token, as proof', () => {
+  // The server moves a token off another account only with that row's id:
+  // knowing a token is not holding the device.
+  const owed = unregistered(registered('A', TOKEN, ROW, 1_000), false);
+  assert.equal(heldDeviceId(owed, TOKEN), ROW, 'a release still owed names the row the leaving account holds');
+  assert.equal(heldDeviceId(registered('A', TOKEN, ROW, 1_000), TOKEN), ROW, 'an account switch without sign-out');
+  assert.equal(heldDeviceId(registered('A', TOKEN, ROW, 1_000), 'ExponentPushToken[rotated]'), null, 'another token proves nothing');
+  assert.equal(heldDeviceId(EMPTY_PUSH_LEDGER, TOKEN), null);
 });
 
 test('the ledger round-trips and an unreadable one reads as empty', async () => {

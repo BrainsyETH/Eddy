@@ -4,7 +4,7 @@ import type { DamSnapshot } from '@eddy/types';
 import { ControlIcon } from '@/components/ControlIcon';
 import { KindMark } from '@/components/KindMark';
 import { useObservationClock } from '@/hooks/useObservationClock';
-import { damFavoriteDisplay } from '@/lib/damFavoriteDisplay';
+import { damFavoriteDisplay, packetHourGenerating } from '@/lib/damFavoriteDisplay';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
@@ -21,7 +21,7 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
   const stacked = width < 375 || fontScale >= 1.3;
   const now = useObservationClock();
   const display = useMemo(() => damFavoriteDisplay(dam, now), [dam, now]);
-  const { moment, schedule, peak, status, scheduleNotice, observedAge } = display;
+  const { moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge } = display;
   const value = moment.turbineCfs === null ? '—' : Math.round(moment.turbineCfs).toLocaleString();
   const metadata = [dam.lakeName, dam.state].filter(Boolean).join(' · ');
   const statusColor = moment.current ? colors.interactive : colors.textSubtle;
@@ -62,7 +62,8 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
               </View>
               <View style={styles.statusRow}>
                 <ControlIcon name={!moment.current ? 'help-circle-outline'
-                  : moment.generationKind === 'generating' ? 'flash' : 'flash-off-outline'} size={14} color={statusColor} />
+                  : moment.generationKind === 'generating' ? 'flash'
+                  : moment.minimumFlow ? 'water-outline' : 'flash-off-outline'} size={14} color={statusColor} />
                 <Text style={[styles.status, { color: statusColor }]}>{status}</Text>
               </View>
             </View>
@@ -70,8 +71,8 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
             <View style={[styles.schedule, stacked && styles.scheduleStacked]}>
               <View style={styles.scheduleHeader}>
                 <Text style={[styles.scheduleTitle, { color: colors.text }]}>Schedule · CT</Text>
-                {schedule?.hours.some(hour => hour.megawatts !== null) ? (
-                  <Text style={[t.xs, { color: colors.textMuted }]}>{Math.round(peak).toLocaleString()} MW</Text>
+                {scheduleCaption ? (
+                  <Text style={[t.xs, { color: colors.textMuted }]}>{scheduleCaption}</Text>
                 ) : null}
               </View>
               {schedule ? <>
@@ -79,6 +80,9 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
                   {schedule.hours.map(hour => {
                     const selected = hour.hourEnding === moment.scheduleHour;
                     const mw = hour.megawatts;
+                    // Minimum flow is drawn like the dam screen's DayBars draws
+                    // it: a low baseline, not a generation bar.
+                    const generating = packetHourGenerating(hour);
                     // A missing hour is unknown, not zero generation: preserve
                     // the widget's hollow gap instead of an idle baseline bar.
                     return (
@@ -87,8 +91,8 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
                         <View style={[styles.bar, mw === null ? {
                           height: 44, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textSubtle,
                         } : {
-                          height: mw > 0 ? Math.max(5, 44 * mw / Math.max(peak, 1)) : 3,
-                          backgroundColor: mw > 0 ? colors.interactive : colors.textSubtle,
+                          height: generating ? Math.max(5, 44 * mw / Math.max(peak, 1)) : 3,
+                          backgroundColor: generating ? colors.interactive : colors.textSubtle,
                         }]} />
                       </View>
                     );

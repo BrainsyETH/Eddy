@@ -556,6 +556,17 @@ test('both redeem surfaces open the URL and sync against a baseline', () => {
   assert.match(profile, /until: \(entitlement\) => entitlementMatchesSnapshot\(entitlement, target\)/);
 });
 
+test('only a permanent account reads "Subscription unknown"; a guest keeps Free plan and the paywall', () => {
+  // A failed profile read on a subscriber must never say Free, so Profile
+  // holds back. A guest cannot hold an entitlement (purchases configure only
+  // for a signed-in account), so the same failure on a guest hid the Premium
+  // call to action for nothing — what App Review sees on a flaky network.
+  const profile = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx', 'utf8');
+  assert.match(profile, /const subscriptionUnknown = signedIn && Boolean\(error\) && !entitlement;/);
+  assert.doesNotMatch(profile, /error && !entitlement/);
+  assert.match(profile, /loaded && !entitlement\?\.isActive && !subscriptionUnknown &&/);
+});
+
 test('the redeem controls are signed-in only, like every purchase control', () => {
   // The entitlement a code grants arrives through the receipt and must land
   // on a real account — the same identity guard the purchase flow enforces.

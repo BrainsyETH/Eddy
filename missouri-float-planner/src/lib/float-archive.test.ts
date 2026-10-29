@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { accumulateFloat, EMPTY_FLOAT_TOTALS, finishFloatTotals, movingPace, type PaceSample } from '@eddy/geo';
+import { accumulateFloat, EMPTY_FLOAT_TOTALS, finishFloatTotals, MAX_CREDITED_GAP_MS, movingPace, type PaceSample } from '@eddy/geo';
 import { createFloatArchive, uploadBatches, ARCHIVE_KEY, ARCHIVE_RECOVERY_KEY, TOO_LARGE_REASON, UPLOAD_MAX_CHARS, UPLOAD_MAX_ROWS, type ArchiveTransport } from '../../../eddy-ios/src/lib/floatArchiveCore';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { createFloatSessionStore, ENDED_KEY, STORAGE_KEY } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
@@ -217,6 +217,28 @@ test('distance across a reacquired GPS gap counts; its time, relocations and imp
   for (const sample of before) totals = accumulateFloat(totals, sample);
   const gap: PaceSample = { timestamp: 2100000, riverMile: 1.1, continuous: false, reacquired: true };
   assert.deepEqual(accumulateFloat(JSON.parse(JSON.stringify(totals)), gap), accumulateFloat(totals, gap));
+});
+
+test('a gap credits no miles when it is too long to have been paddled, or is only drift at a stop', () => {
+  const before = Array.from({ length: 121 }, (_, i): PaceSample => ({ timestamp: i * 10000, riverMile: 8 + i * 0.005, continuous: i > 0 }));
+  // Miles the gap itself credited: against the same jump as a relocation,
+  // which closes the run before it the same way and credits nothing.
+  const across = (gap: PaceSample) => {
+    let totals = { ...EMPTY_FLOAT_TOTALS };
+    for (const sample of before) totals = accumulateFloat(totals, sample);
+    return accumulateFloat(totals, gap).distanceMiles - accumulateFloat(totals, { ...gap, reacquired: undefined }).distanceMiles;
+  };
+  const last = before[before.length - 1];
+  // Stopped without Finish, phone off overnight, pushed off six miles on: slow
+  // enough for the speed bound, too long to have been paddled.
+  assert.equal(across({ timestamp: last.timestamp + 12 * 3_600_000, riverMile: last.riverMile + 6, continuous: false, reacquired: true }), 0);
+  // Just past the limit credits nothing; just inside it still does.
+  assert.equal(across({ timestamp: last.timestamp + MAX_CREDITED_GAP_MS + 1, riverMile: last.riverMile + 3, continuous: false, reacquired: true }), 0);
+  assert.ok(Math.abs(across({ timestamp: last.timestamp + MAX_CREDITED_GAP_MS, riverMile: last.riverMile + 3, continuous: false, reacquired: true }) - 3) < 1e-9);
+  // Reacquired 15 m upstream after a gap at a stop: GPS drift, not travel.
+  assert.equal(across({ timestamp: last.timestamp + 20 * 60_000, riverMile: last.riverMile - 15 / 1609.344, continuous: false, reacquired: true }), 0);
+  // Real travel upstream across a gap still counts, like upstream movement does.
+  assert.ok(Math.abs(across({ timestamp: last.timestamp + 20 * 60_000, riverMile: last.riverMile - 0.3, continuous: false, reacquired: true }) - 0.3) < 1e-9);
 });
 
 test('corrupt current and legacy history is copied before recovery, and cloud history can still restore', async () => {

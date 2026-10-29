@@ -161,6 +161,20 @@ export default function ConfigureAlertScreen() {
   // sign-in and the primer inline, without adding another modal.
   const gate = useAlertGate();
   const push = usePush();
+  // The completion screen must not say "Connecting now. Eddy will retry on the
+  // next launch." while the registration that follows a fresh sign-in is still
+  // in flight: `registered` is false until it lands. Re-check once when the
+  // alert is saved and show a neutral line until that settles; the retry
+  // sentence then means the registration really did not go through.
+  const [pushCheck, setPushCheck] = useState<'idle' | 'checking' | 'settled'>('idle');
+  const pushRefresh = useRef(push.refresh);
+  useEffect(() => { pushRefresh.current = push.refresh; }, [push.refresh]);
+  const showCompletion = useCallback((next: { seedNote: string | null; primed: boolean }) => {
+    setCompletion(next);
+    if (next.primed) return;
+    setPushCheck('checking');
+    void pushRefresh.current().catch(() => undefined).finally(() => setPushCheck('settled'));
+  }, []);
 
   const [context, setContext] = useState<Context | null>(null);
   const [loading, setLoading] = useState(true);
@@ -466,10 +480,10 @@ export default function ConfigureAlertScreen() {
         // been asked to sign in.
         return { wrote, seedNote, primed };
       });
-      if (result?.wrote) setCompletion({ seedNote: result.seedNote, primed: result.primed });
+      if (result?.wrote) showCompletion({ seedNote: result.seedNote, primed: result.primed });
     } catch (err) {
       if (saveTask.saved) {
-        setCompletion({ seedNote: null, primed: false });
+        showCompletion({ seedNote: null, primed: false });
         setError('Your alert is saved. The alert list could not refresh. Check it again when you are online.');
         return;
       }
@@ -489,7 +503,7 @@ export default function ConfigureAlertScreen() {
   }, [
     gate, scope, mode, riverId, conditionKind, refresh, context, canSave, saveTask,
     params.riverSlug, params.siteId, params.gaugeId,
-    metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
+    metric, comparator, parsedValue, parsedMax, oneShot, add, targetName, showCompletion,
   ]);
 
   // A river holds ONE "Eddy's call" alert: the route upserts on (user, river),
@@ -573,7 +587,9 @@ export default function ConfigureAlertScreen() {
           // same sentence Settings uses, instead of leaving it to be
           // discovered when nothing arrives.
           <Text style={[styles.stepBody, { color: colors.textMuted }]}>
-            {notificationDetail({ permission: push.permission, registered: push.registered, optedOut: push.optedOut })}
+            {push.permission === 'granted' && !push.optedOut && !push.registered && pushCheck === 'checking'
+              ? 'Connecting this iPhone for notifications…'
+              : notificationDetail({ permission: push.permission, registered: push.registered, optedOut: push.optedOut, held: push.held })}
             {push.permission === 'denied' || push.optedOut ? ' You can turn notifications on in Settings.' : ''}
           </Text>
         ) : null}

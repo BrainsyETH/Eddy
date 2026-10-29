@@ -32,8 +32,12 @@ export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
         const hourEnding = index + 1;
         const matches = day.hours.filter(hour => hour.hourEnding === hourEnding);
         const mw = matches.length === 1 ? matches[0].megawatts : null;
-        return { hourEnding, label: hourEndingLabel(hourEnding),
-          megawatts: typeof mw === 'number' && Number.isFinite(mw) && mw >= 0 ? mw : null };
+        const megawatts = typeof mw === 'number' && Number.isFinite(mw) && mw >= 0 ? mw : null;
+        // Additive to v1: a minimum-flow hour runs a unit at low output for
+        // the required release. It is not scheduled generation and must not be
+        // drawn as a generation bar; packets without the key mean "not flagged".
+        return { hourEnding, label: hourEndingLabel(hourEnding), megawatts,
+          ...(megawatts !== null && matches[0].minimumFlow === true ? { minimumFlow: true as const } : {}) };
       }),
     })),
     entries: [...clocks].sort((a, b) => a - b).map(date => {
@@ -43,6 +47,8 @@ export function damWidgetSnapshot(dam: DamSnapshot, now = Date.now()) {
       return {
         date, status: generationStatusLabel(state) ?? 'No powerhouse',
         generationKind: state.kind,
+        // Additive to v1: the observed flow is the minimum-flow release.
+        minimumFlow: state.kind === 'not-generating' && state.minimumFlow,
         turbineCfs: state.kind === 'unavailable' ? null : state.turbineCfs,
         observedAt: state.kind === 'unavailable' ? null : observedAt,
         current: state.kind !== 'unavailable' && state.age === 'fresh',

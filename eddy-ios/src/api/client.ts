@@ -101,6 +101,7 @@ import {
   writeSeedIndex,
 } from '@/lib/riverCache';
 import { CACHE_VERSION } from '@/lib/offline-cache';
+import { deviceClaimState, type DeviceClaimState } from '@/lib/deviceClaim';
 import { report, warn } from '@/lib/monitoring';
 import {
   durationBucket,
@@ -115,7 +116,8 @@ export const BASE_URL =
 export const USER_AGENT = 'EddyiOS/0.1';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status?: number) {
+  /** `body`: the parsed JSON of a refused authed request, when it had one. */
+  constructor(message: string, readonly status?: number, readonly body?: unknown) {
     super(message);
     this.name = 'ApiError';
   }
@@ -407,7 +409,11 @@ async function authed<T>(
   }
   if (!response.ok) {
     recordTiming(path, 'failed', startedAt);
-    throw new ApiError(`Request failed (${response.status})`, response.status);
+    // The body rides along: a refusal can say why (a 409 token_held says
+    // whether a device claim was sent), and a caller that needs to know
+    // should not have to guess from the status alone.
+    const body = await response.json().catch(() => undefined);
+    throw new ApiError(`Request failed (${response.status})`, response.status, body);
   }
   // Through the body, for the reason get() states.
   const parsed = (await response.json()) as T;
@@ -1146,10 +1152,20 @@ export async function fetchGaugeHistory(
     // only the successful-response arm changes shape.
     return (normalizeGaugeHistory(raw) as GaugeHistoryResponse | null) ?? null;
   } catch (err) {
-    // 404, and 400 too: the server read this exact request and said this
-    // station or range has no history it can serve (a provider without daily
-    // values, a custom range it refuses). That is an answer, cacheable for
-    // this key, not a failure offered a "Try again" that can never succeed.
+    // A 400 to a request that carried `tz` may be the server refusing that
+    // zone (one a shared link or an older cache carried, or one this phone's
+    // ICU knows and the server's does not). That says nothing about the
+    // station, so it must not be cached as "no history": ask once more
+    // without it and let the server use the station's own zone, which the
+    // response then reports in `timeZone`.
+    if (err instanceof ApiError && err.status === 400 && stationCalendar && timeZone && !signal?.aborted) {
+      return fetchGaugeHistory(siteId, days, signal, window, resolution, stationCalendar, undefined);
+    }
+    // 404, and a 400 to a request without a zone: the server read this exact
+    // request and said this station or range has no history it can serve (a
+    // provider without daily values, a custom range it refuses). That is an
+    // answer, cacheable for this key, not a failure offered a "Try again"
+    // that can never succeed.
     if (err instanceof ApiError && (err.status === 404 || err.status === 400)) return null;
     return undefined;
   }
@@ -2167,8 +2183,12 @@ export async function registerDeviceToken(
     platform: 'ios' | 'android';
     deviceName?: string;
     appVersion?: string;
+    /** The row id this install holds for the token: proof for moving it off another account. */
+    previousDeviceId?: string;
+    /** A code the server pushed to this token: the proof when there is no row id. */
+    claimCode?: string;
   },
-): Promise<{ ok: boolean; deviceId: string | null }> {
+): Promise<{ ok: boolean; deviceId: string | null; held: DeviceClaimState | null }> {
   try {
     const result = await authed<{ device?: { id?: unknown } }>('/api/me/device-tokens', token, {
       method: 'POST',
@@ -2177,9 +2197,15 @@ export async function registerDeviceToken(
     // The row id is kept: it is half of what lets this install release the
     // row later, once the account's own credentials are gone (pushLedger.ts).
     const id = result?.device?.id;
-    return { ok: result !== null, deviceId: typeof id === 'string' ? id : null };
-  } catch {
-    return { ok: false, deviceId: null };
+    return { ok: result !== null, deviceId: typeof id === 'string' ? id : null, held: null };
+  } catch (err) {
+    // 409: another account's row holds this token and this request carried
+    // no proof that passed. Not a connection problem a retry fixes: it is
+    // kept, with whether the server pushed a claim code (deviceClaim.ts).
+    if (err instanceof ApiError && err.status === 409) {
+      return { ok: false, deviceId: null, held: deviceClaimState(err.body) };
+    }
+    return { ok: false, deviceId: null, held: null };
   }
 }
 

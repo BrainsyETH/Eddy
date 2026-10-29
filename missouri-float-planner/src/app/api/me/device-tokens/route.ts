@@ -18,9 +18,20 @@ import { jsonPrivate } from '@/lib/api-utils';
 import { requireUser, requirePermanentUser } from '@/lib/supabase/request';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/rate-limit';
-import { isExpoPushToken } from '@/lib/push/expo';
+import { isExpoPushToken, sendExpoPush } from '@/lib/push/expo';
+import { pushDisabledReason } from '@/lib/push/kill-switch';
+import {
+  deviceClaimKey,
+  deviceClaimLimitKey,
+  deviceClaimMessage,
+  mintDeviceClaim,
+  verifyDeviceClaim,
+  type DeviceClaimBinding,
+} from '@/lib/push/device-claim';
 
 export const dynamic = 'force-dynamic';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +47,14 @@ export async function POST(request: NextRequest) {
     if (limited) return limited;
 
     const body = await request.json().catch(() => null) as
-      | { expoPushToken?: string; platform?: string; deviceName?: string; appVersion?: string }
+      | {
+          expoPushToken?: string;
+          platform?: string;
+          deviceName?: string;
+          appVersion?: string;
+          previousDeviceId?: unknown;
+          claimCode?: unknown;
+        }
       | null;
 
     const expoPushToken = body?.expoPushToken?.trim();
@@ -56,17 +74,61 @@ export async function POST(request: NextRequest) {
     // belongs to A. The upsert below runs under A-or-B's RLS, so for B it
     // raises on the ON CONFLICT update (the row is not B's), the route
     // answers 500, B is never registered, and A's alerts keep arriving on the
-    // phone B now holds. Re-key the token first: whoever is registering it
-    // holds the device, and the previous owner must not be notified on it.
+    // phone B now holds.
+    //
+    // Knowing a token is not holding the device, though: Expo push tokens are
+    // not secrets and turn up in logs. Re-keying on the token alone let any
+    // permanent account that learned someone's token delete that person's row
+    // and silently stop their alerts. So the re-key needs the same proof
+    // /api/device-tokens/release accepts: the previous row's id, a random uuid
+    // the server handed only to the install that registered it, which the app
+    // keeps in its push ledger. The app's own flow sends the owed release
+    // first, so a phone that changed hands normally never gets here.
+    //
+    // A reinstall loses the ledger but keeps the iOS push token, so it has no
+    // row id. The other proof is a code this route pushes TO THE TOKEN, which
+    // only the phone it addresses can read (src/lib/push/device-claim.ts).
+    // Without either, the token stays where it is and the answer is 409
+    // token_held, saying whether that code went out; the app completes the
+    // claim when it arrives.
     // Service role, because by construction the row is not the caller's.
-    const { error: rekeyError } = await createAdminClient()
+    const previousDeviceId =
+      typeof body?.previousDeviceId === 'string' && UUID.test(body.previousDeviceId.trim())
+        ? body.previousDeviceId.trim()
+        : null;
+    const admin = createAdminClient();
+    const { data: holder, error: holderError } = await admin
       .from('device_tokens')
-      .delete()
+      .select('id')
       .eq('expo_push_token', expoPushToken)
-      .neq('user_id', user.id);
-    if (rekeyError) {
-      console.error('Error releasing device token from its previous account:', rekeyError);
+      .neq('user_id', user.id)
+      .maybeSingle();
+    if (holderError) {
+      console.error('Error checking device token ownership:', holderError);
       return jsonPrivate({ error: 'Could not register device' }, { status: 500 });
+    }
+    if (holder) {
+      const binding: DeviceClaimBinding = { userId: user.id, expoPushToken, holderId: holder.id };
+      const key = deviceClaimKey();
+      const proven =
+        holder.id === previousDeviceId ||
+        (key !== null && verifyDeviceClaim(key, body?.claimCode, binding, Date.now()));
+      if (!proven) {
+        const claim = await sendDeviceClaim(admin, key, binding);
+        return jsonPrivate(
+          { error: 'This device is registered to another account', code: 'token_held', claim },
+          { status: 409 },
+        );
+      }
+      const { error: rekeyError } = await admin
+        .from('device_tokens')
+        .delete()
+        .eq('id', holder.id)
+        .eq('expo_push_token', expoPushToken);
+      if (rekeyError) {
+        console.error('Error releasing device token from its previous account:', rekeyError);
+        return jsonPrivate({ error: 'Could not register device' }, { status: 500 });
+      }
     }
 
     // Re-registering the same token must refresh it rather than fail, and must
@@ -143,5 +205,34 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Error deleting device token:', error);
     return jsonPrivate({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * Push a claim code to the token (device-claim.ts). 'sent' only when Expo took
+ * it. At most three per token an hour, fail-closed: someone who knows a token
+ * must not be able to fill its owner's lock screen. The push kill switch
+ * stops these like any other send.
+ */
+async function sendDeviceClaim(
+  admin: ReturnType<typeof createAdminClient>,
+  key: Buffer | null,
+  binding: DeviceClaimBinding,
+): Promise<'sent' | 'limited' | 'unavailable'> {
+  if (!key) return 'unavailable';
+  try {
+    if (await pushDisabledReason(admin)) return 'unavailable';
+    const limited = await rateLimit(deviceClaimLimitKey(binding.expoPushToken), 3, 60 * 60 * 1000, {
+      failClosed: true,
+    });
+    if (limited) return 'limited';
+    const [ticket] = await sendExpoPush(
+      [deviceClaimMessage(binding.expoPushToken, mintDeviceClaim(key, binding, Date.now()))],
+      { maxRetries: 1 },
+    );
+    return ticket?.status === 'ok' ? 'sent' : 'unavailable';
+  } catch (error) {
+    console.error('Error sending device claim:', error);
+    return 'unavailable';
   }
 }

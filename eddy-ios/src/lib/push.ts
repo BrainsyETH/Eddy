@@ -25,8 +25,9 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerDeviceToken, releaseDeviceToken, unregisterDeviceToken } from '@/api/client';
-import { needsRegistration, readPushLedger, registered, released, unregistered, writePushLedger } from '@/lib/pushLedger';
+import { heldDeviceId, needsRegistration, readPushLedger, registered, released, unregistered, writePushLedger } from '@/lib/pushLedger';
 import { warn } from '@/lib/monitoring';
+import { createDeviceClaimInbox, deviceClaimCode, type DeviceClaimState } from '@/lib/deviceClaim';
 
 /**
  * Show notifications while the app is FOREGROUNDED.
@@ -37,13 +38,34 @@ import { warn } from '@/lib/monitoring';
  */
 export function installForegroundHandler(): void {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    // A device-claim code (deviceClaim.ts) is for the app, not the reader:
+    // with Eddy open it is redeemed silently, so it is not shown.
+    handleNotification: async (notification) => {
+      const claim = deviceClaimCode(notification.request.content.data) !== null;
+      return {
+        shouldShowBanner: !claim,
+        shouldShowList: !claim,
+        shouldPlaySound: !claim,
+        shouldSetBadge: false,
+      };
+    },
   });
+}
+
+/**
+ * Device-claim codes received and not yet redeemed (deviceClaim.ts). Module
+ * state, like the handler: a code can arrive before the 409 that asked for it.
+ */
+const claimInbox = createDeviceClaimInbox();
+
+/** Keep a device-claim code a notification carried, for the registration that needs it. */
+export function noteDeviceClaim(code: string): void {
+  claimInbox.note(code, Date.now());
+}
+
+/** The newest unexpired device-claim code, once. */
+export function takeDeviceClaim(): string | null {
+  return claimInbox.take(Date.now());
 }
 
 export type PermissionState = 'granted' | 'denied' | 'undetermined' | 'unsupported';
@@ -115,6 +137,11 @@ export interface RegistrationResult {
   ok: boolean;
   token: string | null;
   state: PermissionState;
+  /**
+   * Another account's row holds this iPhone's token and no proof passed
+   * (deviceClaim.ts): whether the server pushed a claim code. Null otherwise.
+   */
+  held: DeviceClaimState | null;
 }
 
 /**
@@ -127,13 +154,13 @@ export interface RegistrationResult {
 export async function syncRegistration(
   token: string,
   userId: string,
-  options: { force?: boolean; now?: number } = {},
+  options: { force?: boolean; now?: number; claimCode?: string } = {},
 ): Promise<RegistrationResult> {
   const state = await getPermissionState();
-  if (state !== 'granted') return { ok: false, token: null, state };
+  if (state !== 'granted') return { ok: false, token: null, state, held: null };
 
   const pushToken = await getExpoPushToken();
-  if (!pushToken) return { ok: false, token: null, state };
+  if (!pushToken) return { ok: false, token: null, state, held: null };
 
   // Anything owed from a sign-out goes first, so the release and this
   // registration cannot cross on the server.
@@ -145,18 +172,32 @@ export async function syncRegistration(
   const now = options.now ?? Date.now();
   const ledger = await readPushLedger();
   if (!options.force && !needsRegistration(ledger, userId, pushToken, now)) {
-    return { ok: true, token: pushToken, state };
+    return { ok: true, token: pushToken, state, held: null };
   }
 
+  // The row id this install already holds for the token is the proof the
+  // server needs to move it from another account (pushLedger.ts heldDeviceId).
+  const previousDeviceId = heldDeviceId(ledger, pushToken);
   const result = await registerDeviceToken(token, {
     expoPushToken: pushToken,
     platform: Platform.OS === 'android' ? 'android' : 'ios',
     deviceName: Device.modelName ?? undefined,
     appVersion: Constants.expoConfig?.version ?? undefined,
+    ...(previousDeviceId ? { previousDeviceId } : {}),
+    ...(options.claimCode ? { claimCode: options.claimCode } : {}),
   });
   if (result.ok) await writePushLedger(registered(userId, pushToken, result.deviceId, now));
 
-  return { ok: result.ok, token: pushToken, state };
+  // Held, and the claim code this refusal asked for may already be here: the
+  // server pushes it before it answers. Redeem it now rather than wait for a
+  // notification that has already come and gone. Once only: a code that was
+  // itself refused is not offered again.
+  if (result.held && !options.claimCode) {
+    const code = takeDeviceClaim();
+    if (code) return syncRegistration(token, userId, { ...options, force: true, claimCode: code });
+  }
+
+  return { ok: result.ok, token: pushToken, state, held: result.held };
 }
 
 /**

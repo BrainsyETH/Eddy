@@ -243,3 +243,22 @@ test('the web scrub is reachable without a pointer', () => {
   const card = readFileSync(join(process.cwd(), 'src/components/gauge/RiverCard.tsx'), 'utf8');
   assert.match(card, /interactive=\{false\}/);
 });
+
+test('the app chart draws in the phone\'s zone, not UTC, when history names no station zone', async () => {
+  // A response without `timeZone` (an older deploy, or a station whose zone
+  // the server could not look up) used to label every time in UTC: a 9 PM
+  // reading on a Missouri gauge read "2 AM". UTC is drawn, and the notice
+  // shown, only when the zone in use really is UTC.
+  const { historyTimeZone } = await import('../../../../eddy-ios/src/lib/observedStamp');
+  const device = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  assert.equal(historyTimeZone('America/Chicago'), 'America/Chicago');
+  assert.equal(historyTimeZone(undefined), device);
+  assert.equal(historyTimeZone(null), device);
+  assert.equal(historyTimeZone('UTC'), 'UTC');
+  assert.doesNotMatch(app, /timeZone \?\? 'UTC'/);
+  assert.match(app, /history && historyTimeZone\(history\.timeZone\) === 'UTC' \?/);
+
+  // A rejected zone is retried without one, never cached as "no history".
+  const client = readFileSync(join(process.cwd(), '../eddy-ios/src/api/client.ts'), 'utf8');
+  assert.match(client, /err\.status === 400 && stationCalendar && timeZone && !signal\?\.aborted\)\s*\{\s*return fetchGaugeHistory\(siteId, days, signal, window, resolution, stationCalendar, undefined\);/);
+});

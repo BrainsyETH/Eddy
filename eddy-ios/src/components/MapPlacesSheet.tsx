@@ -243,7 +243,9 @@ export function MapPlacesSheet({ title, pins, searchable = false, center = null,
                 onPress={() => onSelect(pin)}
                 style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.cardRaised : 'transparent' }]}
                 accessibilityRole="button"
-                accessibilityLabel={[pin.name, layer?.label, pin.value, pin.codeLabel].filter(Boolean).join(', ')}
+                // The subtitle (river · mile) is what tells two same-named
+                // landings apart, and it was only on screen.
+                accessibilityLabel={[pin.name, layer?.label, pin.subtitle, pin.value, pin.codeLabel].filter(Boolean).join(', ')}
               >
                 <View style={[styles.iconWell, { backgroundColor: colors.cardRaised, borderColor: tint }]}>
                   <EddySymbol name={layer?.symbol ?? 'accessPoint'} size={18} />
