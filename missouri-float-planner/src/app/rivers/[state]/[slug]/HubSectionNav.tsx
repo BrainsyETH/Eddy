@@ -89,7 +89,7 @@ export default function HubSectionNav({
                 const y = el.getBoundingClientRect().top + window.scrollY - 120;
                 window.scrollTo({ top: y, behavior: 'smooth' });
               }}
-              className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold no-underline transition-colors sm:px-3 ${
+              className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold no-underline transition-colors sm:px-3 ${
                 s.id === 'guide' ? 'hidden sm:block' : ''
               } ${
                 active === s.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-600 hover:text-neutral-900'

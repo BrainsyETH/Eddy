@@ -2,6 +2,7 @@ import type { TodayRiverFilter } from '@/lib/todayNavigation';
 import { TodayCamping } from '@/components/TodayCamping';
 import { TodayRiverConditions } from '@/components/TodayRiverConditions';
 import { TodayRiverGuide } from '@/components/TodayRiverGuide';
+import { BestRiverNotices } from '@/components/BestRiverNotices';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { radii } from '@/theme/layout';
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -247,7 +248,7 @@ function BestRiverCard({
     <View style={[styles.bestPreview, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Text style={[styles.bestName, { color: colors.text }]}>{recommendation.river.name}</Text>
       <Text style={[styles.heroMeta, { color: colors.textMuted }]}>Conditions unavailable</Text>
-      <Pressable onPress={onOpen} accessibilityRole="button" style={styles.secondaryButton}>
+      <Pressable onPress={onOpen} accessibilityRole="button" style={[styles.secondaryButton, { borderColor: colors.border }]}>
         <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View river</Text>
       </Pressable>
     </View>
@@ -288,6 +289,9 @@ function BestRiverCard({
           </View>
         </View>
       ) : null}
+      {/* A closure or advisory on the river Eddy is recommending belongs on
+          the recommendation, above the button that plans a trip on it. */}
+      <BestRiverNotices notices={recommendation.notices} riverName={recommendation.river.name} />
       <View style={styles.bestFooter}>
         <View style={styles.actions}>
           <Pressable
