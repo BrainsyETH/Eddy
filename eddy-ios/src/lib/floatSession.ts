@@ -213,6 +213,14 @@ export interface FloatSession {
    */
   awaySince?: number | null;
   /**
+   * How much of the time since awaySince is actually EVIDENCED away: the sum
+   * of intervals between consecutive away fixes no more than STALE_POSITION_MS
+   * apart. A GPS outage is missing evidence, not more time away, so one away
+   * fix, 46 minutes of nothing and another away fix adds nothing. The prompt
+   * and automatic end read this, never `now - awaySince`.
+   */
+  awayMs?: number;
+  /**
    * A fix placed the paddler more than AWAY_FROM_RIVER_M from the river since
    * the last matched one. The next match then counts no distance across the
    * gap: a drive over a bridge downstream is not miles paddled.
@@ -442,6 +450,11 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const farAway = step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M &&
     !(session.recordedStart === null && atLaunch);
   next.awaySince = farAway ? (session.awaySince ?? fix.timestamp) : null;
+  // Only an unbroken run of away fixes counts toward the away time. While
+  // awaySince is set, the previous usable fix (session.last) was away too.
+  const sinceLast = session.last ? fix.timestamp - session.last.at : Infinity;
+  next.awayMs = !farAway ? 0
+    : (session.awayMs ?? 0) + (session.awaySince != null && sinceLast <= STALE_POSITION_MS ? Math.max(0, sinceLast) : 0);
   if (farAway) next.leftRiver = true;
   if (step.result.kind === 'matched') {
     next.awaitingFix = false;

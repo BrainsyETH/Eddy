@@ -16,7 +16,8 @@
 //             floating?".
 //   auto-end  still not ended AUTO_END_AFTER_ARRIVAL_MS after arriving (or
 //             reaching the river's end), or after AUTO_END_AWAY_MS of fresh,
-//             unbroken evidence of being away: Eddy ends the float itself,
+//             unbroken evidence of being away (floatSession.ts awayMs, which
+//             a GPS outage does not add to): Eddy ends the float itself,
 //             says so, and saves the recap at the moment the float actually
 //             finished, not when the phone noticed.
 //
@@ -135,7 +136,7 @@ export function awayNow(session: FloatSession, now: number): boolean {
 export function endPromptsDue(session: FloatSession, now: number): EndPromptKind[] {
   const due: EndPromptKind[] = [];
   if (session.arrivedAt != null || session.riverEndAt != null) due.push('arrived');
-  if (awayNow(session, now) && now - session.awaySince! >= AWAY_PROMPT_MS) due.push('away');
+  if (awayNow(session, now) && (session.awayMs ?? 0) >= AWAY_PROMPT_MS) due.push('away');
   return due;
 }
 
@@ -147,7 +148,7 @@ export function autoEndAt(session: FloatSession | null, now: number): number | n
   if (!session) return null;
   const reached = session.arrivedAt ?? session.riverEndAt;
   if (reached != null && now - reached >= AUTO_END_AFTER_ARRIVAL_MS && !continuingPastEnd(session, now)) return reached;
-  if (awayNow(session, now) && now - session.awaySince! >= AUTO_END_AWAY_MS) return session.awaySince!;
+  if (awayNow(session, now) && (session.awayMs ?? 0) >= AUTO_END_AWAY_MS) return session.awaySince!;
   return null;
 }
 

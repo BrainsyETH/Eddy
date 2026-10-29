@@ -173,12 +173,13 @@ export function beginFloat(next: FloatSession): Promise<BeginResult> {
  * Feed GPS fixes, in time order, from the recorder. `journalTo` is the
  * journal offset they end at (floatRecording.ts). Returns the automatic end
  * this delivery may trigger (floatEnding.ts), resolving true only if it did
- * end the float.
+ * end the float. `settle` false (a recovery page with more journal behind it)
+ * applies the fixes without judging an automatic end; see floatRecorderSync.
  */
-export function recordFixes(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number): Promise<boolean> | null {
+export function recordFixes(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number, settle = true): Promise<boolean> | null {
   store.record(fixes, now, journalTo);
   const session = store.get();
-  if (session && autoEndAt(session, now) != null) return autoEnd(session.id);
+  if (settle && session && autoEndAt(session, now) != null) return autoEnd(session.id);
   void syncFloatActivity(session);
   return null;
 }

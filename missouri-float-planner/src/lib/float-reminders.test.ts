@@ -449,6 +449,20 @@ test('away is judged on fresh evidence: a gap, a return to the river, or a bank 
   }
   assert.equal(bank.awaySince, null);
   assert.equal(autoEndAt(bank, t + 2 * AUTO_END_AWAY_MS), null);
+
+  // One away fix, 46 minutes with no GPS, another away fix: the outage is
+  // missing evidence, not 46 minutes away. Nothing ends, nothing is backdated.
+  const outage = t + 46 * 60_000;
+  const resumed = farFix(farFix(session, t), outage);
+  assert.equal(resumed.awayMs, 0);
+  assert.equal(autoEndAt(resumed, outage), null);
+  assert.deepEqual(dueReminders(resumed, index, outage).map((r) => r.id), []);
+
+  // Unbroken away fixes still count, and the end is the first of them.
+  let gone = farFix(session, t);
+  for (let when = t + 60_000; when <= t + AUTO_END_AWAY_MS; when += 60_000) gone = farFix(gone, when);
+  assert.equal(gone.awayMs, AUTO_END_AWAY_MS);
+  assert.equal(autoEndAt(gone, t + AUTO_END_AWAY_MS), t);
 });
 
 test('local reminder permission distinguishes quiet delivery and does not mistake read failure for denial', () => {
