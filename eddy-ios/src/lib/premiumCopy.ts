@@ -70,7 +70,8 @@ export const PREMIUM_BENEFITS: PremiumBenefit[] = [
   },
   {
     symbol: 'heart',
-    symbolSize: 30,
+    // No symbolSize: it was 30 while the marks sat in 38px chip wells, where
+    // the heart read small. On a plain row the three marks share one size.
     title: 'Thanks for helping keep Eddy going',
     // Two earlier versions of this line went the wrong way for the same reason:
     // they tried to justify the price. One enumerated "the gauges, the maps and

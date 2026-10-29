@@ -57,7 +57,7 @@ import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
-import { EddySymbol } from '@/components/EddySymbol';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { refreshEntitlement, waitForEntitlement } from '@/api/client';
 import {
@@ -400,11 +400,22 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           </Text>
 
           {/* Plain rows, not icon-chip tiles: three short lines read as a
-              person explaining the offer, three badged cards as a pricing page. */}
+              person explaining the offer, three badged cards as a pricing page.
+              The tile went; Eddy's mark did not. Each row still opens with the
+              symbol premiumCopy names for it — the plainer rewrite dropped the
+              mark along with the card around it, and the sheet shipped without
+              a single Eddy symbol on the points it was selling. The well is a
+              fixed box so a benefit that asks for a different symbolSize does
+              not push its own text out of the column. */}
           {PREMIUM_BENEFITS.map((benefit) => (
             <View key={benefit.title} style={styles.benefit}>
-              <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
-              <Text style={[styles.benefitBody, { color: colors.textMuted }]}>{benefit.body}</Text>
+              <View style={styles.benefitSymbol}>
+                <EddySymbol name={benefit.symbol as EddySymbolName} size={benefit.symbolSize ?? 24} />
+              </View>
+              <View style={styles.benefitText}>
+                <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
+                <Text style={[styles.benefitBody, { color: colors.textMuted }]}>{benefit.body}</Text>
+              </View>
             </View>
           ))}
 
@@ -797,7 +808,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 22,
   },
-  benefit: { alignSelf: 'stretch', marginBottom: 14 },
+  benefit: { flexDirection: 'row', alignItems: 'flex-start', alignSelf: 'stretch', gap: 12, marginBottom: 14 },
+  // The title's line box (t.base is 24), so the mark sits on the first line of
+  // text rather than floating beside the row.
+  benefitSymbol: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  benefitText: { flex: 1 },
   benefitTitle: { ...t.base, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   forecastCaveat: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 6 },

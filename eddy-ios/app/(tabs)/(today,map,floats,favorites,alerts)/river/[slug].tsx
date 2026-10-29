@@ -1513,7 +1513,7 @@ export default function RiverDetailScreen() {
         ) : null}
         </View>
 
-        <RiverGuideLink riverSlug={slug} />
+        <RiverGuideLink riverSlug={slug} photoUrl={river?.photoUrl} />
 
         {/* AFTER the take, not before it. These photos are banded by condition,
             so they illustrate a verdict — and putting them above the verdict
