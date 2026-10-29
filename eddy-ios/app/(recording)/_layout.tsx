@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Stack, useGlobalSearchParams, useIsFocused, useNavigation, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatActive } from '@/hooks/useFloatSession';
 import { useKeepAwakePreference } from '@/float/keepAwakePreference';
 import { ControlIcon } from '@/components/ControlIcon';
 import { Pressable } from 'react-native';
@@ -23,7 +23,9 @@ export default function RecordingLayout() {
   // This group is focused for as long as anything in it is presented, and a
   // float that ends (the recap) releases it.
   const focused = useIsFocused();
-  const floatActive = useFloatSession() != null;
+  // Only whether a float is active: subscribing to the session itself would
+  // re-render this whole stack on every GPS fix.
+  const floatActive = useFloatActive();
   const [keepAwake] = useKeepAwakePreference();
   useEffect(() => {
     if (!keepAwake || !focused || !floatActive) return;

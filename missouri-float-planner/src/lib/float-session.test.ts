@@ -547,6 +547,45 @@ test('a float that carries on past its take-out is counted to where it stopped, 
   assert.ok(recap.stoppedMs < 60_000, 'the stop the float ended at is not part of it');
 });
 
+test('landing a little past the take-out and finishing later counts no time on the bank', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'a4', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(started.ok);
+  // Pulltite is at x = 6 km. Drift 300 m past it (a long ramp, an eddy) and land.
+  let session = float(started.session, index, 0, T0, 6_000, 1);
+  session = float(session, index, 6_010, T0 + 6_010_000, 290, 1);
+  assert.equal(session.pastTakeOut, true);
+  const landed = T0 + 6_300_000;
+  // Forty minutes loading on the bank, fixes still arriving at the landing.
+  let t = landed;
+  for (; t <= landed + 40 * 60_000; t += 10_000) {
+    session = applyFix(session, index, { lngLat: at(6_300, 5), accuracyMeters: 10, timestamp: t }, t);
+  }
+  const recap = recapFloat(session, t);
+  assert.ok(Math.abs(recap.endedAt - landed) <= 20_000, `ended ${recap.endedAt - landed} ms from the landing`);
+  assert.ok(recap.stoppedMs < 60_000, 'the forty minutes loading are not part of the float');
+  assert.equal(progressLine(session, t), progressLine(session, recap.endedAt), 'the panel rests there too');
+
+  // The same landing, then a walk up to the car: no more river fixes at all.
+  let walked = float(started.session, index, 0, T0, 6_000, 1);
+  walked = float(walked, index, 6_010, T0 + 6_010_000, 290, 1);
+  const quiet = recapFloat(walked, landed + 40 * 60_000);
+  assert.ok(Math.abs(quiet.endedAt - landed) <= 20_000, 'it ended at the last confirmed position, not at Finish');
+});
+
+test('carrying on past the take-out keeps counting until Finish while still moving', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'a5', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(started.ok);
+  let session = float(started.session, index, 0, T0, 6_000, 1);
+  session = float(session, index, 6_010, T0 + 6_010_000, 3_000, 1);
+  assert.equal(session.pastTakeOut, true);
+  const now = T0 + 9_010_000;
+  const recap = recapFloat(session, now);
+  assert.equal(recap.endedAt, now, 'paddling on the river at Finish: it ends at Finish');
+  assert.ok(recap.distanceMiles > 9_000 / MILE * 0.95);
+});
+
 test('a quick start already past its take-out never counts as arrived', () => {
   const { route, index } = prepared();
   const quick = startSession({ id: 'a2', kind: 'quick', route, index, takeOutId: 'pulltite', now: T0 });
@@ -655,7 +694,11 @@ test('an off-map take-out is not recorded as reached, however the float ends', a
   const there = float(off.session, result.index, 9_700, T0, 200, 1.5);
   const recap = recapFloat(there, T0 + 30 * 60_000);
   assert.equal(recap.reachedTakeOut, false);
-  assert.equal(recap.endedAt, T0 + 30 * 60_000);
+  // Finished by hand half an hour later, it ends where measuring ended, the
+  // river's end: the same moment as an automatic end and the panel's clock.
+  assert.ok(there.riverEndAt != null);
+  assert.equal(recap.endedAt, there.riverEndAt);
+  assert.equal(progressLine(there, T0 + 30 * 60_000), progressLine(there, there.riverEndAt!), 'the panel rests at the river\'s end too');
   // Left running, it still ends, without claiming an arrival.
   const endAt = autoEndAt(there, there.riverEndAt! + AUTO_END_AFTER_ARRIVAL_MS);
   assert.equal(endAt, there.riverEndAt);
@@ -1404,6 +1447,12 @@ test('Your Float promises tracking only with a healthy recorder and a fresh usab
   const weak = { ...session, lastFix: { lngLat: at(2_000), at: now + 10_000, accuracyMeters: 500 } };
   assert.match(activeFloatStatus(weak, tracker, now + 10_000).label, /Finding you/);
   assert.equal(activeFloatStatus(weak, tracker, now + 10_000).healthy, false);
+  // Stop tracking: whatever the recorder last reported (even a "recording"
+  // report not yet replaced by its idle event), the button says so.
+  const stopped: FloatSession = { ...session, trackingStoppedAt: now };
+  assert.equal(activeFloatStatus(stopped, tracker, now).label, 'Tracking stopped · Current River');
+  assert.equal(activeFloatStatus(stopped, tracker, now).healthy, false);
+  assert.equal(activeFloatStatus(stopped, { ...tracker, status: 'idle' }, now).label, 'Tracking stopped · Current River');
 });
 
 test('a float saves the take-out photo and those along the stretch for offline, take-out first', async () => {

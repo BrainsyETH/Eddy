@@ -363,3 +363,40 @@ test('withdrawing the report being sent stops its request and keeps it off the l
   assert.equal(aborted, true, 'the in-flight request was aborted');
   assert.deepEqual(queue.list(), []);
 });
+
+test('a withdrawn report leaves no cooldown behind, even when its aborted send settles before the removal is written', async () => {
+  const storage = disk();
+  let gate: (() => void) | null = null;
+  const slowWrites = { on: false };
+  const write = storage.setItem.bind(storage);
+  storage.setItem = async (key, value) => {
+    if (slowWrites.on) await new Promise<void>((resolve) => { gate = resolve; });
+    await write(key, value);
+  };
+  let sends = 0;
+  let firstSend = true;
+  const queue = createReportQueue(storage, (_report, signal) => {
+    sends += 1;
+    if (!firstSend) return Promise.resolve<SendOutcome>({ kind: 'sent' });
+    firstSend = false;
+    return new Promise<SendOutcome>((resolve) => signal.addEventListener('abort', () => resolve({ kind: 'retry' })));
+  }, () => {}, () => T0);
+  await queue.add(input('a'));
+  const run = queue.flush();
+  await new Promise((resolve) => setImmediate(resolve));
+  // The removal's write is held, so the aborted send settles while the report
+  // is still listed.
+  slowWrites.on = true;
+  const removed = queue.remove('a');
+  await run;
+  slowWrites.on = false;
+  (gate as (() => void) | null)?.();
+  assert.equal(await removed, true);
+  assert.deepEqual(queue.list(), []);
+  assert.equal(queue.nextDueAt(), null);
+  // The same id again (a re-sent draft) is due now, not after a stale minute.
+  await queue.add(input('a'));
+  await queue.flush();
+  assert.equal(sends, 2);
+  assert.equal(queue.list()[0].status, 'sent');
+});

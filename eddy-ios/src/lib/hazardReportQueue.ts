@@ -150,6 +150,12 @@ export function createReportQueue(
   // cooldown while preserving the report's real, persisted failure backoff.
   const cancelledUntil = new Map<string, number>();
   const dueAt = (report: HazardReport) => Math.max(report.nextAttemptAt, cancelledUntil.get(report.id) ?? 0);
+  /**
+   * Reports being withdrawn: off the list once their removal is written, but
+   * still in `reports` while it is. The send loop must not give such a report
+   * a cooldown (or anything else) when its aborted request settles first.
+   */
+  const withdrawing = new Set<string>();
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((listener) => listener());
 
@@ -255,8 +261,9 @@ export function createReportQueue(
                 } finally {
                   inFlightId = null;
                 }
-                // Withdrawn while it was being sent: it is off the list.
-                if (!reports.some((r) => r.id === report.id)) {
+                // Withdrawn while it was being sent: it is off the list, or
+                // its removal is being written and it is about to be.
+                if (withdrawing.has(report.id) || !reports.some((r) => r.id === report.id)) {
                   cancelledUntil.delete(report.id);
                   break;
                 }
@@ -313,11 +320,19 @@ export function createReportQueue(
     async remove(id: string): Promise<boolean> {
       await queue.ensureLoaded();
       if (!reports.some((r) => r.id === id)) return false;
+      // Marked before the abort: the aborted send settles before the removal
+      // is written, and must find the report already withdrawn.
+      withdrawing.add(id);
       cancelledUntil.delete(id);
       // Withdrawing the report being sent stops its request; the next flush
       // carries on with the rest.
       if (inFlightId === id) sendingController?.abort();
-      await commit((current) => current.filter((r) => r.id !== id), true);
+      try {
+        await commit((current) => current.filter((r) => r.id !== id), true);
+      } finally {
+        withdrawing.delete(id);
+      }
+      cancelledUntil.delete(id);
       return true;
     },
 
@@ -327,6 +342,7 @@ export function createReportQueue(
       sendingController?.abort();
       cancelledUntil.clear();
       await commit(() => [], true);
+      cancelledUntil.clear();
     },
   };
   return queue;
