@@ -218,8 +218,8 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
   access: true,
   // ── THE ONE `false` THAT IS NOT AN OVERLAY, and it is a TIER ───────────
   // A ramp IS an access point and is already drawn as one; this tier only
-  // changes which MARK it wears. The family index clusters ramps with the
-  // rest of the access family below ZOOM.cluster, so switching the tier on no
+  // changes which MARK it wears. The statewide index counts ramps with every
+  // other Eddy place below ZOOM.cluster, so switching the tier on no
   // longer costs the statewide view anything — the default stays off because
   // the tier ADDS no place to the map, only a different mark on places
   // already drawn, and that is a distinction someone asks for.
@@ -287,8 +287,8 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
  *
  * The answer was the ZOOM ladder above rather than a retreat to switching them
  * off, because a layer nobody can see is a layer nobody knows to turn on. Every
- * place layer is on the rungs now, and the COUNTS band belongs to the two
- * family indexes in RiverMap — so the statewide view is bubbles and the marks
+ * place layer is on the rungs now, and the COUNTS band belongs to the one
+ * statewide index in RiverMap — so the statewide view is counts and the marks
  * arrive as the camera does.
  *
  * The other cost is two requests on first paint that the old default did not
@@ -451,10 +451,12 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
  * cabins, rentals, ramps and hazards drew their full 22pt mark at EVERY zoom,
  * so the layer holding fourteen thousand gauges collapsed into bubbles while
  * the ~285 places did not — the statewide view was a wall of tents with the
- * rivers underneath it. Every one of them is on the rungs now; see the family
- * index in RiverMap, which owns the COUNTS band for the access and service
- * families so that switching a layer on can no longer take pins OUT of a
- * cluster.
+ * rivers underneath it. Every one of them is on the rungs now; see the
+ * statewide index in RiverMap, which owns the COUNTS band for every Eddy pin
+ * layer — places, services, rated gauges and dams in one count — so switching
+ * a layer on can no longer take pins OUT of a cluster, and no layer's lone dot
+ * sits beside another layer's count. Hazards and the USGS reference tier keep
+ * their own treatment.
  *
  * A layer may sit out a rung, and one does. Hazards never cluster — a hazard
  * must not disappear into a count — and take their mark at ZOOM.cluster rather

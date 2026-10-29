@@ -313,7 +313,7 @@ function accessMatch(pick: (code: PublicLandAccess) => string): unknown[] {
  *
  * Mapbox clusters on every TILE zoom up to and including this value, and a
  * camera at 8.6 still draws z8 tiles — so a source given ZOOM.cluster kept its
- * counts until z9, a whole level after the family index (a layer capped at
+ * counts until z9, a whole level after the statewide index (a layer capped at
  * ZOOM.cluster) had already broken into dots. One below the rung makes every
  * count on the map break at the same moment.
  */
@@ -937,7 +937,7 @@ interface Props {
 }
 
 /**
- * GeoJSON for one layer, or for one FAMILY of layers.
+ * GeoJSON for one layer, or for many at once (the statewide index).
  *
  * `color` is written onto every feature, not just the ones that override it, so
  * the paint expression can be a flat `['get','color']` rather than a `case` that
@@ -946,9 +946,10 @@ interface Props {
  * ── WHY defaultColor MAY BE A FUNCTION ───────────────────────────────────
  *
  * Every source here used to hold exactly one layer, so one colour covered the
- * whole collection. The family index sources below hold three layers at once —
- * put-ins, tents and ramps in one clustered source — and a lone campground at
- * statewide zoom has to stay green rather than take the family's teal, or the
+ * whole collection. The statewide index below holds every Eddy layer at once —
+ * put-ins, tents, ramps, cabins, gauges and dams in one clustered source — and
+ * a lone campground at statewide zoom has to stay green rather than take a
+ * shared teal, or the
  * dot stops being the legend the layers sheet promises. Passed the pin, a
  * caller can answer per feature; passed a string, nothing changes.
  */
@@ -1510,15 +1511,15 @@ export function RiverMap({
   );
 
   /**
-   * ── THE TWO FAMILY INDEXES ────────────────────────────────────────────────
+   * ── THE STATEWIDE INDEX ──────────────────────────────────────────────────
    *
-   * One collection per FAMILY, holding every pin its layers draw, and drawn
-   * only below ZOOM.cluster — see familyIndexLayer.
+   * One collection holding every Eddy pin that is on, drawn only below
+   * ZOOM.cluster — see statewideIndexLayer.
    *
    * ── The state this fixes ────────────────────────────────────────────────
    *
    * Access points clustered and nothing else did, so the two layers holding
-   * fourteen thousand things collapsed into bubbles while the ~285 places did
+   * fourteen thousand things collapsed into counts while the ~285 places did
    * not: at the opening statewide view the Ozarks were a wall of tents, canoes
    * and cabins with the rivers invisible underneath.
    *
@@ -1528,55 +1529,48 @@ export function RiverMap({
    * moment 123 unclustered tents appeared. The layer that consolidates lost
    * exactly the pins the layer that does not consolidate gained.
    *
+   * ── ONE index, not one per family ───────────────────────────────────────
+   *
+   * There were four counts: places, services, rated gauges and dams, each
+   * clustering only its own points. A count never absorbs a point from another
+   * source, so on a device a lone dam or gauge sat as a dot right beside a
+   * places count that visibly should have held it — the counts were not
+   * counting what was there. One index counts everything in a patch of ground.
+   * The two things kept out are deliberate: hazards never join a count (a
+   * safety rule), and the USGS reference tier keeps its own parchment counts
+   * because they say "reference, not Eddy" and it is often far denser.
+   *
    * ── Why an INDEX rather than merging the sources ────────────────────────
    *
-   * The obvious fix is one clustered source per family holding every mark. It
-   * costs more than it looks: a merged source needs `iconImage` per feature,
-   * and the access mark is bottom-anchored (its tip IS the location) while
-   * every other mark is centred — so the icon and label layers would have to be
-   * split by anchor anyway, and each layer's own tuning (the private-access
-   * dimming, the badge behind themed marks) would have to be re-expressed as
-   * filters over a mixed source.
+   * The obvious fix is one clustered source holding every mark. It costs more
+   * than it looks: a merged source needs `iconImage` per feature, and the access
+   * mark is bottom-anchored (its tip IS the location) while every other mark is
+   * centred — so the icon and label layers would have to be split by anchor
+   * anyway, and each layer's own tuning (the private-access dimming, the badge
+   * behind themed marks) would have to be re-expressed as filters over a mixed
+   * source.
    *
-   * Below ZOOM.cluster none of that is drawn. A bubble is a count and a
+   * Below ZOOM.cluster none of that is drawn. A count is a count and a
    * singleton is a coloured dot, and neither needs a mark — so the index holds
-   * only what a bubble needs, the real layers keep their own rendering
+   * only what a count needs, the real layers keep their own rendering
    * unchanged, and the two never draw at the same zoom.
    *
-   * The price is one duplicate set of features across the bridge: ~400 points
-   * for the access family, ~110 for services. Memoised on the same inputs as
-   * every other collection here, so it is built when its pins change and not
-   * per render — and it buys leaving five tuned layers exactly as they are.
-   *
-   * ── The families, and why these two ─────────────────────────────────────
-   *
-   * `places` is the access family — put-ins, camping, ramps — which is already
-   * ONE population under three questions: the resolver hands out one marker per
-   * place with an `owner` deciding its mark, so these three can never
-   * double-count a place between them. `services` is rentals and cabins, the
-   * same arrangement over the directory. Gauges keep their own two sources: a
-   * count of gauges answers a question about water that a count mixing in
-   * cabins could not.
+   * Only the members whose layer is ON: the index is mounted for the life of
+   * the map, and a count must not include tents while Camping is off. A rated
+   * gauge's dot keeps its condition colour (featureCollection prefers the pin's
+   * own colour over the layer's). Endpoints are left out: they draw from their
+   * own source at every zoom.
    */
-  // Only the members whose layer is ON: the index is mounted for the whole
-  // family, and a count must not include tents while Camping is off. Springs
-  // ride in the places family — they used to take the ZOOM.cluster floor with
-  // no index under it, so below z8 the one layer drew nothing at all.
-  const placesIndexShape = useMemo(
+  const statewideIndexShape = useMemo(
     () =>
       featureCollection(
-        [...accessPins, ...campgroundPins, ...boatRampPins, ...springPins].filter((pin) => layers.includes(pin.layer)),
+        [
+          ...accessPins, ...campgroundPins, ...boatRampPins, ...springPins,
+          ...outfitterPins, ...lodgingPins, ...gaugePins, ...(dams ?? []),
+        ].filter((pin) => layers.includes(pin.layer)),
         (pin) => layerColorFor(pin.layer), endpointIds,
       ),
-    [accessPins, campgroundPins, boatRampPins, springPins, layers, endpointIds],
-  );
-  const servicesIndexShape = useMemo(
-    () =>
-      featureCollection(
-        [...outfitterPins, ...lodgingPins].filter((pin) => layers.includes(pin.layer)),
-        (pin) => layerColorFor(pin.layer), endpointIds,
-      ),
-    [outfitterPins, lodgingPins, layers, endpointIds],
+    [accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, layers, endpointIds],
   );
 
   const pinShapes = useMemo(
@@ -1814,11 +1808,8 @@ export function RiverMap({
     else clusterSources.current.delete(id);
   }, []);
   const clusterSourceRefs: Record<string, (source: ClusterSourceRef | null) => void> = {
-    'pins-gauges': useCallback(source => registerClusterSource('pins-gauges', source), [registerClusterSource]),
-    'pins-dams': useCallback(source => registerClusterSource('pins-dams', source), [registerClusterSource]),
     'pins-allGauges': useCallback(source => registerClusterSource('pins-allGauges', source), [registerClusterSource]),
-    'pins-places-index': useCallback(source => registerClusterSource('pins-places-index', source), [registerClusterSource]),
-    'pins-services-index': useCallback(source => registerClusterSource('pins-services-index', source), [registerClusterSource]),
+    'pins-statewide-index': useCallback(source => registerClusterSource('pins-statewide-index', source), [registerClusterSource]),
   };
   // Each rendered POI layer registers its own ID. This render-local collection
   // belongs to the onMapPress closure below, so conditional layers and the dot
@@ -2174,13 +2165,6 @@ export function RiverMap({
      * wall of full-size staff marks and labels.
      */
     compactUntilZoom?: number,
-    /**
-     * Collapse this layer into count badges below `maxZoom`.
-     *
-     * Rated gauges and dams pass it. The badge is the neutral place face, never
-     * a verdict — see PLACE_COUNT_BADGE.
-     */
-    clustering?: { radius: number },
   ) => {
     // No early return on an empty list. Access points and gauges arrive
     // asynchronously, and a source that unmounts takes its layers out of the
@@ -2188,40 +2172,19 @@ export function RiverMap({
     // a source update; `null` is a teardown.
     const icon = PIN_ICONS[shape];
     /**
-     * Every non-cluster layer has to say so once the source clusters.
-     *
-     * A clustered source emits BOTH kinds of feature, and a layer with no
-     * filter draws a cluster as though it were a pin — which for the gauge
-     * layer means a bubble of forty stations rendered as one staff mark in one
-     * station's colour, sitting exactly where no gauge is.
-     *
-     * It also leaves out the selected place, which the selection layer draws
-     * on top of everything — see selectedShape.
+     * Every layer leaves out the selected place, which the selection layer
+     * draws on top of everything — see selectedShape. No pin layer clusters on
+     * its own any more: below ZOOM.cluster the statewide index counts them all
+     * together (see statewideIndexLayer).
      */
-    const solo = unselected(clustering ? ['!', ['has', 'point_count']] : undefined);
+    const solo = unselected();
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
         // Off is an EMPTY source, never an unmounted one — see MOUNTED, NOT
         // GATED in the render.
         shape={layerOn(id) ? pinShapes[id] : EMPTY_COLLECTION}
-        // The map-level handler needs the owning source to expand a cluster.
-        ref={clustering ? clusterSourceRefs[`pins-${id}`] : undefined}
-        cluster={clustering !== undefined}
-        clusterRadius={clustering?.radius}
-        clusterMaxZoomLevel={clustering ? NATIVE_CLUSTER_MAX_ZOOM : undefined}
       >
-        {clustering ? (
-          <Mapbox.SymbolLayer
-            id={`pins-${id}-cluster`}
-            filter={['has', 'point_count']}
-            // The layer's own floor applies to its badges too, or a tier that
-            // is meant to be silent at continental zoom announces itself there
-            // as one very large count.
-            minZoomLevel={minZoom}
-            style={PLACE_COUNT_BADGE}
-          />
-        ) : null}
         {icon && compactUntilZoom !== undefined ? (
           <Mapbox.CircleLayer
             id={pinHitLayerId(`pins-${id}-overview`)}
@@ -2424,40 +2387,37 @@ export function RiverMap({
   };
 
   /**
-   * One family's bubbles at statewide zoom, and nothing above it.
+   * Every Eddy count at statewide zoom, and nothing above it.
    *
-   * Every layer in the family is in here, and NONE of them draws its own marks
-   * below ZOOM.cluster — see the call sites, which all pass that as their floor.
-   * So the handover is exact: this source is capped at ZOOM.cluster and the real
-   * layers start there, the same way access's own overview dot has always
-   * handed over to its icon at ZOOM.places.
+   * Every Eddy pin layer that is on is in here — places, services, rated
+   * gauges and dams — and NONE of them draws its own marks below ZOOM.cluster:
+   * see the call sites, which all pass that as their floor. So the handover is
+   * exact: this source is capped at ZOOM.cluster and the real layers start
+   * there, the same way access's own overview dot has always handed over to its
+   * icon at ZOOM.places.
    *
-   * There are no marks here on purpose. A bubble is a count and a singleton is
-   * a coloured dot; both are legible at a zoom where a 22pt tent is not, and
-   * neither needs to know which of the family's layers it came from. The dot
-   * still wears its own layer's colour, so a lone campground is green and a lone
-   * put-in is teal — the sheet's rows stay a legend for what is on the map. A
-   * count wears the place badge for both families: a mixed count has no one
-   * layer's colour to claim.
+   * There are no marks here on purpose. A count is a count and a singleton is a
+   * coloured dot; both are legible at a zoom where a 22pt tent is not, and
+   * neither needs to know which layer it came from. The dot still wears its own
+   * colour — a rated gauge its condition, a lone campground green, a put-in
+   * teal — so the sheet's rows stay a legend for what is on the map. A count
+   * wears the place badge: a mixed count has no one layer's colour to claim.
    */
-  const familyIndexLayer = (
-    id: 'places' | 'services',
-    shape: ReturnType<typeof featureCollection>,
-  ) => (
+  const statewideIndexLayer = (shape: ReturnType<typeof featureCollection>) => (
     <Mapbox.ShapeSource
-      id={`pins-${id}-index`}
+      id="pins-statewide-index"
       shape={shape}
-      ref={clusterSourceRefs[`pins-${id}-index`]}
+      ref={clusterSourceRefs['pins-statewide-index']}
       cluster
-      // 46: between access's old 42 and the national tier's 50. A family holds
+      // 46: between access's old 42 and the national tier's 50. The index holds
       // more members in the same ground than any single layer did, and a radius
-      // that groups them too tightly leaves a scatter of near-touching bubbles
-      // where one count belongs.
+      // that groups them too tightly leaves a scatter of near-touching counts
+      // where one belongs.
       clusterRadius={46}
       clusterMaxZoomLevel={NATIVE_CLUSTER_MAX_ZOOM}
     >
       <Mapbox.SymbolLayer
-        id={`pins-${id}-index-cluster`}
+        id="pins-statewide-index-cluster"
         filter={['has', 'point_count']}
         // ZOOM.min is the ladder's floor: nothing statewide draws below it, and
         // a family that ignored it would announce a continental view as one very
@@ -2467,7 +2427,7 @@ export function RiverMap({
         style={PLACE_COUNT_BADGE}
       />
       <Mapbox.CircleLayer
-        id={pinHitLayerId(`pins-${id}-index-dot`)}
+        id={pinHitLayerId('pins-statewide-index-dot')}
         filter={unselected(['!', ['has', 'point_count']])}
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
@@ -2512,7 +2472,7 @@ export function RiverMap({
       <Mapbox.CircleLayer
         id={pinHitLayerId('pins-access-overview')}
         filter={unselected()}
-        // The family index draws everything below here. Without the floor the
+        // The statewide index draws everything below here. Without the floor the
         // two would both paint at statewide zoom — bubbles with a full scatter
         // of dots under them, which is the crowding this was meant to end.
         minZoomLevel={ZOOM.cluster}
@@ -2901,23 +2861,20 @@ export function RiverMap({
           least to say and the most members. */}
       {contextGaugeLayer()}
 
-      {/* ── The two family indexes, under everything they consolidate ───────
-          Below ZOOM.cluster these are the ONLY thing the place layers draw, so
-          they go first: a rated gauge's verdict and a hazard must paint over a
-          count of cabins, never under it. Each holds only the members whose
-          layer is on, so a family with nothing on draws nothing. */}
-      {familyIndexLayer('places', placesIndexShape)}
-      {familyIndexLayer('services', servicesIndexShape)}
+      {/* ── The statewide index, under everything it consolidates ──────────
+          Below ZOOM.cluster it is the ONLY thing the Eddy pin layers draw, so
+          it goes first: a hazard must paint over a count, never under it. It
+          holds only the members whose layer is on. */}
+      {statewideIndexLayer(statewideIndexShape)}
 
       {accessLayer()}
-      {/* ── THE FAMILY INDEX OWNS THE BAND BELOW ZOOM.cluster ────────────────
-          These four start AT ZOOM.cluster and are compact dots until
-          ZOOM.places. Below the cluster rung they draw nothing at all, because
-          familyIndexLayer is already drawing one bubble per FAMILY there —
-          which is the point of it: a bubble per layer would count overlapping
-          halves of one population, and a put-in tagged `campground` leaving the
-          access source to wear a tent would drop the access count by 123 at the
-          exact moment 123 tents appeared.
+      {/* ── THE STATEWIDE INDEX OWNS THE BAND BELOW ZOOM.cluster ─────────────
+          Every Eddy pin layer starts AT ZOOM.cluster and is compact dots until
+          its marks rung. Below the cluster rung they draw nothing at all,
+          because statewideIndexLayer is already counting all of them there —
+          which is the point of it: a count per layer would count overlapping
+          halves of one population, and left a lone dam or gauge as a dot beside
+          a places count that should have held it.
 
           An earlier pass here gave them ZOOM.min instead, on the narrower
           reading that a floor was all they were missing. That is wrong against
@@ -2931,8 +2888,8 @@ export function RiverMap({
       {pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.cluster, ZOOM.places)}
 
       {/* ── Springs ride the standard rungs, and count with the places ───────
-          Below ZOOM.cluster they are members of the places family index (see
-          placesIndexShape); from it, this layer.
+          Below ZOOM.cluster they are members of the statewide index (see
+          statewideIndexShape); from it, this layer.
           The same three arguments as the place layers above, deliberately: a
           spring is a destination like a campground is, there are a few dozen of
           them statewide, and nothing about one is urgent. It is emphatically
@@ -2952,9 +2909,9 @@ export function RiverMap({
           differently-sized one mid-zoom. */}
       {pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.cluster, ZOOM.places)}
       {/* ── Rated gauges: the same rungs as every place, with no exception ───
-          Count badges to ZOOM.cluster, compact condition dots to
-          GAUGE_DETAIL_ZOOM (ZOOM.places), the staff mark, names at ZOOM.names,
-          and the ZOOM.min floor.
+          Counted in the statewide index to ZOOM.cluster, compact condition dots
+          to GAUGE_DETAIL_ZOOM (ZOOM.places), the staff mark, names at
+          ZOOM.names.
 
           The count is only a count. For a while a rated cluster was painted
           with the worst condition inside it; that made a count's colour mean a
@@ -2968,12 +2925,14 @@ export function RiverMap({
           fetch") and was named a full rung early, at GAUGE_DETAIL_ZOOM. Both
           made the gauge layer louder than the map around it. Below ZOOM.min the
           coloured river lines already answer "where is the water"; a station's
-          name arrives when every other name does. */}
-      {pinLayer('gauges', 'drop', ZOOM.names, ZOOM.min, GAUGE_DETAIL_ZOOM, { radius: 40 })}
+          name arrives when every other name does. It also counted only its own
+          stations, so a gauge sat as a dot beside a places count; it is in the
+          one statewide index now. */}
+      {pinLayer('gauges', 'drop', ZOOM.names, ZOOM.cluster, GAUGE_DETAIL_ZOOM)}
       {/* ── ON THE LADDER, like every other statewide layer, with NO exception ─
-          Count badges to ZOOM.cluster, overview dots to ZOOM.places, the mark,
-          then the name at ZOOM.names — the same rungs as every place layer, and
-          the same ZOOM.min floor.
+          Counted in the statewide index to ZOOM.cluster, overview dots to
+          ZOOM.places, the mark, then the name at ZOOM.names — the same rungs as
+          every place layer.
 
           Dams used to sit out two of those. Their labels were on at every zoom
           ("two dozen landmarks — an unnamed dot cannot be told from the lake it
@@ -2986,7 +2945,7 @@ export function RiverMap({
 
           Drawn before hazards so the low-water-dam layer still paints on top:
           where both land in one place, the one that can kill you is on top. */}
-      {pinLayer('dams', 'dam', ZOOM.names, ZOOM.min, ZOOM.places, { radius: 40 })}
+      {pinLayer('dams', 'dam', ZOOM.names, ZOOM.cluster, ZOOM.places)}
 
       {/* ── Numbered stacks, the web planner's mark ───────────────────────
           The place count badge at the web's own 34pt: a white rounded
