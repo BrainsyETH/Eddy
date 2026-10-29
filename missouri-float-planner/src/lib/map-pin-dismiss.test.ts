@@ -42,6 +42,8 @@ function scene(planning = false) {
     ...state, pendingAccessSelection, pendingMapPlanFrame,
     pendingRiverFit, setCameraCommand: (command: unknown) => { state.cameraCommand = command; },
     mapPlanning: state.mapPlanRiver === state.selectedSlug,
+    choosingEndpoint: state.mapPlanRiver === state.selectedSlug && state.step !== 'result',
+    planHoldsRiver: state.putIn !== null,
     planOpen: false, mapPlanSelection, cancelMapSearch: () => {},
     gestureCount: { current: 0 }, isGaugeIndexId: () => false,
     accessPointForPin: () => ({ point: campOnly, riverSlug: slug }),
@@ -134,6 +136,7 @@ test('Back and close use the same return handler and planning names the route', 
 
 test('empty map dismisses details and route sheet without clearing endpoints or moving the camera', () => {
   const { state, run, pendingRiverFit } = scene(true);
+  state.step = 'result';
   state.selectedPin = { id: 'gauge:1' };
   state.riverSheetOpen = true;
   run('dismissMapSelection');
@@ -149,6 +152,7 @@ test('empty map dismisses details and route sheet without clearing endpoints or 
 
 test('tapping the still-selected river after background dismissal reopens its sheet', () => {
   const { state, run } = scene(true);
+  state.step = 'result';
   run('dismissMapSelection');
   assert.equal(state.riverSheetOpen, false);
   run('onSelectNetworkRiver', slug, { lng: -91.4, lat: 37.1 });
@@ -157,4 +161,26 @@ test('tapping the still-selected river after background dismissal reopens its sh
   assert.equal(state.selectedSlug, slug);
   assert.equal(state.putIn, putIn);
   assert.equal(state.takeOut, takeOut);
+});
+
+// While the compact planner waits for an endpoint, a tap that misses a pin is a
+// near-miss, not a request to stop. Ending planning there left the put-in set
+// with nothing drawing it and "Use as take-out" offered against it.
+test('a missed tap while choosing an endpoint closes only the pin', () => {
+  for (const step of ['put-in', 'take-out']) {
+    const { state, run } = scene(true);
+    state.step = step;
+    state.selectedPin = { id: 'gauge:1' };
+    run('dismissMapSelection');
+    assert.equal(state.selectedPin, null);
+    assert.equal(state.mapPlanRiver, slug, `blank tap at ${step} ended planning`);
+
+    state.selectedPin = { id: 'gauge:1' };
+    run('onSelectNetworkRiver', 'current', { lng: -91.4, lat: 37.1 });
+    assert.equal(state.selectedPin, null);
+    assert.equal(state.mapPlanRiver, slug, `river tap at ${step} ended planning`);
+    assert.equal(state.selectedSlug, slug, 'a river-line tap mid-plan switched rivers');
+    assert.equal(state.riverSheetOpen, false);
+    assert.equal(state.putIn, putIn);
+  }
 });
