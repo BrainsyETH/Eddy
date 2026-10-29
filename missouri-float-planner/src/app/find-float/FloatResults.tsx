@@ -41,7 +41,7 @@ export function FloatResults({ snapshot, dirty, busy, onPlan, recoveryOptions, o
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{data.matches.length} {data.matches.length === 1 ? 'route' : 'routes'} · About {input.targetHours} hours · <span className="capitalize">{input.vesselType}</span>{input.publicOnly ? ' · Public accesses' : ''}</p>
         <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Checked {new Date(data.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Conditions can change.</p>
       </div>
-      {dirty && !busy && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm font-medium">Your choices changed. Update routes to see matching floats.</p></Card>}
+      {dirty && !busy && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm font-medium">Your choices changed. Search again to see matching floats.</p></Card>}
       {data.partial && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm">{data.failed ? 'Some river data was unavailable. ' : ''}This is a partial search. Try again or choose a river for a closer look.</p></Card>}
       {data.matches.length === 0 && <Card variant="panel" className="mb-5 space-y-4 p-5"><p>{floatSearchEmptyMessage(data)}</p>
         {!blocked && recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
@@ -95,8 +95,8 @@ function FloatCard({ option: o, blocked, onPlan }: { option: FloatSearchOption; 
           {o.conditional && <p className="mt-3 text-sm font-bold">Check cautions before planning.</p>}
           {o.cautions.map((caution, i) => <p className="mt-2 text-sm font-medium" key={i}>{caution}</p>)}
           <div className="mt-4">
-            {blocked ? <Button variant="outline" disabled>Update routes to continue</Button>
-              : <Button href={floatPlanPath(o)} variant="outline" onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (!onPlan()) event.preventDefault(); }}>Build this route<ArrowRight size={16} aria-hidden="true" /></Button>}
+            {blocked ? <Button variant="outline" disabled>Search again to continue</Button>
+              : <Button href={floatPlanPath(o)} variant="outline" onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (!onPlan()) event.preventDefault(); }}>Plan this float<ArrowRight size={16} aria-hidden="true" /></Button>}
           </div>
         </div>
       </div>

@@ -232,7 +232,7 @@ export function PlanSheet({
 
   const heading = (
     <View style={styles.headText}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Build a Route'}</Text>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Plan a float'}</Text>
       {/* The result hides the route crumbs, so the river becomes its change
           control; while picking, the River crumb already names it. */}
       {resultReady ? (
@@ -405,10 +405,10 @@ export function PlanSheet({
                 onPress={onStart}
                 style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
                 accessibilityRole="button"
-                accessibilityHint="Review this route before starting tracking"
+                accessibilityHint="Review this float before you start"
               >
                 <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Float this route</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Start a float</Text>
               </Pressable>
             ) : null}
             {resultReady ? <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
@@ -422,7 +422,7 @@ export function PlanSheet({
                 }]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: saved, disabled: saving || !savedFloatsReady, busy: saving }}
-                accessibilityLabel={saving ? 'Saving float' : saved ? 'Remove this float from favorites' : 'Save this float to favorites'}
+                accessibilityLabel={saving ? 'Saving float' : saved ? 'Remove from saved floats' : 'Save this float'}
               >
                 {saving ? <ActivityIndicator color={colors.interactive} size="small" /> : (
                   <ControlIcon name={saved ? 'star' : 'star-outline'} size={17} color={saved ? colors.warm : colors.textMuted} />

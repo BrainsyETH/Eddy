@@ -1,5 +1,5 @@
 // src/components/home/RiverMapFeature.tsx
-// Homepage link to /river-map, alongside Find a Route and Build a Route.
+// Homepage link to /river-map, alongside Find a float and Plan a float.
 // Uses the existing brand gradient and decorative river/topography artwork.
 //
 // Presentational only — no data hooks — so it renders instantly server-side

@@ -87,7 +87,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                   data-ga-label="hero"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
-                  Build a Route
+                  Plan a float
                 </Link>
               </div>
             </div>
@@ -120,17 +120,17 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
       </section>
 
       <section aria-labelledby="plan-your-float" className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-10 md:pt-12">
-        <h2 id="plan-your-float" className="mb-5 text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan Your Float</h2>
+        <h2 id="plan-your-float" className="mb-5 text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan your float</h2>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="grid gap-4">
             {floatSearchEnabled && <Link href="/find-float" data-ga-event="cta_find_route" data-ga-label="home_planning" className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-5 no-underline hover:shadow-soft-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
               <Search className="h-7 w-7 flex-shrink-0 text-primary-600" aria-hidden="true" />
-              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Find a Route</h3><p className="mt-1 text-sm text-neutral-600">Get suggestions for your time and location</p></div>
+              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Find a float</h3><p className="mt-1 text-sm text-neutral-600">Get suggestions for your time and location</p></div>
               <ArrowRight className="h-4 w-4 text-primary-700" aria-hidden="true" />
             </Link>}
             <Link href="/plan" data-ga-event="cta_plan_float" data-ga-label="home_planning" className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-5 no-underline hover:shadow-soft-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
               <MapPin className="h-7 w-7 flex-shrink-0 text-primary-600" aria-hidden="true" />
-              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h3><p className="mt-1 text-sm text-neutral-600">Choose your put-in and take-out</p></div>
+              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan a float</h3><p className="mt-1 text-sm text-neutral-600">Choose your put-in and take-out</p></div>
               <ArrowRight className="h-4 w-4 text-primary-700" aria-hidden="true" />
             </Link>
           </div>

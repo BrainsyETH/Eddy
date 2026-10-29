@@ -51,7 +51,7 @@ export default function FeaturedFloats({ rivers, onPlan }: { rivers: RiverListIt
         {visible.map((float, index) => <FeaturedFloatCard key={float.id} float={float} eager={index < 3} onPlan={onPlan} riverPhoto={rivers.find(river => river.slug === float.riverSlug)?.photoUrl} />)}
       </div>
     </> : <Card variant="panel" className="flex flex-wrap items-center justify-between gap-4 p-5">
-      <p role="status" className="text-sm text-[var(--color-text-secondary)]">{isError ? 'Featured floats couldn’t load. You can still find or build a route above.' : 'More featured floats are on the way. Find or build a route above.'}</p>
+      <p role="status" className="text-sm text-[var(--color-text-secondary)]">{isError ? 'Featured floats couldn’t load. You can still find or plan a float above.' : 'More featured floats are on the way. Find or plan a float above.'}</p>
       {isError && <Button variant="outline" disabled={isFetching} onClick={() => { void refetch(); }}>{isFetching ? 'Loading…' : 'Try again'}</Button>}
     </Card>}
   </section>;
@@ -64,7 +64,7 @@ function FeaturedFloatCard({ float, riverPhoto, eager, onPlan }: { float: Featur
   );
   return <Card variant="framed" as="article" className="overflow-hidden">
     <Link href={featuredFloatPath(float)} prefetch={false} onNavigate={onPlan}
-      aria-label={`View route: ${float.putInName} to ${float.takeOutName} on ${float.riverName}`}
+      aria-label={`Plan this float: ${float.putInName} to ${float.takeOutName} on ${float.riverName}`}
       className="group flex h-full flex-col text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-primary-500">
       <div className="relative flex h-44 shrink-0 items-center justify-center bg-[var(--color-surface-hover)] sm:h-48">
         {photo ? <Image key={photo} src={photo} alt="" fill loading={eager ? 'eager' : 'lazy'} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
@@ -80,7 +80,7 @@ function FeaturedFloatCard({ float, riverPhoto, eager, onPlan }: { float: Featur
           {float.durationFormatted ? 'Typical canoe trip' : float.durationUnavailableReason === 'regulated' ? 'Time varies with dam releases' : 'Open route for float time'}
           {float.difficulty ? ` · Class ${float.difficulty}` : ''}
         </p>
-        <span className="mt-auto flex items-center gap-2 pt-5 text-sm font-semibold text-[var(--color-text-primary)] group-hover:underline">View route<ArrowRight size={16} aria-hidden="true" /></span>
+        <span className="mt-auto flex items-center gap-2 pt-5 text-sm font-semibold text-[var(--color-text-primary)] group-hover:underline">Plan this float<ArrowRight size={16} aria-hidden="true" /></span>
       </div>
     </Link>
   </Card>;

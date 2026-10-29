@@ -145,8 +145,7 @@ function FloatHomeContent() {
             >
               <FloatActionIcon name="startFloat" color={colors.onAccent} />
               <View style={styles.welcomeText}>
-                <Text style={[styles.findTitle, { color: colors.onAccent }]}>Start a Float</Text>
-                <Text style={[styles.subtitle, { color: colors.onAccent }]}>Track your trip on the river</Text>
+                <Text style={[styles.findTitle, { color: colors.onAccent }]}>Start a float</Text>
               </View>
               <ControlIcon name="chevron-forward" size={17} color={colors.onAccent} />
             </Pressable>
@@ -161,8 +160,7 @@ function FloatHomeContent() {
               ]}
             >
               <FloatActionIcon name="buildRoute" color={features.floatMode ? colors.interactive : colors.onAccent} />
-              <Text style={[styles.actionTitle, { color: features.floatMode ? colors.text : colors.onAccent }]}>Build a Route</Text>
-              <Text style={[t.sm, { color: features.floatMode ? colors.textMuted : colors.onAccent }]}>Choose your put-in and take-out</Text>
+              <Text style={[styles.actionTitle, { color: features.floatMode ? colors.text : colors.onAccent }]}>Plan a float</Text>
             </Pressable>
             {featuresReady && features.floatSearch ? (
               <Pressable
@@ -174,10 +172,7 @@ function FloatHomeContent() {
                 ]}
               >
                 <FloatActionIcon name="findRoute" color={colors.interactive} />
-                <Text style={[styles.actionTitle, { color: colors.text }]}>Find a Route</Text>
-                <Text style={[t.sm, { color: colors.textMuted }]}>
-                  Get suggestions for your time and location
-                </Text>
+                <Text style={[styles.actionTitle, { color: colors.text }]}>Find a float</Text>
               </Pressable>
             ) : null}
           </View>
@@ -187,15 +182,14 @@ function FloatHomeContent() {
           <View style={styles.gutter}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Saved Floats and History. See all saved routes and completed trips"
+              accessibilityLabel="Saved floats and history. See all"
               onPress={() => navigate(() => router.push('/floats'))}
               style={({ pressed }) => [styles.collectionLink, { opacity: pressed ? 0.7 : 1 }]}
             >
               <View style={styles.welcomeText}>
                 <Text style={[textStyles.sectionTitle, { color: colors.text }]}>
-                  Saved Floats &amp; History
+                  Saved floats &amp; history
                 </Text>
-                <Text style={[t.sm, { color: colors.textMuted }]}>Saved routes and completed trips</Text>
               </View>
               <View style={styles.seeAll}>
                 <Text style={[t.sm, { color: colors.interactive }]}>See all</Text>
@@ -217,7 +211,7 @@ function FloatHomeContent() {
           {ready && saved.length === 0 ? (
             <View style={[styles.gutter, styles.emptyRow]}>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Keep a route you like, and it will be here for your next trip.
+                Save a float you like and it will be here next time.
               </Text>
             </View>
           ) : null}
@@ -227,7 +221,7 @@ function FloatHomeContent() {
           <View style={styles.section}>
             <View style={styles.gutter}>
               <SectionHead
-                title="Featured Floats"
+                title="Featured floats"
                 action="See all"
                 onAction={() => navigate(() => router.push('/favorite-floats'))}
               />

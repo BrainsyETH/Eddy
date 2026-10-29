@@ -148,10 +148,10 @@ export default function SavedFloatsScreen() {
                   {collection.load === 'error'
                     ? view === 'history'
                       ? 'Your history could not be opened.'
-                      : 'Your saved routes could not be opened.'
+                      : 'Your saved floats could not be opened.'
                     : view === 'history'
                       ? 'Loading your history…'
-                      : 'Loading your saved routes…'}
+                      : 'Loading your saved floats…'}
                 </Text>
                 {collection.load === 'error' ? (
                   <Pressable
@@ -166,7 +166,7 @@ export default function SavedFloatsScreen() {
                         ? 'Retrying…'
                         : view === 'history'
                           ? 'Retry loading history'
-                          : 'Retry loading saved routes'}
+                          : 'Retry loading saved floats'}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -176,14 +176,14 @@ export default function SavedFloatsScreen() {
                 <EddyScene name="routePlanning" size={100} />
                 <Text style={[textStyles.cardTitle, { color: colors.text }]}>
                   {selectedRiver
-                    ? `No ${view === 'saved' ? 'saved routes' : 'completed floats'} on this river`
+                    ? `No ${view === 'saved' ? 'saved floats' : 'completed floats'} on this river`
                     : view === 'saved'
-                      ? 'Keep a route for your next trip'
+                      ? 'Save a float for your next trip'
                       : 'Your completed floats go here'}
                 </Text>
                 <Text style={[t.base, styles.center, { color: colors.textMuted }]}>
                   {view === 'saved'
-                    ? 'Build a route or find one you like, then tap Save.'
+                    ? 'Plan or find a float, then tap Save.'
                     : 'Finish a float in River Mode to see its recap here.'}
                 </Text>
                 {selectedRiver ? (
@@ -196,7 +196,7 @@ export default function SavedFloatsScreen() {
                     onPress={() => navigate(() => router.push(floatPlanDestination()))}
                     style={[styles.button, { backgroundColor: colors.accentFill }]}
                   >
-                    <Text style={[t.base, { color: colors.onAccent }]}>Build a Route</Text>
+                    <Text style={[t.base, { color: colors.onAccent }]}>Plan a float</Text>
                   </Pressable>
                 ) : null}
               </>

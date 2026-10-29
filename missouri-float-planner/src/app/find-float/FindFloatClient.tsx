@@ -175,12 +175,12 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     <div className="mx-auto max-w-7xl px-4 py-7 text-[var(--color-text-primary)] sm:px-6 lg:py-9">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 style={{ fontFamily: 'var(--font-display)' }} className="text-4xl font-semibold sm:text-5xl">Floats</h1>
-        <Button href={planner.href} variant="outline" onClick={rememberBrowsing}><Map size={18} aria-hidden="true" />Build a Route</Button>
+        <Button href={planner.href} variant="outline" onClick={rememberBrowsing}><Map size={18} aria-hidden="true" />Plan a float</Button>
       </header>
       <div className="space-y-8">
         <Card variant="framed" as="section" aria-labelledby="route-finder-heading" className="min-w-0" style={{ overflow: 'visible' }}>
           <form className="p-4 sm:p-5" onSubmit={e => { e.preventDefault(); void search(); }}>
-            <h2 id="route-finder-heading" className="mb-3 flex items-center gap-2 text-lg font-bold"><Search size={18} aria-hidden="true" />Find a Route</h2>
+            <h2 id="route-finder-heading" className="mb-3 flex items-center gap-2 text-lg font-bold"><Search size={18} aria-hidden="true" />Find a float</h2>
             <div className={`grid items-end gap-4 sm:grid-cols-2 ${input.near ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]' : 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]'}`}>
               <div className="min-w-0 sm:col-span-2 lg:col-span-1">
                 <DestinationSearch key={destinationVersion} rivers={rivers} selected={destinationName} locating={busy === 'location'} riversFailed={riversFailed}
@@ -198,7 +198,7 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
                 </select>
               </label>}
               <Button type="submit" className={`w-full ${input.near ? 'sm:col-span-2 lg:col-span-1' : ''}`} disabled={!canSearch || busy !== null}>
-                {busy === 'search' ? 'Finding routes…' : result ? 'Update routes' : 'Find routes'}<ArrowRight size={18} aria-hidden="true" />
+                {busy === 'search' ? 'Finding floats…' : result ? 'Search again' : 'Find floats'}<ArrowRight size={18} aria-hidden="true" />
               </Button>
             </div>
             <details className="group mt-4 border-t border-[var(--color-border)] pt-1">

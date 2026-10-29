@@ -148,7 +148,7 @@ export function FloatSearchCard({
           ]}
         >
           <Text style={[t.base, styles.bold, { color: colors.onAccent, flexShrink: 1 }]}>
-            View float plan
+            Plan this float
           </Text>
           <ControlIcon name="arrow-forward" size={18} color={colors.onAccent} />
         </Pressable>

@@ -300,7 +300,7 @@ function BestRiverCard({
             accessibilityRole="button"
           >
             <ControlIcon name="map-outline" size={17} color={colors.onAccent} />
-            <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan this river</Text>
+            <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan a float</Text>
           </Pressable>
           <Pressable
             onPress={onOpen}

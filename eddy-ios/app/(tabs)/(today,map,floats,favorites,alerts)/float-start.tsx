@@ -217,7 +217,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         headerTransparent: false, headerBlurEffect: 'none', headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text, headerShadowVisible: true }} />
       <Shell footer={<>
-        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        <PrimaryButton label="Start a float" busy={start.busy} disabled={!start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
         {!start.canStart ? <Text style={[styles.body, { color: colors.textMuted }]}>{start.featuresReady
           ? 'Starting a new float is temporarily unavailable.' : 'Checking River Mode availability…'}</Text> : null}
         {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}

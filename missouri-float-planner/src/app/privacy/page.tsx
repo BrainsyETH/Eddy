@@ -90,7 +90,7 @@ export default function PrivacyPage() {
               Eddy asks for While Using the App permission; an active float can continue recording
               while your phone is locked, with iOS showing its location indicator. Finishing the
               float stops recording. For local weather and nearby route searches, the app sends
-              coordinates rounded to 0.05 degrees to Eddy. Find a Route sends these coordinates
+              coordinates rounded to 0.05 degrees to Eddy. Find a float sends these coordinates
               when you tap Search with Near you selected; choosing a river instead omits them. Location
               is not shared with third parties for advertising. You can decline, and the app remains usable;
               you can revoke the permission at any time in iOS Settings.
@@ -112,7 +112,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Helping improve estimates.</strong> An optional setting under Floats
-              &rsaquo; Saved Floats &amp; History &rsaquo; Backup &rsaquo; Help improve float estimates lets Eddy study summaries of floats you finish
+              &rsaquo; Saved floats &amp; history &rsaquo; Backup &rsaquo; Help improve float estimates lets Eddy study summaries of floats you finish
               while sharing is enabled. It is off by default. Turning it off excludes your
               trips from future analysis without removing your backup. Setting changes need
               a connection; the app retries a pending withdrawal. We do not provide these
@@ -261,9 +261,9 @@ export default function PrivacyPage() {
               without location permission.
             </li>
             <li>
-              Delete individual floats from Floats &rsaquo; Saved Floats &amp; History &rsaquo; History. For a signed-in account,
+              Delete individual floats from Floats &rsaquo; Saved floats &amp; history &rsaquo; History. For a signed-in account,
               deletion is also sent to your account backup; offline changes wait for a connection.
-              Turn off Help improve float estimates under Floats &rsaquo; Saved Floats &amp; History &rsaquo; Backup to withdraw
+              Turn off Help improve float estimates under Floats &rsaquo; Saved floats &amp; history &rsaquo; Backup to withdraw
               from future estimate analysis without deleting your backup.
             </li>
             <li>Use an unlisted shared-plan link only with people you trust.</li>

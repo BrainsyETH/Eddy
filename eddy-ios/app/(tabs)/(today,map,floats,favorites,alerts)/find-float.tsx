@@ -532,7 +532,7 @@ export default function FindFloatScreen() {
       >
         <View style={styles.footer}>
           <SearchButton
-            label={busy === 'search' ? 'Finding routes…' : result ? 'Search again' : 'Find routes'}
+            label={busy === 'search' ? 'Finding floats…' : result ? 'Search again' : 'Find floats'}
             primary
             disabled={!canSearch}
             onPress={() => {

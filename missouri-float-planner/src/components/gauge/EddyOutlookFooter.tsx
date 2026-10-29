@@ -100,7 +100,7 @@ export default function EddyOutlookFooter({
             href={`/plan?river=${riverSlug}`}
             className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary-900 bg-primary-800 px-3.5 py-1.5 text-xs font-semibold text-white shadow-[2px_2px_0_var(--color-primary-900)] transition-colors hover:bg-primary-700"
           >
-            Plan a Trip
+            Plan a float
           </Link>
       </div>
     </section>

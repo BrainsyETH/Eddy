@@ -57,7 +57,7 @@ export function floatNavigation(pathname: string, search = ''): SiteNavLink[] {
   }
   const suffix = route.size ? `?${route}` : '';
   return [
-    { href: `/plan${suffix}`, label: 'Build a Route', active: pathname === '/plan' },
-    { href: `/find-float${suffix}`, label: 'Find a Route', active: pathname === '/find-float' },
+    { href: `/plan${suffix}`, label: 'Plan a float', active: pathname === '/plan' },
+    { href: `/find-float${suffix}`, label: 'Find a float', active: pathname === '/find-float' },
   ];
 }

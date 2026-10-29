@@ -1097,7 +1097,7 @@ export default function PlanPageClient({
           {/* Search and details float in a left column pinned to the top of
               the map; the River Report and route stats center over the open
               map to its right (see the overlay column below). */}
-          <h1 className="sr-only">{activeRiver ? activeRiver.name : 'Build a Route'}</h1>
+          <h1 className="sr-only">{activeRiver ? activeRiver.name : 'Plan a float'}</h1>
           <div ref={desktopPanelRef} tabIndex={-1} data-planner-focus-fallback className="planner-panel outline-none pointer-events-none absolute top-4 bottom-28 left-5 z-30 flex w-[360px] flex-col items-stretch gap-2">
             <div className="pointer-events-auto relative z-40 shrink-0">{desktopSearch}</div>
             {/* No intro card: the search box and the colored river network

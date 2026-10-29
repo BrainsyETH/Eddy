@@ -344,7 +344,7 @@ export default async function RiverGuidePage({ params }: Props) {
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white no-underline shadow-lg transition-all hover:brightness-110"
                     style={{ backgroundColor: '#F07052' }}
                   >
-                    Plan a Float on the {river.name}
+                    Plan a float
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                   {guidePost && (
@@ -487,7 +487,7 @@ export default async function RiverGuidePage({ params }: Props) {
               className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-white no-underline whitespace-nowrap transition-all hover:brightness-110"
               style={{ backgroundColor: '#F07052' }}
             >
-              Open the planner
+              Plan a float
               <ArrowRight className="w-5 h-5" />
             </Link>
           </section>
