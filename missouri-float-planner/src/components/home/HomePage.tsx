@@ -230,15 +230,6 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
         </div>
       </section>
 
-      {/* ─── Data Attribution ─── */}
-      <section className="border-t border-neutral-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          <p className="text-xs text-center text-neutral-400">
-            River readings include data from the <strong className="text-neutral-500">United States Geological Survey (USGS)</strong>. Check each report for its latest reading time.
-          </p>
-        </div>
-      </section>
-
       <SiteFooter maxWidth="max-w-6xl" />
     </div>
   );

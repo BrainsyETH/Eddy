@@ -776,7 +776,7 @@ function AlertsContent() {
             <EddyScene name="checkingGauge" size={120} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>{error ? 'Couldn’t check current high water' : 'Nothing running high'}</Text>
             {!error ? <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              No Eddy-rated river, gauge or dam release is running high right now. Check local conditions before getting on the water.
+              Check local conditions before getting on the water.
             </Text> : null}
             {error ? <Pressable accessibilityRole="button" style={styles.emptyRetry} onPress={() => void load()}><Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Retry</Text></Pressable> : null}
             </>}

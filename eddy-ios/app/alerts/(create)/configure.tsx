@@ -567,9 +567,6 @@ export default function ConfigureAlertScreen() {
         {completion.seedNote ? <Text style={[styles.stepBody, { color: colors.text }]}>{completion.seedNote}</Text> : null}
         {completion.primed ? <>
           <Text style={[styles.stepBody, { color: colors.text }]}>Turn on notifications to hear when this alert triggers. Your alert stays saved if you choose Not right now.</Text>
-          <Text style={[styles.stepBody, { color: colors.textMuted }]}>
-            Gauge reporting and processing mean alerts can trail the river by roughly 20–75 minutes. Check conditions again before getting on the water.
-          </Text>
         </> : push.permission === 'denied' || push.optedOut || (push.permission === 'granted' && !push.registered) ? (
           // "Alert saved" with no way to deliver it is a promise the phone
           // cannot keep. Say so here, where the alert was made, with the

@@ -393,6 +393,14 @@ Section names stay nouns (Map, Conditions, Floats, Guides). URLs, route
 names and analytics event names keep their old spellings; only copy changes.
 `src/lib/flow-naming.test.ts` fails on the retired labels.
 
+**Explainer text and disclaimers.** Say it once, in plain words, or not at all.
+Methodology (source IDs, percentiles, NWS category names) lives behind an ⓘ,
+not on the surface. Safety copy appears once per page: on the web, the
+footer's single line linking to `/terms`; on iOS, `SAFETY_DISCLAIMER` (wording
+fixed, App-Review sensitive) in muted text on each conditions surface. Reading
+lag is stated once per screen. Neither uses the error red, which belongs to
+dangerous water.
+
 ---
 
 💡 **Usage Tip:** When calling `generate_screen_from_text` or `edit_screens`, include the tokens from this document in your prompt's `DESIGN SYSTEM (REQUIRED)` block to ensure visual consistency across all generated screens.
