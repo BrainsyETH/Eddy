@@ -45,10 +45,10 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 type EndpointClient = SupabaseServerClient | SupabaseClient;
 
 /** The columns this module needs regardless of what the caller asked for. */
-const REQUIRED_COLUMNS = ['id', 'river_id', 'approved', 'is_float_endpoint'] as const;
+const REQUIRED_COLUMNS = ['id', 'river_id', 'approved', 'is_float_endpoint', 'river_mile_downstream'] as const;
 
 /**
- * The four columns this decision needs, and deliberately no index signature.
+ * The columns this decision needs, and deliberately no index signature.
  *
  * An `[key: string]: unknown` here would satisfy every caller's shape at the
  * cost of erasing it: `/api/plan` selects `*` and then reads two dozen fields
@@ -60,6 +60,8 @@ export interface EndpointRow {
   river_id: string | null;
   approved: boolean | null;
   is_float_endpoint: boolean | null;
+  /** numeric arrives as a string from PostgREST; optional for fixtures that predate it. */
+  river_mile_downstream?: number | string | null;
 }
 
 export type EndpointFailureReason =
@@ -76,6 +78,12 @@ export type EndpointFailureReason =
   | 'wrong-river'
   /** Put-in and take-out are the same point. */
   | 'same-point'
+  /**
+   * Two launches at one river mile, such as the Guion ramps on opposite banks
+   * of the White. get_float_segment cannot build a zero-length line and fails
+   * with a geometry error, which surfaced as a 500.
+   */
+  | 'same-river-mile'
   /**
    * The read itself failed — an outage, a permission error, a column that is
    * not there yet. NOT a statement about the ids.
@@ -147,7 +155,17 @@ export function classifyEndpoints<T extends EndpointRow>(
   }
 
   // Both sides passed every gate above, so both lookups are present.
-  return { ok: true, putIn: byId.get(putInId) as T, takeOut: byId.get(takeOutId) as T };
+  const putIn = byId.get(putInId) as T;
+  const takeOut = byId.get(takeOutId) as T;
+  const putInMile = putIn.river_mile_downstream == null ? NaN : Number(putIn.river_mile_downstream);
+  if (Number.isFinite(putInMile) && putInMile === Number(takeOut.river_mile_downstream ?? NaN)) {
+    return {
+      ok: false,
+      reason: 'same-river-mile',
+      detail: 'These launches are at the same river mile, on opposite banks. Choose a take-out downstream.',
+    };
+  }
+  return { ok: true, putIn, takeOut };
 }
 
 /**
@@ -155,7 +173,7 @@ export function classifyEndpoints<T extends EndpointRow>(
  *
  * 404 only for a query that SUCCEEDED and found nothing; 500 when the query
  * itself failed; 400 for the three ways a caller can name real rows that may
- * not be floated between.
+ * not be floated between (including two launches at one river mile).
  */
 export function endpointFailureStatus(reason: EndpointFailureReason): 400 | 404 | 500 {
   if (reason === 'read-failed') return 500;
@@ -166,7 +184,7 @@ export function endpointFailureStatus(reason: EndpointFailureReason): 400 | 404 
 /**
  * Read both endpoints and decide whether a float may be built from them.
  *
- * `columns` is the caller's projection; the four columns this decision needs are
+ * `columns` is the caller's projection; the columns this decision needs are
  * appended, so a caller cannot accidentally opt out of being checked.
  *
  * Pass `riverId: null` only where there is genuinely no river in hand yet — the

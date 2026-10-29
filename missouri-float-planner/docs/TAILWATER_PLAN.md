@@ -39,8 +39,15 @@ activation review no longer refuses every tailwater outright. A tailwater now
 activates only with a verified `tailwaterPilot` review in its dossier, under
 `condition_rating_mode = 'unrated'`, and with `floatEndpoints` naming exactly
 the approved endpoints activation would publish (migration `20261029114729`).
-That last check enforces the October 15 scope rule. White and Taneycomo cannot
-activate on a short-corridor review while 23 and 5 endpoints are approved.
+That last check enforces the October 15 scope rule.
+
+Later the same day Evan chose to publish every approved access point, and the
+**White (23 endpoints) and Taneycomo (5) were activated**, unrated, with their
+dams mapped as hazards
+([record](../scripts/ingestion/reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md)).
+All three tailwaters are now live; the short-corridor sequence above is
+superseded. Open items (photos, fixed hazards beyond the dams, posted dam
+limits, device acceptance) remain in issue #1541.
 
 ## Where this stands
 

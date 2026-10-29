@@ -1,5 +1,5 @@
 {
-  "_status": "REVIEWED 2026-10-15: evidence worksheet; NOT SIGNED OFF for activation. Corrections prepared; production transaction blocked by connector requestState errors. Device acceptance and endpoint photos unconfirmed.",
+  "_status": "ACTIVATED 2026-10-29 with all 5 approved endpoints (unrated). See reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md for accepted gaps.",
   "name": "Lake Taneycomo",
   "slug": "taneycomo",
   "state": "MO",
@@ -48,59 +48,86 @@
   },
   "readiness": {
     "corridor": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Proposed first corridor: Shepherd of the Hills Hatchery Boat Ramp to Cooper Creek Access (stored miles 1.04-5.99). Hatchery bank access is excluded; this does not approve routes toward Powersite Dam."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "All 5 approved float endpoints, Shepherd of the Hills Hatchery Boat Ramp (1.04) to Empire Park (22.52), published at the owner's direction. Hatchery bank access and North Beach Park stay non-endpoints."
     },
     "legalAccess": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md",
+        "https://github.com/BrainsyETH/Eddy/issues/1541"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Agency ramp evidence recorded; current posted restrictions, endpoint photos and offered route scope still require acceptance."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "MDC boat-ramp features match the hatchery ramp, Cooper Creek and Rockaway (October 15). Empire Park ramp confirmed with Evan on 2026-10-17. Branson City ramp from municipal sources. Ownership questions at Cooper Creek and the hatchery ramp, current restrictions, fees and hours unconfirmed."
     },
     "gauge": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "https://eddy.guide/api/dams/swl-table-rock-dam"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Primary USACE provider mapping and fresh release/stage observed in production snapshot at 22:35 UTC, observation time 22:00 UTC. This is a dam observation, not a validated downstream travel-time model."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "USACE swl-table-rock-dam release, cfs; read 2026-10-29 15:47 UTC: 20 cfs, not generating, observed 15:00 UTC (fresh). Only the dam release is linked; no lower-lake gauge."
     },
     "conditions": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../../../shared/tailwater-status.test.ts"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Existing shared model and MCP tests withhold float time and safe-wading claims. Device presentation, disagreement and unexpected-release walkthrough still unconfirmed.",
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "Unrated: no thresholds on any linked gauge (checked in the staging migration). Float time and wading all-clear withheld by tested shared code. Device walkthrough unconfirmed; owner accepted activation without it.",
       "ratingMode": "unrated"
     },
     "hazards": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../../../supabase/migrations/20261029154803_stage_white_taneycomo_tailwaters.sql"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Structured characteristics prepared. No claim of no fixed hazards; posted dam approach limits and route hazard coverage remain pending."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "Table Rock Dam (0.00) and Powersite Dam (23.11, 0.59 mi below Empire Park) mapped, both danger. Other fixed hazards not reviewed. Table Rock warning-system status and Powersite approach limits not obtained (#1541)."
     },
     "routing": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "MDC ramp layer confirms both coordinates; 4.95 stored miles agrees with MDC description of Cooper Creek five miles downstream. Lower-lake approach and dam limits remain outside this proposed pilot."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "All 4 consecutive endpoint segments returned valid LineStrings from get_float_segment on 2026-10-29, each matching its manual mileage."
+    },
+    "tailwaterPilot": {
+      "status": "verified",
+      "evidence": [
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md",
+        "https://github.com/BrainsyETH/Eddy/issues/1541"
+      ],
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "Owner-directed activation on 2026-10-29 publishing every approved endpoint. Open items in the activation record: photos, posted dam restrictions, fixed-hazard review, device acceptance.",
+      "floatEndpoints": [
+        "shepherd-of-the-hills-hatchery-boat-ramp",
+        "cooper-creek-access",
+        "branson-city-ramp-branson-lakeside-rv-park",
+        "rockaway-beach-access",
+        "empire-park-ramp-forsyth"
+      ]
     }
   }
 }
