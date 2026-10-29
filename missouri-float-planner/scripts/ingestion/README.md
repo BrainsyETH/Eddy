@@ -147,6 +147,13 @@ consciously accept the **warnings** — `no_dangerous_anchor` / `no_optimal_max_
 
 ### Phase 8 — Access points [human-verified]
 
+MDC/AGFC feed intake is available separately through
+[`import-agency-gis.ts`](import-agency-gis.ts). It maintains an internal source
+inventory without changing curated access points. The
+[agency ingestion record](agency-gis/README.md) documents the complete snapshots,
+reviewed source associations, and pending access candidates imported on October 29, 2026.
+Agency facility presence does not establish current access or float-endpoint eligibility.
+
 `ingest-dossier` never writes access points (the `[manual]` gate): a float planner
 is only as trustworthy as its put-in/take-out pins, so coordinates ship only after
 human-grade verification. The current path (`import-dossier-access-points.ts`):
