@@ -27,11 +27,13 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
 }) {
   const today = centralDayKey(now);
   const tomorrow = nextDayKey(today);
+  // A posted zero-generation day is useful; an unposted tomorrow is not a
+  // second chart. Today keeps its unavailable state when that day's missing.
   const upcoming = [today, tomorrow].map(date => ({
     date,
     label: date === today ? 'Today' : 'Tomorrow',
     day: schedule.find(day => day.scheduleDate === date && day.hours.length > 0),
-  }));
+  })).filter(({ date, day }) => date === today || day);
   const laterDays = compact ? [] : schedule
     .filter(day => day.scheduleDate > tomorrow && day.hours.length > 0)
     .toSorted((a, b) => a.scheduleDate.localeCompare(b.scheduleDate));
@@ -42,7 +44,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   return (
     <section aria-label="Generation schedule" className="min-w-0">
       <div className="flex items-center justify-between gap-2">
-        <Heading className={`flex items-center gap-2 font-semibold text-primary-800 ${compact ? 'text-sm' : 'pr-8 text-xl'}`} style={compact ? undefined : { fontFamily: 'var(--font-display)' }}>
+        <Heading className={`flex items-center gap-2 font-heading font-bold text-primary-800 ${compact ? 'text-sm' : 'pr-8 text-xl'}`}>
           <Clock className="size-4 shrink-0 text-primary-700" aria-hidden="true" /> Generation schedule
         </Heading>
         {info}
@@ -51,7 +53,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         <div className={compact ? 'mt-1 text-sm' : 'my-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3'}>
           {!compact && <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-600">Next scheduled change</h3>}
           <p className={`font-semibold text-primary-900 ${compact ? '' : 'mt-1 text-xl leading-snug tracking-tight sm:text-2xl'}`}>
-            {compact && <span className="font-normal text-neutral-500">Next: </span>}{nextChange}
+            {nextChange}
           </p>
           {provenance && <p className="mt-1 text-xs text-accent-700">{provenance}</p>}
         </div>
@@ -69,7 +71,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
                 {scheduleIsStale(day.retrievedAt, now) && ' · May have changed'}
               </p>
             </> : <p className={`flex items-center rounded-lg bg-neutral-50 px-3 text-sm text-neutral-500 ${compact ? 'min-h-28' : 'min-h-36'}`}>
-              {label === 'Tomorrow' ? 'Tomorrow’s generation schedule hasn’t been posted yet.' : 'Today’s generation schedule is unavailable.'}
+              Today’s generation schedule is unavailable.
             </p>}
           </section>
         ))}
