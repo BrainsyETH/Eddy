@@ -46,8 +46,8 @@ at the stored 5.01 mi extent).
 Activated with these open, at Evan's direction. They remain tracked in
 issue #1541:
 
-- No endpoint photos are published for either ramp (see the photo research
-  in this PR; none is applied until its credits deploy).
+- No endpoint photos are published for either ramp; the desk search found no
+  reusable photo of either ([photo research](TAILWATER_PHOTO_RESEARCH_2026-10-29.md)).
 - Posted USACE dam restrictions and warning-system status.
 - Web/iOS/MCP acceptance walkthrough for the four tailwater scenarios.
 - Field observations at both ramps (water's edge, signage, fees, hours).
