@@ -18,7 +18,8 @@ export type MapCameraCommand =
   /**
    * Turn the map back to north-up where it stands: heading only, so the centre,
    * zoom and pitch the reader chose all survive. Never waits for the sheet —
-   * nothing opens with it, and rotating needs no padding.
+   * nothing opens with it. RiverMap still passes the current padding: the
+   * native camera resets any padding a stop leaves out to zero.
    */
   | { id: number; type: 'resetHeading'; duration?: number };
 
@@ -36,7 +37,8 @@ export type MapCameraCommand =
  * `selectRiver`'s required intent, where a caller has to say `'hold'` out loud.
  */
 export type MapCameraAction =
-  | { type: 'riverSelected'; bounds: MapBounds }
+  /** `waitForSheet` only when a sheet opens with the river; see selectRiver. */
+  | { type: 'riverSelected'; bounds: MapBounds; waitForSheet: boolean }
   | { type: 'poiSelected'; lng: number; lat: number }
   /**
    * `waitForSheet` when choosing the result also opens a pin sheet, exactly as
@@ -84,7 +86,7 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         type: 'fitBounds',
         bounds: action.bounds,
         duration: 550,
-        waitForSheet: true,
+        ...(action.waitForSheet ? { waitForSheet: true } : {}),
       };
     case 'poiSelected':
       return {

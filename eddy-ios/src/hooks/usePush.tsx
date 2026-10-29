@@ -10,7 +10,7 @@
 // stop the app from running for someone who declined them, is on a simulator,
 // or has never signed in.
 
-import { notificationCommand, notificationDestination } from '@/lib/notificationDestination';
+import { finishesActiveFloat, notificationCommand, notificationDestination } from '@/lib/notificationDestination';
 import { endFloat, ensureFloatSessionLoaded, floatSessionLoadFailed, getFloatSession } from '@/lib/floatSessionStore';
 import {
   createContext,
@@ -166,7 +166,9 @@ export function PushProvider({ children }: { children: ReactNode }) {
         // the honest state either way.
         void ensureFloatSessionLoaded().then(async () => {
           const id = getFloatSession()?.id;
-          if (!id || floatSessionLoadFailed()) {
+          // Another float's notice (kept, or delivered late) opens River Mode
+          // on the current one and ends nothing.
+          if (!id || floatSessionLoadFailed() || !finishesActiveFloat(data, id)) {
             router.push('/float-mode');
             return;
           }

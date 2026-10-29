@@ -18,6 +18,7 @@ import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
 import { useTheme } from '@/theme/ThemeProvider';
 import { aheadItems, aheadSymbol, currentFloatReports, essentialsClock, essentialsRouteFeatures, coordinateText, essentialsPosition, locationAgeLabel, locationLink, locationMessage, reportStatusLabel } from '@/lib/floatEssentials';
 import { formatBeyond, viewSession } from '@/lib/floatSession';
+import { hazardAheadNote } from '@/lib/floatHazardData';
 import { HAZARD_KINDS } from '@/lib/hazardReportQueue';
 import { PlaceThumb } from '@/float/PlaceThumb';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -64,6 +65,7 @@ export default function FloatOptionsScreen() {
   const view = viewSession(session, now);
   const takeOut = session.route.anchors.find(a => a.id === session.takeOut.id);
   const unplaced = currentFloatReports(session, reports).filter(r => r.riverMile == null);
+  const hazardNote = hazardAheadNote(session.route, ahead?.items.filter(item => item.kind === 'hazard').length ?? 0);
   const share = async (message: string | null) => {
     if (!message) return;
     setError(null);
@@ -136,6 +138,8 @@ export default function FloatOptionsScreen() {
             </View>
           </Pressable>;
         }) : <Text style={[s.note, { color: colors.textMuted }]}>No mapped stops ahead</Text>}
+        {/* An empty list is never a clear river when Eddy has no hazard data. */}
+        {hazardNote ? <Text style={[s.note, { color: colors.textMuted }]}>{hazardNote}</Text> : null}
         {ahead && ahead.items.length > 3 ? <EssentialsButton label={showAll ? 'Show less' : `Show all (${ahead.items.length})`} onPress={() => setShowAll(v => !v)} /> : null}
       </EssentialsSection>
     </View>

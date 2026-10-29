@@ -345,3 +345,21 @@ test('report confirmation follows delivery and never calls a local save sent', a
   assert.equal(failed.retry, true);
   assert.match(failed.message, /saved on your phone/);
 });
+
+test('withdrawing the report being sent stops its request and keeps it off the list', async () => {
+  const storage = disk();
+  let aborted = false;
+  let release: () => void = () => {};
+  const queue = createReportQueue(storage, (_report, signal) => new Promise<SendOutcome>((resolve) => {
+    signal.addEventListener('abort', () => { aborted = true; resolve({ kind: 'retry' }); });
+    release = () => resolve({ kind: 'sent' });
+  }), () => {}, () => T0);
+  await queue.add(input('a'));
+  const run = queue.flush();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(await queue.remove('a'), true);
+  release();
+  await run;
+  assert.equal(aborted, true, 'the in-flight request was aborted');
+  assert.deepEqual(queue.list(), []);
+});

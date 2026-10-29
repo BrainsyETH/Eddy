@@ -48,8 +48,15 @@ A float's GPS track is recorded by native code, not by JavaScript:
   as live batches, and only then takes the recap (`floatRecorderSync.ts:
   finish`). A float finished while its journal was still being replayed is
   not saved short. If the journal cannot be read to its end, nothing is
-  saved: the float stays active, recording restarts, and River Mode says
-  saving failed so Finish can be tried again.
+  saved: the float stays active, recording restarts, and River Mode offers
+  Try again or Stop tracking. Stopping the GPS and saving the recap are
+  separate: Stop tracking records `trackingStoppedAt`, stops the recorder
+  (and keeps it stopped across relaunches), keeps the journal, and the
+  recap is saved, ended at the stop, once the journal reads.
+- **Recovery judges endings on the whole journal.** Replay applies pages
+  without judging an automatic end, then judges once after the last page
+  (`floatRecorderSync.ts: readThrough`), so an early page cannot end a
+  float that later pages show still going.
 - **Precise location is asked for in Eddy.** With Precise Location off,
   Start shows Apple's temporary full-accuracy prompt (purpose key
   `FloatTracking`) and starts once it is allowed; Settings is offered only

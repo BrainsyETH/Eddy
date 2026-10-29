@@ -10,12 +10,17 @@
 // that, never as a route.
 //
 // Known hazards ride along when the phone has them (the launch bundle seeds
-// them with the put-ins). They are never fetched to start a float and never
-// block one: a float with no hazard data simply shows none ahead.
+// them with the put-ins). A hazard list in hand marks the route even when no
+// hazard sits on this stretch ([] = none mapped), so River Mode can tell that
+// from "no hazard data" (src/lib/floatHazardData.ts). Loading a route never
+// fetches them; the start does, once and bounded (refreshFloatHazards), and
+// keeps these on any failure.
 
-import { ApiError, fetchRiverAccessPoints, fetchRiverDetail } from '@/api/client';
+import { ApiError, fetchHazards, fetchRiverAccessPoints, fetchRiverDetail } from '@/api/client';
 import { readRiver } from '@/lib/riverCache';
-import { indexRoute, routeFromRiver, withHazards, type FloatRoute, type RouteProblem } from '@/lib/floatSession';
+import { indexRoute, routeFromRiver, type FloatRoute, type RouteProblem } from '@/lib/floatSession';
+import { refreshRouteHazards, withKnownHazards } from '@/lib/floatHazardData';
+import { networkHintsOffline } from '@/lib/networkHint';
 import type { RouteIndex } from '@eddy/geo';
 import type { MapAccessPoint } from '@eddy/types';
 import { readTripPackage } from './tripDownloads';
@@ -34,7 +39,7 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
       if (built.ok) return {
         ok: true,
         riverId: cached?.payload.river?.id,
-        route: withHazards(pkg.route, built.index, cached?.payload.hazards),
+        route: pkg.route.hazards ? pkg.route : withKnownHazards(pkg.route, built.index, cached?.payload.hazards),
         index: built.index,
         accessPoints: cached?.payload.accessPoints,
       };
@@ -59,9 +64,21 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
     }
   }
 
-  const loaded = routeFromRiver(river, accessPoints, fetchedAt, cached?.payload.hazards);
+  const loaded = routeFromRiver(river, accessPoints, fetchedAt);
   // Picker photos stay separate from the route saved with every GPS update.
-  return loaded.ok ? { ...loaded, riverId: river.id, accessPoints } : loaded;
+  return loaded.ok
+    ? { ...loaded, route: withKnownHazards(loaded.route, loaded.index, cached?.payload.hazards), riverId: river.id, accessPoints }
+    : loaded;
+}
+
+/**
+ * The route's hazards as the API has them now, when it answers within a few
+ * seconds; otherwise the route unchanged. Called once as a float starts, so
+ * one started from cached or downloaded data still gets a hazard added since.
+ * Skipped when the phone reports no connection. Never rejects.
+ */
+export function refreshFloatHazards(route: FloatRoute, index: RouteIndex): Promise<FloatRoute> {
+  return refreshRouteHazards(route, index, { fetchHazards, offline: networkHintsOffline });
 }
 
 /** What to tell someone whose float cannot start, in their terms. */

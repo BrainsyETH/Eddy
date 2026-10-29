@@ -1,5 +1,5 @@
 import { boundsForLine, MAX_ACCURACY_M, MIN_MOVING_MS, type LngLat } from '@eddy/geo';
-import { formatDuration, STALE_POSITION_MS, type FloatSession } from './floatSession';
+import { floatAccount, formatDuration, STALE_POSITION_MS, type FloatSession } from './floatSession';
 import type { ActivityAvailability } from './floatActivity';
 import type { TrackerState } from './floatTrackerStatus';
 
@@ -51,15 +51,21 @@ export function gpsQualityNote(session: FloatSession, now: number): { accuracyMe
   return { accuracyMeters: Math.ceil(raw.accuracyMeters) };
 }
 
+/** The panel's clock: the recap's, and it also rests at the mapped river's end. */
+function panelUntil(session: FloatSession, now: number): number {
+  return session.arrivedAt == null && session.riverEndAt != null ? session.riverEndAt : floatAccount(session, now).until;
+}
+
 /**
  * Time on the water and distance from the recorded start, for the panel:
- * "1 hr 20 min on the water · 3.4 mi from start". Time stops at arrival,
- * like the recap; distance is along the river from the first confirmed
+ * "1 hr 20 min on the water · 3.4 mi from start". Time stops at arrival
+ * unless the paddler carries on past the take-out, like the recap
+ * (floatAccount); distance is along the river from the first confirmed
  * position, null until there is one.
  */
 export function progressLine(session: FloatSession, now: number): string | null {
   const latest = session.samples[session.samples.length - 1];
-  const until = session.arrivedAt ?? session.riverEndAt ?? now;
+  const until = panelUntil(session, now);
   const minutes = Math.max(0, Math.round((until - session.startedAt) / 60_000));
   const time = minutes < 1 ? 'Just started' : `${formatDuration(minutes)} on the water`;
   const miles = latest && session.startMile != null ? Math.max(0, latest.riverMile - session.startMile) : null;
@@ -80,8 +86,8 @@ export function progressLine(session: FloatSession, now: number): string | null 
  * covered across a GPS gap can push it there, and that would read as a bug.
  */
 export function paceLine(session: FloatSession, now: number): string | null {
-  const totals = session.totals;
-  const until = session.arrivedAt ?? session.riverEndAt ?? now;
+  const until = panelUntil(session, now);
+  const totals = session.totals ? floatAccount(session, now).totals : undefined;
   const onWater = Math.max(0, until - session.startedAt);
   const movingMinutes = Math.min(Math.round((totals?.movingMs ?? 0) / 60_000), Math.round(onWater / 60_000));
   if (!totals || movingMinutes < 1) return null;

@@ -361,6 +361,15 @@ export function createFloatSessionStore(
       if (dirty) await writeQuietly();
     },
 
+    /** See FloatSession.trackingStoppedAt. Written now: it must survive a relaunch. */
+    async stopTracking(at: number): Promise<void> {
+      if (!session || session.trackingStoppedAt != null) return;
+      session = { ...session, trackingStoppedAt: at };
+      notify();
+      clearTimer();
+      await writeQuietly();
+    },
+
     /**
      * End the float. Tracking stops at once. Resolves false if the stored copy
      * could not be removed yet; removal is then retried until it succeeds.
