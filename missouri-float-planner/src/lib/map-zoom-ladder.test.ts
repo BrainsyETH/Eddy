@@ -155,27 +155,74 @@ test('hazards resolve a rung early and never cluster', () => {
     'a hazard becomes a triangle as soon as the bubbles break, not at ZOOM.places',
   );
   // THE ONE RULE HERE THAT IS NOT A TUNING. A hazard must never disappear into
-  // a count: a bubble reading "3" where a low-water dam is cannot be acted on,
-  // and unlike a gauge cluster there is no worst-verdict fill that would make
-  // it honest. pinLayer clusters only when handed a clustering object.
+  // a count: a badge reading "3" where a low-water dam is cannot be acted on.
+  // pinLayer clusters only when handed a clustering object.
   assert.equal(args.length, 5, 'hazards must not be handed a clustering config');
 });
 
-test('lakes & dams keep their names at every zoom', () => {
-  // ~24 of them, and they are landmarks: an unnamed dot cannot be told from the
-  // lake it sits on. Deliberately the one layer off the label rung.
+test('lakes & dams climb the ladder with no exception', () => {
+  // They once kept their names at every zoom and drew below the floor, as
+  // "landmarks". On a device that made the dams the only named thing on a
+  // statewide map. A dam is a place: its name waits for ZOOM.names, and it
+  // honours the ZOOM.min floor like every other clustered layer.
   const args = pinLayerArgs().get('dams');
   assert.ok(args, 'dams must be drawn through pinLayer');
-  assert.equal(args[2], '0', 'dam labels are on at every zoom, on purpose');
+  assert.equal(args[2], 'ZOOM.names', 'dam names arrive when every other name does');
+  assert.equal(args[3], 'ZOOM.min', 'dams observe the ladder floor like everything else');
+  assert.equal(args[4], 'ZOOM.places', 'the full dam mark arrives with the other place marks');
+});
+
+test('no layer is named before the names rung, and none sits below the floor', () => {
+  // The general form of the dam rule, so the next "landmark" exception fails
+  // here rather than on a device. Rated gauges were the last holdout: named a
+  // rung early and drawn below ZOOM.min. Family layers floor at ZOOM.cluster,
+  // where their index hands over; everything else at ZOOM.min.
+  const family = new Set(['outfitters', 'lodging', 'campgrounds', 'springs', 'boatRamps']);
+  for (const [key, args] of pinLayerArgs()) {
+    assert.equal(args[2], 'ZOOM.names', `${key} must not be named before ZOOM.names`);
+    assert.equal(args[3], family.has(key) ? 'ZOOM.cluster' : 'ZOOM.min', `${key} must observe the ladder floor`);
+  }
+  // The reference tier is not drawn through pinLayer, and takes the same floor.
+  const reference = sourceBlock('id="pins-allGauges"');
+  for (const layer of ['pins-allGauges-cluster', "pinHitLayerId('pins-allGauges-dot')"]) {
+    const at = reference.indexOf(layer);
+    assert.match(reference.slice(at, at + 400), /minZoomLevel=\{ZOOM\.min\}/, `${layer} must observe the floor`);
+  }
+});
+
+test('every count on the map breaks at the same zoom', () => {
+  // clusterMaxZoomLevel is the last TILE zoom that clusters, and a camera at
+  // 8.6 draws z8 tiles: given ZOOM.cluster, native counts outlived the family
+  // index by a whole level.
+  assert.match(CODE, /const NATIVE_CLUSTER_MAX_ZOOM = ZOOM\.cluster - 1;/);
+  const props = [...CODE.matchAll(/clusterMaxZoomLevel=\{([^}]*)\}/g)].map((m) => m[1]);
+  assert.equal(props.length, 3, 'pinLayer, the reference tier and the family index');
+  for (const prop of props) assert.match(prop, /NATIVE_CLUSTER_MAX_ZOOM/);
+});
+
+test('springs count with the places family below the cluster rung', () => {
+  // They floored at ZOOM.cluster with no index under them, so a zoomed-out
+  // map drew every layer but springs.
+  const index = CODE.slice(CODE.indexOf('const placesIndexShape'), CODE.indexOf('const servicesIndexShape'));
+  assert.match(index, /\.\.\.springPins/);
+  assert.match(index, /filter\(\(pin\) => layers\.includes\(pin\.layer\)\)/, 'a count holds only layers that are on');
+});
+
+test('map marks are painted from the light palette in both appearances', () => {
+  // The basemap is light in both schemes; the dark-scheme layer tints are for
+  // charcoal sheets and vanished on it.
+  assert.match(CODE, /const MAP_PAINT: Palette = lightPalette;/);
+  assert.match(CODE, /function layerColorFor\(key: LayerKey\): string \{\s*return MAP_LAYERS\.find\(\(l\) => l\.key === key\)!\.color\(MAP_PAINT\);/);
+  assert.doesNotMatch(CODE, /layerColorFor\([^)]*, colors\)/);
 });
 
 test('the label floor is the pin floor, not the mark floor', () => {
   // The other half of the test above, and the half that was missing when it
-  // went wrong: `labelMinZoom: 0` on the dams call is only a promise if the
-  // shared label layer honours it. It once clamped to `compactUntilZoom`,
-  // which silently re-floored dam labels to ZOOM.places — the argument said 0,
-  // the assertion on the argument passed, and the 8–9.5 dot band drew
-  // nameless dams anyway. So this pins the EFFECTIVE floor: a label may wait
+  // went wrong: a layer's `labelMinZoom` is only a promise if the shared label
+  // layer honours it. It once clamped to `compactUntilZoom`, which silently
+  // re-floored labels to ZOOM.places — the argument said one rung, the
+  // assertion on the argument passed, and the map drew another. So this pins
+  // the EFFECTIVE floor: a label may wait
   // for its pin (`minZoom`) and for its own rung (`labelMinZoom`), and for
   // nothing else.
   const label = /id=\{pinHitLayerId\(`pins-\$\{id\}-label`\)\}[\s\S]*?minZoomLevel=\{([^}]*)\}/.exec(CODE);
@@ -185,7 +232,7 @@ test('the label floor is the pin floor, not the mark floor', () => {
   assert.doesNotMatch(
     label[1],
     /compactUntilZoom/,
-    'clamping labels to compactUntilZoom silently re-floors dam labels to ZOOM.places',
+    'clamping labels to compactUntilZoom silently re-floors every label to ZOOM.places',
   );
 });
 
@@ -299,7 +346,10 @@ test('a badge and its number are one symbol', () => {
   assert.match(style, /textField: \['get', 'point_count_abbreviated'\]/);
   const stacks = sourceBlock('<Mapbox.ShapeSource id="pins-stacks"');
   assert.equal(stacks.match(/<Mapbox\.\w+Layer/g)?.length, 1, 'the stack face carries its own number');
-  assert.match(stacks, /iconImage: 'eddy-count-stack-map',\s*textField:/);
+  assert.match(stacks, /iconImage: \['match', \['get', 'face'\], 'usgs', 'eddy-count-stack-usgs-map', 'eddy-count-stack-map'\],\s*textField:/);
+  // It covers the places under it, so neighbouring labels give way to it
+  // instead of printing across its face.
+  assert.doesNotMatch(stacks, /IgnorePlacement/);
 });
 
 test('only the USGS reference tier wears the parchment badge', () => {

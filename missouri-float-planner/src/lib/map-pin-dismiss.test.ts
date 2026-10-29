@@ -44,6 +44,8 @@ function scene(planning = false) {
     ...state, pendingAccessSelection, pendingMapPlanFrame,
     pendingRiverFit, setCameraCommand: (command: unknown) => { state.cameraCommand = command; },
     mapPlanning: state.mapPlanRiver === state.selectedSlug,
+    choosingEndpoint: state.mapPlanRiver === state.selectedSlug && state.step !== 'result',
+    planHoldsRiver: state.putIn !== null,
     planOpen: false, mapPlanSelection, cancelMapSearch: () => {},
     gestureCount: { current: 0 }, isGaugeIndexId: () => false,
     accessPointForPin: () => ({ point: campOnly, riverSlug: slug }),
@@ -159,6 +161,7 @@ test('Back and close have their own handlers and planning names the route', () =
 
 test('empty map dismisses details and route sheet without clearing endpoints or moving the camera', () => {
   const { state, run, pendingRiverFit } = scene(true);
+  state.step = 'result';
   state.selectedPin = { id: 'gauge:1' };
   state.riverSheetOpen = true;
   run('dismissMapSelection');
@@ -174,6 +177,7 @@ test('empty map dismisses details and route sheet without clearing endpoints or 
 
 test('tapping the still-selected river after background dismissal reopens its sheet', () => {
   const { state, run } = scene(true);
+  state.step = 'result';
   run('dismissMapSelection');
   assert.equal(state.riverSheetOpen, false);
   run('onSelectNetworkRiver', slug, { lng: -91.4, lat: 37.1 });

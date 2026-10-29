@@ -615,6 +615,17 @@ no answer arrived (no connection, or the deadline ran out) and `'server'` for
 any HTTP status, that 404 included — so the map's empty state can tell someone
 to check their connection only when the connection is actually the problem.
 
+Offline, the map's field falls back to what the map draws from disk
+(`src/hooks/searchFallback.ts`): rivers from the statewide network while
+`/api/rivers` is missing, and put-ins and rated gauges (by site number and
+river) while the server half is failing. Only absent sources fall back, so
+online rows are never duplicated. Other USGS gauges come from the server only.
+
+A searched place opens the way a tap on its pin does: access points on the
+layer their types give them (campground, boat ramp, else access), a service the
+map draws as an access point as that access point, and a gauge, dam or hazard
+without selecting a river. The camera waits for the sheet a result opens.
+
 ### The map opens on the network, not on a river
 
 The Map tab draws **every** curated river, coloured by its live condition, and
@@ -628,7 +639,8 @@ river list was sorted starred-first, then floatable-first, then alphabetically,
 and `ordered[0]` became the opening river. With nothing starred and several
 rivers sharing the top band, the alphabetical tiebreak decided — which is why it
 always opened on Big River, a river nobody had chosen. It now opens on the whole
-network, or on **your own position if location was already granted** —
+network, or on **your own position if location was already granted** and that
+position is inside the network's bounds (padded by a fifth of their span) —
 `useLocation` resolves that through `getForegroundPermissionsAsync`, the getter,
 which reports an existing grant and never shows the dialog. The prompt is still
 only ever spent on an explicit tap of the locate button.
@@ -791,7 +803,9 @@ the full planner explicitly. The compact result measures its estimate and View
 full plan button as part of the peek, including after calculation completes;
 long results and large-text route controls scroll within the sheet.
 Closing the compact planner returns directly to the map, retaining the river,
-endpoints and calculated route. Dismissing a POI while planning returns to Your
+endpoints and calculated route. A put-in chosen without a take-out stays drawn
+and can be cleared with the map's × beside the plan button; Use as take-out is
+offered only while planning on the map or against a finished plan. Dismissing a POI while planning returns to Your
 route; outside planning it returns to the map. Only an access opened from the
 river sheet offers Back to that river. A selected river is data context, not
 an instruction to reopen its details. Dismissal never reframes the camera.
@@ -2130,12 +2144,34 @@ places sheet. Cluster taps ask the owning source for its expansion zoom,
 falling back to two more zoom levels if that query fails or returns an invalid
 value. There is no tap cycling and no hint banner.
 
+Every count on the map — native clusters and the two family indexes — breaks
+into pins at the same zoom (`ZOOM.cluster`), and with three exceptions every
+layer takes the same rungs: a `ZOOM.min` floor, marks at `ZOOM.places`, names
+at `ZOOM.names`. Hazards never cluster and resolve at `ZOOM.cluster` (a safety
+rule); the selected place is drawn by its own source on top of every place
+layer, at a larger scale and named at every zoom, even if its layer is
+switched off while its sheet is open. Pin sources are mounted for the life of
+the map and empty when their layer is off: a source mounted on a toggle lands
+at the top of the native style and paints over hazards. Hazards are the last
+pin source, over the route endpoints and the selection. Map marks use the
+light palette in both appearances, because the basemap is light in both. A tap
+picks the mark nearest the finger, measuring a bottom-anchored pin from its
+bulb; overlapping counts resolve the same way. A tap on public land opens a
+callout naming the parcel and its access class — ownership, not permission —
+and leaves the open sheet alone.
+
 POI selection preserves zoom and moves the camera only if the marker's touch
 area would be obscured by the measured sheet/chrome. Every new gesture cancels
 stale asynchronous work and updates the remembered camera. A blank-map tap
 closes selection details and exits map-plan mode while retaining the selected
-river, endpoints and calculated route. It does not reframe the camera. Tapping
-the still-selected river opens its details again.
+river, endpoints and calculated route — except while the compact planner is
+choosing a put-in or take-out, when a blank or river-line tap closes only the
+open pin. It does not reframe the camera. Tapping the still-selected river
+opens its details again. While a put-in or plan exists, tapping or searching an
+access point on another river opens it without switching rivers; the river
+changes only when the reader acts on it (Use as put-in, or a Float trips row).
+When every switched-on layer draws nothing because the camera is below the
+ladder's floor (zoom 5.5), a small non-interactive hint says so on the map.
 Places in this area is the list button beside Locate, not in the search row,
 which keeps its full width. It opens the same branded sheet as a stack: rows
 grouped by layer in the Layers sheet's order, each mark in its layer's
