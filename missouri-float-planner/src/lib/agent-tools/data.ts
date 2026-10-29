@@ -56,7 +56,7 @@ export type GaugeLink = DbThresholdRow & {
 export const GAUGE_SELECT =
   'gauge_station_id, is_primary, river_mile, threshold_unit, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, alt_level_too_low, alt_level_low, alt_level_optimal_min, alt_level_optimal_max, alt_level_high, alt_level_dangerous, flood_stage_ft, gauge_stations(id, name, usgs_site_id, nws_lid, provider, location, active, curated)';
 export const ACCESS_SELECT =
-  'id, river_id, name, slug, river_mile_downstream, type, types, is_public, is_float_endpoint, approved, amenities, description, fee_required, managing_agency, location_snap, location_orig, driving_lat, driving_lng, nps_campground_id, image_urls';
+  'id, river_id, name, slug, river_mile_downstream, type, types, is_public, is_float_endpoint, approved, amenities, description, fee_required, managing_agency, location_snap, location_orig, driving_lat, driving_lng, nps_campground_id, image_urls, road_surface';
 
 export function checked<T>(
   { data, error }: { data: T; error: unknown },

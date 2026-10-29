@@ -1,14 +1,27 @@
+'use client';
+
 import Image from 'next/image';
-import type { MouseEvent } from 'react';
-import { ArrowRight, Clock } from 'lucide-react';
+import { useState, type MouseEvent } from 'react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import InfoTip from '@/components/ui/InfoTip';
 import { optimizeBlogImage } from '@/lib/blog-image';
-import { floatRangeLabel, publicAccessLabel, floatPlanPath, floatSearchEmptyMessage, floatSearchUsedProximity, FLOAT_SEARCH_PROXIMITY_NOTE, FLOAT_SEARCH_LOADING_TITLE, FLOAT_SEARCH_LOADING_DETAIL, type floatSearchRecoveryOptions, type FloatSearchOption } from '@shared/float-search';
+import {
+  driveLabel, floatBoatLabel, floatPlanPath, floatRangeLabel, floatSearchEmptyMessage, floatSortsFor, floatTripLabel,
+  FLOAT_DISTANCE_INFO, FLOAT_SEARCH_LOADING_DETAIL, FLOAT_SEARCH_LOADING_TITLE, FLOAT_TIME_INFO,
+  publicAccessLabel, sortFloatOptions,
+  type floatSearchRecoveryOptions, type FloatSearchOption, type FloatSort,
+} from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
+
+const INFO_COLORS = {
+  trigger: 'var(--color-primary-600)', triggerBorder: 'var(--color-border-strong)',
+  popBg: 'var(--color-surface)', popBorder: 'var(--color-primary-700)', title: 'var(--color-text-primary)',
+  body: 'var(--color-text-secondary)', focus: 'var(--color-primary-500)',
+};
 
 export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
   return <Card variant="panel" role="status" aria-live="polite"
@@ -23,81 +36,121 @@ export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
   </Card>;
 }
 
-export function FloatResults({ snapshot, dirty, busy, onPlan, recoveryOptions, onRecover }: {
+function hoursLabel(hours: number) {
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+}
+
+export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOptions, onRecover, riverPhoto }: {
   snapshot: SearchSnapshot;
-  dirty: boolean;
-  busy: boolean;
+  riverPhoto: (slug: string) => string | null | undefined;
+  /** Inputs changed or a search is running: results dim and cannot open a plan. */
+  stale: boolean;
+  sort: FloatSort;
+  onSort: (sort: FloatSort) => void;
   onPlan: () => boolean;
   recoveryOptions: ReturnType<typeof floatSearchRecoveryOptions>;
   onRecover: (option: ReturnType<typeof floatSearchRecoveryOptions>[number]) => void;
 }) {
   const { data, input, location } = snapshot;
-  const blocked = dirty || busy;
+  const days = input.days ?? 1;
+  const routes = [...data.matches, ...data.alternatives];
+  const sorts = floatSortsFor(routes);
+  const card = (option: FloatSearchOption) => <FloatCard key={option.id} option={option} riverPhoto={riverPhoto(option.riverSlug)} stale={stale} onPlan={onPlan} />;
   return (
-    <>
-      <div className="mb-5" aria-live="polite">
-        <p className="mb-2 text-sm text-[var(--color-text-secondary)]">{location}</p>
-        <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">Matching Floats</h2>
-        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{data.matches.length} {data.matches.length === 1 ? 'route' : 'routes'} · About {input.targetHours} hours · <span className="capitalize">{input.vesselType}</span>{input.publicOnly ? ' · Public accesses' : ''}</p>
-        <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Checked {new Date(data.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Conditions can change.</p>
+    <div className={stale ? 'pointer-events-none opacity-50 transition-opacity' : 'transition-opacity'} inert={stale || undefined}>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4" aria-live="polite">
+        <div className="min-w-0">
+          <p className="mb-1 text-sm font-semibold text-[var(--color-primary-600)]">{location}</p>
+          <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">Matching Floats</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+            {days > 1 ? `${floatTripLabel(days)} · ${hoursLabel(input.targetHours)} a day` : `About ${hoursLabel(input.targetHours)}`} · {floatBoatLabel(input.vesselType)} · Checked {new Date(data.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </p>
+        </div>
+        {routes.length > 1 && <label className="flex items-center gap-2 text-sm font-semibold">Sort
+          <select className="input w-auto py-2" value={sort} onChange={e => onSort(e.target.value as FloatSort)}>
+            {sorts.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>}
       </div>
-      {dirty && !busy && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm font-medium">Your choices changed. Update routes to see matching floats.</p></Card>}
-      {data.partial && <Card variant="panel" className="mb-5 p-4"><p role="status" className="text-sm">{data.failed ? 'Some river data was unavailable. ' : ''}This is a partial search. Try again or choose a river for a closer look.</p></Card>}
-      {data.matches.length === 0 && <Card variant="panel" className="mb-5 space-y-4 p-5"><p>{floatSearchEmptyMessage(data)}</p>
-        {!blocked && recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
+      {data.partial && <p role="status" className="mb-4 text-sm font-medium">{data.failed ? 'Some rivers couldn’t be checked.' : 'Showing a selection of routes.'}</p>}
+      {data.matches.length === 0 && <Card variant="panel" className="mb-6 space-y-4 p-5">
+        <p className="font-medium">{floatSearchEmptyMessage(data)}</p>
+        {recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
       </Card>}
-      <div className="space-y-5" aria-label="Matching routes">
-        {data.matches.map(option => <FloatCard key={option.id} option={option} blocked={blocked} onPlan={onPlan} />)}
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
+        {sortFloatOptions(data.matches, sort).map(card)}
       </div>
-      {data.alternatives.length > 0 && <section className="mt-8" aria-label="Alternative routes">
-        <h3 className="text-xl font-bold">A little shorter or longer</h3>
-        <p className="mb-4 mt-1 text-sm text-[var(--color-text-secondary)]">These ranges don’t include {input.targetHours} hours.</p>
-        <div className="space-y-5">{data.alternatives.map(option => <FloatCard key={option.id} option={option} blocked={blocked} onPlan={onPlan} />)}</div>
+      {data.alternatives.length > 0 && <section className="mt-10" aria-label="Alternative routes">
+        <h3 style={{ fontFamily: 'var(--font-display)' }} className="mb-4 text-2xl font-medium">Shorter or longer</h3>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{sortFloatOptions(data.alternatives, sort).map(card)}</div>
       </section>}
-      <details className="mt-5 text-sm text-[var(--color-text-secondary)]">
-        <summary className="cursor-pointer py-3 font-medium">How these estimates work</summary>
-        <p>Times include ordinary stops. A route matches when its estimated range includes your chosen time. Estimates use current conditions where available.</p>
-        {floatSearchUsedProximity(data) && <p className="mt-2">{FLOAT_SEARCH_PROXIMITY_NOTE}</p>}
-      </details>
-    </>
+    </div>
   );
 }
 
-function FloatCard({ option: o, blocked, onPlan }: { option: FloatSearchOption; blocked: boolean; onPlan: () => boolean }) {
+/** Mirrors the iOS FloatSearchCard: photo, route, three metrics, badges,
+ * cautions, details on demand, then one filled call to action. */
+function FloatCard({ option: o, riverPhoto, stale, onPlan }: { option: FloatSearchOption; riverPhoto?: string | null; stale: boolean; onPlan: () => boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const [failed, setFailed] = useState<string[]>([]);
+  const photo = [o.photo?.url, riverPhoto].find((url): url is string => !!url && !failed.includes(url));
+  const code = o.conditionCode ?? 'unknown';
+  const access = o.putIn.isPublic === true && o.takeOut.isPublic === true ? 'Public access'
+    : o.putIn.isPublic === false || o.takeOut.isPublic === false ? 'Includes private access' : 'Access unconfirmed';
+  const metric = 'flex min-w-0 flex-1 flex-col gap-1';
   return (
-    <Card variant="framed" as="article" className="overflow-hidden">
-      <div className={`grid ${o.photo ? 'xl:grid-cols-[210px_minmax(0,1fr)]' : ''}`}>
-        {o.photo && <div className="relative min-h-44 xl:min-h-full">
-          {/* Access photographs can come from hosts outside the optimizer allowlist. */}
-          <Image src={o.photo.url} alt={o.photo.caption} fill unoptimized={!optimizeBlogImage(o.photo.url)} sizes="(min-width: 1280px) 210px, 100vw" className="object-cover" />
+    <Card variant="framed" as="article" className="flex flex-col overflow-hidden">
+      <div className="relative h-40 shrink-0 bg-[var(--color-surface-hover)]">
+        {photo
+          ? <Image key={photo} src={photo} alt="" fill unoptimized={!optimizeBlogImage(photo)} sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" className="object-cover" onError={() => setFailed(previous => [...previous, photo])} />
+          : <div className="flex h-full items-center justify-center"><EddyIcon name="wave" size={110} /></div>}
+      </div>
+      <div className="flex flex-1 flex-col gap-4 p-5">
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
+          <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
+        </div>
+        <div className="flex flex-wrap gap-y-3 divide-x divide-[var(--color-border)]">
+          <div className={`${metric} pr-4`}>
+            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{floatRangeLabel(o.timeRange).replace(' hours', ' hr')}</span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{o.estimateBasis === 'typical' ? 'Typical estimate' : 'Estimated time'}
+              <InfoTip size={16} title="About float times" ariaLabel="About float times" body={FLOAT_TIME_INFO.join(' ')} colors={INFO_COLORS} /></span>
+          </div>
+          <div className={`${metric} px-4`}>
+            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{o.distanceMiles.toFixed(1)} mi</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">On the river</span>
+          </div>
+          {o.driveMinutes != null && <div className={`${metric} pl-4`}>
+            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{driveLabel(o.driveMinutes)}</span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">Drive
+              <InfoTip size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>
+          </div>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="inline-flex rounded-full bg-white"><ConditionBadge code={code} label={o.conditionLabel} /></span>
+          <span className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{access}</span>
+          {o.highlights?.map(highlight => <span key={highlight} className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{highlight}</span>)}
+          {o.relation !== 'match' && <span className="text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
+        </div>
+        {o.conditional && !o.cautions.length && <p className="text-sm font-medium">Check route cautions before going.</p>}
+        {o.cautions.map((caution, i) => <p className="text-sm font-medium" key={i}>{caution}</p>)}
+        <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}
+          className="inline-flex min-h-11 items-center gap-2 self-start text-sm font-semibold text-[var(--color-primary-600)]">
+          Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
+        </button>
+        {expanded && <div className="-mt-2 space-y-2 text-sm text-[var(--color-text-secondary)]">
+          <p>Put-in: {publicAccessLabel(o.putIn.isPublic)}<br />Take-out: {publicAccessLabel(o.takeOut.isPublic)}</p>
+          <p>{o.estimateBasis === 'current_conditions' ? 'Estimate uses current conditions.' : 'Estimate uses typical conditions.'}
+            {o.observedAt && o.estimateBasis === 'current_conditions' ? ` Reading ${new Date(o.observedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : ''}</p>
+          {o.description && <p>{o.description}</p>}
+          {o.photo?.caption && photo === o.photo.url && <p className="text-xs">{o.photo.caption}</p>}
         </div>}
-        <div className="min-w-0 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold">{o.riverName}</p>
-            {/* Canonical chips use translucent tints and dark ink; retain their
-                light backing on a dark card as well. */}
-            <span className="inline-flex rounded-full bg-white"><ConditionBadge code={o.conditionCode ?? 'unknown'} label={o.conditionLabel} /></span>
-          </div>
-          <h3 className="mt-3 text-xl font-bold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-base font-bold">
-            <span className="inline-flex items-center gap-2"><Clock size={17} aria-hidden="true" />{floatRangeLabel(o.timeRange)}</span>
-            <span>{o.distanceMiles.toFixed(1)} river miles</span>
-          </div>
-          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            {o.estimateBasis === 'current_conditions' ? 'Current conditions' : 'Typical conditions'}
-            {o.observedAt && o.estimateBasis === 'current_conditions' ? ` · Reading ${new Date(o.observedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}
-          </p>
-          {o.description && <p className="mt-3 line-clamp-2 text-sm text-[var(--color-text-secondary)]">{o.description}</p>}
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            {o.putIn.isPublic === true && o.takeOut.isPublic === true ? <Badge tone="secondary">Public put-in &amp; take-out</Badge>
-              : <p>Put-in: {publicAccessLabel(o.putIn.isPublic)} · Take-out: {publicAccessLabel(o.takeOut.isPublic)}</p>}
-          </div>
-          {o.conditional && <p className="mt-3 text-sm font-bold">Check cautions before planning.</p>}
-          {o.cautions.map((caution, i) => <p className="mt-2 text-sm font-medium" key={i}>{caution}</p>)}
-          <div className="mt-4">
-            {blocked ? <Button variant="outline" disabled>Update routes to continue</Button>
-              : <Button href={floatPlanPath(o)} variant="outline" onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (!onPlan()) event.preventDefault(); }}>Build this route<ArrowRight size={16} aria-hidden="true" /></Button>}
-          </div>
+        <div className="mt-auto pt-1">
+          <Button href={floatPlanPath(o)} className="w-full" tabIndex={stale ? -1 : undefined}
+            aria-label={`View float plan from ${o.putIn.name} to ${o.takeOut.name}`}
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (stale || !onPlan()) event.preventDefault(); }}>
+            View float plan<ArrowRight size={18} aria-hidden="true" />
+          </Button>
         </div>
       </div>
     </Card>

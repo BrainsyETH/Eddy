@@ -5,6 +5,8 @@ import {
   geographicMiles,
   REGULATED_DURATION_MESSAGE,
   floatSearchEmptyReasonMessage,
+  floatTargetMinutes,
+  activeFloatFilters,
   type FloatSearchEmptyReason,
   type FloatSearchInput,
   type FloatSearchOption,
@@ -30,6 +32,12 @@ import {
 import { abortable, searchBudget } from './budget';
 import { RiverNotFoundError } from './contracts';
 import { assignRoutePhotos, loadRoutePhotos } from './route-photos';
+import { pairPasses, portageMiles, riverPasses, routeHighlights, shuttleRivers } from './float-filters';
+import { mapboxDriveFrom, type DriveFrom } from './drive-from';
+
+/** Full route checks may replace rejected candidates up to this many attempts,
+ * still returning at most MAX_ESTIMATES routes. */
+export const MAX_ROUTE_ATTEMPTS = 9;
 
 /** Prefer variety, then backfill: a river cap must never hide the only matches. */
 export function diverseFloats<T extends { riverId: string }>(
@@ -61,8 +69,11 @@ export async function findNearbyFloats(
     budgetMs?: number;
     now?: number;
     sources?: SourceProviders;
+    driveFrom?: DriveFrom;
   } = {},
 ): Promise<FloatSearchResponse> {
+  const filters = activeFloatFilters(input.filters);
+  const target = floatTargetMinutes(input);
   const budget = searchBudget(options.budgetMs ?? 20_000, options.signal);
   const ctx = createDataContext(memoizeReads(db, budget.signal), options.now);
   const sources = createSources(
@@ -78,7 +89,8 @@ export async function findNearbyFloats(
     evaluated = 0,
     partial = false;
   let unavailableReason: string | undefined;
-  let riverCount = 0, eligiblePairs = 0, screenedOutPairs = 0, unavailableDurationPairs = 0;
+  let riverCount = 0, eligiblePairs = 0, screenedOutPairs = 0, unavailableDurationPairs = 0, filteredPairs = 0, filteredRivers = 0;
+  let shuttles = new Set<string>();
   let otherAccessPair = false;
   const excludedConditions = new Set<string>();
   const blockedReasons = new Set<string>();
@@ -88,11 +100,11 @@ export async function findNearbyFloats(
     riverId: string;
     nearbyMiles: number | null;
   }> = [];
-  async function workers<T>(items: T[], run: (item: T) => Promise<void>) {
+  async function workers<T>(items: T[], run: (item: T) => Promise<void>, enough = () => false) {
     let next = 0;
     await Promise.all(
       [0, 1].map(async () => {
-        while (next < items.length && !budget.signal.aborted) {
+        while (next < items.length && !budget.signal.aborted && !enough()) {
           const item = items[next++];
           try {
             await abortable(run(item), budget.signal);
@@ -108,8 +120,11 @@ export async function findNearbyFloats(
     const catalog = input.river
       ? [await ctx.river(input.river)]
       : await ctx.rivers('all');
-    const rivers = catalog.filter(r => r.river_type !== 'dam_tailwater');
-    if (input.river && !rivers.length) unavailableReason = REGULATED_DURATION_MESSAGE;
+    const floatable = catalog.filter(r => r.river_type !== 'dam_tailwater');
+    if (input.river && !floatable.length) unavailableReason = REGULATED_DURATION_MESSAGE;
+    if (filters?.shuttle) shuttles = await shuttleRivers(ctx, floatable.map(r => r.id));
+    const rivers = floatable.filter(r => riverPasses(r, filters, shuttles, r.id));
+    filteredRivers = floatable.length - rivers.length;
     // Page explicitly: Supabase's default row cap must not silently hide rivers.
     const distanceByRiver = new Map<string, number>();
     if (near && !input.river && rivers.length) {
@@ -178,10 +193,11 @@ export async function findNearbyFloats(
     riverCount = nearby.length;
     if (nearby.length > 12) partial = true;
     await workers(nearby.slice(0, 12), async (river) => {
-      const [points, screen, vessel] = await Promise.all([
+      const [points, screen, vessel, portages] = await Promise.all([
         ctx.access(river.id),
         loadScreening(ctx, river),
         planning.vessels(input.vesselType),
+        filters?.noPortages ? portageMiles(ctx, river.id) : Promise.resolve([]),
       ]);
       if (points.length > 500)
         throw new Error('Access catalog exceeds search limit');
@@ -208,15 +224,21 @@ export async function findNearbyFloats(
       );
       const screened = screenCandidates(
         points,
-        input.targetHours,
+        target / 60,
         Number(vessel.speed_normal),
         input.publicOnly,
         screen,
         durationFor,
         point => closePutIns.has(point.id),
+        {
+          limit: MAX_ROUTE_ATTEMPTS,
+          pairAllowed: filters ? (a, b) => pairPasses(a, b, filters, portages) : undefined,
+          skipLow: filters?.goodConditions,
+        },
       );
       eligiblePairs += screened.coverage.eligiblePairs;
       screenedOutPairs += screened.coverage.screenedOutPairs;
+      filteredPairs += screened.coverage.filteredPairs;
       unavailableDurationPairs += screened.coverage.unavailableDurationPairs;
       for (const code of screened.coverage.excludedConditions) excludedConditions.add(code);
       if (input.publicOnly && screened.coverage.eligiblePairs === 0) {
@@ -242,27 +264,31 @@ export async function findNearbyFloats(
       conditional: entry.candidate.unknown,
     });
     pool.sort((a, b) =>
-      compareFloatChoices(rank(a), rank(b), input.targetHours * 60),
+      compareFloatChoices(rank(a), rank(b), target),
     );
     const exact = pool.filter(
       (p) =>
         durationRelation(
           p.candidate.duration.timeRange,
-          input.targetHours * 60,
+          target,
         ) === 'match',
     );
     const other = pool.filter(
       (p) =>
         durationRelation(
           p.candidate.duration.timeRange,
-          input.targetHours * 60,
+          target,
         ) !== 'match',
     );
     const candidates = [
-      ...diverseFloats(exact, MAX_ESTIMATES, Boolean(input.river)),
-      ...diverseFloats(other, MAX_ESTIMATES, Boolean(input.river)),
-    ].slice(0, MAX_ESTIMATES);
-    await workers(candidates, async ({ candidate, river, nearbyMiles }) => {
+      ...diverseFloats(exact, MAX_ROUTE_ATTEMPTS, Boolean(input.river)),
+      ...diverseFloats(other, MAX_ROUTE_ATTEMPTS, Boolean(input.river)),
+    ].slice(0, MAX_ROUTE_ATTEMPTS);
+    // Rejected routes are replaced from the ranked list until six routes pass
+    // or the attempt cap is reached; work in flight counts toward the six.
+    let inFlight = 0;
+    const driveTargets = new Map<string, { lat: number; lng: number }>();
+    async function assess({ candidate, river, nearbyMiles }: (typeof candidates)[number]) {
       const plan = await planning.calculate({
         river: river.slug,
         putIn: candidate.putIn.id,
@@ -281,7 +307,17 @@ export async function findNearbyFloats(
         if (!time?.timeRange) blockedReasons.add('duration_unavailable');
         return;
       }
+      if (filters?.goodConditions && p.routeAssessment.recommendationStatus === 'conditional') {
+        filteredPairs++;
+        return;
+      }
       const vessel = await planning.vessels(input.vesselType);
+      if (near) {
+        // Parking-lot coordinates when recorded; the launch pin otherwise.
+        const lat = numeric(candidate.putIn.driving_lat), lng = numeric(candidate.putIn.driving_lng);
+        const point = lat != null && lng != null ? { lat, lng } : accessView(candidate.putIn, river).coordinates;
+        if (point) driveTargets.set(candidate.putIn.id, point);
+      }
       output.push({
         id: `${candidate.putIn.id}:${candidate.takeOut.id}`,
         riverId: river.id,
@@ -312,18 +348,36 @@ export async function findNearbyFloats(
             ? 'current_conditions'
             : 'typical',
         observedAt: p.anchorGauge.observedAt,
-        relation: durationRelation(time.timeRange, input.targetHours * 60),
+        relation: durationRelation(time.timeRange, target),
         url: p.url,
         description: candidate.putIn.description || river.float_tip || null,
+        highlights: routeHighlights(candidate.putIn, candidate.takeOut, shuttles.has(river.id), filters),
+        driveMinutes: null,
       });
-    });
+    }
+    await workers(candidates, async (item) => {
+      inFlight++;
+      try {
+        await assess(item);
+      } finally {
+        inFlight--;
+      }
+    }, () => output.length + inFlight >= MAX_ESTIMATES);
     const endpointIds = new Set(output.flatMap(option => [option.putIn.id, option.takeOut.id]));
-    routePhotos = await loadRoutePhotos(
-      ctx.db,
-      candidates.flatMap(({ candidate }) => [candidate.putIn, candidate.takeOut])
-        .filter(point => endpointIds.has(point.id)),
-      budget.signal,
-    );
+    const [photos, minutes] = await Promise.all([
+      loadRoutePhotos(
+        ctx.db,
+        candidates.flatMap(({ candidate }) => [candidate.putIn, candidate.takeOut])
+          .filter(point => endpointIds.has(point.id)),
+        budget.signal,
+      ),
+      near && driveTargets.size
+        ? (options.driveFrom ?? mapboxDriveFrom)(near, [...driveTargets].map(([id, point]) => ({ id, ...point })), budget.signal)
+            .catch(() => new Map<string, number>())
+        : new Map<string, number>(),
+    ]);
+    routePhotos = photos;
+    for (const option of output) option.driveMinutes = minutes.get(option.putIn.id) ?? null;
   } catch (error) {
     if (error instanceof RiverNotFoundError) throw error;
     partial = true;
@@ -334,7 +388,7 @@ export async function findNearbyFloats(
   if (evaluated === 0 && (failed > 0 || budget.signal.aborted)) {
     throw new Error('The search could not finish. Please try again.');
   }
-  output.sort((a, b) => compareFloatChoices(a, b, input.targetHours * 60));
+  output.sort((a, b) => compareFloatChoices(a, b, target));
   const matches = diverseFloats(output.filter(p => p.relation === 'match'), 5, Boolean(input.river));
   const alternatives = diverseFloats(output.filter(p => p.relation !== 'match'), 3, Boolean(input.river));
   assignRoutePhotos([...matches, ...alternatives], routePhotos);
@@ -342,8 +396,9 @@ export async function findNearbyFloats(
   // A time mismatch already returns assessed shorter/longer alternatives.
   // With no routes, explain the actual exclusion rather than blaming the time.
   if (!matches.length && !alternatives.length && !unavailableReason && !partial && !budget.signal.aborted) {
-    if (!riverCount) emptyReason = otherAccessPair ? 'public_access' : 'no_nearby_rivers';
+    if (!riverCount) emptyReason = filteredRivers ? 'filters' : otherAccessPair ? 'public_access' : 'no_nearby_rivers';
     else if (!eligiblePairs) emptyReason = otherAccessPair ? 'public_access' : 'access_points';
+    else if (filteredPairs && screenedOutPairs + filteredPairs >= eligiblePairs) emptyReason = 'filters';
     else if (screenedOutPairs === eligiblePairs) {
       emptyReason = excludedConditions.size === 1 && excludedConditions.has('too_low') ? 'too_low'
         : !excludedConditions.has('too_low') ? 'high_water' : 'water_conditions';
@@ -352,6 +407,7 @@ export async function findNearbyFloats(
     else if (blockedReasons.has('gauge_coverage_incomplete')) emptyReason = 'conditions_unavailable';
     else if (blockedReasons.has('water_conditions_unsuitable') || blockedReasons.has('low_water_in_route')) emptyReason = 'water_conditions';
     else if (unavailableDurationPairs || blockedReasons.has('duration_unavailable')) emptyReason = 'duration_unavailable';
+    else if (filteredPairs) emptyReason = 'filters';
     else emptyReason = 'route_checks';
     // Older app builds already display unavailableReason, so they get the fix too.
     unavailableReason = floatSearchEmptyReasonMessage(emptyReason);
