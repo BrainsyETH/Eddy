@@ -26,12 +26,9 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { readRiver } from '@/lib/riverCache';
-import { loadPlanAccess } from '@/lib/loadPlanAccess';
+import { alongRoutePoints, loadPlanAccess } from '@/lib/loadPlanAccess';
 import { ControlIcon } from '@/components/ControlIcon';
 import { planAccessDestination, type PlanDetailDestination } from '@/lib/planDestinations';
-
-/** Enough to plan a bail-out; past this it is a list of the whole river. */
-const MAX_SHOWN = 6;
 
 export function PlanAlongRoute({ plan, accessPoints, onOpenDetail }: {
   plan: FloatPlan;
@@ -42,6 +39,9 @@ export function PlanAlongRoute({ plan, accessPoints, onOpenDetail }: {
   const [loaded, setLoaded] = useState<MapAccessPoint[]>();
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
+  // Six rows answer most floats; a long one shows the rest on request rather
+  // than silently dropping the bail-outs nearest the take-out.
+  const [expanded, setExpanded] = useState(false);
   const slug = plan.river.slug;
 
   useEffect(() => {
@@ -59,14 +59,10 @@ export function PlanAlongRoute({ plan, accessPoints, onOpenDetail }: {
   }, [slug, accessPoints, retry]);
 
   const points = accessPoints ?? loaded;
-  const between = useMemo(() => {
-    const start = plan.putIn.riverMile;
-    const end = plan.takeOut.riverMile;
-    return (points ?? [])
-      .filter((p) => p.riverMile > start && p.riverMile < end)
-      .sort((a, b) => a.riverMile - b.riverMile)
-      .slice(0, MAX_SHOWN);
-  }, [points, plan.putIn.riverMile, plan.takeOut.riverMile]);
+  const { all, shown, hidden } = useMemo(
+    () => alongRoutePoints(points, plan.putIn.riverMile, plan.takeOut.riverMile, expanded),
+    [points, plan.putIn.riverMile, plan.takeOut.riverMile, expanded],
+  );
 
   if (points === undefined) {
     return (
@@ -88,15 +84,15 @@ export function PlanAlongRoute({ plan, accessPoints, onOpenDetail }: {
       </View>
     );
   }
-  if (between.length === 0) return null;
+  if (all.length === 0) return null;
 
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Along the way ({between.length})
+        Along the way ({all.length})
       </Text>
 
-      {between.map((point) => {
+      {shown.map((point) => {
         const into = point.riverMile - plan.putIn.riverMile;
         const destination = planAccessDestination(slug, point);
         return (
@@ -132,6 +128,18 @@ export function PlanAlongRoute({ plan, accessPoints, onOpenDetail }: {
           </Pressable>
         );
       })}
+
+      {hidden > 0 ? (
+        <Pressable
+          onPress={() => setExpanded(true)}
+          style={({ pressed }) => [styles.more, { opacity: pressed ? 0.6 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Show all ${all.length} places along the way`}
+        >
+          <Text style={[styles.moreText, { color: colors.interactive }]}>Show all {all.length}</Text>
+          <ControlIcon name="chevron-down" size={15} color={colors.interactive} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -150,6 +158,8 @@ const styles = StyleSheet.create({
   photo: { width: 96, aspectRatio: 4 / 3, borderRadius: 8 },
   mile: { ...t.xs, fontFamily: fonts.mono, marginTop: 4 },
   retry: { minHeight: 44, justifyContent: 'center' },
+  more: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44 },
+  moreText: { ...t.sm, fontFamily: fonts.semibold },
   body: { flex: 1, minWidth: 0 },
   name: { ...t.sm, fontFamily: fonts.semibold },
   meta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

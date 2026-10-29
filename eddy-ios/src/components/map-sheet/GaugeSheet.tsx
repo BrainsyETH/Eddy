@@ -89,10 +89,19 @@ export interface GaugeTabProps {
 export function GaugeReadingRow({
   facts,
   compact = false,
+  tint,
 }: {
   facts: GaugePinFacts;
   /** One line for the peek. The tabs use the taller default. */
   compact?: boolean;
+  /**
+   * The colour the pin wears on the map, for the border of a chip with no
+   * condition code — a reference station's flow band. The callout draws that
+   * chip the same way; drawing it grey here put a grey chip under a coloured
+   * dot. The fill and ink stay neutral, so a comparison is never tinted like a
+   * verdict.
+   */
+  tint?: string | null;
 }) {
   const { colors, isDark } = useTheme();
 
@@ -123,7 +132,7 @@ export function GaugeReadingRow({
           </Text>
         </View>
       ) : facts.codeLabel ? (
-        <View style={[styles.chip, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
+        <View style={[styles.chip, { backgroundColor: colors.cardRaised, borderColor: tint ?? colors.border }]}>
           <Text style={[styles.chipText, { color: colors.textMuted }]}>{facts.codeLabel}</Text>
         </View>
       ) : null}
@@ -396,7 +405,9 @@ function stageText(value: number | null | undefined): string | null {
 }
 
 const styles = StyleSheet.create({
-  readingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  // Wraps rather than clips: a long reading beside a chip overruns one line at
+  // the accessibility text sizes.
+  readingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 },
   // The peek's own spacing comes from the header around it, and the row holds a
   // floor so a station with no current reading still occupies a line rather than
   // collapsing to nothing and then growing when one arrives.

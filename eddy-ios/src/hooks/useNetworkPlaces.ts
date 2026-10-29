@@ -31,6 +31,7 @@
 import { useEffect, useState } from 'react';
 import { onOfflineBundleSeeded } from '@/api/client';
 import { readAllPlaces, type CachedPlaces } from '@/lib/riverCache';
+import { withPlaceRiver } from '@/lib/placeRiver';
 
 const EMPTY: CachedPlaces = { accessPoints: [], hazards: [], springs: [] };
 
@@ -61,8 +62,9 @@ export function useNetworkPlaces(): CachedPlaces {
       const accessPoints = payload.flatMap((entry) =>
         entry.accessPoints.map((point) => ({ point, riverSlug: entry.riverSlug })),
       );
-      const hazards = payload.flatMap((entry) => entry.hazards);
-      const springs = payload.flatMap((entry) => entry.springs);
+      // Tagged with their river before the flatten loses it — see placeRiver.ts.
+      const hazards = payload.flatMap((entry) => withPlaceRiver(entry.hazards, entry.riverSlug, entry.riverName));
+      const springs = payload.flatMap((entry) => withPlaceRiver(entry.springs, entry.riverSlug, entry.riverName));
       // Springs deliberately do NOT join this condition. Most rivers have none,
       // so a payload of springs alone is not a signal that the seed landed —
       // and gating on it would let a spring-only payload replace a filled set

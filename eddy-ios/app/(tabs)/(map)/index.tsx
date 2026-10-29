@@ -169,6 +169,7 @@ import {
 } from '@/components/MapLayersSheet';
 import { defaultMapLayers, readMapLayers, writeMapLayers } from '@/lib/mapPreferences';
 import { readMapCamera, writeMapCamera, type StoredMapCamera } from '@/lib/mapCamera';
+import { pinStarItem, pinStarProps } from '@/lib/pinStar';
 import {
   GaugeFilterBar,
   applyGaugeFilters,
@@ -2803,16 +2804,21 @@ function MapContent() {
     pendingAccessSelection.current = null;
   }, [selectRiver]);
 
-  // Back and close restore the surface that actually opened this point.
-  // Keep river/route data and the camera; neither dismissal changes the route.
-  const dismissPin = useCallback(() => {
+  // BACK restores the surface that actually opened this point — the river's
+  // sheet, or the route. CLOSE puts the pin down onto the map: the river, the
+  // route and the camera all stay, but the river sheet does not reopen. They
+  // were one handler, so a sheet showing "‹ Current River" beside an × offered
+  // two controls that did the same thing. Neither changes the route.
+  const putPinDown = useCallback((reopenRiverSheet: boolean) => {
     setSelectedPin(null);
     setCameraCommand(null);
     pendingRiverFit.current = null;
     pendingAccessSelection.current = null;
     pendingMapPlanFrame.current = null;
-    setRiverSheetOpen(revealsRiverSheet);
-  }, [revealsRiverSheet]);
+    setRiverSheetOpen(reopenRiverSheet);
+  }, []);
+  const dismissPin = useCallback(() => putPinDown(revealsRiverSheet), [putPinDown, revealsRiverSheet]);
+  const closePin = useCallback(() => putPinDown(false), [putPinDown]);
 
   const dismissMapSelection = useCallback(() => {
     cancelMapSearch();
@@ -3594,24 +3600,10 @@ function MapContent() {
               onOpenDetail={(route) => router.push(asHref(route))}
               onBack={mapPlanning || (revealsRiverSheet && riverSheetData) ? dismissPin : null}
               backLabel={mapPlanning ? 'Your route' : revealsRiverSheet ? riverSheetData?.name ?? null : null}
-              onClose={dismissPin}
-              starred={pinGauge ? isStarred('gauge', pinGauge.id) : false}
-              onToggleStar={
-                pinGauge
-                  ? () =>
-                      toggleStar({
-                        kind: 'gauge',
-                        entityId: pinGauge.id,
-                        name: pinGauge.name,
-                        // The river it is PRIMARY for, which is where a starred
-                        // gauge taps through to. Empty when it rates none.
-                        slug:
-                          pinGauge.thresholds?.find((link) => link.isPrimary)?.riverSlug ?? '',
-                        usgsSiteId: pinGauge.usgsSiteId,
-                        provider: pinGauge.provider,
-                      })
-                  : null
-              }
+              onClose={closePin}
+              // Rated gauges, national-tier gauges and dams, each stored as its
+              // own screen stores it. Saved places override this in PinSheet.
+              {...pinStarProps(pinStarItem(selectedPin, pinGauge, pinReferenceGauge), isStarred, toggleStar)}
               onPlanTo={(nearby) => {
                 if (pinAccessPoint) onPlanToNearby(nearby, pinAccessPoint);
               }}

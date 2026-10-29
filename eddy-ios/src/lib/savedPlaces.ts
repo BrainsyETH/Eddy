@@ -5,10 +5,20 @@ import { serviceContactActions } from './serviceContactActions';
 import { accessAvailability, accessAvailabilityName } from '../components/map-sheet/availabilitySource';
 import { decodeSavedCamping, type SavedCamping } from './savedCamping';
 
+/**
+ * What a saved place is. Outfitters and lodging joined later: like a directory
+ * campground they are `nearby_services` rows (`place:service:{id}`), so the
+ * same service refresh keeps them current.
+ */
+export type SavedPlaceKind = 'access' | 'campground' | 'outfitter' | 'lodging';
+const SAVED_PLACE_KINDS: readonly string[] = ['access', 'campground', 'outfitter', 'lodging'];
+/** The service layers a pin can be saved from, and the kind each saves as. */
+const SERVICE_KIND: Record<string, SavedPlaceKind> = { campgrounds: 'campground', outfitters: 'outfitter', lodging: 'lodging' };
+
 export interface SavedPlace {
   version: 2;
   id: string;
-  kind: 'access' | 'campground';
+  kind: SavedPlaceKind;
   name: string;
   riverSlug: string | null;
   riverName: string | null;
@@ -42,9 +52,12 @@ interface PlacePin {
 export function accessPlaceId(route: string) { return `access:${route}`; }
 export function placeFromPin(pin: PlacePin, now: string): SavedPlace | null {
   const access = pin.detailRoute?.match(/^\/river\/([^/]+)\/access\/([^/]+)$/);
-  if (!access && pin.layer !== 'campgrounds') return null;
+  const serviceKind = SERVICE_KIND[pin.layer];
+  // A campground pin keeps its old rule. Outfitters and lodging must be a
+  // directory row, because the refresh can only re-read a service by its id.
+  if (!access && pin.layer !== 'campgrounds' && !(serviceKind && pin.id.startsWith('service:'))) return null;
   return { version: 2, id: access ? accessPlaceId(pin.detailRoute!) : `place:${pin.id}`,
-    kind: pin.layer === 'campgrounds' ? 'campground' : 'access', name: pin.name,
+    kind: access ? (pin.layer === 'campgrounds' ? 'campground' : 'access') : serviceKind, name: pin.name,
     riverSlug: access?.[1] ?? pin.riverSlug ?? null, riverName: null, coordinates: pin.coordinates,
     canDrive: !access, detailRoute: access ? pin.detailRoute! : null,
     notes: pin.body ? [stripHtml(pin.body)].filter((n): n is string => !!n) : [], facts: [], tags: [], amenities: [],
@@ -109,7 +122,7 @@ export function decodeSavedPlaces(raw: string | null): SavedPlace[] {
   const parsed = JSON.parse(raw);
   if (![1, 2].includes(parsed?.version) || !Array.isArray(parsed.places)) throw new Error('Unsupported saved places');
   return parsed.places.filter((p: SavedPlace) => p && [1, 2].includes(p.version) && typeof p.id === 'string' && typeof p.name === 'string' &&
-    (p.kind === 'access' || p.kind === 'campground') && Number.isFinite(p.coordinates?.lat) && Number.isFinite(p.coordinates?.lng) &&
+    SAVED_PLACE_KINDS.includes(p.kind) && Number.isFinite(p.coordinates?.lat) && Number.isFinite(p.coordinates?.lng) &&
     Math.abs(p.coordinates.lat) <= 90 && Math.abs(p.coordinates.lng) <= 180 && typeof p.savedAt === 'string' &&
     (p.detailRoute == null || typeof p.detailRoute === 'string') && strings(p.notes) && strings(p.amenities) &&
     Array.isArray(p.links) && p.links.every(l => typeof l?.label === 'string' && typeof l.url === 'string'))

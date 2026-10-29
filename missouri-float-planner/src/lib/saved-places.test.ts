@@ -247,6 +247,29 @@ test('campgrounds save useful contact/logistics without promoting malformed inve
   assert.ok(placeFromService({ description: '', status: 'temporarily_closed' } as RiverService, pin, now).tags.includes('Temporarily closed'));
 });
 
+test('outfitters and lodging save like directory campgrounds and survive a cold load', async () => {
+  const at = { lat: 36, lng: -92 };
+  const outfitter = placeFromPin({ id: 'service:canoe', name: 'Canoe Co', layer: 'outfitters', coordinates: at,
+    contactLinks: [{ label: 'Call', url: 'tel:5551112222' }] }, now)!;
+  const cabins = placeFromPin({ id: 'service:cabins', name: 'River Cabins', layer: 'lodging', coordinates: at }, now)!;
+  assert.equal(outfitter.kind, 'outfitter'); assert.equal(outfitter.id, 'place:service:canoe');
+  assert.equal(cabins.kind, 'lodging'); assert.equal(cabins.id, 'place:service:cabins');
+  assert.equal(outfitter.canDrive, true); assert.equal(outfitter.links.length, 1);
+  // The service refresh is what keeps them current, so it must recognise them.
+  assert.equal(placeRefreshNeeds(cabins, Date.parse(now)).details, true);
+  // An access point composed onto a service layer stays the access point.
+  assert.equal(placeFromPin({ id: 'access:x', name: 'Landing', layer: 'lodging', coordinates: at,
+    detailRoute: '/river/white/access/landing' }, now)!.kind, 'access');
+  // Only a directory row can be re-read, so only a directory row is savable.
+  assert.equal(placeFromPin({ id: 'other:x', name: 'X', layer: 'outfitters', coordinates: at }, now), null);
+  assert.equal(placeFromPin({ id: 'service:x', name: 'X', layer: 'hazards', coordinates: at }, now), null);
+  const disk = memory(); const store = createSavedPlacesStore(disk);
+  await store.save(outfitter); await store.save(cabins);
+  const cold = createSavedPlacesStore(disk); await cold.load();
+  assert.deepEqual(cold.snapshot().places.map(p => p.kind).sort(), ['lodging', 'outfitter']);
+  assert.deepEqual(decodeSavedPlaces(JSON.stringify({ version: 2, places: [{ ...cabins, kind: 'hazard' }] })), []);
+});
+
 test('saved access inventory uses the common source resolver even when the access is not typed as a campground', () => {
   const statePark = availability({ source: 'mo_state_parks', facilityId: 'state-park', sitesWalkUp: null });
   const nested = availability({ facilityId: 'nps-camp' });

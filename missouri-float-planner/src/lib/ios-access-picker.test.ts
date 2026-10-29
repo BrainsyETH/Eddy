@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { MapAccessPoint } from '@eddy/types';
 import { accessKindLabels, formatRiverMiles, timelineGapLabel } from '../../../eddy-ios/src/lib/accessPickerCopy';
 
@@ -26,4 +28,11 @@ test('the first timeline row never repeats its distance as a gap', () => {
   assert.equal(timelineGapLabel(caneBluff, undefined, 0), null);
   assert.equal(timelineGapLabel(greer, caneBluff, 1), '7.3 mi from previous access');
   assert.equal(timelineGapLabel(greer, point('twin', 16.6), 2), 'Same river mile as previous access');
+});
+
+test('the sort toggle names its action and reports its state', () => {
+  const picker = readFileSync(join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'PlanAccessPicker.tsx'), 'utf8');
+  assert.match(picker, /accessibilityLabel="Sort by nearest to you"\s*accessibilityState=\{\{ selected: nearestFirst \}\}/);
+  // The pill must not say the order the heading below it already says.
+  assert.doesNotMatch(picker, /\{nearestFirst \? 'Nearest to you' : 'Downstream order'\}/);
 });

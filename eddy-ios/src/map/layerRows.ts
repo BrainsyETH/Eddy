@@ -189,3 +189,26 @@ export function groupLayerRows<K extends string, S extends string>(
 
   return groups;
 }
+
+/**
+ * Every layer key in the order the Layers sheet draws its rows, each row's
+ * tiers in place of it — so "Places in this area" lists its sections in the
+ * order the sheet that switched them on does.
+ *
+ * The places list used the raw catalog order, which put Rentals & shuttles
+ * before Cabins & lodges while the Layers sheet groups lodging with camping
+ * under "Places to stay". A tier (boat ramps, other gauges) follows the row
+ * that switches it, because that row is where a reader found it.
+ */
+export function layerDrawOrder<K extends string, S extends string>(
+  rows: readonly (SectionableRow<K, S> & { tiers?: readonly K[] })[],
+  sections: readonly { key: S; label: string }[],
+): K[] {
+  const order: K[] = [];
+  for (const group of groupLayerRows(rows, sections)) {
+    for (const row of group.rows as (SectionableRow<K, S> & { tiers?: readonly K[] })[]) {
+      for (const key of row.tiers ?? [row.key]) if (!order.includes(key)) order.push(key);
+    }
+  }
+  return order;
+}

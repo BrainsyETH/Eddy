@@ -98,9 +98,16 @@ export function PlanAccessPicker({
               onPress={() => setNearestFirst((prev) => !prev)}
               style={({ pressed }) => [
                 styles.sortRow,
-                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+                // The label no longer changes with the state, so the pill's
+                // border carries it for sighted readers, as a selected chip's does.
+                { borderColor: nearestFirst ? colors.interactive : colors.border, opacity: pressed ? 0.6 : 1 },
               ]}
+              // A toggle names the ACTION and reports its state, never the
+              // other way round: this pill used to read "Nearest to you" while
+              // the heading below said the same, so VoiceOver announced the
+              // order twice and never what tapping would do.
               accessibilityRole="button"
+              accessibilityLabel="Sort by nearest to you"
               accessibilityState={{ selected: nearestFirst }}
             >
               <ControlIcon
@@ -111,7 +118,7 @@ export function PlanAccessPicker({
               <Text
                 style={[styles.sortText, { color: nearestFirst ? colors.text : colors.textMuted }]}
               >
-                {nearestFirst ? 'Nearest to you' : 'Downstream order'}
+                Sort by nearest
               </Text>
             </Pressable>
           ) : null}

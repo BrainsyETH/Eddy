@@ -45,7 +45,8 @@ export type PlaceSymbolName =
   | 'hazard'
   | 'gravelBar'
   | 'lodging'
-  | 'outfitter';
+  | 'outfitter'
+  | 'spring';
 
 /** Just the field the layer rule reads. Structural — see the header. */
 interface LayerTapped {
@@ -67,6 +68,10 @@ const LAYER_SYMBOL: Record<string, PlaceSymbolName> = {
   hazards: 'hazard',
   outfitters: 'outfitter',
   lodging: 'lodging',
+  // The droplet the springs layer draws (layers.ts `symbol: 'spring'`). Absent,
+  // a spring fell through to the generic access pin — the put-in mark, on a
+  // place the layer's own caveat says is often not somewhere to land.
+  springs: 'spring',
   campgrounds: 'campground',
   // Present for the same reason `campgrounds` is: the access family draws one
   // place under whichever of its marks won, and the sheet's header has to show

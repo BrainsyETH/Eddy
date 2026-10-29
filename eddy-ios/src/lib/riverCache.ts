@@ -50,6 +50,7 @@ import type {
 } from '@eddy/types';
 import type { StatewideRiver } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
+import { withPlaceRiver, type PlaceRiver } from '@/lib/placeRiver';
 import {
   INDEX_KEY,
   SEED_INDEX_KEY,
@@ -269,16 +270,13 @@ export interface CachedAccessPoint {
 export interface CachedPlaces {
   accessPoints: CachedAccessPoint[];
   /**
-   * Untagged, unlike the access points above: a hazard pin carries no river
-   * link and opens no river-scoped route, so there is nothing for a slug to do
-   * on one.
+   * Tagged with the river they were stored under, like the access points
+   * above: the sheet names that river and offers "View river". See
+   * placeRiver.ts for why the tag is carried rather than looked up.
    */
-  hazards: Hazard[];
-  /**
-   * Untagged for the same reason as hazards: a spring's callout is the spring,
-   * and there is no per-spring route for a slug to build.
-   */
-  springs: MapSpring[];
+  hazards: (Hazard & PlaceRiver)[];
+  /** Tagged for the same reason; a MapSpring carries no river at all. */
+  springs: (MapSpring & PlaceRiver)[];
 }
 
 /**
@@ -314,8 +312,8 @@ export async function readAllPlaces(): Promise<CachedPlaces> {
 
     const entries = await AsyncStorage.multiGet(keys);
     const accessPoints: CachedAccessPoint[] = [];
-    const hazards: Hazard[] = [];
-    const springs: MapSpring[] = [];
+    const hazards: (Hazard & PlaceRiver)[] = [];
+    const springs: (MapSpring & PlaceRiver)[] = [];
     for (const [key, raw] of entries) {
       const riverSlug = slugFromRiverKey(key);
       if (!riverSlug) continue;
@@ -323,11 +321,12 @@ export async function readAllPlaces(): Promise<CachedPlaces> {
       for (const point of stored?.payload?.accessPoints ?? []) {
         accessPoints.push({ point, riverSlug });
       }
-      hazards.push(...(stored?.payload?.hazards ?? []));
-      // `?? []` is load-bearing rather than defensive: every river cached by a
-      // build older than the springs field has no `springs` key at all, and the
-      // cache is read before it is ever rewritten.
-      springs.push(...(stored?.payload?.springs ?? []));
+      const riverName = stored?.payload?.river?.name ?? null;
+      hazards.push(...withPlaceRiver(stored?.payload?.hazards, riverSlug, riverName));
+      // The empty default is load-bearing rather than defensive: every river
+      // cached by a build older than the springs field has no `springs` key at
+      // all, and the cache is read before it is ever rewritten.
+      springs.push(...withPlaceRiver(stored?.payload?.springs, riverSlug, riverName));
     }
     return { accessPoints, hazards, springs };
   } catch {
