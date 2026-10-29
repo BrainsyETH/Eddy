@@ -1,4 +1,4 @@
-import { boundsForLine, MAX_ACCURACY_M, type LngLat } from '@eddy/geo';
+import { boundsForLine, MAX_ACCURACY_M, MIN_MOVING_MS, type LngLat } from '@eddy/geo';
 import { formatDuration, STALE_POSITION_MS, type FloatSession } from './floatSession';
 import type { ActivityAvailability } from './floatActivity';
 import type { TrackerState } from './floatTrackerStatus';
@@ -64,6 +64,47 @@ export function progressLine(session: FloatSession, now: number): string | null 
   const time = minutes < 1 ? 'Just started' : `${formatDuration(minutes)} on the water`;
   const miles = latest && session.startMile != null ? Math.max(0, latest.riverMile - session.startMile) : null;
   return miles == null ? time : `${time} · ${miles.toFixed(1)} mi from start`;
+}
+
+/**
+ * Moving time and speeds, the line under progressLine:
+ * "1 hr 5 min moving at 3.0 mph · 2.6 mph overall".
+ *
+ * Moving time and speed are the recap's (river miles over moving time, with
+ * breaks of STAY_MIN_MS or more and GPS gaps left out), so a break never
+ * lowers them. Overall is the line above divided out (miles from start over
+ * time on the water), so the numbers on screen agree with each other: it
+ * sinks slowly through a stop rather than reading zero. Moving time shows from
+ * its first minute, the speeds after MIN_MOVING_MS of movement, and neither
+ * speed after net travel upstream. Overall never reads above moving: river
+ * covered across a GPS gap can push it there, and that would read as a bug.
+ */
+export function paceLine(session: FloatSession, now: number): string | null {
+  const totals = session.totals;
+  const until = session.arrivedAt ?? session.riverEndAt ?? now;
+  const onWater = Math.max(0, until - session.startedAt);
+  const movingMinutes = Math.min(Math.round((totals?.movingMs ?? 0) / 60_000), Math.round(onWater / 60_000));
+  if (!totals || movingMinutes < 1) return null;
+  const time = `${formatDuration(movingMinutes)} moving`;
+  const mph = (miles: number, ms: number) => (miles > 0 && ms > 0 ? miles / (ms / 3_600_000) : null);
+  const moving = totals.movingMs >= MIN_MOVING_MS ? mph(totals.movingMiles, totals.movingMs) : null;
+  if (moving == null) return time;
+  const latest = session.samples[session.samples.length - 1];
+  const overall = latest && session.startMile != null ? mph(latest.riverMile - session.startMile, onWater) : null;
+  return overall == null
+    ? `${time} at ${moving.toFixed(1)} mph`
+    : `${time} at ${moving.toFixed(1)} mph · ${Math.min(overall, moving).toFixed(1)} mph overall`;
+}
+
+/**
+ * What VoiceOver should hear for a stats caption: the separator as a pause
+ * and units as words, since "·" and "mph" read differently by setting.
+ */
+export function spokenStats(text: string): string {
+  return text
+    .replace(/ · /g, ', ')
+    .replace(/\bmph\b/g, 'miles per hour')
+    .replace(/\bmi\b/g, 'miles');
 }
 
 export function fixAgeLabel(at: number | null, now: number): string {

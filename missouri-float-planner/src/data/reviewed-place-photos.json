@@ -15,6 +15,51 @@
     }
   },
   {
+    "table": "access_points",
+    "id": "7433821d-623c-45d1-84f0-707d1f53bac5",
+    "name": "Cotter Access (Big Spring Park)",
+    "image": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/4a/Cotter%2C_AR_004.jpg",
+      "title": "Cotter Access (Big Spring Park)",
+      "altText": "Big Spring flowing across the grassy bank into the White River at Big Spring Park, Cotter",
+      "caption": "Big Spring Park beside the access, not the ramp itself. Location photograph; not current conditions.",
+      "credit": "Brandonrush",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cotter,_AR_004.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "938a458b-3b64-437d-90b5-d435e325c4a7",
+    "name": "White Hole Access",
+    "image": {
+      "url": "https://www.fws.gov/sites/default/files/2023-12/w%E2%80%AAhitehole%20stocking.jpg",
+      "title": "White Hole Access",
+      "altText": "Hatchery stocking truck on the concrete boat ramp at White Hole on the White River",
+      "caption": "Fish stocking at the White Hole ramp below Bull Shoals Dam, December 2023. Location photograph; not current conditions.",
+      "credit": "Creed Chapman / USFWS",
+      "sourceUrl": "https://www.fws.gov/media/whitehole-stockingjpg",
+      "license": "Public domain",
+      "licenseUrl": "https://www.fws.gov/media/whitehole-stockingjpg"
+    }
+  },
+  {
+    "table": "access_points",
+    "id": "80db3a77-db31-4b8a-9010-248534a1f4cc",
+    "name": "Dam-Quarry Campground",
+    "image": {
+      "url": "https://cdn.recreation.gov/public/2019/01/10/21/26/232565_1d8719da-8330-4e3c-9fd0-1ec1cc95266b_1440.webp",
+      "title": "Dam-Quarry Campground",
+      "altText": "Entrance road to the Dam-Quarry recreation area, with lawn and picnic shelters below wooded hills",
+      "caption": "Park entrance. Location photograph; not current conditions.",
+      "credit": "U.S. Army Corps of Engineers, Mountain Home Project Office",
+      "sourceUrl": "https://www.recreation.gov/camping/campgrounds/232565",
+      "license": "Public domain (U.S. federal work)",
+      "licenseUrl": "https://www.usa.gov/government-copyright"
+    }
+  },
+  {
     "table": "points_of_interest",
     "id": "11cbd262-1f88-4551-bc68-a71969c168b9",
     "name": "Blue Spring",

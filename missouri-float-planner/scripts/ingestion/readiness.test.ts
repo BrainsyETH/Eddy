@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { unratedGaugePlan } from './unrated-gauges';
 import type { RiverReadiness } from './readiness';
 import type { GaugeCandidate, RiverSectionDossier } from './dossier';
-import { READINESS_CRITERIA, readinessProblems } from './readiness';
+import { READINESS_CRITERIA, readinessProblems, tailwaterPilotProblems } from './readiness';
 
 const reviews = Object.fromEntries(READINESS_CRITERIA.map(key => [key, {
   status: 'verified', evidence: ['https://example.org/source'], reviewedBy: 'test reviewer', reviewedAt: '2026-10-03', notes: 'test',
@@ -16,6 +16,15 @@ test('launch evidence must be reviewed, attributed, and present for every criter
   assert.deepEqual(readinessProblems(reviews), []);
   assert.deepEqual(readinessProblems({ ...reviews, hazards: { status: 'verified', evidence: [] } }), ['hazards: missing evidence']);
   assert.deepEqual(readinessProblems({ ...reviews, routing: { ...reviews.routing, reviewedBy: null } }), ['routing: missing reviewer/date']);
+});
+
+test('a tailwater pilot review names its reviewer, evidence and published endpoints', () => {
+  const pilot = { ...reviews.routing, floatEndpoints: ['put-in', 'takeout'] };
+  assert.deepEqual(tailwaterPilotProblems(reviews), ['tailwaterPilot: missing']);
+  assert.deepEqual(tailwaterPilotProblems({ ...reviews, tailwaterPilot: pilot }), []);
+  assert.deepEqual(tailwaterPilotProblems({ ...reviews, tailwaterPilot: { ...pilot, status: 'pending' } }), ['tailwaterPilot: pending']);
+  assert.deepEqual(tailwaterPilotProblems({ ...reviews, tailwaterPilot: { ...pilot, floatEndpoints: [] } }), ['tailwaterPilot: missing floatEndpoints']);
+  assert.deepEqual(readinessProblems({ ...reviews, tailwaterPilot: pilot }), [], 'ordinary rivers ignore the pilot');
 });
 
 test('all dossiers explicitly track the launch review without implying historical sign-off', () => {
@@ -203,6 +212,33 @@ test('explicit unrated activation keeps freshness, review and threshold-conflict
     await db.exec("UPDATE rivers SET river_type = 'dam_tailwater'");
     result = await run(true);
     assert.ok(result.rows.some(r => r.check_name === 'tailwater_pilot_review'));
+    // The per-river pilot gate replaces the blanket refusal without loosening it.
+    await db.exec(readFileSync('supabase/migrations/20261029114729_tailwater_pilot_gate.sql', 'utf8'));
+    await db.exec(`ALTER TABLE access_points ADD COLUMN slug text;
+      INSERT INTO access_points(river_id,name,slug,approved,is_float_endpoint) VALUES
+        ('00000000-0000-0000-0000-000000000001','Put-in','put-in',true,true),
+        ('00000000-0000-0000-0000-000000000001','Takeout','takeout',true,true),
+        ('00000000-0000-0000-0000-000000000001','Bank','bank',true,false),
+        ('00000000-0000-0000-0000-000000000001','Pending','pending',false,true)`);
+    const pilot = { ...reviews.routing, floatEndpoints: ['takeout', 'put-in'] };
+    result = await run(true);
+    assert.ok(result.rows.some(r => r.check_name === 'tailwater_pilot_review'), 'no pilot review, no tailwater');
+    assert.equal(await active(), false);
+    result = await run(true, { ...evidence, tailwaterPilot: { ...pilot, reviewedBy: ' ' } });
+    assert.ok(result.rows.some(r => r.check_name === 'tailwater_pilot_review'), 'an unattributed review does not count');
+    result = await run(true, { ...evidence, tailwaterPilot: { ...pilot, floatEndpoints: ['put-in'] } });
+    assert.ok(result.rows.some(r => r.check_name === 'tailwater_scope_mismatch'), 'a short corridor cannot authorize every endpoint');
+    result = await run(true, { ...evidence, tailwaterPilot: { ...pilot, floatEndpoints: [...pilot.floatEndpoints, 'bank'] } });
+    assert.ok(result.rows.some(r => r.check_name === 'tailwater_scope_mismatch'), 'the review cannot name an endpoint activation would not publish');
+    assert.equal(await active(), false);
+    result = await run(false, { ...evidence, tailwaterPilot: pilot });
+    assert.deepEqual(result.rows.filter(r => r.severity === 'error'), [], 'unapproved endpoints are outside the published scope');
+    assert.equal(await active(), false, 'successful tailwater preview stays private');
+    await db.exec("UPDATE rivers SET condition_rating_mode = 'rated'");
+    result = await run(true, { ...reviews, tailwaterPilot: pilot });
+    assert.ok(result.rows.some(r => r.check_name === 'tailwater_requires_unrated'), 'a tailwater never activates on a recreational ladder');
+    assert.equal(await active(), false);
+    await db.exec("UPDATE rivers SET condition_rating_mode = 'unrated'");
     await db.exec("UPDATE rivers SET river_type = 'rain_flashy'");
     result = await run(true);
     assert.equal(result.rows.some(r => r.severity === 'error'), false);
