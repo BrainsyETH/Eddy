@@ -86,7 +86,7 @@ test('a forecast crossing surfaces even without a current reading', () => {
 test('below every threshold names the lowest one that exists', () => {
   const summary = summarizeSafety({ stages: VAN_BUREN, currentFt: 3 });
   assert.deepEqual(summary, { kind: 'below', lowestPublished: 'action' });
-  assert.equal(safetySummarySentence(summary), 'Well below flood stage.');
+  assert.equal(safetySummarySentence(summary), 'Below flood stage.');
 });
 
 test('actionFt can be null while floodFt exists — the sentence adjusts', () => {

@@ -8,8 +8,11 @@ import { fonts, type as t } from '@/theme/typography';
 import { savedScheduleState, type SavedPlace } from '@/lib/savedPlaces';
 import { savedScheduleDayLabel, scheduleGroups } from '@/lib/savedPlaceDisplay';
 
+// At the dam, not the device: the day headers below are Central time too.
 const stamp = (value: string | null) => value && Number.isFinite(Date.parse(value))
-  ? new Date(value).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  ? new Date(value).toLocaleString('en-US', {
+    timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  })
   : null;
 
 /** Retain an existing linked schedule without offering unrelated dams. */

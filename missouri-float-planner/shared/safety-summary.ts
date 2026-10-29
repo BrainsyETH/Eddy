@@ -141,7 +141,7 @@ const FORECAST_PHRASE: Record<FloodStageKey, string> = {
 };
 
 const BELOW_SENTENCE: Record<FloodStageKey, string> = {
-  action: 'Well below flood stage.',
+  action: 'Below flood stage.',
   flood: 'Below flood stage.',
   moderate: 'Below moderate flood stage.',
   major: 'Below major flood stage.',
