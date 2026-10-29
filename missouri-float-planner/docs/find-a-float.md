@@ -50,6 +50,8 @@ turns off public-only, and only when the catalogue contains another downstream
 endpoint pair. Recovery starts a new search; it never relabels old results or
 relaxes condition, closure, or hazard exclusions.
 
+A recorded hazard or portage at the put-in or take-out (within `ENDPOINT_HAZARD_TOLERANCE_MILES`) is launched below or landed above, so it neither blocks the route, makes it conditional, nor fails No portages; the card names it instead. Only hazards strictly between the endpoints are on the float. The planner's own hazard list still includes endpoint hazards for maps and River Mode reminders.
+
 Screening continues to exclude `too_low`, `high`, and `dangerous`, including positioned gauges within the route. Full route checks remove `not_recommended` results. Low readings can survive with the existing assessment’s caution labels. Unknown or stale readings survive preliminary screening but must pass the final coverage checks before becoming suggestions. Closures and hazards use the existing recommendation checks.
 
 Variety is a preference: reuse the existing overlap/put-in/reach selection, prefer at most two picks per river, then backfill. Selecting a river disables the river cap and the radius filter, and both apps hide the radius control. A visible starting point still orders launches and supplies drive times.

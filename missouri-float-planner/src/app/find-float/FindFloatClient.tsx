@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, Map } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import BuildRouteIcon from '@/components/ui/BuildRouteIcon';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Segmented from '@/components/ui/Segmented';
@@ -187,7 +188,7 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
     <div className="mx-auto max-w-7xl px-4 py-7 text-[var(--color-text-primary)] sm:px-6 lg:py-9">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 style={{ fontFamily: 'var(--font-display)' }} className="text-4xl font-semibold sm:text-5xl">Floats</h1>
-        <Button href={planner.href} variant="outline" onClick={rememberBrowsing}><Map size={18} aria-hidden="true" />Build a Route</Button>
+        <Button href={planner.href} variant="outline" onClick={rememberBrowsing}><BuildRouteIcon size={24} />Build a Route</Button>
       </header>
       <div className="space-y-8">
         <Card variant="framed" as="section" aria-labelledby="route-finder-heading" className="min-w-0" style={{ overflow: 'visible' }}>

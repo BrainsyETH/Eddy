@@ -342,7 +342,8 @@ export async function findNearbyFloats(
         conditionCode: p.routeAssessment.conditionCode,
         conditionLabel: p.routeAssessment.label,
         conditional: p.routeAssessment.recommendationStatus === 'conditional',
-        cautions: p.routeAssessment.cautionReasons.map((r) => r.message),
+        // Endpoint hazards are named on the card without demoting the route.
+        cautions: [...p.routeAssessment.cautionReasons, ...p.routeAssessment.notices.filter(n => n.code === 'hazard_at_endpoint')].map((r) => r.message),
         estimateBasis:
           p.estimateBasis === 'current_conditions'
             ? 'current_conditions'

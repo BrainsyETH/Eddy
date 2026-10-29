@@ -1577,6 +1577,8 @@ test('fee, road and portage filters exclude only recorded problems', async () =>
   assert.equal(pairPasses(point(0, { road_surface: ['paved', 'gravel_unmaintained'] }), point(8), { smoothRoads: true }), false);
   assert.equal(pairPasses(point(0), point(8), { noPortages: true }, [4]), false);
   assert.equal(pairPasses(point(0), point(3), { noPortages: true }, [4]), true);
+  assert.equal(pairPasses(point(0), point(4), { noPortages: true }, [4]), true, 'a portage at the take-out is not on the route');
+  assert.equal(pairPasses(point(4), point(8), { noPortages: true }, [4.004]), true, 'nor one at the put-in');
   assert.equal(pairPasses(point(0, { nps_campground_id: 'x' }), point(8), { camping: true }), true);
   const f = fixture({ points: 4 });
   f.tables.river_hazards.push({ id: 'dam', river_id: uuid(1), active: true, portage_required: true, river_mile_downstream: 6, name: 'Low dam', type: 'low_water_dam', severity: 'warning' });
@@ -1635,4 +1637,25 @@ test('float-search HTTP accepts trip length and known filters only', async () =>
     const response = await floatSearchPost(fixture())({ ...nearbyInput, river: 'current', ...body });
     assert.equal(response.status, 400, JSON.stringify(body));
   }
+});
+
+test('a hazard at the put-in or take-out never blocks or demotes that route', async () => {
+  const { hazardRoutePosition } = await import('@shared/route-hazards');
+  assert.equal(hazardRoutePosition(4, 4, 8), 'put_in');
+  assert.equal(hazardRoutePosition(8.005, 4, 8), 'take_out');
+  assert.equal(hazardRoutePosition(4.05, 4, 8), 'inside');
+  const f = fixture({ points: 3 });
+  f.tables.river_hazards.push({ id: 'dam', river_id: uuid(1), active: true, severity: 'danger', portage_required: true, river_mile_downstream: 4, name: 'Mill dam', type: 'low_water_dam' });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current', targetHours: 3 }, { sources: f.sources, now: NOW });
+  const routes = [...result.matches, ...result.alternatives];
+  const ids = (a: number, b: number) => `${uuid(10 + a)}:${uuid(10 + b)}`;
+  assert.ok(routes.some(r => r.id === ids(0, 1)), 'ending at the dam survives');
+  assert.ok(routes.some(r => r.id === ids(1, 2)), 'starting at the dam survives');
+  assert.ok(!routes.some(r => r.id === ids(0, 2)), 'floating through the dam stays blocked');
+  const landing = routes.find(r => r.id === ids(0, 1))!;
+  assert.equal(landing.conditional, false, 'an endpoint hazard is not a caution');
+  assert.ok(landing.cautions.includes('Mill dam is at the take-out; land above it.'));
+  const plan = (await f.execute('plan_float', { river: 'current', putIn: 'launch-0', takeOut: 'launch-1', vesselType: 'canoe' })).data as any;
+  assert.deepEqual(plan.hazards.atEndpoints, [{ id: 'dam', at: 'take_out' }]);
+  assert.equal(plan.routeAssessment.cautionReasons.some((r: { code: string }) => r.code === 'portage_required'), false);
 });

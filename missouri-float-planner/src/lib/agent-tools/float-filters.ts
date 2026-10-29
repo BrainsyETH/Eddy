@@ -1,4 +1,5 @@
 import type { FloatSearchFilters } from '@shared/float-search';
+import { hazardRoutePosition } from '@shared/route-hazards';
 import { checked, numeric, type Access, type DataContext, type River } from './data';
 
 /** Find a Float filters. Each one only removes routes: missing data never
@@ -39,7 +40,8 @@ export function pairPasses(
   if (filters?.smoothRoads && [putIn, takeOut].some(point => (point.road_surface ?? []).some(surface => ROUGH_ROADS.has(surface)))) return false;
   if (filters?.noPortages) {
     const start = Number(putIn.river_mile_downstream), end = Number(takeOut.river_mile_downstream);
-    if (portageMiles.some(mile => mile >= start && mile <= end)) return false;
+    // A portage at the put-in or take-out is not on this route.
+    if (portageMiles.some(mile => hazardRoutePosition(mile, start, end) === 'inside')) return false;
   }
   return true;
 }

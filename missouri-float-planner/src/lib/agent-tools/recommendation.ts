@@ -36,6 +36,8 @@ export interface RecommendationInput {
   forecastUnsuitable: boolean;
   hazards: Hazard[];
   unlocatedHazards: Hazard[];
+  /** Hazards at an endpoint: named for the launch or landing, never blocking. */
+  endpointHazards?: Array<{ hazard: Hazard; at: 'put_in' | 'take_out' }>;
   alerts: AlertChecks;
   riverName: string;
   endpointNames: string[];
@@ -196,6 +198,16 @@ export function assessRecommendation(input: RecommendationInput) {
         alert.id,
       );
     }
+  }
+
+  // You launch below a hazard at the put-in and land above one at the
+  // take-out: it is not on the float, so it neither blocks nor needs a portage.
+  for (const { hazard, at } of input.endpointHazards ?? []) {
+    notices.push({
+      code: 'hazard_at_endpoint',
+      message: `${hazard.name} is at the ${at === 'put_in' ? 'put-in; launch below it' : 'take-out; land above it'}.`,
+      sourceId: hazard.id,
+    });
   }
 
   if (input.future && input.forecastUnsuitable)

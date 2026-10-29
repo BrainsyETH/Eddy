@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { floatMapDestination, floatPlanDestination } from '../../../eddy-ios/src/lib/planRequest';
@@ -286,4 +287,11 @@ test('View on Map targets the existing Map tab with exact endpoints and a fresh 
   assert.equal(first.params.openPlan, '1');
   for (const [key, value] of Object.entries(route)) assert.equal(first.params[key as keyof typeof first.params], value);
   assert.notEqual(first.params.planRequest, floatMapDestination(route).params.planRequest);
+});
+
+test('web Build a Route CTAs draw the same Eddy-with-map artwork as the iOS Floats hub', () => {
+  assert.ok(readFileSync('public/icons/eddy-build-route.png').equals(readFileSync('../eddy-ios/assets/float-action-icons/build-route@3x.png')));
+  for (const file of ['src/app/find-float/FindFloatClient.tsx', 'src/components/home/HomePage.tsx']) {
+    assert.match(readFileSync(file, 'utf8'), /<BuildRouteIcon[^>]*\/>\s*Build a Route/, file);
+  }
 });
