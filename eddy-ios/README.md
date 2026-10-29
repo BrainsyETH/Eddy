@@ -1343,6 +1343,15 @@ Missing ladders or readings omit the scale; stale/suspect readings mute it and
 hide its marker. Seasonal copy is omitted for missing statistics, untrusted
 readings or a comparison from another calendar day. Search rows stay compact.
 
+## Dam details
+
+Dam detail readings use Eddy's illustrated metric symbols: Release and Water
+temperature share the web masters; lake and tailwater levels reuse the gauge
+mark; Inflow and fishery have matching symbols. Generation pattern always
+includes the posted upcoming schedule alongside measured history, with no
+include/hide control. Measured bars stay solid, scheduled bars outlined, and
+missing readings stay gaps. Larger text retains the full spoken row summaries.
+
 ## River guides
 
 The bottom of Today features one free **River guide** each local calendar day,

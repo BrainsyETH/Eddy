@@ -46,6 +46,10 @@ WEB_OUT = ROOT / "missouri-float-planner/public/icons"
 # (inline, ~18pt) and EddyScene.tsx (hero, ~110pt).
 SYMBOLS = (
     "eddy-today",
+    "eddy-release",
+    "eddy-water-temperature",
+    "eddy-inflow",
+    "eddy-fishery",
     "eddy-weather",
     "eddy-ai-assistant",
     "eddy-water-droplet",
@@ -89,6 +93,7 @@ PRE_CUT = frozenset({
     "eddy-road", "eddy-parking", "eddy-restroom", "eddy-today",
     # Generated dam-reading masters already have transparent backgrounds.
     "eddy-release", "eddy-water-temperature",
+    "eddy-inflow", "eddy-fishery",
 })
 
 # Four, not the ten the catalog offers, because a scene needs a hero-sized slot

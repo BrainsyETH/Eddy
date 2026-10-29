@@ -1,5 +1,5 @@
 // eddy-ios/src/components/dam/DamPatternStrip.tsx
-// Observed history by default, with the upcoming schedule available for comparison.
+// Observed history and the posted upcoming schedule, together without a toggle.
 //
 // Ported from the web strip, same rules, same shared arithmetic.
 //
@@ -22,7 +22,7 @@
 
 import { radii } from '@/theme/layout';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { DamPatternDay, DamScheduleDay } from '@eddy/types';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
@@ -31,7 +31,6 @@ import {
   patternRowLabel as rowLabel,
   patternRowVoiceOver as rowVoiceOver,
   patternRows,
-  generationHistoryRows,
   patternSpanLabel,
   type GenerationReference,
   type PatternRow as Row,
@@ -70,9 +69,6 @@ export function DamPatternStrip({
   const { colors, elevation } = useTheme();
   const { fontScale, width } = useWindowDimensions();
   const stacked = fontScale >= 1.3 || width < 360;
-  // Deliberate per-visit default: the schedule card above already shows the
-  // upcoming hours. This local comparison toggle is not a saved preference.
-  const [showUpcoming, setShowUpcoming] = useState(false);
 
   // ── The strip needs its own clock ────────────────────────────────────────
   // `patternRows` defaults its `now` to Date.now() AT CALL TIME, and the call
@@ -92,13 +88,10 @@ export function DamPatternStrip({
     return () => clearInterval(id);
   }, []);
 
-  const allRows = useMemo<Row[]>(
+  const rows = useMemo<Row[]>(
     () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
     [now, pattern, schedule, reference, generationFloorCfs]
   );
-  const slotCountByDay = new Map(allRows.map((row) => [row.dayKey, row.cells.length]));
-  const rows = showUpcoming ? allRows : generationHistoryRows(allRows);
-  const canShowUpcoming = allRows.some((row) => row.scheduled);
 
   if (rows.length === 0) return null;
   const span = patternSpanLabel(rows);
@@ -112,13 +105,11 @@ export function DamPatternStrip({
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>
-          {showUpcoming ? 'Generation pattern' : 'Generation history'}
+          Generation pattern
         </Text>
         <DamInfoTip
-          title={showUpcoming ? 'About the generation pattern' : 'About generation history'}
-          message={showUpcoming
-            ? 'Central time, at the dam. Solid bars are measured; outlined bars are scheduled. Schedules can change without notice, and water reaches downstream locations later.'
-            : 'Measured generation in Central time, at the dam. Today shows completed hours only. Missing readings are gaps, not evidence that generation stopped. Past generation does not predict future releases.'}
+          title="About the generation pattern"
+          message="Central time, at the dam. Solid bars are measured; outlined bars are scheduled. Missing readings are gaps, not evidence that generation stopped. Schedules can change without notice, and water reaches downstream locations later."
         />
       </View>
       {/* WHICH DAYS, in words. The row labels name each row and never the whole,
@@ -170,12 +161,9 @@ export function DamPatternStrip({
 
       <View style={styles.rows}>
         {rows.map((row, index) => {
-          // Preserve today's full time axis when future hours are hidden.
-          // This also preserves the shared builder's 23/25-hour DST geometry.
-          const slotCount = slotCountByDay.get(row.dayKey) ?? row.cells.length;
-          const description = row.today && row.cells.length === 0
-            ? 'Today: no completed hours yet.'
-            : rowVoiceOver(row);
+          // Keep the shared builder's complete 23/24/25-hour Central-time axis.
+          const slotCount = row.cells.length;
+          const description = rowVoiceOver(row);
           return (
             <View key={row.dayKey}>
               {/* The line between what happened and what is planned. */}
@@ -314,18 +302,6 @@ export function DamPatternStrip({
           <View style={styles.axisTail} />
         </View> : null}
       </View>
-      {canShowUpcoming ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showUpcoming }}
-          onPress={() => setShowUpcoming((value) => !value)}
-          style={({ pressed }) => [styles.scheduleToggle, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text style={[textStyles.body, { color: colors.interactive }]}>
-            {showUpcoming ? 'Show history only' : 'Include upcoming schedule'}
-          </Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -337,7 +313,6 @@ const styles = StyleSheet.create({
   // Directly under the title, above the legend: it says what the card is OF,
   // which is read before what the treatments mean.
   span: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, marginTop: -4 },
-  scheduleToggle: { minHeight: 44, justifyContent: 'center' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSwatch: { width: 10, height: 12, borderRadius: 1 },
