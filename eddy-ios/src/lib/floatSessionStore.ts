@@ -85,7 +85,7 @@ function ensureArrivedCategory(): Promise<void> {
  * time-sensitive: a Focus mode must not silence "portage river left". The
  * entitlement is in app.json. The ending prompts are ordinary.
  */
-async function deliverReminders(due: DueReminder[]): Promise<string[]> {
+async function deliverReminders(due: DueReminder[], session: FloatSession): Promise<string[]> {
   if (!canDeliverNotification(await readNotificationAccess())) return [];
   const delivered: string[] = [];
   for (const reminder of due) {
@@ -98,7 +98,8 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
           title,
           body,
           sound: true,
-          data: { floatReminder: reminder.id },
+          // The float it is about: its Finish action must never end a later one.
+          data: { floatReminder: reminder.id, floatId: session.id },
           ...(ahead ? { interruptionLevel: 'timeSensitive' } : {}),
           ...(reminder.kind === 'arrived' ? { categoryIdentifier: ARRIVED_CATEGORY } : {}),
         },
