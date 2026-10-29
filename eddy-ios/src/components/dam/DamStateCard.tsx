@@ -29,6 +29,7 @@
 
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import type { DamSnapshot } from '@eddy/types';
 import {
   relativeAge,
@@ -62,7 +63,7 @@ function isStale(metric: { at: string }): boolean {
 }
 
 interface StatProps {
-  icon: React.ComponentProps<typeof ControlIcon>['name'];
+  icon: EddySymbolName;
   label: string;
   value: string;
   /**
@@ -84,7 +85,7 @@ function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
     <View style={[styles.stat, (fontScale >= 1.3 || width < 360) && { flexBasis: '100%' }]} accessible
       accessibilityLabel={[label, value.replace(/\bcfs\b/g, 'cubic feet per second').replace(/\bft\b/g, 'feet').replace('°F', 'degrees Fahrenheit'), suffix, sub, dim ? 'Older reading' : null].filter(Boolean).join('. ')}>
       <View style={styles.statLabelRow}>
-        <ControlIcon name={icon} size={12} color={colors.textMuted} accessible={false} />
+        <EddySymbol name={icon} size={28} />
         <Text style={[styles.statLabel, { color: colors.textSubtle }]}>{label}</Text>
       </View>
       <Text style={[styles.statValue, { color: dim ? colors.textMuted : colors.text }]}>
@@ -215,7 +216,7 @@ export function DamStateCard({
             appears, and it stays. */}
         {release && !(secondary && dam.hasTurbines) ? (
           <Stat
-            icon="water-outline"
+            icon="release"
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}
             value={formatCfs(release.value)}
             sub={relativeAge(release.at)}
@@ -235,7 +236,7 @@ export function DamStateCard({
             Movement and age travel together — see tailwaterMovementSentence. */}
         {tailwaterStage ? (
           <Stat
-            icon="resize-outline"
+            icon="gauge"
             label="Water level below dam"
             value={`${tailwaterStage.value.toFixed(2)} ft`}
             suffix="elevation"
@@ -246,7 +247,7 @@ export function DamStateCard({
 
         {tailwaterTemp ? (
           <Stat
-            icon="thermometer-outline"
+            icon="waterTemperature"
             label="Water temp below dam"
             value={`${tailwaterTemp.value.toFixed(1)} °F`}
             sub={tailwaterTemp.value < 60 ? 'cold release' : null}
@@ -256,7 +257,7 @@ export function DamStateCard({
 
         {pool ? (
           <Stat
-            icon="analytics-outline"
+            icon="gauge"
             label="Lake level"
             value={`${pool.value.toFixed(2)} ft`}
             sub={
@@ -273,7 +274,7 @@ export function DamStateCard({
             the operator is actually targeting. */}
         {inflow ? (
           <Stat
-            icon="enter-outline"
+            icon="inflow"
             label={inflow.dailyMean ? 'Inflow (daily avg)' : 'Inflow'}
             value={formatCfs(inflow.value)}
             // Age included for the same reason as the tailwater reading: this
@@ -293,7 +294,7 @@ export function DamStateCard({
             exactly the fishery most worth naming. */}
         {dam.tailwaterFishery ? (
           <Stat
-            icon="fish-outline"
+            icon="fishery"
             label="Below the dam"
             value={dam.tailwaterFishery === 'trout' ? 'Trout water' : 'Warm water'}
             sub={dam.tailwaterFishery === 'trout' ? 'cold year-round' : null}
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   // A floor rather than a fixed width, so two stats share a row on a phone and
   // four fit on a tablet without a breakpoint.
   stat: { minWidth: 130, flexGrow: 1, flexBasis: '40%', gap: 2 },
-  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statLabel: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', flex: 1 },
   statValue: { ...t.xl, fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
   statSuffix: { ...t.sm, fontFamily: fonts.medium },
