@@ -48,8 +48,9 @@ import Foundation
     precondition(packet.todaySchedule(at: now)?.hours[0].megawatts == nil)
     precondition(packet.todaySchedule(at: now)?.peak == 100)
     precondition(packet.todaySchedule(at: now.addingTimeInterval(86_400)) == nil)
+    // An aged-out schedule check keeps today's chart; only the date gates it.
     packet.entries[0].scheduleCurrent = false
-    precondition(packet.todaySchedule(at: now) == nil)
+    precondition(packet.todaySchedule(at: now)?.peak == 100)
     packet.entries[0].scheduleCurrent = true
     packet.scheduleDays?[0].hours[0].megawatts = -1
     precondition(packet.todaySchedule(at: now) == nil)
