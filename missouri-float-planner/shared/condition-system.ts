@@ -49,7 +49,7 @@ export interface ConditionDef {
   chipBorder: string;
   /** Short label for compact displays, e.g. "Flowing". */
   label: string;
-  /** Long label with guidance, e.g. "Good to float". */
+  /** Long label with guidance, e.g. "Good - Floatable". */
   longLabel: string;
   /** One-line plain-language description of what the level means on the water. */
   description: string;
@@ -73,7 +73,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     ink: "#991B1B", // red-800
     chipBorder: "#FCA5A5", // red-300
     label: "Flood",
-    longLabel: "Flood – don't float",
+    longLabel: "Flood - Do Not Float",
     description:
       "Dangerous. High water, heavy debris, and flood warnings usually in effect.",
     otter: "flood",
@@ -103,7 +103,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     ink: "#3F6212", // lime-800
     chipBorder: "#BEF264", // lime-300
     label: "Good",
-    longLabel: "Good to float",
+    longLabel: "Good - Floatable",
     description: "Floatable conditions. Some shallow spots possible.",
     otter: "green",
     severity: 2,
@@ -116,7 +116,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     ink: "#9A3412", // orange-800
     chipBorder: "#FDBA74", // orange-300
     label: "High",
-    longLabel: "High – use caution",
+    longLabel: "High Water - Use Caution",
     description:
       "Moving quick. Experienced paddlers only; expect submerged obstacles and root-balls.",
     otter: "red",
@@ -130,7 +130,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     ink: "#854D0E", // yellow-800
     chipBorder: "#FCD34D", // yellow-300
     label: "Low",
-    longLabel: "Low – expect scraping",
+    longLabel: "Low - Scraping Likely",
     description:
       "Floatable but expect occasional scraping. Lighter boats recommended.",
     otter: "yellow",
@@ -144,7 +144,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     ink: "#44403C", // stone-700
     chipBorder: "#D6D3D1", // stone-300
     label: "Too Low",
-    longLabel: "Too low to float",
+    longLabel: "Too Low - Not Recommended",
     description:
       "Expect frequent dragging on gravel bars. Recommended for wading only.",
     otter: "flag",

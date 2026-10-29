@@ -94,7 +94,7 @@ export function conditionLongLabel(code: string): string {
 }
 
 /**
- * The short label — "Good", not "Good to float".
+ * The short label — "Good", not "Good - Floatable".
  *
  * Used where the long form would be a lie of tense rather than of fact. The
  * long labels are instructions ("Do Not Float", "Floatable"), and an

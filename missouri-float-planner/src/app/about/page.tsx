@@ -34,12 +34,12 @@ const EDDY_IMAGES: Record<string, string> = {
 const getEddyImageForCondition = (code: ConditionCode): string => {
   switch (code) {
     case 'flowing':
-    case 'good': // "Good to float"
+    case 'good': // "Good - Floatable"
       return EDDY_IMAGES.green;
     case 'high':
     case 'dangerous': // Flood
       return EDDY_IMAGES.red;
-    case 'low': // "Low – expect scraping"
+    case 'low': // "Low - Scraping Likely"
       return EDDY_IMAGES.yellow;
     case 'too_low':
     case 'unknown':
@@ -58,19 +58,19 @@ const conditionDescriptions: Record<ConditionCode, {
   icon: string;
 }> = {
   too_low: {
-    title: 'Too low to float',
+    title: 'Too Low - Not Recommended',
     description: 'Water levels are well below what\'s generally needed for floating. Depending on the river section, you may encounter long stretches of exposed gravel bars, shallow riffles, and areas where floating simply isn\'t practical. Upper and lower sections of a river may vary.',
     recommendation: 'Generally not recommended. Wait for rain or try a different river. Some deeper sections may still be passable — check with local outfitters.',
     icon: '🚫',
   },
   low: {
-    title: 'Low – expect scraping',
+    title: 'Low - Scraping Likely',
     description: 'Water levels are below normal for most sections. Expect shallow areas, frequent scraping, and possible portaging — though conditions can differ between upper and lower stretches of the same river. Float times will likely be longer than estimated.',
     recommendation: 'Not recommended for beginners or large groups. Some river sections may float better than others — consider checking with local outfitters for section-specific advice.',
     icon: '⚠️',
   },
   good: {
-    title: 'Good to float',
+    title: 'Good - Floatable',
     description: 'Water levels are below optimal but generally floatable across most sections. You may encounter some shallow spots, especially in wider or upper sections, but most of the river should have enough water. Float times may run a bit longer than estimates.',
     recommendation: 'Suitable for most paddlers. Be prepared for occasional shallow spots — conditions can vary by section.',
     icon: '✓',
@@ -82,13 +82,13 @@ const conditionDescriptions: Record<ConditionCode, {
     icon: '🎯',
   },
   high: {
-    title: 'High – use caution',
+    title: 'High Water - Use Caution',
     description: 'Water levels are elevated across most sections with faster currents and increased hazards. Strainers, sweepers, and hydraulics pose greater risks. Some sections may be more affected than others depending on the river\'s geography.',
     recommendation: 'It is recommended to try another day. If you do go out, know your skill level and check section-specific conditions.',
     icon: '🌊',
   },
   dangerous: {
-    title: 'Flood – don\'t float',
+    title: 'Flood - Do Not Float',
     description: 'Water levels are at or near flood stage. Currents are extremely swift with severe hazards including debris, submerged obstacles, and powerful hydraulics. All river sections should be considered dangerous.',
     recommendation: 'DO NOT FLOAT under any circumstances. Stay off the water until levels drop significantly.',
     icon: '🛑',

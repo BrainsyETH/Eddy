@@ -42,7 +42,7 @@ export function cond(code: string) {
 }
 
 /** The SHORT canonical label ("Good", "Too Low") — the one the reels' pills and
- *  tiles use — never the app's long form ("Good to float"), so a cover and
+ *  tiles use — never the app's long form ("Good - Floatable"), so a cover and
  *  its reel say the condition the same way. */
 export function condLabel(code: string): string {
   return cond(code).label;

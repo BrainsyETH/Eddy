@@ -330,7 +330,7 @@ export function createDataContext(db: Db, now = Date.now()) {
       dischargeCfs: discharge,
       conditionCode: code,
       label: code === 'unknown' && availability.ratingStatus === 'unrated'
-        ? 'Not rated by Eddy' : getConditionShortLabel(code),
+        ? 'Not rated — readings only' : getConditionShortLabel(code),
       availability,
       thresholdUnit: link.threshold_unit,
       ...age,

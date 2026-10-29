@@ -297,7 +297,7 @@ test('summary verdicts preserve warning vocabulary and label historical readings
   const { readingSummaryVerdict } = await import('../../../eddy-ios/src/lib/readingSummary');
   assert.equal(readingSummaryVerdict('good'), 'Good to float');
   assert.equal(readingSummaryVerdict('good', true), 'Last known: Good');
-  assert.match(readingSummaryVerdict('dangerous'), /don't float/);
+  assert.match(readingSummaryVerdict('dangerous'), /Do Not Float/);
   assert.doesNotMatch(readingSummaryVerdict('unknown'), /Good to float/);
 });
 

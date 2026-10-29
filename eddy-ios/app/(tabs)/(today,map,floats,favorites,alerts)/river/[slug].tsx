@@ -1188,7 +1188,7 @@ export default function RiverDetailScreen() {
    * observation-age rule for the muted "Last known" verdict below.
    *
    *   fresh    normal colour, plus an offline glyph on the age line
-   *   stale    grey, and "Last known: Good" instead of "Good to float"
+   *   stale    grey, and "Last known: Good" instead of "Good - Floatable"
    *   expired  grey, with an explicit out-of-date or unknown-time warning
    */
   const cachedReading = conditionReceipt?.cached === true && !pickedGauge;
