@@ -15,13 +15,10 @@ import { stateSlug, stateName } from '@/lib/navigation/states';
 import NearbyServices from '@/components/river/NearbyServices';
 import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
-import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
-import { ArrowRight, ChevronDown, MapPin, Ruler, Mountain } from 'lucide-react';
+import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
-import { pageCondition, pageRiverDam, pageRiverReaches } from '@/lib/data/public-pages';
-import { CONDITION_COLORS, CONDITION_LABELS, getEddyImageForCondition } from '@/constants';
-import type { ConditionCode } from '@/types/api';
+import { pageRiverDam, pageRiverReaches } from '@/lib/data/public-pages';
 import RiverHubMap from './RiverHubMap';
 import ShareRiverButton from './ShareRiverButton';
 import HubSectionNav from './HubSectionNav';
@@ -30,6 +27,7 @@ import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import TailwaterStatusRow from '@/components/dam/TailwaterStatusRow';
 import { pageRiverAlerts } from '@/lib/data/public-pages';
+import RiverHazards from '@/components/river/RiverHazards';
 import RiverReaches from '@/components/river/RiverReaches';
 import type { RiverType } from '@/lib/rivers/context';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
@@ -156,18 +154,15 @@ export default async function RiverGuidePage({ params }: Props) {
     permanentRedirect(riverPath(river.state, river.slug));
   }
 
-  // Fetch access points + current condition in parallel (need river.id first)
-  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
+  // Fetch access points and the river's panels in parallel (need river.id first).
+  // The condition itself is read client-side by the live report's reading card.
+  const [{ data: accessPoints }, riverDam, riverReaches, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
       .eq('approved', true)
       .eq('river_id', river.id)
       .order('river_mile_downstream', { ascending: true }),
-    pageCondition(river.id).then(
-      (data) => ({ data }),
-      () => ({ data: null }),
-    ),
     // Resolved here rather than in a client hook so the dam tab is present in
     // the first paint and the section stays inside this page's ISR window.
     // Null for every river without a tailwater dam, which is most of them.
@@ -201,7 +196,6 @@ export default async function RiverGuidePage({ params }: Props) {
       (reach) => reach.sectionSlug === riverDam?.dam.tailwater?.sectionSlug
     ) ?? null;
 
-  const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
   const guidePost = guideResult.data || null;
   const guideImage = guidePost ? guideCover(guidePost) : null;
 
@@ -276,9 +270,6 @@ export default async function RiverGuidePage({ params }: Props) {
   const heroImage = (accessPoints || []).find(ap => ap.image_urls && ap.image_urls.length > 0)?.image_urls?.[0] || null;
 
   const planUrl = `/plan?river=${slug}`;
-  const condKey = conditionCode as ConditionCode;
-  const conditionLabel = CONDITION_LABELS[condKey] || 'Unknown';
-  const conditionColor = CONDITION_COLORS[condKey] || CONDITION_COLORS.unknown;
 
   return (
     <>
@@ -301,29 +292,8 @@ export default async function RiverGuidePage({ params }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-stretch">
               {/* Left: identity + live metrics + CTAs */}
               <div className="flex flex-col">
-                {/* Condition pill, fronted by Eddy — clicking jumps to his
-                    full report (the Eddy Says card in the live report). */}
-                <a
-                  href="#eddy-says"
-                  title="Read Eddy's full report"
-                  className="group inline-flex items-center gap-2.5 self-start mb-4 no-underline"
-                >
-                  <Image
-                    src={getEddyImageForCondition(condKey)}
-                    alt=""
-                    width={44}
-                    height={44}
-                    className="h-11 w-11 object-contain drop-shadow"
-                  />
-                  <span
-                    className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold text-white transition-colors group-hover:bg-white/25"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: conditionColor }} />
-                    {conditionLabel}
-                    <ChevronDown className="w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-y-0.5" />
-                  </span>
-                </a>
+                {/* No condition pill here: the reading card directly below
+                    says the verdict, as the app's river screen does. */}
 
                 <h1
                   className="text-4xl md:text-5xl font-bold leading-[1.05] mb-3"
@@ -404,6 +374,7 @@ export default async function RiverGuidePage({ params }: Props) {
           hasGuide={!!guidePost}
           hasDam={!!riverDam}
           hasAlerts={alertsUnavailable || riverAlerts.length > 0}
+          riverSlug={slug}
         />
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
@@ -415,7 +386,7 @@ export default async function RiverGuidePage({ params }: Props) {
               summary reads as an all-clear, and this section cannot tell an
               all-clear from an agency outage. */}
           {(alertsUnavailable || riverAlerts.length > 0) && (
-            <section id="alerts" className="scroll-mt-24 pt-4 md:pt-5">
+            <section id="alerts" className="scroll-mt-28 pt-4 md:pt-5">
               <h2 className="sr-only">Alerts</h2>
               {alertsUnavailable ? (
                 <p role="status" className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
@@ -426,7 +397,7 @@ export default async function RiverGuidePage({ params }: Props) {
           )}
 
           {/* ===== Live report ===== */}
-          <section id="status" className="scroll-mt-24 pt-4 md:pt-5">
+          <section id="status" className="scroll-mt-28 pt-4 md:pt-5">
             <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
               Live report
             </h2>
@@ -437,31 +408,25 @@ export default async function RiverGuidePage({ params }: Props) {
             <RiverGaugeDetail
               riverSlug={slug}
               damSlot={riverDam ? <TailwaterStatusRow dam={riverDam.dam} /> : null}
+              reachesSlot={riverReaches ? (
+                // Only where the river's halves differ. When a dam controls
+                // one of these reaches, the chip names it as THE one the Dam
+                // release panel is about.
+                <section id="reaches" className="scroll-mt-28" aria-labelledby="reaches-heading">
+                  <h3 id="reaches-heading" className="mb-2 text-base font-bold text-neutral-900">Reaches</h3>
+                  <RiverReaches
+                    reaches={riverReaches}
+                    highlightSlug={controlledReach?.sectionSlug ?? null}
+                    damName={riverDam?.dam.name ?? null}
+                  />
+                </section>
+              ) : null}
             />
           </section>
 
-          {/* ===== Reaches — only where the river's halves differ ===== */}
-          {riverReaches && (
-            <section id="reaches" className="scroll-mt-24 pt-8">
-              <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
-                Reaches
-              </h2>
-              {/* When a dam controls one of these reaches, say which. The chip
-                  already marks a reach as dam-controlled; this names it as THE
-                  one the panel below is about, which is the connection a reader
-                  arriving from that dam is missing. Server-side, so no hash
-                  reader and no client component — the page already knows. */}
-              <RiverReaches
-                reaches={riverReaches}
-                highlightSlug={controlledReach?.sectionSlug ?? null}
-                damName={riverDam?.dam.name ?? null}
-              />
-            </section>
-          )}
-
           {/* ===== Dam control — tailwater reaches only ===== */}
           {riverDam && (
-            <section id="dam" className="scroll-mt-24 pt-8">
+            <section id="dam" className="scroll-mt-28 pt-8">
               <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
                 Dam release
               </h2>
@@ -491,8 +456,11 @@ export default async function RiverGuidePage({ params }: Props) {
             </Link>
           </section>
 
+          {/* ===== Hazards — above the access list, as in the app ===== */}
+          <RiverHazards riverSlug={slug} className="scroll-mt-28 pt-10" />
+
           {/* ===== Access points (with overview map) ===== */}
-          <section id="access" className="scroll-mt-24">
+          <section id="access" className="scroll-mt-28">
             <h2 className="text-2xl font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
               Access points
             </h2>
@@ -534,7 +502,7 @@ export default async function RiverGuidePage({ params }: Props) {
 
           {/* ===== River guide (blog) ===== */}
           {guidePost && (
-            <section id="guide" className="scroll-mt-24 pt-12">
+            <section id="guide" className="scroll-mt-28 pt-12">
               <h2 className="text-2xl font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
                 River guide
               </h2>

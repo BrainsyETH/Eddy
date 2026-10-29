@@ -1,8 +1,10 @@
 'use client';
 
 // src/components/gauge/CurrentReadingCard.tsx
-// Dark-themed current reading card: condition strip, the two headline numbers,
-// and the band track showing where this reading falls on the river's ladder.
+// The current reading, verdict first: Eddy and the condition, the rated reading
+// large with the other unit beside it, the trend, and the band track showing
+// where the reading falls on the river's ladder. Mirrors the app's
+// ReadingSummaryCard (eddy-ios/src/components/ReadingSummaryCard.tsx).
 //
 // The track lives here rather than on the levels table below because "where am
 // I" belongs next to the number it qualifies. The table lists what each band
@@ -11,7 +13,8 @@
 import Image from 'next/image';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { CONDITION_COLORS, CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
+import { CONDITION_SHORT_LABELS, getEddyImageForCondition } from '@/constants';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
 import type { ConditionCode } from '@/types/api';
 import { computeTrend } from '@shared/gauge-trend';
 import {
@@ -55,7 +58,10 @@ interface CurrentReadingCardProps {
   /** Condition ladder in `thresholdUnit`. Omit to render the card without a track. */
   zones?: Zone[];
   className?: string;
+  /** Inside another card: no frame or padding of its own. */
   embedded?: boolean;
+  /** Footer rows under the reading — the river page passes its safety and forecast lines. */
+  children?: React.ReactNode;
 }
 
 export default function CurrentReadingCard({
@@ -73,6 +79,7 @@ export default function CurrentReadingCard({
   zones,
   className = '',
   embedded = false,
+  children,
 }: CurrentReadingCardProps) {
   const { data: history } = useGaugeHistory(siteId, 14);
 
@@ -90,26 +97,36 @@ export default function CurrentReadingCard({
   const markerPercent = zoneMarkerPercent(ladder, primaryReadingValue);
   const activeIndex = findZoneIndex(ladder, conditionCode);
   const activeZone = activeIndex >= 0 ? ladder[activeIndex] : null;
-  const prevZone = activeIndex > 0 ? ladder[activeIndex - 1] : null;
-  const nextZone = activeIndex >= 0 && activeIndex < ladder.length - 1 ? ladder[activeIndex + 1] : null;
 
   const formatFt = (val: number) => val.toFixed(2);
   const formatCfs = (val: number) => val.toLocaleString();
 
-  // Condition strip — solid color background with short label
-  const conditionColor = conditionCode ? CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown : null;
   const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
-  const conditionSurfaceColor = conditionCode === 'flowing' ? 'var(--cond-flowing-solid)' : conditionColor;
-  const conditionInkColor = conditionCode === 'flowing' ? 'var(--cond-flowing-ink)' : 'var(--color-neutral-950)';
 
   const trendDelta = trend
     ? `${trend.delta > 0 ? '+' : ''}${isCfsPrimary ? Math.round(trend.delta) : trend.delta.toFixed(2)} ${isCfsPrimary ? 'cfs' : 'ft'}`
     : null;
 
+  const ink = conditionCode ? (CONDITION_SYSTEM[conditionCode] ?? CONDITION_SYSTEM.unknown).ink : 'var(--color-neutral-700)';
+  const primaryText = isCfsPrimary
+    ? (dischargeCfs !== null ? `${formatCfs(dischargeCfs)} cfs` : null)
+    : (gaugeHeightFt !== null ? `${formatFt(gaugeHeightFt)} ft` : null);
+  const secondaryText = isCfsPrimary
+    ? (gaugeHeightFt !== null ? `${formatFt(gaugeHeightFt)} ft` : null)
+    : (dischargeCfs !== null ? `${formatCfs(dischargeCfs)} cfs` : null);
+  const TrendIcon = trend?.direction === 'rising' ? TrendingUp : trend?.direction === 'falling' ? TrendingDown : Minus;
+
+  // Light, verdict-first, one headline number — the same reading of the river
+  // the app's ReadingSummaryCard gives, so the two platforms answer "is it
+  // floatable?" in the same order. The condition is said once, here.
   return (
-    <div className={`${embedded ? 'rounded-none' : 'rounded-xl'} overflow-hidden bg-primary-800 ${className}`} role="group" aria-label="Current gauge reading">
-      {/* One concise spoken summary instead of letting screen readers re-read the
-          full two-column grid (both numbers + labels) on every background poll. */}
+    <div
+      className={`${embedded ? '' : 'card-framed'} bg-white ${className}`}
+      role="group"
+      aria-label="Current gauge reading"
+    >
+      {/* One concise spoken summary instead of letting screen readers re-read
+          the card on every background poll. */}
       <p className="sr-only" aria-live="polite">
         {conditionLabel ? `${conditionLabel}. ` : ''}
         {gaugeHeightFt !== null ? `Stage ${formatFt(gaugeHeightFt)} feet. ` : ''}
@@ -118,165 +135,101 @@ export default function CurrentReadingCard({
         {trend ? `${trend.label}.` : ''}
       </p>
 
-      {/* Condition status strip — bold solid band for at-a-glance color, with
-          near-black ink (clears WCAG AA on every condition solid; white does not).
-          Eddy's condition-matched artwork fronts the label (same asset set as
-          the Eddy Says card and the hero pill). */}
-      {conditionCode && conditionSurfaceColor && conditionLabel && (
-        <div
-          className="px-4 py-2 flex items-center justify-center gap-2"
-          style={{ backgroundColor: conditionSurfaceColor }}
-        >
-          <Image
-            src={getEddyImageForCondition(conditionCode)}
-            alt=""
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
-          />
-          <span className="font-sans text-xs font-bold tracking-wide uppercase" style={{ color: conditionInkColor }}>
-            {conditionLabel}
-          </span>
-        </div>
-      )}
-
-      {/* 2-column readings: Stage | Flow (visual only; announced via summary above) */}
-      <div className="grid grid-cols-2 divide-x divide-white/10" aria-hidden="true">
-        {/* Stage (ft) */}
-        <div className={`px-4 pt-4 pb-3 ${!isCfsPrimary ? '' : 'opacity-70'}`}>
-          <span className="mb-1 block font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
-            Stage
-          </span>
-          {gaugeHeightFt !== null ? (
-            <div className="flex items-baseline gap-1.5">
-              <span className={`${!isCfsPrimary ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'} font-mono font-bold text-white tabular-nums leading-none`}>
-                {formatFt(gaugeHeightFt)}
-              </span>
-              <span className="font-mono text-sm font-medium text-primary-100">ft</span>
-            </div>
-          ) : (
-            <span className="text-xl text-white/30">—</span>
+      <div className={embedded ? '' : 'px-4 pt-4 sm:px-5'} aria-hidden="true">
+        <div className="flex items-center gap-3">
+          {conditionCode && (
+            <Image
+              src={getEddyImageForCondition(conditionCode)}
+              alt=""
+              width={52}
+              height={52}
+              className="h-[52px] w-[52px] flex-shrink-0 object-contain"
+            />
           )}
-        </div>
-
-        {/* Flow (cfs) */}
-        <div className={`px-4 pt-4 pb-3 ${isCfsPrimary ? '' : 'opacity-70'}`}>
-          <span className="mb-1 block font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
-            Flow
-          </span>
-          {dischargeCfs !== null ? (
-            <div className="flex items-baseline gap-1.5">
-              <span className={`${isCfsPrimary ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'} font-mono font-bold text-white tabular-nums leading-none`}>
-                {formatCfs(dischargeCfs)}
-              </span>
-              <span className="font-mono text-sm font-medium text-primary-100">cfs</span>
+          <div className="min-w-0 flex-1">
+            {conditionLabel && (
+              <p className="text-lg font-semibold leading-tight" style={{ color: ink }}>{conditionLabel}</p>
+            )}
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-2xl font-bold tabular-nums text-neutral-900">{primaryText ?? 'No reading'}</span>
+              {secondaryText && <span className="font-mono text-sm tabular-nums text-neutral-500">{secondaryText}</span>}
+              {trend && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600">
+                  <TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {trend.label}
+                  {trendDelta && <span className="font-mono tabular-nums text-neutral-500">{trendDelta}</span>}
+                </span>
+              )}
             </div>
-          ) : (
-            <span className="text-xl text-white/30">—</span>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Band track — where this reading sits on the river's ladder. Only the
-          two neighbouring band names are labelled; the full ladder with what
-          each band means is the levels table below. */}
-      {ladder.length > 0 && (
-        <div className="px-4 pb-1 pt-1" aria-hidden="true">
-          <div className="relative">
-            <div className="flex h-2.5 overflow-hidden rounded-full">
-              {ladder.map((zone) => (
+        {/* Where this reading sits on the river's ladder. The full ladder with
+            what each band means is the levels table below. */}
+        {ladder.length > 0 && (
+          <div className="mt-4">
+            <div className="relative">
+              <div className="flex h-2.5 overflow-hidden rounded-full">
+                {ladder.map((zone) => (
+                  <div
+                    key={zone.key}
+                    className="flex-1"
+                    style={{
+                      backgroundColor: zone.color,
+                      opacity: activeZone && zone.key !== activeZone.key ? 0.35 : 1,
+                    }}
+                  />
+                ))}
+              </div>
+              {markerPercent !== null && (
                 <div
-                  key={zone.key}
-                  className="flex-1"
-                  style={{
-                    backgroundColor: zone.color,
-                    // Dim the bands you are not in so the active one reads first.
-                    opacity: activeZone && zone.key !== activeZone.key ? 0.4 : 1,
-                  }}
+                  className="absolute top-1/2 h-[18px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-900 shadow-[0_0_0_2px_#ffffff]"
+                  style={{ left: `${markerPercent}%` }}
                 />
-              ))}
+              )}
             </div>
-            {markerPercent !== null && (
-              <div
-                className="absolute top-1/2 h-[18px] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_1.5px_var(--color-primary-900)]"
-                style={{ left: `${markerPercent}%` }}
-              />
+            {activeZone && (
+              <p className="mt-1.5 text-xs text-neutral-500">
+                {activeZone.label}: {formatZoneRange(activeZone, thresholdUnit)}
+              </p>
             )}
           </div>
+        )}
+      </div>
 
-          {activeZone && (
-            <div className="mt-2 flex items-baseline justify-between gap-2 font-mono text-[10px] uppercase tracking-wide text-primary-200">
-              <span className="min-w-0 truncate">{prevZone ? `← ${prevZone.label}` : ''}</span>
-              <span className="whitespace-nowrap font-semibold text-white">
-                {activeZone.label} {formatZoneRange(activeZone, thresholdUnit)}
+      {/* Water quality, when this gauge or a monitor below it publishes it —
+          always with its age and, off this gauge, the station it came from. */}
+      {((waterTempF != null && waterTempAgeHours != null && waterTempAgeHours <= 24) ||
+        (dissolvedOxygenMgL != null && dissolvedOxygenAgeHours != null && dissolvedOxygenAgeHours <= 24)) && (
+        <div className={`mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-neutral-200 pt-3 text-sm ${embedded ? '' : 'mx-4 sm:mx-5'}`}>
+          {waterTempF != null && waterTempAgeHours != null && waterTempAgeHours <= 24 && (
+            <p className="text-neutral-700">
+              Water <span className="font-mono font-semibold tabular-nums text-neutral-900">{waterTempF}°F</span>
+              <span className="ml-1.5 text-xs text-neutral-500">
+                {formatAgeFromHours(waterTempAgeHours)}{waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
               </span>
-              <span className="min-w-0 truncate text-right">{nextZone ? `${nextZone.label} →` : ''}</span>
-            </div>
+            </p>
+          )}
+          {dissolvedOxygenMgL != null && dissolvedOxygenAgeHours != null && dissolvedOxygenAgeHours <= 24 && (
+            <p className="text-neutral-700">
+              Oxygen <span className="font-mono font-semibold tabular-nums text-neutral-900">{dissolvedOxygenMgL} mg/L</span>
+              <span className="ml-1.5 text-xs text-neutral-500">
+                {formatAgeFromHours(dissolvedOxygenAgeHours)}{waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
+              </span>
+            </p>
           )}
         </div>
       )}
 
-      {/* Which way it is moving right now. */}
-      {trend && (
-        <div className="flex items-center gap-1.5 px-4 pb-3 pt-2">
-          {trend.direction === 'rising' ? (
-            <TrendingUp className="h-3.5 w-3.5 text-orange-200" aria-hidden="true" />
-          ) : trend.direction === 'falling' ? (
-            <TrendingDown className="h-3.5 w-3.5 text-primary-100" aria-hidden="true" />
-          ) : (
-            <Minus className="h-3.5 w-3.5 text-primary-100" aria-hidden="true" />
-          )}
-          <span className={`text-xs font-semibold ${trend.direction === 'rising' ? 'text-orange-200' : 'text-primary-100'}`}>
-            {trend.label}
-          </span>
-          {trendDelta && (
-            <span className="font-mono text-xs tabular-nums text-primary-200">{trendDelta}</span>
-          )}
-        </div>
-      )}
+      {/* Safety and forecast lines from the summary, when the page passes them. */}
+      {children && <div className={`mt-3 border-t border-neutral-200 ${embedded ? 'pt-3' : 'mx-4 pt-3 sm:mx-5'}`}>{children}</div>}
 
-      {/* Water temperature (when available) — always with its measurement age */}
-      {waterTempF != null && waterTempAgeHours != null && waterTempAgeHours <= 24 && (
-        <div className="px-4 py-2.5 border-t border-white/10">
-          <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
-            Water Temp
-          </span>
-          <span className="ml-2 font-mono text-lg font-bold tabular-nums text-white">
-            {waterTempF}°F
-          </span>
-          {waterTempAgeHours != null && (
-            <span className="ml-2 text-[10px] text-primary-100">
-              measured {formatAgeFromHours(waterTempAgeHours)}
-              {waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Dissolved oxygen (when available) — same rule, same reason */}
-      {dissolvedOxygenMgL != null && dissolvedOxygenAgeHours != null && dissolvedOxygenAgeHours <= 24 && (
-        <div className="px-4 py-2.5 border-t border-white/10">
-          <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
-            Dissolved O&#8322;
-          </span>
-          <span className="ml-2 font-mono text-lg font-bold tabular-nums text-white">
-            {dissolvedOxygenMgL} mg/L
-          </span>
-          {dissolvedOxygenAgeHours != null && (
-            <span className="ml-2 text-[10px] text-primary-100">
-              measured {formatAgeFromHours(dissolvedOxygenAgeHours)}
-              {waterQualitySourceName ? ` at ${waterQualitySourceName}` : ''}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Reading freshness — so staleness is obvious on the card itself */}
       {readingAgeHours != null && (
-        <div className="px-4 pb-3">
-          <span className="text-[10px] text-primary-100">Updated {formatAgeFromHours(readingAgeHours)}</span>
-        </div>
+        <p className={`text-xs text-neutral-500 ${embedded ? 'mt-3' : 'px-4 pb-4 pt-3 sm:px-5'}`}>
+          Updated {formatAgeFromHours(readingAgeHours)}
+        </p>
       )}
+      {readingAgeHours == null && !embedded && <div className="pb-4" />}
     </div>
   );
 }

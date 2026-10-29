@@ -89,6 +89,8 @@ interface GaugeSummaryProps {
    * gets its row, because the warning about it lives there.
    */
   hideCurrentReading?: boolean;
+  /** No frame of its own: the rows sit inside the reading card's footer. */
+  bare?: boolean;
   className?: string;
 }
 
@@ -117,6 +119,7 @@ export default function GaugeSummary({
   floodStages,
   waterTemperature,
   hideCurrentReading = false,
+  bare = false,
   className = '',
 }: GaugeSummaryProps) {
   // The chart's own request — shared with it through the query cache, and
@@ -283,7 +286,7 @@ export default function GaugeSummary({
   );
 
   return (
-    <div className={`rounded-xl border border-neutral-200 bg-white px-4 py-3 flex flex-col gap-2 ${className}`}>
+    <div className={`${bare ? '' : 'rounded-xl border border-neutral-200 bg-white px-4 py-3'} flex flex-col gap-2 ${className}`}>
       {/* During an official event the NWS statement outranks everything Eddy
           has to say — it leads, in its own violet, before the reading. */}
       {officialEvent && safetyRow}
