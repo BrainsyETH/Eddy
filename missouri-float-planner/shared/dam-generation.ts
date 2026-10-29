@@ -712,7 +712,7 @@ function scheduledClause(
  * caveat for an invisible one: "when does generation stop" is the most
  * load-bearing sentence on the page, and a reader given nothing is likelier to
  * guess than a reader given a dated answer. So the sentence stays and carries
- * its age.
+ * its check time in Central time, including the date for an earlier day.
  *
  * Null when the schedule is current, unreadable, or absent — nothing to say.
  */
@@ -724,10 +724,24 @@ export function scheduledClauseProvenance(
   const outlook = scheduleOutlook(schedule, ref, now);
   if (!outlook?.stale) return null;
 
-  const age = relativeAge(oldestRetrievedAt(schedule), now);
-  return age
-    ? `From a schedule Eddy last checked ${age}. It may have been revised since.`
-    : 'From a schedule Eddy cannot date. It may have been revised since.';
+  const retrievedAt = oldestRetrievedAt(schedule);
+  if (!retrievedAt) return null;
+  const checkedAt = new Date(retrievedAt);
+  if (!Number.isFinite(checkedAt.getTime())) return null;
+
+  // Format at the dam, not the viewer's device; Intl chooses CST or CDT for
+  // the check itself, including either side of the repeated fall-back hour.
+  const timeZone = 'America/Chicago';
+  const time = checkedAt.toLocaleTimeString('en-US', {
+    timeZone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  });
+  const checkedDay = centralDayKey(checkedAt.getTime());
+  const today = centralDayKey(now);
+  const date = checkedDay === today ? '' : checkedAt.toLocaleDateString('en-US', {
+    timeZone, month: 'short', day: 'numeric',
+    year: checkedDay.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric',
+  });
+  return `Schedule last checked${date ? ` ${date}` : ''} at ${time}.`;
 }
 
 // ── Turbine flow against total release ─────────────────────────────────────
