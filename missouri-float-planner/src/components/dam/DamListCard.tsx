@@ -6,15 +6,19 @@ import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 
-function Reading({ label, value, metric, now, icon }: {
-  label: string; value: string | null; metric?: DamMetricValue; now: number;
+function Reading({ label, value, unit, metric, now, icon }: {
+  label: string; value: string | null; unit: string; metric?: DamMetricValue; now: number;
   icon: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-wrap items-baseline gap-x-1.5 ${metric && readingStaleness(metric.at, now) !== 'fresh' ? 'opacity-60' : ''}`}>
-      <dt className="flex items-center gap-1 text-[11px] text-neutral-500">{icon}{label}</dt>
-      <dd className="text-base font-bold leading-5 tabular-nums text-neutral-900">{value ?? 'Unavailable'}</dd>
-      {metric && <dd className="basis-full text-[11px] leading-4 text-neutral-500">{relativeAge(metric.at, now)}</dd>}
+    <div className="min-w-0">
+      <dt className="flex items-center gap-1 text-xs text-neutral-600">{icon}{label}</dt>
+      <dd className={`mt-1 text-primary-900 ${metric && readingStaleness(metric.at, now) !== 'fresh' ? 'opacity-60' : ''}`}>
+        {value === null ? <span className="text-sm">Unavailable</span> : <>
+          <span className="font-mono text-xl tabular-nums">{value}</span>{' '}<span className="text-xs text-neutral-600">{unit}</span>
+        </>}
+      </dd>
+      {metric && <dd className="mt-0.5 text-xs text-neutral-600">{relativeAge(metric.at, now)}</dd>}
     </div>
   );
 }
@@ -26,18 +30,18 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
 
   return (
     <Card as="article" variant="framed" className="flex h-full min-w-0 flex-col">
-      <div className="border-b border-neutral-200 bg-secondary-100 px-4 py-3 sm:px-5">
-        <Link href={href} prefetch={false} className="group flex min-h-11 items-center justify-between gap-3 rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
+      <div className="border-b border-neutral-200">
+        <Link href={href} prefetch={false} className="flex min-h-11 items-center justify-between gap-3 bg-primary-800 px-4 py-4 transition-colors hover:bg-primary-900 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-200 sm:px-5">
           <div className="min-w-0">
-            <h3 className="text-lg font-bold leading-6 text-primary-800 group-hover:text-primary-700" style={{ fontFamily: 'var(--font-display)' }}>{dam.name}</h3>
-            {dam.lakeName && <p className="text-xs text-neutral-500">{dam.lakeName}</p>}
+            <h3 className="font-heading text-xl font-bold leading-6 text-white">{dam.name}</h3>
+            {dam.lakeName && <p className="mt-1 text-sm text-primary-100">{dam.lakeName}</p>}
           </div>
-          <ChevronRight className="size-5 shrink-0 text-primary-700" aria-hidden="true" />
+          <ChevronRight className="size-5 shrink-0 text-primary-200" aria-hidden="true" />
         </Link>
 
-        <dl className="mt-2 grid grid-cols-2 gap-3">
-          <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? `${Math.round(flow.value).toLocaleString()} cfs` : null} metric={flow} now={now} icon={<Waves className="size-3.5" aria-hidden="true" />} />
-          <Reading label="Water temp" value={temperature ? `${temperature.value.toFixed(1)} °F` : null} metric={temperature} now={now} icon={<Thermometer className="size-3.5" aria-hidden="true" />} />
+        <dl className="grid grid-cols-2 gap-3 bg-secondary-100 px-4 py-3 sm:px-5">
+          <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon={<Waves className="size-3.5 shrink-0" aria-hidden="true" />} />
+          <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon={<Thermometer className="size-3.5 shrink-0" aria-hidden="true" />} />
         </dl>
       </div>
 
