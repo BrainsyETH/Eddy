@@ -55,8 +55,13 @@ review are in the 1.5 report; these are the gates it adds.
       and taps land on the stack.
 - [ ] **Sign in on a phone whose push token another account holds** with the
       owed release delivered and with it blocked: registration succeeds with
-      the ledger's row id, and without it answers 409 `token_held`
-      (finding 10).
+      the ledger's row id (finding 10).
+- [ ] **Reinstall without signing out, then sign in to another account**
+      (finding 10's review follow-up): the iOS token survives, the ledger
+      does not. Registration is refused, the server pushes a confirmation,
+      Eddy redeems it without showing it, and Settings reads "will get a
+      push". Repeat with Eddy in the background (the confirmation shows; a
+      tap finishes it).
 - [ ] **River Mode on a device:** a 10-minute airplane-mode gap mid-float adds
       gap distance and "GPS gap" time; moving time and speeds; arrival, then
       carrying on past the take-out; Discard for a sub-5-minute float; "Stop

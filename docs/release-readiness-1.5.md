@@ -125,9 +125,9 @@ row says so.
 | 5 | Stacked members are hidden by a layer filter, so pin sources rebuild only when their data does; the statewide index is keyed on count-relevant layers; no national-tier pins below the zoom floor; `layerCounts` deps fixed. | `2bb19888` |
 | 6 | The recording layout subscribes only to whether a float is active. | `555075c3` |
 | 7 | A guest whose profile read fails sees Free plan and Go Premium; permanent accounts keep "Couldn't check". | `d231fae4` |
-| 8 | A named place its river no longer lists fits the river without waiting for a sheet and says "That place is no longer listed on this river."; a slow held-access fetch cannot replace a sheet opened since; a river with no map line says so. | `2bb19888` |
+| 8 | A named place its river no longer lists fits the river without waiting for a sheet and says "That place is no longer listed on this river."; a slow held-access fetch cannot replace a sheet opened since; a river with no map line says so. On a cold start, a fit deferred until geometry loads hands its command id back to the pending request, so it is released too (review follow-up). | `2bb19888`, follow-up |
 | 9 | Root cause differed: the recorder does report idle, but "Your float" then read "Finding GPS". It now says "Tracking stopped" once tracking is stopped. | `555075c3` |
-| 10 | Moving a push token off another account needs that row's id (the release route's proof), sent from the app's push ledger; otherwise 409 `token_held`. | `980f8c38` |
+| 10 | Moving a push token off another account needs proof: that row's id from the app's push ledger, or, when a reinstall lost the ledger (the iOS token survives), a signed 15-minute code the server pushes to the token, which only that iPhone can read. Otherwise 409 `token_held`; the app keeps that answer, redeems the code silently when it arrives, and Settings says what is happening instead of "will retry" (review follow-up). | `980f8c38`, follow-up |
 | 11 | A station the lookup does not return is unknown (no `timeZone`, served no-store), not a cached UTC answer. | `980f8c38` |
 | 12 | "Connecting this iPhone…" while post-sign-in registration is in flight; a 400 to a request with `tz` is retried once without it; a response without `timeZone` draws in the phone's zone; Places rows read river and mile to VoiceOver; the public-land scrim is hidden from VoiceOver and the card is modal; a withdrawn hazard report leaves no cooldown (its impact was smaller than first reported). | `d231fae4`, `555075c3`, `2bb19888` |
 
@@ -135,8 +135,11 @@ Trade-offs to know: a phone that dies mid-float and is charged at the
 take-out under-counts that stretch (finding 3); past the take-out, a GPS
 gap of more than two minutes while still paddling ends the float at the
 last position (finding 2); an old binary signing in on a phone whose token
-another account still holds now gets 409 instead of taking the token
-(finding 10), which was the behaviour before October 29.
+another account still holds now gets 409 instead of taking the token, and
+cannot redeem the pushed code (finding 10), which was the behaviour before
+October 29. Someone who knows another person's token can make Eddy push a
+confirmation to that person's phone, at most three an hour; it says to
+ignore it if they did not just sign in, and cannot move the token.
 
 ### Fix before the build (confirmed, user-visible)
 
