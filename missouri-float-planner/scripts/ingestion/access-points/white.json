@@ -9,7 +9,7 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "Concrete ramp, restroom, USACE fishing pier and parking just below Bull Shoals Dam (Baxter County side); catch-and-release water",
+    "facilities": "Concrete ramp, seasonal restroom, USACE fishing pier and paved parking just below Bull Shoals Dam, off Powerhouse Road; catch-and-release water",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
@@ -28,7 +28,7 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "Concrete ramp, paved parking and USACE fishing pier below the Bull Shoals powerhouse",
+    "facilities": "Concrete ramp, paved parking and USACE fishing pier on the Bull Shoals town side, across from Jim Griffin Access",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
@@ -198,7 +198,7 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/things-to-do/nature-trails/rim-shoals-trail/",
-    "facilities": "Concrete ramp, paved parking, restrooms, T-shaped fishing pier and separate walk-in at the Rim Shoals catch-and-release area",
+    "facilities": "Concrete ramp, paved parking and T-shaped fishing pier at the Rim Shoals catch-and-release area; restrooms and a separate walk-in at the nearby walk-in lot",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
@@ -216,7 +216,7 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "Concrete ramp with two paved parking areas on the Jenkins Creek loop below Rim Shoals",
+    "facilities": "Concrete ramp with two paved parking areas below Rim Shoals",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
@@ -254,7 +254,7 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "Concrete ramp with gravel parking at Cartney; a separate Cartney walk-in sits upstream",
+    "facilities": "Concrete ramp with gravel parking at Cartney; a separate Cartney walk-in sits downstream",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
@@ -291,7 +291,7 @@
     "ownership": "AGFC",
     "managing_agency": null,
     "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
-    "facilities": "Two concrete ramps, paved parking and ADA boater transfer lift at the North Fork confluence in Norfork",
+    "facilities": "Concrete ramp, paved parking and an ADA boater transfer lift at the North Fork confluence in Norfork; a separate AGFC ramp is on the west bank",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
