@@ -86,7 +86,7 @@ import {
   formatFloatTimeCompact,
 } from '@eddy/conditions/float-time-format';
 import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
-import { floatableRank } from '@/theme/conditions';
+import { conditionColor, conditionLabel, floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
@@ -349,7 +349,36 @@ function gaugeResultPin(result: SearchResult, gauges: MapGauge[] | null): MapPin
   // the condition ladder can be graded from. A result is never graded from its
   // own thinner fields: half a ladder is a wrong verdict, not a fallback.
   const known = (gauges ?? []).find((g) => g.id === result.id);
-  return known && hasCoordinates(known) ? mapGaugePin(known) : null;
+  if (known && hasCoordinates(known)) return mapGaugePin(known);
+  return offlineGaugePin(result);
+}
+
+/**
+ * A rated gauge found by the OFFLINE fallback, which knows its site and its
+ * place but not its reading (`gauge: null` — see searchFallback). Choosing one
+ * used to move the camera and open nothing, because the pin above needs the
+ * live list that is exactly what is missing. This is the honest minimum: the
+ * station, its river, and a stated absence of a reading. It is never graded —
+ * `unknown` is not a verdict — and the sheet's own detail request still runs
+ * by site id, so a connection that comes back fills in the rest.
+ */
+function offlineGaugePin(result: SearchResult): MapPin | null {
+  if (result.gauge != null || !result.siteId || !result.coordinates) return null;
+  return {
+    id: `gauge:site:${result.siteId}`,
+    name: result.name,
+    label: result.riverName ?? result.name,
+    layer: 'gauges',
+    subtitle: result.riverName ?? null,
+    coordinates: result.coordinates,
+    color: conditionColor('unknown'),
+    code: 'unknown',
+    codeLabel: conditionLabel('unknown'),
+    value: null,
+    body: 'No reading while offline — this station is shown from the map’s saved copy.',
+    riverSlug: result.riverSlug ?? undefined,
+    siteId: result.siteId,
+  };
 }
 
 /**
@@ -474,6 +503,12 @@ function MapContent() {
   // deliberately keeps the previous river visible during a switch; the planner
   // must never pair that river's access points with the newly selected river.
   const [plannerAccess, setPlannerAccess] = useState<(RiverScoped<MapAccessPoint> & { settled: boolean }) | null>(null);
+  // An access point opened from OUTSIDE the drawn set while a plan holds
+  // another river (see openNamedAccess), so its sheet can still resolve the
+  // point — "Use as put-in" acts on it, on its own river. One at a time, and
+  // a newer open supersedes an older request still in flight.
+  const [heldAccess, setHeldAccess] = useState<{ point: MapAccessPoint; riverSlug: string } | null>(null);
+  const heldAccessRequest = useRef(0);
   // The hazard, dam, service and gauge DATA all live in their own hooks now —
   // see the "Layer data, fetched on demand" section below, and each hook's
   // header for the fetch posture it carries (all four moved verbatim).
@@ -1442,14 +1477,45 @@ function MapContent() {
    * held yet. It is set only while a selection effect will actually answer it:
    * when the river is ALREADY selected that effect never re-runs, so a token
    * left behind used to reopen this put-in at some unrelated later moment.
-   * The one case that still switches rivers under a plan is a point not held
-   * at all — a landing added since the bundle — because only the river's own
-   * response can produce it.
+   * A point not held at all — a landing added since the bundle — is fetched
+   * from its river on its own under a plan, rather than by selecting that
+   * river; see the branch at the top.
    */
   const openNamedAccess = useCallback(
     (accessId: string, riverSlug: string, layer: LayerKey | null) => {
       const known = drawnAccessPoints.find((entry) => entry.point.id === accessId) ?? null;
       const slug = known?.riverSlug ?? riverSlug;
+      heldAccessRequest.current += 1;
+      // A point the map does not hold yet — a landing added since the bundle,
+      // or a deep link opened before its river was cached — on another river
+      // while a plan holds this one. Switching rivers to let that river's own
+      // response produce it reset the planner before anyone chose "Use as
+      // put-in". So fetch that river's points on their own, and open the pin
+      // without touching the selection; failing that, leave the plan alone.
+      if (!known && planHoldsRiver && slug !== selectedSlug) {
+        pendingAccessSelection.current = null;
+        const request = heldAccessRequest.current;
+        const controller = new AbortController();
+        void readRiver(slug)
+          .then((stored) => stored?.payload.accessPoints?.find((point) => point.id === accessId)
+            ?? fetchRiverAccessPoints(slug, controller.signal)
+              .then((points) => points.find((point) => point.id === accessId) ?? null))
+          .catch(() => null)
+          .then((point) => {
+            if (!point || request !== heldAccessRequest.current) return;
+            const pinLayer = layer ?? accessPinLayer(point);
+            setHeldAccess({ point, riverSlug: slug });
+            enableLayer(pinLayer);
+            issueCameraCommand({
+              type: 'searchResultSelected',
+              lng: point.coordinates.lng,
+              lat: point.coordinates.lat,
+              waitForSheet: true,
+            });
+            setSelectedPin(mapAccessPointPin(point, slug, pinLayer));
+          });
+        return;
+      }
       const pinLayer = layer ?? (known ? accessPinLayer(known.point) : null);
       const pin = known ? mapAccessPointPin(known.point, slug, pinLayer ?? 'access') : null;
       const at = known?.point.coordinates ?? null;
@@ -1861,9 +1927,10 @@ function MapContent() {
     (pin: MapPin | null): { point: MapAccessPoint; riverSlug?: string | null } | null => {
       if (!pin || !pin.id.startsWith('access:')) return null;
       const accessId = pin.id.replace(/^access:/, '');
-      return drawnAccessPoints.find((entry) => entry.point.id === accessId) ?? null;
+      return drawnAccessPoints.find((entry) => entry.point.id === accessId)
+        ?? (heldAccess?.point.id === accessId ? heldAccess : null);
     },
-    [drawnAccessPoints],
+    [drawnAccessPoints, heldAccess],
   );
 
   /**

@@ -645,3 +645,63 @@ test('offline search falls back to what the map draws from disk', () => {
 
   assert.match(SCREEN, /fallback: \{ rivers: networkRivers, accessPoints: drawnAccessPoints \}/);
 });
+
+// ── Review follow-ups ─────────────────────────────────────────────────────
+
+test('opening an access point the map does not hold keeps the plan on its river', async () => {
+  // A landing added since the bundle, searched while a plan holds another
+  // river: this used to switch rivers so that river's response could produce
+  // it, which reset the planner before anyone chose "Use as put-in".
+  const point = { id: 'new-1', name: 'New Landing', coordinates: { lng: -91.2, lat: 37.3 }, riverMile: 4 };
+  const calls = { selectRiver: [] as unknown[], selected: [] as Array<{ id: string; riverSlug: string }>, held: [] as unknown[] };
+  const context = (stored: unknown, fetched: unknown[] = []) => ({
+    drawnAccessPoints: [], planHoldsRiver: true, selectedSlug: 'current', plannerAccess: null,
+    heldAccessRequest: { current: 0 }, pendingAccessSelection: { current: { id: 'stale', riverSlug: 'x' } },
+    readRiver: async () => stored,
+    fetchRiverAccessPoints: async () => fetched,
+    AbortController,
+    accessPinLayer: () => 'access',
+    mapAccessPointPin: (p: { id: string }, riverSlug: string, layer: string) => ({ id: `access:${p.id}`, riverSlug, layer }),
+    setHeldAccess: (value: unknown) => calls.held.push(value),
+    setSelectedPin: (pin: { id: string; riverSlug: string }) => calls.selected.push(pin),
+    selectRiver: (...args: unknown[]) => calls.selectRiver.push(args),
+    enableLayer: () => {}, issueCameraCommand: () => {},
+  });
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  // From the river's cached copy.
+  const cached = context({ payload: { accessPoints: [point] } });
+  handler('openNamedAccess', cached, SCREEN)('new-1', 'jacks-fork', null);
+  await flush();
+  assert.equal(calls.selectRiver.length, 0, 'the plan\'s river must not be switched');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.selected)), [{ id: 'access:new-1', riverSlug: 'jacks-fork', layer: 'access' }]);
+  assert.equal(cached.pendingAccessSelection.current, null, 'no reopen token is left behind');
+
+  // From the network when the cache predates it; a newer open supersedes it.
+  const live = context(null, [point]);
+  const open = handler('openNamedAccess', live, SCREEN);
+  open('new-1', 'jacks-fork', null);
+  live.heldAccessRequest.current += 1;
+  await flush();
+  assert.equal(calls.selected.length, 1, 'a superseded request opens nothing');
+
+  // The sheet resolves the held point, so "Use as put-in" acts on its river.
+  assert.match(SCREEN, /\?\? \(heldAccess\?\.point\.id === accessId \? heldAccess : null\)/);
+});
+
+test('an offline gauge result opens a sheet with an honest absence of a reading', () => {
+  const pin = handler('offlineGaugePin', { conditionColor: () => '#999', conditionLabel: () => 'Unknown' }, SCREEN);
+  const offline = {
+    kind: 'gauge', id: 'site:07067000', name: 'USGS 07067000', riverName: 'Current River', riverSlug: 'current',
+    coordinates: { lng: -91.0, lat: 37.0 }, siteId: '07067000', gauge: null,
+  };
+  const built = pin(offline);
+  assert.equal(built.layer, 'gauges');
+  assert.equal(built.siteId, '07067000', 'the sheet still asks for the station by site');
+  assert.equal(built.code, 'unknown', 'never graded from a copy that holds no reading');
+  assert.equal(built.value, null);
+  assert.match(built.body, /No reading while offline/);
+  assert.equal(pin({ ...offline, gauge: { curated: true } }), null, 'a live result is never built from its thinner fields');
+  assert.equal(pin({ ...offline, siteId: null }), null);
+  assert.match(SCREEN, /if \(known && hasCoordinates\(known\)\) return mapGaugePin\(known\);\s*return offlineGaugePin\(result\);/);
+});
