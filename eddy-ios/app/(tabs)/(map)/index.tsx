@@ -1220,7 +1220,7 @@ function MapContent() {
    *  - the river is genuinely lineless (`riverBounds` is null even with the
    *    record in hand), where there is nothing to frame and never will be.
    */
-  useEffect(() => {
+  const redeemRiverFit = useCallback(() => {
     const pending = pendingRiverFit.current;
     if (!pending) return;
     if (pending.slug !== selectedSlug || pending.gestures !== gestureCount.current) {
@@ -1231,8 +1231,21 @@ function MapContent() {
     if (!river) return; // Still hydrating; ask again on the next arrival.
     pendingRiverFit.current = null;
     const bounds = riverBounds(river);
-    if (bounds) issueCameraCommand({ type: 'riverSelected', bounds, waitForSheet: pending.waitForSheet });
+    if (!bounds) return;
+    const commandId = issueCameraCommand({ type: 'riverSelected', bounds, waitForSheet: pending.waitForSheet });
+    // A named place opened before this river had a line deferred its fit, so
+    // its token recorded no command (fitCommandId null). The fit exists now:
+    // hand its id to that token. Otherwise, when the river's list lands
+    // without the place, there is no id to release, and this command waits
+    // for a sheet that never opens and fires when some unrelated one does.
+    const named = pendingAccessSelection.current;
+    if (named?.named && named.riverSlug === pending.slug) {
+      pendingAccessSelection.current = { ...named, named: { fitCommandId: commandId } };
+    }
   }, [network.bySlug, selectedSlug, issueCameraCommand]);
+  useEffect(() => {
+    redeemRiverFit();
+  }, [redeemRiverFit]);
 
   /**
    * The selected river as the map and the offline planner need it.

@@ -893,6 +893,61 @@ test('releasing a sheet wait touches only the command it names', () => {
   assert.equal(state, null, 'a consumed command is not resurrected');
 });
 
+test('cold start: geometry lands before the missing-place answer, and the late fit is still released', () => {
+  // "View on map" for a removed place before river geometry loads. The fit
+  // is deferred, so the token records no command yet.
+  const pendingRiverFit = { current: null as Record<string, unknown> | null };
+  const pendingAccessSelection = { current: null as Record<string, unknown> | null };
+  const open = handler('openNamedAccess', {
+    drawnAccessPoints: [], planHoldsRiver: false, selectedSlug: 'jacks-fork', plannerAccess: null,
+    heldAccessRequest: { current: 0 }, pendingAccessSelection,
+    navigationEpoch: { current: 0 }, cameraCommandId: { current: 11 },
+    accessPinLayer: () => 'access', mapAccessPointPin: () => null,
+    // The real selectRiver with no line yet: it defers the fit, issues nothing.
+    selectRiver: (slug: string, intent: { waitForSheet: boolean }) => {
+      pendingRiverFit.current = { slug, gestures: 0, waitForSheet: intent.waitForSheet };
+    },
+    issueCameraCommand: () => null, enableLayer: () => {}, setSelectedPin: () => {},
+    showPlaceNotice: () => {}, PLACE_NOT_LISTED: 'not listed',
+  }, SCREEN);
+  open('gone-2', 'current', null);
+  assert.deepEqual(JSON.parse(JSON.stringify(pendingAccessSelection.current)),
+    { id: 'gone-2', riverSlug: 'current', layer: null, named: { fitCommandId: null } });
+
+  // The geometry lands first: the deferred fit is issued now, waiting for the
+  // sheet, and its id is handed back to the token.
+  let command: Record<string, unknown> | null = null;
+  const redeem = handler('redeemRiverFit', {
+    pendingRiverFit, pendingAccessSelection, selectedSlug: 'current', gestureCount: { current: 0 },
+    network: { bySlug: new Map([['current', { slug: 'current' }]]) },
+    riverBounds: () => [-91.5, 37, -91, 37.4],
+    issueCameraCommand: (action: Record<string, unknown>) => {
+      command = { id: 12, type: 'fitBounds', bounds: action.bounds, waitForSheet: action.waitForSheet };
+      return 12;
+    },
+  }, SCREEN);
+  redeem();
+  assert.equal(pendingRiverFit.current, null, 'the deferred fit was redeemed');
+  assert.equal((command as Record<string, unknown> | null)?.waitForSheet, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(pendingAccessSelection.current?.named)), { fitCommandId: 12 });
+
+  // Then the river's list answers without the place: the selection effect
+  // releases the id the token now holds, so nothing is left waiting for a
+  // sheet that will never open.
+  const release = handler('releaseSheetWait', {
+    pendingRiverFit,
+    setCameraCommand: (update: (current: unknown) => unknown) => { command = update(command) as typeof command; },
+  }, SCREEN);
+  release((pendingAccessSelection.current?.named as { fitCommandId: number | null }).fitCommandId, 'current');
+  assert.equal((command as Record<string, unknown> | null)?.waitForSheet, false, 'the late fit no longer waits for a sheet');
+
+  // A token that is not a named request (the planner's) is left alone.
+  pendingRiverFit.current = { slug: 'current', gestures: 0, waitForSheet: true };
+  pendingAccessSelection.current = { id: 'x', riverSlug: 'current', layer: null };
+  redeem();
+  assert.equal(pendingAccessSelection.current?.named, undefined);
+});
+
 test('a river result the map has no line for says so instead of doing nothing', () => {
   const river = SCREEN.slice(SCREEN.indexOf("if (result.kind === 'river' && result.riverSlug) {"), SCREEN.indexOf('// The pin the result opens, built first'));
   assert.match(river, /if \(!network\.loading && !network\.bySlug\.has\(result\.riverSlug\)\) showPlaceNotice\(RIVER_NOT_MAPPED\);/);
