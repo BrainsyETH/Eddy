@@ -1,5 +1,5 @@
 {
-  "_status": "REVIEWED 2026-10-15: evidence worksheet; NOT SIGNED OFF for activation. Corrections prepared; production transaction blocked by connector requestState errors. Device acceptance and endpoint photos unconfirmed.",
+  "_status": "ACTIVATED 2026-10-29 as the Norfork tailwater pilot (unrated, two endpoints). See reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md for accepted gaps.",
   "name": "Norfork Tailwater",
   "slug": "norfork-tailwater",
   "state": "AR",
@@ -8,7 +8,7 @@
   "region": "Ozarks",
   "nhdFeatureId": null,
   "riverType": "dam_tailwater",
-  "description": "The cold-water North Fork River below Norfork Dam joins the White River at Norfork, Arkansas. The proposed boat corridor runs from Dam-Quarry Boat Ramp to Norfork Access on the White River just below the confluence. Releases can change conditions along this reach; observed dam readings and generation schedules do not establish a safe wading or departure window. Check the current Arkansas Game and Fish Commission trout regulations for the section you fish.",
+  "description": "The cold-water North Fork River below Norfork Dam joins the White River at Norfork, Arkansas. The boat corridor runs from Dam-Quarry Boat Ramp to Norfork Access on the White River just below the confluence. Releases can change conditions along this reach; observed dam readings and generation schedules do not establish a safe wading or departure window. Check the current Arkansas Game and Fish Commission trout regulations for the section you fish.",
   "managingAuthority": "USACE Little Rock District; Arkansas Game and Fish Commission",
   "regulations": [],
   "permits": [],
@@ -47,59 +47,85 @@
   },
   "readiness": {
     "corridor": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Dam-Quarry Boat Ramp to Norfork #1 east-bank ramp on the White River. Bill Ackerman is excluded until boat carry-out permission and practical landing are verified."
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "Dam-Quarry Boat Ramp (0.44) to Norfork Access, the Norfork #1 east-bank ramp on the White (5.01): the only two approved float endpoints. Dry Run Creek, Bill Ackerman and the Dam-Quarry campground are not endpoints."
     },
     "legalAccess": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md",
+        "https://github.com/BrainsyETH/Eddy/issues/1541",
+        "https://www.recreation.gov/camping/campgrounds/232565",
+        "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Agency ramp evidence recorded; current posted restrictions, endpoint photos and offered route scope still require acceptance."
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "Agency ramps: AGFC 1586 / Recreation.gov 232565 (USACE) and AGFC 98. Pins confirmed with Evan 2026-10-17. Current posted restrictions, fees and hours unconfirmed."
     },
     "gauge": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md",
+        "https://eddy.guide/api/dams/swl-norfork-dam"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Primary USACE provider mapping and fresh release/stage observed in production snapshot at 22:35 UTC, observation time 22:00 UTC. This is a dam observation, not a validated downstream travel-time model."
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "USACE swl-norfork-dam release, cfs. Read 2026-10-29 11:43 UTC: 205 cfs observed 07:00 UTC, labelled lagging (Corps publication lag; the app shows its age). A dam observation, not a downstream travel-time model."
     },
     "conditions": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md",
+        "../../../shared/tailwater-status.test.ts"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Existing shared model and MCP tests withhold float time and safe-wading claims. Device presentation, disagreement and unexpected-release walkthrough still unconfirmed.",
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "Unrated: no thresholds on any Norfork gauge link. Float time and wading all-clear withheld by tested shared code. Device walkthrough of the four tailwater scenarios unconfirmed; owner accepted activation without it.",
       "ratingMode": "unrated"
     },
     "hazards": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md",
+        "../../../supabase/migrations/20261029115032_stage_norfork_tailwater_pilot.sql"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Structured characteristics prepared. No claim of no fixed hazards; posted dam approach limits and route hazard coverage remain pending."
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "Norfork Dam (0.00, danger) and Highway 5 bridge (4.60, info) mapped. USACE restricted-area limits and warning-system status not obtained (#1541). No claim of no other hazards."
     },
     "routing": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Verified connected White continuation is prepared, not applied: 0.135474 mi beyond the confluence, new stored extent 5.01 mi. Proposed route distance 4.57 mi; retain geometry/manual-mile distinction."
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "get_float_segment Dam-Quarry to Norfork Access: 4.57 mi, valid 15-vertex LineString on 2026-10-29."
+    },
+    "tailwaterPilot": {
+      "status": "verified",
+      "evidence": [
+        "../reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md",
+        "https://github.com/BrainsyETH/Eddy/issues/1541"
+      ],
+      "reviewedBy": "Claude Code — production checks and source review; activation directed by Evan",
+      "reviewedAt": "2026-10-29T11:50:00Z",
+      "notes": "Owner-directed Norfork pilot activation on 2026-10-29 with open items recorded in the activation record: endpoint photos, posted USACE restrictions, device acceptance and field observations.",
+      "floatEndpoints": [
+        "dam-quarry-boat-ramp",
+        "norfork-access"
+      ]
     }
   }
 }

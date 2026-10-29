@@ -30,6 +30,18 @@ A river becoming active exposes its catalog endpoints; a proposed short corridor
 does not authorize all access pairs on a longer river. Limit publication scope or
 complete the wider review before activation.
 
+## October 29 Norfork activation
+
+Norfork is **active** as the unrated pilot, Dam-Quarry Boat Ramp → Norfork #1
+(the [activation record](../scripts/ingestion/reviews/NORFORK_PILOT_ACTIVATION_2026-10-29.md)
+lists what was checked and the gaps accepted at Evan's direction). The
+activation review no longer refuses every tailwater outright. A tailwater now
+activates only with a verified `tailwaterPilot` review in its dossier, under
+`condition_rating_mode = 'unrated'`, and with `floatEndpoints` naming exactly
+the approved endpoints activation would publish (migration `20261029114729`).
+That last check enforces the October 15 scope rule. White and Taneycomo cannot
+activate on a short-corridor review while 23 and 5 endpoints are approved.
+
 ## Where this stands
 
 `WATER_REGIMES_STRATEGY.md` sequenced five steps. Steps 1 and 2 are done — the
