@@ -109,8 +109,9 @@ export interface FloatRoute {
   anchors: RouteAnchor[];
   /**
    * Known hazards, copied in at start like the line so they work with no
-   * signal. Absent on floats started before hazards were carried, and on trip
-   * downloads saved before then; both simply show none.
+   * signal. Three states (floatHazardData.ts): absent means Eddy had no
+   * hazard data for this float, so "none ahead" is unknown and River Mode
+   * says so; [] means a list was loaded and none sit on this stretch.
    */
   hazards?: RouteHazard[];
   /** When the river data was fetched, for display only. */

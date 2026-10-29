@@ -49,6 +49,7 @@ import {
   viewSession,
 } from '@/lib/floatSession';
 import { recordedOrigin } from '@/lib/floatOrigin';
+import { hazardAheadNote, hazardDataState } from '@/lib/floatHazardData';
 import { hazardTypeLabel } from '@eddy/hazards';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -415,6 +416,10 @@ export default function FloatModeScreen() {
                 : ''}
             </Text>
           </Pressable>
+        ) : hazardDataState(session.route) === 'unavailable' ? (
+          // No hazard data is not a clear river: say so where the next hazard
+          // would be, not only in Float tools.
+          <Text style={[styles.caption, { color: colors.textMuted }]}>{hazardAheadNote(session.route, 0)}</Text>
         ) : null}
 
         {tracking.line ? (
