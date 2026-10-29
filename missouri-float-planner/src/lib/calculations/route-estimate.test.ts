@@ -175,7 +175,7 @@ test('route status distinguishes missing observations on rated and unrated gauge
     const result = await routeFixture({ condition: 'unknown', missingReading: true,
       unratedFallback: !rated, ratedFallback: rated }).estimate();
     assert.deepEqual(result.availability, { ratingStatus: rated ? 'rated' : 'unrated', readingStatus: 'unavailable' });
-    assert.equal(result.conditionStatusLabel, rated ? 'Gauge data unavailable' : 'Not rated · Gauge data unavailable');
+    assert.equal(result.conditionStatusLabel, rated ? 'No reading right now' : 'Not rated · No reading right now');
     assert.equal(result.estimateBasis, 'typical');
   }
 });

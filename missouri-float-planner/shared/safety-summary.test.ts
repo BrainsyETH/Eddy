@@ -9,7 +9,7 @@ const VAN_BUREN = { action: 6, flood: 10, moderate: 18, major: 25 };
 test('a current reading above a category is the present-tense state', () => {
   const summary = summarizeSafety({ stages: VAN_BUREN, currentFt: 19 });
   assert.deepEqual(summary, { kind: 'current', category: 'moderate' });
-  assert.equal(safetySummarySentence(summary), 'Currently at or above NWS moderate flood stage.');
+  assert.equal(safetySummarySentence(summary), 'Moderate flooding now.');
 });
 
 test('current outranks a forecast crossing — a flood now is not a forecast', () => {
@@ -45,7 +45,7 @@ test('a forecast crossing reads as a forecast, never the present tense', () => {
     crossesAt: '2026-08-24T18:00:00Z',
   });
   const sentence = safetySummarySentence(summary, { forecastDayLabel: 'Monday' });
-  assert.equal(sentence, 'Forecast to reach NWS action stage Monday.');
+  assert.equal(sentence, 'Could near flood stage Monday.');
   assert.equal(/currently/i.test(sentence), false);
 });
 
@@ -86,7 +86,7 @@ test('a forecast crossing surfaces even without a current reading', () => {
 test('below every threshold names the lowest one that exists', () => {
   const summary = summarizeSafety({ stages: VAN_BUREN, currentFt: 3 });
   assert.deepEqual(summary, { kind: 'below', lowestPublished: 'action' });
-  assert.equal(safetySummarySentence(summary), 'Below NWS action stage.');
+  assert.equal(safetySummarySentence(summary), 'Well below flood stage.');
 });
 
 test('actionFt can be null while floodFt exists — the sentence adjusts', () => {
@@ -94,7 +94,7 @@ test('actionFt can be null while floodFt exists — the sentence adjusts', () =>
   // stage" would name a threshold nobody published.
   const summary = summarizeSafety({ stages: { flood: 10 }, currentFt: 3 });
   assert.deepEqual(summary, { kind: 'below', lowestPublished: 'flood' });
-  assert.equal(safetySummarySentence(summary), 'Below NWS minor flood stage.');
+  assert.equal(safetySummarySentence(summary), 'Below flood stage.');
 });
 
 test('an action-only station is a legal shape, not "no stages"', () => {
@@ -118,14 +118,14 @@ test('stages published with no trusted reading says so, in those words', () => {
   assert.deepEqual(summary, { kind: 'no_reading' });
   assert.equal(
     safetySummarySentence(summary),
-    'Official flood stages published; current comparison unavailable.',
+    'No current reading to compare with flood stage.',
   );
 });
 
 test('missing stages are a statement about publication, not the water', () => {
   const summary = summarizeSafety({ stages: null, currentFt: 4 });
   assert.deepEqual(summary, { kind: 'no_stages' });
-  assert.equal(safetySummarySentence(summary), 'No official flood stages published.');
+  assert.equal(safetySummarySentence(summary), 'No flood stages published for this gauge.');
 });
 
 test('NWPS sentinels count as unpublished, not as thresholds', () => {

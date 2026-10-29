@@ -314,7 +314,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         await page.getByRole('button', { name: 'Share chart link', exact: true }).waitFor();
         check(`${width}px restores the original calendar despite catalog changes`, historyRequests.some(url => new URL(url).searchParams.get('tz') === state.timeZone));
         check(`${width}px uses the responsive chart presentation`, width < 1024 ? await page.getByRole('dialog').isVisible() : await page.getByRole('dialog').count() === 0);
-        check(`${width}px restores scale`, await page.getByLabel('Value scale').inputValue() === 'visible');
+        check(`${width}px restores scale`, await page.getByLabel('Scale', { exact: true }).inputValue() === 'visible');
         await page.getByRole('button', { name: 'Share chart link', exact: true }).click();
         const sharedUrl = await page.evaluate(() => (window as unknown as { sharedUrl: string }).sharedUrl);
         const restored = parseChartShare('usgs', SITE, new URL(sharedUrl).searchParams)!;
@@ -335,7 +335,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         await page.screenshot({ path: path.join(OUT_DIR, `shared-${width}.png`), fullPage: true });
         await page.setViewportSize({ width: width < 1024 ? 1440 : 390, height: 1000 });
         if (width >= 1024) await page.getByRole('button', { name: 'Expand', exact: true }).click();
-        check(`${width}px resize keeps scale`, await page.getByLabel('Value scale').inputValue() === 'visible');
+        check(`${width}px resize keeps scale`, await page.getByLabel('Scale', { exact: true }).inputValue() === 'visible');
         await page.getByRole('button', { name: 'Show latest', exact: true }).click();
         await page.getByText('Last 7 days', { exact: true }).waitFor();
         check(`${width}px Show latest clears shared dates`, await page.getByText(/Shared view ·/).count() === 0);

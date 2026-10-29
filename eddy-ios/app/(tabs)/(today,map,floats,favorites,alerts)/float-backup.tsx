@@ -50,7 +50,7 @@ export default function FloatBackupScreen() {
         {archive.recovered ? (
           <Text accessibilityRole="alert" style={[t.base, { color: colors.textMuted }]}>
             Some local history could not be opened. A recovery copy is kept on this phone. Sign in to reload
-            floats that were backed up. Unsynced floats may be missing.
+            floats that were backed up. Floats not yet backed up may be missing.
           </Text>
         ) : null}
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
@@ -82,7 +82,7 @@ export default function FloatBackupScreen() {
               onPress={() => void archive.refresh()}
               style={styles.button}
             >
-              <Text style={[t.base, { color: colors.interactive }]}>Sync now</Text>
+              <Text style={[t.base, { color: colors.interactive }]}>Back up now</Text>
             </Pressable>
           )}
           {archive.error ? <Text style={[t.sm, { color: colors.error }]}>{archive.error}</Text> : null}
@@ -115,7 +115,7 @@ export default function FloatBackupScreen() {
           ) : null}
           {archive.retryAt && archive.error ? (
             <Text style={[t.sm, { color: colors.textMuted }]}>
-              Backup will retry automatically. You can also tap Sync now.
+              Backup will retry automatically. You can also tap Back up now.
             </Text>
           ) : null}
         </View>

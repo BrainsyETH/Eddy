@@ -1041,9 +1041,9 @@ test('GPS age and Live Activity status distinguish waiting, fresh, delayed, disa
   assert.equal(fixAgeLabel(T0, T0 + 1000), 'Updated just now');
   assert.equal(fixAgeLabel(T0, T0 + 15_000), 'Updated 15s ago');
   assert.equal(fixAgeLabel(T0, T0 + 120_000), 'Updated 2 min ago');
-  assert.equal(activityLabel('active'), 'Live Activity on your Lock Screen');
-  assert.equal(activityLabel('disabled'), 'Live Activity is off');
-  assert.equal(activityLabel('expired'), 'Live Activity expired · show it again');
+  assert.equal(activityLabel('active'), 'Progress on your Lock Screen');
+  assert.equal(activityLabel('disabled'), 'Lock Screen progress is off');
+  assert.equal(activityLabel('expired'), 'Lock Screen progress ended · show it again');
   assert.equal(activityLabel('unavailable'), null);
 });
 
@@ -1083,8 +1083,8 @@ test('the progress line counts time on the water to arrival and miles from the r
 test('recap backup reflects this row and actual sync state, independently of a subscription', () => {
   assert.deepEqual(recapBackupStatus('guest', { dirty: true }, false, null), { label: 'Saved on this phone', retry: false });
   assert.equal(recapBackupStatus('account', { dirty: false }, false, 'Another row failed').label, 'Backed up to your account');
-  assert.equal(recapBackupStatus('account', { dirty: true }, true, null).label, 'Syncing to your account…');
-  assert.equal(recapBackupStatus('account', { dirty: true }, false, null).label, 'Saved on this phone · Waiting to sync');
+  assert.equal(recapBackupStatus('account', { dirty: true }, true, null).label, 'Backing up…');
+  assert.equal(recapBackupStatus('account', { dirty: true }, false, null).label, 'Saved on this phone · Not backed up yet');
   assert.equal(recapBackupStatus('account', { dirty: true }, false, 'Offline').retry, true);
   assert.equal(recapBackupStatus('account', { dirty: false, backupError: 'Rejected' }, true, null).retry, true);
 });
@@ -1315,7 +1315,7 @@ test('Your Float promises tracking only with a healthy recorder and a fresh usab
   const restored: FloatSession = { ...session, awaitingFix: true, gpsPosition: session.gpsPosition ? { ...session.gpsPosition, restored: true } : undefined };
   assert.equal(activeFloatStatus(restored, tracker, now).healthy, false);
   const weak = { ...session, lastFix: { lngLat: at(2_000), at: now + 10_000, accuracyMeters: 500 } };
-  assert.match(activeFloatStatus(weak, tracker, now + 10_000).label, /Weak GPS/);
+  assert.match(activeFloatStatus(weak, tracker, now + 10_000).label, /Finding you/);
   assert.equal(activeFloatStatus(weak, tracker, now + 10_000).healthy, false);
 });
 

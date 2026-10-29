@@ -15,7 +15,7 @@ export function OnboardingSignIn({ onDone }: { onDone: () => void }) {
         <EddyScene name="wave" size={160} />
         <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Keep up with your rivers.</Text>
         <Text style={[styles.copy, { color: colors.textMuted }]}>
-          Sign in to set river alerts and sync your favorites across devices.
+          Sign in to set river alerts and keep your favorites on any iPhone you use.
         </Text>
         <Text style={[styles.note, { color: colors.textMuted }]}>
           You choose which alerts to create and whether to allow notifications. You can also sign in later in Settings.

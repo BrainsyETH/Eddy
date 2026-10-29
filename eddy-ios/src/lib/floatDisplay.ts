@@ -12,7 +12,7 @@ export function activeFloatStatus(session: FloatSession, tracker: TrackerState, 
   const weak = gpsQualityNote(session, now);
   const healthy = tracker.status === 'recording' && !attention && !!position && !position.dimmed && !weak;
   const label = attention ? `Tracking needs attention · ${river}`
-    : weak ? `Weak GPS · ${river}`
+    : weak ? `Finding you · ${river}`
     : healthy ? `Tracking on the ${river}`
     : position && !session.awaitingFix && !session.gpsPosition?.restored && tracker.status === 'recording' ? `Location delayed · ${river}`
     : `Finding GPS · ${river}`;
@@ -76,12 +76,12 @@ export function fixAgeLabel(at: number | null, now: number): string {
 
 export function activityLabel(state: ActivityAvailability): string | null {
   switch (state) {
-    case 'active': return 'Live Activity on your Lock Screen';
-    case 'disabled': return 'Live Activity is off';
-    case 'error': return 'Live Activity couldn’t update';
-    case 'expired': return 'Live Activity expired · show it again';
+    case 'active': return 'Progress on your Lock Screen';
+    case 'disabled': return 'Lock Screen progress is off';
+    case 'error': return 'Couldn’t update the Lock Screen';
+    case 'expired': return 'Lock Screen progress ended · show it again';
     case 'idle':
-    case 'dismissed': return 'Show progress with a Live Activity';
+    case 'dismissed': return 'Show progress on your Lock Screen';
     default: return null;
   }
 }
@@ -95,9 +95,9 @@ export function recapBackupStatus(owner: string | null, row: { dirty: boolean; b
   if (owner === 'guest' || owner == null) return { label: 'Saved on this phone', retry: false };
   if (row.backupError) return { label: 'Couldn’t back up · Saved on this phone', retry: true };
   if (!row.dirty) return { label: 'Backed up to your account', retry: false };
-  if (syncing) return { label: 'Syncing to your account…', retry: false };
-  if (error) return { label: 'Couldn’t sync · Saved on this phone', retry: true };
-  return { label: 'Saved on this phone · Waiting to sync', retry: false };
+  if (syncing) return { label: 'Backing up…', retry: false };
+  if (error) return { label: 'Couldn’t back up · Saved on this phone', retry: true };
+  return { label: 'Saved on this phone · Not backed up yet', retry: false };
 }
 
 /** Keep a useful scale when the user reaches the take-out or no end is set. */

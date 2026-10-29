@@ -303,10 +303,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
       case 'usgs':
         return {
           href: `https://waterdata.usgs.gov/monitoring-location/${siteId}/`,
-          label: `USGS ${siteId}`,
+          label: 'USGS source',
         };
       case 'nws':
-        return { href: `https://water.noaa.gov/gauges/${siteId}`, label: `NWS ${siteId}` };
+        return { href: `https://water.noaa.gov/gauges/${siteId}`, label: 'NWS source' };
       default:
         return null;
     }
@@ -441,7 +441,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
-              className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
+              className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
             >
               {sourceLink.label}
               <ExternalLink className="w-3 h-3" />

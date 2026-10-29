@@ -30,8 +30,8 @@ export function conditionAvailability(input: Input, now = Date.now()): Condition
 /** For unknown verdicts only. Recompute age so saved plans cannot freeze freshness. */
 export function unknownConditionLabel(input: Input): string {
   const { ratingStatus, readingStatus } = conditionAvailability(input);
-  const reading = readingStatus === 'unavailable' ? 'Gauge data unavailable'
+  const reading = readingStatus === 'unavailable' ? 'No reading right now'
     : readingStatus === 'stale' ? 'Reading out of date' : null;
-  if (ratingStatus === 'unrated') return reading ? `Not rated · ${reading}` : 'Not rated — readings only';
+  if (ratingStatus === 'unrated') return reading ? `Not rated · ${reading}` : 'Not rated by Eddy';
   return reading ?? 'Conditions unavailable';
 }

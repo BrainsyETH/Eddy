@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useObservationClock } from '@/hooks/useObservationClock';
-import { ApiError } from '@/api/client';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { onForeground } from '@/lib/foreground';
 import { agedIndex, readBestIndex } from '@/lib/riverCache';
@@ -15,7 +14,9 @@ const catalog = createTodayCatalog({
     if (!cached) return null;
     return { rivers: cached.seeded ? cached.payload : agedIndex(cached, Date.now()), seeded: cached.seeded };
   },
-  describeError: (error) => error instanceof ApiError ? error.message : 'Couldn’t load rivers. Pull down to refresh.',
+  // Never the transport message ("Request failed (503)", "No connection"):
+  // a floater needs to know what to do, not which request failed.
+  describeError: () => 'Couldn’t load rivers. Pull down to try again.',
 });
 
 export function useTodayCatalog() {

@@ -442,15 +442,15 @@ export default function GaugeHistoryChart({
       {fullControls && (
         <div className="flex flex-wrap items-center gap-4 px-5 pb-3 text-xs text-neutral-600">
           <label className="flex items-center gap-2">
-            Value scale
+            Scale
             <select
-              aria-label="Value scale"
+              aria-label="Scale"
               value={scale}
               onChange={(event) => setScale(event.target.value as ChartScaleMode)}
               className="rounded border border-neutral-300 bg-white px-2 py-1.5"
             >
-              <option value="loaded">Loaded window</option>
-              <option value="visible">Visible values</option>
+              <option value="loaded">Fit to dates</option>
+              <option value="visible">Fit to zoom</option>
               <option value="full">Full scale</option>
             </select>
           </label>
@@ -470,7 +470,7 @@ export default function GaugeHistoryChart({
                   checked={medianOn}
                   onChange={(event) => setMedianOn(event.target.checked)}
                 />
-                Historical median
+                Median
               </label>
             </>
           )}
@@ -551,7 +551,8 @@ export default function GaugeHistoryChart({
             <p>Daily values · one point per day</p>
           )}
           {history?.truncationReason && <p>{history.truncationReason}</p>}
-          <p className="mt-1">Drag to zoom. Use arrow keys to explore readings.</p>
+          {/* Dragging to zoom is found by doing it; the keyboard path is not. */}
+          <p className="sr-only">Use arrow keys to explore readings.</p>
         </div>
       )}
       {fullControls && provider === 'usgs' && <ChartShareControls state={shareState} stationName={siteName} />}

@@ -282,7 +282,6 @@ interface EddyTakeProps {
 
 export function EddyTake({
   outlook,
-  ratedUnit = null,
   entitled = null,
   onUpgrade,
   onRetry,
@@ -459,9 +458,7 @@ export function EddyTake({
               which." Once, under the strip, rather than seven times inside it. */}
           {outlook.hasOfficialForecast ? (
             <Text style={[styles.forecastNote, { color: colors.textSubtle }]}>
-              {ratedUnit === 'cfs'
-                ? 'Forecast is river stage in feet — this river is rated in cfs.'
-                : 'Forecast is river stage in feet.'}
+              Forecast in feet.
             </Text>
           ) : null}
         </Pressable>

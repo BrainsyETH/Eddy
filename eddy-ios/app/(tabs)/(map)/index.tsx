@@ -289,7 +289,7 @@ function referenceGaugePin(g: MapGaugeLite): MapPin {
     // a sentence, and the map has room for a town.
     label: gaugePlaceLabel(g.name),
     layer: 'allGauges' as LayerKey,
-    subtitle: `USGS ${g.siteId} — not Eddy-rated`,
+    subtitle: 'Not rated by Eddy',
     coordinates: g.coordinates,
     color: flowBandColor(band),
     // No `code`: that field drives a CONDITION-tinted chip in the
@@ -2977,7 +2977,7 @@ function MapContent() {
               <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
-                  Live conditions unavailable — rivers are shown uncoloured.
+                  Can’t load conditions. Rivers shown in gray.
                 </Text>
               </View>
             ) : null}
@@ -3007,9 +3007,9 @@ function MapContent() {
                 // The hook says which it was.
                 emptyMessage={
                   search.serverFailure === 'offline'
-                    ? 'Search is unreachable right now — only what the map already holds can match. Check your connection.'
+                    ? 'Offline. Showing places already on the map.'
                     : search.serverFailure === 'server'
-                      ? 'Search isn’t answering right now — only what the map already holds can match. Try again in a moment.'
+                      ? 'Search isn’t answering. Showing places already on the map.'
                       : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
                 }
               />
@@ -3383,7 +3383,7 @@ function MapContent() {
             viewport.zoom < ZOOM.min &&
             FLOOR_GATED_PIN_ROWS.has(key)
           ) {
-            return <LayerZoomHint text="Zoom in to see these — nothing draws this far out." />;
+            return <LayerZoomHint text="Zoom in to see these." />;
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar

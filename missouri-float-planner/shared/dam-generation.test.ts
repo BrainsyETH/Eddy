@@ -204,7 +204,7 @@ test('missing data is never "not generating"', () => {
     ),
     { kind: 'unavailable', reason: 'unreadable' }
   );
-  assert.equal(generationStatusLabel({ kind: 'unavailable', reason: 'not-published' }), 'Current generation unavailable');
+  assert.equal(generationStatusLabel({ kind: 'unavailable', reason: 'not-published' }), 'Release status unavailable');
   // A flood-control project heads nothing at all rather than inventing a
   // powerhouse to report on.
   assert.equal(generationStatusLabel({ kind: 'unavailable', reason: 'no-powerhouse' }), null);
@@ -271,7 +271,7 @@ test('short next-change copy preserves timing, bounded stops and unpublished hou
   assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Increases at 2 PM.');
   assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Decreases at 2 PM.');
   assert.equal(summary([day('2026-07-28', {})]),
-    'No more generation in the posted schedule.');
+    'No more releases in the posted schedule.');
   assert.equal(summary([]), null);
 });
 
@@ -365,14 +365,14 @@ test('a schedule that never changes says so about the POSTED schedule', () => {
   const state = generationNow(dam({ metrics: { generationFlow: reading(19_130, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(state, allDay, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'Generation scheduled for every remaining hour posted.'
+    'Releasing through the end of the posted schedule.'
   );
 
   const never = [day('2026-07-28', {})];
   const idle = generationNow(dam({ metrics: { generationFlow: reading(20, 5) } }), NOON_CENTRAL);
   assert.equal(
     nowNextClauses(idle, never, BULL_SHOALS, NOON_CENTRAL).scheduled,
-    'No more generation in the posted schedule.'
+    'No more releases in the posted schedule.'
   );
 });
 

@@ -127,7 +127,7 @@ export default function QuietHoursScreen() {
       </> : signedOut ? <>
         <Text style={[styles.title, { color: colors.text }]}>Sign in to set quiet hours</Text>
         <Text style={[t.base, { color: colors.textMuted }]}>Your schedule applies to every device signed into your account.</Text>
-        {accountsConfigured ? <AppleSignInButton onBusyChange={value => { busy.current = value; setSigningIn(value); }} onSignedIn={() => setReload(n => n + 1)} /> : <Text style={[t.base, { color: colors.textMuted }]}>Sign-in is unavailable in this build.</Text>}
+        {accountsConfigured ? <AppleSignInButton onBusyChange={value => { busy.current = value; setSigningIn(value); }} onSignedIn={() => setReload(n => n + 1)} /> : <Text style={[t.base, { color: colors.textMuted }]}>Sign-in isn’t available right now.</Text>}
       </> : prefs ? <>
         <View style={[styles.row, { backgroundColor: colors.card }]}>
           <View style={styles.body}><Text style={[styles.title, { color: colors.text }]}>Quiet hours</Text><Text style={[t.sm, { color: colors.textMuted }]}>Skip notifications on a daily schedule.</Text></View>

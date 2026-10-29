@@ -593,7 +593,7 @@ export default function ConfigureAlertScreen() {
         {accountsConfigured ? <AppleSignInButton
           onBusyChange={(busy) => { signingInRef.current = busy; setSigningIn(busy); }}
           onSignedIn={() => { gate.setSignInOpen(false); void save(); }}
-        /> : <Text style={[styles.stepBody, { color: colors.error }]}>Accounts are unavailable in this build. Go back to keep your alert choices.</Text>}
+        /> : <Text style={[styles.stepBody, { color: colors.error }]}>Sign-in isn’t available right now. Go back to keep your alert choices.</Text>}
       </ScrollView>
     </AlertCreationFrame>;
   }

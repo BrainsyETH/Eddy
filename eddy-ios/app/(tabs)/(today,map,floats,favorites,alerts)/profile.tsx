@@ -598,10 +598,10 @@ function ProfileContent() {
                   </Text>
                   <Text style={[styles.rowNote, { color: colors.textMuted }]}>
                     {signedIn
-                      ? 'Favorites sync across devices. Saved floats stay on this device.'
+                      ? 'Your favorites follow you to any iPhone you sign in on. Saved floats stay on this one.'
                       : unavailable
                         ? 'Your favorites stay on this device.'
-                        : 'Sign in to sync favorites. Saved floats stay on this device.'}
+                        : 'Sign in to keep your favorites on any iPhone. Saved floats stay on this one.'}
                   </Text>
                 </View>
               </View>

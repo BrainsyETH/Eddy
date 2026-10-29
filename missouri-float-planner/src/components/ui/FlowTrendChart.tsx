@@ -847,7 +847,7 @@ export default function FlowTrendChart({
                 // teal under the median's solid edge.
                 style={{ backgroundColor: `${TYPICAL_COLOR}2e`, borderTop: `1px solid ${TYPICAL_COLOR}` }}
               />
-              {showTypical ? 'Typical 25–75%' : 'Historical median'}
+              {showTypical ? 'Typical range' : 'Median'}
             </span>
           )}
           {currentDisplay != null && (

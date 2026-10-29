@@ -494,12 +494,9 @@ export default async function RiverGuidePage({ params }: Props) {
 
           {/* ===== Access points (with overview map) ===== */}
           <section id="access" className="scroll-mt-24">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+            <h2 className="text-2xl font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
               Access points
             </h2>
-            <p className="text-sm text-neutral-600 mb-5">
-              Ordered upstream → downstream. Open a place for access details or choose an eligible put-in in the planner.
-            </p>
 
             <div className="mb-4">
               <RiverHubMap riverSlug={slug} />

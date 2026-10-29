@@ -108,8 +108,6 @@ export default function GaugeSummary({
   qualifierNote,
   conditionCode,
   flowPercentile,
-  yearsOfRecord,
-  seasonalContextUnavailableReason,
   floodStages,
   waterTemperature,
   className = '',
@@ -207,19 +205,19 @@ export default function GaugeSummary({
   // Service's number, not a comparison — and a forecast with no meaningful
   // rise says so rather than naming a "crest" that is today's level.
   const forecastSentence = (() => {
-    if (!forecast.length) return 'No official river forecast published.';
+    if (!forecast.length) return 'No river forecast for this gauge.';
     const crestLine = forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
     if (crestLine) return `${crestLine}.`;
-    if (trustedStageFt != null) return 'NWS forecast: little or no rise expected.';
+    if (trustedStageFt != null) return 'Little or no rise expected.';
     let high: { ft: number; at: string } | null = null;
     for (const point of forecast) {
       if (point.gaugeHeightFt == null || !Number.isFinite(point.gaugeHeightFt) || point.gaugeHeightFt <= -999) continue;
       if (!high || point.gaugeHeightFt > high.ft) high = { ft: point.gaugeHeightFt, at: point.timestamp };
     }
-    if (!high) return 'No official river forecast published.';
+    if (!high) return 'No river forecast for this gauge.';
     const day = forecastDayLabel(high.at);
     const when = !day ? '' : day === 'today' || day === 'tomorrow' ? ` ${day}` : ` on ${day}`;
-    return `NWS forecast: highest ${formatStage(high.ft)}${when}.`;
+    return `Highest ${formatStage(high.ft)}${when}.`;
   })();
 
   const band = tier === 'reference' ? flowBand(flowPercentile) : null;
@@ -307,11 +305,10 @@ export default function GaugeSummary({
       {tier === 'reference' && (
         <p className="text-xs text-neutral-500 -mt-1">
           {providerLabel ? `${providerLabel} · ` : ''}
-          Eddy hasn&apos;t assigned a recreation condition to this location.
+          Not rated by Eddy.
         </p>
       )}
 
-      {yearsOfRecord != null && trusted ? <p className="text-xs text-neutral-500">Seasonal comparison based on {yearsOfRecord} years of discharge records.</p> : seasonalContextUnavailableReason ? <p className="text-xs text-neutral-500">{seasonalContextUnavailableReason}</p> : null}
       {(factLines.length > 0 || coldLine) && (
         <div className="flex items-baseline gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 w-20 flex-shrink-0">

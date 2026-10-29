@@ -272,7 +272,7 @@ export function generationStatusLabel(state: GenerationNow): string | null {
     case 'unavailable':
       // A flood-control project has no powerhouse to report on, and a hero that
       // said anything at all here would invent one.
-      return state.reason === 'no-powerhouse' ? null : 'Current generation unavailable';
+      return state.reason === 'no-powerhouse' ? null : 'Release status unavailable';
   }
 }
 
@@ -673,8 +673,8 @@ function scheduledClause(
     // POSTED schedule, not about the rest of time — tomorrow's file may simply
     // not exist yet.
     return outlook.generating
-      ? 'Generation scheduled for every remaining hour posted.'
-      : 'No more generation in the posted schedule.';
+      ? 'Releasing through the end of the posted schedule.'
+      : 'No more releases in the posted schedule.';
   }
 
   const when = moveClock(outlook.move);

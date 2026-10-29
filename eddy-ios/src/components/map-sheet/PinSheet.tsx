@@ -466,7 +466,7 @@ function PinSheetHeader({
             riverSlug={pin.riverSlug ?? ''}
             onOpenGauge={onOpenGauge}
             pending={!detailSettled}
-            unavailableLabel={detailFailed ? 'Conditions unavailable right now' : 'No gauge grades this stretch'}
+            unavailableLabel={detailFailed ? 'Conditions unavailable right now' : 'No water reading here yet'}
           />
         </GlanceSlot>
       ) : gaugeFacts ? (

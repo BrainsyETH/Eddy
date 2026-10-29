@@ -9,17 +9,17 @@ import type { ConditionCode } from '@/types/api';
 export function getConditionLabel(code: ConditionCode): string {
   switch (code) {
     case 'dangerous':
-      return 'Dangerous - Do Not Float';
+      return 'Flood – don\'t float';
     case 'high':
-      return 'High Water - Use Caution';
+      return 'High – use caution';
     case 'flowing':
       return 'Flowing';
     case 'good':
-      return 'Good - Floatable';
+      return 'Good to float';
     case 'low':
-      return 'Very Low - Scraping Likely';
+      return 'Low – expect scraping';
     case 'too_low':
-      return 'Too Low - Not Recommended';
+      return 'Too low to float';
     case 'unknown':
     default:
       return 'Unknown Conditions';

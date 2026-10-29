@@ -76,10 +76,6 @@ export default function ThresholdTable({
             <h3 className="text-base font-bold text-neutral-900 group-hover:text-primary-700">
               What the levels mean
             </h3>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              <abbr title="feet" className="no-underline">ft</abbr> = gauge height &middot;{' '}
-              <abbr title="cubic feet per second" className="no-underline">cfs</abbr> = flow rate
-            </p>
           </div>
           {isOpen
             ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-neutral-500" aria-hidden="true" />

@@ -96,16 +96,16 @@ export function GaugeChartDetails({ siteId, history, thresholds, floodStages, de
           <Text style={[styles.thresholdName, { color: colors.text }]}>{FLOOD_STAGE_SYSTEM[key].label}</Text>
           <Text style={[styles.number, { color: colors.textMuted }]}>{formatReading(stageValues[key]!, 'ft')}</Text>
         </View>)}
-        <Text style={[styles.meta, { color: colors.textMuted }]}>Stage references apply to gauge height in feet{floodStages?.source ? ` · ${floodStages.source}` : ''}.</Text>
+        <Text style={[styles.meta, { color: colors.textMuted }]}>Flood levels are in feet{floodStages?.source ? ` · ${floodStages.source}` : ''}.</Text>
       </> : null}
     </> : <>
       <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>{history?.siteName || siteId}</Text>
-      <Text style={[styles.meta, { color: colors.textMuted }]}>{statistic}. Quality codes are preserved in the table and CSV.</Text>
+      <Text style={[styles.meta, { color: colors.textMuted }]}>{statistic}.</Text>
       <Text style={[styles.meta, { color: colors.textMuted }]}>{history?.forecast?.length
-        ? `NWS forecast${issued && Number.isFinite(issued.getTime()) ? ` issued ${issued.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}` : ' issue time unavailable'}. Forecast values are shown as published, separately from observations. The chart limits the forecast horizon to the selected history span; the table and CSV retain the full forecast.`
+        ? `NWS forecast${issued && Number.isFinite(issued.getTime()) ? ` issued ${issued.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}` : ' issue time unavailable'}.`
         : 'No NWS forecast is available for this window.'}</Text>
-      <Text style={[styles.meta, { color: colors.textMuted }]}>{history?.typical?.length ? `USGS historical daily flow percentiles${years ? ` · ${years} years of record` : ''}. The typical range is the 25th–75th percentile; the median is the 50th. These describe historical flow, not forecast uncertainty.` : 'Historical flow percentiles are unavailable for this window.'}</Text>
-      <Text style={[styles.meta, { color: colors.textMuted }]}>Flow (cfs) and gauge height (ft) are separate measurements. Dotted connectors mark missing readings, not measurements. Touch the chart or use VoiceOver to inspect actual samples.</Text>
+      <Text style={[styles.meta, { color: colors.textMuted }]}>{history?.typical?.length ? `Typical range and median from ${years ? `${years} years of ` : ''}USGS records.` : 'Historical flow percentiles are unavailable for this window.'}</Text>
+      <Text style={[styles.meta, { color: colors.textMuted }]}>Dotted lines mark missing readings.</Text>
       {sourceUrl ? <Pressable accessibilityRole="link" onPress={() => { void openExternalLink(sourceUrl, () => Alert.alert('Couldn’t open source', 'Please try again.')); }} style={styles.export}>
         <Text style={[styles.controlText, { color: colors.interactive }]}>Open provider page</Text>
       </Pressable> : null}

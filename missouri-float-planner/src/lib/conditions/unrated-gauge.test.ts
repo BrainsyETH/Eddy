@@ -180,10 +180,10 @@ test('rating and reading availability stay independent, including old saved obse
   const stale = new Date(Date.now() - 8 * 3_600_000).toISOString();
   const base = { thresholds: { ...EMPTY_LADDER, thresholdUnit: 'ft' as const }, gaugeHeightFt: 5.8, readingTimestamp: fresh };
   assert.deepEqual(conditionAvailability(base), { ratingStatus: 'unrated', readingStatus: 'current' });
-  assert.equal(unknownConditionLabel(base), 'Not rated — readings only');
-  assert.equal(unknownConditionLabel({ ...base, gaugeHeightFt: null }), 'Not rated · Gauge data unavailable');
+  assert.equal(unknownConditionLabel(base), 'Not rated by Eddy');
+  assert.equal(unknownConditionLabel({ ...base, gaugeHeightFt: null }), 'Not rated · No reading right now');
   assert.equal(unknownConditionLabel({ ...base, readingTimestamp: stale }), 'Not rated · Reading out of date');
-  assert.equal(unknownConditionLabel({ ...base, thresholds: { ...base.thresholds, levelLow: 4 }, gaugeHeightFt: null }), 'Gauge data unavailable');
+  assert.equal(unknownConditionLabel({ ...base, thresholds: { ...base.thresholds, levelLow: 4 }, gaugeHeightFt: null }), 'No reading right now');
   assert.equal(conditionAvailability({ ...base, thresholds: null }).ratingStatus, 'unknown', 'missing metadata is not an unrated decision');
   assert.equal(conditionAvailability({ ...base, gaugeHeightFt: 0 }).readingStatus, 'current');
   assert.equal(conditionAvailability({ ...base, thresholds: EMPTY_LADDER }).readingStatus, 'unavailable', 'wrong-unit observation does not prove availability');

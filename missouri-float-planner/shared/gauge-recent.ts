@@ -408,14 +408,15 @@ export function forecastDayLabel(iso: string, now: number = Date.now()): string 
 }
 
 /**
- * "NWS forecast: crest near 14.20 ft Tuesday", or, when the forecast ends
- * still climbing, "NWS forecast: still rising, 14.20 ft by Tuesday".
+ * "Crest near 14.20 ft Tuesday", or, when the forecast ends still climbing,
+ * "Still rising, 14.20 ft by Tuesday". The row it sits in is already labelled
+ * as the forecast, so the sentence does not name the Weather Service again.
  */
 export function forecastCrestSentence(crest: ForecastCrest | null, now: number = Date.now()): string | null {
   if (!crest) return null;
   const day = forecastDayLabel(crest.at, now);
   const value = `${crest.valueFt.toFixed(2)} ft`;
   return crest.kind === 'crest'
-    ? `NWS forecast: crest near ${value}${day ? ` ${day}` : ''}`
-    : `NWS forecast: still rising, ${value}${day ? ` by ${day}` : ''}`;
+    ? `Crest near ${value}${day ? ` ${day}` : ''}`
+    : `Still rising, ${value}${day ? ` by ${day}` : ''}`;
 }

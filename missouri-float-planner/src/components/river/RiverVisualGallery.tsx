@@ -346,7 +346,7 @@ export default function RiverVisualGallery({
           {/* Which gauge the stage/flow came from — names the reading's source. */}
           {current.gaugeName && (current.gaugeHeightFt != null || current.dischargeCfs != null) && (
             <p className="text-xs text-neutral-400">
-              Reading from the {shortenGaugeName(current.gaugeName)} gauge
+              At the {shortenGaugeName(current.gaugeName)} gauge
             </p>
           )}
           {/* When and where the shot was taken + who shared it */}
