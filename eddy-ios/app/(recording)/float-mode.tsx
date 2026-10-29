@@ -224,9 +224,11 @@ export default function FloatModeScreen() {
           onPress: () => {
             endingHere.current = true;
             setFinishing(true);
-            void discardShortFloat().then((discarded) => {
+            void discardShortFloat().then((result) => {
               setFinishing(false);
-              if (discarded) {
+              // A storage write still retrying is a discard all the same: the
+              // float is already gone, and this screen has nothing to end.
+              if (result !== 'refused') {
                 leaveAfterDiscard();
                 return;
               }

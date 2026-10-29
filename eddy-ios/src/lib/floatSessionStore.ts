@@ -261,23 +261,32 @@ export async function endFloat(): Promise<EndResult> {
  * recreate the journal after the delete, leaving a file no recap can ever
  * remove.
  */
-async function discardWithoutRecap(sessionId: string): Promise<boolean> {
+async function discardWithoutRecap(sessionId: string): Promise<DiscardResult> {
   await stopRecordingNow(sessionId);
   // Nothing worth keeping was measured, so the journal goes with it.
   await deleteFloatTrack(sessionId).catch((error) => warn('float', 'could not queue the track deletion', error));
   const ended = await activityLifecycle.end(null, undefined, false);
   void dismissFloatNotifications();
-  return ended;
+  // end() has already cleared the float from memory either way; false only
+  // means the storage write failed and is being retried.
+  return ended ? 'discarded' : 'discarded-unsaved';
 }
 
 /**
+ * `refused`: the float has measured enough to keep, and nothing changed.
+ * Either discarded result means the float is gone; `discarded-unsaved` only
+ * says its storage write is still being retried, not that it lives on.
+ */
+export type DiscardResult = 'refused' | 'discarded' | 'discarded-unsaved';
+
+/**
  * Discard an accidental float (floatEnding.ts isShortFloat): no recap, no
- * history entry, journal deleted. Refused (false) once the float has
+ * history entry, journal deleted. Refused once the float has
  * measured enough to be worth keeping; use endFloat then.
  */
-export function discardShortFloat(now = Date.now()): Promise<boolean> {
+export function discardShortFloat(now = Date.now()): Promise<DiscardResult> {
   const session = store.get();
-  if (!session || !isShortFloat(session, now)) return Promise.resolve(false);
+  if (!session || !isShortFloat(session, now)) return Promise.resolve('refused');
   return discardWithoutRecap(session.id);
 }
 
