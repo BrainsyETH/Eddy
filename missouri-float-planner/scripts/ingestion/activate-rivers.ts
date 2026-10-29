@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getScriptClient } from '../lib/db';
-import { readinessProblems } from './readiness';
+import { readinessProblems, tailwaterPilotProblems } from './readiness';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -19,6 +19,9 @@ async function main() {
     if (dossier.slug !== slug) throw new Error(`Dossier slug mismatch: ${slug}`);
     readiness[slug] = dossier.readiness;
     for (const problem of readinessProblems(dossier.readiness)) console.log(`${slug}: ${problem}`);
+    if (dossier.riverType === 'dam_tailwater') {
+      for (const problem of tailwaterPilotProblems(dossier.readiness)) console.log(`${slug}: ${problem}`);
+    }
   }
   const db = getScriptClient({ script: 'activate-rivers', write: apply });
   // The database rechecks the evidence. Preview rolls back temporary visibility
