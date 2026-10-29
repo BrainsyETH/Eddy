@@ -2144,8 +2144,11 @@ places sheet. Cluster taps ask the owning source for its expansion zoom,
 falling back to two more zoom levels if that query fails or returns an invalid
 value. There is no tap cycling and no hint banner.
 
-Every count on the map — native clusters and the two family indexes — breaks
-into pins at the same zoom (`ZOOM.cluster`), and with three exceptions every
+Below `ZOOM.cluster` every Eddy pin layer that is on — places, services, rated
+gauges and dams — is counted by ONE statewide index, so a lone dam or gauge is
+never a dot beside a count that should hold it; the USGS reference tier keeps
+its own parchment counts. Every count breaks into pins at the same zoom
+(`ZOOM.cluster`), and with three exceptions every
 layer takes the same rungs: a `ZOOM.min` floor, marks at `ZOOM.places`, names
 at `ZOOM.names`. Hazards never cluster and resolve at `ZOOM.cluster` (a safety
 rule); the selected place is drawn by its own source on top of every place

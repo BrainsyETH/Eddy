@@ -22,7 +22,7 @@ import { join } from 'node:path';
 //
 // The fix has two halves that MUST agree, and neither fails loudly on its own:
 //
-//   • a family index source draws the bubbles below ZOOM.cluster, and
+//   • the statewide index source draws the counts below ZOOM.cluster, and
 //   • every layer in that family starts drawing AT ZOOM.cluster.
 //
 // Set the index's ceiling above the layers' floor and both paint at statewide
@@ -80,7 +80,7 @@ function sourceBlock(from: string): string {
 // private-access dimming), checked separately below.
 const PLACE_LAYERS = ['campgrounds', 'boatRamps', 'outfitters', 'lodging'];
 
-test('every place layer starts where the family index stops', () => {
+test('every place layer starts where the statewide index stops', () => {
   const calls = pinLayerArgs();
   for (const key of PLACE_LAYERS) {
     const args = calls.get(key);
@@ -90,7 +90,7 @@ test('every place layer starts where the family index stops', () => {
     assert.equal(
       args[3],
       'ZOOM.cluster',
-      `${key} must draw nothing below ZOOM.cluster — the family index has that band`,
+      `${key} must draw nothing below ZOOM.cluster — the statewide index has that band`,
     );
     assert.equal(
       args[4],
@@ -100,11 +100,10 @@ test('every place layer starts where the family index stops', () => {
   }
 });
 
-test('the family index covers exactly the band the layers leave', () => {
+test('the statewide index covers exactly the band the layers leave', () => {
   // The other half of the same rule. A ceiling that does not match the floor
   // above is either a double-drawn statewide view or a hole in the ladder.
-  // Both families share one builder, so this is one check for both of them.
-  const block = sourceBlock('const familyIndexLayer');
+  const block = sourceBlock('const statewideIndexLayer');
   const caps = [...block.matchAll(/maxZoomLevel=\{([^}]*)\}/g)].map((m) => m[1]);
   assert.ok(caps.length >= 2, 'the index draws count badges and dots');
   for (const cap of caps) {
@@ -119,11 +118,28 @@ test('the family index covers exactly the band the layers leave', () => {
   }
 });
 
-test('both families are actually mounted', () => {
-  // A guard on the rungs is worth nothing if the index is never rendered: the
-  // layers would simply be silent below ZOOM.cluster.
-  assert.match(CODE, /familyIndexLayer\(\s*'places'/, 'the access family needs its index');
-  assert.match(CODE, /familyIndexLayer\(\s*'services'/, 'the service family needs its index');
+test('one statewide index counts every Eddy layer, gauges and dams included', () => {
+  // There were four counts — places, services, rated gauges, dams — each
+  // clustering only its own points, so on a device a lone dam or gauge sat as
+  // a dot beside a places count that should have held it. One index now.
+  assert.match(CODE, /\{statewideIndexLayer\(statewideIndexShape\)\}/, 'the index must be mounted');
+  const shape = CODE.slice(CODE.indexOf('const statewideIndexShape'), CODE.indexOf('const pinShapes'));
+  for (const list of ['accessPins', 'campgroundPins', 'boatRampPins', 'springPins',
+    'outfitterPins', 'lodgingPins', 'gaugePins', 'dams']) {
+    assert.match(shape, new RegExp(`\\.\\.\\.(\\()?${list}`), `${list} must be counted in the index`);
+  }
+  assert.doesNotMatch(shape, /hazardPins|referenceGauges/, 'hazards never join a count; the reference tier keeps its own');
+  assert.match(shape, /filter\(\(pin\) => layers\.includes\(pin\.layer\)\)/, 'a count holds only layers that are on');
+  // And nothing else counts Eddy pins: the only other clustered source is the
+  // USGS reference tier.
+  const sources = [...CODE.matchAll(/<Mapbox\.ShapeSource[^>]*?\n?\s*cluster\n/g)];
+  assert.equal(sources.length, 2, 'the statewide index and the reference tier are the only clustered sources');
+});
+
+test('rated gauges and dams hand over from the index at ZOOM.cluster', () => {
+  const calls = pinLayerArgs();
+  assert.equal(calls.get('gauges')?.[3], 'ZOOM.cluster');
+  assert.equal(calls.get('dams')?.[3], 'ZOOM.cluster');
 });
 
 test('the access source no longer clusters on its own', () => {
@@ -136,7 +152,7 @@ test('the access source no longer clusters on its own', () => {
   assert.doesNotMatch(
     block,
     /\n\s*cluster(\s*$|=|Radius|MaxZoomLevel|Properties)/m,
-    'the family index owns clustering for this family',
+    'the statewide index owns clustering for every Eddy layer',
   );
   assert.match(
     block,
@@ -156,28 +172,30 @@ test('hazards resolve a rung early and never cluster', () => {
   );
   // THE ONE RULE HERE THAT IS NOT A TUNING. A hazard must never disappear into
   // a count: a badge reading "3" where a low-water dam is cannot be acted on.
-  // pinLayer clusters only when handed a clustering object.
-  assert.equal(args.length, 5, 'hazards must not be handed a clustering config');
+  // pinLayer cannot cluster at all, and hazards are not in the statewide index.
+  assert.doesNotMatch(sourceBlock('const pinLayer'), /\n\s*cluster(=|\s*$)/m, 'pinLayer must not cluster');
+  const index = CODE.slice(CODE.indexOf('const statewideIndexShape'), CODE.indexOf('const pinShapes'));
+  assert.doesNotMatch(index, /hazardPins/, 'a hazard must never join a count');
 });
 
 test('lakes & dams climb the ladder with no exception', () => {
   // They once kept their names at every zoom and drew below the floor, as
   // "landmarks". On a device that made the dams the only named thing on a
-  // statewide map. A dam is a place: its name waits for ZOOM.names, and it
-  // honours the ZOOM.min floor like every other clustered layer.
+  // statewide map. A dam is a place: its name waits for ZOOM.names, and below
+  // ZOOM.cluster it is counted in the statewide index with everything else.
   const args = pinLayerArgs().get('dams');
   assert.ok(args, 'dams must be drawn through pinLayer');
   assert.equal(args[2], 'ZOOM.names', 'dam names arrive when every other name does');
-  assert.equal(args[3], 'ZOOM.min', 'dams observe the ladder floor like everything else');
+  assert.equal(args[3], 'ZOOM.cluster', 'below ZOOM.cluster a dam is in the statewide index');
   assert.equal(args[4], 'ZOOM.places', 'the full dam mark arrives with the other place marks');
 });
 
 test('no layer is named before the names rung, and none sits below the floor', () => {
   // The general form of the dam rule, so the next "landmark" exception fails
   // here rather than on a device. Rated gauges were the last holdout: named a
-  // rung early and drawn below ZOOM.min. Family layers floor at ZOOM.cluster,
-  // where their index hands over; everything else at ZOOM.min.
-  const family = new Set(['outfitters', 'lodging', 'campgrounds', 'springs', 'boatRamps']);
+  // rung early and drawn below ZOOM.min. Indexed layers floor at ZOOM.cluster,
+  // where the statewide index hands over; hazards, never indexed, at ZOOM.min.
+  const family = new Set(['outfitters', 'lodging', 'campgrounds', 'springs', 'boatRamps', 'gauges', 'dams']);
   for (const [key, args] of pinLayerArgs()) {
     assert.equal(args[2], 'ZOOM.names', `${key} must not be named before ZOOM.names`);
     assert.equal(args[3], family.has(key) ? 'ZOOM.cluster' : 'ZOOM.min', `${key} must observe the ladder floor`);
@@ -196,16 +214,8 @@ test('every count on the map breaks at the same zoom', () => {
   // index by a whole level.
   assert.match(CODE, /const NATIVE_CLUSTER_MAX_ZOOM = ZOOM\.cluster - 1;/);
   const props = [...CODE.matchAll(/clusterMaxZoomLevel=\{([^}]*)\}/g)].map((m) => m[1]);
-  assert.equal(props.length, 3, 'pinLayer, the reference tier and the family index');
+  assert.equal(props.length, 2, 'the reference tier and the statewide index');
   for (const prop of props) assert.match(prop, /NATIVE_CLUSTER_MAX_ZOOM/);
-});
-
-test('springs count with the places family below the cluster rung', () => {
-  // They floored at ZOOM.cluster with no index under them, so a zoomed-out
-  // map drew every layer but springs.
-  const index = CODE.slice(CODE.indexOf('const placesIndexShape'), CODE.indexOf('const servicesIndexShape'));
-  assert.match(index, /\.\.\.springPins/);
-  assert.match(index, /filter\(\(pin\) => layers\.includes\(pin\.layer\)\)/, 'a count holds only layers that are on');
 });
 
 test('map marks are painted from the light palette in both appearances', () => {
@@ -329,7 +339,7 @@ test('every fetch-skipping path applies the one eligibility rule', () => {
 
 test('every cluster count wears a badge, never a coloured bubble', () => {
   const countLayers = [...CODE.matchAll(/<Mapbox\.(\w+)\s+id=\{?[`'"]([^`'"]+)[`'"]\}?\s+filter=\{\['has', 'point_count'\]\}/g)];
-  assert.equal(countLayers.length, 3, 'three clustered builders, one count layer each');
+  assert.equal(countLayers.length, 2, 'two clustered sources, one count layer each');
   for (const [, kind, id] of countLayers) {
     assert.equal(kind, 'SymbolLayer', `${id}: a count is a badge image, not a circle`);
   }
@@ -356,7 +366,7 @@ test('only the USGS reference tier wears the parchment badge', () => {
   const reference = sourceBlock('id="pins-allGauges"');
   assert.match(reference, /style=\{USGS_COUNT_BADGE\}/);
   assert.equal(CODE.match(/style=\{USGS_COUNT_BADGE\}/g)?.length, 1, 'no Eddy layer borrows the reference face');
-  assert.ok((CODE.match(/style=\{PLACE_COUNT_BADGE\}/g)?.length ?? 0) >= 2, 'rated gauges, dams and places wear the place face');
+  assert.equal(CODE.match(/style=\{PLACE_COUNT_BADGE\}/g)?.length, 1, 'the statewide index — every Eddy count — wears the place face');
 });
 
 test('every count badge image is registered and on disk', () => {
