@@ -908,6 +908,13 @@ interface Props {
   planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint | null } | null;
   /** The open callout's pin, used only to give its map mark a selected state. */
   selectedPinId?: string | null;
+  /**
+   * The open callout's pin ITSELF, which the selection layer draws when this
+   * map no longer holds it — its layer switched off, or a place opened before
+   * any layer drew it. A pin this map does hold is drawn from its own, fresher
+   * copy instead.
+   */
+  selectedPin?: MapPin | null;
   onSelectPin?: (pin: MapPin) => void;
   onBackgroundPress?: () => void;
   placesListOpen?: boolean;
@@ -991,6 +998,7 @@ export function RiverMap({
   planRoute,
   planEndpoints,
   selectedPinId,
+  selectedPin,
   onSelectPin, onBackgroundPress, placesListOpen, onClosePlacesList, visibleViewport,
 }: Props) {
   const Mapbox = loadMapbox();
@@ -1644,7 +1652,14 @@ export function RiverMap({
    * exception that already had this — their source draws their selection.
    */
   const selectedShape = useMemo(() => {
-    const pin = selectedPinId && !endpointIds.has(selectedPinId) ? byId.get(selectedPinId) : undefined;
+    // byId holds only what the switched-on layers draw: turning off the last
+    // layer that drew the selection took it out of byId, and the marker went
+    // with it while its sheet stayed open. The caller's pin is the fallback;
+    // a pin this map still holds is the fresher copy.
+    const held = selectedPinId ? byId.get(selectedPinId) : undefined;
+    const pin = selectedPinId && !endpointIds.has(selectedPinId)
+      ? held ?? (selectedPin?.id === selectedPinId ? selectedPin : undefined)
+      : undefined;
     if (!pin) return EMPTY_COLLECTION;
     const icon = PIN_ICONS[LAYER_SHAPE[pin.layer as PinLayerKey] ?? 'dot'];
     return {
@@ -1664,7 +1679,7 @@ export function RiverMap({
         geometry: { type: 'Point' as const, coordinates: [pin.coordinates.lng, pin.coordinates.lat] },
       }],
     };
-  }, [selectedPinId, endpointIds, byId]);
+  }, [selectedPinId, selectedPin, endpointIds, byId]);
 
   // ── Why the two river sources are never unmounted ───────────────────────────
   //

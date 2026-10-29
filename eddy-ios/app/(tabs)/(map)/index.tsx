@@ -2908,6 +2908,7 @@ function MapContent() {
             planRoute={planner.plan?.route?.geometry ?? null}
             planEndpoints={planEndpoints}
             selectedPinId={selectedPin?.id ?? null}
+            selectedPin={selectedPin}
             onSelectPin={onSelectPin}
             onBackgroundPress={dismissMapSelection}
             placesListOpen={placesListOpen}

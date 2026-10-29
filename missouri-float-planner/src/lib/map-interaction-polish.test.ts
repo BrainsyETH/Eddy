@@ -426,6 +426,28 @@ test('the selected place has its own source, and every layer leaves it out', () 
   assert.equal(handler('unselected', { selectedPinId: null })(undefined), undefined);
 });
 
+test('the selection still draws when the layer that drew it is switched off', () => {
+  // byId holds only what the switched-on layers draw. Turning off the last of
+  // them dropped the selection source from one feature to zero while its sheet
+  // stayed open — so the caller's own pin is the fallback.
+  const pin = { id: 'access:9', name: 'Cedargrove', layer: 'access', coordinates: { lng: -91.6, lat: 37.4 } };
+  const context = (byId: Map<string, unknown>, selectedPin: unknown = pin, selectedPinId = 'access:9') => ({
+    selectedPinId, selectedPin, byId, endpointIds: new Set<string>(),
+    PIN_ICONS: { pin: { image: 'eddy-access-map', anchor: 'bottom', labelOffset: 1.05 } },
+    LAYER_SHAPE: { access: 'pin' }, SELECTED_SCALE: 1.18,
+    EMPTY_COLLECTION: { type: 'FeatureCollection', features: [] },
+    layerColorFor: () => '#256574',
+  });
+  const shape = (ctx: ReturnType<typeof context>) =>
+    JSON.parse(JSON.stringify(handler('selectedShape', ctx)())) as { features: Array<{ properties: Record<string, unknown> }> };
+  assert.equal(shape(context(new Map())).features.length, 1, 'drawn from the caller\'s pin when the map no longer holds it');
+  const fresher = { ...pin, name: 'Cedargrove (renamed)' };
+  assert.equal(shape(context(new Map([[pin.id, fresher]]))).features[0].properties.label, 'Cedargrove (renamed)',
+    'a pin the map still holds is the fresher copy');
+  assert.equal(shape(context(new Map(), { ...pin, id: 'access:1' })).features.length, 0, 'a stale caller pin is never drawn');
+  assert.match(SCREEN, /selectedPin=\{selectedPin\}/, 'the screen hands its pin to the map');
+});
+
 test('a bottom-anchored mark is measured from its bulb, not its tip', () => {
   // Access pin tip at the origin; a gauge 14pt above it at z12. A finger on
   // the pin's bulb, 11pt above the tip, means the pin.
