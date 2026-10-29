@@ -28,6 +28,9 @@ import { fonts, type as t } from '@/theme/typography';
 
 interface Props { onDone: () => void }
 
+/** Cards that rise in on first render: roughly the first screenful. */
+const STAGGERED_CARDS = 6;
+
 export function FirstRunPicker({ onDone }: Props) {
   const { colors } = useTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -290,9 +293,10 @@ function PlaceCard({ place, position, selected, onPress, dam, damRequestState, m
     : damCard?.age ?? null;
   const distance = miles == null ? null : river ? riverDistanceLabel(miles) : `≈ ${Math.round(miles)} mi away`;
   return (
-    // Only the first screenful staggers in; a card scrolled to later simply
-    // arrives, so browsing a long list never waits on a delay.
-    <Rise delay={Math.min(position, 6) * 70} style={styles.cardSlot}>
+    // Only the first cards stagger in. Every later card renders in place with
+    // no animation, because it mounts while somebody is scrolling and any
+    // delay or fade shows as a blank slot.
+    <Rise delay={position * 70} still={position >= STAGGERED_CARDS} style={styles.cardSlot}>
       <Animated.View style={[styles.cardSlot, pop]}>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }}
           accessibilityLabel={[name, place.kind, status, value, outlook, age, distance].filter(Boolean).join(', ')}

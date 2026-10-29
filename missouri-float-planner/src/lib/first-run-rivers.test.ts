@@ -310,6 +310,23 @@ test('an idle dam with no schedule shows total release only above the generation
   assert.equal(firstRunDamCard(spilling, 'ready', NOON_CENTRAL).reading, '3,400 cfs total release');
 });
 
+test('an idle dam showing release dates the release and keeps its measurement type', () => {
+  const turbineAt = new Date(NOON_CENTRAL - 20 * 60_000).toISOString();
+  const releaseAt = new Date(NOON_CENTRAL - 24 * 3_600_000).toISOString();
+  const card = firstRunDamCard(damSnapshot({ metrics: {
+    generationFlow: { value: 20, unit: 'cfs', at: turbineAt, staleness: 'fresh' },
+    release: { value: 3_400, unit: 'cfs', at: releaseAt, staleness: 'stale', dailyMean: true },
+  } }), 'ready', NOON_CENTRAL);
+  assert.equal(card.reading, '3,400 cfs daily mean release');
+  assert.equal(card.age, 'yesterday', 'the age under a release is the release’s, never the turbine reading’s');
+});
+
+test('an idle dam with no stand-in reading dates its turbine observation', () => {
+  const card = firstRunDamCard(damSnapshot(), 'ready', NOON_CENTRAL);
+  assert.equal(card.reading, null);
+  assert.equal(card.age, '20 minutes ago');
+});
+
 test('a generating dam card keeps its turbine flow and age', () => {
   const at = new Date(NOON_CENTRAL - 20 * 60_000).toISOString();
   const card = firstRunDamCard(damSnapshot({ metrics: { generationFlow: { value: 7_000, unit: 'cfs', at, staleness: 'fresh' } } }), 'ready', NOON_CENTRAL);

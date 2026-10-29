@@ -1913,11 +1913,16 @@ offer an online booking action. Image taps still open the photo gallery.
 ### First-run onboarding
 
 The welcome uses Eddy's existing wave artwork, a scrollable body, and the current
-safety/terms acknowledgment. The safety disclaimer sits in the footer beside the
-“Agree & get started” button that acknowledges it, and the terms sentence names
-that button exactly. First-run motion lives in `OnboardingMotion.tsx`: Eddy bobs
-on drifting water, copy and cards rise in on a short stagger, and buttons and
-selections give a small spring with selection haptics. Motion is decoration on
+safety/terms acknowledgment. The safety disclaimer and terms sit in the pinned
+footer beside the “Agree & get started” button that acknowledges them, and the
+terms sentence names that button exactly. At accessibility text sizes or on a
+screen under 700pt tall they move to the end of the scrolling body, directly
+above the button, so the footer never outgrows the screen. Feature rows use
+Eddy's own marks. First-run motion lives in `OnboardingMotion.tsx`: Eddy bobs
+on drifting water, copy and the first six picker cards rise in on a short
+stagger (later cards render in place, since they mount mid-scroll), and buttons
+and selections give a small spring with selection haptics. The sign-in offer
+shows one static example alert. Motion is decoration on
 features and controls only, never on a reading, and every piece renders its
 resting state under Reduce Motion. The optional next screen searches the entire river
 and dam catalog, including lake names. Suggested rivers and three dams start the
@@ -1929,7 +1934,7 @@ on separate lines. Dam measurements use generation/release semantics, never a
 floatability rating. An idle dam card leads with the posted schedule's next move
 (`firstRunDamCard`), not the leakage an idle powerhouse reports; a stale schedule
 is dropped there, and total release stands in only above the dam's generation
-floor. Cached river verdicts are aged with the same rules as Today.
+floor, carrying its own timestamp and its daily-mean label when it has one. Cached river verdicts are aged with the same rules as Today.
 
 Both kinds of selection use additive Favorites writes, so a reinstall cannot
 unstar synced favorites. Today already reads those favorites for its cards.

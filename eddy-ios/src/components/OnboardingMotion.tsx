@@ -38,20 +38,27 @@ import { EddyScene, type EddySceneName } from '@/components/EddyScene';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 
-/** Fades and lifts its children into place once, `delay` ms after mount. */
-export function Rise({ delay = 0, distance = 16, style, children }: {
+/**
+ * Fades and lifts its children into place once, `delay` ms after mount.
+ *
+ * `still` renders the resting state with no animation at all — for content
+ * that mounts mid-scroll, where any delay shows as a blank slot.
+ */
+export function Rise({ delay = 0, distance = 16, still = false, style, children }: {
   delay?: number;
   distance?: number;
+  still?: boolean;
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
-  const progress = useSharedValue(reduced ? 1 : 0);
+  const rest = reduced || still;
+  const progress = useSharedValue(rest ? 1 : 0);
   useEffect(() => {
-    progress.set(reduced
+    progress.set(rest
       ? 1
       : withDelay(delay, withTiming(1, { duration: 560, easing: Easing.out(Easing.cubic) })));
-  }, [delay, reduced, progress]);
+  }, [delay, rest, progress]);
   const animated = useAnimatedStyle(() => ({
     opacity: progress.get(),
     transform: [{ translateY: (1 - progress.get()) * distance }],

@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import { FloatingEddy, Rise } from '@/components/OnboardingMotion';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -13,18 +12,20 @@ import { fonts, type as t } from '@/theme/typography';
  * What an alert looks like when it lands, shown before anybody is asked to
  * sign in for one.
  *
- * Worded as the server words them — buildNotification in
+ * Worded as the server words it — buildNotification in
  * missouri-float-planner/src/lib/alerts/fanout.ts — so the preview is a promise
- * the real notification keeps. Marked "Example" on screen: these are not
- * readings and must never be mistaken for one.
+ * the real notification keeps. Marked "Example" on screen: it is not a reading
+ * and must never be mistaken for one. One example, held still: a card that
+ * swaps its words on a timer pulls the eye while somebody is reading or
+ * deciding whether to sign in.
  */
-const EXAMPLE_ALERTS = [
-  { title: 'Current River is floatable', body: 'Conditions just came up to floatable. Check the latest reading before you go.' },
-  { title: 'Jacks Fork: high water', body: 'Conditions changed to high water. Planning aid only — verify locally before floating.' },
-] as const;
+const EXAMPLE_ALERT = {
+  title: 'Current River is floatable',
+  body: 'Conditions just came up to floatable. Check the latest reading before you go.',
+} as const;
 
 const BENEFITS = [
-  { icon: 'notifications-outline', text: 'Free alerts when your river comes up to a good level or runs high' },
+  { icon: 'notifications-outline', text: 'Alerts when your river is floatable or running high' },
   { icon: 'phone-portrait-outline', text: 'Your favorites on any iPhone you sign in on' },
   { icon: 'lock-closed-outline', text: 'No new password, and you can choose to hide your email' },
 ] as const;
@@ -39,7 +40,7 @@ export function OnboardingSignIn({ onDone }: { onDone: () => void }) {
         <Rise delay={160} style={styles.block}>
           <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Never miss a good river day.</Text>
           <Text style={[styles.copy, { color: colors.textMuted }]}>
-            Sign in and Eddy keeps watch on your rivers for you.
+            Sign in to create free river alerts.
           </Text>
         </Rise>
         <Rise delay={320} style={styles.block}>
@@ -77,39 +78,27 @@ export function OnboardingSignIn({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** A lock-screen style notification that trades between the examples. */
+/** A lock-screen style notification, so the benefit is seen before it is asked for. */
 function ExampleAlert() {
   const { colors, elevation } = useTheme();
-  const reduced = useReducedMotion();
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    // Holds still under reduced motion: a card that swaps its words on a timer
-    // is motion too, and VoiceOver would meet a different sentence each visit.
-    if (reduced) return;
-    const timer = setInterval(() => setIndex(value => (value + 1) % EXAMPLE_ALERTS.length), 4200);
-    return () => clearInterval(timer);
-  }, [reduced]);
-  const alert = EXAMPLE_ALERTS[index];
+  const alert = EXAMPLE_ALERT;
   return (
     <View style={styles.example}>
       <Text style={[styles.exampleLabel, { color: colors.textSubtle }]}>EXAMPLE ALERT</Text>
-      {/* Keyed by the example, so each one rises in fresh. */}
-      <Rise key={index} distance={10}>
-        <View accessible accessibilityLabel={`Example alert. ${alert.title}. ${alert.body}`}
-          style={[styles.notification, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
-          <View style={[styles.appIcon, { backgroundColor: colors.selectionBg }]}>
-            <EddySymbol name="eddyRated" size={26} />
-          </View>
-          <View style={styles.notificationCopy}>
-            <View style={styles.notificationHead}>
-              <Text style={[styles.appName, { color: colors.textMuted }]}>EDDY</Text>
-              <Text style={[styles.appName, { color: colors.textSubtle }]}>now</Text>
-            </View>
-            <Text style={[styles.notificationTitle, { color: colors.text }]}>{alert.title}</Text>
-            <Text style={[styles.notificationBody, { color: colors.textMuted }]} numberOfLines={2}>{alert.body}</Text>
-          </View>
+      <View accessible accessibilityLabel={`Example alert. ${alert.title}. ${alert.body}`}
+        style={[styles.notification, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
+        <View style={[styles.appIcon, { backgroundColor: colors.selectionBg }]}>
+          <EddySymbol name="eddyRated" size={26} />
         </View>
-      </Rise>
+        <View style={styles.notificationCopy}>
+          <View style={styles.notificationHead}>
+            <Text style={[styles.appName, { color: colors.textMuted }]}>EDDY</Text>
+            <Text style={[styles.appName, { color: colors.textSubtle }]}>now</Text>
+          </View>
+          <Text style={[styles.notificationTitle, { color: colors.text }]}>{alert.title}</Text>
+          <Text style={[styles.notificationBody, { color: colors.textMuted }]}>{alert.body}</Text>
+        </View>
+      </View>
     </View>
   );
 }

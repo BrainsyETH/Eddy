@@ -1,8 +1,8 @@
 import { openExternalLink } from '@/lib/openExternalLink';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ControlIcon } from '@/components/ControlIcon';
+import { EddySymbol } from '@/components/EddySymbol';
 import { FloatingEddy, PressableScale, Rise } from '@/components/OnboardingMotion';
 import { preloadTodayData } from '@/lib/firstRunPreload';
 import { FirstRunPicker } from '@/components/FirstRunPicker';
@@ -30,6 +30,7 @@ import { fonts, type as t } from '@/theme/typography';
 
 export function OnboardingGate({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
+  const { fontScale, height } = useWindowDimensions();
   const { accountsConfigured, ready, isAnonymous } = useSession();
   const [step, setStep] = useState<FirstRunStep | null>(null);
   const [saving, setSaving] = useState(false);
@@ -145,13 +146,38 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     }
   };
 
+  // ── Where the disclaimer and terms sit ────────────────────────────────────
+  // Beside the button that acknowledges them whenever they fit: in the pinned
+  // footer, so nobody agrees to something scrolled out of view. At accessibility
+  // text sizes or on a short screen, a footer holding four blocks would eat the
+  // screen and could not scroll, so they move to the END of the scrolling body,
+  // directly above the button, and only the button stays pinned.
+  const legalInFooter = fontScale < 1.3 && height >= 700;
+  const legal = (
+    <View style={styles.legal}>
+      <SafetyDisclaimer compact />
+      <Text style={[styles.terms, { color: colors.textMuted }]}>
+        By tapping {AGREE_LABEL}, you agree to Eddy&apos;s Terms of Use and acknowledge the Privacy Policy.
+      </Text>
+      <View style={styles.links}>
+        <Pressable accessibilityRole="link" onPress={() => void openExternalLink(TERMS_URL)} hitSlop={12}>
+          <Text style={[styles.link, { color: colors.interactive }]}>Terms of Use</Text>
+        </Pressable>
+        <Text style={{ color: colors.textSubtle }}>·</Text>
+        <Pressable accessibilityRole="link" onPress={() => void openExternalLink(PRIVACY_URL)} hitSlop={12}>
+          <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <FloatingEddy name="wave" size={150} />
         <Rise delay={180} style={styles.block}>
           <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Your day on the water starts here.</Text>
-          <Text style={[styles.lede, { color: colors.textMuted }]}>Live river levels, access points, and float times for Ozarks rivers, all in one place.</Text>
+          <Text style={[styles.lede, { color: colors.textMuted }]}>Plan your next Ozarks float with Eddy.</Text>
         </Rise>
         <View style={styles.features}>
           {WELCOME_FEATURES.map((feature, index) => (
@@ -159,7 +185,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
               <View style={[styles.feature, { backgroundColor: colors.card, borderColor: colors.border }]}
                 accessible accessibilityLabel={`${feature.title}. ${feature.detail}`}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.selectionBg }]}>
-                  <ControlIcon name={feature.icon} size={20} color={colors.interactive} />
+                  <EddySymbol name={feature.symbol} size={30} />
                 </View>
                 <View style={styles.featureCopy}>
                   <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
@@ -169,10 +195,10 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
             </Rise>
           ))}
         </View>
+        {legalInFooter ? null : <View style={styles.legalInBody}>{legal}</View>}
       </ScrollView>
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        {/* Beside the button that acknowledges it, never below a scroll fold. */}
-        <SafetyDisclaimer compact />
+      <View style={[styles.footer, { borderTopColor: colors.border, paddingTop: legalInFooter ? 2 : 14 }]}>
+        {legalInFooter ? legal : null}
         <PressableScale
           accessibilityRole="button"
           accessibilityHint="Accepts the Terms of Use and continues"
@@ -182,18 +208,6 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         >
           <Text style={[styles.buttonText, { color: colors.onAccent }]}>{saving ? 'Saving…' : AGREE_LABEL}</Text>
         </PressableScale>
-        <Text style={[styles.legal, { color: colors.textMuted }]}>
-          By tapping {AGREE_LABEL}, you agree to Eddy&apos;s Terms of Use and acknowledge the Privacy Policy.
-        </Text>
-        <View style={styles.links}>
-          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(TERMS_URL)} hitSlop={12}>
-            <Text style={[styles.link, { color: colors.interactive }]}>Terms of Use</Text>
-          </Pressable>
-          <Text style={{ color: colors.textSubtle }}>·</Text>
-          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(PRIVACY_URL)} hitSlop={12}>
-            <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
-          </Pressable>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -210,9 +224,9 @@ const AGREE_LABEL = 'Agree & get started';
  * stay true on a day with no data: these describe features, never a reading.
  */
 const WELCOME_FEATURES = [
-  { icon: 'pulse-outline', title: 'Live water levels', detail: 'Real-time gauge readings, rated for floating on each river.' },
-  { icon: 'map-outline', title: 'Access points and float times', detail: 'Pick a put-in and take-out and see how long the float runs.' },
-  { icon: 'notifications-outline', title: 'Free river alerts', detail: 'Hear when your river comes up to a good level or runs high.' },
+  { symbol: 'gauge', title: 'Live water levels', detail: 'Real-time gauges, rated for floating.' },
+  { symbol: 'boatRamp', title: 'Access points and float times', detail: 'Put-ins, take-outs, and how long it takes.' },
+  { symbol: 'alertWatch', title: 'Free river alerts', detail: 'Know when your river is floatable or running high.' },
 ] as const;
 
 const styles = StyleSheet.create({
@@ -223,14 +237,18 @@ const styles = StyleSheet.create({
   lede: { ...t.base, fontFamily: fonts.body, textAlign: 'center', marginTop: 8, paddingHorizontal: 6 },
   features: { alignSelf: 'stretch', gap: 10, marginTop: 22 },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14 },
-  featureIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  // A fixed well, so a wide mark (the boat ramp) and a tall one (the bell)
+  // hold the same slot — see EddySymbol's header.
+  featureIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featureCopy: { flex: 1, gap: 2 },
   featureTitle: { ...t.base, fontFamily: fonts.semibold },
   featureDetail: { ...t.sm, fontFamily: fonts.body },
   links: { flexWrap: 'wrap', justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 4 },
   link: { ...t.xs, fontFamily: fonts.semibold, textDecorationLine: 'underline' },
+  legal: { alignSelf: 'stretch', gap: 8 },
+  legalInBody: { alignSelf: 'stretch', marginTop: 24 },
   footer: { paddingHorizontal: 20, paddingTop: 2, paddingBottom: 8, borderTopWidth: 1, gap: 10 },
   button: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', minHeight: 52 },
   buttonText: { ...t.base, fontFamily: fonts.semibold },
-  legal: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
+  terms: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
 });

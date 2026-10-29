@@ -173,10 +173,21 @@ export function firstRunDamCard(
   }
   if (generation.kind === 'not-generating') {
     const floor = dam.generationFloorCfs ?? 0;
-    const meaningfulRelease = !outlook && release && releaseValue && release.value > floor ? `${releaseValue} total release` : null;
+    // When release stands in, the card's one age line sits under it and must
+    // date IT: release and turbine flow are separate series with separate
+    // clocks, and a day-old daily mean stamped with a 20-minute-old turbine
+    // reading reads as live. The measurement type travels with it too.
+    if (!outlook && release && releaseValue && release.value > floor) {
+      return {
+        status: generationStatusLabel(generation) ?? 'No turbine generation observed',
+        reading: `${releaseValue} ${release.dailyMean ? 'daily mean release' : 'total release'}`,
+        outlook,
+        age: relativeAge(release.at, now),
+      };
+    }
     return {
       status: generationStatusLabel(generation) ?? 'No turbine generation observed',
-      reading: meaningfulRelease,
+      reading: null,
       outlook,
       age: relativeAge(generation.observedAt, now),
     };
