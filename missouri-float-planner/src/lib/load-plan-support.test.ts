@@ -9,9 +9,12 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 import type { AccessPointDetailResponse, FloatPlan, RiverService } from '@eddy/types';
 import { loadPlanSupport, type PlanSupportDeps } from '../../../eddy-ios/src/lib/loadPlanSupport';
-import { planAccessDestination, planCampingDestination } from '../../../eddy-ios/src/lib/planDestinations';
+import { planAccessDestination, planCampingDestination, planHazardDestination } from '../../../eddy-ios/src/lib/planDestinations';
 import { createPlanDetailNavigation } from '../../../eddy-ios/src/lib/planDetailNavigation';
 import { accessAvailability } from '../../../eddy-ios/src/components/map-sheet/availabilitySource';
 
@@ -203,6 +206,61 @@ test('camping links carry the exact facility and displayed night; older payloads
   assert.deepEqual(planCampingDestination('current', point, availability, '2026-10-03', false), place);
   assert.equal(planAccessDestination('current', {}), null);
   assert.equal(planAccessDestination('', point), null);
+});
+
+test('the low-water dams below a take-out open the river at its hazards', () => {
+  // They were the one list in the plan that went nowhere. A hazard has no
+  // screen of its own; the river screen is where hazards are explained.
+  assert.deepEqual(planHazardDestination('current'), {
+    pathname: '/river/[slug]', params: { slug: 'current', focus: 'hazards' },
+  });
+  assert.equal(planHazardDestination(''), null);
+  const rows = readFileSync('../eddy-ios/src/components/PlanDownstreamDams.tsx', 'utf8');
+  assert.match(rows, /onPress=\{destination \? \(\) => onOpenDetail\(destination\) : undefined\}/);
+  for (const caller of ['PlanResult.tsx', 'SavedFloatDetails.tsx']) {
+    assert.match(readFileSync(`../eddy-ios/src/components/${caller}`, 'utf8'), /<PlanDownstreamDams[\s\S]*?onOpenDetail=/,
+      `${caller} must let the rows open`);
+  }
+  const river = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/river/[slug].tsx', 'utf8');
+  assert.match(river, /useState\(focus === 'hazards'\)/, 'arriving for the hazards shows all of them');
+  assert.match(river, /defaultExpanded=\{focus === 'hazards'\}/, 'and opens the section');
+  assert.match(river, /scrollToAnchor\('hazards', hazardsAnchor\)/, 'and scrolls to it');
+});
+
+test('the hazards jump follows the section while content above it loads, until the reader scrolls', () => {
+  // It marked itself done after one scroll, so when Eddy's read finished
+  // loading above and pushed Hazards down, the page settled somewhere else.
+  const river = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/river/[slug].tsx', 'utf8');
+  const source = ts.createSourceFile('river.tsx', river, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let arrow: ts.Node | undefined;
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'scrollToAnchor') arrow = node.initializer;
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.ok(arrow, 'scrollToAnchor must exist');
+  const scrolls: number[] = [];
+  const hazardsAnchor = { current: { key: 'k', y: 300 as number | null, done: false } };
+  const scrollToAnchor = runInNewContext(ts.transpile(`(${arrow!.getText(source)})`, { target: ts.ScriptTarget.ES2022 }), {
+    focus: 'hazards', readTargetKey: 'k', readTopInset: 0, Math,
+    readScroll: { current: { scrollTo: ({ y }: { y: number }) => scrolls.push(y) } },
+    requestAnimationFrame: (run: () => void) => run(),
+  }) as (target: string, ref: typeof hazardsAnchor) => void;
+
+  scrollToAnchor('hazards', hazardsAnchor);
+  assert.deepEqual(scrolls, [288]);
+  scrollToAnchor('hazards', hazardsAnchor);
+  assert.deepEqual(scrolls, [288], 'a layout pass that moves nothing does not scroll again');
+  // The read above lands and pushes Hazards 400pt down.
+  hazardsAnchor.current.y = 700;
+  scrollToAnchor('hazards', hazardsAnchor);
+  assert.deepEqual(scrolls, [288, 688], 'the jump re-aims at the moved section');
+  // Once the reader drags, the page is theirs.
+  hazardsAnchor.current.done = true;
+  hazardsAnchor.current.y = 900;
+  scrollToAnchor('hazards', hazardsAnchor);
+  assert.deepEqual(scrolls, [288, 688]);
+  assert.match(river, /onScrollBeginDrag=\{\(\) => \{ readAnchor\.current\.done = true; hazardsAnchor\.current\.done = true; \}\}/);
 });
 
 test('camping links follow the panel when tonight is unmeasured or only a weekend summary exists', () => {

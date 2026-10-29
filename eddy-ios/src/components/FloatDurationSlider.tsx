@@ -8,9 +8,12 @@ import { fonts, type as t } from '@/theme/typography';
 /** Preview a touch drag locally; only a committed change invalidates search results. */
 export function FloatDurationSlider({
   hours,
+  perDay = false,
   onChange,
 }: {
   hours: number;
+  /** Multi-day trips choose hours on the water each day. */
+  perDay?: boolean;
   onChange: (hours: number) => void;
 }) {
   const { colors } = useTheme();
@@ -26,7 +29,7 @@ export function FloatDurationSlider({
   return (
     <View style={styles.group}>
       <Text style={[styles.duration, { color: colors.text }]}>
-        About {floatDurationLabel(displayedHours * 60)}
+        About {floatDurationLabel(displayedHours * 60)}{perDay ? ' a day' : ''}
       </Text>
       <Slider
         style={styles.slider}

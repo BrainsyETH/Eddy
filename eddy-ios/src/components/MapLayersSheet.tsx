@@ -218,7 +218,15 @@ export function MapLayersSheet({
             <View style={styles.head}>
               <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Show on map</Text>
               {isDefaultLayers(active) ? null : (
-                <Pressable onPress={onReset} hitSlop={10} accessibilityRole="button">
+                // A laid-out 44pt box rather than hitSlop on a 21pt word, and a
+                // label that says what it resets: "Reset" alone, read out of
+                // context by VoiceOver, could be the map, the filter or the view.
+                <Pressable
+                  onPress={onReset}
+                  style={styles.resetButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset layers to default"
+                >
                   <Text style={[styles.reset, { color: colors.interactive }]}>Reset</Text>
                 </Pressable>
               )}
@@ -445,17 +453,12 @@ export function MapLayersSheet({
                     // that is only ever a tier just sets `symbol`.
                     const tierMark = tier.tierSymbol ?? tier.symbol;
                     return (
+                      // The Pressable is the 44pt target; the 32pt pill inside it
+                      // is the drawing. See styles.tierHit.
                       <Pressable
                         key={key}
                         onPress={() => onToggle(key)}
-                        style={({ pressed }) => [
-                          styles.tier,
-                          {
-                            backgroundColor: tierOn ? colors.cardRaised : 'transparent',
-                            borderColor: tierOn ? tierTint : colors.border,
-                            opacity: pressed ? 0.7 : 1,
-                          },
-                        ]}
+                        style={({ pressed }) => [styles.tierHit, { opacity: pressed ? 0.7 : 1 }]}
                         accessibilityRole="switch"
                         accessibilityState={{ checked: tierOn }}
                         accessibilityLabel={
@@ -465,36 +468,46 @@ export function MapLayersSheet({
                         }
                         accessibilityHint={tier.description}
                       >
-                        {/* The mark where there is one, the dot where there is
-                            not. Both are doing the same job — saying which
-                            tier this is — but a dot can only say it by colour,
-                            and these two tiers are told apart by whether Eddy
-                            graded them, which is a thing a colour cannot say
-                            and a face can. The tint is not lost: it is the
-                            chip's border, exactly as in the well above. */}
-                        {tierMark ? (
-                          <EddySymbol
-                            name={tierMark}
-                            size={15}
-                            style={{ opacity: tierOn ? 1 : DIMMED }}
-                          />
-                        ) : (
-                          <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
-                        )}
-                        <Text
+                        <View
                           style={[
-                            styles.tierText,
-                            { color: tierOn ? colors.text : colors.textMuted },
+                            styles.tier,
+                            {
+                              backgroundColor: tierOn ? colors.cardRaised : 'transparent',
+                              borderColor: tierOn ? tierTint : colors.border,
+                            },
                           ]}
-                          numberOfLines={1}
                         >
-                          {tier.tierLabel ?? tier.label}
-                        </Text>
-                        {tierCount != null ? (
-                          <Text style={[styles.tierCount, { color: colors.textSubtle }]}>
-                            {tierCount}
+                          {/* The mark where there is one, the dot where there is
+                              not. Both are doing the same job — saying which
+                              tier this is — but a dot can only say it by colour,
+                              and these two tiers are told apart by whether Eddy
+                              graded them, which is a thing a colour cannot say
+                              and a face can. The tint is not lost: it is the
+                              chip's border, exactly as in the well above. */}
+                          {tierMark ? (
+                            <EddySymbol
+                              name={tierMark}
+                              size={15}
+                              style={{ opacity: tierOn ? 1 : DIMMED }}
+                            />
+                          ) : (
+                            <View style={[styles.tierDot, { backgroundColor: tierTint }]} />
+                          )}
+                          <Text
+                            style={[
+                              styles.tierText,
+                              { color: tierOn ? colors.text : colors.textMuted },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {tier.tierLabel ?? tier.label}
                           </Text>
-                        ) : null}
+                          {tierCount != null ? (
+                            <Text style={[styles.tierCount, { color: colors.textSubtle }]}>
+                              {tierCount}
+                            </Text>
+                          ) : null}
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -604,12 +617,17 @@ const styles = StyleSheet.create({
   grabber: { width: 36, height: 4, borderRadius: 999 },
   head: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 10,
     paddingBottom: 4,
   },
   title: { ...t.lg, fontFamily: fonts.display },
+  // 44pt laid out; the negative margins keep the head as tall as the title, so
+  // the sheet does not grow when Reset appears. Unequal so the target stays in
+  // the head's own padding below, and does not reach over the first layer row
+  // (a later sibling, which would win the overlap).
+  resetButton: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center', marginTop: -11, marginBottom: -4 },
   reset: { ...t.sm, fontFamily: fonts.semibold },
   // The scroll's cap is 60% of the window, computed in the component — a
   // number in here would be frozen against whichever screen ran the import.
@@ -646,23 +664,28 @@ const styles = StyleSheet.create({
   // Indented under the row they belong to, on the same hairline spine the
   // gauge filter uses — so a strip and the chips that narrow it read as one
   // nested block rather than as two more rows.
+  // No row gap: each chip's 44pt target already carries 6pt of air above and
+  // below its pill, so wrapped lines sit 12pt apart without targets overlapping.
   tiers: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    columnGap: 8,
     marginLeft: 30,
     paddingLeft: 10,
-    paddingBottom: 4,
     borderLeftWidth: StyleSheet.hairlineWidth,
   },
+  // THE TARGET, 44pt (DESIGN.md §6). It was the 32pt pill itself, on the
+  // reasoning that nothing nearby could be mis-hit — but a target is about the
+  // finger that has to land on it, not only the neighbours. Laid out rather
+  // than hitSlopped, so wrapped lines and the row above can never contest a
+  // tap. The strip grows about 8pt; the list scrolls, so Done stays put.
+  tierHit: { minHeight: 44, justifyContent: 'center' },
+  // The drawing: the pill stays 32pt so the strip still reads as chips.
   tier: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
     paddingHorizontal: 11,
-    // 32pt tall rather than 44: these sit inside a modal sheet with a 44pt row
-    // above them and no neighbour below to mis-hit, and a full-height chip
-    // strip would push Done off a small screen.
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,

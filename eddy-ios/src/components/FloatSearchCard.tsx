@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { floatRangeLabel, publicAccessLabel, type FloatSearchOption } from '@eddy/conditions/float-search';
+import { driveLabel, floatRangeLabel, publicAccessLabel, type FloatSearchOption } from '@eddy/conditions/float-search';
 import { ScenicImage } from './ScenicImage';
 import { EddyScene } from './EddyScene';
 import { ControlIcon } from './ControlIcon';
@@ -14,11 +14,13 @@ export function FloatSearchCard({
   riverPhotoUrl,
   onPlan,
   onTimeInfo,
+  onDriveInfo,
 }: {
   option: FloatSearchOption;
   riverPhotoUrl?: string;
   onPlan: () => void;
   onTimeInfo: () => void;
+  onDriveInfo: () => void;
 }) {
   const { colors, isDark, elevation } = useTheme();
   const stacked = useWindowDimensions().fontScale > 1.3;
@@ -76,6 +78,24 @@ export function FloatSearchCard({
             <Text style={[styles.value, { color: colors.text }]}>{route.distanceMiles.toFixed(1)} mi</Text>
             <Text style={[t.xs, { color: colors.textMuted }]}>On the river</Text>
           </View>
+          {route.driveMinutes != null ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onDriveInfo}
+              accessibilityLabel={`${driveLabel(route.driveMinutes)} drive to the put-in. About distance`}
+              style={[
+                styles.metric,
+                stacked ? styles.stackedDistance : styles.distance,
+                { borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.value, { color: colors.text }]}>{driveLabel(route.driveMinutes)}</Text>
+              <View style={styles.inline}>
+                <Text style={[t.xs, { color: colors.textMuted }]}>Drive</Text>
+                <ControlIcon name="information-circle-outline" size={14} color={colors.interactive} />
+              </View>
+            </Pressable>
+          ) : null}
         </View>
         <View style={styles.badges}>
           <View style={[styles.badge, { backgroundColor: conditionBg(code, isDark) }]}>
@@ -92,6 +112,11 @@ export function FloatSearchCard({
                   : 'Access unconfirmed'}
             </Text>
           </View>
+          {route.highlights?.map((highlight) => (
+            <View key={highlight} style={[styles.badge, { backgroundColor: colors.cardRaised }]}>
+              <Text style={[t.sm, { color: colors.textMuted }]}>{highlight}</Text>
+            </View>
+          ))}
           {route.relation !== 'match' ? (
             <Text style={[t.sm, { color: colors.textMuted }]}>
               {route.relation === 'shorter' ? 'Shorter option' : 'Longer option'}
@@ -165,7 +190,7 @@ const styles = StyleSheet.create({
   title: { ...t.lg, fontFamily: fonts.heading },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, paddingVertical: 4 },
   stackedMetrics: { flexDirection: 'column' },
-  metric: { flex: 1, minWidth: 120, minHeight: 48, gap: 4, justifyContent: 'center' },
+  metric: { flex: 1, minWidth: 88, minHeight: 48, gap: 4, justifyContent: 'center' },
   distance: { borderLeftWidth: 1, paddingLeft: 16 },
   stackedDistance: { borderTopWidth: 1, paddingTop: 12 },
   value: { ...t.xl, fontFamily: fonts.heading },

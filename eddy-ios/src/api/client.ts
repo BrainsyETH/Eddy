@@ -852,6 +852,7 @@ export async function seedOfflineBundle(): Promise<void> {
           ? [
               {
                 riverSlug: entry.slug,
+                riverName: entry.river?.name ?? null,
                 accessPoints: entry.accessPoints ?? [],
                 hazards: entry.hazards ?? [],
                 springs: entry.springs ?? [],
@@ -884,6 +885,8 @@ export async function seedOfflineBundle(): Promise<void> {
  */
 type BundleSeededPayload = {
   riverSlug: string;
+  /** For the hazard and spring sheets' subtitle. See lib/placeRiver.ts. */
+  riverName: string | null;
   accessPoints: MapAccessPoint[];
   hazards: Hazard[];
   springs: MapSpring[];

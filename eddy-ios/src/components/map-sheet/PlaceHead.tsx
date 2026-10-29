@@ -73,6 +73,13 @@ const CONTROL = 44;
  * the glyph very near where it was and spends the rest of the padding on target.
  */
 const EDGE_BLEED = 10;
+/**
+ * The text scale above which a pin sheet's two action buttons stack instead of
+ * sharing a row — the threshold MapPlanSheet already stacks its fields at. Two
+ * flex:1 buttons on a narrow phone at accessibility sizes truncated
+ * "Use as take-out" to an ellipsis.
+ */
+export const STACK_ACTIONS_FROM = 1.3;
 
 /**
  * The identity row: what this place is, what it is called, and the two controls
@@ -149,8 +156,11 @@ export function PlaceHead({
         >
           {pin.name}
         </Text>
+        {/* Two lines, not one: a subtitle now carries the river as well as
+            the mile, and at the larger text sizes one line clipped the river
+            name, which is the part a reader needs. */}
         {pin.subtitle ? (
-          <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={2}>
             {pin.subtitle}
           </Text>
         ) : null}
@@ -166,9 +176,10 @@ export function PlaceHead({
           onPress={onToggleStar}
           style={({ pressed }) => [styles.control, { opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
-          accessibilityLabel={pin.layer === 'access' || pin.layer === 'campgrounds'
-            ? starred ? `Remove ${pin.name} from Favorites` : `Save ${pin.name}`
-            : starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
+          // ONE wording for every kind. A saved place and a starred gauge or
+          // dam land in the same Favorites list, so the control says so the
+          // same way whichever store is behind it.
+          accessibilityLabel={starred ? `Remove ${pin.name} from Favorites` : `Add ${pin.name} to Favorites`}
         >
           <ControlIcon
             name={starred ? 'star' : 'star-outline'}
@@ -189,7 +200,47 @@ export function PlaceHead({
   );
 }
 
+/**
+ * The named way back to the sheet this pin was opened from — "‹ Current River",
+ * "‹ Your route" — shared by the tabbed header and the single-page callout, so
+ * a dam or a hazard opened from a river sheet goes back the same way a put-in
+ * does instead of offering only a close glyph that secretly goes back.
+ *
+ * A 44pt LAID-OUT target, not a 24pt row that looks like one. The negative
+ * bottom margin recovers the spacing so the row still READS as light — the same
+ * trick as EDGE_BLEED — and it is negative on the bottom rather than
+ * overlapping the identity row below, because iOS hit-tests later siblings
+ * first and an overlap would be silently eaten by it.
+ */
+export function BackRow({ onBack, label }: { onBack: () => void; label?: string | null }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onBack}
+      style={({ pressed }) => [styles.back, { opacity: pressed ? 0.6 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={label ? `Back to ${label}` : 'Back'}
+    >
+      <ControlIcon name="chevron-back" size={16} color={colors.interactive} />
+      <Text style={[styles.backText, { color: colors.interactive }]} numberOfLines={1}>
+        {label ?? 'Back'}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  // 44 laid out, ~34 spent. See BackRow for why the target is real and why the
+  // margin is negative on the bottom rather than the top.
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 44,
+    marginBottom: -10,
+    marginLeft: -4,
+  },
+  backText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   // No horizontal padding of its own: both callers already pad their column, and
   // the controls have to be able to reach past that padding.
   row: { flexDirection: 'row', alignItems: 'center' },

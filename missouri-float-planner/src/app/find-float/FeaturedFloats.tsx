@@ -77,7 +77,7 @@ function FeaturedFloatCard({ float, riverPhoto, eager, onPlan }: { float: Featur
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{float.putInName} → {float.takeOutName}</p>
         <p className="mt-4 text-sm font-semibold text-[var(--color-text-primary)]">{float.distanceMiles.toFixed(1)} miles{float.durationFormatted ? ` · About ${float.durationFormatted.replace(/~/g, '').trim()}` : ''}</p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-          {float.durationFormatted ? 'Typical canoe trip' : float.durationUnavailableReason === 'regulated' ? 'Time varies with dam releases' : 'Open route for float time'}
+          {float.durationFormatted ? 'Canoe estimate' : float.durationUnavailableReason === 'regulated' ? 'Time varies with dam releases' : 'Open route for float time'}
           {float.difficulty ? ` · Class ${float.difficulty}` : ''}
         </p>
         <span className="mt-auto flex items-center gap-2 pt-5 text-sm font-semibold text-[var(--color-text-primary)] group-hover:underline">Plan this float<ArrowRight size={16} aria-hidden="true" /></span>

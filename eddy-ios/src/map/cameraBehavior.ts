@@ -14,7 +14,13 @@ export type MapCameraCommand =
       maxZoom?: number;
       waitForSheet?: boolean;
       duration?: number;
-    };
+    }
+  /**
+   * Turn the map back to north-up where it stands: heading only, so the centre,
+   * zoom and pitch the reader chose all survive. Never waits for the sheet —
+   * nothing opens with it, and rotating needs no padding.
+   */
+  | { id: number; type: 'resetHeading'; duration?: number };
 
 /**
  * Every reason the camera is allowed to move.
@@ -32,7 +38,15 @@ export type MapCameraCommand =
 export type MapCameraAction =
   | { type: 'riverSelected'; bounds: MapBounds }
   | { type: 'poiSelected'; lng: number; lat: number }
-  | { type: 'searchResultSelected'; lng: number; lat: number; zoom?: number }
+  /**
+   * `waitForSheet` when choosing the result also opens a pin sheet, exactly as
+   * a tap does: the sheet's height is reset while search is open, so without
+   * the wait the point is framed into a map with no sheet and then covered by
+   * the one that opens a beat later. Only then — a result that opens nothing
+   * (a national station with no pin, a put-in still loading) must not wait,
+   * or the move queues until some unrelated sheet next opens.
+   */
+  | { type: 'searchResultSelected'; lng: number; lat: number; zoom?: number; waitForSheet?: boolean }
   | { type: 'locationRequested'; lng: number; lat: number; zoom: number }
   | { type: 'clusterSelected'; lng: number; lat: number; zoom?: number }
   /**
@@ -43,7 +57,9 @@ export type MapCameraAction =
    * and gesture cancellation. Issued on the decision below rather than on the
    * route's arrival, for the reason given there.
    */
-  | { type: 'planRouteFramed'; bounds: MapBounds };
+  | { type: 'planRouteFramed'; bounds: MapBounds }
+  /** The compass, tapped. See MapCompass. */
+  | { type: 'northRequested' };
 
 /** Resolve at execution time, including commands waiting for sheet layout. */
 export function cameraAnimation(command: MapCameraCommand, reducedMotion: boolean) {
@@ -88,6 +104,7 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         lat: action.lat,
         zoom: action.zoom ?? 13,
         duration: 650,
+        ...(action.waitForSheet ? { waitForSheet: true } : {}),
       };
     case 'locationRequested':
       return {
@@ -128,7 +145,34 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         // not been measured yet. Nothing opens here: the map sheet is already
         // whatever it was, so the current padding is the final padding.
       };
+    case 'northRequested':
+      return { id, type: 'resetHeading', duration: 400 };
   }
+}
+
+/**
+ * How far off north the map is turned, in degrees, folded into 0–180.
+ *
+ * Mapbox reports a bearing in [0, 360), so 359° is one degree off north, not
+ * 359. Anything that is not a finite number reads as north-up: the cost of a
+ * native shape change should be a missing compass, never a stuck one.
+ */
+export function headingOffNorth(heading: number | undefined): number {
+  if (typeof heading !== 'number' || !Number.isFinite(heading)) return 0;
+  const folded = ((heading % 360) + 360) % 360;
+  return folded > 180 ? 360 - folded : folded;
+}
+
+/**
+ * Under a degree is not a rotation anyone can see, and a two-finger pinch
+ * leaves a fraction of one behind. Showing the compass for that would put a
+ * control on screen that does nothing visible when tapped.
+ */
+export const COMPASS_MIN_ROTATION = 1;
+
+/** Whether the compass belongs on screen: the map is visibly off north. */
+export function compassVisible(heading: number | undefined): boolean {
+  return headingOffNorth(heading) >= COMPASS_MIN_ROTATION;
 }
 
 /**

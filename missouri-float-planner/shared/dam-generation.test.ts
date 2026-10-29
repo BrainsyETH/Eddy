@@ -788,13 +788,27 @@ test('a stale schedule says so beside its own sentence, and is not suppressed', 
   assert.equal(scheduleOutlook(stale, BULL_SHOALS, NOON_CENTRAL)?.stale, true);
   assert.equal(
     scheduledClauseProvenance(stale, BULL_SHOALS, NOON_CENTRAL),
-    'From a schedule Eddy last checked 3 hours ago. It may have been revised since.'
+    'Schedule last checked at 8:40 AM CDT.'
   );
 
   // A current schedule says nothing extra.
   const fresh = [day('2026-07-28', { 13: 300, 14: 300, 15: 300 })];
   assert.equal(scheduledClauseProvenance(fresh, BULL_SHOALS, NOON_CENTRAL), null);
   assert.equal(scheduleOutlook(fresh, BULL_SHOALS, NOON_CENTRAL)?.stale, false);
+});
+
+test('schedule check times use the dam timezone, including winter, earlier dates, and the repeated fall hour', () => {
+  const cases = [
+    ['2026-01-28', '2026-01-28T18:00:00Z', '2026-01-28T14:40:00Z', 'Schedule last checked at 8:40 AM CST.'],
+    ['2026-07-28', '2026-07-28T06:00:00Z', '2026-07-28T03:40:00Z', 'Schedule last checked Jul 27 at 10:40 PM CDT.'],
+    ['2026-11-01', '2026-11-01T10:00:00Z', '2026-11-01T06:30:00Z', 'Schedule last checked at 1:30 AM CDT.'],
+    ['2026-11-01', '2026-11-01T10:00:00Z', '2026-11-01T07:30:00Z', 'Schedule last checked at 1:30 AM CST.'],
+    ['2027-01-01', '2027-01-01T08:00:00Z', '2027-01-01T04:40:00Z', 'Schedule last checked Dec 31, 2026 at 10:40 PM CST.'],
+  ];
+  for (const [date, now, retrievedAt, expected] of cases) {
+    const schedule = [{ ...day(date, { 13: 300 }), retrievedAt }];
+    assert.equal(scheduledClauseProvenance(schedule, BULL_SHOALS, Date.parse(now)), expected);
+  }
 });
 
 test('a stale schedule is marked on the pattern rows it draws', () => {

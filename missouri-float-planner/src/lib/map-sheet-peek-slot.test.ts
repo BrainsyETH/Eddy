@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { decisionSlot } from '../../../eddy-ios/src/components/map-sheet/peekSlot';
 
 // Covers eddy-ios/src/components/map-sheet/peekSlot.ts. The Expo app has no
@@ -106,4 +108,58 @@ test('the answer does not depend on anything that arrives late', () => {
   const first = decisionSlot(pin('access'), context);
   const afterDetailWouldHaveLanded = decisionSlot(pin('access'), context);
   assert.equal(first, afterDetailWouldHaveLanded);
+});
+
+// ── The single-page callout keeps the tabbed sheet's shape ────────────────────
+//
+// No runner can render these, so the wiring is pinned at source. Each line is a
+// defect that shipped: a dam that opened with no reading line and grew one
+// when /api/dams answered; a dam drawn as a different product from a gauge; and
+// a callout whose × said Close while it went back, with no named Back at all.
+
+const sheetSource = (name: string) =>
+  readFileSync(join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'map-sheet', name), 'utf8');
+
+test('a dam reserves its reading line from the first frame and says why it is empty', () => {
+  const callout = sheetSource('PinCallout.tsx');
+  assert.match(callout, /const dams = useDams\(isDam\)/, 'a dam sheet must ask for the dams it reads');
+  for (const line of ['Loading release…', 'Release unavailable right now', 'No release reported']) {
+    assert.ok(callout.includes(`'${line}'`), `missing the "${line}" state`);
+  }
+  assert.match(callout, /\) : damReadingPending \? \(/, 'the placeholder must take the reading row\'s place');
+});
+
+test('a dam gets the gauge sheet\'s named Open row, not an outlined button', () => {
+  const callout = sheetSource('PinCallout.tsx');
+  assert.doesNotMatch(callout, /label: 'Open dam',\s*tone:/, 'no full-width Open dam button');
+  assert.match(callout, /<LinkRow label=\{`Open \$\{pin\.name\}`\} symbol="dam"/);
+  const header = sheetSource('PinSheet.tsx');
+  assert.match(header, /label=\{`Open \$\{pin\.name\}`\}\s*symbol="gauge"/, 'and the gauge row it matches is still there');
+});
+
+test('the callout gets the same named Back as the tabbed header, and × stays Close', () => {
+  const sheet = sheetSource('PinSheet.tsx');
+  assert.match(sheet, /return <PinCallout \{\.\.\.props\} \/>;/, 'back and close must reach the callout separately');
+  assert.match(sheet, /<BackRow onBack=\{onBack\} label=\{backLabel\} \/>/);
+  const callout = sheetSource('PinCallout.tsx');
+  assert.match(callout, /\{onBack \? <BackRow onBack=\{onBack\} label=\{backLabel\} \/> : null\}/);
+  assert.match(callout, /onClose=\{onClose\}\s*\/>/, 'PlaceHead\'s × must close, not go back');
+  const head = sheetSource('PlaceHead.tsx');
+  assert.match(head, /accessibilityLabel=\{label \? `Back to \$\{label\}` : 'Back'\}/);
+  assert.match(head, /minHeight: 44/);
+});
+
+test('one star wording, and nothing in the peek clips at large text', () => {
+  const head = sheetSource('PlaceHead.tsx');
+  assert.match(head, /starred \? `Remove \$\{pin\.name\} from Favorites` : `Add \$\{pin\.name\} to Favorites`/);
+  assert.doesNotMatch(head, /`(Un)?[Ss]tar \$\{pin\.name\}`/);
+  assert.match(head, /styles\.meta, \{ color: colors\.textMuted \}\]\} numberOfLines=\{2\}/);
+  const callout = sheetSource('PinCallout.tsx');
+  assert.match(callout, /calloutReadingRow: \{ flexDirection: 'row', flexWrap: 'wrap'/);
+  for (const file of ['PinCallout.tsx', 'PinSheet.tsx']) {
+    assert.match(sheetSource(file), /fontScale > STACK_ACTIONS_FROM/, `${file} must stack its actions at large text`);
+  }
+  // An unrated chip borders in the colour its map dot wears.
+  assert.match(sheetSource('GaugeSheet.tsx'), /borderColor: tint \?\? colors\.border/);
+  assert.match(sheetSource('PinSheet.tsx'), /<GaugeReadingRow facts=\{gaugeFacts\} compact tint=\{pin\.color\} \/>/);
 });

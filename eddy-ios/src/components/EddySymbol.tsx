@@ -44,6 +44,10 @@ const SYMBOLS = {
   aiAssistant: require('../../assets/eddy/eddy-ai-assistant.png'),
   gauge: require('../../assets/eddy/eddy-other-usgs-gauge.png'),
   dam: require('../../assets/eddy/eddy-dam.png'),
+  release: require('../../assets/eddy/eddy-release.png'),
+  waterTemperature: require('../../assets/eddy/eddy-water-temperature.png'),
+  inflow: require('../../assets/eddy/eddy-inflow.png'),
+  fishery: require('../../assets/eddy/eddy-fishery.png'),
   accessPoint: require('../../assets/eddy/eddy-poi.png'),
   // The access types the catalog has drawn. Resolved by placeSymbol, which
   // chooses the most useful specific role while the map itself still draws one

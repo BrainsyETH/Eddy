@@ -10,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -25,6 +24,7 @@ import { VesselPicker } from '@/components/VesselPicker';
 import { FloatSearchCard } from '@/components/FloatSearchCard';
 import { FloatSearchLoading } from '@/components/FloatSearchLoading';
 import { FloatInfoSheet, type FloatInfoTopic } from '@/components/FloatInfoSheet';
+import { FloatFiltersSheet } from '@/components/FloatFiltersSheet';
 import { floatDurationLabel } from '@/lib/floatPresentation';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,18 +33,27 @@ import {
   approximateLocation,
   FLOAT_BOATS,
   FLOAT_BOAT_STORAGE_KEY,
+  FLOAT_RADIUS_MILES,
+  FLOAT_SEARCH_DEFAULT_BOAT,
+  FLOAT_TRIP_DAYS,
+  floatFilterCount,
+  floatSearchIdentity,
   floatSearchIsFresh,
   floatSearchEmptyMessage,
   floatSearchRecoveryOptions,
+  floatSearchRequest,
+  floatSortsFor,
+  floatTripLabel,
   FLOAT_SEARCH_MAX_AGE_MS,
   FLOAT_SEARCH_EXPIRED_MESSAGE,
-  FLOAT_SEARCH_PROXIMITY_NOTE,
-  floatSearchUsedProximity,
+  sortFloatOptions,
   type FloatBoat,
   type FloatSearchInput,
   type FloatSearchOption,
   type FloatSearchPlace,
   type FloatSearchResponse,
+  type FloatSort,
+  type FloatTripDays,
 } from '@eddy/conditions/float-search';
 import { fetchFloatSearch, fetchFloatSearchPlaces, fetchRivers } from '@/api/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -55,11 +64,15 @@ import { useNavigationAction } from '@/hooks/useNavigationAction';
 import { readBestIndex } from '@/lib/riverCache';
 import { selectSearchRiver, selectSearchLocation, canDefaultToCurrentLocation } from '@/lib/floatSearchSelection';
 
+type Source = 'current' | 'place' | 'access';
 type State = {
   input: FloatSearchInput;
   location: string;
-  locationSource?: 'current' | 'place';
+  locationSource?: Source;
   result: FloatSearchResponse | null;
+  /** The input that produced `result`; a different current input dims it. */
+  submitted: FloatSearchInput | null;
+  sort: FloatSort;
 };
 // Only the boat preference is persisted. Search location and results stay in this session.
 let previous: { state: State; scroll: number; river: string } | null = null;
@@ -90,17 +103,20 @@ export default function FindFloatScreen() {
             river: initialRiver || undefined,
             targetHours: 5,
             radiusMiles: 100,
-            vesselType: 'kayak',
+            vesselType: FLOAT_SEARCH_DEFAULT_BOAT,
             publicOnly: true,
+            days: 1,
           },
           location: '',
           result: null,
+          submitted: null,
+          sort: 'best',
         },
   );
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
   const [wherePicker, setWherePicker] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [info, setInfo] = useState<FloatInfoTopic | null>(null);
-  const [showResultDetails, setShowResultDetails] = useState(false);
   const revealResults = useRef(false);
   const [query, setQuery] = useState('');
   const [placeSearch, setPlaceSearch] = useState<{
@@ -186,7 +202,7 @@ export default function FindFloatScreen() {
               error: 'Town search is unavailable. Try again or choose a river.',
             });
         });
-    }, 350);
+    }, 300);
     return () => {
       clearTimeout(timer);
       controller.abort();
@@ -198,7 +214,7 @@ export default function FindFloatScreen() {
       if (!result) return;
       const expire = () => {
         if (floatSearchIsFresh(result)) return;
-        setState((s) => (s.result === result ? { ...s, result: null } : s));
+        setState((s) => (s.result === result ? { ...s, result: null, submitted: null } : s));
         setExpired(true);
       };
       expire();
@@ -220,9 +236,10 @@ export default function FindFloatScreen() {
     locationChosen.current = true;
     const near = approximateLocation(location.coords);
     setState((current) => ({ ...current, location: 'Near you', locationSource: 'current',
-      input: { ...current.input, ...selectSearchLocation(near) }, result: null }));
+      input: { ...current.input, ...selectSearchLocation(near) } }));
   }, [location.coords, location.status, state.input]);
 
+  /** Changing a choice keeps the last results on screen, dimmed, until Search again. */
   const update = (patch: Partial<FloatSearchInput>) => {
     if ('river' in patch || 'near' in patch) locationChosen.current = true;
     request.current?.abort();
@@ -231,7 +248,7 @@ export default function FindFloatScreen() {
     setError('');
     setLocationError('');
     setExpired(false);
-    setState((s) => ({ ...s, input: { ...s.input, ...patch }, result: null }));
+    setState((s) => ({ ...s, input: { ...s.input, ...patch } }));
     if (patch.vesselType) {
       boatChosen.current = true;
       void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType).catch(() => {});
@@ -248,14 +265,10 @@ export default function FindFloatScreen() {
     setBusy('search');
     setError('');
     revealResults.current = true;
-    setState((s) => ({ ...s, input: nextInput, location: nextLocation, result: null }));
+    setState((s) => ({ ...s, input: nextInput, location: nextLocation, result: null, submitted: null }));
     try {
-      const input = {
-        ...nextInput,
-        near: nextInput.near ? approximateLocation(nextInput.near) : undefined,
-      };
-      const result = await fetchFloatSearch(input, controller.signal);
-      if (!controller.signal.aborted) setState((s) => ({ ...s, result }));
+      const result = await fetchFloatSearch(floatSearchRequest(nextInput), controller.signal);
+      if (!controller.signal.aborted) setState((s) => ({ ...s, result, submitted: nextInput, sort: 'best' }));
     } catch (e) {
       if (!controller.signal.aborted)
         setError(e instanceof Error ? e.message : 'Search could not finish. Please try again.');
@@ -275,14 +288,15 @@ export default function FindFloatScreen() {
     const point = await location.request();
     if (attempt !== locationAttempt.current) return;
     if (point) {
+      const near = approximateLocation(point);
       setError('');
       setExpired(false);
+      // Inside a chosen river, your location orders launches and adds drive times.
       setState((s) => ({
         ...s,
         location: 'Near you',
         locationSource: 'current',
-        input: { ...s.input, ...selectSearchLocation(approximateLocation(point)) },
-        result: null,
+        input: { ...s.input, ...(s.input.river ? { near } : selectSearchLocation(near)) },
       }));
       Keyboard.dismiss();
       setWherePicker(false);
@@ -313,7 +327,19 @@ export default function FindFloatScreen() {
       borderColor: colors.border,
     },
   ];
-  const { input, result } = state;
+  const { input, result, submitted } = state;
+  const days = input.days ?? 1;
+  const stale = Boolean(result && submitted && floatSearchIdentity(submitted) !== floatSearchIdentity(input));
+  const shown = submitted ?? input;
+  const filterCount = floatFilterCount(input);
+  const riverName = (slug?: string) => rivers.find((r) => r.slug === slug)?.name ?? slug ?? '';
+  const whereLabel = input.river
+    ? state.locationSource === 'access'
+      ? state.location
+      : input.near && state.locationSource === 'current'
+        ? `${riverName(input.river)} · Near you`
+        : riverName(input.river)
+    : state.location || 'Search for a river, access, or town';
   function card(option: FloatSearchOption) {
     return (
       <FloatSearchCard
@@ -322,6 +348,7 @@ export default function FindFloatScreen() {
         riverPhotoUrl={rivers.find((river) => river.slug === option.riverSlug)?.photoUrl ?? undefined}
         onPlan={() => plan(option)}
         onTimeInfo={() => setInfo('time')}
+        onDriveInfo={() => setInfo('distance')}
       />
     );
   }
@@ -332,7 +359,17 @@ export default function FindFloatScreen() {
     setWherePicker(false);
   };
   const canSearch = busy === null && Boolean(input.river || input.near);
-  const matchingRivers = rivers.filter((r) => r.name.toLowerCase().includes(townQuery.toLowerCase()));
+  // Dam-regulated rivers cannot be duration-matched, so they are not offered.
+  const matchingRivers = rivers.filter(
+    (r) => r.riverType !== 'dam_tailwater' && r.name.toLowerCase().includes(townQuery.toLowerCase()),
+  );
+  const accessPlaces = currentPlaces?.places.filter((place) => place.kind === 'access' && place.river) ?? [];
+  const townPlaces = currentPlaces?.places.filter((place) => place.kind !== 'access') ?? [];
+  const routes = result ? [...result.matches, ...result.alternatives] : [];
+  const sorts = floatSortsFor(routes);
+  const recovery = result && submitted && !stale
+    ? floatSearchRecoveryOptions(submitted, result, rivers.find((r) => r.slug === submitted.river || r.id === submitted.river))
+    : [];
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
       <Stack.Screen
@@ -369,17 +406,14 @@ export default function FindFloatScreen() {
             }}
             disabled={busy !== null}
             accessibilityRole="button"
+            accessibilityLabel={`Where, ${whereLabel}`}
             accessibilityState={{ disabled: busy !== null }}
             style={styles.fieldRow}
           >
             <ControlIcon name="search-outline" size={20} color={colors.interactive} />
             <View style={styles.fieldCopy}>
-              {body('Where?')}
-              {label(
-                input.river
-                  ? (rivers.find((r) => r.slug === input.river)?.name ?? input.river)
-                  : state.location || 'Search for a river or town',
-              )}
+              {body('Where')}
+              {label(whereLabel)}
             </View>
             <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
           </Pressable>
@@ -390,14 +424,14 @@ export default function FindFloatScreen() {
                 themeVariant={isDark ? 'dark' : 'light'}
                 shouldOpenOnLongPress={false}
                 title="Search radius"
-                actions={[25, 50, 100, 150, 200, 300].map((miles) => ({
+                actions={FLOAT_RADIUS_MILES.map((miles) => ({
                   id: String(miles),
                   title: `Within ${miles} miles`,
                   state: miles === input.radiusMiles ? 'on' : 'off',
                 }))}
                 onPressAction={({ nativeEvent }) => {
                   const radiusMiles = Number(nativeEvent.event);
-                  if ([25, 50, 100, 150, 200, 300].includes(radiusMiles)) update({ radiusMiles });
+                  if ((FLOAT_RADIUS_MILES as readonly number[]).includes(radiusMiles)) update({ radiusMiles });
                 }}
               >
                 <View
@@ -411,43 +445,68 @@ export default function FindFloatScreen() {
                   <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
                 </View>
               </MenuView>
-              <View style={styles.noteRow}>
-                <Text style={[t.xs, { color: colors.textMuted, flex: 1 }]}>
-                  Approximate distance to the put-in.
-                </Text>
-                <InfoButton topic="distance" onPress={() => setInfo('distance')} />
-              </View>
             </>
           ) : null}
         </View>
-        <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>
-          <View style={styles.between}>
-            {label('Time on the river')}
-            <InfoButton topic="time" onPress={() => setInfo('time')} />
+        <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
+          <MenuView
+            themeVariant={isDark ? 'dark' : 'light'}
+            shouldOpenOnLongPress={false}
+            title="Trip length"
+            actions={FLOAT_TRIP_DAYS.map((value) => ({
+              id: String(value),
+              title: floatTripLabel(value),
+              state: value === days ? 'on' : 'off',
+            }))}
+            onPressAction={({ nativeEvent }) => {
+              const value = Number(nativeEvent.event) as FloatTripDays;
+              if (FLOAT_TRIP_DAYS.includes(value)) update({ days: value });
+            }}
+          >
+            <View
+              style={styles.fieldRow}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`Trip length, ${floatTripLabel(days)}`}
+            >
+              <Text style={[styles.label, { color: colors.text, flex: 1 }]}>Trip length</Text>
+              <Text style={[t.base, { color: colors.interactive }]}>{floatTripLabel(days)}</Text>
+              <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
+            </View>
+          </MenuView>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.groupPadding}>
+            <View style={styles.between}>
+              {label(days > 1 ? 'Time on the river each day' : 'Time on the river')}
+              <InfoButton topic="time" onPress={() => setInfo('time')} />
+            </View>
+            <FloatDurationSlider
+              hours={input.targetHours}
+              perDay={days > 1}
+              onChange={(targetHours) => update({ targetHours })}
+            />
           </View>
-          <FloatDurationSlider
-            hours={input.targetHours}
-            onChange={(targetHours) => update({ targetHours })}
-          />
         </View>
         <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
           <VesselPicker value={input.vesselType} onChange={(vesselType) => update({ vesselType })} />
-        </View>
-        <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>
-          <View style={styles.between}>
-            <View style={styles.fieldCopy}>
-              {label('Public access only')}
-              {body('Show routes with public put-ins and take-outs.')}
-            </View>
-            <Switch
-              accessibilityLabel="Public access only"
-              value={input.publicOnly}
-              onValueChange={(publicOnly) => update({ publicOnly })}
-            />
-          </View>
-          {!input.publicOnly
-            ? body('Results may include private or unconfirmed access. Check access details before going.')
-            : null}
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            onPress={() => setFiltersOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Filters, ${filterCount ? `${filterCount} on` : 'none'}`}
+            style={styles.fieldRow}
+          >
+            <ControlIcon name="options-outline" size={20} color={colors.interactive} />
+            <Text style={[styles.label, { color: colors.text, flex: 1 }]}>Filters</Text>
+            {filterCount ? (
+              <View style={[styles.count, { backgroundColor: colors.interactive }]}>
+                <Text style={[t.xs, { color: colors.onInteractive, fontFamily: fonts.semibold }]}>{filterCount}</Text>
+              </View>
+            ) : (
+              <Text style={[t.base, { color: colors.textMuted }]}>None</Text>
+            )}
+            <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
+          </Pressable>
         </View>
         {busy === 'location' && <ActivityIndicator color={colors.interactive} />}
         {busy === 'search' && <View onLayout={(event) => {
@@ -464,7 +523,10 @@ export default function FindFloatScreen() {
         {expired && body(FLOAT_SEARCH_EXPIRED_MESSAGE)}
         {result && (
           <View
-            style={styles.group}
+            style={[styles.group, stale && styles.stale]}
+            pointerEvents={stale ? 'none' : 'auto'}
+            accessibilityElementsHidden={stale}
+            importantForAccessibility={stale ? 'no-hide-descendants' : 'auto'}
             onLayout={(event) => {
               const y = event.nativeEvent.layout.y;
               if (revealResults.current) {
@@ -473,54 +535,60 @@ export default function FindFloatScreen() {
               }
             }}
           >
-            <Text style={[styles.heading, { color: colors.text }]}>
-              Floats for about {floatDurationLabel(input.targetHours * 60)}
+            <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>
+              {(shown.days ?? 1) > 1
+                ? `${floatTripLabel(shown.days)}, ${floatDurationLabel(shown.targetHours * 60)} a day`
+                : `Floats for about ${floatDurationLabel(shown.targetHours * 60)}`}
             </Text>
             <View style={styles.between}>
               {body(
                 `Checked ${new Date(result.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
               )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showResultDetails }}
-                onPress={() => setShowResultDetails((value) => !value)}
-                style={styles.searchDetails}
-              >
-                <Text style={[t.sm, { color: colors.interactive }]}>Search details</Text>
-                <ControlIcon
-                  name={showResultDetails ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                  color={colors.interactive}
-                />
-              </Pressable>
+              {routes.length > 1 ? (
+                <MenuView
+                  themeVariant={isDark ? 'dark' : 'light'}
+                  shouldOpenOnLongPress={false}
+                  title="Sort"
+                  actions={sorts.map((sort) => ({
+                    id: sort.value,
+                    title: sort.label,
+                    state: sort.value === state.sort ? 'on' : 'off',
+                  }))}
+                  onPressAction={({ nativeEvent }) => {
+                    const sort = sorts.find((option) => option.value === nativeEvent.event);
+                    if (sort) setState((s) => ({ ...s, sort: sort.value }));
+                  }}
+                >
+                  <View
+                    style={styles.sort}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sort, ${sorts.find((sort) => sort.value === state.sort)?.label ?? 'Best match'}`}
+                  >
+                    <ControlIcon name="swap-vertical" size={16} color={colors.interactive} />
+                    <Text style={[t.sm, { color: colors.interactive, fontFamily: fonts.semibold }]}>
+                      {sorts.find((sort) => sort.value === state.sort)?.label ?? 'Best match'}
+                    </Text>
+                  </View>
+                </MenuView>
+              ) : null}
             </View>
             {result.partial
               ? body(result.failed ? 'Some rivers couldn’t be checked.' : 'Showing a selection of routes.')
               : null}
-            {showResultDetails ? (
-              <View style={styles.group}>
-                {body('Conditions can change. Opening a plan checks the route again.')}
-                {floatSearchUsedProximity(result) && body(FLOAT_SEARCH_PROXIMITY_NOTE)}
-                {result.partial &&
-                  body('This search is partial. Choose a river or search again to see more options.')}
-              </View>
-            ) : null}
             {result.matches.length === 0 && body(floatSearchEmptyMessage(result))}
-            {floatSearchRecoveryOptions(input, result, rivers.find(r => r.slug === input.river || r.id === input.river)).map(option => (
+            {recovery.map(option => (
               <SearchButton key={option.label} label={option.label} disabled={busy !== null} onPress={() => {
                 update(option.input);
                 if (option.location) setState(s => ({ ...s, location: option.location!, locationSource: 'place' }));
                 void run(option.input, option.location ?? state.location);
               }} />
             ))}
-            {result.matches.map(card)}
+            {sortFloatOptions(result.matches, state.sort).map(card)}
             {result.alternatives.length > 0 && (
               <>
-                <Text style={[styles.heading, { color: colors.text }]}>Shorter or longer alternatives</Text>
-                {body(
-                  `These trips are shorter or longer than ${floatDurationLabel(input.targetHours * 60)}.`,
-                )}
-                {result.alternatives.map(card)}
+                <Text accessibilityRole="header" style={[styles.heading, { color: colors.text }]}>Shorter or longer</Text>
+                {sortFloatOptions(result.alternatives, state.sort).map(card)}
               </>
             )}
           </View>
@@ -542,6 +610,9 @@ export default function FindFloatScreen() {
         </View>
       </ScreenSafeAreaView>
       {info ? <FloatInfoSheet topic={info} onClose={() => setInfo(null)} /> : null}
+      {filtersOpen ? (
+        <FloatFiltersSheet input={input} onChange={update} onClose={() => setFiltersOpen(false)} />
+      ) : null}
       <Modal
         visible={wherePicker}
         presentationStyle="pageSheet"
@@ -572,20 +643,21 @@ export default function FindFloatScreen() {
               >
                 <SearchButton
                   label={busy === 'location' ? 'Finding your location…' : 'Current location'}
-                  selected={state.locationSource === 'current' && !!input.near && !input.river}
+                  selected={state.locationSource === 'current' && !!input.near}
                   disabled={busy !== null}
                   onPress={() => void locate()}
                 />
                 {locationError ? <Text accessibilityRole="alert" style={[t.sm, { color: colors.text }]}>{locationError}</Text> : null}
                 <TextInput
-                  accessibilityLabel="Search for a river or town"
-                  placeholder="River or town and state"
+                  accessibilityLabel="Search for a river, access, or town"
+                  placeholder="River, access, or town"
                   placeholderTextColor={colors.textSubtle}
                   value={query}
                   maxLength={120}
                   style={inputStyle}
                   autoCorrect={false}
                   autoFocus
+                  clearButtonMode="while-editing"
                   returnKeyType="search"
                   onChangeText={setQuery}
                 />
@@ -598,8 +670,10 @@ export default function FindFloatScreen() {
                     label={river.name}
                     selected={input.river === river.slug}
                     onPress={() => {
-                      update(selectSearchRiver(river.slug));
-                      setState((s) => ({ ...s, location: '', locationSource: undefined }));
+                      // Your own location stays for drive times; a town never does.
+                      const keep = state.locationSource === 'current' ? input.near : undefined;
+                      update(selectSearchRiver(river.slug, keep));
+                      setState((s) => ({ ...s, location: keep ? 'Near you' : '', locationSource: keep ? 'current' : undefined }));
                       closePicker();
                     }}
                   />
@@ -607,7 +681,7 @@ export default function FindFloatScreen() {
                 {!matchingRivers.length
                   ? body(
                       rivers.length
-                        ? 'No matching rivers. Try a town below.'
+                        ? 'No matching rivers.'
                         : 'No river list available yet.',
                     )
                   : null}
@@ -619,17 +693,39 @@ export default function FindFloatScreen() {
                 ) : null}
                 {townQuery.length >= 2 ? (
                   <>
-                    <Text accessibilityRole="header" style={[styles.label, { color: colors.text }]}>
-                      Towns &amp; places
-                    </Text>
                     {!currentPlaces ? (
-                      <ActivityIndicator accessibilityLabel="Searching towns" color={colors.interactive} />
+                      <ActivityIndicator accessibilityLabel="Searching accesses and towns" color={colors.interactive} />
                     ) : currentPlaces.error ? (
                       body(currentPlaces.error)
                     ) : !currentPlaces.places.length ? (
-                      body('No towns found. Add a state or try another name.')
+                      body('No accesses or towns found. Add a state or try another name.')
                     ) : null}
-                    {currentPlaces?.places.map((place) => (
+                    {accessPlaces.length ? (
+                      <Text accessibilityRole="header" style={[styles.label, { color: colors.text }]}>
+                        Accesses
+                      </Text>
+                    ) : null}
+                    {accessPlaces.map((place) => (
+                      <SearchButton
+                        key={place.id}
+                        label={place.riverName ? `${place.name} · ${place.riverName}` : place.name}
+                        onPress={() => {
+                          update({ river: place.river, near: place.near });
+                          setState((s) => ({
+                            ...s,
+                            location: place.riverName ? `${place.name} · ${place.riverName}` : place.name,
+                            locationSource: 'access',
+                          }));
+                          closePicker();
+                        }}
+                      />
+                    ))}
+                    {townPlaces.length ? (
+                      <Text accessibilityRole="header" style={[styles.label, { color: colors.text }]}>
+                        Towns
+                      </Text>
+                    ) : null}
+                    {townPlaces.map((place) => (
                       <SearchButton
                         key={place.id}
                         label={place.name}
@@ -640,7 +736,7 @@ export default function FindFloatScreen() {
                         }}
                       />
                     ))}
-                    {currentPlaces ? (
+                    {townPlaces.length ? (
                       <Text
                         onPress={() => void openExternalLink('https://www.mapbox.com/about/maps/')}
                         accessibilityRole="link"
@@ -650,9 +746,7 @@ export default function FindFloatScreen() {
                       </Text>
                     ) : null}
                   </>
-                ) : (
-                  body('Type at least two letters to search towns.')
-                )}
+                ) : null}
               </ScrollView>
             </KeyboardAvoidingView>
           </SafeAreaView>
@@ -718,7 +812,9 @@ function InfoButton({ topic, onPress }: { topic: FloatInfoTopic; onPress: () => 
 }
 
 const styles = StyleSheet.create({
-  searchDetails: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
+  sort: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingLeft: 12 },
+  stale: { opacity: 0.4 },
+  count: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
   screen: { flex: 1 },
   content: { padding: 16, paddingBottom: 24, gap: 12 },
   heading: { ...t.xl, fontFamily: fonts.heading },
@@ -737,7 +833,6 @@ const styles = StyleSheet.create({
   },
   fieldCopy: { flex: 1, gap: 2 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
-  noteRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' },
   info: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   button: {

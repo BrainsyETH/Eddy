@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import * as generation from '@shared/dam-generation';
 import { patternRows } from '@shared/dam-generation';
 import type { DamPatternDay, DamScheduleDay } from '@shared/dam-types';
 import { PATTERN_TIME_TICKS, patternTimeTicks } from './dam-pattern-time';
@@ -47,4 +51,74 @@ test('an unavailable anchor keeps a usable standard ruler', () => {
   const now = Date.parse('2026-10-28T18:00:00Z');
   const [row] = patternRows([day('2026-10-27', 'invalid', 24)], [], undefined, 100, now);
   assert.deepEqual(patternTimeTicks(row, 'invalid', now), PATTERN_TIME_TICKS);
+});
+
+// Render the native component with host/hook stubs. Shared row-builder tests
+// alone cannot catch the screen filtering scheduled rows until a button tap.
+function renderNativePattern(pattern: DamPatternDay[], schedule: DamScheduleDay[], fontScale = 1) {
+  const nodes: { type: unknown; props: Record<string, unknown> }[] = [];
+  const jsx = (type: unknown, props: Record<string, unknown>) => {
+    if (typeof type === 'function') return type(props);
+    const node = { type, props };
+    nodes.push(node);
+    return node;
+  };
+  const dependencies: Record<string, unknown> = {
+    'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    react: {
+      useMemo: (read: () => unknown) => read(),
+      useState: (initial: unknown) => [typeof initial === 'function' ? initial() : initial, () => {}],
+      useEffect: () => {},
+    },
+    'react-native': {
+      View: 'View', Text: 'Text', Pressable: 'Pressable',
+      StyleSheet: { create: (value: unknown) => value, hairlineWidth: 1 },
+      useWindowDimensions: () => ({ width: 393, fontScale }),
+    },
+    '@/theme/ThemeProvider': { useTheme: () => ({ colors: {}, elevation: () => ({}) }) },
+    '@/theme/typography': { fonts: {}, textStyles: {} },
+    '@/theme/layout': { radii: {} },
+    '@/components/dam/DamInfoTip': { DamInfoTip: 'DamInfoTip' },
+    '@eddy/conditions/dam-generation': generation,
+  };
+  const exports: { DamPatternStrip?: (props: { pattern: DamPatternDay[]; schedule: DamScheduleDay[] }) => unknown } = {};
+  const source = readFileSync('../eddy-ios/src/components/dam/DamPatternStrip.tsx', 'utf8');
+  runInNewContext(ts.transpileModule(source, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+  } }).outputText, { exports, Date: { now: () => Date.parse('2026-10-28T18:00:00Z') }, require: (name: string) => {
+    assert.ok(name in dependencies, `Unexpected pattern dependency: ${name}`);
+    return dependencies[name];
+  } });
+  assert.ok(exports.DamPatternStrip);
+  exports.DamPatternStrip({ pattern, schedule });
+  return nodes;
+}
+
+test('iOS generation pattern shows posted upcoming hours on the first render, including schedule-only and zero days', () => {
+  const now = Date.parse('2026-10-28T18:00:00Z');
+  for (const pattern of [[], [day('2026-10-28', '2026-10-28T05:00:00Z', 24)]]) {
+    for (const megawatts of [0, 100]) {
+      const posted = ['2026-10-28', '2026-10-29'].map(date => ({ ...schedule(date), hours: schedule(date).hours.map(hour => ({ ...hour, megawatts })) }));
+      const expected = patternRows(pattern, posted, undefined, undefined, now);
+      for (const fontScale of [1, 1.5]) {
+        const nodes = renderNativePattern(pattern, posted, fontScale);
+        for (const row of expected) {
+          const summary = generation.patternRowVoiceOver(row);
+          assert.ok(nodes.some(node => node.props.accessibilityLabel === summary || node.props.children === summary), `${row.dayKey} is visible immediately at text scale ${fontScale}`);
+        }
+        assert.ok(nodes.some(node => node.props.children === 'Generation pattern'));
+        assert.equal(nodes.filter(node => node.type === 'Pressable').length, 0, 'there is no include/hide schedule button');
+      }
+    }
+  }
+});
+
+test('iOS generation pattern retains missing observations without inventing a schedule', () => {
+  const observed = day('2026-10-27', '2026-10-27T05:00:00Z', 24);
+  observed.turbineCfs[2] = null;
+  const [expected] = patternRows([observed], [], undefined, undefined, Date.parse('2026-10-28T18:00:00Z'));
+  const nodes = renderNativePattern([observed], []);
+  assert.ok(nodes.some(node => node.props.accessibilityLabel === generation.patternRowVoiceOver(expected)));
+  assert.ok(!nodes.some(node => node.props.children === 'Scheduled'));
+  assert.equal(renderNativePattern([], []).length, 0);
 });

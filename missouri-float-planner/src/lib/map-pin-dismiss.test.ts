@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { mapPlanSelection } from '../../../eddy-ios/src/map/planSelection';
 import { mapAccessPointPin } from '../../../eddy-ios/src/map/accessPin';
+import { pinStarItem, pinStarProps } from '../../../eddy-ios/src/lib/pinStar';
 import type { MapAccessPoint } from '../../../packages/eddy-types';
 
 const SCREEN = readFileSync(join(process.cwd(), '..', 'eddy-ios', 'app', '(tabs)', '(map)', 'index.tsx'), 'utf8');
@@ -38,10 +39,13 @@ function scene(planning = false) {
   const pendingAccessSelection = { current: null };
   const pendingMapPlanFrame = { current: null };
   const pendingRiverFit = { current: { slug } as { slug: string } | null };
-  const run = (name: string, ...args: unknown[]) => callback(name, {
+  const run = (name: string, ...args: unknown[]) => {
+    const context: Record<string, unknown> = {
     ...state, pendingAccessSelection, pendingMapPlanFrame,
     pendingRiverFit, setCameraCommand: (command: unknown) => { state.cameraCommand = command; },
     mapPlanning: state.mapPlanRiver === state.selectedSlug,
+    choosingEndpoint: state.mapPlanRiver === state.selectedSlug && state.step !== 'result',
+    planHoldsRiver: state.putIn !== null,
     planOpen: false, mapPlanSelection, cancelMapSearch: () => {},
     gestureCount: { current: 0 }, isGaugeIndexId: () => false,
     accessPointForPin: () => ({ point: campOnly, riverSlug: slug }),
@@ -55,7 +59,11 @@ function scene(planning = false) {
       putInOptions: [putIn, takeOut], takeOutOptions: [takeOut],
       choosePutIn: (point: MapAccessPoint) => { state.putIn = point; },
       chooseTakeOut: (point: MapAccessPoint) => { state.takeOut = point; state.step = 'result'; } },
-  })(...args);
+    };
+    // Back and close share the pin-down step; built from the same context.
+    context.putPinDown = callback('putPinDown', context);
+    return callback(name, context)(...args);
+  };
   return { state, run, pendingRiverFit };
 }
 
@@ -123,9 +131,28 @@ test('the real map handler selects Bay Creek without a confirmation sheet', () =
   assert.equal(state.cameraCommands, 0);
 });
 
-test('Back and close use the same return handler and planning names the route', () => {
-  const pinSheet = SCREEN.slice(SCREEN.indexOf('<PinSheet'), SCREEN.indexOf('starred={pinGauge'));
-  assert.match(pinSheet, /onClose=\{dismissPin\}/);
+test('close puts the pin down on the map; Back returns to the sheet that opened it', () => {
+  // They were one handler, so "‹ Current River" and × beside it did the same
+  // thing. Close keeps the river, the route and the camera, but does not
+  // reopen the river sheet.
+  const { state, run } = scene();
+  state.riverSheetOpen = true;
+  run('onSelectPin', mapAccessPointPin(takeOut, slug), 'river-sheet');
+  run('closePin');
+  assert.equal(state.selectedPin, null);
+  assert.equal(state.riverSheetOpen, false, 'close does not go back to the river sheet');
+  assert.equal(state.selectedSlug, slug);
+  assert.equal(state.takeOut, takeOut);
+
+  const planning = scene(true);
+  planning.run('onSelectPin', mapAccessPointPin(campOnly, slug, 'campgrounds'));
+  planning.run('closePin');
+  assert.equal(planning.state.mapPlanRiver, slug, 'close keeps the route');
+});
+
+test('Back and close have their own handlers and planning names the route', () => {
+  const pinSheet = SCREEN.slice(SCREEN.indexOf('<PinSheet'), SCREEN.indexOf('{...pinStarProps('));
+  assert.match(pinSheet, /onClose=\{closePin\}/);
   assert.match(pinSheet, /onBack=\{mapPlanning .*\? dismissPin : null\}/);
   assert.match(pinSheet, /backLabel=\{mapPlanning \? 'Your route'/);
   assert.match(SCREEN, /riverSheetOpen && riverSheetData && !selectedPin/);
@@ -134,6 +161,7 @@ test('Back and close use the same return handler and planning names the route', 
 
 test('empty map dismisses details and route sheet without clearing endpoints or moving the camera', () => {
   const { state, run, pendingRiverFit } = scene(true);
+  state.step = 'result';
   state.selectedPin = { id: 'gauge:1' };
   state.riverSheetOpen = true;
   run('dismissMapSelection');
@@ -149,6 +177,7 @@ test('empty map dismisses details and route sheet without clearing endpoints or 
 
 test('tapping the still-selected river after background dismissal reopens its sheet', () => {
   const { state, run } = scene(true);
+  state.step = 'result';
   run('dismissMapSelection');
   assert.equal(state.riverSheetOpen, false);
   run('onSelectNetworkRiver', slug, { lng: -91.4, lat: 37.1 });
@@ -157,4 +186,54 @@ test('tapping the still-selected river after background dismissal reopens its sh
   assert.equal(state.selectedSlug, slug);
   assert.equal(state.putIn, putIn);
   assert.equal(state.takeOut, takeOut);
+});
+
+// While the compact planner waits for an endpoint, a tap that misses a pin is a
+// near-miss, not a request to stop. Ending planning there left the put-in set
+// with nothing drawing it and "Use as take-out" offered against it.
+test('a missed tap while choosing an endpoint closes only the pin', () => {
+  for (const step of ['put-in', 'take-out']) {
+    const { state, run } = scene(true);
+    state.step = step;
+    state.selectedPin = { id: 'gauge:1' };
+    run('dismissMapSelection');
+    assert.equal(state.selectedPin, null);
+    assert.equal(state.mapPlanRiver, slug, `blank tap at ${step} ended planning`);
+
+    state.selectedPin = { id: 'gauge:1' };
+    run('onSelectNetworkRiver', 'current', { lng: -91.4, lat: 37.1 });
+    assert.equal(state.selectedPin, null);
+    assert.equal(state.mapPlanRiver, slug, `river tap at ${step} ended planning`);
+    assert.equal(state.selectedSlug, slug, 'a river-line tap mid-plan switched rivers');
+    assert.equal(state.riverSheetOpen, false);
+    assert.equal(state.putIn, putIn);
+  }
+});
+
+test('rated gauges, national gauges and dams star from the map as their screens store them', () => {
+  const rated = { id: 'g-uuid', name: 'Current at Van Buren', usgsSiteId: '07067000', provider: 'usgs',
+    thresholds: [{ isPrimary: false, riverSlug: 'jacks-fork' }, { isPrimary: true, riverSlug: 'current' }] };
+  assert.deepEqual(pinStarItem({ layer: 'gauges', name: 'x' }, rated, null), {
+    kind: 'gauge', entityId: 'g-uuid', name: rated.name, slug: 'current', usgsSiteId: '07067000', provider: 'usgs',
+  });
+  // The national tier rates no river: an honest empty slug, an unknown provider.
+  const national = { id: 'n-uuid', name: 'Creek near Town', siteId: '07000001' };
+  assert.deepEqual(pinStarItem({ layer: 'allGauges', name: 'x' }, null, national), {
+    kind: 'gauge', entityId: 'n-uuid', name: national.name, slug: '', usgsSiteId: '07000001', provider: null,
+  });
+  // An index-decoded gauge has no gauge_stations id; a star under it is a star under nothing.
+  assert.equal(pinStarItem({ layer: 'allGauges', name: 'x' }, null, { ...national, id: 'idx:07000001' }), null);
+  assert.deepEqual(pinStarItem({ layer: 'dams', name: 'Bull Shoals', damId: 'bull-shoals', riverSlug: 'white' }, null, null),
+    { kind: 'dam', entityId: 'bull-shoals', name: 'Bull Shoals', slug: 'white' });
+  // Hazards and springs have no star store at all.
+  assert.equal(pinStarItem({ layer: 'hazards', name: 'x' }, null, null), null);
+
+  const toggled: unknown[] = [];
+  const props = pinStarProps(pinStarItem({ layer: 'dams', name: 'Dam', damId: 'd' }, null, null),
+    (kind, id) => kind === 'dam' && id === 'd', (item) => toggled.push(item));
+  assert.equal(props.starred, true);
+  props.onToggleStar?.();
+  assert.equal(toggled.length, 1);
+  assert.deepEqual(pinStarProps(null, () => true, () => {}), { starred: false, onToggleStar: null });
+  assert.match(SCREEN, /\{\.\.\.pinStarProps\(pinStarItem\(selectedPin, pinGauge, pinReferenceGauge\), isStarred, toggleStar\)\}/);
 });

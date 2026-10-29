@@ -5,6 +5,7 @@ export type PlanDetailDestination =
   | { pathname: '/'; params: { focusRiver: string; planPutIn: string; planTakeOut: string; planVesselTypeId?: string; openPlan: string; planPresentation: string; planRequest: string } }
   | { pathname: '/float-mode' }
   | { pathname: '/river/[slug]/access/[accessSlug]'; params: { slug: string; accessSlug: string } }
+  | { pathname: '/river/[slug]'; params: { slug: string; focus: 'hazards' } }
   | { pathname: '/camping'; params: { facility: string; river: string; night: string } }
   | {
       pathname: '/float-start';
@@ -17,6 +18,15 @@ export function planAccessDestination(
 ): PlanDetailDestination | null {
   if (!riverSlug || !point.slug) return null;
   return { pathname: '/river/[slug]/access/[accessSlug]', params: { slug: riverSlug, accessSlug: point.slug } };
+}
+
+/**
+ * A hazard named by a plan — the low-water dams below a take-out. A hazard has
+ * no screen of its own: the river screen is where hazards are listed and
+ * explained, so the row opens it at its Hazards section, every hazard shown.
+ */
+export function planHazardDestination(riverSlug: string): PlanDetailDestination | null {
+  return riverSlug ? { pathname: '/river/[slug]', params: { slug: riverSlug, focus: 'hazards' } } : null;
 }
 
 /** Older availability payloads have no facility ID; their place page still works. */

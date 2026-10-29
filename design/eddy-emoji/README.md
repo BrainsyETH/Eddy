@@ -26,6 +26,10 @@ masters, including Today, retain their alpha channel for app integration.
 - `eddy-weather.png`
 - `eddy-today.png`
 - `eddy-water-droplet.png`
+- `eddy-release.png`
+- `eddy-water-temperature.png`
+- `eddy-inflow.png`
+- `eddy-fishery.png`
 - `eddy-poi.png`
 - `eddy-boat-ramp.png`
 - `eddy-other-usgs-gauge.png`
@@ -47,6 +51,24 @@ palette, thick outline, transparency, crop, and 300px export template as the
 concept-derived icons and writes them directly to `eddy-ios/assets/eddy/`.
 Generic Access intentionally reuses `eddy-poi.png`: it is the broad fallback
 place category, not a visually distinct facility.
+
+## Dam reading icons
+
+`eddy-release.png` and `eddy-water-temperature.png` are transparent masters
+generated with the built-in image-generation tool, using the existing water
+droplet, weather, and dam artwork as style references. Release shows water
+flowing from a coral spillway; water temperature shows a coral thermometer in
+blue waves. They are mascot-free symbols, not Lucide glyphs.
+
+`python3 eddy-ios/scripts/build-eddy-icons.py` preserves their alpha and creates
+300px web exports under `missouri-float-planner/public/icons/`. Their `EddyIcon`
+roles are `release` and `waterTemperature`, rendered at 32px on dam cards. They
+also ship through `EddySymbol` on the iOS dam readings card. Both lake and
+below-dam level readings reuse the existing gauge symbol. `eddy-inflow.png`
+(an arrow entering water) and `eddy-fishery.png` (a fish) are generated
+transparent masters with the same palette, exported for the iOS readings card.
+
+Generation prompts are recorded in [dam-metric-icons.md](dam-metric-icons.md).
 
 ## Today — Morning current
 

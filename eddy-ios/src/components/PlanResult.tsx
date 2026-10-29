@@ -264,7 +264,7 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
 
       <GettingThere plan={plan} accessPoints={accessPoints} support={supportState} onOpenDetail={openDetail} />
 
-      <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
+      <PlanDownstreamDams dams={plan.damsBelowTakeOut} riverSlug={plan.river.slug} onOpenDetail={openDetail} />
 
       {plan.hazardsUnavailable || plan.hazards.length > 0 ? (
         <View style={styles.section}>

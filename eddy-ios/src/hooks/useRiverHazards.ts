@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import type { Hazard } from '@eddy/types';
 import { fetchHazards } from '@/api/client';
+import { readRiver } from '@/lib/riverCache';
+import { withPlaceRiver, type PlaceRiver } from '@/lib/placeRiver';
 
 /**
  * Tagged with the river it was fetched for, so the layers sheet can never
@@ -18,7 +20,7 @@ import { fetchHazards } from '@/api/client';
  */
 export interface RiverHazards {
   slug: string;
-  items: Hazard[];
+  items: (Hazard & PlaceRiver)[];
 }
 
 export function useRiverHazards(wanted: boolean, slug: string | null): RiverHazards | null {
@@ -31,8 +33,12 @@ export function useRiverHazards(wanted: boolean, slug: string | null): RiverHaza
     if (!wanted || !slug) return;
     const forSlug = slug;
     const controller = new AbortController();
-    fetchHazards(forSlug, controller.signal)
-      .then((items) => setHazards({ slug: forSlug, items }))
+    // Tagged with the river they were fetched for, because the map lays these
+    // over the bundle's copies by id and an untagged live hazard would drop the
+    // river its sheet names. The name comes off disk — the bundle stored it.
+    Promise.all([fetchHazards(forSlug, controller.signal), readRiver(forSlug)])
+      .then(([items, cached]) =>
+        setHazards({ slug: forSlug, items: withPlaceRiver(items, forSlug, cached?.payload?.river?.name) }))
       .catch(() => {
         // Neither a cancelled request NOR a failed one is "this river has no
         // hazards". Leaving the state null is what the layers sheet reads as

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { MapAccessPoint } from '@eddy/types';
-import { loadPlanAccess } from '../../../eddy-ios/src/lib/loadPlanAccess';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ALONG_ROUTE_PREVIEW, alongRoutePoints, loadPlanAccess } from '../../../eddy-ios/src/lib/loadPlanAccess';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -90,4 +92,27 @@ test('changing river or leaving the screen suppresses late responses and errors'
     assert.deepEqual(h.shown, []);
     assert.equal(h.unavailable(), 0);
   }
+});
+
+test('Along the way counts every bail-out and hides none without saying so', () => {
+  const at = (riverMile: number) => ({ id: `m${riverMile}`, riverMile });
+  // Ten between the ends, out of order, plus both ends and one outside.
+  const points = [at(9), at(1), at(5), at(10), at(2), at(8), at(3), at(7), at(4), at(6), at(0), at(11), at(20)];
+  const collapsed = alongRoutePoints(points, 0, 11, false);
+  assert.equal(collapsed.all.length, 10, 'the heading counts the whole list, not the cap');
+  assert.deepEqual(collapsed.all.map((p) => p.riverMile), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(collapsed.shown.length, ALONG_ROUTE_PREVIEW);
+  assert.equal(collapsed.hidden, 10 - ALONG_ROUTE_PREVIEW, 'what is hidden is counted for "Show all"');
+  const expanded = alongRoutePoints(points, 0, 11, true);
+  assert.equal(expanded.shown.length, 10);
+  assert.equal(expanded.hidden, 0);
+  // One past the preview is shown whole rather than hidden behind a row as tall as it.
+  const seven = alongRoutePoints(points, 0, 8, false);
+  assert.equal(seven.shown.length, 7);
+  assert.equal(seven.hidden, 0);
+  assert.deepEqual(alongRoutePoints(undefined, 0, 11, false), { all: [], shown: [], hidden: 0 });
+
+  const source = readFileSync(join(process.cwd(), '..', 'eddy-ios', 'src', 'components', 'PlanAlongRoute.tsx'), 'utf8');
+  assert.match(source, /Along the way \(\{all\.length\}\)/);
+  assert.match(source, /Show all \{all\.length\}/);
 });

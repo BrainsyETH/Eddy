@@ -29,6 +29,7 @@ import {
   viewportGaugeKey,
   type ViewportGaugeIndexRecord,
 } from '../../../eddy-ios/src/lib/offline-cache';
+import { withPlaceRiver } from '../../../eddy-ios/src/lib/placeRiver';
 
 const NOW = '2026-07-29T12:00:00.000Z';
 
@@ -364,3 +365,38 @@ test('Today and Favorites read the cache when the network fails', () => {
 
 // Cache-before-network ordering is exercised with deferred requests in
 // ios-today-navigation.test.ts, using the store the mounted screens subscribe to.
+
+// ── A statewide hazard or spring keeps the river it was filed under ─────────
+//
+// Neither type names its river in a form the sheet can use, and the statewide
+// layers flatten every river's list into one. Tagging at load is what lets the
+// hazard and spring sheets name the river and offer "View river"; an untagged
+// copy anywhere on the path silently takes both away.
+
+test('hazards and springs are tagged with their river wherever they are loaded', () => {
+  const [tagged] = withPlaceRiver([{ id: 'h1', riverMile: 3 }], 'current', 'Current River');
+  assert.deepEqual(tagged, { id: 'h1', riverMile: 3, riverSlug: 'current', riverName: 'Current River' });
+  assert.deepEqual(withPlaceRiver(undefined, 'current', null), []);
+  assert.equal(withPlaceRiver([{ id: 's1' }], 'current', undefined)[0].riverName, null);
+
+  const cache = readFileSync('../eddy-ios/src/lib/riverCache.ts', 'utf8');
+  assert.match(cache, /hazards\.push\(\.\.\.withPlaceRiver\(/, 'the disk read must tag hazards');
+  assert.match(cache, /springs\.push\(\.\.\.withPlaceRiver\(/, 'the disk read must tag springs');
+  const network = readFileSync('../eddy-ios/src/hooks/useNetworkPlaces.ts', 'utf8');
+  assert.match(network, /withPlaceRiver\(entry\.hazards, entry\.riverSlug, entry\.riverName\)/);
+  assert.match(network, /withPlaceRiver\(entry\.springs, entry\.riverSlug, entry\.riverName\)/);
+  // The live list replaces the bundle's copies by id, so it must be tagged too.
+  const live = readFileSync('../eddy-ios/src/hooks/useRiverHazards.ts', 'utf8');
+  assert.match(live, /withPlaceRiver\(items, forSlug,/);
+
+  const map = readFileSync('../eddy-ios/src/map/RiverMap.tsx', 'utf8');
+  for (const builder of ['mapSpringPin', 'mapHazardPin']) {
+    const body = map.slice(map.indexOf(`export function ${builder}(`));
+    const end = body.indexOf('\n}\n');
+    assert.match(body.slice(0, end), /riverSlug: \w\.riverSlug \?\? null/, `${builder} must set riverSlug for "View river"`);
+    assert.match(body.slice(0, end), /\w\.riverName \?\? null/, `${builder} must name the river`);
+  }
+  // A hazard is never a destination: no Directions, whatever the river says.
+  const actions = readFileSync('../eddy-ios/src/components/map-sheet/sheetActions.ts', 'utf8');
+  assert.doesNotMatch(actions.slice(actions.indexOf('DRIVEABLE_SERVICE_LAYERS = ')), /'hazards'/);
+});

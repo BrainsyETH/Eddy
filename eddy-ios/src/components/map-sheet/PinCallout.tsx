@@ -7,7 +7,7 @@ import { ServiceCampingSites } from '@/components/ServiceCampingSites';
 import type { ComponentProps } from 'react';
 import { MapSheet } from './MapSheet';
 import { SheetBody } from './SheetPager';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import {
@@ -20,8 +20,9 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
 import { accessRoleForLayer } from '@/map/accessLayers';
-import { PlaceHead } from './PlaceHead';
-import { AccessTypeBadges } from './sections';
+import { BackRow, PlaceHead, STACK_ACTIONS_FROM } from './PlaceHead';
+import { AccessTypeBadges, LinkRow } from './sections';
+import { useDamRequestState, useDams } from '@/hooks/useDams';
 import { confirmPlanAction, isDriveable } from './sheetActions';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { CampgroundAvailability } from './CampgroundAvailability';
@@ -45,6 +46,8 @@ export function PinCallout({
   onOpenGauge,
   onOpenDam,
   onOpenDetail,
+  onBack = null,
+  backLabel = null,
   onClose,
   onDetentChange,
   metrics,
@@ -61,13 +64,43 @@ export function PinCallout({
   onOpenDam: (damId: string) => void;
   /** Takes an already-built route. See MapPin.detailRoute for why it is a path. */
   onOpenDetail: (route: string) => void;
+  /** The named way back to the sheet underneath. See PinSheetProps.onBack. */
+  onBack?: (() => void) | null;
+  backLabel?: string | null;
   onClose: () => void;
   starred?: boolean;
   /** Null for a pin that cannot be saved. */
   onToggleStar?: (() => void) | null;
 }) {
   const { colors, isDark } = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > STACK_ACTIONS_FROM;
   const { showDirections, directionsMenu } = useDirectionsMenu();
+
+  // ── A DAM'S RELEASE LINE IS RESERVED FROM THE FIRST FRAME ─────────────────
+  // Dam pins draw from the shipped catalog before /api/dams answers (five to
+  // fifty seconds cold), and the map screen swaps the open pin for the live
+  // one when it lands. Drawing the reading only once it existed grew the peek
+  // under the reader's thumb — the movement GlanceSlot exists to prevent for
+  // access points. So the line is always there for a dam, and says which kind
+  // of nothing it is holding until the number replaces it.
+  //
+  // `useDams(isDam)` also ASKS, through the one shared request: a dam opened
+  // from search with the layer off would otherwise wait on a request nobody
+  // made. A dam the answer carries no release for says so, rather than
+  // loading for ever — Stockton and Truman publish nothing to CWMS.
+  const isDam = pin.layer === 'dams' && !!pin.damId;
+  const dams = useDams(isDam);
+  const damRequest = useDamRequestState();
+  const damReadingPending = !isDam || pin.value || pin.codeLabel
+    ? null
+    : dams === null
+      ? damRequest === 'error' ? 'Release unavailable right now' : 'Loading release…'
+      // Answered with a release the open pin has not been re-derived from yet:
+      // still loading, for the one frame before the map screen swaps it.
+      : dams.some((dam) => dam.id === pin.damId && dam.metrics.release)
+        ? 'Loading release…'
+        : 'No release reported';
   const planAsTakeOut = canSetTakeOut;
   const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -132,13 +165,11 @@ export function PinCallout({
         hint: accessPoint.isPublic ? undefined : 'Private access confirmation required',
       });
     }
-  } else if (pin.damId) {
-    calloutButtons.push({
-      key: 'dam',
-      label: 'Open dam',
-      tone: 'interactive',
-      onPress: () => onOpenDam(pin.damId!),
-    });
+  } else if (isDam) {
+    // No button. A dam is for reading, like a gauge, and gets the gauge sheet's
+    // shape: the reading line, then a named "Open <dam>" row with the dam's
+    // mark below it (see the peek). A full-width outlined "Open dam" made the
+    // two kinds of instrument look like different products.
   } else if (pin.siteId) {
     calloutButtons.push({
       key: 'gauge',
@@ -191,8 +222,9 @@ export function PinCallout({
 
   // The dam screen is a different destination from the gauge one — Stockton
   // and Truman have a damId and no siteId at all, because they publish nothing
-  // to CWMS and so have no gauge row to open. See MapPin.damId.
-  if (pin.damId && !promoted.has('dam')) {
+  // to CWMS and so have no gauge row to open. See MapPin.damId. A dam pin's own
+  // row is in the peek; this is for any other pin that names a dam.
+  if (pin.damId && !isDam) {
     calloutRows.push({ key: 'dam', label: 'Open dam', onPress: () => onOpenDam(pin.damId!) });
   }
   // BEFORE the river. A gauge callout is a number, and the question a number
@@ -265,6 +297,10 @@ export function PinCallout({
           header. This callout IS the peek until the detail request qualifies a
           second tab (see PinSheet), so the two are the same place seconds apart
           and used to disagree about how big its photo was. */}
+      {/* The same named Back the tabbed header draws, so a dam or a hazard
+          opened from a river sheet says where it returns to. The × stays a
+          close. */}
+      {onBack ? <BackRow onBack={onBack} label={backLabel} /> : null}
       <PlaceHead
         pin={pin}
         accessPoint={accessPoint}
@@ -335,6 +371,10 @@ export function PinCallout({
             </View>
           ) : null}
         </View>
+      ) : damReadingPending ? (
+        <View style={styles.calloutReadingRow}>
+          <Text style={[styles.calloutPending, { color: colors.textMuted }]}>{damReadingPending}</Text>
+        </View>
       ) : null}
 
       {/* ── THE ONE THING TO DO, ABOVE EVERYTHING TO KNOW ─────────────────
@@ -375,7 +415,7 @@ export function PinCallout({
           abbreviated to fit, and both clear the 44pt touch floor the pills
           missed at 41 (DESIGN.md §6). */}
       {calloutButtons.length > 0 ? (
-        <View style={styles.calloutPrimaryRow}>
+        <View style={[styles.calloutPrimaryRow, stacked && styles.calloutPrimaryStacked]}>
           {calloutButtons.map((button) => {
             const filled = button.tone === 'accent';
             const ink = filled
@@ -389,6 +429,7 @@ export function PinCallout({
                 onPress={button.onPress}
                 style={({ pressed }) => [
                   styles.calloutPrimary,
+                  stacked && styles.calloutPrimaryButtonStacked,
                   {
                     // accentFill, not accent: this is a SOLID CTA carrying
                     // `onAccent` text, and onAccent is white. White on
@@ -423,6 +464,14 @@ export function PinCallout({
           })}
         </View>
       ) : null}
+
+      {/* The gauge sheet's way into the instrument, for the dam: a named row
+          with the dam's mark, under its reading. */}
+      {isDam ? (
+        <View style={styles.calloutHeaderLink}>
+          <LinkRow label={`Open ${pin.name}`} symbol="dam" onPress={() => onOpenDam(pin.damId!)} />
+        </View>
+      ) : null}
     </View>
   );
 
@@ -431,7 +480,8 @@ export function PinCallout({
     <MapSheet
       resetKey={pin.id}
       label={`${pin.name} sheet`}
-      onClose={onClose}
+      // Swiped away, the sheet lands where Back would — as the tabbed shell does.
+      onClose={onBack ?? onClose}
       onDetentChange={onDetentChange}
       metrics={metrics}
       peek={peek}
@@ -537,8 +587,14 @@ const styles = StyleSheet.create({
     marginTop: 9,
   },
   calloutPrivateText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
-  calloutReadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
+  // Wraps rather than clips at the larger text sizes: a release figure with
+  // "(daily avg)" beside a chip does not fit one line there.
+  calloutReadingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 9 },
   calloutReading: { ...t.lg, fontFamily: fonts.mono },
+  // The reading's line height, so the number replacing this does not move it.
+  calloutPending: { ...t.sm, fontFamily: fonts.body, lineHeight: t.lg.lineHeight },
+  // Matches PinSheet's headerLink, so a dam's way in sits where a gauge's does.
+  calloutHeaderLink: { marginTop: 2 },
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   calloutChipText: { ...t.sm, fontFamily: fonts.semibold },
   calloutBody: { ...t.sm, fontFamily: fonts.body, marginTop: 9 },
@@ -557,6 +613,10 @@ const styles = StyleSheet.create({
   // At most two, equal width. On the narrowest phone that is ~162pt each,
   // which fits every label this callout has without abbreviating one.
   calloutPrimaryRow: { flexDirection: 'row', gap: 8, marginTop: 11 },
+  // Above STACK_ACTIONS_FROM, one button per line; sized by its label there,
+  // because `flex: 1` in a column is a zero height basis.
+  calloutPrimaryStacked: { flexDirection: 'column' },
+  calloutPrimaryButtonStacked: { flex: 0 },
   calloutPrimary: {
     flex: 1,
     flexDirection: 'row',
@@ -570,7 +630,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  calloutPrimaryText: { ...t.sm, fontFamily: fonts.semibold },
+  calloutPrimaryText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'center' },
   calloutLinks: { marginTop: 4 },
   calloutLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   calloutLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },

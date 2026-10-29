@@ -343,8 +343,8 @@ Trail Green palette, with “Tracking on the
 [river name]” only while GPS and the recorder are healthy. Starting, delayed,
 weak-GPS and blocked states say so and lose the green treatment. Labels wrap at
 large text sizes. New-start feature flags never hide an existing recording.
-Build a Route (choose endpoints) and Find a Route (suggestions for a time and
-location) share a secondary row. Build a Route takes the accent styling when
+Plan a float (choose endpoints) and Find a float (suggestions for a time and
+location) share a secondary row. Plan a float takes the accent styling when
 River Mode is disabled. Both use the same planner and result actions.
 Today recommendations and Floats push new planners to `/plan-route` in the
 originating tab's stack. This lightweight screen loads the river index and
@@ -366,15 +366,16 @@ the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,
 new-plan isolation, and preserved Map stack.
 
-Find a Route is a shared detail in every tab: opening it from a river page
+Find a float is a shared detail in every tab: opening it from a river page
 preserves that page and its tab, so Back returns to the same river. Cold finder
 links still belong to Floats. Its Where? picker contains Current location,
-rivers and towns. With an existing location grant and a recent fix, an untouched
+rivers, access points and towns. With an existing location grant and a recent fix, an untouched
 finder defaults to Near you. An intentional river or town selection always wins,
 including while GPS is loading. Current location is checked when selected;
 there is no redundant location action on the main form. River choices work
-without a location permission; only an explicit location tap asks. Selecting a river clears the
-previous nearby point, and selecting a location clears the river. Town search
+without a location permission; only an explicit location tap asks. Selecting a river keeps Current
+location (for launch order and drive times) but never a town; selecting a town
+clears the river, and an access point selects its river from that launch. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
 While searching, the bundled Eddy checking a gauge appears with “Eddy’s reading
@@ -389,22 +390,26 @@ Results use photos from each float’s put-in or take-out, preferring a photo
 not already shown in another result when one is available. Access-point galleries,
 reviewed place photos, linked campgrounds, and verified community reports supply
 these images, with the already-loaded river photo and then an Eddy illustration
-as fallbacks. Duration, river miles, condition, and
-access status are visible without expanding details. Cautions stay visible;
+as fallbacks. Duration, river miles, drive time (when
+the search has a starting point), condition, access status and up to three
+highlights are visible without expanding details. Cautions stay visible;
 descriptions, estimate provenance, and endpoint access details use a disclosure.
-Search details hold the proximity explanation and freshness context, while
-partial-search status remains visible. The native finder header is opaque so
+Results show when they were checked and a native Sort menu; partial-search
+status remains visible. The finder adds no inline explainer copy — estimate and
+distance notes are behind info buttons. The native finder header is opaque so
 content scrolling underneath cannot obscure its title or Back control.
 
-Kayak is the initial vessel, then an explicit choice is remembered. Find a Route
+Kayak is the initial vessel, then an explicit choice is remembered. Find a float
 and Ready to float share one compact Vessel row with the caption "Helps estimate
 your float time". Its native menu uses the shared `FLOAT_BOATS` inventory, checks
 the current choice, and applies a selection without a confirmation step. There
 are no vessel tiles or pace bars. Large text stacks the label and selected value.
-Changing the finder's vessel still cancels an in-flight search and clears its
-old results; dismissing the menu leaves them intact.
-Public access only is visible on the form and
-on by default; switching it off can include private or unconfirmed endpoints.
+Changing any finder choice cancels an in-flight search and dims the old
+results, which stay inert until Search again; dismissing a menu leaves them
+intact. Trip length is a native menu (day trip, 2 or 3 days; the slider then
+sets hours a day). Public access only is on by default and lives in the Filters
+sheet with the other filters: a Settings-style list of switches with Reset and
+Done, matching the website's groups.
 Estimate info explains published and modeled times without claiming every
 estimate comes directly from CFS. A retry retains the finder’s chosen vessel.
 
@@ -425,7 +430,7 @@ that settings page; collection errors remain visible inline.
 Both segments use the archive's local loading state. A failed load shows an
 error and Retry; backup failures keep loaded routes and trips visible and show
 that backup needs attention.
-The old `/float-history` URL opens the History segment. Featured Floats uses the
+The old `/float-history` URL opens the History segment. Featured floats uses the
 same photo/fallback card on the carousel and full list, and the full list has
 river filtering and featured or alphabetical ordering. Featured order matches
 the carousel's stable daily rotation; River A–Z groups that order by river.
@@ -523,6 +528,16 @@ library with a near-identical API, so the port is tractable — but offline pack
 would have to be rebuilt on MapLibre's own offline API, which is the reason it
 has not been done.
 
+### The compass
+
+Two-finger rotation is on, so the Map tab has a compass (`src/map/MapCompass.tsx`):
+a north/south needle that appears last in the Locate row only while the map is
+turned at least a degree off north (`compassVisible` in `cameraBehavior.ts`),
+and turns it back to north-up in place when tapped. The reset is a
+`resetHeading` camera command like every other move, carrying heading only, so
+centre and zoom survive. The needle turns from a shared value; rotating the map
+never renders React. River Mode's map has rotation off and needs none.
+
 Do not pin `RNMapboxMapsVersion` unless you have a reason. `@rnmapbox/maps` 10.3.5
 pins Mapbox iOS `~> 11.23.1` in its own `package.json`, and overriding it with a
 lower version silently builds against an SDK the library is not tested on.
@@ -615,6 +630,17 @@ no answer arrived (no connection, or the deadline ran out) and `'server'` for
 any HTTP status, that 404 included — so the map's empty state can tell someone
 to check their connection only when the connection is actually the problem.
 
+Offline, the map's field falls back to what the map draws from disk
+(`src/hooks/searchFallback.ts`): rivers from the statewide network while
+`/api/rivers` is missing, and put-ins and rated gauges (by site number and
+river) while the server half is failing. Only absent sources fall back, so
+online rows are never duplicated. Other USGS gauges come from the server only.
+
+A searched place opens the way a tap on its pin does: access points on the
+layer their types give them (campground, boat ramp, else access), a service the
+map draws as an access point as that access point, and a gauge, dam or hazard
+without selecting a river. The camera waits for the sheet a result opens.
+
 ### The map opens on the network, not on a river
 
 The Map tab draws **every** curated river, coloured by its live condition, and
@@ -628,7 +654,8 @@ river list was sorted starred-first, then floatable-first, then alphabetically,
 and `ordered[0]` became the opening river. With nothing starred and several
 rivers sharing the top band, the alphabetical tiebreak decided — which is why it
 always opened on Big River, a river nobody had chosen. It now opens on the whole
-network, or on **your own position if location was already granted** —
+network, or on **your own position if location was already granted** and that
+position is inside the network's bounds (padded by a fifth of their span) —
 `useLocation` resolves that through `getForegroundPermissionsAsync`, the getter,
 which reports an existing grant and never shows the dialog. The prompt is still
 only ever spent on an explicit tap of the locate button.
@@ -777,7 +804,7 @@ with the same PlanSheet and planning hook, without mounting a map. Closing
 those cancels their calculation and leaves the Map tab unchanged, except for
 the explicit View on Map handoff.
 
-Use as put-in on a Map POI opens a compact Build a Route peek with the same
+Use as put-in on a Map POI opens a compact Plan a float peek with the same
 River / Put-in / Take-out controls as the full planner. Selected endpoints keep
 their existing place icon with a teal put-in or coral take-out badge and a text
 label; no triangle/square covers the artwork. Each endpoint draws once and stays
@@ -791,7 +818,9 @@ the full planner explicitly. The compact result measures its estimate and View
 full plan button as part of the peek, including after calculation completes;
 long results and large-text route controls scroll within the sheet.
 Closing the compact planner returns directly to the map, retaining the river,
-endpoints and calculated route. Dismissing a POI while planning returns to Your
+endpoints and calculated route. A put-in chosen without a take-out stays drawn
+and can be cleared with the map's × beside the plan button; Use as take-out is
+offered only while planning on the map or against a finished plan. Dismissing a POI while planning returns to Your
 route; outside planning it returns to the map. Only an access opened from the
 river sheet offers Back to that river. A selected river is data context, not
 an instruction to reopen its details. Dismissal never reframes the camera.
@@ -888,13 +917,13 @@ the saved-float collection, including queued writes and in-flight sync results.
 
 `useLocation` asks for new location permission only after an explicit location
 action. Reading an existing grant does not prompt: it can reuse a recent OS fix,
-and Find a Route can request fresh GPS under that grant. Stored coordinates
+and Find a float can request fresh GPS under that grant. Stored coordinates
 from a previous session are marked remembered, never treated as a fresh grant
 or a live GPS fix. A newer explicit request supersedes a pending initial read. A denial is not re-prompted; iOS would suppress the dialog anyway, so
 the only effect would be a silent retry behind a spinner.
 
 Precise coordinates are used on the device for distance sorting. Today sends
-coordinates rounded to 0.05 degrees to Eddy for local weather. Find a Route
+coordinates rounded to 0.05 degrees to Eddy for local weather. Find a float
 rounds the `near` coordinates sent to Eddy when Search is tapped to 0.01
 degrees (about a kilometre; `approximateLocation` in `shared/float-search.ts`,
 which the server applies again), including when the finder automatically
@@ -1034,7 +1063,7 @@ with `node eddy-ios/scripts/build-tab-icons.cjs` from the root after installing
 web dependencies. See the source directory's README for appearance checks.
 
 The Floats hub's `FloatActionIcon` uses the approved Eddy-with-paddle (Start a
-Float), Eddy-with-map (Build a Route), and plain magnifying-glass (Find a Route)
+Float), Eddy-with-map (Plan a float), and plain magnifying-glass (Find a float)
 artwork from `design/float-action-icons/`. These are transparent templates at
 40 points with 1x/2x/3x exports, tinted at render time: `onAccent` on filled
 buttons and `interactive` on cards, including light, dark, and increased-contrast
@@ -1329,6 +1358,17 @@ Missing ladders or readings omit the scale; stale/suspect readings mute it and
 hide its marker. Seasonal copy is omitted for missing statistics, untrusted
 readings or a comparison from another calendar day. Search rows stay compact.
 
+## Dam details
+
+Dam detail readings use Eddy's illustrated metric symbols: Release and Water
+temperature share the web masters; lake and tailwater levels reuse the gauge
+mark; Inflow and fishery have matching symbols. Generation pattern always
+includes the posted upcoming schedule alongside measured history, with no
+include/hide control. Measured bars stay solid, scheduled bars outlined, and
+missing readings stay gaps. Larger text retains the full spoken row summaries.
+The shared schedule-change check line reads “Schedule last checked” with the
+check time in Central time (CST/CDT); checks from an earlier day include the date.
+
 ## River guides
 
 The bottom of Today features one free **River guide** each local calendar day,
@@ -1586,10 +1626,10 @@ can be **From my location** or a named access in either path. Vessel is one
 compact row below the route card, beside its timing context, with the caption
 "Helps estimate your float time". Tapping the row opens a native selection menu
 with the current choice checked; choosing an item applies it and closes the menu.
-The plan wins, otherwise the last Find a Route/readiness choice wins, with kayak
+The plan wins, otherwise the last Find a float/readiness choice wins, with kayak
 as the default. It is never a separate required step. Moving-time and arrival
 details share the card once the route is valid, and the field is disabled while
-starting. The same compact picker is used by Find a Route.
+starting. The same compact picker is used by Find a float.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
@@ -1689,7 +1729,7 @@ river miles separately from miles from the put-in or current location. The
 Offline map section is always present. It shows **Offline map ready** only for
 an existing matching download that passes the complete tile and style checks.
 Otherwise it says “For an offline map, build a route and download it before you
-go,” with **Build a Route** carrying the river, any named endpoints and the boat.
+go,” with **Plan a float** carrying the river, any named endpoints and the boat.
 A location start carries its take-out but asks for a named put-in in the planner;
 GPS coordinates never travel through navigation. The planner offers saving the
 route and then its download card; saved-route details retain the same controls.
@@ -2130,12 +2170,37 @@ places sheet. Cluster taps ask the owning source for its expansion zoom,
 falling back to two more zoom levels if that query fails or returns an invalid
 value. There is no tap cycling and no hint banner.
 
+Below `ZOOM.cluster` every Eddy pin layer that is on — places, services, rated
+gauges and dams — is counted by ONE statewide index, so a lone dam or gauge is
+never a dot beside a count that should hold it; the USGS reference tier keeps
+its own parchment counts. Every count breaks into pins at the same zoom
+(`ZOOM.cluster`), and with three exceptions every
+layer takes the same rungs: a `ZOOM.min` floor, marks at `ZOOM.places`, names
+at `ZOOM.names`. Hazards never cluster and resolve at `ZOOM.cluster` (a safety
+rule); the selected place is drawn by its own source on top of every place
+layer, at a larger scale and named at every zoom, even if its layer is
+switched off while its sheet is open. Pin sources are mounted for the life of
+the map and empty when their layer is off: a source mounted on a toggle lands
+at the top of the native style and paints over hazards. Hazards are the last
+pin source, over the route endpoints and the selection. Map marks use the
+light palette in both appearances, because the basemap is light in both. A tap
+picks the mark nearest the finger, measuring a bottom-anchored pin from its
+bulb; overlapping counts resolve the same way. A tap on public land opens a
+callout naming the parcel and its access class — ownership, not permission —
+and leaves the open sheet alone.
+
 POI selection preserves zoom and moves the camera only if the marker's touch
 area would be obscured by the measured sheet/chrome. Every new gesture cancels
 stale asynchronous work and updates the remembered camera. A blank-map tap
 closes selection details and exits map-plan mode while retaining the selected
-river, endpoints and calculated route. It does not reframe the camera. Tapping
-the still-selected river opens its details again.
+river, endpoints and calculated route — except while the compact planner is
+choosing a put-in or take-out, when a blank or river-line tap closes only the
+open pin. It does not reframe the camera. Tapping the still-selected river
+opens its details again. While a put-in or plan exists, tapping or searching an
+access point on another river opens it without switching rivers; the river
+changes only when the reader acts on it (Use as put-in, or a Float trips row).
+When every switched-on layer draws nothing because the camera is below the
+ladder's floor (zoom 5.5), a small non-interactive hint says so on the map.
 Places in this area is the list button beside Locate, not in the search row,
 which keeps its full width. It opens the same branded sheet as a stack: rows
 grouped by layer in the Layers sheet's order, each mark in its layer's

@@ -4,7 +4,7 @@ import { getClientIp } from '@/lib/rate-limit';
 import { createFloatSearchLimiter } from '@/lib/agent-tools/limits';
 import { readMcpBody, validOrigin } from '@/lib/agent-tools/http';
 import { findNearbyFloats } from '@/lib/agent-tools/nearby-search';
-import { approximateLocation } from '@shared/float-search';
+import { approximateLocation, FLOAT_FILTER_KEYS } from '@shared/float-search';
 import { RiverNotFoundError } from '@/lib/agent-tools/contracts';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +22,11 @@ const schema = z
     targetHours: z.number().min(0.5).max(12),
     vesselType: z.enum(['canoe', 'kayak', 'raft', 'tube']).default('canoe'),
     publicOnly: z.boolean().default(true),
+    days: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
+    filters: z
+      .object(Object.fromEntries(FLOAT_FILTER_KEYS.map((key) => [key, z.boolean().optional()])))
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((input) => input.near || input.river, 'Choose a location or river');
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
   }
   if (!parsed.success)
     return Response.json(
-      { error: 'Choose a location or river, a boat, and 0.5–12 hours.' },
+      { error: 'Choose a location or river, a boat, and 0.5–12 hours a day.' },
       { status: 400, headers },
     );
   const limited = await limiter.tool({
