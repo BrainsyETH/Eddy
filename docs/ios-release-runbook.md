@@ -39,12 +39,24 @@ review are in the 1.5 report; these are the gates it adds.
       (`com.apple.developer.usernotifications.time-sensitive` is new in
       `app.json`); the build and the upload pass without an entitlement
       mismatch.
+- [ ] **The widget extension compiles** with the minimum-flow fields, and
+      `eddy-ios/scripts/check-condition-widgets.swift` passes (first run on a
+      machine with Swift; the Linux audit environment had none).
 - [ ] **Favorites dam card and widget on a Bull Shoals minimum-flow day** read
       "Minimum flow", not "No generation" over a full chart (1.5 report,
-      finding 1), on the production-profile build.
+      finding 1, fixed in code), on the production-profile build.
 - [ ] **Manual Finish after landing past the mapped take-out** does not count
-      the time on the bank (finding 2): land 200 m below the take-out, wait
-      ten minutes, Finish, and check the recap's elapsed and stopped time.
+      the time on the bank (finding 2, fixed in code): land 200 m below the
+      take-out, wait ten minutes, Finish, and check the recap's elapsed and
+      stopped time; then a float that carries on paddling past it.
+- [ ] **Stacked places hide under their numbered mark** (finding 5 now hides
+      them with a Mapbox `in` filter instead of leaving them out of the data):
+      zoom so pins merge and split, and check no member draws under its stack
+      and taps land on the stack.
+- [ ] **Sign in on a phone whose push token another account holds** with the
+      owed release delivered and with it blocked: registration succeeds with
+      the ledger's row id, and without it answers 409 `token_held`
+      (finding 10).
 - [ ] **River Mode on a device:** a 10-minute airplane-mode gap mid-float adds
       gap distance and "GPS gap" time; moving time and speeds; arrival, then
       carrying on past the take-out; Discard for a sub-5-minute float; "Stop
@@ -58,9 +70,10 @@ review are in the 1.5 report; these are the gates it adds.
       keeps all but the last minute.
 - [ ] **Map:** statewide index below z8, stacks above, places list, compass
       reset, public-land tap, "View on map" from Camping and from Favorites,
-      offline search, plan sheet endpoint editing; watch for a hitch after each
-      zoom with Camping and Other gauges on (findings 5 and 6, perf) on the
-      oldest supported iPhone.
+      offline search, plan sheet endpoint editing; confirm no hitch after each
+      zoom with Camping and Other gauges on (findings 5 and 6, fixed in code)
+      on the oldest supported iPhone; "View on map" for a removed place says it
+      is no longer listed.
 - [ ] **Account and push:** Restore while signed out; sign out then sign in on
       the same device (token re-keyed, owed release delivered); provisional
       permission upgraded in app; fresh install, no account, no network shows

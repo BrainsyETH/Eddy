@@ -10,8 +10,8 @@ here. If the live build's `gitCommitHash` differs, every count and the
 fingerprint comparison below move with it.
 
 **Verdict: not ready for App Store submission; ready to cut a new binary once
-the two code fixes below are decided and the Time Sensitive Notifications
-capability is confirmed on the App ID.** The native fingerprint moved, so this
+this branch (which fixes every code finding below) is merged and the Time
+Sensitive Notifications capability is confirmed on the App ID.** The native fingerprint moved, so this
 release cannot ship as an OTA update; the server side is already deployed and
 every migration in the delta is recorded in production, so the build is the
 remaining engineering step. Device verification, the two open Trust Ledger
@@ -109,6 +109,34 @@ The delta was reviewed by reading the code paths, not only the diff, in four
 areas (float tracking, map, Today/dams/account, shared+API). Findings are
 ranked; "confirmed" means the path from a real input to the wrong result was
 read end to end.
+
+### Resolution (October 29, on this branch)
+
+Every finding below is **implemented** on `claude/beautiful-hopper-qjz8ll`;
+none is device-verified. Where a closer reading changed the finding, the
+row says so.
+
+| # | Resolution | Commit |
+| --- | --- | --- |
+| 1 | Favorites card and widget say "Minimum flow" and draw minimum-flow hours as a baseline; packet carries `minimumFlow` additively (still v1). Swift not compiled here. | `d231fae4` |
+| 2 | Past the take-out, a float ends where its movement stopped (the stop, or the last position if GPS went quiet), never before arrival; still moving at Finish keeps accruing. | `555075c3` |
+| 3 | A GPS gap over two hours credits no miles; a reacquisition within the stay radius is drift. Real upstream travel across a gap still counts (distance is gross). | `555075c3` |
+| 4 | An off-line take-out ends measuring at the river's end; the panel and recap read one function. | `555075c3` |
+| 5 | Stacked members are hidden by a layer filter, so pin sources rebuild only when their data does; the statewide index is keyed on count-relevant layers; no national-tier pins below the zoom floor; `layerCounts` deps fixed. | `2bb19888` |
+| 6 | The recording layout subscribes only to whether a float is active. | `555075c3` |
+| 7 | A guest whose profile read fails sees Free plan and Go Premium; permanent accounts keep "Couldn't check". | `d231fae4` |
+| 8 | A named place its river no longer lists fits the river without waiting for a sheet and says "That place is no longer listed on this river."; a slow held-access fetch cannot replace a sheet opened since; a river with no map line says so. | `2bb19888` |
+| 9 | Root cause differed: the recorder does report idle, but "Your float" then read "Finding GPS". It now says "Tracking stopped" once tracking is stopped. | `555075c3` |
+| 10 | Moving a push token off another account needs that row's id (the release route's proof), sent from the app's push ledger; otherwise 409 `token_held`. | `980f8c38` |
+| 11 | A station the lookup does not return is unknown (no `timeZone`, served no-store), not a cached UTC answer. | `980f8c38` |
+| 12 | "Connecting this iPhone…" while post-sign-in registration is in flight; a 400 to a request with `tz` is retried once without it; a response without `timeZone` draws in the phone's zone; Places rows read river and mile to VoiceOver; the public-land scrim is hidden from VoiceOver and the card is modal; a withdrawn hazard report leaves no cooldown (its impact was smaller than first reported). | `d231fae4`, `555075c3`, `2bb19888` |
+
+Trade-offs to know: a phone that dies mid-float and is charged at the
+take-out under-counts that stretch (finding 3); past the take-out, a GPS
+gap of more than two minutes while still paddling ends the float at the
+last position (finding 2); an old binary signing in on a phone whose token
+another account still holds now gets 409 instead of taking the token
+(finding 10), which was the behaviour before October 29.
 
 ### Fix before the build (confirmed, user-visible)
 
@@ -254,13 +282,12 @@ not to lock old ones out.
    compatibility section can change.
 2. **Enable Time Sensitive Notifications on the App ID** (or confirm EAS
    capability sync does), then build. A new binary, not an OTA update.
-3. **Fix findings 1 and 2** (Favorites/widget minimum flow; past-take-out
-   accounting) or record the decision to ship them. Finding 1 is additive to
-   the widget packet and small; finding 2 is a one-line clear of
-   `pastTakeOut` when the paddler stops, or a cap of `until` at the stop.
-4. **Decide findings 5 and 6** (map re-upload per camera stop; recording
-   stack re-render per fix). Both are perf; measure on the oldest supported
-   iPhone during the device pass if they ship.
+3. **Merge this branch before building.** Findings 1–12 are fixed here
+   (see Resolution), and `main` was red until the three unregistered tests
+   were added. The server fixes (findings 10, 11) deploy with the merge.
+4. **Compile the widget.** Finding 1 changed Swift in the widget extension
+   and `scripts/check-condition-widgets.swift`; no Swift toolchain was
+   available here, so the first Xcode or EAS build is their first compile.
 5. **Migrations: nothing pending.** Production recorded all seven files added
    in the delta (latest `20261029154803`) and the ledger's `[pending]` list is
    empty. `make check-db` was not run (no linked CLI credentials here); run it
@@ -341,6 +368,9 @@ not to lock old ones out.
 
 On Node 20.20.0 after `./bootstrap.sh`:
 
+- After the fixes on this branch, `make check-web` passed **4,330 of 4,330**
+  tests, and `make check-mobile` and `make bundle-mobile` passed (lint
+  warnings 27 → 26, no errors; 780-file, 12.75 MB archive allowlist ok).
 - `make check-web` on `97bcd980`: typecheck and lint passed; **1 of 4,301
   registered tests failed**: `src/lib/trust/registered-tests.test.ts`, because
   PR #1653 (commit `24c31acc`) added `float-activity-visibility.test.ts`,
