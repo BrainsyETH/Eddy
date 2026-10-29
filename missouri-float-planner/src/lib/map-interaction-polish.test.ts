@@ -676,7 +676,7 @@ test('search and tap land in the same state for gauges', () => {
   const gaugeBranch = body[1].slice(body[1].indexOf("if (result.kind === 'gauge')"));
   // A tapped gauge selects no river; neither does a searched one with a point.
   assert.match(gaugeBranch, /if \(target\) \{\s*issueCameraCommand\(\{\s*type: 'searchResultSelected'/);
-  assert.match(gaugeBranch, /\} else if \(result\.riverSlug\) \{\s*selectRiver\(result\.riverSlug, \{ camera: 'fitRiver' \}\);/);
+  assert.match(gaugeBranch, /\} else if \(result\.riverSlug\) \{\s*selectRiver\(result\.riverSlug, \{ camera: 'fitRiver', waitForSheet: false \}\);/);
   // And a station hidden by the flow-band chips widens them instead of
   // flying to an empty spot.
   assert.match(gaugeBranch, /applyGaugeFilters\(\[lite\], gaugeFilter\)\.length === 0/);

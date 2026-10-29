@@ -37,7 +37,8 @@ export type MapCameraCommand =
  * `selectRiver`'s required intent, where a caller has to say `'hold'` out loud.
  */
 export type MapCameraAction =
-  | { type: 'riverSelected'; bounds: MapBounds }
+  /** `waitForSheet` only when a sheet opens with the river; see selectRiver. */
+  | { type: 'riverSelected'; bounds: MapBounds; waitForSheet: boolean }
   | { type: 'poiSelected'; lng: number; lat: number }
   /**
    * `waitForSheet` when choosing the result also opens a pin sheet, exactly as
@@ -85,7 +86,7 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         type: 'fitBounds',
         bounds: action.bounds,
         duration: 550,
-        waitForSheet: true,
+        ...(action.waitForSheet ? { waitForSheet: true } : {}),
       };
     case 'poiSelected':
       return {
