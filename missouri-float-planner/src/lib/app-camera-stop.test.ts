@@ -386,7 +386,9 @@ test('closing cancels a frame issued in the instant before dismissal', () => {
 //
 // Rotation is on, so a turned map needs a way back to north-up. The reset is a
 // command like every other camera move, and it turns the map IN PLACE: a stop
-// carrying a centre, zoom or padding would also move the reader somewhere.
+// carrying a centre or zoom would also move the reader somewhere. It must carry
+// the current padding, because @rnmapbox's iOS camera zeroes any side a stop
+// leaves out, which slid the map by half the sheet's height.
 test('the compass turns the map to north in place, through the command system', () => {
   assert.deepEqual(cameraCommandFor({ type: 'northRequested' }, 21), {
     id: 21,
@@ -400,9 +402,10 @@ test('the compass turns the map to north in place, through the command system', 
   const stop = /\.setCamera\(\{([^}]*)\}\)/.exec(branch[0]);
   assert.ok(stop, 'the resetHeading branch no longer calls setCamera');
   assert.match(stop[1], /heading: 0/);
+  assert.match(stop[1], /padding: cameraPadding/, 'north-up without padding zeroes it natively');
   assert.doesNotMatch(
     stop[1],
-    /centerCoordinate|bounds|zoomLevel|padding/,
+    /centerCoordinate|bounds|zoomLevel/,
     'north-up moved the camera as well as turning it',
   );
 });

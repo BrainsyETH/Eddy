@@ -155,6 +155,7 @@ function scene(options: { stacks?: Array<{ id: string; ids: string[]; lng: numbe
     LAYER_SHAPE: { access: 'pin', gauges: 'drop' },
     ACCESS_BADGE_LIFT: 11, ZOOM: { places: 9.5 },
     layers: [] as string[], setPublicLand: () => {},
+    selectedPinId: null as string | null, selectedPin: null as { id: string; coordinates: { lng: number; lat: number } } | null,
   };
   const selectPinHits = handler('selectPinHits', context);
   return { context, selected, zooms, choices, dismissed: () => dismissed,
@@ -173,6 +174,19 @@ test('POI hit testing queries only the IDs registered by rendered pins', async (
   assert.equal(queries[0], s.context.pinHitLayers);
   for (const id of ['pins-dams-icon', 'pins-allGauges-cluster', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
   assert.deepEqual(s.selected, ['access:2']);
+});
+
+test('a tap on the selected marker its layer no longer holds stays on that place', async () => {
+  // Outfitters switched off with an outfitter's sheet open: the selection layer
+  // still draws it, but byId has dropped it. The tap used to fall through to
+  // the river or the background and close the sheet.
+  const s = scene();
+  s.context.selectedPinId = 'outfitter:7';
+  s.context.selectedPin = { id: 'outfitter:7', coordinates: { lng: -91.5, lat: 37.2 } };
+  s.context.mapRef.current.queryRenderedFeaturesInRect = async () => ({ features: [{ properties: { id: 'outfitter:7' } }] });
+  await s.press(tap);
+  assert.deepEqual(s.selected, ['outfitter:7']);
+  assert.equal(s.dismissed(), 0);
 });
 
 test('every rendered POI layer registers its hit-test ID, including the unused dot fallback', () => {

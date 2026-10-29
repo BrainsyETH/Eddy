@@ -18,7 +18,8 @@ export type MapCameraCommand =
   /**
    * Turn the map back to north-up where it stands: heading only, so the centre,
    * zoom and pitch the reader chose all survive. Never waits for the sheet —
-   * nothing opens with it, and rotating needs no padding.
+   * nothing opens with it. RiverMap still passes the current padding: the
+   * native camera resets any padding a stop leaves out to zero.
    */
   | { id: number; type: 'resetHeading'; duration?: number };
 
