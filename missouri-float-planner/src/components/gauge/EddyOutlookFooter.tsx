@@ -92,7 +92,7 @@ export default function EddyOutlookFooter({
             href="/app"
             className="inline-flex items-center rounded-md px-3.5 py-1.5 text-xs font-semibold text-primary-800 underline decoration-1 underline-offset-2 transition-colors hover:text-primary-600"
           >
-            Unlock the full read in the iOS app
+            Get Eddy&apos;s full read in the app
           </Link>
       </div>
     </section>
