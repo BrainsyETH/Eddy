@@ -40,7 +40,8 @@ export type UsaceMetric =
   | 'generationFlow'
   | 'generationForecast'
   | 'tailwaterElevation'
-  | 'tailwaterTempF';
+  | 'tailwaterTempF'
+  | 'spillwayFlow';
 
 /** How live a reading is, decided server-side so every surface agrees. */
 export type DamStaleness = 'fresh' | 'lagging' | 'stale';
@@ -108,6 +109,15 @@ export interface ScheduledHour {
    * exact; the magnitude on these hours is not.
    */
   isRamp: boolean;
+  /**
+   * True when this hour is the project's MINIMUM-FLOW release rather than
+   * generation. Bull Shoals passes its ~800 cfs minimum flow through a turbine
+   * at low output, so SWPA schedules it as a few megawatts every hour; reading
+   * that as "generating all day" is the error this flag exists to prevent.
+   * Test hours with scheduledGeneration() in dam-schedule-copy.ts, never
+   * `megawatts > 0`.
+   */
+  minimumFlow?: boolean;
 }
 
 export interface DamScheduleDay {
@@ -353,6 +363,12 @@ export interface DamSnapshot {
    * turbines (~20 cfs at Table Rock), so `value > 0` is not the test.
    */
   generationFloorCfs?: number;
+  /**
+   * True when this project passes its minimum-flow release through a turbine,
+   * so turbine flow between leakage and `generationFloorCfs` is the minimum
+   * flow rather than either idle or generation. Absent everywhere else.
+   */
+  minimumFlowThroughTurbine?: boolean;
   /** The zone every `scheduleDate` and hour-ending in this payload is keyed to. */
   scheduleTimeZone?: 'America/Chicago';
   /**

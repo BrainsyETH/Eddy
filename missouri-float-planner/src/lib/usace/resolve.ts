@@ -383,6 +383,16 @@ function score(
 }
 
 /**
+ * Whether the resolver can discover this metric at all.
+ *
+ * A metric with no spec (the spillway series, declared per dam) has nothing to
+ * rank, so asking the catalog for it is a wasted request.
+ */
+export function hasResolverSpec(metric: UsaceMetric): boolean {
+  return SPECS[metric] !== undefined;
+}
+
+/**
  * Every acceptable series for a metric, best first. Pure.
  *
  * A ranked list rather than one winner because the catalog cannot tell us which

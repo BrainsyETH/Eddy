@@ -54,6 +54,8 @@ import {
   nowNextClauses,
   scheduledClauseProvenance,
   speaksForNow,
+  spillwayRelease,
+  spillwayReleaseLabel,
   generationReferenceLine,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -146,6 +148,7 @@ export function DamGenerationHero({
   const clauses = nowNextClauses(state, dam.schedule, ref);
   const voiceOver = generationVoiceOver(state, ref);
   const provenance = scheduledClauseProvenance(dam.schedule, ref);
+  const spill = spillwayRelease(dam);
 
   const observedAt = state.kind === 'unavailable' ? null : relativeAge(state.observedAt);
   // The same rule the phrasing uses, so a reading that stopped saying "now"
@@ -226,6 +229,16 @@ export function DamGenerationHero({
           </Text>
         ) : null}
       </View>
+
+      {/* Read from the district's spillway series, never inferred from total
+          flow: the gates can open well below full turbine capacity. */}
+      {spill ? (
+        <Text style={[styles.note, { color: colors.accent }]}>
+          {[`${spillwayReleaseLabel(spill)} through the spillway gates`, relativeAge(spill.observedAt)]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      ) : null}
 
       {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
           reading size, because this is the answer somebody came for and it was

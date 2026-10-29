@@ -29,6 +29,7 @@ import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
   idleWindowSentence,
+  scheduleDayHasMinimumFlow,
   relativeAge,
   readingStaleness,
 } from '@eddy/conditions/dam-schedule-copy';
@@ -108,7 +109,7 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
           against turbine flow, and the one a wading angler is actually after. */}
       {today ? (
         <Text style={[styles.windows, { color: colors.text }]}>
-          {idleWindowSentence(today.idle)}
+          {idleWindowSentence(today.idle, { minimumFlow: scheduleDayHasMinimumFlow(today) })}
         </Text>
       ) : null}
 

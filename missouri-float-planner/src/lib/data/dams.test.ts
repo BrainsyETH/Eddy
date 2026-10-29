@@ -199,6 +199,7 @@ function storedDetail(now: number, overrides?: Partial<DamSnapshot>): DamSnapsho
         generationFlow: reading(now, 3_100, 'cfs'),
         tailwaterElevation: reading(now, 704.2, 'ft'),
         tailwaterTempF: reading(now, 56, 'F'),
+        spillwayFlow: reading(now, 0, 'cfs'),
         // Detail-only: must not survive into a summary.
         poolElevation: reading(now, 917.3, 'ft'),
       } satisfies Partial<Record<UsaceMetric, DamMetricValue>>,
@@ -349,4 +350,35 @@ test('an unparseable observation time is left exactly as stored', () => {
   };
 
   assert.equal(refreshStaleness(broken, now).metrics.release?.staleness, 'lagging');
+});
+
+import { markMinimumFlowHours } from './dams';
+import { idleWindows } from '@/lib/usace/swpa';
+
+test('Bull Shoals schedules its minimum flow without reading as generation', () => {
+  // SWPA posts the minimum flow as 7 MW / 500 cfs; generation runs hours ending 16-19.
+  const generating = (h: number) => h >= 16 && h <= 19;
+  const hours = Array.from({ length: 24 }, (_, i) => ({
+    hourEnding: i + 1,
+    megawatts: generating(i + 1) ? 180 : 7,
+    cfs: generating(i + 1) ? 12_200 : 500,
+    isRamp: false,
+  }));
+  const bullShoals = USACE_DAMS['swl-bull-shoals-dam'];
+  const marked = markMinimumFlowHours(bullShoals, hours);
+  assert.equal(marked.filter((h) => h.minimumFlow).length, 20);
+  assert.deepEqual(
+    idleWindows({ projectCode: 'BSD', scheduleDate: '2026-10-29', hours: marked, retrievedAt: null } as never),
+    [{ from: 1, to: 15 }, { from: 20, to: 24 }]
+  );
+  assert.equal(markMinimumFlowHours(USACE_DAMS['swl-table-rock-dam'], hours), hours, 'only a declared project is marked');
+
+  const snapshot = buildSnapshot(
+    bullShoals,
+    { generationFlow: { value: 731, unit: 'cfs', at: new Date().toISOString(), staleness: 'fresh' } },
+    []
+  );
+  assert.equal(snapshot.generating, false, 'the minimum flow is not generation');
+  assert.equal(snapshot.minimumFlowThroughTurbine, true);
+  assert.equal(snapshot.generationFloorCfs, 850);
 });

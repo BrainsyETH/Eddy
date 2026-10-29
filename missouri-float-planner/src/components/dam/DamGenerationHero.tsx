@@ -18,6 +18,8 @@ import {
   generatorRack,
   releaseComparison,
   speaksForNow,
+  spillwayRelease,
+  spillwayReleaseLabel,
   ABOVE_FULL_GENERATION_LABEL,
 } from '@shared/dam-generation';
 
@@ -41,6 +43,7 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
     declared: dam.releaseExcludesGeneration, now,
   });
   const voiceOver = generationVoiceOver(state, ref);
+  const spill = spillwayRelease(dam, now);
 
   const observedAt = state.kind === 'unavailable' ? null : relativeAge(state.observedAt, now);
   // The same rule the phrasing uses, so a reading that stopped saying "now"
@@ -77,6 +80,17 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
       </div>
 
       {voiceOver && <p className="sr-only">{voiceOver}</p>}
+
+      {/* Read from the district's spillway series, never inferred from total
+          flow: the gates can open well below full turbine capacity. */}
+      {spill && (
+        <p className="mt-4 rounded-lg border border-accent-500 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-900">
+          {spillwayReleaseLabel(spill)}
+          <span className="block text-xs font-normal text-neutral-700">
+            Through the spillway gates · {relativeAge(spill.observedAt, now)}
+          </span>
+        </p>
+      )}
 
       {dam.metrics.release && (
         <div className="mt-6 border-t border-secondary-300 pt-5">

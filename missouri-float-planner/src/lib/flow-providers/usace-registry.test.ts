@@ -13,6 +13,7 @@ import {
   type UsaceDam,
 } from './usace-registry';
 import { SWPA_PROJECTS, swpaCodeCandidates } from '@/lib/usace/swpa';
+import { hasResolverSpec } from '@/lib/usace/resolve';
 
 // Structural invariants only — no network. Every timeseries id here was
 // confirmed live once; what this file guards is the wiring around them, which
@@ -557,4 +558,26 @@ test('expected hourly coverage includes all 36 verified streams independently of
   for (const id of ['mvs-mark-twain', 'mvs-wappapello', 'nwk-stockton-dam', 'nwk-truman-dam', 'ameren-bagnell-dam', 'swl-clearwater-dam']) {
     assert.deepEqual(expectedHistoryMetrics(USACE_DAMS[id]), [], id);
   }
+});
+
+test('spillway flow is declared from the district series on the three verified dams only', () => {
+  const declared = Object.values(USACE_DAMS)
+    .filter((d) => d.series.spillwayFlow)
+    .map((d) => d.id)
+    .sort();
+  assert.deepEqual(declared, ['swl-bull-shoals-dam', 'swl-norfork-dam', 'swl-table-rock-dam']);
+  assert.equal(
+    USACE_DAMS['swl-bull-shoals-dam'].series.spillwayFlow?.tsId,
+    'Bull_Shoals_Dam.Flow-Tainter Total.Ave.1Hour.1Hour.Regi-Comp'
+  );
+  // Never resolved: an undeclared dam must not spend a catalog request on it.
+  assert.equal(hasResolverSpec('spillwayFlow'), false);
+});
+
+test('only Bull Shoals declares a minimum flow through a turbine, above its measured range', () => {
+  const declared = Object.values(USACE_DAMS).filter((d) => d.minimumFlowThroughTurbine).map((d) => d.id);
+  assert.deepEqual(declared, ['swl-bull-shoals-dam']);
+  // Minimum-flow turbine flow measured 613-834 cfs; generating hours at least 872.
+  const floor = USACE_DAMS['swl-bull-shoals-dam'].generationOnCfs!;
+  assert.ok(floor > 834 && floor < 872, `floor ${floor} must separate the measured ranges`);
 });

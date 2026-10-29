@@ -461,7 +461,8 @@ export function idleWindows(schedule: ProjectSchedule): Array<{ from: number; to
   const windows: Array<{ from: number; to: number }> = [];
   let start: number | null = null;
   for (const h of schedule.hours) {
-    if (h.megawatts === 0) {
+    // A minimum-flow hour is a break in generation, like a 0 MW hour.
+    if (h.megawatts === 0 || h.minimumFlow === true) {
       if (start === null) start = h.hourEnding;
     } else if (start !== null) {
       windows.push({ from: start, to: h.hourEnding - 1 });

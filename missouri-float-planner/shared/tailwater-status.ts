@@ -29,6 +29,8 @@ import {
   generationNow,
   generatorEquivalentPhrase,
   speaksForNow,
+  spillwayRelease,
+  spillwayReleaseLabel,
 } from './dam-generation';
 import {
   readingStaleness,
@@ -115,11 +117,17 @@ export const TAILWATER_UNAVAILABLE_NOTE = 'See the latest release and schedule';
  * So the requirement is declared here, beside the code that has it, and
  * asserted against SUMMARY_METRICS there.
  */
-export const TAILWATER_STATUS_METRICS = ['generationFlow', 'tailwaterElevation'] as const;
+export const TAILWATER_STATUS_METRICS = ['generationFlow', 'tailwaterElevation', 'spillwayFlow'] as const;
 
 type TailwaterInputs = Pick<
   DamSnapshot,
-  'id' | 'name' | 'hasTurbines' | 'metrics' | 'generationReference' | 'generationFloorCfs'
+  | 'id'
+  | 'name'
+  | 'hasTurbines'
+  | 'metrics'
+  | 'generationReference'
+  | 'generationFloorCfs'
+  | 'minimumFlowThroughTurbine'
 >;
 
 /**
@@ -196,9 +204,15 @@ export function buildTailwaterStatus(
 
     case 'not-generating': {
       tone = 'idle';
-      headline = speaksForNow(state.age)
-        ? `${dam.name}: no turbine generation observed`
-        : `${dam.name}: not generating at last reading`;
+      if (state.minimumFlow) {
+        headline = speaksForNow(state.age)
+          ? `${dam.name}: minimum flow`
+          : `${dam.name}: minimum flow at last reading`;
+      } else {
+        headline = speaksForNow(state.age)
+          ? `${dam.name}: no turbine generation observed`
+          : `${dam.name}: not generating at last reading`;
+      }
       // The idle note first: it is the correction a reader needs before they
       // read a flat tailwater as an all-clear.
       supporting.push(TAILWATER_IDLE_NOTE);
@@ -216,6 +230,15 @@ export function buildTailwaterStatus(
       supporting.push(TAILWATER_UNAVAILABLE_NOTE);
       break;
     }
+  }
+
+  // A floodgate release leads the supporting lines and survives the cap: it is
+  // water the turbine headline cannot describe. Shown whatever the turbines
+  // report, since a spill is read from its own series.
+  const spill = spillwayRelease(dam, now);
+  if (spill) {
+    const spillAge = relativeAge(spill.observedAt, now);
+    supporting.unshift(spillAge ? `${spillwayReleaseLabel(spill)} · ${spillAge}` : spillwayReleaseLabel(spill));
   }
 
   return {

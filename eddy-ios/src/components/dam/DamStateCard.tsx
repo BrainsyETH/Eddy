@@ -41,6 +41,8 @@ import {
   generationNow,
   generationStatusLabel,
   nowNextClauses,
+  spillwayRelease,
+  spillwayReleaseLabel,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -136,6 +138,8 @@ export function DamStateCard({
   // A flood-control project has no powerhouse to report on, so it gets no
   // generation line at all — the same test the hero uses to render nothing.
   const state = generationNow(dam);
+  const minimumFlow = state.kind === 'not-generating' && state.minimumFlow;
+  const spill = secondary ? null : spillwayRelease(dam);
   const clauses =
     secondary || generationStatusLabel(state) === null
       ? null
@@ -170,7 +174,7 @@ export function DamStateCard({
                 { color: dam.generating ? colors.onInteractive : colors.textMuted },
               ]}
             >
-              {dam.generating ? 'Generating' : 'Not generating'}
+              {dam.generating ? 'Generating' : minimumFlow ? 'Minimum flow' : 'Not generating'}
             </Text>
           </View>
           {generationFlow ? (
@@ -179,6 +183,11 @@ export function DamStateCard({
             </Text>
           ) : null}
         </View>
+      ) : null}
+
+      {/* Read from the district's spillway series, never inferred from total flow. */}
+      {spill ? (
+        <Text style={[styles.observed, { color: colors.accent }]}>{spillwayReleaseLabel(spill)}</Text>
       ) : null}
 
       {/* The note is not decoration and must not be dropped to save a line: it

@@ -48,6 +48,23 @@ export function windowLabel(from: number, to: number): string {
 }
 
 /**
+ * Whether an hour schedules generation above any minimum-flow release.
+ *
+ * Every schedule reader goes through this rather than `megawatts > 0`. Bull
+ * Shoals passes its ~800 cfs minimum flow through a turbine at low output, so
+ * SWPA schedules a few megawatts in every hour of an otherwise idle day; the
+ * raw test read that as "Generation scheduled every hour".
+ */
+export function scheduledGeneration(hour: { megawatts: number; minimumFlow?: boolean }): boolean {
+  return hour.megawatts > 0 && hour.minimumFlow !== true;
+}
+
+/** Whether a schedule day carries minimum-flow hours (so its breaks are minimum flow, not idle). */
+export function scheduleDayHasMinimumFlow(day: { hours: Array<{ megawatts: number; minimumFlow?: boolean }> }): boolean {
+  return day.hours.some((h) => h.minimumFlow === true);
+}
+
+/**
  * The one sentence a tailwater angler is actually looking for.
  *
  * Rests only on the on/off pattern, which measured EXACT against CWMS turbine
@@ -80,9 +97,15 @@ export function windowLabel(from: number, to: number): string {
  * knowingly. Travel time is what would let Eddy make that claim honestly, and it
  * is not built — see docs/TAILWATER_PLAN.md.
  */
-export function idleWindowSentence(idle: Array<{ from: number; to: number }>): string {
+export function idleWindowSentence(
+  idle: Array<{ from: number; to: number }>,
+  options?: { minimumFlow?: boolean }
+): string {
   if (idle.length === 0) return 'Generation scheduled every hour — no break in the schedule.';
-  return `No generation scheduled: ${idle.map((w) => windowLabel(w.from, w.to)).join(', ')}`;
+  const windows = idle.map((w) => windowLabel(w.from, w.to)).join(', ');
+  // At a minimum-flow project a break is not "no generation": a unit keeps
+  // passing the minimum release at low output, and the Corps calls it that.
+  return options?.minimumFlow ? `Only minimum flow scheduled: ${windows}` : `No generation scheduled: ${windows}`;
 }
 
 /**
@@ -233,7 +256,10 @@ export interface ScheduleState {
  * report Thursday's 6 AM start as Wednesday's.
  */
 export function scheduleStateNow(
-  schedule: Array<{ scheduleDate: string; hours: Array<{ hourEnding: number; megawatts: number }> }>,
+  schedule: Array<{
+    scheduleDate: string;
+    hours: Array<{ hourEnding: number; megawatts: number; minimumFlow?: boolean }>;
+  }>,
   now = Date.now()
 ): ScheduleState | null {
   const today = centralDayKey(now);
@@ -246,7 +272,7 @@ export function scheduleStateNow(
 
   const currentHour = schedule[startIndex].hours.find((h) => h.hourEnding === startHour);
   if (!currentHour) return null;
-  const generating = currentHour.megawatts > 0;
+  const generating = scheduledGeneration(currentHour);
 
   let expectedDate = today;
   for (let i = startIndex; i < schedule.length; i += 1) {
@@ -259,7 +285,7 @@ export function scheduleStateNow(
     for (let h = from; h <= 24; h += 1) {
       const hour = day.hours.find((x) => x.hourEnding === h);
       if (!hour) continue;
-      if (hour.megawatts > 0 !== generating) {
+      if (scheduledGeneration(hour) !== generating) {
         return {
           generating,
           change: {
@@ -334,18 +360,21 @@ export const SCHEDULE_CHANGE_SENTENCE =
  * for two words and no more.
  */
 export function scheduledHoursSummary(
-  hours: Array<{ megawatts: number }>,
+  hours: Array<{ megawatts: number; minimumFlow?: boolean }>,
   options?: { compact?: boolean }
 ): string {
   const compact = options?.compact ?? false;
-  const running = hours.filter((h) => h.megawatts > 0).length;
+  const running = hours.filter(scheduledGeneration).length;
   // The day's own posted length rather than a literal 24. parseSchedulePage
   // drops any day that is not exactly 24 rows, so these agree today — but a
   // denominator read off the data cannot be the thing that goes stale if that
   // ever loosens.
   const total = hours.length;
 
-  if (running === 0) return compact ? 'idle' : 'No generation scheduled';
+  if (running === 0) {
+    if (hours.some((h) => h.minimumFlow === true)) return compact ? 'min flow' : 'Only minimum flow scheduled';
+    return compact ? 'idle' : 'No generation scheduled';
+  }
   if (running === total) return compact ? 'all day' : 'Scheduled to generate all day';
   return compact
     ? `${running}/${total} h`

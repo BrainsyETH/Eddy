@@ -57,7 +57,8 @@ export type UsaceMetric =
   | 'generationFlow'
   | 'generationForecast'
   | 'tailwaterElevation'
-  | 'tailwaterTempF';
+  | 'tailwaterTempF'
+  | 'spillwayFlow';
 
 export interface UsaceSeries {
   /** Raw CWMS timeseries id. Encoded at request time — contains spaces and %. */
@@ -141,6 +142,14 @@ export interface UsaceDam {
    * "generating" all day.
    */
   generationOnCfs?: number;
+  /**
+   * TRUE when the project passes its minimum-flow release through a turbine at
+   * low output, so turbine flow up to `generationOnCfs` is the minimum flow and
+   * renders as "Minimum flow" rather than "Generating" or "not generating".
+   * Set only with `generationOnCfs` raised above the measured minimum-flow
+   * range, and only from the district's own minimum-flow series.
+   */
+  minimumFlowThroughTurbine?: boolean;
   /**
    * TRUE only when this project's `release` and `generationFlow` have been
    * verified to measure separately meaningful things, so their difference is a
@@ -236,7 +245,7 @@ export interface UsaceDam {
  * changes — so they're generated rather than repeated. St. Louis does not
  * share it and is written out literally below.
  */
-function swlSeries(dam: string, opts: { turbines: boolean; tailwaterTemp: boolean }) {
+function swlSeries(dam: string, opts: { turbines: boolean; tailwaterTemp: boolean; spillway?: boolean }) {
   const series: Partial<Record<UsaceMetric, UsaceSeries>> = {
     release: { tsId: `${dam}.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp`, unit: 'cfs' },
     releaseForecast: {
@@ -254,6 +263,13 @@ function swlSeries(dam: string, opts: { turbines: boolean; tailwaterTemp: boolea
   };
   if (opts.turbines) {
     series.generationFlow = { tsId: `${dam}.Flow-Plant.Ave.1Hour.1Hour.CCP-Comp`, unit: 'cfs' };
+  }
+  // Flow through the spillway tainter gates — published by the district as its
+  // own series, so a floodgate release is read, never inferred from total flow.
+  // Verified 2026-10-29 against Norfork's July 2026 spill: Res Out equalled
+  // Plant plus this series hour for hour (e.g. 4,199 = 2,998 + 1,201 cfs).
+  if (opts.spillway) {
+    series.spillwayFlow = { tsId: `${dam}.Flow-Tainter Total.Ave.1Hour.1Hour.Regi-Comp`, unit: 'cfs' };
   }
   if (opts.tailwaterTemp) {
     series.tailwaterTempF = {
@@ -314,7 +330,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
       waterQualitySiteId: '07053450',
       waterQualitySiteName: 'White River bl Table Rock Dam near Branson, MO',
     },
-    series: swlSeries('Table_Rock_Dam', { turbines: true, tailwaterTemp: true }),
+    series: swlSeries('Table_Rock_Dam', { turbines: true, tailwaterTemp: true, spillway: true }),
   },
   'swl-bull-shoals-dam': {
     id: 'swl-bull-shoals-dam',
@@ -339,7 +355,16 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     nameplate: { units: 8, megawatts: 340 },
     tailwaterFishery: 'trout' as const,
     infoPhone: '870-431-5311',
-    generationOnCfs: 100,
+    // 850, not 100: Bull Shoals runs its minimum flow (Corps target about 800
+    // cfs including leakage) through a turbine at low output, so 100 read
+    // "Generating" for the 57% of hours that are the minimum flow. Measured
+    // 2026-07-01 to 10-29 against the district's own
+    // Bull_Shoals_Dam.Flow-Min_Flow.Ave.1Hour.1Hour.Sum-MRandLeak series (800
+    // whenever the minimum-flow release is on, 0 otherwise): turbine flow was
+    // 613-834 cfs in all 1,354 minimum-flow hours and at least 872 cfs in all
+    // 1,545 others. Re-measure before moving it.
+    generationOnCfs: 850,
+    minimumFlowThroughTurbine: true,
     // No sectionSlug: the White below this dam is its own river, not a reach of
     // one. gaugeSiteId is this dam's own release, because USGS publishes no
     // discharge or stage anywhere in the tailwater — the three sites below the
@@ -353,7 +378,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
       waterQualitySiteId: '07054501',
       waterQualitySiteName: 'White River at Bull Shoals Dam near Flippin',
     },
-    series: swlSeries('Bull_Shoals_Dam', { turbines: true, tailwaterTemp: true }),
+    series: swlSeries('Bull_Shoals_Dam', { turbines: true, tailwaterTemp: true, spillway: true }),
   },
   'swl-beaver-dam': {
     id: 'swl-beaver-dam',
@@ -408,7 +433,7 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // any project. See
     // scripts/ingestion/dossiers/verified-identifiers-tailwater-swl-norfork-dam.md.
     series: {
-      ...swlSeries('Norfork_Dam', { turbines: true, tailwaterTemp: false }),
+      ...swlSeries('Norfork_Dam', { turbines: true, tailwaterTemp: false, spillway: true }),
       tailwaterTempF: {
         tsId: 'Norfork_Dam-Tailwater.Temp-Water_Ave.Inst.1Hour.0.CCP-Comp',
         unit: 'F',

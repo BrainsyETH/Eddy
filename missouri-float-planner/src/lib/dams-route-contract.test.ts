@@ -107,8 +107,12 @@ test('the summary stays small enough to be worth splitting', () => {
   // uncached, on every index render and every /api/dams call. If the summary
   // creeps back toward the detail set, that cost returns and the split becomes
   // a second code path with no benefit.
+  //
+  // Five since spillwayFlow joined. It is declared on three dams and has no
+  // resolver spec, so it costs at most three requests per index render, not one
+  // per dam — see hasResolverSpec. Re-measure before adding a sixth.
   assert.ok(
-    SUMMARY_METRICS.length <= 4,
+    SUMMARY_METRICS.length <= 5,
     `summary has grown to ${SUMMARY_METRICS.length} metrics; re-measure the index fan-out`
   );
 });
