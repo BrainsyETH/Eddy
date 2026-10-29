@@ -77,7 +77,7 @@ const INSTALL_GUIDES = [
 
 // Internal links so the workbench isn't a navigation dead-end (mirrors SiteHeader).
 const SITE_LINKS = [
-  { href: '/plan', label: 'Plan a Float' },
+  { href: '/plan', label: 'Plan a float' },
   { href: '/rivers', label: 'River Reports' },
   { href: '/blog', label: 'Guides' },
   { href: '/about', label: 'About' },
@@ -237,7 +237,7 @@ const WIDGETS: WidgetDef[] = [
     desc: 'Visitors pick a put-in and take-out and get shuttle distance, float time, conditions, and the outfitters on that stretch. The selected river is pre-selected but visitors can change it.',
     previewHeight: 420,
     buildSrc: (c) => withBrandingId(`${c.baseUrl}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, c),
-    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, c), 'Plan Your Float - Eddy', c.resizeScript),
+    buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/planner?river=${c.selectedRiver}&theme=${c.theme}`, c), 'Plan a float · Eddy', c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'river', values: 'slug', note: 'Pre-select a river (e.g. current, meramec).' },

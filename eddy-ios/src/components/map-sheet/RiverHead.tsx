@@ -178,7 +178,7 @@ export function RiverHead({
             <Text style={[styles.chipText, { color: colors.textMuted }]}>Not rated</Text>
           </View>
           <Text style={[styles.reading, { color: colors.textMuted }]} numberOfLines={1}>
-            No gauge grades this river yet
+            No water reading here yet
           </Text>
         </View>
       )}

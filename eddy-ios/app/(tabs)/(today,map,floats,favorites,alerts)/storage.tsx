@@ -175,8 +175,7 @@ export default function StorageScreen() {
           <View style={[styles.card, styles.tripCard, { backgroundColor: colors.card }, elevation(1)]}>
             <Text style={[styles.rowTitle, { color: colors.text }]}>Trip maps</Text>
             <Text style={[styles.note, { color: colors.textMuted }]}>
-              Maps saved on this phone. Check for Ready offline before you go. Sizes are approximate: neighbouring
-              sections of a trip share map tiles, which are stored once.
+              Maps saved on this phone. Check for Ready offline before you go.
             </Text>
             {trips.map((trip) => {
               const saved = floats.find((f) => f.shortCode === trip.tripKey);

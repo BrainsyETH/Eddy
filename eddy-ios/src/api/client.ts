@@ -2375,7 +2375,7 @@ export async function uploadCommunityPhoto(
   // file URI, so there is no FormData part to be unsupported. It is also the
   // module the size check already depends on, so this adds no new dependency.
   const fs = loadFileSystem();
-  if (!fs) throw new ApiError('Photo upload is unavailable in this build.');
+  if (!fs) throw new ApiError('Photo upload isn’t available right now.');
 
   const task = new fs.File(file.uri).createUploadTask(`${BASE_URL}/api/upload`, {
     httpMethod: 'POST',

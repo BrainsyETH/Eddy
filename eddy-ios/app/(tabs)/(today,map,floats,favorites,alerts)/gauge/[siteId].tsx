@@ -423,8 +423,8 @@ export default function GaugeDetailScreen() {
           </Text>
           <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
             {failed
-              ? 'Could not reach the gauge record. Check your connection and try again.'
-              : `No station is published under ${siteId}.`}
+              ? 'Couldn’t load this gauge. Check your connection and try again.'
+              : 'Eddy can’t find this gauge.'}
           </Text>
           {/* The control the copy promises. Only for a FAILURE — retrying a
               "not found" would re-ask a question whose answer is not going to
@@ -705,8 +705,8 @@ export default function GaugeDetailScreen() {
               { label: 'Source', value: stationCaption(gauge.provider, gauge.siteId) },
               { label: 'Observed', value: observedStamp(gauge.readingTimestamp, gauge.timeZone) },
               { label: 'Seasonal comparison', value: percentile ? `${percentile} for flow` : gauge.seasonalContextUnavailableReason ?? 'No current seasonal comparison available' },
-              { label: 'Historical record', value: gauge.seasonalContext?.yearsOfRecord ? `${gauge.seasonalContext.yearsOfRecord} years of discharge records` : null },
-              { label: 'NWS stages', value: stages ? `${stageSummary(stages)}${stages.lid ? ` · NWS ${stages.lid}` : ''}` : null },
+              { label: 'Historical record', value: gauge.seasonalContext?.yearsOfRecord ? `${gauge.seasonalContext.yearsOfRecord} years of records` : null },
+              { label: 'Flood levels', value: stages ? stageSummary(stages) : null },
               ...[
                 { label: 'Water temperature', measurement: gauge.waterTemperature, value: `${gauge.waterTemperature?.valueF}°F` },
                 { label: 'Dissolved oxygen', measurement: gauge.dissolvedOxygen, value: `${gauge.dissolvedOxygen?.valueMgL} mg/L` },

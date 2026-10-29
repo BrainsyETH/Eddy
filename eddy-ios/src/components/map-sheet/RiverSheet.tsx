@@ -95,7 +95,7 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
   const { colors, isDark } = useTheme();
 
   if (!river.gauges.length) {
-    return <Absent>No gauge grades this river yet, so Eddy has no reading for it.</Absent>;
+    return <Absent>No water reading here yet.</Absent>;
   }
 
   return (

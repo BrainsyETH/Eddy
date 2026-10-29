@@ -14,7 +14,7 @@ export default function GaugesError({
           <span className="text-2xl" aria-hidden="true">📊</span>
         </div>
         <h2 className="text-xl font-bold text-neutral-900 mb-2">
-          Gauge data unavailable
+          Couldn&apos;t load this gauge
         </h2>
         <p className="text-neutral-500 text-sm mb-6">
           {error.message || 'We had trouble loading gauge readings. USGS data may be temporarily unavailable.'}

@@ -430,7 +430,7 @@ export default function EmbedWidgetPage() {
                     ? `${weather.condition}${weather.windSpeed > 5 ? ` · Wind ${Math.round(weather.windSpeed)} mph` : ''}`
                     : 'Weather unavailable',
                   href: weatherHref,
-                  linkLabel: `Weather for ${river.name}. Open Plan a Float.`,
+                  linkLabel: `Weather for ${river.name}. Plan a float.`,
                 },
               ]}
             />
@@ -539,7 +539,7 @@ export default function EmbedWidgetPage() {
         embedId={embedId}
         links={[
           { label: 'Full River Report', path: river.path || `/rivers/${river.slug}` },
-          { label: 'Plan a Float', path: `/plan?river=${river.slug}` },
+          { label: 'Plan a float', path: `/plan?river=${river.slug}` },
         ]}
       />
     </div>

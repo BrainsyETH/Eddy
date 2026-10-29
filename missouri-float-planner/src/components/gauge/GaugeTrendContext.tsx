@@ -49,13 +49,14 @@ export default function GaugeTrendContext({
         <span className={`inline-flex items-center gap-1 font-semibold ${trendTone}`}>
           <TrendIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
           {trend.label}
-          <span className="font-normal text-neutral-400">· {trend.windowHours}h</span>
         </span>
       )}
       {trend && pct && <span className="text-neutral-300" aria-hidden="true">·</span>}
       {pct && (
         <span className="first-letter:uppercase" title={pct.descriptor}>
-          {pct.short} <span className="text-neutral-400">· {pct.label}</span>
+          {/* The percentile itself stays in the tooltip: "above typical" is
+              the sentence; "61st percentile" is the method behind it. */}
+          {pct.short}
         </span>
       )}
     </div>

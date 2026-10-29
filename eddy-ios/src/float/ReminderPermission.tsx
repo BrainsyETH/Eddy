@@ -11,8 +11,8 @@ export function ReminderPermission({ enabled, disabled = false }: { enabled: boo
   const settings = access.state === 'settings' || access.state === 'quiet';
   const action = enabled && access.state !== 'granted';
   const message = !enabled ? 'Take-out and hazard reminders are off for this float.'
-    : access.state === 'granted' ? 'Notifications allowed. GPS gaps or phone settings can delay or silence reminders.'
-    : access.state === 'provisional' ? 'Reminders would arrive quietly, with no banner or sound. Allow alerts so a hazard warning can wake your phone.'
+    : access.state === 'granted' ? 'Reminders are on.'
+    : access.state === 'provisional' ? 'Reminders will arrive silently. Allow alerts.'
     : access.state === 'quiet' ? 'Alerts or sound are off for Eddy. Turn them on in Settings so reminders can be heard.'
     : access.state === 'settings' ? 'Notifications are off in Settings. Your float can still be recorded.'
     : access.state === 'ask' ? 'Enable notifications for take-out and hazard reminders, even with your phone locked.'

@@ -902,20 +902,6 @@ export default async function RiverGuideLayout({ post }: Props) {
             />
           </div>
 
-          <div
-            style={{
-              marginTop: 24,
-              padding: '16px 20px',
-              background: 'var(--color-secondary-50)',
-              borderLeft: '4px solid var(--color-accent-500)',
-              borderRadius: 4,
-              fontSize: 14,
-              lineHeight: 1.55,
-              color: 'var(--color-neutral-700)',
-            }}
-          >
-            <strong style={{ color: 'var(--color-neutral-900)' }}>Safety first:</strong> Eddy is a planning guide only. Always consult local outfitters and authorities for current conditions before floating. Water levels can change rapidly. Wear life jackets and never float alone.
-          </div>
         </main>
       </div>
     </article>

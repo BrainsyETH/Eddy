@@ -42,7 +42,7 @@ test('the most fundamental block is the one shown, with the action that fixes it
 test('a failed recorder offers a retry; no float says nothing; a build without the recorder says so', () => {
   assert.equal(trackingLine(tracker('failed'))!.action, 'retry');
   assert.equal(trackingLine(IDLE_TRACKER), null);
-  assert.match(trackingLine(tracker('unavailable'))!.text, /isn’t available in this build/);
+  assert.match(trackingLine(tracker('unavailable'))!.text, /isn’t available in this version/);
   assert.equal(trackingLine(tracker('starting'))!.action, 'info');
 });
 

@@ -122,7 +122,7 @@ export async function startTripDownload(
   signal?: AbortSignal,
 ): Promise<void> {
   const manager = getOfflineManager();
-  if (!manager) throw new Error('Maps are unavailable in this build.');
+  if (!manager) throw new Error('Offline maps aren’t available right now.');
   const existing = new Map((await packs()).map((pack) => [pack.name, pack]));
   for (const [index, chunk] of chunks.entries()) {
     if (signal?.aborted) return;

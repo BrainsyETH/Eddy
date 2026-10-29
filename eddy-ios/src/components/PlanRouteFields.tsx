@@ -1,4 +1,4 @@
-// Shared river and endpoint controls for Build a Route and the map planner.
+// Shared river and endpoint controls for Plan a float and the map planner.
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
 import { useTheme } from '@/theme/ThemeProvider';

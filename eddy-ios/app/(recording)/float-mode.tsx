@@ -41,7 +41,6 @@ import {
   arrivalAnchor,
   arrivalCopy,
   arrivalOutlook,
-  formatBeyond,
   indexRoute,
   mapFeatures,
   remainingCopy,
@@ -190,15 +189,15 @@ export default function FloatModeScreen() {
   const waitingAtLaunch = !view.confirmed && view.status === 'off-route' && session.last?.nearPutIn;
   const progress = progressLine(session, clock);
   const status = waitingAtLaunch
-    ? `Near ${session.putIn?.name} · waiting for the mapped river`
+    ? `At ${session.putIn?.name}. Push off when you’re ready.`
     : weakGps && (view.status === 'stale' || view.status === 'acquiring')
-      ? `GPS isn’t accurate enough to place you on the river right now (±${weakGps.accuracyMeters} m). Progress continues when it improves.`
+      ? 'Finding you on the river…'
       : statusCopy(view, clock);
   const freshness = fresh
     ? `Tracking · ${fixAgeLabel(displayed?.at ?? null, clock)}`
     : tracking.tracker.status === 'starting' ? 'Starting GPS…'
     : !recording ? 'Tracking needs attention'
-    : weakGps ? `Weak GPS · ±${weakGps.accuracyMeters} m`
+    : weakGps ? 'Finding you…'
     : displayed ? `Location delayed · ${fixAgeLabel(displayed.at, clock)}` : 'Finding GPS…';
 
   // After a discard, back to where the float was started from.
@@ -346,11 +345,6 @@ export default function FloatModeScreen() {
               <View style={[styles.fill, { width: `${Math.round((view.fraction ?? 0) * 100)}%`, backgroundColor: colors.interactive }]} />
             </View>
             {time.note ? <Text style={[styles.caption, { color: colors.textMuted }]}>{time.note}</Text> : null}
-            {view.takeOutBeyondMeters != null ? (
-              <Text style={[styles.caption, { color: colors.textMuted }]}>
-                Miles to the river’s closest point. {view.takeOutName} is about {formatBeyond(view.takeOutBeyondMeters)} beyond it.
-              </Text>
-            ) : null}
             {arrival?.warning ? (
               <Text style={[styles.note, styles.emphasis, { color: colors.error }]} accessibilityRole="alert">
                 {arrival.warning}

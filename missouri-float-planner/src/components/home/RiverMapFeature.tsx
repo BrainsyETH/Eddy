@@ -1,31 +1,42 @@
 // src/components/home/RiverMapFeature.tsx
-// Homepage link to /river-map, alongside Find a Route and Build a Route.
-// Uses the existing brand gradient and decorative river/topography artwork.
+// Homepage link to /river-map, alongside Find a float and Plan a float.
+//
+// Drawn in the site's own card language: the standard card's 2px teal border,
+// hard offset shadow and hover lift, over the Missouri hillshade the real map
+// uses. The rivers are flat strokes in the condition colours with a dark
+// casing, like a printed trail map, rather than glowing lines on a dark field.
 //
 // Presentational only — no data hooks — so it renders instantly server-side
 // with no loading state or layout shift. The live data lives on /river-map
 // itself.
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
 
-// Condition palette mirrored from shared/condition-system. The real map paints
-// each river by its live USGS verdict, so the teaser's rivers use those exact
-// colors rather than inventing decorative ones.
-const FLOWING = '#10b981'; // emerald-500
-const GOOD = '#84cc16'; // lime-500
-const HIGH = '#f97316'; // orange-500
-const LOW = '#eab308'; // yellow-500
+// The real map paints each river by its live verdict, so the teaser uses the
+// same canonical colours rather than decorative ones.
+const FLOWING = CONDITION_SYSTEM.flowing.solid;
+const GOOD = CONDITION_SYSTEM.good.solid;
+const HIGH = CONDITION_SYSTEM.high.solid;
+const LOW = CONDITION_SYSTEM.low.solid;
+const INK = '#2D2A24'; // neutral-900, the casing and dot ring
 
-// A stylized river gauge dot: soft colored halo + white core.
-function GaugeDot({ cx, cy, color }: { cx: number; cy: number; color: string }) {
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={7} fill={color} opacity={0.25} />
-      <circle cx={cx} cy={cy} r={3.2} fill="#ffffff" />
-    </g>
-  );
-}
+const RIVERS = [
+  { d: 'M 150 -20 C 190 40, 120 90, 200 140 C 260 178, 230 240, 250 320', color: FLOWING },
+  { d: 'M 250 -20 C 285 50, 235 100, 300 150 C 350 188, 335 250, 360 320', color: GOOD },
+  { d: 'M 330 -20 C 355 40, 320 80, 360 130', color: HIGH },
+  { d: 'M 40 90 C 100 120, 150 110, 200 140', color: LOW },
+];
+
+const GAUGES = [
+  { cx: 200, cy: 140, color: FLOWING },
+  { cx: 172, cy: 62, color: FLOWING },
+  { cx: 300, cy: 150, color: GOOD },
+  { cx: 346, cy: 250, color: GOOD },
+  { cx: 352, cy: 120, color: HIGH },
+];
 
 export default function RiverMapFeature() {
   return (
@@ -33,64 +44,49 @@ export default function RiverMapFeature() {
       href="/river-map"
       data-ga-event="cta_river_map"
       data-ga-label="home_feature"
-      aria-label="Open the Live River Map"
-      className="group relative flex min-h-[240px] flex-col justify-end overflow-hidden rounded-2xl p-5 md:p-6 no-underline shadow-soft-md"
-      style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 45%, #1A4F5C 100%)' }}
+      aria-label="Open the live river map"
+      // .card is unlayered CSS, so its 1.25rem padding outranks a p-0 utility.
+      className="card group min-h-[240px] overflow-hidden no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"
+      style={{ padding: 0 }}
     >
-      {/* ── Decorative map layer: topo contours + rivers colored by condition ── */}
-      <svg
-        aria-hidden="true"
-        className="absolute inset-y-0 right-0 h-full w-[72%] transition-transform duration-slower group-hover:scale-105"
-        viewBox="0 0 400 300"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        {/* Faint topographic contours */}
-        <g fill="none" stroke="#ffffff" strokeOpacity={0.07}>
-          <path d="M -20 70 C 80 40, 200 90, 420 50" />
-          <path d="M -20 130 C 90 100, 210 150, 420 110" />
-          <path d="M -20 200 C 100 170, 220 220, 420 180" />
-          <path d="M -20 265 C 110 235, 230 285, 420 245" />
-        </g>
+      {/* ── Map art: hillshade texture on sandbar tan, flat cased rivers ── */}
+      <div aria-hidden="true" className="relative min-h-[150px] flex-1 overflow-hidden bg-secondary-100">
+        <Image
+          src="/mo-hillshade.avif"
+          alt=""
+          fill
+          sizes="(min-width: 768px) 50vw, 100vw"
+          className="object-cover opacity-30 mix-blend-multiply"
+        />
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="0 0 400 300"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+            {RIVERS.map((river) => (
+              <path key={`casing-${river.d}`} d={river.d} stroke={INK} strokeWidth={6.5} />
+            ))}
+            {RIVERS.map((river) => (
+              <path key={river.d} d={river.d} stroke={river.color} strokeWidth={4} />
+            ))}
+          </g>
+          {GAUGES.map((gauge) => (
+            <circle key={`${gauge.cx}-${gauge.cy}`} cx={gauge.cx} cy={gauge.cy} r={6} fill={gauge.color} stroke={INK} strokeWidth={2.5} />
+          ))}
+        </svg>
+      </div>
 
-        {/* River glow underlays (wide, low-opacity) for a lit-from-within feel */}
-        <g fill="none" strokeLinecap="round" strokeWidth={7} opacity={0.22}>
-          <path d="M 150 -20 C 190 40, 120 90, 200 140 C 260 178, 230 240, 250 320" stroke={FLOWING} />
-          <path d="M 250 -20 C 285 50, 235 100, 300 150 C 350 188, 335 250, 360 320" stroke={GOOD} />
-          <path d="M 330 -20 C 355 40, 320 80, 360 130" stroke={HIGH} />
-          <path d="M 60 90 C 110 120, 150 110, 200 140" stroke={LOW} />
-        </g>
-
-        {/* Crisp river lines */}
-        <g fill="none" strokeLinecap="round" strokeWidth={2.6}>
-          <path d="M 150 -20 C 190 40, 120 90, 200 140 C 260 178, 230 240, 250 320" stroke={FLOWING} />
-          <path d="M 250 -20 C 285 50, 235 100, 300 150 C 350 188, 335 250, 360 320" stroke={GOOD} />
-          <path d="M 330 -20 C 355 40, 320 80, 360 130" stroke={HIGH} />
-          <path d="M 60 90 C 110 120, 150 110, 200 140" stroke={LOW} />
-        </g>
-
-        {/* Gauge stations */}
-        <GaugeDot cx={200} cy={140} color={FLOWING} />
-        <GaugeDot cx={172} cy={62} color={FLOWING} />
-        <GaugeDot cx={300} cy={150} color={GOOD} />
-        <GaugeDot cx={346} cy={250} color={GOOD} />
-        <GaugeDot cx={352} cy={120} color={HIGH} />
-      </svg>
-
-      {/* Left scrim so the copy stays legible over the map art */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0"
-        style={{ background: 'linear-gradient(90deg, #0F2D35 0%, rgba(15,45,53,0.72) 42%, rgba(15,45,53,0) 78%)' }}
-      />
-
-      {/* ── Foreground ── */}
-      <div className="relative z-10 mt-4">
-        <h3 className="max-w-[15rem] text-xl md:text-2xl font-bold leading-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
-          Live River Map
+      {/* ── Caption bar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-primary-700 bg-white px-5 py-4">
+        <h3 className="text-xl md:text-2xl font-bold leading-tight text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+          Live river map
         </h3>
-        <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-          Open Map
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        {/* A button's look on a span: the whole card is the link, and a link
+            cannot hold another one. */}
+        <span className="btn-primary btn--sm inline-flex items-center gap-1.5">
+          Open the map
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </span>
       </div>
     </Link>

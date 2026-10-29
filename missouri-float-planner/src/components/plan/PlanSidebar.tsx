@@ -92,7 +92,7 @@ export default function PlanSidebar({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {!hideHeader && <div className="flex shrink-0 items-center justify-between border-b-2 border-primary-700 px-4 py-1.5" data-plan-header>
-        <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h2>
+        <h2 className="text-base font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan a float</h2>
         {(putInPoint || takeOutPoint) && <ClearRouteButton onClear={onClearRoute} />}
       </div>}
       {/* Usually no visible header: the search card above already names the

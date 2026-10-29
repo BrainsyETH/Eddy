@@ -178,13 +178,13 @@ export function ChartShareImage({ data }: { data: ChartImageData }) {
         <span>Observed</span>
         {view.forecast.length > 0 && <span style={{ color: '#698eae' }}>NWS forecast</span>}
         {state.layers.includes('lastYear') && <span style={{ color: '#9a6e39' }}>Last year</span>}
-        {state.layers.includes('typical') && <span>Typical 25–75%</span>}
-        {state.layers.includes('median') && <span>Historical median</span>}
+        {state.layers.includes('typical') && <span>Typical range</span>}
+        {state.layers.includes('median') && <span>Median</span>}
         <span>
           {state.scale === 'loaded'
-            ? 'Loaded window'
+            ? 'Fit to dates'
             : state.scale === 'visible'
-              ? 'Visible values'
+              ? 'Fit to zoom'
               : 'Full scale'}
         </span>
       </div>

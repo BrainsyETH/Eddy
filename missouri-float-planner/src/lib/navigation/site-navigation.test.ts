@@ -22,7 +22,7 @@ test('directories and unrelated pages never turn a state or old query into a sel
 test('map and planner URL selections propagate, while search discovery respects the release flag', () => {
   assert.deepEqual(siteNavigation('/', '', true).map(link => link.label), ['Map', 'Conditions', 'Floats', 'Guides']);
   assert.deepEqual(siteNavigation('/', '', false).map(link => link.label), ['Map', 'Conditions', 'Guides']);
-  assert.deepEqual(floatNavigation('/plan').map(link => link.label), ['Build a Route', 'Find a Route']);
+  assert.deepEqual(floatNavigation('/plan').map(link => link.label), ['Plan a float', 'Find a float']);
   for (const path of ['/river-map', '/find-float', '/plan']) {
     assert.equal(navigationRiver(path, 'river=buffalo'), 'buffalo');
     assert.equal(navigationRiver(path, 'river=meramec'), 'meramec');

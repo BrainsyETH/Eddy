@@ -24,7 +24,6 @@ import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import GaugeHistoryChart from '@/components/gauge/GaugeHistoryChart';
 import { resolveHistoryCapabilities } from '@shared/history-capabilities';
-import GaugeWeather from '@/components/ui/GaugeWeather';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
@@ -303,10 +302,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
       case 'usgs':
         return {
           href: `https://waterdata.usgs.gov/monitoring-location/${siteId}/`,
-          label: `USGS ${siteId}`,
+          label: 'USGS source',
         };
       case 'nws':
-        return { href: `https://water.noaa.gov/gauges/${siteId}`, label: `NWS ${siteId}` };
+        return { href: `https://water.noaa.gov/gauges/${siteId}`, label: 'NWS source' };
       default:
         return null;
     }
@@ -441,7 +440,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackGaugeSourceOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
-              className="text-primary-600 hover:text-primary-700 font-mono inline-flex items-center gap-1"
+              className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
             >
               {sourceLink.label}
               <ExternalLink className="w-3 h-3" />
@@ -462,8 +461,9 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             "a line qualifying the reading above". */}
         <div>
           <GaugeSummary
-          yearsOfRecord={gaugeDetail?.seasonalContext?.yearsOfRecord}
-          seasonalContextUnavailableReason={gaugeDetail?.seasonalContextUnavailableReason}
+            // The reading card below already shows the level, trend and
+            // verdict; here the summary keeps only safety and forecast.
+            hideCurrentReading
             siteId={activeGauge.usgsSiteId}
             days={7}
             tier={tier}
@@ -520,12 +520,9 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
         {/* Outdoor conditions, after the hydrograph and before the deeper
             interpretation below. */}
         <HistoricalWaterQuality data={gaugeDetail?.historicalWaterQuality} />
-        <GaugeWeather
-          lat={activeGauge.coordinates.lat}
-          lon={activeGauge.coordinates.lng}
-          enabled={true}
-          variant="compact"
-        />
+        {/* No compact weather card here: "Will it hold?" below covers the
+            next 72 hours, and a second forecast with its own icon set beside
+            it only disagreed with it. Gauge pages keep their weather. */}
 
         <section
           className="overflow-hidden rounded-xl border-2 border-t-4 border-primary-800 bg-white shadow-[4px_4px_0_var(--color-primary-200)]"
@@ -568,7 +565,6 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           </div>
 
           <EddyOutlookFooter
-            riverSlug={riverSlug}
             sections={eddyTakeSections}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
             readIsGenerated={Boolean(activeEddyUpdate?.summaryText)}

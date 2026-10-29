@@ -343,8 +343,8 @@ Trail Green palette, with “Tracking on the
 [river name]” only while GPS and the recorder are healthy. Starting, delayed,
 weak-GPS and blocked states say so and lose the green treatment. Labels wrap at
 large text sizes. New-start feature flags never hide an existing recording.
-Build a Route (choose endpoints) and Find a Route (suggestions for a time and
-location) share a secondary row. Build a Route takes the accent styling when
+Plan a float (choose endpoints) and Find a float (suggestions for a time and
+location) share a secondary row. Plan a float takes the accent styling when
 River Mode is disabled. Both use the same planner and result actions.
 Today recommendations and Floats push new planners to `/plan-route` in the
 originating tab's stack. This lightweight screen loads the river index and
@@ -366,7 +366,7 @@ the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,
 new-plan isolation, and preserved Map stack.
 
-Find a Route is a shared detail in every tab: opening it from a river page
+Find a float is a shared detail in every tab: opening it from a river page
 preserves that page and its tab, so Back returns to the same river. Cold finder
 links still belong to Floats. Its Where? picker contains Current location,
 rivers, access points and towns. With an existing location grant and a recent fix, an untouched
@@ -399,13 +399,13 @@ status remains visible. The finder adds no inline explainer copy — estimate an
 distance notes are behind info buttons. The native finder header is opaque so
 content scrolling underneath cannot obscure its title or Back control.
 
-Kayak is the initial vessel, then an explicit choice is remembered. Find a Route
+Kayak is the initial vessel, then an explicit choice is remembered. Find a float
 and Ready to float share one compact Vessel row with the caption "Helps estimate
 your float time". Its native menu uses the shared `FLOAT_BOATS` inventory, checks
 the current choice, and applies a selection without a confirmation step. There
 are no vessel tiles or pace bars. Large text stacks the label and selected value.
 Changing any finder choice cancels an in-flight search and dims the old
-results, which stay inert until Update routes; dismissing a menu leaves them
+results, which stay inert until Search again; dismissing a menu leaves them
 intact. Trip length is a native menu (day trip, 2 or 3 days; the slider then
 sets hours a day). Public access only is on by default and lives in the Filters
 sheet with the other filters: a Settings-style list of switches with Reset and
@@ -430,7 +430,7 @@ that settings page; collection errors remain visible inline.
 Both segments use the archive's local loading state. A failed load shows an
 error and Retry; backup failures keep loaded routes and trips visible and show
 that backup needs attention.
-The old `/float-history` URL opens the History segment. Featured Floats uses the
+The old `/float-history` URL opens the History segment. Featured floats uses the
 same photo/fallback card on the carousel and full list, and the full list has
 river filtering and featured or alphabetical ordering. Featured order matches
 the carousel's stable daily rotation; River A–Z groups that order by river.
@@ -804,7 +804,7 @@ with the same PlanSheet and planning hook, without mounting a map. Closing
 those cancels their calculation and leaves the Map tab unchanged, except for
 the explicit View on Map handoff.
 
-Use as put-in on a Map POI opens a compact Build a Route peek with the same
+Use as put-in on a Map POI opens a compact Plan a float peek with the same
 River / Put-in / Take-out controls as the full planner. Selected endpoints keep
 their existing place icon with a teal put-in or coral take-out badge and a text
 label; no triangle/square covers the artwork. Each endpoint draws once and stays
@@ -917,13 +917,13 @@ the saved-float collection, including queued writes and in-flight sync results.
 
 `useLocation` asks for new location permission only after an explicit location
 action. Reading an existing grant does not prompt: it can reuse a recent OS fix,
-and Find a Route can request fresh GPS under that grant. Stored coordinates
+and Find a float can request fresh GPS under that grant. Stored coordinates
 from a previous session are marked remembered, never treated as a fresh grant
 or a live GPS fix. A newer explicit request supersedes a pending initial read. A denial is not re-prompted; iOS would suppress the dialog anyway, so
 the only effect would be a silent retry behind a spinner.
 
 Precise coordinates are used on the device for distance sorting. Today sends
-coordinates rounded to 0.05 degrees to Eddy for local weather. Find a Route
+coordinates rounded to 0.05 degrees to Eddy for local weather. Find a float
 rounds the `near` coordinates sent to Eddy when Search is tapped to 0.01
 degrees (about a kilometre; `approximateLocation` in `shared/float-search.ts`,
 which the server applies again), including when the finder automatically
@@ -1063,7 +1063,7 @@ with `node eddy-ios/scripts/build-tab-icons.cjs` from the root after installing
 web dependencies. See the source directory's README for appearance checks.
 
 The Floats hub's `FloatActionIcon` uses the approved Eddy-with-paddle (Start a
-Float), Eddy-with-map (Build a Route), and plain magnifying-glass (Find a Route)
+Float), Eddy-with-map (Plan a float), and plain magnifying-glass (Find a float)
 artwork from `design/float-action-icons/`. These are transparent templates at
 40 points with 1x/2x/3x exports, tinted at render time: `onAccent` on filled
 buttons and `interactive` on cards, including light, dark, and increased-contrast
@@ -1626,10 +1626,10 @@ can be **From my location** or a named access in either path. Vessel is one
 compact row below the route card, beside its timing context, with the caption
 "Helps estimate your float time". Tapping the row opens a native selection menu
 with the current choice checked; choosing an item applies it and closes the menu.
-The plan wins, otherwise the last Find a Route/readiness choice wins, with kayak
+The plan wins, otherwise the last Find a float/readiness choice wins, with kayak
 as the default. It is never a separate required step. Moving-time and arrival
 details share the card once the route is valid, and the field is disabled while
-starting. The same compact picker is used by Find a Route.
+starting. The same compact picker is used by Find a float.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
@@ -1729,7 +1729,7 @@ river miles separately from miles from the put-in or current location. The
 Offline map section is always present. It shows **Offline map ready** only for
 an existing matching download that passes the complete tile and style checks.
 Otherwise it says “For an offline map, build a route and download it before you
-go,” with **Build a Route** carrying the river, any named endpoints and the boat.
+go,” with **Plan a float** carrying the river, any named endpoints and the boat.
 A location start carries its take-out but asks for a named put-in in the planner;
 GPS coordinates never travel through navigation. The planner offers saving the
 route and then its download card; saved-route details retain the same controls.

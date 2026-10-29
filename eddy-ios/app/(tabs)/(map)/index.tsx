@@ -304,7 +304,7 @@ function referenceGaugePin(g: MapGaugeLite): MapPin {
     // a sentence, and the map has room for a town.
     label: gaugePlaceLabel(g.name),
     layer: 'allGauges' as LayerKey,
-    subtitle: `USGS ${g.siteId} — not Eddy-rated`,
+    subtitle: 'Not rated by Eddy',
     coordinates: g.coordinates,
     color: flowBandColor(band),
     // No `code`: that field drives a CONDITION-tinted chip in the
@@ -3255,7 +3255,7 @@ function MapContent() {
               <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
-                  Live conditions unavailable — rivers are shown uncoloured.
+                  Can’t load conditions. Rivers shown in gray.
                 </Text>
               </View>
             ) : null}
@@ -3300,9 +3300,9 @@ function MapContent() {
                 // The hook says which it was.
                 emptyMessage={
                   search.serverFailure === 'offline'
-                    ? 'Search is unreachable — only what the map has loaded can match, not other USGS gauges. Check your connection.'
+                    ? 'Offline. Showing places already on the map.'
                     : search.serverFailure === 'server'
-                      ? 'Search isn’t answering — only what the map has loaded can match, not other USGS gauges. Try again in a moment.'
+                      ? 'Search isn’t answering. Showing places already on the map.'
                       : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
                 }
               />
@@ -3695,7 +3695,7 @@ function MapContent() {
             viewport.zoom < ZOOM.min &&
             FLOOR_GATED_PIN_ROWS.has(key)
           ) {
-            const hint = <LayerZoomHint text={`Zoom in to see these — ${FLOOR_HINT_REASON}`} />;
+            const hint = <LayerZoomHint text="Zoom in to see these." />;
             // The national tier keeps its filter chips under the hint: they
             // still narrow what draws once the camera is close enough.
             if (key !== 'allGauges') return hint;

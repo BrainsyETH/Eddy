@@ -108,7 +108,7 @@ try {
         history.pushState({}, '', '/rivers?kind=dams');
         window.analytics.trackPageView();
         history.pushState({}, '', '/plan?river=current');
-        document.title = 'Build a Route';
+        document.title = 'Plan a float';
         window.analytics.trackPageView();
         history.replaceState({}, '', '/plan?river=current&lat=36.3&lng=-93&z=7');
         window.analytics.trackPageView();
@@ -127,7 +127,7 @@ try {
       assert.equal(views[2].page_referrer, views[1].page_location);
 
       await page.evaluate(() => {
-        document.body.innerHTML = '<nav data-ga-navigation="header_desktop"><a href="/rivers?kind=dams"><span>Conditions</span></a><a data-ga-event="app_landing_click" href="/app">Get the App</a></nav><nav data-ga-navigation="header_mobile"><a href="/plan?river=current"><span>Map</span></a></nav><nav data-ga-navigation="section"><a href="/find-float">Find a Route</a></nav><footer data-ga-navigation="footer"><a href="/dams">Lakes &amp; Dams</a><a href="https://outside.example">Social</a></footer><a href="/privacy">Outside menu</a><button>Open menu</button>';
+        document.body.innerHTML = '<nav data-ga-navigation="header_desktop"><a href="/rivers?kind=dams"><span>Conditions</span></a><a data-ga-event="app_landing_click" href="/app">Get the App</a></nav><nav data-ga-navigation="header_mobile"><a href="/plan?river=current"><span>Map</span></a></nav><nav data-ga-navigation="section"><a href="/find-float">Find a float</a></nav><footer data-ga-navigation="footer"><a href="/dams">Lakes &amp; Dams</a><a href="https://outside.example">Social</a></footer><a href="/privacy">Outside menu</a><button>Open menu</button>';
         document.addEventListener('click', event => {
           event.preventDefault();
           window.analytics.trackNavigationClick(event.target);
@@ -135,7 +135,7 @@ try {
       });
       await page.getByText('Conditions', { exact: true }).click();
       await page.getByText('Map', { exact: true }).click();
-      await page.getByText('Find a Route', { exact: true }).focus();
+      await page.getByText('Find a float', { exact: true }).focus();
       await page.keyboard.press('Enter');
       await page.getByText('Lakes & Dams', { exact: true }).click();
       await page.getByText('Get the App', { exact: true }).click();
@@ -146,7 +146,7 @@ try {
       assert.deepEqual(navigation, [
         { label: 'Conditions', placement: 'header_desktop', destination_path: '/rivers', page_path: '/plan' },
         { label: 'Map', placement: 'header_mobile', destination_path: '/plan', page_path: '/plan' },
-        { label: 'Find a Route', placement: 'section', destination_path: '/find-float', page_path: '/plan' },
+        { label: 'Find a float', placement: 'section', destination_path: '/find-float', page_path: '/plan' },
         { label: 'Lakes & Dams', placement: 'footer', destination_path: '/dams', page_path: '/plan' },
       ]);
       console.log('PASS page views ignore search/filter/camera/endpoint changes; Back/Forward and scoped navigation clicks work.');

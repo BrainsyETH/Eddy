@@ -290,7 +290,7 @@ test('View on Map targets the existing Map tab with exact endpoints and a fresh 
   assert.notEqual(first.params.planRequest, floatMapDestination(route).params.planRequest);
 });
 
-test('web Build a Route CTAs draw the same Eddy-with-map artwork as the iOS Floats hub', async () => {
+test('web Plan a float CTAs draw the same Eddy-with-map artwork as the iOS Floats hub', async () => {
   // Pixel equality: the web copy is re-encoded, so its bytes differ by design.
   const pixels = (path: string) => sharp(readFileSync(path)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const web = await pixels('public/icons/eddy-build-route.png');
@@ -298,6 +298,6 @@ test('web Build a Route CTAs draw the same Eddy-with-map artwork as the iOS Floa
   assert.deepEqual(web.info, ios.info);
   assert.ok(web.data.equals(ios.data));
   for (const file of ['src/app/find-float/FindFloatClient.tsx', 'src/components/home/HomePage.tsx']) {
-    assert.match(readFileSync(file, 'utf8'), /<BuildRouteIcon[^>]*\/>\s*Build a Route/, file);
+    assert.match(readFileSync(file, 'utf8'), /<BuildRouteIcon[^>]*\/>\s*Plan a float/, file);
   }
 });

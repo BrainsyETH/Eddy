@@ -37,7 +37,14 @@ function usePrefersReducedMotion(): boolean {
   return reduce;
 }
 
-export default function EddyHeroBubble() {
+export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
+  /**
+   * Rivers already shown in full on the same page. The conditions section
+   * leads with a fixed river (the Current), and a hero slide quoting the same
+   * river, level and read directly above it said everything twice.
+   */
+  excludeRiverSlugs?: readonly string[];
+} = {}) {
   const { riverGroups, isLoading } = useRiverGroups();
   const { data: eddyUpdates } = useEddyUpdates();
   const reduceMotion = usePrefersReducedMotion();
@@ -45,9 +52,10 @@ export default function EddyHeroBubble() {
   const slides = useMemo(
     () =>
       [...riverGroups]
+        .filter((river) => !river.riverSlug || !excludeRiverSlugs.includes(river.riverSlug))
         .sort((a, b) => (RANK[a.condition.code] ?? 9) - (RANK[b.condition.code] ?? 9))
         .slice(0, MAX_SLIDES),
-    [riverGroups],
+    [riverGroups, excludeRiverSlugs],
   );
 
   const [index, setIndex] = useState(0);

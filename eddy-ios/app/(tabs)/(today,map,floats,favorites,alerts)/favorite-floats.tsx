@@ -89,7 +89,7 @@ export default function FavoriteFloatsScreen() {
         }
       >
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Featured Floats</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Featured floats</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             Hand-picked stretches from the river guides
           </Text>

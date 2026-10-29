@@ -6,13 +6,14 @@
 // min_supported_version above this build. Config unreachable, config missing,
 // or version unknown all fall through to the normal app.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
+import { APP_STORE_URL } from '@/lib/purchases';
 
 export function UpgradeGate({ children }: { children: ReactNode }) {
   const { upgradeRequired, config } = useAppConfig();
@@ -31,9 +32,17 @@ export function UpgradeGate({ children }: { children: ReactNode }) {
           {config?.upgradeMessage ??
             'This version is out of date and can no longer show accurate river conditions. Please update from the App Store.'}
         </Text>
-        <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-          River conditions change fast — an outdated app could show you the wrong water.
-        </Text>
+        {/* The one way out of the only screen with no way out. */}
+        <Pressable
+          onPress={() => void Linking.openURL(APP_STORE_URL).catch(() => {})}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill },
+          ]}
+        >
+          <Text style={[styles.buttonText, { color: colors.onAccent }]}>Update Eddy</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -44,5 +53,6 @@ const styles = StyleSheet.create({
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   title: { ...t['2xl'], fontFamily: fonts.heading, marginTop: 14, marginBottom: 12, textAlign: 'center' },
   message: { ...t.base, fontFamily: fonts.body, textAlign: 'center' },
-  footnote: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 24 },
+  button: { minHeight: 48, borderRadius: 12, paddingHorizontal: 28, marginTop: 28, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { ...t.base, fontFamily: fonts.semibold },
 });

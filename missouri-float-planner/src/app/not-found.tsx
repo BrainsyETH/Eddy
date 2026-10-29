@@ -20,7 +20,7 @@ export default function NotFound() {
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Link href="/plan" className="btn-primary inline-block">Plan a Float</Link>
+          <Link href="/plan" className="btn-primary inline-block">Plan a float</Link>
           <Link href="/rivers" className="text-primary-100 underline hover:text-white">River Reports</Link>
           <Link href="/" className="text-primary-100 underline hover:text-white">Go Home</Link>
         </div>

@@ -378,4 +378,29 @@ page. In a style object, write `var(--ease-default)`.
 
 ---
 
+## 11. Voice & Naming
+
+Both platforms name the trip flows with the same three verbs, in sentence case:
+
+| Flow | Label | Notes |
+|:---|:---|:---|
+| Choose a put-in and take-out | **Plan a float** | On a card for one stretch, **Plan this float**. Not "Build a Route", "Plan a Trip" or "Open the planner". |
+| Eddy suggests a stretch | **Find a float** | The search button is **Find floats**; after a search, **Search again**. |
+| Record a float | **Start a float** | Not "Float this route" or "Start tracking". |
+| Keep a stretch | **Save** / **Saved floats** | Floats are never "Favorites"; that word belongs to starred rivers, gauges and dams. |
+
+Section names stay nouns (Map, Conditions, Floats, Guides). URLs, route
+names and analytics event names keep their old spellings; only copy changes.
+`src/lib/flow-naming.test.ts` fails on the retired labels.
+
+**Explainer text and disclaimers.** Say it once, in plain words, or not at all.
+Methodology (source IDs, percentiles, NWS category names) lives behind an ⓘ,
+not on the surface. Safety copy appears once per page: on the web, the
+footer's single line linking to `/terms`; on iOS, `SAFETY_DISCLAIMER` (wording
+fixed, App-Review sensitive) in muted text on each conditions surface. Reading
+lag is stated once per screen. Neither uses the error red, which belongs to
+dangerous water.
+
+---
+
 💡 **Usage Tip:** When calling `generate_screen_from_text` or `edit_screens`, include the tokens from this document in your prompt's `DESIGN SYSTEM (REQUIRED)` block to ensure visual consistency across all generated screens.

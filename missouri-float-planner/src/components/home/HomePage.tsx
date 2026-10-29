@@ -45,6 +45,8 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
     return guide ? `/blog/${guide.postSlug}` : `/rivers/${slug}`;
   };
   const featureImage = riverGuides[FEATURE_RIVER.slug]?.image ?? null;
+  // The river the conditions section opens on; the hero skips it.
+  const leadReport = featuredReports[0] ? [featuredReports[0].slug] : [];
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
@@ -89,7 +91,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
                   <BuildRouteIcon size={22} />
-                  Build a Route
+                  Plan a float
                 </Link>
               </div>
             </div>
@@ -109,7 +111,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
               </div>
               {/* Live quote bubble */}
               <div className="order-1 w-full max-w-sm md:max-w-none z-20">
-                <EddyHeroBubble />
+                <EddyHeroBubble excludeRiverSlugs={leadReport} />
               </div>
             </div>
           </div>
@@ -122,17 +124,17 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
       </section>
 
       <section aria-labelledby="plan-your-float" className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-10 md:pt-12">
-        <h2 id="plan-your-float" className="mb-5 text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan Your Float</h2>
+        <h2 id="plan-your-float" className="mb-5 text-2xl md:text-3xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan your float</h2>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="grid gap-4">
             {floatSearchEnabled && <Link href="/find-float" data-ga-event="cta_find_route" data-ga-label="home_planning" className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-5 no-underline hover:shadow-soft-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
               <Search className="h-7 w-7 flex-shrink-0 text-primary-600" aria-hidden="true" />
-              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Find a Route</h3><p className="mt-1 text-sm text-neutral-600">Get suggestions for your time and location</p></div>
+              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Find a float</h3><p className="mt-1 text-sm text-neutral-600">Get suggestions for your time and location</p></div>
               <ArrowRight className="h-4 w-4 text-primary-700" aria-hidden="true" />
             </Link>}
             <Link href="/plan" data-ga-event="cta_plan_float" data-ga-label="home_planning" className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-5 no-underline hover:shadow-soft-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
               <span className="flex text-primary-600"><BuildRouteIcon size={32} /></span>
-              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h3><p className="mt-1 text-sm text-neutral-600">Choose your put-in and take-out</p></div>
+              <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Plan a float</h3><p className="mt-1 text-sm text-neutral-600">Choose your put-in and take-out</p></div>
               <ArrowRight className="h-4 w-4 text-primary-700" aria-hidden="true" />
             </Link>
           </div>
@@ -214,10 +216,10 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                     <h3 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
                       {river.name}
                     </h3>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-600">
-                      {riverGuides[river.slug] ? 'Read guide' : 'River report'} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
                   </div>
+                  {/* The whole row is the link; the arrow says so without a
+                      "Read guide" label repeated on every row. */}
+                  <ArrowRight className="w-4 h-4 flex-shrink-0 text-neutral-400 group-hover:translate-x-0.5 group-hover:text-accent-600 transition-transform" aria-hidden="true" />
                 </Link>
               );
             })}
@@ -229,15 +231,6 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
         <div className="rounded-2xl bg-primary-800 p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div><h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>Take Eddy with you</h2><p className="mt-2 text-sm text-primary-100">Track your trip with River Mode and check river levels from your Home Screen.</p></div>
           <AppLink data-ga-event="app_landing_click" data-ga-label="homepage_app" className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-500 px-5 py-3 text-sm font-semibold text-white no-underline hover:bg-accent-600 whitespace-nowrap">Get Eddy for iPhone <ArrowRight className="h-4 w-4" aria-hidden="true" /></AppLink>
-        </div>
-      </section>
-
-      {/* ─── Data Attribution ─── */}
-      <section className="border-t border-neutral-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          <p className="text-xs text-center text-neutral-400">
-            River readings include data from the <strong className="text-neutral-500">United States Geological Survey (USGS)</strong>. Check each report for its latest reading time.
-          </p>
         </div>
       </section>
 

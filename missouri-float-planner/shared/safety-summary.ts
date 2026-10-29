@@ -11,8 +11,8 @@
 //     whatever Eddy's condition ladder says about floating.
 //   · Only the current-category state speaks in the present tense. A forecast
 //     crossing reads as a forecast, or a forecast flood becomes a current one.
-//   · Never infer safety from missing stages. "No official flood stages
-//     published" is a statement about publication, not about the water.
+//   · Never infer safety from missing stages. "No flood stages published for
+//     this gauge" is a statement about publication, not about the water.
 //   · actionFt can be null while floodFt exists (curated stations carry two
 //     stages, and some NWS stations publish action only), so "Below action
 //     stage" is not always a legal sentence. The below-threshold state names
@@ -23,7 +23,7 @@
 // route's publication gate (see api/gauges/[siteId]/route.ts) currently drops
 // such stations' stages entirely — one unexplained violet line is not a chart
 // worth drawing — so today they reach this machine as `stages: null` and read
-// "No official flood stages published." This machine still handles the
+// "No flood stages published for this gauge." This machine still handles the
 // action-only shape correctly, so relaxing that gate is a route decision, not
 // a rewrite here.
 //
@@ -123,11 +123,28 @@ export function summarizeSafety(input: {
   return { kind: 'no_reading' };
 }
 
-const CATEGORY_NOUN: Record<FloodStageKey, string> = {
-  action: 'NWS action stage',
-  flood: 'NWS minor flood stage',
-  moderate: 'NWS moderate flood stage',
-  major: 'NWS major flood stage',
+// Plain words, not the NWS category names: a floater reads "flood stage", not
+// "NWS action stage". Action stage is the Weather Service's watch level below
+// minor flood, so it reads as nearing flood stage, never as a flood.
+const CURRENT_SENTENCE: Record<FloodStageKey, string> = {
+  action: 'Near flood stage now.',
+  flood: 'At flood stage now.',
+  moderate: 'Moderate flooding now.',
+  major: 'Major flooding now.',
+};
+
+const FORECAST_PHRASE: Record<FloodStageKey, string> = {
+  action: 'Could near flood stage',
+  flood: 'Could reach flood stage',
+  moderate: 'Moderate flooding possible',
+  major: 'Major flooding possible',
+};
+
+const BELOW_SENTENCE: Record<FloodStageKey, string> = {
+  action: 'Well below flood stage.',
+  flood: 'Below flood stage.',
+  moderate: 'Below moderate flood stage.',
+  major: 'Below major flood stage.',
 };
 
 /**
@@ -141,16 +158,16 @@ export function safetySummarySentence(
 ): string {
   switch (summary.kind) {
     case 'current':
-      return `Currently at or above ${CATEGORY_NOUN[summary.category]}.`;
+      return CURRENT_SENTENCE[summary.category];
     case 'forecast': {
       const day = options?.forecastDayLabel;
-      return `Forecast to reach ${CATEGORY_NOUN[summary.category]}${day ? ` ${day}` : ''}.`;
+      return `${FORECAST_PHRASE[summary.category]}${day ? ` ${day}` : ''}.`;
     }
     case 'below':
-      return `Below ${CATEGORY_NOUN[summary.lowestPublished]}.`;
+      return BELOW_SENTENCE[summary.lowestPublished];
     case 'no_reading':
-      return 'Official flood stages published; current comparison unavailable.';
+      return 'No current reading to compare with flood stage.';
     case 'no_stages':
-      return 'No official flood stages published.';
+      return 'No flood stages published for this gauge.';
   }
 }

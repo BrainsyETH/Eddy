@@ -337,7 +337,7 @@ export default function EddyQuoteEmbedPage() {
               forecast ? `${Math.round(forecast.precipitation)}% rain` : null,
             ].filter(Boolean).join(' · ') || 'Weather unavailable',
             href: weatherHref,
-            linkLabel: `Weather for ${river.name}. Open Plan a Float.`,
+            linkLabel: `Weather for ${river.name}. Plan a float.`,
           },
         ]}
       />
@@ -417,7 +417,7 @@ export default function EddyQuoteEmbedPage() {
         embedId={embedId}
         links={[
           { label: 'Full River Report', path: river.path || `/rivers/${river.slug}` },
-          { label: 'Plan a Float', path: `/plan?river=${river.slug}` },
+          { label: 'Plan a float', path: `/plan?river=${river.slug}` },
         ]}
       />
     </div>

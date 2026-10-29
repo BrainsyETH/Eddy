@@ -1336,7 +1336,7 @@ export function MobileBottomSheet({
               live ONCE in the route summary card below, not repeated here. */}
           <div className="px-4 pb-3">
             <div className="flex items-center justify-between" data-plan-header>
-              <h2 id="mobile-float-plan-title" className="text-sm font-bold text-neutral-900">{children ? 'Build a Route' : 'Float Plan'}</h2>
+              <h2 id="mobile-float-plan-title" className="text-sm font-bold text-neutral-900">{children ? 'Plan a float' : 'Float plan'}</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {headerAction}
                 <ConditionBadge code={conditionCode} label={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : undefined} />

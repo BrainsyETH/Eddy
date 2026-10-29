@@ -190,7 +190,7 @@ export default async function BlogPage() {
               href="/"
               className="inline-flex items-center gap-2 px-6 py-3 bg-accent-500 hover:bg-accent-600 text-white font-semibold rounded-xl transition-colors shadow-lg"
             >
-              Plan Your Float
+              Plan your float
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
