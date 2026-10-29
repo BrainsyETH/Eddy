@@ -1356,6 +1356,8 @@ mark; Inflow and fishery have matching symbols. Generation pattern always
 includes the posted upcoming schedule alongside measured history, with no
 include/hide control. Measured bars stay solid, scheduled bars outlined, and
 missing readings stay gaps. Larger text retains the full spoken row summaries.
+The shared schedule-change check line reads “Schedule last checked” with the
+check time in Central time (CST/CDT); checks from an earlier day include the date.
 
 ## River guides
 
