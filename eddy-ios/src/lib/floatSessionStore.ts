@@ -85,7 +85,7 @@ function ensureArrivedCategory(): Promise<void> {
  * time-sensitive: a Focus mode must not silence "portage river left". The
  * entitlement is in app.json. The ending prompts are ordinary.
  */
-async function deliverReminders(due: DueReminder[]): Promise<string[]> {
+async function deliverReminders(due: DueReminder[], session: FloatSession): Promise<string[]> {
   if (!canDeliverNotification(await readNotificationAccess())) return [];
   const delivered: string[] = [];
   for (const reminder of due) {
@@ -98,7 +98,8 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
           title,
           body,
           sound: true,
-          data: { floatReminder: reminder.id },
+          // The float it is about: its Finish action must never end a later one.
+          data: { floatReminder: reminder.id, floatId: session.id },
           ...(ahead ? { interruptionLevel: 'timeSensitive' } : {}),
           ...(reminder.kind === 'arrived' ? { categoryIdentifier: ARRIVED_CATEGORY } : {}),
         },
@@ -173,12 +174,13 @@ export function beginFloat(next: FloatSession): Promise<BeginResult> {
  * Feed GPS fixes, in time order, from the recorder. `journalTo` is the
  * journal offset they end at (floatRecording.ts). Returns the automatic end
  * this delivery may trigger (floatEnding.ts), resolving true only if it did
- * end the float.
+ * end the float. `settle` false (a recovery page with more journal behind it)
+ * applies the fixes without judging an automatic end; see floatRecorderSync.
  */
-export function recordFixes(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number): Promise<boolean> | null {
+export function recordFixes(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number, settle = true): Promise<boolean> | null {
   store.record(fixes, now, journalTo);
   const session = store.get();
-  if (session && autoEndAt(session, now) != null) return autoEnd(session.id);
+  if (settle && session && autoEndAt(session, now) != null) return autoEnd(session.id);
   void syncFloatActivity(session);
   return null;
 }
@@ -250,9 +252,30 @@ export type EndResult = 'ended' | 'ended-unsaved' | 'not-ended';
 export async function endFloat(): Promise<EndResult> {
   const session = store.get();
   if (session && !(await finishRecording(session.id))) return 'not-ended';
-  const cleared = await activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+  // Tracking stopped earlier (stopTracking): the float ended then, not now.
+  const cleared = await activityLifecycle.end(
+    floatArchive.contributionVersion(store.get()?.archiveScope),
+    store.get()?.trackingStoppedAt ?? undefined,
+  );
   void dismissFloatNotifications();
   return cleared ? 'ended' : 'ended-unsaved';
+}
+
+/**
+ * Stop collecting location without saving the recap: Finish could not read
+ * the journal to its end (endFloat 'not-ended'), and the paddler has finished
+ * all the same. Recording stops and stays stopped through relaunches
+ * (floatRecorderSync ensureRecording); the journal is kept, and endFloat
+ * saves the recap, ended at this moment, once the journal can be read.
+ * Saving the recap and stopping the GPS are separate things.
+ */
+export async function stopTracking(): Promise<void> {
+  const session = store.get();
+  if (!session) return;
+  await store.stopTracking(Date.now());
+  await stopRecordingNow(session.id);
+  void syncFloatActivity(null);
+  void dismissFloatNotifications();
 }
 
 /**
@@ -261,23 +284,32 @@ export async function endFloat(): Promise<EndResult> {
  * recreate the journal after the delete, leaving a file no recap can ever
  * remove.
  */
-async function discardWithoutRecap(sessionId: string): Promise<boolean> {
+async function discardWithoutRecap(sessionId: string): Promise<DiscardResult> {
   await stopRecordingNow(sessionId);
   // Nothing worth keeping was measured, so the journal goes with it.
   await deleteFloatTrack(sessionId).catch((error) => warn('float', 'could not queue the track deletion', error));
   const ended = await activityLifecycle.end(null, undefined, false);
   void dismissFloatNotifications();
-  return ended;
+  // end() has already cleared the float from memory either way; false only
+  // means the storage write failed and is being retried.
+  return ended ? 'discarded' : 'discarded-unsaved';
 }
 
 /**
+ * `refused`: the float has measured enough to keep, and nothing changed.
+ * Either discarded result means the float is gone; `discarded-unsaved` only
+ * says its storage write is still being retried, not that it lives on.
+ */
+export type DiscardResult = 'refused' | 'discarded' | 'discarded-unsaved';
+
+/**
  * Discard an accidental float (floatEnding.ts isShortFloat): no recap, no
- * history entry, journal deleted. Refused (false) once the float has
+ * history entry, journal deleted. Refused once the float has
  * measured enough to be worth keeping; use endFloat then.
  */
-export function discardShortFloat(now = Date.now()): Promise<boolean> {
+export function discardShortFloat(now = Date.now()): Promise<DiscardResult> {
   const session = store.get();
-  if (!session || !isShortFloat(session, now)) return Promise.resolve(false);
+  if (!session || !isShortFloat(session, now)) return Promise.resolve('refused');
   return discardWithoutRecap(session.id);
 }
 

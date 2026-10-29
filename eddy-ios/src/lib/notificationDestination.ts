@@ -3,12 +3,25 @@ export const FINISH_FLOAT_ACTION = 'finish-float';
 
 /**
  * A notification action that is a command, not a destination: Finish on the
- * arrival prompt ends the float. Anything else is a plain tap.
+ * arrival prompt ends the float. Anything else is a plain tap. Which float it
+ * may end is finishFloatTarget's question.
  */
 export function notificationCommand(actionIdentifier: string | null | undefined, input: unknown): 'finish-float' | null {
   if (actionIdentifier !== FINISH_FLOAT_ACTION) return null;
   const data = input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>) : null;
   return data && typeof data.floatReminder === 'string' ? 'finish-float' : null;
+}
+
+/**
+ * Finish on an arrival prompt ends the float that sent it, and only that one:
+ * a notice kept in Notification Center, or delivered late, must not end a
+ * float started since. True only when the notice names the active float; a
+ * notice from before floats were named cannot say, so it ends nothing (the
+ * tap opens River Mode instead).
+ */
+export function finishesActiveFloat(input: unknown, activeId: string | null | undefined): boolean {
+  const data = input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>) : null;
+  return Boolean(activeId) && typeof data?.floatId === 'string' && data.floatId === activeId;
 }
 
 /** Preserve the alert's exact subject and management context on notification taps.

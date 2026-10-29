@@ -1,21 +1,22 @@
-import { EMPTY_FLOAT_TOTALS, finishFloatTotals } from '@eddy/geo';
+import { finishFloatTotals } from '@eddy/geo';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { recordedOrigin } from './floatOrigin';
-import type { FloatSession } from './floatSession';
+import { floatAccount, type FloatSession } from './floatSession';
 
 /**
  * Explicit allowlist: the active session contains private raw positions.
  *
- * A float that reached the take-out ended there, however late Finish was
- * tapped (accounting stopped at arrival too; floatSession.ts applyFix). One
- * that did not ends when it was ended, or, for an automatic end, when the
- * paddler left the river (floatEnding.ts).
+ * A float that reached the take-out and stayed ended there, however late
+ * Finish was tapped. One that carried on past it, or never reached it, ends
+ * when it was ended: Finish, or for an automatic end, where its movement
+ * stopped or the paddler left the river (floatEnding.ts). floatSession.ts
+ * floatAccount decides which.
  */
 export function recapFloat(session: FloatSession, now: number): CompletedFloat {
-  const finished = session.arrivedAt ?? now;
-  const endedAt = Math.max(session.startedAt, finished, session.totals?.last?.timestamp ?? 0);
+  const account = floatAccount(session, now);
+  const endedAt = Math.max(session.startedAt, account.until);
   const elapsedMs = endedAt - session.startedAt;
-  const totals = session.totals ?? EMPTY_FLOAT_TOTALS;
+  const totals = account.totals;
   const origin = recordedOrigin(session);
   return {
     version: 1,

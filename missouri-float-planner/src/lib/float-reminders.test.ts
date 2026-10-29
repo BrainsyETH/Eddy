@@ -392,12 +392,14 @@ test('arrival does not end a float whose paddler keeps going downstream past the
   assert.equal(continuingPastEnd(session, t), true);
   assert.equal(autoEndAt(session, t), null);
 
-  // Then stops on the bank for a quarter of an hour: the float ends, and the
-  // recap counts it finished at the take-out it was planned to.
+  // Then stops on the bank for a quarter of an hour: the float ends where
+  // that movement stopped, not back at the take-out it was planned to.
   const stopped = t + CONTINUING_WINDOW_MS + 10_000;
   for (let when = t; when <= stopped; when += 10_000) session = applyFix(session, index, fix(at(9_000, 5), when), when);
   assert.equal(continuingPastEnd(session, stopped), false);
-  assert.equal(autoEndAt(session, stopped), arrivedAt);
+  assert.equal(session.pastTakeOut, true);
+  const endedAt = autoEndAt(session, stopped)!;
+  assert.ok(endedAt > arrivedAt + AUTO_END_AFTER_ARRIVAL_MS && Math.abs(endedAt - t) <= 20_000, `ended ${endedAt - t} ms from the last movement`);
 
   // A GPS gap after moving past the take-out is not evidence of still moving.
   assert.equal(continuingPastEnd(session, stopped + 2 * CONTINUING_WINDOW_MS), false);
@@ -418,6 +420,9 @@ test('a float is short, and can be discarded without a recap, until it has measu
   assert.match(discardCopy('unplaced'), /never placed you on the river/);
   assert.equal(discardReason(session, T0 + SHORT_FLOAT_MS), 'stationary');
   assert.equal(discardReason(far.session, T0 + SHORT_FLOAT_MS), null);
+  // Out and back to the launch: no net progress, but real distance to keep.
+  const back = paddle(far.session, index, 400, 100, far.t);
+  assert.equal(discardReason(back.session, back.t + SHORT_FLOAT_MS), null);
 });
 
 test('away is judged on fresh evidence: a gap, a return to the river, or a bank stop ends nothing', () => {
@@ -446,6 +451,20 @@ test('away is judged on fresh evidence: a gap, a return to the river, or a bank 
   }
   assert.equal(bank.awaySince, null);
   assert.equal(autoEndAt(bank, t + 2 * AUTO_END_AWAY_MS), null);
+
+  // One away fix, 46 minutes with no GPS, another away fix: the outage is
+  // missing evidence, not 46 minutes away. Nothing ends, nothing is backdated.
+  const outage = t + 46 * 60_000;
+  const resumed = farFix(farFix(session, t), outage);
+  assert.equal(resumed.awayMs, 0);
+  assert.equal(autoEndAt(resumed, outage), null);
+  assert.deepEqual(dueReminders(resumed, index, outage).map((r) => r.id), []);
+
+  // Unbroken away fixes still count, and the end is the first of them.
+  let gone = farFix(session, t);
+  for (let when = t + 60_000; when <= t + AUTO_END_AWAY_MS; when += 60_000) gone = farFix(gone, when);
+  assert.equal(gone.awayMs, AUTO_END_AWAY_MS);
+  assert.equal(autoEndAt(gone, t + AUTO_END_AWAY_MS), t);
 });
 
 test('local reminder permission distinguishes quiet delivery and does not mistake read failure for denial', () => {

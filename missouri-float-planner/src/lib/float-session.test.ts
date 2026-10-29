@@ -434,6 +434,18 @@ test('a relaunch restores the session exactly; only a real gap in fixes makes th
   const gapMiles = session.totals!.distanceMiles - restored.totals!.distanceMiles;
   assert.ok(gapMiles > 560 / MILE && gapMiles < 600 / MILE, `gap distance ${gapMiles}`);
   assert.ok(session.totals!.movingMs - restored.totals!.movingMs < 60_000, 'the ten-minute gap is not moving time');
+
+  // The same gap with a fix far from the river in it (off the water, driving
+  // round to a bridge) counts nothing: that was not miles paddled.
+  let drove = applyFix(restored, index, { ...fix(1_300, T0 + 300_000), lngLat: at(1_300, 3_000) }, T0 + 300_000);
+  assert.equal(drove.leftRiver, true);
+  drove = applyFix(drove, index, fix(1_600, T0 + 660_000), T0 + 660_000);
+  drove = applyFix(drove, index, fix(1_610, T0 + 670_000), T0 + 670_000);
+  drove = applyFix(drove, index, fix(1_620, T0 + 680_000), T0 + 680_000);
+  assert.equal(viewSession(drove, T0 + 680_000).status, 'live');
+  assert.equal(drove.samples[drove.samples.length - 1].reacquired, undefined);
+  assert.equal(drove.leftRiver, false);
+  assert.ok(drove.totals!.distanceMiles - restored.totals!.distanceMiles < 30 / MILE, 'no distance across a gap spent off the river');
 });
 
 // ── Off the river, arrival, hazards, the stretch, and daylight ──────────────
@@ -480,7 +492,7 @@ test('going well away from the river is recorded once, and a river position clea
   assert.equal(session.awaySince, null);
 });
 
-test('arrival is recorded once from a confirmed position; on-water accounting stops there', async () => {
+test('arrival is recorded once from a confirmed position; a float that stays there ends there', async () => {
   const { recapFloat } = await import('../../../eddy-ios/src/lib/floatRecap');
   const { route, index } = prepared();
   const started = startSession({ id: 'a1', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
@@ -488,11 +500,13 @@ test('arrival is recorded once from a confirmed position; on-water accounting st
   let session = float(started.session, index, 0, T0, 6_000, 1);
   assert.ok(session.arrivedAt != null);
   const arrivedAt = session.arrivedAt!;
-  const totalsAtArrival = session.totals;
+  const totalsAtArrival = session.arrivalTotals;
+  assert.ok(totalsAtArrival);
   // Sit at the take-out for twenty minutes, then walk to the car.
   session = float(session, index, 6_000, T0 + 6_010_000, 1_200, 0);
   assert.equal(session.arrivedAt, arrivedAt);
-  assert.deepEqual(session.totals, totalsAtArrival);
+  assert.deepEqual(session.arrivalTotals, totalsAtArrival, 'the accounting as it stood at arrival is kept');
+  assert.notEqual(session.pastTakeOut, true);
   let t = T0 + 7_300_000;
   for (let s = 0; s < 10; s += 1) {
     t += 20_000;
@@ -504,6 +518,33 @@ test('arrival is recorded once from a confirmed position; on-water accounting st
   assert.equal(recap.reachedTakeOut, true);
   assert.equal(recap.endedAt, arrivedAt);
   assert.equal(recap.elapsedMs, arrivedAt - T0);
+  assert.equal(recap.stoppedMs, 0, 'twenty minutes at the take-out is not part of the float');
+});
+
+test('a float that carries on past its take-out is counted to where it stopped, not back at arrival', async () => {
+  const { recapFloat } = await import('../../../eddy-ios/src/lib/floatRecap');
+  const { autoEndAt, CONTINUING_WINDOW_MS } = await import('../../../eddy-ios/src/lib/floatEnding');
+  const { route, index } = prepared();
+  const started = startSession({ id: 'a3', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(started.ok);
+  // Pulltite is at x = 6 km; paddle on to x = 9.5 km, then stop on a bank.
+  let session = float(started.session, index, 0, T0, 6_000, 1);
+  const arrivedAt = session.arrivedAt!;
+  session = float(session, index, 6_010, T0 + 6_010_000, 3_490, 1);
+  assert.equal(session.pastTakeOut, true);
+  const movedUntil = T0 + 9_500_000;
+  let t = movedUntil;
+  for (; t <= movedUntil + CONTINUING_WINDOW_MS + 60_000; t += 10_000) {
+    session = applyFix(session, index, { lngLat: at(9_500, 5), accuracyMeters: 10, timestamp: t }, t);
+  }
+  const endAt = autoEndAt(session, t);
+  assert.ok(endAt != null && endAt > arrivedAt + 50 * 60_000, 'ended where the movement stopped, not at the take-out');
+  assert.ok(Math.abs(endAt - movedUntil) <= 20_000, `ended at ${endAt - movedUntil} ms from the last movement`);
+  const recap = recapFloat(session, endAt);
+  assert.equal(recap.reachedTakeOut, true, 'the take-out was still reached');
+  assert.equal(recap.endedAt, endAt);
+  assert.ok(recap.distanceMiles > 9_000 / 1609.344 * 0.95, `distance ${recap.distanceMiles}`);
+  assert.ok(recap.stoppedMs < 60_000, 'the stop the float ended at is not part of it');
 });
 
 test('a quick start already past its take-out never counts as arrived', () => {

@@ -155,6 +155,7 @@ function scene(options: { stacks?: Array<{ id: string; ids: string[]; lng: numbe
     LAYER_SHAPE: { access: 'pin', gauges: 'drop' },
     ACCESS_BADGE_LIFT: 11, ZOOM: { places: 9.5 },
     layers: [] as string[], setPublicLand: () => {},
+    selectedPinId: null as string | null, selectedPin: null as { id: string; coordinates: { lng: number; lat: number } } | null,
   };
   const selectPinHits = handler('selectPinHits', context);
   return { context, selected, zooms, choices, dismissed: () => dismissed,
@@ -173,6 +174,19 @@ test('POI hit testing queries only the IDs registered by rendered pins', async (
   assert.equal(queries[0], s.context.pinHitLayers);
   for (const id of ['pins-dams-icon', 'pins-allGauges-cluster', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
   assert.deepEqual(s.selected, ['access:2']);
+});
+
+test('a tap on the selected marker its layer no longer holds stays on that place', async () => {
+  // Outfitters switched off with an outfitter's sheet open: the selection layer
+  // still draws it, but byId has dropped it. The tap used to fall through to
+  // the river or the background and close the sheet.
+  const s = scene();
+  s.context.selectedPinId = 'outfitter:7';
+  s.context.selectedPin = { id: 'outfitter:7', coordinates: { lng: -91.5, lat: 37.2 } };
+  s.context.mapRef.current.queryRenderedFeaturesInRect = async () => ({ features: [{ properties: { id: 'outfitter:7' } }] });
+  await s.press(tap);
+  assert.deepEqual(s.selected, ['outfitter:7']);
+  assert.equal(s.dismissed(), 0);
 });
 
 test('every rendered POI layer registers its hit-test ID, including the unused dot fallback', () => {
@@ -433,7 +447,21 @@ test('the selected place has its own source, and every layer leaves it out', () 
   const unselected = handler('unselected', { selectedPinId: 'gauge:1' });
   assert.deepEqual(JSON.parse(JSON.stringify(unselected(['!', ['has', 'point_count']]))),
     ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'id'], 'gauge:1']]);
-  assert.equal(handler('unselected', { selectedPinId: null })(undefined), undefined);
+  // @rnmapbox's iOS layer ignores an undefined or empty filter, so returning
+  // undefined after a close left `!= selected` on the layer and the place
+  // vanished. With no selection the filter must still be a real expression.
+  const cleared = handler('unselected', { selectedPinId: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(cleared(undefined))), ['!=', ['get', 'id'], '']);
+  assert.deepEqual(JSON.parse(JSON.stringify(cleared(['!', ['has', 'point_count']]))),
+    ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'id'], '']]);
+});
+
+test('no map layer filter can fall back to undefined, which iOS never clears', () => {
+  // Every filter prop is either a literal array or unselected(); a ternary or
+  // optional filter would reintroduce the stuck-filter bug on close.
+  for (const match of mapText.matchAll(/filter=\{([^}]*)\}/g)) {
+    assert.match(match[1], /^(\[|unselected\(|solo$)/, `filter={${match[1]}} must always be an expression`);
+  }
 });
 
 test('the selection still draws when the layer that drew it is switched off', () => {
@@ -648,7 +676,7 @@ test('search and tap land in the same state for gauges', () => {
   const gaugeBranch = body[1].slice(body[1].indexOf("if (result.kind === 'gauge')"));
   // A tapped gauge selects no river; neither does a searched one with a point.
   assert.match(gaugeBranch, /if \(target\) \{\s*issueCameraCommand\(\{\s*type: 'searchResultSelected'/);
-  assert.match(gaugeBranch, /\} else if \(result\.riverSlug\) \{\s*selectRiver\(result\.riverSlug, \{ camera: 'fitRiver' \}\);/);
+  assert.match(gaugeBranch, /\} else if \(result\.riverSlug\) \{\s*selectRiver\(result\.riverSlug, \{ camera: 'fitRiver', waitForSheet: false \}\);/);
   // And a station hidden by the flow-band chips widens them instead of
   // flying to an empty spot.
   assert.match(gaugeBranch, /applyGaugeFilters\(\[lite\], gaugeFilter\)\.length === 0/);

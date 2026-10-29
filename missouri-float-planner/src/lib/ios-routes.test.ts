@@ -1,4 +1,4 @@
-import { FINISH_FLOAT_ACTION, notificationCommand, notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
+import { FINISH_FLOAT_ACTION, finishesActiveFloat, notificationCommand, notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -263,6 +263,15 @@ test('notification destinations keep the exact subject and alert context', () =>
   assert.equal(notificationCommand('expo.modules.notifications.actions.DEFAULT', { floatReminder: 'arrived' }), null);
   assert.equal(notificationCommand(FINISH_FLOAT_ACTION, { riverSlug: 'current' }), null);
   assert.equal(notificationCommand(undefined, { floatReminder: 'arrived' }), null);
+  // Finish ends only the float that sent the notice: never a later one, and
+  // never from a notice that does not say which float it was.
+  assert.equal(finishesActiveFloat({ floatReminder: 'arrived', floatId: 'f1' }, 'f1'), true);
+  assert.equal(finishesActiveFloat({ floatReminder: 'arrived', floatId: 'f1' }, 'f2'), false);
+  assert.equal(finishesActiveFloat({ floatReminder: 'arrived' }, 'f2'), false);
+  assert.equal(finishesActiveFloat({ floatReminder: 'arrived', floatId: 'f1' }, null), false);
+  const push = readFileSync('../eddy-ios/src/hooks/usePush.tsx', 'utf8');
+  const guard = push.indexOf('!finishesActiveFloat(data, id)');
+  assert.ok(guard !== -1 && guard < push.indexOf('await endFloat()'), 'usePush checks the float before ending it');
 });
 
 

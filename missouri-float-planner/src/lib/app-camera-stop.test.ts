@@ -40,7 +40,7 @@ const SCREEN = join(process.cwd(), '../eddy-ios/app/(tabs)/(map)/index.tsx');
 
 test('all explicit camera moves become immediate when Reduce Motion is enabled at execution', () => {
   const actions: MapCameraAction[] = [
-    { type: 'riverSelected', bounds: [-92, 36, -91, 38] },
+    { type: 'riverSelected', bounds: [-92, 36, -91, 38], waitForSheet: true },
     { type: 'poiSelected', lng: -91, lat: 37 },
     { type: 'searchResultSelected', lng: -91, lat: 37, zoom: 12 },
     { type: 'locationRequested', lng: -91, lat: 37, zoom: 10 },
@@ -167,7 +167,7 @@ test('a fit whose river has no line yet is deferred, never dropped', () => {
   assert.ok(redemption, 'nothing redeems a deferred fit; it is recorded and forgotten');
   assert.match(
     redemption[1],
-    /issueCameraCommand\(\{ type: 'riverSelected', bounds \}\)/,
+    /issueCameraCommand\(\{ type: 'riverSelected', bounds, waitForSheet: pending\.waitForSheet \}\)/,
     'the deferred fit is read back but never turned into a camera command',
   );
   assert.match(
@@ -224,13 +224,24 @@ test('every declared camera intent is used, and every used one is declared', () 
 });
 
 test('river and POI selection have distinct camera behavior', () => {
-  assert.deepEqual(cameraCommandFor({ type: 'riverSelected', bounds: [-92, 36, -91, 38] }, 4), {
+  assert.deepEqual(cameraCommandFor({ type: 'riverSelected', bounds: [-92, 36, -91, 38], waitForSheet: true }, 4), {
     id: 4,
     type: 'fitBounds',
     bounds: [-92, 36, -91, 38],
     duration: 550,
     waitForSheet: true,
   });
+  // With no sheet coming (the planner, a plan link) the fit runs now: waiting
+  // for a sheet that never opens left the map where it was.
+  assert.deepEqual(cameraCommandFor({ type: 'riverSelected', bounds: [-92, 36, -91, 38], waitForSheet: false }, 6), {
+    id: 6,
+    type: 'fitBounds',
+    bounds: [-92, 36, -91, 38],
+    duration: 550,
+  });
+  const screen = readFileSync(SCREEN, 'utf8');
+  assert.match(screen, /onSelectRiver=\{\(river\) => \{[\s\S]{0,200}selectRiver\(river\.slug, \{ camera: 'fitRiver', waitForSheet: false \}\)/,
+    'the planner frames the river without waiting for a sheet');
   assert.deepEqual(cameraCommandFor({ type: 'poiSelected', lng: -91.3, lat: 37.2 }, 5), {
     id: 5,
     type: 'showPoint',
@@ -386,7 +397,9 @@ test('closing cancels a frame issued in the instant before dismissal', () => {
 //
 // Rotation is on, so a turned map needs a way back to north-up. The reset is a
 // command like every other camera move, and it turns the map IN PLACE: a stop
-// carrying a centre, zoom or padding would also move the reader somewhere.
+// carrying a centre or zoom would also move the reader somewhere. It must carry
+// the current padding, because @rnmapbox's iOS camera zeroes any side a stop
+// leaves out, which slid the map by half the sheet's height.
 test('the compass turns the map to north in place, through the command system', () => {
   assert.deepEqual(cameraCommandFor({ type: 'northRequested' }, 21), {
     id: 21,
@@ -400,9 +413,10 @@ test('the compass turns the map to north in place, through the command system', 
   const stop = /\.setCamera\(\{([^}]*)\}\)/.exec(branch[0]);
   assert.ok(stop, 'the resetHeading branch no longer calls setCamera');
   assert.match(stop[1], /heading: 0/);
+  assert.match(stop[1], /padding: cameraPadding/, 'north-up without padding zeroes it natively');
   assert.doesNotMatch(
     stop[1],
-    /centerCoordinate|bounds|zoomLevel|padding/,
+    /centerCoordinate|bounds|zoomLevel/,
     'north-up moved the camera as well as turning it',
   );
 });

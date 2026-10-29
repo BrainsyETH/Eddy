@@ -96,7 +96,12 @@ export function useAccessPointDetail(detailRoute: string | null | undefined, rev
       publish: (response) => setHeld({ route, detail: response, failed: false }),
       failed: (err) => {
         warn('map', 'access point detail failed', err);
-        setHeld({ route, detail: null, failed: true, error: err instanceof ApiError && err.status === 404 ? 'This access point is no longer published.' : 'Could not load this access point.' });
+        const gone = err instanceof ApiError && err.status === 404;
+        // A failed refresh (no signal at the put-in) keeps the page it already
+        // showed; only a first load, or an unpublished place, becomes an error.
+        setHeld((prev) => (!gone && prev?.route === route && prev.detail
+          ? prev
+          : { route, detail: null, failed: true, error: gone ? 'This access point is no longer published.' : 'Could not load this access point.' }));
       },
       estimatesFailed: (err) => warn('map', 'nearby float estimates failed', err),
     });

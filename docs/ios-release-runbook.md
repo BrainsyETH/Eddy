@@ -410,15 +410,19 @@ are pending checks, not evidence of a device pass.
       not claim the paddler has landed. A serious
       known hazard (danger, warning, or a required portage) announced a quarter
       mile out, with the Next hazard card on screen; the recap says the take-out
-      was reached and ends at arrival even when Finish is tapped later or away
-      from the river. Leave a float running: it ends itself an hour after
-      arrival, or after driving well away from the river ("Still floating?" at
-      ten minutes, ended at 45), with a "Float ended" notice that opens the
-      recap. A long lunch on the bank must NOT end it, nor a GPS gap followed
-      by returning to the river, nor paddling on past the take-out: keep
-      floating downstream for over an hour after arrival and confirm the
-      float continues, then stop for fifteen minutes and confirm it ends
-      with the recap at the planned take-out. The "Arriving at" notice shows
+      was reached and, when the paddler stays there, ends at arrival even when
+      Finish is tapped later or away from the river. Leave a float running: it
+      ends itself an hour after arrival, or after driving well away from the
+      river ("Still floating?" after ten minutes of unbroken away fixes, ended
+      at 45; a GPS outage between away fixes adds nothing), with a "Float
+      ended" notice that opens the recap. A long lunch on the bank must NOT end
+      it, nor a GPS gap followed by returning to the river, nor paddling on
+      past the take-out: keep floating downstream for over an hour after
+      arrival and confirm the float continues, then stop for fifteen minutes
+      and confirm it ends where you stopped, with the recap's time and
+      distance including the stretch past the take-out (and "take-out
+      reached"). Swipe Eddy away mid-float, keep floating past the take-out,
+      reopen: recovery must not end the float before reading the newer fixes. The "Arriving at" notice shows
       a Finish float action: with the phone locked and in a Focus mode, the
       take-out and hazard reminders still appear (time-sensitive); tapping
       Finish ends the float and opens its recap; after Finish no float
