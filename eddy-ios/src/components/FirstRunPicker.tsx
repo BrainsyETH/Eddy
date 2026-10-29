@@ -6,9 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
 import { milesBetween, type Coords } from '@eddy/geo';
 import type { DamSnapshot, RiverListItem } from '@eddy/types';
-import { generationNow, generationStatusLabel } from '@eddy/conditions/dam-generation';
-import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
-import { EddyScene } from '@/components/EddyScene';
+import Animated from 'react-native-reanimated';
+import { FloatingEddy, PressableScale, Rise, usePop } from '@/components/OnboardingMotion';
 import { SearchBar } from '@/components/SearchBar';
 import { DAM_PHOTOS, OnboardingPhoto } from '@/components/OnboardingPhoto';
 import { useLocation } from '@/hooks/useLocation';
@@ -17,10 +16,11 @@ import { useDams, useDamRequestState, getSharedDams, type DamRequestState } from
 import { readBestIndex, agedIndex } from '@/lib/riverCache';
 import { envelope, type CacheEnvelope } from '@/lib/offline-cache';
 import { firstRunRivers, firstRunGauges } from '@/lib/firstRunPreload';
-import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, damPlaceholder, type FirstRunPlace } from '@/lib/firstRunPlaces';
+import { firstRunDamCard, firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, type FirstRunPlace } from '@/lib/firstRunPlaces';
 import { DAM_CATALOG } from '@/lib/damCatalog';
 import { riverDistanceLabel, riverMilesByGauge } from '@/lib/riverDistance';
 import { damControlledLabel, formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
+import { selectionFeedback, successFeedback } from '@/lib/haptics';
 import { report, warn } from '@/lib/monitoring';
 import { useTheme } from '@/theme/ThemeProvider';
 import { conditionColor, conditionShortLabel, conditionText } from '@/theme/conditions';
@@ -99,11 +99,15 @@ export function FirstRunPicker({ onDone }: Props) {
     return () => clearTimeout(timer);
   }, [query, places.length]);
 
-  const toggle = (key: string) => setSelected(current => {
-    const next = new Set(current);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    return next;
-  });
+  const toggle = (key: string) => {
+    selectionFeedback();
+    setSelected(current => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const footerPop = usePop(count > 0);
 
   const showNearby = async () => {
     if (locating) return;
@@ -130,6 +134,7 @@ export function FirstRunPicker({ onDone }: Props) {
     try {
       // Additive and idempotent; never toggle off a synced favorite on reinstall.
       followStars(favorites);
+      successFeedback();
       onDone();
     } catch (error) {
       report(error, { operation: 'firstRun.follow' });
@@ -157,15 +162,17 @@ export function FirstRunPicker({ onDone }: Props) {
           initialNumToRender={10}
           ListHeaderComponent={
             <View style={styles.header}>
-              <EddyScene name="wave" size={78} />
-              <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Choose your rivers and dams</Text>
-              <Text style={[styles.copy, { color: colors.textMuted }]}>Save your favorites to see their conditions on Today.</Text>
-              <Pressable accessibilityRole="button" disabled={locating || location.status === 'denied'}
+              <FloatingEddy name="wave" size={84} water={false} />
+              <Rise delay={120} style={styles.headerCopy}>
+                <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Pick your home waters</Text>
+                <Text style={[styles.copy, { color: colors.textMuted }]}>Follow the rivers and dams you float, and see their conditions first thing on Today.</Text>
+              </Rise>
+              <PressableScale accessibilityRole="button" disabled={locating || location.status === 'denied'}
                 accessibilityState={{ disabled: locating || location.status === 'denied' }}
                 onPress={() => void showNearby()} style={[styles.chip, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
                 {locating ? <ActivityIndicator size="small" color={colors.interactive} /> : <ControlIcon name="location-outline" size={17} color={colors.interactive} />}
                 <Text style={[styles.chipText, { color: colors.selectionText }]}>{locationLabel}</Text>
-              </Pressable>
+              </PressableScale>
               {location.status === 'denied' ? <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}>
                 <Text style={[styles.skipText, { color: colors.interactive }]}>Open Settings</Text>
               </Pressable> : null}
@@ -180,7 +187,7 @@ export function FirstRunPicker({ onDone }: Props) {
               <Text style={[styles.section, { color: colors.textMuted }]}>{query.trim() ? `${places.length} results` : browseAll ? 'All rivers and dams' : nearbyCoords && !riverDistances?.size ? 'Suggested rivers and nearby dams' : 'Suggested for you'}</Text>
             </View>
           }
-          renderItem={({ item }) => <PlaceCard place={item} selected={selected.has(item.key)} onPress={() => toggle(item.key)}
+          renderItem={({ item, index: position }) => <PlaceCard place={item} position={position} selected={selected.has(item.key)} onPress={() => toggle(item.key)}
             damRequestState={damRequestState}
             dam={item.kind === 'dam' ? dams?.find(dam => dam.id === item.dam.id) ?? null : null}
             miles={item.kind === 'river' ? riverDistances?.get(item.river.id) : damDistances?.get(item.dam.id)} now={now} />}
@@ -199,13 +206,15 @@ export function FirstRunPicker({ onDone }: Props) {
             {count > 0 ? <Pressable accessibilityRole="button"
               onPress={() => { Keyboard.dismiss(); setReviewOpen(true); }} style={styles.textButton}>
               <Text style={[styles.skipText, { color: colors.interactive }]}>Review selected ({count})</Text>
-            </Pressable> : <Text style={[styles.footerHint, { color: colors.textMuted }]}>Select at least one favorite</Text>}
+            </Pressable> : <Text style={[styles.footerHint, { color: colors.textMuted }]}>Tap a river or dam to follow it</Text>}
           </View>
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: !count || saving || !starsReady }}
-            disabled={!count || saving || !starsReady} onPress={finish}
-            style={({ pressed }) => [styles.button, { backgroundColor: count ? colors.accentFill : colors.border, opacity: pressed || saving ? 0.7 : 1 }]}>
-            <Text style={[styles.buttonText, { color: count ? colors.onAccent : colors.textSubtle }]}>{saving ? 'Saving…' : 'Save & continue'}</Text>
-          </Pressable>
+          <Animated.View style={footerPop}>
+            <PressableScale accessibilityRole="button" accessibilityState={{ disabled: !count || saving || !starsReady }}
+              disabled={!count || saving || !starsReady} onPress={finish}
+              style={({ pressed }) => [styles.button, { backgroundColor: count ? colors.accentFill : colors.border, opacity: pressed || saving ? 0.7 : 1 }]}>
+              <Text style={[styles.buttonText, { color: count ? colors.onAccent : colors.textSubtle }]}>{saving ? 'Saving…' : 'Add to Today'}</Text>
+            </PressableScale>
+          </Animated.View>
           <Pressable accessibilityRole="button" onPress={onDone} style={styles.textButton}>
             <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip for now</Text>
           </Pressable>
@@ -261,48 +270,54 @@ export function FirstRunPicker({ onDone }: Props) {
   );
 }
 
-function PlaceCard({ place, selected, onPress, dam, damRequestState, miles, now }: {
-  place: FirstRunPlace; selected: boolean; onPress: () => void; dam: DamSnapshot | null; damRequestState: DamRequestState; miles?: number; now: number;
+function PlaceCard({ place, position, selected, onPress, dam, damRequestState, miles, now }: {
+  place: FirstRunPlace; position: number; selected: boolean; onPress: () => void; dam: DamSnapshot | null; damRequestState: DamRequestState; miles?: number; now: number;
 }) {
   const { colors, isDark } = useTheme();
+  const pop = usePop(selected, 0.04);
+  const checkPop = usePop(selected, 0.25);
   const river = place.kind === 'river' ? place.river : null;
   const name = river?.name ?? (place.kind === 'dam' ? place.dam.name : '');
   const code = river?.currentCondition?.code ?? 'unknown';
   const reading = river?.currentCondition ? primaryReading(river.currentCondition) : null;
-  const generation = dam ? generationNow(dam, now) : null;
-  const release = dam?.metrics.release;
+  const damCard = place.kind === 'dam' ? firstRunDamCard(dam, damRequestState, now) : null;
   const status = river
     ? damControlledLabel(river.riverType, code) ?? conditionShortLabel(code)
-    : generation && generation.kind !== 'unavailable' ? generationStatusLabel(generation)
-    : release ? release.dailyMean ? 'Daily mean release' : 'Reported release'
-    : dam ? 'Reading unavailable' : damPlaceholder(damRequestState);
-  const value = reading ? formatReading(reading.value, reading.unit)
-    : generation && generation.kind !== 'unavailable' ? `${formatReading(generation.turbineCfs, 'cfs')} turbine flow`
-    : release ? `${Math.round(release.value).toLocaleString()} ${release.unit}` : null;
+    : damCard?.status ?? '';
+  const value = reading ? formatReading(reading.value, reading.unit) : damCard?.reading ?? null;
+  const outlook = damCard?.outlook ?? null;
   const age = reading ? readingAge(river?.currentCondition?.readingAgeHours) ?? 'Reading time unavailable'
-    : generation && generation.kind !== 'unavailable' ? relativeAge(generation.observedAt, now)
-    : release ? relativeAge(release.at, now) : null;
+    : damCard?.age ?? null;
   const distance = miles == null ? null : river ? riverDistanceLabel(miles) : `≈ ${Math.round(miles)} mi away`;
+  const kindLine = [place.kind === 'river' ? 'River' : 'Dam', river?.state ?? (place.kind === 'dam' ? place.dam.state : ''), damCard?.highlight]
+    .filter(Boolean).join(' · ');
   return (
-    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }}
-      accessibilityLabel={[name, place.kind, status, value, age, distance].filter(Boolean).join(', ')}
-      onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: selected ? colors.selectionBg : colors.card, borderColor: selected ? colors.interactive : colors.border, opacity: pressed ? 0.8 : 1 }]}>
-      <OnboardingPhoto uri={river?.photoUrl} damId={place.kind === 'dam' ? place.dam.id : undefined} />
-      <View style={[styles.selection, { backgroundColor: colors.card }]}>
-        <ControlIcon name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected ? colors.interactive : colors.textMuted} />
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={[styles.meta, { color: colors.textMuted }]}>{place.kind === 'river' ? 'River' : 'Dam'} · {river?.state ?? (place.kind === 'dam' ? place.dam.state : '')}</Text>
-        <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
-        <View style={styles.status}>
-          {river ? <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} /> : null}
-          <Text style={[styles.statusText, { color: river ? conditionText(code, isDark) : colors.text }]}>{status}</Text>
-        </View>
-        {value ? <Text style={[styles.reading, { color: colors.text }]}>{value}</Text> : null}
-        {age ? <Text style={[styles.meta, { color: colors.textMuted }]}>{age}</Text> : null}
-        {distance ? <Text style={[styles.meta, { color: colors.textMuted }]}>{distance}</Text> : null}
-      </View>
-    </Pressable>
+    // Only the first screenful staggers in; a card scrolled to later simply
+    // arrives, so browsing a long list never waits on a delay.
+    <Rise delay={Math.min(position, 6) * 70} style={styles.cardSlot}>
+      <Animated.View style={[styles.cardSlot, pop]}>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }}
+          accessibilityLabel={[name, place.kind, damCard?.highlight, status, value, outlook, age, distance].filter(Boolean).join(', ')}
+          onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: selected ? colors.selectionBg : colors.card, borderColor: selected ? colors.interactive : colors.border, opacity: pressed ? 0.85 : 1 }]}>
+          <OnboardingPhoto uri={river?.photoUrl} damId={place.kind === 'dam' ? place.dam.id : undefined} />
+          <Animated.View style={[styles.selection, { backgroundColor: selected ? colors.interactive : colors.card }, checkPop]}>
+            <ControlIcon name={selected ? 'checkmark' : 'add'} size={20} color={selected ? colors.onInteractive : colors.interactive} />
+          </Animated.View>
+          <View style={styles.cardBody}>
+            <Text style={[styles.meta, { color: colors.textMuted }]}>{kindLine}</Text>
+            <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
+            <View style={styles.status}>
+              {river ? <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} /> : null}
+              <Text style={[styles.statusText, { color: river ? conditionText(code, isDark) : colors.text }]}>{status}</Text>
+            </View>
+            {value ? <Text style={[styles.reading, { color: colors.text }]}>{value}</Text> : null}
+            {outlook ? <Text style={[styles.outlook, { color: colors.interactive }]}>{outlook}</Text> : null}
+            {age ? <Text style={[styles.meta, { color: colors.textMuted }]}>{age}</Text> : null}
+            {distance ? <Text style={[styles.meta, { color: colors.textMuted }]}>{distance}</Text> : null}
+          </View>
+        </Pressable>
+      </Animated.View>
+    </Rise>
   );
 }
 
@@ -310,6 +325,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 },
   header: { alignItems: 'center' },
+  headerCopy: { alignSelf: 'stretch', alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, textAlign: 'center', marginTop: 10 },
   copy: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 24, paddingVertical: 10, paddingHorizontal: 14, marginTop: 16, minHeight: 44, maxWidth: '100%' },
@@ -318,14 +334,16 @@ const styles = StyleSheet.create({
   section: { ...t.sm, fontFamily: fonts.semibold, alignSelf: 'flex-start', marginTop: 20, marginBottom: 12 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, minHeight: 44 },
   columns: { gap: 12 },
+  cardSlot: { flex: 1 },
   card: { flex: 1, borderWidth: 2, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
   cardBody: { padding: 12, gap: 5 },
-  selection: { position: 'absolute', top: 8, right: 8, borderRadius: 18, padding: 3 },
+  selection: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   name: { ...t.base, fontFamily: fonts.semibold },
   status: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   reading: { ...t.sm, fontFamily: fonts.monoMedium },
+  outlook: { ...t.xs, fontFamily: fonts.semibold },
   meta: { ...t.xs, fontFamily: fonts.body },
   footer: { paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1 },
   button: { borderRadius: 12, paddingVertical: 15, paddingHorizontal: 12, alignItems: 'center', minHeight: 48 },

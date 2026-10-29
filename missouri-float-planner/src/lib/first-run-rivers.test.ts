@@ -1,8 +1,8 @@
-import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, damPlaceholder } from '../../../eddy-ios/src/lib/firstRunPlaces';
+import { firstRunDamCard, firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, damPlaceholder } from '../../../eddy-ios/src/lib/firstRunPlaces';
 import { createPreloadHandoff } from '../../../eddy-ios/src/lib/preloadHandoff';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { RiverListItem } from '../../../packages/eddy-types/index';
+import type { DamSnapshot, RiverListItem } from '../../../packages/eddy-types/index';
 import {
   FEATURED_RIVER_SLUGS,
   FIRST_RUN_RIVER_COUNT,
@@ -263,6 +263,65 @@ test('dam placeholders distinguish initial load, failure, retry, and missing obs
   assert.equal(damPlaceholder('loading'), 'Loading…');
   assert.equal(damPlaceholder('error'), 'Couldn’t load readings');
   assert.equal(damPlaceholder('ready'), 'Reading unavailable');
+});
+
+// 17:00 UTC is noon Central in July (CDT): hour ending 13 is running.
+const NOON_CENTRAL = Date.parse('2026-07-28T17:00:00Z');
+
+function scheduleDay(mwByHour: Record<number, number>, retrievedMinutesAgo = 5) {
+  return {
+    scheduleDate: '2026-07-28',
+    hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: mwByHour[i + 1] ?? 0, cfs: null, isRamp: false })),
+    idle: [],
+    retrievedAt: new Date(NOON_CENTRAL - retrievedMinutesAgo * 60_000).toISOString(),
+  };
+}
+
+function damSnapshot(overrides: Partial<DamSnapshot> = {}): DamSnapshot {
+  const at = new Date(NOON_CENTRAL - 20 * 60_000).toISOString();
+  return {
+    id: 'swl-table-rock-dam', name: 'Table Rock Dam', lakeName: 'Table Rock Lake', state: 'MO', lat: 36.6, lon: -93.3,
+    hasTurbines: true, generationFloorCfs: 100, tailwaterFishery: 'trout',
+    generationReference: { units: 4, fullGenerationCfs: 14_000, schedulingCapacityMw: 200, source: 'SWPA' },
+    metrics: { generationFlow: { value: 20, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 20, unit: 'cfs', at, staleness: 'fresh' } },
+    generating: false, schedule: [], sources: [],
+    ...overrides,
+  } as DamSnapshot;
+}
+
+test('an idle dam card leads with the next scheduled release, not turbine leakage', () => {
+  const card = firstRunDamCard(damSnapshot({ schedule: [scheduleDay({ 15: 120, 16: 120 })] }), 'ready', NOON_CENTRAL);
+  assert.equal(card.reading, null, 'leakage below the generation floor is not a reading worth leading with');
+  assert.match(card.outlook ?? '', /^Generation scheduled to start at 2 PM$/);
+  assert.equal(card.highlight, 'Trout tailwater');
+});
+
+test('an idle dam card drops a stale schedule rather than make an undated forward claim', () => {
+  const card = firstRunDamCard(damSnapshot({ schedule: [scheduleDay({ 15: 120 }, 240)] }), 'ready', NOON_CENTRAL);
+  assert.equal(card.outlook, null);
+});
+
+test('an idle dam with no schedule shows total release only above the generation floor', () => {
+  const at = new Date(NOON_CENTRAL - 20 * 60_000).toISOString();
+  assert.equal(firstRunDamCard(damSnapshot(), 'ready', NOON_CENTRAL).reading, null);
+  const spilling = damSnapshot({ metrics: {
+    generationFlow: { value: 20, unit: 'cfs', at, staleness: 'fresh' },
+    release: { value: 3_400, unit: 'cfs', at, staleness: 'fresh' },
+  } });
+  assert.equal(firstRunDamCard(spilling, 'ready', NOON_CENTRAL).reading, '3,400 cfs total release');
+});
+
+test('a generating dam card keeps its turbine flow and age', () => {
+  const at = new Date(NOON_CENTRAL - 20 * 60_000).toISOString();
+  const card = firstRunDamCard(damSnapshot({ metrics: { generationFlow: { value: 7_000, unit: 'cfs', at, staleness: 'fresh' } } }), 'ready', NOON_CENTRAL);
+  assert.equal(card.status, 'Generating now');
+  assert.equal(card.reading, '7,000 cfs turbine flow');
+  assert.ok(card.age);
+});
+
+test('a dam card with no snapshot falls back to the request placeholder', () => {
+  assert.equal(firstRunDamCard(null, 'loading', NOON_CENTRAL).status, 'Loading…');
+  assert.equal(firstRunDamCard(null, 'error', NOON_CENTRAL).status, 'Couldn’t load readings');
 });
 
 test('slow preloads remain shared and receive a full freshness window after completion', async () => {

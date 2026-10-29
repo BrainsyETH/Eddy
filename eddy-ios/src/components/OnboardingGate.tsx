@@ -2,7 +2,8 @@ import { openExternalLink } from '@/lib/openExternalLink';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EddyScene } from '@/components/EddyScene';
+import { ControlIcon } from '@/components/ControlIcon';
+import { FloatingEddy, PressableScale, Rise } from '@/components/OnboardingMotion';
 import { preloadTodayData } from '@/lib/firstRunPreload';
 import { FirstRunPicker } from '@/components/FirstRunPicker';
 import { OnboardingSignIn } from '@/components/OnboardingSignIn';
@@ -147,43 +148,89 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <EddyScene name="wave" size={160} />
-        <Text style={[styles.title, { color: colors.text }]}>Your day on the water starts here.</Text>
-        <Text style={[styles.copy, { color: colors.textMuted }]}>Check conditions, find access points, and plan your next float with Eddy.</Text>
-        <SafetyDisclaimer />
-        <Text style={[styles.copy, { color: colors.textMuted }]}>By continuing, you agree to Eddy&apos;s Terms of Use and acknowledge the Privacy Policy.</Text>
-        <View style={styles.links}>
-          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(TERMS_URL)} hitSlop={8}>
-            <Text style={[styles.link, { color: colors.interactive }]}>Terms of Use</Text>
-          </Pressable>
-          <Text style={{ color: colors.textSubtle }}>·</Text>
-          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(PRIVACY_URL)} hitSlop={8}>
-            <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
-          </Pressable>
+        <FloatingEddy name="wave" size={150} />
+        <Rise delay={180} style={styles.block}>
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Know before you float.</Text>
+          <Text style={[styles.lede, { color: colors.textMuted }]}>Live river levels, access points, and float times for Ozarks rivers, all in one place.</Text>
+        </Rise>
+        <View style={styles.features}>
+          {WELCOME_FEATURES.map((feature, index) => (
+            <Rise key={feature.title} delay={340 + index * 110}>
+              <View style={[styles.feature, { backgroundColor: colors.card, borderColor: colors.border }]}
+                accessible accessibilityLabel={`${feature.title}. ${feature.detail}`}>
+                <View style={[styles.featureIcon, { backgroundColor: colors.selectionBg }]}>
+                  <ControlIcon name={feature.icon} size={20} color={colors.interactive} />
+                </View>
+                <View style={styles.featureCopy}>
+                  <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
+                  <Text style={[styles.featureDetail, { color: colors.textMuted }]}>{feature.detail}</Text>
+                </View>
+              </View>
+            </Rise>
+          ))}
         </View>
       </ScrollView>
-      <View style={[styles.footer, { borderTopColor: colors.border }]}> 
-        <Pressable
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        {/* Beside the button that acknowledges it, never below a scroll fold. */}
+        <SafetyDisclaimer compact />
+        <PressableScale
           accessibilityRole="button"
+          accessibilityHint="Accepts the Terms of Use and continues"
           onPress={() => void agree()}
           disabled={saving}
           style={({ pressed }) => [styles.button, { backgroundColor: colors.accentFill, opacity: pressed || saving ? 0.7 : 1 }]}
         >
-          <Text style={[styles.buttonText, { color: colors.onAccent }]}>{saving ? 'Saving…' : 'I understand'}</Text>
-        </Pressable>
+          <Text style={[styles.buttonText, { color: colors.onAccent }]}>{saving ? 'Saving…' : AGREE_LABEL}</Text>
+        </PressableScale>
+        <Text style={[styles.legal, { color: colors.textMuted }]}>
+          By tapping {AGREE_LABEL}, you agree to Eddy&apos;s Terms of Use and acknowledge the Privacy Policy.
+        </Text>
+        <View style={styles.links}>
+          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(TERMS_URL)} hitSlop={12}>
+            <Text style={[styles.link, { color: colors.interactive }]}>Terms of Use</Text>
+          </Pressable>
+          <Text style={{ color: colors.textSubtle }}>·</Text>
+          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(PRIVACY_URL)} hitSlop={12}>
+            <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
+/**
+ * The button's words, said once so the sentence under it can name it exactly.
+ * "By tapping X" only means something when X is what the button says.
+ */
+const AGREE_LABEL = 'Agree & get started';
+
+/**
+ * Three things the app does, said as what the reader gets. Each line has to
+ * stay true on a day with no data: these describe features, never a reading.
+ */
+const WELCOME_FEATURES = [
+  { icon: 'pulse-outline', title: 'Live water levels', detail: 'Real-time gauge readings, rated for floating on each river.' },
+  { icon: 'map-outline', title: 'Access points and float times', detail: 'Pick a put-in and take-out and see how long the float runs.' },
+  { icon: 'notifications-outline', title: 'Free river alerts', detail: 'Hear when your river comes up to a good level or runs high.' },
+] as const;
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  body: { flexGrow: 1, paddingVertical: 24, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
-  title: { ...t['2xl'], fontFamily: fonts.displayBold, textAlign: 'center', marginTop: 12 },
-  copy: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 12 },
-  links: { flexWrap: 'wrap', justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18 },
-  link: { ...t.sm, fontFamily: fonts.semibold, textDecorationLine: 'underline' },
-  footer: { padding: 20, borderTopWidth: 1 },
-  button: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  body: { flexGrow: 1, paddingVertical: 24, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  block: { alignSelf: 'stretch', alignItems: 'center' },
+  title: { ...t['3xl'], fontFamily: fonts.displayBold, textAlign: 'center', marginTop: 14 },
+  lede: { ...t.base, fontFamily: fonts.body, textAlign: 'center', marginTop: 8, paddingHorizontal: 6 },
+  features: { alignSelf: 'stretch', gap: 10, marginTop: 22 },
+  feature: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14 },
+  featureIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  featureCopy: { flex: 1, gap: 2 },
+  featureTitle: { ...t.base, fontFamily: fonts.semibold },
+  featureDetail: { ...t.sm, fontFamily: fonts.body },
+  links: { flexWrap: 'wrap', justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 4 },
+  link: { ...t.xs, fontFamily: fonts.semibold, textDecorationLine: 'underline' },
+  footer: { paddingHorizontal: 20, paddingTop: 2, paddingBottom: 8, borderTopWidth: 1, gap: 10 },
+  button: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', minHeight: 52 },
   buttonText: { ...t.base, fontFamily: fonts.semibold },
+  legal: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
 });

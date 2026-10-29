@@ -83,7 +83,7 @@ test('the gate never awaits an uncaught promise before its first render', () => 
 // two populations who need opposite treatment:
 //
 //   • everyone who installed before the picker existed → straight into the app
-//   • everyone who just tapped "I understand" → the picker
+//   • everyone who just tapped "Agree & get started" → the picker
 //
 // A boolean cannot tell them apart, and the failure is silent: every new install
 // skips the picker, on device only. The stored phase is what separates them,

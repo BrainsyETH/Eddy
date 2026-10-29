@@ -1913,14 +1913,23 @@ offer an online booking action. Image taps still open the photo gallery.
 ### First-run onboarding
 
 The welcome uses Eddy's existing wave artwork, a scrollable body, and the current
-safety/terms acknowledgment. The optional next screen searches the entire river
+safety/terms acknowledgment. The safety disclaimer sits in the footer beside the
+“Agree & get started” button that acknowledges it, and the terms sentence names
+that button exactly. First-run motion lives in `OnboardingMotion.tsx`: Eddy bobs
+on drifting water, copy and cards rise in on a short stagger, and buttons and
+selections give a small spring with selection haptics. Motion is decoration on
+features and controls only, never on a reading, and every piece renders its
+resting state under Reduce Motion. The optional next screen searches the entire river
 and dam catalog, including lake names. Suggested rivers and three dams start the
 list; an explicit Near me tap changes those suggestions without discarding picks.
 River photos come from the index. Featured dams have bundled attributed photos;
 missing imagery uses Eddy's existing river/dam illustrations. Cards become one
 column for larger Dynamic Type and keep conditions, measurements, and reading age
 on separate lines. Dam measurements use generation/release semantics, never a
-floatability rating. Cached river verdicts are aged with the same rules as Today.
+floatability rating. An idle dam card leads with the posted schedule's next move
+(`firstRunDamCard`), not the leakage an idle powerhouse reports; a stale schedule
+is dropped there, and total release stands in only above the dam's generation
+floor. Trout tailwaters say so on the kind line. Cached river verdicts are aged with the same rules as Today.
 
 Both kinds of selection use additive Favorites writes, so a reinstall cannot
 unstar synced favorites. Today already reads those favorites for its cards.
@@ -1930,7 +1939,8 @@ shared stores. Picker/Today reuse those reads without blocking completion. Faile
 or expired handoffs are discarded, and pull-to-refresh clears the handoff before
 fetching. The picker requests location only after an explicit “Find rivers near me” tap;
 manual search and Skip remain available. After the picker, new guests receive an
-optional native Apple sign-in offer to set alerts and sync Favorites. “Not now”
+optional native Apple sign-in offer to set alerts and sync Favorites, with an
+example alert worded as `buildNotification` words the real push. “Maybe later”
 finishes onboarding; canceling Apple's sheet stays on the offer. It does not
 create alerts or ask for push permission. Completed existing installs and restored
 permanent sessions skip the offer. Interrupted onboarding resumes its pending step.
@@ -1947,7 +1957,7 @@ for now.” “Review selected (N)” opens a sheet derived from the same live f
 array as Save. Removal updates the count and card checkmarks immediately, and an
 empty selection keeps the sheet open with a Done action. The main list has no
 duplicate Selected section and does not reorder cards on selection. Result counts are announced after a pause in typing. The primary
-button stays “Save & continue,” with a separate selection count/hint. Dam request
+button reads “Add to Today,” with a separate selection count/hint. Dam request
 status distinguishes loading, failed requests (with retry), and absent readings.
 Known tailwater slugs are preserved when saving dam favorites; offline selections
 remain possible. Denied location offers Settings, and returning with permission
