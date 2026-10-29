@@ -116,6 +116,22 @@
           "No restroom or vault toilet is in AGFC GIS for this site. Confirm none exists.",
           "The ramp's surface and condition at low water are unconfirmed. AGFC's 2017 article says the access is heavily used. Check that the ramp reaches water at low summer and fall flows (Peach Orchard gauge read about 214 cfs on 2026-10-28).",
           "No openly licensed photo was found: Wikimedia Commons geosearch within 10 km found only ISS Earth photos and roadside pictures near Reyno. The og:image of the AGFC dedication article is a generic flying-mallard stock photo, so it was rejected. AGFC GIS has a 2020 photo of the access sign (Signs layer 17, objectid 688, attachment 846) with no stated license. It is useful as evidence, not for publication."
+        ],
+        "optional_images": [
+          {
+            "kind": "agency_page",
+            "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/688/attachments/846",
+            "title": "Kody Riggan Datto Access sign",
+            "altText": "Green AGFC sign reading 'Kody Riggan Datto Access, provided by Arkansas Game & Fish Comm., Dave Donaldson Black River' in front of brush.",
+            "caption": "Location photograph; not current conditions.",
+            "credit": "Arkansas Game and Fish Commission",
+            "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/688/attachments?f=json",
+            "license": null,
+            "licenseUrl": null,
+            "license_terms": "No license stated (AGFC; owner to decide)",
+            "depicts": "The AGFC entrance sign at the access, 17 m from the pin. The river itself is not visible.",
+            "note": "AGFC field photo; no license stated. Use only if the owner accepts AGFC sign photos."
+          }
         ]
       }
     },
@@ -150,7 +166,30 @@
       "managing_agency": null,
       "pin": null,
       "river_mile": null,
-      "images": [],
+      "images": [
+        {
+          "kind": "open_license",
+          "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Downstream_Black_River_at_Brookings_Boat_Ramp.jpg/1280px-Downstream_Black_River_at_Brookings_Boat_Ramp.jpg",
+          "title": "Downstream Black River at Brookings Boat Ramp",
+          "altText": "Concrete plank boat ramp sloping into the brown, slow Black River, with tree-lined banks and a stilt cabin on the far shore.",
+          "caption": "Location photograph; not current conditions.",
+          "credit": "Brandonrush / Wikimedia Commons",
+          "sourceUrl": "https://commons.wikimedia.org/wiki/File:Downstream_Black_River_at_Brookings_Boat_Ramp.jpg",
+          "license": "CC0 1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "kind": "open_license",
+          "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Upstream_Black_River_at_Brookings_Boat_Ramp.jpg/1280px-Upstream_Black_River_at_Brookings_Boat_Ramp.jpg",
+          "title": "Upstream Black River at Brookings Boat Ramp",
+          "altText": "Wide, calm Black River with bald cypress trees and riverside cabins and boathouses along the far bank.",
+          "caption": "Location photograph; not current conditions.",
+          "credit": "Brandonrush / Wikimedia Commons",
+          "sourceUrl": "https://commons.wikimedia.org/wiki/File:Upstream_Black_River_at_Brookings_Boat_Ramp.jpg",
+          "license": "CC0 1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
       "field_sources": {
         "name": [
           "https://www.agfc.com/wma/dave-donaldson-black-river-wma/",
@@ -228,6 +267,22 @@
           "The sign photo appears to show a gravel/riprap apron, while AGFC lists the ramp as concrete. Confirm the ramp surface and whether it reaches water at low flow.",
           "No restroom is documented. Confirm.",
           "No openly licensed photo found (Commons geosearch: none). AGFC GIS has a 2020 sign photo with no license (Signs layer 17, objectid 678, attachment 974). It is evidence only."
+        ],
+        "optional_images": [
+          {
+            "kind": "agency_page",
+            "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/678/attachments/974",
+            "title": "Brookings public access sign",
+            "altText": "Green AGFC public access sign dedicated in memory of W.J. 'Curley' Hacket, with the river and riprap visible behind it.",
+            "caption": "Location photograph; not current conditions.",
+            "credit": "Arkansas Game and Fish Commission",
+            "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/678/attachments?f=json",
+            "license": null,
+            "licenseUrl": null,
+            "license_terms": "No license stated (AGFC; owner to decide)",
+            "depicts": "The AGFC sign at the Brookings ramp, 19 m from the pin, with the gravel and riprap apron and the river visible at right.",
+            "note": "AGFC field photo; no license stated. Use only if the owner accepts AGFC sign photos."
+          }
         ]
       }
     },
@@ -344,6 +399,22 @@
           "A covered structure appears behind the sign in AGFC's 2020 sign photo. Confirm whether there is a pavilion or toilet before adding amenities.",
           "The sign says 'National Register of Historic Places'. This was not confirmed in NRIS; an informal source cites site 3RA430, recorded during the 1994 AGFC access project. Phrase as 'signed archaeological site' unless confirmed.",
           "No openly licensed photo found. AGFC GIS has a 2020 sign photo with no license (Signs layer 17, objectid 690, attachment 618). It is evidence only."
+        ],
+        "optional_images": [
+          {
+            "kind": "agency_page",
+            "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/690/attachments/618",
+            "title": "Schaeffer's Eddy Access sign",
+            "altText": "Roofed green AGFC sign for Schaeffer's Eddy Access and archaeological site, with a paved lot behind it.",
+            "caption": "Location photograph; not current conditions.",
+            "credit": "Arkansas Game and Fish Commission",
+            "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/690/attachments?f=json",
+            "license": null,
+            "licenseUrl": null,
+            "license_terms": "No license stated (AGFC; owner to decide)",
+            "depicts": "The roofed AGFC sign ('Schaeffer's Eddy Access and Archaeological Site ... National Register of Historic Places ... Got your life jacket?') at the lot, 114 m from the pin; a covered structure stands behind it. The river is not visible.",
+            "note": "AGFC field photo; no license stated. Use only if the owner accepts AGFC sign photos."
+          }
         ]
       }
     },
@@ -1192,6 +1263,22 @@
           "A 1997-98 guide places an old stone dam 'just above' the US 62 bridge. Determine whether it lies above this ramp (on the Blacks Ferry approach) or between the ramp and the bridge.",
           "Eddy's mile 86.16 is geometry-derived and appears offset about +6.5 mi from the Float Missouri mile system used upstream (see the Dalton mileage note). Dalton to here is about 20.1 mi on the OSM line, against 20.46 mi from Eddy's miles, so the spacing between the two Arkansas sites itself is consistent.",
           "Photos: none found. AGFC has no place page, and the AGFC GIS layer has no attachments for objectids 1035/475/2122. Wikimedia Commons within 3 km has only Old Union School and ISS earth views. Flickr was not searched."
+        ],
+        "optional_images": [
+          {
+            "kind": "agency_page",
+            "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/982/attachments/394",
+            "title": "Eleven Point Access sign",
+            "altText": "Green AGFC sign reading 'Eleven Point Access, provided by Arkansas Game & Fish Comm., a federal aid project'.",
+            "caption": "Location photograph; not current conditions.",
+            "credit": "Arkansas Game and Fish Commission",
+            "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/982/attachments?f=json",
+            "license": null,
+            "licenseUrl": null,
+            "license_terms": "No license stated (AGFC; owner to decide)",
+            "depicts": "The AGFC entrance sign, 36 m from the pin. The river is not visible.",
+            "note": "AGFC field photo; no license stated. Use only if the owner accepts AGFC sign photos."
+          }
         ]
       }
     },
@@ -1805,7 +1892,52 @@
       "managing_agency": "USFS",
       "pin": null,
       "river_mile": null,
-      "images": [],
+      "images": [
+        {
+          "kind": "open_license",
+          "url": "https://live.staticflickr.com/65535/52941936285_1dbedaad45_h.jpg",
+          "title": "Indian Creek Access sign",
+          "altText": "Wooden 'Indian Creek Access, built by Mulberry River Society 2017' sign beside a flagstone path through green woods.",
+          "caption": "Location photograph; not current conditions.",
+          "credit": "SlapTheWorld / Flickr",
+          "sourceUrl": "https://www.flickr.com/photos/196446665@N03/52941936285/",
+          "license": "CC0 1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "kind": "open_license",
+          "url": "https://live.staticflickr.com/65535/52941697904_630bba6eb4_h.jpg",
+          "title": "Gravel bar and stone steps at Indian Creek Access",
+          "altText": "Wide gravel bar and shallow clear water, with stone steps coming down the wooded bank at right.",
+          "caption": "Location photograph; not current conditions.",
+          "credit": "SlapTheWorld / Flickr",
+          "sourceUrl": "https://www.flickr.com/photos/196446665@N03/52941697904/",
+          "license": "CC0 1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "kind": "open_license",
+          "url": "https://live.staticflickr.com/65535/52941697649_b08f7812c7_h.jpg",
+          "title": "Mulberry River pool at Indian Creek Access",
+          "altText": "Calm green pool of the Mulberry River reflecting trees, with a leaning tree on the near bank and wooded hills beyond.",
+          "caption": "Location photograph; not current conditions.",
+          "credit": "SlapTheWorld / Flickr",
+          "sourceUrl": "https://www.flickr.com/photos/196446665@N03/52941697649/",
+          "license": "CC0 1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "kind": "open_license",
+          "url": "https://live.staticflickr.com/65535/52942011758_919b0fd8d4_h.jpg",
+          "title": "Gravel bar on the Mulberry River at Indian Creek Access",
+          "altText": "Broad cobble gravel bar beside a shallow channel under overhanging trees.",
+          "caption": "Location photograph; not current conditions.",
+          "credit": "SlapTheWorld / Flickr",
+          "sourceUrl": "https://www.flickr.com/photos/196446665@N03/52942011758/",
+          "license": "CC0 1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
       "field_sources": {
         "pin": [
           "https://api.openstreetmap.org/api/0.6/map.json?bbox=-93.7230,35.6770,-93.7000,35.6900",
@@ -1869,6 +2001,22 @@
           "The 'walk-in' carry distance (about 60–80 m by imagery) and the route down the bank are unconfirmed on the ground.",
           "Lot capacity is unknown; the small loop looks like roughly a handful of vehicles.",
           "The slug was not provided in the context."
+        ],
+        "optional_images": [
+          {
+            "kind": "agency_page",
+            "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/827/attachments/21",
+            "title": "Indian Creek Access sign (AGFC inventory)",
+            "altText": "Wooden 'Indian Creek Access, built by Mulberry River Society 2017' sign in spring greenery.",
+            "caption": "Location photograph; not current conditions.",
+            "credit": "Arkansas Game and Fish Commission",
+            "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/827/attachments?f=json",
+            "license": null,
+            "licenseUrl": null,
+            "license_terms": "No license stated (AGFC; owner to decide)",
+            "depicts": "The same Mulberry River Society sign as the CC0 Flickr photo, 12 m from the pin. The CC0 Flickr photo makes this one unnecessary.",
+            "note": "AGFC field photo; no license stated. Use only if the owner accepts AGFC sign photos."
+          }
         ]
       }
     },
