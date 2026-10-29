@@ -294,3 +294,28 @@ test('result cards never show a straight-line distance; the ordering note appear
     assert.doesNotMatch(readFileSync(file, 'utf8'), /nearbyMiles\}?\s*mi\b|mi away/, `${file} renders a put-in distance`);
   }
 });
+
+test('both apps submit the same normalized search body and identity', async () => {
+  const { floatSearchRequest, floatSearchIdentity, floatFilterCount } = await import('@shared/float-search');
+  const input = { river: 'current', near: { lat: 37.123, lng: -91.987 }, radiusMiles: 100, targetHours: 5, vesselType: 'kayak' as const, publicOnly: true, days: 1 as const, filters: { camping: true, restrooms: false } };
+  assert.deepEqual(floatSearchRequest(input), { near: { lat: 37.12, lng: -91.99 }, river: 'current', radiusMiles: 100, targetHours: 5, vesselType: 'kayak', publicOnly: true, filters: { camping: true } });
+  assert.equal(floatSearchIdentity(input), floatSearchIdentity({ ...input, days: undefined, filters: { camping: true } }), 'defaults and false filters are not changes');
+  assert.notEqual(floatSearchIdentity(input), floatSearchIdentity({ ...input, days: 2 }));
+  assert.equal(floatFilterCount(input), 1);
+  assert.equal(floatFilterCount({ ...input, publicOnly: false }), 2);
+  assert.equal(floatFilterCount({ publicOnly: true }), 0);
+});
+
+test('sorting reorders a section without changing membership; drive sort needs drive times', async () => {
+  const { sortFloatOptions, floatSortsFor, driveLabel } = await import('@shared/float-search');
+  const rows = [{ id: 'a', minutes: 300, driveMinutes: 50 }, { id: 'b', minutes: 200, driveMinutes: null }, { id: 'c', minutes: 400, driveMinutes: 20 }];
+  assert.deepEqual(sortFloatOptions(rows, 'best').map(r => r.id), ['a', 'b', 'c']);
+  assert.deepEqual(sortFloatOptions(rows, 'drive').map(r => r.id), ['c', 'a', 'b']);
+  assert.deepEqual(sortFloatOptions(rows, 'shortest').map(r => r.id), ['b', 'a', 'c']);
+  assert.deepEqual(sortFloatOptions(rows, 'longest').map(r => r.id), ['c', 'a', 'b']);
+  assert.ok(floatSortsFor(rows).some(s => s.value === 'drive'));
+  assert.ok(!floatSortsFor([{ driveMinutes: null }]).some(s => s.value === 'drive'));
+  assert.equal(driveLabel(45), '45 min');
+  assert.equal(driveLabel(60), '1 hr');
+  assert.equal(driveLabel(95), '1 hr 35 min');
+});

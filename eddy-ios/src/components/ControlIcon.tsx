@@ -18,6 +18,7 @@ const symbols: Partial<Record<NonNullable<Props['name']>, SFSymbol>> = {
   'map-outline': 'map', 'navigate-outline': 'location.north',
   'information-circle-outline': 'info.circle', 'ellipsis-horizontal': 'ellipsis',
   'time-outline': 'clock', 'trash-outline': 'trash',
+  'options-outline': 'slider.horizontal.3', 'swap-vertical': 'arrow.up.arrow.down',
 };
 
 /** Native utility glyphs on iOS; preserve category artwork and other icons. */

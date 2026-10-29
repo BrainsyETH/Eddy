@@ -3,6 +3,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 import { sheetControl } from '@/theme/palette';
+import { FLOAT_DISTANCE_INFO, FLOAT_TIME_INFO } from '@eddy/conditions/float-search';
 import { fonts, type as t } from '@/theme/typography';
 
 export type FloatInfoTopic = 'time' | 'distance';
@@ -38,18 +39,7 @@ export function FloatInfoSheet({ topic, onClose }: { topic: FloatInfoTopic; onCl
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={styles.body}>
-            {(topic === 'time'
-              ? [
-                  'Eddy uses published trip times when available. Otherwise, estimates use your vessel, route distance, and available river data.',
-                  'River flow can change your pace. Eddy uses current readings when available; estimates based on typical conditions are labeled.',
-                  'Trip times allow for typical stops. Your paddling pace and longer breaks can make the trip shorter or longer. A time range is a guide, not an arrival time.',
-                  'Opening a float checks the route again, so its estimate can change as new information comes in.',
-                ]
-              : [
-                  'Search distance is measured in a straight line from your starting location to the put-in. The drive may be longer.',
-                  'River miles describe the distance you float between the put-in and take-out. They are separate from the search distance.',
-                ]
-            ).map((paragraph) => (
+            {(topic === 'time' ? FLOAT_TIME_INFO : FLOAT_DISTANCE_INFO).map((paragraph) => (
               <Text key={paragraph} style={[t.base, { color: colors.textMuted }]}>
                 {paragraph}
               </Text>

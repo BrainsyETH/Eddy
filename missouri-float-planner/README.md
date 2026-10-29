@@ -164,9 +164,10 @@ assets for visual review; otherwise image requests use a local Eddy fixture.
 ## Floats
 
 `/find-float` is the Floats landing page. A **Build a Route** header CTA retains
-river/endpoint context. The compact **Find a Route** form sits above discovery:
-destination, time, nearby radius, and submit, with Vessel and public-access
-preferences inside a Filters disclosure. The header order is Map, Conditions,
+river/endpoint context. The **Find a Route** form sits above discovery:
+Where and nearby radius, then trip length, time and vessel, then a Filters row
+that shares a line with the submit button. Its inputs, filters and result cards
+match the iOS finder; see `docs/find-a-float.md`. The header order is Map, Conditions,
 Floats, Guides on desktop and mobile.
 
 **Featured Floats** uses the same `/api/favorite-floats?v=2` catalogue and local-day
@@ -178,11 +179,11 @@ invented. Featured floats remain visible below submitted **Matching Floats** and
 are separate from the finder's condition-aware results. Catalogue loading,
 empty, and retry states leave the finder and builder available.
 
-One destination field offers rivers from the catalogue and town suggestions
-after a 350ms pause. Its combobox/listbox supports arrow keys, Enter, Escape,
-and Tab while preserving input focus. Selecting a river clears nearby location;
-selecting a town or device location clears the river. Typed text must resolve
-to a selection before searching. Coordinates and town suggestions stay in
+One Where field offers rivers from the catalogue, then access points and towns
+after a 300ms pause. Its combobox/listbox supports arrow keys, Enter (the
+highlighted or top suggestion), Escape, and Tab while preserving input focus.
+Unfinished typing never clears the current choice. Selecting a town clears the
+river; selecting a river keeps device location (for drive times) but not a town. Coordinates and town suggestions stay in
 memory; only the Vessel preference is saved locally.
 
 The time selector retains the full 0.5–12 hour range. Results are a

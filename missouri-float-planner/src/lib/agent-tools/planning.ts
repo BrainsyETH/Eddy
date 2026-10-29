@@ -1,5 +1,5 @@
 import { abortable } from './budget';
-import { splitRouteHazards } from '@shared/route-hazards';
+import { hazardRoutePosition, splitRouteHazards } from '@shared/route-hazards';
 import {
   estimateRoute,
   RouteEstimateError,
@@ -257,6 +257,17 @@ export function createPlanning(
       Number(takeOut.river_mile_downstream),
     );
     const hazards = routeHazards.hazards;
+    const endpointHazards = hazards.flatMap((hazard) => {
+      const at = hazardRoutePosition(
+        Number(hazard.river_mile_downstream),
+        Number(putIn.river_mile_downstream),
+        Number(takeOut.river_mile_downstream),
+      );
+      return at === 'put_in' || at === 'take_out' ? [{ hazard, at }] : [];
+    });
+    const inRouteHazards = hazards.filter(
+      (hazard) => !endpointHazards.some((endpoint) => endpoint.hazard === hazard),
+    );
     const unlocatedHazards = hazardRows.filter(
       (h) => numeric(h.river_mile_downstream) == null,
     );
@@ -288,8 +299,9 @@ export function createPlanning(
       lowSpanGauge: estimate.contributingGauges.some(
         (g) => g.conditionCode === 'too_low',
       ),
-      hazards,
+      hazards: inRouteHazards,
       unlocatedHazards,
+      endpointHazards,
       alerts,
       riverName: river.name,
       endpointNames: [putIn.name, takeOut.name],
@@ -383,6 +395,7 @@ export function createPlanning(
           status:
             hazards.length || unlocatedHazards.length ? 'ok' : 'none_recorded',
           items: hazards,
+          atEndpoints: endpointHazards.map(({ hazard, at }) => ({ id: hazard.id, at })),
           unlocated: unlocatedHazards,
           source: 'Eddy recorded hazards',
         },

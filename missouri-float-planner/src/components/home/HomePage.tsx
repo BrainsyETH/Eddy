@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import AppLink from '@/components/AppLink';
-import { ArrowRight, Search, MapPin } from 'lucide-react';
+import { ArrowRight, Search } from 'lucide-react';
+import BuildRouteIcon from '@/components/ui/BuildRouteIcon';
 import type { RiverGuide } from '@/lib/data/rivers';
 import RiverMapFeature from '@/components/home/RiverMapFeature';
 import EddyHeroBubble from '@/components/home/EddyHeroBubble';
@@ -87,6 +88,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                   data-ga-label="hero"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
                 >
+                  <BuildRouteIcon size={22} />
                   Build a Route
                 </Link>
               </div>
@@ -129,7 +131,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
               <ArrowRight className="h-4 w-4 text-primary-700" aria-hidden="true" />
             </Link>}
             <Link href="/plan" data-ga-event="cta_plan_float" data-ga-label="home_planning" className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-5 no-underline hover:shadow-soft-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600">
-              <MapPin className="h-7 w-7 flex-shrink-0 text-primary-600" aria-hidden="true" />
+              <span className="flex text-primary-600"><BuildRouteIcon size={32} /></span>
               <div className="flex-1"><h3 className="text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>Build a Route</h3><p className="mt-1 text-sm text-neutral-600">Choose your put-in and take-out</p></div>
               <ArrowRight className="h-4 w-4 text-primary-700" aria-hidden="true" />
             </Link>

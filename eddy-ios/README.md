@@ -369,12 +369,13 @@ new-plan isolation, and preserved Map stack.
 Find a Route is a shared detail in every tab: opening it from a river page
 preserves that page and its tab, so Back returns to the same river. Cold finder
 links still belong to Floats. Its Where? picker contains Current location,
-rivers and towns. With an existing location grant and a recent fix, an untouched
+rivers, access points and towns. With an existing location grant and a recent fix, an untouched
 finder defaults to Near you. An intentional river or town selection always wins,
 including while GPS is loading. Current location is checked when selected;
 there is no redundant location action on the main form. River choices work
-without a location permission; only an explicit location tap asks. Selecting a river clears the
-previous nearby point, and selecting a location clears the river. Town search
+without a location permission; only an explicit location tap asks. Selecting a river keeps Current
+location (for launch order and drive times) but never a town; selecting a town
+clears the river, and an access point selects its river from that launch. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
 While searching, the bundled Eddy checking a gauge appears with “Eddy’s reading
@@ -389,11 +390,13 @@ Results use photos from each float’s put-in or take-out, preferring a photo
 not already shown in another result when one is available. Access-point galleries,
 reviewed place photos, linked campgrounds, and verified community reports supply
 these images, with the already-loaded river photo and then an Eddy illustration
-as fallbacks. Duration, river miles, condition, and
-access status are visible without expanding details. Cautions stay visible;
+as fallbacks. Duration, river miles, drive time (when
+the search has a starting point), condition, access status and up to three
+highlights are visible without expanding details. Cautions stay visible;
 descriptions, estimate provenance, and endpoint access details use a disclosure.
-Search details hold the proximity explanation and freshness context, while
-partial-search status remains visible. The native finder header is opaque so
+Results show when they were checked and a native Sort menu; partial-search
+status remains visible. The finder adds no inline explainer copy — estimate and
+distance notes are behind info buttons. The native finder header is opaque so
 content scrolling underneath cannot obscure its title or Back control.
 
 Kayak is the initial vessel, then an explicit choice is remembered. Find a Route
@@ -401,10 +404,12 @@ and Ready to float share one compact Vessel row with the caption "Helps estimate
 your float time". Its native menu uses the shared `FLOAT_BOATS` inventory, checks
 the current choice, and applies a selection without a confirmation step. There
 are no vessel tiles or pace bars. Large text stacks the label and selected value.
-Changing the finder's vessel still cancels an in-flight search and clears its
-old results; dismissing the menu leaves them intact.
-Public access only is visible on the form and
-on by default; switching it off can include private or unconfirmed endpoints.
+Changing any finder choice cancels an in-flight search and dims the old
+results, which stay inert until Update routes; dismissing a menu leaves them
+intact. Trip length is a native menu (day trip, 2 or 3 days; the slider then
+sets hours a day). Public access only is on by default and lives in the Filters
+sheet with the other filters: a Settings-style list of switches with Reset and
+Done, matching the website's groups.
 Estimate info explains published and modeled times without claiming every
 estimate comes directly from CFS. A retry retains the finder’s chosen vessel.
 
