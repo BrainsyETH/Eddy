@@ -589,7 +589,7 @@ export default function ConfigureAlertScreen() {
           <Text style={[styles.stepBody, { color: colors.textMuted }]}>
             {push.permission === 'granted' && !push.optedOut && !push.registered && pushCheck === 'checking'
               ? 'Connecting this iPhone for notifications…'
-              : notificationDetail({ permission: push.permission, registered: push.registered, optedOut: push.optedOut })}
+              : notificationDetail({ permission: push.permission, registered: push.registered, optedOut: push.optedOut, held: push.held })}
             {push.permission === 'denied' || push.optedOut ? ' You can turn notifications on in Settings.' : ''}
           </Text>
         ) : null}

@@ -32,18 +32,27 @@ import { isDeviceOptedOut, setDeviceOptedOut } from '@/lib/pushOptOut';
 import {
   getPermissionState,
   installForegroundHandler,
+  noteDeviceClaim,
   requestPermission,
   settleOwedRelease,
   syncRegistration,
+  takeDeviceClaim,
   unregisterThisDevice,
   type PermissionState,
 } from '@/lib/push';
+import { deviceClaimCode, type DeviceClaimState } from '@/lib/deviceClaim';
 
 interface PushValue {
   permission: PermissionState;
   optedOut: boolean;
   /** True once this device's token is known to the backend. */
   registered: boolean;
+  /**
+   * Another account still holds this iPhone's token (a reinstall without
+   * signing out): whether a confirmation was pushed to it. Null otherwise.
+   * Redeemed automatically when that confirmation arrives (deviceClaim.ts).
+   */
+  held: DeviceClaimState | null;
   /**
    * Spend the one-shot iOS prompt and register. Call ONLY after a primer —
    * see PushPrimer and the note in src/lib/push.ts.
@@ -70,6 +79,7 @@ const PushContext = createContext<PushValue>({
   permission: 'undetermined',
   optedOut: false,
   registered: false,
+  held: null,
   enable: async () => 'undetermined',
   disable: async () => false,
   unregister: async () => {},
@@ -108,6 +118,14 @@ export function PushProvider({ children }: { children: ReactNode }) {
   const [permission, setPermission] = useState<PermissionState>('undetermined');
   const [registered, setRegistered] = useState(false);
   const [optedOut, setOptedOut] = useState(false);
+  const [held, setHeld] = useState<DeviceClaimState | null>(null);
+  /** Mirrors `held` for the notification listeners, which are registered once. */
+  const heldRef = useRef<DeviceClaimState | null>(null);
+  const applyRegistration = useCallback((result: { ok: boolean; held: DeviceClaimState | null }) => {
+    setRegistered(result.ok);
+    setHeld(result.held);
+    heldRef.current = result.held;
+  }, []);
 
   const userId = session?.user?.id ?? null;
   const signedIn = Boolean(userId) && !isAnonymous;
@@ -149,6 +167,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
     navigatorReadyRef.current = navigatorReady;
   }, [navigatorReady]);
   const pendingResponse = useRef<Notifications.NotificationResponse | null>(null);
+  /** Latest redeemer, read by listeners registered once (set below refresh). */
+  const redeemClaimRef = useRef<(code: string) => void>(() => {});
 
   const routeTo = useCallback(
     (response: Notifications.NotificationResponse) => {
@@ -194,6 +214,17 @@ export function PushProvider({ children }: { children: ReactNode }) {
       const id = response.notification.request.identifier;
       if (handled.current.has(id)) return;
       handled.current.add(id);
+
+      // A device-claim confirmation opens nothing: it is redeemed, if this
+      // iPhone is waiting for one (redeemClaimRef, below).
+      const claim = deviceClaimCode(response.notification.request.content.data);
+      if (claim) {
+        // Kept first, so a cold launch from this tap still has it for the
+        // refresh that follows, whatever else is ready yet.
+        noteDeviceClaim(claim);
+        redeemClaimRef.current(claim);
+        return;
+      }
 
       if (!navigatorReadyRef.current) {
         pendingResponse.current = response;
@@ -246,14 +277,14 @@ export function PushProvider({ children }: { children: ReactNode }) {
     setOptedOut(deviceOptedOut);
 
     if (state !== 'granted' || !signedIn) {
-      setRegistered(false);
+      applyRegistration({ ok: false, held: null });
       // A release owed from an earlier sign-out needs no account, only signal.
       void settleOwedRelease();
       return;
     }
 
     if (deviceOptedOut) {
-      setRegistered(false);
+      applyRegistration({ ok: false, held: null });
       return;
     }
 
@@ -261,8 +292,39 @@ export function PushProvider({ children }: { children: ReactNode }) {
     if (!token || !userId) return;
 
     const result = await syncRegistration(token, userId);
-    setRegistered(result.ok);
-  }, [signedIn, userId, getAccessToken]);
+    applyRegistration(result);
+  }, [signedIn, userId, getAccessToken, applyRegistration]);
+
+  /**
+   * A device-claim code arrived (deviceClaim.ts). Kept either way, because it
+   * can beat the 409 that asked for it; redeemed now if this iPhone is
+   * waiting for one. A code nobody here asked for (someone else signed in
+   * with this phone's token) is never sent: it would only be refused.
+   */
+  const redeemClaim = useCallback(async (code: string) => {
+    noteDeviceClaim(code);
+    if (!heldRef.current || !signedIn || !userId) return;
+    const token = await getAccessToken();
+    const claimCode = takeDeviceClaim();
+    if (!token || !claimCode) return;
+    applyRegistration(await syncRegistration(token, userId, { force: true, claimCode }));
+  }, [signedIn, userId, getAccessToken, applyRegistration]);
+  useEffect(() => {
+    redeemClaimRef.current = (code) => {
+      void redeemClaim(code).catch((err) => warn('push', 'could not confirm this device', err));
+    };
+  }, [redeemClaim]);
+
+  // With Eddy open, the confirmation arrives here (the foreground handler
+  // keeps it off screen); a tap on one delivered while away arrives through
+  // openFromNotification instead.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const code = deviceClaimCode(notification.request.content.data);
+      if (code) redeemClaimRef.current(code);
+    });
+    return () => subscription.remove();
+  }, []);
 
   // Re-sync on every launch and whenever the signed-in user changes. Expo push
   // tokens rotate, and a stale one fails silently — the user simply stops
@@ -314,11 +376,11 @@ export function PushProvider({ children }: { children: ReactNode }) {
         // Forced: the device was opted out, so whatever the ledger says, the
         // server row is gone and must be written again.
         const result = await syncRegistration(token, userId, { force: true });
-        setRegistered(result.ok);
+        applyRegistration(result);
       }
     }
     return state;
-  }, [signedIn, userId, getAccessToken, features.push]);
+  }, [signedIn, userId, getAccessToken, features.push, applyRegistration]);
 
   const disable = useCallback(async () => {
     let persisted = true;
@@ -330,18 +392,18 @@ export function PushProvider({ children }: { children: ReactNode }) {
     }
     await unregisterThisDevice(await getAccessToken());
     if (persisted) setOptedOut(true);
-    setRegistered(false);
+    applyRegistration({ ok: false, held: null });
     return persisted;
-  }, [getAccessToken]);
+  }, [getAccessToken, applyRegistration]);
 
   const unregister = useCallback(async () => {
     await unregisterThisDevice(await getAccessToken());
-    setRegistered(false);
-  }, [getAccessToken]);
+    applyRegistration({ ok: false, held: null });
+  }, [getAccessToken, applyRegistration]);
 
   const value = useMemo<PushValue>(
-    () => ({ permission, optedOut, registered, enable, disable, unregister, refresh }),
-    [permission, optedOut, registered, enable, disable, unregister, refresh],
+    () => ({ permission, optedOut, registered, held, enable, disable, unregister, refresh }),
+    [permission, optedOut, registered, held, enable, disable, unregister, refresh],
   );
 
   return <PushContext.Provider value={value}>{children}</PushContext.Provider>;

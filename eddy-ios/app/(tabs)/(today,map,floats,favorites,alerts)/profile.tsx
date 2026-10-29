@@ -126,7 +126,7 @@ function ProfileContent() {
     forgetSession,
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
-  const { permission, optedOut, registered, enable, disable, unregister } = usePush();
+  const { permission, optedOut, registered, held, enable, disable, unregister, refresh: refreshPush } = usePush();
   const { features } = useAppConfig();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
@@ -572,7 +572,7 @@ function ProfileContent() {
 
   const notificationSummary = signedIn
     ? features.push
-      ? notificationDetail({ permission, optedOut, registered })
+      ? notificationDetail({ permission, optedOut, registered, held })
       : 'Temporarily unavailable. Alerts still appear in the Alerts tab.'
     : '';
   const notificationControl = notificationControlKind(features.push, permission);
@@ -594,7 +594,9 @@ function ProfileContent() {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              void refresh().finally(() => setRefreshing(false));
+              // Push too: "pull down to try again" is the retry the
+              // notification sentence offers (a held device, a failed sync).
+              void Promise.allSettled([refresh(), refreshPush()]).finally(() => setRefreshing(false));
             }}
             tintColor={colors.interactive}
           />
