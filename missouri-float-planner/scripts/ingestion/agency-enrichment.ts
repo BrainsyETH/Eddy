@@ -111,9 +111,9 @@ export function validateEnrichment(sites: EnrichmentSite[]): EnrichmentSite[] {
   return sites;
 }
 
-/** Agency page photo first (it shows the place), then openly licensed photos. */
+/** MDC page photo first (it shows the place), then openly licensed photos, then other agency photos. */
 export function imageUrlsOf(site: EnrichmentSite): string[] {
-  const order = { mdc_og: 0, agency_page: 1, open_license: 2 } as const;
+  const order = { mdc_og: 0, open_license: 1, agency_page: 2 } as const;
   return [...new Set([...site.images].sort((a, b) => order[a.kind] - order[b.kind]).map((i) => i.url))];
 }
 
