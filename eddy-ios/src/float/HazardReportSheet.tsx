@@ -7,12 +7,13 @@
 // with no signal; the report waits on the phone (src/lib/hazardReportQueue.ts)
 // and says so. Reports are reviewed before anyone else sees them.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Location from 'expo-location';
 import { locateOnRoute } from '@eddy/geo';
 import { indexRoute, type FloatSession } from '@/lib/floatSession';
 import { HAZARD_KINDS, newReportId, type HazardKind } from '@/lib/hazardReportQueue';
+import { newestPosition, positionAgeLabel, recorderPosition, type ReportPosition } from '@/lib/hazardReportPosition';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { addHazardReport } from './hazardReports';
@@ -23,55 +24,59 @@ import { EddySymbol } from '@/components/EddySymbol';
 const FIX_TIMEOUT_MS = 10_000;
 /** Farther than this from the line, no river mile is claimed for the report. */
 const ON_RIVER_M = 150;
-
-interface Here {
-  latitude: number;
-  longitude: number;
-  accuracyMeters: number | null;
-  at: number;
-  /** How old the position was when it was found, in whole minutes. */
-  minutesOld: number;
-}
+/** How often the position's age line is recomputed while the sheet is open. */
+const AGE_TICK_MS = 15_000;
 
 /** Mounted only while open, so every report starts from a clean sheet. */
 export function HazardReportSheet({ onClose, session }: { onClose: (reportId?: string) => void; session: FloatSession }) {
   const { colors } = useTheme();
   const [kind, setKind] = useState<HazardKind | null>(null);
   const [note, setNote] = useState('');
-  const [here, setHere] = useState<Here | null>(null);
+  const [here, setHere] = useState<ReportPosition | null>(null);
   const [locating, setLocating] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The age line is read again while the sheet stays open: a position found
+  // "just now" must not still say so five minutes later.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), AGE_TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
 
-  // A fresh position; the last known one if GPS is slow; the float's own last
-  // RAW fix as a last resort, never the point snapped onto the river line: a
-  // report filed from a snapped point would always read "near river mile X"
-  // with no accuracy to caveat it, for a hazard that may sit on the bank.
-  // Read once, when the sheet opens.
-  const [opened] = useState(() => ({ fix: session.lastFix ?? session.gpsPosition ?? null }));
+  // A fresh position, or iOS's last known one if GPS is slow, weighed against
+  // the float's own last RAW fix: whichever was measured more recently wins
+  // (src/lib/hazardReportPosition.ts). Never the point snapped onto the river
+  // line: a report filed from a snapped point would always read "near river
+  // mile X" with no accuracy to caveat it, for a hazard that may sit on the
+  // bank. The recorder's fix is read when the search settles, so one that
+  // arrived while GPS was slow still counts.
+  const latest = useRef(session);
+  useEffect(() => {
+    latest.current = session;
+  }, [session]);
   useEffect(() => {
     let cancelled = false;
-    type Found = Omit<Here, 'minutesOld'>;
-    const fallback: Found | null = opened.fix
-      ? { latitude: opened.fix.lngLat[1], longitude: opened.fix.lngLat[0], accuracyMeters: opened.fix.accuracyMeters ?? null, at: opened.fix.at }
-      : null;
-    const fromFix = (fix: Location.LocationObject | null): Found | null =>
+    const fromFix = (fix: Location.LocationObject | null): ReportPosition | null =>
       fix ? { latitude: fix.coords.latitude, longitude: fix.coords.longitude, accuracyMeters: fix.coords.accuracy ?? null, at: fix.timestamp } : null;
     void Promise.race([
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(fromFix),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), FIX_TIMEOUT_MS)),
     ])
       .catch(() => null)
-      .then(async (fresh) => fresh ?? fromFix(await Location.getLastKnownPositionAsync().catch(() => null)) ?? fallback)
-      .then((found) => {
+      .then(async (fresh) => fresh ?? fromFix(await Location.getLastKnownPositionAsync().catch(() => null)))
+      .then((phone) => {
         if (cancelled) return;
-        setHere(found ? { ...found, minutesOld: Math.max(0, Math.round((Date.now() - found.at) / 60_000)) } : null);
+        const recorded = latest.current;
+        const at = Date.now();
+        setHere(newestPosition([phone, recorderPosition(recorded.lastFix), recorderPosition(recorded.gpsPosition)], at));
+        setNow(at);
         setLocating(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [opened]);
+  }, []);
 
   const riverMile = useMemo(() => {
     if (!here) return null;
@@ -86,7 +91,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (reportId?: s
     : [
         riverMile != null ? `Near river mile ${riverMile.toFixed(1)}` : 'Away from the river line',
         here.accuracyMeters != null ? `±${Math.round(here.accuracyMeters)} m` : null,
-        here.minutesOld >= 1 ? `position from ${here.minutesOld} min ago` : 'just now',
+        positionAgeLabel(here.at, now),
       ].filter(Boolean).join(' · ');
 
   const save = async () => {
