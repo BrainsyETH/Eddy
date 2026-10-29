@@ -30,15 +30,17 @@
 // Arrival is judged on evidence too. Reaching the take-out starts the hour,
 // but a paddler whose confirmed positions keep moving downstream past it has
 // not finished: they chose the wrong take-out, or decided to go on. The end
-// waits until that movement stops (continuingPastEnd), and the recap still
-// counts the float as finished at the take-out it was planned to.
+// waits until that movement stops (continuingPastEnd). Reaching the take-out
+// and ending are separate: the recap says the take-out was reached, and a
+// float that carried on past it ends, and is counted, where that movement
+// stopped (floatSession.ts floatAccount), not back at the take-out.
 //
 // Pure, like floatSession.ts; covered by missouri-float-planner/src/lib/
 // float-reminders.test.ts. Prompts travel through the reminder machinery in
 // floatReminders.ts, so they get the same pending/sent bookkeeping.
 
 import { ARRIVAL_MILES } from '@eddy/geo';
-import { AWAY_FROM_RIVER_M, STALE_POSITION_MS, type FloatSession } from './floatSession';
+import { AWAY_FROM_RIVER_M, STALE_POSITION_MS, movementEndedAt, type FloatSession } from './floatSession';
 
 /** "Still floating?" after this long away from the river. */
 export const AWAY_PROMPT_MS = 10 * 60_000;
@@ -147,7 +149,9 @@ export function endPromptsDue(session: FloatSession, now: number): EndPromptKind
 export function autoEndAt(session: FloatSession | null, now: number): number | null {
   if (!session) return null;
   const reached = session.arrivedAt ?? session.riverEndAt;
-  if (reached != null && now - reached >= AUTO_END_AFTER_ARRIVAL_MS && !continuingPastEnd(session, now)) return reached;
+  if (reached != null && now - reached >= AUTO_END_AFTER_ARRIVAL_MS && !continuingPastEnd(session, now)) {
+    return session.pastTakeOut ? Math.max(reached, movementEndedAt(session) ?? reached) : reached;
+  }
   if (awayNow(session, now) && (session.awayMs ?? 0) >= AUTO_END_AWAY_MS) return session.awaySince!;
   return null;
 }
