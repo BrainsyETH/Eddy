@@ -212,6 +212,12 @@ export interface FloatSession {
    * (on the river, being re-confirmed on it, or on a bank) clears it.
    */
   awaySince?: number | null;
+  /**
+   * A fix placed the paddler more than AWAY_FROM_RIVER_M from the river since
+   * the last matched one. The next match then counts no distance across the
+   * gap: a drive over a bridge downstream is not miles paddled.
+   */
+  leftRiver?: boolean;
 }
 
 /**
@@ -436,14 +442,16 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const farAway = step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M &&
     !(session.recordedStart === null && atLaunch);
   next.awaySince = farAway ? (session.awaySince ?? fix.timestamp) : null;
+  if (farAway) next.leftRiver = true;
   if (step.result.kind === 'matched') {
     next.awaitingFix = false;
+    next.leftRiver = false;
     next.position = { lngLat: pointAt(index, step.result.lineMeters), at: fix.timestamp };
     const sample: PaceSample = {
       timestamp: fix.timestamp,
       riverMile: step.result.riverMile,
       continuous: step.result.continuous,
-      ...(step.result.reacquired ? { reacquired: true as const } : {}),
+      ...(step.result.reacquired && !session.leftRiver ? { reacquired: true as const } : {}),
     };
     const previous = session.samples[session.samples.length - 1];
     // A discontinuous sample is always kept: it marks a jump pace must not

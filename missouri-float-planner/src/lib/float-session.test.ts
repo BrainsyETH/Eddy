@@ -434,6 +434,18 @@ test('a relaunch restores the session exactly; only a real gap in fixes makes th
   const gapMiles = session.totals!.distanceMiles - restored.totals!.distanceMiles;
   assert.ok(gapMiles > 560 / MILE && gapMiles < 600 / MILE, `gap distance ${gapMiles}`);
   assert.ok(session.totals!.movingMs - restored.totals!.movingMs < 60_000, 'the ten-minute gap is not moving time');
+
+  // The same gap with a fix far from the river in it (off the water, driving
+  // round to a bridge) counts nothing: that was not miles paddled.
+  let drove = applyFix(restored, index, { ...fix(1_300, T0 + 300_000), lngLat: at(1_300, 3_000) }, T0 + 300_000);
+  assert.equal(drove.leftRiver, true);
+  drove = applyFix(drove, index, fix(1_600, T0 + 660_000), T0 + 660_000);
+  drove = applyFix(drove, index, fix(1_610, T0 + 670_000), T0 + 670_000);
+  drove = applyFix(drove, index, fix(1_620, T0 + 680_000), T0 + 680_000);
+  assert.equal(viewSession(drove, T0 + 680_000).status, 'live');
+  assert.equal(drove.samples[drove.samples.length - 1].reacquired, undefined);
+  assert.equal(drove.leftRiver, false);
+  assert.ok(drove.totals!.distanceMiles - restored.totals!.distanceMiles < 30 / MILE, 'no distance across a gap spent off the river');
 });
 
 // ── Off the river, arrival, hazards, the stretch, and daylight ──────────────

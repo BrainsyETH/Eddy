@@ -418,6 +418,9 @@ test('a float is short, and can be discarded without a recap, until it has measu
   assert.match(discardCopy('unplaced'), /never placed you on the river/);
   assert.equal(discardReason(session, T0 + SHORT_FLOAT_MS), 'stationary');
   assert.equal(discardReason(far.session, T0 + SHORT_FLOAT_MS), null);
+  // Out and back to the launch: no net progress, but real distance to keep.
+  const back = paddle(far.session, index, 400, 100, far.t);
+  assert.equal(discardReason(back.session, back.t + SHORT_FLOAT_MS), null);
 });
 
 test('away is judged on fresh evidence: a gap, a return to the river, or a bank stop ends nothing', () => {

@@ -91,7 +91,12 @@ export function discardReason(session: FloatSession, now: number): 'young' | 'un
   const placed = latest != null && session.startMile != null;
   if (now - session.startedAt < SHORT_FLOAT_MS) return 'young';
   if (!placed) return 'unplaced';
-  return Math.abs(latest.riverMile - session.startMile!) < SHORT_FLOAT_MILES ? 'stationary' : null;
+  // Both net and gross: an out-and-back trip ends where it began, and a real
+  // four-mile paddle must not be offered for discard as "no progress".
+  const travelled = (session.totals?.distanceMiles ?? 0) + (session.totals?.runDistanceMiles ?? 0);
+  return Math.abs(latest.riverMile - session.startMile!) < SHORT_FLOAT_MILES && travelled < SHORT_FLOAT_MILES
+    ? 'stationary'
+    : null;
 }
 
 /** The End dialog's message when Discard is on offer. */
