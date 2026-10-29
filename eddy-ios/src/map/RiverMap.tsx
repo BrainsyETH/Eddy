@@ -355,6 +355,8 @@ type MapIdleState = {
     center?: number[];
     bounds?: { ne?: number[]; sw?: number[] };
     zoom?: number;
+    /** Bearing in degrees clockwise from north, [0, 360). */
+    heading?: number;
   };
   gestures?: { isGestureActive?: boolean };
 };
@@ -371,6 +373,7 @@ interface MapCameraRef {
     centerCoordinate?: [number, number];
     bounds?: { ne: [number, number]; sw: [number, number] };
     zoomLevel?: number;
+    heading?: number;
     padding?: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };
     animationMode?: 'easeTo' | 'none';
     animationDuration?: number;
@@ -909,6 +912,14 @@ interface Props {
    */
   onUserGesture?: () => void;
   /**
+   * The map's live bearing, every frame it moves. Feeds the compass.
+   *
+   * Per frame, so the receiver must not render React on every call: write it
+   * to a shared value and render only when the compass appears or goes. Must be
+   * stable for the same reason as onCameraChanged, which it rides inside.
+   */
+  onHeadingChange?: (heading: number) => void;
+  /**
    * Draw the blue dot. Only ever true once the user has granted location, which
    * the screen asks for on an explicit tap — see useLocation.
    */
@@ -1005,6 +1016,7 @@ export function RiverMap({
   cameraCommand,
   onCameraCommandConsumed,
   onUserGesture,
+  onHeadingChange,
   showUserLocation,
   planRoute,
   planEndpoints,
@@ -1845,6 +1857,15 @@ export function RiverMap({
     pendingCommand.current = cameraCommand ?? null;
   }, [cameraCommand]);
   const gestureLatched = useRef(false);
+  // A remount opens north-up (defaultSettings carries no heading), and the
+  // screen swaps this map for a spinner whenever the network momentarily
+  // empties. Report north on the way out so the compass does not outlive the
+  // turned map it was pointing for.
+  const headingListener = useRef(onHeadingChange);
+  useEffect(() => {
+    headingListener.current = onHeadingChange;
+  }, [onHeadingChange]);
+  useEffect(() => () => headingListener.current?.(0), []);
   // A layer change invalidates a tap whose native query is still in flight.
   useEffect(() => {
     interactionEpoch.current++;
@@ -1892,8 +1913,10 @@ export function RiverMap({
         zoom,
         gestureActive,
       };
+      const heading = state.properties?.heading;
+      if (typeof heading === 'number' && Number.isFinite(heading)) onHeadingChange?.(heading);
     },
-    [onCameraCommandConsumed, onUserGesture],
+    [onCameraCommandConsumed, onUserGesture, onHeadingChange],
   );
 
   useEffect(() => {
@@ -1906,6 +1929,14 @@ export function RiverMap({
 
     appliedCommandId.current = cameraCommand.id;
     onCameraCommandConsumed?.(cameraCommand.id);
+    if (cameraCommand.type === 'resetHeading') {
+      // Heading ALONE. A stop with no centre, zoom or padding leaves all three
+      // where the reader put them; north-up is a turn in place, not a move.
+      const animation = cameraAnimation(cameraCommand, reducedMotion);
+      flightEndsAt.current = Date.now() + (animation.animationDuration ?? 0);
+      cameraRef.current.setCamera({ heading: 0, ...animation });
+      return;
+    }
     if (cameraCommand.type === 'showPoint') {
       const zoomLevel =
         cameraCommand.zoomDelta !== undefined

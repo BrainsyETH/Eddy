@@ -528,6 +528,16 @@ library with a near-identical API, so the port is tractable — but offline pack
 would have to be rebuilt on MapLibre's own offline API, which is the reason it
 has not been done.
 
+### The compass
+
+Two-finger rotation is on, so the Map tab has a compass (`src/map/MapCompass.tsx`):
+a north/south needle that appears last in the Locate row only while the map is
+turned at least a degree off north (`compassVisible` in `cameraBehavior.ts`),
+and turns it back to north-up in place when tapped. The reset is a
+`resetHeading` camera command like every other move, carrying heading only, so
+centre and zoom survive. The needle turns from a shared value; rotating the map
+never renders React. River Mode's map has rotation off and needs none.
+
 Do not pin `RNMapboxMapsVersion` unless you have a reason. `@rnmapbox/maps` 10.3.5
 pins Mapbox iOS `~> 11.23.1` in its own `package.json`, and overriding it with a
 lower version silently builds against an SDK the library is not tested on.

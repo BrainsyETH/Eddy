@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cameraAnimation, cameraCommandFor, planFramingDecision } from '../../../eddy-ios/src/map/cameraBehavior';
+import {
+  cameraAnimation,
+  cameraCommandFor,
+  compassVisible,
+  headingOffNorth,
+  planFramingDecision,
+} from '../../../eddy-ios/src/map/cameraBehavior';
 import type { MapCameraAction } from '../../../eddy-ios/src/map/cameraBehavior';
 import type { MapCameraCommand } from '../../../eddy-ios/src/map/cameraBehavior';
 
@@ -40,6 +46,7 @@ test('all explicit camera moves become immediate when Reduce Motion is enabled a
     { type: 'locationRequested', lng: -91, lat: 37, zoom: 10 },
     { type: 'clusterSelected', lng: -91, lat: 37 },
     { type: 'planRouteFramed', bounds: [-92, 36, -91, 38] },
+    { type: 'northRequested' },
   ];
   for (const [id, action] of actions.entries()) {
     const command = cameraCommandFor(action, id)!;
@@ -297,15 +304,16 @@ test('a finished plan route is framed as a command, not a direct camera call', (
     'RiverMap frames the plan route itself again, bypassing command ids, sheet ' +
       'waiting and gesture cancellation',
   );
-  // Two, and only two: the showPoint and fitBounds branches of the one command
-  // effect. Counted rather than enumerated for the same reason as setPickedSlug
-  // — a third camera move cannot be added without this failing, whereas a list
-  // of the ones that exist today would just be updated to include it.
+  // Three, and only three: the resetHeading, showPoint and fitBounds branches
+  // of the one command effect. Counted rather than enumerated for the same
+  // reason as setPickedSlug — a fourth camera move cannot be added without this
+  // failing, whereas a list of the ones that exist today would just be updated
+  // to include it.
   assert.equal(
     (map.match(/\.setCamera\(/g) ?? []).length,
-    2,
+    3,
     'a setCamera call was added or removed. Every camera move must go through the ' +
-      'single command effect, whose two branches are the only legitimate calls.',
+      'single command effect, whose three branches are the only legitimate calls.',
   );
 });
 
@@ -372,4 +380,51 @@ test('closing cancels a frame issued in the instant before dismissal', () => {
     'plan framing is no longer decided by the pure rule — an effect deciding for ' +
       'itself is how the arrival-driven race got in',
   );
+});
+
+// ── The compass ──────────────────────────────────────────────────────────────
+//
+// Rotation is on, so a turned map needs a way back to north-up. The reset is a
+// command like every other camera move, and it turns the map IN PLACE: a stop
+// carrying a centre, zoom or padding would also move the reader somewhere.
+test('the compass turns the map to north in place, through the command system', () => {
+  assert.deepEqual(cameraCommandFor({ type: 'northRequested' }, 21), {
+    id: 21,
+    type: 'resetHeading',
+    duration: 400,
+  });
+
+  const map = readFileSync(MAP, 'utf8');
+  const branch = /cameraCommand\.type === 'resetHeading'\)[\s\S]*?return;/.exec(map);
+  assert.ok(branch, 'RiverMap no longer handles the resetHeading command');
+  const stop = /\.setCamera\(\{([^}]*)\}\)/.exec(branch[0]);
+  assert.ok(stop, 'the resetHeading branch no longer calls setCamera');
+  assert.match(stop[1], /heading: 0/);
+  assert.doesNotMatch(
+    stop[1],
+    /centerCoordinate|bounds|zoomLevel|padding/,
+    'north-up moved the camera as well as turning it',
+  );
+});
+
+test('the compass shows only while the map is visibly turned off north', () => {
+  // Mapbox bearings run [0, 360): 359 is one degree off north, not 359.
+  assert.equal(headingOffNorth(0), 0);
+  assert.equal(headingOffNorth(90), 90);
+  assert.equal(headingOffNorth(180), 180);
+  assert.equal(headingOffNorth(270), 90);
+  assert.equal(headingOffNorth(359), 1);
+  assert.equal(headingOffNorth(-30), 30);
+  assert.equal(headingOffNorth(720 + 45), 45);
+
+  assert.equal(compassVisible(0), false);
+  // The residue a pinch leaves behind is not a rotation anyone can see.
+  assert.equal(compassVisible(0.4), false);
+  assert.equal(compassVisible(359.6), false);
+  assert.equal(compassVisible(1), true);
+  assert.equal(compassVisible(45), true);
+  assert.equal(compassVisible(315), true);
+  // A native shape change costs the compass, never strands it on screen.
+  assert.equal(compassVisible(undefined), false);
+  assert.equal(compassVisible(Number.NaN), false);
 });
