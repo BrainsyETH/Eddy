@@ -702,21 +702,32 @@ export function arrivalAnchor(view: FloatView, now: number): { from: number; asO
   return { from: view.positionAt, asOf: view.positionAt };
 }
 
-/** The arrival line and any daylight warning, with the clock formatted by the caller. */
+/**
+ * The arrival line and any daylight warning, with the clock formatted by the
+ * caller. On the water the estimate is paddling time only, with no breaks
+ * budgeted, so the line says so: "if you keep paddling", or "if you push off
+ * now" while you look stopped and the clock time slides later as you sit.
+ */
 export function arrivalCopy(
   outlook: ArrivalOutlook,
   formatTime: (ms: number) => string,
   /** The estimate is from the last known position, not a current one. */
   asOf: number | null = null,
+  /** On the water, and whether you look stopped; absent for a plan before launch. */
+  onWater: { paused: boolean } | null = null,
 ): { line: string; warning: string | null } {
+  const condition = onWater == null || asOf != null ? '' : onWater.paused ? ' if you push off now' : ' if you keep paddling';
   const line =
     asOf == null
-      ? `Arrive around ${formatTime(outlook.arriveAt)}`
+      ? `Arrive around ${formatTime(outlook.arriveAt)}${condition}`
       : `Arrive around ${formatTime(outlook.arriveAt)} · as of ${formatTime(asOf)}, your last known spot`;
   const sunset = outlook.sunset == null ? '' : formatTime(outlook.sunset);
   switch (outlook.light) {
     case 'after':
-      return { line, warning: `That’s after sunset (${sunset}). Pick up the pace, or plan to take out before dark.` };
+      // "Pick up the pace" is no advice to someone sitting on a gravel bar.
+      return { line, warning: onWater?.paused
+        ? `That’s after sunset (${sunset}). Get going soon, or plan to take out before dark.`
+        : `That’s after sunset (${sunset}). Pick up the pace, or plan to take out before dark.` };
     case 'near':
       return { line, warning: `That’s close to sunset (${sunset}). Leave time to load up before dark.` };
     case 'set':
@@ -799,28 +810,39 @@ export function formatDuration(minutes: number): string {
 /**
  * The time-left line and the note under it. Never says "current pace": the
  * pace is a recent average, and while paused it is an earlier one.
+ * `shortNote` drops what an arrival line beside it already says ("if you keep
+ * paddling", "if you push off now"); `note` is for places with no arrival
+ * line, such as the Lock Screen card.
  */
 export function remainingCopy(
   estimate: RemainingEstimate,
   /** The take-out is off the mapped river; time runs to its closest point. */
   takeOutOffLine = false,
-): { headline: string; note: string } {
+): { headline: string; note: string; shortNote: string } {
   if (estimate.minutes == null) {
-    return { headline: 'Learning your pace', note: '' };
+    return { headline: 'Learning your pace', note: '', shortNote: '' };
   }
-  if (estimate.minutes === 0) return { headline: takeOutOffLine ? 'At the river’s closest point' : 'At the take-out', note: '' };
+  if (estimate.minutes === 0) return { headline: takeOutOffLine ? 'At the river’s closest point' : 'At the take-out', note: '', shortNote: '' };
   const time = `About ${formatDuration(estimate.minutes)}`;
   if (estimate.paused) {
-    return { headline: time, note: 'At your earlier pace. You look stopped, so this holds until you move again.' };
+    return {
+      headline: time,
+      note: 'At your earlier pace. You look stopped, so this holds until you move again.',
+      shortNote: 'At your earlier pace. You look stopped.',
+    };
   }
   switch (estimate.basis) {
     case 'planner':
-      return { headline: time, note: 'From the plan’s estimate, until Eddy learns your pace. Stops not included.' };
+      return {
+        headline: time,
+        note: 'From the plan’s estimate, until Eddy learns your pace. Stops not included.',
+        shortNote: 'From the plan’s estimate, until Eddy learns your pace.',
+      };
     case 'blended':
     case 'observed':
-      return { headline: time, note: 'At your recent pace. Stops not included.' };
+      return { headline: time, note: 'At your recent pace. Stops not included.', shortNote: 'At your recent pace.' };
     default:
-      return { headline: time, note: '' };
+      return { headline: time, note: '', shortNote: '' };
   }
 }
 

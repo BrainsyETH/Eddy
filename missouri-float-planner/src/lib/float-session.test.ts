@@ -1,7 +1,7 @@
 import { IDLE_TRACKER } from '../../../eddy-ios/src/lib/floatRecording';
 import { essentialsPosition, locationMessage, aheadItems, aheadSymbol, currentFloatReports, essentialsClock, locationAgeLabel } from '../../../eddy-ios/src/lib/floatEssentials';
 import type { HazardReport } from '../../../eddy-ios/src/lib/hazardReportQueue';
-import { activeFloatStatus, floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel, gpsQualityNote, progressLine } from '../../../eddy-ios/src/lib/floatDisplay';
+import { activeFloatStatus, floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel, gpsQualityNote, paceLine, progressLine, spokenStats } from '../../../eddy-ios/src/lib/floatDisplay';
 import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts, startPlannerParams } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { createGpsRiverLookup } from '../../../eddy-ios/src/lib/gpsRiverLookup';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
@@ -591,6 +591,13 @@ test('arrival time is weighed against sunset at the take-out', () => {
   const copy = arrivalCopy(arrivalOutlook(90, evening, takeOut)!, (ms) => new Date(ms).toISOString().slice(11, 16));
   assert.equal(copy.line, 'Arrive around 02:00');
   assert.match(copy.warning ?? '', /after sunset \(01:2\d\)/);
+  // On the water the estimate is paddling time only, and the line says so.
+  const fmt = (ms: number) => new Date(ms).toISOString().slice(11, 16);
+  assert.equal(arrivalCopy(arrivalOutlook(60, noon, takeOut)!, fmt, null, { paused: false }).line, 'Arrive around 18:00 if you keep paddling · sunset 01:28');
+  assert.equal(arrivalCopy(arrivalOutlook(90, evening, takeOut)!, fmt, null, { paused: true }).line, 'Arrive around 02:00 if you push off now');
+  assert.match(arrivalCopy(arrivalOutlook(90, evening, takeOut)!, fmt, null, { paused: true }).warning ?? '', /Get going soon/, 'no "pick up the pace" to someone sitting still');
+  assert.match(arrivalCopy(arrivalOutlook(90, evening, takeOut)!, fmt, null, { paused: false }).warning ?? '', /Pick up the pace/);
+  assert.doesNotMatch(arrivalCopy(arrivalOutlook(90, evening, takeOut)!, fmt, noon, { paused: false }).line, /paddling|push off/, 'a last-known estimate keeps its own wording');
 });
 
 test('an off-map take-out is not recorded as reached, however the float ends', async () => {
@@ -1081,14 +1088,42 @@ test('the progress line counts time on the water to arrival and miles from the r
   assert.equal(progressLine(made.session, T0 + 20_000), 'Just started');
   assert.equal(progressLine(made.session, T0 + 5 * 60_000), '5 min on the water');
   const moving = float(made.session, index, 0, T0, 1_800, 1.5);
-  assert.equal(progressLine(moving, T0 + 1_800_000), '30 min on the water · 30 min moving · 1.7 mi from start');
+  assert.equal(progressLine(moving, T0 + 1_800_000), '30 min on the water · 1.7 mi from start');
   const arrived = { ...moving, arrivedAt: T0 + 1_800_000 };
-  assert.equal(progressLine(arrived, T0 + 3 * 3_600_000), '30 min on the water · 30 min moving · 1.7 mi from start', 'time stops at the take-out');
-  // A twenty-minute break adds time on the water, not moving time.
+  assert.equal(progressLine(arrived, T0 + 3 * 3_600_000), '30 min on the water · 1.7 mi from start', 'time stops at the take-out');
+});
+
+test('the pace line shows moving time and speeds; a break lowers only overall, which agrees with the line above', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'v', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  assert.equal(paceLine(made.session, T0 + 60_000), null, 'nothing before there is movement');
+  assert.equal(paceLine(float(made.session, index, 0, T0, 120, 1.5), T0 + 120_000), '2 min moving', 'speeds wait for five minutes of movement');
+  // Thirty minutes at 1.5 m/s is about 3.4 mph.
+  const moving = float(made.session, index, 0, T0, 1_800, 1.5);
+  assert.equal(paceLine(moving, T0 + 1_800_000), '30 min moving at 3.4 mph · 3.3 mph overall');
+  // Twenty minutes stopped: moving time and speed hold; overall sinks rather
+  // than reading zero, and is exactly the line above divided out (1.7 mi in 50 min).
   const rested = float(moving, index, 1.5 * 1_800, T0 + 1_810_000, 1_200, 0);
-  assert.equal(progressLine(rested, T0 + 3_010_000), '50 min on the water · 30 min moving · 1.7 mi from start');
-  // Moving time never reads longer than time on the water.
-  assert.equal(progressLine({ ...moving, totals: { ...moving.totals!, movingMs: 40 * 60_000 } }, T0 + 1_800_000), '30 min on the water · 30 min moving · 1.7 mi from start');
+  assert.equal(progressLine(rested, T0 + 3_010_000), '50 min on the water · 1.7 mi from start');
+  assert.equal(paceLine(rested, T0 + 3_010_000), '30 min moving at 3.4 mph · 2.0 mph overall');
+  // Time stops at the take-out, like the progress line.
+  assert.equal(paceLine({ ...moving, arrivedAt: T0 + 1_800_000 }, T0 + 3 * 3_600_000), '30 min moving at 3.4 mph · 3.3 mph overall');
+  // Never more moving time than time on the water, nor overall faster than moving.
+  assert.equal(paceLine({ ...moving, totals: { ...moving.totals!, movingMs: 40 * 60_000 } }, T0 + 1_800_000), '30 min moving at 2.5 mph · 2.5 mph overall');
+  // VoiceOver hears words, not symbols.
+  assert.equal(spokenStats('30 min moving at 3.4 mph · 2.0 mph overall'), '30 min moving at 3.4 miles per hour, 2.0 miles per hour overall');
+  assert.equal(spokenStats('50 min on the water · 1.7 mi from start'), '50 min on the water, 1.7 miles from start');
+});
+
+test('the River Mode note drops what the arrival line already says; the Lock Screen keeps it', () => {
+  const copy = (estimate: Parameters<typeof remainingCopy>[0]) => remainingCopy(estimate);
+  assert.deepEqual(copy({ minutes: 60, basis: 'observed', paused: false }), {
+    headline: 'About 1 hr', note: 'At your recent pace. Stops not included.', shortNote: 'At your recent pace.',
+  });
+  assert.equal(copy({ minutes: 60, basis: 'planner', paused: false }).shortNote, 'From the plan’s estimate, until Eddy learns your pace.');
+  assert.equal(copy({ minutes: 60, basis: 'observed', paused: true }).shortNote, 'At your earlier pace. You look stopped.');
+  assert.equal(copy({ minutes: null, basis: 'learning', paused: false }).shortNote, '');
 });
 
 test('recap backup reflects this row and actual sync state, independently of a subscription', () => {
