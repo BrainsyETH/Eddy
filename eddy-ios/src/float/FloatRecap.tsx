@@ -125,7 +125,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.row}>
               <Text style={[textStyles.cardTitle, styles.grow, { color: colors.text }]}>How you spent your time</Text>
-              <FloatInfoTip title="Time and distance" message="Time and distance are estimated from confirmed river positions. GPS gaps include missing fixes and movement Eddy couldn’t classify. Missing distance isn’t filled in. The bar compares total durations; it doesn’t show when each break happened." />
+              <FloatInfoTip title="Time and distance" message="Time and distance are estimated from confirmed river positions. Moving time leaves out breaks of 6 minutes or more. GPS gaps include missing fixes and movement Eddy couldn’t classify. When Eddy finds you on the river again after a gap, the river you covered in it counts toward distance; its time stays under GPS gaps. The bar compares total durations; it doesn’t show when each break happened." />
             </View>
             {measuredTime > 0 ? <View style={styles.timeBar} accessible accessibilityRole="image"
               accessibilityLabel={parts.map(part => `${part.label}: ${duration(part.ms)}`).join(', ')}>

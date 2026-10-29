@@ -188,6 +188,37 @@ test('confirmed stops add no GPS wobble distance; movement, upstream travel and 
   assert.equal(final.unknownMs, 200000);
 });
 
+test('distance across a reacquired GPS gap counts; its time, relocations and impossible crossings do not', () => {
+  // Twenty minutes moving to mile 0.6, a gap ending at `gap`, then ten minutes moving on.
+  const before = Array.from({ length: 121 }, (_, i): PaceSample => ({ timestamp: i * 10000, riverMile: i * 0.005, continuous: i > 0 }));
+  const after = (gap: PaceSample) => Array.from({ length: 60 }, (_, i): PaceSample =>
+    ({ timestamp: gap.timestamp + (i + 1) * 10000, riverMile: gap.riverMile + (i + 1) * 0.005, continuous: true }));
+  const run = (gap: PaceSample) => {
+    let totals = { ...EMPTY_FLOAT_TOTALS };
+    for (const sample of [...before, gap, ...after(gap)]) totals = accumulateFloat(totals, sample);
+    return finishFloatTotals(totals, gap.timestamp + 600000);
+  };
+  // Lost under a bluff at 1,200 s, found again 15 minutes later 0.5 mi on.
+  const found = run({ timestamp: 2100000, riverMile: 1.1, continuous: false, reacquired: true });
+  // The same jump as a relocation: a wrong match corrected, no distance (as before).
+  const corrected = run({ timestamp: 2100000, riverMile: 1.1, continuous: false });
+  assert.ok(Math.abs(found.distanceMiles - corrected.distanceMiles - 0.5) < 1e-9, 'the river between the two confirmed positions was covered');
+  assert.ok(corrected.distanceMiles > 0.8, 'movement either side counts in both');
+  assert.equal(found.movingMs, corrected.movingMs, 'the gap is not moving time');
+  assert.equal(found.unknownMs, corrected.unknownMs, 'it stays a GPS gap');
+  assert.ok(found.unknownMs >= 900000);
+  assert.equal(found.movingMph, corrected.movingMph, 'moving speed is unchanged');
+  // Faster than the tracker's top river speed (about 9 mph) is not paddling.
+  const impossible = run({ timestamp: 2100000, riverMile: 4.6, continuous: false, reacquired: true });
+  const impossibleCorrected = run({ timestamp: 2100000, riverMile: 4.6, continuous: false });
+  assert.ok(Math.abs(impossible.distanceMiles - impossibleCorrected.distanceMiles) < 1e-9);
+  // Restored from storage mid-float, the same sample counts the same.
+  let totals = { ...EMPTY_FLOAT_TOTALS };
+  for (const sample of before) totals = accumulateFloat(totals, sample);
+  const gap: PaceSample = { timestamp: 2100000, riverMile: 1.1, continuous: false, reacquired: true };
+  assert.deepEqual(accumulateFloat(JSON.parse(JSON.stringify(totals)), gap), accumulateFloat(totals, gap));
+});
+
 test('corrupt current and legacy history is copied before recovery, and cloud history can still restore', async () => {
   for (const [key, raw] of [
     [ARCHIVE_KEY, '{broken'],

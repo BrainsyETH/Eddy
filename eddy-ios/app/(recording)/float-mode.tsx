@@ -13,8 +13,8 @@
 // ── Layout: the map, then one glanceable panel ──────────────────────────────
 // Made for a wet thumb in sunlight. The map takes the screen; under it a
 // compact panel holds the numbers (miles left, time left, arrival), the next
-// hazard, at most one tracking line, and three large buttons: Tools, Report
-// and End/Finish. Reminders, the Lock Screen card, keep-awake and past hazard
+// hazard, at most one tracking line, the trip so far (time, moving time,
+// speeds), and three large buttons: Tools, Report and End/Finish. Reminders, the Lock Screen card, keep-awake and past hazard
 // reports live in Float tools (float-options.tsx), a sheet, so End is never
 // scrolled under a list of switches.
 
@@ -27,7 +27,7 @@ import { FloatActionIcon } from '@/components/FloatActionIcon';
 import { HazardReportFeedback } from '@/float/HazardReportFeedback';
 import { selectionFeedback } from '@/lib/haptics';
 import { FloatStatusDot } from '@/float/FloatStatusDot';
-import { floatDisplayPosition, fixAgeLabel, gpsQualityNote, progressLine } from '@/lib/floatDisplay';
+import { floatDisplayPosition, fixAgeLabel, gpsQualityNote, paceLine, progressLine, spokenStats } from '@/lib/floatDisplay';
 import { useFloatMapFocus } from '@/float/mapFocus';
 import { FloatMap } from '@/float/FloatMap';
 import { HazardReportSheet } from '@/float/HazardReportSheet';
@@ -138,7 +138,7 @@ export default function FloatModeScreen() {
   // No arrival to place on a clock for a float that began below its take-out:
   // the panel hides the line, and VoiceOver must not hear a sunset warning for it.
   const outlook = view && !view.startedPastTakeOut && anchor && ends ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
-  const arrival = outlook ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null) : null;
+  const arrival = outlook && view ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null, { paused: view.estimate.paused }) : null;
   const hazard = view?.nextHazard ?? null;
   // At the take-out, or as close as the mapped river goes to one off it.
   const done = Boolean(view && (view.arrived || view.atRiverEnd));
@@ -188,6 +188,7 @@ export default function FloatModeScreen() {
   const live = view.status === 'live';
   const waitingAtLaunch = !view.confirmed && view.status === 'off-route' && session.last?.nearPutIn;
   const progress = progressLine(session, clock);
+  const pace = paceLine(session, clock);
   const status = waitingAtLaunch
     ? `At ${session.putIn?.name}. Push off when you’re ready.`
     : weakGps && (view.status === 'stale' || view.status === 'acquiring')
@@ -307,7 +308,6 @@ export default function FloatModeScreen() {
         <Text style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}>
           {status}
         </Text>
-        {progress ? <Text style={[styles.caption, { color: colors.textMuted }]}>{progress}</Text> : null}
 
         {recordedOrigin(session).note ? <Text style={[styles.note, { color: colors.textMuted }]}>
           {recordedOrigin(session).note}
@@ -329,11 +329,6 @@ export default function FloatModeScreen() {
                 <Text style={[styles.time, { color: live ? colors.text : colors.textMuted }]}>
                   {time.headline}
                 </Text>
-                {arrival ? (
-                  <Text style={[styles.note, !stacked && styles.right, { color: colors.textMuted }]}>
-                    {arrival.line}
-                  </Text>
-                ) : null}
               </View>
             </View>
             <View
@@ -344,7 +339,13 @@ export default function FloatModeScreen() {
             >
               <View style={[styles.fill, { width: `${Math.round((view.fraction ?? 0) * 100)}%`, backgroundColor: colors.interactive }]} />
             </View>
-            {time.note ? <Text style={[styles.caption, { color: colors.textMuted }]}>{time.note}</Text> : null}
+            {/* Full width: at half width the arrival line wrapped to three lines
+                and sank the miles number with it. */}
+            {arrival ? <Text style={[styles.note, { color: colors.textMuted }]}>{arrival.line}</Text> : null}
+            {/* The arrival line already says it assumes no stops. */}
+            {(arrival ? time.shortNote : time.note) ? (
+              <Text style={[styles.caption, { color: colors.textMuted }]}>{arrival ? time.shortNote : time.note}</Text>
+            ) : null}
             {arrival?.warning ? (
               <Text style={[styles.note, styles.emphasis, { color: colors.error }]} accessibilityRole="alert">
                 {arrival.warning}
@@ -375,6 +376,11 @@ export default function FloatModeScreen() {
             <Notice label={tracking.line.text} onPress={tracking.act} />
           )
         ) : null}
+
+        {/* Trip stats last: the numbers, the next hazard and anything blocking
+            tracking come first in a panel that may scroll. */}
+        {progress ? <Text style={[styles.caption, { color: colors.textMuted }]} accessibilityLabel={spokenStats(progress)}>{progress}</Text> : null}
+        {pace ? <Text style={[styles.caption, { color: colors.textMuted }]} accessibilityLabel={spokenStats(pace)}>{pace}</Text> : null}
 
         </ScrollView>
         {reportedId ? <HazardReportFeedback reportId={reportedId} onDismiss={() => setReportedId(null)} /> : null}
@@ -462,7 +468,6 @@ const styles = StyleSheet.create({
   numbers: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   number: { flex: 1 },
   numberRight: { alignItems: 'flex-end' },
-  right: { textAlign: 'right' },
   miles: { ...textStyles.pageTitle },
   unit: { ...t.base, fontFamily: fonts.body },
   time: { ...t.lg, fontFamily: fonts.heading },

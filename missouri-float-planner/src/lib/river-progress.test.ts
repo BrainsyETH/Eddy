@@ -260,6 +260,7 @@ test('the first position is committed only once fixes agree on it', () => {
   ]);
   const last = results[CONFIRM_FIXES - 1];
   assert.ok(last.kind === 'matched' && !last.continuous && Math.abs(last.lineMeters - 3_040) < 1);
+  assert.ok(last.kind === 'matched' && last.reacquired === undefined, 'nothing came before it to have travelled from');
   assert.ok(state.committed && Math.abs(state.committed.lineMeters - 3_040) < 1);
 });
 
@@ -320,6 +321,7 @@ test('a relocation is committed after consistent fixes, and marked discontinuous
   assert.deepEqual(results.slice(0, 2).map((r) => r.kind), ['uncertain', 'uncertain']);
   assert.equal(results[2].kind, 'matched');
   assert.ok(results[2].kind === 'matched' && !results[2].continuous);
+  assert.ok(results[2].kind === 'matched' && results[2].reacquired === undefined, 'a correction is not travel across a gap');
   assert.ok(state.committed && Math.abs(state.committed.lineMeters - 9_040) < 1);
 });
 
@@ -380,6 +382,7 @@ test('after a long gap, tracking reacquires with confirmation instead of trustin
   const { results } = feed(OXBOW_INDEX, committedAt(500), fixes);
   assert.deepEqual(results.slice(0, 2).map((r) => r.kind), ['uncertain', 'uncertain']);
   assert.ok(results[2].kind === 'matched' && !results[2].continuous);
+  assert.ok(results[2].kind === 'matched' && results[2].reacquired === true, 'marked as the end of a gap, for distance');
   assert.ok(Math.abs((matchedAt(results[2]) ?? 0) - 540) < 1);
 });
 
