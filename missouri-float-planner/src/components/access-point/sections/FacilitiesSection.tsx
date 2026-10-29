@@ -223,7 +223,7 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
           value={accessPoint.feeNotes || 'Fee required'}
         />
       )}
-      {!nps && !accessPoint.feeRequired && hasFacilities && (
+      {!nps && accessPoint.feeRequired === false && hasFacilities && (
         <InfoRow label="Fee" value="No fee" />
       )}
 

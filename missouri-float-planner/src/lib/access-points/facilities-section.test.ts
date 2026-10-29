@@ -39,6 +39,13 @@ test('booking remains visible when the live calendar is unavailable', () => {
   assert.match(render({ booking: { source: 'recreation_gov', url: 'https://www.recreation.gov/camping/campgrounds/232392' } }), /Make a reservation on Recreation.gov/);
 });
 
+test('only a verified false fee reads "No fee"; an unverified one says nothing', () => {
+  const facilities = 'Concrete ramp, gravel parking';
+  assert.match(render({ facilities, feeRequired: false }), /No fee/);
+  assert.doesNotMatch(render({ facilities, feeRequired: null }), /No fee|Fee required/);
+  assert.match(render({ facilities, feeRequired: true, feeNotes: '$5 day use' }), /\$5 day use/);
+});
+
 test('ordinary access points do not acquire a camping section', () => {
   const html = render();
   assert.match(html, /No facilities information available/);

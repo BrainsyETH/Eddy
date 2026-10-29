@@ -92,7 +92,8 @@ export interface AccessPoint {
   parkingInfo: string | null;
   roadAccess: string | null;
   facilities: string | null;
-  feeRequired: boolean;
+  /** null = not verified. Only an explicit false may be shown as "No fee". */
+  feeRequired: boolean | null;
   feeNotes: string | null;
   directionsOverride?: string | null;
   imageUrls: string[];
