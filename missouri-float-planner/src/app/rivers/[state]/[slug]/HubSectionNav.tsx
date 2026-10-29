@@ -6,16 +6,20 @@
 // a published guide (blog).
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import Button from '@/components/ui/Button';
+import { useHazards } from '@/hooks/useHazards';
 
 const SECTIONS = [
   // FIRST, and only when there is one. A closure or a flood warning changes
   // whether the trip happens at all, which outranks what the gauge reads.
   { id: 'alerts', label: 'Alerts' },
-  { id: 'status', label: 'Live status' },
+  { id: 'status', label: 'Live report' },
   // Only present on a tailwater reach — see fetchRiverDam(). Most rivers have
   // no dam above them, and a tab that scrolls to nothing is worse than no tab.
   { id: 'dam', label: 'Dam release' },
+  // Client-loaded, so present only once the list has something in it — the
+  // section itself is absent on a river with no hazards logged.
+  { id: 'hazards', label: 'Hazards' },
   { id: 'access', label: 'Access points' },
   { id: 'guide', label: 'River guide' },
 ];
@@ -27,21 +31,27 @@ const SECTIONS = [
  * new conditional section has to be added to this one function, or the nav and
  * the spy disagree about which ids exist.
  */
-function visibleSections(hasGuide: boolean, hasDam: boolean, hasAlerts: boolean) {
+function visibleSections(hasGuide: boolean, hasDam: boolean, hasAlerts: boolean, hasHazards: boolean) {
   return SECTIONS.filter(
     (s) =>
       (s.id !== 'guide' || hasGuide) &&
       (s.id !== 'dam' || hasDam) &&
-      (s.id !== 'alerts' || hasAlerts)
+      (s.id !== 'alerts' || hasAlerts) &&
+      (s.id !== 'hazards' || hasHazards)
   );
 }
+
+/** Sticky site header (56px) plus this bar — where a section's top should land. */
+const SCROLL_OFFSET = 112;
 
 export default function HubSectionNav({
   planUrl,
   hasGuide = true,
   hasDam = false,
   hasAlerts = false,
+  riverSlug,
 }: {
+  riverSlug: string;
   planUrl: string;
   hasGuide?: boolean;
   hasDam?: boolean;
@@ -51,10 +61,13 @@ export default function HubSectionNav({
   // anything scrolls, and that is Live status whether or not an alerts block
   // sits above it.
   const [active, setActive] = useState('status');
-  const sections = visibleSections(hasGuide, hasDam, hasAlerts);
+  // Same query the hazards section runs; React Query shares the request.
+  const { data: hazards = [] } = useHazards(riverSlug);
+  const hasHazards = hazards.length > 0;
+  const sections = visibleSections(hasGuide, hasDam, hasAlerts, hasHazards);
 
   useEffect(() => {
-    const ids = visibleSections(hasGuide, hasDam, hasAlerts).map((s) => s.id);
+    const ids = visibleSections(hasGuide, hasDam, hasAlerts, hasHazards).map((s) => s.id);
     let ticking = false;
     const onScroll = () => {
       if (ticking) return;
@@ -63,7 +76,7 @@ export default function HubSectionNav({
         let current = ids[0];
         for (const id of ids) {
           const el = document.getElementById(id);
-          if (el && el.getBoundingClientRect().top <= 160) current = id;
+          if (el && el.getBoundingClientRect().top <= SCROLL_OFFSET + 40) current = id;
         }
         setActive(current);
         ticking = false;
@@ -72,7 +85,7 @@ export default function HubSectionNav({
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, [hasGuide, hasDam, hasAlerts]);
+  }, [hasGuide, hasDam, hasAlerts, hasHazards]);
 
   return (
     <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-neutral-200">
@@ -86,7 +99,7 @@ export default function HubSectionNav({
                 e.preventDefault();
                 const el = document.getElementById(s.id);
                 if (!el) return;
-                const y = el.getBoundingClientRect().top + window.scrollY - 120;
+                const y = el.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET;
                 window.scrollTo({ top: y, behavior: 'smooth' });
               }}
               className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold no-underline transition-colors sm:px-3 ${
@@ -104,12 +117,11 @@ export default function HubSectionNav({
               and wrapping an interactive control in a live region makes screen
               readers re-announce it on mount and on every selection change. */}
           <div id="gauge-selection-slot" className="flex min-h-9 items-center" />
-          <Link
-            href={planUrl}
-            className="hidden flex-shrink-0 items-center rounded-md border-2 border-accent-700 bg-accent-500 px-4 py-1.5 text-sm font-semibold text-white no-underline shadow-[2px_2px_0_var(--color-accent-700)] transition-colors hover:bg-accent-600 sm:inline-flex"
-          >
-            Plan a float
-          </Link>
+          {/* The site's one primary button, in a wrapper that does the hiding:
+              .btn-primary sets its own display and would override `hidden`. */}
+          <span className="hidden flex-shrink-0 sm:inline-flex">
+            <Button href={planUrl} size="sm">Plan a float</Button>
+          </span>
         </div>
       </div>
     </div>

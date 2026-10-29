@@ -33,6 +33,13 @@ const ICONS = {
   gauge: { file: 'eddy-water-droplet', size: 18, alt: 'Gauge' },
   release: { file: 'eddy-release', size: 32, alt: 'Release' },
   waterTemperature: { file: 'eddy-water-temperature', size: 32, alt: 'Water temperature' },
+  // The dam card's stats, matching eddy-ios DamStateCard. `damGauge` is the
+  // staff-gauge mark the app uses for river and lake levels; it is not `gauge`
+  // above, which the site uses for a river reading and draws as a droplet.
+  damGauge: { file: 'eddy-other-usgs-gauge', size: 28, alt: 'Level' },
+  inflow: { file: 'eddy-inflow', size: 28, alt: 'Inflow' },
+  fishery: { file: 'eddy-fishery', size: 28, alt: 'Fishery' },
+  hazard: { file: 'eddy-hazard', size: 20, alt: 'Hazard' },
   accessPoint: { file: 'eddy-poi', size: 18, alt: 'Access point' },
   boatRamp: { file: 'eddy-boat-ramp', size: 24, alt: 'Boat ramp' },
   campground: { file: 'eddy-campground', size: 24, alt: 'Campground' },

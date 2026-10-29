@@ -140,6 +140,12 @@ WEB_ICONS = (
     "eddy-road",
     "eddy-parking",
     "eddy-restroom",
+    # The dam card's stats and the river page's hazards list, drawn with the
+    # same marks as the app's DamStateCard and hazards section.
+    "eddy-other-usgs-gauge",
+    "eddy-inflow",
+    "eddy-fishery",
+    "eddy-hazard",
 )
 
 # Longest edge of the exported PNG. Matches assets/otter.

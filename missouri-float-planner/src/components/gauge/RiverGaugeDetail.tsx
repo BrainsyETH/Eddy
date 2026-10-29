@@ -11,7 +11,7 @@ import { ExternalLink } from 'lucide-react';
 import { applyFloodStageOverride, computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { hasLadder } from '@shared/condition-ladder';
 import { stationTier } from '@shared/station-tier';
-import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
+import { CFS_EXPLAINER } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
 import Card from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
@@ -68,9 +68,15 @@ interface RiverGaugeDetailProps {
    * Optional, because every other consumer of this component has no dam.
    */
   damSlot?: React.ReactNode;
+  /**
+   * The river's reaches, server-rendered by the page. They sit under the
+   * reading as they do in the app, because "which half of the river" changes
+   * what the reading means.
+   */
+  reachesSlot?: React.ReactNode;
 }
 
-export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetailProps) {
+export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
@@ -387,15 +393,13 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             cannot opt out of an inherited opacity animation — so the tailwater
             row below, real data already on the page, faded in and out with the
             placeholders until the gauge query settled. */}
-        <Skeleton className="h-7 w-48" />
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-          <Skeleton rounded="xl" className="h-64" />
-          <div className="space-y-4">
-            <Skeleton rounded="xl" className="h-36" />
-            <Skeleton rounded="xl" className="h-24" />
-          </div>
-        </div>
+        {/* Shaped like what replaces it — reading card, dam row, chart — so
+            the page does not jump when the gauge query settles. */}
+        <Skeleton className="h-4 w-40" />
+        <Skeleton rounded="xl" className="h-44" />
         {damSlot}
+        {reachesSlot}
+        <Skeleton rounded="xl" className="h-72" />
       </section>
     );
   }
@@ -409,6 +413,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           </p>
         </Card>
         {damSlot}
+        {reachesSlot}
       </section>
     );
   }
@@ -416,7 +421,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   return (
     <div>
         {/* The gauge picker lives in the sticky section bar so it remains close
-            to Live status without consuming another row in the report. */}
+            to Live report without consuming another row in the report. */}
         {tabs.length > 1 && gaugeNavTarget && createPortal(
             <GaugeTabBar
               gauges={tabs}
@@ -448,122 +453,96 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           )}
         </div>
 
-        {/* Now, next, and interpretation share one decision surface. Their data
-            roles stay distinct; the outer shell removes card fragmentation. */}
+        {/* Same order as the app's river screen: the reading and its
+            verdict, what qualifies it (dam, reaches), how it got here (the
+            chart), what happens next (Will it hold? + Eddy's take), then the
+            reference material. */}
         <div className="space-y-6">
-        {/* The three questions, before any chart: what is the river doing,
-            is there an official safety concern, what is expected next.
-
-            The dam row shares this wrapper rather than sitting beside it in the
-            space-y-6, so its hairline rule lands FLUSH under the summary card
-            instead of floating 24px below it — a rule with air on both sides
-            reads as a separator between two blocks, which is the opposite of
-            "a line qualifying the reading above". */}
         <div>
-          <GaugeSummary
-            // The reading card below already shows the level, trend and
-            // verdict; here the summary keeps only safety and forecast.
-            hideCurrentReading
+          <CurrentReadingCard
+            key={`reading-${activeSiteId}`}
             siteId={activeGauge.usgsSiteId}
-            days={7}
-            tier={tier}
-            provider={gaugeDetail?.provider ?? 'usgs'}
             gaugeHeightFt={activeGauge.gaugeHeightFt}
             dischargeCfs={activeGauge.dischargeCfs}
-            primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
-            readingAgeHours={activeGauge.readingAgeHours}
-            readingSuspect={gaugeDetail?.readingSuspect ?? false}
-            qualifierNote={gaugeDetail?.qualifierNote ?? null}
+            thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
             conditionCode={condition.code}
-            flowPercentile={gaugeDetail?.flowPercentile ?? null}
-            floodStages={gaugeDetail?.floodStages ?? null}
-            waterTemperature={gaugeDetail?.waterTemperature ?? null}
-          />
+            waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+            waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
+            dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
+            dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}
+            waterQualitySourceName={
+              gaugeDetail?.dissolvedOxygen?.measuredAtName ??
+              gaugeDetail?.waterTemperature?.measuredAtName ??
+              null
+            }
+            readingAgeHours={activeGauge.readingAgeHours}
+            zones={ladderZones}
+          >
+            {/* Safety and forecast only — the card above already shows the
+                level, trend and verdict. */}
+            <GaugeSummary
+              hideCurrentReading
+              bare
+              siteId={activeGauge.usgsSiteId}
+              days={7}
+              tier={tier}
+              provider={gaugeDetail?.provider ?? 'usgs'}
+              gaugeHeightFt={activeGauge.gaugeHeightFt}
+              dischargeCfs={activeGauge.dischargeCfs}
+              primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
+              readingAgeHours={activeGauge.readingAgeHours}
+              readingSuspect={gaugeDetail?.readingSuspect ?? false}
+              qualifierNote={gaugeDetail?.qualifierNote ?? null}
+              conditionCode={condition.code}
+              flowPercentile={gaugeDetail?.flowPercentile ?? null}
+              floodStages={gaugeDetail?.floodStages ?? null}
+              waterTemperature={gaugeDetail?.waterTemperature ?? null}
+            />
+          </CurrentReadingCard>
 
-          {/* Dam operations, under the reading they qualify and above the
-              hydrograph. Subordinate on purpose: the condition in the summary
-              is a verdict about FLOATING, and on a tailwater that is a
-              different question from what the powerhouse is doing. Absent on
-              every river without a dam, which is nearly all of them. */}
+          {/* Dam operations, under the reading they qualify. Subordinate on
+              purpose: the condition above is a verdict about FLOATING, and on
+              a tailwater that is a different question from what the
+              powerhouse is doing. Absent on every river without a dam. */}
           {damSlot}
         </div>
 
-        {/* The hydrograph — third, above the outdoor conditions and the
-            deeper interpretation. It used to close the column, below the
-            photos; the redesign leads with how the number came about. */}
-          <GaugeHistoryChart
-            key={activeGauge.usgsSiteId}
-            riverId={riverGroup.riverId}
-            riverSlug={riverSlug}
-            provider={gaugeDetail?.provider}
-            timeZone={gaugeDetail?.timeZone}
-            siteId={activeGauge.usgsSiteId}
-            siteName={activeGauge.name}
-            thresholds={chartThresholds}
-            floodStages={gaugeDetail?.floodStages ?? null}
-            latestValue={latestValue}
-            displayUnit={effectiveUnit}
-            onUnitChange={handleUnitToggle}
-            canToggleUnit={canToggleUnit}
-            showTypical={tier !== 'rated'}
-            capabilities={lastYearCapabilities}
-            lastYearOn={lastYearOn}
-            onLastYearChange={setLastYearOn}
-            onRangeChange={range => trackGaugeRangeChanged(
-              { provider: gaugeDetail?.provider ?? 'usgs', tier },
-              range.kind === 'custom' ? 'custom' : rangeLabelForDays(range.days),
-            )}
-            onExpand={() => trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
-            help={<InfoTip title={CFS_EXPLAINER.title} body={CFS_EXPLAINER.body} ariaLabel="What is CFS?"
-              colors={{ trigger: '#857D70', triggerBorder: '#C2BAAC', popBg: '#FFFFFF', popBorder: '#DBD5CA', title: '#2D2A24', body: '#524D43', focus: '#2D7889' }} />}
+        {reachesSlot}
+
+        <GaugeHistoryChart
+          key={activeGauge.usgsSiteId}
+          riverId={riverGroup.riverId}
+          riverSlug={riverSlug}
+          provider={gaugeDetail?.provider}
+          timeZone={gaugeDetail?.timeZone}
+          siteId={activeGauge.usgsSiteId}
+          siteName={activeGauge.name}
+          thresholds={chartThresholds}
+          floodStages={gaugeDetail?.floodStages ?? null}
+          latestValue={latestValue}
+          displayUnit={effectiveUnit}
+          onUnitChange={handleUnitToggle}
+          canToggleUnit={canToggleUnit}
+          showTypical={tier !== 'rated'}
+          capabilities={lastYearCapabilities}
+          lastYearOn={lastYearOn}
+          onLastYearChange={setLastYearOn}
+          onRangeChange={range => trackGaugeRangeChanged(
+            { provider: gaugeDetail?.provider ?? 'usgs', tier },
+            range.kind === 'custom' ? 'custom' : rangeLabelForDays(range.days),
+          )}
+          onExpand={() => trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier })}
+          help={<InfoTip title={CFS_EXPLAINER.title} body={CFS_EXPLAINER.body} ariaLabel="What is CFS?"
+            colors={{ trigger: '#857D70', triggerBorder: '#C2BAAC', popBg: '#FFFFFF', popBorder: '#DBD5CA', title: '#2D2A24', body: '#524D43', focus: '#2D7889' }} />}
+        />
+
+        {/* What happens next, in its own card as on iOS. */}
+        <section className="card-panel" aria-label="72-hour outlook and Eddy's take">
+          <WillItHold
+            key={`outlook-${activeSiteId}`}
+            outlook={outlook}
+            embedded
           />
-        {/* Outdoor conditions, after the hydrograph and before the deeper
-            interpretation below. */}
-        <HistoricalWaterQuality data={gaugeDetail?.historicalWaterQuality} />
-        {/* No compact weather card here: "Will it hold?" below covers the
-            next 72 hours, and a second forecast with its own icon set beside
-            it only disagreed with it. Gauge pages keep their weather. */}
-
-        <section
-          className="overflow-hidden rounded-xl border-2 border-t-4 border-primary-800 bg-white shadow-[4px_4px_0_var(--color-primary-200)]"
-          style={{
-            borderTopColor: condition.code === 'flowing'
-              ? 'var(--cond-flowing-solid)'
-              : (CONDITION_COLORS[condition.code] ?? CONDITION_COLORS.unknown),
-          }}
-          aria-label="Current reading and 72-hour river outlook"
-        >
-          <div className="grid grid-cols-1 items-stretch lg:grid-cols-[340px_minmax(0,1fr)]">
-            <CurrentReadingCard
-              key={`reading-${activeSiteId}`}
-              siteId={activeGauge.usgsSiteId}
-              gaugeHeightFt={activeGauge.gaugeHeightFt}
-              dischargeCfs={activeGauge.dischargeCfs}
-              thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
-              conditionCode={condition.code}
-              waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
-              waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
-              dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
-              dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}
-              waterQualitySourceName={
-                gaugeDetail?.dissolvedOxygen?.measuredAtName ??
-                gaugeDetail?.waterTemperature?.measuredAtName ??
-                null
-              }
-              readingAgeHours={activeGauge.readingAgeHours}
-              zones={ladderZones}
-              className="h-full"
-              embedded
-            />
-            <div className="border-t-2 border-primary-200 lg:border-l-2 lg:border-t-0">
-              <WillItHold
-                key={`outlook-${activeSiteId}`}
-                outlook={outlook}
-                embedded
-              />
-            </div>
-          </div>
-
           <EddyOutlookFooter
             sections={eddyTakeSections}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
@@ -573,7 +552,6 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           />
         </section>
 
-        {/* Condition Thresholds Table */}
         {activeThreshold && (
           <div>
             <ThresholdTable
@@ -592,14 +570,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           </div>
         )}
 
-        {/* Community photos — what the current condition looks like, closing
-            the interpretation column. (They used to precede the trend chart;
-            the chart now leads, per the redesigned information order.) */}
-        <div>
-          <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
-        </div>
+        <HistoricalWaterQuality data={gaugeDetail?.historicalWaterQuality} />
 
-
+        {/* Community photos — what the current condition looks like. */}
+        <RiverVisualGallery riverSlug={riverSlug} addPhotoHref={addPhotoHref} layout="wide" />
         </div>
 
     </div>

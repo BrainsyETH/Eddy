@@ -85,7 +85,7 @@ export default function RiverDamPanel({
     current !== null && last !== null && Math.abs(last - current) / current >= 0.25;
 
   return (
-    <div className="rounded-xl border-2 border-t-4 border-primary-800 bg-white p-5 shadow-[4px_4px_0_var(--color-primary-200)]">
+    <div className="card-panel p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Waves className="h-4 w-4 text-primary-700" />
