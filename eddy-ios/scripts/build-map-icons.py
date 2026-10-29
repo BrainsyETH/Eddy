@@ -372,6 +372,7 @@ def main() -> None:
         "count-usgs": (28, 28, *usgs),
         "count-usgs-wide": (40, 28, *usgs),
         "count-stack": (34, 34, *place),
+        "count-stack-usgs": (34, 34, *usgs),
     }
     for name, (face_w, face_h, fill, ring) in badges.items():
         icon = count_badge(face_w, face_h, fill, ring)

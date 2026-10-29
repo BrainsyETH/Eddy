@@ -50,7 +50,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { MapPlacesSheet } from '@/components/MapPlacesSheet';
 import { gestureStarted, pointNeedsReveal } from './mapInteraction';
-import { nearestHitId, pinStacks, stackTap, type PinStack, type StackCandidate } from './pinStacks';
+import { nearestHitId, pinStacks, stackTap, type HitCandidate, type PinStack, type StackCandidate } from './pinStacks';
+import { PublicLandCallout } from './PublicLandCallout';
 import type {
   CampsiteAvailabilitySummary,
   Hazard,
@@ -59,6 +60,7 @@ import type {
   MapGauge,
   PublicLandAccess,
   PublicLandFeature,
+  PublicLandProperties,
   RiverGeometry,
   RiverService,
 } from '@eddy/types';
@@ -74,7 +76,7 @@ import {
   severityLabel,
 } from '@eddy/hazards';
 import { conditionColor, conditionLabel } from '@/theme/conditions';
-import { neutral, primary, type Palette } from '@/theme/palette';
+import { lightPalette, neutral, primary, type Palette } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readingAge } from '@/lib/readingCopy';
 import {
@@ -172,6 +174,27 @@ const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; 
   spring: { image: 'eddy-spring-map', anchor: 'center', labelOffset: 1.4, themed: true },
 };
 
+/** Which mark each pin layer wears. One table for the layers, the route
+ * endpoints and the selection, so a place looks the same in all three. */
+const LAYER_SHAPE: Record<PinLayerKey, PinShape> = {
+  access: 'pin',
+  campgrounds: 'campground',
+  boatRamps: 'boatRamp',
+  outfitters: 'outfitter',
+  lodging: 'lodging',
+  springs: 'spring',
+  gauges: 'drop',
+  hazards: 'hazard',
+  dams: 'dam',
+  allGauges: 'dot',
+};
+
+/** How far a bottom-anchored mark's badge rides up behind its bulb, in pt. */
+const ACCESS_BADGE_LIFT = 11;
+
+/** The selected place's scale, against its unselected mark. */
+const SELECTED_SCALE = 1.18;
+
 const PIN_IMAGES = {
   'eddy-gauge-map': { image: require('../../assets/map/eddy-gauge.png'), sdf: false },
   'eddy-access-map': { image: require('../../assets/map/eddy-access.png'), sdf: false },
@@ -192,6 +215,7 @@ const PIN_IMAGES = {
   'eddy-count-usgs-map': { image: require('../../assets/map/count-usgs.png'), sdf: false },
   'eddy-count-usgs-wide-map': { image: require('../../assets/map/count-usgs-wide.png'), sdf: false },
   'eddy-count-stack-map': { image: require('../../assets/map/count-stack.png'), sdf: false },
+  'eddy-count-stack-usgs-map': { image: require('../../assets/map/count-stack-usgs.png'), sdf: false },
 };
 
 /** iOS emits this even when addMissingImageToStyle starts a native reload.
@@ -207,14 +231,23 @@ function onPinImageMissing(name: string) {
 }
 
 /**
- * A layer's own colour, from the single catalog every surface reads.
+ * The palette map marks are painted from: the LIGHT one, in both appearances.
  *
- * Module scope so the pin-shape memo below can call it without taking the whole
- * palette as a dependency through a closure — and because it is a pure lookup
- * with no reason to be rebuilt per render.
+ * The basemap is light in both schemes (see "Label ink" above), and the
+ * catalog's dark-scheme layer colours are pale tints chosen for charcoal
+ * sheets. Painted on a light map with a white ring they lost their edge — a
+ * selected dam's pale-teal badge vanished against its own lake. The sheets
+ * keep the scheme-aware tints; the map keeps one set of marks.
  */
-function layerColorFor(key: LayerKey, colors: Palette): string {
-  return MAP_LAYERS.find((l) => l.key === key)!.color(colors);
+const MAP_PAINT: Palette = lightPalette;
+
+/**
+ * A layer's map colour, from the single catalog every surface reads, always
+ * resolved against MAP_PAINT. Module scope: a pure lookup with no reason to be
+ * rebuilt per render.
+ */
+function layerColorFor(key: LayerKey): string {
+  return MAP_LAYERS.find((l) => l.key === key)!.color(MAP_PAINT);
 }
 
 /** What a source draws when it has nothing to draw. See the note in the render. */
@@ -274,6 +307,17 @@ function accessMatch(pick: (code: PublicLandAccess) => string): unknown[] {
  * layer Mapbox always draws a symbol's text over its own icon, so the stacking
  * cannot depend on the order layers reach the style.
  */
+/**
+ * The `clusterMaxZoomLevel` every clustered source takes.
+ *
+ * Mapbox clusters on every TILE zoom up to and including this value, and a
+ * camera at 8.6 still draws z8 tiles — so a source given ZOOM.cluster kept its
+ * counts until z9, a whole level after the family index (a layer capped at
+ * ZOOM.cluster) had already broken into dots. One below the rung makes every
+ * count on the map break at the same moment.
+ */
+const NATIVE_CLUSTER_MAX_ZOOM = ZOOM.cluster - 1;
+
 const COUNT_INK = primary[900];
 const USGS_COUNT_INK = neutral[900];
 
@@ -864,6 +908,13 @@ interface Props {
   planEndpoints?: { putIn: MapAccessPoint; takeOut: MapAccessPoint | null } | null;
   /** The open callout's pin, used only to give its map mark a selected state. */
   selectedPinId?: string | null;
+  /**
+   * The open callout's pin ITSELF, which the selection layer draws when this
+   * map no longer holds it — its layer switched off, or a place opened before
+   * any layer drew it. A pin this map does hold is drawn from its own, fresher
+   * copy instead.
+   */
+  selectedPin?: MapPin | null;
   onSelectPin?: (pin: MapPin) => void;
   onBackgroundPress?: () => void;
   placesListOpen?: boolean;
@@ -947,6 +998,7 @@ export function RiverMap({
   planRoute,
   planEndpoints,
   selectedPinId,
+  selectedPin,
   onSelectPin, onBackgroundPress, placesListOpen, onClosePlacesList, visibleViewport,
 }: Props) {
   const Mapbox = loadMapbox();
@@ -1292,17 +1344,13 @@ export function RiverMap({
       { point: planEndpoints.putIn, role: 'Put-in' },
       ...(planEndpoints.takeOut ? [{ point: planEndpoints.takeOut, role: 'Take-out' }] : []),
     ];
-    const shapeForLayer: Partial<Record<LayerKey, PinShape>> = {
-      access: 'pin', campgrounds: 'campground', boatRamps: 'boatRamp',
-      outfitters: 'outfitter', lodging: 'lodging',
-    };
     return points.map(({ point, role }) => {
       const types = accessPointTypes(point);
       const fallbackLayer = types.includes('campground') ? 'campgrounds'
         : types.includes('boat_ramp') ? 'boatRamps' : 'access';
       const pin = visiblePins.find(candidate => candidate.id === `access:${point.id}`)
         ?? mapAccessPointPin(point, riverSlug, fallbackLayer);
-      const icon = PIN_ICONS[shapeForLayer[pin.layer] ?? 'pin']!;
+      const icon = PIN_ICONS[LAYER_SHAPE[pin.layer as PinLayerKey] ?? 'pin'] ?? PIN_ICONS.pin!;
       return { pin, role, icon };
     });
   }, [pins, planEndpoints, riverSlug]);
@@ -1328,12 +1376,11 @@ export function RiverMap({
     const { bounds: [west, south, east, north], zoom } = visibleViewport;
     const padLng = (east - west) * 0.2;
     const padLat = (north - south) * 0.2;
-    // Gauges, dams and the national tier cluster natively through
-    // ZOOM.cluster, so their marks are individual only above that level.
-    const nativeClusterCeiling = Math.floor(zoom) <= ZOOM.cluster;
+    // Every clustered source breaks at ZOOM.cluster (see NATIVE_CLUSTER_MAX_ZOOM),
+    // so above the guard at the top of this memo every layer's marks are
+    // individual and all of them may stack.
     const candidates: StackCandidate[] = [];
-    const add = (list: readonly MapPin[] | null | undefined, clustered = false) => {
-      if (clustered && nativeClusterCeiling) return;
+    const add = (list: readonly MapPin[] | null | undefined) => {
       for (const pin of list ?? []) {
         if (!layers.includes(pin.layer) || pin.id === selectedPinId || endpointIds.has(pin.id)) continue;
         const { lng, lat } = pin.coordinates;
@@ -1347,9 +1394,9 @@ export function RiverMap({
     add(springPins);
     add(outfitterPins);
     add(lodgingPins);
-    add(gaugePins, true);
-    add(referenceGauges, true);
-    add(dams, true);
+    add(gaugePins);
+    add(referenceGauges);
+    add(dams);
     return pinStacks(candidates, zoom);
   }, [
     visibleViewport, layers, selectedPinId, endpointIds, accessPins, campgroundPins,
@@ -1361,7 +1408,11 @@ export function RiverMap({
   // stack forms, splits or moves, and every layer shape below depends on them
   // rather than on the array.
   const stackedKey = stacks.flatMap((stack) => stack.ids).sort().join('|');
-  const stackFeaturesKey = JSON.stringify(stacks.map((stack) => [stack.id, stack.ids.length, stack.lng, stack.lat]));
+  const referenceIds = useMemo(() => new Set((referenceGauges ?? []).map((pin) => pin.id)), [referenceGauges]);
+  const stackFeaturesKey = JSON.stringify(stacks.map((stack) => [
+    stack.id, stack.ids.length, stack.lng, stack.lat,
+    stack.ids.every((member) => referenceIds.has(member)) ? 'usgs' : 'place',
+  ]));
   /** Endpoints and stacked members, left out of their own layers' shapes. */
   const layerHiddenIds = useMemo(
     () => new Set([...endpointIds, ...(stackedKey ? stackedKey.split('|') : [])]),
@@ -1373,11 +1424,11 @@ export function RiverMap({
   );
   const stackShape = useMemo(() => ({
     type: 'FeatureCollection' as const,
-    features: (JSON.parse(stackFeaturesKey) as [string, number, number, number][]).map(
-      ([id, count, lng, lat]) => ({
+    features: (JSON.parse(stackFeaturesKey) as [string, number, number, number, string][]).map(
+      ([id, count, lng, lat, face]) => ({
         type: 'Feature' as const,
         id,
-        properties: { id, count },
+        properties: { id, count, face },
         geometry: { type: 'Point' as const, coordinates: [lng, lat] },
       }),
     ),
@@ -1401,41 +1452,41 @@ export function RiverMap({
   // other five, and a rebuilt collection is a re-upload of that layer's pins
   // whether or not a feature in it changed.
   const accessShape = useMemo(
-    () => featureCollection(accessPins, layerColorFor('access', colors), layerHiddenIds),
-    [accessPins, colors, layerHiddenIds],
+    () => featureCollection(accessPins, layerColorFor('access'), layerHiddenIds),
+    [accessPins, layerHiddenIds],
   );
   const outfitterShape = useMemo(
-    () => featureCollection(outfitterPins, layerColorFor('outfitters', colors), layerHiddenIds),
-    [outfitterPins, colors, layerHiddenIds],
+    () => featureCollection(outfitterPins, layerColorFor('outfitters'), layerHiddenIds),
+    [outfitterPins, layerHiddenIds],
   );
   const lodgingShape = useMemo(
-    () => featureCollection(lodgingPins, layerColorFor('lodging', colors), layerHiddenIds),
-    [lodgingPins, colors, layerHiddenIds],
+    () => featureCollection(lodgingPins, layerColorFor('lodging'), layerHiddenIds),
+    [lodgingPins, layerHiddenIds],
   );
   const boatRampShape = useMemo(
-    () => featureCollection(boatRampPins, layerColorFor('boatRamps', colors), layerHiddenIds),
-    [boatRampPins, colors, layerHiddenIds],
+    () => featureCollection(boatRampPins, layerColorFor('boatRamps'), layerHiddenIds),
+    [boatRampPins, layerHiddenIds],
   );
   const campgroundShape = useMemo(
-    () => featureCollection(campgroundPins, layerColorFor('campgrounds', colors), layerHiddenIds),
-    [campgroundPins, colors, layerHiddenIds],
+    () => featureCollection(campgroundPins, layerColorFor('campgrounds'), layerHiddenIds),
+    [campgroundPins, layerHiddenIds],
   );
   const gaugeShape = useMemo(
-    () => featureCollection(gaugePins, layerColorFor('gauges', colors), stackedOnlyIds),
-    [gaugePins, colors, stackedOnlyIds],
+    () => featureCollection(gaugePins, layerColorFor('gauges'), stackedOnlyIds),
+    [gaugePins, stackedOnlyIds],
   );
   const hazardShape = useMemo(
-    () => featureCollection(hazardPins, layerColorFor('hazards', colors)),
-    [hazardPins, colors],
+    () => featureCollection(hazardPins, layerColorFor('hazards')),
+    [hazardPins],
   );
 
   const springShape = useMemo(
-    () => featureCollection(springPins, layerColorFor('springs', colors), stackedOnlyIds),
-    [springPins, colors, stackedOnlyIds],
+    () => featureCollection(springPins, layerColorFor('springs'), stackedOnlyIds),
+    [springPins, stackedOnlyIds],
   );
   const damShape = useMemo(
-    () => featureCollection(dams ?? [], layerColorFor('dams', colors), stackedOnlyIds),
-    [dams, colors, stackedOnlyIds],
+    () => featureCollection(dams ?? [], layerColorFor('dams'), stackedOnlyIds),
+    [dams, stackedOnlyIds],
   );
   // The national tier's collection. This was built inline inside
   // contextGaugeLayer — the one source in this file that was — so every render
@@ -1444,8 +1495,8 @@ export function RiverMap({
   // reference gauges per sheet settle. Same argument, and same fix, as every
   // memo above it.
   const referenceShape = useMemo(
-    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges', colors), stackedOnlyIds),
-    [referenceGauges, colors, stackedOnlyIds],
+    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges'), stackedOnlyIds),
+    [referenceGauges, stackedOnlyIds],
   );
 
   /**
@@ -1497,19 +1548,25 @@ export function RiverMap({
    * count of gauges answers a question about water that a count mixing in
    * cabins could not.
    */
+  // Only the members whose layer is ON: the index is mounted for the whole
+  // family, and a count must not include tents while Camping is off. Springs
+  // ride in the places family — they used to take the ZOOM.cluster floor with
+  // no index under it, so below z8 the one layer drew nothing at all.
   const placesIndexShape = useMemo(
     () =>
-      featureCollection([...accessPins, ...campgroundPins, ...boatRampPins], (pin) =>
-        layerColorFor(pin.layer, colors), endpointIds,
+      featureCollection(
+        [...accessPins, ...campgroundPins, ...boatRampPins, ...springPins].filter((pin) => layers.includes(pin.layer)),
+        (pin) => layerColorFor(pin.layer), endpointIds,
       ),
-    [accessPins, campgroundPins, boatRampPins, colors, endpointIds],
+    [accessPins, campgroundPins, boatRampPins, springPins, layers, endpointIds],
   );
   const servicesIndexShape = useMemo(
     () =>
-      featureCollection([...outfitterPins, ...lodgingPins], (pin) =>
-        layerColorFor(pin.layer, colors), endpointIds,
+      featureCollection(
+        [...outfitterPins, ...lodgingPins].filter((pin) => layers.includes(pin.layer)),
+        (pin) => layerColorFor(pin.layer), endpointIds,
       ),
-    [outfitterPins, lodgingPins, colors, endpointIds],
+    [outfitterPins, lodgingPins, layers, endpointIds],
   );
 
   const pinShapes = useMemo(
@@ -1576,6 +1633,53 @@ export function RiverMap({
       },
     })),
   }), [endpointPins, colors.accent]);
+
+  /**
+   * ── THE SELECTED PLACE, DRAWN BY ITSELF ON TOP ────────────────────────────
+   *
+   * The open sheet is about this place, so the map must show it — and for a
+   * while it could not promise to. A selected pin was a `case` inside its own
+   * layer, which left it wherever that layer sat: under a numbered stack's
+   * opaque face, folded into a count below the cluster rung (a pick from
+   * "Places in this area" opened a sheet for a place the map drew only as a
+   * number), unnamed below ZOOM.names or beaten in label collision, and gone
+   * entirely when its layer was switched off with the sheet still open.
+   *
+   * So it has a source of its own, above every place layer: always drawn,
+   * always named, the same mark at SELECTED_SCALE. Its own layer leaves it out
+   * through a FILTER (see `unselected`) rather than by rebuilding collections,
+   * so a tap re-uploads one feature, not a thousand. Route endpoints are the
+   * exception that already had this — their source draws their selection.
+   */
+  const selectedShape = useMemo(() => {
+    // byId holds only what the switched-on layers draw: turning off the last
+    // layer that drew the selection took it out of byId, and the marker went
+    // with it while its sheet stayed open. The caller's pin is the fallback;
+    // a pin this map still holds is the fresher copy.
+    const held = selectedPinId ? byId.get(selectedPinId) : undefined;
+    const pin = selectedPinId && !endpointIds.has(selectedPinId)
+      ? held ?? (selectedPin?.id === selectedPinId ? selectedPin : undefined)
+      : undefined;
+    if (!pin) return EMPTY_COLLECTION;
+    const icon = PIN_ICONS[LAYER_SHAPE[pin.layer as PinLayerKey] ?? 'dot'];
+    return {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        id: pin.id,
+        properties: {
+          id: pin.id,
+          label: pin.label ?? pin.name,
+          color: pin.color ?? layerColorFor(pin.layer),
+          image: icon?.image ?? '',
+          anchor: icon?.anchor ?? 'center',
+          // The label clears the scaled-up mark, or a dot when there is none.
+          labelOffset: [0, icon ? icon.labelOffset * SELECTED_SCALE : 1.2],
+        },
+        geometry: { type: 'Point' as const, coordinates: [pin.coordinates.lng, pin.coordinates.lat] },
+      }],
+    };
+  }, [selectedPinId, selectedPin, endpointIds, byId]);
 
   // ── Why the two river sources are never unmounted ───────────────────────────
   //
@@ -1716,10 +1820,14 @@ export function RiverMap({
   const tapSequence = useRef(0);
   // A stack's "N places here" choice. Owned here, beside the stacks it lists.
   const [stackChoice, setStackChoice] = useState<MapPin[] | null>(null);
+  // A tapped public-land parcel's callout. See PublicLandCallout.
+  const [publicLand, setPublicLand] = useState<PublicLandProperties | null>(null);
   // Invalidate async native queries when the map goes away.
   useEffect(() => () => { interactionEpoch.current++; tapSequence.current++; }, []);
   const reducedMotion = useReducedMotion(true);
   const appliedCommandId = useRef<number | null>(null);
+  /** When the last app-driven camera move lands, in ms since epoch. */
+  const flightEndsAt = useRef(0);
   const liveCamera = useRef<{ center: [number, number]; zoom: number; gestureActive: boolean } | null>(
     null,
   );
@@ -1767,6 +1875,8 @@ export function RiverMap({
       }
       gestureLatched.current = gestureActive;
       if (gestureActive) {
+        // A gesture stops any app-driven flight where it is.
+        flightEndsAt.current = 0;
         const command = pendingCommand.current;
         // A gesture wins even over a command waiting for sheet measurement.
         // Marking it consumed prevents the delayed command from snapping the
@@ -1812,14 +1922,22 @@ export function RiverMap({
           : cameraCommand.zoom;
       const epoch = interactionEpoch.current;
       const commandId = cameraCommand.id;
+      // A reveal-only move asks "is the point already visible?" — a question
+      // with no honest answer while an earlier app-driven flight is still
+      // carrying the camera: getPointInView reports where the point is MID-
+      // flight, and the flight then carries it under the sheet. So during a
+      // flight the reveal always runs, replacing the old destination.
+      const inFlight = Date.now() < flightEndsAt.current;
+      const animation = cameraAnimation(cameraCommand, reducedMotion);
       const apply = async () => {
-        if (cameraCommand.revealOnly && mapRef.current) {
+        if (cameraCommand.revealOnly && !inFlight && mapRef.current) {
           try {
             const point = await mapRef.current.getPointInView([cameraCommand.lng, cameraCommand.lat]);
             if (!pointNeedsReveal(point, mapSize.current, cameraPadding)) return;
           } catch { return; } // A missing style/measurement is not a reason to jump.
         }
         if (interactionEpoch.current !== epoch || appliedCommandId.current !== commandId) return;
+        flightEndsAt.current = Date.now() + (animation.animationDuration ?? 0);
         cameraRef.current?.setCamera({
           centerCoordinate: [cameraCommand.lng, cameraCommand.lat],
         // Undefined is intentional for a POI: Mapbox then changes the centre
@@ -1827,7 +1945,7 @@ export function RiverMap({
         // moving and onMapIdle has not published its final value yet.
         zoomLevel,
         padding: cameraPadding,
-        ...cameraAnimation(cameraCommand, reducedMotion),
+        ...animation,
         });
       };
       void apply();
@@ -1835,10 +1953,12 @@ export function RiverMap({
     }
 
     const bounds = cameraCommand.bounds;
+    const animation = cameraAnimation(cameraCommand, reducedMotion);
+    flightEndsAt.current = Date.now() + (animation.animationDuration ?? 0);
     cameraRef.current.setCamera({
       bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] },
       padding: cameraPadding,
-      ...cameraAnimation(cameraCommand, reducedMotion),
+      ...animation,
     });
   }, [cameraCommand, cameraPadding, sheetReady, onCameraCommandConsumed, reducedMotion]);
 
@@ -1875,6 +1995,17 @@ export function RiverMap({
   const layerOn = (key: LayerKey) => layers.includes(key);
 
   /**
+   * A layer filter that also leaves out the selected place, which
+   * selectedShape draws on top. Filters are layer properties: changing one
+   * re-evaluates the layer without re-uploading its source.
+   */
+  const unselected = (filter?: unknown[]): unknown[] | undefined => {
+    if (!selectedPinId) return filter;
+    const notSelected = ['!=', ['get', 'id'], selectedPinId];
+    return filter ? ['all', filter, notSelected] : notSelected;
+  };
+
+  /**
    * A tap that landed on places: the mark nearest the finger wins.
    *
    * The query box is 44pt, so it can reach two marks that are not stacked.
@@ -1883,16 +2014,23 @@ export function RiverMap({
    * ease in to where it splits while zoomed out, otherwise list its members.
    */
   const selectPinHits = (features: RenderedFeature[], tap: number[] | undefined) => {
-    const hits: StackCandidate[] = [];
+    const zoom = liveCamera.current?.zoom ?? visibleViewport?.zoom ?? 0;
+    const hits: HitCandidate[] = [];
     for (const feature of features) {
       const id = feature.properties?.id;
       if (typeof id !== 'string') continue;
       const stack = stacksById.get(id);
       const pin = stack ? null : byId.get(id);
       if (stack) hits.push({ id, lng: stack.lng, lat: stack.lat });
-      else if (pin) hits.push({ id, lng: pin.coordinates.lng, lat: pin.coordinates.lat });
+      else if (pin) {
+        // A bottom-anchored mark is aimed at by its bulb, not its tip — but
+        // only once it draws as the mark; below ZOOM.places it is a dot.
+        const icon = PIN_ICONS[LAYER_SHAPE[pin.layer as PinLayerKey] ?? 'dot'];
+        const lift = icon?.anchor === 'bottom' && zoom >= ZOOM.places ? ACCESS_BADGE_LIFT : 0;
+        hits.push({ id, lng: pin.coordinates.lng, lat: pin.coordinates.lat, lift });
+      }
     }
-    const id = nearestHitId(hits, tap && tap.length >= 2 ? { lng: tap[0], lat: tap[1] } : null);
+    const id = nearestHitId(hits, tap && tap.length >= 2 ? { lng: tap[0], lat: tap[1] } : null, zoom);
     if (!id) return false;
     const stack = stacksById.get(id);
     if (stack) {
@@ -1918,33 +2056,59 @@ export function RiverMap({
       if (!current()) return;
       if (selectPinHits(hits?.features ?? [], event.geometry?.coordinates)) return;
       // Queried native features omit source identity. Query cluster layers with
-      // their source refs only when no individual POI matched the tap.
+      // their source refs only when no individual POI matched the tap — EVERY
+      // clustered source, then the count nearest the finger. Taking the first
+      // source's hit let an overlapping reference or places count capture a
+      // tap aimed at the gauge count drawn over it.
+      const counts: { source: ClusterSourceRef; feature: RenderedFeature; lng: number; lat: number }[] = [];
       for (const [sourceId, source] of clusterSources.current) {
         const result = await map.queryRenderedFeaturesInRect(box, [], [`${sourceId}-cluster`]);
         if (!current()) return;
-        const feature = result?.features.find(f => typeof f.properties?.cluster_id === 'number');
-        const coords = feature?.geometry?.coordinates;
-        if (feature && coords) {
-          let zoom: number | undefined;
-          try {
-            const expansion = await source.getClusterExpansionZoom(feature);
-            if (Number.isFinite(expansion)) zoom = expansion;
-          } catch (error) {
-            warn('map', 'cluster expansion unavailable; using camera zoom fallback', error);
+        for (const feature of result?.features ?? []) {
+          const coords = feature.geometry?.coordinates;
+          if (typeof feature.properties?.cluster_id === 'number' && coords) {
+            counts.push({ source, feature, lng: coords[0], lat: coords[1] });
           }
-          if (!current()) return;
-          onZoomToCluster?.({ lng: coords[0], lat: coords[1], ...(zoom === undefined ? {} : { zoom }) });
-          return;
         }
+      }
+      const tapAt = event.geometry?.coordinates;
+      const nearest = nearestHitId(
+        counts.map((count, index) => ({ id: String(index), lng: count.lng, lat: count.lat })),
+        tapAt && tapAt.length >= 2 ? { lng: tapAt[0], lat: tapAt[1] } : null,
+      );
+      if (nearest !== null) {
+        const { source, feature, lng, lat } = counts[Number(nearest)];
+        let zoom: number | undefined;
+        try {
+          const expansion = await source.getClusterExpansionZoom(feature);
+          if (Number.isFinite(expansion)) zoom = expansion;
+        } catch (error) {
+          warn('map', 'cluster expansion unavailable; using camera zoom fallback', error);
+        }
+        if (!current()) return;
+        onZoomToCluster?.({ lng, lat, ...(zoom === undefined ? {} : { zoom }) });
+        return;
       }
       const rivers = await map.queryRenderedFeaturesInRect(box, [], ['network-fill']);
       if (!current()) return;
       if (rivers?.features.length) {
         const coords = event.geometry?.coordinates;
         onNetworkPress({ features: rivers.features, coordinates: coords ? { longitude: coords[0], latitude: coords[1] } : undefined });
-      } else {
-        onBackgroundPress?.();
+        return;
       }
+      // Public land, under everything else: a tap on a parcel says what the
+      // ground is and leaves the open sheet alone. It used to fall through to
+      // the background and close the sheet, with no way to learn the parcel.
+      if (layers.includes('publicLand')) {
+        const parcels = await map.queryRenderedFeaturesInRect([y, x, y, x], [], ['public-lands-fill']);
+        if (!current()) return;
+        const land = parcels?.features[0]?.properties as PublicLandProperties | undefined;
+        if (land && typeof land.name === 'string') {
+          setPublicLand(land);
+          return;
+        }
+      }
+      onBackgroundPress?.();
     } catch (error) {
       // Failed hit-testing is not an empty-map tap; preserve the selection.
       warn('map', 'map selection unavailable', error);
@@ -1977,13 +2141,11 @@ export function RiverMap({
     /**
      * The zoom a layer's labels switch on at.
      *
-     * ZOOM.names for the place layers, where thirty overlapping put-in names
-     * at river zoom are noise. Gauges pass GAUGE_DETAIL_ZOOM, so a station is
-     * named from the moment it draws as a full staff mark. Dams pass 0 — the
-     * one layer off the label rung, because two dozen landmarks are told
-     * apart by name or not at all. Collision detection still drops labels
-     * that would overlap, so the statewide view thins itself rather than
-     * turning into a wall of text.
+     * Every caller passes ZOOM.names, and map-zoom-ladder.test.ts holds them
+     * to it. Dams once passed 0 and gauges GAUGE_DETAIL_ZOOM; a statewide view
+     * with one layer named and nothing else read as that layer shouting over
+     * the map. The selected place is the exception that is not a layer: the
+     * selection layer names it at every zoom.
      */
     labelMinZoom: number = ZOOM.names,
     /**
@@ -2008,7 +2170,7 @@ export function RiverMap({
      * Rated gauges and dams pass it. The badge is the neutral place face, never
      * a verdict — see PLACE_COUNT_BADGE.
      */
-    clustering?: { radius: number; maxZoom: number },
+    clustering?: { radius: number },
   ) => {
     // No early return on an empty list. Access points and gauges arrive
     // asynchronously, and a source that unmounts takes its layers out of the
@@ -2023,19 +2185,21 @@ export function RiverMap({
      * layer means a bubble of forty stations rendered as one staff mark in one
      * station's colour, sitting exactly where no gauge is.
      *
-     * Undefined when the source does not cluster, so every other caller's
-     * layers are unchanged.
+     * It also leaves out the selected place, which the selection layer draws
+     * on top of everything — see selectedShape.
      */
-    const solo = clustering ? (['!', ['has', 'point_count']] as unknown[]) : undefined;
+    const solo = unselected(clustering ? ['!', ['has', 'point_count']] : undefined);
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
-        shape={pinShapes[id]}
+        // Off is an EMPTY source, never an unmounted one — see MOUNTED, NOT
+        // GATED in the render.
+        shape={layerOn(id) ? pinShapes[id] : EMPTY_COLLECTION}
         // The map-level handler needs the owning source to expand a cluster.
         ref={clustering ? clusterSourceRefs[`pins-${id}`] : undefined}
         cluster={clustering !== undefined}
         clusterRadius={clustering?.radius}
-        clusterMaxZoomLevel={clustering?.maxZoom}
+        clusterMaxZoomLevel={clustering ? NATIVE_CLUSTER_MAX_ZOOM : undefined}
       >
         {clustering ? (
           <Mapbox.SymbolLayer
@@ -2055,13 +2219,12 @@ export function RiverMap({
             minZoomLevel={minZoom}
             maxZoomLevel={compactUntilZoom}
             style={{
-              circleRadius: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 7, 5]
-                : 5,
+              circleRadius: 5,
               circleColor: ['get', 'color'],
-              circleStrokeWidth: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1.5]
-                : 1.5,
+              // A landing that needs permission is dimmed, on every layer that
+              // can draw one — it was only the access layer's dots that did.
+              circleOpacity: ['case', ['get', 'privateAccess'], 0.65, 1],
+              circleStrokeWidth: 1.5,
               circleStrokeColor: '#FFFFFF',
             }}
           />
@@ -2072,13 +2235,9 @@ export function RiverMap({
             filter={solo}
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
-              circleRadius: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 15, 13]
-                : 13,
+              circleRadius: 13,
               circleColor: ['get', 'color'],
-              circleStrokeWidth: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 3.5, 2]
-                : 2,
+              circleStrokeWidth: 2,
               circleStrokeColor: '#FFFFFF',
             }}
           />
@@ -2090,15 +2249,17 @@ export function RiverMap({
             minZoomLevel={compactUntilZoom ?? minZoom}
             style={{
               iconImage: icon.image,
-              iconSize: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
-                : 1,
               iconAnchor: icon.anchor,
               // NOT OPTIONAL. A SymbolLayer hides colliding icons by default,
               // which on a cluster of access points would silently drop pins —
               // a CircleLayer never did that, and a hazard you cannot see is
               // the one failure this whole layer exists to prevent.
               iconAllowOverlap: true,
+              // And an icon that is always drawn must not also BLOCK labels.
+              // Placement runs from the top layer down, so an icon that took
+              // part in collision dropped every name beneath it — the put-in
+              // names most of all, being the lowest place layer.
+              iconIgnorePlacement: true,
             }}
           />
         ) : (
@@ -2109,9 +2270,7 @@ export function RiverMap({
             style={{
               circleRadius: 6,
               circleColor: ['get', 'color'],
-              circleStrokeWidth: selectedPinId
-                ? ['case', ['==', ['get', 'id'], selectedPinId], 4, 2]
-                : 2,
+              circleStrokeWidth: 2,
               circleStrokeColor: '#FFFFFF',
             }}
           />
@@ -2134,9 +2293,8 @@ export function RiverMap({
           // wherever `compactUntilZoom` is set, the overview dot covers
           // [minZoom, compactUntilZoom), so there is geometry under the text
           // from the layer's first zoom. Clamping to `compactUntilZoom` (as
-          // this once did) silently re-floored the dam labels to ZOOM.places,
-          // exactly the "unnamed dot cannot be told from the lake it sits on"
-          // failure that layer's labelMinZoom of 0 exists to prevent.
+          // this once did) silently re-floored labels the argument said were
+          // on, and nothing failed.
           //
           // The one shape this reasoning does not cover is a future caller
           // passing `compactUntilZoom` with the bare `dot` shape, which has no
@@ -2179,21 +2337,19 @@ export function RiverMap({
     // takes its four layers out of the style with it, and the next prop change
     // then calls updateLayer against a style they are no longer in.
     //
-    // The layerOn('allGauges') gate in the render is a different thing and
-    // stays: that is an explicit user action, not data arriving, so nothing is
-    // racing its teardown — the same line 00196's plan-route and plan-endpoints
-    // sit on.
+    // Switching the tier off is an empty source too, not an unmount — see
+    // MOUNTED, NOT GATED in the render for why a remount reorders the map.
     return (
       <Mapbox.ShapeSource
         id="pins-allGauges"
-        shape={referenceShape}
+        shape={layerOn('allGauges') ? referenceShape : EMPTY_COLLECTION}
         ref={clusterSourceRefs['pins-allGauges']}
         cluster
         clusterRadius={50}
-        // ZOOM.cluster, like every other clustered layer. It was 11 — three
-        // rungs later than the access points beside it — so panning in turned
-        // one layer into pins while the other was still bubbles.
-        clusterMaxZoomLevel={ZOOM.cluster}
+        // Breaks at ZOOM.cluster, like every other clustered layer. It was 11 —
+        // three rungs later than the access points beside it — so panning in
+        // turned one layer into pins while the other was still bubbles.
+        clusterMaxZoomLevel={NATIVE_CLUSTER_MAX_ZOOM}
       >
         {/* The parchment face: reference data, quieter than Eddy's own
             counts, and the same face the web gives these clusters. Neutral
@@ -2207,16 +2363,19 @@ export function RiverMap({
         <Mapbox.SymbolLayer
           id="pins-allGauges-cluster"
           filter={['has', 'point_count']}
+          // The ladder's floor, like every other statewide layer. The screen
+          // feeds this source from the national index below the fetch floor,
+          // and with no floor here a continental camera drew it anyway.
+          minZoomLevel={ZOOM.min}
           style={USGS_COUNT_BADGE}
         />
         <Mapbox.CircleLayer
           id={pinHitLayerId('pins-allGauges-dot')}
-          filter={['!', ['has', 'point_count']]}
+          filter={unselected(['!', ['has', 'point_count']])}
+          minZoomLevel={ZOOM.min}
           style={{
             circleColor: ['get', 'color'],
-            circleStrokeWidth: selectedPinId
-              ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1]
-              : 1,
+            circleStrokeWidth: 1,
             circleStrokeColor: '#FFFFFF',
             // Radius carries discharge, on sqrt already applied by the caller,
             // interpolated so a creek is still tappable and the Mississippi is
@@ -2234,7 +2393,7 @@ export function RiverMap({
         />
         <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-allGauges-label')}
-          filter={['!', ['has', 'point_count']]}
+          filter={unselected(['!', ['has', 'point_count']])}
           // ZOOM.names, with every other label on the map. This tier used to
           // name its dots the moment they stopped being bubbles, which put
           // fourteen thousand place names on screen two rungs before anything
@@ -2285,7 +2444,7 @@ export function RiverMap({
       // that groups them too tightly leaves a scatter of near-touching bubbles
       // where one count belongs.
       clusterRadius={46}
-      clusterMaxZoomLevel={ZOOM.cluster}
+      clusterMaxZoomLevel={NATIVE_CLUSTER_MAX_ZOOM}
     >
       <Mapbox.SymbolLayer
         id={`pins-${id}-index-cluster`}
@@ -2299,19 +2458,17 @@ export function RiverMap({
       />
       <Mapbox.CircleLayer
         id={pinHitLayerId(`pins-${id}-index-dot`)}
-        filter={['!', ['has', 'point_count']]}
+        filter={unselected(['!', ['has', 'point_count']])}
         minZoomLevel={ZOOM.min}
         maxZoomLevel={ZOOM.cluster}
         style={{
-          circleRadius: 4.5,
+          // The same overview dot every layer draws: 5pt, a 1.5pt ring, and a
+          // landing that needs permission dimmed rather than hidden.
+          circleRadius: 5,
           circleColor: ['get', 'color'],
-          // Carried through from the access layer's own overview dot: a landing
-          // that needs permission is dimmed rather than hidden.
           circleOpacity: ['case', ['get', 'privateAccess'], 0.65, 1],
           circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: selectedPinId
-            ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1.5]
-            : 1.5,
+          circleStrokeWidth: 1.5,
         }}
       />
     </Mapbox.ShapeSource>
@@ -2340,35 +2497,51 @@ export function RiverMap({
       // one and the map got an unclustered mark. The whole family clusters
       // together now, one rung lower down the render, and this source picks the
       // places up at ZOOM.cluster with nothing hidden in between.
-      shape={pinShapes.access}
+      shape={layerOn('access') ? pinShapes.access : EMPTY_COLLECTION}
     >
       <Mapbox.CircleLayer
         id={pinHitLayerId('pins-access-overview')}
+        filter={unselected()}
         // The family index draws everything below here. Without the floor the
         // two would both paint at statewide zoom — bubbles with a full scatter
         // of dots under them, which is the crowding this was meant to end.
         minZoomLevel={ZOOM.cluster}
         maxZoomLevel={ZOOM.places}
         style={{
-          circleRadius: 4.5,
+          circleRadius: 5,
           circleColor: ['get', 'color'],
           circleOpacity: ['case', ['get', 'privateAccess'], 0.65, 1],
           circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: selectedPinId
-            ? ['case', ['==', ['get', 'id'], selectedPinId], 3, 1.5]
-            : 1.5,
+          circleStrokeWidth: 1.5,
+        }}
+      />
+      {/* The badge every other Eddy mark wears, which access alone went
+          without — while the same put-in drawn as a route endpoint had one.
+          The mark is bottom-anchored, so the badge rides up behind its bulb
+          exactly as the endpoint's does. */}
+      <Mapbox.CircleLayer
+        id={pinHitLayerId('pins-access-badge')}
+        filter={unselected()}
+        minZoomLevel={ZOOM.places}
+        style={{
+          circleRadius: 13,
+          circleColor: ['get', 'color'],
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: 2,
+          circleTranslate: [0, -ACCESS_BADGE_LIFT],
+          circleTranslateAnchor: 'viewport',
         }}
       />
       <Mapbox.SymbolLayer
         id={pinHitLayerId('pins-access-icon')}
+        filter={unselected()}
         minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
-          iconSize: selectedPinId
-            ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1]
-            : 1,
           iconAnchor: 'bottom',
           iconAllowOverlap: true,
+          // Always drawn, so it must not block labels — see pinLayer's icon.
+          iconIgnorePlacement: true,
         }}
       />
       {/* No padlock overlay — see the note in the generic pin builder above.
@@ -2376,6 +2549,7 @@ export function RiverMap({
           dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
         id={pinHitLayerId('pins-access-label')}
+        filter={unselected()}
         minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],
@@ -2699,26 +2873,33 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
 
-      {/* The national tier goes FIRST of the pin layers, so everything Eddy has
+      {/* ── MOUNTED, NOT GATED ───────────────────────────────────────────────
+          Every pin source from here down is mounted for the life of the map,
+          and a layer that is off hands its source an EMPTY collection.
+
+          They used to mount behind `layerOn(...)`, and that silently broke the
+          draw order this block is written in. @rnmapbox adds a layer with no
+          position to the TOP of the style when it mounts, so the JSX order
+          only held for layers present on the first render: switch "All gauges"
+          on mid-session and its parchment counts drew over rated gauges and
+          hazards; toggle Camping off and on and the tents rose above the
+          hazard triangles. An empty source costs nothing and keeps its slot.
+
+          The national tier goes FIRST of the pin layers, so everything Eddy has
           curated paints over it. A reference dot must never sit on top of a
           rated gauge, an access point or a hazard — it is the layer with the
           least to say and the most members. */}
-      {layerOn('allGauges') ? contextGaugeLayer() : null}
+      {contextGaugeLayer()}
 
       {/* ── The two family indexes, under everything they consolidate ───────
           Below ZOOM.cluster these are the ONLY thing the place layers draw, so
           they go first: a rated gauge's verdict and a hazard must paint over a
-          bubble of cabins, never under it. Mounted whenever any member of the
-          family is on — an empty family draws nothing, and the source staying
-          mounted through a toggle is the same teardown rule pinLayer follows. */}
-      {layerOn('access') || layerOn('campgrounds') || layerOn('boatRamps')
-        ? familyIndexLayer('places', placesIndexShape)
-        : null}
-      {layerOn('outfitters') || layerOn('lodging')
-        ? familyIndexLayer('services', servicesIndexShape)
-        : null}
+          count of cabins, never under it. Each holds only the members whose
+          layer is on, so a family with nothing on draws nothing. */}
+      {familyIndexLayer('places', placesIndexShape)}
+      {familyIndexLayer('services', servicesIndexShape)}
 
-      {layerOn('access') ? accessLayer() : null}
+      {accessLayer()}
       {/* ── THE FAMILY INDEX OWNS THE BAND BELOW ZOOM.cluster ────────────────
           These four start AT ZOOM.cluster and are compact dots until
           ZOOM.places. Below the cluster rung they draw nothing at all, because
@@ -2735,17 +2916,13 @@ export function RiverMap({
           together, which is the crowding the index replaced. The floor and the
           index's ceiling have to be the same rung, and neither half fails
           loudly on its own — hence the test. */}
-      {layerOn('outfitters')
-        ? pinLayer('outfitters', 'outfitter', ZOOM.names, ZOOM.cluster, ZOOM.places)
-        : null}
-      {layerOn('lodging')
-        ? pinLayer('lodging', 'lodging', ZOOM.names, ZOOM.cluster, ZOOM.places)
-        : null}
-      {layerOn('campgrounds')
-        ? pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.cluster, ZOOM.places)
-        : null}
+      {pinLayer('outfitters', 'outfitter', ZOOM.names, ZOOM.cluster, ZOOM.places)}
+      {pinLayer('lodging', 'lodging', ZOOM.names, ZOOM.cluster, ZOOM.places)}
+      {pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.cluster, ZOOM.places)}
 
-      {/* ── Springs ride the standard rungs, and cluster ───────────────────
+      {/* ── Springs ride the standard rungs, and count with the places ───────
+          Below ZOOM.cluster they are members of the places family index (see
+          placesIndexShape); from it, this layer.
           The same three arguments as the place layers above, deliberately: a
           spring is a destination like a campground is, there are a few dozen of
           them statewide, and nothing about one is urgent. It is emphatically
@@ -2757,144 +2934,56 @@ export function RiverMap({
           access dedupe (spring-dedupe.ts) keeps a spring OUT of this layer when
           it is already an access point, so anything drawing here is a feature
           the access layer is not showing, and it should not be buried by one. */}
-      {layerOn('springs')
-        ? pinLayer('springs', 'spring', ZOOM.names, ZOOM.cluster, ZOOM.places)
-        : null}
+      {pinLayer('springs', 'spring', ZOOM.names, ZOOM.cluster, ZOOM.places)}
       {/* Drawn exactly as the campgrounds layer is, because it is exactly the
           same handover: a put-in leaves the access source and wears its own mark
           for as long as this tier is on — so it has to rejoin the ladder at the
           same rung the tents do, or the handover swaps one representation for a
           differently-sized one mid-zoom. */}
-      {layerOn('boatRamps')
-        ? pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.cluster, ZOOM.places)
-        : null}
-      {/* Present from the opening statewide view, without making that view pay
-          for forty full-size symbols and labels. Compact condition dots answer
-          "where is the water?" immediately; the staff marks and place names
-          arrive at GAUGE_DETAIL_ZOOM.
+      {pinLayer('boatRamps', 'boatRamp', ZOOM.names, ZOOM.cluster, ZOOM.places)}
+      {/* ── Rated gauges: the same rungs as every place, with no exception ───
+          Count badges to ZOOM.cluster, compact condition dots to
+          GAUGE_DETAIL_ZOOM (ZOOM.places), the staff mark, names at ZOOM.names,
+          and the ZOOM.min floor.
 
-          ── Rated gauges cluster, and the count is only a count ───────────
-          For a while a rated cluster was painted with the worst condition
-          inside it. It is the neutral place badge now (see PLACE_COUNT_BADGE):
-          a coloured count meant a verdict beside counts whose colour meant a
-          category, and it still could not say WHICH gauge was in flood. The
-          verdict stays where it can be acted on — the coloured river lines at
-          every zoom, and these pins once the cluster breaks.
+          The count is only a count. For a while a rated cluster was painted
+          with the worst condition inside it; that made a count's colour mean a
+          verdict on one badge and a category on the next, and it still could
+          not say WHICH gauge was in flood. The verdict stays where it can be
+          acted on — the coloured river lines at every zoom, and these pins once
+          the cluster breaks.
 
-          It collapses on the same rung as everything else — ZOOM.cluster — so
-          the map changes character once as you pan in rather than six times.
-          See the ladder in map/layers.ts.
+          This layer used to sit out two rungs, as dams did. It kept no floor
+          ("the curated set is already in memory, so a floor protects no
+          fetch") and was named a full rung early, at GAUGE_DETAIL_ZOOM. Both
+          made the gauge layer louder than the map around it. Below ZOOM.min the
+          coloured river lines already answer "where is the water"; a station's
+          name arrives when every other name does. */}
+      {pinLayer('gauges', 'drop', ZOOM.names, ZOOM.min, GAUGE_DETAIL_ZOOM, { radius: 40 })}
+      {/* ── ON THE LADDER, like every other statewide layer, with NO exception ─
+          Count badges to ZOOM.cluster, overview dots to ZOOM.places, the mark,
+          then the name at ZOOM.names — the same rungs as every place layer, and
+          the same ZOOM.min floor.
 
-          ── AND IT HAS NO FLOOR, FOR THE REASON THE DAMS DO NOT ─────────────
-          This passed MIN_GAUGE_ZOOM, so zooming out past the statewide view
-          emptied the layer — the reported symptom, "I still don't see USGS
-          gauges zoomed way out".
-
-          That floor is a FETCH gate and it belongs to the OTHER tier. The
-          ~14,000-station reference layer is viewport-driven (useViewportGauges,
-          OVERVIEW_LIMIT 1000), and a continental camera there is a request that
-          cannot be answered — so contextGaugeLayer keeps its FETCH floor and
-          this note is not an argument against it. Below that floor the screen
-          feeds this same source from the national index (useGaugeIndex), so
-          the reference tier is clustered at every zoom too.
-
-          The CURATED network is not that. useStatewideNetwork fetches it once,
-          ungated, and grades it on the phone; it is the same payload whose
-          river lines are already drawn and coloured at continental zoom. So the
-          pins were withheld from a camera that was already displaying their
-          data, and the floor was protecting a cost that had been paid on
-          launch.
-
-          Clustered, this answers "where are Eddy's gauges" all the way out,
-          over river lines that already say what the water is doing. Ungated it
-          is also cheap — the set is bounded and already in memory. */}
-      {layerOn('gauges')
-        ? pinLayer('gauges', 'drop', GAUGE_DETAIL_ZOOM, undefined, GAUGE_DETAIL_ZOOM, {
-            radius: 40,
-            maxZoom: ZOOM.cluster,
-          })
-        : null}
-      {/* ── ON THE LADDER, like every other statewide layer ──────────────────
-          This passed labelMinZoom 0 and nothing else: no floor, no overview
-          representation, no clustering. The justification was "ten pins
-          statewide, so labels are on at every zoom — an unnamed dot cannot be
-          told from the lake it sits on", and that was true of a layer that held
-          ten Missouri dams.
-
-          The catalog is twenty-four now and spans six states, from Denison on
-          the Red to Wolf Creek in Kentucky. The camera that fits them is
-          continental, and there the layer drew twenty-four full marks with
-          twenty-four labels in one knot — over a rung the ladder says is for
-          lines only. Nothing thinned it, because iconAllowOverlap is true here
-          on purpose: silently dropping a pin is the worse failure.
-
-          So it takes the rungs everything else takes: count badges to
-          ZOOM.cluster, overview dots to ZOOM.places, then the mark. A dam
-          cluster wears the same place badge as every other Eddy count.
-
-          ── THE LABELS STAY ON AT EVERY ZOOM, WHICH IS THE EXCEPTION ────────
-          labelMinZoom is 0, not ZOOM.names, and it is the one layer off the
-          label rung. Two dozen dams are LANDMARKS: an unnamed dot cannot be
-          told from the lake it sits on, and there are few enough of them that
-          collision detection thins the names on its own rather than producing
-          the wall of text a statewide access layer would. An earlier pass here
-          moved them onto the rung with everything else; map-zoom-ladder.test.ts
-          pins them back off it, deliberately, and is right to.
-
-          Below ZOOM.cluster a bubble carries its count instead — the label
-          layer's `solo` filter keeps per-dam names off clusters — so "every
-          zoom" means every zoom at which a dam draws as itself. For one
-          stretch the shared label floor clamped this layer to ZOOM.places
-          anyway (see the label layer's note), so the 8–9.5 dot band drew
-          nameless dams while this comment and the test both claimed
-          otherwise; the test now asserts the EFFECTIVE floor, not just the
-          argument.
-
-          ── AND IT KEEPS NO FLOOR, WHICH THE OTHER TIERS DO ─────────────────
-
-          The obvious fourth change was minZoom: ZOOM.min, and it is wrong here.
-          The ladder's floor is a FETCH gate as much as a paint one — "a
-          continental view asks for nothing", and MIN_GAUGE_ZOOM exists to stop
-          a continental gauge request. Dams ask for nothing at any zoom: the
-          pins come from DAM_CATALOG in the binary (see lib/damCatalog.ts), so
-          the cost the floor is protecting against does not exist for them.
-
-          What a floor would cost is real: switch the layer on from a
-          zoomed-out camera and it would draw NOTHING, which is precisely the
-          "empty layer reads as broken" failure the shipped catalog was written
-          to end. Two or three teal counts over six states answer "where are
-          they" without crowding anything. Clustered, a continental view of
-          this layer is cheap and legible; ungated and unclustered, it was the
-          knot above.
+          Dams used to sit out two of those. Their labels were on at every zoom
+          ("two dozen landmarks — an unnamed dot cannot be told from the lake it
+          sits on"), and they kept no floor, because the pins ship in the binary
+          and a floor here protects no fetch. On a device both read as the dam
+          layer being louder than the map around it: a statewide view with one
+          kind of place named and nothing else, and dam badges where every other
+          layer had already gone quiet. A dam is a place like a campground is;
+          its name arrives when names do, and the sheet names it on a tap.
 
           Drawn before hazards so the low-water-dam layer still paints on top:
           where both land in one place, the one that can kill you is on top. */}
-      {layerOn('dams')
-        ? pinLayer('dams', 'dam', 0, undefined, ZOOM.places, {
-            radius: 40,
-            maxZoom: ZOOM.cluster,
-          })
-        : null}
+      {pinLayer('dams', 'dam', ZOOM.names, ZOOM.min, ZOOM.places, { radius: 40 })}
 
-      {/* ── Hazards get a dot rung, and do NOT get a bubble ────────────────
-          Nineteen marks are not what crowded this map, but they were the
-          loudest thing on it: full warning triangles at continental zoom, drawn
-          over the two layers that answer which river to drive to. A severity
-          dot below ZOOM.cluster says "there is something here" in the same
-          colour without shouting it, and the triangle arrives one rung earlier
-          than the place marks do — at ZOOM.cluster rather than ZOOM.places —
-          because a hazard should resolve as soon as the bubbles break.
-
-          NO CLUSTER, deliberately, and this is the one layer where that is a
-          rule rather than a tuning: a hazard must never disappear into a count.
-          The floor is the ladder's own — below it there is no river to read a
-          hazard against, and every other statewide layer is silent there. */}
       {/* ── Numbered stacks, the web planner's mark ───────────────────────
           The place count badge at the web's own 34pt: a white rounded
           square, a Deep River Teal ring and a hard offset shadow, as on
           eddy.guide's planner. The number is how many places are under it.
           Above every place layer, because it stands in for their members,
-          and below hazards, which never join a stack and must paint on top.
+          and below the selection and hazards, which never join a stack.
           The tap target is the 44pt query box around the finger. */}
       <Mapbox.ShapeSource id="pins-stacks" shape={stackShape}>
         {/* One symbol, image and number together — see PLACE_COUNT_BADGE for
@@ -2902,23 +2991,23 @@ export function RiverMap({
         <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-stacks-face')}
           style={{
-            iconImage: 'eddy-count-stack-map',
+            // A stack of nothing but USGS reference gauges wears their
+            // parchment face, as their own counts do; any Eddy member makes it
+            // an Eddy count.
+            iconImage: ['match', ['get', 'face'], 'usgs', 'eddy-count-stack-usgs-map', 'eddy-count-stack-map'],
             textField: ['to-string', ['get', 'count']],
             textSize: 14,
-            // The face is white in both schemes, like every pin badge here, so
-            // its number is the brand's darkest teal rather than colors.text.
-            textColor: COUNT_INK,
+            // Both faces are light in both schemes, like every pin badge here,
+            // so the number is dark ink rather than colors.text.
+            textColor: ['match', ['get', 'face'], 'usgs', USGS_COUNT_INK, COUNT_INK],
+            // Always drawn, but it TAKES PART in placement: a stack covers the
+            // places under it, so the labels beside it should give way rather
+            // than print across its face, which ignore-placement made them do.
             iconAllowOverlap: true,
-            iconIgnorePlacement: true,
             textAllowOverlap: true,
-            textIgnorePlacement: true,
           }}
         />
       </Mapbox.ShapeSource>
-
-      {layerOn('hazards')
-        ? pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.min, ZOOM.cluster)
-        : null}
 
       <Mapbox.ShapeSource id="plan-endpoints" shape={endpointFeatures}>
         {(['center', 'bottom'] as const).map(anchor => (
@@ -2931,10 +3020,12 @@ export function RiverMap({
                 ? ['case', ['==', ['get', 'id'], selectedPinId], 15, 13] : 13,
               circleColor: ['get', 'color'],
               circleStrokeColor: '#FFFFFF',
-              circleStrokeWidth: 2,
+              // The selected ring every other layer's selection wears.
+              circleStrokeWidth: selectedPinId
+                ? ['case', ['==', ['get', 'id'], selectedPinId], 3.5, 2] : 2,
               // A generic access pin is bottom-anchored. Keep its coloured
               // backing behind the icon rather than centred on its tip.
-              circleTranslate: anchor === 'bottom' ? [0, -11] : [0, 0],
+              circleTranslate: anchor === 'bottom' ? [0, -ACCESS_BADGE_LIFT] : [0, 0],
               circleTranslateAnchor: 'viewport',
             }}
           />
@@ -2944,7 +3035,7 @@ export function RiverMap({
           style={{
             iconImage: ['get', 'image'],
             iconSize: selectedPinId
-              ? ['case', ['==', ['get', 'id'], selectedPinId], 1.18, 1] : 1,
+              ? ['case', ['==', ['get', 'id'], selectedPinId], SELECTED_SCALE, 1] : 1,
             iconAnchor: ['get', 'anchor'],
             iconAllowOverlap: true,
           }}
@@ -2962,6 +3053,87 @@ export function RiverMap({
           }}
         />
       </Mapbox.ShapeSource>
+
+      {/* ── The selected place, over every place layer ─────────────────────
+          See selectedShape. Above the stacks and the route endpoints, because
+          the open sheet is about it; below hazards, because nothing outranks a
+          hazard — a selected put-in must not hide the low-water dam beside it.
+          Its name is always drawn and wins collision over its neighbours'. */}
+      <Mapbox.ShapeSource id="pins-selected" shape={selectedShape}>
+        {(['center', 'bottom'] as const).map(anchor => (
+          <Mapbox.CircleLayer
+            key={anchor}
+            id={pinHitLayerId(`pins-selected-${anchor}-badge`)}
+            filter={['all', ['==', ['get', 'anchor'], anchor], ['!=', ['get', 'image'], '']]}
+            style={{
+              circleRadius: 15,
+              circleColor: ['get', 'color'],
+              circleStrokeColor: '#FFFFFF',
+              circleStrokeWidth: 3.5,
+              circleTranslate: anchor === 'bottom' ? [0, -ACCESS_BADGE_LIFT * SELECTED_SCALE] : [0, 0],
+              circleTranslateAnchor: 'viewport',
+            }}
+          />
+        ))}
+        <Mapbox.CircleLayer
+          id={pinHitLayerId('pins-selected-dot')}
+          filter={['==', ['get', 'image'], '']}
+          style={{
+            circleRadius: 7,
+            circleColor: ['get', 'color'],
+            circleStrokeColor: '#FFFFFF',
+            circleStrokeWidth: 3,
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id={pinHitLayerId('pins-selected-icon')}
+          filter={['!=', ['get', 'image'], '']}
+          style={{
+            iconImage: ['get', 'image'],
+            iconSize: SELECTED_SCALE,
+            iconAnchor: ['get', 'anchor'],
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id={pinHitLayerId('pins-selected-label')}
+          style={{
+            textField: ['get', 'label'],
+            textSize: 12,
+            textOffset: ['get', 'labelOffset'],
+            textAnchor: 'top',
+            textColor: LABEL_INK,
+            textHaloColor: LABEL_HALO,
+            textHaloWidth: 1.8,
+            // Always drawn, and it still takes part in placement: being on top,
+            // it is placed first, so a neighbour's name gives way to it rather
+            // than printing over it.
+            textAllowOverlap: true,
+          }}
+        />
+      </Mapbox.ShapeSource>
+
+      {/* ── Hazards get a dot rung, and do NOT get a bubble ────────────────
+          Nineteen marks are not what crowded this map, but they were the
+          loudest thing on it: full warning triangles at continental zoom, drawn
+          over the two layers that answer which river to drive to. A severity
+          dot below ZOOM.cluster says "there is something here" in the same
+          colour without shouting it, and the triangle arrives one rung earlier
+          than the place marks do — at ZOOM.cluster rather than ZOOM.places —
+          because a hazard should resolve as soon as the bubbles break.
+
+          NO CLUSTER, deliberately, and this is the one layer where that is a
+          rule rather than a tuning: a hazard must never disappear into a count.
+          The floor is the ladder's own — below it there is no river to read a
+          hazard against, and every other statewide layer is silent there.
+
+          LAST of the pin sources, over the route endpoints and the selection.
+          It once drew before the endpoints, so a put-in badge covered the
+          low-water-dam triangle at the same landing — the one inversion of
+          "a hazard must never be hidden under a put-in" the draw-order note at
+          the top of this file exists to prevent. */}
+      {pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.min, ZOOM.cluster)}
     </Mapbox.MapView>
     {placesListOpen ? (
       <MapPlacesSheet
@@ -2981,6 +3153,7 @@ export function RiverMap({
         onSelect={(pin) => { onClosePlacesList?.(); onSelectPin?.(pin); }}
       />
     ) : null}
+    {publicLand ? <PublicLandCallout land={publicLand} onClose={() => setPublicLand(null)} /> : null}
     {stackChoice ? (
       <MapPlacesSheet
         title={`${stackChoice.length} places here`}
