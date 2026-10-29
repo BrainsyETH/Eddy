@@ -57,7 +57,7 @@ import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
-import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { EddySymbol } from '@/components/EddySymbol';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { refreshEntitlement, waitForEntitlement } from '@/api/client';
 import {
@@ -399,24 +399,18 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             {premiumSubtitle(riverName)}
           </Text>
 
+          {/* Plain rows, not icon-chip tiles: three short lines read as a
+              person explaining the offer, three badged cards as a pricing page. */}
           {PREMIUM_BENEFITS.map((benefit) => (
-            <View
-              key={benefit.title}
-              style={[styles.benefit, { backgroundColor: colors.card }, elevation(1)]}
-            >
-              <View style={[styles.benefitIcon, { backgroundColor: colors.cardRaised }]}>
-                <EddySymbol name={benefit.symbol as EddySymbolName} size={benefit.symbolSize ?? 19} />
-              </View>
-              <View style={styles.benefitText}>
-                <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
-                <Text style={[styles.benefitBody, { color: colors.textMuted }]}>{benefit.body}</Text>
-              </View>
+            <View key={benefit.title} style={styles.benefit}>
+              <Text style={[styles.benefitTitle, { color: colors.text }]}>{benefit.title}</Text>
+              <Text style={[styles.benefitBody, { color: colors.textMuted }]}>{benefit.body}</Text>
             </View>
           ))}
 
           {/* Forecast uncertainty belongs on the screen that takes money for
               the outlook. A general river disclaimer does not say this. */}
-          <Text style={[styles.forecastCaveat, { color: colors.error }]}>
+          <Text style={[styles.forecastCaveat, { color: colors.textMuted }]}>
             {PREMIUM_FORECAST_CAVEAT}
           </Text>
 
@@ -476,7 +470,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           {!signedIn ? (
             <>
               <Text style={[styles.signInNote, { color: colors.textMuted }]}>
-                Sign in to sync favorites and save alerts.
+                Sign in so Premium stays with you on any iPhone.
               </Text>
               {busy === 'apple' ? (
                 <ActivityIndicator color={colors.interactive} style={styles.footerBusy} />
@@ -539,9 +533,8 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
                           .join(', ')}
                         style={({ pressed }) => [
                           styles.option,
-                          // The same depth the benefit cards above carry, so a
-                          // plan reads as one more Eddy card rather than as a
-                          // form control. elevation() sets a 1px border of its
+                          // Eddy's card depth, so a plan reads as one more
+                          // Eddy card rather than as a form control. elevation() sets a 1px border of its
                           // own; the object after it restores the 2px the
                           // selected state needs.
                           elevation(1),
@@ -804,27 +797,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 22,
   },
-  benefit: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    alignSelf: 'stretch',
-    gap: 13,
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 10,
-  },
-  benefitIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  benefitText: { flex: 1 },
-  benefitTitle: { ...t.sm, fontFamily: fonts.semibold },
+  benefit: { alignSelf: 'stretch', marginBottom: 14 },
+  benefitTitle: { ...t.base, fontFamily: fonts.semibold },
   benefitBody: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  forecastCaveat: { ...t.xs, fontFamily: fonts.semibold, alignSelf: 'stretch', marginTop: 14 },
+  forecastCaveat: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 6 },
   legal: { ...t.xs, fontFamily: fonts.body, alignSelf: 'stretch', marginTop: 14 },
   legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   legalLink: { ...t.xs, fontFamily: fonts.semibold, textDecorationLine: 'underline' },

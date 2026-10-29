@@ -135,7 +135,6 @@ export default function ChartShareControls({
           {busy ? 'Preparing image…' : 'Preview share image'}
         </Button>
       </div>
-      <p className="mt-2">Links preserve this chart view. Source readings may be revised.</p>
       <p role="status">{message}</p>
       {preview && (
         <div className="mt-3 rounded-lg border border-neutral-200 p-3">

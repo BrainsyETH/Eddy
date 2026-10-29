@@ -1,5 +1,5 @@
 // src/components/ui/BuildRouteIcon.tsx
-// Eddy with a map: the Build a Route mark, shared with the iOS Floats hub
+// Eddy with a map: the Plan a float mark, shared with the iOS Floats hub
 // (eddy-ios/assets/float-action-icons/build-route@3x.png). The artwork is an
 // alpha template, so it is drawn as a mask in the surrounding text colour and
 // follows each button's own ink, hover state and dark theme.

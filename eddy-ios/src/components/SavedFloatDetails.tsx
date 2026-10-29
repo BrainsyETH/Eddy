@@ -43,7 +43,7 @@ export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }:
         <Text style={[styles.heading, { color: colors.text }]}>Saved trip details</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
           {refreshing ? 'Checking current conditions…' : error ?? 'Current conditions have not been checked.'}
-          {' Water conditions, closures and float times are not verified here.'}
+          {' Check conditions before you go.'}
         </Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Saved {new Date(details?.savedAt ?? saved.savedAt).toLocaleString()} · {saved.distanceLabel}

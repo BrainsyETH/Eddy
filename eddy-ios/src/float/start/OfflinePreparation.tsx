@@ -22,8 +22,8 @@ export function OfflinePreparation({ tripKey, onBuild, disabled }: {
   return <Card>
     <Text style={[styles.label, { color: colors.text }]}>{ready ? 'Offline map ready' : 'Offline map · Optional'}</Text>
     {!ready ? <>
-      <Text style={[styles.body, { color: colors.textMuted }]}>For an offline map, build a route and download it before you go.</Text>
-      <TextButton label="Build a Route" disabled={disabled} onPress={onBuild} />
+      <Text style={[styles.body, { color: colors.textMuted }]}>For an offline map, plan a float and download it before you go.</Text>
+      <TextButton label="Plan a float" disabled={disabled} onPress={onBuild} />
     </> : null}
   </Card>;
 }

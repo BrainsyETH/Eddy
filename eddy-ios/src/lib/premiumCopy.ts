@@ -60,18 +60,18 @@ export interface PremiumBenefit {
 export const PREMIUM_BENEFITS: PremiumBenefit[] = [
   {
     symbol: 'eddyRated',
-    title: "Eddy's take on every river",
-    body: "The full written report — what the water is doing, what the weather is about to do to it, and Eddy's bottom line. Rewritten every morning.",
+    title: 'A written read on every river, each morning',
+    body: "What the water's doing and what the weather will do to it.",
   },
   {
     symbol: 'weather',
     title: 'What the forecast means for the water',
-    body: 'Not a weather app — the rain, the heat and the river trend read together into one call on whether it holds.',
+    body: 'Rain, heat and the river trend, read together.',
   },
   {
     symbol: 'heart',
     symbolSize: 30,
-    title: 'Thank you for supporting Eddy',
+    title: 'Thanks for helping keep Eddy going',
     // Two earlier versions of this line went the wrong way for the same reason:
     // they tried to justify the price. One enumerated "the gauges, the maps and
     // the alerts", which is a feature list on a page whose entire history of
@@ -80,12 +80,16 @@ export const PREMIUM_BENEFITS: PremiumBenefit[] = [
     //
     // Gratitude does not need a receipt attached. Who builds it and what the
     // money does, in two clauses, and then stop.
-    body: 'Eddy is built by one person. Your subscription helps keep the app going.',
+    body: "It's built by one person.",
   },
 ];
 
-/** The paywall's headline. */
-export const PREMIUM_TITLE = 'More than a number';
+/**
+ * The paywall's headline. The free reading gives the number; Premium is the
+ * story behind it, which the subtitle says in plain words. ("More than a
+ * number" said the same thing as a slogan.)
+ */
+export const PREMIUM_TITLE = 'Get the whole story';
 
 /**
  * The paywall's subtitle, named for the river when we know it.
@@ -96,8 +100,8 @@ export const PREMIUM_TITLE = 'More than a number';
  */
 export function premiumSubtitle(riverName?: string | null): string {
   return riverName
-    ? `Eddy's full read on the ${riverName} — what the water is doing, and why.`
-    : "Eddy's full read on your rivers — what the water is doing, and why.";
+    ? `The reading tells you where the water is on the ${riverName}. Eddy's read tells you what it means for your float.`
+    : "The reading tells you where the water is. Eddy's read tells you what it means for your float.";
 }
 
 /**
@@ -109,7 +113,7 @@ export function premiumSubtitle(riverName?: string | null): string {
 export function premiumPitch(riverName?: string | null): string {
   return riverName
     ? `Get Eddy's full written read on ${riverName}, rewritten every morning.`
-    : "Unlock Eddy's full written read on your rivers, rewritten every morning.";
+    : "Get Eddy's full written read on your rivers, every morning.";
 }
 
 // ── The lock row on the river and gauge screens ─────────────────────────────
@@ -141,8 +145,7 @@ export function premiumPitch(riverName?: string | null): string {
  * to say that it was a control. This is both, and the subscription is named,
  * so the row and the sheet it opens agree about what is being bought.
  */
-export const PREMIUM_LOCK_TITLE =
-  'Unlock Eddy Premium to get a daily report on your favorite river';
+export const PREMIUM_LOCK_TITLE = 'Unlock Eddy Premium for the daily report';
 
 /**
  * Forecast uncertainty, on the screen that takes money for the outlook.

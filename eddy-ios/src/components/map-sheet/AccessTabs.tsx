@@ -399,7 +399,7 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, st
   if (!nearby.length && status === 'loading') return <Absent>Loading nearby access points…</Absent>;
   if (!nearby.length && status === 'failed') return <Absent>Nearby access points unavailable right now.</Absent>;
   if (!nearby.length) {
-    return <Absent>No neighbouring access points are mapped on this stretch yet.</Absent>;
+    return <Absent>No other access points on this stretch yet.</Absent>;
   }
 
   const downstream = nearby.filter((n) => n.direction === 'downstream');

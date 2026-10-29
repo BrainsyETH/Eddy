@@ -52,7 +52,7 @@ test('missing, daily-average, negative and future turbine readings never mean of
     const first = damWidgetSnapshot(dam, now).entries[0];
     assert.equal(first.turbineCfs, null);
     assert.equal(first.observedAt, null);
-    assert.equal(first.status, 'Current generation unavailable');
+    assert.equal(first.status, 'Release status unavailable');
   }
   const dam = fixture();
   dam.metrics.generationFlow!.value = 20;

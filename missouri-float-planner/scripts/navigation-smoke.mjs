@@ -200,7 +200,7 @@ try {
       }
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
-      assert.equal(await heroCta.textContent(), 'Build a Route');
+      assert.equal(await heroCta.textContent(), 'Plan a float');
       assert.equal(await heroCta.getAttribute('href'), '/plan');
       assert.equal(await page.getByRole('region', { name: 'River alerts', exact: true }).count(), 0);
       const conditionMap = page.getByRole('link', { name: 'Open the Live River Map', exact: true });
@@ -252,7 +252,7 @@ try {
         assert.equal(await nav.getByRole('link', { name: 'Floats' }).getAttribute('href'), '/find-float?river=current');
         await nav.getByRole('link', { name: 'Map', exact: true }).click();
         await page.waitForURL('**/plan?river=current');
-        await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Build a Route' }).waitFor();
+        await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Plan a float' }).waitFor();
         assert.equal(await nav.getByRole('link', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page');
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         await page.getByRole('link', { name: 'Open the Live River Map', exact: true }).click();
@@ -277,19 +277,19 @@ try {
         await page.getByLabel('Town or river', { exact: true }).fill('Current');
         await page.getByRole('option', { name: 'Current River', exact: true }).click();
         await page.waitForFunction(() => document.querySelector('nav[aria-label="Main navigation"] a[href="/plan?river=current"]'));
-        assert.equal(await page.getByRole('link', { name: 'Build a Route', exact: true }).getAttribute('href'), '/plan?river=current');
+        assert.equal(await page.getByRole('link', { name: 'Plan a float', exact: true }).getAttribute('href'), '/plan?river=current');
         await page.goto(`${origin}/find-float?river=current&putIn=akers&takeOut=pulltite&vessel=kayak`, { waitUntil: 'networkidle' });
         await page.locator('summary').filter({ hasText: 'Filters' }).click();
         await page.getByRole('button', { name: 'kayak', exact: true }).click();
         await page.getByRole('button', { name: 'canoe', exact: true }).click();
         assert.equal(await page.getByRole('button', { name: 'canoe', exact: true }).getAttribute('aria-pressed'), 'true');
-        assert.equal(await page.getByRole('link', { name: 'Build a Route', exact: true }).getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite');
+        assert.equal(await page.getByRole('link', { name: 'Plan a float', exact: true }).getAttribute('href'), '/plan?river=current&putIn=akers&takeOut=pulltite');
         await page.goto(`${origin}/plan/navigation-layout-check`, { waitUntil: 'networkidle' });
         await page.getByRole('heading', { name: 'Shared plan fixture' }).waitFor();
         assert.equal(await page.getByRole('navigation', { name: 'Floats', exact: true }).count(), 0, 'shared plans must not inherit the planner tabs');
         await page.goto(`${url}?disabled=1`, { waitUntil: 'networkidle' });
-        assert.equal(await page.getByRole('link', { name: /^Find a Route/ }).count(), 0);
-        assert(await page.getByRole('link', { name: /^Build a Route/ }).count() > 0);
+        assert.equal(await page.getByRole('link', { name: /^Find a float/ }).count(), 0);
+        assert(await page.getByRole('link', { name: /^Plan a float/ }).count() > 0);
         console.log('PASS river → planner, homepage → condition map → finder, delayed map data, query changes, Back/Forward, refresh, exact plan links, and disabled finder');
       }
     }

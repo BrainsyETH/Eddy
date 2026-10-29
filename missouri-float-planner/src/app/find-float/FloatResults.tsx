@@ -147,9 +147,9 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan }: { option: FloatSear
         </div>}
         <div className="mt-auto pt-1">
           <Button href={floatPlanPath(o)} className="w-full" tabIndex={stale ? -1 : undefined}
-            aria-label={`View float plan from ${o.putIn.name} to ${o.takeOut.name}`}
+            aria-label={`Plan this float from ${o.putIn.name} to ${o.takeOut.name}`}
             onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (stale || !onPlan()) event.preventDefault(); }}>
-            View float plan<ArrowRight size={18} aria-hidden="true" />
+            Plan this float<ArrowRight size={18} aria-hidden="true" />
           </Button>
         </div>
       </div>

@@ -167,7 +167,7 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
     // curated, so a station reaching this line while wearing a verdict on the
     // pin above it is telling the reader its own chip is a lie.
     if (!detail) return <Absent>Levels unavailable right now.</Absent>;
-    return <Absent>Eddy has not rated this station against a river yet.</Absent>;
+    return <Absent>Not rated for floating.</Absent>;
   }
 
   return (
@@ -249,7 +249,7 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
 
 export function GaugeHistoryTab({ facts, detail, title }: GaugeTabProps & { title: string }) {
   if (!facts.siteId) {
-    return <Absent>This station publishes no history Eddy can read.</Absent>;
+    return <Absent>No history for this gauge.</Absent>;
   }
 
   const primary = detail?.thresholds?.[0] ?? null;
@@ -336,8 +336,8 @@ export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
             detail == null
               ? null
               : detail.curated
-                ? 'Rated by Eddy against a river'
-                : 'Reference station — no float rating'
+                ? 'Rated by Eddy'
+                : 'Not rated for floating'
           }
         />
       </Section>

@@ -60,7 +60,7 @@ export interface TrackingLine {
 export function trackingLine(tracker: TrackerState, canAskAgain = false): TrackingLine | null {
   if (tracker.status === 'idle') return null;
   if (tracker.status === 'unavailable') {
-    return { text: 'Float tracking isn’t available in this build of Eddy.', action: 'info' };
+    return { text: 'Float tracking isn’t available in this version of Eddy.', action: 'info' };
   }
   if (tracker.servicesOff) {
     return { text: 'Location Services are off, so Eddy isn’t tracking. Turn them on in Settings.', action: 'settings' };

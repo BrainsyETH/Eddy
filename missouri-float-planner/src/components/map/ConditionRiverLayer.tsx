@@ -92,7 +92,7 @@ function popupHtml(
 
   if (planHref) {
     parts.push(
-      `<a href="${escapeHtml(planHref)}" style="display:inline-block;margin-top:10px;font-size:12px;font-weight:600;color:#0e7490;text-decoration:none">Plan this float →</a>`,
+      `<a href="${escapeHtml(planHref)}" style="display:inline-block;margin-top:10px;font-size:12px;font-weight:600;color:#0e7490;text-decoration:none">Plan a float →</a>`,
     );
   }
 

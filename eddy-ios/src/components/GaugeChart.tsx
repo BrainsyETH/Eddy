@@ -836,7 +836,7 @@ function GaugeChartView({
       bits.push(`NWS forecast included${forecastIssued ? `, issued ${forecastIssued}` : ''}.`);
     }
     if (showTypical && series.typicalArea) bits.push('Historical 25th–75th percentile range shown.');
-    if (showMedian && series.typicalPath) bits.push('Historical median shown.');
+    if (showMedian && series.typicalPath) bits.push('Median shown.');
     if (priorPoints.length) bits.push('Last year daily average shown.');
     if (history?.resolution === 'daily') bits.push(`${observedLabel} history.`);
     if (series.gapPaths.length) bits.push('Dotted connectors indicate missing readings.');
@@ -998,7 +998,7 @@ function GaugeChartView({
             <Svg width={24} height={12} accessible={false}>
               <Rect x={0} y={1} width={24} height={10} fill={colors.textMuted} fillOpacity={typicalOpacity} />
             </Svg>
-            <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Typical 25–75%</Text>
+            <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Typical range</Text>
           </View> : null}
           {showMedian && !!series.typicalPath ? <View style={styles.legendItem}>
             <Svg width={24} height={12} accessible={false}>
@@ -1140,8 +1140,8 @@ function GaugeChartView({
       </View>
       {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
         {sheet === 'compare' ? <>
-          <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Historical daily flow · 25th–75th percentile' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
-          <ChartComparison label="Historical median" detail="50th percentile for each date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
+          <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Middle half of past years' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
+          <ChartComparison label="Median" detail="Middle of past years for this date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
           {lastYearEligible ? <ChartComparison label="Last year"
             detail={!showLastYear ? 'Daily average' : lastYear.status === 'failed' ? "Couldn't load last year"
               : lastYear.status === 'empty' || (lastYear.status === 'ready' && !priorPoints.length) ? 'No data for last year'

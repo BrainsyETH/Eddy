@@ -10,7 +10,7 @@ import { CONTENT_BOTTOM_PAD, type Detent } from './map-sheet/sheetGeometry';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
-/** The same route controls as Build a Route, with endpoint selection on the map. */
+/** The same route controls as Plan a float, with endpoint selection on the map. */
 export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChooseStep, onOpenList, onOpenPlan, onDetentChange, metrics }: {
   riverName: string;
   state: FloatPlanState;
@@ -29,7 +29,7 @@ export function MapPlanSheet({ riverName, state, onClose, onChooseRiver, onChoos
   const [preview, setPreview] = useState<{ key: string; height: number } | null>(null);
   const { putIn, takeOut, plan, calculating, error, step } = state;
   const showingResult = step === 'result' && takeOut != null;
-  const title = showingResult ? 'Your float plan' : 'Build a Route';
+  const title = showingResult ? 'Your float plan' : 'Plan a float';
   const previewKey = `plan:${putIn?.id}:${showingResult ? takeOut.id : 'choose'}`;
   const hasPreviewBody = scrollingFields || showingResult;
   const previewHeight = preview?.key === previewKey ? preview.height : 0;

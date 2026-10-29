@@ -239,7 +239,7 @@ export default function FindFloatScreen() {
       input: { ...current.input, ...selectSearchLocation(near) } }));
   }, [location.coords, location.status, state.input]);
 
-  /** Changing a choice keeps the last results on screen, dimmed, until Update routes. */
+  /** Changing a choice keeps the last results on screen, dimmed, until Search again. */
   const update = (patch: Partial<FloatSearchInput>) => {
     if ('river' in patch || 'near' in patch) locationChosen.current = true;
     request.current?.abort();
@@ -600,7 +600,7 @@ export default function FindFloatScreen() {
       >
         <View style={styles.footer}>
           <SearchButton
-            label={busy === 'search' ? 'Finding routes…' : result ? 'Update routes' : 'Find routes'}
+            label={busy === 'search' ? 'Finding floats…' : result ? 'Search again' : 'Find floats'}
             primary
             disabled={!canSearch}
             onPress={() => {

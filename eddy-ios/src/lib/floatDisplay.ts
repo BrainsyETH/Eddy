@@ -1,4 +1,4 @@
-import { boundsForLine, MAX_ACCURACY_M, type LngLat } from '@eddy/geo';
+import { boundsForLine, MAX_ACCURACY_M, MIN_MOVING_MS, type LngLat } from '@eddy/geo';
 import { formatDuration, STALE_POSITION_MS, type FloatSession } from './floatSession';
 import type { ActivityAvailability } from './floatActivity';
 import type { TrackerState } from './floatTrackerStatus';
@@ -12,7 +12,7 @@ export function activeFloatStatus(session: FloatSession, tracker: TrackerState, 
   const weak = gpsQualityNote(session, now);
   const healthy = tracker.status === 'recording' && !attention && !!position && !position.dimmed && !weak;
   const label = attention ? `Tracking needs attention · ${river}`
-    : weak ? `Weak GPS · ${river}`
+    : weak ? `Finding you · ${river}`
     : healthy ? `Tracking on the ${river}`
     : position && !session.awaitingFix && !session.gpsPosition?.restored && tracker.status === 'recording' ? `Location delayed · ${river}`
     : `Finding GPS · ${river}`;
@@ -66,6 +66,47 @@ export function progressLine(session: FloatSession, now: number): string | null 
   return miles == null ? time : `${time} · ${miles.toFixed(1)} mi from start`;
 }
 
+/**
+ * Moving time and speeds, the line under progressLine:
+ * "1 hr 5 min moving at 3.0 mph · 2.6 mph overall".
+ *
+ * Moving time and speed are the recap's (river miles over moving time, with
+ * breaks of STAY_MIN_MS or more and GPS gaps left out), so a break never
+ * lowers them. Overall is the line above divided out (miles from start over
+ * time on the water), so the numbers on screen agree with each other: it
+ * sinks slowly through a stop rather than reading zero. Moving time shows from
+ * its first minute, the speeds after MIN_MOVING_MS of movement, and neither
+ * speed after net travel upstream. Overall never reads above moving: river
+ * covered across a GPS gap can push it there, and that would read as a bug.
+ */
+export function paceLine(session: FloatSession, now: number): string | null {
+  const totals = session.totals;
+  const until = session.arrivedAt ?? session.riverEndAt ?? now;
+  const onWater = Math.max(0, until - session.startedAt);
+  const movingMinutes = Math.min(Math.round((totals?.movingMs ?? 0) / 60_000), Math.round(onWater / 60_000));
+  if (!totals || movingMinutes < 1) return null;
+  const time = `${formatDuration(movingMinutes)} moving`;
+  const mph = (miles: number, ms: number) => (miles > 0 && ms > 0 ? miles / (ms / 3_600_000) : null);
+  const moving = totals.movingMs >= MIN_MOVING_MS ? mph(totals.movingMiles, totals.movingMs) : null;
+  if (moving == null) return time;
+  const latest = session.samples[session.samples.length - 1];
+  const overall = latest && session.startMile != null ? mph(latest.riverMile - session.startMile, onWater) : null;
+  return overall == null
+    ? `${time} at ${moving.toFixed(1)} mph`
+    : `${time} at ${moving.toFixed(1)} mph · ${Math.min(overall, moving).toFixed(1)} mph overall`;
+}
+
+/**
+ * What VoiceOver should hear for a stats caption: the separator as a pause
+ * and units as words, since "·" and "mph" read differently by setting.
+ */
+export function spokenStats(text: string): string {
+  return text
+    .replace(/ · /g, ', ')
+    .replace(/\bmph\b/g, 'miles per hour')
+    .replace(/\bmi\b/g, 'miles');
+}
+
 export function fixAgeLabel(at: number | null, now: number): string {
   if (at == null) return 'Finding GPS…';
   const seconds = Math.max(0, Math.floor((now - at) / 1000));
@@ -76,12 +117,12 @@ export function fixAgeLabel(at: number | null, now: number): string {
 
 export function activityLabel(state: ActivityAvailability): string | null {
   switch (state) {
-    case 'active': return 'Live Activity on your Lock Screen';
-    case 'disabled': return 'Live Activity is off';
-    case 'error': return 'Live Activity couldn’t update';
-    case 'expired': return 'Live Activity expired · show it again';
+    case 'active': return 'Progress on your Lock Screen';
+    case 'disabled': return 'Lock Screen progress is off';
+    case 'error': return 'Couldn’t update the Lock Screen';
+    case 'expired': return 'Lock Screen progress ended · show it again';
     case 'idle':
-    case 'dismissed': return 'Show progress with a Live Activity';
+    case 'dismissed': return 'Show progress on your Lock Screen';
     default: return null;
   }
 }
@@ -95,9 +136,9 @@ export function recapBackupStatus(owner: string | null, row: { dirty: boolean; b
   if (owner === 'guest' || owner == null) return { label: 'Saved on this phone', retry: false };
   if (row.backupError) return { label: 'Couldn’t back up · Saved on this phone', retry: true };
   if (!row.dirty) return { label: 'Backed up to your account', retry: false };
-  if (syncing) return { label: 'Syncing to your account…', retry: false };
-  if (error) return { label: 'Couldn’t sync · Saved on this phone', retry: true };
-  return { label: 'Saved on this phone · Waiting to sync', retry: false };
+  if (syncing) return { label: 'Backing up…', retry: false };
+  if (error) return { label: 'Couldn’t back up · Saved on this phone', retry: true };
+  return { label: 'Saved on this phone · Not backed up yet', retry: false };
 }
 
 /** Keep a useful scale when the user reaches the take-out or no end is set. */

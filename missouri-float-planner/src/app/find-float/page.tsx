@@ -4,7 +4,7 @@ import FindFloatClient from './FindFloatClient';
 export const metadata: Metadata = {
   title: 'Floats',
   description:
-    'Explore featured Ozarks floats, find a route for your day, or build your own with Eddy.',
+    'Explore featured Ozarks floats, find a float for your day, or plan your own with Eddy.',
 };
 export default async function FindFloatPage({
   searchParams,

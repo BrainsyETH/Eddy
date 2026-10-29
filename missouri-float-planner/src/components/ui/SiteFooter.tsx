@@ -25,12 +25,18 @@ export default function SiteFooter({
   return (
     <footer data-ga-navigation="footer" className={`bg-primary-800 border-t-2 border-neutral-900 px-4 py-8 ${className}`}>
       <div className={`${maxWidth} mx-auto`}>
+        {/* The site's one safety line. It used to be a boxed paragraph plus
+            "For informational purposes only" and a second USGS credit; the
+            Terms carry the full assumption-of-risk language, so this line
+            states the essentials and links there. */}
         {showSafetyDisclaimer && (
-          <div className="mb-6 p-4 bg-primary-700/50 rounded-lg border border-primary-600/30">
-            <p className="text-sm text-primary-100 text-center">
-              <strong className="text-white">Safety First:</strong> Eddy is a planning guide only. Always consult local outfitters and authorities for current conditions before floating. Water levels can change rapidly. Wear life jackets and never float alone.
-            </p>
-          </div>
+          <p className="mb-6 text-sm text-primary-100 text-center md:text-left">
+            Eddy is a planning guide, not a safety guarantee. Water changes fast: check locally, wear a life
+            jacket, and never float alone.{' '}
+            <Link href="/terms" className="font-semibold text-white underline underline-offset-2 hover:text-primary-100">
+              Terms
+            </Link>
+          </p>
         )}
 
         {/* Multi-column footer links */}
@@ -40,7 +46,7 @@ export default function SiteFooter({
             <ul className="space-y-1.5">
               <li><Link href="/rivers" className="text-primary-200 hover:text-white transition-colors">River Reports</Link></li>
               <li><Link href="/dams" className="text-primary-200 hover:text-white transition-colors">Lakes &amp; Dams</Link></li>
-              <li><Link href="/plan" className="text-primary-200 hover:text-white transition-colors">Build a Route</Link></li>
+              <li><Link href="/plan" className="text-primary-200 hover:text-white transition-colors">Plan a float</Link></li>
             </ul>
           </div>
           <div>
@@ -87,10 +93,8 @@ export default function SiteFooter({
         </div>
 
         <div className="border-t border-primary-600/30 pt-4 flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-primary-300">
-          <p>Eddy &middot; Water data from USGS</p>
-          <p className="text-center md:text-right">
-            &copy; {new Date().getFullYear()} eddy.guide &middot; For informational purposes only
-          </p>
+          <p>Water data: USGS &middot; USACE &middot; Ameren &middot; SWPA</p>
+          <p className="text-center md:text-right">&copy; {new Date().getFullYear()} eddy.guide</p>
         </div>
       </div>
     </footer>

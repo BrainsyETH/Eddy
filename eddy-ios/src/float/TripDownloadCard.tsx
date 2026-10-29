@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { formatBytes, type LngLat } from '@eddy/geo';
+import type { LngLat } from '@eddy/geo';
 import { ControlIcon } from '@/components/ControlIcon';
 import { indexRoute, type FloatRoute } from '@/lib/floatSession';
 import {
@@ -344,24 +344,24 @@ export function TripDownloadCard({
           </Pressable>
       ) : state.kind === 'ready' ? (
         <>
-          <Text style={[styles.body, { color: colors.text }]}>Ready offline · {formatBytes(state.bytes)}</Text>
+          <Text style={[styles.body, { color: colors.text }]}>Ready offline</Text>
           <Pressable onPress={() => remove()} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
           </Pressable>
         </>
       ) : state.kind === 'tiles-saved' ? (
         <>
-          <Text style={[styles.body, { color: colors.text }]}>{downloading || checking ? 'Checking offline map' : 'Offline map not confirmed'} · {formatBytes(state.bytes)}</Text>
+          <Text style={[styles.body, { color: colors.text }]}>{downloading || checking ? 'Checking offline map' : 'Offline map almost ready'}</Text>
           {downloading ? (
             <View style={styles.row}>
               <ActivityIndicator color={colors.interactive} />
-              <Text style={[styles.note, { color: colors.textMuted }]}>Map tiles are saved. Checking that the full map is ready.</Text>
+              <Text style={[styles.note, { color: colors.textMuted }]}>Checking the map…</Text>
             </View>
           ) : (
             <>
               <Text style={[styles.note, { color: colors.textMuted }]}>
-                {missingVerifier ? 'This version of Eddy can’t verify offline maps. Update Eddy before relying on this map offline.'
-                  : 'Your route and map tiles are saved. Eddy hasn’t confirmed the full offline map yet.'}
+                {missingVerifier ? 'Update Eddy before relying on this map offline.'
+                  : 'Almost ready. Check again in a moment.'}
               </Text>
               <Pressable disabled={checking} onPress={() => void refresh()} accessibilityRole="button" style={styles.link}>
                 <Text style={[styles.linkText, { color: colors.interactive }]}>{checking ? 'Checking…' : 'Check again'}</Text>
@@ -378,7 +378,7 @@ export function TripDownloadCard({
       ) : state.kind === 'outdated' ? (
         <>
           <Text style={[styles.note, { color: colors.textMuted }]}>
-            This map was saved for an older version of Eddy’s map. Remove it and download again.
+            This map is out of date. Remove it and download again.
           </Text>
           <Pressable onPress={() => remove()} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
@@ -404,7 +404,7 @@ export function TripDownloadCard({
       ) : compactOffer ? null : (
         <>
           <Text style={[styles.note, { color: colors.textMuted }]}>
-            Save this trip and its map so both work with no signal. Optional: River Mode tracks without it.
+            Save this trip and its map so both work with no signal.
           </Text>
           <Pressable
             onPress={() => void start()}

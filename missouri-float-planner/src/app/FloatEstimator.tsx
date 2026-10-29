@@ -69,7 +69,7 @@ export default function FloatEstimator({ rivers }: FloatEstimatorProps) {
         />
         <div>
           <h2 className="text-lg md:text-xl font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
-            Plan Your Float
+            Plan your float
           </h2>
           <p className="text-xs text-neutral-500">Select a river, put-in, and take-out</p>
         </div>

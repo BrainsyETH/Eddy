@@ -237,9 +237,8 @@ export function DamStateCard({
         {tailwaterStage ? (
           <Stat
             icon="gauge"
-            label="Water level below dam"
+            label="River level below dam"
             value={`${tailwaterStage.value.toFixed(2)} ft`}
-            suffix="elevation"
             sub={tailwaterMovementSentence(tailwaterStage)}
             dim={isStale(tailwaterStage)}
           />

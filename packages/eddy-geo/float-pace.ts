@@ -51,6 +51,12 @@ export interface PaceSample {
   riverMile: number;
   /** trackFix's `continuous`: false after a confirmed jump or reacquisition. */
   continuous: boolean;
+  /**
+   * trackFix's `reacquired`: this discontinuous sample ends a GPS gap rather
+   * than correcting a wrong match. Pace still skips the gap; float totals
+   * count its distance (float-totals.ts).
+   */
+  reacquired?: true;
 }
 
 export interface PaceReading {

@@ -600,7 +600,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // tiers are still named for what separates them (see tierLabel below and on
     // the row after this one), because that distinction is the whole point:
     // both hold USGS gauges, and only one of them carries a verdict.
-    label: 'USGS gauges',
+    label: 'River gauges',
     // ── The map's one colour key, behind the ⓘ ────────────────────────────
     // The floating legend card was removed for covering the water it
     // explained, and the sheet's rows only teach the LAYER colours — nothing
@@ -609,10 +609,10 @@ export const MAP_LAYERS: LayerDef[] = [
     // CONDITION_ORDER so a new code reaches it without anyone remembering to,
     // and it names the count badges too, the one mark the ladder does not
     // cover: a square is a count, never a verdict.
-    info: `Rated stations wear a condition colour, graded against each river's own ladder — ${CONDITION_ORDER.map(
+    info: `Color shows Eddy's rating: ${CONDITION_ORDER.map(
       (code) => conditionLabel(code),
-    ).join(' · ')}. Grey means the station has no current rating. Numbered squares count what is under them: white for Eddy's places and gauges, tan for other USGS gauges.`,
-    accessibilityHint: 'Live USGS readings on the water',
+    ).join(' · ')}. Gray: no rating. Numbers: grouped places.`,
+    accessibilityHint: 'Live readings on the water',
     tiers: ['gauges', 'allGauges'],
     // The rated tier is one statewide list; the national tier holds whatever
     // the camera holds. layerRowCount reads this and declines to add them —
@@ -635,8 +635,8 @@ export const MAP_LAYERS: LayerDef[] = [
     // as a verdict and once as a comparison a pixel apart — but the old label
     // claimed the opposite, and nothing on screen said the two rows partitioned
     // the same network between them.
-    label: 'Other USGS gauges',
-    tierLabel: 'Other USGS',
+    label: 'Other gauges',
+    tierLabel: 'Other gauges',
     // A TIER, not a row. It reaches the sheet through the Gauges row above,
     // which is the only place it has ever made sense: this layer is defined as
     // the complement of that one, and a switch that says so out loud is worth
@@ -645,7 +645,7 @@ export const MAP_LAYERS: LayerDef[] = [
     // Says what it is AND what it is not. Someone who switches this on gets
     // thousands of dots that look like the gauge pins above them, and the one
     // thing they must understand is that Eddy has not rated any of them.
-    description: 'The rest of the USGS network — reading only',
+    description: 'Not rated by Eddy',
     icon: 'globe-outline',
     // A bare staff gauge in water, against Eddy's face on the tier above it:
     // the pair says "graded" and "not graded" without either chip having to.

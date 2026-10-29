@@ -215,8 +215,7 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
                     No single float time
                   </Text>
                   <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-                    Dam releases can change mid-float, so one estimate would be wrong the moment the
-                    units start or stop. Check the dam’s schedule before you go.
+                    Dam releases can change mid-float. Check today’s schedule before you go.
                   </Text>
                 </>
               ) : (
@@ -227,7 +226,7 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
                   <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
                     {plan.condition.code === 'dangerous'
                       ? 'Eddy does not estimate a time in this water. Wait for it to drop.'
-                      : 'A float-time estimate is unavailable for this route.'}
+                      : 'No time estimate for this stretch.'}
                   </Text>
                 </>
               )}
@@ -238,8 +237,6 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
         {plan.floatTime ? <CurrentPlanValue unverified={unverified}>
           <FloatTimeEstimateNote typical={typicalTime} />
         </CurrentPlanValue> : null}
-
-        {plan.vessel?.name ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>Vessel: {plan.vessel.name}</Text> : null}
 
         {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
       </View>
@@ -516,7 +513,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
       accessibilityLabel="Open this gauge on USGS"
     >
       <Text style={[styles.sourceText, { color: colors.textMuted }]}>
-        Reading from USGS {plan.condition.gaugeUsgsId}
+        Check the source reading
       </Text>
       <ControlIcon name="open-outline" size={14} color={colors.interactive} />
     </Pressable>

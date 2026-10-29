@@ -44,7 +44,10 @@ export const ENTITLEMENT_ID = 'eddy_premium';
  * ID". Not the bundle identifier: the redemption URL below is keyed on the
  * store's own number, and it is immutable for the life of the app record.
  */
-const APPLE_APP_ID = '6794933267';
+export const APPLE_APP_ID = '6794933267';
+
+/** The app's App Store page — where the forced-update screen sends people. */
+export const APP_STORE_URL = `https://apps.apple.com/app/id${APPLE_APP_ID}`;
 
 /**
  * The App Store's code-entry screen for this app's subscription offer codes.
@@ -507,7 +510,7 @@ export type PurchaseOutcome =
 export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseOutcome> {
   const Purchases = loadPurchases();
   if (!Purchases) {
-    return { status: 'error', message: 'Subscriptions are unavailable in this build.' };
+    return { status: 'error', message: 'Subscriptions aren’t available right now.' };
   }
 
   try {
@@ -622,7 +625,7 @@ export function receiptBelongsToAnotherAccount(
 export async function restorePurchases(): Promise<RestoreResult> {
   const Purchases = loadPurchases();
   if (!Purchases) {
-    return { ok: false, entitled: false, message: 'Purchases are unavailable in this build.' };
+    return { ok: false, entitled: false, message: 'Purchases aren’t available right now.' };
   }
 
   try {

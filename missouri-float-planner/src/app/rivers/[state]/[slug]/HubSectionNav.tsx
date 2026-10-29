@@ -2,7 +2,7 @@
 
 // src/app/rivers/[slug]/HubSectionNav.tsx
 // Sticky in-page section nav for the river hub with scroll-spy + a persistent
-// "Plan this float" CTA. The "River guide" tab only appears when the river has
+// "Plan a float" CTA. The "River guide" tab only appears when the river has
 // a published guide (blog).
 
 import { useEffect, useState } from 'react';
@@ -89,7 +89,7 @@ export default function HubSectionNav({
                 const y = el.getBoundingClientRect().top + window.scrollY - 120;
                 window.scrollTo({ top: y, behavior: 'smooth' });
               }}
-              className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold no-underline transition-colors sm:px-3 ${
+              className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold no-underline transition-colors sm:px-3 ${
                 s.id === 'guide' ? 'hidden sm:block' : ''
               } ${
                 active === s.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-600 hover:text-neutral-900'
@@ -108,7 +108,7 @@ export default function HubSectionNav({
             href={planUrl}
             className="hidden flex-shrink-0 items-center rounded-md border-2 border-accent-700 bg-accent-500 px-4 py-1.5 text-sm font-semibold text-white no-underline shadow-[2px_2px_0_var(--color-accent-700)] transition-colors hover:bg-accent-600 sm:inline-flex"
           >
-            Plan this float
+            Plan a float
           </Link>
         </div>
       </div>

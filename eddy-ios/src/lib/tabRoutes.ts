@@ -10,8 +10,8 @@ export const DETAIL_TITLES: Record<string, string> = {
   'river/[slug]/access/[accessSlug]': 'Access point',
   'dam/[damId]': 'Dam',
   'float/[shortCode]': 'Float',
-  floats: 'Saved Floats & History',
-  'favorite-floats': 'Featured Floats',
+  floats: 'Saved floats & history',
+  'favorite-floats': 'Featured floats',
   storage: 'Storage',
   'river-conditions': 'River Conditions',
   'eddy-reads': 'Eddy’s Reads',
@@ -22,11 +22,11 @@ export const DETAIL_TITLES: Record<string, string> = {
   'saved-place': 'Saved place',
   // Warm starts stay in their originating tab; cold links belong to Floats.
   'float-start': 'Ready to float',
-  'find-float': 'Find a Route',
+  'find-float': 'Find a float',
   'float-history': 'Float history',
   'float-history-recap': 'Float recap',
   'float-backup': 'Backup & sharing',
-  'plan-route': 'Build a Route',
+  'plan-route': 'Plan a float',
 };
 
 // Cold links have no originating tab. Match the destination's place in the app.

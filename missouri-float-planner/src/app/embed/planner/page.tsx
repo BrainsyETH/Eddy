@@ -138,7 +138,7 @@ export default function EmbedPlannerPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_CANOE} fallbackSize={32} />
-        <div style={{ fontWeight: 600, fontSize: 16, fontFamily: EMBED_FONTS.display }}>Plan Your Float</div>
+        <div style={{ fontWeight: 600, fontSize: 16, fontFamily: EMBED_FONTS.display }}>Plan your float</div>
       </div>
 
       {/* River Select with condition dot (#17) */}

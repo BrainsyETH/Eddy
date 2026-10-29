@@ -295,16 +295,23 @@ export default function RiverVisualGallery({
 
           {/* Dot indicators */}
           {visuals.length > 1 && visuals.length <= 10 && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex">
               {visuals.map((_, i) => (
+                // The mobile 44px floor in globals.css applies to every button,
+                // so a bare 8px button became a 44px white disc over the photo.
+                // The button is the hit area; the dot inside it is what shows.
                 <button
                   key={i}
                   onClick={(e) => { e.stopPropagation(); setCurrentIndex(i); }}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i === currentIndex ? 'bg-white' : 'bg-white/50'
-                  }`}
+                  className="flex h-6 w-5 min-h-0 min-w-0 items-center justify-center"
                   aria-label={`Go to photo ${i + 1}`}
-                />
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      i === currentIndex ? 'bg-white' : 'bg-white/50'
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           )}
@@ -339,7 +346,7 @@ export default function RiverVisualGallery({
           {/* Which gauge the stage/flow came from — names the reading's source. */}
           {current.gaugeName && (current.gaugeHeightFt != null || current.dischargeCfs != null) && (
             <p className="text-xs text-neutral-400">
-              Reading from the {shortenGaugeName(current.gaugeName)} gauge
+              At the {shortenGaugeName(current.gaugeName)} gauge
             </p>
           )}
           {/* When and where the shot was taken + who shared it */}

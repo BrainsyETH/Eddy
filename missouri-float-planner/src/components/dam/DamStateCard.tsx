@@ -230,9 +230,8 @@ export default function DamStateCard({
         {tailwaterStage && (
           <Stat
             icon={<Ruler className="h-3.5 w-3.5" />}
-            label="Water level below dam"
+            label="River level below dam"
             value={`${tailwaterStage.value.toFixed(2)} ft`}
-            suffix="elevation"
             sub={tailwaterMovementSentence(tailwaterStage, now)}
             dim={isStale(tailwaterStage, now)}
           />

@@ -195,7 +195,10 @@ export async function fetchForecast(
       tempHigh: Math.round(Math.max(...dayData.temps)),
       tempLow: Math.round(Math.min(...dayData.temps)),
       condition: mostCommonCondition?.main || 'Unknown',
-      conditionIcon: mostCommonCondition?.icon || '01d',
+      // A day's summary always takes the daytime glyph. The icon is stored from
+      // the first 3-hour slot with this condition, which for any day after
+      // today is a night slot, so a clear Thursday drew as a dark moon.
+      conditionIcon: (mostCommonCondition?.icon || '01d').replace(/n$/, 'd'),
       precipitation: Math.round(Math.max(...dayData.precipitation)),
       windSpeed: Math.round(dayData.windSpeed.reduce((a, b) => a + b, 0) / dayData.windSpeed.length),
       humidity: Math.round(dayData.humidity.reduce((a, b) => a + b, 0) / dayData.humidity.length),

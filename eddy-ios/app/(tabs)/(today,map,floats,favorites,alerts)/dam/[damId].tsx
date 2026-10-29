@@ -345,8 +345,8 @@ export default function DamDetailScreen() {
           </Text>
           <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
             {failed
-              ? 'Could not reach the Corps’ feed. Check your connection and try again.'
-              : `No project is published under ${damId}.`}
+              ? 'Couldn’t load this dam. Check your connection and try again.'
+              : 'Eddy can’t find this dam.'}
           </Text>
           {/* The name, when the binary carries one. A failed request does not
               make Bull Shoals anonymous, and "Dam unavailable" over a bare

@@ -19,7 +19,7 @@ interface Props {
   onOpenRiver: (slug: string) => void;
 }
 
-/** Compact overview; every count keeps the existing river-list filter shortcut. */
+/** Compact overview; each condition chip is a river-list filter shortcut. */
 export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, onOpenRiver }: Props) {
   const { colors, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -58,9 +58,9 @@ export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, 
               }]}
             >
               <ControlIcon name={icon} size={17} color={colors.text} />
-              <Text style={[styles.countText, { color: colors.text }]}>
-                <Text style={styles.countNumber}>{counts[key]}</Text> {label}
-              </Text>
+              {/* No number: the summary at the top of Today already says how
+                  many rivers are floatable. These are filter shortcuts. */}
+              <Text style={[styles.countText, { color: colors.text }]}>{label}</Text>
             </Pressable>
           ))}
         </View>
@@ -125,7 +125,6 @@ const styles = StyleSheet.create({
   count: { flexBasis: '45%', flexGrow: 1, flexShrink: 1, minWidth: 0, minHeight: 44, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   countStacked: { flexBasis: '100%' },
   countText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
-  countNumber: { ...t.lg, fontFamily: fonts.heading },
   river: { minHeight: 74, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 13, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   thumbnail: { width: 44, height: 48, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   riverBody: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },

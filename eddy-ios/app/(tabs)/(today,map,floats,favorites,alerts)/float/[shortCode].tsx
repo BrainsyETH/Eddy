@@ -139,7 +139,7 @@ export default function SavedFloatScreen() {
           style={({ pressed }) => [styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
           accessibilityRole="button"
         >
-          <Text style={[styles.startText, { color: colors.onAccent }]}>Float this route</Text>
+          <Text style={[styles.startText, { color: colors.onAccent }]}>Start a float</Text>
         </Pressable>
       ) : null}
       {canDownload && shortCode ? (
@@ -173,10 +173,10 @@ export default function SavedFloatScreen() {
             icon={saved ? 'star.fill' : 'star'}
             selected={saved}
             tintColor={saved ? colors.warm : colors.interactive}
-            accessibilityLabel={saved ? 'Remove this float from Favorites' : 'Save this float to Favorites'}
+            accessibilityLabel={saved ? 'Remove from saved floats' : 'Save this float'}
             onPress={onToggleSave}
           >
-            Favorite
+            {saved ? 'Saved' : 'Save'}
           </Stack.Toolbar.Button>
         ) : null}
       </Stack.Toolbar>

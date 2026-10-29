@@ -145,7 +145,7 @@ test('a rising forecast reports its crest in feet, with the Ozarks day', () => {
   const crest = forecastCrest([fc(6, 3.0), fc(30, 4.6), fc(54, 3.4)], 2.5, NOW);
   assert.ok(crest);
   assert.equal(crest.valueFt, 4.6);
-  assert.equal(forecastCrestSentence(crest, NOW), 'NWS forecast: crest near 4.60 ft tomorrow');
+  assert.equal(forecastCrestSentence(crest, NOW), 'Crest near 4.60 ft tomorrow');
 });
 
 test('a flat, falling or past forecast says nothing', () => {
@@ -180,7 +180,7 @@ test('a forecast still climbing at its last point is a rise, not a crest', () =>
   const rising = forecastCrest([fc(6, 3.0), fc(30, 3.8), fc(72, 4.6)], 2.5, NOW);
   assert.ok(rising);
   assert.equal(rising.kind, 'rising');
-  assert.equal(forecastCrestSentence(rising, NOW), 'NWS forecast: still rising, 4.60 ft by Tuesday');
+  assert.equal(forecastCrestSentence(rising, NOW), 'Still rising, 4.60 ft by Tuesday');
   // Held flat to the end is not a decline either.
   assert.equal(forecastCrest([fc(6, 4.6), fc(30, 4.6)], 2.5, NOW)?.kind, 'rising');
   // Coming back down after the high point is what makes it a crest.

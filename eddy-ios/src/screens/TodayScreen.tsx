@@ -1577,7 +1577,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
                     ? `No current reads within ${TODAY_RADIUS_MILES} miles.`
                     : readFilter === 'floatable'
                       ? 'No current reads for floatable rivers.'
-                      : 'No current Eddy reads. Fresh summaries return when the latest water and written conditions agree.'}
+                      : 'No current Eddy reads.'}
               </Text>
             ) : awaitingServer && !error ? (
               <ActivityIndicator color={colors.interactive} />

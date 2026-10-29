@@ -282,7 +282,6 @@ interface EddyTakeProps {
 
 export function EddyTake({
   outlook,
-  ratedUnit = null,
   entitled = null,
   onUpgrade,
   onRetry,
@@ -459,9 +458,7 @@ export function EddyTake({
               which." Once, under the strip, rather than seven times inside it. */}
           {outlook.hasOfficialForecast ? (
             <Text style={[styles.forecastNote, { color: colors.textSubtle }]}>
-              {ratedUnit === 'cfs'
-                ? 'Forecast is river stage in feet — this river is rated in cfs.'
-                : 'Forecast is river stage in feet.'}
+              Forecast in feet.
             </Text>
           ) : null}
         </Pressable>
@@ -530,13 +527,15 @@ export function EddyTake({
                   // card the height of an unlocked one is a wall again — four
                   // lines is enough to show this is prose rather than a
                   // sentence, and the sharp opener is what makes it an
-                  // interrupted one rather than a closed door.
+                  // interrupted one rather than a closed door. With no read
+                  // text the prose is LOCKED_READ_SHAPE, and a readable first
+                  // line of it would pass a made-up sentence off as Eddy's.
                   <BlurredProse
                     text={read || LOCKED_READ_SHAPE}
                     color={colors.textMuted}
                     style={styles.sectionText}
                     lines={4}
-                    sharpLines={1}
+                    sharpLines={read ? 1 : 0}
                     scheme={colors.scheme}
                   />
                 ) : read ? (

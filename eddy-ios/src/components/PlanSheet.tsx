@@ -232,7 +232,7 @@ export function PlanSheet({
 
   const heading = (
     <View style={styles.headText}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Build a Route'}</Text>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Plan a float'}</Text>
       {/* The result hides the route crumbs, so the river becomes its change
           control; while picking, the River crumb already names it. */}
       {resultReady ? (
@@ -373,14 +373,10 @@ export function PlanSheet({
             accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
             header={contentHeader}
             actions={<>
+              {/* The footer's Save is the one save control; once saved, the
+                  offline-map download appears here. */}
               {features.floatMode && keptPlan ? <SavedTripDownload key={keptPlan.shortCode} riverSlug={plan.river.slug} shortCode={keptPlan.shortCode}
-                putInId={plan.putIn.id} takeOutId={plan.takeOut.id} /> : features.floatMode ? <View>
-                <Text style={[styles.subtitle, { color: colors.textMuted }]}>Save this route to download its offline map.</Text>
-                <Pressable accessibilityRole="button" disabled={saving || !savedFloatsReady} onPress={() => void onToggleSave()}
-                  style={styles.secondaryButton}>
-                  <Text style={[styles.link, { color: colors.interactive }]}>{saving ? 'Saving…' : 'Save route for offline'}</Text>
-                </Pressable>
-              </View> : null}
+                putInId={plan.putIn.id} takeOutId={plan.takeOut.id} /> : null}
               <Pressable
                 onPress={state.reset}
                 style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
@@ -405,10 +401,10 @@ export function PlanSheet({
                 onPress={onStart}
                 style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
                 accessibilityRole="button"
-                accessibilityHint="Review this route before starting tracking"
+                accessibilityHint="Review this float before you start"
               >
                 <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Float this route</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Start a float</Text>
               </Pressable>
             ) : null}
             {resultReady ? <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
@@ -422,7 +418,7 @@ export function PlanSheet({
                 }]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: saved, disabled: saving || !savedFloatsReady, busy: saving }}
-                accessibilityLabel={saving ? 'Saving float' : saved ? 'Remove this float from favorites' : 'Save this float to favorites'}
+                accessibilityLabel={saving ? 'Saving float' : saved ? 'Remove from saved floats' : 'Save this float'}
               >
                 {saving ? <ActivityIndicator color={colors.interactive} size="small" /> : (
                   <ControlIcon name={saved ? 'star' : 'star-outline'} size={17} color={saved ? colors.warm : colors.textMuted} />

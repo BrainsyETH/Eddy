@@ -1,0 +1,337 @@
+[
+  {
+    "provider": "mdc",
+    "source_id": "7826:-92.009720,37.241850",
+    "source_object_id": "43",
+    "river_slug": "big-piney",
+    "slug": "simmons-ford-access",
+    "name": "Simmons Ford Access",
+    "kind": "boat_ramp",
+    "longitude": -92.00971957938846,
+    "latitude": 37.241850498609196,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/simmons-ford-access",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=43&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/simmons-ford-access"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "8845:-90.831583,36.614100",
+    "source_object_id": "218",
+    "river_slug": "current",
+    "slug": "t-l-wright-memorial-access-doniphan",
+    "name": "T. L. Wright Memorial Access (Doniphan)",
+    "kind": "boat_ramp",
+    "longitude": -90.83158319903924,
+    "latitude": 36.614099948922565,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/t-l-wright-memorial-access-doniphan",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=218&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/t-l-wright-memorial-access-doniphan"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "7943:-90.363103,36.515722",
+    "source_object_id": "284",
+    "river_slug": "black",
+    "slug": "coon-island-conservation-area",
+    "name": "Coon Island Conservation Area",
+    "kind": "boat_ramp",
+    "longitude": -90.36310273107452,
+    "latitude": 36.51572164275892,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/coon-island-conservation-area",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=284&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/coon-island-conservation-area"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "9327:-90.334095,36.703174",
+    "source_object_id": "286",
+    "river_slug": "black",
+    "slug": "dan-river-access",
+    "name": "Dan River Access",
+    "kind": "boat_ramp",
+    "longitude": -90.33409496794947,
+    "latitude": 36.70317396695011,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/dan-river-access",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=286&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/dan-river-access"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "7809:-90.715278,38.477098",
+    "source_object_id": "401",
+    "river_slug": "meramec",
+    "slug": "pacific-palisades-conservation-area",
+    "name": "Pacific Palisades Conservation Area",
+    "kind": "boat_ramp",
+    "longitude": -90.71527751619149,
+    "latitude": 38.477097511535945,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/pacific-palisades-conservation-area",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=401&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/pacific-palisades-conservation-area"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "6807:-90.660426,38.474607",
+    "source_object_id": "404",
+    "river_slug": "meramec",
+    "slug": "allenton-access",
+    "name": "Allenton Access",
+    "kind": "boat_ramp",
+    "longitude": -90.66042572630148,
+    "latitude": 38.47460687291349,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/allenton-access",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=404&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/allenton-access"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "6511:-93.199345,37.155727",
+    "source_object_id": "459",
+    "river_slug": "james",
+    "slug": "joe-crighton-access",
+    "name": "Joe Crighton Access",
+    "kind": "boat_ramp",
+    "longitude": -93.19934526028575,
+    "latitude": 37.155727459296834,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/crighton-joe-access",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=459&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/crighton-joe-access"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "9103:-90.484426,38.546288",
+    "source_object_id": "508",
+    "river_slug": "meramec",
+    "slug": "meramec-landing-valley-park",
+    "name": "Meramec Landing (Valley Park)",
+    "kind": "boat_ramp",
+    "longitude": -90.48442573323106,
+    "latitude": 38.5462878034505,
+    "ownership": "City of Valley Park",
+    "managing_agency": "Municipal",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/meramec-landing-valley-park",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=508&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/meramec-landing-valley-park"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "mdc",
+    "source_id": "4629:-91.168592,37.169158",
+    "source_object_id": "557",
+    "river_slug": "current",
+    "slug": "rocky-creek-conservation-area",
+    "name": "Rocky Creek Conservation Area",
+    "kind": "boat_ramp",
+    "longitude": -91.16859181321398,
+    "latitude": 37.169157602345436,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/rocky-creek-conservation-area",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17/query?objectIds=557&outFields=*&outSR=4326&f=pjson",
+      "https://mdc.mo.gov/discover-nature/places/rocky-creek-conservation-area"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "e92f305a-c750-420f-83b7-9edd40dfd941",
+    "source_object_id": "143",
+    "river_slug": "current",
+    "slug": "johnston-s-eddy-boat-ramp",
+    "name": "Johnston's Eddy Boat Ramp",
+    "kind": "boat_ramp",
+    "longitude": -90.77934401894998,
+    "latitude": 36.35781299681723,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=143&outFields=*&outSR=4326&f=pjson",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=143&outFields=*&outSR=4326&f=pjson"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "6d2830d8-a8ec-44bd-8d56-7e8ac1061340",
+    "source_object_id": "258",
+    "river_slug": "black",
+    "slug": "kody-riggan-datto-boat-ramp",
+    "name": "Kody Riggan Datto Boat Ramp",
+    "kind": "boat_ramp",
+    "longitude": -90.71349886700656,
+    "latitude": 36.33214220785826,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/wma/dave-donaldson-black-river-wma/",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=258&outFields=*&outSR=4326&f=pjson",
+      "https://www.agfc.com/wma/dave-donaldson-black-river-wma/"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "bd839f5b-baed-4357-9be4-8df9eac129e2",
+    "source_object_id": "1035",
+    "river_slug": "eleven-point",
+    "slug": "eleven-point-boat-ramp",
+    "name": "Eleven Point Boat Ramp",
+    "kind": "boat_ramp",
+    "longitude": -91.08606970243808,
+    "latitude": 36.25034459251022,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1035&outFields=*&outSR=4326&f=pjson",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1035&outFields=*&outSR=4326&f=pjson"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "3d2100b3-d99b-4655-8fdd-139cca928d6d",
+    "source_object_id": "1297",
+    "river_slug": "black",
+    "slug": "schaeffer-s-eddy-boat-ramp",
+    "name": "Schaeffer's Eddy Boat Ramp",
+    "kind": "boat_ramp",
+    "longitude": -90.81629315124175,
+    "latitude": 36.29040763731737,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/wma/dave-donaldson-black-river-wma/",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1297&outFields=*&outSR=4326&f=pjson",
+      "https://www.agfc.com/wma/dave-donaldson-black-river-wma/"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "ed3ba388-2707-45f4-9455-b60bcf40f8bb",
+    "source_object_id": "1347",
+    "river_slug": "black",
+    "slug": "brookings-boat-ramp",
+    "name": "Brookings Boat Ramp",
+    "kind": "boat_ramp",
+    "longitude": -90.72307963390152,
+    "latitude": 36.28442366650114,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/wma/dave-donaldson-black-river-wma/",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1347&outFields=*&outSR=4326&f=pjson",
+      "https://www.agfc.com/wma/dave-donaldson-black-river-wma/"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "9cb8de1e-0f8c-40a5-bdb0-de4817a9b6d2",
+    "source_object_id": "1543",
+    "river_slug": "eleven-point",
+    "slug": "dalton-boat-ramp",
+    "name": "Dalton Boat Ramp",
+    "kind": "boat_ramp",
+    "longitude": -91.14018768759102,
+    "latitude": 36.421972657342664,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1543&outFields=*&outSR=4326&f=pjson",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1543&outFields=*&outSR=4326&f=pjson"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "08840926-a16f-4dee-b9e1-14798e5126ad",
+    "source_object_id": "16405",
+    "river_slug": "mulberry",
+    "slug": "indian-creek-access",
+    "name": "Indian Creek Access",
+    "kind": "access",
+    "longitude": -93.71107144004438,
+    "latitude": 35.68381923782673,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=16405&outFields=*&outSR=4326&f=pjson",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=16405&outFields=*&outSR=4326&f=pjson"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  },
+  {
+    "provider": "agfc",
+    "source_id": "013ac809-bb3e-43f2-b8ac-3341e359fb99",
+    "source_object_id": "17210",
+    "river_slug": "mulberry",
+    "slug": "big-eddy-canoe-access",
+    "name": "Big Eddy Canoe Access",
+    "kind": "access",
+    "longitude": -93.8573990491945,
+    "latitude": 35.65506725033631,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=17210&outFields=*&outSR=4326&f=pjson",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=17210&outFields=*&outSR=4326&f=pjson"
+    ],
+    "review_status": "pending",
+    "review_note": "Confirm the launch pin, road/parking approach, current access restrictions, fees, and endpoint suitability before approval."
+  }
+]

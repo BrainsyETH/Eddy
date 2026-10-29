@@ -329,7 +329,7 @@ export default async function BlogPostPage({
         <div className="mt-12 pt-8 border-t border-gray-200">
           <div className="bg-primary-50 rounded-xl p-6 md:p-8 text-center">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3">
-              Ready to Plan Your Float Trip?
+              Ready to plan a float?
             </h2>
             <p className="text-gray-600 mb-6 max-w-lg mx-auto">
               Use Eddy to plan your perfect float trip with real-time water conditions,

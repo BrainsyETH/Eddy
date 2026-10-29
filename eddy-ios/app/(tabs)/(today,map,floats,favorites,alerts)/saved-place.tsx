@@ -97,7 +97,6 @@ function SavedPlaceContent() {
       contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.interactive} />}>
       <View style={{ gap: 8 }}>
-        <Text accessibilityRole="header" style={[t.xl, { fontFamily: fonts.heading, color: colors.text }]}>{place.name}</Text>
         {place.riverName ? <Text style={[t.sm, { fontFamily: fonts.body, color: colors.textMuted }]}>{place.riverName}</Text> : null}
         <Chips labels={place.tags} />
         {place.canDrive ? <LinkRow label="Directions" external onPress={() => showDirections(place)} accessibilityLabel={`Directions to ${place.name}`} /> : null}

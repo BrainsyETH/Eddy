@@ -16,7 +16,7 @@
 //
 // ── Local storage and approximate requests ────────────────────────────────
 // This hook stores its remembered fix locally. Distance sorting is on device.
-// Today sends approximate coordinates to Eddy for weather; Find a Route sends
+// Today sends approximate coordinates to Eddy for weather; Find a float sends
 // them as `near` when Search is tapped, including an automatic Near you choice.
 // Filling that choice alone sends no route search. See README.md for the policy.
 //

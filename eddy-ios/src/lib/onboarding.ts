@@ -86,7 +86,7 @@ export async function acceptTerms(storage?: OnboardingStorage): Promise<void> {
  * things it can mean need opposite handling:
  *
  *   • an EXISTING user, from before the picker shipped — must go straight in
- *   • a NEW user who just tapped "I understand" — must see the picker
+ *   • a NEW user who just tapped "Agree & get started" — must see the picker
  *
  * That ambiguity is not theoretical. It is the state every single person hits
  * for the instant between accepting the terms and the picker appearing, so a
