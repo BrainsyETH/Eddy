@@ -39,6 +39,7 @@ import {
   hourEndingLabel,
   hourEndingNow,
   scheduleHoursElapsed,
+  scheduledGeneration,
   scheduledHoursSummary,
 } from '@eddy/conditions/dam-schedule-copy';
 import {
@@ -339,7 +340,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
             an invisible bar reads as missing data, which is a different fact. */}
         {hours.map((h) => {
           const share = shareOf(h.megawatts, reference, peak);
-          const generating = h.megawatts > 0;
+          const generating = scheduledGeneration(h);
           // The elapsed part of today is context, not plan: the schedule is a
           // forward-looking document and what already happened is answered by
           // the pattern strip's measured bars instead.
@@ -446,7 +447,7 @@ export function nowSentence(
   if (hoursElapsed === null) return null;
   const hour = day.hours.find((h) => h.hourEnding === hourEndingNow(hoursElapsed));
   if (!hour) return null;
-  const generating = hour.megawatts > 0;
+  const generating = scheduledGeneration(hour);
   // ── SHORT, BECAUSE IT IS NO LONGER THE ONLY THING SAYING THIS ──────────
   // This read "Generation scheduled this hour", which is a whole sentence in a
   // collapsed row header that now sits directly beneath a NEXT SCHEDULED
@@ -458,7 +459,7 @@ export function nowSentence(
   // exactly the confusion the two-clause rule exists to prevent.
   return {
     generating,
-    label: generating ? 'Scheduled on now' : 'Scheduled off now',
+    label: generating ? 'Scheduled on now' : hour.minimumFlow ? 'Scheduled minimum flow now' : 'Scheduled off now',
   };
 }
 

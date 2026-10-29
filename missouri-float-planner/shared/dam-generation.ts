@@ -51,6 +51,7 @@ import {
   relativeAge,
   scheduleHoursElapsed,
   scheduleIsStale,
+  scheduledGeneration,
   windowLabel,
   type ReadingStaleness,
 } from './dam-schedule-copy';
@@ -79,8 +80,17 @@ export interface GenerationReference {
 /** The generation reference the wire may or may not carry, plus the floor. */
 type GenerationInputs = Pick<
   DamSnapshot,
-  'hasTurbines' | 'metrics' | 'generationReference' | 'generationFloorCfs'
+  'hasTurbines' | 'metrics' | 'generationReference' | 'generationFloorCfs' | 'minimumFlowThroughTurbine'
 >;
+
+/**
+ * Turbine flow above which a minimum-flow project's unit is passing the
+ * minimum release rather than leaking. Idle units leak about 20 cfs (Table
+ * Rock); Bull Shoals' minimum-flow unit measured 613-834 cfs over July-October
+ * 2026. Anything between the two is the minimum flow; nothing reads there by
+ * accident.
+ */
+export const MINIMUM_FLOW_LEAKAGE_CFS = 100;
 
 /**
  * Observed turbine flow as a share of the project's published full-generation
@@ -176,10 +186,16 @@ export type GenerationNow =
     }
   | {
       kind: 'not-generating';
-      /** The measured flow, which is near zero rather than exactly zero. */
+      /** The measured flow: near zero at an idle plant, or the minimum flow. */
       turbineCfs: number;
       observedAt: string;
       age: ReadingStaleness;
+      /**
+       * True when the plant is passing its minimum-flow release through a unit
+       * at low output (Bull Shoals). Rendered as "Minimum flow", never as "no
+       * generation" or "not generating", which would misdescribe a running unit.
+       */
+      minimumFlow: boolean;
     }
   | {
       kind: 'unavailable';
@@ -223,7 +239,9 @@ export function generationNow(dam: GenerationInputs, now = Date.now()): Generati
   // missing floor as zero only when the reading is unambiguous.
   const floor = typeof dam.generationFloorCfs === 'number' ? dam.generationFloorCfs : 0;
   if (reading.value <= floor) {
-    return { kind: 'not-generating', turbineCfs: reading.value, observedAt: reading.at, age };
+    const minimumFlow =
+      dam.minimumFlowThroughTurbine === true && reading.value > MINIMUM_FLOW_LEAKAGE_CFS;
+    return { kind: 'not-generating', turbineCfs: reading.value, observedAt: reading.at, age, minimumFlow };
   }
 
   return {
@@ -266,6 +284,9 @@ export function generationStatusLabel(state: GenerationNow): string | null {
     case 'generating':
       return speaksForNow(state.age) ? 'Generating now' : 'Generating at last reading';
     case 'not-generating':
+      if (state.minimumFlow) {
+        return speaksForNow(state.age) ? 'Minimum flow' : 'Minimum flow at last reading';
+      }
       return speaksForNow(state.age)
         ? 'No turbine generation observed'
         : 'Not generating at last reading';
@@ -468,7 +489,7 @@ export function scheduleOutlook(
   const currentHour = schedule[startIndex].hours.find((h) => h.hourEnding === startHour);
   if (!currentHour) return null;
 
-  const generating = currentHour.megawatts > 0;
+  const generating = scheduledGeneration(currentHour);
   const threshold = magnitudeThresholdMw(ref);
 
   // Every later hour is compared against WHAT IS RUNNING NOW, not against the
@@ -476,7 +497,7 @@ export function scheduleOutlook(
   // a generator an hour for four hours — four moves too small to report, one
   // change of two generators that nobody is told about.
   const reference = currentHour.megawatts;
-  const referenceOn = reference > 0;
+  const referenceOn = generating;
 
   const stale = scheduleIsStale(oldestRetrievedAt(schedule), now);
 
@@ -501,7 +522,7 @@ export function scheduleOutlook(
 
   let move: ScheduledMove | null = null;
   for (const { hour, h, i, day } of forward(startIndex, startHour + 1)) {
-    const nowOn = hour.megawatts > 0;
+    const nowOn = scheduledGeneration(hour);
     if (nowOn !== referenceOn) {
       move = {
         kind: nowOn ? 'start' : 'stop',
@@ -531,7 +552,7 @@ export function scheduleOutlook(
   if (move?.kind === 'stop') {
     const stopIndex = startIndex + move.dayOffset;
     for (const { hour, h, i, day } of forward(stopIndex, move.hourEnding + 1)) {
-      if (hour.megawatts > 0) {
+      if (scheduledGeneration(hour)) {
         resumesAt = {
           kind: 'start',
           hourEnding: h,
@@ -632,6 +653,11 @@ function observedClause(
   const age = relativeAge(state.observedAt, now);
 
   if (state.kind === 'not-generating') {
+    if (state.minimumFlow) {
+      return !speaksForNow(state.age) && age
+        ? `Minimum-flow release as of ${age}.`
+        : 'Minimum-flow release, no generation above it.';
+    }
     return !speaksForNow(state.age) && age
       ? `No turbine generation observed as of ${age}.`
       : 'No turbine generation observed.';
@@ -865,6 +891,43 @@ export function releaseComparison(
     totalCfs: release.value,
     otherCfs: difference,
   };
+}
+
+/** Spillway flow below this is gate seepage or rounding, not a release. */
+export const SPILLWAY_RELEASE_MIN_CFS = 50;
+
+export interface SpillwayRelease {
+  cfs: number;
+  observedAt: string;
+  age: ReadingStaleness;
+}
+
+/**
+ * A floodgate release, read from the district's own spillway series.
+ *
+ * Not inferred from total release: Bull Shoals spilled in May 2017 at about
+ * 18,000 cfs total with three turbines out of service, so no total-flow cutoff
+ * can say when the gates are open. Only dams that declare `spillwayFlow` carry
+ * it; absent means not published, never "gates closed".
+ */
+export function spillwayRelease(
+  dam: Pick<DamSnapshot, 'metrics'>,
+  now = Date.now()
+): SpillwayRelease | null {
+  const reading = dam.metrics?.spillwayFlow;
+  if (!reading || typeof reading.value !== 'number' || !Number.isFinite(reading.value)) return null;
+  if (reading.value < SPILLWAY_RELEASE_MIN_CFS) return null;
+  const age = readingStaleness(reading.at, now);
+  if (age === null) return null;
+  return { cfs: reading.value, observedAt: reading.at, age };
+}
+
+/** "Spillway release: 1,450 cfs", in the past tense once the reading is not fresh. */
+export function spillwayReleaseLabel(release: SpillwayRelease): string {
+  const cfs = `${Math.round(release.cfs).toLocaleString()} cfs`;
+  return speaksForNow(release.age)
+    ? `Spillway release: ${cfs}`
+    : `Spillway release at last reading: ${cfs}`;
 }
 
 /**
@@ -1112,9 +1175,10 @@ export function generationVoiceOver(
     return state.reason === 'no-powerhouse' ? null : 'Current turbine flow is unavailable.';
   }
   if (state.kind === 'not-generating') {
-    return `No turbine generation observed. Turbine discharge is ${Math.round(
-      state.turbineCfs
-    ).toLocaleString()} cfs.`;
+    const cfs = Math.round(state.turbineCfs).toLocaleString();
+    return state.minimumFlow
+      ? `Minimum-flow release. Turbine discharge is ${cfs} cfs.`
+      : `No turbine generation observed. Turbine discharge is ${cfs} cfs.`;
   }
 
   const parts = [`Observed turbine discharge is ${Math.round(state.turbineCfs).toLocaleString()} cfs`];
@@ -1140,8 +1204,12 @@ export function scheduleDayVoiceOver(
   day: Pick<DamScheduleDay, 'scheduleDate' | 'hours'>,
   ref: GenerationReference | null | undefined
 ): string {
-  const on = day.hours.filter((h) => h.megawatts > 0).sort((a, b) => a.hourEnding - b.hourEnding);
-  if (on.length === 0) return 'No generation scheduled at any hour.';
+  const on = day.hours.filter(scheduledGeneration).sort((a, b) => a.hourEnding - b.hourEnding);
+  if (on.length === 0) {
+    return day.hours.some((h) => h.minimumFlow === true)
+      ? 'Only minimum flow scheduled, no generation above it.'
+      : 'No generation scheduled at any hour.';
+  }
 
   // ── Why the windows are enumerated and not spanned ────────────────────────
   // This said "from 6 AM to 8 PM", taking the first and last generating hours
@@ -1264,17 +1332,17 @@ export function patternRows(
 
   const scheduleStale = scheduleIsStale(oldestRetrievedAt(schedule), now);
 
-  const scheduledCell = (megawatts: number | undefined): PatternCell => {
-    if (megawatts === undefined) return { kind: 'missing' };
+  const scheduledCell = (hour: { megawatts: number; minimumFlow?: boolean } | undefined): PatternCell => {
+    if (hour === undefined) return { kind: 'missing' };
     return {
       kind: 'scheduled',
-      fraction: scheduledBar(megawatts, ref)?.fraction ?? 0,
+      fraction: scheduledBar(hour.megawatts, ref)?.fraction ?? 0,
       // On/off comes from the SCHEDULE, never from the bar: without a
       // reference, scheduledBar is null and the fraction collapses to 0, so a
       // full-load hour judged by its fraction alone would draw as scheduled
       // idle — an absence of scale becoming "not generating", the exact rule
       // this module exists to hold. Same reason observed cells carry the flag.
-      generating: megawatts > 0,
+      generating: scheduledGeneration(hour),
     };
   };
 
@@ -1292,7 +1360,7 @@ export function patternRows(
   const past: PatternRow[] = pattern.map((day) => {
     const isToday = day.scheduleDate === today;
     const hoursByEnding = new Map(
-      scheduleByDay.get(day.scheduleDate)?.hours.map((h) => [h.hourEnding, h.megawatts]) ?? []
+      scheduleByDay.get(day.scheduleDate)?.hours.map((h) => [h.hourEnding, h]) ?? []
     );
     // The day's OWN length, 23 / 24 / 25 — never a hardcoded 24. See
     // DamPatternDay for the two days a year that distinction is the difference
@@ -1364,7 +1432,7 @@ export function patternRows(
   const future: PatternRow[] = schedule
     .filter((d) => d.scheduleDate > today)
     .map((d) => {
-      const hoursByEnding = new Map(d.hours.map((h) => [h.hourEnding, h.megawatts]));
+      const hoursByEnding = new Map(d.hours.map((h) => [h.hourEnding, h]));
       return {
         dayKey: d.scheduleDate,
         cells: Array.from({ length: 24 }, (_, i) => scheduledCell(hoursByEnding.get(i + 1))),

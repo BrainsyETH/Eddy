@@ -16,6 +16,8 @@ import {
   nextScheduleChangeSentence,
   oldestRetrievedAt,
   scheduledHoursSummary,
+  scheduledGeneration,
+  scheduleDayHasMinimumFlow,
   SCHEDULE_CHANGE_NOTE,
   SCHEDULE_CHANGE_SENTENCE,
   tailwaterMovementLabel,
@@ -649,4 +651,28 @@ test('prose and label never disagree about sign or magnitude', () => {
       `direction disagrees at ${delta}`
     );
   }
+});
+
+test('minimum-flow hours are a break in generation, and are named as minimum flow', () => {
+  assert.equal(scheduledGeneration({ megawatts: 7, minimumFlow: true }), false);
+  assert.equal(scheduledGeneration({ megawatts: 7 }), true);
+  assert.equal(scheduledGeneration({ megawatts: 0 }), false);
+  assert.equal(idleWindowSentence([{ from: 1, to: 13 }], { minimumFlow: true }), 'Only minimum flow scheduled: midnight – 1 PM');
+  assert.equal(idleWindowSentence([{ from: 1, to: 13 }]), 'No generation scheduled: midnight – 1 PM');
+
+  const allMinimum = Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: 7, minimumFlow: true }));
+  assert.equal(scheduledHoursSummary(allMinimum), 'Only minimum flow scheduled');
+  assert.equal(scheduledHoursSummary(allMinimum, { compact: true }), 'min flow');
+  assert.equal(scheduleDayHasMinimumFlow({ hours: allMinimum }), true);
+  assert.equal(scheduleDayHasMinimumFlow(day('2026-07-28', { 16: 180 })), false);
+
+  // Noon (hour ending 13) is minimum flow; generation starts at hour ending 16.
+  const hours = Array.from({ length: 24 }, (_, i) =>
+    i + 1 >= 16 && i + 1 <= 19
+      ? { hourEnding: i + 1, megawatts: 180 }
+      : { hourEnding: i + 1, megawatts: 7, minimumFlow: true }
+  );
+  const state = scheduleStateNow([{ scheduleDate: '2026-07-28', hours }], NOON_CENTRAL);
+  assert.equal(state?.generating, false);
+  assert.equal(state?.change?.hourEnding, 16);
 });

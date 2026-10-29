@@ -35,7 +35,7 @@ import {
   type TimeseriesPoint,
 } from '@/lib/usace/cda';
 import { fetchProjectSchedule, idleWindows, SWPA_PROJECTS } from '@/lib/usace/swpa';
-import { parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
+import { hasResolverSpec, parseTsId, resolveSeries, type ResolvedSeries } from '@/lib/usace/resolve';
 import {
   USACE_DAMS,
   getUsaceDam,
@@ -67,6 +67,10 @@ export const SUMMARY_METRICS: UsaceMetric[] = [
   'generationFlow',
   'tailwaterElevation',
   'tailwaterTempF',
+  // Declared on three dams only and never resolved, so it adds at most three
+  // requests to the index, not one per dam. A floodgate release belongs on the
+  // list and the river row, not only on the dam page.
+  'spillwayFlow',
 ];
 
 /**
@@ -140,6 +144,7 @@ import type {
   DamPatternDay,
   DamScheduleDay,
   DamSnapshot,
+  ScheduledHour,
 } from '@shared/dam-types';
 import { buildForecastWindows, FORECAST_HORIZON_HOURS } from '@/lib/data/dam-forecast';
 
@@ -203,7 +208,7 @@ export async function seriesFor(
   for (const metric of metrics) {
     const declared = dam.series[metric];
     if (declared) out[metric] = declared;
-    else unresolved.push(metric);
+    else if (hasResolverSpec(metric)) unresolved.push(metric);
   }
 
   // Either shape of location config feeds the resolver: the common single
@@ -524,12 +529,31 @@ async function readSchedule(dam: UsaceDam, days: number): Promise<DamScheduleDay
   if (days <= 0) return [];
   if (!dam.swpaCode) return [];
   const schedules = await fetchProjectSchedule(dam.swpaCode, days);
-  return schedules.map((s) => ({
-    scheduleDate: s.scheduleDate,
-    hours: s.hours,
-    idle: idleWindows(s),
-    retrievedAt: s.retrievedAt,
-  }));
+  return schedules.map((s) => {
+    const hours = markMinimumFlowHours(dam, s.hours);
+    return {
+      scheduleDate: s.scheduleDate,
+      hours,
+      idle: idleWindows({ ...s, hours }),
+      retrievedAt: s.retrievedAt,
+    };
+  });
+}
+
+/**
+ * Flag the hours a minimum-flow project schedules only its minimum release.
+ *
+ * SWPA posts Bull Shoals' minimum flow as about 7 MW (500 cfs) in every hour
+ * of an otherwise idle day. Without the flag every reader of the schedule saw
+ * "Generation scheduled every hour". The ceiling is the same one the observed
+ * chip uses, so plan and measurement draw the line in one place.
+ */
+export function markMinimumFlowHours(dam: Pick<UsaceDam, 'minimumFlowThroughTurbine' | 'generationOnCfs'>, hours: ScheduledHour[]): ScheduledHour[] {
+  const ceiling = dam.generationOnCfs;
+  if (!dam.minimumFlowThroughTurbine || ceiling === undefined) return hours;
+  return hours.map((h) =>
+    h.megawatts > 0 && h.cfs !== null && h.cfs <= ceiling ? { ...h, minimumFlow: true } : h
+  );
 }
 
 /**
@@ -706,6 +730,7 @@ export function buildSnapshot(
     // "measured at effectively zero" from "not measured", and the list surfaces
     // carry generationFlow already.
     ...(dam.generationOnCfs !== undefined ? { generationFloorCfs: dam.generationOnCfs } : {}),
+    ...(dam.minimumFlowThroughTurbine ? { minimumFlowThroughTurbine: true } : {}),
     ...(schedule.length > 0 ? { scheduleTimeZone: 'America/Chicago' as const } : {}),
     ...(dam.releaseExcludesGeneration ? { releaseExcludesGeneration: true } : {}),
     ...(pattern && pattern.length > 0 ? { pattern } : {}),

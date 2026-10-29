@@ -32,6 +32,8 @@ import {
   PEAK_RELEASE_HEADING,
   schedulePeakValue,
   schedulePeakVoiceOver,
+  spillwayRelease,
+  spillwayReleaseLabel,
   unitEquivalents,
   type GenerationReference,
 } from './dam-generation';
@@ -1299,4 +1301,59 @@ test('the estimate hedge rides on the citation instead of a paragraph', () => {
   // because the denominator is published.
   assert.match(generationReferenceLine(BULL_SHOALS), /SWPA/);
   assert.match(generationReferenceLine(BULL_SHOALS), /estimated/);
+});
+
+// ── Minimum flow and spillway release ──────────────────────────────────────
+
+test('a unit passing the minimum flow reads as minimum flow, never as generating or idle', () => {
+  // Bull Shoals: its minimum flow runs through a turbine at low output, about
+  // 730 cfs, under an 850 cfs generation floor.
+  const bullShoals = {
+    ...dam({ generationFloorCfs: 850, metrics: { generationFlow: reading(731, 20) } }),
+    minimumFlowThroughTurbine: true,
+  };
+  const state = generationNow(bullShoals, NOON_CENTRAL);
+  assert.equal(state.kind, 'not-generating');
+  assert.equal(state.kind === 'not-generating' && state.minimumFlow, true);
+  assert.equal(generationStatusLabel(state), 'Minimum flow');
+  assert.equal(nowNextClauses(state, [], BULL_SHOALS, NOON_CENTRAL).observed, 'Minimum-flow release, no generation above it.');
+  assert.equal(generationVoiceOver(state, BULL_SHOALS), 'Minimum-flow release. Turbine discharge is 731 cfs.');
+  assert.equal(
+    generationStatusLabel(generationNow({ ...bullShoals, metrics: { generationFlow: reading(731, 200) } }, NOON_CENTRAL)),
+    'Minimum flow at last reading',
+    'an old reading keeps its past tense'
+  );
+
+  const leak = generationNow({ ...bullShoals, metrics: { generationFlow: reading(20, 20) } }, NOON_CENTRAL);
+  assert.equal(leak.kind === 'not-generating' && leak.minimumFlow, false, 'leakage is idle, not minimum flow');
+  assert.equal(
+    generationNow({ ...bullShoals, metrics: { generationFlow: reading(4_000, 20) } }, NOON_CENTRAL).kind,
+    'generating'
+  );
+  const undeclared = generationNow(dam({ metrics: { generationFlow: reading(90, 20) } }), NOON_CENTRAL);
+  assert.equal(undeclared.kind === 'not-generating' && undeclared.minimumFlow, false, 'only a declared project says minimum flow');
+  assert.equal(generationStatusLabel(undeclared), 'No turbine generation observed');
+});
+
+test('a day of only minimum flow is not described as generation', () => {
+  const minimumFlowDay = {
+    scheduleDate: '2026-07-28',
+    hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: 7, cfs: 500, isRamp: false, minimumFlow: true })),
+  };
+  assert.equal(scheduleDayVoiceOver(minimumFlowDay, BULL_SHOALS), 'Only minimum flow scheduled, no generation above it.');
+});
+
+test('a spillway release is read from its own series, not inferred from total flow', () => {
+  const release = spillwayRelease(dam({ metrics: { spillwayFlow: reading(1_201, 20) } }), NOON_CENTRAL);
+  assert.ok(release);
+  assert.equal(spillwayReleaseLabel(release), 'Spillway release: 1,201 cfs');
+  const old = spillwayRelease(dam({ metrics: { spillwayFlow: reading(1_201, 200) } }), NOON_CENTRAL);
+  assert.equal(old && spillwayReleaseLabel(old), 'Spillway release at last reading: 1,201 cfs');
+  assert.equal(spillwayRelease(dam({ metrics: { spillwayFlow: reading(0, 20) } }), NOON_CENTRAL), null, 'closed gates say nothing');
+  assert.equal(spillwayRelease(dam({ metrics: {} }), NOON_CENTRAL), null, 'unpublished is not "gates closed"');
+  // Total release far above turbine flow is not, by itself, a spill.
+  assert.equal(
+    spillwayRelease(dam({ metrics: { release: reading(18_000, 20), generationFlow: reading(9_000, 20) } }), NOON_CENTRAL),
+    null
+  );
 });

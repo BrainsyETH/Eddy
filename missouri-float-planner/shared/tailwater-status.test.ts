@@ -414,5 +414,23 @@ test('the spoken row names its destination last', () => {
 
 test('the metrics the model needs are declared for the route contract', () => {
   // dams-route-contract.test.ts asserts this list against SUMMARY_METRICS.
-  assert.deepEqual([...TAILWATER_STATUS_METRICS], ['generationFlow', 'tailwaterElevation']);
+  assert.deepEqual([...TAILWATER_STATUS_METRICS], ['generationFlow', 'tailwaterElevation', 'spillwayFlow']);
+});
+
+test('a minimum-flow project heads its row as minimum flow, and a spill leads the supporting lines', () => {
+  const status = buildTailwaterStatus(
+    {
+      ...dam({
+        generationFloorCfs: 850,
+        metrics: { generationFlow: reading(731, 20), spillwayFlow: reading(1_201, 20) },
+      }),
+      minimumFlowThroughTurbine: true,
+    },
+    NOON_CENTRAL
+  );
+  assert.ok(status);
+  assert.equal(status.tone, 'idle');
+  assert.equal(status.headline, 'Bull Shoals Dam: minimum flow');
+  assert.match(status.supporting[0], /^Spillway release: 1,201 cfs · /);
+  assert.ok(status.supporting.length <= 2);
 });

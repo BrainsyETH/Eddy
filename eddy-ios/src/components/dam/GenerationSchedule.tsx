@@ -22,6 +22,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { DamScheduleDay } from '@eddy/types';
 import {
   idleWindowSentence,
+  scheduleDayHasMinimumFlow,
   oldestRetrievedAt,
   retrievalSentence,
   scheduleDayLabel,
@@ -70,7 +71,7 @@ function DayRow({
       // already said the same thing. Without that tally, an empty summary
       // would hide all-day generation until expanded, so name it explicitly.
       // Keep every no-generation window visible when collapsed as well.
-      summary={day.idle.length > 0 ? idleWindowSentence(day.idle) : 'Generation scheduled all day.'}
+      summary={day.idle.length > 0 ? idleWindowSentence(day.idle, { minimumFlow: scheduleDayHasMinimumFlow(day) }) : 'Generation scheduled all day.'}
       summaryLayout="below"
       accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), peak ? schedulePeakVoiceOver(peak) : null, 'Central time'].filter(Boolean).join('. ')}
       defaultExpanded={defaultExpanded}

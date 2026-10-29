@@ -49,6 +49,22 @@ All three tailwaters are now live; the short-corridor sequence above is
 superseded. Open items (photos, fixed hazards beyond the dams, posted dam
 limits, device acceptance) remain in issue #1541.
 
+## October 29 minimum flow and spillway
+
+Bull Shoals passes its minimum flow (Corps target about 800 cfs) through a
+turbine at low output, so a 100 cfs generation floor read "Generating" for
+the 57% of hours that are minimum flow, and SWPA's 7 MW minimum-flow hours
+read as "Generation scheduled every hour". Its floor is now 850 cfs, measured
+against the district's own `Flow-Min_Flow` series (minimum-flow turbine flow
+613–834 cfs, generating hours at least 872 cfs, July–October 2026), and those
+hours render as "Minimum flow" on the chip, hero, schedule and river row.
+
+Floodgate releases are read from each dam's `Flow-Tainter Total` series
+(Bull Shoals, Norfork, Table Rock), never inferred from total flow: Bull
+Shoals spilled in May 2017 at about 18,000 cfs total with three turbines out.
+A rating that uses either state still needs its own evidence and sign-off;
+neither is a recreational threshold.
+
 ## Where this stands
 
 `WATER_REGIMES_STRATEGY.md` sequenced five steps. Steps 1 and 2 are done — the

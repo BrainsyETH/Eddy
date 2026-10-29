@@ -27,7 +27,13 @@ import {
   readingStaleness,
   SCHEDULE_CHANGE_NOTE,
 } from '@shared/dam-schedule-copy';
-import { generationNow, generationStatusLabel, nowNextClauses } from '@shared/dam-generation';
+import {
+  generationNow,
+  generationStatusLabel,
+  nowNextClauses,
+  spillwayRelease,
+  spillwayReleaseLabel,
+} from '@shared/dam-generation';
 
 function formatCfs(value: number): string {
   return `${Math.round(value).toLocaleString()} cfs`;
@@ -131,6 +137,8 @@ export default function DamStateCard({
   // powerhouse", which is both noise and a contradiction of this card's own
   // rule that a null generating state renders nothing.
   const state = generationNow(dam, now);
+  const minimumFlow = state.kind === 'not-generating' && state.minimumFlow;
+  const spill = secondary ? null : spillwayRelease(dam, now);
   const clauses =
     secondary || generationStatusLabel(state) === null
       ? null
@@ -172,7 +180,7 @@ export default function DamStateCard({
             }
           >
             <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-            {generating ? 'Generating' : 'Not generating'}
+            {generating ? 'Generating' : minimumFlow ? 'Minimum flow' : 'Not generating'}
           </span>
           {generation && (
             <span className="ml-2 text-sm tabular-nums text-neutral-600">
@@ -180,6 +188,10 @@ export default function DamStateCard({
             </span>
           )}
         </div>
+      )}
+
+      {spill && (
+        <p className="mt-2 text-sm font-semibold text-accent-900">{spillwayReleaseLabel(spill)}</p>
       )}
 
       {/* The note is not decoration and must not be dropped to save a line: the
