@@ -187,6 +187,13 @@ export interface FloatSession {
    * fixes older than what the session already holds are ignored by applyFix.
    */
   journalTo?: number;
+  /**
+   * The paddler stopped tracking at Finish, but the recap is still owed: the
+   * journal could not be read to its end. Location collection is off and
+   * stays off; the journal is kept, and the recap is saved, ending the float
+   * here, once it can be read (floatSessionStore.ts stopTracking).
+   */
+  trackingStoppedAt?: number | null;
   /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
   reminders?: FloatReminderSettings;
   /**

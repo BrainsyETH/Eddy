@@ -148,6 +148,14 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
         else onStatus(report);
         return;
       }
+      // Stopped at Finish while its recap waits on the journal: never start
+      // again, and stop a recorder iOS resumed for it.
+      if (session.trackingStoppedAt != null) {
+        const report = await recorder.status();
+        const running = report.state !== 'idle' && (report.sessionId == null || report.sessionId === session.id);
+        onStatus(running ? await recorder.stop(session.id) : report);
+        return;
+      }
       if (!deps.isForeground()) {
         onStatus(await recorder.status());
         return;
@@ -201,7 +209,9 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
      *
      * Resolves false when the journal could not be read to its end: the float
      * must not be finalised from an incomplete checkpoint. Recording is then
-     * started again, the float stays active, and Finish can be retried.
+     * started again, the float stays active, and Finish can be retried, or
+     * the paddler can stop tracking anyway (floatSessionStore stopTracking),
+     * which this then leaves stopped.
      *
      * An automatic end (floatEnding.ts) happens inside a batch being applied
      * and does not come here: it ends at the arrival or departure that batch

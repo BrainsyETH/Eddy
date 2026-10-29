@@ -251,9 +251,30 @@ export type EndResult = 'ended' | 'ended-unsaved' | 'not-ended';
 export async function endFloat(): Promise<EndResult> {
   const session = store.get();
   if (session && !(await finishRecording(session.id))) return 'not-ended';
-  const cleared = await activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+  // Tracking stopped earlier (stopTracking): the float ended then, not now.
+  const cleared = await activityLifecycle.end(
+    floatArchive.contributionVersion(store.get()?.archiveScope),
+    store.get()?.trackingStoppedAt ?? undefined,
+  );
   void dismissFloatNotifications();
   return cleared ? 'ended' : 'ended-unsaved';
+}
+
+/**
+ * Stop collecting location without saving the recap: Finish could not read
+ * the journal to its end (endFloat 'not-ended'), and the paddler has finished
+ * all the same. Recording stops and stays stopped through relaunches
+ * (floatRecorderSync ensureRecording); the journal is kept, and endFloat
+ * saves the recap, ended at this moment, once the journal can be read.
+ * Saving the recap and stopping the GPS are separate things.
+ */
+export async function stopTracking(): Promise<void> {
+  const session = store.get();
+  if (!session) return;
+  await store.stopTracking(Date.now());
+  await stopRecordingNow(session.id);
+  void syncFloatActivity(null);
+  void dismissFloatNotifications();
 }
 
 /**

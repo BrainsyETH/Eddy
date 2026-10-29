@@ -341,7 +341,7 @@ test('a recorder left running with no float is stopped; one whose float could no
   assert.equal(bridge.calls.length, before);
 });
 
-test('a journal that cannot be read at Finish leaves the float active and recording, not saved short', async () => {
+test('a journal that cannot be read at Finish leaves the float active and recording, not saved short, until the paddler stops it', async () => {
   const journal = fakeJournal();
   for (let i = 0; i < 10; i += 1) journal.append(paddle(i));
   const recaps: FloatSession[] = [];
@@ -394,4 +394,57 @@ test('recovery judges the automatic end on the whole journal, not on its first p
   const settled = judged.filter((j) => j.settle);
   assert.equal(settled.length, 1, 'judged once, after the last page');
   assert.equal(settled[0].end, null, 'the whole journal shows the paddler carrying on');
+});
+
+test('tracking can be stopped when the journal cannot be read, and stays stopped until the recap is saved', async () => {
+  const journal = fakeJournal();
+  for (let i = 0; i < 10; i += 1) journal.append(paddle(i));
+  const recaps: Array<{ session: FloatSession }> = [];
+  const { disk } = memoryDisk();
+  const store = createFloatSessionStore(disk, () => {}, async () => [], async (session) => { recaps.push({ session }); });
+  await store.begin(newSession());
+  const bridge = mockBridge(journal);
+  const sync = createFloatRecorderSync({
+    recorder: bridge,
+    getSession: () => store.get(),
+    ensureLoaded: () => store.ensureLoaded(),
+    loadFailed: () => store.loadFailed(),
+    record: (fixes, now, journalTo) => {
+      store.record(fixes, now, journalTo);
+      return null;
+    },
+    isForeground: () => true,
+    setTracker: () => {},
+    warn: () => {},
+  });
+  const id = store.get()!.id;
+  const read = bridge.read;
+  bridge.read = async () => {
+    throw new Error('EIO');
+  };
+  assert.equal(await sync.finish(id), false);
+  assert.equal(bridge.state, 'recording', 'not stopped yet: the paddler has not chosen');
+
+  // The paddler stops tracking anyway: the GPS goes off and stays off, even
+  // across a relaunch, while the float waits for its recap.
+  const stoppedAt = T0 + 30 * 60_000;
+  await store.stopTracking(stoppedAt);
+  bridge.state = 'idle';
+  const relaunched = createFloatSessionStore(disk, () => {});
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.get()!.trackingStoppedAt, stoppedAt);
+  bridge.calls.length = 0;
+  await sync.ensureRecording();
+  assert.deepEqual(bridge.calls, [], 'a stopped float is never started again');
+  bridge.state = 'recording';
+  await sync.ensureRecording();
+  assert.deepEqual(bridge.calls, [`stop:${id}`], 'a recorder iOS resumed for it is stopped');
+  assert.equal(await sync.finish(id), false);
+  assert.equal(bridge.state, 'idle', 'a failed Finish leaves a stopped float stopped');
+  assert.deepEqual(recaps, []);
+
+  // The journal reads again: the recap is saved from all of it.
+  bridge.read = read;
+  assert.equal(await sync.finish(id), true);
+  assert.equal(store.get()!.journalTo, journal.read(0).next);
 });

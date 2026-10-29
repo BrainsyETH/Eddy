@@ -35,7 +35,8 @@ import { useTrackingLine } from '@/float/useTrackingLine';
 import { useAnnounce } from '@/hooks/useAnnounce';
 import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatDisplayClock } from '@/hooks/useFloatDisplayClock';
-import { discardShortFloat, endFloat } from '@/lib/floatSessionStore';
+import { discardShortFloat, endFloat, stopTracking } from '@/lib/floatSessionStore';
+import { ControlIcon } from '@/components/ControlIcon';
 import { discardCopy, discardReason } from '@/lib/floatEnding';
 import {
   arrivalAnchor,
@@ -194,7 +195,11 @@ export default function FloatModeScreen() {
     : weakGps && (view.status === 'stale' || view.status === 'acquiring')
       ? 'Finding you on the river…'
       : statusCopy(view, clock);
-  const freshness = fresh
+  // Finish could not read the whole track and the paddler stopped tracking
+  // anyway (stopTracking): no GPS, and the recap is still owed.
+  const stopped = session.trackingStoppedAt != null;
+  const freshness = stopped ? 'Tracking stopped'
+    : fresh
     ? `Tracking · ${fixAgeLabel(displayed?.at ?? null, clock)}`
     : tracking.tracker.status === 'starting' ? 'Starting GPS…'
     : !recording ? 'Tracking needs attention'
@@ -207,7 +212,52 @@ export default function FloatModeScreen() {
     router.navigate('/(tabs)/(floats)/float-home');
   };
 
+  /** Save the recap and leave for it; the End dialog's last step, and Save recap's. */
+  const finish = () => {
+    endingHere.current = true;
+    setFinishing(true);
+    void endFloat().then((result) => {
+      setFinishing(false);
+      if (result === 'not-ended') {
+        // Not saved from a partial track. Saving the recap and stopping the
+        // GPS are separate: the float can stop tracking now, and its journal
+        // is kept until the recap can be saved from all of it.
+        endingHere.current = false;
+        if (session.trackingStoppedAt != null) {
+          Alert.alert(
+            'Recap not saved yet',
+            'Tracking is stopped. Eddy still couldn’t read your whole track, so it’s kept on this phone. Try again in a moment.',
+          );
+          return;
+        }
+        Alert.alert(
+          'Couldn’t save your float',
+          'Eddy couldn’t read all of your recorded track, so nothing was saved and tracking is still on. You can stop tracking now and save the recap later; nothing recorded is lost.',
+          [
+            { text: 'Keep floating', style: 'cancel' },
+            { text: 'Try again', onPress: finish },
+            { text: 'Stop tracking', style: 'destructive', onPress: () => void stopTracking() },
+          ],
+        );
+        return;
+      }
+      // Tracking has stopped either way; say so if storage lagged.
+      if (result === 'ended-unsaved') {
+        Alert.alert(
+          'Float ended',
+          'Tracking has stopped. Eddy couldn’t finish saving your recap yet and will retry. Keep the app open and check your history.',
+        );
+      }
+      router.replace({ pathname: '/float-recap', params: { id: session.id } });
+    });
+  };
+
   const confirmEnd = () => {
+    // Already ended in all but its recap: nothing left to confirm.
+    if (stopped) {
+      finish();
+      return;
+    }
     // An accidental Start, or a float that never measured anything
     // (floatEnding.ts discardReason): offer to throw it away rather than file
     // a recap that has to be deleted afterwards, and say which case it is.
@@ -246,30 +296,7 @@ export default function FloatModeScreen() {
         {
           text: done ? 'Finish' : 'End float',
           style: done ? 'default' : 'destructive',
-          onPress: () => {
-            endingHere.current = true;
-            setFinishing(true);
-            void endFloat().then((result) => {
-              setFinishing(false);
-              if (result === 'not-ended') {
-                // Not saved from a partial track: the float carries on.
-                endingHere.current = false;
-                Alert.alert(
-                  'Couldn’t save your float',
-                  'Eddy couldn’t read all of your recorded track, so nothing was saved and your float is still going. Try again in a moment.',
-                );
-                return;
-              }
-              // Tracking has stopped either way; say so if storage lagged.
-              if (result === 'ended-unsaved') {
-                Alert.alert(
-                  'Float ended',
-                  'Tracking has stopped. Eddy couldn’t finish saving your recap yet and will retry. Keep the app open and check your history.',
-                );
-              }
-              router.replace({ pathname: '/float-recap', params: { id: session.id } });
-            });
-          },
+          onPress: finish,
         },
       ],
     );
@@ -297,9 +324,28 @@ export default function FloatModeScreen() {
       <View style={[styles.panel, stacked && { maxHeight: '70%' }, { backgroundColor: colors.card, borderColor: colors.border }, elevation(2)]}>
         <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelContent} showsVerticalScrollIndicator>
         <View style={styles.freshness}>
-          <FloatStatusDot at={displayed?.at ?? null} fresh={fresh} />
+          <FloatStatusDot at={displayed?.at ?? null} fresh={fresh && !stopped} />
           <Text style={[styles.caption, { color: colors.textMuted }]}>{freshness}</Text>
+          {/* What locking the phone does, and closing Eddy does not: written
+              in the tracking line's detail, and otherwise never shown while
+              tracking is healthy. */}
+          {!stopped && tracking.line?.detail ? (
+            <Pressable
+              onPress={() => Alert.alert('About tracking', `${tracking.line!.text} ${tracking.line!.detail}`)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="About tracking"
+            >
+              <ControlIcon name="information-circle-outline" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
+        {stopped ? (
+          <Notice
+            label="Tracking is stopped. Eddy couldn’t read your whole track yet, so your recap isn’t saved. It’s kept on this phone: tap to try again."
+            onPress={finish}
+          />
+        ) : null}
         <View style={styles.routeHeader}>
           <FloatActionIcon name="startFloat" size={34} color={colors.interactive} />
           <View style={styles.flex}>
@@ -396,13 +442,13 @@ export default function FloatModeScreen() {
             style={({ pressed }) => [
               styles.action,
               styles.endAction,
-              done
+              done || stopped
                 ? { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }
                 : { borderColor: colors.error, borderWidth: 1, opacity: pressed ? 0.6 : 1 },
             ]}
             accessibilityRole="button"
           >
-            <Text style={[styles.actionText, { color: done ? colors.onAccent : colors.error }]}>{finishing ? 'Saving…' : done ? 'Finish float' : 'End float'}</Text>
+            <Text style={[styles.actionText, { color: done || stopped ? colors.onAccent : colors.error }]}>{finishing ? 'Saving…' : stopped ? 'Save recap' : done ? 'Finish float' : 'End float'}</Text>
           </Pressable>
         </View>
       </View>

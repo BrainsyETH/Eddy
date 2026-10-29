@@ -18,6 +18,7 @@ export function useFloatActivity(): ActivityAvailability {
   return useSyncExternalStore(subscribe, read, read);
 }
 export function syncFloatActivity(session: FloatSession | null, options: { start?: boolean; force?: boolean } = {}): Promise<void> {
-  return controller.sync(session ? floatActivitySnapshot(session, Date.now()) : null, options);
+  // A float whose tracking was stopped at Finish has no live card to show.
+  return controller.sync(session && session.trackingStoppedAt == null ? floatActivitySnapshot(session, Date.now()) : null, options);
 }
 export const floatActivitySettled = () => controller.settled();
