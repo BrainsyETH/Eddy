@@ -32,7 +32,15 @@ export type MapCameraCommand =
 export type MapCameraAction =
   | { type: 'riverSelected'; bounds: MapBounds }
   | { type: 'poiSelected'; lng: number; lat: number }
-  | { type: 'searchResultSelected'; lng: number; lat: number; zoom?: number }
+  /**
+   * `waitForSheet` when choosing the result also opens a pin sheet, exactly as
+   * a tap does: the sheet's height is reset while search is open, so without
+   * the wait the point is framed into a map with no sheet and then covered by
+   * the one that opens a beat later. Only then — a result that opens nothing
+   * (a national station with no pin, a put-in still loading) must not wait,
+   * or the move queues until some unrelated sheet next opens.
+   */
+  | { type: 'searchResultSelected'; lng: number; lat: number; zoom?: number; waitForSheet?: boolean }
   | { type: 'locationRequested'; lng: number; lat: number; zoom: number }
   | { type: 'clusterSelected'; lng: number; lat: number; zoom?: number }
   /**
@@ -88,6 +96,7 @@ export function cameraCommandFor(action: MapCameraAction, id: number): MapCamera
         lat: action.lat,
         zoom: action.zoom ?? 13,
         duration: 650,
+        ...(action.waitForSheet ? { waitForSheet: true } : {}),
       };
     case 'locationRequested':
       return {
