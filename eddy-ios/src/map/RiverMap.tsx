@@ -2030,10 +2030,15 @@ export function RiverMap({
    * A layer filter that also leaves out the selected place, which
    * selectedShape draws on top. Filters are layer properties: changing one
    * re-evaluates the layer without re-uploading its source.
+   *
+   * NEVER UNDEFINED. @rnmapbox's iOS layer applies a filter only when it is a
+   * non-empty array, so going back to `undefined` when the sheet closed left
+   * the last `!= selected` filter on the layer: the place stayed hidden with
+   * nothing drawing it. With no selection the filter matches no pin id, which
+   * keeps every pin and still replaces the old filter natively.
    */
-  const unselected = (filter?: unknown[]): unknown[] | undefined => {
-    if (!selectedPinId) return filter;
-    const notSelected = ['!=', ['get', 'id'], selectedPinId];
+  const unselected = (filter?: unknown[]): unknown[] => {
+    const notSelected = ['!=', ['get', 'id'], selectedPinId ?? ''];
     return filter ? ['all', filter, notSelected] : notSelected;
   };
 

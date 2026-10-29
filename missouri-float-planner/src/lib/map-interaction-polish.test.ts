@@ -433,7 +433,21 @@ test('the selected place has its own source, and every layer leaves it out', () 
   const unselected = handler('unselected', { selectedPinId: 'gauge:1' });
   assert.deepEqual(JSON.parse(JSON.stringify(unselected(['!', ['has', 'point_count']]))),
     ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'id'], 'gauge:1']]);
-  assert.equal(handler('unselected', { selectedPinId: null })(undefined), undefined);
+  // @rnmapbox's iOS layer ignores an undefined or empty filter, so returning
+  // undefined after a close left `!= selected` on the layer and the place
+  // vanished. With no selection the filter must still be a real expression.
+  const cleared = handler('unselected', { selectedPinId: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(cleared(undefined))), ['!=', ['get', 'id'], '']);
+  assert.deepEqual(JSON.parse(JSON.stringify(cleared(['!', ['has', 'point_count']]))),
+    ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'id'], '']]);
+});
+
+test('no map layer filter can fall back to undefined, which iOS never clears', () => {
+  // Every filter prop is either a literal array or unselected(); a ternary or
+  // optional filter would reintroduce the stuck-filter bug on close.
+  for (const match of mapText.matchAll(/filter=\{([^}]*)\}/g)) {
+    assert.match(match[1], /^(\[|unselected\(|solo$)/, `filter={${match[1]}} must always be an expression`);
+  }
 });
 
 test('the selection still draws when the layer that drew it is switched off', () => {
