@@ -43,6 +43,12 @@ export interface EnrichmentSite {
   managing_agency: string | null;
   /** Reviewed launch pin, when the agency point is not at the water. */
   pin: { lat: number; lon: number } | null;
+  /**
+   * Stored mile on the river's existing mile system. Some rivers' approved rows use
+   * guidebook miles offset from the geometry, so a geometry mile would misstate every
+   * trip to a neighbour. null = the geometry mile is already consistent there.
+   */
+  river_mile: { value: number; basis: string } | null;
   images: EnrichmentImage[];
   field_sources: Record<string, string[]>;
   /** Human decisions. Absent until a reviewer records them; never inferred. */
@@ -79,6 +85,9 @@ export function validateEnrichment(sites: EnrichmentSite[]): EnrichmentSite[] {
     if (s.fee_required == null && !s.fee_notes) throw new Error(`${label}: unknown fee status needs a fee note`);
     if (s.pin && (!Number.isFinite(s.pin.lat) || !Number.isFinite(s.pin.lon) ||
       Math.abs(s.pin.lat - 37) > 3 || Math.abs(s.pin.lon + 92) > 4)) throw new Error(`${label}: pin outside the Ozarks`);
+    if (s.river_mile && (!Number.isFinite(s.river_mile.value) || s.river_mile.value < 0 || !s.river_mile.basis?.trim())) {
+      throw new Error(`${label}: river_mile needs a value and its basis`);
+    }
     for (const field of ['description', 'parking_info', 'road_access'] as const) {
       if (s[field] != null && !s.field_sources?.[field]?.length) throw new Error(`${label}: ${field} has no source`);
     }
@@ -125,7 +134,7 @@ export function enrichmentRows(sites: EnrichmentSite[]) {
     road_surface: s.road_surface, fee_required: s.fee_required ?? false, fee_notes: s.fee_notes,
     local_tips: s.local_tips, official_site_url: s.official_site_url, ownership: s.ownership,
     managing_agency: s.managing_agency, image_urls: imageUrlsOf(s),
-    pin_lat: s.pin?.lat ?? null, pin_lon: s.pin?.lon ?? null,
+    pin_lat: s.pin?.lat ?? null, pin_lon: s.pin?.lon ?? null, river_mile: s.river_mile?.value ?? null,
     approve: s.decision?.approve ?? null, is_float_endpoint: s.decision?.is_float_endpoint ?? null,
   }));
 }
@@ -161,6 +170,7 @@ BEGIN
     IF v_mile IS NULL OR v_distance > 250 THEN
       RAISE EXCEPTION 'Invalid or distant river snap: %', v->>'slug';
     END IF;
+    v_mile := COALESCE((v->>'river_mile')::numeric, v_mile);
     UPDATE public.access_points SET
       name = v->>'name', type = v->>'type',
       types = ARRAY(SELECT jsonb_array_elements_text(v->'types')),

@@ -9,7 +9,7 @@ function site(): EnrichmentSite {
     description: 'MDC access.', facilities: null, amenities: ['parking'], parking_info: null, parking_capacity: '10',
     road_access: null, road_surface: ['gravel_maintained'], fee_required: false, fee_notes: null, local_tips: null,
     official_site_url: 'https://mdc.mo.gov/discover-nature/places/simmons-ford-access', ownership: 'MDC',
-    managing_agency: 'MDC', pin: null,
+    managing_agency: 'MDC', pin: null, river_mile: null,
     images: [
       { kind: 'open_license', url: 'https://upload.wikimedia.org/a.jpg', title: 'Ford', altText: 'River at the ford',
         caption: 'Location photograph; not current conditions.', credit: 'A. Person', sourceUrl: 'https://commons.wikimedia.org/wiki/File:A.jpg',
@@ -61,6 +61,10 @@ test('generated SQL is one guarded transaction carrying the rows as a literal', 
   assert.match(sql, /Approved outside this record/);
   assert.match(sql, /distance > 250/);
   assert.ok(sql.includes('"slug":"simmons-ford-access"'));
+  const offset = site(); offset.river_mile = { value: 140.1, basis: 'Robertsville stored 136.0 + 4.1 river miles' };
+  assert.ok(enrichmentSql([offset]).includes('"river_mile":140.1'));
+  const bare = site(); bare.river_mile = { value: 140.1, basis: '' };
+  assert.throws(() => validateEnrichment([bare]), /basis/);
   const hostile = site(); hostile.description = 'x $rows$ y';
   assert.throws(() => enrichmentSql([hostile]), /Delimiter/);
 });
