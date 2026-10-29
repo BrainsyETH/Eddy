@@ -400,14 +400,37 @@ test('only individually drawn, enabled, non-hazard places stack; the selection a
     /hazardPins/, 'a hazard must never disappear into a count');
 });
 
-test('stacked members leave their own layers, and the stack paints below hazards', () => {
+test('stacked members are hidden by a layer filter, so a camera stop re-uploads no pin source', () => {
+  // Stack membership changes on camera stops; the places do not. Every pin
+  // shape is keyed on its own data (and the plan's endpoints, which move only
+  // with the plan), never on the stacks, so a pinch that merges one pair no
+  // longer re-serialises every source across the bridge.
   for (const shape of ['accessShape', 'outfitterShape', 'lodgingShape', 'boatRampShape', 'campgroundShape']) {
-    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\), layerHiddenIds\\)`), shape);
+    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\), endpointIds\\),\\s*\\[\\w+, endpointIds\\]`), shape);
   }
   for (const shape of ['gaugeShape', 'springShape', 'damShape', 'referenceShape']) {
-    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\), stackedOnlyIds\\)`), shape);
+    assert.match(mapText, new RegExp(`const ${shape} = useMemo\\(\\s*\\(\\) => featureCollection\\([\\w ?[\\]]+, layerColorFor\\('\\w+'\\)\\),\\s*\\[[\\w]+\\]`), shape);
   }
   assert.match(mapText, /const hazardShape = useMemo\(\s*\(\) => featureCollection\(hazardPins, layerColorFor\('hazards'\)\),/);
+  const shapes = mapText.slice(mapText.indexOf('const accessShape = useMemo'), mapText.indexOf('const pinShapes = useMemo'));
+  assert.doesNotMatch(shapes, /stackedKey|notStacked|stacks\b/, 'no pin shape may depend on the stacks');
+
+  // The filter clause: keyed on the primitive stacked-id string, and it
+  // really excludes exactly the stacked members.
+  assert.match(mapText, /const notStacked = useMemo\([\s\S]*?\[stackedKey\],\s*\)/);
+  const clause = (stackedKey: string) => JSON.parse(JSON.stringify(handler('notStacked', { stackedKey })()));
+  assert.deepEqual(clause('access:1|gauge:3'), ['!', ['in', ['get', 'id'], ['literal', ['access:1', 'gauge:3']]]]);
+  assert.deepEqual(clause(''), ['!', ['in', ['get', 'id'], ['literal', []]]], 'no stacks hides nothing');
+
+  // Applied to every layer a stacked member could draw on, and not to hazards.
+  const pinLayerBody = mapText.slice(mapText.indexOf('const pinLayer = ('), mapText.indexOf('const contextGaugeLayer = () =>'));
+  assert.match(pinLayerBody, /const solo = id === 'hazards' \? unselected\(\) : unselected\(notStacked\);/);
+  const access = mapText.slice(mapText.indexOf('const accessLayer = () =>'), mapText.indexOf('</Mapbox.ShapeSource>', mapText.indexOf('const accessLayer = () =>')));
+  assert.equal((access.match(/filter=\{unselected\(notStacked\)\}/g) ?? []).length, 4, 'every access layer hides stacked members');
+  assert.doesNotMatch(access, /filter=\{unselected\(\)\}/);
+  const reference = mapText.slice(mapText.indexOf('const contextGaugeLayer = () =>'), mapText.indexOf('const statewideIndexLayer'));
+  assert.equal((reference.match(/notStacked\]\)\}/g) ?? []).length, 2, 'the reference dot and label hide stacked members');
+
   const stacksAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-stacks"');
   const hazardsAt = mapText.indexOf("pinLayer('hazards'", stacksAt);
   assert.ok(stacksAt > 0 && hazardsAt > stacksAt, 'hazards draw over stacks');
@@ -440,7 +463,7 @@ test('the selected place has its own source, and every layer leaves it out', () 
   // No layer styles its own selection any more: it is filtered out instead.
   const before = mapText.slice(0, mapText.indexOf('<Mapbox.ShapeSource id="plan-endpoints"'));
   assert.doesNotMatch(before, /\['==', \['get', 'id'\], selectedPinId\]/);
-  assert.match(mapText, /const solo = unselected\(/);
+  assert.match(mapText, /const solo = [^;]*unselected\(/);
   for (const id of ['pins-access-overview', 'pins-access-badge', 'pins-access-icon', 'pins-access-label', 'pins-allGauges-dot']) {
     assert.match(mapText, new RegExp(`pinHitLayerId\\('${id}'\\)\\}\\s*filter=\\{unselected\\(`), `${id} leaves out the selection`);
   }
@@ -706,7 +729,7 @@ test('a pending put-in never outlives the navigation that asked for it', () => {
   );
   // Set only while a selection effect will answer it — not for a river that
   // is already selected and whose response has already landed.
-  assert.match(SCREEN, /hold \|\| answered \? null : \{ id: accessId, riverSlug: slug, layer: pinLayer \}/);
+  assert.match(SCREEN, /hold \|\| answered \? null : \{ id: accessId, riverSlug: slug, layer: pinLayer, named: \{ fitCommandId \} \}/);
   // Search and deep links share the one opener.
   assert.match(SCREEN, /openNamedAccess\(result\.id, result\.riverSlug, null\)/);
   assert.match(SCREEN, /openNamedAccess\(accessId, riverSlug, null\)/);
@@ -769,6 +792,7 @@ test('opening an access point the map does not hold keeps the plan on its river'
   const context = (stored: unknown, fetched: unknown[] = []) => ({
     drawnAccessPoints: [], planHoldsRiver: true, selectedSlug: 'current', plannerAccess: null,
     heldAccessRequest: { current: 0 }, pendingAccessSelection: { current: { id: 'stale', riverSlug: 'x' } },
+    navigationEpoch: { current: 0 }, cameraCommandId: { current: 0 }, showPlaceNotice: () => {},
     readRiver: async () => stored,
     fetchRiverAccessPoints: async () => fetched,
     AbortController,
@@ -797,8 +821,97 @@ test('opening an access point the map does not hold keeps the plan on its river'
   await flush();
   assert.equal(calls.selected.length, 1, 'a superseded request opens nothing');
 
+  // A sheet the reader opened while the fetch was in flight wins over it.
+  const navigated = context(null, [point]);
+  handler('openNamedAccess', navigated, SCREEN)('new-1', 'jacks-fork', null);
+  navigated.navigationEpoch.current += 1;
+  await flush();
+  assert.equal(calls.selected.length, 1, 'a slow answer must not replace a sheet opened since');
+  for (const handlerName of ['onSelectPin', 'onSelectNetworkRiver', 'dismissMapSelection', 'onSelectResult', 'focusOnAccess']) {
+    const at = SCREEN.indexOf(`const ${handlerName} = useCallback(`);
+    assert.ok(at > 0, handlerName);
+    assert.match(SCREEN.slice(at, at + 400), /navigationEpoch\.current \+= 1;/, `${handlerName} is a navigation`);
+  }
+
   // The sheet resolves the held point, so "Use as put-in" acts on its river.
   assert.match(SCREEN, /\?\? \(heldAccess\?\.point\.id === accessId \? heldAccess : null\)/);
+});
+
+test('a named place its river no longer lists frames the river now and says so', () => {
+  // The river is selected and its list has settled without this id: no
+  // sheet will open, so the fit must not wait for one. It used to sit in
+  // RiverMap until some unrelated sheet opened, then fly to the whole river.
+  const calls = { selectRiver: [] as unknown[][], notices: [] as string[], selected: [] as unknown[] };
+  const context = {
+    drawnAccessPoints: [], planHoldsRiver: false, selectedSlug: 'current',
+    plannerAccess: { slug: 'current', settled: true },
+    heldAccessRequest: { current: 0 }, pendingAccessSelection: { current: null as unknown },
+    navigationEpoch: { current: 0 }, cameraCommandId: { current: 7 },
+    accessPinLayer: () => 'access', mapAccessPointPin: () => null,
+    selectRiver: (...args: unknown[]) => { calls.selectRiver.push(args); context.cameraCommandId.current += 1; },
+    issueCameraCommand: () => {}, enableLayer: () => {}, setSelectedPin: (pin: unknown) => calls.selected.push(pin),
+    showPlaceNotice: (message: string) => calls.notices.push(message),
+    PLACE_NOT_LISTED: 'not listed',
+  };
+  handler('openNamedAccess', context, SCREEN)('gone-1', 'current', null);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.selectRiver)), [['current', { camera: 'fitRiver', waitForSheet: false }]]);
+  assert.deepEqual(calls.notices, ['not listed']);
+  assert.equal(context.pendingAccessSelection.current, null, 'nothing is left to reopen it later');
+  assert.deepEqual(calls.selected, []);
+
+  // Not yet answered (the river's list is still to come): it still waits for
+  // the sheet, and the token remembers which command to release.
+  const pending = { ...context, selectedSlug: 'jacks-fork', plannerAccess: null, pendingAccessSelection: { current: null as unknown } };
+  calls.selectRiver.length = 0; calls.notices.length = 0;
+  handler('openNamedAccess', pending, SCREEN)('maybe-1', 'current', null);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.selectRiver)), [['current', { camera: 'fitRiver', waitForSheet: true }]]);
+  assert.deepEqual(calls.notices, []);
+  assert.deepEqual(JSON.parse(JSON.stringify(pending.pendingAccessSelection.current)),
+    { id: 'maybe-1', riverSlug: 'current', layer: null, named: { fitCommandId: context.cameraCommandId.current } });
+
+  // And when that list lands without the id, the selection effect releases
+  // the wait and says so; a token not set by name (the planner's) does not.
+  const effect = SCREEN.slice(SCREEN.indexOf('if (pending?.riverSlug === slug) {'), SCREEN.indexOf('pendingAccessSelection.current = null;', SCREEN.indexOf('if (pending?.riverSlug === slug) {')));
+  assert.match(effect, /\} else if \(pending\.named\) \{\s*(\/\/.*\s*)*releaseSheetWait\(pending\.named\.fitCommandId, slug\);\s*showPlaceNotice\(PLACE_NOT_LISTED\);/);
+});
+
+test('releasing a sheet wait touches only the command it names', () => {
+  let state: Record<string, unknown> | null = { id: 4, type: 'fitBounds', bounds: [0, 0, 1, 1], waitForSheet: true };
+  const pendingRiverFit = { current: { slug: 'current', gestures: 0, waitForSheet: true } as Record<string, unknown> | null };
+  const release = handler('releaseSheetWait', {
+    pendingRiverFit,
+    setCameraCommand: (update: (current: unknown) => unknown) => { state = update(state) as typeof state; },
+  }, SCREEN);
+  release(3, 'other');
+  assert.equal(state?.waitForSheet, true, 'an older id leaves the current command alone');
+  assert.equal(pendingRiverFit.current?.waitForSheet, true, 'another river\'s deferred fit keeps waiting');
+  release(4, 'current');
+  assert.deepEqual(JSON.parse(JSON.stringify(state)), { id: 4, type: 'fitBounds', bounds: [0, 0, 1, 1], waitForSheet: false });
+  assert.equal(pendingRiverFit.current?.waitForSheet, false, 'a fit deferred for this river stops waiting too');
+  state = null;
+  release(4, 'current');
+  assert.equal(state, null, 'a consumed command is not resurrected');
+});
+
+test('a river result the map has no line for says so instead of doing nothing', () => {
+  const river = SCREEN.slice(SCREEN.indexOf("if (result.kind === 'river' && result.riverSlug) {"), SCREEN.indexOf('// The pin the result opens, built first'));
+  assert.match(river, /if \(!network\.loading && !network\.bySlug\.has\(result\.riverSlug\)\) showPlaceNotice\(RIVER_NOT_MAPPED\);/);
+  // The notice is drawn, announced, and does not take touches.
+  assert.match(SCREEN, /\{placeNotice \? \(\s*<View pointerEvents="none"/);
+  assert.match(SCREEN, /AccessibilityInfo\.announceForAccessibility\(message\)/);
+});
+
+test('VoiceOver hears which river a listed place is on, and the land callout has one Close', () => {
+  const places = readFileSync('../eddy-ios/src/components/MapPlacesSheet.tsx', 'utf8');
+  assert.match(places, /accessibilityLabel=\{\[pin\.name, layer\?\.label, pin\.subtitle, pin\.value, pin\.codeLabel\]/);
+  const land = readFileSync('../eddy-ios/src/map/PublicLandCallout.tsx', 'utf8');
+  const scrim = land.slice(land.indexOf('<Pressable'), land.indexOf('/>', land.indexOf('<Pressable')));
+  assert.doesNotMatch(scrim, /accessibilityRole|accessibilityLabel/, 'the scrim is not a second Close button');
+  assert.match(scrim, /accessible=\{false\}/);
+  assert.match(scrim, /onPress=\{onClose\}/, 'a tap on the scrim still dismisses');
+  assert.equal((land.match(/accessibilityLabel="Close"/g) ?? []).length, 1);
+  assert.match(land, /accessibilityViewIsModal/);
+  assert.match(land, /onAccessibilityEscape=\{onClose\}/);
 });
 
 test('an offline gauge result opens a sheet with an honest absence of a reading', () => {

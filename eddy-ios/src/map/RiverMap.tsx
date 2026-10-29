@@ -948,6 +948,12 @@ interface Props {
 }
 
 /**
+ * Layers whose switch cannot change the statewide index: two draw areas, not
+ * pins; hazards never join a count; the USGS tier keeps its own counts.
+ */
+const OUTSIDE_INDEX: ReadonlySet<string> = new Set(['weatherRadar', 'publicLand', 'hazards', 'allGauges']);
+
+/**
  * GeoJSON for one layer, or for many at once (the statewide index).
  *
  * `color` is written onto every feature, not just the ones that override it, so
@@ -1428,21 +1434,30 @@ export function RiverMap({
   const stacksById = useMemo(() => new Map(stacks.map((stack) => [stack.id, stack])), [stacks]);
   // PRIMITIVE KEYS, so a camera stop that regroups nothing re-uploads nothing.
   // `stacks` is a new array on every stop; these strings only change when a
-  // stack forms, splits or moves, and every layer shape below depends on them
-  // rather than on the array.
+  // stack forms, splits or moves.
   const stackedKey = stacks.flatMap((stack) => stack.ids).sort().join('|');
   const referenceIds = useMemo(() => new Set((referenceGauges ?? []).map((pin) => pin.id)), [referenceGauges]);
   const stackFeaturesKey = JSON.stringify(stacks.map((stack) => [
     stack.id, stack.ids.length, stack.lng, stack.lat,
     stack.ids.every((member) => referenceIds.has(member)) ? 'usgs' : 'place',
   ]));
-  /** Endpoints and stacked members, left out of their own layers' shapes. */
-  const layerHiddenIds = useMemo(
-    () => new Set([...endpointIds, ...(stackedKey ? stackedKey.split('|') : [])]),
-    [endpointIds, stackedKey],
-  );
-  const stackedOnlyIds = useMemo(
-    () => new Set(stackedKey ? stackedKey.split('|') : []),
+  /**
+   * ── STACKED MEMBERS ARE HIDDEN BY A FILTER, NOT BY THE DATA ─────────────
+   *
+   * Stack membership changes on camera stops; the places themselves do not.
+   * Leaving the stacked ids out of each layer's shape tied every pin source
+   * to the camera: a pinch that merged one pair re-serialised every access,
+   * campground, gauge and reference-gauge feature and sent all of them across
+   * the bridge again. The shapes below now change only when their data does,
+   * and a stop that regroups changes this one small filter clause plus the
+   * stack source. Hit-testing is unchanged: a filtered feature is not
+   * rendered, so a tap cannot land on it, exactly as when it was absent.
+   *
+   * Route endpoints are still left out of the data: they change only with the
+   * plan, never with the camera.
+   */
+  const notStacked = useMemo(
+    () => ['!', ['in', ['get', 'id'], ['literal', stackedKey ? stackedKey.split('|') : []]]],
     [stackedKey],
   );
   const stackShape = useMemo(() => ({
@@ -1475,28 +1490,28 @@ export function RiverMap({
   // other five, and a rebuilt collection is a re-upload of that layer's pins
   // whether or not a feature in it changed.
   const accessShape = useMemo(
-    () => featureCollection(accessPins, layerColorFor('access'), layerHiddenIds),
-    [accessPins, layerHiddenIds],
+    () => featureCollection(accessPins, layerColorFor('access'), endpointIds),
+    [accessPins, endpointIds],
   );
   const outfitterShape = useMemo(
-    () => featureCollection(outfitterPins, layerColorFor('outfitters'), layerHiddenIds),
-    [outfitterPins, layerHiddenIds],
+    () => featureCollection(outfitterPins, layerColorFor('outfitters'), endpointIds),
+    [outfitterPins, endpointIds],
   );
   const lodgingShape = useMemo(
-    () => featureCollection(lodgingPins, layerColorFor('lodging'), layerHiddenIds),
-    [lodgingPins, layerHiddenIds],
+    () => featureCollection(lodgingPins, layerColorFor('lodging'), endpointIds),
+    [lodgingPins, endpointIds],
   );
   const boatRampShape = useMemo(
-    () => featureCollection(boatRampPins, layerColorFor('boatRamps'), layerHiddenIds),
-    [boatRampPins, layerHiddenIds],
+    () => featureCollection(boatRampPins, layerColorFor('boatRamps'), endpointIds),
+    [boatRampPins, endpointIds],
   );
   const campgroundShape = useMemo(
-    () => featureCollection(campgroundPins, layerColorFor('campgrounds'), layerHiddenIds),
-    [campgroundPins, layerHiddenIds],
+    () => featureCollection(campgroundPins, layerColorFor('campgrounds'), endpointIds),
+    [campgroundPins, endpointIds],
   );
   const gaugeShape = useMemo(
-    () => featureCollection(gaugePins, layerColorFor('gauges'), stackedOnlyIds),
-    [gaugePins, stackedOnlyIds],
+    () => featureCollection(gaugePins, layerColorFor('gauges')),
+    [gaugePins],
   );
   const hazardShape = useMemo(
     () => featureCollection(hazardPins, layerColorFor('hazards')),
@@ -1504,12 +1519,12 @@ export function RiverMap({
   );
 
   const springShape = useMemo(
-    () => featureCollection(springPins, layerColorFor('springs'), stackedOnlyIds),
-    [springPins, stackedOnlyIds],
+    () => featureCollection(springPins, layerColorFor('springs')),
+    [springPins],
   );
   const damShape = useMemo(
-    () => featureCollection(dams ?? [], layerColorFor('dams'), stackedOnlyIds),
-    [dams, stackedOnlyIds],
+    () => featureCollection(dams ?? [], layerColorFor('dams')),
+    [dams],
   );
   // The national tier's collection. This was built inline inside
   // contextGaugeLayer — the one source in this file that was — so every render
@@ -1518,8 +1533,8 @@ export function RiverMap({
   // reference gauges per sheet settle. Same argument, and same fix, as every
   // memo above it.
   const referenceShape = useMemo(
-    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges'), stackedOnlyIds),
-    [referenceGauges, stackedOnlyIds],
+    () => featureCollection(referenceGauges ?? [], layerColorFor('allGauges')),
+    [referenceGauges],
   );
 
   /**
@@ -1573,16 +1588,23 @@ export function RiverMap({
    * own colour over the layer's). Endpoints are left out: they draw from their
    * own source at every zoom.
    */
+  // Keyed on the switches that can change a count, not on the whole `layers`
+  // array: toggling weather radar, public land, hazards or the USGS tier puts
+  // nothing in or out of this index, and used to rebuild and re-upload all of
+  // it. The members are the eight lists spread below; see OUTSIDE_INDEX.
+  const indexLayersKey = layers.filter((layer) => !OUTSIDE_INDEX.has(layer)).sort().join('|');
   const statewideIndexShape = useMemo(
-    () =>
-      featureCollection(
+    () => {
+      const on = new Set(indexLayersKey.split('|'));
+      return featureCollection(
         [
           ...accessPins, ...campgroundPins, ...boatRampPins, ...springPins,
           ...outfitterPins, ...lodgingPins, ...gaugePins, ...(dams ?? []),
-        ].filter((pin) => layers.includes(pin.layer)),
+        ].filter((pin) => on.has(pin.layer)),
         (pin) => layerColorFor(pin.layer), endpointIds,
-      ),
-    [accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, layers, endpointIds],
+      );
+    },
+    [accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, indexLayersKey, endpointIds],
   );
 
   const pinShapes = useMemo(
@@ -2220,7 +2242,9 @@ export function RiverMap({
      * its own any more: below ZOOM.cluster the statewide index counts them all
      * together (see statewideIndexLayer).
      */
-    const solo = unselected();
+    // Stacked members draw as their stack's number, not as themselves; see
+    // notStacked. Hazards never stack, so their layer needs no clause.
+    const solo = id === 'hazards' ? unselected() : unselected(notStacked);
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
@@ -2387,7 +2411,7 @@ export function RiverMap({
         />
         <Mapbox.CircleLayer
           id={pinHitLayerId('pins-allGauges-dot')}
-          filter={unselected(['!', ['has', 'point_count']])}
+          filter={unselected(['all', ['!', ['has', 'point_count']], notStacked])}
           minZoomLevel={ZOOM.min}
           style={{
             circleColor: ['get', 'color'],
@@ -2409,7 +2433,7 @@ export function RiverMap({
         />
         <Mapbox.SymbolLayer
           id={pinHitLayerId('pins-allGauges-label')}
-          filter={unselected(['!', ['has', 'point_count']])}
+          filter={unselected(['all', ['!', ['has', 'point_count']], notStacked])}
           // ZOOM.names, with every other label on the map. This tier used to
           // name its dots the moment they stopped being bubbles, which put
           // fourteen thousand place names on screen two rungs before anything
@@ -2514,7 +2538,7 @@ export function RiverMap({
     >
       <Mapbox.CircleLayer
         id={pinHitLayerId('pins-access-overview')}
-        filter={unselected()}
+        filter={unselected(notStacked)}
         // The statewide index draws everything below here. Without the floor the
         // two would both paint at statewide zoom — bubbles with a full scatter
         // of dots under them, which is the crowding this was meant to end.
@@ -2534,7 +2558,7 @@ export function RiverMap({
           exactly as the endpoint's does. */}
       <Mapbox.CircleLayer
         id={pinHitLayerId('pins-access-badge')}
-        filter={unselected()}
+        filter={unselected(notStacked)}
         minZoomLevel={ZOOM.places}
         style={{
           circleRadius: 13,
@@ -2547,7 +2571,7 @@ export function RiverMap({
       />
       <Mapbox.SymbolLayer
         id={pinHitLayerId('pins-access-icon')}
-        filter={unselected()}
+        filter={unselected(notStacked)}
         minZoomLevel={ZOOM.places}
         style={{
           iconImage: PIN_ICONS.pin?.image ?? 'eddy-access-map',
@@ -2562,7 +2586,7 @@ export function RiverMap({
           dialog; at overview zoom it is the dimmed circle below. */}
       <Mapbox.SymbolLayer
         id={pinHitLayerId('pins-access-label')}
-        filter={unselected()}
+        filter={unselected(notStacked)}
         minZoomLevel={ZOOM.names}
         style={{
           textField: ['get', 'label'],

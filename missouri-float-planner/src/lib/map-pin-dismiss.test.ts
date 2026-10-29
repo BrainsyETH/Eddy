@@ -47,6 +47,9 @@ function scene(planning = false) {
     choosingEndpoint: state.mapPlanRiver === state.selectedSlug && state.step !== 'result',
     planHoldsRiver: state.putIn !== null,
     planOpen: false, mapPlanSelection, cancelMapSearch: () => {},
+    // Every selection is a navigation: it supersedes slow answers and clears
+    // the map's one-line notice (see openNamedAccess).
+    navigationEpoch: { current: 0 }, setPlaceNotice: () => {},
     gestureCount: { current: 0 }, isGaugeIndexId: () => false,
     accessPointForPin: () => ({ point: campOnly, riverSlug: slug }),
     setSelectedPin: (value: unknown) => { state.selectedPin = value; },

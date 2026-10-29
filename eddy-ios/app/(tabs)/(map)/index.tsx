@@ -44,6 +44,7 @@ import { YourFloatButton } from '@/float/YourFloatButton';
 import { useHasFloatSession } from '@/hooks/useFloatSession';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Keyboard,
@@ -230,6 +231,12 @@ const PLAN_CLUSTER_BOTTOM = 16;
  * comments document having engineered away.
  */
 const NO_SERVICES: RiverService[] = [];
+/** One stable empty list, so an empty national tier is not a new source shape per render. */
+const NO_PINS: MapPin[] = [];
+/** A place asked for by name that its river's list no longer holds. */
+const PLACE_NOT_LISTED = 'That place is no longer listed on this river.';
+/** A river the search knows but the map has no line for. */
+const RIVER_NOT_MAPPED = 'That river isn’t on the map yet.';
 
 /**
  * The layer rows whose pins vanish below ZOOM.min, the ladder's floor.
@@ -666,6 +673,25 @@ function MapContent() {
     setCameraCommand(command);
     return command.id;
   }, []);
+  /**
+   * A command that was told to wait for a sheet, when that sheet is now known
+   * never to open. RiverMap holds such a command until `sheetReady`, so left
+   * alone it would fire whenever some unrelated sheet opened later and fly the
+   * map away from what the reader was then looking at. Released only if it is
+   * still the command in hand (a newer one, or a gesture that consumed it,
+   * wins), and a fit still deferred for this river stops waiting too.
+   */
+  const releaseSheetWait = useCallback((commandId: number | null, slug: string) => {
+    if (pendingRiverFit.current?.slug === slug) {
+      pendingRiverFit.current = { ...pendingRiverFit.current, waitForSheet: false };
+    }
+    if (commandId === null) return;
+    setCameraCommand((current) =>
+      current && current.id === commandId && 'waitForSheet' in current && current.waitForSheet
+        ? { ...current, waitForSheet: false }
+        : current,
+    );
+  }, []);
 
   // Stable, for the same reason NO_SERVICES is module-scope: an inline arrow
   // on the RiverMap element is a fresh prop identity per render of a screen
@@ -760,7 +786,36 @@ function MapContent() {
      * point's own types decide, the way RiverMap's endpoints do (accessPinLayer).
      */
     layer: LayerKey | null;
+    /**
+     * Set only by openNamedAccess: the camera command it issued for this
+     * place (null when the fit was deferred). If the river's points answer
+     * without this id, no sheet will open, so that command must stop waiting
+     * for one and the reader is told the place is no longer listed.
+     */
+    named?: { fitCommandId: number | null };
   } | null>(null);
+  /**
+   * Bumped by every navigation the reader makes on this screen — a pin, a
+   * river line, a search result, a "View on map" link, a blank tap. A slow
+   * answer to an earlier request checks it before acting, so it can never
+   * replace a sheet the reader has opened since.
+   */
+  const navigationEpoch = useRef(0);
+  /**
+   * A one-line note on the map for a request that could not be answered as
+   * asked: a named place no longer listed, a river with no line to show.
+   * Cleared by a timer or by the next selection.
+   */
+  const [placeNotice, setPlaceNotice] = useState<string | null>(null);
+  const showPlaceNotice = useCallback((message: string) => {
+    setPlaceNotice(message);
+    AccessibilityInfo.announceForAccessibility(message);
+  }, []);
+  useEffect(() => {
+    if (!placeNotice) return;
+    const timer = setTimeout(() => setPlaceNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [placeNotice]);
   /*
    * There was a `pinSurvivesSelection` token here, sparing a searched gauge's
    * pin from the river change its result caused. A gauge result no longer
@@ -1007,6 +1062,13 @@ function MapContent() {
           if (point) {
             const pin = mapAccessPointPin(point, slug, pending.layer ?? accessPinLayer(point));
             setSelectedPin((current) => (current === null || current.id === pin.id ? pin : current));
+          } else if (pending.named) {
+            // A place asked for by name that its river no longer lists: no
+            // sheet will open, so the fit must not wait for one (it would
+            // fire when some unrelated sheet opened), and the reader is told
+            // why the river is on screen without the place.
+            releaseSheetWait(pending.named.fitCommandId, slug);
+            showPlaceNotice(PLACE_NOT_LISTED);
           }
           // Found or stale, this request answered it. Never let a missing row
           // reopen unexpectedly when the person returns to the river later.
@@ -1022,7 +1084,9 @@ function MapContent() {
       live = false;
       controller.abort();
     };
-  }, [selectedSlug]);
+    // Both callbacks are stable (empty dependencies), so the effect still runs
+    // once per river, as it always has.
+  }, [selectedSlug, releaseSheetWait, showPlaceNotice]);
 
   /**
    * ── "DRAWN" AND "SELECTED" ARE THE SAME RIVER AGAIN ───────────────────────
@@ -1514,6 +1578,8 @@ function MapContent() {
       const known = drawnAccessPoints.find((entry) => entry.point.id === accessId) ?? null;
       const slug = known?.riverSlug ?? riverSlug;
       heldAccessRequest.current += 1;
+      // Every caller bumped the epoch for this navigation before calling.
+      const epoch = navigationEpoch.current;
       // A point the map does not hold yet — a landing added since the bundle,
       // or a deep link opened before its river was cached — on another river
       // while a plan holds this one. Switching rivers to let that river's own
@@ -1530,7 +1596,9 @@ function MapContent() {
               .then((points) => points.find((point) => point.id === accessId) ?? null))
           .catch(() => null)
           .then((point) => {
-            if (!point || request !== heldAccessRequest.current) return;
+            // Nothing to open, a newer named request, or a sheet the reader
+            // opened while this was in flight: each one wins over this answer.
+            if (!point || request !== heldAccessRequest.current || epoch !== navigationEpoch.current) return;
             const pinLayer = layer ?? accessPinLayer(point);
             setHeldAccess({ point, riverSlug: slug });
             enableLayer(pinLayer);
@@ -1551,6 +1619,12 @@ function MapContent() {
       const answered =
         slug === selectedSlug &&
         (known !== null || (plannerAccess?.slug === slug && plannerAccess.settled));
+      // Already answered and not there: the river is selected and its list has
+      // settled without this id. No sheet is coming, so the fit must not wait
+      // for one; it used to sit in RiverMap until some unrelated sheet opened
+      // and then fly the map to the whole river.
+      const notListed = known === null && answered;
+      const commandBefore = cameraCommandId.current;
       if (hold && at) {
         issueCameraCommand({ type: 'searchResultSelected', lng: at.lng, lat: at.lat, waitForSheet: true });
       } else {
@@ -1559,12 +1633,14 @@ function MapContent() {
           at
             ? { camera: 'searchResult', lng: at.lng, lat: at.lat, waitForSheet: pin !== null }
             // The access sheet opens once the river's points arrive.
-            : { camera: 'fitRiver', waitForSheet: true },
+            : { camera: 'fitRiver', waitForSheet: !notListed },
         );
       }
+      const fitCommandId = cameraCommandId.current !== commandBefore ? cameraCommandId.current : null;
+      if (notListed) showPlaceNotice(PLACE_NOT_LISTED);
       // After selectRiver, which disposes any earlier token.
       pendingAccessSelection.current =
-        hold || answered ? null : { id: accessId, riverSlug: slug, layer: pinLayer };
+        hold || answered ? null : { id: accessId, riverSlug: slug, layer: pinLayer, named: { fitCommandId } };
       // Drawable when the camera lands, for somebody who switched it off.
       enableLayer(pinLayer ?? 'access');
       if (pin) setSelectedPin(pin);
@@ -1577,10 +1653,13 @@ function MapContent() {
       issueCameraCommand,
       selectRiver,
       enableLayer,
+      showPlaceNotice,
     ],
   );
 
   const onSelectResult = useCallback((result: SearchResult) => {
+    navigationEpoch.current += 1;
+    setPlaceNotice(null);
     cancelMapSearch();
     setSelectedPin(null);
     // No Back: a result arrives from a query, so whatever sheet was on screen
@@ -1631,6 +1710,12 @@ function MapContent() {
       setMapPlanRiver(null);
       selectRiver(result.riverSlug, { camera: 'fitRiver', waitForSheet: true });
       setRiverSheetOpen(true);
+      // A river the search knows but the map has no line for, once the map's
+      // rivers have loaded: its sheet is built from that line and will not
+      // open, and the deferred fit has nothing to frame. Say so rather than
+      // leave the tap looking ignored. (While the rivers are still loading
+      // the fit and the sheet simply wait for them.)
+      if (!network.loading && !network.bySlug.has(result.riverSlug)) showPlaceNotice(RIVER_NOT_MAPPED);
       return;
     }
 
@@ -1705,6 +1790,9 @@ function MapContent() {
     selectRiver,
     issueCameraCommand,
     enableLayer,
+    network.loading,
+    network.bySlug,
+    showPlaceNotice,
   ]);
 
   /**
@@ -1757,6 +1845,8 @@ function MapContent() {
   // mirrors.
   const focusOnAccess = useCallback(
     (accessId: string, riverSlug: string) => {
+      navigationEpoch.current += 1;
+      setPlaceNotice(null);
       clearSearch();
       // No Back: the reader arrived from a details screen, not by drilling into
       // this river's sheet, so × has no river sheet to reveal underneath.
@@ -2356,12 +2446,21 @@ function MapContent() {
   // area to Mapbox. Primitive bounds keep idle echoes / pans in the same cell
   // from rebuilding identical GeoJSON. Counts and selected-gauge data retain
   // the full coverage above; there is no station-count cap on this subset.
+  //
+  // NOTHING BELOW THE FLOOR. Every layer of the national tier starts at
+  // MIN_GAUGE_ZOOM (RiverMap's contextGaugeLayer), so below it — and before
+  // the first camera stop, when there is no viewport to bound — the source is
+  // empty rather than the whole country. It used to receive all ~14,000
+  // stations there, built into pins and uploaded to layers that could not
+  // draw them, and every crossing of the floor swapped that set in or out.
+  // The counts above read layerGaugesInView, not these pins.
   const [gaugeWest, gaugeSouth, gaugeEast, gaugeNorth] = viewport && viewport.zoom >= MIN_GAUGE_ZOOM
     ? quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom) : [null, null, null, null];
-  const referencePins = useMemo<MapPin[]>(() => gaugeRenderSubset(visibleReferenceGauges,
+  const referencePins = useMemo<MapPin[]>(() => (
     gaugeWest === null || gaugeSouth === null || gaugeEast === null || gaugeNorth === null
-      ? null : [gaugeWest, gaugeSouth, gaugeEast, gaugeNorth],
-  ).map(referenceGaugePin), [visibleReferenceGauges, gaugeWest, gaugeSouth, gaugeEast, gaugeNorth]);
+      ? NO_PINS
+      : gaugeRenderSubset(visibleReferenceGauges, [gaugeWest, gaugeSouth, gaugeEast, gaugeNorth]).map(referenceGaugePin)
+  ), [visibleReferenceGauges, gaugeWest, gaugeSouth, gaugeEast, gaugeNorth]);
 
   /**
    * The access family, resolved for the sheet's numbers and its overlap notes.
@@ -2503,9 +2602,7 @@ function MapContent() {
     mappableGauges,
     dams,
     layers,
-    referenceGauges.loading,
-    referencePins,
-    gaugeIndexMode,
+    referenceGauges.settled,
     gaugeIndex.ready,
     layerGaugesInView,
     gaugeFilter,
@@ -2791,6 +2888,8 @@ function MapContent() {
   // river picker name a river without pointing at any part of it.
   const onSelectNetworkRiver = useCallback(
     (slug: string, at?: { lng: number; lat: number }) => {
+      navigationEpoch.current += 1;
+      setPlaceNotice(null);
       // A map selection also exits focused search, so its sheet can appear
       // on this tap rather than waiting for a separate Cancel.
       cancelMapSearch();
@@ -2849,6 +2948,8 @@ function MapContent() {
   const closePin = useCallback(() => putPinDown(false), [putPinDown]);
 
   const dismissMapSelection = useCallback(() => {
+    navigationEpoch.current += 1;
+    setPlaceNotice(null);
     cancelMapSearch();
     // Mid-plan, a blank tap closes the pin over the planner, not the planner.
     if (!choosingEndpoint) setMapPlanRiver(null);
@@ -2980,6 +3081,8 @@ function MapContent() {
    */
   const onSelectPin = useCallback(
     (pin: MapPin, source: 'map' | 'river-sheet' = 'map') => {
+      navigationEpoch.current += 1;
+      setPlaceNotice(null);
       pendingMapPlanFrame.current = null;
       // Exit search before selecting: an empty query can still have focus,
       // and mapSearchOpen hides the pin sheet until that focus is cleared.
@@ -3268,6 +3371,16 @@ function MapContent() {
             {riversError ? (
               <View style={[styles.readingsNotice, { backgroundColor: colors.card }]}>
                 <Text style={[styles.readingsNoticeText, { color: colors.error }]}>{riversError}</Text>
+              </View>
+            ) : null}
+            {/* A named place or river the map could not open, said once and
+                gone in a few seconds; announced to VoiceOver when it is set. */}
+            {placeNotice ? (
+              <View pointerEvents="none" style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
+                <ControlIcon name="information-circle-outline" size={14} color={colors.textMuted} />
+                <Text accessibilityLiveRegion="polite" style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
+                  {placeNotice}
+                </Text>
               </View>
             ) : null}
             {/* The layers sheet's floor hint, on the map itself: below the

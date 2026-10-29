@@ -7,8 +7,9 @@
 // name, its designation, the access class in words, and the one sentence the
 // layer exists to carry: OWNERSHIP, NOT PERMISSION.
 //
-// A transparent Modal over the map, like the places sheet: a tap on the scrim
-// or the close button dismisses it, and nothing about the map changes.
+// A transparent Modal over the map, like the places sheet: a tap on the scrim,
+// the close button or VoiceOver's escape gesture dismisses it, and nothing
+// about the map changes.
 
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,13 +32,23 @@ export function PublicLandCallout({ land, onClose }: Props) {
   const detail = [land.designation, land.manager].filter(Boolean).join(' · ');
   return (
     <Modal visible transparent animationType={reducedMotion ? 'none' : 'fade'} onRequestClose={onClose}>
+      {/* Tap-to-dismiss only. Hidden from VoiceOver: announced as a second
+          "Close" button it duplicated the real one, and the escape gesture on
+          the card below dismisses for VoiceOver users. */}
       <Pressable
         style={[styles.scrim, { backgroundColor: colors.scrim }]}
         onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       />
-      <SafeAreaView edges={['bottom']} style={styles.anchor} pointerEvents="box-none">
+      <SafeAreaView
+        edges={['bottom']}
+        style={styles.anchor}
+        pointerEvents="box-none"
+        accessibilityViewIsModal
+        onAccessibilityEscape={onClose}
+      >
         <View style={[styles.card, { backgroundColor: colors.sheet, borderColor: colors.border }]}>
           <View style={styles.head}>
             <View style={styles.titles}>
