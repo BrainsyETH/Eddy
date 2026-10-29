@@ -1838,7 +1838,9 @@ instead of removing them. `src/lib/account-deletion.ts` in the web app deletes
 them explicitly, before the auth user, and a test fails if that is ever removed.
 
 Three controls here exist because App Review requires them: Sign in with Apple,
-Restore Purchases (3.1.1), and in-app account deletion (5.1.1(v)). The auto-renew
+Restore Purchases (3.1.1), and in-app account deletion (5.1.1(v)). Restore is
+never a dead end for a guest: the same tap signs in with Apple, configures
+RevenueCat for that account, then restores. The auto-renew
 disclosure sits with the subscription controls rather than behind a link, for the
 same reason.
 

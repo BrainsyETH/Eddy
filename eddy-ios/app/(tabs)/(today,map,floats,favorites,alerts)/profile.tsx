@@ -64,6 +64,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { deleteAccount, refreshEntitlement, waitForEntitlement } from '@/api/client';
 import {
   entitlementMatchesSnapshot,
+  identifyUser,
   OFFER_CODE_REDEEM_URL,
   readEntitlementSnapshot,
   redemptionAlert,
@@ -75,6 +76,7 @@ import {
   type EntitlementSnapshot,
 } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
+import { getSupabase } from '@/lib/supabase';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { notificationControlKind, notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
@@ -261,15 +263,29 @@ function ProfileContent() {
   }, [signInWithApple, refresh]);
 
   const handleRestore = useCallback(async () => {
-    // The purchases SDK is configured only for a signed-in account
-    // (identifyUser), so a restore before sign-in can only throw, and used
-    // to be reported as the App Store being unreachable.
-    if (!signedIn) {
-      Alert.alert('Sign in to restore', 'Sign in with Apple first, then restore your purchases here.');
-      return;
-    }
     setBusy('restore');
     try {
+      // The purchases SDK is configured only for a signed-in account
+      // (identifyUser), so a restore needs one. A guest's tap used to end at a
+      // "sign in first" alert, a dead end App Review checks for (3.1.1): the
+      // same tap now signs in with Apple and the restore follows. The SDK is
+      // configured here rather than left to useAccount's effect, which would
+      // race this call.
+      if (!signedIn) {
+        try {
+          await signInWithApple();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Sign in failed.';
+          if (message !== APPLE_SIGN_IN_CANCELLED) Alert.alert('Could not sign in', message);
+          return;
+        }
+        const user = (await getSupabase()?.auth.getSession())?.data.session?.user;
+        if (!user || !(await identifyUser(user.id, user.is_anonymous ?? false))) {
+          await refresh();
+          Alert.alert('Could not restore', 'You’re signed in. Eddy could not reach the App Store; try Restore purchases again in a moment.');
+          return;
+        }
+      }
       const result = await restorePurchases();
 
       // The SDK finding an entitlement is Apple's answer, not ours. The SERVER
@@ -304,7 +320,7 @@ function ProfileContent() {
     } finally {
       setBusy(null);
     }
-  }, [signedIn, getAccessToken, refresh, settleConfirmPending, beginConfirmPending]);
+  }, [signedIn, signInWithApple, getAccessToken, refresh, settleConfirmPending, beginConfirmPending]);
 
   /**
    * Same ref-not-state reasoning as the paywall's copy of this flag: nothing
