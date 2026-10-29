@@ -35,12 +35,12 @@
       "images": [
         {
           "kind": "agency_page",
-          "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/688/attachments/846",
+          "url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-kody-riggan-datto-sign-oOoCsJ56Mgc2onq9PBK0F2Z3euFZhc.jpg",
           "title": "Kody Riggan Datto Access sign",
           "altText": "Green AGFC sign reading 'Kody Riggan Datto Access, provided by Arkansas Game & Fish Comm., Dave Donaldson Black River' in front of brush.",
           "caption": "Location photograph; not current conditions.",
           "credit": "Arkansas Game and Fish Commission",
-          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/688/attachments?f=json",
+          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/688/attachments/846",
           "license": null,
           "licenseUrl": null
         }
@@ -133,7 +133,8 @@
           {
             "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/688/attachments/846",
             "terms": "No license stated (AGFC; owner to decide)",
-            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehost a resized copy before apply."
+            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehosted 2026-10-29 as a 1600 px copy in Eddy Blob storage; sourceUrl is the AGFC original.",
+            "rehosted_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-kody-riggan-datto-sign-oOoCsJ56Mgc2onq9PBK0F2Z3euFZhc.jpg"
           }
         ]
       }
@@ -194,12 +195,12 @@
         },
         {
           "kind": "agency_page",
-          "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/678/attachments/974",
+          "url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-brookings-sign-Wogq4meGwmDKy9bCkqdwEfs2oIjEuY.jpg",
           "title": "Brookings public access sign",
           "altText": "Green AGFC public access sign dedicated in memory of W.J. 'Curley' Hacket, with the river and riprap visible behind it.",
           "caption": "Location photograph; not current conditions.",
           "credit": "Arkansas Game and Fish Commission",
-          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/678/attachments?f=json",
+          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/678/attachments/974",
           "license": null,
           "licenseUrl": null
         }
@@ -286,7 +287,8 @@
           {
             "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/678/attachments/974",
             "terms": "No license stated (AGFC; owner to decide)",
-            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehost a resized copy before apply."
+            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehosted 2026-10-29 as a 1600 px copy in Eddy Blob storage; sourceUrl is the AGFC original.",
+            "rehosted_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-brookings-sign-Wogq4meGwmDKy9bCkqdwEfs2oIjEuY.jpg"
           }
         ]
       }
@@ -324,12 +326,12 @@
       "images": [
         {
           "kind": "agency_page",
-          "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/690/attachments/618",
+          "url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-schaeffers-eddy-sign-Z4jhpkmXTzU24qXZPG2JrFfhrDmy2A.jpg",
           "title": "Schaeffer's Eddy Access sign",
           "altText": "Roofed green AGFC sign for Schaeffer's Eddy Access and archaeological site, with a paved lot behind it.",
           "caption": "Location photograph; not current conditions.",
           "credit": "Arkansas Game and Fish Commission",
-          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/690/attachments?f=json",
+          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/690/attachments/618",
           "license": null,
           "licenseUrl": null
         }
@@ -421,7 +423,8 @@
           {
             "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/690/attachments/618",
             "terms": "No license stated (AGFC; owner to decide)",
-            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehost a resized copy before apply."
+            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehosted 2026-10-29 as a 1600 px copy in Eddy Blob storage; sourceUrl is the AGFC original.",
+            "rehosted_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-schaeffers-eddy-sign-Z4jhpkmXTzU24qXZPG2JrFfhrDmy2A.jpg"
           }
         ]
       }
@@ -1186,12 +1189,12 @@
       "images": [
         {
           "kind": "agency_page",
-          "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/982/attachments/394",
+          "url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-eleven-point-sign-Of7aHuO0TiLN2WH01sGIDO0gWmnm5B.jpg",
           "title": "Eleven Point Access sign",
           "altText": "Green AGFC sign reading 'Eleven Point Access, provided by Arkansas Game & Fish Comm., a federal aid project'.",
           "caption": "Location photograph; not current conditions.",
           "credit": "Arkansas Game and Fish Commission",
-          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/982/attachments?f=json",
+          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/982/attachments/394",
           "license": null,
           "licenseUrl": null
         }
@@ -1288,7 +1291,8 @@
           {
             "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/982/attachments/394",
             "terms": "No license stated (AGFC; owner to decide)",
-            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehost a resized copy before apply. Stored sideways: the rehosted copy must be rotated."
+            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehosted 2026-10-29 as a 1600 px copy in Eddy Blob storage; sourceUrl is the AGFC original. The AGFC original is stored sideways; the rehosted copy is rotated upright.",
+            "rehosted_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-eleven-point-sign-Of7aHuO0TiLN2WH01sGIDO0gWmnm5B.jpg"
           }
         ]
       }
@@ -1950,12 +1954,12 @@
         },
         {
           "kind": "agency_page",
-          "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/827/attachments/21",
+          "url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-indian-creek-sign-AnfsGvBiWA12JyNZwURMT0P4ZkNxCz.jpg",
           "title": "Indian Creek Access sign (AGFC inventory)",
           "altText": "Wooden 'Indian Creek Access, built by Mulberry River Society 2017' sign in spring greenery.",
           "caption": "Location photograph; not current conditions.",
           "credit": "Arkansas Game and Fish Commission",
-          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/827/attachments?f=json",
+          "sourceUrl": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/827/attachments/21",
           "license": null,
           "licenseUrl": null
         }
@@ -2028,7 +2032,8 @@
           {
             "url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/17/827/attachments/21",
             "terms": "No license stated (AGFC; owner to decide)",
-            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehost a resized copy before apply."
+            "note": "AGFC April 2020 field photo of the entrance sign; AGFC states no license. Added on the owner's decision (2026-10-29). Rehosted 2026-10-29 as a 1600 px copy in Eddy Blob storage; sourceUrl is the AGFC original.",
+            "rehosted_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/access-points/agfc-indian-creek-sign-AnfsGvBiWA12JyNZwURMT0P4ZkNxCz.jpg"
           }
         ]
       }
