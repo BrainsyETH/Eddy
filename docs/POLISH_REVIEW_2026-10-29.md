@@ -11,6 +11,21 @@ The branch that adds this file also fixes the clear bugs, listed under
 recommendation. Most of it is copy or layout and needs a product call before
 anyone builds it.
 
+## Follow-up decisions (same branch)
+
+The owner chose:
+- **Plan a float / Find a float / Start a float**, with Save / Saved floats for keeping one. This is recorded in `.stitch/DESIGN.md` §11 and guarded by `flow-naming.test.ts`.
+- **Keep the sparkle marks.**
+- **"Get the whole story"** as the paywall headline.
+- **A flat, cased-river map tile** on the hillshade.
+
+The branch also covers:
+- the plain-language pass on themes 3–6 below;
+- one safety line per page, with the iOS `SAFETY_DISCLAIMER` wording unchanged and in muted text;
+- removing the repeated facts listed under theme 5.
+
+One deviation from the recommendations: desktop chart controls stay inline. ADR 0010's 2026-10-26 revision made that deliberate, so only their wording changed. Native strings (Swift App Shortcuts, `app.json`) wait for the next binary.
+
 ## Cross-cutting themes
 
 These show up on both platforms. Settling them first makes most of the
