@@ -281,7 +281,7 @@ function damSnapshot(overrides: Partial<DamSnapshot> = {}): DamSnapshot {
   const at = new Date(NOON_CENTRAL - 20 * 60_000).toISOString();
   return {
     id: 'swl-table-rock-dam', name: 'Table Rock Dam', lakeName: 'Table Rock Lake', state: 'MO', lat: 36.6, lon: -93.3,
-    hasTurbines: true, generationFloorCfs: 100, tailwaterFishery: 'trout',
+    hasTurbines: true, generationFloorCfs: 100,
     generationReference: { units: 4, fullGenerationCfs: 14_000, schedulingCapacityMw: 200, source: 'SWPA' },
     metrics: { generationFlow: { value: 20, unit: 'cfs', at, staleness: 'fresh' }, release: { value: 20, unit: 'cfs', at, staleness: 'fresh' } },
     generating: false, schedule: [], sources: [],
@@ -293,7 +293,6 @@ test('an idle dam card leads with the next scheduled release, not turbine leakag
   const card = firstRunDamCard(damSnapshot({ schedule: [scheduleDay({ 15: 120, 16: 120 })] }), 'ready', NOON_CENTRAL);
   assert.equal(card.reading, null, 'leakage below the generation floor is not a reading worth leading with');
   assert.match(card.outlook ?? '', /^Generation scheduled to start at 2 PM$/);
-  assert.equal(card.highlight, 'Trout tailwater');
 });
 
 test('an idle dam card drops a stale schedule rather than make an undated forward claim', () => {

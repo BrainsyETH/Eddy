@@ -127,8 +127,6 @@ export interface FirstRunDamCard {
   /** The next move in the posted generation schedule, as a sentence. */
   outlook: string | null;
   age: string | null;
-  /** A standing fact about the water below the dam, not a reading. */
-  highlight: string | null;
 }
 
 /**
@@ -153,9 +151,8 @@ export function firstRunDamCard(
   requestState: 'idle' | 'loading' | 'ready' | 'error',
   now: number,
 ): FirstRunDamCard {
-  if (!dam) return { status: damPlaceholder(requestState), reading: null, outlook: null, age: null, highlight: null };
+  if (!dam) return { status: damPlaceholder(requestState), reading: null, outlook: null, age: null };
 
-  const highlight = dam.tailwaterFishery === 'trout' ? 'Trout tailwater' : null;
   const generation = generationNow(dam, now);
   const posted = scheduleOutlook(dam.schedule, dam.generationReference, now);
   const scheduled = posted && !posted.stale
@@ -172,7 +169,6 @@ export function firstRunDamCard(
       reading: `${formatReading(generation.turbineCfs, 'cfs')} turbine flow`,
       outlook,
       age: relativeAge(generation.observedAt, now),
-      highlight,
     };
   }
   if (generation.kind === 'not-generating') {
@@ -183,7 +179,6 @@ export function firstRunDamCard(
       reading: meaningfulRelease,
       outlook,
       age: relativeAge(generation.observedAt, now),
-      highlight,
     };
   }
   if (release) {
@@ -192,8 +187,7 @@ export function firstRunDamCard(
       reading: releaseValue,
       outlook,
       age: relativeAge(release.at, now),
-      highlight,
     };
   }
-  return { status: 'Reading unavailable', reading: null, outlook, age: null, highlight };
+  return { status: 'Reading unavailable', reading: null, outlook, age: null };
 }

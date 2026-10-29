@@ -164,7 +164,7 @@ export function FirstRunPicker({ onDone }: Props) {
             <View style={styles.header}>
               <FloatingEddy name="wave" size={84} water={false} />
               <Rise delay={120} style={styles.headerCopy}>
-                <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Pick your home waters</Text>
+                <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Choose your rivers and dams</Text>
                 <Text style={[styles.copy, { color: colors.textMuted }]}>Follow the rivers and dams you float, and see their conditions first thing on Today.</Text>
               </Rise>
               <PressableScale accessibilityRole="button" disabled={locating || location.status === 'denied'}
@@ -206,7 +206,7 @@ export function FirstRunPicker({ onDone }: Props) {
             {count > 0 ? <Pressable accessibilityRole="button"
               onPress={() => { Keyboard.dismiss(); setReviewOpen(true); }} style={styles.textButton}>
               <Text style={[styles.skipText, { color: colors.interactive }]}>Review selected ({count})</Text>
-            </Pressable> : <Text style={[styles.footerHint, { color: colors.textMuted }]}>Tap a river or dam to follow it</Text>}
+            </Pressable> : <Text style={[styles.footerHint, { color: colors.textMuted }]}>Get river and dam conditions at a glance</Text>}
           </View>
           <Animated.View style={footerPop}>
             <PressableScale accessibilityRole="button" accessibilityState={{ disabled: !count || saving || !starsReady }}
@@ -289,22 +289,20 @@ function PlaceCard({ place, position, selected, onPress, dam, damRequestState, m
   const age = reading ? readingAge(river?.currentCondition?.readingAgeHours) ?? 'Reading time unavailable'
     : damCard?.age ?? null;
   const distance = miles == null ? null : river ? riverDistanceLabel(miles) : `≈ ${Math.round(miles)} mi away`;
-  const kindLine = [place.kind === 'river' ? 'River' : 'Dam', river?.state ?? (place.kind === 'dam' ? place.dam.state : ''), damCard?.highlight]
-    .filter(Boolean).join(' · ');
   return (
     // Only the first screenful staggers in; a card scrolled to later simply
     // arrives, so browsing a long list never waits on a delay.
     <Rise delay={Math.min(position, 6) * 70} style={styles.cardSlot}>
       <Animated.View style={[styles.cardSlot, pop]}>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }}
-          accessibilityLabel={[name, place.kind, damCard?.highlight, status, value, outlook, age, distance].filter(Boolean).join(', ')}
+          accessibilityLabel={[name, place.kind, status, value, outlook, age, distance].filter(Boolean).join(', ')}
           onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: selected ? colors.selectionBg : colors.card, borderColor: selected ? colors.interactive : colors.border, opacity: pressed ? 0.85 : 1 }]}>
           <OnboardingPhoto uri={river?.photoUrl} damId={place.kind === 'dam' ? place.dam.id : undefined} />
           <Animated.View style={[styles.selection, { backgroundColor: selected ? colors.interactive : colors.card }, checkPop]}>
             <ControlIcon name={selected ? 'checkmark' : 'add'} size={20} color={selected ? colors.onInteractive : colors.interactive} />
           </Animated.View>
           <View style={styles.cardBody}>
-            <Text style={[styles.meta, { color: colors.textMuted }]}>{kindLine}</Text>
+            <Text style={[styles.meta, { color: colors.textMuted }]}>{place.kind === 'river' ? 'River' : 'Dam'} · {river?.state ?? (place.kind === 'dam' ? place.dam.state : '')}</Text>
             <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
             <View style={styles.status}>
               {river ? <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} /> : null}

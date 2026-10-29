@@ -150,7 +150,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <FloatingEddy name="wave" size={150} />
         <Rise delay={180} style={styles.block}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Know before you float.</Text>
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Your day on the water starts here.</Text>
           <Text style={[styles.lede, { color: colors.textMuted }]}>Live river levels, access points, and float times for Ozarks rivers, all in one place.</Text>
         </Rise>
         <View style={styles.features}>

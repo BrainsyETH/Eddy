@@ -1929,7 +1929,7 @@ on separate lines. Dam measurements use generation/release semantics, never a
 floatability rating. An idle dam card leads with the posted schedule's next move
 (`firstRunDamCard`), not the leakage an idle powerhouse reports; a stale schedule
 is dropped there, and total release stands in only above the dam's generation
-floor. Trout tailwaters say so on the kind line. Cached river verdicts are aged with the same rules as Today.
+floor. Cached river verdicts are aged with the same rules as Today.
 
 Both kinds of selection use additive Favorites writes, so a reinstall cannot
 unstar synced favorites. Today already reads those favorites for its cards.
