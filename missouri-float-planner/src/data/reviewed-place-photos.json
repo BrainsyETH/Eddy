@@ -15,6 +15,21 @@
     }
   },
   {
+    "table": "access_points",
+    "id": "7433821d-623c-45d1-84f0-707d1f53bac5",
+    "name": "Cotter Access (Big Spring Park)",
+    "image": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/4a/Cotter%2C_AR_004.jpg",
+      "title": "Cotter Access (Big Spring Park)",
+      "altText": "Big Spring flowing across the grassy bank into the White River at Big Spring Park, Cotter",
+      "caption": "Big Spring Park beside the access, not the ramp itself. Location photograph; not current conditions.",
+      "credit": "Brandonrush",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cotter,_AR_004.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  },
+  {
     "table": "points_of_interest",
     "id": "11cbd262-1f88-4551-bc68-a71969c168b9",
     "name": "Blue Spring",
