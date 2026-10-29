@@ -135,14 +135,14 @@ export default function RiverVisualGallery({
     const ctaClass = `group w-full aspect-[16/10] flex flex-col items-center justify-center gap-2 px-6 text-center bg-neutral-50 hover:bg-neutral-100 transition-colors ${layout === 'wide' ? 'lg:aspect-[5/2]' : ''}`;
     const ctaInner = (
       <>
-        <span className="flex items-center justify-center w-12 h-12 rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+        <span className="flex items-center justify-center w-12 h-12 rounded-full bg-primary-50 text-primary-600 group-hover:bg-primary-100 transition-colors">
           <Camera className="w-6 h-6" />
         </span>
         <span className="text-sm font-semibold text-neutral-800">No photos at this level yet</span>
         <span className="text-xs text-neutral-500 max-w-xs">
           Show fellow floaters what the water looks like right now.
         </span>
-        <span className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold group-hover:bg-teal-700 transition-colors">
+        <span className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-semibold group-hover:bg-primary-700 transition-colors">
           <Camera className="w-3.5 h-3.5" /> Add a photo
         </span>
       </>
@@ -200,7 +200,7 @@ export default function RiverVisualGallery({
             {addPhotoHref ? (
               <Link
                 href={addPhotoHref}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 whitespace-nowrap"
               >
                 <Camera className="w-3.5 h-3.5" /> Add a photo
               </Link>
@@ -208,7 +208,7 @@ export default function RiverVisualGallery({
               <button
                 type="button"
                 onClick={onAddPhoto}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 whitespace-nowrap"
               >
                 <Camera className="w-3.5 h-3.5" /> Add a photo
               </button>
@@ -250,7 +250,7 @@ export default function RiverVisualGallery({
                 onClick={() => { setSelectedLevel(l.code); setCurrentIndex(0); }}
                 aria-pressed={isActive}
                 title={`See photos at ${conditionChip(l.code).label}`}
-                className={`inline-flex rounded-full transition ${isActive ? 'ring-2 ring-teal-600' : 'opacity-50 hover:opacity-100'}`}
+                className={`inline-flex rounded-full transition ${isActive ? 'ring-2 ring-primary-600' : 'opacity-50 hover:opacity-100'}`}
               >
                 <ConditionBadge code={l.code} size="sm" />
               </button>
@@ -362,7 +362,7 @@ export default function RiverVisualGallery({
                 current.accessPointHref ? (
                   <Link
                     href={current.accessPointHref}
-                    className="flex items-center gap-1 hover:text-teal-600 transition-colors"
+                    className="flex items-center gap-1 hover:text-primary-600 transition-colors"
                   >
                     <MapPin className="w-3 h-3" />
                     {current.accessPointName}

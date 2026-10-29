@@ -32,7 +32,7 @@ export default function EddyOutlookFooter({
         </h3>
       </div>
 
-      {/* The order is the app's: the read leads, Watch for follows, Bottom line
+      {/* The order is the app's: the read leads, Weather follows, Bottom line
           closes as the conclusion of the two above it (eddy-ios EddyTake.tsx).
           Eddy's read carries the full model report now, which runs to several
           sentences — it gets the full width rather than the middle cell of a
@@ -62,13 +62,13 @@ export default function EddyOutlookFooter({
           )}
         </article>
 
-        {/* Watch for and Bottom line are one or two sentences each, so they
+        {/* Weather and Bottom line are one or two sentences each, so they
             still pair on a wide viewport. */}
         <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-2 lg:divide-x-2 lg:divide-y-0">
           <article className="min-w-0 px-4 py-4 sm:px-5">
             <div className="mb-2 flex items-center gap-2 text-primary-800">
               <Eye className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-              <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Watch for</h4>
+              <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Weather</h4>
             </div>
             <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
           </article>

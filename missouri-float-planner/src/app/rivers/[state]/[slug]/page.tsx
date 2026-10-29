@@ -15,6 +15,7 @@ import { stateSlug, stateName } from '@/lib/navigation/states';
 import RiverServices from '@/components/river/RiverServices';
 import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
+import Button from '@/components/ui/Button';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ArrowRight, MapPin, Ruler, Mountain } from 'lucide-react';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
@@ -279,8 +280,7 @@ export default async function RiverGuidePage({ params }: Props) {
       <div className="min-h-screen bg-gradient-to-b from-neutral-100 to-neutral-50">
         {/* ===== Hero (status-first, 2-col) ===== */}
         <section
-          className="text-white"
-          style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #1A4550 50%, #0F2D35 100%)' }}
+          className="bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 text-white"
         >
           <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
             <nav className="text-xs text-white/50 mb-5">
@@ -296,8 +296,8 @@ export default async function RiverGuidePage({ params }: Props) {
                     says the verdict, as the app's river screen does. */}
 
                 <h1
-                  className="text-4xl md:text-5xl font-bold leading-[1.05] mb-3"
-                  style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
+                  className="text-4xl md:text-5xl font-bold leading-[1.05] mb-3 text-accent-500"
+                  style={{ fontFamily: 'var(--font-display)' }}
                 >
                   {river.name}
                 </h1>
@@ -309,14 +309,10 @@ export default async function RiverGuidePage({ params }: Props) {
                 {/* CTAs (live readings live in the report right below — the
                     hero no longer duplicates gauge numbers) */}
                 <div className="flex flex-wrap items-center gap-3 mt-auto">
-                  <Link
-                    href={planUrl}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white no-underline shadow-lg transition-all hover:brightness-110"
-                    style={{ backgroundColor: '#F07052' }}
-                  >
+                  <Button href={planUrl} size="lg" className="inline-flex items-center gap-2">
                     Plan a float
-                    <ArrowRight className="w-5 h-5" />
-                  </Link>
+                    <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                  </Button>
                   {guidePost && (
                     <Link
                       href={`/blog/${guidePost.slug}`}
@@ -397,8 +393,8 @@ export default async function RiverGuidePage({ params }: Props) {
           )}
 
           {/* ===== Live report ===== */}
-          <section id="status" className="scroll-mt-28 pt-4 md:pt-5">
-            <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
+          <section id="status" className="scroll-mt-28 pt-6">
+            <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
               Live report
             </h2>
             {/* The dam row goes THROUGH the report, not after it: it belongs
@@ -426,8 +422,8 @@ export default async function RiverGuidePage({ params }: Props) {
 
           {/* ===== Dam control — tailwater reaches only ===== */}
           {riverDam && (
-            <section id="dam" className="scroll-mt-28 pt-8">
-              <h2 className="mb-3 text-xl font-bold text-neutral-900 md:text-2xl" style={{ fontFamily: 'var(--font-display)' }}>
+            <section id="dam" className="scroll-mt-28 pt-10">
+              <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
                 Dam release
               </h2>
               <RiverDamPanel context={riverDam} controlledReachSlug={controlledReach?.sectionSlug ?? null} />
@@ -440,28 +436,21 @@ export default async function RiverGuidePage({ params }: Props) {
               phone that bar has no room for the button, so this is the one
               plan action between the hero and the access list. */}
           <section
-            className="my-10 rounded-2xl px-6 py-6 grid grid-cols-1 gap-4 items-center text-white sm:hidden"
-            style={{ background: 'linear-gradient(135deg, #163F4A 0%, #1A4F5C 100%)' }}
+            className="mt-10 grid grid-cols-1 items-center gap-4 rounded-xl bg-primary-800 px-6 py-6 text-white sm:hidden"
           >
-            <div className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
-              Ready to float?
-            </div>
-            <Link
-              href={planUrl}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-white no-underline whitespace-nowrap transition-all hover:brightness-110"
-              style={{ backgroundColor: '#F07052' }}
-            >
+            <div className="font-display text-2xl font-bold">Ready to float?</div>
+            <Button href={planUrl} size="lg" className="inline-flex items-center justify-center gap-2">
               Plan a float
-              <ArrowRight className="w-5 h-5" />
-            </Link>
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </Button>
           </section>
 
           {/* ===== Hazards — above the access list, as in the app ===== */}
           <RiverHazards riverSlug={slug} className="scroll-mt-28 pt-10" />
 
           {/* ===== Access points (with overview map) ===== */}
-          <section id="access" className="scroll-mt-28">
-            <h2 className="text-2xl font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
+          <section id="access" className="scroll-mt-28 pt-10">
+            <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
               Access points
             </h2>
 
@@ -501,13 +490,13 @@ export default async function RiverGuidePage({ params }: Props) {
 
           {/* ===== River guide (blog) ===== */}
           {guidePost && (
-            <section id="guide" className="scroll-mt-28 pt-12">
-              <h2 className="text-2xl font-bold text-neutral-900 mb-4" style={{ fontFamily: 'var(--font-display)' }}>
+            <section id="guide" className="scroll-mt-28 pt-10">
+              <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
                 River guide
               </h2>
               <Link
                 href={`/blog/${guidePost.slug}`}
-                className="group block overflow-hidden rounded-2xl border border-neutral-200 bg-white hover:shadow-md hover:border-neutral-300 transition-all no-underline"
+                className="card-panel group block no-underline transition-colors hover:border-neutral-300"
               >
                 {guideImage?.src && (
                   <div className="relative h-52 md:h-64 overflow-hidden bg-neutral-100">
@@ -521,7 +510,7 @@ export default async function RiverGuidePage({ params }: Props) {
                   </div>
                 )}
                 <div className="p-5 md:p-6">
-                  <div className="text-lg md:text-xl font-bold text-neutral-900 mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+                  <div className="mb-1 font-display text-lg font-bold text-neutral-900 md:text-xl">
                     {guidePost.title}
                   </div>
                   {guidePost.description && (

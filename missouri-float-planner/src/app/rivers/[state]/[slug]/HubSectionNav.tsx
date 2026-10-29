@@ -6,7 +6,7 @@
 // a published guide (blog).
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import Button from '@/components/ui/Button';
 import { useHazards } from '@/hooks/useHazards';
 
 const SECTIONS = [
@@ -117,12 +117,11 @@ export default function HubSectionNav({
               and wrapping an interactive control in a live region makes screen
               readers re-announce it on mount and on every selection change. */}
           <div id="gauge-selection-slot" className="flex min-h-9 items-center" />
-          <Link
-            href={planUrl}
-            className="hidden flex-shrink-0 items-center rounded-md border-2 border-accent-700 bg-accent-500 px-4 py-1.5 text-sm font-semibold text-white no-underline shadow-[2px_2px_0_var(--color-accent-700)] transition-colors hover:bg-accent-600 sm:inline-flex"
-          >
-            Plan a float
-          </Link>
+          {/* The site's one primary button, in a wrapper that does the hiding:
+              .btn-primary sets its own display and would override `hidden`. */}
+          <span className="hidden flex-shrink-0 sm:inline-flex">
+            <Button href={planUrl} size="sm">Plan a float</Button>
+          </span>
         </div>
       </div>
     </div>
