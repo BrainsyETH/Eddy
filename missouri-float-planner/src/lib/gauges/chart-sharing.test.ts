@@ -273,6 +273,16 @@ test('station zones use the same projected coordinates as detail and reject look
     },
   } as unknown as Parameters<typeof stationTimeZoneForSite>[0];
   assert.equal(await stationTimeZoneForSite(client, '07067000'), 'America/Chicago');
+  // Absent from the lookup (inactive, or crowded out of the first page of
+  // prefix matches) is unknown, never a cacheable UTC answer.
+  const crowdedOut = {
+    rpc: async () => ({ data: [{ site_id: '070670001', lat: 45, lng: -122.6 }], error: null }),
+  } as unknown as typeof client;
+  assert.equal(await stationTimeZoneForSite(crowdedOut, '07067000'), null);
+  const unplaced = {
+    rpc: async () => ({ data: [{ site_id: '07067000', lat: null, lng: null }], error: null }),
+  } as unknown as typeof client;
+  assert.equal(await stationTimeZoneForSite(unplaced, '07067000'), 'UTC', 'found but unplaced is a real UTC answer');
   const failed = {
     rpc: async () => ({ data: null, error: { message: 'offline' } }),
   } as unknown as typeof client;

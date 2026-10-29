@@ -22,6 +22,8 @@ import { isExpoPushToken } from '@/lib/push/expo';
 
 export const dynamic = 'force-dynamic';
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requirePermanentUser(request);
@@ -36,7 +38,13 @@ export async function POST(request: NextRequest) {
     if (limited) return limited;
 
     const body = await request.json().catch(() => null) as
-      | { expoPushToken?: string; platform?: string; deviceName?: string; appVersion?: string }
+      | {
+          expoPushToken?: string;
+          platform?: string;
+          deviceName?: string;
+          appVersion?: string;
+          previousDeviceId?: unknown;
+        }
       | null;
 
     const expoPushToken = body?.expoPushToken?.trim();
@@ -56,17 +64,49 @@ export async function POST(request: NextRequest) {
     // belongs to A. The upsert below runs under A-or-B's RLS, so for B it
     // raises on the ON CONFLICT update (the row is not B's), the route
     // answers 500, B is never registered, and A's alerts keep arriving on the
-    // phone B now holds. Re-key the token first: whoever is registering it
-    // holds the device, and the previous owner must not be notified on it.
+    // phone B now holds.
+    //
+    // Knowing a token is not holding the device, though: Expo push tokens are
+    // not secrets and turn up in logs. Re-keying on the token alone let any
+    // permanent account that learned someone's token delete that person's row
+    // and silently stop their alerts. So the re-key needs the same proof
+    // /api/device-tokens/release accepts: the previous row's id, a random uuid
+    // the server handed only to the install that registered it, which the app
+    // keeps in its push ledger. Without it, the token stays where it is and
+    // the caller is told so (409); the app's own flow sends the owed release
+    // first, so a phone that changed hands normally never gets here.
     // Service role, because by construction the row is not the caller's.
-    const { error: rekeyError } = await createAdminClient()
+    const previousDeviceId =
+      typeof body?.previousDeviceId === 'string' && UUID.test(body.previousDeviceId.trim())
+        ? body.previousDeviceId.trim()
+        : null;
+    const admin = createAdminClient();
+    const { data: holder, error: holderError } = await admin
       .from('device_tokens')
-      .delete()
+      .select('id')
       .eq('expo_push_token', expoPushToken)
-      .neq('user_id', user.id);
-    if (rekeyError) {
-      console.error('Error releasing device token from its previous account:', rekeyError);
+      .neq('user_id', user.id)
+      .maybeSingle();
+    if (holderError) {
+      console.error('Error checking device token ownership:', holderError);
       return jsonPrivate({ error: 'Could not register device' }, { status: 500 });
+    }
+    if (holder) {
+      if (holder.id !== previousDeviceId) {
+        return jsonPrivate(
+          { error: 'This device is registered to another account', code: 'token_held' },
+          { status: 409 },
+        );
+      }
+      const { error: rekeyError } = await admin
+        .from('device_tokens')
+        .delete()
+        .eq('id', holder.id)
+        .eq('expo_push_token', expoPushToken);
+      if (rekeyError) {
+        console.error('Error releasing device token from its previous account:', rekeyError);
+        return jsonPrivate({ error: 'Could not register device' }, { status: 500 });
+      }
     }
 
     // Re-registering the same token must refresh it rather than fail, and must

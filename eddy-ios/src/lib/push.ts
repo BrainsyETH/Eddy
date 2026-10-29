@@ -25,7 +25,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerDeviceToken, releaseDeviceToken, unregisterDeviceToken } from '@/api/client';
-import { needsRegistration, readPushLedger, registered, released, unregistered, writePushLedger } from '@/lib/pushLedger';
+import { heldDeviceId, needsRegistration, readPushLedger, registered, released, unregistered, writePushLedger } from '@/lib/pushLedger';
 import { warn } from '@/lib/monitoring';
 
 /**
@@ -148,11 +148,15 @@ export async function syncRegistration(
     return { ok: true, token: pushToken, state };
   }
 
+  // The row id this install already holds for the token is the proof the
+  // server needs to move it from another account (pushLedger.ts heldDeviceId).
+  const previousDeviceId = heldDeviceId(ledger, pushToken);
   const result = await registerDeviceToken(token, {
     expoPushToken: pushToken,
     platform: Platform.OS === 'android' ? 'android' : 'ios',
     deviceName: Device.modelName ?? undefined,
     appVersion: Constants.expoConfig?.version ?? undefined,
+    ...(previousDeviceId ? { previousDeviceId } : {}),
   });
   if (result.ok) await writePushLedger(registered(userId, pushToken, result.deviceId, now));
 

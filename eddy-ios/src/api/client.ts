@@ -2167,6 +2167,8 @@ export async function registerDeviceToken(
     platform: 'ios' | 'android';
     deviceName?: string;
     appVersion?: string;
+    /** The row id this install holds for the token: proof for moving it off another account. */
+    previousDeviceId?: string;
   },
 ): Promise<{ ok: boolean; deviceId: string | null }> {
   try {

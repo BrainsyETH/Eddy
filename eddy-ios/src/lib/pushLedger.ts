@@ -121,6 +121,20 @@ export function unregistered(ledger: PushLedger, delivered: boolean): PushLedger
   return { registration: null, release: { expoPushToken: last.expoPushToken, deviceId: last.deviceId } };
 }
 
+/**
+ * The row id this install holds for `expoPushToken`, sent with a registration
+ * as `previousDeviceId`. If that row still belongs to another account (a
+ * release owed and not yet delivered, an account switch), it is the proof the
+ * server asks for before moving the token: knowing a token alone is not
+ * holding the device. A release owed is preferred: it names the row the
+ * leaving account still has.
+ */
+export function heldDeviceId(ledger: PushLedger, expoPushToken: string): string | null {
+  if (ledger.release?.expoPushToken === expoPushToken) return ledger.release.deviceId;
+  if (ledger.registration?.expoPushToken === expoPushToken) return ledger.registration.deviceId;
+  return null;
+}
+
 /** The release was accepted, or the server has no such row: nothing more is owed. */
 export function released(ledger: PushLedger): PushLedger {
   return { ...ledger, release: null };
