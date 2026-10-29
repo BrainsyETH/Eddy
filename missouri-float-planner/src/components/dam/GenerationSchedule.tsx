@@ -53,7 +53,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         <div className={compact ? 'mt-1 text-sm' : 'my-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3'}>
           {!compact && <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-600">Next scheduled change</h3>}
           <p className={`font-semibold text-primary-900 ${compact ? '' : 'mt-1 text-xl leading-snug tracking-tight sm:text-2xl'}`}>
-            {compact && <span className="font-normal text-neutral-500">Next: </span>}{nextChange}
+            {nextChange}
           </p>
           {provenance && <p className="mt-1 text-xs text-accent-700">{provenance}</p>}
         </div>

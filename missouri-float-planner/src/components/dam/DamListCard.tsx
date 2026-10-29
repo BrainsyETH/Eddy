@@ -12,7 +12,7 @@ function Reading({ label, value, unit, metric, now, icon }: {
 }) {
   return (
     <div className="min-w-0">
-      <dt className="flex items-center gap-1 text-xs text-neutral-600">{icon}{label}</dt>
+      <dt className="flex min-h-6 items-center gap-2 text-xs text-neutral-600">{icon}{label}</dt>
       <dd className={`mt-1 text-primary-900 ${metric && readingStaleness(metric.at, now) !== 'fresh' ? 'opacity-60' : ''}`}>
         {value === null ? <span className="text-sm">Unavailable</span> : <>
           <span className="font-mono text-xl tabular-nums">{value}</span>{' '}<span className="text-xs text-neutral-600">{unit}</span>
@@ -40,8 +40,8 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
         </Link>
 
         <dl className="grid grid-cols-2 gap-3 bg-secondary-100 px-4 py-3 sm:px-5">
-          <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon={<Waves className="size-3.5 shrink-0" aria-hidden="true" />} />
-          <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon={<Thermometer className="size-3.5 shrink-0" aria-hidden="true" />} />
+          <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon={<Waves className="size-6 shrink-0 text-primary-700" aria-hidden="true" />} />
+          <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon={<Thermometer className="size-6 shrink-0 text-primary-700" aria-hidden="true" />} />
         </dl>
       </div>
 
