@@ -1,0 +1,1704 @@
+{
+ "45894ef8-8dc6-459b-8277-193463ce2fd1": {
+  "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",
+  "river": "norfork-tailwater",
+  "research": {
+   "description": "Walk-in fishing on Dry Run Creek, the short hatchery-fed stream beside the U.S. Fish and Wildlife Service's Norfork National Fish Hatchery just below Norfork Dam. Fishing here is reserved for young anglers and mobility-impaired anglers.",
+   "fee": {
+    "status": "unknown",
+    "notes": "FWS lists the hatchery itself as free admission; no source states a fee or no-fee for fishing Dry Run Creek specifically.",
+    "source": "https://www.fws.gov/fish-hatchery/norfork"
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "From Hwy 5 at Salesville, bear onto Hwy 177 south about 2 miles to the hatchery; from Pineville, take Hwy 177 northwest across Norfork Dam and turn right onto Fish Hatchery Circle.",
+   "road_surface": [],
+   "address": "1414 Highway 177 South, Mountain Home, AR 72653 (Norfork National Fish Hatchery)",
+   "amenities": [],
+   "hours": "Fishing sunrise to sunset (AGFC rule); hatchery open daily 7 a.m.-3:15 p.m., closed federal holidays.",
+   "local_tips": "Catch-and-release only for anglers under 16 and mobility-impaired anglers (card required), single barbless artificial lures only, and mobility-impaired anglers must fish from the access pier or boardwalk.",
+   "sources": {
+    "description": [
+     "https://www.fws.gov/fish-hatchery/norfork",
+     "https://agfc.com/?p=10685"
+    ],
+    "fee": [
+     "https://www.fws.gov/fish-hatchery/norfork"
+    ],
+    "road_access": [
+     "https://www.fws.gov/fish-hatchery/norfork"
+    ],
+    "address": [
+     "https://www.fws.gov/fish-hatchery/norfork"
+    ],
+    "hours": [
+     "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+     "https://www.fws.gov/fish-hatchery/norfork"
+    ],
+    "local_tips": [
+     "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011",
+     "https://agfc.com/?p=10685"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "FWS page + AGFC article + Ark. Code R. text (via Cornell LII; apps.agfc.com regs page returned 403). No official parking/ADA detail found; 2026 AGFC trout changes reported as not touching Dry Run Creek but verify."
+   }
+  }
+ },
+ "8d46b4d6-a718-4555-99ea-ff2db9f013a8": {
+  "name": "Shepherd of the Hills Hatchery Bank Access",
+  "river": "taneycomo",
+  "research": {
+   "description": "Bank fishing along Lake Taneycomo at MDC's Shepherd of the Hills Fish Hatchery and Conservation Education Center, just below Table Rock Dam. About 2-3 miles of trails reach the shoreline, with fishing access points (some with stairs) and picnic areas.",
+   "fee": {
+    "status": "unknown",
+    "notes": "MDC area page does not mention fees.",
+    "source": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+   },
+   "parking_info": "MDC area map shows parking lots along Hatchery Road; area bulletin boards are in the parking areas.",
+   "parking_capacity": null,
+   "road_access": "From Branson, take Hwy 165 southwest about 6 miles to Hatchery Road near Table Rock Dam.",
+   "road_surface": [
+    "paved"
+   ],
+   "address": "483 Hatchery Road, Branson, MO 65616 (conservation center)",
+   "amenities": [
+    "parking",
+    "restrooms",
+    "picnic"
+   ],
+   "hours": "Area 4 a.m.-10 p.m. daily; conservation center Tue-Sat 9 a.m.-5 p.m., closed Sun, Mon and state holidays.",
+   "local_tips": "No fishing within 760 feet below Table Rock Dam, in hatchery raceways or the marked outlets; from there to Fall Creek only flies and artificial lures are allowed and rainbow trout 12-20 inches must be released.",
+   "sources": {
+    "description": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf",
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf"
+    ],
+    "fee": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+    ],
+    "parking_info": [
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "road_access": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+    ],
+    "road_surface": [
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf"
+    ],
+    "address": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "amenities": [
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "hours": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "local_tips": [
+     "https://mdc.mo.gov/fishing/regulations/special-waterbody-regulations/lake-taneycomo",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "MDC page/brochure/map; restrooms and parking come from map legend (exact placement not readable in text extraction). Trail length differs: places page ~3 mi, 2024 brochure ~2.3 mi."
+   }
+  }
+ },
+ "31d79668-3294-45f9-92f8-ece72809d0ef": {
+  "name": "Dam-Quarry Boat Ramp",
+  "river": "norfork-tailwater",
+  "research": {
+   "description": "Corps of Engineers boat ramp at Quarry Park on the North Fork River just below Norfork Dam, next to Dam Quarry Campground.",
+   "fee": {
+    "status": "fee",
+    "notes": "USACE area-use (day-use) fee for launch-ramp and parking-area users at Quarry Park, paid by card at automated machines; America the Beautiful pass holders not charged. Amount not stated in sources found.",
+    "source": "https://corpslakes.erdc.dren.mil/visitors/projects.cfm?ID=M412830"
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "From Mountain Home, take Hwy 5 south 14 miles to Salesville, then Hwy 177 east 2 miles; park is below Norfork Dam, follow signs.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "picnic"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://corpslakes.erdc.dren.mil/visitors/projects.cfm?ID=M412830"
+    ],
+    "fee": [
+     "https://corpslakes.erdc.dren.mil/visitors/projects.cfm?ID=M412830",
+     "https://www.kait8.com/2023/02/28/norfork-bull-shoals-lakes-automate-day-use-fee-collection/"
+    ],
+    "road_access": [
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://www.recreation.gov/camping/campgrounds/232565"
+    ],
+    "amenities": [
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://corpslakes.erdc.dren.mil/visitors/projects.cfm?ID=M412830"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "swl.usace.army.mil (incl. the Dam-Quarry PDF map) returns 403 to this environment; fee status from USACE corpslakes '$' flag + KAIT news relaying USACE Mountain Home release (2023). Ramp closed Oct 7-19, 2025 for paving (past)."
+   }
+  }
+ },
+ "80db3a77-db31-4b8a-9010-248534a1f4cc": {
+  "name": "Dam-Quarry Campground",
+  "river": "norfork-tailwater",
+  "research": {
+   "description": "Corps of Engineers campground at Quarry Park on the North Fork River and Dry Run Creek, just below Norfork Dam, with electric sites, bathhouses and an on-site boat ramp.",
+   "fee": {
+    "status": "fee",
+    "notes": "Camping $24-$80 per night (range across 68 electric sites, 2 group shelters and 1 group area), reservable on Recreation.gov; $10 cancellation fee. Day-use/launch fee is separate.",
+    "source": "https://www.recreation.gov/api/search?fq=entity_id%3A232565&size=1"
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "From Mountain Home, take Hwy 5 south 14 miles to Salesville, then Hwy 177 east 2 miles; park is below Norfork Dam, follow signs.",
+   "road_surface": [],
+   "address": "170 Picnic Drive, Mountain Home, AR 72653",
+   "amenities": [
+    "camping",
+    "restrooms",
+    "boat_ramp",
+    "picnic"
+   ],
+   "hours": null,
+   "local_tips": "Sites 1-13 and 61-68 switch to electric-only (no water) starting November 1; 14-night maximum stay.",
+   "sources": {
+    "description": [
+     "https://www.recreation.gov/camping/campgrounds/232565",
+     "https://www.recreation.gov/api/camps/campgrounds/232565"
+    ],
+    "fee": [
+     "https://www.recreation.gov/api/search?fq=entity_id%3A232565&size=1",
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://www.recreation.gov/camping/campgrounds/232565"
+    ],
+    "road_access": [
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://www.recreation.gov/camping/campgrounds/232565"
+    ],
+    "address": [
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://www.recreation.gov/camping/campgrounds/232565"
+    ],
+    "amenities": [
+     "https://www.recreation.gov/camping/campgrounds/232565",
+     "https://www.recreation.gov/api/camps/campgrounds/232565",
+     "https://corpslakes.erdc.dren.mil/visitors/projects.cfm?ID=M412830"
+    ],
+    "local_tips": [
+     "https://www.recreation.gov/camping/campgrounds/232565",
+     "https://www.recreation.gov/api/camps/campgrounds/232565"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "Recreation.gov page + API. Recreation.gov lists 71 units (68 electric + 2 shelters + 1 group area). Dump station not mentioned by any official source found; showers listed."
+   }
+  }
+ },
+ "6fa46369-646b-4cc0-bc66-719a0851cf34": {
+  "name": "Shepherd of the Hills Hatchery Boat Ramp",
+  "river": "taneycomo",
+  "research": {
+   "description": "MDC concrete boat ramp at the Shepherd of the Hills Fish Hatchery below Table Rock Dam, the uppermost launch on Lake Taneycomo. MDC's Cooper Creek Access is about 5 miles downstream.",
+   "fee": {
+    "status": "unknown",
+    "notes": "MDC area page does not mention fees.",
+    "source": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+   },
+   "parking_info": "MDC area map shows parking lots along Hatchery Road; area bulletin boards are in the parking areas.",
+   "parking_capacity": null,
+   "road_access": "From Branson, take Hwy 165 southwest about 6 miles to Hatchery Road near Table Rock Dam.",
+   "road_surface": [
+    "paved"
+   ],
+   "address": "483 Hatchery Road, Branson, MO 65616 (conservation center)",
+   "amenities": [
+    "boat_ramp",
+    "parking",
+    "restrooms",
+    "picnic"
+   ],
+   "hours": "Area 4 a.m.-10 p.m. daily (MDC); conservation center Tue-Sat 9 a.m.-5 p.m.",
+   "local_tips": "Houseboats, airboats and personal watercraft are prohibited, and boats may not be left unattended overnight.",
+   "sources": {
+    "description": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+    ],
+    "fee": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+    ],
+    "parking_info": [
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "road_access": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+    ],
+    "road_surface": [
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf"
+    ],
+    "address": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "amenities": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
+     "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "hours": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
+     "https://mdc.mo.gov/sites/default/files/2021-09/5601.pdf"
+    ],
+    "local_tips": [
+     "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "MDC page states one concrete ramp; lane count and ~20-rig parking in current text not found in any official source; restrooms from map legend."
+   }
+  }
+ },
+ "1daa6131-dd01-4dec-bb66-f64a82936ac1": {
+  "name": "Bill Ackerman River Ridge Access",
+  "river": "norfork-tailwater",
+  "research": {
+   "description": "AGFC walk-in fishing access on the North Fork River, dedicated in 2004 to former commissioner Bill Ackerman and AGFC's first handicapped-accessible walk-in fishing facility on the river. It is the only public access between the Norfork Dam boat ramp and the White River confluence.",
+   "fee": {
+    "status": "unknown",
+    "notes": null,
+    "source": null
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "Off River Ridge Road (per AGFC tailwater map).",
+   "road_surface": [],
+   "address": null,
+   "amenities": [],
+   "hours": null,
+   "local_tips": "Marks the downstream end of the Norfork catch-and-release area (from Long Hole to this access): trout must be released immediately, artificial lures or flies with barbless hooks only.",
+   "sources": {
+    "description": [
+     "https://www.agfc.com/?p=8779",
+     "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf"
+    ],
+    "road_access": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf"
+    ],
+    "local_tips": [
+     "https://www.law.cornell.edu/regulations/arkansas/002-01-24-Ark-Code-R-011"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "AGFC article + 2010 AGFC map; no official source found for parking, pier shape or restroom (current text's 'year-round restroom' and 'T-shaped pier' unverified)."
+   }
+  }
+ },
+ "00434692-242e-4d35-bfc7-d0d40c5e160e": {
+  "name": "Norfork Access",
+  "river": "norfork-tailwater",
+  "research": {
+   "description": "AGFC boat access at the confluence of the North Fork and White rivers in the town of Norfork; AGFC maps show separate Norfork Access East and West ramps on either bank.",
+   "fee": {
+    "status": "unknown",
+    "notes": null,
+    "source": null
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "amenities": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ]
+   },
+   "confidence": {
+    "level": "low",
+    "note": "Only 2010-era AGFC map PDFs reachable (agfc.com zone map pages 403/redirect). Map legend includes a handicap boater transfer lift on the Norfork map but text extraction can't tie it to this ramp; ramp count, paving not verified."
+   }
+  }
+ },
+ "d318b329-0715-498b-9f38-4218656ecc77": {
+  "name": "Cooper Creek Access",
+  "river": "taneycomo",
+  "research": {
+   "description": "MDC access on Lake Taneycomo near Branson with a concrete boat ramp, about 5 miles downstream of the Shepherd of the Hills Hatchery ramp.",
+   "fee": {
+    "status": "unknown",
+    "notes": "MDC area page lists no fees.",
+    "source": "https://mdc.mo.gov/discover-nature/places/cooper-creek-access"
+   },
+   "parking_info": "Large parking lot.",
+   "parking_capacity": null,
+   "road_access": "From W 76 Country Blvd and Fall Creek Rd in Branson, take Fall Creek Rd south 1.8 miles, turn left on River Valley Rd for 0.1 mile, then left on Cooper Creek Rd; entrance on the left.",
+   "road_surface": [
+    "paved"
+   ],
+   "address": null,
+   "amenities": [
+    "parking",
+    "restrooms",
+    "boat_ramp"
+   ],
+   "hours": "4 a.m.-10 p.m. daily; fishing and launching/landing boats allowed 24 hours.",
+   "local_tips": "One ADA-accessible covered dock for shore fishing; camping is prohibited.",
+   "sources": {
+    "description": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access"
+    ],
+    "fee": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access"
+    ],
+    "parking_info": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access"
+    ],
+    "road_access": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access"
+    ],
+    "road_surface": [
+     "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9901map.pdf"
+    ],
+    "amenities": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access",
+     "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9901map.pdf"
+    ],
+    "hours": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access"
+    ],
+    "local_tips": [
+     "https://mdc.mo.gov/discover-nature/places/cooper-creek-access",
+     "https://mdc.mo.gov/node/250858",
+     "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9901map.pdf"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "MDC places page + MDC map. Conflict: MDC lists ONE ADA dock (current text says two); ~40-rig capacity not stated officially. Restroom is a privy."
+   }
+  }
+ },
+ "d240a07b-3aa3-424e-a5fa-f0841d38b306": {
+  "name": "Branson City Ramp (Branson Lakeside RV Park)",
+  "river": "taneycomo",
+  "research": {
+   "description": "Boat launch at the south end of Branson Lakeside RV Park, the City of Branson's campground on the Lake Taneycomo shoreline downtown.",
+   "fee": {
+    "status": "unknown",
+    "notes": null,
+    "source": null
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": "300 S. Boxcar Willie Drive, Branson, MO 65616 (RV park)",
+   "amenities": [
+    "boat_ramp",
+    "camping"
+   ],
+   "hours": "RV park office 9 a.m.-5 p.m. daily; no ramp hours posted.",
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://www.bransonmo.gov/947/12774/Amenities",
+     "https://bransonmo.gov/670/Parks",
+     "https://www.bransonlakesidervpark.com/"
+    ],
+    "address": [
+     "https://www.bransonmo.gov/947/12774/Amenities",
+     "https://www.bransonmo.gov/951/About-Us"
+    ],
+    "amenities": [
+     "https://www.bransonmo.gov/947/12774/Amenities",
+     "https://www.bransonmo.gov/951/About-Us"
+    ],
+    "hours": [
+     "https://www.bransonmo.gov/947/12774/Amenities"
+    ]
+   },
+   "confidence": {
+    "level": "low",
+    "note": "City RV park pages confirm a launch but say nothing on public (non-guest) use, fees, lanes or parking. Dock count conflicts across city pages (4 vs 5); MDC confirms public fishing docks there."
+   }
+  }
+ },
+ "2c030369-c607-4f71-a9c3-546b23d747d0": {
+  "name": "North Beach Park",
+  "river": "taneycomo",
+  "research": {
+   "description": "City of Branson pedestrian park on Lake Taneycomo next to Branson Landing, with two fishing docks and a paved lakeside path that connects to the Branson Landing boardwalk.",
+   "fee": {
+    "status": "unknown",
+    "notes": "City page lists no fees.",
+    "source": "https://bransonmo.gov/686/North-Beach-Park"
+   },
+   "parking_info": "City directs visitors to park in the Belk parking lot.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": "50 N. Boardwalk, Branson, MO 65616",
+   "amenities": [
+    "picnic"
+   ],
+   "hours": "6 a.m.-10 p.m.",
+   "local_tips": "Alcohol, smoking and weapons are prohibited in city parks; pets must be leashed.",
+   "sources": {
+    "description": [
+     "https://bransonmo.gov/686/North-Beach-Park",
+     "https://bransonmo.gov/699/Taneycomo-Walking-Path"
+    ],
+    "fee": [
+     "https://bransonmo.gov/686/North-Beach-Park"
+    ],
+    "parking_info": [
+     "https://bransonmo.gov/686/North-Beach-Park"
+    ],
+    "address": [
+     "https://bransonmo.gov/686/North-Beach-Park"
+    ],
+    "amenities": [
+     "https://bransonmo.gov/686/North-Beach-Park"
+    ],
+    "hours": [
+     "https://bransonmo.gov/686/North-Beach-Park"
+    ],
+    "local_tips": [
+     "https://bransonmo.gov/686/North-Beach-Park"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "City park page; no restrooms listed (city cites lack of restrooms when barring large events), matching current text."
+   }
+  }
+ },
+ "ae9f03b6-e2af-42fd-bcaf-08cd410a6a16": {
+  "name": "Rockaway Beach Access",
+  "river": "taneycomo",
+  "research": {
+   "description": "Small access on Lake Taneycomo in Rockaway Beach on Hwy 176 with a concrete boat ramp, maintained by the City of Rockaway Beach under a cooperative agreement with MDC.",
+   "fee": {
+    "status": "unknown",
+    "notes": "MDC page lists no fees; city calls its lakefront fishing dock free but does not address the ramp.",
+    "source": "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access"
+   },
+   "parking_info": "MDC area map shows a parking lot.",
+   "parking_capacity": null,
+   "road_access": "In Rockaway Beach on Hwy 176.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "parking",
+    "restrooms",
+    "boat_ramp",
+    "picnic"
+   ],
+   "hours": "4 a.m.-10 p.m. daily; fishing and launching/landing boats allowed 24 hours.",
+   "local_tips": "Covered public fishing dock accessible to anglers with disabilities, plus a fish-cleaning station.",
+   "sources": {
+    "description": [
+     "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access"
+    ],
+    "fee": [
+     "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access",
+     "https://www.rockawaybeach-mo.org/visitors"
+    ],
+    "parking_info": [
+     "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9913map.pdf"
+    ],
+    "road_access": [
+     "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access"
+    ],
+    "amenities": [
+     "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9913map.pdf",
+     "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access"
+    ],
+    "hours": [
+     "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access"
+    ],
+    "local_tips": [
+     "https://mdc.mo.gov/node/250858",
+     "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9913map.pdf"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "MDC page + map legend (privy, picnic area, fish cleaning, courtesy dock, parking). Area is 1 acre, not MDC-owned. Ramp lane count and ~20-rig capacity not stated officially; restroom is a privy."
+   }
+  }
+ },
+ "b965b0a3-868c-4408-ac68-432772db14de": {
+  "name": "Empire Park Ramp (Forsyth)",
+  "river": "taneycomo",
+  "research": {
+   "description": "Forsyth city park with lake access and a public boat launch on Lake Taneycomo near Powersite Dam, at the east end of the Dr. William Rosten nature trails.",
+   "fee": {
+    "status": "unknown",
+    "notes": "City parks page lists no fee for Empire Park.",
+    "source": "https://forsythmo.gov/department/parks-recreation/"
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp"
+   ],
+   "hours": null,
+   "local_tips": "MDC lists a covered public fishing dock here accessible to anglers with disabilities.",
+   "sources": {
+    "description": [
+     "https://forsythmo.gov/department/parks-recreation/"
+    ],
+    "fee": [
+     "https://forsythmo.gov/department/parks-recreation/"
+    ],
+    "amenities": [
+     "https://forsythmo.gov/department/parks-recreation/"
+    ],
+    "local_tips": [
+     "https://mdc.mo.gov/node/250858"
+    ]
+   },
+   "confidence": {
+    "level": "low",
+    "note": "Forsyth page is sparse. MDC calls it 'Empire Electric Park'; an MDC map titles a nearby 1-acre site 'Ozark Beach Recreation Area (Empire District Electric Company)' with ramp, parking, privy, picnic - likely the same place, possibly utility-owned rather than city-owned, but identity unconfirmed so not used."
+   }
+  }
+ },
+ "0e240aa2-ed5c-400c-987d-e5e84d289e5e": {
+  "name": "Jim Griffin Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access just below Bull Shoals Dam, off Powerhouse Road on the state park side of the river. A Corps of Engineers fishing pier sits beside the concrete ramp.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Paved AGFC parking area.",
+   "parking_capacity": null,
+   "road_access": "Off Hwy 178 at Bull Shoals Dam via Powerhouse Road (state park side).",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking",
+    "restrooms"
+   ],
+   "hours": null,
+   "local_tips": "AGFC marks the ramp and USACE pier as accessible; the restroom is seasonal, and the access lies in the AGFC-mapped Bull Shoals catch-and-release area (check current trout rules).",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=322,282,2952,1167&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=322,282,2952,1167&outFields=*&returnGeometry=false&f=json"
+    ],
+    "road_access": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=322,282,2952,1167&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=322,282,2952,1167&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ]
+   },
+   "confidence": "high: AGFC GIS (ramp, paved parking, seasonal restroom, USACE pier) plus AGFC map and state park brochure map placing the ramp on Powerhouse Road."
+  }
+ },
+ "65078ca0-704f-4128-b0ec-ca2b42a31cc9": {
+  "name": "Forrest and Nina Wood Rivercliff Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access on the Bull Shoals town side of the river below the dam, across from Jim Griffin Access; AGFC materials also call it Forrest and Nina Wood State Park Access. A Corps of Engineers fishing pier is beside the concrete ramp.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Paved AGFC parking area.",
+   "parking_capacity": null,
+   "road_access": "In Bull Shoals via Rivercliff Drive and Clubhouse Lane.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": "AGFC marks the ramp and USACE pier as accessible; the access lies in the AGFC-mapped Bull Shoals catch-and-release area (check current trout rules).",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2121,2793,2022&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://agfc.com/news/wildcat-shoals-access-on-white-river-temporarily-closed"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2121,2793,2022&outFields=*&returnGeometry=false&f=json"
+    ],
+    "road_access": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2121,2793,2022&outFields=*&returnGeometry=false&f=json"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2121,2793,2022&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ]
+   },
+   "confidence": "high: AGFC GIS + AGFC tailwater map inset (Clubhouse Lane off Rivercliff Drive). No restroom recorded in GIS."
+  }
+ },
+ "aeac4958-b052-4df3-9ba1-ebef160140b9": {
+  "name": "Bull Shoals-White River State Park Ramp",
+  "river": "white",
+  "research": {
+   "description": "Boat ramp inside Bull Shoals-White River State Park, next to the park's trout dock and store and a barrier-free fishing pier along the campground riverbank.",
+   "fee": {
+    "status": "unknown",
+    "notes": "Park brochure says to contact the park for hours and fees; no ramp fee statement found.",
+    "source": "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+   },
+   "parking_info": "Paved parking area at the ramp (AGFC facility layer, owner Arkansas State Parks).",
+   "parking_capacity": null,
+   "road_access": "From US 62 at Flippin take Hwy 178 about 10 miles north to the park, or from Mountain Home go 6 miles north on Hwy 5 then 8 miles west on Hwy 178; the ramp is by the trout dock in the campground.",
+   "road_surface": [],
+   "address": "Park campground (Camp Area): 129 Bull Shoals Park, Lakeview, AR 72642; visitor center: 153 Dam Overlook Lane, Bull Shoals, AR 72619.",
+   "amenities": [
+    "boat_ramp",
+    "parking",
+    "camping",
+    "restrooms",
+    "picnic"
+   ],
+   "hours": "Campground/picnic area open all year; bathhouses open March–November; trout dock (marina) daily 7 a.m.–6 p.m. March–October, Fri–Tue 7:30 a.m.–4 p.m. Nov and Feb, closed Dec–Jan.",
+   "local_tips": "A barrier-free fishing pier is beside the trout dock near the ramp.",
+   "sources": {
+    "description": [
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf",
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1627,2886&outFields=*&returnGeometry=false&f=json"
+    ],
+    "fee": [
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1627,2886&outFields=*&returnGeometry=false&f=json"
+    ],
+    "road_access": [
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+    ],
+    "address": [
+     "https://www.arkansas.com/state-parks/parks/bull-shoals-white-river-state-park"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1627,2886&outFields=*&returnGeometry=false&f=json",
+     "https://www.arkansas.com/state-parks/parks/bull-shoals-white-river-state-park",
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+    ],
+    "hours": [
+     "https://www.arkansas.com/state-parks/parks/bull-shoals-white-river-state-park"
+    ],
+    "local_tips": [
+     "https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf"
+    ]
+   },
+   "confidence": "high: Arkansas State Parks page and brochure map + AGFC GIS; ramp fee not stated."
+  }
+ },
+ "04bd028e-bd22-451b-8b86-a618dfc0fb83": {
+  "name": "Gaston's Access",
+  "river": "white",
+  "research": {
+   "description": "Concrete-plank boat ramp at Gaston's White River Resort, recorded with AGFC ownership in the AGFC public-use facility layer.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=216&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=216&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "low: only the AGFC GIS record ('Gaston's Resort Boat Ramp', owner AGFC, concrete plank) supports it; the AGFC tailwater map does not mark it and AGFC's 2018 list of public accesses between the dam and Cotter omits it."
+  }
+ },
+ "938a458b-3b64-437d-90b5-d435e325c4a7": {
+  "name": "White Hole Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at White Hole, downstream of Partee Shoal and Three Chutes on the Bull Shoals tailwater.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Gravel AGFC parking area.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=810,2333&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://agfc.com/news/wildcat-shoals-access-on-white-river-temporarily-closed"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=810,2333&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=810,2333&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "medium: AGFC GIS + map; no road, restroom or fee info found in official sources."
+  }
+ },
+ "5caefde8-f9fa-4da5-9c4f-385583621cf7": {
+  "name": "Bronie Yurkonis Walk-In Access (The Narrows)",
+  "river": "white",
+  "research": {
+   "description": "Baxter County-owned walk-in access at The Narrows, upstream of Wildcat Shoals Access; there is no boat ramp. AGFC lists it among the public accesses below Bull Shoals Dam.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area (Baxter County).",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=944,2786&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://agfc.com/news/wildcat-shoals-access-on-white-river-temporarily-closed"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=944,2786&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=944,2786&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "medium: AGFC GIS (owner Baxter County, walk-in, gravel parking) + AGFC map/news; no county page found."
+  }
+ },
+ "032f9325-e17e-4510-a2a9-084621973f5b": {
+  "name": "Wildcat Shoals Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at Wildcat Shoals, below The Narrows. AGFC rebuilt the ramp in 2018 and added a restroom building in 2025.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Paved upper and lower parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking",
+    "restrooms"
+   ],
+   "hours": null,
+   "local_tips": "The year-round restroom has an accessible sidewalk from the upper parking lot.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1494,1905,22102,21703,1371&outFields=*&returnGeometry=false&f=json",
+     "https://agfc.com/news/wildcat-shoals-access-on-white-river-temporarily-closed",
+     "https://agfc.com/?p=17122"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1494,1905,22102,21703,1371&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1494,1905,22102,21703,1371&outFields=*&returnGeometry=false&f=json",
+     "https://agfc.com/?p=17122"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1494,1905,22102,21703,1371&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "high: AGFC GIS (edited 2025, restroom completion report Aug 2025) + AGFC 2018/2025 news."
+  }
+ },
+ "7433821d-623c-45d1-84f0-707d1f53bac5": {
+  "name": "Cotter Access (Big Spring Park)",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat ramp in the City of Cotter's Big Spring Park, just below the Hwy 62B bridge. The park also has a spring-fed swimming hole, riverside picnic cabanas and a riverbank walking trail.",
+   "fee": {
+    "status": "no_fee",
+    "notes": "City ordinance 2021-01 Sec. 10: the public may use park facilities free, first come first served, unless reserved; rental fees apply only to reserved pavilion/gazebo/ballfield or whole-park use.",
+    "source": "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+   },
+   "parking_info": "Paved AGFC parking area at the ramp; the city notes a large parking lot by the farmers market.",
+   "parking_capacity": null,
+   "road_access": "Park entrance at the corner of Cotter Road (Hwy 345) and Big Spring Parkway in Cotter.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking",
+    "restrooms",
+    "picnic"
+   ],
+   "hours": "City parks open daily 5 a.m.–10 p.m. (Cotter ordinance 2001-10).",
+   "local_tips": "AGFC marks the ramp and parking as accessible; the restroom is seasonal.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1883,1663,161&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://www.cotterar.gov/parks"
+    ],
+    "fee": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1883,1663,161&outFields=*&returnGeometry=false&f=json",
+     "https://www.cotterar.gov/parks"
+    ],
+    "road_access": [
+     "https://www.cotterar.gov/parks"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1883,1663,161&outFields=*&returnGeometry=false&f=json",
+     "https://www.cotterar.gov/parks"
+    ],
+    "hours": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1883,1663,161&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "high: AGFC GIS + City of Cotter parks page and park ordinances."
+  }
+ },
+ "e41a11c4-a904-4026-8ecd-e0ee0e0e5344": {
+  "name": "Armstrong Hole Walk-In Access",
+  "river": "white",
+  "research": {
+   "description": "City of Cotter walk-in river access on Cotter Road, listed among the city's parks.",
+   "fee": {
+    "status": "no_fee",
+    "notes": "City ordinance 2021-01 Sec. 10 allows free public use of city park facilities unless reserved (applies to city parks generally; Armstrong Hole not named).",
+    "source": "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "On Cotter Road in Cotter.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [],
+   "hours": "City parks open daily 5 a.m.–10 p.m. (Cotter ordinance 2001-10).",
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://www.cotterar.gov/parks",
+     "https://www.google.com/maps/d/kml?mid=1TBdXXOG96OAorJtt3Ksr0C-tGg49OOQ&forcekml=1"
+    ],
+    "fee": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ],
+    "road_access": [
+     "https://www.cotterar.gov/parks"
+    ],
+    "hours": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ]
+   },
+   "confidence": "medium: city lists 'Armstrong Hole Access - Cotter Road' and its park map pin matches these coordinates; no facility details published."
+  }
+ },
+ "8172624e-45b8-4546-98ff-301c89b9b320": {
+  "name": "Roundhouse Shoals Walk-In Access",
+  "river": "white",
+  "research": {
+   "description": "City of Cotter river access on Cotter Road at Roundhouse Shoal, listed among the city's parks.",
+   "fee": {
+    "status": "no_fee",
+    "notes": "City ordinance 2021-01 Sec. 10 allows free public use of city park facilities unless reserved; reserving the Roundhouse Shoals Picnic Area is priced by the mayor case by case.",
+    "source": "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "On Cotter Road in Cotter.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "picnic"
+   ],
+   "hours": "City parks open daily 5 a.m.–10 p.m. (Cotter ordinance 2001-10).",
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://www.cotterar.gov/parks",
+     "https://www.google.com/maps/d/kml?mid=1TBdXXOG96OAorJtt3Ksr0C-tGg49OOQ&forcekml=1",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "fee": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ],
+    "road_access": [
+     "https://www.cotterar.gov/parks"
+    ],
+    "amenities": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ],
+    "hours": [
+     "https://irp.cdn-website.com/bf6af44e/files/uploaded/Park+Rules+and+Regulations+Ordinances.pdf"
+    ]
+   },
+   "confidence": "medium: city lists 'Roundhouse Shoals Access - Cotter Road' (map pin matches); picnic inferred from ordinance naming a 'Roundhouse Shoals Picnic Area' city park. No parking details published."
+  }
+ },
+ "a2757a09-8faa-4cb4-b035-3e030d3b0156": {
+  "name": "Rim Shoals Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access with a T-shaped fishing pier near the mouth of Jenkins Creek, at the head of the Rim Shoals catch-and-release area. A separate AGFC walk-in access and riverside trail lie just downstream.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Paved parking at the boat ramp and a separate paved lot at the walk-in access.",
+   "parking_capacity": null,
+   "road_access": "From US 62/412 take Hwy 126 (or Red Bud Rd from Gassville) to Buford Cutoff, then Rim Shoals Road; the walk-in/trail lot is 0.3 mile down Rim Shoals Lane.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking",
+    "restrooms"
+   ],
+   "hours": null,
+   "local_tips": "AGFC marks the ramp as accessible; the year-round restrooms are at the walk-in parking lot, and the Rim Shoals stretch is a catch-and-release area (check current trout rules).",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1159,2953,1718,14797,2711,34&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+     "https://www.agfc.com/things-to-do/nature-trails/rim-shoals-trail/"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1159,2953,1718,14797,2711,34&outFields=*&returnGeometry=false&f=json"
+    ],
+    "road_access": [
+     "https://www.agfc.com/things-to-do/nature-trails/rim-shoals-trail/"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1159,2953,1718,14797,2711,34&outFields=*&returnGeometry=false&f=json"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1159,2953,1718,14797,2711,34&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ]
+   },
+   "confidence": "high: AGFC GIS + map + AGFC Rim Shoals Trail page (directions are to the trail lot)."
+  }
+ },
+ "cb511837-22d7-436c-a5c7-739d07c1fb5c": {
+  "name": "Ranchette Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at Ranchette, downstream of Shoestring Shoal and upstream of Crane Island.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Two paved parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2090,2370,2902&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2090,2370,2902&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=2090,2370,2902&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "medium: AGFC GIS + map; no road/fee/restroom info."
+  }
+ },
+ "fc5a46ba-94b1-4575-bdce-17f32cfdcbad": {
+  "name": "Buffalo City Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at Buffalo City, just upstream of the Buffalo River confluence, with two concrete ramps.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Two paved parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1026,2225,2728,2802&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1026,2225,2728,2802&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1026,2225,2728,2802&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "medium: AGFC GIS + map; no road/fee/restroom info."
+  }
+ },
+ "7f732412-d0ef-40e3-a42a-5d668304639f": {
+  "name": "Cartney Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at Cartney, below the Buffalo River confluence. A separate AGFC Cartney walk-in access (no boat launching) is a short way downstream.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=209,2806,8644&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=209,2806,8644&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=209,2806,8644&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "medium: AGFC GIS + map; walk-in coordinates put it downstream of the ramp, not upstream as current text says."
+  }
+ },
+ "53274499-3f0a-4a71-837d-194d85483f97": {
+  "name": "Shipp's Ferry Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at Shipps Ferry, downstream of Cartney and Barren Creek Shoal.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this access.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=433,2681&outFields=*&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=433,2681&outFields=*&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=433,2681&outFields=*&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": "medium: AGFC GIS + map; no road/fee/restroom info; 'old ferry crossing' not verified."
+  }
+ },
+ "468ec156-0c49-4b02-99a2-c9365729af6e": {
+  "name": "Norfork Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access in the town of Norfork, where the North Fork River joins the White River. AGFC maps a separate Norfork Access West ramp on the opposite bank.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Paved parking area (AGFC GIS). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": "An AGFC boater transfer lift for mobility-impaired boaters is at this ramp, which also marks the boundary between the White River's two emergency trout-limit zones.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Norfork+%23%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://www.arkansasonline.com/news/2010/sep/30/boat-launch-ramp-closing-repairs-quarry-p-20100930/"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Norfork+%23%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Norfork+%23%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Norfork+%23%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://www.agfc.com/news/arkansas-wildlife-weekly-fishing-report-318/"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "AGFC GIS (Norfork #1 ramp, paved lot, transfer lift) and AGFC tailwater map agree; fee and hours not published."
+   }
+  }
+ },
+ "8e2daec9-1879-4bc9-a6f2-bfb311316161": {
+  "name": "Red's Landing Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access on the White River a few miles below Norfork, near Mathis Island.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Two paved parking areas (AGFC GIS lists them as 'Reed's Landing'). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Red%25Landing%25%27+OR+fname+LIKE+%27Reed%25Landing%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Red%25Landing%25%27+OR+fname+LIKE+%27Reed%25Landing%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Red%25Landing%25%27+OR+fname+LIKE+%27Reed%25Landing%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "AGFC GIS concrete ramp + two paved lots matches current text; GIS spells the lots 'Reed's Landing'."
+   }
+  }
+ },
+ "4e43ed07-b5ac-462f-90d8-98ebf6e1c3c9": {
+  "name": "Sneed Creek Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at the mouth of Sneed Creek in the Ozark National Forest, upstream of Calico Rock.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area, built 2010 (AGFC GIS). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": "Reached by Forest Service Road 1105B, a gravel road AGFC's GIS labels 'Sneed Creek Access'.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sneed+Creek%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sneed+Creek%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "road_access": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/13/query?where=fname+LIKE+%27FR+91089C%25%27+OR+fname+LIKE+%27Road+%231105B%25%27&outFields=fname%2cftype%2cfdescrip%2cowner%2ccomments&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sneed+Creek%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "AGFC GIS for ramp/parking/road; road maintenance level not stated so no surface enum assigned (GIS says gravel)."
+   }
+  }
+ },
+ "9c297aae-cc0e-439c-81b5-55a81192f2d2": {
+  "name": "Chesmond Ferry Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at the old Chesmond Ferry crossing in Izard County, upstream of Calico Rock near City Rock Bluff.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Paved parking (AGFC GIS); AGFC funded chip sealing of the access road and parking area through the Marine Fuel Tax program in 2022. AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [
+    "paved"
+   ],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Chesmond+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://www.agfc.com/news/agfc-ardot-increase-boating-access/"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Chesmond+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/news/agfc-ardot-increase-boating-access/",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "road_surface": [
+     "https://www.agfc.com/news/agfc-ardot-increase-boating-access/"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Chesmond+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "AGFC GIS + AGFC Aug 2022 news (chip-seal road and parking, $68,000). 'paved' = chip seal."
+   }
+  }
+ },
+ "08182690-80b3-41f9-83e8-2eed56c8821f": {
+  "name": "Calico Rock City Park Access",
+  "river": "white",
+  "research": {
+   "description": "Concrete boat ramp on the White River at Calico Rock. AGFC lists the ramp and paved lot as its own; the City of Calico Rock lists a boat ramp among its free city parks.",
+   "fee": {
+    "status": "no_fee",
+    "notes": "City of Calico Rock: its parks, which list a boat ramp, 'are free and open to the public.' Page does not name the ramp's park.",
+    "source": "https://explorecalico.com/city-of-calico-rock"
+   },
+   "parking_info": "Paved parking area (AGFC GIS). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Calico+Rock%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://explorecalico.com/city-of-calico-rock"
+    ],
+    "fee": [
+     "https://explorecalico.com/city-of-calico-rock"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Calico+Rock%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Calico+Rock%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "AGFC GIS gives owner AGFC (not city); city page says city parks incl. a boat ramp are free but doesn't name the park."
+   }
+  }
+ },
+ "3fa1c59d-854d-4d9d-af61-52a1a5ca74d0": {
+  "name": "Boswell Shoals Access",
+  "river": "white",
+  "research": {
+   "description": "Primitive Forest Service boat access at Boswell Shoals near Optimus in the Ozark National Forest, shown as 'Optimus Access' on AGFC's tailwater map.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Dirt parking area (AGFC GIS, owner USFS).",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [
+    "dirt"
+   ],
+   "address": null,
+   "amenities": [
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": "AGFC's GIS lists Forest Road 91089C, which reaches the access area, as a dirt road not maintained for passenger cars.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Boswell+Shoals%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://encyclopediaofarkansas.net/entries/optimus-stone-county-9784/"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Boswell+Shoals%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ],
+    "road_surface": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/13/query?where=fname+LIKE+%27FR+91089C%25%27+OR+fname+LIKE+%27Road+%231105B%25%27&outFields=fname%2cftype%2cfdescrip%2cowner%2ccomments&returnGeometry=false&f=json"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Boswell+Shoals%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/13/query?where=fname+LIKE+%27FR+91089C%25%27+OR+fname+LIKE+%27Road+%231105B%25%27&outFields=fname%2cftype%2cfdescrip%2cowner%2ccomments&returnGeometry=false&f=json",
+     "https://ozarkmtns.com/sylamore/points/point13.asp.html"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "AGFC GIS + map confirm dirt launch/parking, USFS owner, Optimus Access alias. Third-party (ozarkmtns) says last mile is dirt, 'well maintained, 4WD not necessary' and no restrooms/tables - conflicts with GIS 'not maintained for passenger car'."
+   }
+  }
+ },
+ "78c3f527-927a-4557-ae4f-fd213664b325": {
+  "name": "Mount Olive Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access near the Mount Olive community in Izard County, between Calico Rock and Sylamore.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area (AGFC GIS). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Mount+Olive%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Mount+Olive%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Mount+Olive%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "AGFC GIS concrete ramp + gravel lot matches current text."
+   }
+  }
+ },
+ "408d7163-72df-48ce-b81b-c2e6ba644255": {
+  "name": "Sylamore Ferry Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access on the Stone County (Highway 5) bank at Sylamore, built on the old ferry landing near the mouth of Sylamore Creek. A separate AGFC launch is on the Izard County side.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area on this side (AGFC GIS; GIS comment also says 'paved parking'). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": "From Highway 5 at Allison, a short state-maintained spur (Highway 933, Section 2, the old Highway 9 alignment) runs east to the river.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": "A bank-parallel fishing pier that AGFC lists as mobility-impaired accessible is next to the ramp.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sylamore+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://media.ark.org/ardot/Institutional-Road-Report-20240815.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sylamore+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "road_access": [
+     "https://media.ark.org/ardot/Institutional-Road-Report-20240815.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sylamore+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ],
+    "local_tips": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Sylamore+Ferry%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "Pin = GIS 'Sylamore Ferry Boat Ramp #2' (concrete, Stone Co.). ArDOT 1976 sketch in 2024 report shows Hwy 933 Sec 2 (Stone) from Hwy 5 and Sec 1 (Izard) from Hwy 9; matching spur to pin is inferred from county."
+   }
+  }
+ },
+ "d4f8b6df-78ac-4b16-b70c-bf0f1217cfc1": {
+  "name": "Round Bottom Access",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat access at Round Bottom in Stone County, downstream of Sylamore.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Gravel parking area (AGFC GIS). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": null,
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": null,
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Round+Bottom%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Round+Bottom%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Round+Bottom%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "AGFC GIS concrete ramp + gravel lot matches current text."
+   }
+  }
+ },
+ "122d937b-3e16-4c71-8a31-5dbc66fd7574": {
+  "name": "Guion Access (Stone County)",
+  "river": "white",
+  "research": {
+   "description": "AGFC boat ramp on the Stone County bank at the Highway 58 crossing in Guion. The Izard County ramps are across the river.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": null,
+   "parking_capacity": null,
+   "road_access": "Off Arkansas Highway 58 at Guion, at the river crossing.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp"
+   ],
+   "hours": null,
+   "local_tips": "The Highway 58 bridge at Guion is the downstream end of the AGFC-managed Bull Shoals tailwater trout water.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Guion%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "road_access": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Guion%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ],
+    "local_tips": [
+     "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+     "https://www.agfc.com/news/arkansas-wildlife-weekly-fishing-report-318/"
+    ]
+   },
+   "confidence": {
+    "level": "medium",
+    "note": "AGFC GIS lists a concrete Stone Co. ramp; no parking feature recorded on this bank, so parking omitted."
+   }
+  }
+ },
+ "c997d64d-7459-471d-98af-caff3fe519e4": {
+  "name": "Guion Access (Izard County)",
+  "river": "white",
+  "research": {
+   "description": "AGFC access with two boat ramps and a rock fishing jetty on the Izard County bank at Guion, built on the old ferry landing near the Highway 58 bridge.",
+   "fee": {
+    "status": "unknown",
+    "notes": "No official fee statement found for this site.",
+    "source": null
+   },
+   "parking_info": "Paved parking area (AGFC GIS). AGFC Code 19.15 prohibits storing vehicles or vessels at Commission access and parking areas.",
+   "parking_capacity": null,
+   "road_access": "Off Arkansas Highway 58 at Guion, at the river crossing.",
+   "road_surface": [],
+   "address": null,
+   "amenities": [
+    "boat_ramp",
+    "parking"
+   ],
+   "hours": null,
+   "local_tips": "The Highway 58 bridge at Guion is the downstream end of the AGFC-managed Bull Shoals tailwater trout water.",
+   "sources": {
+    "description": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Guion%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf"
+    ],
+    "parking_info": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Guion%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json",
+     "https://agfc-omnibus.s3.amazonaws.com/eregs/regulation_pdfs/large/agfc_regulation_19.00_large.pdf"
+    ],
+    "road_access": [
+     "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+     "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/"
+    ],
+    "amenities": [
+     "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?where=fname+LIKE+%27Guion%25%27&outFields=fname%2Cftype%2Cfdescrip%2Cowner%2Ccounty%2Cmiaccess%2Ccomments&returnGeometry=false&f=json"
+    ],
+    "local_tips": [
+     "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+     "https://www.agfc.com/news/arkansas-wildlife-weekly-fishing-report-318/"
+    ]
+   },
+   "confidence": {
+    "level": "high",
+    "note": "AGFC GIS: two concrete ramps, paved lot, rock jetty on old ferry landing; matches current text."
+   }
+  }
+ }
+}

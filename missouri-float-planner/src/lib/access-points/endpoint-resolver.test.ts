@@ -105,6 +105,25 @@ test('the same point at both ends is not a float', () => {
   assert.equal(result.reason, 'same-point');
 });
 
+test('two launches at one river mile are not a float, however the mile is typed', () => {
+  // Guion's Stone and Izard county ramps face each other across the White.
+  const result = classifyEndpoints(
+    [row({ id: 'baptist-camp', river_mile_downstream: '90.46' }), row({ id: 'cedargrove', river_mile_downstream: 90.46 })],
+    ask,
+  );
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.reason, 'same-river-mile');
+  assert.equal(endpointFailureStatus(result.reason), 400);
+  const apart = classifyEndpoints(
+    [row({ id: 'baptist-camp', river_mile_downstream: '82.16' }), row({ id: 'cedargrove', river_mile_downstream: '90.46' })],
+    ask,
+  );
+  assert.equal(apart.ok, true);
+  assert.equal(classifyEndpoints([row({ id: 'baptist-camp', river_mile_downstream: null }), takeOut], ask).ok, true,
+    'an unknown mile is left to the segment builder');
+});
+
 test('a non-launch reads as a non-launch even when the river also mismatches', () => {
   // Order matters for the message the caller shows: "that is not a launch" is
   // actionable, "that is not on this river" about a park is confusing.

@@ -29,7 +29,7 @@
     "ownership": "MDC",
     "managing_agency": "MDC",
     "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
-    "facilities": "One-lane concrete ramp, the uppermost launch on Taneycomo; parking ~20 rigs, restrooms, picnic areas",
+    "facilities": "One-lane concrete ramp, the uppermost launch on Taneycomo; parking, restrooms, picnic areas",
     "confidence": "high",
     "source_urls": [
       "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
@@ -47,7 +47,7 @@
     "ownership": "MDC",
     "managing_agency": "MDC",
     "official_site_url": "https://mdc.mo.gov/discover-nature/places/cooper-creek-access",
-    "facilities": "Concrete ramp, large parking (~40 rigs), two ADA covered fishing docks, privy; MDC places it 5 miles below the hatchery ramp, which the flowline confirms",
+    "facilities": "Concrete ramp, large parking lot, an ADA covered fishing dock and a privy, 5 miles below the hatchery ramp",
     "confidence": "high",
     "source_urls": [
       "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
@@ -65,7 +65,7 @@
     "ownership": "City",
     "managing_agency": "Municipal",
     "official_site_url": "https://www.bransonlakesidervpark.com/",
-    "facilities": "Public one-lane concrete ramp beside the city-owned Branson Lakeside RV Park, downtown Branson lakefront; public fishing docks nearby; parking ~20 rigs",
+    "facilities": "Public concrete ramp at the south end of the city-owned Branson Lakeside RV Park on the downtown Branson lakefront; public fishing docks nearby",
     "confidence": "medium",
     "source_urls": [
       "https://www.openstreetmap.org/node/5159790003",
@@ -100,7 +100,7 @@
     "ownership": "MDC",
     "managing_agency": "MDC",
     "official_site_url": "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access",
-    "facilities": "One-lane concrete ramp on Hwy 176, maintained by the City of Rockaway Beach; ADA covered fishing dock, parking ~20 rigs, restrooms; open 4 AM-10 PM",
+    "facilities": "One-lane concrete ramp on Hwy 176, maintained by the City of Rockaway Beach; ADA covered fishing dock, parking, privy, fish-cleaning station; open 4 AM-10 PM",
     "confidence": "high",
     "source_urls": [
       "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",

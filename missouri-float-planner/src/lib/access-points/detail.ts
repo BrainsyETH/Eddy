@@ -301,7 +301,7 @@ export async function getAccessPointDetail(
     parkingInfo: ap.parking_info,
     roadAccess: ap.road_access,
     facilities: ap.facilities,
-    feeRequired: ap.fee_required ?? false,
+    feeRequired: ap.fee_required ?? null,
     feeNotes: ap.fee_notes,
     directionsOverride: ap.directions_override,
     imageUrls: ap.image_urls || [],

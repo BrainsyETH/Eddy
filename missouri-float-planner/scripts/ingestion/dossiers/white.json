@@ -1,5 +1,5 @@
 {
-  "_status": "REVIEWED 2026-10-15: evidence worksheet; NOT SIGNED OFF for activation. Corrections prepared; production transaction blocked by connector requestState errors. Device acceptance and endpoint photos unconfirmed.",
+  "_status": "ACTIVATED 2026-10-29 with all 23 approved endpoints (unrated). See reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md for accepted gaps.",
   "name": "White River",
   "slug": "white",
   "state": "AR",
@@ -47,59 +47,104 @@
   },
   "readiness": {
     "corridor": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Proposed first corridor: Bull Shoals-White River State Park Ramp to White Hole Access (stored miles 1.50-7.28). This does not approve every access pair on the 90.46-mile catalog reach."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "All 23 approved float endpoints, Jim Griffin (0.54) to the two Guion ramps (90.46), published at the owner's direction. The October 15 short corridor is superseded by this scope decision."
     },
     "legalAccess": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md",
+        "https://github.com/BrainsyETH/Eddy/issues/1541"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Agency ramp evidence recorded; current posted restrictions, endpoint photos and offered route scope still require acceptance."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "22 ramp pins match AGFC boating features (October 15) and the Guion, Sylamore and Cotter-area identities were confirmed with Evan on 2026-10-17. Boswell Shoals is USFS. Current posted restrictions, fees and hours unconfirmed."
     },
     "gauge": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "https://eddy.guide/api/dams/swl-bull-shoals-dam"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Primary USACE provider mapping and fresh release/stage observed in production snapshot at 22:35 UTC, observation time 22:00 UTC. This is a dam observation, not a validated downstream travel-time model."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "USACE swl-bull-shoals-dam release, cfs; read 2026-10-29 15:47 UTC: 713 cfs, generating, observed 15:00 UTC (fresh). Downstream USGS Norfork and Calico Rock and the Norfork release are linked as context, unrated."
     },
     "conditions": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../../../shared/tailwater-status.test.ts"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Existing shared model and MCP tests withhold float time and safe-wading claims. Device presentation, disagreement and unexpected-release walkthrough still unconfirmed.",
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "Unrated: no thresholds on any linked gauge (checked in the staging migration). Float time and wading all-clear withheld by tested shared code. Device walkthrough unconfirmed; owner accepted activation without it.",
       "ratingMode": "unrated"
     },
     "hazards": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../../../supabase/migrations/20261029154803_stage_white_taneycomo_tailwaters.sql"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "Structured characteristics prepared. No claim of no fixed hazards; posted dam approach limits and route hazard coverage remain pending."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "Bull Shoals Dam (0.00, danger) mapped. Shoals, bridges and other fixed hazards on the 90 miles have not been reviewed; no claim of a hazard-free route. USACE restricted-area limits not obtained (#1541)."
     },
     "routing": {
-      "status": "pending",
+      "status": "verified",
       "evidence": [
-        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md"
       ],
-      "reviewedBy": "Codex evidence review",
-      "reviewedAt": "2026-10-15T22:35:00Z",
-      "notes": "AGFC confirms both ramp coordinates. Full downstream review, endpoint publication scope and fixed-hazard review remain incomplete."
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "All 22 consecutive endpoint segments returned valid LineStrings from get_float_segment on 2026-10-29, each matching its manual mileage. The two Guion ramps share mile 90.46 on opposite banks; the endpoint resolver now refuses that pair with a 400 instead of a segment-builder 500."
+    },
+    "tailwaterPilot": {
+      "status": "verified",
+      "evidence": [
+        "../reviews/TAILWATER_ACTIVATION_WHITE_TANEYCOMO_2026-10-29.md",
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+        "../reviews/TAILWATER_ACCESS_REVIEW_2026-10-17.md",
+        "https://github.com/BrainsyETH/Eddy/issues/1541"
+      ],
+      "reviewedBy": "Claude Code — production checks and source review; scope and activation directed by Evan",
+      "reviewedAt": "2026-10-29T15:48:00Z",
+      "notes": "Owner-directed activation on 2026-10-29 publishing every approved endpoint. Open items in the activation record: photos, posted dam restrictions, fixed-hazard review, device acceptance.",
+      "floatEndpoints": [
+        "jim-griffin-access",
+        "forrest-and-nina-wood-rivercliff-access",
+        "bull-shoals-white-river-state-park-ramp",
+        "gaston-s-access",
+        "white-hole-access",
+        "wildcat-shoals-access",
+        "cotter-access-big-spring-park",
+        "rim-shoals-access",
+        "ranchette-access",
+        "buffalo-city-access",
+        "cartney-access",
+        "shipp-s-ferry-access",
+        "norfork-access",
+        "red-s-landing-access",
+        "sneed-creek-access",
+        "chesmond-ferry-access",
+        "calico-rock-city-park-access",
+        "boswell-shoals-access",
+        "mount-olive-access",
+        "sylamore-ferry-access",
+        "round-bottom-access",
+        "guion-access",
+        "guion-access-izard-county"
+      ]
     }
   }
 }

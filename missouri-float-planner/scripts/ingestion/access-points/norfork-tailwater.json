@@ -28,7 +28,7 @@
     "ownership": "COE",
     "managing_agency": "COE",
     "official_site_url": "https://www.recreation.gov/camping/campgrounds/232565",
-    "facilities": "68 reservable riverfront sites with electric/water, dump station, restrooms; direct bank access to the tailwater; fee site on recreation.gov",
+    "facilities": "68 reservable electric sites, two group shelters and a group area, bathhouses and an on-site boat ramp; fee site on Recreation.gov",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
@@ -50,7 +50,7 @@
     "ownership": "USFWS",
     "managing_agency": null,
     "official_site_url": "https://www.fws.gov/fish-hatchery/norfork",
-    "facilities": "NOT a float put-in and not a launch (kind park, so the importer never marks it a float endpoint): walk-in bank fishing at the hatchery near the mouth of Dry Run Creek, catch-and-release, RESTRICTED to youth under 16 and mobility-impaired anglers; ADA piers and walkways, paved parking",
+    "facilities": "Walk-in bank fishing at the Norfork National Fish Hatchery, limited to anglers under 16 and mobility-impaired anglers; ADA piers and walkways, paved parking",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
