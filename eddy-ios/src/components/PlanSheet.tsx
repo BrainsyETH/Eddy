@@ -373,14 +373,10 @@ export function PlanSheet({
             accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
             header={contentHeader}
             actions={<>
+              {/* The footer's Save is the one save control; once saved, the
+                  offline-map download appears here. */}
               {features.floatMode && keptPlan ? <SavedTripDownload key={keptPlan.shortCode} riverSlug={plan.river.slug} shortCode={keptPlan.shortCode}
-                putInId={plan.putIn.id} takeOutId={plan.takeOut.id} /> : features.floatMode ? <View>
-                <Text style={[styles.subtitle, { color: colors.textMuted }]}>Save this route to download its offline map.</Text>
-                <Pressable accessibilityRole="button" disabled={saving || !savedFloatsReady} onPress={() => void onToggleSave()}
-                  style={styles.secondaryButton}>
-                  <Text style={[styles.link, { color: colors.interactive }]}>{saving ? 'Saving…' : 'Save route for offline'}</Text>
-                </Pressable>
-              </View> : null}
+                putInId={plan.putIn.id} takeOutId={plan.takeOut.id} /> : null}
               <Pressable
                 onPress={state.reset}
                 style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}

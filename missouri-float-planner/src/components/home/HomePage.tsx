@@ -44,6 +44,8 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
     return guide ? `/blog/${guide.postSlug}` : `/rivers/${slug}`;
   };
   const featureImage = riverGuides[FEATURE_RIVER.slug]?.image ?? null;
+  // The river the conditions section opens on; the hero skips it.
+  const leadReport = featuredReports[0] ? [featuredReports[0].slug] : [];
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
@@ -107,7 +109,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
               </div>
               {/* Live quote bubble */}
               <div className="order-1 w-full max-w-sm md:max-w-none z-20">
-                <EddyHeroBubble />
+                <EddyHeroBubble excludeRiverSlugs={leadReport} />
               </div>
             </div>
           </div>
@@ -212,10 +214,10 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                     <h3 className="text-base font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
                       {river.name}
                     </h3>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-600">
-                      {riverGuides[river.slug] ? 'Read guide' : 'River report'} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
                   </div>
+                  {/* The whole row is the link; the arrow says so without a
+                      "Read guide" label repeated on every row. */}
+                  <ArrowRight className="w-4 h-4 flex-shrink-0 text-neutral-400 group-hover:translate-x-0.5 group-hover:text-accent-600 transition-transform" aria-hidden="true" />
                 </Link>
               );
             })}

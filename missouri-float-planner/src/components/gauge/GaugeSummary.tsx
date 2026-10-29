@@ -83,6 +83,12 @@ interface GaugeSummaryProps {
   floodStages?: GaugeFloodStages | null;
   /** The station's latest water temperature, for the cold-water note. */
   waterTemperature?: { valueF: number; observedAt: string } | null;
+  /**
+   * Skip the "Right now" row when the page shows the same reading in its
+   * own card (the river page's CurrentReadingCard). An untrusted reading still
+   * gets its row, because the warning about it lives there.
+   */
+  hideCurrentReading?: boolean;
   className?: string;
 }
 
@@ -110,6 +116,7 @@ export default function GaugeSummary({
   flowPercentile,
   floodStages,
   waterTemperature,
+  hideCurrentReading = false,
   className = '',
 }: GaugeSummaryProps) {
   // The chart's own request — shared with it through the query cache, and
@@ -281,6 +288,7 @@ export default function GaugeSummary({
           has to say — it leads, in its own violet, before the reading. */}
       {officialEvent && safetyRow}
 
+      {(!hideCurrentReading || !trusted) && (
       <div className="flex items-baseline gap-2 flex-wrap">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 w-20 flex-shrink-0">
           {readingAgeHours != null && readingAgeHours <= 6 ? 'Right now' : 'Last reading'}
@@ -301,6 +309,7 @@ export default function GaugeSummary({
           </span>
         )}
       </div>
+      )}
 
       {tier === 'reference' && (
         <p className="text-xs text-neutral-500 -mt-1">

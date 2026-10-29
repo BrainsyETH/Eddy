@@ -68,7 +68,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
                 {relativeAge(day.retrievedAt, now) ? `Checked ${relativeAge(day.retrievedAt, now)}` : 'Schedule check time unavailable'}
                 {scheduleIsStale(day.retrievedAt, now) && ' · May have changed'}
               </p>
-            </> : <p className={`flex items-center rounded-lg bg-neutral-50 px-3 text-sm text-neutral-500 ${compact ? 'min-h-28' : 'min-h-36'}`}>
+            </> : <p className="rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
               {label === 'Tomorrow' ? 'Tomorrow’s generation schedule hasn’t been posted yet.' : 'Today’s generation schedule is unavailable.'}
             </p>}
           </section>

@@ -469,18 +469,17 @@ export default async function RiverGuidePage({ params }: Props) {
             </section>
           )}
 
-          {/* ===== Plan CTA band (the hinge) ===== */}
+          {/* ===== Plan CTA band — phones only =====
+              From sm up the sticky section bar carries "Plan a float" the whole
+              way down the page, and a third button here only repeated it. On a
+              phone that bar has no room for the button, so this is the one
+              plan action between the hero and the access list. */}
           <section
-            className="my-10 rounded-2xl px-6 py-8 md:px-9 md:py-9 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center text-white"
+            className="my-10 rounded-2xl px-6 py-6 grid grid-cols-1 gap-4 items-center text-white sm:hidden"
             style={{ background: 'linear-gradient(135deg, #163F4A 0%, #1A4F5C 100%)' }}
           >
-            <div>
-              <div className="text-2xl font-bold mb-1.5" style={{ fontFamily: 'var(--font-display)' }}>
-                Ready to float? Build your trip.
-              </div>
-              <p className="text-sm text-white/80 max-w-xl">
-                Pick a put-in and take-out and we&apos;ll estimate float time, mileage, and shuttle — then give you a link to share with your crew.
-              </p>
+            <div className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
+              Ready to float?
             </div>
             <Link
               href={planUrl}
