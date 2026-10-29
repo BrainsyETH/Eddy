@@ -189,7 +189,12 @@ export function CampingDetailSheet({
                     style={styles.action}
                     onPress={() => {
                       onClose();
-                      router.push({
+                      // navigate, not push — the access screen's "View on map"
+                      // says why. push minted a second Map screen on the stack,
+                      // focused on this campground, and every later return to
+                      // the Map tab landed on that copy instead of the reader's
+                      // own map.
+                      router.navigate({
                         pathname: '/',
                         params: {
                           focusAccess: row.accessDestination!.accessId,

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import {
@@ -787,4 +788,31 @@ test('an offline gauge result opens a sheet with an honest absence of a reading'
   assert.equal(pin({ ...offline, gauge: { curated: true } }), null, 'a live result is never built from its thinner fields');
   assert.equal(pin({ ...offline, siteId: null }), null);
   assert.match(SCREEN, /if \(known && hasCoordinates\(known\)\) return mapGaugePin\(known\);\s*return offlineGaugePin\(result\);/);
+});
+
+test('nothing pushes a second Map screen: "View on map" navigates to the existing tab', () => {
+  // router.push to '/' mints a fresh copy of the Map screen on the stack. The
+  // camping sheet's "View on map" did, focused on its campground, and every
+  // later return to the Map tab landed on that copy — "the map keeps sending
+  // me back to Steel Creek". navigate returns to the Map tab that exists.
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.tsx?$/.test(name)) files.push(path);
+    }
+  };
+  walk('../eddy-ios/app');
+  walk('../eddy-ios/src');
+  const offenders: string[] = [];
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    for (const match of text.matchAll(/router\.(push|replace)\(\{([\s\S]{0,300}?)\}\)/g)) {
+      if (/pathname:\s*['"]\/['"]/.test(match[2])) offenders.push(`${file}: router.${match[1]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], 'open the Map tab with router.navigate, never push or replace a copy of it');
+  assert.match(readFileSync('../eddy-ios/src/components/CampingDetailSheet.tsx', 'utf8'),
+    /router\.navigate\(\{\s*pathname: '\/',\s*params: \{\s*focusAccess:/);
 });
