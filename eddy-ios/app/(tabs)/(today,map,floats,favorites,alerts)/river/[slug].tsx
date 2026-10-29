@@ -380,22 +380,30 @@ export default function RiverDetailScreen() {
   // Programmatic anchors must clear the translucent bar as well as its safe area.
   const readTopInset = Platform.OS === 'ios' ? headerHeight : 0;
   const readScroll = useRef<ScrollView>(null);
-  const readAnchor = useRef<{ key: string; y: number | null; done: boolean }>({ key: '', y: null, done: false });
+  const readAnchor = useRef<{ key: string; y: number | null; done: boolean; scrolledTo?: number }>({ key: '', y: null, done: false });
   const readTargetKey = JSON.stringify([slug, focus]);
   // The Hazards section's own anchor, for `focus=hazards` — a plan's "Below
   // your take-out" row lands here. Same mechanism as the read's, kept apart so
   // one section's layout cannot overwrite the other's position.
-  const hazardsAnchor = useRef<{ key: string; y: number | null; done: boolean }>({ key: '', y: null, done: false });
+  const hazardsAnchor = useRef<{ key: string; y: number | null; done: boolean; scrolledTo?: number }>({ key: '', y: null, done: false });
+  // FOLLOWS the target until the reader takes over. The first version marked
+  // itself done after one scroll, so when Eddy's read or the hazards above
+  // finished loading and pushed the section down, the next layout event could
+  // not correct it and the page settled somewhere else. Now every layout move
+  // of the target re-aims, and only a drag (onScrollBeginDrag) ends it; a move
+  // that lands where the last scroll already went is skipped.
   const scrollToAnchor = (
     target: 'read' | 'hazards',
     ref: typeof readAnchor,
   ) => {
     const anchor = ref.current;
     if (focus !== target || anchor.key !== readTargetKey || anchor.y === null || anchor.done) return;
+    const y = Math.max(-readTopInset, anchor.y - readTopInset - 12);
+    if (anchor.scrolledTo === y) return;
+    anchor.scrolledTo = y;
     requestAnimationFrame(() => {
       if (ref.current !== anchor || anchor.done) return;
-      readScroll.current?.scrollTo({ y: Math.max(-readTopInset, (anchor.y ?? 0) - readTopInset - 12), animated: true });
-      anchor.done = true;
+      readScroll.current?.scrollTo({ y, animated: true });
     });
   };
   const scrollToRead = () => scrollToAnchor('read', readAnchor);

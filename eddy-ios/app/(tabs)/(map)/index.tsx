@@ -2565,16 +2565,21 @@ function MapContent() {
     pendingAccessSelection.current = null;
   }, [selectRiver]);
 
-  // Back and close restore the surface that actually opened this point.
-  // Keep river/route data and the camera; neither dismissal changes the route.
-  const dismissPin = useCallback(() => {
+  // BACK restores the surface that actually opened this point — the river's
+  // sheet, or the route. CLOSE puts the pin down onto the map: the river, the
+  // route and the camera all stay, but the river sheet does not reopen. They
+  // were one handler, so a sheet showing "‹ Current River" beside an × offered
+  // two controls that did the same thing. Neither changes the route.
+  const putPinDown = useCallback((reopenRiverSheet: boolean) => {
     setSelectedPin(null);
     setCameraCommand(null);
     pendingRiverFit.current = null;
     pendingAccessSelection.current = null;
     pendingMapPlanFrame.current = null;
-    setRiverSheetOpen(revealsRiverSheet);
-  }, [revealsRiverSheet]);
+    setRiverSheetOpen(reopenRiverSheet);
+  }, []);
+  const dismissPin = useCallback(() => putPinDown(revealsRiverSheet), [putPinDown, revealsRiverSheet]);
+  const closePin = useCallback(() => putPinDown(false), [putPinDown]);
 
   const dismissMapSelection = useCallback(() => {
     cancelMapSearch();
@@ -3305,7 +3310,7 @@ function MapContent() {
               onOpenDetail={(route) => router.push(asHref(route))}
               onBack={mapPlanning || (revealsRiverSheet && riverSheetData) ? dismissPin : null}
               backLabel={mapPlanning ? 'Your route' : revealsRiverSheet ? riverSheetData?.name ?? null : null}
-              onClose={dismissPin}
+              onClose={closePin}
               // Rated gauges, national-tier gauges and dams, each stored as its
               // own screen stores it. Saved places override this in PinSheet.
               {...pinStarProps(pinStarItem(selectedPin, pinGauge, pinReferenceGauge), isStarred, toggleStar)}

@@ -39,7 +39,8 @@ function scene(planning = false) {
   const pendingAccessSelection = { current: null };
   const pendingMapPlanFrame = { current: null };
   const pendingRiverFit = { current: { slug } as { slug: string } | null };
-  const run = (name: string, ...args: unknown[]) => callback(name, {
+  const run = (name: string, ...args: unknown[]) => {
+    const context: Record<string, unknown> = {
     ...state, pendingAccessSelection, pendingMapPlanFrame,
     pendingRiverFit, setCameraCommand: (command: unknown) => { state.cameraCommand = command; },
     mapPlanning: state.mapPlanRiver === state.selectedSlug,
@@ -56,7 +57,11 @@ function scene(planning = false) {
       putInOptions: [putIn, takeOut], takeOutOptions: [takeOut],
       choosePutIn: (point: MapAccessPoint) => { state.putIn = point; },
       chooseTakeOut: (point: MapAccessPoint) => { state.takeOut = point; state.step = 'result'; } },
-  })(...args);
+    };
+    // Back and close share the pin-down step; built from the same context.
+    context.putPinDown = callback('putPinDown', context);
+    return callback(name, context)(...args);
+  };
   return { state, run, pendingRiverFit };
 }
 
@@ -124,9 +129,28 @@ test('the real map handler selects Bay Creek without a confirmation sheet', () =
   assert.equal(state.cameraCommands, 0);
 });
 
-test('Back and close use the same return handler and planning names the route', () => {
+test('close puts the pin down on the map; Back returns to the sheet that opened it', () => {
+  // They were one handler, so "‹ Current River" and × beside it did the same
+  // thing. Close keeps the river, the route and the camera, but does not
+  // reopen the river sheet.
+  const { state, run } = scene();
+  state.riverSheetOpen = true;
+  run('onSelectPin', mapAccessPointPin(takeOut, slug), 'river-sheet');
+  run('closePin');
+  assert.equal(state.selectedPin, null);
+  assert.equal(state.riverSheetOpen, false, 'close does not go back to the river sheet');
+  assert.equal(state.selectedSlug, slug);
+  assert.equal(state.takeOut, takeOut);
+
+  const planning = scene(true);
+  planning.run('onSelectPin', mapAccessPointPin(campOnly, slug, 'campgrounds'));
+  planning.run('closePin');
+  assert.equal(planning.state.mapPlanRiver, slug, 'close keeps the route');
+});
+
+test('Back and close have their own handlers and planning names the route', () => {
   const pinSheet = SCREEN.slice(SCREEN.indexOf('<PinSheet'), SCREEN.indexOf('{...pinStarProps('));
-  assert.match(pinSheet, /onClose=\{dismissPin\}/);
+  assert.match(pinSheet, /onClose=\{closePin\}/);
   assert.match(pinSheet, /onBack=\{mapPlanning .*\? dismissPin : null\}/);
   assert.match(pinSheet, /backLabel=\{mapPlanning \? 'Your route'/);
   assert.match(SCREEN, /riverSheetOpen && riverSheetData && !selectedPin/);
