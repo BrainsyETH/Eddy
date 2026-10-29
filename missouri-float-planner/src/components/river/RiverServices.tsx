@@ -38,7 +38,8 @@ function ServiceRow({ service, camping }: { service: NearbyServiceDirectory; cam
     .join(' · ');
   return (
     <li className="border-b border-neutral-100 px-4 py-3 last:border-b-0 sm:px-5">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      {/* Stacked on phones so the name gets the full width; side by side from sm. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-neutral-900">{service.name}</p>
           <p className="text-xs text-neutral-500">
@@ -50,7 +51,7 @@ function ServiceRow({ service, camping }: { service: NearbyServiceDirectory; cam
             <p className="mt-1 text-xs text-neutral-600">{offerings}</p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium sm:flex-shrink-0 sm:justify-end">
           {camping && service.reservationUrl && (
             <a
               href={service.reservationUrl}

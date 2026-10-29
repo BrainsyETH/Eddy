@@ -103,8 +103,10 @@ export default function CurrentReadingCard({
 
   const conditionLabel = conditionCode ? CONDITION_SHORT_LABELS[conditionCode] ?? CONDITION_SHORT_LABELS.unknown : null;
 
-  const trendDelta = trend
-    ? `${trend.delta > 0 ? '+' : ''}${isCfsPrimary ? Math.round(trend.delta) : trend.delta.toFixed(2)} ${isCfsPrimary ? 'cfs' : 'ft'}`
+  // A steady river says so in words; "0 cfs" beside "Holding steady" is noise.
+  const roundedDelta = trend ? (isCfsPrimary ? Math.round(trend.delta) : Number(trend.delta.toFixed(2))) : 0;
+  const trendDelta = trend && roundedDelta !== 0
+    ? `${roundedDelta > 0 ? '+' : ''}${isCfsPrimary ? roundedDelta : roundedDelta.toFixed(2)} ${isCfsPrimary ? 'cfs' : 'ft'}`
     : null;
 
   const ink = conditionCode ? (CONDITION_SYSTEM[conditionCode] ?? CONDITION_SYSTEM.unknown).ink : 'var(--color-neutral-700)';
