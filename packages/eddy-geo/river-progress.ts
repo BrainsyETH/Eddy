@@ -106,9 +106,10 @@ export const STALE_FIX_MS = 2 * 60_000;
 /**
  * Fastest plausible travel along the river, about 9 mph. Generous on purpose:
  * it only bounds where the matcher looks, and too tight a bound would lose a
- * fast paddler on high water.
+ * fast paddler on high water. Float totals use it too, to judge whether the
+ * distance across a GPS gap was travelled on the water.
  */
-const MAX_SPEED_MPS = 4;
+export const MAX_SPEED_MPS = 4;
 
 /** Extra search room around the last position, beyond speed and accuracy. */
 const WINDOW_SLACK_M = 100;
@@ -428,6 +429,14 @@ export type TrackResult =
        * previous one: the first acquisition, or a confirmed relocation.
        */
       continuous: boolean;
+      /**
+       * Set on a discontinuous commit that ends a gap longer than
+       * REACQUIRE_AFTER_MS: the position before the gap and this one were
+       * both confirmed, so the river between them was travelled. Absent on
+       * the first acquisition and on a relocation, which corrects a wrong
+       * match rather than recording travel.
+       */
+      reacquired?: true;
     }
   /**
    * On the river, but where is not settled yet. 'acquiring' before the first
@@ -515,6 +524,7 @@ export function trackFix(
         riverMile: riverMileAt(index, candidate.lineMeters),
         offsetMeters: global!.offsetMeters,
         continuous: false,
+        ...(committed && !tracking ? { reacquired: true as const } : {}),
       },
     };
   }

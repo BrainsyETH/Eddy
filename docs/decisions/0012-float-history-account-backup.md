@@ -14,9 +14,12 @@ same anchored stay-point rule as moving pace. Totals are persisted with the
 active session independently of the 2,500-sample pace buffer. Discontinuous
 intervals, acquisition time, the final unobserved tail and an unresolved brief
 run are unknown, never inferred stops. Tracked distance sums absolute river-mile
-displacement only in classified moving intervals, including upstream travel.
-Confirmed stops discard GPS wobble; gaps and unresolved final movement do not
-invent distance. It remains a GPS-derived estimate.
+displacement in classified moving intervals, including upstream travel, plus
+the river between the two confirmed positions on either side of a GPS gap that
+tracking reacquired (`reacquired` in `river-progress.ts`), when crossing it took
+no more than the tracker's top river speed. That gap's time stays unknown.
+Confirmed stops discard GPS wobble; relocations (a wrong match corrected) and
+unresolved final movement add no distance. It remains a GPS-derived estimate.
 Moving speed uses signed progress over classified moving time. Existing sessions
 without totals retain their history but pre-upgrade time is unobserved.
 

@@ -439,7 +439,12 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   if (step.result.kind === 'matched') {
     next.awaitingFix = false;
     next.position = { lngLat: pointAt(index, step.result.lineMeters), at: fix.timestamp };
-    const sample: PaceSample = { timestamp: fix.timestamp, riverMile: step.result.riverMile, continuous: step.result.continuous };
+    const sample: PaceSample = {
+      timestamp: fix.timestamp,
+      riverMile: step.result.riverMile,
+      continuous: step.result.continuous,
+      ...(step.result.reacquired ? { reacquired: true as const } : {}),
+    };
     const previous = session.samples[session.samples.length - 1];
     // A discontinuous sample is always kept: it marks a jump pace must not
     // read as movement.

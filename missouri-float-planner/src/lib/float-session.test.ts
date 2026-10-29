@@ -428,6 +428,12 @@ test('a relaunch restores the session exactly; only a real gap in fixes makes th
   assert.equal(viewSession(session, T0 + 680_000).status, 'live');
   const last = session.samples[session.samples.length - 1];
   assert.equal(last.continuous, false);
+  // Both sides of the gap are confirmed, so the 560 m between them was
+  // covered and counts toward tracked distance; its time is not moving time.
+  assert.equal(last.reacquired, true);
+  const gapMiles = session.totals!.distanceMiles - restored.totals!.distanceMiles;
+  assert.ok(gapMiles > 560 / MILE && gapMiles < 600 / MILE, `gap distance ${gapMiles}`);
+  assert.ok(session.totals!.movingMs - restored.totals!.movingMs < 60_000, 'the ten-minute gap is not moving time');
 });
 
 // ── Off the river, arrival, hazards, the stretch, and daylight ──────────────
@@ -1075,9 +1081,14 @@ test('the progress line counts time on the water to arrival and miles from the r
   assert.equal(progressLine(made.session, T0 + 20_000), 'Just started');
   assert.equal(progressLine(made.session, T0 + 5 * 60_000), '5 min on the water');
   const moving = float(made.session, index, 0, T0, 1_800, 1.5);
-  assert.equal(progressLine(moving, T0 + 1_800_000), '30 min on the water · 1.7 mi from start');
+  assert.equal(progressLine(moving, T0 + 1_800_000), '30 min on the water · 30 min moving · 1.7 mi from start');
   const arrived = { ...moving, arrivedAt: T0 + 1_800_000 };
-  assert.equal(progressLine(arrived, T0 + 3 * 3_600_000), '30 min on the water · 1.7 mi from start', 'time stops at the take-out');
+  assert.equal(progressLine(arrived, T0 + 3 * 3_600_000), '30 min on the water · 30 min moving · 1.7 mi from start', 'time stops at the take-out');
+  // A twenty-minute break adds time on the water, not moving time.
+  const rested = float(moving, index, 1.5 * 1_800, T0 + 1_810_000, 1_200, 0);
+  assert.equal(progressLine(rested, T0 + 3_010_000), '50 min on the water · 30 min moving · 1.7 mi from start');
+  // Moving time never reads longer than time on the water.
+  assert.equal(progressLine({ ...moving, totals: { ...moving.totals!, movingMs: 40 * 60_000 } }, T0 + 1_800_000), '30 min on the water · 30 min moving · 1.7 mi from start');
 });
 
 test('recap backup reflects this row and actual sync state, independently of a subscription', () => {

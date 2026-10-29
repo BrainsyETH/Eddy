@@ -52,18 +52,22 @@ export function gpsQualityNote(session: FloatSession, now: number): { accuracyMe
 }
 
 /**
- * Time on the water and distance from the recorded start, for the panel:
- * "1 hr 20 min on the water · 3.4 mi from start". Time stops at arrival,
- * like the recap; distance is along the river from the first confirmed
- * position, null until there is one.
+ * Time on the water, moving time and distance from the recorded start, for
+ * the panel: "1 hr 20 min on the water · 55 min moving · 3.4 mi from start".
+ * Time stops at arrival, like the recap. Moving time is the recap's (breaks of
+ * STAY_MIN_MS or more and GPS gaps left out), shown from its first minute;
+ * distance is along the river from the first confirmed position, null until
+ * there is one.
  */
 export function progressLine(session: FloatSession, now: number): string | null {
   const latest = session.samples[session.samples.length - 1];
   const until = session.arrivedAt ?? session.riverEndAt ?? now;
   const minutes = Math.max(0, Math.round((until - session.startedAt) / 60_000));
   const time = minutes < 1 ? 'Just started' : `${formatDuration(minutes)} on the water`;
+  const movingMinutes = Math.round((session.totals?.movingMs ?? 0) / 60_000);
+  const moving = minutes >= 1 && movingMinutes >= 1 ? ` · ${formatDuration(Math.min(movingMinutes, minutes))} moving` : '';
   const miles = latest && session.startMile != null ? Math.max(0, latest.riverMile - session.startMile) : null;
-  return miles == null ? time : `${time} · ${miles.toFixed(1)} mi from start`;
+  return miles == null ? `${time}${moving}` : `${time}${moving} · ${miles.toFixed(1)} mi from start`;
 }
 
 export function fixAgeLabel(at: number | null, now: number): string {
