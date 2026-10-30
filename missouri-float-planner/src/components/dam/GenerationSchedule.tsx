@@ -27,9 +27,9 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
 }) {
   const today = centralDayKey(now);
   const tomorrow = nextDayKey(today);
-  // A posted zero-generation day is useful; an unposted tomorrow is not a
-  // second chart. Today keeps its unavailable state when that day's missing.
-  const upcoming = [today, tomorrow].map(date => ({
+  // Summary cards show Today only. Full reports also show a posted Tomorrow.
+  // Today keeps its unavailable state when that day's missing.
+  const upcoming = (compact ? [today] : [today, tomorrow]).map(date => ({
     date,
     label: date === today ? 'Today' : 'Tomorrow',
     day: schedule.find(day => day.scheduleDate === date && day.hours.length > 0),

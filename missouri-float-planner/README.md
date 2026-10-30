@@ -48,8 +48,8 @@ guides, and the iPhone app. Its two report columns reuse the Conditions director
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
 Desktop cards match the taller of the two visible reports, with aligned report
 footers and carousel controls; off-screen slides do not set the height. Stacked
-mobile cards keep their natural height. Posted Tomorrow schedules remain visible
-on their dam's slide, and Eddy Says follows the river chart without a spacer.
+mobile cards keep their natural height. Dam cards show only Today's generation
+schedule, and Eddy Says follows the river chart without a spacer.
 Both shared cards use Eddy's framed surface and teal header.
 Each column shows one report, rotating horizontally every eight seconds while
 visible; the columns stack on mobile and support swipe and previous/next arrows.
@@ -91,20 +91,20 @@ artwork. Dam cards focus on release, water temperature and the generation
 schedule; the generator status/rack and below-dam elevation stay on full reports.
 Dam cards share the full report’s framed border and warm reading surface, with a
 deep-teal header, Geist headings and monospaced readings with quieter units.
-The inline next change sits above compact charts for Today and any posted Tomorrow.
-Teal generation bars and an orange Now marker match iOS. Each day shows its own
+The inline next change sits above a compact chart for Today only.
+Teal generation bars and an orange Now marker match iOS. Today shows its own
 schedule check age and stale indicator. The footer combines the report link and
 Central time; longer provenance lives in the info dialog, with “May have changed”
 still visible when the schedule is outdated.
 Unavailable release readings are marked explicitly; turbine flow is not
 substituted for total release.
 
-Hydroelectric dam cards and full reports share `GenerationSchedule`, showing
-Today and any posted Tomorrow directly with the same `DamTimeline`, date labels, per-day
-freshness, and capacity scale. Dates use the Central calendar at the dam,
-including clock changes; another day's schedule never substitutes for a missing
-one. An unposted or empty tomorrow is omitted entirely; a posted zero-generation
-or partial day stays visible. Only today carries the Now marker. Hover, tap or
+Hydroelectric dam cards and full reports share `GenerationSchedule` and
+`DamTimeline`, date labels, per-day freshness, and capacity scale. Cards show only
+Today; full reports also show any posted Tomorrow. Dates use the Central calendar
+at the dam, including clock changes; another day's schedule never substitutes for
+a missing one. Full reports omit an unposted or empty tomorrow; a posted
+zero-generation or partial day stays visible. Only today carries the Now marker. Hover, tap or
 arrow keys reveal hourly details in place. Only the dam heading and Full report
 link navigate, so inspecting a schedule keeps the current search and filters.
 Days after tomorrow remain collapsed on the full report. Stored summaries select
