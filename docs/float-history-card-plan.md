@@ -126,9 +126,8 @@ recover that.
 **Tests**, in `src/lib/float-archive.test.ts` beside the existing
 `accumulateFloat` cases: a three-hour gap and a relocation each add **no**
 interval, although `last` moves and `lastMile − firstMile` would report river
-covered;
-a credited gap adds one; an out-and-back yields one interval, not double; a
-stop's drift adds nothing; overflow gives null.
+covered; a credited gap adds one; an out-and-back yields one interval, not
+double; a stop's drift adds nothing; overflow gives null.
 
 ## Phase 1b: pure logic in `shared/`
 
@@ -218,9 +217,9 @@ fall through cleanly. Rules 8 and 9 need both `movingMph` and `plannerMph`,
 except for the `stoppedMs` half of rule 9. Keep the thresholds as named
 exports (`MOOD_THRESHOLDS`) so they can be tuned in one place.
 
-There is no separate Flood mood. A `dangerous` float uses the Big water art,
-and its mood line states the condition plainly ("Flood stage"), with no
-editorial line.
+There is no separate Flood mood. When a `dangerous` reading earns Big water
+(tracked, and current), the mood line states the condition plainly ("Flood
+stage"), with no editorial line. Otherwise the badge alone carries it.
 
 The mood never replaces the arrival: rain or speed outranks `made-it`, so
 `reachedTakeOut` is shown on its own wherever the route is (phase 3, phase 5).
@@ -286,9 +285,8 @@ beats Rain, Speed beats Made it!); a stale High blocking every mood; the speed
 rules refusing a `partial` float or under 20 minutes of moving time;
 `moodGate` with tracking `none` and a current High and a current Flood
 (standard otter, not Big water), and with `partial` and a current High (Big
-water); missing
-data falling through; the condition source order; malformed sub-objects (null,
-not a throw); and the three tracking states.
+water); missing data falling through; the condition source order; malformed
+sub-objects (null, not a throw); and the three tracking states.
 
 ## Phase 2: record the data the rules need
 
@@ -360,9 +358,11 @@ from a gauge below the put-in, it is labelled "Conditions at start", never
 ### 2b. River span (required for river explored)
 
 At start, snapshot the denominator into the session as
-`riverSpan: { firstMile, lastMile, firstName, lastName }`: the first and last
-`index.anchors` miles, with the names of the `route.anchors` at those miles for
-the strip labels. Copy it into `CompletedFloat`. A snapshot keeps old recaps
+`riverSpan: { firstMile, lastMile, firstName, lastName }`: the lowest and
+highest `index.anchors` miles (the index accepts anchors whose miles run either
+way along the line, so "first" is the lowest mile, not the first in line
+order), with the names of the `route.anchors` at those miles for the strip
+labels. Copy it into `CompletedFloat`. A snapshot keeps old recaps
 stable if river data is corrected later.
 
 ### 2c. Covered intervals (required for river explored)
