@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareTerrainMap } from './terrain-map';
+import type { LngLat } from '../../../shared/social-route-journey';
 
 test('map preparation uploads once and returns a token-free immutable URL', async (t) => {
   const before = process.env.MAPBOX_ACCESS_TOKEN;
@@ -46,6 +47,54 @@ test('missing map configuration prevents dispatch rather than publishing a plain
   t.mock.method(globalThis, 'fetch', async () => { assert.fail('must not dispatch without a map'); });
   const { triggerVideoRender } = await import('./video-renderer');
   assert.equal(await triggerVideoRender({ postIds: 'test', compositionId: 'social-route-portrait', inputProps: { routeCoordinates: [[-91, 37], [-90.9, 37.1]] }, outputFilename: 'test' }), false);
+});
+
+test('a prepared terrain snapshot in the props is dispatched as-is, with no provider request', async (t) => {
+  const previousMap = process.env.MAPBOX_ACCESS_TOKEN;
+  const previousGh = process.env.GH_ACTIONS_TOKEN;
+  delete process.env.MAPBOX_ACCESS_TOKEN;
+  process.env.GH_ACTIONS_TOKEN = 'test-github-token';
+  t.after(() => {
+    if (previousMap === undefined) delete process.env.MAPBOX_ACCESS_TOKEN; else process.env.MAPBOX_ACCESS_TOKEN = previousMap;
+    if (previousGh === undefined) delete process.env.GH_ACTIONS_TOKEN; else process.env.GH_ACTIONS_TOKEN = previousGh;
+  });
+  const urls: string[] = [];
+  let dispatched: { inputs: { input_props: string } } | null = null;
+  t.mock.method(globalThis, 'fetch', async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    urls.push(String(url));
+    dispatched = JSON.parse(String(init?.body));
+    return new Response(null, { status: 204 });
+  });
+  const { triggerVideoRender } = await import('./video-renderer');
+  const inputProps = { routeCoordinates: [[-91, 37], [-90.9, 37.1]], terrainMapUrl: 'https://example.com/shared.png' };
+  assert.equal(await triggerVideoRender({ postIds: 'test', compositionId: 'social-route-portrait', inputProps, outputFilename: 'test' }), true);
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /^https:\/\/api\.github\.com\//);
+  assert.equal(JSON.parse(dispatched!.inputs.input_props).terrainMapUrl, 'https://example.com/shared.png');
+});
+
+test('destination renders of one Float Pick share a single terrain preparation', async () => {
+  const { shareTerrainMap, getCompositionForPost } = await import('./video-renderer');
+  const data = { riverName: 'Current River', distanceMi: 7.6, routeCoordinates: [[-91, 37], [-90.9, 37.1]] as LngLat[] };
+  const requests = (['instagram', 'facebook', 'tiktok'] as const).map(platform => getCompositionForPost('section_guide', data, platform));
+  let prepared = 0;
+  const shared = await shareTerrainMap(requests, async () => { prepared++; return 'https://example.com/once.png'; });
+  assert.equal(prepared, 1);
+  assert.deepEqual(shared.map(render => render.inputProps.terrainMapUrl), Array(3).fill('https://example.com/once.png'));
+  assert.deepEqual(shared.map(render => render.inputProps.platform), ['instagram', 'facebook', 'tiktok']);
+  assert.equal(requests[0].inputProps.terrainMapUrl, undefined, 'saved requests are not mutated');
+
+  const other = getCompositionForPost('section_guide', { ...data, routeCoordinates: [[-92, 38], [-91.9, 38.1]] as LngLat[] }, 'facebook');
+  const mixed = await shareTerrainMap([requests[0], other], async () => 'https://example.com/route-a.png');
+  assert.equal(mixed[0].inputProps.terrainMapUrl, 'https://example.com/route-a.png');
+  assert.equal(mixed[1].inputProps.terrainMapUrl, undefined, 'a different route prepares its own map at dispatch');
+
+  const single = await shareTerrainMap([requests[0]], async () => { assert.fail('one dispatch prepares inline'); });
+  assert.equal(single[0].inputProps.terrainMapUrl, undefined);
+  const digest = [getCompositionForPost('daily_digest', {}), getCompositionForPost('daily_digest', {})];
+  assert.deepEqual(await shareTerrainMap(digest, async () => { assert.fail('non-geographic formats never fetch terrain'); }), digest);
+  const failed = await shareTerrainMap(requests, async () => { throw new Error('provider down'); });
+  assert.deepEqual(failed, requests, 'a failed shared preparation falls back to per-dispatch preparation');
 });
 
 

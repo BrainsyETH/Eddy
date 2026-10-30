@@ -288,7 +288,9 @@ photo while retaining useful route space.
 Float Picks render separately for Instagram, Facebook and TikTok using each
 platform's existing Reel working bounds. Quick Post saves each destination's
 render request; scheduled posts group Float Picks by platform. A failed manual
-dispatch fails only its own draft. Rerendering an older saved Float Pick selects
+dispatch fails only its own draft. The destination renders of one Quick Post
+share a single prepared terrain snapshot (one provider request, one upload);
+the saved drafts stay provider-free, so a later rerender prepares its own. Rerendering an older saved Float Pick selects
 that draft's destination profile. Other formats continue sharing one master.
 The admin preview guide uses the post's actual destination. Named Remotion
 `social-route-{instagram|facebook|tiktok}-{reel|story}` presets also support

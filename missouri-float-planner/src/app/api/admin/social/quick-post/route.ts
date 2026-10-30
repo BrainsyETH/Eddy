@@ -8,7 +8,7 @@ import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
-import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
+import { triggerVideoRender, getCompositionForPost, shareTerrainMap } from '@/lib/social/video-renderer';
 import { buildPostContext, type PostContext } from '@/lib/social/post-context';
 import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 
@@ -141,9 +141,13 @@ async function dispatchVideo(
     );
   }
 
+  // Saved drafts keep the provider-free request; only the dispatches share the
+  // prepared snapshot, so a later rerender fetches a fresh map of its own.
+  const dispatches = [...groups.values()];
+  const requests = await shareTerrainMap(dispatches.map(group => group.request));
   let rendering = 0;
-  for (const group of groups.values()) {
-    const success = await triggerVideoRender({ ...group.request, postIds: group.ids.join(',') }).catch(() => false);
+  for (const [index, group] of dispatches.entries()) {
+    const success = await triggerVideoRender({ ...requests[index], postIds: group.ids.join(',') }).catch(() => false);
     if (success) {
       rendering += group.ids.length;
       continue;

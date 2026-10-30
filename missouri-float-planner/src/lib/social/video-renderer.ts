@@ -44,6 +44,33 @@ export function destinationRenderRequest(render: RenderRequest, platform?: Socia
   };
 }
 
+/** A geographic Float Pick whose props do not yet carry a prepared terrain snapshot. */
+function needsTerrainMap(render: RenderRequest): boolean {
+  return render.compositionId === 'social-route-portrait' &&
+    Array.isArray(render.inputProps.routeCoordinates) && render.inputProps.routeCoordinates.length >= 2 &&
+    typeof render.inputProps.terrainMapUrl !== 'string';
+}
+
+/**
+ * One Float Pick rendered for several destinations shares a single terrain
+ * snapshot: one provider request and one upload, not one per dispatch. Only
+ * requests for the same route share; a failed preparation leaves the requests
+ * untouched so each dispatch prepares its own and reports its own failure.
+ */
+export async function shareTerrainMap(requests: RenderRequest[], prepare = prepareTerrainMap): Promise<RenderRequest[]> {
+  const first = requests.find(needsTerrainMap);
+  if (!first || requests.length < 2) return requests;
+  const route = JSON.stringify(first.inputProps.routeCoordinates);
+  try {
+    const terrainMapUrl = await prepare(first.inputProps.routeCoordinates as LngLat[]);
+    return requests.map(render => needsTerrainMap(render) && JSON.stringify(render.inputProps.routeCoordinates) === route
+      ? { ...render, inputProps: { ...render.inputProps, terrainMapUrl } }
+      : render);
+  } catch {
+    return requests;
+  }
+}
+
 /**
  * Trigger a video render via GitHub Actions.
  * Fire-and-forget — the workflow calls back when done.
@@ -65,7 +92,7 @@ export async function triggerVideoRender(params: TriggerRenderParams): Promise<b
   console.log(`${LOG_PREFIX} Triggering render: ${params.compositionId} → ${params.outputFilename} (posts: ${params.postIds})`);
 
   let inputProps = params.inputProps;
-  if (params.compositionId === 'social-route-portrait' && Array.isArray(inputProps.routeCoordinates) && inputProps.routeCoordinates.length >= 2) {
+  if (needsTerrainMap(params)) {
     try {
       const terrainMapUrl = await prepareTerrainMap(inputProps.routeCoordinates as LngLat[]);
       inputProps = { ...inputProps, terrainMapUrl };
