@@ -1700,7 +1700,11 @@ claiming Akers as the actual access. Recaps keep that description in optional
 `startNote`; `putInId`/`putInName` identify only a confirmed launch or are null.
 The archive API must accept the field before the app ships. A capability check
 keeps note-bearing uploads pending against older servers, preserving the whole
-summary on-device for retry. Existing completed recaps are unchanged.
+summary on-device for retry. Existing completed recaps are unchanged. Recaps
+also keep their recap context (`startCondition`, `riverSpan`, `coveredMiles`,
+`startWeather`) under its own `recapContext` capability, by the same rule
+(ADR 0012); `missouri-float-planner/shared/float-recap.ts` reads it for the
+history card and recap.
 Older sessions retain their progress checkpoint; a recorded coordinate is never invented for them. Permission
 and Location Services are required; a GPS timeout does not prevent starting.
 Locked-phone recording uses the native background activity session with When

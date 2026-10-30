@@ -1,5 +1,6 @@
 // Preview rules only. A preview fix never seeds the session's tracker or pace.
 import { locateOnRoute, type LngLat, type RouteIndex } from '@eddy/geo';
+import type { StartCondition } from '@eddy/conditions/float-archive';
 import { nearLaunch } from './floatOrigin';
 import type { FloatRoute } from './floatSession';
 
@@ -40,6 +41,31 @@ export function currentMovingSpeed(result: {
   const age = now - Date.parse(result.estimatedAt);
   const speed = result.floatTime?.movingSpeedMph;
   return age >= 0 && age < 5 * 60_000 && speed != null && Number.isFinite(speed) && speed > 0 ? speed : null;
+}
+
+/**
+ * The condition a float started now keeps in its recap.
+ *
+ * Its own rule, never currentMovingSpeed's: float time is withheld at Flood
+ * and on dam tailwaters, so a speed rule would drop the condition on exactly
+ * the floats it matters most for. Only the estimate's freshness is judged
+ * here; the gauge reading's own age and quality travel with it and are
+ * judged against the start (float-recap.ts floatCondition).
+ */
+export function currentStartCondition(result: {
+  estimateBasis: string;
+  estimatedAt: string;
+  condition?: StartCondition | null;
+} | null, now: number): StartCondition | null {
+  const condition = result?.condition;
+  if (!result || !condition || result.estimateBasis !== 'today') return null;
+  const age = now - Date.parse(result.estimatedAt);
+  if (!(age >= 0 && age < 5 * 60_000)) return null;
+  return typeof condition.code === 'string' && (condition.code as string) !== 'unknown' &&
+    typeof condition.gaugeName === 'string' && (condition.usgsSiteId === null || typeof condition.usgsSiteId === 'string') &&
+    typeof condition.observedAt === 'string' && typeof condition.accuracyWarning === 'boolean'
+    ? condition
+    : null;
 }
 
 export interface StartFix {

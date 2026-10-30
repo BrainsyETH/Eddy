@@ -96,6 +96,67 @@ inline and mobile uses its expanded dialog. Dates, zoom, layers and scale live
 in the common component and survive presentation changes. Both platforms allow
 link sharing while image preparation is running.
 
+## Float share images
+
+A saved float shares as a 1080 × 1920 PNG from `GET /api/share/float/image`,
+rendered with `next/og` from one versioned query (`shared/float-share.ts`), and
+the river's web page as the link text. It follows the chart image's rules:
+stateless, nothing stored, one canonical spelling (others are 308-redirected so
+they share a cache key), rate limited, and an error rather than a picture for
+anything it will not draw: 400 for a malformed or inconsistent share, 422
+(`places_unavailable`) for a well-formed one whose river or access points no
+longer resolve. The app names the float's places only for the 422. That last rule matters more here: there is no link
+preview to fall back to, and the app's share control treats any PNG as the
+image it asked for.
+
+What a float share may contain, and nothing else: the river (by slug), the
+put-in and take-out (by id, so the server draws only names of approved access
+points on that river), the calendar day, whether the take-out was reached, the
+tracking state, the mood, the condition code with whether its reading was
+current, its cfs and the USGS gauge that set it, duration (no upper limit
+beyond a 30-day bound; recordings have none), and river explored with the
+whole percent the recap states, decided on the phone from unrounded miles so
+the image never contradicts the recap. It carries no distance: the figure a
+float leads with, on the image as on the card, is the stretch it took (the
+river miles the tracker credited), never a distance "paddled", which is gross
+and includes credited gaps nobody observed. It never carries the time of day,
+the GPS track, the account, or the start note, and no free text: the query
+cannot be used to render arbitrary words.
+
+The server does not trust the query's mood. It applies the recap's own gate
+(`moodGate`): nothing measured draws the standard otter, high water draws Big
+water only on a current reading, and a mood that claims water the condition
+does not show (Big water, Scrape) is refused. Flood floats can be shared and
+state the condition plainly: "Big water" and "Flood stage" are drawn in the
+muted ink, never the coral headline "Made it!" wears, so a high-water share
+reads as a record, not a trophy. Whether to share high water at all is a
+product decision this does not make. Stickers are the app's own, written to
+`public/icons` by `build-eddy-icons.py` and held to the app's pixels by the
+icon parity test; the standard otter is a copy of the app's, held to it by
+`shared/float-share.test.ts`.
+
+The server does not trust the query's condition either. The stamp is Eddy's
+condition language, and anyone can build a query, so before it is drawn
+(`src/lib/float-share/verify.ts`) the named gauge must be one of the river's,
+and one of its recorded, non-suspect readings for that calendar day must rate
+as the claimed code on the river's own ladder (flood stage first), within 2%
+of the claimed cfs. A share the record does not bear out is drawn without the
+stamp, and without a mood that claimed that water (Big water, Scrape); it is
+never refused, because the float is still the paddler's. The response says
+which in `X-Eddy-Share-Condition` (`verified`, `unverified`, `none`). A
+condition from a gauge that is not a USGS site (dam tailwaters) has nothing to
+verify against and is not sent.
+
+The shared file is named by the float's day (`eddy-float-2026-10-26-…png`),
+never by the session id, which encodes the start time to the millisecond;
+AirDrop, Mail and Files keep file names. `shared/float-share.test.ts` holds
+the app to this.
+
+The route returns the river's web path in `X-Eddy-Share-Path`; the app accepts
+only a `/rivers/<state>/<slug>` path there and otherwise shares the image with
+its title alone. Deploy the route before the app change reaches devices: an
+older API answers 404, which the app reports as an image it could not prepare.
+
 ## Delivery and activation
 
 The dependency order is shared state/web restoration, image sharing, then app

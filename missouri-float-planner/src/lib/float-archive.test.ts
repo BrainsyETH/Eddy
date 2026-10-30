@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { accumulateFloat, EMPTY_FLOAT_TOTALS, finishFloatTotals, MAX_CREDITED_GAP_MS, movingPace, type PaceSample } from '@eddy/geo';
+import { accumulateFloat, addCoveredInterval, EMPTY_FLOAT_TOTALS, finishFloatTotals, MAX_COVERED_INTERVALS, MAX_CREDITED_GAP_MS, movingPace, type FloatTotals, type PaceSample } from '@eddy/geo';
 import { createFloatArchive, uploadBatches, ARCHIVE_KEY, ARCHIVE_RECOVERY_KEY, TOO_LARGE_REASON, UPLOAD_MAX_CHARS, UPLOAD_MAX_ROWS, type ArchiveTransport } from '../../../eddy-ios/src/lib/floatArchiveCore';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { createFloatSessionStore, ENDED_KEY, STORAGE_KEY } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
@@ -11,6 +11,7 @@ import { routeFromRiver, startSession } from '../../../eddy-ios/src/lib/floatSes
 import type { ArchiveRow, CompletedFloat } from '@shared/float-archive';
 import { archiveBatch } from './float-archive/validation';
 import { writeArchiveBatch } from './float-archive/write';
+import { waterAtStart } from './float-archive/water';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { calculateTripDuration } from './calculations/trip-duration';
 
@@ -150,6 +151,78 @@ test('durable totals match pace classification across movement, stops, upstream 
     accumulateFloat(JSON.parse(JSON.stringify(totals)), { timestamp: 40010000, riverMile: 14, continuous: false }),
     accumulateFloat(totals, { timestamp: 40010000, riverMile: 14, continuous: false }),
   );
+});
+
+/** Paddle continuously from one mile to another, 0.003 mi every 10 s (about 1 mph). */
+function paddle(totals: FloatTotals, at: number, from: number, to: number): { totals: FloatTotals; at: number } {
+  const steps = Math.round(Math.abs(to - from) / 0.003);
+  for (let i = 1; i <= steps; i++) {
+    at += 10000;
+    totals = accumulateFloat(totals, { timestamp: at, riverMile: from + ((to - from) * i) / steps, continuous: true });
+  }
+  return { totals, at };
+}
+function start(mile: number): { totals: FloatTotals; at: number } {
+  return { totals: accumulateFloat({ ...EMPTY_FLOAT_TOTALS }, { timestamp: 0, riverMile: mile, continuous: false }), at: 0 };
+}
+const crosses = (covered: readonly [number, number][] | null | undefined, low: number, high: number) =>
+  (covered ?? []).some(([a, b]) => a < high && b > low);
+
+test('covered miles: a gap the tracker refuses adds no river, though the last mile moves', () => {
+  for (const [label, jump] of [
+    ['a three-hour gap', { timestamp: 0, riverMile: 5, continuous: false, reacquired: true as const }],
+    ['a relocation', { timestamp: 0, riverMile: 5, continuous: false }],
+  ] as const) {
+    let { totals, at } = paddle(start(0).totals, 0, 0, 1);
+    at += label === 'a three-hour gap' ? MAX_CREDITED_GAP_MS + 60 * 60000 : 60000;
+    totals = accumulateFloat(totals, { ...jump, timestamp: at });
+    ({ totals, at } = paddle(totals, at, 5, 5.5));
+    assert.ok(totals.last!.riverMile - totals.firstMile! >= 5, `${label}: last − first still spans the jump`);
+    assert.ok(!crosses(totals.coveredMiles, 1.01, 4.99), `${label}: no interval across the jump`);
+    assert.equal(totals.coveredMiles!.length, 2, label);
+  }
+});
+
+test('covered miles: a credited gap joins the river either side; an out-and-back counts once', () => {
+  let { totals, at } = paddle(start(0).totals, 0, 0, 1);
+  // 0.5 mi in ten minutes is within the tracker's top river speed.
+  totals = accumulateFloat(totals, { timestamp: at + 600000, riverMile: 1.5, continuous: false, reacquired: true });
+  ({ totals } = paddle(totals, at + 600000, 1.5, 2));
+  assert.equal(totals.coveredMiles!.length, 1);
+  assert.equal(totals.coveredMiles![0][0], 0);
+  assert.ok(totals.coveredMiles![0][1] > 1.9);
+
+  ({ totals, at } = paddle(start(0).totals, 0, 0, 1));
+  ({ totals } = paddle(totals, at, 1, 0));
+  const final = finishFloatTotals(totals, at * 2);
+  assert.ok(final.distanceMiles > 1.9, 'distance is gross');
+  assert.equal(totals.coveredMiles!.length, 1, 'river covered is not');
+  assert.ok(totals.coveredMiles![0][1] - totals.coveredMiles![0][0] <= 1);
+});
+
+test('covered miles: a stop adds no river, and a legacy session is never measured from the middle', () => {
+  let totals = { ...EMPTY_FLOAT_TOTALS };
+  for (let i = 0; i <= 360; i++)
+    totals = accumulateFloat(totals, { timestamp: i * 10000, riverMile: i % 2 ? 0.003 : 0, continuous: i > 0 });
+  totals = accumulateFloat(totals, { timestamp: 3700000, riverMile: 10, continuous: false });
+  assert.deepEqual(totals.coveredMiles, []);
+
+  const legacy: FloatTotals = { ...EMPTY_FLOAT_TOTALS };
+  delete legacy.coveredMiles;
+  assert.equal(paddle(accumulateFloat(legacy, { timestamp: 0, riverMile: 0, continuous: false }), 0, 0, 1).totals.coveredMiles, undefined);
+});
+
+test('covered intervals merge only when they overlap or touch, and give up past the cap', () => {
+  assert.deepEqual(addCoveredInterval([[0, 1]], 1, 2), [[0, 2]]);
+  assert.deepEqual(addCoveredInterval([[0, 1], [3, 4]], 0.5, 3.5), [[0, 4]]);
+  assert.deepEqual(addCoveredInterval([[0, 1]], 1.01, 2), [[0, 1], [1.01, 2]], 'a gap a few metres wide stays out');
+  assert.deepEqual(addCoveredInterval([[2, 3]], 1, 0), [[0, 1], [2, 3]], 'either direction, kept sorted');
+  const full = Array.from({ length: MAX_COVERED_INTERVALS }, (_, i) => [i * 2, i * 2 + 1] as [number, number]);
+  assert.equal(addCoveredInterval(full, 100, 101), null);
+  assert.equal(addCoveredInterval(null, 0, 1), null, 'null stays null');
+  const before = [[0, 1]] as [number, number][];
+  addCoveredInterval(before, 2, 3);
+  assert.deepEqual(before, [[0, 1]], 'never mutates');
 });
 
 test('recap has no trace, and a legacy session is unknown instead of inferred from a truncated buffer', () => {
@@ -955,4 +1028,109 @@ test('old recaps and deletions keep their upload contract without a capability r
   await stored.sync('A', { read: async () => ({ rows: sent, preference: { enabled: false, version: null } }),
     write: async () => [], consent: async () => ({ enabled: false, version: null }) });
   assert.deepEqual(stored.snapshot().rows.find(row => row.id === old.id)!.payload, old);
+});
+
+/** Just enough of a PostgREST client for waterAtStart: one canned answer per table. */
+function waterDb(tables: Record<string, unknown>) {
+  return {
+    from(table: string) {
+      const answer = { data: tables[table] ?? null, error: null };
+      const chain = {
+        select: () => chain, eq: () => chain, lte: () => chain, gte: () => chain, order: () => chain, limit: () => chain,
+        maybeSingle: async () => answer,
+        then: (resolve: (v: typeof answer) => unknown) => Promise.resolve(answer).then(resolve),
+      };
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+}
+
+test('server fallback labels the anchor reading with its own ladder, flood stage first', async () => {
+  const startedAt = Date.parse('2026-10-26T15:00:00Z');
+  const trip = { riverSlug: 'current', firstMile: 10, startedAt } as CompletedFloat;
+  const link = {
+    gauge_station_id: 'station-uuid', threshold_unit: 'ft', level_too_low: 1, level_low: 2, level_optimal_min: 3,
+    level_optimal_max: 5, level_high: 6, level_dangerous: 9, flood_stage_ft: 7,
+    gauge_stations: { name: 'Current River at Akers', usgs_site_id: '07064533' },
+  };
+  const reading = (ft: number) => [{ reading_timestamp: '2026-10-26T14:50:00Z', gauge_height_ft: ft, discharge_cfs: 400, qualifiers: [] }];
+  const flowing = await waterAtStart(waterDb({ rivers: { id: 'r' }, river_gauges: link, gauge_readings: reading(4) }), trip);
+  assert.equal(flowing?.conditionCode, 'flowing');
+  assert.equal(flowing?.usgsSiteId, '07064533');
+  assert.equal(flowing?.gaugeStationId, 'station-uuid');
+  const flood = await waterAtStart(waterDb({ rivers: { id: 'r' }, river_gauges: link, gauge_readings: reading(7.5) }), trip);
+  assert.equal(flood?.conditionCode, 'dangerous', 'NWS flood stage outranks the ladder');
+  const unrated = await waterAtStart(waterDb({
+    rivers: { id: 'r' },
+    river_gauges: { ...link, level_too_low: null, level_low: null, level_optimal_min: null, level_optimal_max: null, level_high: null, level_dangerous: null, flood_stage_ft: null },
+    gauge_readings: reading(4),
+  }), trip);
+  assert.ok(unrated && !('conditionCode' in unrated), 'an unrated gauge keeps its reading, unlabelled');
+});
+
+const recapContext = {
+  startCondition: {
+    code: 'flowing' as const, gaugeName: 'Current River at Akers', usgsSiteId: '07064533', heightFt: 2.31,
+    dischargeCfs: 412, observedAt: '2026-10-26T14:30:00.000Z', accuracyWarning: false,
+  },
+  riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring', calibration: 'deadbeef' },
+  coveredMiles: [[10, 14.5], [15, 19.8]] as [number, number][],
+  startWeather: { tempF: 61, precipIn1h: 0, observedAt: '2026-10-26T14:00:00.000Z' },
+};
+const completedRow = (payload: unknown) => ({ rows: [{ id: 'trip', kind: 'completed', deleted: false, contributionVersion: null, payload }] });
+
+test('recap context: accepted with bounds, rejected when malformed', () => {
+  assert.equal(archiveBatch.safeParse(completedRow({ ...summary(), ...recapContext })).success, true);
+  assert.equal(archiveBatch.safeParse(completedRow({ ...summary(), startCondition: null, riverSpan: null, coveredMiles: null, startWeather: null })).success, true);
+  assert.equal(
+    archiveBatch.safeParse(completedRow({ ...summary(), ...recapContext, startCondition: { ...recapContext.startCondition, usgsSiteId: null } })).success,
+    true,
+    'a USACE station has no USGS id',
+  );
+  const bad: Record<string, unknown>[] = [
+    { startCondition: { ...recapContext.startCondition, code: 'unknown' } },
+    { startCondition: { ...recapContext.startCondition, extra: 1 } },
+    { startCondition: { ...recapContext.startCondition, dischargeCfs: -5 } },
+    { riverSpan: { ...recapContext.riverSpan, lastMile: 0 } },
+    { riverSpan: { ...recapContext.riverSpan, calibration: 'DEADBEEF' } },
+    { riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring' } },
+    { coveredMiles: [[10, 15], [14, 20]] },
+    { coveredMiles: [[15, 10]] },
+    { coveredMiles: Array.from({ length: 33 }, (_, i) => [i * 2, i * 2 + 1]) },
+    { startWeather: { ...recapContext.startWeather, precipIn1h: 50 } },
+    { startWeather: { ...recapContext.startWeather, lat: 37 } },
+  ];
+  for (const fields of bad) assert.equal(archiveBatch.safeParse(completedRow({ ...summary(), ...fields })).success, false, JSON.stringify(fields));
+});
+
+test('recap context waits for a server that names it; deletions do not', async () => {
+  const later = () => Date.now() + 2 * 60 * 60_000;
+  const rows: ArchiveRow[] = [{ id: 'trip', kind: 'completed', payload: { ...summary(), ...recapContext }, deleted: false, contributionVersion: null }];
+  let writes = 0;
+  const write = async (batch: ArchiveRow[]) => {
+    writes += 1;
+    assert.equal(archiveBatch.safeParse({ rows: batch }).success, true);
+    return batch.map(() => ({ status: 'accepted' as const }));
+  };
+  await assert.rejects(uploadFloatArchive(rows, { capabilities: async () => ({ startNote: true }), write }, later), /saved on this phone/);
+  assert.equal(writes, 0, 'a notes-only server is not asked to take the recap context, nor sent it stripped');
+  await uploadFloatArchive(rows, { capabilities: async () => ({ startNote: true, recapContext: true }), write }, later);
+  assert.equal(writes, 1);
+
+  const local = createFloatArchive(disk());
+  await local.select('A');
+  const remote = server();
+  await local.addCompleted(summary('old-trip'), 'A');
+  await local.sync('A', remote.api);
+  await local.remove('old-trip', 'A');
+  await local.addCompleted({ ...summary('recap-trip'), ...recapContext }, 'A');
+  const api: ArchiveTransport = { ...remote.api, write: batch => uploadFloatArchive(batch, {
+    capabilities: async () => ({ startNote: true }),
+    write: b => remote.api.write(b),
+  }, () => Date.now() + 4 * 60 * 60_000) };
+  await local.sync('A', api, true);
+  const row = (id: string) => local.snapshot().rows.find(r => r.id === id)!;
+  assert.equal(remote.rows.get('old-trip')!.deleted, true, 'the deletion is not held behind the recap');
+  assert.equal(row('recap-trip').dirty, true);
+  assert.deepEqual(row('recap-trip').payload, { ...summary('recap-trip'), ...recapContext }, 'nothing stripped on the phone');
 });

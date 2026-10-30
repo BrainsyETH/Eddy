@@ -17,6 +17,12 @@
 // at a stop, which the continuous path never counts either. Real travel
 // across a gap counts in either direction, like movement does: distance is
 // gross, so an out-and-back paddle is not "no progress".
+//
+// Which river was covered is a different question from how far: an
+// out-and-back paddles twice over one stretch. `coveredMiles` answers it with
+// the same rules. A run's mile range is credited exactly when its distance
+// is, and a gap's span exactly when gapMiles credits it, so a refused gap or
+// a relocation, which still moves `last`, never adds river.
 import { STAY_MIN_MS, STAY_RADIUS_METERS, type PaceSample } from './float-pace';
 import { MAX_SPEED_MPS } from './river-progress';
 
@@ -52,7 +58,20 @@ export interface FloatTotals {
   runMs: number;
   runMiles: number;
   runDistanceMiles?: number;
+  /**
+   * River miles credited so far: sorted, disjoint [low, high] intervals,
+   * merged only where they overlap or touch, so a gap between them is never
+   * counted. Null once there are more than MAX_COVERED_INTERVALS: no figure
+   * beats a wrong one. Absent on sessions started by an older build, which
+   * cannot be measured from the middle.
+   */
+  coveredMiles?: [number, number][] | null;
+  /** Lowest and highest mile of the current run's counted steps. */
+  runRange?: [number, number] | null;
 }
+
+/** More intervals than this and coveredMiles gives up (null). */
+export const MAX_COVERED_INTERVALS = 32;
 
 export const EMPTY_FLOAT_TOTALS: FloatTotals = {
   movingMs: 0,
@@ -65,7 +84,32 @@ export const EMPTY_FLOAT_TOTALS: FloatTotals = {
   runMs: 0,
   runMiles: 0,
   runDistanceMiles: 0,
+  coveredMiles: [],
+  runRange: null,
 };
+
+/** Add [a, b] to a sorted, disjoint interval list; a new list, never a mutation. */
+export function addCoveredInterval(
+  covered: readonly [number, number][] | null | undefined,
+  a: number,
+  b: number,
+): [number, number][] | null | undefined {
+  if (!covered || !Number.isFinite(a) || !Number.isFinite(b)) return covered as [number, number][] | null | undefined;
+  let low = Math.min(a, b);
+  let high = Math.max(a, b);
+  if (!(high > low)) return covered as [number, number][];
+  const next: [number, number][] = [];
+  for (const [start, end] of covered) {
+    if (end < low || start > high) next.push([start, end]);
+    else {
+      low = Math.min(low, start);
+      high = Math.max(high, end);
+    }
+  }
+  next.push([low, high]);
+  next.sort((x, y) => x[0] - y[0]);
+  return next.length > MAX_COVERED_INTERVALS ? null : next;
+}
 
 function closeRun(t: FloatTotals): void {
   if (t.runMs >= STAY_MIN_MS) t.stoppedMs += t.runMs;
@@ -73,10 +117,12 @@ function closeRun(t: FloatTotals): void {
     t.movingMs += t.runMs;
     t.movingMiles += t.runMiles;
     t.distanceMiles += t.runDistanceMiles ?? 0;
+    if (t.runRange) t.coveredMiles = addCoveredInterval(t.coveredMiles, t.runRange[0], t.runRange[1]);
   }
   t.runMs = 0;
   t.runMiles = 0;
   t.runDistanceMiles = 0;
+  t.runRange = null;
 }
 
 export function accumulateFloat(previous: FloatTotals, sample: PaceSample): FloatTotals {
@@ -87,7 +133,9 @@ export function accumulateFloat(previous: FloatTotals, sample: PaceSample): Floa
   const dt = sample.timestamp - t.last.timestamp;
   if (!sample.continuous) {
     closeRun(t);
-    t.distanceMiles += gapMiles(t.last, sample);
+    const credited = gapMiles(t.last, sample);
+    t.distanceMiles += credited;
+    if (credited > 0) t.coveredMiles = addCoveredInterval(t.coveredMiles, t.last.riverMile, sample.riverMile);
     return { ...t, anchor: sample, last: sample };
   }
   if (Math.abs(sample.riverMile - t.anchor.riverMile) > STAY_RADIUS_METERS / 1609.344) {
@@ -98,6 +146,8 @@ export function accumulateFloat(previous: FloatTotals, sample: PaceSample): Floa
   // Hold displacement until the run is classified. Confirmed stops contribute
   // no distance, even when GPS drifts back and forth inside the stay radius.
   t.runDistanceMiles = (t.runDistanceMiles ?? 0) + Math.abs(miles);
+  const [low, high] = t.runRange ?? [t.last.riverMile, t.last.riverMile];
+  t.runRange = [Math.min(low, sample.riverMile), Math.max(high, sample.riverMile)];
   t.runMs += dt;
   t.runMiles += miles;
   t.last = sample;

@@ -167,6 +167,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const start = useStart({ ...draft, boatType: boat, shortCode,
     sessionId: id, downloadKey,
     plannerMph: estimate.speed?.toString(), previewStartMile: startMile ?? undefined,
+    startCondition: estimate.condition,
   }, loaded, location, reminders);
   const preview = loaded?.ok && takeOut ? startSession({ id, kind: draft.putInId ? 'saved' : 'quick',
     route: loaded.route, index: loaded.index, putInId: draft.putInId, takeOutId: takeOut.id, now: 0 }) : null;

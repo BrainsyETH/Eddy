@@ -8,6 +8,7 @@ import { ControlIcon } from '@/components/ControlIcon';
 import { EddyScene } from '@/components/EddyScene';
 import { FloatCollectionControls } from '@/components/FloatCollectionControls';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
+import { FloatHistoryCard } from '@/float/FloatHistoryCard';
 import { useSavedFloats, type SavedFloat } from '@/hooks/useSavedFloats';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { useCachedRiverPhotos } from '@/hooks/useCachedRiverPhotos';
@@ -16,7 +17,6 @@ import { useOfflineBadges } from '@/float/useOfflineBadges';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { floatPlanDestination } from '@/lib/planRequest';
 import { floatCollectionStatus, visibleFloats } from '@/lib/floatCollection';
-import { formatDuration } from '@/lib/floatSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles, type as t } from '@/theme/typography';
 
@@ -214,9 +214,10 @@ export default function SavedFloatsScreen() {
               elevation={elevation(1)}
             />
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
+            <FloatHistoryCard
+              trip={item.value}
+              elevation={elevation(1)}
+              onOpen={() =>
                 navigate(() =>
                   router.push({
                     pathname: '/float-history-recap',
@@ -224,26 +225,7 @@ export default function SavedFloatsScreen() {
                   }),
                 )
               }
-              style={({ pressed }) => [
-                styles.trip,
-                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-                elevation(1),
-              ]}
-            >
-              <View style={styles.grow}>
-                <Text style={[t.sm, { color: colors.textMuted }]}>{item.value.riverName}</Text>
-                <Text style={[textStyles.cardTitle, { color: colors.text }]}>
-                  {item.value.putInName ?? 'On-river start'} → {item.value.takeOutName}
-                </Text>
-                {item.value.startNote ? <Text numberOfLines={2} style={[t.sm, { color: colors.textMuted }]}>{item.value.startNote}</Text> : null}
-                <Text style={[t.sm, { color: colors.textMuted }]}>
-                  {new Date(item.value.startedAt).toLocaleDateString()} ·{' '}
-                  {formatDuration(Math.round(item.value.elapsedMs / 60000))} ·{' '}
-                  {item.value.distanceMiles.toFixed(1)} mi tracked
-                </Text>
-              </View>
-              <ControlIcon name="chevron-forward" size={18} color={colors.interactive} />
-            </Pressable>
+            />
           )
         }
       />
@@ -273,13 +255,4 @@ const styles = StyleSheet.create({
   empty: { padding: 24, gap: 12, alignItems: 'center' },
   center: { textAlign: 'center' },
   button: { minHeight: 44, borderRadius: 12, padding: 12 },
-  trip: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 16,
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
 });

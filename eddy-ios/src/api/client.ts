@@ -1,4 +1,4 @@
-import { uploadFloatArchive } from '@/lib/floatArchiveUpload';
+import { uploadFloatArchive, type ArchiveCapabilities } from '@/lib/floatArchiveUpload';
 import { vesselTypeLoader } from '@/lib/vesselTypes';
 import type { CampingStayResult } from '@eddy/conditions/camping-stay';
 import type { CampingOverview } from '@eddy/types';
@@ -1294,6 +1294,8 @@ export async function fetchFloatStartEstimate(params: {
   floatTime: { movingSpeedMph?: number | null } | null;
   estimateBasis: 'today' | 'typical';
   estimatedAt: string;
+  /** The condition a float started now keeps in its recap; absent from older servers. */
+  condition?: import('@eddy/conditions/float-archive').StartCondition | null;
 }> {
   if (signal?.aborted) throw new ApiError('Request cancelled');
   const vesselTypes = await loadStartVessels();
@@ -1307,6 +1309,7 @@ export async function fetchFloatStartEstimate(params: {
     startRiverMile?: number | null; distanceMiles: number;
     floatTime: { movingSpeedMph?: number | null } | null;
     estimateBasis: 'today' | 'typical'; estimatedAt: string;
+    condition?: import('@eddy/conditions/float-archive').StartCondition | null;
   }>(`/api/route-estimate?${query}`, signal);
   // Echo acknowledges the requested mile, even when the server clamps small
   // lower-bound drift. Older servers ignore unknown params: never use their full stretch.
@@ -2675,7 +2678,7 @@ export async function readFloatArchive(token: string) {
 export async function writeFloatArchive(token: string, rows: import('@eddy/conditions/float-archive').ArchiveRow[]) {
   return uploadFloatArchive(rows, {
     capabilities: async () => {
-      const result = await archiveRequest<{ capabilities?: { startNote?: boolean } }>('/api/me/float-archive?capabilities=1', token);
+      const result = await archiveRequest<{ capabilities?: ArchiveCapabilities }>('/api/me/float-archive?capabilities=1', token);
       if (!result) throw new Error('Sign in again to back up floats.');
       return result.capabilities ?? null;
     },

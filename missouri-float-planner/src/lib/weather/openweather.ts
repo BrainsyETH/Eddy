@@ -14,6 +14,13 @@ export interface WeatherData {
   rain1hInches: number;
   /** Rain in last 3 hours (inches), 0 if not raining */
   rain3hInches: number;
+  /**
+   * When OpenWeather took this observation (its `dt`), as an ISO string.
+   * Not when Eddy fetched it: this response is cached here and again by the
+   * forecast route, so a fetch time can be well over an hour newer than the
+   * weather it describes. Absent when the provider sends no `dt`.
+   */
+  observedAt?: string;
 }
 
 /**
@@ -87,6 +94,7 @@ export async function fetchWeather(
     city: data.name,
     rain1hInches: Math.round(rain1hMm * mmToInches * 100) / 100,
     rain3hInches: Math.round(rain3hMm * mmToInches * 100) / 100,
+    ...(Number.isFinite(data.dt) ? { observedAt: new Date(data.dt * 1000).toISOString() } : {}),
   };
 }
 

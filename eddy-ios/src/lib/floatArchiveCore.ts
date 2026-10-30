@@ -9,6 +9,7 @@ import {
 import type { SavedFloatLogistics } from './savedFloatLogistics';
 import { createStorageQueue } from './storageQueue';
 import type { SessionStorage } from './floatSessionStoreCore';
+import { capabilitiesNeeded } from './floatArchiveUpload';
 
 export const ARCHIVE_KEY = 'eddy.floatArchive.v1';
 export const ARCHIVE_RECOVERY_KEY = 'eddy.floatArchive.recovery.v1';
@@ -432,13 +433,13 @@ export function createFloatArchive(
             throw new Error('Backup response could not be confirmed. Please retry.');
           await acknowledge(batch, results);
         };
-        // Recaps carrying a start note go LAST, in batches of their own. An
-        // older server cannot take the field, and the upload refuses those
-        // rows rather than strip the note (floatArchiveUpload.ts). Mixed into
-        // one batch, a single noted recap held back every deletion and saved
-        // route behind it until the backend was upgraded.
-        const noted = (row: LocalArchiveRow) =>
-          row.kind === 'completed' && !row.deleted && (row.payload as CompletedFloat | null)?.startNote !== undefined;
+        // Recaps carrying a field an older server may not take (a start
+        // note, the recap context) go LAST, in batches of their own. The
+        // upload refuses those rows rather than strip the field
+        // (floatArchiveUpload.ts). Mixed into one batch, a single such recap
+        // held back every deletion and saved route behind it until the
+        // backend was upgraded.
+        const noted = (row: LocalArchiveRow) => capabilitiesNeeded(row).length > 0;
         const size = (row: LocalArchiveRow) => JSON.stringify(wire(row)).length;
         for (const batch of uploadBatches(sent.filter((row) => !noted(row)), size)) {
           if (selected !== scope || blocked.has(scope)) return;

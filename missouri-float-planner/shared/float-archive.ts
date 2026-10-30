@@ -1,4 +1,46 @@
 // Private trip summaries only. Never add GPS arrays, tracker state or raw fixes.
+import type { ConditionCode } from './condition-system';
+
+/**
+ * The condition the planner gave this float at Start (/api/route-estimate):
+ * the gauge that set it, which can sit below the put-in after an escalation.
+ */
+export interface StartCondition {
+  code: Exclude<ConditionCode, 'unknown'>;
+  gaugeName: string;
+  /** Null for a station USGS does not run (USACE tailwaters, migration 00198). */
+  usgsSiteId: string | null;
+  heightFt: number | null;
+  dischargeCfs: number | null;
+  /** When the gauge reading was taken, not when the estimate was made. */
+  observedAt: string;
+  /** Stale or suspect at estimate time. */
+  accuracyWarning: boolean;
+}
+
+/** The route index's calibrated span at Start: its lowest and highest access-point miles. */
+export interface RiverSpan {
+  firstMile: number;
+  lastMile: number;
+  firstName: string;
+  lastName: string;
+  /**
+   * The mile system these miles and the float's coveredMiles are in: a hash
+   * of the river's access-point miles at Start (float-recap.ts
+   * spanCalibration). Access-point miles get recalibrated, and intervals from
+   * two calibrations do not lie on one strip, so the lifetime line merges
+   * only floats that share this value.
+   */
+  calibration: string;
+}
+
+/** Current conditions at the put-in at Start. Values only, never the coordinates. */
+export interface StartWeather {
+  tempF: number;
+  precipIn1h: number;
+  observedAt: string;
+}
+
 export interface CompletedFloat {
   version: 1;
   id: string;
@@ -32,7 +74,18 @@ export interface CompletedFloat {
     observedAt: string;
     heightFt: number | null;
     dischargeCfs: number | null;
+    /** Computed on first upload from the anchor gauge's ladder. Absent on older rows. */
+    conditionCode?: ConditionCode;
+    usgsSiteId?: string;
   } | null;
+  // The fields below are absent on floats recorded before they existed, and
+  // on any float whose capture failed. Readers must treat a malformed value
+  // as absent (float-recap.ts), never reject the row.
+  startCondition?: StartCondition | null;
+  riverSpan?: RiverSpan | null;
+  /** Credited river miles (@eddy/geo coveredMiles); null when there were too many to keep. */
+  coveredMiles?: [number, number][] | null;
+  startWeather?: StartWeather | null;
 }
 
 export interface SavedFloatSummary {

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
-import { estimateRoute, RouteEstimateError } from './route-estimate';
+import { estimateRoute, RouteEstimateError, startConditionFromEstimate } from './route-estimate';
 import { routeFixture } from './route-estimate-fixture';
 import { savedTimeRangeLabel, validTimeRange } from './saved-time-range';
 import { getFlowProvider, type DailyStatistics } from '@/lib/flow-providers';
@@ -235,4 +235,65 @@ test('partial starts tolerate small lower-bound calibration drift, but not rever
     distance_miles: 8, start_river_mile: 8, end_river_mile: 0,
       start_name: 'Take out', end_name: 'Put in', segment_geom: null,
   }) }).estimate('today', 4), /outside this float stretch/);
+});
+
+test('start condition names the gauge that set the code, with its own reading time', async () => {
+  const now = Date.parse('2026-10-26T15:00:00Z');
+  const anchorCondition = {
+    condition_code: 'good', gauge_name: 'Akers', gauge_usgs_id: '07064533', gauge_height_ft: 2.3,
+    discharge_cfs: '412', reading_timestamp: '2026-10-26T14:30:00Z', accuracy_warning: false,
+  };
+  assert.deepEqual(startConditionFromEstimate({ conditionCode: 'good', anchorCondition, contributingGauges: [] }, now), {
+    code: 'good', gaugeName: 'Akers', usgsSiteId: '07064533', heightFt: 2.3, dischargeCfs: 412,
+    observedAt: '2026-10-26T14:30:00.000Z', accuracyWarning: false,
+  });
+  const escalated = (observedAt: string) => ({
+    name: 'Van Buren', usgsSiteId: '07067000', riverMile: 30, conditionCode: 'dangerous', gaugeHeightFt: 12,
+    dischargeCfs: null, observedAt, effect: 'escalated' as const,
+  });
+  const low = { ...escalated('2026-10-26T14:45:00Z'), name: 'Shallow', conditionCode: 'too_low', effect: 'low_water' as const };
+  const fresh = startConditionFromEstimate({ conditionCode: 'dangerous', anchorCondition, contributingGauges: [low, escalated('2026-10-26T14:45:00Z')] }, now);
+  assert.equal(fresh?.gaugeName, 'Van Buren', 'never the anchor name with the escalated code');
+  assert.equal(fresh?.heightFt, 12);
+  assert.equal(fresh?.accuracyWarning, false);
+  const stale = startConditionFromEstimate({ conditionCode: 'dangerous', anchorCondition, contributingGauges: [escalated('2026-10-26T05:00:00Z')] }, now);
+  assert.equal(stale?.accuracyWarning, true, 'a 10 h old escalation is past the 6 h line');
+  assert.equal(startConditionFromEstimate({ conditionCode: 'unknown', anchorCondition, contributingGauges: [] }, now), null);
+  assert.equal(startConditionFromEstimate({ conditionCode: 'good', anchorCondition: { ...anchorCondition, reading_timestamp: null }, contributingGauges: [] }, now), null);
+  // A dam tailwater's gauge is not a USGS site (migration 00198): the
+  // condition is kept with a null id, since float time is withheld there and
+  // the condition is all the recap has.
+  const tailwater = startConditionFromEstimate({ conditionCode: 'high', anchorCondition: { ...anchorCondition, condition_code: 'high', gauge_name: 'Taneycomo', gauge_usgs_id: null }, contributingGauges: [] }, now);
+  assert.equal(tailwater?.gaugeName, 'Taneycomo');
+  assert.equal(tailwater?.usgsSiteId, null);
+  assert.equal(startConditionFromEstimate({ conditionCode: 'dangerous', anchorCondition, contributingGauges: [{ ...escalated('2026-10-26T14:45:00Z'), usgsSiteId: null as unknown as string }] }, now)?.usgsSiteId, null);
+});
+
+test('a real escalation reaches the start condition from the estimator', async () => {
+  const result = await routeFixture({ condition: 'good', spanReading: { height: 6 } }).estimate();
+  const condition = startConditionFromEstimate(result);
+  assert.equal(condition?.code, 'dangerous');
+  assert.equal(condition?.gaugeName, 'Span gauge');
+  assert.equal(condition?.usgsSiteId, 'span-gauge');
+});
+
+test('a start condition from a USACE tailwater station survives its missing USGS id', () => {
+  const now = Date.parse('2026-10-26T15:00:00Z');
+  // Migration 00198: USACE stations store usgs_site_id NULL. Their ladders are
+  // empty today (so the code is unknown and nothing is kept); once a ladder
+  // lands, the condition must not vanish for want of a USGS id.
+  const anchorCondition = {
+    condition_code: 'high', gauge_name: 'Black River below Clearwater Dam', gauge_usgs_id: null, gauge_height_ft: null,
+    discharge_cfs: 6200, reading_timestamp: '2026-10-26T14:30:00Z', accuracy_warning: false,
+  };
+  assert.deepEqual(startConditionFromEstimate({ conditionCode: 'high', anchorCondition, contributingGauges: [] }, now), {
+    code: 'high', gaugeName: 'Black River below Clearwater Dam', usgsSiteId: null, heightFt: null, dischargeCfs: 6200,
+    observedAt: '2026-10-26T14:30:00.000Z', accuracyWarning: false,
+  });
+  const escalation = {
+    name: 'Clearwater tailwater', usgsSiteId: null, riverMile: 30, conditionCode: 'dangerous', gaugeHeightFt: null,
+    dischargeCfs: 9000, observedAt: '2026-10-26T14:45:00Z', effect: 'escalated' as const,
+  };
+  assert.equal(startConditionFromEstimate({ conditionCode: 'dangerous', anchorCondition, contributingGauges: [escalation] }, now)?.usgsSiteId, null);
+  assert.equal(startConditionFromEstimate({ conditionCode: 'unknown', anchorCondition, contributingGauges: [] }, now), null, 'today: an unrated tailwater keeps nothing');
 });

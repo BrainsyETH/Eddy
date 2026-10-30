@@ -427,6 +427,27 @@ are pending checks, not evidence of a device pass.
       Sharing errors stay inline; failed opt-in stays off, failed opt-out stays
       locally off and retries. Verify account-linked summary disclosure, raw GPS
       staying local, and backups continuing independently of optional sharing.
+- [ ] **Float history card and recap:** in light, dark, Increase Contrast and
+      the largest Dynamic Type size, check a measured float ("9.6 river mi",
+      never a distance paddled), an untracked one (no stretch, the standard
+      otter, "GPS tracking unavailable"), a partly tracked one ("Limited GPS
+      tracking"), one with no condition, a dam-tailwater float (its condition
+      badge with no USGS id in the tip), and one
+      whose reading was too old to rate (its value and age, no badge). The
+      river's name never truncates; the badge and stats wrap. The recap's hero
+      takes the condition's tint for a current reading: check a High and a
+      Flood recap (orange and red behind the mood line) and decide whether
+      that is wanted. Save the screenshots to `design/float-history-card/`.
+- [ ] **Float share image rollout:** deploy `GET /api/share/float/image` before
+      the app change reaches devices. Share a float from its recap and from a
+      History card: Messages receives the image and the river page link;
+      cancelling the sheet is silent; offline, an older API, or a float whose
+      access point was removed reports "Image unavailable". VoiceOver reaches
+      a card's share as an action. Check an untracked float (standard otter,
+      "GPS tracking unavailable") and a Flood float (Big water, "Flood stage",
+      with the stamp drawn only when the gauge's readings that day bear it
+      out: `X-Eddy-Share-Condition: verified`). The shared file is named by
+      the day, not the session id.
 - [ ] **Historical recaps:** open last month's float from History, including
       while a different float is active. Keep the tab bar and ordinary Back;
       return to the same History list. Resume the active float from another
@@ -438,6 +459,12 @@ are pending checks, not evidence of a device pass.
       and backup pending (no permanent refusal or lost note). Upgrade the API,
       sync, and restore on a clean installation: launch fields remain null and
       the descriptive note survives. Old recaps retain their original names.
+- [ ] **Recap-context backup rollout:** deploy the API accepting optional
+      `startCondition`, `riverSpan`, `coveredMiles` and `startWeather`, with
+      `recapContext: true` in its capability response, before the app change
+      reaches devices. Against an older API, verify a new recap stays locally
+      saved and backup pending while deletions still sync. Upgrade the API,
+      sync, and restore on a clean installation: the four fields survive.
 - [ ] **Legacy unfinished offline setup:** use a location-start package saved
       by the earlier app, clear ordinary saved river data, quit Eddy, enable airplane mode,
       and reopen Start a Float. Confirm the downloaded river, take-out and boat

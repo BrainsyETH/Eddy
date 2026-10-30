@@ -1,5 +1,5 @@
 // eddy-ios/src/components/Otter.tsx
-// Eddy the Otter.
+// Eddy the Otter, and a saved float's mood (FloatMoodOtter below).
 //
 // The mascot is not decoration bolted on afterwards — CONDITION_SYSTEM assigns
 // every condition an `otter` mood ("green" | "yellow" | "flag" | "red" |
@@ -10,8 +10,9 @@
 // ~700 KB each). These copies are downscaled to 300px — enough for a ~100pt
 // render at @3x — which took the set from 4.58 MB to 193 KB.
 
-import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
+import { Image, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import { CONDITION_SYSTEM, type ConditionCode } from '@eddy/conditions';
+import type { FloatMood } from '@eddy/conditions/float-recap';
 
 // require() rather than a dynamic path: Metro resolves asset requires
 // statically, so a computed path would simply fail to bundle.
@@ -49,6 +50,58 @@ export function Otter({
       resizeMode="contain"
       // Decorative in every current placement — the adjacent text already says
       // what the otter is reacting to, so announcing it twice is noise.
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
+  );
+}
+
+// A saved float's mood (float-recap.ts pickFloatMood), a verdict like the
+// condition otter: chosen by a rule, never by the caller. Five moods have no
+// art of their own yet and use the design's stand-ins; replacing one is a new
+// master in scripts/build-eddy-icons.py MOODS plus one line here. Big water's
+// stand-in is the cautious high-water otter, never a celebrating one.
+const FLOAT_MOODS: Record<FloatMood, number> = {
+  'made-it': require('../../assets/eddy/eddy-celebrate.png'),
+  'good-float': require('../../assets/eddy/eddy-thumbs-up.png'),
+  'quick-dip': require('../../assets/eddy/eddy-laugh.png'),
+  'lazy-river': require('../../assets/eddy/eddy-campfire-chill.png'),
+  'big-water': require('../../assets/eddy/eddy-high-water-alert.png'),
+  rain: require('../../assets/eddy/eddy-safety-first.png'),
+  chilly: require('../../assets/eddy/eddy-campfire-chill.png'),
+  scrape: require('../../assets/eddy/eddy-thinking.png'),
+  'speed-run': require('../../assets/eddy/eddy-paddle-ready.png'),
+};
+
+/** A float's mood sticker; null (nothing measured, or high water on a stale reading) is the standard otter. */
+export function FloatMoodOtter({
+  mood,
+  size = 96,
+  style,
+}: {
+  mood: FloatMood | null;
+  size?: number;
+  style?: StyleProp<ImageStyle>;
+}) {
+  if (!mood) {
+    // The standard otter's PNG carries more empty margin than the stickers, so
+    // at one size it reads smaller beside them. Draw it larger inside the same
+    // box (the share image does the same), so the layout does not move.
+    const drawn = Math.round(size * 1.15);
+    const inset = (size - drawn) / 2;
+    return (
+      <View style={[{ width: size, height: size, alignSelf: 'center' }, style]}>
+        {/* Otter centres itself across; the inset centres it down. */}
+        <Otter mood="standard" size={drawn} style={{ marginTop: inset }} />
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={FLOAT_MOODS[mood]}
+      style={[{ width: size, height: size }, styles.image, style]}
+      resizeMode="contain"
+      // Decorative: the mood line beside it says the same thing in words.
       accessibilityElementsHidden
       importantForAccessibility="no"
     />

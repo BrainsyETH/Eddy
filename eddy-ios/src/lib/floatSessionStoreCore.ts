@@ -33,6 +33,7 @@
 
 import { createStorageQueue } from './storageQueue';
 import type { PositionFix, RouteIndex } from '@eddy/geo';
+import type { StartWeather } from '@eddy/conditions/float-archive';
 import { applyFix, indexRoute, restoreSession, type FloatSession } from './floatSession';
 import {
   dueReminders,
@@ -343,6 +344,18 @@ export function createFloatSessionStore(
     /** Resolves once every reminder handover in progress has finished. */
     async remindersSettled(): Promise<void> {
       while (deliveries.size > 0) await Promise.all([...deliveries]);
+    },
+
+    /**
+     * The put-in's weather, which arrives after Start. Only for the float it
+     * was asked for, and only once: a reply after that float ended is dropped.
+     */
+    setStartWeather(sessionId: string, weather: StartWeather): void {
+      if (!session || session.id !== sessionId || session.startWeather) return;
+      session = { ...session, startWeather: weather };
+      notify();
+      clearTimer();
+      void writeQuietly();
     },
 
     /** Change this float's reminders; what was sent, or is being sent, stays so. */

@@ -85,6 +85,25 @@ test('only one float at a time', async () => {
   assert.equal(store.get()?.id, 'a');
 });
 
+test('start weather lands on the float it was asked for, once, and survives a relaunch', async () => {
+  const disk = fakeDisk();
+  const store = createFloatSessionStore(disk, quiet);
+  await store.begin(newSession('a'));
+  const weather = { tempF: 48, precipIn1h: 0.1, observedAt: '2026-07-04T13:30:00.000Z' };
+  store.setStartWeather('other', weather);
+  assert.equal(store.get()?.startWeather, undefined, 'a reply for another float is dropped');
+  store.setStartWeather('a', weather);
+  store.setStartWeather('a', { ...weather, tempF: 90 });
+  assert.deepEqual(store.get()?.startWeather, weather, 'only the first reply counts');
+  await store.flush();
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.deepEqual(relaunched.get()?.startWeather, weather);
+  await relaunched.end();
+  relaunched.setStartWeather('a', weather);
+  assert.equal(relaunched.get(), null, 'a reply after the float ended is dropped');
+});
+
 test('a relaunch finds the float that was saved, and ending removes it', async () => {
   const disk = fakeDisk();
   const first = createFloatSessionStore(disk, quiet);

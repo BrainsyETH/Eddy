@@ -1,6 +1,9 @@
 # Float history card: conditions at start, river explored, otter moods, share
 
-Status: plan. Nothing here is implemented yet.
+Status: phases 1a to 5 implemented, with phase 4's existing stickers bundled
+and stand-ins for the five moods whose art is not drawn yet. The canvas is in
+`design/float-history-card/`, with where this plan overrides it; the
+device-state screenshots and the share-sheet checks are still to do.
 
 Design mockup (a private canvas, not in this repository; ask the owner for
 access): the "Float History Card" canvas has four boards: the history list,
@@ -305,7 +308,10 @@ from a gauge below the put-in, it is labelled "Conditions at start", never
   object:
   `{ code, gaugeName, usgsSiteId, heightFt, dischargeCfs, observedAt, accuracyWarning }`,
   taken from the gauge that set the code: the last `contributingGauges` entry
-  with `effect: 'escalated'` if there is one, otherwise `anchorCondition`. Do
+  with `effect: 'escalated'` if there is one, otherwise `anchorCondition`.
+  `usgsSiteId` is null for a gauge that is not a USGS site (dam tailwaters,
+  migration 00198), never a reason to drop the condition: tailwaters are
+  where float time is withheld and the condition is all the recap has. Do
   not read the merged `condition` object: after an escalation it carries the
   escalated code with the anchor gauge's name and reading. `accuracyWarning`
   is the anchor row's `accuracy_warning`, or, for an escalation, whether its
@@ -358,12 +364,16 @@ from a gauge below the put-in, it is labelled "Conditions at start", never
 ### 2b. River span (required for river explored)
 
 At start, snapshot the denominator into the session as
-`riverSpan: { firstMile, lastMile, firstName, lastName }`: the lowest and
-highest `index.anchors` miles (the index accepts anchors whose miles run either
-way along the line, so "first" is the lowest mile, not the first in line
-order), with the names of the `route.anchors` at those miles for the strip
-labels. Copy it into `CompletedFloat`. A snapshot keeps old recaps
-stable if river data is corrected later.
+`riverSpan: { firstMile, lastMile, firstName, lastName, calibration }`: the
+lowest and highest `index.anchors` miles (the index accepts anchors whose
+miles run either way along the line, so "first" is the lowest mile, not the
+first in line order), with the names of the `route.anchors` at those miles
+for the strip labels, and `calibration`, a hash of the river's access-point
+ids and miles (`spanCalibration`) naming the mile system. Copy it into
+`CompletedFloat`. A snapshot keeps old recaps stable if river data is
+corrected later; the calibration lets the lifetime line merge only floats
+that share a mile system, since access-point miles do get recalibrated and
+intervals from two systems do not lie on one strip.
 
 ### 2c. Covered intervals (required for river explored)
 
@@ -440,10 +450,15 @@ river is the card's identity; the otter and mood are secondary.
   muted "Started on the water" line only when a river position was confirmed
   (tracking is not `none`); an untracked session gets no such line. This
   replaces the repeated "On-river start →".
-- **Date**, then **distance · duration** in Geist Mono, using the recorded
+- **Date**, then **stretch · duration** in Geist Mono: the river miles
+  explored ("9.6 river mi"), never a distance "paddled", and the recorded
   duration as it is ("6 min", "4h 12m"), never a band like "Under 10 min".
-- **Tracking:** with `none`, the distance is replaced by "GPS distance
-  unavailable", never "0.0 mi". With `partial`, the distance carries "Limited
+  Distance is gross and includes credited gaps nobody observed; the stretch
+  the paddler took is what matters. Only a float whose credited river cannot
+  be placed (an older build, too many intervals, no span) falls back to its
+  tracked distance, named "Tracked distance" (`floatStretch`).
+- **Tracking:** with `none`, the stretch is replaced by "GPS tracking
+  unavailable", never "0.0 mi". With `partial`, the stretch carries "Limited
   GPS tracking": an unobserved interval is not always lost signal.
 - **Condition badge:** a straight, flat badge (condition ink on its tint),
   label and cfs. Hidden when there is no condition. A reading that is not
@@ -455,8 +470,8 @@ river is the card's identity; the otter and mood are secondary.
   card that can produce an image, Flood included.
 
 Accessibility: the card's `accessibilityLabel` reads the content in order, for
-example "Current River. Akers Ferry to Pulltite. October 26. 9.8 miles, 4
-hours 12 minutes. Flowing, 412 cfs." The badge and otter are decorative
+example "Current River. Akers Ferry to Pulltite. October 26. 9.6 river miles,
+4 hours 12 minutes. Flowing, 412 cfs." The badge and otter are decorative
 (`accessibilityElementsHidden`), as `Otter` already is. At the largest Dynamic
 Type sizes the stats wrap below the title rather than truncating it.
 
@@ -510,10 +525,10 @@ Masters go in `design/eddy-emoji/`; the prompts go in
 
 Extend `Otter.tsx` with a `FloatMood → require()` map (static requires, as its
 header explains). Ship phase 3 with the existing stickers standing in, so new
-art is not a blocker; until a sticker exists, its mood falls back to the
-nearest existing one, and `big-water` falls back to the standard otter, never
-a celebrating one. Check the size of the PNG set, since the header records
-193 KB for the condition otters.
+art is not a blocker; until a sticker exists, its mood uses the stand-in the
+design's mood board names (`design/float-history-card/README.md`). Big water's
+stand-in is the cautious high-water otter, never a celebrating one. The nine
+moods use eight stickers, about 154 KB at 300px.
 
 ## Phase 5: share
 
@@ -524,10 +539,16 @@ stored.
   through `next/og`.
 - **Query:** river slug, put-in id (optional: a float can start on the water)
   and take-out id, date (no time of day), mood, `reachedTakeOut`, tracking
-  state, condition code and whether its reading was current, cfs, distance
-  (omitted for tracking `none`), duration, and explored miles and percentage
-  (only when river explored exists). Validate every field with a strict
-  schema.
+  state, condition code and whether its reading was current, cfs and the
+  USGS gauge that set it, duration, and explored miles and percentage (only
+  when river explored exists). No distance: the image shows the stretch the
+  float took, as the card does. Validate every field with a strict schema.
+- **The stamp is verified, not trusted.** Anyone can build the query, and
+  the stamp is Eddy's condition language, so the server checks the named
+  gauge is the river's and that one of its recorded readings for that day
+  rates as the claimed code at the claimed cfs (`float-share/verify.ts`)
+  before drawing it. Unverified: drawn without the stamp and without a water
+  mood, never refused. ADR 0015 records the rule.
 - **Invalid input is an error, not a picture.** Return `400` with a JSON
   error for any invalid or inconsistent field, never a generic image:
   `ChartShareControl` treats any `200` PNG as the image it asked for, so a
@@ -539,7 +560,7 @@ stored.
   never drawn, which closes the route off as a way to render arbitrary text.
 - **Planned route versus confirmed arrival.** The image shows the route and,
   separately, "Reached <take-out>" or "Arrival not confirmed". Tracking
-  `none` shows the duration and "GPS distance unavailable", as the card does.
+  `none` shows the duration and "GPS tracking unavailable", as the card does.
 - **The otter is decided by the same rule as the recap.** Anyone can call the
   route with any query, so the server does not trust the client's mood. It
   calls `moodGate` with the tracking state, condition code and `current`
@@ -550,7 +571,8 @@ stored.
   floats can be shared; the image states the condition plainly. Test the
   route with tracking `none` and a current High and Flood.
 - **What it never includes:** start and end times, the GPS track, the account,
-  or `startNote`.
+  or `startNote`. The shared file is named by the day, never by the session
+  id, which encodes the start time.
 - **Link text:** the river's eddy.guide page from the server-supplied path,
   per `eddy-ios/src/lib/share.ts`. App routes and web routes differ.
 - **iOS:** reuse the `ChartShareControl` flow. Prepare the image (network

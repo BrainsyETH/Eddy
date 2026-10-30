@@ -32,6 +32,7 @@ import {
   statusCopy,
   restoreSession,
   routeFromRiver,
+  riverSpanOf,
   startSession,
   suggestRivers,
   takeOutChoices,
@@ -39,7 +40,11 @@ import {
   type FloatSession,
 } from '../../../eddy-ios/src/lib/floatSession';
 import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
-import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed, putInLocation, estimateStartId } from '../../../eddy-ios/src/lib/floatStart';
+import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed, currentStartCondition, putInLocation, estimateStartId } from '../../../eddy-ios/src/lib/floatStart';
+import { startWeatherFrom, startWeatherPoint, START_WEATHER_WINDOW_MS } from '../../../eddy-ios/src/lib/floatStartWeather';
+import type { StartCondition } from '@shared/float-archive';
+import { spanCalibration } from '@shared/float-recap';
+import { fetchWeather } from './weather/openweather';
 
 const MILE = 1609.344;
 const LAT0 = 37.0;
@@ -1474,4 +1479,108 @@ test('a float saves the take-out photo and those along the stretch for offline, 
   ], 'a GPS start uses its mile');
   assert.equal(stretchPhotoUris(points, 'pulltite').length, 4, 'no known start: everything upstream of the take-out');
   assert.deepEqual(stretchPhotoUris(points, 'missing', 'akers'), []);
+});
+
+const START_CONDITION: StartCondition = {
+  code: 'dangerous', gaugeName: 'Van Buren', usgsSiteId: '07067000', heightFt: 12, dischargeCfs: null,
+  observedAt: '2026-07-04T13:45:00Z', accuracyWarning: false,
+};
+
+test('start condition: its own freshness rule, kept when float time is withheld', () => {
+  const estimate = { estimateBasis: 'today', estimatedAt: new Date(T0).toISOString(), floatTime: null, condition: START_CONDITION };
+  assert.equal(currentMovingSpeed(estimate, T0), null, 'Flood withholds the speed');
+  assert.deepEqual(currentStartCondition(estimate, T0), START_CONDITION, 'but not the condition');
+  assert.equal(currentStartCondition(estimate, T0 + 300_000), null, 'an estimate five minutes old is stale');
+  assert.equal(currentStartCondition(estimate, T0 - 1000), null, 'or future-dated');
+  assert.equal(currentStartCondition({ ...estimate, estimateBasis: 'typical' }, T0), null);
+  const usace = { ...START_CONDITION, usgsSiteId: null };
+  assert.deepEqual(currentStartCondition({ ...estimate, condition: usace }, T0), usace, 'a station USGS does not run');
+  assert.equal(currentStartCondition({ ...estimate, condition: undefined }, T0), null, 'an older server');
+  assert.equal(currentStartCondition({ ...estimate, condition: { ...START_CONDITION, code: 'unknown' as StartCondition['code'] } }, T0), null);
+});
+
+test('start snapshots the condition and the calibrated span; the recap keeps them with the credited river', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'f', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', startCondition: START_CONDITION, now: T0 });
+  assert.ok(made.ok);
+  assert.deepEqual(made.session.riverSpan, {
+    firstMile: 20, lastMile: 20 + 10_000 * MILES_PER_M, firstName: 'akers', lastName: 'round-spring',
+    calibration: spanCalibration(route.anchors),
+  });
+  assert.deepEqual(made.session.startCondition, START_CONDITION);
+  const tailwater = { ...START_CONDITION, usgsSiteId: null };
+  assert.deepEqual(currentStartCondition({ estimateBasis: 'today', estimatedAt: new Date(T0).toISOString(), condition: tailwater }, T0), tailwater, 'a gauge with no USGS id still sets the condition');
+  const moved = float(made.session, index, 0, T0, 1200, 1.5);
+  const trip = recapFloat(moved, T0 + 1_200_000);
+  assert.deepEqual(trip.startCondition, START_CONDITION);
+  assert.deepEqual(trip.riverSpan, made.session.riverSpan);
+  assert.ok(trip.coveredMiles && trip.coveredMiles.length === 1, 'one continuous stretch');
+  const [low, high] = trip.coveredMiles[0];
+  assert.ok(low >= 20 && high > low && high - low <= trip.distanceMiles + 0.01, 'covered is never more than credited distance');
+  assert.equal(trip.startWeather, undefined);
+
+  const legacy = { ...moved, totals: { ...moved.totals! } };
+  delete legacy.totals.coveredMiles;
+  delete legacy.startCondition;
+  delete legacy.riverSpan;
+  const old = recapFloat(legacy, T0 + 1_200_000);
+  for (const field of ['coveredMiles', 'startCondition', 'riverSpan', 'startWeather']) assert.ok(!(field in old), field);
+});
+
+test('river span is lowest to highest mile, whichever way the miles run along the line', () => {
+  const reversed = ACCESS.map((p) => ({ ...p, riverMile: 60 - p.riverMile }));
+  const result = routeFromRiver(RIVER, reversed, null);
+  assert.ok(result.ok);
+  const span = riverSpanOf(result.route, result.index);
+  assert.equal(span?.firstName, 'round-spring');
+  assert.equal(span?.lastName, 'akers');
+  assert.ok(span && span.lastMile > span.firstMile);
+});
+
+test('start weather: asked at the put-in, else the first confirmed position within the window', () => {
+  const { route, index } = prepared();
+  const saved = startSession({ id: 'f', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(saved.ok);
+  const [lng, lat] = at(0);
+  assert.deepEqual(startWeatherPoint(saved.session, T0), { lng, lat });
+  const quick = startSession({ id: 'q', kind: 'quick', route, index, takeOutId: 'pulltite', now: T0 });
+  assert.ok(quick.ok);
+  assert.equal(startWeatherPoint(quick.session, T0 + 60_000), 'wait');
+  assert.equal(startWeatherPoint(quick.session, T0 + START_WEATHER_WINDOW_MS + 1), null);
+  const placed = { ...quick.session, recordedStart: { riverMile: 21, lngLat: at(1_600), at: T0 + 120_000, atPutIn: false } };
+  assert.deepEqual(startWeatherPoint(placed, T0 + 130_000), { lng: at(1_600)[0], lat: at(1_600)[1] });
+  const late = { ...placed, recordedStart: { ...placed.recordedStart, at: T0 + START_WEATHER_WINDOW_MS + 1 } };
+  assert.equal(startWeatherPoint(late, T0 + START_WEATHER_WINDOW_MS + 2), null);
+});
+
+test('start weather keeps only the current observation, dated when it was observed', () => {
+  const current = {
+    temp: 48, condition: 'Rain', conditionIcon: '10d', windSpeed: 4, humidity: 90, rain1hInches: 0.12,
+    // The server fetched it at 13:30 from a cache filled with a 12:10 observation.
+    fetchedAt: '2026-07-04T13:30:00Z', observedAt: '2026-07-04T12:10:00Z',
+  };
+  assert.deepEqual(startWeatherFrom({ city: 'Eminence', days: [], current }), { tempF: 48, precipIn1h: 0.12, observedAt: '2026-07-04T12:10:00.000Z' });
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, observedAt: undefined } }), null, 'a fetch time is not an observation time');
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, observedAt: 'yesterday' } }), null);
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: null, periods: [{ timestamp: 'x', localHour: 9, temp: 40, conditionIcon: '10d', precipitation: 3 }] }), null);
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, rain1hInches: undefined } }), null, 'an older server without rain');
+  assert.equal(startWeatherFrom(null), null);
+});
+
+test('the weather route carries the provider observation time, not just its own fetch time', async () => {
+  const original = globalThis.fetch;
+  const body = (dt?: number) => ({
+    ...(dt == null ? {} : { dt }), name: 'Eminence', main: { temp: 47.6, humidity: 90 },
+    weather: [{ main: 'Rain', icon: '10d' }], wind: { speed: 3, deg: 180 }, rain: { '1h': 2.5 },
+  });
+  try {
+    globalThis.fetch = (async () => new Response(JSON.stringify(body(1783167000)))) as typeof fetch;
+    const observed = await fetchWeather(37.15, -91.35, 'key');
+    assert.equal(observed.observedAt, new Date(1783167000 * 1000).toISOString());
+    assert.equal(observed.rain1hInches, 0.1);
+    globalThis.fetch = (async () => new Response(JSON.stringify(body()))) as typeof fetch;
+    assert.equal((await fetchWeather(37.15, -91.35, 'key')).observedAt, undefined, 'no dt, no invented time');
+  } finally {
+    globalThis.fetch = original;
+  }
 });

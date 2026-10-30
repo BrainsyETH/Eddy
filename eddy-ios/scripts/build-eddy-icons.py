@@ -111,7 +111,25 @@ SCENES = (
     "eddy-wave",
 )
 
-ICONS = SYMBOLS + SCENES
+# The float recap's otter moods (docs/float-history-card-plan.md, phase 4),
+# drawn by FloatMoodOtter in Otter.tsx at 40 to 150pt. Existing stickers stand
+# in for the five moods whose own art is not drawn yet, per the design's mood
+# board: high-water-alert for Big water (cautious, never a celebration),
+# safety-first for Rain, thinking for Scrape, paddle-ready for Speed run, and
+# campfire-chill for Chilly as well as Lazy river. Replacing a stand-in is a
+# new master here plus one line in Otter.tsx's FLOAT_MOODS.
+MOODS = (
+    "eddy-celebrate",
+    "eddy-thumbs-up",
+    "eddy-laugh",
+    "eddy-campfire-chill",
+    "eddy-high-water-alert",
+    "eddy-safety-first",
+    "eddy-thinking",
+    "eddy-paddle-ready",
+)
+
+ICONS = SYMBOLS + SCENES + MOODS
 
 # What the website renders. Next serves public/ per request rather than shipping
 # it to every device, so this list is not under the bundle-weight rule above —
@@ -146,6 +164,9 @@ WEB_ICONS = (
     "eddy-inflow",
     "eddy-fishery",
     "eddy-hazard",
+    # The float share image (api/share/float/image) draws the same mood
+    # sticker the recap shows, so the server needs every one of them.
+    *MOODS,
 )
 
 # Longest edge of the exported PNG. Matches assets/otter.
