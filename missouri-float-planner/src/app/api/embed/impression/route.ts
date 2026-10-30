@@ -10,19 +10,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { IMPRESSION_WIDGET_TYPES } from '@/lib/embed/options';
 
 export const dynamic = 'force-dynamic';
 
-const WIDGET_TYPES = new Set([
-  'card',
-  'widget',
-  'eddy-quote',
-  'planner',
-  'services',
-  'gauge-report',
-  'badge',
-  'rivers',
-]);
+// Legacy widget names plus every (kind, size) of the embed family and its
+// image renders — one list, owned by src/lib/embed/options.ts.
+const WIDGET_TYPES = IMPRESSION_WIDGET_TYPES;
 
 const KEY_RE = /^[a-z0-9_-]{1,60}$/;
 

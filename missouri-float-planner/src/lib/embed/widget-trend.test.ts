@@ -41,19 +41,21 @@ test('a steadily falling river reads as falling', () => {
 // ── the guard ────────────────────────────────────────────────────
 
 test('the widget computes its arrow through computeTrend, over a real window', () => {
+  // The embed family assembles server-side now; the arrow is computed once in
+  // river-data.ts for every size that shows one.
   const source = readFileSync(
-    join(process.cwd(), 'src/app/embed/widget/[slug]/page.tsx'),
+    join(process.cwd(), 'src/lib/embed/river-data.ts'),
     'utf-8',
   );
-  assert.match(source, /computeTrend/, 'widget stopped using the shared trend reader');
-  assert.doesNotMatch(
+  assert.match(source, /computeTrend\(history, primary\.unit, 6\)/, 'widget stopped using the shared trend reader over the six-hour window');
+  assert.match(
     source,
-    /history\?hours=/,
-    'the route reads only `days`; ?hours= silently returns the 7-day default',
+    /order\('reading_timestamp', \{ ascending: true \}\)/,
+    'history must be read oldest-first — computeTrend treats the last reading as latest',
   );
   assert.doesNotMatch(
     source,
-    /const latest = data\.readings\[0\]/,
+    /readings\[0\]/,
     'readings[0] is the OLDEST reading — treating it as latest inverts the arrow',
   );
 });

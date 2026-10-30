@@ -187,9 +187,9 @@ body {
   overflow-x: clip;
 }
 
-/* Shared interaction behavior for self-contained Eddy embeds. Colors are
-   supplied per-widget through CSS custom properties so light and dark themes
-   retain the same focus and motion behavior. */
+/* Shared interaction behavior for the remaining single-purpose embeds
+   (planner, services, the location-pinned card). The river/dam family uses
+   the .ew-* rules below. */
 .embed-metric-link {
   transition: background-color var(--duration-fast) var(--ease-out);
 }
@@ -203,148 +203,6 @@ body {
 .embed-control:focus-visible {
   outline: 2px solid var(--embed-focus);
   outline-offset: 2px;
-}
-
-.embed-metric-detail {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-/* Bubble stat tiles — the "Eddy Report Stats" redesign. Soft everywhere:
-   rounded corners, warm-stone border, a soft (never hard) offset shadow that
-   lifts slightly on hover. Dynamic colors arrive per-tile via inline styles. */
-.embed-tile-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-}
-
-.embed-tile {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 0;
-  padding: 7px 8px 8px;
-  border-radius: 11px;
-  border: 1.5px solid transparent;
-  box-shadow: var(--embed-tile-shadow);
-  text-align: center;
-  transition:
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-  animation: embed-tile-in 0.42s var(--ease-out) both;
-}
-
-.embed-tile-link {
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.embed-tile:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--embed-tile-shadow-hover);
-}
-
-.embed-tile-link:focus-visible {
-  outline: 2px solid var(--embed-focus);
-  outline-offset: 2px;
-}
-
-.embed-tile-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  padding: 2px 8px 2px 3px;
-  border: 1px solid transparent;
-  border-radius: 9999px;
-}
-
-.embed-tile-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 15px;
-  height: 15px;
-}
-
-.embed-tile-label {
-  overflow: hidden;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.embed-tile-value {
-  width: 100%;
-  margin-top: 4px;
-  font-size: clamp(13px, 3.4vw, 16px);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: break-word;
-}
-
-.embed-tile-unit {
-  margin-left: 0.22em;
-  font-size: 0.6em;
-  font-weight: 600;
-}
-
-.embed-tile-detail {
-  display: -webkit-box;
-  width: 100%;
-  overflow: hidden;
-  margin-top: 2px;
-  font-size: 10px;
-  line-height: 1.28;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-@keyframes embed-tile-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.985); }
-  to { opacity: 1; transform: none; }
-}
-
-/* Expand/collapse (+/−) affordance for the embed "full condition update". */
-.embed-details-summary {
-  list-style: none;
-}
-
-.embed-details-summary::-webkit-details-marker {
-  display: none;
-}
-
-.embed-pm {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 16px;
-  height: 16px;
-  border: 1px solid currentColor;
-  border-radius: 9999px;
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.75;
-}
-
-.embed-pm::before {
-  content: '+';
-}
-
-details[open] .embed-details-summary .embed-pm::before {
-  content: '−';
 }
 
 /* Info "(i)" popover trigger focus ring (used on app pages and in embeds). */
@@ -363,37 +221,228 @@ details[open] .embed-details-summary .embed-pm::before {
   background: var(--embed-hover);
 }
 
-.embed-skeleton {
-  background: var(--embed-skeleton);
-  animation: embed-skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes embed-skeleton-pulse {
-  0%, 100% { opacity: 0.48; }
-  50% { opacity: 0.82; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .embed-metric-link,
   .embed-footer-link,
-  .embed-control,
-  .embed-control-icon,
-  .embed-tile {
+  .embed-control {
     transition: none !important;
   }
+}
 
-  .embed-tile {
-    animation: none !important;
-  }
+/* ── Embed family (src/components/embed/v2) ──────────────────────────────
+   Every color below is a --ew-* token the frame defines per theme
+   (src/lib/embed/options.ts), so light, dark, auto and a partner accent are
+   one stylesheet. Condition colors arrive inline from the canonical system.
+   The card is the site's .card-framed: surface, 2px primary-700 border, 8px
+   corners, 3px hard shadow. Inside it stays flat — spacing and hairline
+   separators, not more boxes. Type: 14px body, 12px supporting, nothing
+   smaller. Partner accents reach --ew-link/--ew-accent only; data (status,
+   bars, the trend line) uses --ew-data. */
+.ew { line-height: 1.4; font-size: 14px; }
+.ew * { box-sizing: border-box; }
+.ew a { color: inherit; }
+.ew h1, .ew h2, .ew p, .ew ul, .ew dl, .ew dd { margin: 0; }
+.ew ul { padding: 0; list-style: none; }
+/* The site's heading rule sets a fixed ink; inside a themed frame the text
+   color must follow the frame (dark theme, partner accent). */
+.ew h1, .ew h2 { color: inherit; letter-spacing: normal; }
 
-  .embed-tile:hover {
-    transform: none;
-  }
+.ew-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--ew-bg);
+  border: 2px solid var(--ew-frame);
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 var(--ew-frame-shadow);
+}
+.ew-card-strip { padding: 0; gap: 0; }
 
-  .embed-skeleton {
-    animation: none;
-    opacity: 0.65;
-  }
+.ew-body { font-size: 14px; line-height: 1.5; }
+.ew-support { font-size: 12px; line-height: 1.4; color: var(--ew-muted); }
+.ew-clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ew-num, .ew-reading-value, .ew-strip-reading, .ew-row-value {
+  /* Body face with tabular figures: the mono face's wide comma printed
+     "8 , 321". Columns still align. */
+  font-variant-numeric: tabular-nums;
+}
+.ew-section-title { font-size: 12px; font-weight: 700; color: var(--ew-muted); }
+.ew-dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex: none; }
+.ew-unit { margin-left: 0.25em; font-family: var(--font-body), system-ui, sans-serif; font-size: 12px; font-weight: 600; color: var(--ew-muted); }
+.ew-dim { opacity: 0.6; }
+.ew-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 4px;
+  margin: 0 -4px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ew-link);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.ew-link:hover { background: var(--ew-surface); }
+.ew a:focus-visible, .ew summary:focus-visible { outline: 2px solid var(--ew-focus); outline-offset: 2px; }
+
+/* badge — an inline pill, hugged by the host iframe */
+.ew-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 9px;
+  border: 2px solid var(--ew-frame);
+  border-radius: 9999px;
+  background: var(--ew-bg);
+  color: var(--ew-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 3px 3px 0 var(--ew-frame-shadow);
+}
+.ew-badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* strip — one line; inside a stack, rows separated by hairlines */
+.ew-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 14px;
+  color: var(--ew-text);
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.ew-strip:hover { background: var(--ew-surface); }
+.ew-strip-name { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.ew-strip-river { font-family: var(--font-heading), system-ui, sans-serif; font-size: 15px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.ew-strip-reading { flex: none; font-size: 16px; font-weight: 700; }
+.ew-trend { margin-left: 4px; font-family: var(--font-body), system-ui, sans-serif; font-size: 13px; font-weight: 700; color: var(--ew-muted); }
+.ew-strip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ew-strip-age { flex: none; min-width: 2.4em; text-align: right; font-variant-numeric: tabular-nums; }
+.ew-stack { display: flex; flex-direction: column; margin: 0 -16px; }
+.ew-stack .ew-strip { padding: 10px 16px; border-top: 1px solid var(--ew-border); }
+.ew-stack .ew-strip:first-child { border-top: 0; }
+
+/* card / full */
+.ew-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--ew-border); }
+.ew-head-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 160px; min-width: 0; }
+.ew-title { font-family: var(--font-heading), system-ui, sans-serif; font-size: 18px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.ew-head-status { flex: none; text-decoration: none; }
+/* A sidebar is narrow: the place name keeps the line, the status drops
+   beneath it, aligned with the text. */
+@media (max-width: 380px) {
+  .ew-head-status { flex-basis: 100%; padding-left: 56px; }
+}
+.ew-mascot { display: block; flex: none; object-fit: contain; }
+.ew-partner-logo {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  max-width: 32%; padding: 4px; border-radius: 6px; background: var(--ew-logo-bg);
+}
+
+.ew-reading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.ew-reading-value { font-size: 30px; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; }
+.ew-reading-value .ew-unit { font-size: 14px; letter-spacing: 0; }
+.ew-trend-text { font-size: 14px; font-weight: 600; color: var(--ew-text); }
+.ew-reading-age { margin-left: auto; white-space: nowrap; }
+
+.ew-meter { display: flex; flex-direction: column; gap: 4px; }
+.ew-meter-track { position: relative; display: flex; gap: 3px; height: 10px; }
+.ew-meter-band { flex: 1 1 0; border: 1px solid transparent; border-radius: 4px; opacity: 0.85; }
+.ew-meter-band-active { opacity: 1; }
+.ew-meter-marker { position: absolute; top: -4px; width: 0; height: 18px; transform: translateX(-50%); }
+.ew-meter-marker-dot {
+  display: block; width: 12px; height: 18px; margin-left: -6px;
+  border: 2px solid var(--ew-bg); border-radius: 6px;
+  box-shadow: 0 0 0 1.5px var(--ew-frame);
+}
+.ew-meter-labels { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ew-muted); }
+.ew-meter-optimal { font-variant-numeric: tabular-nums; text-align: center; }
+
+/* Notices stay visible and stay Eddy's coral whatever the partner accent. */
+.ew-note {
+  padding: 8px 12px; border-left: 3px solid #E5573F; border-radius: 0 6px 6px 0;
+  background: var(--ew-surface); font-size: 13px; line-height: 1.45; color: var(--ew-text);
+}
+.ew-stale { color: var(--ew-text); }
+.ew-take { display: flex; flex-direction: column; }
+.ew-weather { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ew-muted); }
+
+.ew-rows { display: flex; flex-direction: column; }
+.ew-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--ew-border); font-size: 14px; }
+.ew-row-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ew-row-value { flex: none; font-weight: 700; }
+.ew-row-stacked { display: grid; grid-template-columns: minmax(96px, 34%) 1fr; align-items: baseline; }
+.ew-row-stacked .ew-row-label { font-size: 12px; font-weight: 700; color: var(--ew-muted); }
+.ew-row-stacked .ew-row-value { font-weight: 600; }
+.ew-row-detail { display: block; font-weight: 400; margin-top: 2px; }
+.ew-section-title + .ew-rows .ew-row:first-child { margin-top: 4px; }
+
+.ew-credit {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px;
+  padding-top: 8px; border-top: 1px solid var(--ew-border);
+}
+.ew-credit-links { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.ew-credit-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.ew-credit-partner { font-size: 12px; font-weight: 700; color: var(--ew-text); text-decoration: none; }
+.ew-powered {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 4px; margin-right: -4px;
+  border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--ew-muted); text-decoration: none;
+}
+.ew-powered:hover { background: var(--ew-surface); }
+
+/* dam */
+.ew-gen { color: var(--ew-muted); }
+.ew-gen-on, .ew-gen-min { color: var(--ew-data); }
+.ew-gen-chip { border-color: var(--ew-border); background: var(--ew-surface); }
+.ew-dam-now { display: flex; flex-direction: column; gap: 4px; }
+.ew-dam-status { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
+.ew-next { font-size: 15px; font-weight: 600; line-height: 1.4; }
+.ew-sched { display: flex; flex-direction: column; gap: 6px; }
+.ew-sched-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ew-sched-bars { display: flex; align-items: flex-end; gap: 2px; }
+.ew-sched-slot { position: relative; display: flex; flex: 1 1 0; flex-direction: column; justify-content: flex-end; height: 100%; }
+.ew-sched-bar { display: block; border-radius: 2px; }
+.ew-sched-bar-on { background: var(--ew-data); }
+.ew-sched-bar-idle { background: var(--ew-muted); opacity: 0.4; }
+.ew-sched-bar-missing { border: 1px dashed var(--ew-muted); background: transparent; opacity: 0.7; }
+.ew-sched-now {
+  position: absolute; top: 0; left: 50%; width: 0; height: 0; transform: translateX(-50%);
+  border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #E5573F;
+}
+.ew-sched-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--ew-muted); }
+.ew-about summary { list-style: none; width: fit-content; font-size: 12px; }
+.ew-about summary::-webkit-details-marker { display: none; }
+.ew-about summary::after { content: '+'; margin-left: 6px; }
+.ew-about[open] summary::after { content: '−'; }
+.ew-about ul { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ew-strip, .ew-link { transition: none !important; }
 }
 
 /* Typography */

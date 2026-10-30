@@ -70,3 +70,26 @@ export const EMBED_FONTS = {
 export function embedShadow(p: EmbedPalette): string {
   return `2px 2px 0 ${p.shadow}`;
 }
+
+/**
+ * The same palette shape, expressed as the `--ew-*` custom properties the
+ * embed family frame defines (src/lib/embed/options.ts). Lets a renderer built
+ * on EmbedPalette — the trend chart — follow `theme=auto` for free: SVG
+ * presentation attributes accept `var()` like any CSS value.
+ */
+export function embedVarPalette(): EmbedPalette {
+  return {
+    bg: 'var(--ew-bg)',
+    cardBg: 'var(--ew-surface)',
+    border: 'var(--ew-border)',
+    textPrimary: 'var(--ew-text)',
+    textSecondary: 'var(--ew-muted)',
+    // The chart's `link` is its data line — Eddy teal, never a partner accent.
+    link: 'var(--ew-data)',
+    accent: 'var(--ew-accent)',
+    shadow: 'var(--ew-shadow)',
+    hoverBg: 'var(--ew-surface)',
+    focus: 'var(--ew-focus)',
+    skeleton: 'var(--ew-skeleton)',
+  };
+}

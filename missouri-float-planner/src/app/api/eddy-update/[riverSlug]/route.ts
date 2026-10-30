@@ -1,35 +1,23 @@
 // src/app/api/eddy-update/[riverSlug]/route.ts
 // Returns the latest AI-generated Eddy update for a river.
 // Optionally filtered by section via ?section=upper-current
+//
+// The query, the live-condition safety overlay and the public/Premium tiering
+// live in src/lib/eddy/latest-update.ts, shared with the server-rendered
+// embeds so an iframe never shows prose this route would withhold.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
-import { toNum } from '@/lib/utils/num';
-import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
 import { optionalEntitlement } from '@/lib/entitlement';
-import { tierGeneratedEddyProse } from '@/lib/eddy/tiered-prose';
+import { loadLatestEddyUpdate, type LatestEddyUpdate } from '@/lib/eddy/latest-update';
 
 export const dynamic = 'force-dynamic';
 
 export interface EddyUpdateResponse {
   available: boolean;
-  update: {
-    /** Premium long-form prose. Null for public callers. */
-    quoteText: string | null;
-    summaryText: string | null;
-    /** Premium short interpretation. Null for public callers. */
-    eddyRead: string | null;
-    conditionCode: string;
-    gaugeHeightFt: number | null;
-    dischargeCfs: number | null;
-    sectionSlug: string | null;
-    sourcesUsed: string[];
-    generatedAt: string;
-    readingTimestamp: string | null;
-    snapshotId: string | null;
-  } | null;
+  update: LatestEddyUpdate | null;
 }
 
 async function _GET(
@@ -51,92 +39,21 @@ async function _GET(
     // indistinguishable from a free account.
     if (auth instanceof NextResponse) return auth;
     const entitled = auth !== null;
-    const supabase = createAdminClient();
 
     const sectionSlug = request.nextUrl.searchParams.get('section') || null;
+    const result = await loadLatestEddyUpdate(createAdminClient(), riverSlug, { entitled, sectionSlug });
 
-    // Fetch the most recent non-expired update for this river/section
-    let query = supabase
-      .from('eddy_updates')
-      .select('quote_text, summary_text, eddy_read, condition_code, gauge_height_ft, discharge_cfs, section_slug, sources_used, generated_at, expires_at')
-      .eq('river_slug', riverSlug)
-      .gt('expires_at', new Date().toISOString())
-      .order('generated_at', { ascending: false })
-      .limit(1);
-
-    if (sectionSlug) {
-      query = query.eq('section_slug', sectionSlug);
-    } else {
-      query = query.is('section_slug', null);
-    }
-
-    const { data, error } = await query.maybeSingle();
-
-    if (error) {
-      console.error(`[EddyUpdate] Query error for ${riverSlug}:`, error);
+    if (result.state === 'error') {
       return NextResponse.json<EddyUpdateResponse>(
         { available: false, update: null },
         { status: 500, headers: responseHeaders }
       );
     }
-
-    if (!data) {
-      // No AI update available — frontend will fall back to static quote
+    if (!result.update) {
+      // No safe update — the frontend falls back to a static quote.
       return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
     }
-
-    // Overlay live gauge-derived condition + height so the river page's
-    // "Eddy Says" card matches the hero condition badge (which already
-    // computes live from gauge_readings + thresholds). When the live
-    // condition has crossed into a different bucket, the AI prose is
-    // dropped — the frontend falls back to a static quote rather than
-    // showing "sweet spot" copy next to a "High Water" badge.
-    const overlayInput = {
-      river_slug: riverSlug,
-      condition_code: data.condition_code,
-      gauge_height_ft: data.gauge_height_ft,
-      discharge_cfs: data.discharge_cfs,
-      quote_text: data.quote_text,
-      summary_text: data.summary_text,
-    };
-    const [overlaid] = await overlayLiveConditions(supabase, [overlayInput], {
-      // Website prose is valid only for the current, non-stale snapshot.
-      proseStaleHours: WEBSITE_PROSE_STALE_HOURS,
-      logLabel: 'eddy-update',
-    });
-    // quote_text and summary_text are the fields the live-condition overlay
-    // clears when the written report is stale or contradicts current water.
-    // eddy_read comes from that same model run, so it may be returned only when
-    // at least one of those overlaid fields survived the safety gate. Never let
-    // the untouched database value decide availability on its own.
-    const prose = tierGeneratedEddyProse(entitled, {
-      quoteText: overlaid.quote_text || null,
-      summaryText: overlaid.summary_text ?? null,
-      eddyRead: data.eddy_read ?? null,
-    });
-
-    if (!prose.available) {
-      // Live condition has diverged from the AI snapshot — surface no prose
-      // so the client falls back to the static quote.
-      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
-    }
-
-    return NextResponse.json<EddyUpdateResponse>({
-      available: true,
-      update: {
-        quoteText: prose.quoteText,
-        summaryText: prose.summaryText,
-        eddyRead: prose.eddyRead,
-        conditionCode: overlaid.condition_code,
-        gaugeHeightFt: toNum(overlaid.gauge_height_ft),
-        dischargeCfs: toNum(overlaid.discharge_cfs),
-        sectionSlug: data.section_slug,
-        sourcesUsed: data.sources_used || [],
-        generatedAt: data.generated_at,
-        readingTimestamp: overlaid.reading_timestamp ?? null,
-        snapshotId: overlaid.snapshot_id ?? null,
-      },
-    }, { headers: responseHeaders });
+    return NextResponse.json<EddyUpdateResponse>({ available: true, update: result.update }, { headers: responseHeaders });
   } catch (error) {
     console.error('[EddyUpdate] Unexpected error:', error);
     return NextResponse.json<EddyUpdateResponse>(
