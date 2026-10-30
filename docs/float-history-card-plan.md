@@ -113,9 +113,12 @@ recover that.
   adds nothing.
 - The short unresolved final run is excluded, as `finishFloatTotals` excludes
   its distance.
-- Merge intervals that touch or overlap within `STAY_RADIUS_METERS`. Keep at
-  most 32. Past that, set `coveredMiles` to null rather than truncating: no
-  figure is better than a wrong one.
+- Merge only intervals that overlap or touch (`start ≤` the previous `end`).
+  Merging across a gap, even one inside `STAY_RADIUS_METERS`, would add river
+  nobody was credited for. The strip may draw near segments as one, but that
+  is drawing, never arithmetic. Keep at most 32 intervals. Past that, set
+  `coveredMiles` to null rather than truncating: no figure is better than a
+  wrong one.
 - Absent on sessions started by an older build (like `totals` itself). Those
   floats show no river explored.
 - `recapFloat` copies `coveredMiles` into `CompletedFloat`.
@@ -204,6 +207,12 @@ Why this order:
 - **Speed and Lazy come before Made it!** Most good floats reach the take-out,
   so `made-it` would otherwise swallow them.
 
+Rules 1 to 3 are their own export, `moodGate({ tracking, code, current })`,
+which returns `'standard'`, `'big-water'`, or `'open'` (go on to the other
+rules). `pickFloatMood` calls it first, and the share route (phase 5) calls
+the same function, so the recap and its shared image can never disagree
+about the otter.
+
 A rule whose data is missing does not match; it never guesses, so old floats
 fall through cleanly. Rules 8 and 9 need both `movingMph` and `plannerMph`,
 except for the `stoppedMs` half of rule 9. Keep the thresholds as named
@@ -241,15 +250,28 @@ never used.
   An out-and-back has more distance than explored miles. The recap labels both
   and never presents one as the other.
 
-`riverLifetimeExplored(trips, riverSlug)` merges the clamped intervals of
-every completed float on that river and divides by the span of the most recent
-one. A later correction to access-point miles can shift older intervals
-slightly; the lifetime line is a summary, not a survey.
+`riverLifetimeExplored(trips, riverSlug)` uses one common boundary:
+
+- **Eligible floats** are the completed floats on that river with both
+  `riverSpan` and a non-null `coveredMiles`. Others contribute nothing.
+- **The boundary** is the `riverSpan` of the eligible float with the latest
+  `startedAt`. A newer float without a span cannot supply it, so it never
+  leaves the lifetime line without a denominator while older floats have one.
+- Merge every eligible float's intervals (overlapping or touching only), then
+  clamp the merged list to that boundary, and only then sum and divide. Each
+  float's own clamp is to its own span, which can be wider: an older span of
+  miles 0–100 and a newer one of 10–90 would otherwise give 100 miles explored
+  out of 80.
+- No eligible float, no line. A later correction to access-point miles can
+  still shift older intervals slightly; the line is a summary, not a survey.
 
 **Tests:** Current (geometric miles) and Meramec (editorial) fixtures built
 through `buildRouteIndex`, so the span is the one the device would snapshot.
 Cover clamping at both ends, an interval wholly outside the span, missing
-`coveredMiles`, and overlapping lifetime intervals.
+`coveredMiles`, intervals a few metres apart staying separate, and overlapping
+lifetime intervals. For the lifetime line: a narrower newer span (0–100 then
+10–90) never exceeds 100%, and the newest float lacking a span takes the
+boundary from the latest one that has it.
 
 ### Badge
 
@@ -261,7 +283,10 @@ Tests: `missouri-float-planner/shared/float-recap.test.ts`, registered in the
 web `test` script (otherwise `registered-tests.test.ts` fails). Cover every
 mood rule; the order (no tracking beats High, High beats Quick dip, Quick dip
 beats Rain, Speed beats Made it!); a stale High blocking every mood; the speed
-rules refusing a `partial` float or under 20 minutes of moving time; missing
+rules refusing a `partial` float or under 20 minutes of moving time;
+`moodGate` with tracking `none` and a current High and a current Flood
+(standard otter, not Big water), and with `partial` and a current High (Big
+water); missing
 data falling through; the condition source order; malformed sub-objects (null,
 not a throw); and the three tracking states.
 
@@ -411,13 +436,15 @@ Extract the inline row into `eddy-ios/src/float/FloatHistoryCard.tsx`. The
 river is the card's identity; the otter and mood are secondary.
 
 - **Title:** the river.
-- **Route:** "Put-in → Take-out". With no put-in, "To <take-out>" plus a muted
-  "Started on the water" line. This replaces the repeated "On-river start →".
+- **Route:** "Put-in → Take-out". With no put-in, "To <take-out>", plus a
+  muted "Started on the water" line only when a river position was confirmed
+  (tracking is not `none`); an untracked session gets no such line. This
+  replaces the repeated "On-river start →".
 - **Date**, then **distance · duration** in Geist Mono, using the recorded
   duration as it is ("6 min", "4h 12m"), never a band like "Under 10 min".
 - **Tracking:** with `none`, the distance is replaced by "GPS distance
-  unavailable", never "0.0 mi". With `partial`, the distance carries "GPS
-  lost for part of this float".
+  unavailable", never "0.0 mi". With `partial`, the distance carries "Limited
+  GPS tracking": an unobserved interval is not always lost signal.
 - **Condition badge:** a straight, flat badge (condition ink on its tint),
   label and cfs. Hidden when there is no condition. A reading that is not
   current shows no badge on the card; the recap explains it.
@@ -441,11 +468,12 @@ Type sizes the stats wrap below the title rather than truncating it.
 - **Arrival:** keep the existing line, worded as what was confirmed: "Reached
   Pulltite" or "Arrival at Pulltite not confirmed". The mood never stands in
   for it.
-- **Conditions at start card:** the badge, a plain sentence about the
-  condition, "<gauge name> · USGS <id>" naming the gauge that set it, and the
-  reading's time relative to the start. A reading that is not current shows
-  its value and age without a condition label. It replaces the current "Water
-  at the start" card and shows the one reading 2a chooses.
+- **Conditions at start card:** the badge, then the name of the gauge that set
+  it and the reading's age relative to the start. No sentence that repeats the
+  badge. The USGS station id goes in the card's info tip (`FloatInfoTip`), not
+  the line. A reading that is not current shows its value and age without a
+  condition label. It replaces the current "Water at the start" card and shows
+  the one reading 2a chooses.
 - **River explored card**, only when `riverExplored` is not null: "9.6 river
   miles explored" first, then the percentage of the river's float miles, the
   strip with the first and last access names at its ends, earlier floats on
@@ -512,11 +540,15 @@ stored.
 - **Planned route versus confirmed arrival.** The image shows the route and,
   separately, "Reached <take-out>" or "Arrival not confirmed". Tracking
   `none` shows the duration and "GPS distance unavailable", as the card does.
-- **High water is enforced here, not only on the device.** Anyone can call the
-  route with any query. When the condition is `high` or `dangerous`, the
-  server draws `big-water` if the reading was current and the standard otter
-  otherwise, whatever mood the client sent. Flood floats can be shared; the
-  image states the condition plainly.
+- **The otter is decided by the same rule as the recap.** Anyone can call the
+  route with any query, so the server does not trust the client's mood. It
+  calls `moodGate` with the tracking state, condition code and `current`
+  flag from the query: `'standard'` draws the standard otter and
+  `'big-water'` the Big water art, whatever mood the client sent; only
+  `'open'` lets the client's mood through. Tracking `none` therefore gets the
+  standard otter even at a current High or Flood, as in the recap. Flood
+  floats can be shared; the image states the condition plainly. Test the
+  route with tracking `none` and a current High and Flood.
 - **What it never includes:** start and end times, the GPS track, the account,
   or `startNote`.
 - **Link text:** the river's eddy.guide page from the server-supplied path,
