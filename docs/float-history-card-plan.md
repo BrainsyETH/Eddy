@@ -1,40 +1,47 @@
-# Float history card: condition stamp, river completed, otter moods, share
+# Float history card: conditions at start, river explored, otter moods, share
 
 Status: plan. Nothing here is implemented yet.
 
 Design mockup (a private canvas, not in this repository; ask the owner for
 access): the "Float History Card" canvas has four boards: the history list,
-the float recap, the 9:16 share image and the otter mood sheet. Art prompts
-for the new moods are in `design/eddy-emoji/float-mood-otters.md`.
+the float recap, the 9:16 share image and the otter mood sheet. Exports go
+into the repository before phase 3 starts (see *Order and validation*). Art
+prompts for the new moods are in `design/eddy-emoji/float-mood-otters.md`.
 
 ## Goal
 
 The history card and the recap read like a fitness log today: river, route,
 date, minutes, miles. Most test entries show `0.0 mi tracked` and "Ended before
 arrival was confirmed", which reads as an error. This plan makes each saved
-float record **what the water was doing** and gives it Eddy's personality:
+float record **what the water was doing** and gives it Eddy's personality,
+without claiming more than the tracker measured:
 
-1. **Condition stamp.** The condition and flow at put-in, in the condition's
-   own colours (`CONDITION_SYSTEM`), on the card and the recap. The recap also
-   names the gauge and the reading's age.
-2. **River completed.** The stretch floated as a share of the river's float
-   miles ("5% of the Current's float miles"), drawn on a strip of the river
-   from its first access point to its last, plus one lifetime line on the
-   recap.
-3. **Otter moods.** One mood per float, chosen by ordered rules, drawn in the
-   existing Eddy sticker style.
-4. **Share.** A share action on each card and on the recap. It sends a
-   server-rendered 9:16 image plus a link back to eddy.guide.
+1. **Conditions at start.** The condition and flow the planner gave the float
+   at Start, in the condition's own colours (`CONDITION_SYSTEM`), on the card
+   and the recap. The recap names the gauge and the reading's age.
+2. **River explored.** The river miles the tracker credited, drawn on a strip
+   of the river from its first access point to its last, with the share of
+   the river's float miles as a secondary figure and one lifetime line.
+3. **Otter moods.** One mood per measured float, chosen by ordered rules,
+   drawn in the existing Eddy sticker style. A float with nothing measured
+   gets the standard otter.
+4. **Share.** One share action on the recap (and one on each card). It sends
+   a server-rendered 9:16 image plus a link back to eddy.guide.
 
 Out of scope for v1: Eddy Says one-liners on recaps, the river passport, and
-any lifetime coverage UI beyond the one recap line and the strip shading (see
-phase 6).
+any lifetime UI beyond the one recap line and the strip shading (phase 6).
 
 ## What the code does today
 
 - `eddy-ios/src/lib/floatRecap.ts` builds `CompletedFloat` on the device from
   the session. It records `firstMile`, `lastMile`, `plannerMph`, the time split
   and `reachedTakeOut`. It records **no condition and no weather.**
+- **`lastMile − firstMile` is not distance travelled.** In
+  `packages/eddy-geo/float-totals.ts`, `accumulateFloat` moves `last` to every
+  new sample, including after a gap longer than `MAX_CREDITED_GAP_MS` (2 h)
+  and after a relocation (a wrong match corrected), both of which credit
+  nothing. `distanceMiles` respects those rules but is gross: an out-and-back
+  counts twice. Neither says which river miles were covered.
 - `missouri-float-planner/src/lib/float-archive/water.ts` adds `water` (gauge
   name, station id, observed time, ft, cfs) **on the server, on account
   backup only.** Guests never get it. `floatArchiveUpload.ts` strips `water`
@@ -43,8 +50,8 @@ phase 6).
   `water` only for ids it has not stored, and the `write_float_archive` RPC
   updates only `saved` rows on conflict. Anything the server adds to `water`
   reaches a float on its **first** upload only. A sync replaces every
-  non-dirty local row with the server's payload
-  (`floatArchiveCore.ts`), so a server-side change does reach devices.
+  non-dirty local row with the server's payload (`floatArchiveCore.ts`), so a
+  server-side change does reach devices.
 - `float-archive/validation.ts` is `.strict()`. An older server rejects any
   new client field, which is why `startNote` is gated behind
   `GET /api/me/float-archive` capabilities (`{ startNote: true }`). New fields
@@ -52,15 +59,18 @@ phase 6).
 - On the device, `readableRow` in `floatArchiveCore.ts` ignores keys it does
   not know, and `readableArchive` refuses the **whole** archive when one row
   fails. New optional fields are therefore safe for old binaries, and must not
-  be added to `readableRow`'s checks (see 2d).
+  be added to `readableRow`'s checks (see 2e).
 - **The start screen already asks for the float's condition and throws it
   away.** `float-start.tsx` calls `/api/route-estimate` through
   `useStartEstimate` (refreshed every 5 minutes). `estimateRoute` computes the
   condition there: the gauge at or upstream of the put-in (or the GPS start
-  mile), escalated by any worse gauge inside the stretch. The route returns
-  only distance and speed. When the code is `dangerous`, float time is
+  mile), escalated by any worse gauge **inside the stretch**, so possibly
+  below the put-in. The anchor reading carries `accuracy_warning` (stale or
+  suspect) and `reading_age_hours`; an escalating reading may be up to 12 h
+  old, past the shared 6 h line in `shared/reading-staleness.ts`. The route
+  returns only distance and speed. When the code is `dangerous`, float time is
   withheld (`floatTimeWithholding`), so `plannerMph` is null on exactly the
-  floats Big water is about.
+  floats a high-water rule is about.
 - The route index (`buildRouteIndex` in `packages/eddy-geo/river-progress.ts`)
   is calibrated between the outermost access points it keeps. Beyond them,
   `riverMileAt` extrapolates at the nearest pair's scale.
@@ -79,9 +89,45 @@ phase 6).
   `design/eddy-emoji/`, but most are not bundled in `eddy-ios/assets/`.
 - Share images already have a stateless pattern: ADR 0015 and
   `ChartShareControl.tsx` (render a PNG on the server via `next/og`, hand the
-  file and the link text to the system share sheet). No new native dependency.
+  file and the link text to the system share sheet). No new native
+  dependency. `ChartShareControl` treats **any** `200` `image/png` response as
+  the image it asked for.
+- Theme: `accent[700]` is 3.16:1 on the dark `card` (`#242423`), and the
+  light theme's `accent` role (`accent[500]`) is 2.94:1 on white. Neither
+  passes as text on both themes.
 
-## Phase 1: pure logic in `shared/`
+## Phase 1a: credited river intervals in the tracker (`packages/eddy-geo`)
+
+River explored needs the river miles the tracker **accepted**, under the same
+rules that decide `distanceMiles`. Clamping a first and last mile cannot
+recover that.
+
+- Add `coveredMiles?: [number, number][] | null` to `FloatTotals`: a sorted,
+  merged list of disjoint river-mile intervals.
+- Track the current run's mile range (lowest and highest `riverMile`, starting
+  from the run's anchor) beside `runDistanceMiles`. When `closeRun` credits a
+  run's distance as moving, add its range. A run classified as a stop adds
+  nothing, as it adds no distance.
+- When `gapMiles` credits a gap, add `[last, sample]` (in mile order). A gap
+  it refuses (too long, too fast, inside the stay radius, or a relocation)
+  adds nothing.
+- The short unresolved final run is excluded, as `finishFloatTotals` excludes
+  its distance.
+- Merge intervals that touch or overlap within `STAY_RADIUS_METERS`. Keep at
+  most 32. Past that, set `coveredMiles` to null rather than truncating: no
+  figure is better than a wrong one.
+- Absent on sessions started by an older build (like `totals` itself). Those
+  floats show no river explored.
+- `recapFloat` copies `coveredMiles` into `CompletedFloat`.
+
+**Tests**, in `src/lib/float-archive.test.ts` beside the existing
+`accumulateFloat` cases: a three-hour gap and a relocation each add **no**
+interval, although `last` moves and `lastMile − firstMile` would report river
+covered;
+a credited gap adds one; an out-and-back yields one interval, not double; a
+stop's drift adds nothing; overflow gives null.
+
+## Phase 1b: pure logic in `shared/`
 
 New file `missouri-float-planner/shared/float-recap.ts`, consumed by iOS as
 `@eddy/conditions/float-recap`. It stays React- and native-free so the web
@@ -89,166 +135,191 @@ suite can test it. Add phase 2's optional fields to `CompletedFloat` in
 `shared/float-archive.ts` now, as types only, so these functions and their
 tests come first.
 
-### Which condition
+### Tracking
+
+`floatTracking(trip)` returns `'none' | 'partial' | 'measured'`, decided
+before and independently of mood:
+
+- `none`: `firstMile == null`. Eddy never placed the float on the river.
+- `partial`: placed, but `unknownMs > 0.5 × elapsedMs`. Most of the session
+  was unobserved.
+- `measured`: otherwise.
+
+The card, the recap, the mood rules and the share image all read this one
+function.
+
+### Conditions at start
 
 `floatCondition(trip)` returns
-`{ code, gaugeName, usgsSiteId, heightFt, dischargeCfs, observedAt } | null`, from
-**one** source per float:
+`{ code, gaugeName, usgsSiteId, heightFt, dischargeCfs, observedAt, current } | null`,
+from **one** source per float:
 
 1. `startCondition`, the condition the planner gave this float at Start (2a);
 2. otherwise `water`, when it carries a `conditionCode` (the server fallback);
 3. otherwise null.
 
-The stamp and the mood rules both read this function, so they can never
-disagree. It returns null for a malformed sub-object rather than throwing,
-because rows on disk are not checked that deeply (2d).
+`current` is true only when the reading was at most `STALE_READING_HOURS`
+older than `startedAt` (`isReadingStale`) and carried no accuracy warning. It
+returns null for a malformed sub-object rather than throwing, because rows on
+disk are not checked that deeply (2e).
 
 ### Mood rules
 
 `pickFloatMood(trip: CompletedFloat): FloatMood | null`. The rules are checked
-top to bottom, and the first match wins. Null means "untracked": the standard
-otter and no mood headline.
+top to bottom, and the first match wins. Null means the standard otter and no
+mood line.
 
-| # | Mood | Rule | Data |
+| # | Result | Rule | Data |
 |---|------|------|------|
-| 1 | `big-water` | `floatCondition` code ∈ {`high`, `dangerous`} | phase 2 |
-| 2 | none (untracked) | `firstMile == null` | exists |
-| 3 | `quick-dip` | `elapsedMs < 10 min` | exists |
-| 4 | `rain` | precipitation at start ≥ 0.05 in | phase 2 |
-| 5 | `chilly` | air temp at start < 50 °F | phase 2 |
-| 6 | `scrape` | `floatCondition` code ∈ {`low`, `too_low`} | phase 2 |
-| 7 | `speed-run` | `movingMph ≥ 1.3 × plannerMph` | exists |
-| 8 | `lazy-river` | `stoppedMs ≥ 0.4 × elapsedMs` OR `movingMph ≤ 0.7 × plannerMph` | exists |
-| 9 | `made-it` | `reachedTakeOut` | exists |
-| 10 | `good-float` | otherwise | n/a |
+| 1 | null | `floatTracking` is `none` | exists |
+| 2 | `big-water` | condition ∈ {`high`, `dangerous`} and `current` | phase 2 |
+| 3 | null | condition ∈ {`high`, `dangerous`}, not `current` | phase 2 |
+| 4 | `quick-dip` | `elapsedMs < 10 min` | exists |
+| 5 | `rain` | precipitation at start ≥ 0.05 in | phase 2 |
+| 6 | `chilly` | air temp at start < 50 °F | phase 2 |
+| 7 | `scrape` | condition ∈ {`low`, `too_low`} and `current` | phase 2 |
+| 8 | `speed-run` | `measured`, `movingMs ≥ 20 min`, `movingMph ≥ 1.3 × plannerMph` | exists |
+| 9 | `lazy-river` | `measured`, and `stoppedMs ≥ 0.4 × elapsedMs` OR (`movingMs ≥ 20 min` and `movingMph ≤ 0.7 × plannerMph`) | exists |
+| 10 | `made-it` | `reachedTakeOut` | exists |
+| 11 | `good-float` | otherwise | n/a |
 
 Why this order:
 
-- **Safety comes first.** A float started at High or Flood never gets a
-  celebrating otter, however it went. The condition does not depend on GPS, so
-  this holds for an untracked float too.
-- **Untracked comes next.** A float Eddy never placed on the river
-  (`discardReason` `unplaced`) has no distance, speed or position. It gets the
-  standard otter and an honest line, not a mood that implies a trip it did not
-  measure.
+- **Nothing measured, no mood.** A float Eddy never placed on the river has
+  no distance, speed or position. It keeps its condition badge, but gets the
+  standard otter, so a session started beside a high river and never placed
+  on it does not get the wave-riding otter either.
+- **High water never celebrates.** A float started at High or Flood never gets
+  a celebrating otter. Only a current reading earns the Big water mood. A
+  stale or suspect high reading, including an escalation from a reading up to
+  12 h old, still blocks every mood below it.
 - **Quick dip is time only.** A distance test would call a four-hour float
-  under weak GPS, or an out-and-back fishing trip, a quick dip. On a few
-  minutes of tracking, speed and break ratios are noise, so it still cuts off
-  everything below it.
+  under weak GPS, or an out-and-back fishing trip, a quick dip.
 - **Weather comes before water level.** Rain or cold is what people remember
   about the day, and Low is not a safety state. A cold float on low water gets
   Chilly on purpose.
+- **Speed needs enough measured moving time.** One brief usable segment does
+  not characterise a mostly untracked afternoon, so the speed rules need a
+  `measured` float and 20 minutes of moving time.
 - **Speed and Lazy come before Made it!** Most good floats reach the take-out,
   so `made-it` would otherwise swallow them.
 
-Rules 7 and 8 apply only when both `movingMph` and `plannerMph` are non-null,
-except for the `stoppedMs` half of rule 8. **A rule whose data is missing does
-not match.** It never guesses, so old floats fall through cleanly. Keep the
-thresholds as named exports (`MOOD_THRESHOLDS`) so they can be tuned in one
-place.
+A rule whose data is missing does not match; it never guesses, so old floats
+fall through cleanly. Rules 8 and 9 need both `movingMph` and `plannerMph`,
+except for the `stoppedMs` half of rule 9. Keep the thresholds as named
+exports (`MOOD_THRESHOLDS`) so they can be tuned in one place.
 
-Open decision: should `dangerous` (Flood) get its own mood with a plain
-"Flood stage · glad you're off the water" line and **no share action**? The
-recommendation is yes; it reuses the `big-water` art with different copy. The
-share route enforces the high-water rule on the server either way (phase 5).
+There is no separate Flood mood. A `dangerous` float uses the Big water art,
+and its mood line states the condition plainly ("Flood stage"), with no
+editorial line.
 
-### River completed
+The mood never replaces the arrival: rain or speed outranks `made-it`, so
+`reachedTakeOut` is shown on its own wherever the route is (phase 3, phase 5).
+
+### River explored
 
 The denominator is the **calibrated span** of the route index: the river miles
 of the first and last access points `buildRouteIndex` keeps (`index.anchors`,
-after it drops inconsistent ones). This is what Eddy can measure. Inside the
-span, miles are interpolated between real access points. Outside it, they are
-extrapolated, and on a river with editorial miles (`src/lib/geo/mile-index.ts`:
-Meramec, St. Francis, Bourbeuse, Niangua) that is a guess. `firstMile` and
-`lastMile` come from the same index, so numerator and denominator share one
-mile system on every river, editorial or geometric. `rivers.length_miles` is
-never used: it is in geometry miles and covers the whole line.
+after it drops inconsistent ones). Inside the span, miles are interpolated
+between real access points. Outside it they are extrapolated, which on a river
+with editorial miles (`src/lib/geo/mile-index.ts`: Meramec, St. Francis,
+Bourbeuse, Niangua) is a guess. `coveredMiles` comes from the same index, so
+the figures share one mile system on every river. `rivers.length_miles` is
+never used.
 
-So the percentage is of the river's **float miles**, not headwaters to mouth,
-and the copy says so: "5% of the Current's float miles". The strip's ends are
-labelled with the first and last access names, never "headwaters" and "mouth".
+`riverExplored(trip)` returns
+`{ miles, fraction, segments: { start, end }[] } | null`:
 
-`riverCoverage(trip)` returns `{ fraction, startFraction, endFraction } | null`
-from `trip.riverSpan` (2b):
+- Clamp each `coveredMiles` interval to `trip.riverSpan` (2b). `miles` is the
+  clamped total, `fraction` is `miles / span length`, and `segments` place
+  each interval on the strip as fractions.
+- Null when `coveredMiles` is missing or null, `riverSpan` is missing, or no
+  clamped interval remains. Null hides the strip and the figures.
+- Copy leads with miles: "9.6 river miles explored". The percentage is
+  secondary: "5% of the Current's float miles", or "Under 1% …" below 1%.
+- Explored miles are unique river covered, and distance is what was paddled.
+  An out-and-back has more distance than explored miles. The recap labels both
+  and never presents one as the other.
 
-- Clamp `[firstMile, lastMile]` to the span first. A quick start just upstream
-  of the first access point reads an extrapolated mile outside it.
-- `fraction = (end − start) / (span.lastMile − span.firstMile)`;
-  `startFraction` and `endFraction` place the segment on the strip.
-- Null when the span, `firstMile` or `lastMile` is missing, or when the
-  clamped end is not past the clamped start. Null hides the strip and the
-  label; there is no "barely got wet" copy.
-- `percentLabel(fraction, riverName)`: whole percents, "Under 1% of the
-  Current's float miles" below 1%.
-
-`riverLifetimeCoverage(trips, riverSlug)` merges the clamped intervals of
+`riverLifetimeExplored(trips, riverSlug)` merges the clamped intervals of
 every completed float on that river and divides by the span of the most recent
 one. A later correction to access-point miles can shift older intervals
 slightly; the lifetime line is a summary, not a survey.
 
-**Tests:** fixtures for the Current (geometric miles) and the Meramec
-(editorial), each built through `buildRouteIndex`, so the span is the one the
-device would snapshot. Cover a start upstream of the first access point
-(clamped, never over 100%), an out-and-back (`lastMile ≤ firstMile`, null), and
-overlapping lifetime intervals.
+**Tests:** Current (geometric miles) and Meramec (editorial) fixtures built
+through `buildRouteIndex`, so the span is the one the device would snapshot.
+Cover clamping at both ends, an interval wholly outside the span, missing
+`coveredMiles`, and overlapping lifetime intervals.
 
-### Condition stamp
+### Badge
 
-`floatStamp(trip)` returns `{ code, label, cfsLabel, ftLabel } | null` from
-`floatCondition`. It uses `CONDITION_SYSTEM` for the label and colours, and
-**never hardcodes condition hex** (see the header of `condition-system.ts`).
+`floatBadge(trip)` returns `{ code, label, cfsLabel, ftLabel, current } | null`
+from `floatCondition`. It uses `CONDITION_SYSTEM` for the label and colours,
+and **never hardcodes condition hex** (see the header of `condition-system.ts`).
 
 Tests: `missouri-float-planner/shared/float-recap.test.ts`, registered in the
 web `test` script (otherwise `registered-tests.test.ts` fails). Cover every
-mood rule, the order (Flood beats untracked, untracked beats Quick dip, Quick
-dip beats Rain, Speed beats Made it!), missing-data fallthrough, the condition
-source order, malformed sub-objects (null, not a throw), and the coverage edge
-cases above.
+mood rule; the order (no tracking beats High, High beats Quick dip, Quick dip
+beats Rain, Speed beats Made it!); a stale High blocking every mood; the speed
+rules refusing a `partial` float or under 20 minutes of moving time; missing
+data falling through; the condition source order; malformed sub-objects (null,
+not a throw); and the three tracking states.
 
 ## Phase 2: record the data the rules need
 
 All new fields are optional on `CompletedFloat` so existing rows stay valid.
 
-### 2a. Condition at start (required for the stamp, Big water and Scrape)
+### 2a. Conditions at start (required for the badge, Big water and Scrape)
 
 **The condition is the one the planner gave this float at Start.** It is the
 code that withheld the float time and the one the paddler saw, it uses the
 worst gauge on the stretch rather than one point, and it is frozen into the
-float so a recap never changes after backup.
+float so a recap never changes after backup. Because an escalation can come
+from a gauge below the put-in, it is labelled "Conditions at start", never
+"water at put-in", with the gauge that set it named beneath.
 
 - **Server: return it.** `/api/route-estimate` gains an optional `condition`
-  object: `{ code, gaugeName, usgsSiteId, heightFt, dischargeCfs, observedAt }`,
+  object:
+  `{ code, gaugeName, usgsSiteId, heightFt, dischargeCfs, observedAt, accuracyWarning }`,
   taken from the gauge that set the code: the last `contributingGauges` entry
   with `effect: 'escalated'` if there is one, otherwise `anchorCondition`. Do
   not read the merged `condition` object: after an escalation it carries the
-  escalated code with the anchor gauge's name and reading. Omit the field when
-  the code is `unknown`. This is additive: old binaries ignore it, and an old
-  server omits it, so the device stores null. Test it in
-  `src/lib/calculations/route-estimate.test.ts`: anchor only, escalated, and
-  unknown.
+  escalated code with the anchor gauge's name and reading. `accuracyWarning`
+  is the anchor row's `accuracy_warning`, or, for an escalation, whether its
+  reading was past `STALE_READING_HOURS`. Omit the field when the code is
+  `unknown`. This is additive: old binaries ignore it, and an old server
+  omits it, so the device stores null. Test it in
+  `src/lib/calculations/route-estimate.test.ts`: anchor only, escalated, a
+  stale escalation, and unknown.
 - **Device: capture it.** `fetchFloatStartEstimate` and `useStartEstimate`
-  return `condition` beside `speed`, under its own freshness rule
+  return `condition` beside `speed`, under its own rule
   `currentStartCondition(result, now)` in `src/lib/floatStart.ts`: basis
-  `today`, under 5 minutes old, code not `unknown`. It must not reuse
-  `currentMovingSpeed`, which returns null whenever float time is withheld,
-  which is always the case at Flood and on dam tailwaters. `float-start.tsx`
-  passes it to `useStart` next to `plannerMph`. `useStart` applies the same
-  quick-start guard as `plannerMph` (the GPS mile still within 0.1 mi of the
-  estimated mile), `startSession` stores `startCondition` on the session, and
-  `recapFloat` copies it. Test the helper from the web suite, beside
-  `float-session.test.ts`.
+  `today`, the estimate under 5 minutes old, code not `unknown`. It must not
+  reuse `currentMovingSpeed`, which returns null whenever float time is
+  withheld, which is always the case at Flood and on dam tailwaters. The
+  reading's own age and quality are not judged here: they travel with the
+  snapshot, and `floatCondition` decides `current` against `startedAt`.
+  `float-start.tsx` passes it to `useStart` next to `plannerMph`. `useStart`
+  applies the same quick-start guard as `plannerMph` (the GPS mile still
+  within 0.1 mi of the estimated mile), `startSession` stores `startCondition`
+  on the session, and `recapFloat` copies it. Test the helper from the web
+  suite, beside `float-session.test.ts`.
 - **Server fallback** for floats without it (started offline, or the estimate
   failed or went stale): in `waterAtStart`, also select from the same
   `river_gauges` link the threshold columns `computeConditionFromDbRow` reads
   and `flood_stage_ft`, plus `gauge_stations.usgs_site_id` (`water` holds only
   the internal station id today). Compute the code with
   `computeConditionFromDbRow` and `applyFloodStageOverride`, and add
-  `conditionCode` and `usgsSiteId` to `water`. This is the
-  anchor gauge only, without the in-stretch escalation, so the stamp names
-  that gauge. Like all of `water`, it applies on a float's first upload only.
+  `conditionCode` and `usgsSiteId` to `water`. `waterAtStart` already skips
+  suspect readings and keeps only one within 30 minutes of the start, so it is
+  `current` by construction. This is the anchor gauge only, without the
+  in-stretch escalation, so the badge names that gauge. Like all of `water`,
+  it applies on a float's first upload only.
 - **Display.** The recap shows one reading: `floatCondition`'s source; failing
   that, a `water` reading with no condition label (as today's "Water at the
-  start" card); failing that, nothing. Never two readings.
+  start" card); failing that, nothing. Never two readings. A reading that is
+  not `current` shows its value and age with no condition label or colour:
+  a confident chip on a stale reading is the screen arguing with itself.
 - **A float can change mood once.** A float with no `startCondition` gets its
   condition when its first backup adds `water.conditionCode`, and never again
   after that.
@@ -256,20 +327,24 @@ float so a recap never changes after backup.
   without a label, and their moods fall through. Computing the code on read was
   rejected: it would apply today's ladders to an old reading, and ladders are
   recalibrated (`20260803170000_recalibrate_ozark_float_ladders.sql`), so an
-  old float's stamp and mood would shift under it. If a backfill is wanted
+  old float's badge and mood would shift under it. If a backfill is wanted
   later, it is a one-time script through `scripts/lib/db.ts`, run as a dry run
   first, and it is a production write the owner authorises. Devices pick it up
   on the next sync.
 
-### 2b. River span (required for river completed)
+### 2b. River span (required for river explored)
 
-At start, snapshot the denominator from phase 1 into the session as
+At start, snapshot the denominator into the session as
 `riverSpan: { firstMile, lastMile, firstName, lastName }`: the first and last
 `index.anchors` miles, with the names of the `route.anchors` at those miles for
 the strip labels. Copy it into `CompletedFloat`. A snapshot keeps old recaps
 stable if river data is corrected later.
 
-### 2c. Weather at start (required for Rain and Chilly)
+### 2c. Covered intervals (required for river explored)
+
+`coveredMiles` from phase 1a, copied by `recapFloat`.
+
+### 2d. Weather at start (required for Rain and Chilly)
 
 - **Where.** Use the put-in's coordinates from `route.anchors`, not a GPS fix.
   At Start there is often no confirmed fix yet (`recordedStart` is null until
@@ -294,20 +369,23 @@ stable if river data is corrected later.
   accepts that. A later version can take a second reading at finish and use
   the maximum of the two.
 
-### 2d. Validation, upload and reading back
+### 2e. Validation, upload and reading back
 
-- **Server schema.** Add the three fields to the `completed` schema in
+- **Server schema.** Add the fields to the `completed` schema in
   `validation.ts` as optional, strict sub-objects with bounds:
   - `startCondition`: `code` from `ConditionCode` without `unknown`;
     `gaugeName` (the existing `name`); `usgsSiteId` (the existing `id`);
     `heightFt` finite, −50 to 200, nullable; `dischargeCfs` finite, 0 to
-    2,000,000, nullable; `observedAt` an ISO datetime.
+    2,000,000, nullable; `observedAt` an ISO datetime; `accuracyWarning`
+    boolean.
   - `riverSpan`: `firstMile` and `lastMile` as the existing `mile`, non-null,
     with `lastMile > firstMile`; `firstName` and `lastName` as `name`.
+  - `coveredMiles`: null, or at most 32 `[start, end]` pairs of the existing
+    `mile`, each with `start < end`, sorted and disjoint.
   - `startWeather`: `tempF` −60 to 140; `precipIn1h` 0 to 10; `observedAt` an
     ISO datetime.
 - **One capability.** `GET /api/me/float-archive?capabilities=1` adds
-  `recapContext: true`, covering all three fields. Today `uploadFloatArchive`
+  `recapContext: true`, covering all four fields. Today `uploadFloatArchive`
   asks only when a row carries `startNote`, and caches only a positive
   `startNote` answer. Generalise it: work out the flags this batch needs
   (`startNote`, `recapContext`), require each, and cache an answer that has
@@ -315,64 +393,73 @@ stable if river data is corrected later.
   `recapContext`. **Deploy the web first.**
 - **Reading on the device.** Do **not** add the new fields to `readableRow`.
   `readableArchive` refuses the whole archive when one row fails, so a strict
-  check would turn one malformed field into an unreadable history. The phase 1
+  check would turn one malformed field into an unreadable history. The phase 1b
   readers return null for a malformed sub-object instead.
 
 ## Phase 3: UI
 
+### Before starting
+
+Export the mockup boards into `design/float-history-card/`, covering a long
+route name, the missing-data states (no condition, a reading that is not
+current, tracking `none` and `partial`), dark mode, and the largest Dynamic
+Type size. The layout below is written against those states.
+
 ### History card (`floats.tsx`)
 
-Extract the inline row into `eddy-ios/src/float/FloatHistoryCard.tsx`. Layout,
-per the mockup:
+Extract the inline row into `eddy-ios/src/float/FloatHistoryCard.tsx`. The
+river is the card's identity; the otter and mood are secondary.
 
-- **Eyebrow:** river · short date.
-- **Title:** "Put-in → Take-out". With no put-in, "To <take-out>" plus a muted
+- **Title:** the river.
+- **Route:** "Put-in → Take-out". With no put-in, "To <take-out>" plus a muted
   "Started on the water" line. This replaces the repeated "On-river start →".
-- **Stamp:** top right, rotated about −5°, condition ink on its tint, a double
-  ring. It shows the label and cfs, and is hidden when there is no condition.
-- **Otter tile:** a 72pt tile on the condition tint, with the mood sticker
-  breaking out of the top edge. An untracked float shows the standard otter.
-- **Mood headline** in Fredoka, using `accent[700]` for contrast, not
-  `accent[500]`. Below it, stats in Geist Mono: "9.8 mi · 4h 12m · 2.3 mph".
-- **Untracked** (`pickFloatMood` null because `firstMile` is null): no mood
-  headline, the duration alone, and "Not placed on the river", in line with
-  `discardCopy('unplaced')`. Never "0.0 mi".
-- **Quick dip** shows "Under a minute on the water" or "Under 10 min on the
-  water" instead of zeros. Both are true by construction, since the rule is
-  time only.
-- **River strip:** an 8pt track with the floated segment (minimum 8pt wide),
-  plus the percentage label and the mile range. Hidden when `riverCoverage`
-  is null.
-- **Share button:** 44 × 44, `accessibilityLabel="Share this float"`. Hidden
-  for Flood if the open decision above lands that way.
+- **Date**, then **distance · duration** in Geist Mono, using the recorded
+  duration as it is ("6 min", "4h 12m"), never a band like "Under 10 min".
+- **Tracking:** with `none`, the distance is replaced by "GPS distance
+  unavailable", never "0.0 mi". With `partial`, the distance carries "GPS
+  lost for part of this float".
+- **Condition badge:** a straight, flat badge (condition ink on its tint),
+  label and cfs. Hidden when there is no condition. A reading that is not
+  current shows no badge on the card; the recap explains it.
+- **Otter:** small, about 40pt, beside the text, not a hero tile. The mood
+  line sits under the title in a theme text role (`textMuted`), never a fixed
+  accent step (see *What the code does today*, Theme).
+- **Share button:** 44 × 44, `accessibilityLabel="Share this float"`, on every
+  card that can produce an image, Flood included.
 
-Accessibility: the card's `accessibilityLabel` should read the content in
-order, for example "Current River, Oct 26. Akers Ferry to Pulltite. Flowing,
-412 cfs. Made it. 9.8 miles, 4 hours 12 minutes. 5% of the Current's float
-miles." The stamp and otter are decorative (`accessibilityElementsHidden`), as
-`Otter` already is.
+Accessibility: the card's `accessibilityLabel` reads the content in order, for
+example "Current River. Akers Ferry to Pulltite. October 26. 9.8 miles, 4
+hours 12 minutes. Flowing, 412 cfs." The badge and otter are decorative
+(`accessibilityElementsHidden`), as `Otter` already is. At the largest Dynamic
+Type sizes the stats wrap below the title rather than truncating it.
 
 ### Recap (`FloatRecap.tsx`)
 
-- **Hero:** the mood sticker at about 150pt breaking out of a condition-tinted
-  panel, the mood headline, the river, the route, the date and the boat.
-- **Stamp card:** stamp plus a plain sentence about the water at put-in,
-  "<gauge name> · USGS <id>", and the reading's time relative to the start.
-  It replaces the current "Water at the start" card and shows the one reading
-  2a chooses.
-- **River completed card:** the large percentage, the strip with the first and
-  last access names at its ends, the mile range, earlier floats on this river
-  shaded on the strip, and one lifetime line from `riverLifetimeCoverage`
-  ("You've floated 33.4 of the Current's 134 float miles"). Lifetime counts
-  the floats in this phone's history only.
+- **Hero:** the mood sticker at about 150pt, the mood line in `text`, the
+  river, the route, the date and the boat. The standard otter when the mood is
+  null.
+- **Arrival:** keep the existing line, worded as what was confirmed: "Reached
+  Pulltite" or "Arrival at Pulltite not confirmed". The mood never stands in
+  for it.
+- **Conditions at start card:** the badge, a plain sentence about the
+  condition, "<gauge name> · USGS <id>" naming the gauge that set it, and the
+  reading's time relative to the start. A reading that is not current shows
+  its value and age without a condition label. It replaces the current "Water
+  at the start" card and shows the one reading 2a chooses.
+- **River explored card**, only when `riverExplored` is not null: "9.6 river
+  miles explored" first, then the percentage of the river's float miles, the
+  strip with the first and last access names at its ends, earlier floats on
+  this river shaded on it, and one lifetime line from `riverLifetimeExplored`
+  ("33.4 of the Current's 134 float miles explored"). Lifetime counts the
+  floats in this phone's history only.
 - **Keep the existing stats and the time breakdown.**
-- **Actions:** the primary "Share float" button (teal CTA per ADR 0007), a
-  share button in the header, "Your float history" demoted to secondary, and
-  Delete unchanged.
+- **Actions:** one primary "Share float" button (teal CTA per ADR 0007), "Your
+  float history" demoted to secondary, and Delete unchanged. No second share
+  action in the header.
 
 Dark mode: use theme roles for the card surfaces and the condition chip roles
-for the stamp (`conditions.ts`), with neutral charcoal per ADR 0016. Check
-the stamp's tint and ink in dark mode.
+for the badge (`conditions.ts`), with neutral charcoal per ADR 0016. Check the
+badge's tint and ink on both `card` and `cardRaised` in dark mode.
 
 ## Phase 4: mood art
 
@@ -396,7 +483,8 @@ Masters go in `design/eddy-emoji/`; the prompts go in
 Extend `Otter.tsx` with a `FloatMood → require()` map (static requires, as its
 header explains). Ship phase 3 with the existing stickers standing in, so new
 art is not a blocker; until a sticker exists, its mood falls back to the
-nearest existing one. Check the size of the PNG set, since the header records
+nearest existing one, and `big-water` falls back to the standard otter, never
+a celebrating one. Check the size of the PNG set, since the header records
 193 KB for the condition otters.
 
 ## Phase 5: share
@@ -407,15 +495,28 @@ stored.
 - **Route:** `GET /api/share/float/image?v=1&…`, rendering 1080 × 1920 PNG
   through `next/og`.
 - **Query:** river slug, put-in id (optional: a float can start on the water)
-  and take-out id, date (no time of day), mood, condition code, cfs, distance,
-  duration and coverage. Validate every field with a strict schema. On an
-  invalid field, render a generic Eddy card; never echo raw text.
+  and take-out id, date (no time of day), mood, `reachedTakeOut`, tracking
+  state, condition code and whether its reading was current, cfs, distance
+  (omitted for tracking `none`), duration, and explored miles and percentage
+  (only when river explored exists). Validate every field with a strict
+  schema.
+- **Invalid input is an error, not a picture.** Return `400` with a JSON
+  error for any invalid or inconsistent field, never a generic image:
+  `ChartShareControl` treats any `200` PNG as the image it asked for, so a
+  fallback would be shared as if it were the float. The device reports a
+  failure to prepare the image. The link it shares is the river's own page,
+  whose link preview already has its own image; this route never serves
+  previews.
 - **Names:** the server resolves names from ids. Free text from the client is
   never drawn, which closes the route off as a way to render arbitrary text.
+- **Planned route versus confirmed arrival.** The image shows the route and,
+  separately, "Reached <take-out>" or "Arrival not confirmed". Tracking
+  `none` shows the duration and "GPS distance unavailable", as the card does.
 - **High water is enforced here, not only on the device.** Anyone can call the
   route with any query. When the condition is `high` or `dangerous`, the
-  server ignores the client's mood and draws `big-water`; if the open decision
-  lands as recommended, `dangerous` renders the generic Eddy card.
+  server draws `big-water` if the reading was current and the standard otter
+  otherwise, whatever mood the client sent. Flood floats can be shared; the
+  image states the condition plainly.
 - **What it never includes:** start and end times, the GPS track, the account,
   or `startNote`.
 - **Link text:** the river's eddy.guide page from the server-supplied path,
@@ -433,30 +534,34 @@ stored.
 ## Phase 6 (later): passport
 
 A river passport (stamps per river) and an "X of N Ozark rivers" stat for
-influencers to post. Both build on `riverLifetimeCoverage` from phase 1.
+influencers to post. Both build on `riverLifetimeExplored` from phase 1b.
 
 ## Order and validation
 
 | Step | Ships | Validate with |
 |------|-------|---------------|
-| 1. `shared/float-recap.ts` + types + tests | web + iOS bundle | `make check-web` + `make bundle-mobile` |
+| 1a. `coveredMiles` in `@eddy/geo` + tests | web + iOS bundle | `make check-web` + `make bundle-mobile` |
+| 1b. `shared/float-recap.ts` + types + tests | web + iOS bundle | `make check-web` + `make bundle-mobile` |
 | 2a server: route-estimate `condition`, `water.conditionCode` | web | `make check-web` (`route-estimate.test.ts`; `float-archive.test.ts` with an injected `lookupWater`) |
-| 2a–d client fields, schema and capability | web first, then iOS | `make check-web` + `make check-mobile` + `make bundle-mobile` |
-| 3. card + recap UI | iOS (OTA-eligible) | the above, plus device check in light, dark and Increase Contrast |
+| 2a–e client fields, schema and capability | web first, then iOS | `make check-web` + `make check-mobile` + `make bundle-mobile` |
+| Mockup exports in `design/float-history-card/` | n/a | the states listed in phase 3 |
+| 3. card + recap UI | iOS (OTA-eligible) | the above, plus device check in light, dark, Increase Contrast and the largest Dynamic Type size |
 | 4. art | iOS | icon build script, PNG budget |
-| 5. share route + control | web first, then iOS | `make check`; share sheet on a device |
+| 5. share route + control | web first, then iOS | `make check`; share sheet on a device, including an invalid request reporting a failure |
 
 Describe status in the three states from the root guide: **implemented**,
 **device-verified**, **released**.
 
 ## Open questions
 
-1. Does Flood get its own mood with no share action? (Recommended: yes.)
-2. The thresholds (10 min, 0.05 in, 50 °F, 1.3×, 0.7×, 40%) are starting
-   guesses. After phase 2, run `pickFloatMood` over real archive rows
-   (read-only, through the guarded client in `scripts/lib/db.ts`) and tune the
-   rule frequencies before release.
+1. The thresholds are starting guesses: 10 min (Quick dip), 0.05 in (Rain),
+   50 °F (Chilly), 1.3× and 0.7× (speed), 40% stopped, 20 min of moving time,
+   50% unobserved (`partial`), and 32 intervals. After phase 2, run
+   `floatTracking` and `pickFloatMood` over real archive rows (read-only,
+   through the guarded client in `scripts/lib/db.ts`) and tune the rule
+   frequencies before release.
 
-Settled here, for the record: the condition source and its fallback (2a), no
-backfill of floats already backed up (2a), and the coverage denominator
-(phase 1, river completed).
+Settled here, for the record: the condition source, its freshness and its
+fallback (2a); no backfill of floats already backed up (2a); river explored
+from credited intervals over the calibrated span (phase 1a, 1b); no separate
+Flood mood, and Flood floats can be shared (phase 1b, phase 5).
