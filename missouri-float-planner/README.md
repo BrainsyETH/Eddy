@@ -46,8 +46,11 @@ query-only navigation. Loading catalogue data never replaces an incoming deep li
 The homepage shows **River and Dam Conditions**, the two route actions, river
 guides, and the iPhone app. Its two report columns reuse the Conditions directory's
 `RiverCard` and `DamListCard`, including charts, Eddy artwork, and dam timelines.
-Desktop cards stretch to the same height with aligned report footers and carousel
-controls; stacked mobile cards keep their natural height.
+Desktop cards match the taller of the two visible reports, with aligned report
+footers and carousel controls; off-screen slides do not set the height. Stacked
+mobile cards keep their natural height. Posted Tomorrow schedules remain visible
+on their dam's slide, and Eddy Says follows the river chart without a spacer.
+Both shared cards use Eddy's framed surface and teal header.
 Each column shows one report, rotating horizontally every eight seconds while
 visible; the columns stack on mobile and support swipe and previous/next arrows.
 Hover temporarily holds rotation. Keyboard focus or pointer interaction stops

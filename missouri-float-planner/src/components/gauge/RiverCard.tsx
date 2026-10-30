@@ -14,6 +14,7 @@ import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import Card from '@/components/ui/Card';
 import { buildStaticEddyText, RIVER_NOTES } from '@/data/eddy-quotes';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeTrendContext from '@/components/gauge/GaugeTrendContext';
@@ -132,52 +133,48 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
   const href = canonicalHref ?? (riverSlug ? `/rivers/${riverSlug}` : '#');
 
   return (
-    <div className="flex flex-col bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all hover:shadow-md hover:border-primary-300">
+    <Card as="article" variant="framed" className="flex min-w-0 flex-col">
       {/* Header: River name + condition + reading */}
       <Link href={href} prefetch={false} className="block">
-        <div className="px-4 pt-4 pb-2 sm:px-5">
+        <div className="bg-primary-800 px-4 py-4 text-white transition-colors hover:bg-primary-900 sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2.5 mb-1">
-                <Droplets className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                <h2 className="text-lg font-bold text-neutral-900 truncate" style={{ fontFamily: 'var(--font-display)' }}>
+                <Droplets className="w-4 h-4 text-primary-200 flex-shrink-0" />
+                <h2 className="font-heading text-xl font-bold leading-6 text-white truncate">
                   {riverName}
                 </h2>
               </div>
-              <p className="text-xs text-neutral-500 truncate mb-1.5">
+              <p className="text-xs text-primary-100 truncate">
                 {primaryGauge.name}
               </p>
-              <div className="flex items-center gap-2">
-                <ConditionBadge code={condition.code} size="sm" />
-                <span className="text-xs text-neutral-500">
-                  {allGauges.length} gauge{allGauges.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              {metaBits.length > 0 && (
-                <p className="mt-1.5 text-[11px] text-neutral-500 truncate">
-                  {metaBits.join(' · ')}
-                </p>
-              )}
             </div>
 
             {/* Current reading */}
             <div className="flex flex-col items-end flex-shrink-0">
               {primaryValue !== null ? (
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-bold text-neutral-900 tabular-nums">
+                  <span className="text-xl font-bold tabular-nums">
                     {isCfsPrimary ? primaryValue.toLocaleString() : primaryValue.toFixed(2)}
                   </span>
-                  <span className="text-xs font-medium text-neutral-500">{primaryUnitLabel}</span>
+                  <span className="text-xs font-medium text-primary-100">{primaryUnitLabel}</span>
                 </div>
               ) : (
-                <span className="text-sm text-neutral-400">No reading</span>
+                <span className="text-sm text-primary-100">No reading</span>
               )}
             </div>
           </div>
         </div>
 
         {/* Plain-language trend + how today compares to the recent window */}
-        <div className="px-4 sm:px-5 pb-1">
+        <div className="space-y-1.5 border-b border-neutral-200 bg-secondary-100 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2">
+            <ConditionBadge code={condition.code} size="sm" />
+            <span className="text-xs text-neutral-600">
+              {allGauges.length} gauge{allGauges.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {metaBits.length > 0 && <p className="text-[11px] text-neutral-600 truncate">{metaBits.join(' · ')}</p>}
           <GaugeTrendContext siteId={primaryGauge.usgsSiteId} currentValue={latestValue} unit={displayUnit} />
         </div>
 
@@ -201,7 +198,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
       </Link>
 
       {/* Eddy Says blurb */}
-      <div className="mt-auto px-4 pb-4 pt-1 sm:px-5">
+      <div className="flex flex-1 flex-col px-4 pb-2 pt-1 sm:px-5">
         <div className="border rounded-lg overflow-hidden" style={surfaceStyle}>
           <div className="flex items-start gap-2.5 px-3 py-2.5">
             <div className="flex-shrink-0 w-9 h-9 relative">
@@ -241,25 +238,27 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
         </div>
 
         {/* Action links */}
-        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-neutral-100">
-          <Link
-            href={href}
-            prefetch={false}
-            className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:gap-2 transition-all"
-          >
-            Full River Report
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-          <Link
-            href={riverSlug ? `/plan?river=${riverSlug}&submitPhoto=true` : '#'}
-            prefetch={false}
-            className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-teal-600 transition-colors"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            Add Photo
-          </Link>
+        <div className="mt-auto pt-3">
+          <div className="flex items-center justify-between gap-3 border-t border-neutral-100">
+            <Link
+              href={href}
+              prefetch={false}
+              className="inline-flex min-h-11 items-center gap-1 rounded text-sm font-semibold text-primary-700 hover:text-primary-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"
+            >
+              Full River Report
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <Link
+              href={riverSlug ? `/plan?river=${riverSlug}&submitPhoto=true` : '#'}
+              prefetch={false}
+              className="inline-flex min-h-11 items-center gap-1 rounded text-xs font-medium text-neutral-500 hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Add Photo
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
