@@ -465,8 +465,10 @@ try {
   await search.fill('current');
   await page.getByRole('option', { name: /^Current River\b/ }).click();
   await page.getByRole('button', { name: 'Eddy Says — River Report' }).waitFor();
+  await page.locator('.planner-access-strip button[data-access-point-id="p-0-0"]').waitFor({ state: 'visible' });
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   await page.getByRole('button', { name: 'All rivers', exact: true }).click();
+  await page.locator('.planner-access-strip').waitFor({ state: 'detached' });
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   await search.fill('current put');
   await page.getByRole('option', {
@@ -581,9 +583,7 @@ try {
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('takeOut')), 'p-0-1');
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('river')), 'current');
-  assert.equal(await page.locator('.planner-access-strip button[data-access-point-id="p-0-0"]').count(), 1,
-    'All rivers keeps current-river access data and the saved route');
-  await assertDesktopLayout();
+  await page.locator('.planner-access-strip').waitFor({ state: 'detached' });
   assert.equal(documentRequests, 1, 'River changes must not navigate/reload the document');
   // Poll: after All rivers the network source is re-set asynchronously, and
   // when the camera doesn't move there's no moveend to wait on first.
@@ -608,6 +608,8 @@ try {
   assert(await page.evaluate(() => window.plannerMap === window.firstPlannerMap));
   assert.equal(await page.evaluate(() => new URLSearchParams(location.search).get('putIn')), 'p-0-0');
   assert.deepEqual(await page.evaluate(() => ({ center: window.plannerMap.getCenter().toArray(), zoom: window.plannerMap.getZoom() })), riverTapCamera, 'River taps keep the current camera');
+  await page.locator('.planner-access-strip button[data-access-point-id="p-0-0"]').waitFor({ state: 'visible' });
+  await assertDesktopLayout();
   console.log('Same map across overview, loading, selection and All Rivers; saved plan and camera preserved');
   await page.getByRole('button', {
     name: 'Map layers',

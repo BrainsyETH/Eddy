@@ -1065,7 +1065,7 @@ export default function PlanPageClient({
               mode={focusMode} callout={useCallout && !!inspectedCard}
               request={focusRequest} preserveInitialCamera={initialCamera.current}
               panelRef={desktopPanelRef} stripRef={desktopStripRef}
-              stripReady={!!activeRiver && !!floatEndpointAccessPoints?.length} />
+              stripReady={!!viewRiver && !!floatEndpointAccessPoints?.length} />
             {showPhotos && regionalPhotoPins.length > 0 && (
               <RiverPhotoMarkers pins={regionalPhotoPins} />
             )}
@@ -1133,7 +1133,9 @@ export default function PlanPageClient({
             </div>
           )}
 
-          {activeRiver && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
+          {/* Follow the river filter, not the retained route: All rivers
+              hides this picker while keeping the route's endpoints. */}
+          {viewRiver && floatEndpointAccessPoints && floatEndpointAccessPoints.length > 0 && (
             <div ref={desktopStripRef} className="planner-access-strip absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/90 via-white/60 to-transparent pt-6 pb-7 px-2 pointer-events-none">
               <div className="pointer-events-auto">
                 <AccessPointStrip
@@ -1144,7 +1146,7 @@ export default function PlanPageClient({
                   onHover={handleAccessPointHover}
                   onReportIssue={handleReportAccessPointIssue}
                   hideExpandedDetails={true}
-                  riverSlug={activeRiver.slug}
+                  riverSlug={viewRiver.slug}
                 />
               </div>
             </div>

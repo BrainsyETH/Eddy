@@ -36,6 +36,9 @@ Mobile keeps the existing draggable sheet and its three snap positions.
   **All rivers**,
   and Undo are intentional navigation actions. Loading data must not refit the
   camera or replace the mobile map. A manual pan takes precedence over resizing.
+- **All rivers** hides the river's access-point strip while retaining the
+  planned endpoints. Selecting the river again or **Show route** restores it
+  on desktop.
 - `/plan` estimates use canoe pace, including incoming vessel links. The time
   infotip explains that rafts may be slower and that water, wind, and stops
   affect the estimate. The infotip renders outside scroll containers.
