@@ -196,9 +196,9 @@ test('river explored: credited intervals clamped to the span', () => {
 test('river explored copy leads with miles; the share is secondary', () => {
   assert.deepEqual(exploredCopy(riverExplored(trip({ riverSpan: span, coveredMiles: [[10, 15.5]] }))!, 'the Current'), {
     miles: '5.5 river miles explored',
-    share: "6% of the Current's float miles",
+    share: '6% of the Current’s float miles',
   });
-  assert.equal(exploredCopy(riverExplored(trip({ riverSpan: span, coveredMiles: [[10, 10.4]] }))!, 'the Current').share, "Under 1% of the Current's float miles");
+  assert.equal(exploredCopy(riverExplored(trip({ riverSpan: span, coveredMiles: [[10, 10.4]] }))!, 'the Current').share, 'Under 1% of the Current’s float miles');
   assert.equal(exploredCopy(riverExplored(trip({ riverSpan: span, coveredMiles: [[10, 11]] }))!, 'the Current').miles, '1.0 river mile explored');
 });
 

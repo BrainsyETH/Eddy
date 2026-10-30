@@ -322,6 +322,6 @@ export function exploredCopy(result: RiverExplored, riverName: string): { miles:
   const percent = Math.round(result.fraction * 100);
   return {
     miles: `${miles} river ${miles === '1.0' ? 'mile' : 'miles'} explored`,
-    share: result.fraction < 0.01 ? `Under 1% of ${riverName}'s float miles` : `${percent}% of ${riverName}'s float miles`,
+    share: result.fraction < 0.01 ? `Under 1% of ${riverName}’s float miles` : `${percent}% of ${riverName}’s float miles`,
   };
 }

@@ -427,6 +427,13 @@ are pending checks, not evidence of a device pass.
       Sharing errors stay inline; failed opt-in stays off, failed opt-out stays
       locally off and retries. Verify account-linked summary disclosure, raw GPS
       staying local, and backups continuing independently of optional sharing.
+- [ ] **Float history card and recap:** in light, dark, Increase Contrast and
+      the largest Dynamic Type size, check a measured float, an untracked one
+      (no distance, the standard otter, "GPS distance unavailable"), a partly
+      tracked one ("Limited GPS tracking"), one with no condition, and one
+      whose reading was too old to rate (its value and age, no badge). The
+      river's name never truncates; the badge and stats wrap. Save the
+      screenshots to `design/float-history-card/`.
 - [ ] **Historical recaps:** open last month's float from History, including
       while a different float is active. Keep the tab bar and ordinary Back;
       return to the same History list. Resume the active float from another

@@ -1,8 +1,9 @@
 # Float history card: conditions at start, river explored, otter moods, share
 
-Status: phases 1a to 2e implemented (the logic, and the data each float now
-records); nothing new is shown yet. Phases 3 to 5 are not started: phase 3
-waits on the mockup exports.
+Status: phases 1a to 3 implemented, with phase 4's existing stickers bundled
+and stand-ins for the five moods whose art is not drawn yet. Phase 5 (share)
+is not started. The canvas is in `design/float-history-card/`, with where this
+plan overrides it; the device-state screenshots are still to export.
 
 Design mockup (a private canvas, not in this repository; ask the owner for
 access): the "Float History Card" canvas has four boards: the history list,
@@ -512,10 +513,10 @@ Masters go in `design/eddy-emoji/`; the prompts go in
 
 Extend `Otter.tsx` with a `FloatMood → require()` map (static requires, as its
 header explains). Ship phase 3 with the existing stickers standing in, so new
-art is not a blocker; until a sticker exists, its mood falls back to the
-nearest existing one, and `big-water` falls back to the standard otter, never
-a celebrating one. Check the size of the PNG set, since the header records
-193 KB for the condition otters.
+art is not a blocker; until a sticker exists, its mood uses the stand-in the
+design's mood board names (`design/float-history-card/README.md`). Big water's
+stand-in is the cautious high-water otter, never a celebrating one. The nine
+moods use eight stickers, about 154 KB at 300px.
 
 ## Phase 5: share
 
