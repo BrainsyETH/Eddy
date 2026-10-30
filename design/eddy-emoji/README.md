@@ -14,6 +14,10 @@ masters, including Today, retain their alpha channel for app integration.
 - `eddy-thinking.png`
 - `eddy-celebrate.png`
 
+Prompts for the planned float recap moods (big water, rain, chilly, scrape,
+speed run) are recorded in [float-mood-otters.md](float-mood-otters.md); their
+masters are not generated yet. See `docs/float-history-card-plan.md`, phase 4.
+
 ## River-experience icons
 
 - `eddy-checking-gauge.png`
