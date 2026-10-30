@@ -26,7 +26,7 @@ Primary request: Eddy in a coral rain poncho with the hood up, sunglasses still 
 
 Primary request: Eddy bundled up for a cold float. He wears a coral knit beanie and a chunky scarf and holds a steaming mug in both paws, with a small white breath puff by his mouth. He looks cozy and content. No snow and no thermometer.
 
-## scrape-and-drag
+## scrape
 
 Primary request: Eddy hauling a coral kayak by its bow rope across a few chunky gray-tan gravel stones, leaning forward with a determined, gritted-teeth face. A thin strip of shallow blue water behind the stones. The kayak is shown partly, angled behind him.
 
