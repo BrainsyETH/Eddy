@@ -91,10 +91,10 @@ export function damImageModel(
     title: dam.name,
     subtitle: moment.scheduleSummary,
     status,
-    statusInk: on ? tokens.link : tokens.muted,
+    statusInk: on ? tokens.data : tokens.muted,
     statusBg: tokens.surface,
     statusBorder: tokens.border,
-    dot: on ? tokens.link : tokens.muted,
+    dot: on ? tokens.data : tokens.muted,
     reading: value,
     unit: value ? 'cfs' : null,
     trend: null,
@@ -122,7 +122,7 @@ export function badgeLayout(model: EmbedImageModel) {
   const gap = 8;
   const nameW = estimateTextWidth(model.title, 14);
   const statusText = model.status;
-  const statusW = estimateTextWidth(statusText, 11, 0.62) + 8 /* dot */ + 5 + 16 /* pill pad */;
+  const statusW = estimateTextWidth(statusText, 12, 0.62) + 8 /* dot */ + 5 + 16 /* pill pad */;
   const width = padX + mark + gap + nameW + gap + statusW + padX;
   return { width, height: BADGE_HEIGHT, padX, mark, gap, nameW, statusW };
 }

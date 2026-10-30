@@ -53,20 +53,16 @@ type WidgetKey = 'river' | 'dam' | 'planner' | 'card' | 'services' | 'rivers';
 type WidgetTab = 'preview' | 'code' | 'install';
 type ServiceFilter = 'all' | 'outfitter' | 'campground' | 'cabin_lodge';
 const TABS: WidgetTab[] = ['preview', 'code', 'install'];
+const TAB_LABEL: Record<WidgetTab, string> = { preview: 'Preview', code: 'Code', install: 'Help' };
 
 // Placements are shortcuts, never gates: picking one proposes a size and a
 // format, and every control below stays editable.
-const PLACEMENTS: { key: string; label: string; widget: WidgetKey; size: EmbedSize; format: Format; blurb: string }[] = [
-  { key: 'sidebar', label: 'Sidebar', widget: 'river', size: 'card', format: 'iframe',
-    blurb: 'The card: live condition, today’s reading on the river’s own ladder, Eddy’s take. About 300px tall.' },
-  { key: 'post', label: 'In a post', widget: 'river', size: 'strip', format: 'iframe',
-    blurb: 'One line that stays current inside your prose — or the badge, if you just want a live status pill.' },
-  { key: 'landing', label: 'Landing page', widget: 'river', size: 'full', format: 'iframe',
-    blurb: 'The full report: card plus the trend chart and other gauges. Outfitters: look at the Planner and Floatable From Here too.' },
-  { key: 'email', label: 'Email / newsletter', widget: 'river', size: 'badge', format: 'image',
-    blurb: 'Mail clients strip iframes, so this is a live PNG. Every open shows the condition as of that moment.' },
-  { key: 'regional', label: 'Regional page', widget: 'rivers', size: 'card', format: 'iframe',
-    blurb: 'Several rivers at once — tourism boards, chambers, paddling clubs, outfitters on more than one river.' },
+const PLACEMENTS: { key: string; label: string; widget: WidgetKey; size: EmbedSize; format: Format }[] = [
+  { key: 'sidebar', label: 'Sidebar', widget: 'river', size: 'card', format: 'iframe' },
+  { key: 'post', label: 'In a post', widget: 'river', size: 'strip', format: 'iframe' },
+  { key: 'landing', label: 'Landing page', widget: 'river', size: 'full', format: 'iframe' },
+  { key: 'email', label: 'Email / newsletter', widget: 'river', size: 'badge', format: 'image' },
+  { key: 'regional', label: 'Regional page', widget: 'rivers', size: 'card', format: 'iframe' },
 ];
 
 const SIZE_INFO: Record<EmbedSize, { label: string; detail: string; width: number; height: number }> = {
@@ -189,7 +185,7 @@ const WIDGETS: WidgetDef[] = [
     title: 'River conditions',
     badge: 'FAMILY',
     badgeBg: '#2D7889',
-    desc: 'One river, four sizes. The live condition from the canonical system, today’s reading in the unit the river is rated in, where that sits on the ladder, and Eddy’s take. Updates itself; nothing to maintain.',
+    desc: 'River conditions, updated automatically.',
     family: true,
     path: (c) => `/embed/river/${c.selectedRiver}?${styleQuery(c, { size: c.size, days: c.size === 'full' && c.gaugeDays !== 14 ? String(c.gaugeDays) : undefined })}`,
     title_: (c) => `${c.selectedRiverName} — live conditions from Eddy`,
@@ -201,7 +197,7 @@ const WIDGETS: WidgetDef[] = [
     title: 'Dam generation',
     badge: 'NEW',
     badgeBg: '#F07052',
-    desc: 'For fly shops, trout guides, marinas and lake resorts below a Corps dam: is it generating, how much, and when does it stop. Observed turbine flow and the posted hourly schedule — the same widget as the Eddy iPhone Home Screen one.',
+    desc: 'Current generation and today’s schedule.',
     family: true,
     path: (c) => (c.selectedDam ? `/embed/dam/${c.selectedDam}?${styleQuery(c, { size: c.size })}` : ''),
     title_: (c) => `${c.selectedDamName} — generation from Eddy`,
@@ -210,7 +206,7 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'card',
     title: 'Floatable From Here',
-    desc: 'Pin your business location once. The card answers "is the water floatable from here right now?", shows how far your nearest launch is with real drive time, and puts YOUR booking button front and center.',
+    desc: 'Is it floatable from your door? Your nearest launch, the drive time, and your booking button.',
     path: (c) => (c.cardEmbedId ? `/embed/card/${c.cardEmbedId}?theme=${c.theme === 'auto' ? 'light' : c.theme}` : ''),
     title_: () => 'Floatable From Here - Live River Conditions',
     params: [{ name: 'theme', values: 'light | dark', note: 'Card color scheme.' }],
@@ -219,7 +215,7 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'planner',
     title: 'Float Trip Planner',
-    desc: 'Visitors pick a put-in and take-out and get shuttle distance, float time, conditions, and the outfitters on that stretch. The selected river is pre-selected but visitors can change it.',
+    desc: 'Visitors plan a float on your site: put-in, take-out, shuttle and float time.',
     path: (c) => `/embed/planner?${toolQuery(c, { river: c.selectedRiver })}`,
     title_: () => 'Plan a float · Eddy',
     params: [
@@ -231,7 +227,7 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'services',
     title: 'Services Directory',
-    desc: 'Nearby outfitters, campgrounds (including NPS sites reservable via recreation.gov) and lodging with one-tap click-to-call, website, and reservation links.',
+    desc: 'Outfitters, campgrounds and lodging on the river, with call and booking links.',
     hasFilters: true,
     path: (c) => {
       const extra: Record<string, string | undefined> = {};
@@ -250,7 +246,7 @@ const WIDGETS: WidgetDef[] = [
   {
     key: 'rivers',
     title: 'Multi-River Overview',
-    desc: 'Live strips for several rivers at once — for outfitters serving more than one river and regional tourism pages. Pick which rivers to show below.',
+    desc: 'Live conditions for several rivers at once.',
     hasMultiRivers: true,
     path: (c) => `/embed/rivers?${styleQuery(c, { rivers: c.multiRivers.length > 0 ? c.multiRivers.join(',') : undefined })}`,
     title_: () => 'River Conditions from Eddy',
@@ -1076,7 +1072,7 @@ export default function EmbedWorkbench() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-50 overflow-x-hidden" style={{ color: '#2D2A24' }}>
+    <div className="min-h-screen lg:h-screen flex flex-col bg-neutral-50 overflow-x-hidden" style={{ color: '#2D2A24' }}>
       {/* ===================== TOP BAR ===================== */}
       <header className="flex items-center gap-3.5 h-[60px] px-4 md:px-7 border-b-2 border-neutral-900 flex-none" style={{ background: '#163F4A' }}>
         <Link href="/" className="flex items-center gap-3">
@@ -1097,11 +1093,15 @@ export default function EmbedWorkbench() {
       <div className="flex flex-col lg:flex-row flex-1 min-h-0 lg:h-[calc(100vh-60px)] lg:overflow-hidden">
 
         {/* =============== LEFT RAIL =============== */}
-        <aside className="w-full lg:w-[352px] lg:flex-none bg-secondary-50 border-b-2 lg:border-b-0 lg:border-r-2 border-neutral-900 p-6 lg:overflow-y-auto flex flex-col">
+        {/* On phones the rail dissolves (display: contents) so the preview can
+            sit between the choices that shape it and the appearance options.
+            On desktop it is one scrolling column beside the workspace. */}
+        <aside className="contents lg:flex lg:flex-col lg:order-1 lg:w-[352px] lg:flex-none bg-secondary-50 lg:border-r-2 border-neutral-900 lg:overflow-y-auto">
+         <div className="order-1 lg:order-none bg-secondary-50 px-6 pt-6 pb-2 lg:pb-0">
 
-          {/* 1 · Placement */}
-          <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>1 &middot; Where will this live?</div>
-          <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Placement">
+          {/* Quick start — optional shortcuts that set size and format */}
+          <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>Quick start</div>
+          <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label="Placement shortcuts">
             {PLACEMENTS.map(p => {
               const isOn = placement === p.key;
               return (
@@ -1113,12 +1113,8 @@ export default function EmbedWorkbench() {
               );
             })}
           </div>
-          <p className="text-[11px] text-neutral-500 mb-6 leading-relaxed min-h-[2.5em]">
-            {placement ? PLACEMENTS.find(p => p.key === placement)?.blurb : 'Pick a spot for a suggested size and format — every control below stays yours.'}
-          </p>
-
-          {/* 2 · What to show */}
-          <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>2 &middot; What to show</div>
+          {/* Widget */}
+          <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>Widget</div>
           <div className="flex flex-col gap-2 mb-4" role="list" aria-label="Widgets">
             {WIDGETS.map(w => {
               const isOn = w.key === activeWidget && !showReference;
@@ -1138,14 +1134,13 @@ export default function EmbedWorkbench() {
           {active.key === 'dam' ? (
             <>
               <label htmlFor="embed-dam" className={RAIL_LABEL}>Dam</label>
-              <div className="relative mb-2">
+              <div className="relative mb-5">
                 <select id="embed-dam" value={selectedDam} onChange={e => setSelectedDam(e.target.value)} className={SELECT_CLS} style={{ boxShadow: '2px 2px 0 #C2BAAC' }}>
                   {damOptions.map(d => <option key={d.id} value={d.id}>{d.name} · {d.state}{d.trout ? ' · trout' : ''}</option>)}
                   {!damOptions.some(d => d.id === selectedDam) && <option value={selectedDam}>{selectedDam}</option>}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-600 pointer-events-none" />
               </div>
-              <p className="text-[11px] text-neutral-500 mb-5 leading-relaxed">Powerhouses only — a flood-control dam has no generation to show. Lake levels for every project live on its dam report.</p>
             </>
           ) : !active.hasCardSetup && !active.hasMultiRivers ? (
             <>
@@ -1168,7 +1163,7 @@ export default function EmbedWorkbench() {
           {/* 3 · Size (family only) */}
           {isFamily && (
             <>
-              <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>3 &middot; Size</div>
+              <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>Size</div>
               <div className="grid grid-cols-2 gap-2 mb-6" role="group" aria-label="Widget size">
                 {EMBED_SIZES.map(s => {
                   const isOn = size === s;
@@ -1177,7 +1172,7 @@ export default function EmbedWorkbench() {
                       className="text-left rounded-lg px-3 py-2 bg-white transition-all"
                       style={{ border: `2px solid ${isOn ? '#2D7889' : '#DBD5CA'}`, boxShadow: isOn ? '2px 2px 0 #1D525F' : '2px 2px 0 #C2BAAC' }}>
                       <span className={`block text-sm ${isOn ? 'font-bold text-primary-800' : 'font-semibold text-neutral-700'}`}>{SIZE_INFO[s].label}</span>
-                      <span className="block text-[11px] text-neutral-500 leading-snug mt-0.5">{active.key === 'dam' ? DAM_SIZE_DETAIL[s] : SIZE_INFO[s].detail}</span>
+                      <span className="block text-xs text-neutral-500 leading-snug mt-0.5">{active.key === 'dam' ? DAM_SIZE_DETAIL[s] : SIZE_INFO[s].detail}</span>
                     </button>
                   );
                 })}
@@ -1185,8 +1180,11 @@ export default function EmbedWorkbench() {
             </>
           )}
 
-          {/* 4 · Style */}
-          <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>{isFamily ? '4' : '3'} &middot; Style</div>
+         </div>
+         <div className="order-3 lg:order-none bg-secondary-50 px-6 pt-6 pb-6 lg:pt-0 flex flex-col lg:flex-1 border-t-2 lg:border-t-0 border-neutral-900">
+
+          {/* Appearance */}
+          <div className={RAIL_KICKER} style={{ fontFamily: 'var(--font-mono)' }}>Appearance</div>
           <span className={RAIL_LABEL}>Theme</span>
           <Segmented<EmbedThemeMode>
             label="Widget theme"
@@ -1196,23 +1194,20 @@ export default function EmbedWorkbench() {
               ? [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'auto', label: 'Auto', title: 'Follows the visitor’s system setting' }]
               : [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
           />
-          <p className="text-[11px] text-neutral-400 mt-1.5 mb-4">Sets the embedded widget&apos;s appearance — not this page.</p>
+          <div className="mb-4" />
 
           {(isFamily || active.key === 'rivers') && (
             <div className="mb-6 space-y-3">
               <label className="flex items-center gap-2.5 text-[13px] font-semibold text-neutral-700 cursor-pointer">
                 <input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} className="w-4 h-4 accent-primary-600" />
                 Transparent background
-                <span className="text-[11px] font-normal text-neutral-500">sits on your page’s own surface</span>
               </label>
               <div className="flex items-center gap-3">
-                <label htmlFor="embed-accent" className="text-[13px] font-semibold text-neutral-700">Accent</label>
-                <input id="embed-accent" type="color" value={accent ?? '#2D7889'} onChange={e => setAccent(parseAccentColor(e.target.value))}
-                  className="h-8 w-12 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" aria-describedby="embed-accent-help" />
-                {accent ? (
-                  <button type="button" onClick={() => setAccent(null)} className="text-xs font-semibold text-primary-700 underline">Use Eddy’s</button>
-                ) : (
-                  <span id="embed-accent-help" className="text-[11px] text-neutral-500">Links and buttons only. Condition colors never change.</span>
+                <label htmlFor="embed-accent" className="text-[13px] font-semibold text-neutral-700">Link color</label>
+                <input id="embed-accent" type="color" value={accent ?? '#256574'} onChange={e => setAccent(parseAccentColor(e.target.value))}
+                  className="h-8 w-12 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" />
+                {accent && (
+                  <button type="button" onClick={() => setAccent(null)} className="text-xs font-semibold text-primary-700 underline">Reset</button>
                 )}
               </div>
             </div>
@@ -1251,10 +1246,11 @@ export default function EmbedWorkbench() {
               {SITE_LINKS.map(l => <Link key={l.href} href={l.href} className="text-neutral-500 hover:text-primary-700 font-medium transition-colors">{l.label}</Link>)}
             </nav>
           </div>
+         </div>
         </aside>
 
         {/* =============== RIGHT WORKSPACE =============== */}
-        <main className="flex-1 min-w-0 flex flex-col bg-neutral-50 lg:overflow-hidden">
+        <main className="order-2 lg:order-2 lg:flex-1 min-w-0 flex flex-col bg-neutral-50 lg:overflow-hidden">
           {showReference ? (
             <div className="flex-1 lg:overflow-y-auto px-5 md:px-9 py-7">
               <div className="max-w-3xl">
@@ -1341,8 +1337,8 @@ export default function EmbedWorkbench() {
                   {TABS.map(t => (
                     <button key={t} role="tab" id={`tab-${t}`} aria-selected={activeTab === t} aria-controls={`panel-${t}`} tabIndex={activeTab === t ? 0 : -1}
                       ref={el => { tabRefs.current[t] = el; }} onClick={() => setActiveTab(t)}
-                      className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-0.5 transition-colors capitalize ${activeTab === t ? 'text-primary-800 border-accent-500' : 'text-neutral-500 border-transparent hover:text-primary-700'}`}>
-                      {t}
+                      className={`text-sm font-semibold px-4 py-2.5 border-b-2 -mb-0.5 transition-colors ${activeTab === t ? 'text-primary-800 border-accent-500' : 'text-neutral-500 border-transparent hover:text-primary-700'}`}>
+                      {TAB_LABEL[t]}
                     </button>
                   ))}
                 </div>
@@ -1373,22 +1369,14 @@ export default function EmbedWorkbench() {
                       effectiveFormat === 'image' ? (
                         <>
                           <HostSurface host={host}>
-                            <p className="m-0 mb-3 text-sm leading-relaxed" style={{ opacity: 0.75 }}>This week on the {active.key === 'dam' ? 'tailwater' : 'river'} — as of the moment you opened this:</p>
                             {/* Live PNG from the image route; a plain <img>, exactly as the host would use it. */}
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img key={`${baseUrl}${imagePath(ctx, active.key, 'png')}`} src={`${baseUrl}${imagePath(ctx, active.key, 'png')}`} alt={snippetTitle} style={{ maxWidth: '100%', height: 'auto', display: 'inline-block' }} />
                           </HostSurface>
-                          <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
-                            A live PNG with Eddy’s brand fonts, drawn fresh every five minutes. There is an SVG at the same address with <code className="bg-neutral-100 px-1 py-0.5 rounded">.svg</code> for pages; email clients want the PNG.
-                          </p>
                         </>
                       ) : (
                         <>
                           <WidgetPreview src={previewSrc} height={previewHeight} maxWidth={previewMaxWidth} host={host} inline={isFamily && size === 'badge'} />
-                          <p className="text-xs text-neutral-500 mt-3.5 leading-relaxed">
-                            Live preview — real {active.key === 'dam' ? 'USACE and SWPA' : 'USGS gauge'} data. The embedded widget auto-resizes to its content
-                            {theme === 'auto' ? '; “Auto” follows this browser’s system setting here, and each visitor’s on your site' : ''}.
-                          </p>
                         </>
                       )
                     ) : (
@@ -1423,28 +1411,26 @@ export default function EmbedWorkbench() {
                       {renderWidgetOptions()}
                       <CodeBlock code={code} label={`HTML · ${active.key}${isFamily ? ` · ${size}` : ''} · ${effectiveFormat} · ${themeLabel}`} />
                       <div className="mt-3"><CopyButton text={code} large /></div>
-                      <div className="mt-3.5 bg-primary-50 border-2 border-primary-200 rounded-lg px-4 py-3 text-[13px] text-primary-700 leading-relaxed">
-                        {effectiveFormat === 'image' && <>A live image. Paste it where iframes are not allowed — newsletters, Substack, Medium, a GitHub README. It links to the full report.</>}
-                        {effectiveFormat === 'script' && <>One script tag per page, then any number of widgets as plain <span style={{ fontFamily: 'var(--font-mono)' }}>div</span>s. The loader sizes each one to its content.</>}
-                        {effectiveFormat === 'iframe' && <>The widget <strong>auto-resizes</strong> to its content — no need to set a <span style={{ fontFamily: 'var(--font-mono)' }}>height</span>. The included snippet handles it.</>}
-                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm font-bold text-neutral-700 mb-3">Optional parameters</div>
-                      <div className="flex flex-col gap-2.5">
+                    <details className="group">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-bold text-neutral-700 [&::-webkit-details-marker]:hidden">
+                        Advanced: URL parameters
+                        <ChevronDown className="w-4 h-4 text-neutral-500 transition-transform group-open:rotate-180" aria-hidden="true" />
+                      </summary>
+                      <div className="flex flex-col gap-2.5 mt-2">
                         {active.params.map(p => (
                           <div key={p.name} className="bg-white border-2 border-neutral-200 rounded-md px-3 py-2.5">
                             <code className="font-mono text-[13px] font-semibold text-primary-600">{p.name}</code>
                             <span className="text-xs text-neutral-500 ml-1.5">{p.values}</span>
-                            {p.note && <div className="text-[11px] text-neutral-400 mt-1">{p.note}</div>}
+                            {p.note && <div className="text-xs text-neutral-500 mt-1">{p.note}</div>}
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </details>
                   </div>
                 )}
 
-                {/* ============ INSTALL TAB ============ */}
+                {/* ============ HELP TAB ============ */}
                 {activeTab === 'install' && (
                   <div className="max-w-4xl">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-4" style={{ fontFamily: 'var(--font-mono)' }}>Where do I paste it?</div>

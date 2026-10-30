@@ -20,21 +20,28 @@ is the public face; this is the map for whoever changes it.
 One widget per kind (`river`, `dam`), four sizes. Every size leads with the
 same two facts: the live condition from `shared/condition-system.ts`, and the
 reading **in the unit the river is rated in** (`ratedReading` in
-`src/lib/embed/options.ts`). The other unit is context. One mascot, one
-observation timestamp, one call to action.
+`src/lib/embed/options.ts`). The other unit rides on the gauge line as
+context. One Eddy illustration, one condition badge, one observation time, one
+call to action.
 
 | Size | Shows | Height |
 | --- | --- | --- |
 | `badge` | Inline pill: name, condition dot and label. Hugged by the host iframe. | ~40px |
 | `strip` | One line: condition, rated reading, trend arrow, age. | ~64px |
-| `card` | Header with the mood otter, reading on the ladder (`RangeMeter`), Eddy's take in full, weather, credit. | ~300px |
-| `full` | Card + the shared trend chart + other gauges. | ~550px |
+| `card` | River name + condition → gauge location → reading + plain trend → the ladder (`RangeMeter`) → Eddy's take → one weather line → "Full report" and credit. | ~300px |
+| `full` | Card + high/low weather, the trend chart, and other gauges as flat rows. | ~550px |
 
-Dam sizes mirror the iOS "Dam generation" Home Screen widget: observed turbine
-flow, the generation state, the next-change sentence and today's 24
-hour-ending schedule bars, all read off `shared/dam-widget.ts` — the same
-packet the phone draws, so a bar cannot disagree between the two. `full` adds
-the tailwater status row, lake level, total release and tomorrow's schedule.
+Dam sizes mirror the iOS "Dam generation" Home Screen widget, read off
+`shared/dam-widget.ts` — the same packet the phone draws, so a bar cannot
+disagree between the two. The card reads: dam and lake → turbine flow with
+the generation status (stated once) → the next scheduled change → today's 24
+hour-ending bars → footer. A schedule Eddy checked more than 90 minutes ago
+replaces the next-change line with a visible coral note. Megawatts, sources,
+the check time and the Central-time note sit in one "About this data"
+disclosure (a popover would clip at the iframe edge; a disclosure expands and
+the iframe resizes). `full` adds aligned rows for the tailwater status, total
+release and lake level, and tomorrow's bars. "Turbine flow" stays the label —
+"release" would blur it with total release.
 Flood-control projects (no powerhouse) render an explanatory unavailable state;
 the workbench picker excludes them, as the iOS picker does.
 
@@ -51,8 +58,8 @@ Style parameters, shared by both kinds (parsed by `parseEmbedOptions`):
 | Param | Values | Effect |
 | --- | --- | --- |
 | `theme` | `light` / `dark` / `auto` | `auto` follows `prefers-color-scheme` via one media query; the frame emits CSS custom properties (`--ew-*`), components never branch on theme. |
-| `bg` | `transparent` | Drops the panel background so the widget sits on the host's own surface. |
-| `accent` | `#rrggbb` | Recolors links and the CTA only. Condition colors never change. |
+| `bg` | `transparent` | Drops the whole frame (surface, border, shadow) so the widget sits on the host's own surface. |
+| `accent` | `#rrggbb` | Recolors links and actions only (`--ew-link`, `--ew-accent`). Condition colors and data ink (`--ew-data`: generation status, schedule bars, the trend line) never change; `embed-options.test.ts` guards this. |
 | `days` | `7` / `14` / `30` | Chart window on the full river size. |
 | `partner` | text | Footer text credit. |
 | `e` | `emb_xxxxxxxx` | Registered co-branding (logo, name, backlink) — `src/lib/embed/cards.ts`. |
@@ -101,10 +108,34 @@ Server components, no client fetch waterfall:
   `DamEmbed`, `RangeMeter`, `EmbedCredit`, `EmbedBrandMark` (the only client
   piece besides the chart: partner-logo fallback).
 - Styles live in `globals.css` under `.ew-*` and reference `--ew-*` tokens
-  only. Condition colors arrive inline from the canonical system.
+  only. Condition colors arrive inline from the canonical system; in a dark
+  frame each chip swaps to its condition's chip-border tone.
+
+### Visual rules
+
+- **Frame**: the site's `.card-framed` — surface, 2px primary-700 border, 8px
+  corners, the 3px hard `--shadow-md`. The frame sits in a 3px gutter inside the
+  iframe because the host sizes the iframe from scroll height, which ignores
+  box-shadow. Inside the card: spacing and hairline separators, no nested boxes.
+- **Type**: titles in the heading face at 18px and allowed to wrap (below
+  380px the condition badge drops under the name); 14px body; 12px for
+  everything supporting; nothing smaller. Fredoka stays for Eddy's own brand
+  moments, not data. Figures use tabular numerals in the body face.
+- **Chart**: a fixed-height SVG stretched to the width with non-scaling
+  strokes; tick labels and dots are HTML, so they stay 12px at any width.
+- **Credit**: "Powered by Eddy" carries Eddy's mark only when a partner logo
+  has taken the header, so every card has exactly one Eddy illustration.
 
 The planner, services directory and the location-pinned card are unchanged
 single-purpose embeds (`EmbedFooter`, `EmbedHeaderLogo`, `useEmbedBranding`).
+
+## Workbench
+
+`/embed` runs widget → river or dam → size → appearance, with the placement
+shortcuts (sidebar, in a post, landing page, email, regional page) as an
+optional "Quick start". On phones the preview sits between the size choice and
+the appearance options. Copy code is the main action; URL parameters are under
+"Advanced", installation steps under the Help tab.
 
 ## Measurement
 

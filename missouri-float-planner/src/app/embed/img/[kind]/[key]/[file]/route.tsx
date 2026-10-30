@@ -84,7 +84,7 @@ function BadgePng({ model, avatar, transparent }: { model: EmbedImageModel; avat
         // eslint-disable-next-line @next/next/no-img-element
         <img src={avatar} alt="" width={L.mark} height={L.mark} style={{ width: L.mark, height: L.mark, borderRadius: L.mark / 2 }} />
       ) : (
-        <div style={{ width: L.mark, height: L.mark, borderRadius: L.mark / 2, background: t.link, display: 'flex' }} />
+        <div style={{ width: L.mark, height: L.mark, borderRadius: L.mark / 2, background: t.data, display: 'flex' }} />
       )}
       <div style={{ display: 'flex', fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}>{model.title}</div>
       <div
@@ -97,7 +97,7 @@ function BadgePng({ model, avatar, transparent }: { model: EmbedImageModel; avat
           border: `1px solid ${model.statusBorder}`,
           background: model.statusBg,
           color: model.statusInk,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           whiteSpace: 'nowrap',
         }}
@@ -132,17 +132,17 @@ function StripPng({ model, avatar, transparent }: { model: EmbedImageModel; avat
         // eslint-disable-next-line @next/next/no-img-element
         <img src={avatar} alt="" width={28} height={28} style={{ width: 28, height: 28, borderRadius: 14 }} />
       ) : (
-        <div style={{ width: 28, height: 28, borderRadius: 14, background: t.link, display: 'flex' }} />
+        <div style={{ width: 28, height: 28, borderRadius: 14, background: t.data, display: 'flex' }} />
       )}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', fontSize: 16, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden' }}>{model.title}</div>
         {model.subtitle && (
-          <div style={{ display: 'flex', fontSize: 11, color: t.muted, whiteSpace: 'nowrap', overflow: 'hidden' }}>{model.subtitle}</div>
+          <div style={{ display: 'flex', fontSize: 12, color: t.muted, whiteSpace: 'nowrap', overflow: 'hidden' }}>{model.subtitle}</div>
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, fontFamily: 'Geist Mono', fontSize: 22, fontWeight: 700 }}>
         {model.reading ?? '—'}
-        {model.unit && <span style={{ fontFamily: 'Fredoka', fontSize: 11, color: t.muted }}>{model.unit}</span>}
+        {model.unit && <span style={{ fontFamily: 'Fredoka', fontSize: 12, color: t.muted }}>{model.unit}</span>}
         {model.trend && <span style={{ fontFamily: 'Fredoka', fontSize: 13, color: t.muted }}>{model.trend}</span>}
       </div>
       <div
@@ -153,14 +153,14 @@ function StripPng({ model, avatar, transparent }: { model: EmbedImageModel; avat
           border: `1px solid ${model.statusBorder}`,
           background: model.statusBg,
           color: model.statusInk,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           whiteSpace: 'nowrap',
         }}
       >
         {model.status}
       </div>
-      {model.age && <div style={{ display: 'flex', fontSize: 11, color: t.muted }}>{model.age}</div>}
+      {model.age && <div style={{ display: 'flex', fontSize: 12, color: t.muted }}>{model.age}</div>}
     </div>
   );
 }

@@ -84,7 +84,8 @@ export function embedVarPalette(): EmbedPalette {
     border: 'var(--ew-border)',
     textPrimary: 'var(--ew-text)',
     textSecondary: 'var(--ew-muted)',
-    link: 'var(--ew-link)',
+    // The chart's `link` is its data line — Eddy teal, never a partner accent.
+    link: 'var(--ew-data)',
     accent: 'var(--ew-accent)',
     shadow: 'var(--ew-shadow)',
     hoverBg: 'var(--ew-surface)',

@@ -1,11 +1,12 @@
 // src/components/embed/v2/EmbedCredit.tsx
-// The bottom row of every card/full widget: at most one deep link, the
-// partner's credit when they have one, and the "Powered by Eddy" backlink.
-// Every link out carries the embed UTM set (src/lib/embed/branding.ts) so the
-// program is attributable per widget, per river, per partner.
+// The bottom row of every card/full widget: the report link, the partner's
+// credit when they have one, and the "Powered by Eddy" backlink. Every link
+// out carries the embed UTM set (src/lib/embed/branding.ts) so the program is
+// attributable per widget, per river, per partner.
 //
-// The old footers carried three links and a second otter. A sidebar widget
-// earns one call to action; the rest is the host's page.
+// One Eddy illustration per card: the credit carries Eddy's mark only when a
+// partner logo has taken the header, because then it is the only Eddy mark
+// on the card. When Eddy is already in the header, the credit is words.
 
 import { eddyDeepLink } from '@/lib/embed/branding';
 import type { EmbedBrandingRecord } from '@/lib/embed/cards';
@@ -35,6 +36,7 @@ export default function EmbedCredit({
 }) {
   const utm = { widget, key: widgetKey, partner: branding?.businessName || embedId || partner || undefined };
   const creditName = branding?.businessName || partner || null;
+  const partnerHoldsHeader = Boolean(branding?.logoUrl);
   return (
     <footer className="ew-credit">
       <nav aria-label="More from Eddy" className="ew-credit-links">
@@ -55,8 +57,10 @@ export default function EmbedCredit({
           )
         )}
         <a href={eddyDeepLink(origin, '/', utm)} target="_blank" rel="noopener noreferrer" className="ew-powered">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={EDDY_IMAGES.favicon} alt="" width={14} height={14} style={{ width: 14, height: 14, borderRadius: '50%' }} />
+          {partnerHoldsHeader && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={EDDY_IMAGES.favicon} alt="" width={16} height={16} style={{ width: 16, height: 16, borderRadius: '50%' }} />
+          )}
           Powered by Eddy
         </a>
       </div>

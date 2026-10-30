@@ -63,14 +63,36 @@ test('theme css: light and dark are one block, auto adds a prefers-color-scheme 
   assert.ok(auto.includes(`--ew-bg:${EMBED_DARK_TOKENS.bg}`));
 });
 
-test('theme css: transparent drops the panel, accent recolors links only', () => {
+test('theme css: transparent drops the whole frame, accent recolors links only', () => {
   const css = embedThemeCss('f', { theme: 'light', transparent: true, accent: '#123456' });
   assert.ok(css.includes('--ew-bg:transparent'));
+  assert.ok(css.includes('--ew-frame:transparent'), 'no border on a transparent widget');
+  assert.ok(css.includes('--ew-frame-shadow:transparent'), 'no shadow on a transparent widget');
   assert.ok(css.includes('--ew-link:#123456'));
   assert.ok(css.includes('--ew-accent:#123456'));
-  // Surfaces and text keep the brand tokens — only the interactive color moves.
+  // Surfaces, text and DATA keep the brand tokens — only links and actions move.
   assert.ok(css.includes(`--ew-surface:${EMBED_LIGHT_TOKENS.surface}`));
   assert.ok(css.includes(`--ew-text:${EMBED_LIGHT_TOKENS.text}`));
+  assert.ok(css.includes(`--ew-data:${EMBED_LIGHT_TOKENS.data}`), 'a partner accent must never repaint generation status or schedule bars');
+  // The page behind the frame is transparent, so the shadow gutter shows the host.
+  assert.ok(css.includes('html,body{background:transparent!important}'));
+
+  const framed = embedThemeCss('f', { theme: 'light', transparent: false, accent: null });
+  assert.ok(framed.includes(`--ew-frame:${EMBED_LIGHT_TOKENS.frame}`));
+});
+
+test('data ink in the stylesheet and the chart never reads the link color', () => {
+  // The accent leak this guards: generation status, schedule bars and the
+  // trend line once used --ew-link, so a partner's brand color repainted data.
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
+  const family = css.slice(css.indexOf('/* ── Embed family'), css.indexOf('/* Typography */'));
+  for (const rule of ['.ew-gen-on', '.ew-sched-bar-on']) {
+    const block = family.slice(family.indexOf(rule), family.indexOf('}', family.indexOf(rule)));
+    assert.ok(block.includes('var(--ew-data)'), `${rule} uses the data token`);
+    assert.ok(!block.includes('--ew-link'), `${rule} must not use the link token`);
+  }
+  const theme = readFileSync(join(process.cwd(), 'src/lib/embed/theme.ts'), 'utf8');
+  assert.match(theme, /link: 'var\(--ew-data\)'/, 'the chart line is drawn in the data token');
 });
 
 // ── Impressions ─────────────────────────────────────────────────────────────
@@ -130,6 +152,17 @@ test('the card prints Eddy’s take whole — no sentence splitter, no accordion
   assert.doesNotMatch(card, /<details/, 'the take is not folded behind a disclosure');
   assert.match(card, /headlineReading/, 'the rated unit leads');
   assert.match(card, /RangeMeter/, 'the reading is placed on the ladder');
+  // The meter prints the range; the static fallback take must not repeat it.
+  const data = readFileSync(join(process.cwd(), 'src/lib/embed/river-data.ts'), 'utf8');
+  assert.doesNotMatch(data, /Optimal range is/);
+});
+
+test('the dam card states generation once and keeps the stale-schedule notice visible', () => {
+  const dam = readFileSync(join(process.cwd(), 'src/components/embed/v2/DamEmbed.tsx'), 'utf8');
+  const card = dam.slice(dam.indexOf('function Card('));
+  assert.equal((card.match(/\{moment\.status\}/g) ?? []).length, 1, 'one status line in the card');
+  assert.doesNotMatch(card, /ew-gen-pill/, 'no second status pill in the header');
+  assert.match(card, /next\.stale \? \(\s*<p role="note"/, 'a stale schedule renders as a visible note');
 });
 
 test('legacy embed routes stay alive as fixed sizes of the family', () => {

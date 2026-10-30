@@ -101,27 +101,44 @@ export function parseEmbedOptions(source: ParamSource, defaults: Partial<EmbedOp
 // than a second render path.
 
 export interface EmbedTokens {
+  /** The card surface. */
   bg: string;
+  /** Quiet inset surface (hover rows, notes). */
   surface: string;
+  /** Hairline separators inside the card. */
   border: string;
+  /** The card's own frame: the site's teal `.card-framed` border. */
+  frame: string;
+  /** Hard offset shadow under the frame (`--shadow-md`). */
+  frameShadow: string;
   text: string;
   muted: string;
+  /** Links and actions. The ONLY tokens a partner accent may replace. */
   link: string;
   accent: string;
   focus: string;
+  /**
+   * Data ink: generation status, schedule bars, the trend line. Eddy teal on
+   * every partner's page, never the partner accent — a schedule bar in a
+   * campground's brand red would read as a warning.
+   */
+  data: string;
   shadow: string;
   skeleton: string;
 }
 
 export const EMBED_LIGHT_TOKENS: EmbedTokens = {
-  bg: '#FFFFFF',
+  bg: '#FFFFFF', // --color-surface
   surface: '#F7F6F3', // warm stone, not cool gray
   border: '#DBD5CA',
+  frame: '#1D525F', // primary-700, the .card-framed border
+  frameShadow: '#C2BAAC', // neutral-400, --shadow-md
   text: '#2D2A24',
-  muted: '#6B665C',
-  link: '#2D7889', // Deep River Teal 500
+  muted: '#5C574E', // 12px support text keeps AA on white
+  link: '#256574', // primary-600
   accent: '#F07052', // Sunset Coral — CTAs only
   focus: '#2D7889',
+  data: '#256574',
   shadow: '#C2BAAC',
   skeleton: '#DBD5CA',
 };
@@ -130,25 +147,31 @@ export const EMBED_DARK_TOKENS: EmbedTokens = {
   bg: '#0F2D35', // deep river teal night, never generic #1a1a1a
   surface: '#163F4A',
   border: '#2D5660',
+  frame: '#2D7889',
+  frameShadow: 'rgba(0, 0, 0, 0.55)',
   text: '#E8F1F2',
-  muted: '#9DBAC1',
+  muted: '#A9C3C9',
   link: '#7FC4D4',
   accent: '#F07052',
   focus: '#A3D1DB',
+  data: '#72B5C4', // primary-300, the iOS widget's dark water
   shadow: 'rgba(0, 0, 0, 0.45)',
   skeleton: '#2D5660',
 };
 
+/** Apply a partner accent to links and actions only. */
+function withAccent(tokens: EmbedTokens, accent: string | null): EmbedTokens {
+  return accent ? { ...tokens, link: accent, accent, focus: accent } : tokens;
+}
+
 function declarations(tokens: EmbedTokens, options: Pick<EmbedOptions, 'transparent' | 'accent'>): string {
   const dark = tokens === EMBED_DARK_TOKENS;
-  const t = { ...tokens };
-  if (options.accent) {
-    t.link = options.accent;
-    t.accent = options.accent;
-    t.focus = options.accent;
-  }
+  const t = withAccent(tokens, options.accent);
   return [
+    // A transparent widget drops the whole frame and sits on the host's surface.
     `--ew-bg:${options.transparent ? 'transparent' : t.bg}`,
+    `--ew-frame:${options.transparent ? 'transparent' : t.frame}`,
+    `--ew-frame-shadow:${options.transparent ? 'transparent' : t.frameShadow}`,
     `--ew-surface:${t.surface}`,
     `--ew-border:${t.border}`,
     `--ew-text:${t.text}`,
@@ -156,6 +179,7 @@ function declarations(tokens: EmbedTokens, options: Pick<EmbedOptions, 'transpar
     `--ew-link:${t.link}`,
     `--ew-accent:${t.accent}`,
     `--ew-focus:${t.focus}`,
+    `--ew-data:${t.data}`,
     `--ew-shadow:${t.shadow}`,
     `--ew-skeleton:${t.skeleton}`,
     `--ew-logo-bg:${dark ? 'rgba(255,255,255,0.92)' : '#FFFFFF'}`,
@@ -168,19 +192,29 @@ function declarations(tokens: EmbedTokens, options: Pick<EmbedOptions, 'transpar
  * prefers-color-scheme override; the other two emit one set. Scoped to the
  * frame's own id so two widgets on one host page cannot restyle each other —
  * they are separate iframes anyway, but the preview page renders several.
+ *
+ * The document itself is made transparent: the frame's hard shadow sits in a
+ * small gutter inside the iframe, and the site's page color must not show
+ * there (or behind a `bg=transparent` widget).
  */
 export function embedThemeCss(frameId: string, options: Pick<EmbedOptions, 'theme' | 'transparent' | 'accent'>): string {
   const selector = `#${frameId}`;
-  if (options.theme === 'dark') return `${selector}{${declarations(EMBED_DARK_TOKENS, options)}}`;
-  const light = `${selector}{${declarations(EMBED_LIGHT_TOKENS, options)}}`;
+  const page = 'html,body{background:transparent!important}';
+  // Condition chips carry their ink inline for a light surface. On the dark
+  // teal surface that ink is unreadable, so a dark frame switches every
+  // `.ew-chip` to the condition's own chip-border tone — the same swap the
+  // iOS widget makes (GaugeDisplay.color). The tone arrives per chip as
+  // --chip-ink-dark from the canonical condition system.
+  const dark = `${selector}{${declarations(EMBED_DARK_TOKENS, options)}}${selector} .ew-chip{color:var(--chip-ink-dark)!important}`;
+  if (options.theme === 'dark') return `${page}${dark}`;
+  const light = `${page}${selector}{${declarations(EMBED_LIGHT_TOKENS, options)}}`;
   if (options.theme === 'light') return light;
-  return `${light}@media (prefers-color-scheme:dark){${selector}{${declarations(EMBED_DARK_TOKENS, options)}}}`;
+  return `${light}@media (prefers-color-scheme:dark){${dark}}`;
 }
 
 /** Which tokens the image routes (no media queries) should paint with. */
 export function embedTokensFor(options: Pick<EmbedOptions, 'theme' | 'accent'>): EmbedTokens {
-  const base = options.theme === 'dark' ? EMBED_DARK_TOKENS : EMBED_LIGHT_TOKENS;
-  return options.accent ? { ...base, link: options.accent, accent: options.accent, focus: options.accent } : base;
+  return withAccent(options.theme === 'dark' ? EMBED_DARK_TOKENS : EMBED_LIGHT_TOKENS, options.accent);
 }
 
 // ── Impressions ─────────────────────────────────────────────────────────────

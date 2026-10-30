@@ -10,12 +10,17 @@
 //   - a missing hour is hollow, never a zero bar;
 //   - a minimum-flow hour is a low baseline, never a generation bar;
 //   - a schedule Eddy checked more than 90 minutes ago stops promising a
-//     next transition;
+//     next transition, and says so visibly;
 //   - a reading older than the lagging window loses the present tense.
 //
-// Who this is for: fly shops, trout guides, marinas and lake resorts below
-// Bull Shoals, Norfork, Table Rock, Greers Ferry, Beaver and the rest — pages
-// whose first question is "is it generating, how much, and when does it stop".
+// The card reads: dam → status and turbine flow → next scheduled change →
+// today's timeline → footer. Status appears once. Megawatts, sources, the
+// schedule's check time and the time zone note live in one "About this data"
+// disclosure: an info popover would clip at the iframe edge, a disclosure
+// expands in place and the host iframe resizes to fit it.
+//
+// Colors: generation ink and bars use --ew-data (Eddy teal), never the
+// partner accent — a schedule bar in a host's brand red would read as alarm.
 
 import { damWidgetSnapshot } from '@shared/dam-widget';
 import { buildTailwaterStatus } from '@shared/tailwater-status';
@@ -24,7 +29,6 @@ import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import { EDDY_IMAGES } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import type { EmbedBrandingRecord } from '@/lib/embed/cards';
-import { EMBED_FONTS } from '@/lib/embed/theme';
 import { formatObservedAge, impressionType, shortAge, type EmbedOptions } from '@/lib/embed/options';
 import type { DamEmbedData } from '@/lib/embed/dam-data';
 import EmbedBrandMark from './EmbedBrandMark';
@@ -42,6 +46,11 @@ interface Props {
   origin: string;
   now: number;
 }
+
+const SOURCE_NAMES: Record<string, string> = {
+  'USACE CWMS': 'U.S. Army Corps of Engineers',
+  SWPA: 'Southwestern Power Administration',
+};
 
 /** The iOS widget's compactStatus, verbatim. */
 function compactStatus(moment: Moment): string {
@@ -90,38 +99,43 @@ function BoltGlyph({ tone }: { tone: ReturnType<typeof statusTone> }) {
   );
 }
 
-/** Today's posted schedule as 24 bars — the iOS DamScheduleChart in HTML. */
-export function ScheduleBars({ day, currentHour, compact = false, label = 'Schedule · CT' }: {
+function isGenerating(hour: ScheduleDay['hours'][number]): boolean {
+  return (hour.megawatts ?? 0) > 0 && hour.minimumFlow !== true;
+}
+
+function schedulePeak(day: ScheduleDay): number {
+  return Math.max(0, ...day.hours.filter(isGenerating).map((h) => h.megawatts ?? 0));
+}
+
+/** A posted day as 24 bars — the iOS DamScheduleChart in HTML. */
+export function ScheduleBars({ day, currentHour, compact = false, label }: {
   day: ScheduleDay;
   currentHour: number | null;
   compact?: boolean;
-  label?: string;
+  label: string;
 }) {
-  const generating = (h: ScheduleDay['hours'][number]) => (h.megawatts ?? 0) > 0 && h.minimumFlow !== true;
-  const peak = Math.max(0, ...day.hours.filter(generating).map((h) => h.megawatts ?? 0));
+  const peak = schedulePeak(day);
   const minimumFlowOnly = peak === 0 && day.hours.some((h) => h.minimumFlow === true);
-  const height = compact ? 30 : 42;
+  const height = compact ? 28 : 40;
+  // Only a day with nothing to draw earns a word beside the label.
+  const note = minimumFlowOnly ? 'Minimum flow only' : peak === 0 ? 'No generation scheduled' : null;
   return (
-    <div className="ew-sched" role="img" aria-label={`${label}: today's posted generation schedule, Central Time, subject to change${peak > 0 ? `, peak ${Math.round(peak)} megawatts` : ''}`}>
+    <div className="ew-sched" role="img" aria-label={`${label}: posted generation schedule, Central Time, subject to change.${note ? ` ${note}.` : ''}`}>
       <div className="ew-sched-head">
-        <span className="ew-kicker" style={{ margin: 0 }}>{label}</span>
-        <span className="ew-sched-peak">
-          {minimumFlowOnly ? 'Minimum flow' : peak > 0 ? `${Math.round(peak).toLocaleString()} MW peak` : 'No generation posted'}
-        </span>
+        <span className="ew-section-title">{label}</span>
+        {note && <span className="ew-support">{note}</span>}
       </div>
       <div className="ew-sched-bars" style={{ height: height + 8 }}>
         {day.hours.map((hour) => {
           const selected = hour.hourEnding === currentHour;
-          const isGen = generating(hour);
-          const barHeight = hour.megawatts == null
-            ? height
-            : isGen ? Math.max(5, (height * (hour.megawatts ?? 0)) / Math.max(peak, 1)) : 3;
-          const title = `${hour.label}: ${hour.megawatts == null ? 'schedule unavailable' : hour.minimumFlow ? 'minimum flow' : `${Math.round(hour.megawatts)} MW`}${selected ? ' (now)' : ''}`;
+          const on = isGenerating(hour);
+          const barHeight = hour.megawatts == null ? height : on ? Math.max(5, (height * (hour.megawatts ?? 0)) / Math.max(peak, 1)) : 3;
+          const title = `${hour.label}: ${hour.megawatts == null ? 'schedule unavailable' : hour.minimumFlow ? 'minimum flow' : on ? `${Math.round(hour.megawatts ?? 0)} MW` : 'no generation'}${selected ? ' (now)' : ''}`;
           return (
-            <span key={hour.hourEnding} className={`ew-sched-slot${selected ? ' ew-sched-slot-now' : ''}`} title={title}>
+            <span key={hour.hourEnding} className="ew-sched-slot" title={title}>
               {selected && <span className="ew-sched-now" aria-hidden="true" />}
               <span
-                className={`ew-sched-bar${hour.megawatts == null ? ' ew-sched-bar-missing' : isGen ? ' ew-sched-bar-on' : ' ew-sched-bar-idle'}`}
+                className={`ew-sched-bar${hour.megawatts == null ? ' ew-sched-bar-missing' : on ? ' ew-sched-bar-on' : ' ew-sched-bar-idle'}`}
                 style={{ height: barHeight }}
               />
             </span>
@@ -152,11 +166,23 @@ function observedIso(moment: Moment): string | null {
   return moment.observedAt != null ? new Date(moment.observedAt).toISOString() : null;
 }
 
+/** The next-change sentence, or the visible stale notice that replaces it. */
+function nextChange(moment: Moment): { text: string; stale: boolean } {
+  if (moment.scheduleCurrent) return { text: moment.scheduleSummary, stale: false };
+  return {
+    text: moment.scheduleSummary.replace('Open Eddy to check the latest schedule.', 'The schedule may have changed. Check the full report.'),
+    stale: true,
+  };
+}
+
+function locationLine(dam: DamEmbedData['dam']): string {
+  return dam.lakeName ? `${dam.lakeName}, ${dam.state}` : dam.state;
+}
+
 // ── badge / strip ───────────────────────────────────────────────────────────
 
 function Badge({ data, options, branding, origin, now }: Props) {
-  const packet = damWidgetSnapshot(data.dam, now);
-  const moment = packet.entries[0];
+  const moment = damWidgetSnapshot(data.dam, now).entries[0];
   const tone = statusTone(moment);
   const status = compactStatus(moment);
   return (
@@ -175,30 +201,44 @@ function Badge({ data, options, branding, origin, now }: Props) {
 }
 
 function Strip({ data, options, branding, origin, now }: Props) {
-  const packet = damWidgetSnapshot(data.dam, now);
-  const moment = packet.entries[0];
+  const moment = damWidgetSnapshot(data.dam, now).entries[0];
   const tone = statusTone(moment);
   const age = shortAge(observedIso(moment), now);
+  const next = nextChange(moment);
   return (
     <EmbedFrame size="strip" options={options} kind="dam" label={`${data.dam.name} generation`}>
-      <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}: ${moment.status}`}>
-        <span className={`ew-gen ew-gen-${tone}`} style={{ display: 'inline-flex' }}><BoltGlyph tone={tone} /></span>
+      <a href={eddyDeepLink(origin, `/dams/${data.dam.id}`, utmFor(data, options, branding))} target="_blank" rel="noopener noreferrer" className="ew-strip" aria-label={`${data.dam.name}: ${moment.status}. ${next.text}`}>
         <span className="ew-strip-name">
-          <span className="ew-strip-river" style={{ fontFamily: EMBED_FONTS.display }}>{data.dam.name}</span>
-          <span className="ew-strip-station">{moment.scheduleSummary}</span>
+          <span className="ew-strip-river">{data.dam.name}</span>
+          <span className={`ew-support ew-clip${next.stale ? ' ew-stale' : ''}`}>{next.text}</span>
         </span>
-        <span className="ew-strip-reading" style={{ fontFamily: EMBED_FONTS.mono }}>
-          {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString() : '—'}
-          <span className="ew-unit">{moment.turbineCfs != null ? 'cfs' : ''}</span>
+        <span className="ew-strip-reading">
+          {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
+          {moment.turbineCfs != null && <span className="ew-unit">cfs</span>}
         </span>
-        <span className={`ew-strip-status ew-gen ew-gen-${tone}`}>{compactStatus(moment)}</span>
-        {age && <span className="ew-strip-age" aria-label={formatObservedAge(observedIso(moment), now)}>{age}</span>}
+        <span className={`ew-strip-status ew-gen-chip ew-gen ew-gen-${tone}`}>
+          <BoltGlyph tone={tone} />
+          {compactStatus(moment)}
+        </span>
+        {age && <span className="ew-support ew-strip-age" aria-label={formatObservedAge(observedIso(moment), now)}>{age}</span>}
       </a>
     </EmbedFrame>
   );
 }
 
 // ── card / full ─────────────────────────────────────────────────────────────
+
+function Row({ label, value, detail }: { label: string; value: React.ReactNode; detail?: string | null }) {
+  return (
+    <div className="ew-row ew-row-stacked">
+      <dt className="ew-row-label">{label}</dt>
+      <dd className="ew-row-value">
+        {value}
+        {detail && <span className="ew-support ew-row-detail">{detail}</span>}
+      </dd>
+    </div>
+  );
+}
 
 function Card(props: Props) {
   const { data, options, branding, origin, now } = props;
@@ -211,93 +251,80 @@ function Card(props: Props) {
   const tomorrow = full && moment.scheduleDate
     ? packet.scheduleDays.find((d) => d.date > moment.scheduleDate!) ?? null
     : null;
+  const next = nextChange(moment);
   const tailwater = full ? buildTailwaterStatus(dam, now) : null;
   const pool = full ? dam.metrics.poolElevation ?? null : null;
   const release = full ? dam.metrics.release ?? null : null;
   const utm = utmFor(data, options, branding);
-  const links = [{ label: 'Full dam report', path: `/dams/${dam.id}` }];
-  if (full && dam.tailwater?.riverSlug) links.push({ label: 'River below the dam', path: `/rivers/${dam.tailwater.riverSlug}` });
+  const links = [{ label: 'Full report', path: `/dams/${dam.id}` }];
+  if (full && dam.tailwater?.riverSlug) links.push({ label: 'River below', path: `/rivers/${dam.tailwater.riverSlug}` });
+  const peak = today ? schedulePeak(today) : 0;
+  const checked = moment.scheduleCheckedAt != null ? relativeAge(new Date(moment.scheduleCheckedAt).toISOString(), now) : null;
+  const sources = dam.sources.map((s) => SOURCE_NAMES[s] ?? s);
 
   return (
     <EmbedFrame size={options.size} options={options} kind="dam" label={`${dam.name} generation from Eddy`}>
       <header className="ew-head">
-        <EmbedBrandMark branding={branding} eddySrc={eddyIconUrl('release')} size={36} />
+        <EmbedBrandMark branding={branding} eddySrc={eddyIconUrl('release')} size={40} />
         <div className="ew-head-text">
-          <h1 className="ew-title" style={{ fontFamily: EMBED_FONTS.display }}>{dam.name}</h1>
-          <p className="ew-subtitle">
-            {dam.lakeName ? `${dam.lakeName} · ` : ''}{dam.state}
-            {data.tailwaterFishery === 'trout' ? ' · Trout tailwater' : ''}
-          </p>
+          <h1 className="ew-title">{dam.name}</h1>
+          <p className="ew-support">{locationLine(dam)}</p>
         </div>
-        <span className={`ew-gen-pill ew-gen ew-gen-${tone}`}>
-          <BoltGlyph tone={tone} />
-          {compactStatus(moment)}
-        </span>
       </header>
 
-      <div className="ew-dam-grid">
-        <div className="ew-dam-flow">
-          <span className="ew-kicker">Turbine flow</span>
-          <span className={`ew-reading-value${moment.current ? '' : ' ew-dim'}`} style={{ fontFamily: EMBED_FONTS.mono }}>
-            {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString() : '—'}
+      <div className="ew-dam-now">
+        <span className="ew-section-title">Turbine flow</span>
+        <div className="ew-reading">
+          <span className={`ew-reading-value${moment.current ? '' : ' ew-dim'}`}>
+            {moment.turbineCfs != null ? Math.round(moment.turbineCfs).toLocaleString('en-US') : '—'}
             {moment.turbineCfs != null && <span className="ew-unit">cfs</span>}
           </span>
-          <span className={`ew-dam-status ew-gen ew-gen-${tone}`}>{moment.status}</span>
-          <span className="ew-reading-age">
-            {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : 'Release status unavailable'}
+          <span className="ew-support ew-reading-age">
+            {moment.observedAt != null ? formatObservedAge(observedIso(moment), now) : null}
           </span>
         </div>
-        <div className="ew-dam-sched">
-          {today ? (
-            <ScheduleBars day={today} currentHour={moment.scheduleHour ?? null} />
-          ) : (
-            <div className="ew-sched">
-              <div className="ew-sched-head"><span className="ew-kicker" style={{ margin: 0 }}>Today’s schedule · CT</span></div>
-              <p className="ew-sched-empty">{packet.scheduleDays.length === 0 && moment.scheduleCurrent ? 'Open schedule' : 'Not posted today'}</p>
-            </div>
-          )}
-        </div>
+        <p className={`ew-dam-status ew-gen ew-gen-${tone}`}>
+          <BoltGlyph tone={tone} />
+          {moment.status}
+        </p>
       </div>
 
-      {/* The next-change sentence the phone packs into its status line. */}
-      <p className={`ew-next${moment.scheduleCurrent ? '' : ' ew-next-stale'}`}>
-        {(moment.scheduleCurrent ? moment.scheduleSummary : moment.scheduleSummary.replace('Open Eddy to check', 'Check the dam report for')).replace(/\.\s*$/, '')}
-        {moment.scheduleCheckedAt != null && (
-          <span className="ew-next-checked"> · schedule checked {relativeAge(new Date(moment.scheduleCheckedAt).toISOString(), now) ?? 'recently'}</span>
-        )}
-      </p>
+      {next.stale ? (
+        <p role="note" className="ew-note">{next.text}</p>
+      ) : (
+        <p className="ew-next">{next.text}</p>
+      )}
 
-      {full && (tailwater || pool || release) && (
-        <dl className="ew-facts">
+      {today ? (
+        <ScheduleBars day={today} currentHour={moment.scheduleHour ?? null} label="Today · CT" />
+      ) : (
+        <div className="ew-sched">
+          <span className="ew-section-title">Today · CT</span>
+          <p className="ew-support">{packet.scheduleDays.length === 0 && moment.scheduleCurrent ? 'Open schedule' : 'No schedule posted for today'}</p>
+        </div>
+      )}
+
+      {full && (tailwater || release || pool) && (
+        <dl className="ew-rows">
           {tailwater && (
-            <div className="ew-fact">
-              <dt>Below the dam</dt>
-              <dd>
-                {tailwater.headline}
-                {tailwater.supporting.map((line) => <span key={line} className="ew-fact-sub">{line}</span>)}
-              </dd>
-            </div>
+            <Row label="Below the dam" value={tailwater.headline} detail={tailwater.supporting.join(' · ') || null} />
           )}
           {release && (
-            <div className="ew-fact">
-              <dt>{release.dailyMean ? 'Total release (daily avg)' : 'Total release'}</dt>
-              <dd>
-                <span style={{ fontFamily: EMBED_FONTS.mono }}>{Math.round(release.value).toLocaleString()} cfs</span>
-                <span className="ew-fact-sub">{relativeAge(release.at, now) ?? 'time unavailable'}</span>
-              </dd>
-            </div>
+            <Row
+              label={release.dailyMean ? 'Total release (daily avg)' : 'Total release'}
+              value={<span className="ew-num">{Math.round(release.value).toLocaleString('en-US')} cfs</span>}
+              detail={relativeAge(release.at, now)}
+            />
           )}
           {pool && (
-            <div className="ew-fact">
-              <dt>{dam.lakeName ? `${dam.lakeName} level` : 'Lake level'}</dt>
-              <dd>
-                <span style={{ fontFamily: EMBED_FONTS.mono }}>{pool.value.toFixed(1)} {pool.unit}</span>
-                {dam.metrics.pctFloodPool && (
-                  <span className="ew-fact-sub">{Math.round(dam.metrics.pctFloodPool.value)}% of flood pool</span>
-                )}
-                <span className="ew-fact-sub">{relativeAge(pool.at, now) ?? 'time unavailable'}</span>
-              </dd>
-            </div>
+            <Row
+              label="Lake level"
+              value={<span className="ew-num">{pool.value.toFixed(1)} {pool.unit}</span>}
+              detail={[
+                dam.metrics.pctFloodPool ? `${Math.round(dam.metrics.pctFloodPool.value)}% of flood pool` : null,
+                relativeAge(pool.at, now),
+              ].filter(Boolean).join(' · ') || null}
+            />
           )}
         </dl>
       )}
@@ -306,7 +333,14 @@ function Card(props: Props) {
         <ScheduleBars day={tomorrow} currentHour={null} compact label={`${scheduleDayLabel(tomorrow.date)} · CT`} />
       )}
 
-      <p className="ew-fineprint">At the dam · Central time · Schedule may change · {dam.sources.length > 0 ? dam.sources.join(' · ') : 'USACE'}</p>
+      <details className="ew-about">
+        <summary className="ew-link">About this data</summary>
+        <ul className="ew-support">
+          <li>Turbine flow is observed at the dam{sources.length > 0 ? ` (${sources.join(', ')})` : ''}.</li>
+          <li>Schedules are posted in Central time and can change.{checked ? ` Eddy checked this one ${checked}.` : ''}</li>
+          {peak > 0 && <li>Today’s scheduled peak is {Math.round(peak).toLocaleString('en-US')} MW.</li>}
+        </ul>
+      </details>
 
       <EmbedCredit
         origin={origin}

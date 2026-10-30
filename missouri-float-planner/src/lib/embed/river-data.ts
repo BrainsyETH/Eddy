@@ -301,11 +301,10 @@ async function assembleRiverEmbed(slug: string, days: EmbedChartDays): Promise<R
       conditionCode: update.update.conditionCode,
     };
   } else {
-    // Static fallback: the canonical blurb for the live bucket plus the range.
+    // Static fallback: the canonical blurb for the live bucket. The range is
+    // not restated — the card's meter already prints it.
     const blurb = CONDITION_CARD_BLURBS[liveCode as ConditionCode] || CONDITION_CARD_BLURBS.unknown;
-    const parts = [blurb];
-    if (primary?.optimalRange) parts.push(`Optimal range is ${primary.optimalRange}.`);
-    take = { text: parts.join(' '), generatedAt: null, conditionCode: null };
+    take = { text: blurb, generatedAt: null, conditionCode: null };
   }
 
   return {
