@@ -176,6 +176,93 @@ Later releases: say what changed for the person reading it, not what changed in
 the codebase. "The Today tab remembers whether you had the daily report open"
 rather than "fixed TodaySummary fold state".
 
+### 1.5 — drafted October 30, 2026, not yet submitted
+
+Written against the **1.4.0 version bump (October 6, `2057698b`)**, because
+the runbook has not confirmed a store release after 1.1 and
+`release-readiness-1.5.md` measures only from the October 26 bump. Every
+paragraph below describes something merged to `main` between October 6 and
+October 30; nothing in it is device-verified (see the runbook's 1.5 gates).
+Sections marked `[1.4 cycle]` landed before the October 26 bump. **If App
+Store Connect shows 1.4 live, delete those sections** and lead with River
+Mode's tracking improvements instead; if it shows 1.1 or 1.2, the 1.2–1.3
+features (expandable charts, native tabs and headers, Today search, Quiet
+hours) are not covered here and need their own paragraph.
+
+```
+Eddy 1.5 needs iOS 18.
+
+RIVER MODE
+Start a float from Today, Map, Floats or Favorites and Eddy follows your progress to the take-out with the phone locked in a dry bag. Miles left and arrival show on the Lock Screen and in the Dynamic Island. Reminders can reach you when the take-out or a mapped hazard is ahead. Report a hazard from the river; it sends once you have signal again. Floats keep going through GPS gaps, and a float that ends at the take-out is measured to the take-out, not to the parking lot.
+
+FLOAT HISTORY
+Every float ends with a recap: the stretch you floated, Moving and Breaks, moving speed, the water that day, and how much of the river you have explored so far. Share a float as an image. Sign in with Apple to back up your history and bring it to a new phone.
+
+HOME SCREEN WIDGETS
+River level, Your rivers, Dam generation and Daily River Report widgets, a Lock Screen gauge, and Siri shortcuts that open a river by name.
+
+A NEW MAP
+One statewide view of gauges, access points, campgrounds and hazards. Grouped places are numbered; tap a group for the list. A compass resets to north-up, public land is labelled, and search works offline.
+
+FIND A FLOAT
+Tell Eddy how long you want to be on the water, your boat and where you are. It suggests stretches, with drive times.
+
+DAMS
+Bull Shoals minimum flow is called minimum flow, not generation. Spillway releases show. Tomorrow's schedule appears once it is posted, and schedule times read in Central time.
+
+ALSO
+• Dark mode is easier to read on every tab.
+• Save access points and campgrounds; their details work offline.
+• Camping: sort, distance and site-type filters, and first-come sites.
+• Gauge charts compare this year with last year.
+• Favorites show each gauge on its scale with the season's usual flow.
+• Links open in an in-app browser.
+• Plainer words throughout, and one safety disclaimer instead of several.
+```
+
+**1,893 characters.** Section map, for trimming:
+
+| Section | Landed | PRs |
+| --- | --- | --- |
+| iOS 18 line | `[1.4 cycle]` | #1521 (deployment target 18.0) |
+| River Mode, first four sentences | `[1.4 cycle]` | #1465, #1468, #1470, #1497, #1521, #1542 (the rename) |
+| River Mode, last sentence | 1.5 delta | #1649, #1653, #1656 |
+| Float history, recap wording | mixed | #1488 `[1.4 cycle]`; Moving/Breaks, river explored and share image #1663, #1668 |
+| Home Screen widgets | `[1.4 cycle]` | #1527, #1544, #1557, #1566 |
+| A new map | 1.5 delta | #1620, #1635–#1637, #1641, #1645 |
+| Find a Float | `[1.4 cycle]` | #1471, #1480 |
+| Dams | 1.5 delta | #1638, #1643, #1655 |
+| Dark mode | 1.5 delta | #1592 |
+| Saved places offline | `[1.4 cycle]` | #1565 |
+| Camping filters, first-come sites | `[1.4 cycle]` | #1438, #1457 |
+| Last-year chart layer | `[1.4 cycle]` | #1456 |
+| Favorites gauge scales | `[1.4 cycle]` | #1516, #1517 |
+| In-app browser | `[1.4 cycle]` | #1482 |
+| Plainer words | 1.5 delta | #1647 |
+
+Short form, if the long one reads as a changelog (**577 characters**):
+
+```
+Eddy 1.5 needs iOS 18.
+
+River Mode follows your float to the take-out with the phone locked, shows miles left on the Lock Screen, and reminds you when the take-out or a hazard is ahead. Every float ends with a recap you can share and back up with Apple sign-in. Home Screen widgets show river levels, dam generation and the daily report. The map is rebuilt as one statewide view with grouped places, a compass and offline search. Find a Float suggests stretches for the time you have. Dark mode is easier to read, and dam schedules say minimum flow when that is what is posted.
+```
+
+Before pasting either:
+
+- Confirm the baseline (above) against App Store Connect and trim.
+- Siri shortcuts and the Lock Screen gauge (#1566) have no ticked device gate;
+  cut that clause if the build is not checked on a phone first.
+- "Share a float as an image" needs `GET /api/share/float/image` live, which
+  deploys from `main`; confirm the route answers before the build is out.
+- Nothing here names a paid feature. Keep it that way: the daily written
+  report is the only thing a subscription buys, and the Daily River Report
+  widget shows the gauge condition, trend and forecast, not the written report.
+- The age-rating note below still says the app "embeds no browser". Since
+  #1482 links open in an in-app Safari sheet (`SFSafariViewController`), so
+  reword that sentence when this version is submitted; the answer itself
+  (no unrestricted web access) does not change.
+
 ---
 
 ## Fields that are not copy
