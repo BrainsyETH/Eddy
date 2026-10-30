@@ -93,10 +93,25 @@ backup acknowledgement. Deploy the accepting validator and capability response
 together before the binary. The field lives in the existing JSON payload, so it
 needs no database migration.
 
+Recaps also carry optional recap context (`docs/float-history-card-plan.md`):
+`startCondition` (the planner's condition at Start, with the gauge that set it
+and that reading's time), `riverSpan` (the route index's calibrated
+access-point span), `coveredMiles` (the river intervals the tracker credited,
+at most 32, sorted and disjoint) and `startWeather` (temperature and last-hour
+rain at the put-in, never coordinates). They share one capability flag,
+`recapContext`, under the same rule as `startNote`: an older API leaves the
+upload pending and nothing is stripped. Every new recap carries `coveredMiles`,
+so deploy the accepting validator and capability response before the app
+change reaches devices, whether by binary or OTA update. Like `startNote`, it
+needs no database migration.
+
 A server lookup adds the nearest non-suspect observation within 30 minutes of
 start from the nearest curated upstream gauge. Missing or failing history stays
 null. No daily-mean or current-reading substitution. This is context from one
-gauge, not proof of conditions along the entire route.
+gauge, not proof of conditions along the entire route. On first upload it also
+records that gauge's `usgsSiteId` and, from its own ladder and flood stage, a
+`conditionCode`: the fallback for recaps without a `startCondition`. Rows
+already stored are not backfilled.
 Existing completed IDs are checked within the authenticated owner's archive so
 retries skip gauge enrichment; the write function still enforces immutability and
 deletion tombstones against concurrent requests.

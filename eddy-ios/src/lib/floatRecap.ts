@@ -40,5 +40,11 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
     // from the river or out of signal, does not undo it.
     reachedTakeOut: session.arrivedAt != null,
     measurementVersion: 1,
+    // What the recap says about the start and the river covered; each absent
+    // on sessions that predate it (docs/float-history-card-plan.md, phase 2).
+    ...(session.startCondition ? { startCondition: session.startCondition } : {}),
+    ...(session.riverSpan ? { riverSpan: session.riverSpan } : {}),
+    ...(totals.coveredMiles !== undefined ? { coveredMiles: totals.coveredMiles } : {}),
+    ...(session.startWeather ? { startWeather: session.startWeather } : {}),
   };
 }

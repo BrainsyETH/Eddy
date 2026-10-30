@@ -485,3 +485,58 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       condition, anchorCondition, contributingGauges, spanCheckComplete, conditionCode, dailyStats, spanWarnings, floatTimeResult, floatTime,
       withholdReason, estimateBasis, estimatedAt: new Date().toISOString() };
 }
+
+/**
+ * The condition a float starts in, for the device to keep with the float
+ * (docs/float-history-card-plan.md, 2a): the code this estimate decided, with
+ * the reading of the gauge that decided it. After an escalation that is the
+ * in-span gauge, which can sit below the put-in, never the merged `condition`
+ * row, which pairs the escalated code with the anchor's name and reading.
+ * Null when the code is unknown or the gauge cannot be named and dated.
+ */
+export function startConditionFromEstimate(
+  estimate: Pick<Awaited<ReturnType<typeof estimateRoute>>, 'conditionCode' | 'anchorCondition' | 'contributingGauges'>,
+  now = Date.now(),
+): {
+  code: Exclude<ConditionCode, 'unknown'>;
+  gaugeName: string;
+  usgsSiteId: string;
+  heightFt: number | null;
+  dischargeCfs: number | null;
+  observedAt: string;
+  accuracyWarning: boolean;
+} | null {
+  const code = estimate.conditionCode;
+  if (code === 'unknown') return null;
+  const escalation = estimate.contributingGauges.filter((g) => g.effect === 'escalated').pop();
+  if (escalation) {
+    const at = escalation.observedAt ? Date.parse(escalation.observedAt) : NaN;
+    if (!escalation.name || !escalation.usgsSiteId || !Number.isFinite(at)) return null;
+    return {
+      code,
+      gaugeName: escalation.name,
+      usgsSiteId: escalation.usgsSiteId,
+      heightFt: escalation.gaugeHeightFt,
+      dischargeCfs: escalation.dischargeCfs,
+      observedAt: new Date(at).toISOString(),
+      // Escalation uses readings up to 12 h old; past the 6 h line it is stale.
+      accuracyWarning: (now - at) / 3_600_000 > STALE_READING_HOURS,
+    };
+  }
+  const anchor = estimate.anchorCondition as {
+    gauge_name?: unknown; gauge_usgs_id?: unknown; gauge_height_ft?: unknown; discharge_cfs?: unknown;
+    reading_timestamp?: unknown; accuracy_warning?: unknown;
+  } | null;
+  const at = typeof anchor?.reading_timestamp === 'string' ? Date.parse(anchor.reading_timestamp) : NaN;
+  if (!anchor || typeof anchor.gauge_name !== 'string' || !anchor.gauge_name ||
+    typeof anchor.gauge_usgs_id !== 'string' || !anchor.gauge_usgs_id || !Number.isFinite(at)) return null;
+  return {
+    code,
+    gaugeName: anchor.gauge_name,
+    usgsSiteId: anchor.gauge_usgs_id,
+    heightFt: toNum(anchor.gauge_height_ft),
+    dischargeCfs: toNum(anchor.discharge_cfs),
+    observedAt: new Date(at).toISOString(),
+    accuracyWarning: anchor.accuracy_warning === true,
+  };
+}

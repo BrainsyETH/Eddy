@@ -1,6 +1,8 @@
 # Float history card: conditions at start, river explored, otter moods, share
 
-Status: plan. Nothing here is implemented yet.
+Status: phases 1a to 2e implemented (the logic, and the data each float now
+records); nothing new is shown yet. Phases 3 to 5 are not started: phase 3
+waits on the mockup exports.
 
 Design mockup (a private canvas, not in this repository; ask the owner for
 access): the "Float History Card" canvas has four boards: the history list,

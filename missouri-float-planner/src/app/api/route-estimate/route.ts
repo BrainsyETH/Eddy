@@ -2,7 +2,7 @@ import { privateNoStore } from '@/lib/api-utils';
 import { withX402Route } from '@/lib/x402-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { estimateRoute, RouteEstimateError } from '@/lib/calculations/route-estimate';
+import { estimateRoute, RouteEstimateError, startConditionFromEstimate } from '@/lib/calculations/route-estimate';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 export const dynamic = 'force-dynamic';
 async function _GET(request: NextRequest) {
@@ -18,8 +18,12 @@ async function _GET(request: NextRequest) {
   }
   try {
     const result = await estimateRoute(await createClient(), { riverId, startId, endId, vesselTypeId: p.get('vesselTypeId'), startRiverMile });
+    // Additive: the condition a float started here keeps in its recap. Older
+    // binaries ignore it; omitted when the code is unknown.
+    const condition = startConditionFromEstimate(result);
     return NextResponse.json({ startRiverMile: startRiverMile ?? null, distanceMiles: result.distanceMiles, floatTime: result.floatTime,
-      floatTimeWithheldReason: result.withholdReason, estimateBasis: result.estimateBasis, estimatedAt: result.estimatedAt }, { headers: privateNoStore() });
+      floatTimeWithheldReason: result.withholdReason, estimateBasis: result.estimateBasis, estimatedAt: result.estimatedAt,
+      ...(condition ? { condition } : {}) }, { headers: privateNoStore() });
   } catch (error) {
     return NextResponse.json({ error: error instanceof RouteEstimateError ? error.message : 'Could not estimate route' },
       { status: error instanceof RouteEstimateError ? error.status : 500 });

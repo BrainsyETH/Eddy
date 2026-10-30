@@ -438,6 +438,12 @@ are pending checks, not evidence of a device pass.
       and backup pending (no permanent refusal or lost note). Upgrade the API,
       sync, and restore on a clean installation: launch fields remain null and
       the descriptive note survives. Old recaps retain their original names.
+- [ ] **Recap-context backup rollout:** deploy the API accepting optional
+      `startCondition`, `riverSpan`, `coveredMiles` and `startWeather`, with
+      `recapContext: true` in its capability response, before the app change
+      reaches devices. Against an older API, verify a new recap stays locally
+      saved and backup pending while deletions still sync. Upgrade the API,
+      sync, and restore on a clean installation: the four fields survive.
 - [ ] **Legacy unfinished offline setup:** use a location-start package saved
       by the earlier app, clear ordinary saved river data, quit Eddy, enable airplane mode,
       and reopen Start a Float. Confirm the downloaded river, take-out and boat

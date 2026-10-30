@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useIsFocused } from 'expo-router';
 import { fetchFloatStartEstimate } from '@/api/client';
-import { currentMovingSpeed } from '@/lib/floatStart';
+import { currentMovingSpeed, currentStartCondition } from '@/lib/floatStart';
 
 type Request = Parameters<typeof fetchFloatStartEstimate>[0];
 type Result = Awaited<ReturnType<typeof fetchFloatStartEstimate>>;
@@ -28,5 +28,10 @@ export function useStartEstimate(request: Request | null, now: number) {
     return () => { clearTimeout(timer); controller.abort(); };
   }, [key, freshness, focused]);
   const current = answer?.key === key && answer.freshness === freshness ? answer : null;
-  return { speed: currentMovingSpeed(current?.result ?? null, Math.max(now, current?.receivedAt ?? 0)), loading: Boolean(key && !current) };
+  const at = Math.max(now, current?.receivedAt ?? 0);
+  return {
+    speed: currentMovingSpeed(current?.result ?? null, at),
+    condition: currentStartCondition(current?.result ?? null, at),
+    loading: Boolean(key && !current),
+  };
 }

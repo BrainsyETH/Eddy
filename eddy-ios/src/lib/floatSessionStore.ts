@@ -37,6 +37,7 @@ import { FINISH_FLOAT_ACTION } from './notificationDestination';
 import { canDeliverNotification } from './notificationAccess';
 import type { PositionFix } from '@eddy/geo';
 import type { FloatSession } from './floatSession';
+import type { StartWeather } from '@eddy/conditions/float-archive';
 import { createFloatSessionStore, type BeginResult } from './floatSessionStoreCore';
 import { reminderCopy, type DueReminder, type FloatReminderSettings } from './floatReminders';
 import { warn } from './monitoring';
@@ -311,6 +312,11 @@ export function discardShortFloat(now = Date.now()): Promise<DiscardResult> {
   const session = store.get();
   if (!session || !isShortFloat(session, now)) return Promise.resolve('refused');
   return discardWithoutRecap(session.id);
+}
+
+/** The put-in's weather for the float it was asked for; dropped once that float has ended. */
+export function setStartWeather(sessionId: string, weather: StartWeather): void {
+  store.setStartWeather(sessionId, weather);
 }
 
 /** Change the active float's reminders. */

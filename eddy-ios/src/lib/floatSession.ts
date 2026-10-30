@@ -27,6 +27,7 @@
 import { latestRawFix, restoreRawFix, validCoordinate, type RawFloatFix } from './floatRawFix';
 import { nearLaunch } from './floatOrigin';
 import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
+import type { RiverSpan, StartCondition, StartWeather } from '@eddy/conditions/float-archive';
 import {
   INITIAL_TRACK,
   accumulateFloat,
@@ -163,6 +164,14 @@ export interface FloatSession {
   samples: PaceSample[];
   /** Durable accounting; absent on sessions started by an older build. */
   totals?: FloatTotals;
+  /**
+   * What the recap keeps about the start (docs/float-history-card-plan.md):
+   * the planner's condition, the river's calibrated span, and the weather at
+   * the put-in, which arrives after Start. Absent on older sessions.
+   */
+  startCondition?: StartCondition | null;
+  riverSpan?: RiverSpan | null;
+  startWeather?: StartWeather | null;
   archiveScope?: string;
   boatType?: string | null;
   /** The most recent tracker verdict, for the status line. */
@@ -403,6 +412,8 @@ export function startSession(input: {
   putInId?: string | null;
   takeOutId: string;
   plannerMph?: number | null;
+  /** The planner's condition for this start; see floatStart.ts currentStartCondition. */
+  startCondition?: StartCondition | null;
   boatType?: string | null;
   now: number;
 }): { ok: true; session: FloatSession } | { ok: false; reason: RouteProblem } {
@@ -432,11 +443,31 @@ export function startSession(input: {
       track: INITIAL_TRACK,
       samples: [],
       totals: { ...EMPTY_FLOAT_TOTALS },
+      startCondition: input.startCondition ?? null,
+      riverSpan: riverSpanOf(input.route, input.index),
       boatType: input.boatType ?? null,
       last: null,
       position: null,
     },
   };
+}
+
+/**
+ * The calibrated span a float's river explored is measured against: the
+ * lowest and highest miles of the access points the index kept. Lowest and
+ * highest, not first and last along the line, because the index accepts miles
+ * running either way. Snapshotted at Start, so a later correction to river
+ * data does not move an old recap.
+ */
+export function riverSpanOf(route: FloatRoute, index: RouteIndex): RiverSpan | null {
+  const miles = index.anchors.map((anchor) => anchor.riverMile).filter(Number.isFinite);
+  if (miles.length < 2) return null;
+  const firstMile = Math.min(...miles);
+  const lastMile = Math.max(...miles);
+  const nameAt = (mile: number) => route.anchors.find((anchor) => anchor.riverMile === mile)?.name;
+  const firstName = nameAt(firstMile);
+  const lastName = nameAt(lastMile);
+  return lastMile > firstMile && firstName && lastName ? { firstMile, lastMile, firstName, lastName } : null;
 }
 
 /** Feed one GPS fix. Returns the same object when nothing changed. */

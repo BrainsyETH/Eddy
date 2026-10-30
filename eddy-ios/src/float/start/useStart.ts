@@ -11,6 +11,8 @@ import { currentStartFix, useFloatStartLocation } from '@/hooks/useFloatStartLoc
 import { loadFloatRoute, refreshFloatHazards, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
 import { startSession, takeOutChoices } from '@/lib/floatSession';
 import { startRiverPosition, usableStartFix } from '@/lib/floatStart';
+import type { StartCondition } from '@eddy/conditions/float-archive';
+import { captureStartWeather } from '@/float/startWeather';
 import { clearPendingFloatSetup } from '@/float/pendingFloatSetup';
 import { prefetchStretchPhotos } from '@/float/floatPhotos';
 import { startLocationState } from '@/lib/floatPermissions';
@@ -34,7 +36,12 @@ export function newSessionId() {
   return `float-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function useStart(params: Params & { previewStartMile?: number }, loaded: LoadedRoute | null, location: StartLocation, reminders: FloatReminderChoices) {
+export function useStart(
+  params: Params & { previewStartMile?: number; startCondition?: StartCondition | null },
+  loaded: LoadedRoute | null,
+  location: StartLocation,
+  reminders: FloatReminderChoices,
+) {
   const archive = useFloatArchive();
   const { features, featuresReady } = useAppConfig();
   const canStart = featuresReady && features.floatMode === true;
@@ -105,6 +112,9 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
       const route = await refreshFloatHazards(loaded.route, loaded.index);
       if (!focused.current) return;
       const speed = Number(params.plannerMph);
+      // The estimate described this stretch only if a quick start is still
+      // where it was estimated from; speed and condition share that guard.
+      const estimated = saved || Boolean(hit && params.previewStartMile != null && Math.abs(hit.riverMile - params.previewStartMile) < 0.1);
       const made = startSession({
         id: params.sessionId!,
         kind: saved ? 'saved' : 'quick',
@@ -114,9 +124,8 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
         index: loaded.index,
         putInId: params.putInId,
         takeOutId: params.takeOutId ?? '',
-        plannerMph: Number.isFinite(speed) && speed > 0 &&
-          (saved || (hit && params.previewStartMile != null && Math.abs(hit.riverMile - params.previewStartMile) < 0.1))
-          ? speed : null,
+        plannerMph: Number.isFinite(speed) && speed > 0 && estimated ? speed : null,
+        startCondition: estimated ? params.startCondition ?? null : null,
         boatType: params.boatType ?? null,
         now: Date.now(),
       });
@@ -142,6 +151,8 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
       // access photos for Float tools' Take-out and Ahead. Not awaited; a
       // photo that misses falls back to its place mark.
       if (result === 'started') {
+        // Best-effort and never awaited: Start must not wait on weather.
+        captureStartWeather(made.session.id);
         void prefetchStretchPhotos({
           points: loaded.accessPoints, riverSlug: loaded.route.riverSlug, takeOutId: made.session.takeOut.id,
           fromId: params.putInId, fromMile: hit?.riverMile ?? params.previewStartMile,

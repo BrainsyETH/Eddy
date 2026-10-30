@@ -8,7 +8,42 @@ const id = z
   .regex(/^[A-Za-z0-9_-]+$/);
 const nullableId = id.nullable();
 const time = z.number().finite().nonnegative();
-const mile = z.number().finite().min(-100).max(10000).nullable();
+const mileValue = z.number().finite().min(-100).max(10000);
+const mile = mileValue.nullable();
+const observedAt = z.string().datetime();
+
+// The recap context (docs/float-history-card-plan.md, 2e). Each is optional
+// and strict, and is only sent to a server advertising `recapContext`.
+const startCondition = z
+  .object({
+    code: z.enum(['too_low', 'low', 'good', 'flowing', 'high', 'dangerous']),
+    gaugeName: name,
+    usgsSiteId: id,
+    heightFt: z.number().finite().min(-50).max(200).nullable(),
+    dischargeCfs: z.number().finite().min(0).max(2_000_000).nullable(),
+    observedAt,
+    accuracyWarning: z.boolean(),
+  })
+  .strict();
+const riverSpan = z
+  .object({ firstMile: mileValue, lastMile: mileValue, firstName: name, lastName: name })
+  .strict()
+  .refine((span) => span.lastMile > span.firstMile, 'River span runs backwards');
+/** Sorted, disjoint, each running forwards: what @eddy/geo addCoveredInterval keeps. */
+const coveredMiles = z
+  .array(z.tuple([mileValue, mileValue]))
+  .max(32)
+  .refine(
+    (intervals) => intervals.every(([a, b], i) => b > a && (i === 0 || a > intervals[i - 1][1])),
+    'Covered miles must be sorted and disjoint',
+  );
+const startWeather = z
+  .object({
+    tempF: z.number().finite().min(-60).max(140),
+    precipIn1h: z.number().finite().min(0).max(10),
+    observedAt,
+  })
+  .strict();
 const slug = z
   .string()
   .min(1)
@@ -39,6 +74,10 @@ const completed = z
     lastMile: mile,
     reachedTakeOut: z.boolean(),
     measurementVersion: z.literal(1),
+    startCondition: startCondition.nullable().optional(),
+    riverSpan: riverSpan.nullable().optional(),
+    coveredMiles: coveredMiles.nullable().optional(),
+    startWeather: startWeather.nullable().optional(),
   })
   .strict()
   .superRefine((t, ctx) => {

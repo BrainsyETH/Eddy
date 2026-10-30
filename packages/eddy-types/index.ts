@@ -2153,7 +2153,11 @@ export interface OutlookWeatherDay {
 /** Coordinate-based forecast used by Today for the device's current area. */
 export interface LocationWeatherForecast {
   localDate?: string;
-  current?: { temp: number; condition: string; conditionIcon: string; windSpeed: number; humidity: number; fetchedAt: string } | null;
+  current?: {
+    temp: number; condition: string; conditionIcon: string; windSpeed: number; humidity: number; fetchedAt: string;
+    /** Rain in the last hour, inches; 0 when dry. Absent on responses that predate it. */
+    rain1hInches?: number;
+  } | null;
   periods?: Array<{ timestamp: string; localHour: number; temp: number; conditionIcon: string; precipitation: number }>;
   city: string;
   days: OutlookWeatherDay[];
