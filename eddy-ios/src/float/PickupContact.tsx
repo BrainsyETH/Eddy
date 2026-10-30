@@ -4,8 +4,20 @@ import { pickupContact } from '@/lib/pickupContactStore';
 import { normalizePickupContact, type PickupContact as Contact } from '@/lib/pickupContactCore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { EssentialsButton, essentialsStyles as s } from './essentialsUi';
+import { TextButton } from './start/ui';
 
-export function PickupContact({ message, disabled = false }: { message?: string | null; disabled?: boolean }) {
+/**
+ * The person picking you up: one number, kept on the phone, dialled or
+ * texted from Float tools.
+ *
+ * Two homes. In Float tools (`message` set) it sits under the section's own
+ * heading with Call and Message, on the big bordered buttons a wet thumb
+ * needs. On Ready to float (`compact`) it is one card among the planning
+ * cards: its heading belongs to the card, and its buttons are the plain text
+ * buttons the rest of that screen uses, because nothing there is pressed
+ * from a moving boat.
+ */
+export function PickupContact({ message, disabled = false, compact = false }: { message?: string | null; disabled?: boolean; compact?: boolean }) {
   const { colors } = useTheme();
   const [contact, setContact] = useState<Contact | null>(null);
   const [ready, setReady] = useState(false);
@@ -14,6 +26,7 @@ export function PickupContact({ message, disabled = false }: { message?: string 
   const [revision] = useState(() => pickupContact.revision());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const Button = compact ? CompactButton : EssentialsButton;
   useEffect(() => {
     let active = true;
     void pickupContact.read().then(value => { if (active) { setContact(value); setReady(true); } }, () => {
@@ -42,23 +55,27 @@ export function PickupContact({ message, disabled = false }: { message?: string 
         editable={!busy && !disabled} maxLength={30} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"
         style={[styles.input, s.body, { color: colors.text, borderColor: colors.border }]} placeholderTextColor={colors.textMuted} />
       <Text style={[s.note, { color: colors.textMuted }]}>Saved on this phone</Text>
-      <View style={s.actions}>
-        <EssentialsButton label={busy ? 'Saving…' : 'Save'} disabled={busy || disabled} onPress={() => void save()} />
-        <EssentialsButton label="Cancel" disabled={busy} onPress={() => { setEditing(false); setError(null); }} />
-        {contact ? <EssentialsButton label="Remove" disabled={busy || disabled} onPress={() => void save(true)} /> : null}
+      <View style={compact ? styles.textActions : s.actions}>
+        <Button label={busy ? 'Saving…' : 'Save'} disabled={busy || disabled} onPress={() => void save()} />
+        <Button label="Cancel" disabled={busy} onPress={() => { setEditing(false); setError(null); }} />
+        {contact ? <Button label="Remove" disabled={busy || disabled} onPress={() => void save(true)} /> : null}
       </View>
     </> : <>
       {contact ? <>
         <Text style={[s.title, { color: colors.text }]}>{contact.name || contact.phone}</Text>
         {/* The number itself, so it can be checked, or dialled by hand. */}
         {contact.name ? <Text selectable style={[s.note, { color: colors.textMuted }]}>{contact.phone}</Text> : null}
-      </> : null}
-      <View style={s.actions}>
+      </> : compact ? (
+        // What the number is for, said once, before there is one. Float tools
+        // shows the Call and Message buttons themselves, so it needs no line.
+        <Text style={[s.note, { color: colors.textMuted }]}>One tap to call or text them from the river.</Text>
+      ) : null}
+      <View style={compact ? styles.textActions : s.actions}>
         {contact && message !== undefined ? <>
-          <EssentialsButton label="Call" onPress={() => void open(`tel:${contact.phone}`, 'Phone')} />
-          <EssentialsButton label="Message" onPress={() => void open(`sms:${contact.phone}${message ? `&body=${encodeURIComponent(message)}` : ''}`, 'Messages')} />
+          <Button label="Call" onPress={() => void open(`tel:${contact.phone}`, 'Phone')} />
+          <Button label="Message" onPress={() => void open(`sms:${contact.phone}${message ? `&body=${encodeURIComponent(message)}` : ''}`, 'Messages')} />
         </> : null}
-        <EssentialsButton label={contact ? 'Edit contact' : 'Add pickup contact'} disabled={!ready || disabled} onPress={() => {
+        <Button label={contact ? 'Edit contact' : 'Add contact'} disabled={!ready || disabled} onPress={() => {
           setDraft(contact ?? { name: '', phone: '' }); setEditing(true); setError(null);
         }} />
       </View>
@@ -66,4 +83,13 @@ export function PickupContact({ message, disabled = false }: { message?: string 
     {error ? <Text accessibilityRole="alert" style={[s.note, { color: colors.error }]}>{error}</Text> : null}
   </View>;
 }
-const styles = StyleSheet.create({ input: { minHeight: 56, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12 } });
+
+function CompactButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return <TextButton label={label} onPress={onPress} disabled={disabled} align="left" />;
+}
+
+const styles = StyleSheet.create({
+  input: { minHeight: 56, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12 },
+  // Text buttons have no border to space them; the gap does it.
+  textActions: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 24 },
+});

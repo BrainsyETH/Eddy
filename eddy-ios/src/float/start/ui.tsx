@@ -4,6 +4,7 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
+import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -30,6 +31,22 @@ export function Card({ children, padded = true }: { children: React.ReactNode; p
   return (
     <View style={[styles.card, padded && styles.cardPadding, { backgroundColor: colors.card }, elevation(1)]}>
       {children}
+    </View>
+  );
+}
+
+/**
+ * A card's heading, with Eddy's mark for what the card is when one means
+ * exactly that (the same rule as EssentialsSection in Float tools). Sized
+ * between the page title and a row title: these cards hold settings, not a
+ * river name.
+ */
+export function CardHeading({ title, symbol }: { title: string; symbol?: EddySymbolName }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.inline}>
+      {symbol ? <EddySymbol name={symbol} size={26} /> : null}
+      <Text accessibilityRole="header" style={[styles.cardHeading, styles.flex, { color: colors.text }]}>{title}</Text>
     </View>
   );
 }
@@ -103,10 +120,13 @@ export function TextButton({
   label,
   onPress,
   disabled = false,
+  align = 'center',
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** `left` inside a card, under a heading; centred when it stands alone. */
+  align?: 'center' | 'left';
 }) {
   const { colors } = useTheme();
   return (
@@ -115,9 +135,9 @@ export function TextButton({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
-      style={styles.link}
+      style={[styles.link, align === 'left' && styles.linkLeft, { opacity: disabled ? 0.5 : 1 }]}
     >
-      <Text style={[styles.linkText, { color: colors.interactive }]}>{label}</Text>
+      <Text style={[styles.linkText, align === 'left' && styles.linkTextLeft, { color: colors.interactive }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -151,6 +171,7 @@ export const styles = StyleSheet.create({
   footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
   title: { ...textStyles.pageTitle },
   cardTitle: { ...t['2xl'], fontFamily: fonts.heading },
+  cardHeading: { ...t.lg, fontFamily: fonts.heading },
   body: { ...t.sm },
   caption: { ...textStyles.caption },
   label: { ...t.sm, fontFamily: fonts.semibold },
@@ -184,7 +205,9 @@ export const styles = StyleSheet.create({
   },
   primaryText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
   link: { minHeight: 44, justifyContent: 'center', paddingVertical: 8 },
+  linkLeft: { alignSelf: 'flex-start' },
   linkText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
+  linkTextLeft: { textAlign: 'left' },
   search: {
     minHeight: 48,
     borderWidth: StyleSheet.hairlineWidth,

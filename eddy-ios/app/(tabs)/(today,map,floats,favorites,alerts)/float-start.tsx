@@ -1,7 +1,7 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
 import { PickupContact } from '@/float/PickupContact';
 import { ReminderChoices } from '@/float/start/ReminderChoices';
-import { DEFAULT_REMINDERS, type FloatReminderChoices } from '@/lib/floatReminders';
+import { DEFAULT_REMINDERS, isRemindedHazard, type FloatReminderChoices } from '@/lib/floatReminders';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -18,7 +18,7 @@ import { RoutePicker } from '@/float/start/RoutePicker';
 import { RouteCard } from '@/float/start/RouteCard';
 import { useGpsRiver } from '@/float/start/useGpsRiver';
 import { VesselPicker } from '@/components/VesselPicker';
-import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
+import { Card, CardHeading, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
@@ -28,6 +28,7 @@ import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
 import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
+import { radii } from '@/theme/layout';
 import { completedFloatRoutes } from '@/lib/floatNavigation';
 import { nextTakeOuts, startPlannerParams } from '@/lib/floatStartSelection';
 import { matchesSetupDownload } from '@/lib/floatSetupDownload';
@@ -172,6 +173,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const features = loaded?.ok && preview?.ok
     ? mapFeatures({ ...preview.session, startMile }, loaded.index) : null;
   const valid = Boolean(preview?.ok && !upstream);
+  // Hazards a reminder would fire for on this stretch; unknown until there is one.
+  const stretchHazards = features ? features.hazards.filter(isRemindedHazard).length : null;
   const points = useMemo(() => loaded?.ok ? [...(loaded.accessPoints ?? [])]
     .flatMap(point => {
       const choice = choices.find(c => c.id === point.id);
@@ -244,6 +247,19 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
             photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
           leg={miles != null && miles > 0 ? `${miles.toFixed(1)} mi${minutes != null ? ` · about ${formatDuration(minutes)}` : ''}` : null} />}
+        {/* Directly under the route it draws, and only once there is one:
+            before a take-out is chosen the map could only frame the whole
+            river, which at this height is a squiggle on a state map. The
+            start and take-out ends are its labels. */}
+        {route && features?.section ? <Card padded={false}>
+          <View style={local.map}>
+            <FloatMap key={stretchKey} preview line={route.line} section={features.section}
+              stops={features.stops} hazards={features.hazards}
+              start={fromPoint ? { name: putIn?.name ?? 'Your location', lngLat: fromPoint, riverMile: startMile } : null}
+              takeOut={takeOut ? { name: takeOut.name, lngLat: takeOut.lngLat, riverMile: takeOut.mile } : null}
+              position={null} positionDimmed={false} />
+          </View>
+        </Card> : null}
         <Card padded={false}>
           <VesselPicker value={boat} disabled={start.busy} onChange={value => {
             boatChosen.current = true; setBoat(value);
@@ -256,7 +272,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             {arrival?.warning ? <Text style={[styles.body, { color: colors.error }]}>{arrival.warning}</Text> : null}
           </View> : null}
         </Card>
-        <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} /></Card>
+        <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} hazards={stretchHazards} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
@@ -268,18 +284,14 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           <Text style={[styles.body, { color: colors.textMuted }]}>{location.error} You can still start; tracking begins when GPS finds you.</Text>
           <TextButton label="Try GPS again" onPress={() => void location.act()} />
         </View> : null}
-        {route ? <View style={[local.map, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          <FloatMap key={stretchKey} preview line={route.line} section={features?.section ?? null}
-            stops={features?.stops ?? []} hazards={features?.hazards ?? []}
-            start={fromPoint ? { name: putIn?.name ?? 'Your location', lngLat: fromPoint, riverMile: startMile } : null}
-            takeOut={takeOut ? { name: takeOut.name, lngLat: takeOut.lngLat, riverMile: takeOut.mile } : null}
-            position={null} positionDimmed={false} />
-        </View> : null}
         {loaded && !loaded.ok ? <Text style={[styles.body, { color: colors.error }]}>{routeProblemCopy(loaded.reason)}</Text> : null}
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
-        <Card><PickupContact disabled={start.busy} /></Card>
+        <Card>
+          <CardHeading title="Pickup contact" />
+          <PickupContact compact disabled={start.busy} />
+        </Card>
         <OfflinePreparation tripKey={matchingDownloadKey} disabled={start.busy}
           onBuild={() => router.push({ pathname: '/plan-route', params: startPlannerParams(draft, boat) })} />
       </Shell>
@@ -297,7 +309,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
 
 const local = StyleSheet.create({
   timing: { borderTopWidth: StyleSheet.hairlineWidth, marginHorizontal: 16, paddingVertical: 12, gap: 4 },
-  map: { height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  map: { height: 200, borderRadius: radii.feature, overflow: 'hidden' },
   photo: { width: 44, height: 44, borderRadius: 10, alignSelf: 'center' },
   backup: { textAlign: 'center' },
 });
