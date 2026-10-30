@@ -3,7 +3,7 @@
 // Runs every 30 min via Vercel Cron.
 //
 // Image posts: published inline.
-// Video posts: ONE render per video (both platforms share the same file).
+// Float Picks render per destination; other video formats share the same file.
 //   Triggers GH Actions workflow → callback publishes to all platforms.
 
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
@@ -12,7 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, ScheduledPost } from '@/lib/social/types';
-import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
+import { triggerVideoRender, getCompositionForPost, videoRenderGroup } from '@/lib/social/video-renderer';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { buildPostContext } from '@/lib/social/post-context';
 import type { PostKind } from '@/lib/social/post-types';
@@ -161,11 +161,10 @@ async function runSocialPosting(request: NextRequest) {
     const videoPosts = scheduledPosts.filter(p => p.mediaType === 'video');
     const imagePosts = scheduledPosts.filter(p => p.mediaType !== 'video');
 
-    // ─── Video posts: group by content, ONE render per group ──────
-    // Same video for both platforms (both use portrait now)
+    // Float Picks use their destination's layout; other formats share a render.
     const videoGroups = new Map<string, ScheduledPost[]>();
     for (const post of videoPosts) {
-      const key = `${post.postType}:${post.riverSlug || 'global'}`;
+      const key = videoRenderGroup(post.postType, post.riverSlug, post.platform);
       const group = videoGroups.get(key) || [];
       group.push(post);
       videoGroups.set(key, group);
@@ -236,13 +235,14 @@ async function runSocialPosting(request: NextRequest) {
 
       if (postIds.length === 0) continue;
 
-      // Dispatch ONE GH Actions workflow for all platforms
+      // Dispatch one workflow for this content/destination group.
       const firstPost = groupPosts[0];
       try {
         const renderData = readingContext?.renderData ?? await buildRenderData(firstPost, supabase);
         const { compositionId, inputProps, outputFilename } = getCompositionForPost(
           firstPost.postType as Parameters<typeof getCompositionForPost>[0],
           renderData,
+          firstPost.platform,
         );
 
         const dispatched = await triggerVideoRender({

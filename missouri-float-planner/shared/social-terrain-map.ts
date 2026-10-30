@@ -80,6 +80,7 @@ export function terrainMapUrl(plan: NonNullable<ReturnType<typeof terrainMapPlan
 export function terrainJourneyCamera(
   frame: number, route: ReadonlyArray<JourneyPoint>, boat: JourneyPoint, arrival: number,
   stage: JourneyStage = ROUTE_MAP_STAGE, stageTop = ROUTE_STAGE_TOP,
+  stageLeft: number = REEL_SAFE.left,
 ): JourneyCamera {
   const b = routeBounds(route);
   const fit = Math.max(1, Math.min(2,
@@ -95,7 +96,7 @@ export function terrainJourneyCamera(
   // the shared image/overlay pan to the intersection of both constraints.
   const sourceX = boat.x + TERRAIN_ORIGIN.x;
   const sourceY = boat.y + TERRAIN_ORIGIN.y;
-  const left = REEL_SAFE.left + 128.01, right = REEL_SAFE.left + stage.width - 42.01;
+  const left = stageLeft + 128.01, right = stageLeft + stage.width - 42.01;
   const top = stageTop + 76.01, bottom = stageTop + stage.height - 66.01;
   const scale = Math.max(fit + (Math.max(fit, 2.2) - fit) * focus,
     left / sourceX, (TERRAIN_WIDTH - right) / (TERRAIN_WIDTH - sourceX),
@@ -104,20 +105,20 @@ export function terrainJourneyCamera(
   const centerY = b.centerY + (boat.y - b.centerY) * focus;
   const imageX = Math.max(TERRAIN_WIDTH * (1 - scale), left - sourceX * scale, Math.min(
     0, right - sourceX * scale,
-    REEL_SAFE.left + stage.boatX - (centerX + TERRAIN_ORIGIN.x) * scale));
+    stageLeft + stage.boatX - (centerX + TERRAIN_ORIGIN.x) * scale));
   const imageY = Math.max(TERRAIN_HEIGHT * (1 - scale), top - sourceY * scale, Math.min(
     0, bottom - sourceY * scale,
     stageTop + stage.boatY - (centerY + TERRAIN_ORIGIN.y) * scale));
   return { scale,
-    translateX: imageX + TERRAIN_ORIGIN.x * scale - REEL_SAFE.left,
+    translateX: imageX + TERRAIN_ORIGIN.x * scale - stageLeft,
     translateY: imageY + TERRAIN_ORIGIN.y * scale - stageTop,
   };
 }
 
 /** Full-canvas image transform corresponding to the stage-local camera. */
-export function terrainImageTransform(camera: JourneyCamera, stageTop = ROUTE_STAGE_TOP) {
+export function terrainImageTransform(camera: JourneyCamera, stageTop = ROUTE_STAGE_TOP, stageLeft: number = REEL_SAFE.left) {
   return {
-    x: REEL_SAFE.left + camera.translateX - TERRAIN_ORIGIN.x * camera.scale,
+    x: stageLeft + camera.translateX - TERRAIN_ORIGIN.x * camera.scale,
     y: stageTop + camera.translateY - TERRAIN_ORIGIN.y * camera.scale,
     scale: camera.scale,
   };

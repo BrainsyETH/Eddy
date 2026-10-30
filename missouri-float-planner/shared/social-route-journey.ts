@@ -28,6 +28,8 @@ export type SocialRoutePoint = {
   photoCredit?: string;
   /** Resolved by render metadata after decoding and checking the source photo. */
   photoReveal?: boolean;
+  /** Maximum decoded photo width at the final zoom; wider cards use a sandbar mat. */
+  photoRenderWidth?: number;
 };
 
 /**

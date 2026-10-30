@@ -394,6 +394,13 @@ export const REEL_SAFE = sharedVideoSafe('reel');
 /** Intersection-safe bounds for a dedicated cross-posted Story master. */
 export const STORY_SAFE = sharedVideoSafe('story');
 
+/** Select a destination's working bounds; unlabelled/legacy exports stay shared. */
+export function videoSafeInsets(platform?: string, placement: SocialVideoPlacement = 'reel'): SafeInsets {
+  return platform && Object.hasOwn(SOCIAL_VIDEO_SAFE, platform)
+    ? SOCIAL_VIDEO_SAFE[platform as SocialPlatform][placement]
+    : placement === 'story' ? STORY_SAFE : REEL_SAFE;
+}
+
 /** Cover crops are independent from playback chrome. Instagram and TikTok use
  * a centered 3:4 profile tile; Eddy emits a square Facebook cover. */
 export const SOCIAL_COVER_ASPECT: Record<SocialPlatform, number> = {

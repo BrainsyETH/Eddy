@@ -79,3 +79,17 @@ test('mixed and adjacent photo stops share exact arrival, fades and composition 
   assert.equal(journeyDuration(stops, undefined, true), arrival + 54 + 90);
   assert.equal(journeyDuration(stops) - journeyDuration(intermediateRouteStops(points.map(p => ({ ...p, photoReveal: false })))), 60);
 });
+
+
+test('photo eligibility follows the export width and the taller displayed crop', async () => {
+  const source = { width: 840, height: 500 };
+  assert.equal(usableRoutePhoto(source, 800), true);
+  assert.equal(usableRoutePhoto(source, 860), false);
+  assert.equal(usableRoutePhoto({ width: 1200, height: 300 }, 800), false);
+  const points = [point('landing', 0.5, 'landing.jpg')];
+  assert.equal((await resolveRoutePhotos(points, undefined, async () => source, 800))[0].photoReveal, true);
+  const wider = await resolveRoutePhotos(points, undefined, async () => source, 960);
+  assert.equal(wider[0].photoReveal, true, 'a wider export must not lose a usable place photo');
+  assert.equal(wider[0].photoRenderWidth, 840 / 1.04, 'photo stays within its decoded resolution at final zoom');
+  assert.equal(wider[0].photoUrl, 'landing.jpg');
+});

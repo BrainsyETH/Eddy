@@ -6,7 +6,7 @@ import { ROUTE_MAP_HEIGHT, ROUTE_STAGE_TOP } from "../../../shared/social-route-
 /** The CSS grid owns text/card sizing; both map layers use its actual viewport.
  * Undo Studio's preview scale and retain fractional pixels for exact alignment.
  * Layout effects settle a changed frame before Remotion captures it. */
-export function useRouteViewport() {
+export function useRouteViewport(safeTop: number = REEL_SAFE.top) {
   const ref = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: ROUTE_STAGE_TOP, height: ROUTE_MAP_HEIGHT });
   const [handle] = useState(() => delayRender("Route layout and fonts"));
@@ -17,10 +17,10 @@ export function useRouteViewport() {
     const bounds = element.getBoundingClientRect();
     const parentBounds = parent.getBoundingClientRect();
     const scale = parentBounds.width / parent.offsetWidth;
-    const top = Math.round((REEL_SAFE.top + (bounds.top - parentBounds.top) / scale) * 1000) / 1000;
+    const top = Math.round((safeTop + (bounds.top - parentBounds.top) / scale) * 1000) / 1000;
     const height = Math.round(bounds.height / scale * 1000) / 1000;
     setViewport(previous => previous.top === top && previous.height === height ? previous : { top, height });
-  }, []);
+  }, [safeTop]);
   useLayoutEffect(measure);
   useLayoutEffect(() => {
     const observer = new ResizeObserver(measure);

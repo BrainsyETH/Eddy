@@ -1,6 +1,7 @@
 import { DEFAULT_TIMING, intermediateRouteStops, journeyDuration } from '../../../shared/social-route-journey';
 import { resolveRoutePhotos, type PhotoSize } from '../../../shared/social-route-photos';
 import type { RouteDrawProps } from './social-props';
+import { routeVideoLayout } from '../../../shared/social-route-layout';
 
 /** calculateMetadata runs in the render browser; no CORS canvas or server fetch. */
 function decodedPhotoSize(src: string): Promise<PhotoSize> {
@@ -26,7 +27,8 @@ function decodedPhotoSize(src: string): Promise<PhotoSize> {
 }
 
 export async function routeMetadata({ props }: { props: RouteDrawProps }) {
-  const routePoints = await resolveRoutePhotos(props.routePoints ?? [], props.photoUrl, decodedPhotoSize);
+  const { width } = routeVideoLayout(props.platform, props.placement);
+  const routePoints = await resolveRoutePhotos(props.routePoints ?? [], props.photoUrl, decodedPhotoSize, width);
   return {
     props: { ...props, routePoints },
     durationInFrames: journeyDuration(intermediateRouteStops(routePoints), DEFAULT_TIMING, !!props.unanchoredPoints?.length),

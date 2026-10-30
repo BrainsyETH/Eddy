@@ -637,6 +637,16 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{ ...ROUTE_DEMO, routeCoordinates: ROUTE_DEMO_LINE } satisfies RouteDrawProps}
       />
 
+      {/* Named export presets; social publishing selects the reel destination in props. */}
+      {(["instagram", "facebook", "tiktok"] as const).flatMap(platform =>
+        (["reel", "story"] as const).map(placement => (
+          <Composition key={`${platform}-${placement}`} id={`social-route-${platform}-${placement}`}
+            component={RouteDraw} durationInFrames={360} fps={FPS} width={1080} height={1920}
+            calculateMetadata={routeMetadata}
+            defaultProps={{ ...ROUTE_DEMO, routeCoordinates: ROUTE_DEMO_LINE, platform, placement } satisfies RouteDrawProps} />
+        )),
+      )}
+
       {/* Oct 1 regression: photo + wrapped finish title, and a north/south route. */}
       <Composition id="social-route-black-river" component={RouteDraw}
         durationInFrames={360} fps={FPS} width={1080} height={1920}

@@ -38,6 +38,13 @@ STILLS=(
   "social-route-grassy-bee:0,131,140,150,211,220,435"
   # Black River: wrapped finish title and photo previously collided with stats.
   "social-route-black-river:0,120,359"
+  # Destination profiles must keep the opening and stop cards inside their UI bounds.
+  "social-route-instagram-reel:0,250"
+  "social-route-facebook-reel:0,250"
+  "social-route-tiktok-reel:0,250"
+  "social-route-instagram-story:0,250"
+  "social-route-facebook-story:0,250"
+  "social-route-tiktok-story:0,250"
   # Every other composition is baselined at frame 0 too: the grid thumbnail /
   # first autoplay frame must be a complete branded card, not an empty ground.
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);

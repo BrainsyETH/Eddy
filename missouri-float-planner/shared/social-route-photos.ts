@@ -1,8 +1,8 @@
 import type { SocialRoutePoint } from './social-route-journey';
 import { ROUTE_CONTENT_WIDTH } from './social-route-layout';
 
-export const ROUTE_PHOTO_HEIGHT = 220;
-export const ROUTE_PHOTO_CARD_HEIGHT = 326;
+export const ROUTE_PHOTO_HEIGHT = 320;
+export const ROUTE_PHOTO_CARD_HEIGHT = 464;
 export const ROUTE_PHOTO_ZOOM = 1.04;
 
 export type PhotoSize = { width: number; height: number };
@@ -22,9 +22,9 @@ export function routePhotoIdentity(src: string): string {
 }
 
 /** Enough source pixels for object-fit:cover, including the final zoom. */
-export function usableRoutePhoto(size: PhotoSize): boolean {
+export function usableRoutePhoto(size: PhotoSize, width = ROUTE_CONTENT_WIDTH): boolean {
   return Number.isFinite(size.width) && Number.isFinite(size.height) &&
-    size.width >= ROUTE_CONTENT_WIDTH * ROUTE_PHOTO_ZOOM &&
+    size.width >= width * ROUTE_PHOTO_ZOOM &&
     size.height >= ROUTE_PHOTO_HEIGHT * ROUTE_PHOTO_ZOOM;
 }
 
@@ -33,10 +33,12 @@ export async function resolveRoutePhotos(
   points: ReadonlyArray<SocialRoutePoint>,
   backdrop: string | undefined,
   readSize: (src: string) => Promise<PhotoSize>,
+  width = ROUTE_CONTENT_WIDTH,
 ): Promise<SocialRoutePoint[]> {
   const sizes = new Map<string, Promise<PhotoSize | null>>();
   return Promise.all(points.map(async (point) => {
     const compact = { ...point, photoReveal: false };
+    delete compact.photoRenderWidth;
     const src = point.photoUrl;
     if (!src) return compact;
     try {
@@ -49,7 +51,10 @@ export async function resolveRoutePhotos(
       if (!sizes.has(src)) sizes.set(src, Promise.resolve().then(() => readSize(src)).catch(() => null));
       const size = await sizes.get(src)!;
       if (!size) return compact;
-      return { ...compact, photoReveal: usableRoutePhoto(size) };
+      // Keep a good existing place photo on wider exports without upscaling it.
+      // Only the image receives side matting; title and card use the destination width.
+      if (!usableRoutePhoto(size)) return compact;
+      return { ...compact, photoReveal: true, photoRenderWidth: Math.min(width, size.width / ROUTE_PHOTO_ZOOM) };
     } catch {
       return compact;
     }

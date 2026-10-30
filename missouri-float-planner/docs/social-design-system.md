@@ -84,7 +84,7 @@ rectangle:
 
 - `SOCIAL_VIDEO_SAFE` holds separate 1080×1920 UI bounds for Instagram,
   Facebook and TikTok, with a `reel` and `story` profile for each platform.
-- `REEL_SAFE` is the conservative intersection used by the single Reel master
+- `REEL_SAFE` is the conservative intersection used by shared Reel masters
   cross-posted to all three platforms. Text, logos, faces, captions and CTAs
   stay inside it. TikTok's profile/action rail gets a 270px right reserve, and
   ruled media cards stay inside that edge so their border is not cut off.
@@ -97,6 +97,16 @@ rectangle:
 - `STORY_SAFE` is the corresponding intersection for a dedicated Story export.
   Story navigation reserves different top and bottom strips and does not reuse
   the Reel rectangle.
+- Float Pick selects a destination with `platform` and a `placement` of `reel`
+  or `story`. Reels use 800px (Instagram), 860px (Facebook), or 750px (TikTok)
+  content widths instead of the shared 690px column. Meta Story exports use
+  960px. Unlabelled exports keep the shared fallback. These are existing
+  organic-playback working bounds, not universal ad-safe guarantees. All
+  layers use the same layout origin, including the terrain camera and credits.
+- The Float Pick footer crossfades compact stats into the final CTA in one fixed
+  slot. Photo reveals use a taller image, readable captions, and the shared
+  card border/shadow. Good smaller photos receive sandbar side matting on wider
+  cards instead of being upscaled or replaced with a thumbnail.
 - `SOCIAL_COVER_ASPECT` and `coverGeometry` own profile-thumbnail crops.
   Instagram and TikTok use a centered 3:4 tile; Eddy's Facebook cover artifact
   is square. A cover never borrows Reel or Story UI padding.

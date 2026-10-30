@@ -8,7 +8,7 @@ import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform, SocialCustomContent } from '@/lib/social/types';
-import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-renderer';
+import { triggerVideoRender, getCompositionForPost, shareTerrainMap } from '@/lib/social/video-renderer';
 import { buildPostContext, type PostContext } from '@/lib/social/post-context';
 import type { PostKind, VideoPostKind } from '@/lib/social/post-types';
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// --- Video: insert rendering rows + dispatch ONE GH Actions render ---
+// --- Video: save drafts, then render each distinct destination layout ---
 
 async function dispatchVideo(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,8 +101,9 @@ async function dispatchVideo(
 ) {
   const postIds: string[] = [];
   const insertErrors: string[] = [];
-  const renderRequest = getCompositionForPost(kind, ctx.renderData);
+  const groups = new Map<string, { request: ReturnType<typeof getCompositionForPost>; ids: string[]; platforms: SocialPlatform[] }>();
   for (const platform of [...new Set(platforms)]) {
+    const renderRequest = getCompositionForPost(kind, ctx.renderData, platform);
     const { caption, hashtags } = ctx.caption(platform, customContent);
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -126,6 +127,11 @@ async function dispatchVideo(
       continue;
     }
     postIds.push(record.id);
+    const key = renderRequest.outputFilename;
+    const group = groups.get(key) ?? { request: renderRequest, ids: [], platforms: [] };
+    group.ids.push(record.id);
+    group.platforms.push(platform);
+    groups.set(key, group);
   }
 
   if (postIds.length === 0) {
@@ -135,31 +141,33 @@ async function dispatchVideo(
     );
   }
 
-  const { compositionId, inputProps, outputFilename } = renderRequest;
-  const success = await triggerVideoRender({ postIds: postIds.join(','), compositionId, inputProps, outputFilename }).catch(() => false);
-
-  if (!success) {
-    const reason = 'GH Actions dispatch returned non-204 — check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
-    for (const id of postIds) {
+  // Saved drafts keep the provider-free request; only the dispatches share the
+  // prepared snapshot, so a later rerender fetches a fresh map of its own.
+  const dispatches = [...groups.values()];
+  const requests = await shareTerrainMap(dispatches.map(group => group.request));
+  let rendering = 0;
+  for (const [index, group] of dispatches.entries()) {
+    const success = await triggerVideoRender({ ...requests[index], postIds: group.ids.join(',') }).catch(() => false);
+    if (success) {
+      rendering += group.ids.length;
+      continue;
+    }
+    const reason = 'GH Actions dispatch failed — check GH_ACTIONS_TOKEN and render-social-video.yml.';
+    for (const id of group.ids) {
       await supabase.from('social_posts').update({ status: 'failed', error_message: reason }).eq('id', id);
     }
-    logAdminAction({
-      action: `quick_post_${kind}`,
-      entityType: 'social_post',
-      details: { platforms, dispatched: 0, reason: 'gh_actions_dispatch_failed' },
-    });
-    return NextResponse.json(
-      { error: 'GH Actions workflow dispatch failed — check GH_ACTIONS_TOKEN and workflow file' },
-      { status: 502 },
-    );
+    insertErrors.push(`${group.platforms.join(', ')}: ${reason}`);
   }
 
   logAdminAction({
     action: `quick_post_${kind}`,
     entityType: 'social_post',
-    details: { platforms, dispatched: postIds.length },
+    details: { platforms, dispatched: rendering },
   });
-  return NextResponse.json({ rendering: postIds.length, reviewRequired: true, warnings: insertErrors });
+  if (!rendering) {
+    return NextResponse.json({ error: 'GH Actions workflow dispatch failed — check GH_ACTIONS_TOKEN and workflow file', warnings: insertErrors }, { status: 502 });
+  }
+  return NextResponse.json({ rendering, reviewRequired: true, warnings: insertErrors });
 }
 
 // --- Tip (custom content, image-only) ---

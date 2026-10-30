@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { terrainMapPlan, terrainMapUrl, terrainJourneyCamera, terrainImageTransform, TERRAIN_ORIGIN } from './social-terrain-map';
 import { progressAlongRoute, arrivalFrame, journeyDuration, journeyState, type LngLat } from './social-route-journey';
-import { ROUTE_MAP_STAGE, ROUTE_STAGE_TOP } from './social-route-layout';
+import { ROUTE_MAP_STAGE, ROUTE_STAGE_TOP, routeVideoLayout } from './social-route-layout';
 import { REEL_SAFE } from './social-brand';
 
 const coordinates = JSON.parse(readFileSync(new URL('../remotion/src/fixtures/akers-pulltite.json', import.meta.url), 'utf8')).routeCoordinates as LngLat[];
@@ -99,6 +99,36 @@ test('terrain and overlay remain aligned through every camera frame, with no bla
         if (frame === 0 || frame >= arrival + 30) {
           assert.ok(overlayX >= REEL_SAFE.left && overlayX <= 1080 - REEL_SAFE.right);
           assert.ok(overlayY >= ROUTE_STAGE_TOP && overlayY <= ROUTE_STAGE_TOP + ROUTE_MAP_STAGE.height);
+        }
+      }
+    }
+  }
+});
+
+
+test('every destination keeps the stored terrain aligned, covered and clear of its controls', () => {
+  const plan = terrainMapPlan(coordinates)!;
+  for (const platform of ['instagram', 'facebook', 'tiktok'] as const) {
+    for (const placement of ['reel', 'story'] as const) {
+      const { safe, stage: base } = routeVideoLayout(platform, placement);
+      const top = safe.top + 210;
+      const stage = { ...base, height: 460, boatY: 230 };
+      for (let frame = 0; frame < journeyDuration([]); frame++) {
+        const boat = plan.journey.locate(journeyState(frame, []).progress).point;
+        const camera = terrainJourneyCamera(frame, plan.journey.points, boat, arrivalFrame([]), stage, top, safe.left);
+        const image = terrainImageTransform(camera, top, safe.left);
+        const x = boat.x * camera.scale + camera.translateX;
+        const y = boat.y * camera.scale + camera.translateY;
+        assert.ok(x >= 128 && x <= stage.width - 42, `${platform}/${placement}: canoe x`);
+        assert.ok(y >= 76 && y <= stage.height - 66, `${platform}/${placement}: canoe y`);
+        assert.ok(image.x <= 1e-6 && image.y <= 1e-6);
+        assert.ok(image.x + 1080 * image.scale >= 1080 - 1e-6);
+        assert.ok(image.y + 1920 * image.scale >= 1920 - 1e-6);
+        for (const point of plan.journey.points) {
+          assert.ok(Math.abs(safe.left + point.x * camera.scale + camera.translateX -
+            ((point.x + TERRAIN_ORIGIN.x) * image.scale + image.x)) < 1e-6);
+          assert.ok(Math.abs(top + point.y * camera.scale + camera.translateY -
+            ((point.y + TERRAIN_ORIGIN.y) * image.scale + image.y)) < 1e-6);
         }
       }
     }

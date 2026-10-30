@@ -12,6 +12,7 @@ import {
   type OtterMood,
 } from "../../../shared/condition-system";
 import type { LngLat, SocialRoutePoint, UnanchoredRoutePoint } from "../../../shared/social-route-journey";
+import type { SocialPlatform, SocialVideoPlacement } from "../../../shared/social-brand";
 
 export type ConditionCode = SharedConditionCode;
 
@@ -206,6 +207,9 @@ export type FloatSectionProps = {
  * condition).
  */
 export type RouteDrawProps = FloatSectionProps & {
+  /** Omit for a conservative cross-posted master. */
+  platform?: SocialPlatform;
+  placement?: SocialVideoPlacement;
   /** Prepared, geographically aligned full-frame terrain snapshot. */
   terrainMapUrl?: string;
   /** Exact selected river segment. Absent → the itinerary stage renders. */

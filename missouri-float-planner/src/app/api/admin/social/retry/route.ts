@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth } from '@/lib/admin-auth';
 import { getAdapter } from '@/lib/social/adapters';
-import { triggerVideoRender } from '@/lib/social/video-renderer';
+import { triggerVideoRender, destinationRenderRequest } from '@/lib/social/video-renderer';
 import { savedPostMedia } from '@/lib/social/review';
 import type { SocialPlatform } from '@/lib/social/types';
 
@@ -22,12 +22,13 @@ export async function POST(request: NextRequest) {
   if (post.status !== expected) return NextResponse.json({ error: `Post is no longer ${expected}. Refresh its status.` }, { status: 409 });
 
   if (action === 'render') {
-    const render = post.render_request;
-    if (post.media_type !== 'video' || !render?.compositionId || !render.inputProps || !render.outputFilename) {
+    const saved = post.render_request;
+    if (post.media_type !== 'video' || !saved?.compositionId || !saved.inputProps || !saved.outputFilename) {
       return NextResponse.json({ error: 'This older post has no saved render. Generate a new draft; the original remains in history.' }, { status: 409 });
     }
+    const render = destinationRenderRequest(saved, post.platform as SocialPlatform);
     const { data: claimed, error } = await supabase.from('social_posts')
-      .update({ status: 'rendering', auto_publish: false, video_url: null, error_message: null, updated_at: new Date().toISOString() })
+      .update({ status: 'rendering', auto_publish: false, video_url: null, render_request: render, error_message: null, updated_at: new Date().toISOString() })
       .eq('id', post.id).eq('status', expected).select('id');
     if (error || !claimed?.length) return NextResponse.json({ error: error?.message ?? 'Already handled' }, { status: 409 });
     try {
