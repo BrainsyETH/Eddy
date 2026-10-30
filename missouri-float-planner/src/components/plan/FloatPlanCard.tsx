@@ -1098,7 +1098,6 @@ function JourneyCenter({
         </div>
       )}
 
-      {plan.river.floatTip && <p className="my-3 text-xs text-neutral-600">{plan.river.floatTip}</p>}
       <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
       {/* Along Your Route */}
       {plan.hazardsUnavailable && <div className="mt-3"><PlanHazardStatus unavailable /></div>}
@@ -1504,8 +1503,7 @@ export function MobileBottomSheet({
           </div>
         )}
 
-        {plan.river.floatTip && <p className="my-3 text-xs text-neutral-600">{plan.river.floatTip}</p>}
-      <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
+        <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
         {/* Along Your Route */}
         {plan.hazardsUnavailable && <div className="mb-4"><PlanHazardStatus unavailable /></div>}
         {pointsAlongRoute.length > 0 && (

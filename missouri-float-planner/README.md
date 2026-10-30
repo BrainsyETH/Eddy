@@ -241,6 +241,8 @@ gauges and verified photo pins remain visible across rivers. Photo queries
 reuse the existing per-river cache/endpoints. Mobile keeps saved filter choices.
 The desktop plan card fills the available height, and the access strip sits to
 its right. Eddy Says River Report keeps its existing position and behavior.
+Desktop and mobile plan cards and shared plan summaries omit generic river
+`floatTip` prose. They show current conditions and route-specific details.
 
 Map tools share MapLibre's native control stack. Compact attribution starts
 closed, including when source credits arrive asynchronously, and remains
