@@ -161,18 +161,9 @@ export function FloatShareImage({
 
       <div style={{ display: 'flex', flex: 1, minHeight: 48 }} />
 
+      {/* The stretch the paddler took, never a distance: river explored is
+          the credited river, and an untracked float says so. */}
       <div style={{ display: 'flex', width: '100%', gap: 24, alignItems: 'flex-start' }}>
-        {state.miles != null ? (
-          <Stat
-            value={state.miles.toFixed(1)}
-            label="miles paddled"
-            // Most of the session unobserved: the History card says so, and so does this.
-            note={state.tracking === 'partial' ? 'Limited GPS tracking' : undefined}
-          />
-        ) : (
-          <Stat value="—" label="GPS distance unavailable" />
-        )}
-        <Stat value={compactDuration(state.minutes)} label="on the water" />
         {explored ? (
           <Stat
             value={exploredMiles(explored.miles)}
@@ -181,8 +172,15 @@ export function FloatShareImage({
             // not know Eddy needs to know whose miles these are.
             note={`${exploredPercentLabel(explored.percent)} of ${riverShortName(names.riverName)}’s float miles`}
           />
+        ) : state.tracking === 'none' ? (
+          <Stat value="—" label="GPS tracking unavailable" />
         ) : null}
+        <Stat value={compactDuration(state.minutes)} label="on the water" />
       </div>
+      {state.tracking === 'partial' ? (
+        // Most of the session unobserved: the History card says so, and so does this.
+        <div style={{ display: 'flex', marginTop: 28, fontSize: 30, color: MUTED }}>Limited GPS tracking</div>
+      ) : null}
 
       <div style={{ display: 'flex', marginTop: 64, fontSize: 38, color: MUTED }}>
         Plan yours at&nbsp;<span style={{ color: INK }}>eddy.guide</span>

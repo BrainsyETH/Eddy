@@ -7,6 +7,12 @@
 // The rules live in @eddy/conditions/float-recap; this only turns their
 // answers into words. Nothing here claims more than the tracker measured:
 // no "0.0 mi", no "under 10 minutes", no condition label on a stale reading.
+//
+// The figure a float leads with is the stretch it took: the river miles the
+// tracker credited (river explored), never a distance "paddled". Distance is
+// gross and includes credited gaps nobody observed; the stretch is what the
+// paddler did. Only a float with no credited river at all (an older build)
+// falls back to its tracked distance, named as such.
 
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import {
@@ -78,15 +84,44 @@ function badgeText(badge: FloatBadge): string {
   return [badge.label, badge.cfsLabel ?? badge.ftLabel].filter(Boolean).join(' · ');
 }
 
+/** The stretch a float took, as the card and the recap lead with it. */
+export interface FloatStretch {
+  /** "9.6" (river miles explored) or "9.8" (an older float's tracked distance). */
+  value: string;
+  unit: 'river mi' | 'mi';
+  /** "River explored", or "Tracked distance" for a float with no credited river. */
+  label: string;
+  /** "9.6 river miles" / "9.8 miles tracked", for VoiceOver. */
+  spoken: string;
+}
+
+/**
+ * River explored first. A float whose credited river cannot be placed (an
+ * older build with no intervals, too many to keep, no span) keeps its tracked
+ * distance, named as such. Null when nothing was measured, or when the
+ * tracker placed the float but credited no river at all.
+ */
+export function floatStretch(trip: CompletedFloat): FloatStretch | null {
+  if (floatTracking(trip) === 'none') return null;
+  const explored = riverExplored(trip);
+  if (explored) {
+    const miles = exploredMiles(explored.miles);
+    return { value: miles, unit: 'river mi', label: 'River explored', spoken: `${miles} river miles` };
+  }
+  if (Array.isArray(trip.coveredMiles) && trip.coveredMiles.length === 0) return null;
+  const miles = trip.distanceMiles.toFixed(1);
+  return { value: miles, unit: 'mi', label: 'Tracked distance', spoken: `${miles} miles tracked` };
+}
+
 export interface HistoryCardModel {
   river: string;
   route: string;
   /** "Started on the water": only when a river position was confirmed. */
   startedOnWater: boolean;
   date: string;
-  /** "9.8 mi · 4 hr 12 min", or "4 hr 12 min" with no distance to give. */
+  /** "9.6 river mi · 4 hr 12 min", or "4 hr 12 min" with no stretch to give. */
   stats: string;
-  /** "GPS distance unavailable" or "Limited GPS tracking"; null when measured. */
+  /** "GPS tracking unavailable" or "Limited GPS tracking"; null when measured. */
   trackingNote: string | null;
   /** Only a current reading earns a badge on the card. */
   badge: (FloatBadge & { text: string }) | null;
@@ -102,17 +137,15 @@ export function historyCardModel(trip: CompletedFloat, now = Date.now()): Histor
   const rated = floatBadge(trip);
   const badge = rated?.current ? { ...rated, text: badgeText(rated) } : null;
   const duration = recordedDuration(trip.elapsedMs);
-  const distance = tracking === 'none' ? null : `${trip.distanceMiles.toFixed(1)} mi`;
+  const stretch = floatStretch(trip);
   const trackingNote =
-    tracking === 'none' ? 'GPS distance unavailable' : tracking === 'partial' ? 'Limited GPS tracking' : null;
+    tracking === 'none' ? 'GPS tracking unavailable' : tracking === 'partial' ? 'Limited GPS tracking' : null;
   const line = moodLine(mood, trip);
   const spoken = [
     `${trip.riverName}.`,
     `${trip.putInName ? `${trip.putInName} to ${trip.takeOutName}` : `To ${trip.takeOutName}`}.`,
     `${longDate(trip.startedAt, now)}.`,
-    distance
-      ? `${trip.distanceMiles.toFixed(1)} miles, ${spokenDuration(trip.elapsedMs)}.`
-      : `${spokenDuration(trip.elapsedMs)}.`,
+    stretch ? `${stretch.spoken}, ${spokenDuration(trip.elapsedMs)}.` : `${spokenDuration(trip.elapsedMs)}.`,
     trackingNote ? `${trackingNote}.` : null,
     badge ? `${[badge.label, badge.cfsLabel ?? badge.ftLabel].filter(Boolean).join(', ')}.` : null,
     line ? `${line.replace(/!$/, '')}.` : null,
@@ -122,7 +155,7 @@ export function historyCardModel(trip: CompletedFloat, now = Date.now()): Histor
     route: routeTitle(trip),
     startedOnWater: !trip.putInName && tracking !== 'none',
     date: shortDate(trip.startedAt, now),
-    stats: distance ? `${distance} · ${duration}` : duration,
+    stats: stretch ? `${stretch.value} ${stretch.unit} · ${duration}` : duration,
     trackingNote,
     badge,
     mood,

@@ -492,7 +492,10 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
  * the reading of the gauge that decided it. After an escalation that is the
  * in-span gauge, which can sit below the put-in, never the merged `condition`
  * row, which pairs the escalated code with the anchor's name and reading.
- * Null when the code is unknown or the gauge cannot be named and dated.
+ * Null when the code is unknown or the gauge cannot be named and dated. A
+ * gauge that is not a USGS site (a dam tailwater's, migration 00198) has a
+ * null site id, never no condition: tailwaters are where the condition
+ * matters most, since float time is withheld there.
  */
 export function startConditionFromEstimate(
   estimate: Pick<Awaited<ReturnType<typeof estimateRoute>>, 'conditionCode' | 'anchorCondition' | 'contributingGauges'>,

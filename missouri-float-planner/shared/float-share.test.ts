@@ -10,9 +10,10 @@ import type { CompletedFloat, StartCondition } from './float-archive';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CONDITION_SYSTEM } from './condition-system';
 import { exploredPercent } from './float-recap';
-import { floatImagePath, floatShareState, localDay, MAX_SHARE_MINUTES, parseFloatShare, shareDuration, shareMood, type FloatShareState } from './float-share';
+import { floatImagePath, floatShareState, localDay, MAX_SHARE_MINUTES, parseFloatShare, shareDuration, shareMood, withoutCondition, type FloatShareState } from './float-share';
 import { FLOAT_MOOD_STICKERS, STANDARD_OTTER, stickerDataUrl } from '../src/lib/float-share/sticker';
 import { loadFloatShareNames } from '../src/lib/float-share/names';
+import { cfsMatches, verifyFloatShareCondition } from '../src/lib/float-share/verify';
 import { FLOAT_SHARE_HEIGHT, FLOAT_SHARE_WIDTH, FloatShareImage, stampInk } from '../src/lib/og/float-share-image';
 import { respondFloatShare } from '../src/lib/float-share/respond';
 import { loadOgFonts } from '../src/lib/og/fonts';
@@ -31,11 +32,12 @@ function trip(overrides: Partial<CompletedFloat> = {}): CompletedFloat {
     movingMs: 2.6 * HOUR, stoppedMs: 1.4 * HOUR, unknownMs: 0.2 * HOUR,
     distanceMiles: 9.83, movingMph: 2.3, plannerMph: 2.3, firstMile: 52.1, lastMile: 61.9,
     reachedTakeOut: true, measurementVersion: 1,
-    riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring' },
+    riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring', calibration: 'deadbeef' },
     coveredMiles: [[52.1, 61.9]],
     ...overrides,
   };
 }
+const NAMES = { riverId: 'r1', riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
 const flowing: StartCondition = {
   code: 'flowing', gaugeName: 'Current River at Akers', usgsSiteId: '07064533', heightFt: 2.1,
   dischargeCfs: 412.4, observedAt: new Date(START - 6 * 60_000).toISOString(), accuracyWarning: false,
@@ -47,14 +49,18 @@ test('a float becomes one canonical share and parses back to itself', () => {
   assert.deepEqual(state, {
     version: 1, riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite', date: localDay(START),
     tracking: 'measured', reachedTakeOut: true, mood: 'made-it',
-    condition: { code: 'flowing', current: true, cfs: 412 },
-    miles: 9.8, minutes: 252, explored: { miles: 9.8, percent: 7 },
+    condition: { code: 'flowing', current: true, cfs: 412, gauge: '07064533' },
+    minutes: 252, explored: { miles: 9.8, percent: 7 },
   });
   const path = floatImagePath(state);
-  assert.equal(path, `/api/share/float/image?v=1&river=current&from=akers&to=pulltite&date=${localDay(START)}&tracking=measured&reached=1&mood=made-it&cond=flowing&cur=1&cfs=412&mi=9.8&min=252&exp=9.80&pct=7`);
+  assert.equal(path, `/api/share/float/image?v=1&river=current&from=akers&to=pulltite&date=${localDay(START)}&tracking=measured&reached=1&mood=made-it&cond=flowing&cur=1&cfs=412&gauge=07064533&min=252&exp=9.80&pct=7`);
   assert.deepEqual(parseFloatShare(params(path), NOW), state);
   const untracked = floatShareState(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [], putInId: null, putInName: null }));
   assert.deepEqual(parseFloatShare(params(floatImagePath(untracked)), NOW), untracked);
+  assert.ok(!path.includes('mi='), 'the share carries the stretch (river explored), never a distance paddled');
+  const tailwater = floatShareState(trip({ startCondition: { ...flowing, usgsSiteId: null } }));
+  assert.equal(tailwater.condition, null, 'a gauge the server cannot verify against draws no stamp');
+  assert.equal(tailwater.mood, 'made-it');
 });
 
 test('a share never carries the time of day, the note, positions or names', () => {
@@ -62,6 +68,13 @@ test('a share never carries the time of day, the note, positions or names', () =
   for (const leak of ['Recording', 'Akers Ferry', 'Pulltite', 'Current River', 'T15', ':00', 'lat', 'lng', 'note', 'float-1']) {
     assert.ok(!path.includes(leak), leak);
   }
+  // The session id encodes the start time (useStart.ts newSessionId), and
+  // AirDrop, Mail and Files keep file names: the shared PNG is named by day.
+  const button = readFileSync('../eddy-ios/src/float/FloatShareButton.tsx', 'utf8');
+  assert.match(button, /fileName: `eddy-float-\$\{state\.date\}`/);
+  assert.ok(!button.includes('trip.id'), 'never the session id');
+  const hook = readFileSync('../eddy-ios/src/hooks/useShareImage.ts', 'utf8');
+  assert.ok(!hook.includes('Date.now()'), 'the cache file suffix is random, not a timestamp');
 });
 
 test('malformed or inconsistent shares are refused, never drawn', () => {
@@ -79,8 +92,11 @@ test('malformed or inconsistent shares are refused, never drawn', () => {
     ['bad slug', (q) => q.set('river', 'Current River')],
     ['impossible date', (q) => q.set('date', '2026-02-30')],
     ['future date', (q) => q.set('date', '2027-01-01')],
-    ['untracked with a distance', (q) => q.set('tracking', 'none')],
+    ['untracked with river explored', (q) => q.set('tracking', 'none')],
     ['exp without pct', (q) => q.delete('pct')],
+    ['a condition without its gauge', (q) => q.delete('gauge')],
+    ['a gauge without a condition', (q) => { q.delete('cond'); q.delete('cur'); q.delete('cfs'); }],
+    ['a gauge that is not an id', (q) => q.set('gauge', '0706 4533')],
     ['a percent over 100', (q) => q.set('pct', '101')],
     ['a fractional percent', (q) => q.set('pct', '7.5')],
     ['nothing explored', (q) => q.set('exp', '0.00')],
@@ -91,7 +107,7 @@ test('malformed or inconsistent shares are refused, never drawn', () => {
     ['scrape on flowing water', (q) => q.set('mood', 'scrape')],
     ['big water on a stale high', (q) => { q.set('cond', 'high'); q.set('cur', '0'); q.set('mood', 'big-water'); }],
     ['a fraction of a minute', (q) => q.set('min', '12.5')],
-    ['a huge distance', (q) => q.set('mi', '9999.0')],
+    ['a distance, which a share no longer carries', (q) => q.set('mi', '9.8')],
   ];
   for (const [label, edit] of refused) assert.equal(variant(edit), null, label);
   const none = params(floatImagePath(floatShareState(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [] }))));
@@ -101,14 +117,60 @@ test('malformed or inconsistent shares are refused, never drawn', () => {
 
 test('the server draws the recap otter: nothing measured is the standard otter, even at Flood', () => {
   const base: FloatShareState = floatShareState(trip({ startCondition: flowing }));
-  const high = { code: 'dangerous' as const, current: true, cfs: 9000 };
-  assert.equal(shareMood({ ...base, tracking: 'none', miles: null, explored: null, mood: null, condition: high }), null);
+  const high = { code: 'dangerous' as const, current: true, cfs: 9000, gauge: '07067000' };
+  assert.equal(shareMood({ ...base, tracking: 'none', explored: null, mood: null, condition: high }), null);
   assert.equal(shareMood({ ...base, tracking: 'partial', mood: 'big-water', condition: high }), 'big-water');
   assert.equal(shareMood({ ...base, mood: 'made-it', condition: { ...high, current: false } }), null, 'a stale high never celebrates');
   assert.equal(shareMood({ ...base, mood: 'made-it', condition: high }), 'big-water', 'whatever the query sent');
   assert.equal(shareMood(base), 'made-it');
   assert.equal(shareDuration(252), '4 hr 12 min');
   assert.equal(shareDuration(0), '<1 min');
+  // A stamp the record does not bear out goes, and takes a water mood with it.
+  assert.deepEqual(withoutCondition({ ...base, mood: 'big-water', condition: high }), { ...base, mood: null, condition: null });
+  assert.deepEqual(withoutCondition({ ...base, mood: 'scrape', condition: { ...high, code: 'low' } }), { ...base, mood: null, condition: null });
+  assert.equal(withoutCondition({ ...base, mood: 'rain' }).mood, 'rain', 'weather is not the water');
+  assert.equal(shareMood(withoutCondition({ ...base, mood: 'made-it', condition: high })), 'made-it', 'no verified high water, no forced Big water');
+});
+
+/** Just enough of a PostgREST client for the condition check. */
+function verifyDb(tables: Record<string, unknown>, fail = false) {
+  return {
+    from(table: string) {
+      const answer = { data: tables[table] ?? null, error: fail ? { message: 'down' } : null };
+      const chain = {
+        select: () => chain, eq: () => chain, gte: () => chain, lt: () => chain, limit: () => chain,
+        maybeSingle: async () => answer,
+        then: (resolve: (v: typeof answer) => unknown) => Promise.resolve(answer).then(resolve),
+      };
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+}
+
+test('the stamp is drawn only when the gauge’s record for that day bears it out', async () => {
+  const state = floatShareState(trip({ startCondition: flowing }));
+  const link = {
+    gauge_station_id: 'station-uuid', threshold_unit: 'ft', level_too_low: 1, level_low: 2, level_optimal_min: 3,
+    level_optimal_max: 5, level_high: 6, level_dangerous: 9, flood_stage_ft: 7, gauge_stations: { usgs_site_id: '07064533' },
+  };
+  const reading = (ft: number, cfs: number | null, qualifiers: string[] = []) => ({ gauge_height_ft: ft, discharge_cfs: cfs, qualifiers });
+  const verify = (readings: unknown, found = link) => verifyFloatShareCondition(verifyDb({ river_gauges: found, gauge_readings: readings }), state, 'r1');
+  // On this ladder (ft): low 1–2, good 2–3, flowing 3–5, high 5–9; flood stage 7 outranks it.
+  assert.equal(await verify([reading(1.5, 100), reading(4, 412.4)]), true, 'one reading that day rated Flowing at 412 cfs');
+  assert.equal(await verify([reading(1.5, 412)]), false, 'the cfs matches but the ladder says Low');
+  assert.equal(await verify([reading(4, 900)]), false, 'Flowing, but not at that cfs');
+  assert.equal(await verify([reading(4, 412, ['Ice'])]), false, 'a suspect reading proves nothing');
+  assert.equal(await verify([]), false, 'no record, no stamp');
+  assert.equal(await verify([reading(4, 412)], null as unknown as typeof link), false, 'a gauge that is not this river’s');
+  assert.equal(await verify([reading(8, 412)]), false, 'NWS flood stage outranks the ladder');
+  const flood = { ...state, condition: { code: 'dangerous' as const, current: true, cfs: null, gauge: '07064533' } };
+  assert.equal(await verifyFloatShareCondition(verifyDb({ river_gauges: link, gauge_readings: [reading(8, null)] }), flood, 'r1'), true, 'a claim without cfs needs only the code');
+  assert.equal(await verifyFloatShareCondition(verifyDb({}), { ...state, condition: null }, 'r1'), true, 'nothing claimed, nothing to check');
+  await assert.rejects(verifyFloatShareCondition(verifyDb({ river_gauges: link }, true), state, 'r1'), /Could not read/);
+  assert.equal(cfsMatches(412, 419.6), true, 'within 2%');
+  assert.equal(cfsMatches(412, 430), false);
+  assert.equal(cfsMatches(3, 4.4), true, 'at least one cfs of slack');
+  assert.equal(cfsMatches(412, null), false);
 });
 
 test('the server stickers are the app stickers', async () => {
@@ -145,9 +207,7 @@ test('names come from ids, only for approved access points on that river', async
     { id: 'akers', name: 'Akers Ferry', river_id: 'r1', approved: true },
     { id: 'pulltite', name: 'Pulltite', river_id: 'r1', approved: true },
   ];
-  assert.deepEqual(await loadFloatShareNames(namesDb({ rivers: river, access_points: points }), state), {
-    riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite',
-  });
+  assert.deepEqual(await loadFloatShareNames(namesDb({ rivers: river, access_points: points }), state), NAMES);
   assert.equal(await loadFloatShareNames(namesDb({ rivers: river, access_points: [points[1], { ...points[0], river_id: 'r2' }] }), state), null, 'another river’s access point');
   assert.equal(await loadFloatShareNames(namesDb({ rivers: river, access_points: [points[0], { ...points[1], approved: false }] }), state), null, 'unapproved');
   assert.equal(await loadFloatShareNames(namesDb({ rivers: null, access_points: points }), state), null);
@@ -167,9 +227,8 @@ test('the route refuses bad shares with an error and normalises spellings, befor
 
 test('the image renders at 9:16 with the mood sticker', async () => {
   const state = floatShareState(trip({ startCondition: flowing }));
-  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
   const image = new ImageResponse(
-    createElement(FloatShareImage, { state, names, mood: shareMood(state), sticker: await stickerDataUrl(shareMood(state)) }),
+    createElement(FloatShareImage, { state, names: NAMES, mood: shareMood(state), sticker: await stickerDataUrl(shareMood(state)) }),
     { width: FLOAT_SHARE_WIDTH, height: FLOAT_SHARE_HEIGHT, fonts: loadOgFonts() },
   );
   const bytes = Buffer.from(await image.arrayBuffer());
@@ -188,16 +247,14 @@ test('a multi-day float can be shared: recordings have no length limit', () => {
 });
 
 test('the image states the percent the recap states, never one recomputed from rounded miles', () => {
-  const span = (lastMile: number) => ({ firstMile: 0, lastMile, firstName: 'Top', lastName: 'Bottom' });
+  const span = (lastMile: number) => ({ firstMile: 0, lastMile, firstName: 'Top', lastName: 'Bottom', calibration: 'deadbeef' });
   for (const [explored, length, recap] of [[6.0, 6.04, '99%'], [6.06, 6.06, '100%'], [0.004, 134, 'Under 1%']] as const) {
     const t = trip({ riverSpan: span(length), coveredMiles: [[0, explored]] });
     const state = floatShareState(t);
     const parsed = parseFloatShare(params(floatImagePath(state)), NOW)!;
     const fraction = Math.min(1, explored / length);
     assert.equal(exploredPercent(fraction), recap, `recap for ${explored}/${length}`);
-    const html = renderToStaticMarkup(createElement(FloatShareImage, {
-      state: parsed, names: { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'A', takeOutName: 'B' }, mood: null, sticker: '',
-    }));
+    const html = renderToStaticMarkup(createElement(FloatShareImage, { state: parsed, names: NAMES, mood: null, sticker: '' }));
     assert.ok(html.includes(`${recap} of the Current’s float miles`), `image for ${explored}/${length}: ${recap}`);
   }
   const sliver = floatShareState(trip({ riverSpan: span(134), coveredMiles: [[10, 10.004]] }));
@@ -211,16 +268,20 @@ test('under a minute reads "<1 min" on the image, as in the recap', () => {
   assert.equal(floatShareState(trip({ elapsedMs: 90_000, endedAt: START + 90_000, movingMs: 90_000, stoppedMs: 0, unknownMs: 0 })).minutes, 2);
 });
 
-test('a partly tracked float says so on the image, as on its card', () => {
-  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
+test('the image shows the stretch the float took, and a partly tracked float says so, as on its card', () => {
   const draw = (t: CompletedFloat) => {
     const state = floatShareState(t);
-    return renderToStaticMarkup(createElement(FloatShareImage, { state, names, mood: shareMood(state), sticker: '' }));
+    return renderToStaticMarkup(createElement(FloatShareImage, { state, names: NAMES, mood: shareMood(state), sticker: '' }));
   };
+  const measured = draw(trip());
+  assert.ok(measured.includes('river miles explored') && measured.includes('7% of the Current’s float miles'));
+  assert.ok(!measured.includes('paddled'), 'never a distance paddled');
   const partial = draw(trip({ movingMs: 0.8 * HOUR, stoppedMs: 0.2 * HOUR, unknownMs: 3.2 * HOUR }));
-  assert.ok(partial.includes('miles paddled') && partial.includes('Limited GPS tracking'));
-  assert.ok(!draw(trip()).includes('Limited GPS tracking'));
-  assert.ok(draw(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [] })).includes('GPS distance unavailable'));
+  assert.ok(partial.includes('river miles explored') && partial.includes('Limited GPS tracking'));
+  assert.ok(!measured.includes('Limited GPS tracking'));
+  assert.ok(draw(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [] })).includes('GPS tracking unavailable'));
+  const uncredited = draw(trip({ coveredMiles: [] }));
+  assert.ok(!uncredited.includes('explored') && !uncredited.includes('unavailable') && uncredited.includes('on the water'), 'placed but no river credited: the time alone');
 });
 
 test('every condition stamp reads clearly on the teal', () => {
@@ -243,30 +304,42 @@ test('every condition stamp reads clearly on the teal', () => {
 test('the route: 400 for a malformed share, 422 only when its places are gone, the PNG and link otherwise', async () => {
   const path = floatImagePath(floatShareState(trip({ startCondition: flowing })));
   const request = (p: string) => new NextRequest(`https://eddy.guide${p}`);
-  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
   let looked = 0;
-  const deps = (found: typeof names | null) => ({
+  let checked: FloatShareState[] = [];
+  const deps = (found: typeof NAMES | null, verified = true) => ({
     limit: async () => null,
     names: async () => { looked += 1; return found; },
+    verified: async (state: FloatShareState) => { checked.push(state); return verified; },
   });
-  const malformed = await respondFloatShare(request(path.replace('min=252', 'min=abc')), deps(names));
+  const malformed = await respondFloatShare(request(path.replace('min=252', 'min=abc')), deps(NAMES));
   assert.equal(malformed.status, 400);
   assert.equal((await malformed.json()).code, 'invalid_share');
   assert.equal(looked, 0, 'a malformed share never reaches the lookup');
   const gone = await respondFloatShare(request(path), deps(null));
   assert.equal(gone.status, 422);
   assert.equal((await gone.json()).code, 'places_unavailable');
-  const ok = await respondFloatShare(request(path), deps(names));
+  assert.equal(checked.length, 0, 'nothing to verify for a float whose places are gone');
+  const ok = await respondFloatShare(request(path), deps(NAMES));
   assert.equal(ok.status, 200);
   assert.equal(ok.headers.get('content-type'), 'image/png');
   assert.equal(ok.headers.get('x-eddy-share-path'), '/rivers/missouri/current');
+  assert.equal(ok.headers.get('x-eddy-share-condition'), 'verified');
+  assert.equal(checked.length, 1);
+  // The record does not bear the stamp out: the float is still drawn, without it.
+  const unverified = await respondFloatShare(request(path), deps(NAMES, false));
+  assert.equal(unverified.status, 200);
+  assert.equal(unverified.headers.get('content-type'), 'image/png');
+  assert.equal(unverified.headers.get('x-eddy-share-condition'), 'unverified');
+  checked = [];
+  const plain = await respondFloatShare(request(floatImagePath(floatShareState(trip()))), deps(NAMES, false));
+  assert.equal(plain.headers.get('x-eddy-share-condition'), 'none');
+  assert.equal(checked.length, 0, 'no condition, no check');
 });
 
 test('high water is stated on the image, not celebrated', () => {
-  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
   const draw = (t: CompletedFloat) => {
     const state = floatShareState(t);
-    return renderToStaticMarkup(createElement(FloatShareImage, { state, names, mood: shareMood(state), sticker: '' }));
+    return renderToStaticMarkup(createElement(FloatShareImage, { state, names: NAMES, mood: shareMood(state), sticker: '' }));
   };
   // The colour of the element holding the mood line itself, not the wordmark.
   const labelColor = (html: string, text: string) => new RegExp(`color:([^;"]+)[^>]*>${text}<`).exec(html)?.[1];

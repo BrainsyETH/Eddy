@@ -24,6 +24,14 @@ export interface RiverSpan {
   lastMile: number;
   firstName: string;
   lastName: string;
+  /**
+   * The mile system these miles and the float's coveredMiles are in: a hash
+   * of the river's access-point miles at Start (float-recap.ts
+   * spanCalibration). Access-point miles get recalibrated, and intervals from
+   * two calibrations do not lie on one strip, so the lifetime line merges
+   * only floats that share this value.
+   */
+  calibration: string;
 }
 
 /** Current conditions at the put-in at Start. Values only, never the coordinates. */

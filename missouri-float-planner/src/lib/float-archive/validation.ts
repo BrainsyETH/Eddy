@@ -27,7 +27,14 @@ const startCondition = z
   })
   .strict();
 const riverSpan = z
-  .object({ firstMile: mileValue, lastMile: mileValue, firstName: name, lastName: name })
+  .object({
+    firstMile: mileValue,
+    lastMile: mileValue,
+    firstName: name,
+    lastName: name,
+    /** The mile system (shared/float-recap.ts spanCalibration): 32-bit hex. */
+    calibration: z.string().regex(/^[0-9a-f]{8}$/),
+  })
   .strict()
   .refine((span) => span.lastMile > span.firstMile, 'River span runs backwards');
 /** Sorted, disjoint, each running forwards: what @eddy/geo addCoveredInterval keeps. */

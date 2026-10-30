@@ -1,12 +1,13 @@
 // src/lib/float-share/respond.ts
-// The float share image route's decisions, with its two outside reads (the
-// rate limiter and the name lookup) passed in, so tests can drive every
-// answer: 400 for a malformed share, 308 to its one spelling, 422 for a
-// well-formed share whose places no longer resolve, 503 for a failed read,
-// and the PNG. The route (app/api/share/float/image) supplies the real ones.
+// The float share image route's decisions, with its outside reads (the rate
+// limiter, the name lookup and the condition check) passed in, so tests can
+// drive every answer: 400 for a malformed share, 308 to its one spelling, 422
+// for a well-formed share whose places no longer resolve, 503 for a failed
+// read, and the PNG, with or without its condition stamp. The route
+// (app/api/share/float/image) supplies the real ones.
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { floatImagePath, parseFloatShare, shareMood, type FloatShareState } from '@shared/float-share';
+import { floatImagePath, parseFloatShare, shareMood, withoutCondition, type FloatShareState } from '@shared/float-share';
 import { FloatShareReadError, type FloatShareNames } from './names';
 import { stickerDataUrl } from './sticker';
 import { renderFloatShareImage } from '@/lib/og/float-share-image';
@@ -19,6 +20,8 @@ export async function respondFloatShare(
     /** A response when this caller is over its limit. */
     limit: () => Promise<Response | null>;
     names: (state: FloatShareState) => Promise<FloatShareNames | null>;
+    /** Whether the gauge's recorded readings bear out the share's condition (verify.ts). */
+    verified: (state: FloatShareState, names: FloatShareNames) => Promise<boolean>;
   },
 ): Promise<Response> {
   const state = parseFloatShare(request.nextUrl.searchParams);
@@ -45,8 +48,11 @@ export async function respondFloatShare(
         { status: 422, headers: noStore },
       );
     }
-    const mood = shareMood(state);
-    const image = renderFloatShareImage({ state, names, mood, sticker: await stickerDataUrl(mood) });
+    // The stamp is Eddy's word on the water, so it is drawn only when the
+    // record agrees; otherwise the float is drawn without it.
+    const share = state.condition && !(await deps.verified(state, names)) ? withoutCondition(state) : state;
+    const mood = shareMood(share);
+    const image = renderFloatShareImage({ state: share, names, mood, sticker: await stickerDataUrl(mood) });
     // Consume the render so a failure gets no-store, rather than caching a broken stream.
     return new Response(await image.arrayBuffer(), {
       headers: {
@@ -54,6 +60,9 @@ export async function respondFloatShare(
         'Cache-Control': 'public, max-age=300, s-maxage=3600',
         // The link that travels with the image: the river's web page, never an app route.
         'X-Eddy-Share-Path': names.riverPath,
+        // Whether the condition stamp was drawn: 'verified', 'unverified' (the
+        // record did not bear it out) or 'none' (the share carried no condition).
+        'X-Eddy-Share-Condition': state.condition ? (share.condition ? 'verified' : 'unverified') : 'none',
       },
     });
   } catch (error) {

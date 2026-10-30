@@ -246,10 +246,39 @@ export function pickFloatMood(trip: CompletedFloat): FloatMood | null {
 
 type Interval = [number, number];
 
+/**
+ * The mile system a route's access points define, as a short stable hash of
+ * their ids and miles. Snapshotted into RiverSpan at Start so two floats can
+ * be told to share a strip, or not, after a recalibration. Order-free: the
+ * same points in any order give the same value. FNV-1a, 32 bits, hex.
+ */
+export function spanCalibration(anchors: readonly { id: string; riverMile: number }[]): string {
+  const keys = anchors
+    .filter((a) => text(a.id) && finite(a.riverMile))
+    .map((a) => `${a.id}@${a.riverMile}`)
+    .sort();
+  let hash = 0x811c9dc5;
+  for (const key of keys) {
+    for (let i = 0; i < key.length; i += 1) {
+      hash ^= key.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    hash ^= 0x1f;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+const CALIBRATION = /^[0-9a-f]{8}$/;
+
 function readSpan(value: unknown): RiverSpan | null {
   if (!record(value) || !finite(value.firstMile) || !finite(value.lastMile) ||
-    !(value.lastMile > value.firstMile) || !text(value.firstName) || !text(value.lastName)) return null;
-  return { firstMile: value.firstMile, lastMile: value.lastMile, firstName: value.firstName, lastName: value.lastName };
+    !(value.lastMile > value.firstMile) || !text(value.firstName) || !text(value.lastName) ||
+    !text(value.calibration) || !CALIBRATION.test(value.calibration)) return null;
+  return {
+    firstMile: value.firstMile, lastMile: value.lastMile,
+    firstName: value.firstName, lastName: value.lastName, calibration: value.calibration,
+  };
 }
 
 /** Null for missing, null (too many to keep) or malformed: never a partial figure. */
@@ -321,6 +350,12 @@ export function riverExplored(trip: CompletedFloat): RiverExplored | null {
  * can be wider, so the merged list is clamped again before it is summed:
  * otherwise an older span of 0–100 and a newer one of 10–90 could report 100
  * miles explored out of 80.
+ *
+ * Only floats in the boundary's mile system (RiverSpan.calibration) are
+ * merged. After the river's access-point miles are recalibrated, an older
+ * float's intervals name a different stretch of the new strip; they are left
+ * out of the sum rather than drawn in the wrong place, and `excluded` says
+ * how many.
  */
 export function riverLifetimeExplored(
   trips: readonly CompletedFloat[],
@@ -328,19 +363,21 @@ export function riverLifetimeExplored(
   /**
    * The span to measure and place against instead of the latest float's.
    * Pass the strip's own span when drawing on it: segments are fractions of
-   * the boundary, so a different boundary puts them at the wrong miles.
+   * the boundary, so a different boundary puts them at the wrong miles. Its
+   * calibration decides which floats are merged, as the latest float's would.
    */
   span?: RiverSpan,
-): (RiverExplored & { floats: number }) | null {
+): (RiverExplored & { floats: number; excluded: number }) | null {
   const eligible = trips
     .filter((trip) => trip.riverSlug === riverSlug)
     .map((trip) => ({ trip, span: readSpan(trip.riverSpan), covered: readCovered(trip.coveredMiles) }))
     .filter((e): e is { trip: CompletedFloat; span: RiverSpan; covered: Interval[] } => e.span != null && e.covered != null);
   if (eligible.length === 0) return null;
   const boundary = span ?? eligible.reduce((a, b) => (b.trip.startedAt > a.trip.startedAt ? b : a)).span;
-  const all = merge(eligible.flatMap((e) => clamp(merge(e.covered), e.span)));
+  const same = eligible.filter((e) => e.span.calibration === boundary.calibration);
+  const all = merge(same.flatMap((e) => clamp(merge(e.covered), e.span)));
   const result = explored(clamp(all, boundary), boundary);
-  return result ? { ...result, floats: eligible.length } : null;
+  return result ? { ...result, floats: same.length, excluded: eligible.length - same.length } : null;
 }
 
 /** Miles to one decimal, except that a positive distance never reads as zero. */

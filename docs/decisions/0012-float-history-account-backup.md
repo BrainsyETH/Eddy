@@ -95,10 +95,13 @@ needs no database migration.
 
 Recaps also carry optional recap context (`docs/float-history-card-plan.md`):
 `startCondition` (the planner's condition at Start, with the gauge that set it
-and that reading's time), `riverSpan` (the route index's calibrated
-access-point span), `coveredMiles` (the river intervals the tracker credited,
-at most 32, sorted and disjoint) and `startWeather` (temperature and last-hour
-rain at the put-in, never coordinates). They share one capability flag,
+and that reading's time; its `usgsSiteId` is null for a gauge that is not a
+USGS site, as dam tailwaters' are), `riverSpan` (the route index's calibrated
+access-point span, with a `calibration` hash naming the mile system it was
+taken in, so floats from before and after a recalibration of access-point
+miles are never summed onto one strip), `coveredMiles` (the river intervals
+the tracker credited, at most 32, sorted and disjoint) and `startWeather`
+(temperature and last-hour rain at the put-in, never coordinates). They share one capability flag,
 `recapContext`, under the same rule as `startNote`: an older API leaves the
 upload pending and nothing is stripped. Every new recap carries `coveredMiles`,
 so deploy the accepting validator and capability response before the app

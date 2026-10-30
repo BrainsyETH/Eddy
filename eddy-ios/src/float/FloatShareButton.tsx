@@ -15,10 +15,13 @@ import { fonts, type as t } from '@/theme/typography';
 
 export function useFloatShare(trip: CompletedFloat) {
   const { busy, shareImage } = useShareImage();
-  const share = () =>
+  const share = () => {
+    const state = floatShareState(trip);
     void shareImage({
-      imagePath: floatImagePath(floatShareState(trip)),
-      fileName: `eddy-float-${trip.id}`,
+      imagePath: floatImagePath(state),
+      // Named by the day, never by the session id: that id encodes the start
+      // time to the millisecond, and AirDrop, Mail and Files keep file names.
+      fileName: `eddy-float-${state.date}`,
       title: floatShareTitle(trip),
       linkPath: (response) => floatShareLink(response.headers.get('X-Eddy-Share-Path')),
       // 422 is the one failure that is the float's places: an access point
@@ -28,6 +31,7 @@ export function useFloatShare(trip: CompletedFloat) {
       failureMessage: (status) =>
         status === 422 ? 'This float can’t be shared as an image. Its river or access points have changed since.' : null,
     });
+  };
   return { busy, share };
 }
 

@@ -8,6 +8,12 @@
 // track, the account, or the start note. Names are not in it either: the
 // server resolves the river and access points from their ids, so the route
 // cannot be used to render arbitrary text.
+//
+// The condition stamp is Eddy's own condition language, so the query names
+// the gauge that set it and the server checks the code and cfs against that
+// gauge's recorded readings for the day before it draws the stamp
+// (src/lib/float-share/verify.ts). A share it cannot verify is drawn without
+// the stamp, never refused: the float is still the paddler's.
 
 import { CONDITION_SYSTEM, type ConditionCode } from './condition-system';
 import type { CompletedFloat } from './float-archive';
@@ -36,9 +42,12 @@ export interface FloatShareState {
   reachedTakeOut: boolean;
   /** As the recap chose it; the server still applies moodGate. */
   mood: FloatMood | null;
-  condition: { code: Exclude<ConditionCode, 'unknown'>; current: boolean; cfs: number | null } | null;
-  /** Distance paddled to 0.1 mi; null when nothing was measured. */
-  miles: number | null;
+  /**
+   * The condition at start and the USGS gauge that set it, which the server
+   * verifies before drawing the stamp. Null when there was none, or when the
+   * gauge is not a USGS site (nothing to verify against, so nothing drawn).
+   */
+  condition: { code: Exclude<ConditionCode, 'unknown'>; current: boolean; cfs: number | null; gauge: string } | null;
   minutes: number;
   /**
    * River explored to 0.01 mi, and the whole percent of the span the recap
@@ -82,14 +91,14 @@ export function floatShareState(trip: CompletedFloat): FloatShareState {
     reachedTakeOut: trip.reachedTakeOut,
     mood: pickFloatMood(trip),
     condition:
-      condition && condition.code !== 'unknown'
+      condition && condition.code !== 'unknown' && condition.usgsSiteId
         ? {
             code: condition.code,
             current: condition.current,
             cfs: condition.dischargeCfs == null ? null : Math.round(condition.dischargeCfs),
+            gauge: condition.usgsSiteId,
           }
         : null,
-    miles: tracking === 'none' ? null : round(trip.distanceMiles, 1),
     // Under a minute is 0, which reads "<1 min" as the recap does, never "1 min".
     minutes: trip.elapsedMs < 60_000 ? 0 : Math.round(trip.elapsedMs / 60_000),
     // At least 0.01: a sliver of river is "Under 0.1", never rounded to nothing.
@@ -112,8 +121,8 @@ export function floatImagePath(state: FloatShareState): string {
     q.set('cond', state.condition.code);
     q.set('cur', state.condition.current ? '1' : '0');
     if (state.condition.cfs != null) q.set('cfs', String(state.condition.cfs));
+    q.set('gauge', state.condition.gauge);
   }
-  if (state.miles != null) q.set('mi', state.miles.toFixed(1));
   q.set('min', String(state.minutes));
   if (state.explored) {
     q.set('exp', state.explored.miles.toFixed(2));
@@ -122,7 +131,7 @@ export function floatImagePath(state: FloatShareState): string {
   return `${FLOAT_IMAGE_PATH}?${q.toString()}`;
 }
 
-const KEYS = new Set(['v', 'river', 'from', 'to', 'date', 'tracking', 'reached', 'mood', 'cond', 'cur', 'cfs', 'mi', 'min', 'exp', 'pct']);
+const KEYS = new Set(['v', 'river', 'from', 'to', 'date', 'tracking', 'reached', 'mood', 'cond', 'cur', 'cfs', 'gauge', 'min', 'exp', 'pct']);
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const SLUG = /^[a-z0-9-]{1,120}$/;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -148,9 +157,9 @@ function decimal(value: string | null, places: number, max: number): number | nu
 
 /**
  * The share a query describes, or null for anything malformed or
- * inconsistent: an unknown or repeated key, an untracked float with a
- * distance, a Big water mood without current high water. Null is a 400, never
- * a fallback picture.
+ * inconsistent: an unknown or repeated key, an untracked float with river
+ * explored or a mood, a condition without its gauge, a Big water mood without
+ * current high water. Null is a 400, never a fallback picture.
  */
 export function parseFloatShare(params: URLSearchParams, now = Date.now()): FloatShareState | null {
   const seen = new Set<string>();
@@ -168,27 +177,28 @@ export function parseFloatShare(params: URLSearchParams, now = Date.now()): Floa
   const mood = get('mood') as FloatMood | null;
   const cond = get('cond');
   const cur = get('cur');
+  const gauge = get('gauge');
   if (get('v') !== '1' || !river || !SLUG.test(river) || !to || !ID.test(to) || (from != null && !ID.test(from))) return null;
   if (!date || !day(date, now) || !tracking || !TRACKING.includes(tracking) || !reached || !FLAG.test(reached)) return null;
   if (mood != null && !MOODS.includes(mood)) return null;
 
   const cfs = decimal(get('cfs'), 0, 2_000_000);
-  const miles = decimal(get('mi'), 1, 500);
   // Recordings have no length limit (float camps make multi-day floats real),
   // so this only bounds the number: thirty days.
   const minutes = decimal(get('min'), 0, MAX_SHARE_MINUTES);
   const exp = decimal(get('exp'), 2, 10_000);
   const percent = decimal(get('pct'), 0, 100);
-  if ([cfs, miles, minutes, exp, percent].some((n) => Number.isNaN(n)) || minutes == null) return null;
+  if ([cfs, minutes, exp, percent].some((n) => Number.isNaN(n)) || minutes == null) return null;
 
   let condition: FloatShareState['condition'] = null;
   if (cond != null) {
     if (cond === 'unknown' || !Object.prototype.hasOwnProperty.call(CONDITION_SYSTEM, cond) || !cur || !FLAG.test(cur)) return null;
-    condition = { code: cond as Exclude<ConditionCode, 'unknown'>, current: cur === '1', cfs };
-  } else if (cur != null || cfs != null) return null;
+    if (!gauge || !ID.test(gauge)) return null;
+    condition = { code: cond as Exclude<ConditionCode, 'unknown'>, current: cur === '1', cfs, gauge };
+  } else if (cur != null || cfs != null || gauge != null) return null;
 
-  // Nothing measured means no distance, no river explored and no mood.
-  if (tracking === 'none' ? miles != null || exp != null || mood != null : miles == null) return null;
+  // Nothing measured means no river explored and no mood.
+  if (tracking === 'none' && (exp != null || mood != null)) return null;
   if ((exp == null) !== (percent == null) || exp === 0) return null;
 
   // A mood that claims water the condition does not show is a forged share.
@@ -206,10 +216,19 @@ export function parseFloatShare(params: URLSearchParams, now = Date.now()): Floa
     reachedTakeOut: reached === '1',
     mood,
     condition,
-    miles,
     minutes,
     explored: exp != null && percent != null ? { miles: exp, percent } : null,
   };
+}
+
+/**
+ * The share with its condition removed: what the server draws when the
+ * gauge's recorded readings do not bear the stamp out. A mood that claimed
+ * that water (Big water, Scrape) goes with it; the others stand on their own.
+ */
+export function withoutCondition(state: FloatShareState): FloatShareState {
+  const mood = state.mood === 'big-water' || state.mood === 'scrape' ? null : state.mood;
+  return { ...state, condition: null, mood };
 }
 
 /**

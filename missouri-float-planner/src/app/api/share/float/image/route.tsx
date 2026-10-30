@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { loadFloatShareNames } from '@/lib/float-share/names';
 import { respondFloatShare } from '@/lib/float-share/respond';
+import { verifyFloatShareCondition } from '@/lib/float-share/verify';
 import { createClient } from '@/lib/supabase/server';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
 
@@ -19,5 +20,6 @@ export async function GET(request: NextRequest) {
   return respondFloatShare(request, {
     limit: () => rateLimit(`float-image:${getClientIp(request)}`, 30, 60_000, { failClosed: true }),
     names: async (state) => loadFloatShareNames(await createClient(), state),
+    verified: async (state, names) => verifyFloatShareCondition(await createClient(), state, names.riverId),
   });
 }

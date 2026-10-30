@@ -1073,7 +1073,7 @@ const recapContext = {
     code: 'flowing' as const, gaugeName: 'Current River at Akers', usgsSiteId: '07064533', heightFt: 2.31,
     dischargeCfs: 412, observedAt: '2026-10-26T14:30:00.000Z', accuracyWarning: false,
   },
-  riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring' },
+  riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring', calibration: 'deadbeef' },
   coveredMiles: [[10, 14.5], [15, 19.8]] as [number, number][],
   startWeather: { tempF: 61, precipIn1h: 0, observedAt: '2026-10-26T14:00:00.000Z' },
 };
@@ -1092,6 +1092,8 @@ test('recap context: accepted with bounds, rejected when malformed', () => {
     { startCondition: { ...recapContext.startCondition, extra: 1 } },
     { startCondition: { ...recapContext.startCondition, dischargeCfs: -5 } },
     { riverSpan: { ...recapContext.riverSpan, lastMile: 0 } },
+    { riverSpan: { ...recapContext.riverSpan, calibration: 'DEADBEEF' } },
+    { riverSpan: { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring' } },
     { coveredMiles: [[10, 15], [14, 20]] },
     { coveredMiles: [[15, 10]] },
     { coveredMiles: Array.from({ length: 33 }, (_, i) => [i * 2, i * 2 + 1]) },

@@ -13,6 +13,7 @@ import {
   pickFloatMood,
   riverExplored,
   riverLifetimeExplored,
+  spanCalibration,
 } from './float-recap';
 
 const START = Date.parse('2026-10-26T15:00:00Z');
@@ -180,7 +181,18 @@ test('badge: the condition label and readings at reported precision', () => {
   assert.equal(floatBadge(trip({ startCondition: condition('flowing', stale) }))?.current, false);
 });
 
-const span = { firstMile: 0, lastMile: 100, firstName: 'Montauk', lastName: 'Big Spring' };
+const span = { firstMile: 0, lastMile: 100, firstName: 'Montauk', lastName: 'Big Spring', calibration: 'deadbeef' };
+
+test('span calibration names a mile system, whatever order the points come in', () => {
+  const points = [{ id: 'akers', riverMile: 20 }, { id: 'pulltite', riverMile: 29.6 }, { id: 'round-spring', riverMile: 38 }];
+  const same = spanCalibration([...points].reverse());
+  assert.match(same, /^[0-9a-f]{8}$/);
+  assert.equal(spanCalibration(points), same);
+  assert.notEqual(spanCalibration([...points.slice(0, 2), { id: 'round-spring', riverMile: 38.4 }]), same, 'a recalibrated mile is another system');
+  assert.notEqual(spanCalibration(points.slice(0, 2)), same, 'a point added or removed is another system');
+  assert.equal(spanCalibration([...points, { id: '', riverMile: 1 }, { id: 'x', riverMile: NaN }]), same, 'unplaceable points do not count');
+  assert.equal(riverExplored(trip({ riverSpan: { ...span, calibration: 'nope' }, coveredMiles: [[1, 2]] })), null, 'a span without its mile system is malformed');
+});
 
 test('river explored: credited intervals clamped to the span', () => {
   const result = riverExplored(trip({ riverSpan: span, coveredMiles: [[-2, 3], [10, 15.5], [99, 104], [120, 130]] }));
@@ -224,6 +236,15 @@ test('lifetime: one common boundary, never over 100%', () => {
   ], 'current');
   assert.equal(overlapping?.miles, 15);
   assert.equal(riverLifetimeExplored([older], 'jacks-fork'), null);
+
+  // After a recalibration, an older float's miles name a different stretch of
+  // the new strip: it is counted out, never drawn in the wrong place.
+  const recalibrated = trip({ id: 'f', startedAt: START + 10 * HOUR, endedAt: START + 14 * HOUR, riverSpan: { ...span, calibration: 'cafef00d' }, coveredMiles: [[40, 50]] });
+  const mixed = riverLifetimeExplored([older, recalibrated], 'current');
+  assert.equal(mixed?.miles, 10, 'only the boundary’s mile system is summed');
+  assert.equal(mixed?.floats, 1);
+  assert.equal(mixed?.excluded, 1);
+  assert.equal(riverLifetimeExplored([older, newer], 'current')?.excluded, 0);
 });
 
 test('explored copy never rounds to a claim the float did not make', () => {
@@ -257,6 +278,12 @@ test('a malformed snapshot timestamp cannot mask a valid server reading', () => 
   }
   assert.equal(floatCondition(trip({ startCondition: condition('flowing', { observedAt: 'soon' }) })), null, 'and with no fallback, nothing');
   assert.equal(floatCondition(trip({ water: { ...water, observedAt: 'later' } })), null);
+  // A dam tailwater's gauge is not a USGS site: the condition stands with no id.
+  const tailwater = floatCondition(trip({ startCondition: condition('high', { gaugeName: 'Taneycomo', usgsSiteId: null }) }));
+  assert.equal(tailwater?.code, 'high');
+  assert.equal(tailwater?.usgsSiteId, null);
+  assert.equal(pickFloatMood(trip({ startCondition: condition('high', { usgsSiteId: null }) })), 'big-water');
+  assert.equal(floatCondition(trip({ startCondition: condition('high', { usgsSiteId: 7 as unknown as string }) })), null, 'but not a malformed one');
 });
 
 test('a Start snapshot with no USGS id (a USACE station) is still the condition', () => {

@@ -28,6 +28,7 @@ import { latestRawFix, restoreRawFix, validCoordinate, type RawFloatFix } from '
 import { nearLaunch } from './floatOrigin';
 import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
 import type { RiverSpan, StartCondition, StartWeather } from '@eddy/conditions/float-archive';
+import { spanCalibration } from '@eddy/conditions/float-recap';
 import {
   INITIAL_TRACK,
   accumulateFloat,
@@ -457,7 +458,8 @@ export function startSession(input: {
  * lowest and highest miles of the access points the index kept. Lowest and
  * highest, not first and last along the line, because the index accepts miles
  * running either way. Snapshotted at Start, so a later correction to river
- * data does not move an old recap.
+ * data does not move an old recap; `calibration` names the mile system it
+ * was taken in, so the lifetime line can tell which floats share a strip.
  */
 export function riverSpanOf(route: FloatRoute, index: RouteIndex): RiverSpan | null {
   const miles = index.anchors.map((anchor) => anchor.riverMile).filter(Number.isFinite);
@@ -467,7 +469,9 @@ export function riverSpanOf(route: FloatRoute, index: RouteIndex): RiverSpan | n
   const nameAt = (mile: number) => route.anchors.find((anchor) => anchor.riverMile === mile)?.name;
   const firstName = nameAt(firstMile);
   const lastName = nameAt(lastMile);
-  return lastMile > firstMile && firstName && lastName ? { firstMile, lastMile, firstName, lastName } : null;
+  return lastMile > firstMile && firstName && lastName
+    ? { firstMile, lastMile, firstName, lastName, calibration: spanCalibration(route.anchors) }
+    : null;
 }
 
 /** Feed one GPS fix. Returns the same object when nothing changed. */

@@ -10,7 +10,7 @@ import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { floatArchive } from '@/lib/floatArchive';
 import { deleteFloatTrack } from '@/float/floatTracks';
-import { arrivalLine, floatDate, historyCardModel, recapConditionModel, recapExploredModel, recordedDuration } from '@/lib/floatHistoryDisplay';
+import { arrivalLine, floatDate, floatStretch, historyCardModel, recapConditionModel, recapExploredModel, recordedDuration } from '@/lib/floatHistoryDisplay';
 import { conditionBg, conditionChipBorder, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -27,6 +27,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
     .filter((r) => r.kind === 'completed' && !r.deleted && r.payload)
     .map((r) => r.payload as CompletedFloat);
   const card = trip ? historyCardModel(trip) : null;
+  const stretch = trip ? floatStretch(trip) : null;
   const condition = trip ? recapConditionModel(trip) : null;
   const explored = trip ? recapExploredModel(trip, history) : null;
   // The hero takes the condition's tint only from a reading current enough to rate.
@@ -158,11 +159,15 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
             {explored.lifetime ? <Text style={[t.sm, { color: colors.text }]}>{explored.lifetime}</Text> : null}
           </View> : null}
           <View style={styles.stats}>
+            {/* The stretch the float took, never a distance "paddled": river
+                explored, or an older float's tracked distance named as such. */}
             <View style={[styles.stat, { backgroundColor: colors.selectionBg }]}>
-              {card?.tracking === 'none'
-                ? <Text style={[t.base, { color: colors.text }]}>GPS distance unavailable</Text>
-                : <Text style={[styles.bigNumber, { color: colors.text }]}>{trip.distanceMiles.toFixed(1)}<Text style={t.base}> mi</Text></Text>}
-              <Text style={[t.sm, { color: colors.textMuted }]}>{card?.tracking === 'partial' ? 'Distance · limited GPS tracking' : 'Distance paddled'}</Text>
+              {stretch
+                ? <Text style={[styles.bigNumber, { color: colors.text }]}>{stretch.value}<Text style={t.base}> {stretch.unit}</Text></Text>
+                : <Text style={[t.base, { color: colors.text }]}>{card?.tracking === 'none' ? 'GPS tracking unavailable' : 'No river credited'}</Text>}
+              <Text style={[t.sm, { color: colors.textMuted }]}>
+                {stretch?.label ?? 'River explored'}{card?.tracking === 'partial' ? ' · limited GPS tracking' : ''}
+              </Text>
             </View>
             <View style={[styles.stat, { backgroundColor: colors.card }]}>
               <Text style={[styles.timeNumber, { color: colors.text }]}>{duration(trip.elapsedMs)}</Text>

@@ -113,12 +113,15 @@ What a float share may contain, and nothing else: the river (by slug), the
 put-in and take-out (by id, so the server draws only names of approved access
 points on that river), the calendar day, whether the take-out was reached, the
 tracking state, the mood, the condition code with whether its reading was
-current and its cfs, distance paddled, duration (no upper limit beyond a
-30-day bound; recordings have none), and river explored with the whole percent
-the recap states, decided on the phone from unrounded miles so the image never
-contradicts the recap. It never carries the time of day, the GPS track, the
-account, or the start note, and no free text: the query cannot be used to
-render arbitrary words.
+current, its cfs and the USGS gauge that set it, duration (no upper limit
+beyond a 30-day bound; recordings have none), and river explored with the
+whole percent the recap states, decided on the phone from unrounded miles so
+the image never contradicts the recap. It carries no distance: the figure a
+float leads with, on the image as on the card, is the stretch it took (the
+river miles the tracker credited), never a distance "paddled", which is gross
+and includes credited gaps nobody observed. It never carries the time of day,
+the GPS track, the account, or the start note, and no free text: the query
+cannot be used to render arbitrary words.
 
 The server does not trust the query's mood. It applies the recap's own gate
 (`moodGate`): nothing measured draws the standard otter, high water draws Big
@@ -131,6 +134,23 @@ product decision this does not make. Stickers are the app's own, written to
 `public/icons` by `build-eddy-icons.py` and held to the app's pixels by the
 icon parity test; the standard otter is a copy of the app's, held to it by
 `shared/float-share.test.ts`.
+
+The server does not trust the query's condition either. The stamp is Eddy's
+condition language, and anyone can build a query, so before it is drawn
+(`src/lib/float-share/verify.ts`) the named gauge must be one of the river's,
+and one of its recorded, non-suspect readings for that calendar day must rate
+as the claimed code on the river's own ladder (flood stage first), within 2%
+of the claimed cfs. A share the record does not bear out is drawn without the
+stamp, and without a mood that claimed that water (Big water, Scrape); it is
+never refused, because the float is still the paddler's. The response says
+which in `X-Eddy-Share-Condition` (`verified`, `unverified`, `none`). A
+condition from a gauge that is not a USGS site (dam tailwaters) has nothing to
+verify against and is not sent.
+
+The shared file is named by the float's day (`eddy-float-2026-10-26-…png`),
+never by the session id, which encodes the start time to the millisecond;
+AirDrop, Mail and Files keep file names. `shared/float-share.test.ts` holds
+the app to this.
 
 The route returns the river's web path in `X-Eddy-Share-Path`; the app accepts
 only a `/rivers/<state>/<slug>` path there and otherwise shares the image with

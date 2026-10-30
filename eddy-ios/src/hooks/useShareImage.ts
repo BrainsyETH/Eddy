@@ -26,7 +26,7 @@ const PREPARE_FAILED = 'Could not prepare this image. Check your connection and 
 export interface ShareImageRequest {
   /** The image route's path on eddy.guide. */
   imagePath: string;
-  /** Cache file prefix; a timestamp is added. */
+  /** Cache file prefix; a random suffix is added. Nothing about the user: the name travels with the file. */
   fileName: string;
   title: string;
   /** The link to send with it, which may depend on the response (a header). Null sends the title alone. */
@@ -66,7 +66,7 @@ export function useShareImage() {
       const link = options.linkPath(response);
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (!mounted.current || controller.signal.aborted) return;
-      file = new File(Paths.cache, `${options.fileName}-${Date.now()}.png`);
+      file = new File(Paths.cache, `${options.fileName}-${Math.random().toString(36).slice(2, 8)}.png`);
       file.write(bytes);
       clearTimeout(timeout);
       if (mounted.current) setBusy(false);

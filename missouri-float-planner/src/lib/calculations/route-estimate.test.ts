@@ -260,6 +260,13 @@ test('start condition names the gauge that set the code, with its own reading ti
   assert.equal(stale?.accuracyWarning, true, 'a 10 h old escalation is past the 6 h line');
   assert.equal(startConditionFromEstimate({ conditionCode: 'unknown', anchorCondition, contributingGauges: [] }, now), null);
   assert.equal(startConditionFromEstimate({ conditionCode: 'good', anchorCondition: { ...anchorCondition, reading_timestamp: null }, contributingGauges: [] }, now), null);
+  // A dam tailwater's gauge is not a USGS site (migration 00198): the
+  // condition is kept with a null id, since float time is withheld there and
+  // the condition is all the recap has.
+  const tailwater = startConditionFromEstimate({ conditionCode: 'high', anchorCondition: { ...anchorCondition, condition_code: 'high', gauge_name: 'Taneycomo', gauge_usgs_id: null }, contributingGauges: [] }, now);
+  assert.equal(tailwater?.gaugeName, 'Taneycomo');
+  assert.equal(tailwater?.usgsSiteId, null);
+  assert.equal(startConditionFromEstimate({ conditionCode: 'dangerous', anchorCondition, contributingGauges: [{ ...escalated('2026-10-26T14:45:00Z'), usgsSiteId: null as unknown as string }] }, now)?.usgsSiteId, null);
 });
 
 test('a real escalation reaches the start condition from the estimator', async () => {

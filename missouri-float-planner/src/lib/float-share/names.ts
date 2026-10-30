@@ -11,6 +11,8 @@ import type { FloatShareState } from '@shared/float-share';
 import { riverPath } from '@/lib/navigation/river-path';
 
 export interface FloatShareNames {
+  /** The river's row id, for the condition check (verify.ts). */
+  riverId: string;
   riverName: string;
   /** The river's eddy.guide page, the link that travels with the image. */
   riverPath: string;
@@ -46,6 +48,7 @@ export async function loadFloatShareNames(db: SupabaseClient, state: FloatShareS
   const putInName = state.putInId ? named(state.putInId) : null;
   if (!takeOutName || (state.putInId && !putInName)) return null;
   return {
+    riverId: river.id,
     riverName: river.name,
     riverPath: riverPath(river.state || 'MO', river.slug),
     putInName,

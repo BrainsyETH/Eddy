@@ -43,6 +43,7 @@ import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
 import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed, currentStartCondition, putInLocation, estimateStartId } from '../../../eddy-ios/src/lib/floatStart';
 import { startWeatherFrom, startWeatherPoint, START_WEATHER_WINDOW_MS } from '../../../eddy-ios/src/lib/floatStartWeather';
 import type { StartCondition } from '@shared/float-archive';
+import { spanCalibration } from '@shared/float-recap';
 import { fetchWeather } from './weather/openweather';
 
 const MILE = 1609.344;
@@ -1502,8 +1503,13 @@ test('start snapshots the condition and the calibrated span; the recap keeps the
   const { route, index } = prepared();
   const made = startSession({ id: 'f', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', startCondition: START_CONDITION, now: T0 });
   assert.ok(made.ok);
-  assert.deepEqual(made.session.riverSpan, { firstMile: 20, lastMile: 20 + 10_000 * MILES_PER_M, firstName: 'akers', lastName: 'round-spring' });
+  assert.deepEqual(made.session.riverSpan, {
+    firstMile: 20, lastMile: 20 + 10_000 * MILES_PER_M, firstName: 'akers', lastName: 'round-spring',
+    calibration: spanCalibration(route.anchors),
+  });
   assert.deepEqual(made.session.startCondition, START_CONDITION);
+  const tailwater = { ...START_CONDITION, usgsSiteId: null };
+  assert.deepEqual(currentStartCondition({ estimateBasis: 'today', estimatedAt: new Date(T0).toISOString(), condition: tailwater }, T0), tailwater, 'a gauge with no USGS id still sets the condition');
   const moved = float(made.session, index, 0, T0, 1200, 1.5);
   const trip = recapFloat(moved, T0 + 1_200_000);
   assert.deepEqual(trip.startCondition, START_CONDITION);

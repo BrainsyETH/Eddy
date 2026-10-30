@@ -428,9 +428,11 @@ are pending checks, not evidence of a device pass.
       locally off and retries. Verify account-linked summary disclosure, raw GPS
       staying local, and backups continuing independently of optional sharing.
 - [ ] **Float history card and recap:** in light, dark, Increase Contrast and
-      the largest Dynamic Type size, check a measured float, an untracked one
-      (no distance, the standard otter, "GPS distance unavailable"), a partly
-      tracked one ("Limited GPS tracking"), one with no condition, and one
+      the largest Dynamic Type size, check a measured float ("9.6 river mi",
+      never a distance paddled), an untracked one (no stretch, the standard
+      otter, "GPS tracking unavailable"), a partly tracked one ("Limited GPS
+      tracking"), one with no condition, a dam-tailwater float (its condition
+      badge with no USGS id in the tip), and one
       whose reading was too old to rate (its value and age, no badge). The
       river's name never truncates; the badge and stats wrap. The recap's hero
       takes the condition's tint for a current reading: check a High and a
@@ -442,7 +444,10 @@ are pending checks, not evidence of a device pass.
       cancelling the sheet is silent; offline, an older API, or a float whose
       access point was removed reports "Image unavailable". VoiceOver reaches
       a card's share as an action. Check an untracked float (standard otter,
-      "GPS distance unavailable") and a Flood float (Big water, "Flood stage").
+      "GPS tracking unavailable") and a Flood float (Big water, "Flood stage",
+      with the stamp drawn only when the gauge's readings that day bear it
+      out: `X-Eddy-Share-Condition: verified`). The shared file is named by
+      the day, not the session id.
 - [ ] **Historical recaps:** open last month's float from History, including
       while a different float is active. Keep the tab bar and ordinary Back;
       return to the same History list. Resume the active float from another
