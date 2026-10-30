@@ -1492,6 +1492,8 @@ test('start condition: its own freshness rule, kept when float time is withheld'
   assert.equal(currentStartCondition(estimate, T0 + 300_000), null, 'an estimate five minutes old is stale');
   assert.equal(currentStartCondition(estimate, T0 - 1000), null, 'or future-dated');
   assert.equal(currentStartCondition({ ...estimate, estimateBasis: 'typical' }, T0), null);
+  const usace = { ...START_CONDITION, usgsSiteId: null };
+  assert.deepEqual(currentStartCondition({ ...estimate, condition: usace }, T0), usace, 'a station USGS does not run');
   assert.equal(currentStartCondition({ ...estimate, condition: undefined }, T0), null, 'an older server');
   assert.equal(currentStartCondition({ ...estimate, condition: { ...START_CONDITION, code: 'unknown' as StartCondition['code'] } }, T0), null);
 });

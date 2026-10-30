@@ -56,6 +56,11 @@ function sameYear(at: number, now: number): boolean {
   return new Date(at).getFullYear() === new Date(now).getFullYear();
 }
 
+/** "Oct 26", with the year once it is not this one. The card and the recap both use it. */
+export function floatDate(at: number, now = Date.now()): string {
+  return shortDate(at, now);
+}
+
 function shortDate(at: number, now: number): string {
   return new Date(at).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', ...(sameYear(at, now) ? {} : { year: 'numeric' }),
@@ -207,7 +212,9 @@ export function recapExploredModel(trip: CompletedFloat, history: readonly Compl
   const length = span.lastMile - span.firstMile;
   const first = explored.segments[0].start * length + span.firstMile;
   const last = explored.segments[explored.segments.length - 1].end * length + span.firstMile;
-  const others = history.filter((t) => t.id !== trip.id && t.riverSlug === trip.riverSlug);
+  // Earlier means earlier: an old recap shades the floats before it, and its
+  // lifetime line counts up to and including this float, as of that day.
+  const others = history.filter((t) => t.id !== trip.id && t.riverSlug === trip.riverSlug && t.startedAt < trip.startedAt);
   const earlier = others.length ? riverLifetimeExplored(others, trip.riverSlug) : null;
   const lifetime = earlier ? riverLifetimeExplored([...others, trip], trip.riverSlug) : null;
   return {

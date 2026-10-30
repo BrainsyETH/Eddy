@@ -258,3 +258,10 @@ test('a malformed snapshot timestamp cannot mask a valid server reading', () => 
   assert.equal(floatCondition(trip({ startCondition: condition('flowing', { observedAt: 'soon' }) })), null, 'and with no fallback, nothing');
   assert.equal(floatCondition(trip({ water: { ...water, observedAt: 'later' } })), null);
 });
+
+test('a Start snapshot with no USGS id (a USACE station) is still the condition', () => {
+  const chosen = floatCondition(trip({ startCondition: condition('high', { usgsSiteId: null }) }));
+  assert.equal(chosen?.source, 'start');
+  assert.equal(chosen?.usgsSiteId, null);
+  assert.equal(pickFloatMood(trip({ startCondition: condition('high', { usgsSiteId: null }) })), 'big-water');
+});

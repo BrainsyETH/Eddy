@@ -104,7 +104,7 @@ export function floatCondition(trip: CompletedFloat): FloatConditionReading | nu
   if (
     record(start) &&
     isCode(start.code) && start.code !== 'unknown' &&
-    text(start.gaugeName) && text(start.usgsSiteId) && date(start.observedAt) &&
+    text(start.gaugeName) && (start.usgsSiteId === null || text(start.usgsSiteId)) && date(start.observedAt) &&
     nullableFinite(start.heightFt) && nullableFinite(start.dischargeCfs) &&
     typeof start.accuracyWarning === 'boolean'
   ) {

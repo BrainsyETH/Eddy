@@ -124,7 +124,10 @@ The server does not trust the query's mood. It applies the recap's own gate
 (`moodGate`): nothing measured draws the standard otter, high water draws Big
 water only on a current reading, and a mood that claims water the condition
 does not show (Big water, Scrape) is refused. Flood floats can be shared and
-state the condition plainly. Stickers are the app's own, written to
+state the condition plainly: "Big water" and "Flood stage" are drawn in the
+muted ink, never the coral headline "Made it!" wears, so a high-water share
+reads as a record, not a trophy. Whether to share high water at all is a
+product decision this does not make. Stickers are the app's own, written to
 `public/icons` by `build-eddy-icons.py` and held to the app's pixels by the
 icon parity test; the standard otter is a copy of the app's, held to it by
 `shared/float-share.test.ts`.

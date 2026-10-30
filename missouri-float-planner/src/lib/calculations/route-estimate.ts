@@ -172,7 +172,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     let measurementUnit: 'ft' | 'cfs' | undefined;
     const spanWarnings: string[] = [];
     let anchorCondition: Record<string, unknown> | null = null;
-    const contributingGauges: Array<{ name: string; usgsSiteId: string; riverMile: number; conditionCode: string; gaugeHeightFt: number | null; dischargeCfs: number | null; observedAt: string | null; effect: 'escalated' | 'low_water' }> = [];
+    const contributingGauges: Array<{ name: string; usgsSiteId: string | null; riverMile: number; conditionCode: string; gaugeHeightFt: number | null; dischargeCfs: number | null; observedAt: string | null; effect: 'escalated' | 'low_water' }> = [];
     let spanCheckComplete = true;
     let dailyStats: Awaited<ReturnType<typeof fetchDailyStatistics>> = null;
     if (mode === 'today') {
@@ -500,7 +500,8 @@ export function startConditionFromEstimate(
 ): {
   code: Exclude<ConditionCode, 'unknown'>;
   gaugeName: string;
-  usgsSiteId: string;
+  /** Null for a station USGS does not run: a USACE tailwater (migration 00198). */
+  usgsSiteId: string | null;
   heightFt: number | null;
   dischargeCfs: number | null;
   observedAt: string;
@@ -511,11 +512,11 @@ export function startConditionFromEstimate(
   const escalation = estimate.contributingGauges.filter((g) => g.effect === 'escalated').pop();
   if (escalation) {
     const at = escalation.observedAt ? Date.parse(escalation.observedAt) : NaN;
-    if (!escalation.name || !escalation.usgsSiteId || !Number.isFinite(at)) return null;
+    if (!escalation.name || !Number.isFinite(at)) return null;
     return {
       code,
       gaugeName: escalation.name,
-      usgsSiteId: escalation.usgsSiteId,
+      usgsSiteId: escalation.usgsSiteId || null,
       heightFt: escalation.gaugeHeightFt,
       dischargeCfs: escalation.dischargeCfs,
       observedAt: new Date(at).toISOString(),
@@ -528,12 +529,14 @@ export function startConditionFromEstimate(
     reading_timestamp?: unknown; accuracy_warning?: unknown;
   } | null;
   const at = typeof anchor?.reading_timestamp === 'string' ? Date.parse(anchor.reading_timestamp) : NaN;
-  if (!anchor || typeof anchor.gauge_name !== 'string' || !anchor.gauge_name ||
-    typeof anchor.gauge_usgs_id !== 'string' || !anchor.gauge_usgs_id || !Number.isFinite(at)) return null;
+  // A USACE tailwater station has no USGS id (migration 00198). Today its
+  // ladder is empty, so its code is unknown and nothing reaches here; once a
+  // ladder lands, its condition must not vanish for want of a USGS id.
+  if (!anchor || typeof anchor.gauge_name !== 'string' || !anchor.gauge_name || !Number.isFinite(at)) return null;
   return {
     code,
     gaugeName: anchor.gauge_name,
-    usgsSiteId: anchor.gauge_usgs_id,
+    usgsSiteId: typeof anchor.gauge_usgs_id === 'string' && anchor.gauge_usgs_id ? anchor.gauge_usgs_id : null,
     heightFt: toNum(anchor.gauge_height_ft),
     dischargeCfs: toNum(anchor.discharge_cfs),
     observedAt: new Date(at).toISOString(),

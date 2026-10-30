@@ -1082,6 +1082,11 @@ const completedRow = (payload: unknown) => ({ rows: [{ id: 'trip', kind: 'comple
 test('recap context: accepted with bounds, rejected when malformed', () => {
   assert.equal(archiveBatch.safeParse(completedRow({ ...summary(), ...recapContext })).success, true);
   assert.equal(archiveBatch.safeParse(completedRow({ ...summary(), startCondition: null, riverSpan: null, coveredMiles: null, startWeather: null })).success, true);
+  assert.equal(
+    archiveBatch.safeParse(completedRow({ ...summary(), ...recapContext, startCondition: { ...recapContext.startCondition, usgsSiteId: null } })).success,
+    true,
+    'a USACE station has no USGS id',
+  );
   const bad: Record<string, unknown>[] = [
     { startCondition: { ...recapContext.startCondition, code: 'unknown' } },
     { startCondition: { ...recapContext.startCondition, extra: 1 } },

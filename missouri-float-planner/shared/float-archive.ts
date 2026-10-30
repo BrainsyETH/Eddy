@@ -8,7 +8,8 @@ import type { ConditionCode } from './condition-system';
 export interface StartCondition {
   code: Exclude<ConditionCode, 'unknown'>;
   gaugeName: string;
-  usgsSiteId: string;
+  /** Null for a station USGS does not run (USACE tailwaters, migration 00198). */
+  usgsSiteId: string | null;
   heightFt: number | null;
   dischargeCfs: number | null;
   /** When the gauge reading was taken, not when the estimate was made. */

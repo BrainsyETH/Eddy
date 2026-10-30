@@ -10,7 +10,7 @@
 import { ImageResponse } from 'next/og';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { colors } from '@shared/social-brand';
-import { exploredMiles, exploredPercentLabel, floatMoodLabel, type FloatMood } from '@shared/float-recap';
+import { exploredMiles, exploredPercentLabel, floatMoodLabel, riverShortName, type FloatMood } from '@shared/float-recap';
 import { shareDuration, type FloatShareState } from '@shared/float-share';
 import type { FloatShareNames } from '@/lib/float-share/names';
 import { loadOgFonts } from './fonts';
@@ -72,6 +72,10 @@ export function FloatShareImage({
   sticker: string;
 }) {
   const label = floatMoodLabel(mood, state.condition?.code ?? null);
+  // High water is stated, not celebrated: "Big water" and "Flood stage" take
+  // the muted ink, never the coral headline that "Made it!" wears. The
+  // cautious sticker and the stamp carry the condition.
+  const labelColor = mood === 'big-water' ? MUTED : CORAL;
   // The standard otter's PNG carries more empty margin than the stickers.
   const size = mood ? 470 : 540;
   const route = names.putInName ? `${names.putInName} → ${names.takeOutName}` : `To ${names.takeOutName}`;
@@ -117,7 +121,7 @@ export function FloatShareImage({
       </div>
 
       {label ? (
-        <div style={{ display: 'flex', marginTop: 50, fontSize: 116, color: CORAL, textAlign: 'center' }}>{label}</div>
+        <div style={{ display: 'flex', marginTop: 50, fontSize: 116, color: labelColor, textAlign: 'center' }}>{label}</div>
       ) : null}
       <div style={{ display: 'flex', marginTop: label ? 18 : 50, fontSize: 86, textAlign: 'center' }}>{names.riverName}</div>
       <div style={{ display: 'flex', marginTop: 14, fontSize: 42, color: MUTED, textAlign: 'center' }}>{route}</div>
@@ -173,7 +177,9 @@ export function FloatShareImage({
           <Stat
             value={exploredMiles(explored.miles)}
             label="river miles explored"
-            note={`${exploredPercentLabel(explored.percent)} of float miles`}
+            // The river's name, not just "float miles": a recipient who does
+            // not know Eddy needs to know whose miles these are.
+            note={`${exploredPercentLabel(explored.percent)} of ${riverShortName(names.riverName)}’s float miles`}
           />
         ) : null}
       </div>

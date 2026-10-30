@@ -62,7 +62,7 @@ export function currentStartCondition(result: {
   const age = now - Date.parse(result.estimatedAt);
   if (!(age >= 0 && age < 5 * 60_000)) return null;
   return typeof condition.code === 'string' && (condition.code as string) !== 'unknown' &&
-    typeof condition.gaugeName === 'string' && typeof condition.usgsSiteId === 'string' &&
+    typeof condition.gaugeName === 'string' && (condition.usgsSiteId === null || typeof condition.usgsSiteId === 'string') &&
     typeof condition.observedAt === 'string' && typeof condition.accuracyWarning === 'boolean'
     ? condition
     : null;

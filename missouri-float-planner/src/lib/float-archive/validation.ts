@@ -18,7 +18,8 @@ const startCondition = z
   .object({
     code: z.enum(['too_low', 'low', 'good', 'flowing', 'high', 'dangerous']),
     gaugeName: name,
-    usgsSiteId: id,
+    // Null for a station USGS does not run (USACE tailwaters).
+    usgsSiteId: id.nullable(),
     heightFt: z.number().finite().min(-50).max(200).nullable(),
     dischargeCfs: z.number().finite().min(0).max(2_000_000).nullable(),
     observedAt,

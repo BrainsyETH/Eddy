@@ -432,8 +432,10 @@ are pending checks, not evidence of a device pass.
       (no distance, the standard otter, "GPS distance unavailable"), a partly
       tracked one ("Limited GPS tracking"), one with no condition, and one
       whose reading was too old to rate (its value and age, no badge). The
-      river's name never truncates; the badge and stats wrap. Save the
-      screenshots to `design/float-history-card/`.
+      river's name never truncates; the badge and stats wrap. The recap's hero
+      takes the condition's tint for a current reading: check a High and a
+      Flood recap (orange and red behind the mood line) and decide whether
+      that is wanted. Save the screenshots to `design/float-history-card/`.
 - [ ] **Float share image rollout:** deploy `GET /api/share/float/image` before
       the app change reaches devices. Share a float from its recap and from a
       History card: Messages receives the image and the river page link;

@@ -10,7 +10,7 @@ import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { floatArchive } from '@/lib/floatArchive';
 import { deleteFloatTrack } from '@/float/floatTracks';
-import { arrivalLine, historyCardModel, recapConditionModel, recapExploredModel, recordedDuration } from '@/lib/floatHistoryDisplay';
+import { arrivalLine, floatDate, historyCardModel, recapConditionModel, recapExploredModel, recordedDuration } from '@/lib/floatHistoryDisplay';
 import { conditionBg, conditionChipBorder, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -113,7 +113,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
               {trip.startNote ? <FloatInfoTip title="Recorded start" message={trip.startNote} /> : null}
             </View>
             <Text style={[t.sm, { color: colors.textMuted }]}>
-              {new Date(trip.startedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+              {floatDate(trip.startedAt)}
               {trip.boatType ? ` · ${trip.boatType.charAt(0).toUpperCase()}${trip.boatType.slice(1)}` : ''}
             </Text>
             <Text style={[t.sm, { fontFamily: fonts.semibold, color: colors.text }]}>{arrivalLine(trip)}</Text>

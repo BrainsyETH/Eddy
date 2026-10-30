@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { CompletedFloat, StartCondition } from '@shared/float-archive';
 import {
   arrivalLine,
+  floatDate,
   floatShareLink,
   floatShareTitle,
   historyCardModel,
@@ -134,4 +135,32 @@ test('the share sheet names the float, and links only to a river web page', () =
   for (const bad of [null, '', '/river/current', 'https://evil.example/rivers/missouri/current', '/rivers/missouri/current?x=1', '//evil.example']) {
     assert.equal(floatShareLink(bad), null, String(bad));
   }
+});
+
+test('an old recap shades only the floats before it, and counts as of that day', () => {
+  const span = { firstMile: 0, lastMile: 134, firstName: 'Baptist Camp', lastName: 'Big Spring' };
+  const first = trip({ id: 'first', startedAt: START - 400 * HOUR, endedAt: START - 396 * HOUR, riverSpan: span, coveredMiles: [[10, 20]] });
+  const middle = trip({ id: 'middle', riverSpan: span, coveredMiles: [[52.1, 61.9]] });
+  const later = trip({ id: 'later', startedAt: START + 400 * HOUR, endedAt: START + 404 * HOUR, riverSpan: span, coveredMiles: [[90, 100]] });
+  const model = recapExploredModel(middle, [first, middle, later]);
+  assert.equal(model?.earlier?.miles, 10, 'only the float before it');
+  assert.equal(model?.lifetime, '19.8 of the Current’s 134 float miles explored', 'as of this float, not today');
+  const oldest = recapExploredModel(first, [first, middle, later]);
+  assert.equal(oldest?.earlier, null, 'nothing came before the first float');
+  assert.equal(oldest?.lifetime, null);
+});
+
+test('the card and the recap date a float the same way', () => {
+  assert.equal(floatDate(START, NOW), 'Oct 26');
+  assert.equal(floatDate(START, Date.parse('2027-03-01T00:00:00Z')), 'Oct 26, 2026');
+  assert.equal(historyCardModel(trip(), NOW).date, floatDate(START, NOW));
+});
+
+test('a condition from a station USGS does not run keeps its badge, with no USGS line', () => {
+  const usace = { ...flowing, gaugeName: 'Black River below Clearwater Dam', usgsSiteId: null };
+  const model = recapConditionModel(trip({ startCondition: usace }));
+  assert.equal(model?.badge?.label, 'Flowing');
+  assert.equal(model?.gaugeName, 'Black River below Clearwater Dam');
+  assert.ok(!model!.tip.includes('USGS'), 'no "USGS null"');
+  assert.equal(historyCardModel(trip({ startCondition: usace }), NOW).badge?.text, 'Flowing · 412 cfs');
 });

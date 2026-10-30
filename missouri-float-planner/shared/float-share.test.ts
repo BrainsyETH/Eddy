@@ -198,7 +198,7 @@ test('the image states the percent the recap states, never one recomputed from r
     const html = renderToStaticMarkup(createElement(FloatShareImage, {
       state: parsed, names: { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'A', takeOutName: 'B' }, mood: null, sticker: '',
     }));
-    assert.ok(html.includes(`${recap} of float miles`), `image for ${explored}/${length}: ${recap}`);
+    assert.ok(html.includes(`${recap} of the Current’s float miles`), `image for ${explored}/${length}: ${recap}`);
   }
   const sliver = floatShareState(trip({ riverSpan: span(134), coveredMiles: [[10, 10.004]] }));
   assert.equal(sliver.explored?.miles, 0.01, 'a sliver encodes as 0.01, which reads "Under 0.1"');
@@ -260,4 +260,17 @@ test('the route: 400 for a malformed share, 422 only when its places are gone, t
   assert.equal(ok.status, 200);
   assert.equal(ok.headers.get('content-type'), 'image/png');
   assert.equal(ok.headers.get('x-eddy-share-path'), '/rivers/missouri/current');
+});
+
+test('high water is stated on the image, not celebrated', () => {
+  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
+  const draw = (t: CompletedFloat) => {
+    const state = floatShareState(t);
+    return renderToStaticMarkup(createElement(FloatShareImage, { state, names, mood: shareMood(state), sticker: '' }));
+  };
+  // The colour of the element holding the mood line itself, not the wordmark.
+  const labelColor = (html: string, text: string) => new RegExp(`color:([^;"]+)[^>]*>${text}<`).exec(html)?.[1];
+  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'dangerous' } })), 'Flood stage'), 'rgba(250,250,250,0.72)');
+  assert.equal(labelColor(draw(trip({ startCondition: { ...flowing, code: 'high' } })), 'Big water'), 'rgba(250,250,250,0.72)');
+  assert.equal(labelColor(draw(trip({ startCondition: flowing })), 'Made it!'), '#F07052', 'Made it! keeps its coral');
 });

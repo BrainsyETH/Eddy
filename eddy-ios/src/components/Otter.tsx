@@ -10,7 +10,7 @@
 // ~700 KB each). These copies are downscaled to 300px — enough for a ~100pt
 // render at @3x — which took the set from 4.58 MB to 193 KB.
 
-import { Image, StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
+import { Image, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import { CONDITION_SYSTEM, type ConditionCode } from '@eddy/conditions';
 import type { FloatMood } from '@eddy/conditions/float-recap';
 
@@ -83,7 +83,19 @@ export function FloatMoodOtter({
   size?: number;
   style?: StyleProp<ImageStyle>;
 }) {
-  if (!mood) return <Otter mood="standard" size={size} style={style} />;
+  if (!mood) {
+    // The standard otter's PNG carries more empty margin than the stickers, so
+    // at one size it reads smaller beside them. Draw it larger inside the same
+    // box (the share image does the same), so the layout does not move.
+    const drawn = Math.round(size * 1.15);
+    const inset = (size - drawn) / 2;
+    return (
+      <View style={[{ width: size, height: size, alignSelf: 'center' }, style]}>
+        {/* Otter centres itself across; the inset centres it down. */}
+        <Otter mood="standard" size={drawn} style={{ marginTop: inset }} />
+      </View>
+    );
+  }
   return (
     <Image
       source={FLOAT_MOODS[mood]}
