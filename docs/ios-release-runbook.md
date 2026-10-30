@@ -2,8 +2,14 @@
 
 ## Current release
 
-- **Release in progress:** 1.5 (`eddy-ios/app.json` is `1.5.0`, repository
-  version checked 2026-10-29; this does not confirm a submitted or live build)
+- **Release in progress:** 1.6 (`eddy-ios/app.json` is `1.6.0`, repository
+  version checked 2026-10-30; this does not confirm a submitted or live build).
+  There is no 1.6 readiness report yet; the 1.5 report and its delta gates
+  below carry into it unclosed.
+- **Last build seen in the field:** 1.5.0 (11), an ad hoc `preview` build
+  on runtime `2af3dd12…`, from Sentry events on 2026-10-30. That runtime
+  matches neither fingerprint in the 1.5 report, so the build's commit is
+  unconfirmed, and it says nothing about the App Store.
 - **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
