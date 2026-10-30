@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ControlIcon } from '@/components/ControlIcon';
 import { FloatMoodOtter } from '@/components/Otter';
 import { FloatInfoTip } from './FloatInfoTip';
+import { FloatShareButton } from './FloatShareButton';
 import { recapBackupStatus } from '@/lib/floatDisplay';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -201,8 +202,9 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
             </Pressable> : null}
             {row?.backupError || (row?.dirty && archive.error) ? <FloatInfoTip title="Account backup" message={row.backupError ?? archive.error!} /> : null}
           </View> : null}
-          <Pressable accessibilityRole="button" onPress={showHistory} style={[styles.history, { backgroundColor: colors.accentFill }]}>
-            <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.onAccent }]}>Your float history</Text>
+          <FloatShareButton trip={trip} />
+          <Pressable accessibilityRole="button" onPress={showHistory} style={[styles.history, { borderColor: colors.interactive }]}>
+            <Text style={[t.base, { fontFamily: fonts.semibold, color: colors.interactive }]}>Your float history</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={remove} style={styles.delete}>
             <Text style={[t.sm, { color: colors.error }]}>Delete float</Text>
@@ -250,6 +252,6 @@ const styles = StyleSheet.create({
   duration: { ...t.base, fontFamily: fonts.monoMedium },
   speed: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   button: { paddingHorizontal: 8, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
-  history: { minHeight: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  history: { minHeight: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 12 },
   delete: { minHeight: 44, alignSelf: 'center', justifyContent: 'center' },
 });

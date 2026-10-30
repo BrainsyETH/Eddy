@@ -434,6 +434,13 @@ are pending checks, not evidence of a device pass.
       whose reading was too old to rate (its value and age, no badge). The
       river's name never truncates; the badge and stats wrap. Save the
       screenshots to `design/float-history-card/`.
+- [ ] **Float share image rollout:** deploy `GET /api/share/float/image` before
+      the app change reaches devices. Share a float from its recap and from a
+      History card: Messages receives the image and the river page link;
+      cancelling the sheet is silent; offline, an older API, or a float whose
+      access point was removed reports "Image unavailable". VoiceOver reaches
+      a card's share as an action. Check an untracked float (standard otter,
+      "GPS distance unavailable") and a Flood float (Big water, "Flood stage").
 - [ ] **Historical recaps:** open last month's float from History, including
       while a different float is active. Keep the tab bar and ordinary Back;
       return to the same History list. Resume the active float from another

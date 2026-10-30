@@ -10,85 +10,37 @@
 //                 message, the preview-card url and the quiet cancel/failure
 //                 behaviour all match.
 //   Share Image → render the PNG on the server, then hand the system sheet the
-//                 file AND the link text. Messages sends both, so a recipient
-//                 gets the picture and a way back to the live view.
+//                 file AND the link text (useShareImage). Messages sends both,
+//                 so a recipient gets the picture and a way back to the live view.
 //
-// Image preparation needs the network; link sharing never waits for it. A
-// failure to PREPARE the image is reported, because the user is left with
-// nothing to share. A failure or cancel inside the share sheet is not.
+// Image preparation needs the network; link sharing never waits for it.
 
-import { useEffect, useRef, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, Share, StyleSheet, Text } from 'react-native';
-import { File, Paths } from 'expo-file-system';
+import { ActionSheetIOS, ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { chartImagePath, chartSharePath, chartShareTitle, type ChartShareState } from '@eddy/conditions/chart-share';
 import { ControlIcon } from '@/components/ControlIcon';
-import { shareLink, webUrl } from '@/lib/share';
+import { useShareImage } from '@/hooks/useShareImage';
+import { shareLink } from '@/lib/share';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 export function ChartShareControl({ state, stationName }: { state: ChartShareState | null; stationName?: string | null }) {
   const { colors, isDark } = useTheme();
-  const [busy, setBusy] = useState(false);
-  const inFlight = useRef(false);
-  const request = useRef<AbortController | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      request.current?.abort();
-    };
-  }, []);
+  const { busy, shareImage } = useShareImage();
 
   function shareChartLink(snapshot: ChartShareState) {
     void shareLink(chartShareTitle(stationName, snapshot), chartSharePath(snapshot));
   }
 
-  async function shareImage(snapshot: ChartShareState) {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setBusy(true);
-    const controller = new AbortController();
-    request.current = controller;
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    let file: File | null = null;
-    try {
-      const response = await fetch(webUrl(chartImagePath(snapshot)), { signal: controller.signal });
-      if (response.status === 422) throw new Error('saved_view_unavailable');
-      if (!response.ok || !response.headers.get('content-type')?.includes('image/png'))
-        throw new Error('Image unavailable');
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (!mounted.current || controller.signal.aborted) return;
-      file = new File(Paths.cache, `eddy-chart-${snapshot.siteId}-${Date.now()}.png`);
-      file.write(bytes);
-      clearTimeout(timeout);
-      if (mounted.current) setBusy(false);
-      const title = chartShareTitle(stationName, snapshot);
-      try {
-        await Share.share({ title, url: file.uri, message: `${title}\n${webUrl(chartSharePath(snapshot))}` });
-      } catch {
-        // As in shareLink: a share-sheet failure costs nothing the user cannot retry.
-      }
-    } catch (error) {
-      if (mounted.current) {
-        Alert.alert(
-          'Image unavailable',
-          error instanceof Error && error.message === 'saved_view_unavailable'
-            ? 'This saved chart view is no longer available. Open the gauge for current conditions.'
-            : 'Could not prepare this image. Check your connection and try again, or share the link instead.',
-        );
-      }
-    } finally {
-      clearTimeout(timeout);
-      inFlight.current = false;
-      request.current = null;
-      if (mounted.current) setBusy(false);
-      try {
-        if (file?.exists) file.delete();
-      } catch {
-        /* cache cleanup is best effort */
-      }
-    }
+  function shareChartImage(snapshot: ChartShareState) {
+    void shareImage({
+      imagePath: chartImagePath(snapshot),
+      fileName: `eddy-chart-${snapshot.siteId}`,
+      title: chartShareTitle(stationName, snapshot),
+      linkPath: () => chartSharePath(snapshot),
+      failureMessage: (status) =>
+        status === 422 ? 'This saved chart view is no longer available. Open the gauge for current conditions.' : null,
+      defaultFailure: 'Could not prepare this image. Check your connection and try again, or share the link instead.',
+    });
   }
 
   function open(target: number) {
@@ -110,7 +62,7 @@ export function ChartShareControl({ state, stationName }: { state: ChartShareSta
       cancelButtonIndex: 2,
     }, index => {
       if (index === 0) shareChartLink(snapshot);
-      else if (index === 1) void shareImage(snapshot);
+      else if (index === 1) shareChartImage(snapshot);
     });
   }
 

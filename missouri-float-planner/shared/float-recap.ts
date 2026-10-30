@@ -177,6 +177,25 @@ function floatWeather(trip: CompletedFloat): { tempF: number; precipIn1h: number
 
 // ── Moods ─────────────────────────────────────────────────────────────────
 
+/** The design's mood names, shared so the recap and its share image say the same thing. */
+const MOOD_LABELS: Record<FloatMood, string> = {
+  'made-it': 'Made it!',
+  'good-float': 'Good float',
+  'quick-dip': 'Quick dip',
+  'lazy-river': 'Lazy river',
+  'big-water': 'Big water',
+  rain: 'Rain on the river',
+  chilly: 'Chilly one',
+  scrape: 'Scrape & drag',
+  'speed-run': 'Speed run',
+};
+
+/** A mood's name; Big water at Flood states the condition plainly instead. Null for no mood. */
+export function floatMoodLabel(mood: FloatMood | null, code: ConditionCode | null): string | null {
+  if (!mood) return null;
+  return mood === 'big-water' && code === 'dangerous' ? 'Flood stage' : MOOD_LABELS[mood];
+}
+
 export type MoodGate = 'standard' | 'big-water' | 'open';
 
 /**
@@ -331,6 +350,12 @@ export function exploredPercent(fraction: number): string {
   if (fraction >= 1) return '100%';
   if (fraction < 0.01) return 'Under 1%';
   return `${Math.min(99, Math.round(fraction * 100))}%`;
+}
+
+/** "the Current" for "Current River"; other names as they are. */
+export function riverShortName(riverName: string): string {
+  const short = riverName.replace(/\s+River$/i, '');
+  return short === riverName ? riverName : `the ${short}`;
 }
 
 /** "9.6 river miles explored" first; the share of the river's float miles second. */

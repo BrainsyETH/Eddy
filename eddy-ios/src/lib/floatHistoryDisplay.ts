@@ -14,10 +14,12 @@ import {
   exploredMiles,
   floatBadge,
   floatCondition,
+  floatMoodLabel,
   floatTracking,
   pickFloatMood,
   riverExplored,
   riverLifetimeExplored,
+  riverShortName,
   type FloatBadge,
   type FloatMood,
   type FloatTracking,
@@ -25,23 +27,10 @@ import {
 } from '@eddy/conditions/float-recap';
 import { formatDuration } from './floatSession';
 
-/** The design's mood names. Big water at Flood says so plainly instead. */
-const MOOD_LINES: Record<FloatMood, string> = {
-  'made-it': 'Made it!',
-  'good-float': 'Good float',
-  'quick-dip': 'Quick dip',
-  'lazy-river': 'Lazy river',
-  'big-water': 'Big water',
-  rain: 'Rain on the river',
-  chilly: 'Chilly one',
-  scrape: 'Scrape & drag',
-  'speed-run': 'Speed run',
-};
+export { riverShortName };
 
 export function moodLine(mood: FloatMood | null, trip: CompletedFloat): string | null {
-  if (!mood) return null;
-  if (mood === 'big-water' && floatCondition(trip)?.code === 'dangerous') return 'Flood stage';
-  return MOOD_LINES[mood];
+  return floatMoodLabel(mood, floatCondition(trip)?.code ?? null);
 }
 
 /** Recorded time as it is: "<1 min" below a minute, never a band. */
@@ -57,12 +46,6 @@ function spokenDuration(ms: number): string {
   const h = hours ? `${hours} ${hours === 1 ? 'hour' : 'hours'}` : '';
   const m = rest || !hours ? `${rest} ${rest === 1 ? 'minute' : 'minutes'}` : '';
   return [h, m].filter(Boolean).join(' ');
-}
-
-/** "the Current" for "Current River"; other names as they are. */
-export function riverShortName(riverName: string): string {
-  const short = riverName.replace(/\s+River$/i, '');
-  return short === riverName ? riverName : `the ${short}`;
 }
 
 function routeTitle(trip: CompletedFloat): string {
@@ -242,4 +225,18 @@ export function recapExploredModel(trip: CompletedFloat, history: readonly Compl
 /** What was confirmed, never implied by the mood. */
 export function arrivalLine(trip: CompletedFloat): string {
   return trip.reachedTakeOut ? `Reached ${trip.takeOutName}` : `Arrival at ${trip.takeOutName} not confirmed`;
+}
+
+/** The share sheet's title: the river and the route, as the card reads. */
+export function floatShareTitle(trip: CompletedFloat): string {
+  return `${trip.riverName}: ${routeTitle(trip)}`;
+}
+
+/**
+ * The river page link the share route returns in X-Eddy-Share-Path, or null
+ * for anything that is not a web river path: a missing header (an older
+ * server) shares the image with its title alone, never an app route.
+ */
+export function floatShareLink(header: string | null): string | null {
+  return header && /^\/rivers\/[a-z-]+\/[a-z0-9-]+$/.test(header) ? header : null;
 }

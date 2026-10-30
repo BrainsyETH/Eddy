@@ -164,6 +164,9 @@ WEB_ICONS = (
     "eddy-inflow",
     "eddy-fishery",
     "eddy-hazard",
+    # The float share image (api/share/float/image) draws the same mood
+    # sticker the recap shows, so the server needs every one of them.
+    *MOODS,
 )
 
 # Longest edge of the exported PNG. Matches assets/otter.

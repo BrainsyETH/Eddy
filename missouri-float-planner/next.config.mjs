@@ -19,6 +19,8 @@ const nextConfig = {
     '/api/gauges/\\[siteId\\]': ['./node_modules/geo-tz/data/timezones-1970.*'],
     '/api/gauges/\\[siteId\\]/history': ['./node_modules/geo-tz/data/timezones-1970.*'],
     '/api/share/chart/\\[provider\\]/\\[siteId\\]/image': ['./node_modules/geo-tz/data/timezones-1970.*'],
+    // The float share image reads its mood sticker and the standard otter.
+    '/api/share/float/image': ['./public/icons/eddy-*.png', './public/share/otter-standard.png'],
     // Private HTML is served only by the authenticated diagram route.
     '/admin/visuals/*': ['./content/admin-visuals/*.html'],
   },

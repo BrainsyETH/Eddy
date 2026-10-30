@@ -3,6 +3,8 @@ import test from 'node:test';
 import type { CompletedFloat, StartCondition } from '@shared/float-archive';
 import {
   arrivalLine,
+  floatShareLink,
+  floatShareTitle,
   historyCardModel,
   moodLine,
   recapConditionModel,
@@ -123,4 +125,13 @@ test('arrival is what was confirmed, and short names read naturally', () => {
   assert.equal(arrivalLine(trip({ reachedTakeOut: false })), 'Arrival at Pulltite not confirmed');
   assert.equal(riverShortName('Current River'), 'the Current');
   assert.equal(riverShortName('Jacks Fork'), 'Jacks Fork');
+});
+
+test('the share sheet names the float, and links only to a river web page', () => {
+  assert.equal(floatShareTitle(trip()), 'Current River: Akers Ferry → Pulltite');
+  assert.equal(floatShareTitle(trip({ putInId: null, putInName: null })), 'Current River: To Pulltite');
+  assert.equal(floatShareLink('/rivers/missouri/current'), '/rivers/missouri/current');
+  for (const bad of [null, '', '/river/current', 'https://evil.example/rivers/missouri/current', '/rivers/missouri/current?x=1', '//evil.example']) {
+    assert.equal(floatShareLink(bad), null, String(bad));
+  }
 });

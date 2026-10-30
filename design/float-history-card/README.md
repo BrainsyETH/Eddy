@@ -25,7 +25,7 @@ wins:
 | "Under a minute on the water", "Barely got wet" | The recorded duration; no strip without credited river |
 | "River completed", "5% of the Current", Headwaters to Mouth | "River explored", miles first, share of the river's float miles, the strip labelled with its first and last access points |
 | "Clear and gentle when you put in", `USGS` id inline | The badge, then the gauge and the reading's age; the station id in the info tip |
-| Share in the recap header and a Share float button | Sharing waits for phase 5; then one Share float button |
+| Share in the recap header and a Share float button | One Share float button on the recap, and a share button on each card |
 | Quick dip `distance < 0.25 mi OR elapsed < 10 min`; rain "during the float" | Quick dip is time only; untracked floats get no mood; rain is measured at the put-in |
 
 ## Mood art

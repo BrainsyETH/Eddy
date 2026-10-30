@@ -96,6 +96,40 @@ inline and mobile uses its expanded dialog. Dates, zoom, layers and scale live
 in the common component and survive presentation changes. Both platforms allow
 link sharing while image preparation is running.
 
+## Float share images
+
+A saved float shares as a 1080 × 1920 PNG from `GET /api/share/float/image`,
+rendered with `next/og` from one versioned query (`shared/float-share.ts`), and
+the river's web page as the link text. It follows the chart image's rules:
+stateless, nothing stored, one canonical spelling (others are 308-redirected so
+they share a cache key), rate limited, and an error rather than a picture for
+anything it will not draw. That last rule matters more here: there is no link
+preview to fall back to, and the app's share control treats any PNG as the
+image it asked for.
+
+What a float share may contain, and nothing else: the river (by slug), the
+put-in and take-out (by id, so the server draws only names of approved access
+points on that river), the calendar day, whether the take-out was reached, the
+tracking state, the mood, the condition code with whether its reading was
+current and its cfs, distance paddled, duration, and river explored with the
+span's float miles. It never carries the time of day, the GPS track, the
+account, or the start note, and no free text: the query cannot be used to
+render arbitrary words.
+
+The server does not trust the query's mood. It applies the recap's own gate
+(`moodGate`): nothing measured draws the standard otter, high water draws Big
+water only on a current reading, and a mood that claims water the condition
+does not show (Big water, Scrape) is refused. Flood floats can be shared and
+state the condition plainly. Stickers are the app's own, written to
+`public/icons` by `build-eddy-icons.py` and held to the app's pixels by the
+icon parity test; the standard otter is a copy of the app's, held to it by
+`shared/float-share.test.ts`.
+
+The route returns the river's web path in `X-Eddy-Share-Path`; the app accepts
+only a `/rivers/<state>/<slug>` path there and otherwise shares the image with
+its title alone. Deploy the route before the app change reaches devices: an
+older API answers 404, which the app reports as an image it could not prepare.
+
 ## Delivery and activation
 
 The dependency order is shared state/web restoration, image sharing, then app

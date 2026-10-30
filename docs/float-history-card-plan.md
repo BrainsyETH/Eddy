@@ -1,9 +1,9 @@
 # Float history card: conditions at start, river explored, otter moods, share
 
-Status: phases 1a to 3 implemented, with phase 4's existing stickers bundled
-and stand-ins for the five moods whose art is not drawn yet. Phase 5 (share)
-is not started. The canvas is in `design/float-history-card/`, with where this
-plan overrides it; the device-state screenshots are still to export.
+Status: phases 1a to 5 implemented, with phase 4's existing stickers bundled
+and stand-ins for the five moods whose art is not drawn yet. The canvas is in
+`design/float-history-card/`, with where this plan overrides it; the
+device-state screenshots and the share-sheet checks are still to do.
 
 Design mockup (a private canvas, not in this repository; ask the owner for
 access): the "Float History Card" canvas has four boards: the history list,

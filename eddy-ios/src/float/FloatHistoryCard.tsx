@@ -8,9 +8,10 @@
 // here; the tilted stamp belongs to the share image.
 
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { FloatMoodOtter } from '@/components/Otter';
+import { useFloatShare } from './FloatShareButton';
 import { historyCardModel } from '@/lib/floatHistoryDisplay';
 import { conditionBg, conditionChipBorder, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -27,11 +28,18 @@ export function FloatHistoryCard({
 }) {
   const { colors, isDark } = useTheme();
   const card = historyCardModel(trip);
+  const { busy, share } = useFloatShare(trip);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={card.accessibilityLabel}
       accessibilityHint="Opens the recap"
+      // The card reads as one element, so its share button is an action on it.
+      accessibilityActions={[{ name: 'activate' }, { name: 'share', label: 'Share this float' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'share') share();
+        else onOpen();
+      }}
       onPress={onOpen}
       style={({ pressed }) => [styles.card, { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }, elevation]}
     >
@@ -74,7 +82,19 @@ export function FloatHistoryCard({
             </Text>
           </View>
         ) : null}
-        <ControlIcon name="chevron-forward" size={18} color={colors.interactive} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share this float"
+          accessibilityState={{ disabled: busy, busy }}
+          disabled={busy}
+          hitSlop={4}
+          onPress={share}
+          style={({ pressed }) => [styles.share, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
+        >
+          {busy
+            ? <ActivityIndicator size="small" color={colors.interactive} />
+            : <ControlIcon name="share-outline" size={18} color={colors.interactive} />}
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -88,4 +108,5 @@ const styles = StyleSheet.create({
   bottom: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
   grow: { flex: 1, minWidth: 160, gap: 2 },
   badge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  share: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });
