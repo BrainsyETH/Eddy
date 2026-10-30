@@ -16,6 +16,7 @@ import {
   floatTracking,
   moodGate,
   pickFloatMood,
+  exploredPercentValue,
   riverExplored,
   type FloatMood,
   type FloatTracking,
@@ -39,8 +40,12 @@ export interface FloatShareState {
   /** Distance paddled to 0.1 mi; null when nothing was measured. */
   miles: number | null;
   minutes: number;
-  /** River explored to 0.01 mi, and the span's float miles to 0.1. */
-  explored: { miles: number; spanMiles: number } | null;
+  /**
+   * River explored to 0.01 mi, and the whole percent of the span the recap
+   * states (exploredPercentValue): decided on the phone from unrounded miles,
+   * never recomputed from rounded ones. 0 means "under 1%".
+   */
+  explored: { miles: number; percent: number } | null;
 }
 
 const MOODS: readonly FloatMood[] = [
@@ -51,6 +56,9 @@ const LOW_WATER = new Set(['low', 'too_low']);
 const HIGH_WATER = new Set(['high', 'dangerous']);
 
 const round = (value: number, places: number) => Math.round(value * 10 ** places) / 10 ** places;
+
+/** Thirty days: a bound on the number, not a limit on recordings. */
+export const MAX_SHARE_MINUTES = 30 * 24 * 60;
 
 /** The local calendar day of a moment, "2026-10-26". */
 export function localDay(at: number): string {
@@ -64,7 +72,6 @@ export function floatShareState(trip: CompletedFloat): FloatShareState {
   const tracking = floatTracking(trip);
   const condition = floatCondition(trip);
   const explored = riverExplored(trip);
-  const spanMiles = explored ? round(explored.span.lastMile - explored.span.firstMile, 1) : 0;
   return {
     version: 1,
     riverSlug: trip.riverSlug,
@@ -83,9 +90,10 @@ export function floatShareState(trip: CompletedFloat): FloatShareState {
           }
         : null,
     miles: tracking === 'none' ? null : round(trip.distanceMiles, 1),
-    minutes: Math.max(0, Math.round(trip.elapsedMs / 60_000)),
-    // Rounded so the parser's explored <= span check holds for a whole river.
-    explored: explored && spanMiles > 0 ? { miles: Math.min(round(explored.miles, 2), spanMiles), spanMiles } : null,
+    // Under a minute is 0, which reads "<1 min" as the recap does, never "1 min".
+    minutes: trip.elapsedMs < 60_000 ? 0 : Math.round(trip.elapsedMs / 60_000),
+    // At least 0.01: a sliver of river is "Under 0.1", never rounded to nothing.
+    explored: explored ? { miles: Math.max(0.01, round(explored.miles, 2)), percent: exploredPercentValue(explored.fraction) } : null,
   };
 }
 
@@ -109,12 +117,12 @@ export function floatImagePath(state: FloatShareState): string {
   q.set('min', String(state.minutes));
   if (state.explored) {
     q.set('exp', state.explored.miles.toFixed(2));
-    q.set('span', state.explored.spanMiles.toFixed(1));
+    q.set('pct', String(state.explored.percent));
   }
   return `${FLOAT_IMAGE_PATH}?${q.toString()}`;
 }
 
-const KEYS = new Set(['v', 'river', 'from', 'to', 'date', 'tracking', 'reached', 'mood', 'cond', 'cur', 'cfs', 'mi', 'min', 'exp', 'span']);
+const KEYS = new Set(['v', 'river', 'from', 'to', 'date', 'tracking', 'reached', 'mood', 'cond', 'cur', 'cfs', 'mi', 'min', 'exp', 'pct']);
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const SLUG = /^[a-z0-9-]{1,120}$/;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -166,10 +174,12 @@ export function parseFloatShare(params: URLSearchParams, now = Date.now()): Floa
 
   const cfs = decimal(get('cfs'), 0, 2_000_000);
   const miles = decimal(get('mi'), 1, 500);
-  const minutes = decimal(get('min'), 0, 2_880);
+  // Recordings have no length limit (float camps make multi-day floats real),
+  // so this only bounds the number: thirty days.
+  const minutes = decimal(get('min'), 0, MAX_SHARE_MINUTES);
   const exp = decimal(get('exp'), 2, 10_000);
-  const span = decimal(get('span'), 1, 10_000);
-  if ([cfs, miles, minutes, exp, span].some((n) => Number.isNaN(n)) || minutes == null) return null;
+  const percent = decimal(get('pct'), 0, 100);
+  if ([cfs, miles, minutes, exp, percent].some((n) => Number.isNaN(n)) || minutes == null) return null;
 
   let condition: FloatShareState['condition'] = null;
   if (cond != null) {
@@ -179,7 +189,7 @@ export function parseFloatShare(params: URLSearchParams, now = Date.now()): Floa
 
   // Nothing measured means no distance, no river explored and no mood.
   if (tracking === 'none' ? miles != null || exp != null || mood != null : miles == null) return null;
-  if ((exp == null) !== (span == null) || (span != null && (!(span > 0) || exp! > span))) return null;
+  if ((exp == null) !== (percent == null) || exp === 0) return null;
 
   // A mood that claims water the condition does not show is a forged share.
   const current = condition?.current ?? false;
@@ -198,7 +208,7 @@ export function parseFloatShare(params: URLSearchParams, now = Date.now()): Floa
     condition,
     miles,
     minutes,
-    explored: exp != null && span != null ? { miles: exp, spanMiles: span } : null,
+    explored: exp != null && percent != null ? { miles: exp, percent } : null,
   };
 }
 

@@ -347,9 +347,24 @@ export function exploredMiles(miles: number): string {
  * only for complete coverage (99.6% reads 99%), "Under 1%" for a sliver.
  */
 export function exploredPercent(fraction: number): string {
-  if (fraction >= 1) return '100%';
-  if (fraction < 0.01) return 'Under 1%';
-  return `${Math.min(99, Math.round(fraction * 100))}%`;
+  return exploredPercentLabel(exploredPercentValue(fraction));
+}
+
+/**
+ * The whole percent the label states, decided once from unrounded miles:
+ * 100 only for complete coverage, 99 just below it, 0 for "under 1%". The
+ * share image carries this number rather than recomputing it from rounded
+ * miles, so the image always says what the recap says.
+ */
+export function exploredPercentValue(fraction: number): number {
+  if (fraction >= 1) return 100;
+  if (fraction < 0.01) return 0;
+  return Math.min(99, Math.round(fraction * 100));
+}
+
+/** "7%"; 0 is "Under 1%", a sliver that is not nothing. */
+export function exploredPercentLabel(percent: number): string {
+  return percent === 0 ? 'Under 1%' : `${percent}%`;
 }
 
 /** "the Current" for "Current River"; other names as they are. */

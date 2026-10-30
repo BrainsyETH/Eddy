@@ -10,7 +10,7 @@
 import { ImageResponse } from 'next/og';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { colors } from '@shared/social-brand';
-import { exploredMiles, exploredPercent, floatMoodLabel, riverShortName, type FloatMood } from '@shared/float-recap';
+import { exploredMiles, exploredPercentLabel, floatMoodLabel, type FloatMood } from '@shared/float-recap';
 import { shareDuration, type FloatShareState } from '@shared/float-share';
 import type { FloatShareNames } from '@/lib/float-share/names';
 import { loadOgFonts } from './fonts';
@@ -21,6 +21,18 @@ export const FLOAT_SHARE_HEIGHT = 1920;
 const INK = '#FAFAFA';
 const MUTED = 'rgba(250,250,250,0.72)';
 const CORAL = colors.accent[500];
+
+/**
+ * The stamp's ink on the teal: the condition's colour 30% of the way to white,
+ * the same mix the app uses for condition ink in dark mode
+ * (eddy-ios/src/theme/conditions.ts). Raw, Too Low was 2.37:1 on this teal
+ * and Flood 3.03:1; mixed, all six clear 7.6:1.
+ */
+export function stampInk(solid: string): string {
+  return `#${[1, 3, 5]
+    .map((i) => Math.round(parseInt(solid.slice(i, i + 2), 16) * 0.3 + 255 * 0.7).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
 
 function shareDate(day: string): string {
   const [y, m, d] = day.split('-').map(Number);
@@ -67,7 +79,7 @@ export function FloatShareImage({
   const arrival = state.reachedTakeOut ? `Reached ${names.takeOutName}` : 'Arrival not confirmed';
   // A condition label only for a reading current enough to rate (float-recap.ts).
   const stamp = state.condition?.current ? state.condition : null;
-  const stampColor = stamp ? CONDITION_SYSTEM[stamp.code].solid : INK;
+  const stampColor = stamp ? stampInk(CONDITION_SYSTEM[stamp.code].solid) : INK;
   const explored = state.explored;
   return (
     <div
@@ -147,7 +159,12 @@ export function FloatShareImage({
 
       <div style={{ display: 'flex', width: '100%', gap: 24, alignItems: 'flex-start' }}>
         {state.miles != null ? (
-          <Stat value={state.miles.toFixed(1)} label="miles paddled" />
+          <Stat
+            value={state.miles.toFixed(1)}
+            label="miles paddled"
+            // Most of the session unobserved: the History card says so, and so does this.
+            note={state.tracking === 'partial' ? 'Limited GPS tracking' : undefined}
+          />
         ) : (
           <Stat value="—" label="GPS distance unavailable" />
         )}
@@ -156,7 +173,7 @@ export function FloatShareImage({
           <Stat
             value={exploredMiles(explored.miles)}
             label="river miles explored"
-            note={`${exploredPercent(explored.miles / explored.spanMiles)} of ${riverShortName(names.riverName)}`}
+            note={`${exploredPercentLabel(explored.percent)} of float miles`}
           />
         ) : null}
       </div>

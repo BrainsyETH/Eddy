@@ -21,10 +21,12 @@ export function useFloatShare(trip: CompletedFloat) {
       fileName: `eddy-float-${trip.id}`,
       title: floatShareTitle(trip),
       linkPath: (response) => floatShareLink(response.headers.get('X-Eddy-Share-Path')),
-      // A 400 is a float the server will not draw: an access point since
-      // removed or merged. Retrying will not change it.
+      // 422 is the one failure that is the float's places: an access point
+      // removed or merged since. A 400 is a share this app built and the server
+      // refused, which is a version mismatch, not the float, so it gets the
+      // ordinary message rather than one that blames the float.
       failureMessage: (status) =>
-        status === 400 ? 'This float can’t be shared as an image. Its river or access points have changed since.' : null,
+        status === 422 ? 'This float can’t be shared as an image. Its river or access points have changed since.' : null,
     });
   return { busy, share };
 }

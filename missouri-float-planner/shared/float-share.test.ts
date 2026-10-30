@@ -7,10 +7,14 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CompletedFloat, StartCondition } from './float-archive';
-import { floatImagePath, floatShareState, localDay, parseFloatShare, shareDuration, shareMood, type FloatShareState } from './float-share';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { CONDITION_SYSTEM } from './condition-system';
+import { exploredPercent } from './float-recap';
+import { floatImagePath, floatShareState, localDay, MAX_SHARE_MINUTES, parseFloatShare, shareDuration, shareMood, type FloatShareState } from './float-share';
 import { FLOAT_MOOD_STICKERS, STANDARD_OTTER, stickerDataUrl } from '../src/lib/float-share/sticker';
 import { loadFloatShareNames } from '../src/lib/float-share/names';
-import { FLOAT_SHARE_HEIGHT, FLOAT_SHARE_WIDTH, FloatShareImage } from '../src/lib/og/float-share-image';
+import { FLOAT_SHARE_HEIGHT, FLOAT_SHARE_WIDTH, FloatShareImage, stampInk } from '../src/lib/og/float-share-image';
+import { respondFloatShare } from '../src/lib/float-share/respond';
 import { loadOgFonts } from '../src/lib/og/fonts';
 import { GET } from '../src/app/api/share/float/image/route';
 
@@ -44,10 +48,10 @@ test('a float becomes one canonical share and parses back to itself', () => {
     version: 1, riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite', date: localDay(START),
     tracking: 'measured', reachedTakeOut: true, mood: 'made-it',
     condition: { code: 'flowing', current: true, cfs: 412 },
-    miles: 9.8, minutes: 252, explored: { miles: 9.8, spanMiles: 134 },
+    miles: 9.8, minutes: 252, explored: { miles: 9.8, percent: 7 },
   });
   const path = floatImagePath(state);
-  assert.equal(path, `/api/share/float/image?v=1&river=current&from=akers&to=pulltite&date=${localDay(START)}&tracking=measured&reached=1&mood=made-it&cond=flowing&cur=1&cfs=412&mi=9.8&min=252&exp=9.80&span=134.0`);
+  assert.equal(path, `/api/share/float/image?v=1&river=current&from=akers&to=pulltite&date=${localDay(START)}&tracking=measured&reached=1&mood=made-it&cond=flowing&cur=1&cfs=412&mi=9.8&min=252&exp=9.80&pct=7`);
   assert.deepEqual(parseFloatShare(params(path), NOW), state);
   const untracked = floatShareState(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [], putInId: null, putInName: null }));
   assert.deepEqual(parseFloatShare(params(floatImagePath(untracked)), NOW), untracked);
@@ -76,8 +80,11 @@ test('malformed or inconsistent shares are refused, never drawn', () => {
     ['impossible date', (q) => q.set('date', '2026-02-30')],
     ['future date', (q) => q.set('date', '2027-01-01')],
     ['untracked with a distance', (q) => q.set('tracking', 'none')],
-    ['exp without span', (q) => q.delete('span')],
-    ['explored past the span', (q) => q.set('exp', '200.00')],
+    ['exp without pct', (q) => q.delete('pct')],
+    ['a percent over 100', (q) => q.set('pct', '101')],
+    ['a fractional percent', (q) => q.set('pct', '7.5')],
+    ['nothing explored', (q) => q.set('exp', '0.00')],
+    ['over thirty days', (q) => q.set('min', String(MAX_SHARE_MINUTES + 1))],
     ['unknown condition', (q) => q.set('cond', 'purple')],
     ['cur without cond', (q) => { q.delete('cond'); q.delete('cfs'); }],
     ['big water on flowing water', (q) => q.set('mood', 'big-water')],
@@ -170,4 +177,87 @@ test('the image renders at 9:16 with the mood sticker', async () => {
   assert.equal(bytes.readUInt32BE(16), 1080);
   assert.equal(bytes.readUInt32BE(20), 1920);
   if (process.env.FLOAT_SHARE_PREVIEW) writeFileSync(process.env.FLOAT_SHARE_PREVIEW, bytes);
+});
+
+test('a multi-day float can be shared: recordings have no length limit', () => {
+  const twoDays = floatShareState(trip({ elapsedMs: 49 * HOUR, endedAt: START + 49 * HOUR, unknownMs: 46.4 * HOUR }));
+  assert.equal(twoDays.minutes, 49 * 60);
+  assert.deepEqual(parseFloatShare(params(floatImagePath(twoDays)), NOW), twoDays);
+  const month = { ...twoDays, minutes: MAX_SHARE_MINUTES };
+  assert.deepEqual(parseFloatShare(params(floatImagePath(month)), NOW), month, 'thirty days is the bound, not 48 hours');
+});
+
+test('the image states the percent the recap states, never one recomputed from rounded miles', () => {
+  const span = (lastMile: number) => ({ firstMile: 0, lastMile, firstName: 'Top', lastName: 'Bottom' });
+  for (const [explored, length, recap] of [[6.0, 6.04, '99%'], [6.06, 6.06, '100%'], [0.004, 134, 'Under 1%']] as const) {
+    const t = trip({ riverSpan: span(length), coveredMiles: [[0, explored]] });
+    const state = floatShareState(t);
+    const parsed = parseFloatShare(params(floatImagePath(state)), NOW)!;
+    const fraction = Math.min(1, explored / length);
+    assert.equal(exploredPercent(fraction), recap, `recap for ${explored}/${length}`);
+    const html = renderToStaticMarkup(createElement(FloatShareImage, {
+      state: parsed, names: { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'A', takeOutName: 'B' }, mood: null, sticker: '',
+    }));
+    assert.ok(html.includes(`${recap} of float miles`), `image for ${explored}/${length}: ${recap}`);
+  }
+  const sliver = floatShareState(trip({ riverSpan: span(134), coveredMiles: [[10, 10.004]] }));
+  assert.equal(sliver.explored?.miles, 0.01, 'a sliver encodes as 0.01, which reads "Under 0.1"');
+});
+
+test('under a minute reads "<1 min" on the image, as in the recap', () => {
+  const quick = floatShareState(trip({ elapsedMs: 45_000, endedAt: START + 45_000, movingMs: 45_000, stoppedMs: 0, unknownMs: 0 }));
+  assert.equal(quick.minutes, 0);
+  assert.equal(shareDuration(quick.minutes), '<1 min');
+  assert.equal(floatShareState(trip({ elapsedMs: 90_000, endedAt: START + 90_000, movingMs: 90_000, stoppedMs: 0, unknownMs: 0 })).minutes, 2);
+});
+
+test('a partly tracked float says so on the image, as on its card', () => {
+  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
+  const draw = (t: CompletedFloat) => {
+    const state = floatShareState(t);
+    return renderToStaticMarkup(createElement(FloatShareImage, { state, names, mood: shareMood(state), sticker: '' }));
+  };
+  const partial = draw(trip({ movingMs: 0.8 * HOUR, stoppedMs: 0.2 * HOUR, unknownMs: 3.2 * HOUR }));
+  assert.ok(partial.includes('miles paddled') && partial.includes('Limited GPS tracking'));
+  assert.ok(!draw(trip()).includes('Limited GPS tracking'));
+  assert.ok(draw(trip({ firstMile: null, lastMile: null, distanceMiles: 0, coveredMiles: [] })).includes('GPS distance unavailable'));
+});
+
+test('every condition stamp reads clearly on the teal', () => {
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const teal = '#163F4A';
+  assert.ok(contrast(CONDITION_SYSTEM.too_low.solid, teal) < 3, 'the raw Too Low colour was the problem');
+  for (const code of ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous'] as const) {
+    assert.ok(contrast(stampInk(CONDITION_SYSTEM[code].solid), teal) >= 4.5, code);
+  }
+});
+
+test('the route: 400 for a malformed share, 422 only when its places are gone, the PNG and link otherwise', async () => {
+  const path = floatImagePath(floatShareState(trip({ startCondition: flowing })));
+  const request = (p: string) => new NextRequest(`https://eddy.guide${p}`);
+  const names = { riverName: 'Current River', riverPath: '/rivers/missouri/current', putInName: 'Akers Ferry', takeOutName: 'Pulltite' };
+  let looked = 0;
+  const deps = (found: typeof names | null) => ({
+    limit: async () => null,
+    names: async () => { looked += 1; return found; },
+  });
+  const malformed = await respondFloatShare(request(path.replace('min=252', 'min=abc')), deps(names));
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).code, 'invalid_share');
+  assert.equal(looked, 0, 'a malformed share never reaches the lookup');
+  const gone = await respondFloatShare(request(path), deps(null));
+  assert.equal(gone.status, 422);
+  assert.equal((await gone.json()).code, 'places_unavailable');
+  const ok = await respondFloatShare(request(path), deps(names));
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('content-type'), 'image/png');
+  assert.equal(ok.headers.get('x-eddy-share-path'), '/rivers/missouri/current');
 });

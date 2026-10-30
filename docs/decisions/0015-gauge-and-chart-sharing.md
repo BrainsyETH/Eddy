@@ -103,7 +103,9 @@ rendered with `next/og` from one versioned query (`shared/float-share.ts`), and
 the river's web page as the link text. It follows the chart image's rules:
 stateless, nothing stored, one canonical spelling (others are 308-redirected so
 they share a cache key), rate limited, and an error rather than a picture for
-anything it will not draw. That last rule matters more here: there is no link
+anything it will not draw: 400 for a malformed or inconsistent share, 422
+(`places_unavailable`) for a well-formed one whose river or access points no
+longer resolve. The app names the float's places only for the 422. That last rule matters more here: there is no link
 preview to fall back to, and the app's share control treats any PNG as the
 image it asked for.
 
@@ -111,8 +113,10 @@ What a float share may contain, and nothing else: the river (by slug), the
 put-in and take-out (by id, so the server draws only names of approved access
 points on that river), the calendar day, whether the take-out was reached, the
 tracking state, the mood, the condition code with whether its reading was
-current and its cfs, distance paddled, duration, and river explored with the
-span's float miles. It never carries the time of day, the GPS track, the
+current and its cfs, distance paddled, duration (no upper limit beyond a
+30-day bound; recordings have none), and river explored with the whole percent
+the recap states, decided on the phone from unrounded miles so the image never
+contradicts the recap. It never carries the time of day, the GPS track, the
 account, or the start note, and no free text: the query cannot be used to
 render arbitrary words.
 
