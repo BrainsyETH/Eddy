@@ -215,7 +215,10 @@ export function recapExploredModel(trip: CompletedFloat, history: readonly Compl
   // Earlier means earlier: an old recap shades the floats before it, and its
   // lifetime line counts up to and including this float, as of that day.
   const others = history.filter((t) => t.id !== trip.id && t.riverSlug === trip.riverSlug && t.startedAt < trip.startedAt);
-  const earlier = others.length ? riverLifetimeExplored(others, trip.riverSlug) : null;
+  // Shaded on this float's strip, so measured against this float's span: the
+  // earlier floats' own spans can differ after access-point corrections, and
+  // their fractions of those spans would land at the wrong miles here.
+  const earlier = others.length ? riverLifetimeExplored(others, trip.riverSlug, span) : null;
   const lifetime = earlier ? riverLifetimeExplored([...others, trip], trip.riverSlug) : null;
   return {
     explored,

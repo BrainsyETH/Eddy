@@ -325,13 +325,19 @@ export function riverExplored(trip: CompletedFloat): RiverExplored | null {
 export function riverLifetimeExplored(
   trips: readonly CompletedFloat[],
   riverSlug: string,
+  /**
+   * The span to measure and place against instead of the latest float's.
+   * Pass the strip's own span when drawing on it: segments are fractions of
+   * the boundary, so a different boundary puts them at the wrong miles.
+   */
+  span?: RiverSpan,
 ): (RiverExplored & { floats: number }) | null {
   const eligible = trips
     .filter((trip) => trip.riverSlug === riverSlug)
     .map((trip) => ({ trip, span: readSpan(trip.riverSpan), covered: readCovered(trip.coveredMiles) }))
     .filter((e): e is { trip: CompletedFloat; span: RiverSpan; covered: Interval[] } => e.span != null && e.covered != null);
   if (eligible.length === 0) return null;
-  const boundary = eligible.reduce((a, b) => (b.trip.startedAt > a.trip.startedAt ? b : a)).span;
+  const boundary = span ?? eligible.reduce((a, b) => (b.trip.startedAt > a.trip.startedAt ? b : a)).span;
   const all = merge(eligible.flatMap((e) => clamp(merge(e.covered), e.span)));
   const result = explored(clamp(all, boundary), boundary);
   return result ? { ...result, floats: eligible.length } : null;

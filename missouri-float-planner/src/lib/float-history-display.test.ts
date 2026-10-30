@@ -164,3 +164,23 @@ test('a condition from a station USGS does not run keeps its badge, with no USGS
   assert.ok(!model!.tip.includes('USGS'), 'no "USGS null"');
   assert.equal(historyCardModel(trip({ startCondition: usace }), NOW).badge?.text, 'Flowing · 412 cfs');
 });
+
+test('earlier floats are shaded at their own miles when the river span has changed since', () => {
+  // Access-point corrections moved the span between the two floats.
+  const before = trip({
+    id: 'before', startedAt: START - 400 * HOUR, endedAt: START - 396 * HOUR,
+    riverSpan: { firstMile: 0, lastMile: 100, firstName: 'Top', lastName: 'Bottom' }, coveredMiles: [[40, 60]],
+  });
+  const now = trip({ riverSpan: { firstMile: 20, lastMile: 80, firstName: 'Upper', lastName: 'Lower' }, coveredMiles: [[25, 30]] });
+  const model = recapExploredModel(now, [before, now]);
+  const shading = model!.earlier!.segments;
+  assert.equal(shading.length, 1);
+  // Miles 40–60 on a 20–80 strip: 20/60 to 40/60, not 40% to 60%.
+  assert.ok(Math.abs(shading[0].start - 20 / 60) < 1e-9 && Math.abs(shading[0].end - 40 / 60) < 1e-9, JSON.stringify(shading));
+  const outside = trip({
+    id: 'outside', startedAt: START - 800 * HOUR, endedAt: START - 796 * HOUR,
+    riverSpan: { firstMile: 0, lastMile: 100, firstName: 'Top', lastName: 'Bottom' }, coveredMiles: [[85, 95]],
+  });
+  assert.equal(recapExploredModel(now, [outside, now])?.earlier, null, 'river beyond this strip is not shaded');
+  assert.equal(recapExploredModel(now, [outside, now])?.lifetime, null);
+});
