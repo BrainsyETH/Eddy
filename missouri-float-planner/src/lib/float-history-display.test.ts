@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { CompletedFloat, StartCondition } from '@shared/float-archive';
 import {
+  TIME_BREAKDOWN_TIP,
+  UNTRACKED_NOTE_MS,
+  timeBreakdownModel,
   arrivalLine,
   floatDate,
   floatShareLink,
@@ -210,4 +213,25 @@ test('earlier floats are shaded on this strip at their own miles, and only from 
   });
   assert.equal(recapExploredModel(now, [recalibrated, now])?.earlier, null);
   assert.equal(recapExploredModel(now, [recalibrated, now])?.lifetime, null);
+});
+
+test('time breakdown: Moving and Breaks over tracked time, untracked time named only when it matters', () => {
+  const model = timeBreakdownModel(trip({ movingMs: 2.6 * HOUR, stoppedMs: 1.4 * HOUR, unknownMs: 13 * 60_000, elapsedMs: 4 * HOUR + 13 * 60_000 }));
+  assert.deepEqual(model.parts.map((part) => [part.label, part.text]), [['Moving', '2 hr 36 min'], ['Breaks', '1 hr 24 min']]);
+  assert.equal(model.speed, '2.3 mph');
+  assert.equal(model.untracked, 'Eddy couldn’t see you for 13 min, so that time isn’t counted here.');
+  assert.equal(model.accessibilityLabel, 'Moving: 2 hr 36 min, Breaks: 1 hr 24 min');
+  assert.ok(!JSON.stringify(model).includes('GPS gaps'), 'no third category on the paddler’s day');
+
+  assert.equal(timeBreakdownModel(trip({ unknownMs: UNTRACKED_NOTE_MS - 1 })).untracked, null, 'ordinary start-up and wind-down go unmentioned');
+  assert.ok(timeBreakdownModel(trip({ unknownMs: UNTRACKED_NOTE_MS })).untracked);
+  const none = timeBreakdownModel(trip({ ...untracked, movingMph: null }));
+  assert.deepEqual(none.parts, [], 'nothing tracked, no bar');
+  assert.equal(none.speed, '—');
+});
+
+test('the time tip says what each figure means, briefly', () => {
+  assert.ok(TIME_BREAKDOWN_TIP.length < 280, `${TIME_BREAKDOWN_TIP.length} characters`);
+  for (const term of ['Moving:', 'Breaks:', 'Moving speed:', '6 minutes']) assert.ok(TIME_BREAKDOWN_TIP.includes(term), term);
+  assert.ok(!/GPS gap|journal|classif|confirmed river positions/.test(TIME_BREAKDOWN_TIP), 'no mechanics');
 });

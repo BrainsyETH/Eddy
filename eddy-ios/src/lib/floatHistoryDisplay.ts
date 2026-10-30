@@ -283,3 +283,49 @@ export function floatShareTitle(trip: CompletedFloat): string {
 export function floatShareLink(header: string | null): string | null {
   return header && /^\/rivers\/[a-z-]+\/[a-z0-9-]+$/.test(header) ? header : null;
 }
+
+/** Untracked time below this is not mentioned: it is the ordinary start-up and wind-down. */
+export const UNTRACKED_NOTE_MS = 5 * 60_000;
+
+/** The recap's "How you spent your time" tip: what each figure means, nothing about how. */
+export const TIME_BREAKDOWN_TIP =
+  'Moving: time spent making your way downriver. Short pauses count as moving.\n\n' +
+  'Breaks: stops of 6 minutes or longer, like lunch, a swim or a gravel bar.\n\n' +
+  'Moving speed: distance divided by moving time, so breaks don’t lower it.';
+
+export interface TimeBreakdownModel {
+  /** Tracked time only: what the bar compares. Empty when nothing was tracked. */
+  parts: { label: 'Moving' | 'Breaks'; ms: number; text: string }[];
+  /** "2.3 mph", or "—" with none to give. */
+  speed: string;
+  /**
+   * Said only when it changes how the numbers read: why Moving and Breaks
+   * fall short of Total time. Null below UNTRACKED_NOTE_MS.
+   */
+  untracked: string | null;
+  /** The bar, for VoiceOver. */
+  accessibilityLabel: string;
+}
+
+/**
+ * Moving and Breaks over the time Eddy tracked, and moving speed. Time Eddy
+ * could not place on the river (before it found the paddler, no signal, the
+ * last moments) is not a third category on the paddler's float: it is left
+ * out, and named in one line only when there is enough of it to matter.
+ */
+export function timeBreakdownModel(trip: CompletedFloat): TimeBreakdownModel {
+  const parts = [
+    { label: 'Moving' as const, ms: trip.movingMs, text: recordedDuration(trip.movingMs) },
+    { label: 'Breaks' as const, ms: trip.stoppedMs, text: recordedDuration(trip.stoppedMs) },
+  ];
+  const tracked = trip.movingMs + trip.stoppedMs > 0;
+  return {
+    parts: tracked ? parts : [],
+    speed: trip.movingMph == null ? '—' : `${trip.movingMph.toFixed(1)} mph`,
+    untracked:
+      trip.unknownMs >= UNTRACKED_NOTE_MS
+        ? `Eddy couldn’t see you for ${recordedDuration(trip.unknownMs)}, so that time isn’t counted here.`
+        : null,
+    accessibilityLabel: parts.map((part) => `${part.label}: ${part.text}`).join(', '),
+  };
+}
