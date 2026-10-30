@@ -33,7 +33,7 @@ const dams = [['swl-table-rock-dam', 'Table Rock Dam', 'Table Rock Lake'], ['swl
   id, name, lakeName, state: 'MO', lat: 36.6, lon: -93.3, hasTurbines: true, generating: true,
   generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
   metrics: { release: { value: 10500, unit: 'cfs', at: timestamp, staleness: 'fresh' }, tailwaterTempF: { value: 52, unit: 'F', at: timestamp, staleness: 'fresh' } },
-  // Greers Ferry's off-screen Tomorrow row must not stretch Table Rock.
+  // A posted Tomorrow at Greers Ferry must not add a second day to its card.
   schedule: scheduleDates.slice(0, id === 'swl-greers-ferry-dam' ? 2 : 1).map(scheduleDate => ({ scheduleDate, retrievedAt: timestamp, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 12 ? 200 : 400, cfs: i < 12 ? 10000 : 20000, isRamp: i === 12 })) })), sources: ['USACE', 'SWPA'],
 }));
 const historyReadings = Array.from({ length: 57 }, (_, i) => ({ timestamp: new Date(Date.now() - (56 - i) * 6 * 3600000).toISOString(), dischargeCfs: 400 + Math.sin(i / 5) * 90, gaugeHeightFt: 3 + Math.sin(i / 5) * .3 }));
@@ -191,10 +191,10 @@ try {
       const todayHeight = (await activeDam.locator('article').boundingBox()).height;
       await damCarousel.getByRole('button', { name: 'Previous dam report' }).click();
       await activeDam.getByRole('heading', { name: 'Greers Ferry Dam', exact: true }).waitFor();
-      for (const day of ['Today', 'Tomorrow']) assert(await activeDam.getByRole('region', { name: `${day}’s generation schedule`, exact: true }).getByRole('img').isVisible());
-      assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).locator('[data-schedule-now]').count(), 0);
-      const tomorrowHeight = (await activeDam.locator('article').boundingBox()).height;
-      assert(tomorrowHeight > todayHeight + 60, `${name}: showing Greers Ferry grows the card to fit Tomorrow`);
+      assert(await activeDam.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByRole('img').isVisible());
+      assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).count(), 0);
+      const greersHeight = (await activeDam.locator('article').boundingBox()).height;
+      assert(greersHeight <= todayHeight + 2, `${name}: Greers Ferry's posted Tomorrow does not grow the card (${greersHeight}px vs ${todayHeight}px)`);
       const quoteGap = await activeRiver.evaluate(slide => {
         const card = slide.querySelector('article');
         const chartLink = card.querySelector(':scope > a');
@@ -205,7 +205,7 @@ try {
       await damCarousel.getByRole('button', { name: 'Next dam report' }).click();
       await activeDam.getByRole('heading', { name: 'Table Rock Dam', exact: true }).waitFor();
       assert(Math.abs((await activeDam.locator('article').boundingBox()).height - todayHeight) < 2,
-        `${name}: the card shrinks again when Greers Ferry moves off-screen`);
+        `${name}: the card keeps its height when returning to Table Rock`);
       const riverBox = await riverCarousel.boundingBox();
       const damBox = await damCarousel.boundingBox();
       assert(width >= 768 ? Math.abs(riverBox.y - damBox.y) < 2 : damBox.y >= riverBox.y + riverBox.height, `${name}: columns match the viewport`);
@@ -218,7 +218,7 @@ try {
         assert(Math.abs(riverControls.y - damControls.y) < 2, `${name}: carousel controls align`);
       }
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
-      console.log(`PASS ${name}: off-screen Tomorrow ignored; visible dam ${Math.round(todayHeight)}px → ${Math.round(tomorrowHeight)}px → ${Math.round(todayHeight)}px; Eddy Says gap ${Math.round(quoteGap)}px`);
+      console.log(`PASS ${name}: Today-only cards; Table Rock ${Math.round(todayHeight)}px, Greers Ferry ${Math.round(greersHeight)}px; Eddy Says gap ${Math.round(quoteGap)}px`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
       assert.equal(await heroCta.textContent(), 'Plan a float');
       assert.equal(await heroCta.getAttribute('href'), '/plan');

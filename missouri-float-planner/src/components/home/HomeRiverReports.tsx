@@ -128,7 +128,7 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
           }
         }}>
         {/* Off-screen reports stay mounted for scrolling, but only the visible
-            pair contributes height, including any posted Tomorrow schedule. */}
+            pair contributes height. */}
         {reports[kind].map((destination, index) => <div key={destination.key} role="group" aria-roledescription="slide"
           aria-label={`${index + 1} of ${reports[kind].length}: ${destination.name}`} inert={index !== positions[kind]}
           style={{ contain: index !== positions[kind] ? 'size' : undefined }}

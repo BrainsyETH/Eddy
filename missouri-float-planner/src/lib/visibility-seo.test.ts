@@ -160,7 +160,7 @@ function scheduleSection(html: string, label: 'Today' | 'Tomorrow'): string {
   return section;
 }
 
-test('dam cards render today and tomorrow on the Central calendar across midnight, DST and year boundaries', () => {
+test('dam cards render only today on the Central calendar across midnight, DST and year boundaries', () => {
   for (const [instant, today, tomorrow] of [
     ['2026-10-28T03:00:00Z', '2026-10-27', '2026-10-28'],
     ['2026-10-28T05:00:00Z', '2026-10-28', '2026-10-29'],
@@ -172,42 +172,41 @@ test('dam cards render today and tomorrow on the Central calendar across midnigh
   ]) {
     const dam = { ...scheduledDam, schedule: [scheduleDay('2026-01-01', 100), scheduleDay(today, 200), scheduleDay(tomorrow, 400), scheduleDay('2027-01-03', 100)] };
     const html = renderConditions({ rivers: [], dams: [dam], renderedAt: Date.parse(instant) });
-    assert.equal((html.match(/role="img"/g) ?? []).length, 2, 'exactly two visible timelines');
-    for (const [label, capacity] of [['Today', 50], ['Tomorrow', 100]] as const) {
-      const section = scheduleSection(html, label);
-      assert.match(section, new RegExp(`aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is ${capacity}%`));
-      assert.match(section, /Checked /, 'each day keeps its own check age');
-      assert.equal((section.match(/data-schedule-now/g) ?? []).length, label === 'Today' ? 1 : 0);
-    }
+    assert.equal((html.match(/role="img"/g) ?? []).length, 1, 'exactly one visible timeline');
+    const section = scheduleSection(html, 'Today');
+    assert.match(section, /aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is 50%/);
+    assert.match(section, /Checked /, 'Today keeps its own check age');
+    assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
+    assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
     assert.doesNotMatch(html, /<details|role="tab"/);
     for (const link of html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/g)) assert.ok(!link[0].includes('tabindex="0"'), 'timeline is never nested in a navigation link');
   }
 });
 
-test('dam cards distinguish missing days from idle schedules and retain each day’s stale provenance', () => {
+test('dam cards distinguish missing Today from idle schedules and retain Today’s stale provenance', () => {
   const renderedAt = Date.parse('2026-10-27T17:00:00Z');
   for (const schedule of [[], [scheduleDay('2026-10-26', 400)], [scheduleDay('2026-10-28', 400)], [{ ...scheduleDay('2026-10-27', 0), hours: [] }]]) {
     const html = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule }], renderedAt });
     const today = scheduleSection(html, 'Today');
     assert.match(today, /Today’s generation schedule is unavailable/);
-    assert.doesNotMatch(today, /role="img"|No generation scheduled at any hour/);
+    assert.doesNotMatch(html, /role="img"|No generation scheduled at any hour|aria-label="Tomorrow’s generation schedule"/);
   }
   for (const schedule of [[], [scheduleDay('2026-10-27', 200)], [scheduleDay('2026-10-29', 400)], [{ ...scheduleDay('2026-10-28', 0), hours: [] }]]) {
     const html = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule }], renderedAt });
     assert.doesNotMatch(html, /Tomorrow|hasn’t been posted/, 'an unposted day has no heading, date, chart or empty-state block');
   }
   const idle = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [scheduleDay('2026-10-27', 0), scheduleDay('2026-10-28', 0)] }], renderedAt });
-  for (const label of ['Today', 'Tomorrow'] as const) assert.match(scheduleSection(idle, label), /role="img" aria-label="No generation scheduled at any hour/);
+  assert.match(scheduleSection(idle, 'Today'), /role="img" aria-label="No generation scheduled at any hour/);
+  assert.doesNotMatch(idle, /aria-label="Tomorrow’s generation schedule"/);
   assert.doesNotMatch(idle, /schedule is unavailable|hasn’t been posted/);
-  const stale = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [scheduleDay('2026-10-27', 200), { ...scheduleDay('2026-10-28', 400), retrievedAt: '2026-10-27T10:00:00Z' }] }], renderedAt });
-  assert.doesNotMatch(scheduleSection(stale, 'Today'), /May have changed/);
-  assert.match(scheduleSection(stale, 'Tomorrow'), /May have changed/);
+  const stale = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [{ ...scheduleDay('2026-10-27', 200), retrievedAt: '2026-10-27T10:00:00Z' }, scheduleDay('2026-10-28', 400)] }], renderedAt });
+  assert.match(scheduleSection(stale, 'Today'), /May have changed/);
   assert.match(stale, /It may have been revised since/);
   const noTurbines = renderConditions({ rivers: [], dams: [{ ...scheduledDam, hasTurbines: false, schedule: [] }], renderedAt });
   assert.doesNotMatch(noTurbines, /Today’s generation schedule|Tomorrow’s generation schedule/);
 });
 
-test('compact and full generation schedules hide empty tomorrow but keep posted zero and partial days', () => {
+test('only full generation schedules show posted Tomorrow, including zero and partial days', () => {
   const now = Date.parse('2026-10-27T17:00:00Z');
   const today = scheduleDay('2026-10-27', 200);
   const tomorrow = scheduleDay('2026-10-28', 0);
@@ -222,10 +221,18 @@ test('compact and full generation schedules hide empty tomorrow but keep posted 
       assert.match(scheduleSection(html, 'Today'), /role="img"/);
       assert.equal(html.includes('<details'), !compact, 'later days retain the full report’s disclosure');
     }
-    assert.match(scheduleSection(render([today, tomorrow]), 'Tomorrow'), /No generation scheduled at any hour/);
+    const idle = render([today, tomorrow]);
     const partial = render([today, { ...tomorrow, hours: [{ ...tomorrow.hours[0], megawatts: 200 }] }]);
-    assert.match(scheduleSection(partial, 'Tomorrow'), /role="img"/);
-    assert.match(scheduleSection(partial, 'Tomorrow'), /border-dashed/, 'missing hours remain gaps in a posted partial day');
+    if (compact) {
+      for (const html of [idle, partial]) {
+        assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
+        assert.equal((html.match(/role="img"/g) ?? []).length, 1);
+      }
+    } else {
+      assert.match(scheduleSection(idle, 'Tomorrow'), /No generation scheduled at any hour/);
+      assert.match(scheduleSection(partial, 'Tomorrow'), /role="img"/);
+      assert.match(scheduleSection(partial, 'Tomorrow'), /border-dashed/, 'missing hours remain gaps in a posted partial day');
+    }
   }
 });
 

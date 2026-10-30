@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { DamMetricValue, DamSnapshot } from '@/lib/data/dams';
-import { relativeAge, readingStaleness, retrievalSentence } from '@shared/dam-schedule-copy';
+import { centralDayKey, relativeAge, readingStaleness, retrievalSentence } from '@shared/dam-schedule-copy';
 import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
@@ -51,8 +51,8 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
           <GenerationSchedule schedule={dam.schedule} reference={dam.generationReference} now={now} compact info={
               <DamInfoTip title={`${dam.name} schedule`}>
                 <p>All times are Central time at the dam. Schedules may change without notice.</p>
-                <p>Teal bars show scheduled generation on the same capacity scale for both days; orange marks Now on today’s chart. Select an hour for its details.</p>
-                {dam.schedule.map(day => <p key={day.scheduleDate}>{day.scheduleDate}: {retrievalSentence(day.retrievedAt, now, 'Schedule')}</p>)}
+                <p>Teal bars show today’s scheduled generation on the capacity scale; orange marks Now. Select an hour for its details.</p>
+                {dam.schedule.filter(day => day.scheduleDate === centralDayKey(now)).map(day => <p key={day.scheduleDate}>{day.scheduleDate}: {retrievalSentence(day.retrievedAt, now, 'Schedule')}</p>)}
               </DamInfoTip>
           } />
         )}
