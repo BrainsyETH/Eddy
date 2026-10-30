@@ -29,11 +29,12 @@ const scheduleDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chica
 const tomorrowDate = new Date(`${scheduleDate}T00:00:00Z`);
 tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
 const scheduleDates = [scheduleDate, tomorrowDate.toISOString().slice(0, 10)];
-const dams = [['swl-table-rock-dam', 'Table Rock Dam', 'Table Rock Lake'], ['swl-bull-shoals-dam', 'Bull Shoals Dam', 'Bull Shoals Lake']].map(([id, name, lakeName]) => ({
+const dams = [['swl-table-rock-dam', 'Table Rock Dam', 'Table Rock Lake'], ['swl-bull-shoals-dam', 'Bull Shoals Dam', 'Bull Shoals Lake'], ['swl-greers-ferry-dam', 'Greers Ferry Dam', 'Greers Ferry Lake']].map(([id, name, lakeName]) => ({
   id, name, lakeName, state: 'MO', lat: 36.6, lon: -93.3, hasTurbines: true, generating: true,
   generationReference: { units: 8, fullGenerationCfs: 20000, schedulingCapacityMw: 400, source: 'SWPA' },
   metrics: { release: { value: 10500, unit: 'cfs', at: timestamp, staleness: 'fresh' }, tailwaterTempF: { value: 52, unit: 'F', at: timestamp, staleness: 'fresh' } },
-  schedule: scheduleDates.map(scheduleDate => ({ scheduleDate, retrievedAt: timestamp, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 12 ? 200 : 400, cfs: i < 12 ? 10000 : 20000, isRamp: i === 12 })) })), sources: ['USACE', 'SWPA'],
+  // Greers Ferry's off-screen Tomorrow row must not stretch Table Rock.
+  schedule: scheduleDates.slice(0, id === 'swl-greers-ferry-dam' ? 2 : 1).map(scheduleDate => ({ scheduleDate, retrievedAt: timestamp, idle: [], hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: i < 12 ? 200 : 400, cfs: i < 12 ? 10000 : 20000, isRamp: i === 12 })) })), sources: ['USACE', 'SWPA'],
 }));
 const historyReadings = Array.from({ length: 57 }, (_, i) => ({ timestamp: new Date(Date.now() - (56 - i) * 6 * 3600000).toISOString(), dischargeCfs: 400 + Math.sin(i / 5) * 90, gaugeHeightFt: 3 + Math.sin(i / 5) * .3 }));
 const gauges = riverMeta.map((r, i) => ({
@@ -173,8 +174,8 @@ try {
       assert.equal(await activeRiver.getByText('Eddy says', { exact: true }).count(), 1);
       assert(await activeDam.getByText('10,500 cfs', { exact: true }).isVisible());
       assert(await activeDam.getByRole('heading', { name: 'Generation schedule' }).isVisible());
-      for (const day of ['Today', 'Tomorrow']) assert(await activeDam.getByRole('region', { name: `${day}’s generation schedule`, exact: true }).getByRole('img').isVisible());
-      assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).locator('[data-schedule-now]').count(), 0);
+      assert(await activeDam.getByRole('region', { name: 'Today’s generation schedule', exact: true }).getByRole('img').isVisible());
+      assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).count(), 0);
       assert.equal(await page.getByRole('button', { name: /pause|resume rotation/i }).count(), 0);
       assert.equal(await riverCarousel.getByRole('link', { name: 'All Rivers' }).getAttribute('href'), '/rivers?kind=rivers');
       assert.equal(await damCarousel.getByRole('link', { name: 'All Dams' }).getAttribute('href'), '/dams');
@@ -187,11 +188,29 @@ try {
       await activeDam.getByRole('heading', { name: 'Bull Shoals Dam', exact: true }).waitFor();
       await damCarousel.getByRole('button', { name: 'Previous dam report' }).click();
       await activeDam.getByRole('heading', { name: 'Table Rock Dam', exact: true }).waitFor();
+      const todayHeight = (await activeDam.locator('article').boundingBox()).height;
+      await damCarousel.getByRole('button', { name: 'Previous dam report' }).click();
+      await activeDam.getByRole('heading', { name: 'Greers Ferry Dam', exact: true }).waitFor();
+      for (const day of ['Today', 'Tomorrow']) assert(await activeDam.getByRole('region', { name: `${day}’s generation schedule`, exact: true }).getByRole('img').isVisible());
+      assert.equal(await activeDam.getByRole('region', { name: 'Tomorrow’s generation schedule', exact: true }).locator('[data-schedule-now]').count(), 0);
+      const tomorrowHeight = (await activeDam.locator('article').boundingBox()).height;
+      assert(tomorrowHeight > todayHeight + 60, `${name}: showing Greers Ferry grows the card to fit Tomorrow`);
+      const quoteGap = await activeRiver.evaluate(slide => {
+        const card = slide.querySelector('article');
+        const chartLink = card.querySelector(':scope > a');
+        const quote = card.querySelector(':scope > div > div');
+        return quote.getBoundingClientRect().top - chartLink.getBoundingClientRect().bottom;
+      });
+      assert(quoteGap >= 0 && quoteGap < 12, `${name}: Eddy Says stays directly beneath the chart`);
+      await damCarousel.getByRole('button', { name: 'Next dam report' }).click();
+      await activeDam.getByRole('heading', { name: 'Table Rock Dam', exact: true }).waitFor();
+      assert(Math.abs((await activeDam.locator('article').boundingBox()).height - todayHeight) < 2,
+        `${name}: the card shrinks again when Greers Ferry moves off-screen`);
       const riverBox = await riverCarousel.boundingBox();
       const damBox = await damCarousel.boundingBox();
       assert(width >= 768 ? Math.abs(riverBox.y - damBox.y) < 2 : damBox.y >= riverBox.y + riverBox.height, `${name}: columns match the viewport`);
       if (width >= 768) {
-        const riverCard = await activeRiver.locator(':scope > div').boundingBox();
+        const riverCard = await activeRiver.locator('article').boundingBox();
         const damCard = await activeDam.locator('article').boundingBox();
         assert(Math.abs(riverCard.height - damCard.height) < 2, `${name}: river and dam cards have equal heights`);
         const riverControls = await riverCarousel.getByRole('link', { name: 'All Rivers' }).boundingBox();
@@ -199,15 +218,17 @@ try {
         assert(Math.abs(riverControls.y - damControls.y) < 2, `${name}: carousel controls align`);
       }
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`);
+      console.log(`PASS ${name}: off-screen Tomorrow ignored; visible dam ${Math.round(todayHeight)}px → ${Math.round(tomorrowHeight)}px → ${Math.round(todayHeight)}px; Eddy Says gap ${Math.round(quoteGap)}px`);
       const heroCta = page.locator('a[data-ga-label="hero"][data-ga-event="cta_plan_float"]');
       assert.equal(await heroCta.textContent(), 'Plan a float');
       assert.equal(await heroCta.getAttribute('href'), '/plan');
       assert.equal(await page.getByRole('region', { name: 'River alerts', exact: true }).count(), 0);
-      const conditionMap = page.getByRole('link', { name: 'Open the Live River Map', exact: true });
+      const conditionMap = page.getByRole('link', { name: /^Open the live river map$/i });
       assert.equal(await conditionMap.getAttribute('href'), '/river-map');
       assert.equal(await conditionMap.locator('p').count(), 0);
       await page.evaluate(() => scrollTo(0, 0));
       await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
+      await page.getByRole('region', { name: 'River and Dam Conditions', exact: true }).screenshot({ path: `${out}/${name}-reports.png` });
       await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
       if (width < 900) {
         const toggle = page.getByRole('button', { name: 'Open menu' });
@@ -255,7 +276,7 @@ try {
         await page.getByRole('navigation', { name: 'Floats', exact: true }).getByRole('link', { name: 'Plan a float' }).waitFor();
         assert.equal(await nav.getByRole('link', { name: 'Map', exact: true }).getAttribute('aria-current'), 'page');
         await page.goto(url, { waitUntil: 'domcontentloaded' });
-        await page.getByRole('link', { name: 'Open the Live River Map', exact: true }).click();
+        await page.getByRole('link', { name: /^Open the live river map$/i }).click();
         await page.waitForURL('**/river-map');
         await page.evaluate(() => history.replaceState(null, '', '/river-map?river=current'));
         await page.getByRole('dialog', { name: 'Current River', exact: true }).waitFor({ timeout: 45000 });

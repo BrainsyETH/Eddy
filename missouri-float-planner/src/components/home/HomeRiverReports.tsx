@@ -85,10 +85,13 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
     element.addEventListener('pointerleave', leave);
     document.addEventListener('visibilitychange', restart);
     // Keep the selected reports aligned when columns become stacked on mobile.
+    const widths = new WeakMap<HTMLDivElement, number>();
     const resize = new ResizeObserver(() => {
       for (const kind of KINDS) {
         const track = tracks.current[kind];
-        if (track) track.scrollTo({ left: current.current[kind] * track.clientWidth, behavior: 'instant' });
+        if (!track || widths.get(track) === track.clientWidth) continue;
+        widths.set(track, track.clientWidth);
+        track.scrollTo({ left: current.current[kind] * track.clientWidth, behavior: 'instant' });
       }
     });
     for (const track of Object.values(tracks.current)) if (track) resize.observe(track);
@@ -124,8 +127,11 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
             setPositions(current.current);
           }
         }}>
+        {/* Off-screen reports stay mounted for scrolling, but only the visible
+            pair contributes height, including any posted Tomorrow schedule. */}
         {reports[kind].map((destination, index) => <div key={destination.key} role="group" aria-roledescription="slide"
           aria-label={`${index + 1} of ${reports[kind].length}: ${destination.name}`} inert={index !== positions[kind]}
+          style={{ contain: index !== positions[kind] ? 'size' : undefined }}
           data-home-report={destination.key} className="flex w-full min-w-0 shrink-0 snap-start snap-always flex-col [&>*]:flex-1">
           {destination.kind === 'dams'
             ? <DamListCard dam={destination.dam} now={now} href={destination.href} />
