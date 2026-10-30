@@ -2157,6 +2157,8 @@ export interface LocationWeatherForecast {
     temp: number; condition: string; conditionIcon: string; windSpeed: number; humidity: number; fetchedAt: string;
     /** Rain in the last hour, inches; 0 when dry. Absent on responses that predate it. */
     rain1hInches?: number;
+    /** When the provider observed this weather; `fetchedAt` is only when the server fetched it. */
+    observedAt?: string;
   } | null;
   periods?: Array<{ timestamp: string; localHour: number; temp: number; conditionIcon: string; precipitation: number }>;
   city: string;

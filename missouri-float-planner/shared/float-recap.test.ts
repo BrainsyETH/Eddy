@@ -3,6 +3,8 @@ import test from 'node:test';
 import type { CompletedFloat, StartCondition } from './float-archive';
 import {
   exploredCopy,
+  exploredMiles,
+  exploredPercent,
   floatBadge,
   floatCondition,
   floatTracking,
@@ -222,4 +224,37 @@ test('lifetime: one common boundary, never over 100%', () => {
   ], 'current');
   assert.equal(overlapping?.miles, 15);
   assert.equal(riverLifetimeExplored([older], 'jacks-fork'), null);
+});
+
+test('explored copy never rounds to a claim the float did not make', () => {
+  assert.equal(exploredMiles(0.04), 'Under 0.1');
+  assert.equal(exploredMiles(0.05), '0.1');
+  assert.equal(exploredMiles(9.64), '9.6');
+  assert.equal(exploredPercent(0.996), '99%', 'not complete, so not 100%');
+  assert.equal(exploredPercent(1), '100%');
+  assert.equal(exploredPercent(0.004), 'Under 1%');
+  assert.equal(exploredPercent(0.015), '2%');
+  const sliver = riverExplored(trip({ riverSpan: span, coveredMiles: [[10, 10.04]] }))!;
+  assert.deepEqual(exploredCopy(sliver, 'the Current'), {
+    miles: 'Under 0.1 river miles explored',
+    share: 'Under 1% of the Current’s float miles',
+  });
+  const nearly = riverExplored(trip({ riverSpan: span, coveredMiles: [[0, 99.6]] }))!;
+  assert.equal(exploredCopy(nearly, 'the Current').share, '99% of the Current’s float miles');
+  const whole = riverExplored(trip({ riverSpan: span, coveredMiles: [[-1, 101]] }))!;
+  assert.equal(exploredCopy(whole, 'the Current').share, '100% of the Current’s float miles');
+});
+
+test('a malformed snapshot timestamp cannot mask a valid server reading', () => {
+  const water = {
+    gaugeName: 'Current River at Van Buren', gaugeStationId: 'station-uuid', observedAt: iso(5 * 60_000),
+    heightFt: 3.1, dischargeCfs: 900, conditionCode: 'high' as const, usgsSiteId: '07067000',
+  };
+  for (const observedAt of ['not a date', '2026-13-45T99:00:00Z']) {
+    const chosen = floatCondition(trip({ startCondition: condition('flowing', { observedAt }), water }));
+    assert.equal(chosen?.source, 'water', observedAt);
+    assert.equal(chosen?.code, 'high');
+  }
+  assert.equal(floatCondition(trip({ startCondition: condition('flowing', { observedAt: 'soon' }) })), null, 'and with no fallback, nothing');
+  assert.equal(floatCondition(trip({ water: { ...water, observedAt: 'later' } })), null);
 });

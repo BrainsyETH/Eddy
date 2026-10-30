@@ -43,6 +43,7 @@ import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
 import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed, currentStartCondition, putInLocation, estimateStartId } from '../../../eddy-ios/src/lib/floatStart';
 import { startWeatherFrom, startWeatherPoint, START_WEATHER_WINDOW_MS } from '../../../eddy-ios/src/lib/floatStartWeather';
 import type { StartCondition } from '@shared/float-archive';
+import { fetchWeather } from './weather/openweather';
 
 const MILE = 1609.344;
 const LAT0 = 37.0;
@@ -1544,10 +1545,34 @@ test('start weather: asked at the put-in, else the first confirmed position with
   assert.equal(startWeatherPoint(late, T0 + START_WEATHER_WINDOW_MS + 2), null);
 });
 
-test('start weather keeps only the current observation, never a forecast period', () => {
-  const current = { temp: 48, condition: 'Rain', conditionIcon: '10d', windSpeed: 4, humidity: 90, fetchedAt: '2026-07-04T13:30:00Z', rain1hInches: 0.12 };
-  assert.deepEqual(startWeatherFrom({ city: 'Eminence', days: [], current }), { tempF: 48, precipIn1h: 0.12, observedAt: '2026-07-04T13:30:00.000Z' });
+test('start weather keeps only the current observation, dated when it was observed', () => {
+  const current = {
+    temp: 48, condition: 'Rain', conditionIcon: '10d', windSpeed: 4, humidity: 90, rain1hInches: 0.12,
+    // The server fetched it at 13:30 from a cache filled with a 12:10 observation.
+    fetchedAt: '2026-07-04T13:30:00Z', observedAt: '2026-07-04T12:10:00Z',
+  };
+  assert.deepEqual(startWeatherFrom({ city: 'Eminence', days: [], current }), { tempF: 48, precipIn1h: 0.12, observedAt: '2026-07-04T12:10:00.000Z' });
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, observedAt: undefined } }), null, 'a fetch time is not an observation time');
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, observedAt: 'yesterday' } }), null);
   assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: null, periods: [{ timestamp: 'x', localHour: 9, temp: 40, conditionIcon: '10d', precipitation: 3 }] }), null);
   assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, rain1hInches: undefined } }), null, 'an older server without rain');
   assert.equal(startWeatherFrom(null), null);
+});
+
+test('the weather route carries the provider observation time, not just its own fetch time', async () => {
+  const original = globalThis.fetch;
+  const body = (dt?: number) => ({
+    ...(dt == null ? {} : { dt }), name: 'Eminence', main: { temp: 47.6, humidity: 90 },
+    weather: [{ main: 'Rain', icon: '10d' }], wind: { speed: 3, deg: 180 }, rain: { '1h': 2.5 },
+  });
+  try {
+    globalThis.fetch = (async () => new Response(JSON.stringify(body(1783167000)))) as typeof fetch;
+    const observed = await fetchWeather(37.15, -91.35, 'key');
+    assert.equal(observed.observedAt, new Date(1783167000 * 1000).toISOString());
+    assert.equal(observed.rain1hInches, 0.1);
+    globalThis.fetch = (async () => new Response(JSON.stringify(body()))) as typeof fetch;
+    assert.equal((await fetchWeather(37.15, -91.35, 'key')).observedAt, undefined, 'no dt, no invented time');
+  } finally {
+    globalThis.fetch = original;
+  }
 });

@@ -53,6 +53,8 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 const nullableFinite = (v: unknown): v is number | null => v === null || finite(v);
+/** A timestamp that parses. Checked before a source is chosen, so a malformed snapshot cannot mask a valid fallback. */
+const date = (v: unknown): v is string => text(v) && Number.isFinite(Date.parse(v));
 const isCode = (v: unknown): v is ConditionCode => typeof v === 'string' && Object.prototype.hasOwnProperty.call(CONDITION_SYSTEM, v);
 
 // ── Tracking ──────────────────────────────────────────────────────────────
@@ -102,7 +104,7 @@ export function floatCondition(trip: CompletedFloat): FloatConditionReading | nu
   if (
     record(start) &&
     isCode(start.code) && start.code !== 'unknown' &&
-    text(start.gaugeName) && text(start.usgsSiteId) && text(start.observedAt) &&
+    text(start.gaugeName) && text(start.usgsSiteId) && date(start.observedAt) &&
     nullableFinite(start.heightFt) && nullableFinite(start.dischargeCfs) &&
     typeof start.accuracyWarning === 'boolean'
   ) {
@@ -121,7 +123,7 @@ export function floatCondition(trip: CompletedFloat): FloatConditionReading | nu
   if (
     record(water) &&
     isCode(water.conditionCode) && water.conditionCode !== 'unknown' &&
-    text(water.gaugeName) && text(water.observedAt) &&
+    text(water.gaugeName) && date(water.observedAt) &&
     nullableFinite(water.heightFt) && nullableFinite(water.dischargeCfs)
   ) {
     return {
@@ -316,12 +318,26 @@ export function riverLifetimeExplored(
   return result ? { ...result, floats: eligible.length } : null;
 }
 
+/** Miles to one decimal, except that a positive distance never reads as zero. */
+export function exploredMiles(miles: number): string {
+  return miles > 0 && miles < 0.05 ? 'Under 0.1' : miles.toFixed(1);
+}
+
+/**
+ * Whole percent, never rounded up to a claim the float did not make: "100%"
+ * only for complete coverage (99.6% reads 99%), "Under 1%" for a sliver.
+ */
+export function exploredPercent(fraction: number): string {
+  if (fraction >= 1) return '100%';
+  if (fraction < 0.01) return 'Under 1%';
+  return `${Math.min(99, Math.round(fraction * 100))}%`;
+}
+
 /** "9.6 river miles explored" first; the share of the river's float miles second. */
 export function exploredCopy(result: RiverExplored, riverName: string): { miles: string; share: string } {
-  const miles = result.miles.toFixed(1);
-  const percent = Math.round(result.fraction * 100);
+  const miles = exploredMiles(result.miles);
   return {
     miles: `${miles} river ${miles === '1.0' ? 'mile' : 'miles'} explored`,
-    share: result.fraction < 0.01 ? `Under 1% of ${riverName}’s float miles` : `${percent}% of ${riverName}’s float miles`,
+    share: `${exploredPercent(result.fraction)} of ${riverName}’s float miles`,
   };
 }

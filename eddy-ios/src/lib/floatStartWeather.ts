@@ -32,11 +32,17 @@ export function startWeatherPoint(
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
-/** The current observation, or null: never a forecast period, never a guess at rain. */
+/**
+ * The current observation, or null: never a forecast period, never a guess at
+ * rain. Dated by the provider's observation time, not `fetchedAt`: the server
+ * caches this response, so the fetch time can be over an hour newer than the
+ * weather, and the recap's freshness rule must judge the weather. A response
+ * without the observation time (an older server) gives no weather at all.
+ */
 export function startWeatherFrom(forecast: LocationWeatherForecast | null | undefined): StartWeather | null {
   const current = forecast?.current;
-  if (!current || !finite(current.temp) || !finite(current.rain1hInches) || typeof current.fetchedAt !== 'string') return null;
-  const at = Date.parse(current.fetchedAt);
+  if (!current || !finite(current.temp) || !finite(current.rain1hInches) || typeof current.observedAt !== 'string') return null;
+  const at = Date.parse(current.observedAt);
   if (!Number.isFinite(at)) return null;
   return { tempF: current.temp, precipIn1h: current.rain1hInches, observedAt: new Date(at).toISOString() };
 }

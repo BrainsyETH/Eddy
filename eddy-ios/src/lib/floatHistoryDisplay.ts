@@ -11,6 +11,7 @@
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import {
   exploredCopy,
+  exploredMiles,
   floatBadge,
   floatCondition,
   floatTracking,
@@ -233,7 +234,7 @@ export function recapExploredModel(trip: CompletedFloat, history: readonly Compl
     range: `mi ${first.toFixed(1)}–${last.toFixed(1)}`,
     earlier,
     lifetime: lifetime
-      ? `${lifetime.miles.toFixed(1)} of ${name}’s ${(lifetime.span.lastMile - lifetime.span.firstMile).toFixed(0)} float miles explored`
+      ? `${exploredMiles(lifetime.miles)} of ${name}’s ${(lifetime.span.lastMile - lifetime.span.firstMile).toFixed(0)} float miles explored`
       : null,
   };
 }
