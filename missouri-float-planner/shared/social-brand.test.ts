@@ -6,6 +6,7 @@ import {
   STORY_SAFE,
   gridCropGap,
   sharedVideoSafe,
+  videoSafeInsets,
 } from './social-brand';
 
 test('cross-posted Reel bounds are the intersection of all platform profiles', () => {
@@ -46,4 +47,18 @@ test('portrait cover crops use platform profile-tile ratios, not playback UI', (
   assert.equal(gridCropGap(1080, 1920, 'tiktok'), 240);
   assert.equal(gridCropGap(1080, 1920, 'facebook'), 420);
   assert.equal(gridCropGap(1080, 1080, 'facebook'), 0);
+});
+
+
+test('destination exports recover width without shrinking that destination’s UI reserves', () => {
+  const expectedWidths = { instagram: 800, facebook: 860, tiktok: 750 };
+  for (const platform of ['instagram', 'facebook', 'tiktok'] as const) {
+    const safe = videoSafeInsets(platform);
+    assert.equal(1080 - safe.left - safe.right, expectedWidths[platform]);
+    assert.deepEqual(safe, SOCIAL_VIDEO_SAFE[platform].reel);
+    assert.deepEqual(videoSafeInsets(platform, 'story'), SOCIAL_VIDEO_SAFE[platform].story);
+  }
+  assert.deepEqual(videoSafeInsets(), REEL_SAFE);
+  assert.deepEqual(videoSafeInsets('unknown'), REEL_SAFE);
+  assert.deepEqual(videoSafeInsets(undefined, 'story'), STORY_SAFE);
 });

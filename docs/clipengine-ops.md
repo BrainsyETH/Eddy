@@ -271,13 +271,36 @@ Do not accept new baselines until the generated frames have been visually review
 ### Route layout and renderer freshness
 
 Float Pick geographic reels use one grid for the header, mileage, fixed map
-viewport and stats/CTA footer. Stop cards fade in a fixed band over the bottom
-of the map; its camera reserves that band throughout the shot, including while
-hidden. Reveals never resize the viewport or shift the camera framing. Start
-and Finish retain compact cards, keeping the cover readable and the CTA clear.
-Routes without photo reveals deliberately keep a 286px compact-card band;
-photo routes reserve 346px. This trades some route look-ahead for stable framing.
-The 220px landscape photo height stays fixed while real-post cropping is evaluated.
+viewport and footer. The header names the river and endpoints without repeating
+the distance. A compact distance/time/condition row and preparation timestamp
+share one slot with the closing CTA; the CTA replaces the stats during the final
+three seconds, so it never reserves a second invisible footer. Photo cards use
+the same teal border and hard shadow as the other Eddy cards.
+
+Stop cards fade in a fixed band over the bottom of the map; its camera reserves
+that band throughout the shot, including while hidden. Reveals never resize the
+viewport or shift the camera framing. Start and Finish retain compact cards.
+Routes without photo reveals keep a 286px compact-card band; photo routes reserve
+484px, including a 320px image and larger place-name/metadata type. Removing the
+redundant header line, nested stat tiles and separate CTA pays for that taller
+photo while retaining useful route space.
+
+Float Picks render separately for Instagram, Facebook and TikTok using each
+platform's existing Reel working bounds. Quick Post saves each destination's
+render request; scheduled posts group Float Picks by platform. A failed manual
+dispatch fails only its own draft. Rerendering an older saved Float Pick selects
+that draft's destination profile. Other formats continue sharing one master.
+The admin preview guide uses the post's actual destination. Named Remotion
+`social-route-{instagram|facebook|tiktok}-{reel|story}` presets also support
+manual exports, with the same input data. Story presets are exports only; this
+does not add Story publication. Omitted destination props retain the conservative
+shared layout for legacy renders.
+
+The terrain snapshot projection is immutable. The display camera, route overlay,
+and image transform receive the selected layout origin together, preserving
+alignment with stored snapshots. These are organic-playback working bounds,
+not advertising guarantees; review the current app controls and tall-screen
+crop before posting or adapting an export for ads.
 
 Intermediate stops with a usable place photo show a larger landscape card:
 9-frame fade in, 72-frame full hold, 9-frame fade out (90 frames at 30 fps),
@@ -287,8 +310,10 @@ phases, arrival, summary and composition duration; each photo adds exactly
 30 frames. There is no arbitrary duration cap that could truncate the route.
 
 Remotion metadata decodes candidate photos before calculating that schedule.
-Sources must cover the displayed crop at the final zoom without upscaling;
-undersized sources and failed/timed-out preflight checks remain compact thumbnails,
+Sources must cover the 690px minimum reveal width and taller crop at the final
+zoom without upscaling. On wider exports, the image is centered on a sandbar mat
+at no more than its decoded resolution; a good existing photo is not discarded
+just because the card is wider. Undersized sources and failed/timed-out preflight checks remain compact thumbnails,
 and a stop photo matching the page backdrop is omitted. Common resize query
 variants and Next image wrappers share an image identity. Supplied credits
 remain complete on a slim dark corner overlay, wrapping when needed rather than

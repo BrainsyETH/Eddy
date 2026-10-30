@@ -4,7 +4,7 @@
 // Admin dashboard for social media posting — settings, filters, custom content, post history
 
 import { CoverPreview } from '@/components/admin/social/CoverPreview';
-import { REEL_SAFE } from '@shared/social-brand';
+import { videoSafeInsets } from '@shared/social-brand';
 import { useEffect, useState, useCallback } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -323,6 +323,7 @@ export default function SocialAdminPage() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [videoPreviewPost, setVideoPreviewPost] = useState<SocialPost | null>(null);
+  const previewSafe = videoSafeInsets(videoPreviewPost?.platform);
 
   // TikTok connection status
   const [tiktokStatus, setTiktokStatus] = useState<{
@@ -926,7 +927,7 @@ export default function SocialAdminPage() {
                       playsInline
                       className="w-full h-full object-contain"
                     />
-                    {previewOverlay !== 'off' && <div aria-hidden="true" className="absolute pointer-events-none border-2 border-dashed border-yellow-400" style={{ top: `${REEL_SAFE.top / 1920 * 100}%`, bottom: `${REEL_SAFE.bottom / 1920 * 100}%`, left: `${REEL_SAFE.left / 1080 * 100}%`, right: `${REEL_SAFE.right / 1080 * 100}%` }} />}
+                    {previewOverlay !== 'off' && <div aria-hidden="true" className="absolute pointer-events-none border-2 border-dashed border-yellow-400" style={{ top: `${previewSafe.top / 1920 * 100}%`, bottom: `${previewSafe.bottom / 1920 * 100}%`, left: `${previewSafe.left / 1080 * 100}%`, right: `${previewSafe.right / 1080 * 100}%` }} />}
                   </div>
                   <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Reel text safe area</option></select></label>
                   <p className="mt-1 text-xs text-neutral-400">Guides are approximate; platform controls and crops vary.</p>

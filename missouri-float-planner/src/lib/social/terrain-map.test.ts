@@ -47,3 +47,39 @@ test('missing map configuration prevents dispatch rather than publishing a plain
   const { triggerVideoRender } = await import('./video-renderer');
   assert.equal(await triggerVideoRender({ postIds: 'test', compositionId: 'social-route-portrait', inputProps: { routeCoordinates: [[-91, 37], [-90.9, 37.1]] }, outputFilename: 'test' }), false);
 });
+
+
+test('Float Picks dispatch destination props and filenames; legacy retries adopt the target platform', async (t) => {
+  const before = process.env.GH_ACTIONS_TOKEN;
+  process.env.GH_ACTIONS_TOKEN = 'test-github-token';
+  t.after(() => { if (before === undefined) delete process.env.GH_ACTIONS_TOKEN; else process.env.GH_ACTIONS_TOKEN = before; });
+  const { destinationRenderRequest, getCompositionForPost, videoRenderGroup, triggerVideoRender } = await import('./video-renderer');
+  const requests: Array<{ inputs: { post_ids: string; input_props: string; output_filename: string } }> = [];
+  t.mock.method(globalThis, 'fetch', async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    requests.push(JSON.parse(String(init?.body)));
+    return new Response(null, { status: 204 });
+  });
+  const legacy = getCompositionForPost('section_guide', { riverName: 'Current River', distanceMi: 7.6 });
+  const filenames = new Set<string>();
+  const groups = new Set<string>();
+  for (const platform of ['instagram', 'facebook', 'tiktok'] as const) {
+    const render = destinationRenderRequest(legacy, platform);
+    assert.equal(render.inputProps.platform, platform);
+    assert.equal(render.inputProps.placement, 'reel');
+    assert.deepEqual(destinationRenderRequest(render, platform), render, 'retry suffix stays idempotent');
+    assert.equal(legacy.inputProps.platform, undefined, 'saved/shared source is not mutated');
+    filenames.add(render.outputFilename);
+    groups.add(videoRenderGroup('section_guide', 'current', platform));
+    await triggerVideoRender({ ...render, postIds: platform + '-id' });
+  }
+  assert.equal(filenames.size, 3);
+  assert.equal(groups.size, 3);
+  for (const request of requests) {
+    const props = JSON.parse(request.inputs.input_props);
+    assert.equal(request.inputs.post_ids, props.platform + '-id');
+    assert.ok(request.inputs.output_filename.endsWith(`-${props.platform}-reel`));
+  }
+  const digest = getCompositionForPost('daily_digest', {});
+  assert.deepEqual(destinationRenderRequest(digest, 'facebook'), digest);
+  assert.equal(videoRenderGroup('daily_digest', null, 'facebook'), videoRenderGroup('daily_digest', null, 'instagram'));
+});

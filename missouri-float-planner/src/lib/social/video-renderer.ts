@@ -1,6 +1,6 @@
 // src/lib/social/video-renderer.ts
 // Triggers video rendering via GitHub Actions workflow_dispatch.
-// ONE render per video — the callback publishes to all platforms.
+// Float Picks render per destination; other formats share a cross-posted master.
 //
 // Required environment variables:
 //   GH_ACTIONS_TOKEN  — GitHub PAT with 'actions:write' scope
@@ -10,6 +10,7 @@
 import { prepareTerrainMap } from './terrain-map';
 import type { LngLat } from '../../../shared/social-route-journey';
 import { POST_TYPES, type RenderData } from './post-types';
+import type { SocialPlatform } from './types';
 
 const LOG_PREFIX = '[VideoRenderer]';
 
@@ -24,6 +25,23 @@ interface TriggerRenderParams {
   compositionId: string;
   inputProps: Record<string, unknown>;
   outputFilename: string;
+}
+
+type RenderRequest = Omit<TriggerRenderParams, 'postIds'>;
+
+/** Keep each destination's Float Pick and callback IDs together. */
+export function videoRenderGroup(postType: string, riverSlug: string | null | undefined, platform: SocialPlatform): string {
+  return `${postType}:${riverSlug || 'global'}${postType === 'section_guide' ? `:${platform}` : ''}`;
+}
+
+export function destinationRenderRequest(render: RenderRequest, platform?: SocialPlatform): RenderRequest {
+  if (render.compositionId !== 'social-route-portrait' || !platform) return render;
+  const placement = render.inputProps.placement === 'story' ? 'story' : 'reel';
+  return {
+    ...render,
+    inputProps: { ...render.inputProps, platform, placement },
+    outputFilename: `${render.outputFilename.replace(/-(instagram|facebook|tiktok)-(reel|story)$/, '')}-${platform}-${placement}`,
+  };
 }
 
 /**
@@ -256,14 +274,15 @@ export function getCompositionForPost(
     | 'section_guide'
     | 'weekly_trend',
   data: RenderData,
+  platform?: SocialPlatform,
 ): { compositionId: string; inputProps: Record<string, unknown>; outputFilename: string } {
   const def = POST_TYPES[postType];
   if (!def?.composition || !def.renderProps || !def.outputFilename) {
     throw new Error(`Post type "${postType}" has no video composition`);
   }
-  return {
+  return destinationRenderRequest({
     compositionId: def.composition,
     inputProps: def.renderProps(data),
     outputFilename: def.outputFilename(data),
-  };
+  }, platform);
 }

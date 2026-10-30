@@ -47,11 +47,13 @@ try {
   const cases = ['social-route-portrait', 'social-route-black-river', 'social-route-grassy-bee',
     'social-route-itinerary-portrait', 'social-route-long-names-portrait',
     'social-route-akers-pulltite', 'social-route-map-layout', 'social-route-summary-portrait',
-    'black-river-photo-credit', 'photo-mixed', 'photo-itinerary', 'photo-late-failure', 'photo-tall-route', 'photo-slow-preflight'];
+    'black-river-photo-credit', 'photo-mixed', 'photo-itinerary', 'photo-late-failure', 'photo-tall-route', 'photo-slow-preflight',
+    ...['instagram', 'facebook', 'tiktok'].flatMap(platform => ['reel', 'story'].map(placement => `platform-${platform}-${placement}`))];
   let checked = 0;
   for (const name of cases.filter(name => !process.env.ROUTE_CASES || process.env.ROUTE_CASES.split(",").includes(name))) {
     const credit = name === 'black-river-photo-credit';
-    const photoCase = name.startsWith('photo-');
+    const platformCase = name.startsWith('platform-');
+    const photoCase = name.startsWith('photo-') || platformCase;
     const id = credit ? 'social-route-black-river' : photoCase ? 'social-route-grassy-bee' : name;
     await page.evaluateOnNewDocument(() => {
       window.remotion_inputProps = '{}';
@@ -80,6 +82,10 @@ try {
         poi('Backdrop duplicate', 0.7, '/public/test/grassy-access.png?w=900'),
         { ...fixture.routePoints[2], photoUrl: '/public/test/bee-bluff.png' },
       ], ...(name === 'photo-itinerary' ? { routeCoordinates: [], terrainMapUrl: null } : {}) };
+      if (platformCase) {
+        const [, platform, placement] = name.split('-');
+        Object.assign(input, { platform, placement });
+      }
       if (name === 'photo-slow-preflight') {
         slowPhotoRequests = 0;
         input.routePoints[1].photoUrl = '/public/test/slow-photo.png';
@@ -147,9 +153,12 @@ try {
         const footer = rect('footer'), stats = rect('stats'), cta = rect('cta'), canoe = rect('canoe');
         const separated = (a, b) => a.bottom <= b.top + 0.5;
         for (const [a, b, title] of [[header, progress, 'header/mileage'], [progress, map, 'mileage/map'],
-          [map, footer, 'map/footer'], [stats, cta, 'stats/CTA']]) {
+          [map, footer, 'map/footer']]) {
           if (!separated(a, b)) problems.push(title);
         }
+        if (Math.abs(stats.top - cta.top) > 20 || stats.bottom > footer.bottom || cta.bottom > footer.bottom) problems.push('stats/CTA do not share footer');
+        if (frame === 0 && Number(getComputedStyle(element('cta')).opacity) !== 0) problems.push('early CTA');
+        if (frame === duration - 1 && Number(getComputedStyle(element('stats')).opacity) !== 0) problems.push('stats visible over closing CTA');
         if (map.height < 180) problems.push('map has no usable height');
         if (Math.abs(Number(element('map').dataset.routeTop) - map.top) > 0.5 ||
           Math.abs(Number(element('map').dataset.routeHeight) - map.height) > 0.5) problems.push('map measurement stale');
@@ -190,7 +199,11 @@ try {
         if (name !== 'photo-itinerary' && (frame === 0 || frame === duration - 1) && labels.length !== 2) problems.push('missing overview endpoints');
         const attribution = rect('attribution');
         if (attribution && attribution.top < footer.bottom) problems.push('CTA/attribution');
-        if (footer.bottom > 1530) problems.push('footer outside platform safe area');
+        const safe = JSON.parse(document.querySelector('[data-route-layout]').dataset.safe);
+        for (const region of [header, progress, footer]) {
+          if (region.left < safe.left - 0.5 || region.right > 1080 - safe.right + 0.5 || region.top < safe.top - 0.5) problems.push('content outside destination safe area');
+        }
+        if (footer.bottom > 1920 - safe.bottom) problems.push('footer outside platform safe area');
         if (window.remotion_cancelledError) problems.push(window.remotion_cancelledError);
         return problems;
       }, { frame, duration, name });
