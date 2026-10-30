@@ -10,7 +10,7 @@ import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { floatArchive } from '@/lib/floatArchive';
 import { deleteFloatTrack } from '@/float/floatTracks';
-import { arrivalLine, floatDate, floatStretch, historyCardModel, recapConditionModel, recapExploredModel, recordedDuration } from '@/lib/floatHistoryDisplay';
+import { arrivalLine, floatDate, floatStretch, historyCardModel, recapConditionModel, recapExploredModel, recordedDuration, TIME_BREAKDOWN_TIP, timeBreakdownModel } from '@/lib/floatHistoryDisplay';
 import { conditionBg, conditionChipBorder, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -87,13 +87,12 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
     } catch { Alert.alert('Couldn’t sync', 'Your float is saved on this phone. Try again when you have a connection.'); }
     finally { setRetrying(false); }
   };
-  // These are aggregate durations, not an invented chronological GPS trace.
-  const parts = trip ? [
-    { label: 'Moving', ms: trip.movingMs, color: colors.interactive },
-    { label: 'Breaks', ms: trip.stoppedMs, color: colors.warm },
-    { label: 'GPS gaps', ms: trip.unknownMs, color: colors.textSubtle },
-  ] : [];
-  const measuredTime = parts.reduce((sum, part) => sum + part.ms, 0);
+  // Aggregate durations over the time Eddy tracked, not an invented
+  // chronological trace. Untracked time is named, when it matters, in a line
+  // of its own rather than as a third slice of the paddler's day.
+  const breakdown = trip ? timeBreakdownModel(trip) : null;
+  const partColor = { Moving: colors.interactive, Breaks: colors.warm } as const;
+  const trackedTime = breakdown ? breakdown.parts.reduce((sum, part) => sum + part.ms, 0) : 0;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['left', 'right']}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
@@ -177,26 +176,29 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.row}>
               <Text style={[textStyles.cardTitle, styles.grow, { color: colors.text }]}>How you spent your time</Text>
-              <FloatInfoTip title="Time and distance" message="Time and distance are estimated from confirmed river positions. Moving time leaves out breaks of 6 minutes or more. GPS gaps include missing fixes and movement Eddy couldn’t classify. When Eddy finds you on the river again after a gap, the river you covered in it counts toward distance; its time stays under GPS gaps. The bar compares total durations; it doesn’t show when each break happened." />
+              <FloatInfoTip title="How you spent your time" message={TIME_BREAKDOWN_TIP} />
             </View>
-            {measuredTime > 0 ? <View style={styles.timeBar} accessible accessibilityRole="image"
-              accessibilityLabel={parts.map(part => `${part.label}: ${duration(part.ms)}`).join(', ')}>
-              {parts.filter(part => part.ms > 0).map(part => <View key={part.label}
-                style={{ flex: part.ms / measuredTime, backgroundColor: part.color }} />)}
-            </View> : <Text style={[t.sm, { color: colors.textMuted }]}>No tracked time yet</Text>}
+            {breakdown && trackedTime > 0 ? <View style={styles.timeBar} accessible accessibilityRole="image"
+              accessibilityLabel={breakdown.accessibilityLabel}>
+              {breakdown.parts.filter(part => part.ms > 0).map(part => <View key={part.label}
+                style={{ flex: part.ms / trackedTime, backgroundColor: partColor[part.label] }} />)}
+            </View> : <Text style={[t.sm, { color: colors.textMuted }]}>No tracked time</Text>}
             <View style={styles.legend}>
-              {parts.map(part => <View key={part.label} style={styles.legendItem}>
+              {breakdown?.parts.map(part => <View key={part.label} style={styles.legendItem}>
                 <View style={styles.routeStop}>
-                  <View style={[styles.dot, { backgroundColor: part.color }]} />
+                  <View style={[styles.dot, { backgroundColor: partColor[part.label] }]} />
                   <Text style={[t.sm, { color: colors.textMuted }]}>{part.label}</Text>
                 </View>
-                <Text style={[styles.duration, { color: colors.text }]}>{duration(part.ms)}</Text>
+                <Text style={[styles.duration, { color: colors.text }]}>{part.text}</Text>
               </View>)}
+              <View style={styles.legendItem}>
+                <Text style={[t.sm, { color: colors.textMuted }]}>Moving speed</Text>
+                <Text style={[styles.duration, { color: colors.text }]}>{breakdown?.speed ?? '—'}</Text>
+              </View>
             </View>
-            <View style={[styles.speed, { borderColor: colors.border }]}>
-              <Text style={[t.sm, styles.grow, { color: colors.textMuted }]}>Average moving speed</Text>
-              <Text style={[textStyles.data, { color: colors.text }]}>{trip.movingMph == null ? '—' : `${trip.movingMph.toFixed(1)} mph`}</Text>
-            </View>
+            {breakdown?.untracked ? (
+              <Text style={[t.sm, { color: colors.textMuted }]}>{breakdown.untracked}</Text>
+            ) : null}
           </View>
           {backup ? <View style={styles.row}>
             <ControlIcon name={archive.owner === 'guest' || archive.owner == null ? 'phone-portrait-outline' : row?.dirty || row?.backupError ? 'cloud-upload-outline' : 'cloud-done-outline'} size={18} color={colors.textMuted} />
@@ -255,7 +257,6 @@ const styles = StyleSheet.create({
   legendItem: { flexGrow: 1, gap: 4 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   duration: { ...t.base, fontFamily: fonts.monoMedium },
-  speed: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   button: { paddingHorizontal: 8, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
   history: { minHeight: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 12 },
   delete: { minHeight: 44, alignSelf: 'center', justifyContent: 'center' },

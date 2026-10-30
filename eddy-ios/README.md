@@ -1798,8 +1798,11 @@ measurement gaps, immutable completed summaries, deletion markers, revocation
 and the end journal. Device and release checks live in the release runbook.
 
 Recaps lead with the route, tracked distance and total time. The branded duration
-bar compares totals for Moving, Breaks and GPS gaps; it is not a chronological
-trace. Measurement details are available through an info button. Backup status
+bar compares Moving and Breaks over the time Eddy tracked, beside moving speed;
+it is not a chronological trace. Time Eddy could not place on the river is not
+a third category: one line names it only from five minutes up, which is why
+Moving and Breaks can fall short of Total time. The info button says what each
+figure means. Backup status
 comes from the recap row and the account sync state: local, syncing, backed up,
 waiting or failed with Retry. A subscription is not required for backup, and
 sign-in copy is shown only for guests. Raw display coordinates remain local and
