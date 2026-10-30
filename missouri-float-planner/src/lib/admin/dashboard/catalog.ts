@@ -557,7 +557,7 @@ export const METRICS = [
     section: 'AI & reach',
     key: 'embeds',
     label: 'Recorded widget impressions \u00b7 7 UTC days',
-    detail: 'Includes today; impressions, not unique visitors.',
+    detail: 'Includes today; impressions, not unique visitors. Family types carry the size (river-card, dam-strip); *-image rows count origin fetches only.',
     href: '',
     attention: false,
   },

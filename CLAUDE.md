@@ -30,6 +30,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | Change | Start in | Read first | Validate with |
 | --- | --- | --- | --- |
 | Web page / API route / server logic | `missouri-float-planner/src/` | `missouri-float-planner/README.md` | `make check-web` |
+| Embed widgets (`/embed`, images, loader) | `missouri-float-planner/src/components/embed/v2/`, `src/lib/embed/` | `missouri-float-planner/docs/embeds.md` | `make check-web` |
 | iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/AGENTS.md`, then the `eddy-ios/README.md` sections it names | `make check-mobile` + `make bundle-mobile` + `make check-web` (iOS logic is tested there; register new test files in its `test` script) |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |

@@ -143,7 +143,7 @@ export default function EmbedTrendChart({
         <h2 id={`${id}-heading`} className="m-0 text-[11px] font-bold uppercase tracking-[0.05em]" style={{ color: palette.textSecondary }}>
           {periodLabel} trend ({data.unit})
         </h2>
-        <div className="text-[11px] font-semibold tabular-nums" style={{ color: palette.textPrimary }}>
+        <div className="text-[11px] font-semibold tabular-nums" style={{ color: palette.textPrimary }} suppressHydrationWarning>
           Now {formatValue(latest.v)} {data.unit} · {direction}
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function EmbedTrendChart({
           aria-labelledby={`${id}-title ${id}-description`}
           style={{ display: 'block' }}
         >
-          <title id={`${id}-title`}>{periodLabel} river level trend</title>
+          <title id={`${id}-title`}>{`${periodLabel} river level trend`}</title>
           <desc id={`${id}-description`}>{description}</desc>
           <defs>
             <linearGradient id={`${id}-area`} x1="0" y1="0" x2="0" y2="1">
@@ -215,6 +215,7 @@ export default function EmbedTrendChart({
               fontSize="8"
               textAnchor="end"
               fontFamily="ui-monospace, monospace"
+              suppressHydrationWarning
             >
               {formatValue(tick.value)}
             </text>
@@ -228,6 +229,7 @@ export default function EmbedTrendChart({
               fontSize="8"
               textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}
               fontFamily="system-ui, sans-serif"
+              suppressHydrationWarning
             >
               {formatDate(tick.value)}
             </text>
