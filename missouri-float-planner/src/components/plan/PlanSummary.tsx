@@ -368,7 +368,6 @@ export default function PlanSummary({
               />
               <StatTile value={displayPlan.distance.formatted} label="Distance" />
             </div>
-            {displayPlan.river.floatTip && <p className="mt-2 text-xs text-neutral-600">{displayPlan.river.floatTip}</p>}
           </div>
 
           {/* Column 3: Conditions */}
