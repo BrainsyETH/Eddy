@@ -62,6 +62,16 @@ review are in the 1.5 report; these are the gates it adds.
       Eddy redeems it without showing it, and Settings reads "will get a
       push". Repeat with Eddy in the background (the confirmation shows; a
       tap finishes it).
+- [ ] **The style-pack check answers on a phone** (new binary: the
+      `eddy-style-pack` module changed on October 30). On the 1.5.0 (11)
+      preview build every check timed out, on two trips and across launches
+      (Sentry "offline map verification unavailable", `reason: timeout`), so
+      no trip could reach Ready offline. Download a stretch with signal: the
+      card reaches Ready offline. If it says "Map style not confirmed"
+      instead, the module change did not fix it; record the Sentry event's
+      `reason`. Then airplane mode, cold launch, River Mode on that stretch:
+      the background map draws with labels, and panning past the corridor
+      leaves blank tiles but never "Background map unavailable".
 - [ ] **River Mode on a device:** a 10-minute airplane-mode gap mid-float adds
       gap distance and "GPS gap" time; moving time and speeds; arrival, then
       carrying on past the take-out; Discard for a sub-5-minute float; "Stop

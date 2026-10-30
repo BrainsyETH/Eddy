@@ -28,7 +28,8 @@
 //
 // ── When the background map cannot load ─────────────────────────────────────
 // No downloaded map, no signal, nothing cached: the SAME map switches to a
-// built-in neutral style that needs no network, and the river, both ends, the
+// built-in neutral style that needs no network. Only a failed style counts; a
+// single missing tile does not (src/lib/mapLoadingError.ts). The river, both ends, the
 // dot, the camera, following, pan, zoom and Recenter all carry on. While on the
 // neutral style it checks for a connection at most once a minute and tries the
 // real style again; a failed retry falls back to neutral. Nothing remounts and
@@ -52,6 +53,7 @@ import { selectionFeedback } from '@/lib/haptics';
 import { consumeFloatMapFocus, type FloatMapFocus } from './mapFocus';
 import { floatOverviewBounds, floatRouteBounds } from '@/lib/floatDisplay';
 import { networkHintsOffline } from '@/lib/networkHint';
+import { styleLoadFailed } from '@/lib/mapLoadingError';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -375,7 +377,10 @@ function MapboxFloatMap({
         zoomEnabled={!preview}
         rotateEnabled={false}
         pitchEnabled={false}
-        onDidFailLoadingMap={() => setNeutral(true)}
+        // Only a failed style means no background. A tile outside the
+        // downloaded corridor fails offline too, and must not drop a map whose
+        // style and corridor are on the phone (src/lib/mapLoadingError.ts).
+        onMapLoadingError={(payload?: unknown) => { if (styleLoadFailed(payload)) setNeutral(true); }}
         onDidFinishLoadingStyle={() => setMapReady(true)}
         onPress={onMapPress}
         onCameraChanged={(state: { gestures?: { isGestureActive?: boolean } }) => {

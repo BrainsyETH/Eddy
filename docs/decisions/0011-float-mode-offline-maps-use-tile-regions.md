@@ -84,7 +84,12 @@ there is none.
    continue, with a quiet "Background map unavailable" label. While neutral,
    it checks for a connection at most once a minute and tries the real style
    again; a failed retry falls back to neutral, so a flickering signal cannot
-   make it flap or remount (`eddy-ios/src/float/FloatMap.tsx`). The plain SVG
+   make it flap or remount (`eddy-ios/src/float/FloatMap.tsx`). Only an error
+   about the style itself (its JSON, sprite or glyphs) switches it. rnmapbox
+   reports every failed tile and source through the same event, and offline a
+   downloaded trip still asks for tiles outside its corridor, so a tile or
+   source error leaves the real style in place (`styleLoadFailed` in
+   `eddy-ios/src/lib/mapLoadingError.ts`, with tests). The plain SVG
    drawing remains only for builds with no Mapbox at all (no token, Expo Go).
 
 7. **Downloads are deliberate and user-started.** Never started automatically
@@ -123,9 +128,14 @@ Ready to float offers **Build a Route**, preserving named selections and vessel,
 or a compact ready status for a verified matching download. Download/resume/remove
 controls live in the planner result (after saving the route) and saved-route
 details. After tiles finish, the card says “Checking offline map”; an absent native
-verifier, timeout or exception stops that indicator and explains that readiness
-is unconfirmed. A pack that is not yet readable keeps the bounded recheck window
-so a style finishing just after its tiles can become ready automatically.
+verifier or an exception stops that indicator. A pack that is not yet readable,
+or a read that gets no answer, keeps the bounded recheck window so a style
+finishing just after its tiles can become ready automatically. After the window
+the card says what the check learned (`tilesSavedCopy` in
+`eddy-ios/src/lib/stylePackRead.ts`): the style's percentage, no style saved,
+no answer from the check, or an old build. It offers **Finish download**, which
+resumes the trip and so reloads the style, and a tapped Check again reports
+the time it checked.
 A check is capped at 20 seconds, native style reads
 at 8 seconds, and the finishing indicator at 30 seconds independently of reads.
 Only one check runs at a time; chunk statuses are read in parallel so queued
