@@ -44,5 +44,9 @@ export function startWeatherFrom(forecast: LocationWeatherForecast | null | unde
   if (!current || !finite(current.temp) || !finite(current.rain1hInches) || typeof current.observedAt !== 'string') return null;
   const at = Date.parse(current.observedAt);
   if (!Number.isFinite(at)) return null;
-  return { tempF: current.temp, precipIn1h: current.rain1hInches, observedAt: new Date(at).toISOString() };
+  return {
+    tempF: current.temp, precipIn1h: current.rain1hInches, observedAt: new Date(at).toISOString(),
+    ...(/^(01|02|03|04|09|10|11|13|50)[dn]$/.test(current.conditionIcon)
+      ? { conditionIcon: current.conditionIcon } : {}),
+  };
 }

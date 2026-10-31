@@ -1134,3 +1134,39 @@ test('recap context waits for a server that names it; deletions do not', async (
   assert.equal(row('recap-trip').dirty, true);
   assert.deepEqual(row('recap-trip').payload, { ...summary('recap-trip'), ...recapContext }, 'nothing stripped on the phone');
 });
+
+test('route/weather recap additions are bounded summaries, never coordinates or a trace', () => {
+  const routeSnapshot = { startMile: 10, takeOutMile: 20, startName: 'Akers', calibration: 'deadbeef' };
+  const startWeather = { ...recapContext.startWeather, conditionIcon: '02d' };
+  const base = { ...summary(), routeSnapshot, startWeather };
+  assert.equal(archiveBatch.safeParse(completedRow(base)).success, true);
+  for (const fields of [
+    { routeSnapshot: { ...routeSnapshot, takeOutMile: 10 } },
+    { routeSnapshot: { ...routeSnapshot, startMile: NaN } },
+    { routeSnapshot: { ...routeSnapshot, calibration: 'no' } },
+    { routeSnapshot: { ...routeSnapshot, coordinates: [[-91, 37]] } },
+    { startWeather: { ...startWeather, conditionIcon: 'https://example.com/icon.png' } },
+  ]) assert.equal(archiveBatch.safeParse(completedRow({ ...base, ...fields })).success, false);
+});
+
+test('new recap details wait for server support without silently losing fields', async () => {
+  const payload = { ...summary(), routeSnapshot: { startMile: 10, takeOutMile: 20, startName: 'Akers', calibration: 'deadbeef' },
+    startWeather: { ...recapContext.startWeather, conditionIcon: '02d' } };
+  const rows: ArchiveRow[] = [{ id: 'trip', kind: 'completed', deleted: false, contributionVersion: null, payload }];
+  const now = () => Date.now() + 10 * 60 * 60_000;
+  let writes = 0;
+  const write = async (batch: ArchiveRow[]) => {
+    writes++;
+    assert.deepEqual(batch[0].payload, payload);
+    assert.equal(archiveBatch.safeParse({ rows: batch }).success, true);
+    return [{ status: 'accepted' as const }];
+  };
+  await assert.rejects(uploadFloatArchive(rows, { capabilities: async () => ({ recapContext: true }), write }, now), /saved on this phone/);
+  assert.equal(writes, 0);
+  await uploadFloatArchive(rows, { capabilities: async () => ({ recapContext: true, recapRouteWeather: true }), write }, now);
+  assert.equal(writes, 1);
+  await uploadFloatArchive([{ ...rows[0], payload: null, deleted: true }], {
+    capabilities: async () => { throw new Error('Deletion must not wait for new capabilities'); },
+    write: async () => [{ status: 'accepted' as const }],
+  }, now);
+});

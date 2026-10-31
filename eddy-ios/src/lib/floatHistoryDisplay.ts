@@ -22,6 +22,7 @@ import {
   floatCondition,
   floatMoodLabel,
   floatTracking,
+  floatWeather,
   pickFloatMood,
   riverExplored,
   riverLifetimeExplored,
@@ -32,6 +33,7 @@ import {
   type RiverExplored,
 } from '@eddy/conditions/float-recap';
 import { formatDuration } from './floatSession';
+import { weatherDescription } from '../theme/weather';
 
 export { riverShortName };
 
@@ -221,6 +223,18 @@ export function recapConditionModel(trip: CompletedFloat): RecapConditionModel |
     gaugeName: water.gaugeName,
     age: relative(water.observedAt, trip.startedAt),
     tip: `An upstream gauge reading near your start time, not a measurement along the whole route. Observed ${new Date(water.observedAt).toLocaleString('en-US')}.`,
+  };
+}
+
+/** Only the saved observation near Start, never today's weather or a forecast. */
+export function recapWeatherModel(trip: CompletedFloat) {
+  const weather = floatWeather(trip);
+  if (!weather) return null;
+  return {
+    temperature: Math.round(weather.tempF) + '°F',
+    icon: weather.conditionIcon ?? null,
+    description: weather.conditionIcon ? weatherDescription(weather.conditionIcon) : null,
+    tip: 'Weather near your start. Observed ' + new Date(weather.observedAt).toLocaleString('en-US') + '.',
   };
 }
 

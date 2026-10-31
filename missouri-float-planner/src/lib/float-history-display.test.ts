@@ -13,6 +13,7 @@ import {
   historyCardModel,
   moodLine,
   recapConditionModel,
+  recapWeatherModel,
   recapExploredModel,
   recordedDuration,
   riverShortName,
@@ -21,6 +22,25 @@ import {
 const START = Date.parse('2026-10-26T15:00:00Z');
 const NOW = Date.parse('2026-10-30T12:00:00Z');
 const HOUR = 3_600_000;
+
+test('recap weather is the saved start observation, independently of GPS and water', () => {
+  const weather = { tempF: 71.6, precipIn1h: 0, observedAt: new Date(START - 10 * 60_000).toISOString(), conditionIcon: '02d' };
+  const model = recapWeatherModel(trip({ startWeather: weather, firstMile: null, lastMile: null }));
+  assert.equal(model?.temperature, '72°F');
+  assert.equal(model?.description, 'Partly cloudy');
+  assert.equal(model?.icon, '02d');
+  assert.match(model!.tip, /Observed/);
+  assert.equal(recapWeatherModel(trip()), null);
+  assert.equal(recapWeatherModel(trip({ startWeather: { ...weather, observedAt: new Date(START - 3 * HOUR).toISOString() } })), null);
+  assert.equal(recapWeatherModel(trip({ startWeather: { ...weather, observedAt: new Date(START + 2 * HOUR).toISOString() } })), null);
+  for (const conditionIcon of [undefined, '', 'unknown']) {
+    const older = recapWeatherModel(trip({ startWeather: { ...weather, conditionIcon } }));
+    assert.equal(older?.temperature, '72°F');
+    assert.equal(older?.description, null, 'missing sky data does not mean cloudy');
+    assert.equal(older?.icon, null);
+  }
+  assert.equal(recapWeatherModel(trip({ startWeather: { ...weather, conditionIcon: '01n' } }))?.description, 'Clear');
+});
 
 function trip(overrides: Partial<CompletedFloat> = {}): CompletedFloat {
   return {

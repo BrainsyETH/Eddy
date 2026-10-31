@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // upload that carries a field older servers rejected: a start note, or
     // the recap context (start condition, river span, covered miles, weather).
     if (request.nextUrl.searchParams.get('capabilities') === '1')
-      return jsonPrivate({ capabilities: { startNote: true, recapContext: true } });
+      return jsonPrivate({ capabilities: { startNote: true, recapContext: true, recapRouteWeather: true } });
     stage = 'read-archive';
     const cursor = request.nextUrl.searchParams.get('cursor');
     let query = auth.supabase

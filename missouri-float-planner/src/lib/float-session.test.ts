@@ -1560,6 +1560,10 @@ test('start snapshots the condition and the calibrated span; the recap keeps the
   const [low, high] = trip.coveredMiles[0];
   assert.ok(low >= 20 && high > low && high - low <= trip.distanceMiles + 0.01, 'covered is never more than credited distance');
   assert.equal(trip.startWeather, undefined);
+  assert.deepEqual(trip.routeSnapshot, {
+    startMile: 20, takeOutMile: 20 + 10_000 * MILES_PER_M,
+    startName: 'akers', calibration: spanCalibration(route.anchors),
+  });
 
   const legacy = { ...moved, totals: { ...moved.totals! } };
   delete legacy.totals.coveredMiles;
@@ -1567,6 +1571,28 @@ test('start snapshots the condition and the calibrated span; the recap keeps the
   delete legacy.riverSpan;
   const old = recapFloat(legacy, T0 + 1_200_000);
   for (const field of ['coveredMiles', 'startCondition', 'riverSpan', 'startWeather']) assert.ok(!(field in old), field);
+});
+
+test('recap route snapshots distinguish the plan, an on-water start and a missing start', () => {
+  const { route, index } = prepared();
+  for (const kind of ['quick', 'saved'] as const) {
+    const made = startSession({ id: 'route-snapshot-' + kind, kind, route, index,
+      putInId: kind === 'saved' ? 'akers' : undefined, takeOutId: 'pulltite', now: T0 });
+    assert.ok(made.ok);
+    const unplaced = recapFloat(made.session, T0 + 120_000);
+    assert.equal(unplaced.putInName, null, 'a planned launch is not a confirmed launch');
+    if (kind === 'saved') {
+      assert.equal(unplaced.routeSnapshot?.startName, 'akers');
+      assert.equal(unplaced.routeSnapshot?.startMile, 20);
+    } else assert.equal(unplaced.routeSnapshot, undefined, 'no invented start for an unplaced quick float');
+    const moved = float(made.session, index, 1_600, T0, 600, 1);
+    const recap = recapFloat(moved, T0 + 600_000);
+    assert.equal(recap.putInName, null);
+    assert.equal(recap.routeSnapshot?.startName, 'Recorded start');
+    assert.equal(recap.routeSnapshot?.startMile, moved.startMile);
+    assert.ok(recap.routeSnapshot!.startMile > 20);
+    assert.equal(recap.routeSnapshot?.takeOutMile, made.session.takeOut.riverMile);
+  }
 });
 
 test('river span is lowest to highest mile, whichever way the miles run along the line', () => {
@@ -1601,7 +1627,8 @@ test('start weather keeps only the current observation, dated when it was observ
     // The server fetched it at 13:30 from a cache filled with a 12:10 observation.
     fetchedAt: '2026-07-04T13:30:00Z', observedAt: '2026-07-04T12:10:00Z',
   };
-  assert.deepEqual(startWeatherFrom({ city: 'Eminence', days: [], current }), { tempF: 48, precipIn1h: 0.12, observedAt: '2026-07-04T12:10:00.000Z' });
+  assert.deepEqual(startWeatherFrom({ city: 'Eminence', days: [], current }), { tempF: 48, precipIn1h: 0.12, observedAt: '2026-07-04T12:10:00.000Z', conditionIcon: '10d' });
+  assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, conditionIcon: 'unknown' } })?.conditionIcon, undefined);
   assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, observedAt: undefined } }), null, 'a fetch time is not an observation time');
   assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: { ...current, observedAt: 'yesterday' } }), null);
   assert.equal(startWeatherFrom({ city: 'Eminence', days: [], current: null, periods: [{ timestamp: 'x', localHour: 9, temp: 40, conditionIcon: '10d', precipitation: 3 }] }), null);

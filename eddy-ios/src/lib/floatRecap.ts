@@ -1,5 +1,6 @@
 import { finishFloatTotals } from '@eddy/geo';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
+import { spanCalibration } from '@eddy/conditions/float-recap';
 import { recordedOrigin } from './floatOrigin';
 import { floatAccount, type FloatSession } from './floatSession';
 
@@ -18,6 +19,16 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
   const elapsedMs = endedAt - session.startedAt;
   const totals = account.totals;
   const origin = recordedOrigin(session);
+  // An unconfirmed launch must not be relabelled as the selected put-in.
+  // Without any recording, a selected put-in still describes the planned map.
+  const fromPutIn = session.putIn && (origin.id === session.putIn.id || session.startMile == null);
+  const startMile = fromPutIn ? session.putIn!.riverMile : session.startMile;
+  const routeSnapshot = startMile != null && Number.isFinite(startMile) && session.takeOut.riverMile > startMile
+    ? {
+      startMile, takeOutMile: session.takeOut.riverMile,
+      startName: fromPutIn ? session.putIn!.name : 'Recorded start',
+      calibration: spanCalibration(session.route.anchors),
+    } : null;
   return {
     version: 1,
     id: session.id,
@@ -46,5 +57,6 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
     ...(session.riverSpan ? { riverSpan: session.riverSpan } : {}),
     ...(totals.coveredMiles !== undefined ? { coveredMiles: totals.coveredMiles } : {}),
     ...(session.startWeather ? { startWeather: session.startWeather } : {}),
+    ...(routeSnapshot ? { routeSnapshot } : {}),
   };
 }

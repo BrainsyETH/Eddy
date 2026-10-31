@@ -50,8 +50,15 @@ const startWeather = z
     tempF: z.number().finite().min(-60).max(140),
     precipIn1h: z.number().finite().min(0).max(10),
     observedAt,
+    conditionIcon: z.string().regex(/^(01|02|03|04|09|10|11|13|50)[dn]$/).optional(),
   })
   .strict();
+const routeSnapshot = z.object({
+  startMile: mileValue,
+  takeOutMile: mileValue,
+  startName: name,
+  calibration: z.string().regex(/^[0-9a-f]{8}$/),
+}).strict().refine((route) => route.takeOutMile > route.startMile, 'Take-out must be downstream');
 const slug = z
   .string()
   .min(1)
@@ -86,6 +93,7 @@ const completed = z
     riverSpan: riverSpan.nullable().optional(),
     coveredMiles: coveredMiles.nullable().optional(),
     startWeather: startWeather.nullable().optional(),
+    routeSnapshot: routeSnapshot.nullable().optional(),
   })
   .strict()
   .superRefine((t, ctx) => {
