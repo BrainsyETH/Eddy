@@ -1563,6 +1563,7 @@ test('start snapshots the condition and the calibrated span; the recap keeps the
   assert.deepEqual(trip.routeSnapshot, {
     startMile: 20, takeOutMile: 20 + 10_000 * MILES_PER_M,
     startName: 'akers', calibration: spanCalibration(route.anchors),
+    mapAnchors: route.anchors.map(({ id, riverMile }) => ({ id, riverMile })),
   });
 
   const legacy = { ...moved, totals: { ...moved.totals! } };
@@ -1588,11 +1589,25 @@ test('recap route snapshots distinguish the plan, an on-water start and a missin
     const moved = float(made.session, index, 1_600, T0, 600, 1);
     const recap = recapFloat(moved, T0 + 600_000);
     assert.equal(recap.putInName, null);
-    assert.equal(recap.routeSnapshot?.startName, 'Recorded start');
+    assert.equal(recap.routeSnapshot?.startName, kind === 'saved' ? '1.0 mi below akers' : 'Recorded start');
     assert.equal(recap.routeSnapshot?.startMile, moved.startMile);
     assert.ok(recap.routeSnapshot!.startMile > 20);
     assert.equal(recap.routeSnapshot?.takeOutMile, made.session.takeOut.riverMile);
   }
+});
+
+test('recap names a nearby on-water start without claiming launch at the access', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'near-launch', kind: 'saved', route, index,
+    putInId: 'akers', takeOutId: 'pulltite', downloadKey: 'original-package', now: T0 });
+  assert.ok(made.ok);
+  // Beyond the 75 m launch-confirmation radius, within 0.1 river mile.
+  const moved = float(made.session, index, 100, T0, 120, 1);
+  const recap = recapFloat(moved, T0 + 120_000);
+  assert.equal(recap.putInId, null);
+  assert.equal(recap.routeSnapshot?.startName, 'On-river start near akers');
+  assert.equal(recap.routeSnapshot?.downloadKey, 'original-package');
+  assert.ok(recap.routeSnapshot?.mapAnchors?.length);
 });
 
 test('river span is lowest to highest mile, whichever way the miles run along the line', () => {

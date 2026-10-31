@@ -16,7 +16,6 @@
 
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import {
-  exploredCopy,
   exploredMiles,
   floatBadge,
   floatCondition,
@@ -25,12 +24,10 @@ import {
   floatWeather,
   pickFloatMood,
   riverExplored,
-  riverLifetimeExplored,
   riverShortName,
   type FloatBadge,
   type FloatMood,
   type FloatTracking,
-  type RiverExplored,
 } from '@eddy/conditions/float-recap';
 import { formatDuration } from './floatSession';
 import { weatherDescription } from '../theme/weather';
@@ -113,6 +110,27 @@ export function floatStretch(trip: CompletedFloat): FloatStretch | null {
   if (Array.isArray(trip.coveredMiles) && trip.coveredMiles.length === 0) return null;
   const miles = trip.distanceMiles.toFixed(1);
   return { value: miles, unit: 'mi', label: 'Tracked distance', spoken: `${miles} miles tracked` };
+}
+
+/** Recap-only labels and empty states; history/share measurement rules stay unchanged. */
+export function recapMeasurements(trip: CompletedFloat) {
+  const tracking = floatTracking(trip);
+  const breakdown = timeBreakdownModel(trip);
+  const trackedTime = breakdown.parts.reduce((sum, part) => sum + part.ms, 0);
+  const stretch = floatStretch(trip);
+  let distance = stretch ? { ...stretch, label: stretch.unit === 'river mi' ? 'River distance' : stretch.label } : null;
+  if (distance && /^0(?:\.0+)?$/.test(distance.value)) {
+    distance = trip.distanceMiles > 0
+      ? { ...distance, value: 'Under 0.1', spoken: 'Under 0.1 miles tracked' } : null;
+  }
+  const notes: string[] = [];
+  if (tracking === 'none') notes.push('GPS tracking unavailable');
+  else {
+    if (!distance) notes.push(Array.isArray(trip.coveredMiles) && trip.coveredMiles.length === 0
+      ? 'No river miles credited.' : 'No distance measured.');
+    if (trackedTime === 0) notes.push('Moving time wasn’t recorded.');
+  }
+  return { distance, breakdown, trackedTime, note: notes.join(' ') || null };
 }
 
 export interface HistoryCardModel {
@@ -235,47 +253,6 @@ export function recapWeatherModel(trip: CompletedFloat) {
     icon: weather.conditionIcon ?? null,
     description: weather.conditionIcon ? weatherDescription(weather.conditionIcon) : null,
     tip: 'Weather near your start. Observed ' + new Date(weather.observedAt).toLocaleString('en-US') + '.',
-  };
-}
-
-export interface RecapExploredModel {
-  explored: RiverExplored;
-  miles: string;
-  share: string;
-  /** "mi 52.1–61.9": the stretch this float covered. */
-  range: string;
-  /** Earlier floats on this river, for the strip's shading. Null with none. */
-  earlier: RiverExplored | null;
-  lifetime: string | null;
-}
-
-/** River explored for one float, with its river's lifetime line when there were earlier floats. */
-export function recapExploredModel(trip: CompletedFloat, history: readonly CompletedFloat[]): RecapExploredModel | null {
-  const explored = riverExplored(trip);
-  if (!explored) return null;
-  const name = riverShortName(trip.riverName);
-  const copy = exploredCopy(explored, name);
-  const span = explored.span;
-  const length = span.lastMile - span.firstMile;
-  const first = explored.segments[0].start * length + span.firstMile;
-  const last = explored.segments[explored.segments.length - 1].end * length + span.firstMile;
-  // Earlier means earlier: an old recap shades the floats before it, and its
-  // lifetime line counts up to and including this float, as of that day.
-  const others = history.filter((t) => t.id !== trip.id && t.riverSlug === trip.riverSlug && t.startedAt < trip.startedAt);
-  // Shaded on this float's strip, so measured against this float's span: the
-  // earlier floats' own spans can differ after access-point corrections, and
-  // their fractions of those spans would land at the wrong miles here.
-  const earlier = others.length ? riverLifetimeExplored(others, trip.riverSlug, span) : null;
-  const lifetime = earlier ? riverLifetimeExplored([...others, trip], trip.riverSlug) : null;
-  return {
-    explored,
-    miles: copy.miles,
-    share: copy.share,
-    range: `mi ${first.toFixed(1)}–${last.toFixed(1)}`,
-    earlier,
-    lifetime: lifetime
-      ? `${exploredMiles(lifetime.miles)} of ${name}’s ${(lifetime.span.lastMile - lifetime.span.firstMile).toFixed(0)} float miles explored`
-      : null,
   };
 }
 

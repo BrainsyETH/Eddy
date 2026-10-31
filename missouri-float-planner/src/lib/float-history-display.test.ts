@@ -14,7 +14,7 @@ import {
   moodLine,
   recapConditionModel,
   recapWeatherModel,
-  recapExploredModel,
+  recapMeasurements,
   recordedDuration,
   riverShortName,
 } from '../../../eddy-ios/src/lib/floatHistoryDisplay';
@@ -108,6 +108,37 @@ test('the stretch: river explored first; an older float keeps its tracked distan
   assert.equal(floatStretch(trip({ coveredMiles: [[52.1, 52.14]] }))?.value, 'Under 0.1');
 });
 
+test('recap measurements preserve river units and separate unavailable, empty and tiny distances', () => {
+  const measured = recapMeasurements(trip());
+  assert.equal(measured.distance?.label, 'River distance');
+  assert.equal(measured.distance?.unit, 'river mi');
+  assert.equal(measured.distance?.value, '9.6');
+  assert.equal(measured.note, null);
+  assert.ok(measured.trackedTime > 0);
+  const empty = recapMeasurements(trip({ coveredMiles: [], distanceMiles: 0 }));
+  assert.equal(empty.distance, null);
+  assert.equal(empty.note, 'No river miles credited.');
+  assert.ok(empty.trackedTime > 0, 'recorded time remains visible without credited river miles');
+  const none = recapMeasurements(trip({ ...untracked, coveredMiles: [] }));
+  assert.equal(none.distance, null);
+  assert.equal(none.trackedTime, 0);
+  assert.equal(none.note, 'GPS tracking unavailable');
+  const noTime = recapMeasurements(trip({ movingMs: 0, stoppedMs: 0, unknownMs: 4.2 * HOUR }));
+  assert.equal(noTime.distance?.value, '9.6', 'partial recording retains measured distance');
+  assert.equal(noTime.note, 'Moving time wasn’t recorded.');
+  const emptyNoTime = recapMeasurements(trip({ movingMs: 0, stoppedMs: 0, coveredMiles: [] }));
+  assert.equal(emptyNoTime.note, 'No river miles credited. Moving time wasn’t recorded.');
+  const tiny = recapMeasurements(trip({ coveredMiles: [[52.1, 52.14]] }));
+  assert.equal(tiny.distance?.value, 'Under 0.1');
+  assert.equal(tiny.note, null, 'rounding must not turn a measured float into a recording failure');
+  const older = recapMeasurements(trip({ riverSpan: undefined, coveredMiles: undefined, distanceMiles: 0.02 }));
+  assert.equal(older.distance?.value, 'Under 0.1');
+  assert.equal(older.distance?.unit, 'mi');
+  assert.equal(older.distance?.label, 'Tracked distance');
+  assert.equal(older.note, null);
+  assert.equal(recapMeasurements(trip({ coveredMiles: undefined, riverSpan: undefined, distanceMiles: 0 })).distance, null);
+});
+
 test('durations are the recorded time, never a band', () => {
   assert.equal(recordedDuration(30_000), '<1 min');
   assert.equal(recordedDuration(6 * 60_000), '6 min');
@@ -144,22 +175,6 @@ test('recap conditions: one reading, its gauge and age; the station id in the ti
   assert.equal(recapConditionModel(trip()), null);
 });
 
-test('recap river explored: miles first, access names, a lifetime line only with earlier floats', () => {
-  const today = trip({ riverSpan: span, coveredMiles: [[52.1, 61.9]] });
-  const alone = recapExploredModel(today, [today]);
-  assert.equal(alone?.miles, '9.8 river miles explored');
-  assert.equal(alone?.share, '7% of the Current’s float miles');
-  assert.equal(alone?.range, 'mi 52.1–61.9');
-  assert.equal(alone?.earlier, null);
-  assert.equal(alone?.lifetime, null);
-  const before = trip({ id: 'b', startedAt: START - 400 * HOUR, endedAt: START - 396 * HOUR, riverSpan: span, coveredMiles: [[61.9, 71.3]] });
-  const elsewhere = trip({ id: 'c', riverSlug: 'jacks-fork', riverSpan: span, coveredMiles: [[0, 50]] });
-  const both = recapExploredModel(today, [today, before, elsewhere]);
-  assert.equal(both?.earlier?.miles.toFixed(1), '9.4');
-  assert.equal(both?.lifetime, '19.2 of the Current’s 134 float miles explored');
-  assert.equal(recapExploredModel(trip({ riverSpan: undefined, coveredMiles: undefined }), []), null, 'older floats show nothing, not a guess');
-});
-
 test('arrival is what was confirmed, and short names read naturally', () => {
   assert.equal(arrivalLine(trip()), 'Reached Pulltite');
   assert.equal(arrivalLine(trip({ reachedTakeOut: false })), 'Arrival at Pulltite not confirmed');
@@ -176,18 +191,6 @@ test('the share sheet names the float, and links only to a river web page', () =
   }
 });
 
-test('an old recap shades only the floats before it, and counts as of that day', () => {
-  const first = trip({ id: 'first', startedAt: START - 400 * HOUR, endedAt: START - 396 * HOUR, riverSpan: span, coveredMiles: [[10, 20]] });
-  const middle = trip({ id: 'middle', riverSpan: span, coveredMiles: [[52.1, 61.9]] });
-  const later = trip({ id: 'later', startedAt: START + 400 * HOUR, endedAt: START + 404 * HOUR, riverSpan: span, coveredMiles: [[90, 100]] });
-  const model = recapExploredModel(middle, [first, middle, later]);
-  assert.equal(model?.earlier?.miles, 10, 'only the float before it');
-  assert.equal(model?.lifetime, '19.8 of the Current’s 134 float miles explored', 'as of this float, not today');
-  const oldest = recapExploredModel(first, [first, middle, later]);
-  assert.equal(oldest?.earlier, null, 'nothing came before the first float');
-  assert.equal(oldest?.lifetime, null);
-});
-
 test('the card and the recap date a float the same way', () => {
   assert.equal(floatDate(START, NOW), 'Oct 26');
   assert.equal(floatDate(START, Date.parse('2027-03-01T00:00:00Z')), 'Oct 26, 2026');
@@ -201,38 +204,6 @@ test('a condition from a station USGS does not run keeps its badge, with no USGS
   assert.equal(model?.gaugeName, 'Black River below Clearwater Dam');
   assert.ok(!model!.tip.includes('USGS'), 'no "USGS null"');
   assert.equal(historyCardModel(trip({ startCondition: usace }), NOW).badge?.text, 'Flowing · 412 cfs');
-});
-
-test('earlier floats are shaded on this strip at their own miles, and only from the same mile system', () => {
-  const strip = { firstMile: 20, lastMile: 80, firstName: 'Upper', lastName: 'Lower', calibration: 'cafef00d' };
-  const now = trip({ riverSpan: strip, coveredMiles: [[25, 30]] });
-  // Same mile system: placed at its own miles on this strip, clamped to it.
-  const before = trip({
-    id: 'before', startedAt: START - 400 * HOUR, endedAt: START - 396 * HOUR,
-    riverSpan: strip, coveredMiles: [[40, 60], [78, 90]],
-  });
-  const model = recapExploredModel(now, [before, now]);
-  const shading = model!.earlier!.segments;
-  assert.equal(shading.length, 2);
-  // Miles 40–60 on a 20–80 strip: 20/60 to 40/60, not 40% to 60%.
-  assert.ok(Math.abs(shading[0].start - 20 / 60) < 1e-9 && Math.abs(shading[0].end - 40 / 60) < 1e-9, JSON.stringify(shading));
-  assert.equal(shading[1].end, 1, 'river beyond the strip is clamped to it');
-  assert.equal(model?.lifetime, '27.0 of the Current’s 60 float miles explored');
-  const outside = trip({
-    id: 'outside', startedAt: START - 800 * HOUR, endedAt: START - 796 * HOUR,
-    riverSpan: strip, coveredMiles: [[85, 95]],
-  });
-  assert.equal(recapExploredModel(now, [outside, now])?.earlier, null, 'river wholly beyond this strip is not shaded');
-  assert.equal(recapExploredModel(now, [outside, now])?.lifetime, null);
-  // Access-point miles were recalibrated between the floats: the earlier
-  // float's 40–60 names a different stretch now, so it is neither shaded
-  // nor summed. No figure beats a wrong one.
-  const recalibrated = trip({
-    id: 'recalibrated', startedAt: START - 400 * HOUR, endedAt: START - 396 * HOUR,
-    riverSpan: { firstMile: 0, lastMile: 100, firstName: 'Top', lastName: 'Bottom', calibration: 'deadbeef' }, coveredMiles: [[40, 60]],
-  });
-  assert.equal(recapExploredModel(now, [recalibrated, now])?.earlier, null);
-  assert.equal(recapExploredModel(now, [recalibrated, now])?.lifetime, null);
 });
 
 test('time breakdown: Moving and Breaks over tracked time, untracked time named only when it matters', () => {

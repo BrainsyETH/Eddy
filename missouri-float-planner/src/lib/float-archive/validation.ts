@@ -58,6 +58,11 @@ const routeSnapshot = z.object({
   takeOutMile: mileValue,
   startName: name,
   calibration: z.string().regex(/^[0-9a-f]{8}$/),
+  mapAnchors: z.array(z.object({ id, riverMile: mileValue }).strict()).min(2).max(128)
+    .refine((anchors) => new Set(anchors.map(a => a.id)).size === anchors.length &&
+      anchors.every((a, i) => i === 0 || a.riverMile > anchors[i - 1].riverMile),
+    'Map anchors must have unique ids and increasing miles').optional(),
+  downloadKey: id.optional(),
 }).strict().refine((route) => route.takeOutMile > route.startMile, 'Take-out must be downstream');
 const slug = z
   .string()

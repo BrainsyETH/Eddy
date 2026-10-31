@@ -14,7 +14,7 @@ import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { floatArchive } from '@/lib/floatArchive';
 import { deleteFloatTrack } from '@/float/floatTracks';
-import { arrivalLine, floatDate, floatStretch, historyCardModel, recapConditionModel, recapWeatherModel, recordedDuration, TIME_BREAKDOWN_TIP, timeBreakdownModel } from '@/lib/floatHistoryDisplay';
+import { arrivalLine, floatDate, historyCardModel, recapConditionModel, recapMeasurements, recapWeatherModel, recordedDuration, TIME_BREAKDOWN_TIP } from '@/lib/floatHistoryDisplay';
 import { conditionBg, conditionChipBorder, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -29,7 +29,7 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
   const trip = row?.payload as CompletedFloat | undefined;
   const duration = recordedDuration;
   const card = trip ? historyCardModel(trip) : null;
-  const stretch = trip ? floatStretch(trip) : null;
+  const measurements = trip ? recapMeasurements(trip) : null;
   const condition = trip ? recapConditionModel(trip) : null;
   const weather = trip ? recapWeatherModel(trip) : null;
   const route = trip ? recapRouteModel(trip) : null;
@@ -93,12 +93,11 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
   // Aggregate durations over the time Eddy tracked, not an invented
   // chronological trace. Untracked time is named, when it matters, in a line
   // of its own rather than as a third slice of the paddler's day.
-  const breakdown = trip ? timeBreakdownModel(trip) : null;
+  const breakdown = measurements?.breakdown;
   const partColor = { Moving: colors.interactive, Breaks: colors.warm } as const;
-  const trackedTime = breakdown ? breakdown.parts.reduce((sum, part) => sum + part.ms, 0) : 0;
-  const distance = stretch && !/^0(?:\.0+)?$/.test(stretch.value) ? stretch : null;
-  const missing = !distance && trackedTime === 0 ? 'Distance and moving time weren’t recorded.'
-    : !distance ? 'Distance wasn’t recorded.' : trackedTime === 0 ? 'Moving time wasn’t recorded.' : null;
+  const trackedTime = measurements?.trackedTime ?? 0;
+  const distance = measurements?.distance;
+  const missing = measurements?.note;
   const conditionsTip = [condition?.tip, weather?.tip].filter(Boolean).join('\n\n');
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['left', 'right']}>
@@ -160,8 +159,8 @@ export function FloatRecap({ id, showHistory }: { id: string; showHistory: () =>
             </View>}
             <View style={[styles.stats, { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
               {distance ? <View style={[styles.stat, largeText && styles.fullWidth]} accessible accessibilityLabel={distance.spoken}>
-                <Text style={[styles.bigNumber, { color: colors.text }]}>{distance.value}<Text style={t.base}> mi</Text></Text>
-                <Text style={[t.sm, { color: colors.textMuted }]}>{distance.label === 'Tracked distance' ? distance.label : 'Distance'}</Text>
+                <Text style={[styles.bigNumber, { color: colors.text }]}>{distance.value}<Text style={t.base}> {distance.unit}</Text></Text>
+                <Text style={[t.sm, { color: colors.textMuted }]}>{distance.label}</Text>
               </View> : null}
               <View style={[styles.stat, largeText && styles.fullWidth]}>
                 <Text style={[styles.bigNumber, { color: colors.text }]}>{duration(trip.elapsedMs)}</Text>

@@ -1,9 +1,64 @@
-import { boundsForLine, lineMetersAtMile, pointAt, sliceLine, type LngLat, type RouteIndex } from '@eddy/geo';
+import { ANCHOR_TOLERANCE_M, boundsForLine, buildRouteIndex, lineMetersAtMile, locateOnRoute, pointAt, sliceLine, type LngLat, type RouteIndex } from '@eddy/geo';
 import type { CompletedFloat, FloatRouteSnapshot } from '@eddy/conditions/float-archive';
 import { floatTracking, riverExplored, spanCalibration } from '@eddy/conditions/float-recap';
 import type { FloatRoute } from './floatSession';
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+
+/** Keep only the original, accepted calibration anchors needed by this stretch. */
+export function recapMapAnchors(river: FloatRoute, index: RouteIndex, start: number, end: number) {
+  if (!finite(start) || !finite(end) || end <= start) return undefined;
+  const ordered = [...index.anchors].sort((a, b) => a.riverMile - b.riverMile);
+  let first = 0;
+  while (first < ordered.length - 2 && start >= ordered[first + 1].riverMile) first++;
+  let last = first + 1;
+  while (last < ordered.length - 1 && end > ordered[last].riverMile) last++;
+  const needed = ordered.slice(first, last + 1);
+  if (needed.length < 2 || needed.length > 128) return undefined;
+  const saved: NonNullable<FloatRouteSnapshot['mapAnchors']> = [];
+  for (const anchor of needed) {
+    const source = river.anchors.find(a => {
+      if (a.riverMile !== anchor.riverMile) return false;
+      const hit = locateOnRoute(index, a.lngLat);
+      return hit && hit.offsetMeters <= ANCHOR_TOLERANCE_M && Math.abs(hit.lineMeters - anchor.lineMeters) < 0.001;
+    });
+    if (!source) return undefined;
+    saved.push({ id: source.id, riverMile: anchor.riverMile });
+  }
+  return saved;
+}
+
+/** Downloaded summaries are not schema-parsed. A malformed new field is never trusted. */
+function savedMapAnchors(value: unknown): NonNullable<FloatRouteSnapshot['mapAnchors']> | null {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 128) return null;
+  const ids = new Set<string>();
+  let previous = -Infinity;
+  for (const anchor of value) {
+    if (!anchor || typeof anchor !== 'object' || typeof anchor.id !== 'string' ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(anchor.id) || ids.has(anchor.id) ||
+      !finite(anchor.riverMile) || anchor.riverMile < -100 || anchor.riverMile > 10000 || anchor.riverMile <= previous) return null;
+    ids.add(anchor.id);
+    previous = anchor.riverMile;
+  }
+  return value;
+}
+
+function historicalIndex(route: FloatRouteSnapshot, river: FloatRoute, index: RouteIndex): RouteIndex | null {
+  if (route.mapAnchors === undefined) return spanCalibration(river.anchors) === route.calibration ? index : null;
+  const saved = savedMapAnchors(route.mapAnchors);
+  if (!saved) return null;
+  const current = new Map(river.anchors.map(anchor => [anchor.id, anchor]));
+  const anchors = saved.flatMap(anchor => {
+    const point = current.get(anchor.id);
+    return point ? [{ lngLat: point.lngLat, riverMile: anchor.riverMile }] : [];
+  });
+  if (anchors.length !== saved.length) return null;
+  // Rebuild with the OLD miles, including intermediate anchors. New access
+  // points and today's mile edits cannot move historical coverage. If a
+  // required anchor disappeared or no longer fits, do not silently skip it.
+  const built = buildRouteIndex(river.line, anchors);
+  return built.ok && built.index.anchors.length === saved.length ? built.index : null;
+}
 
 /** A historical denominator, never rebuilt from today's access-point miles. */
 export function recapRouteModel(trip: CompletedFloat) {
@@ -26,7 +81,10 @@ export function recapRouteModel(trip: CompletedFloat) {
 /** Draw credited intervals, including the tracker’s bounded gap estimates; never fill additional gaps. */
 export function recapRouteGeometry(trip: CompletedFloat, river: FloatRoute, index: RouteIndex) {
   const route = recapRouteModel(trip);
-  if (!route || river.riverSlug !== trip.riverSlug || spanCalibration(river.anchors) !== route.calibration) return null;
+  if (!route || river.riverSlug !== trip.riverSlug) return null;
+  const original = historicalIndex(route, river, index);
+  if (!original) return null;
+  index = original;
   const mileAt = (mile: number) => lineMetersAtMile(index, mile);
   const section = sliceLine(index, mileAt(route.startMile), mileAt(route.takeOutMile));
   const bounds = boundsForLine(section);
@@ -52,6 +110,25 @@ export function recapRouteGeometry(trip: CompletedFloat, river: FloatRoute, inde
 }
 
 export type RecapRouteGeometry = NonNullable<ReturnType<typeof recapRouteGeometry>>;
+
+/** Prefer the trip's original download, then today's river with saved calibration. */
+export function recapRouteMap(trip: CompletedFloat, sources: readonly { route: FloatRoute; index: RouteIndex }[]) {
+  let updated = false;
+  for (const source of sources) {
+    const geometry = recapRouteGeometry(trip, source.route, source.index);
+    if (geometry) return { geometry, message: null };
+    const snapshot = recapRouteModel(trip);
+    if (snapshot && source.route.riverSlug === trip.riverSlug && !historicalIndex(snapshot, source.route, source.index)) updated = true;
+  }
+  return { geometry: null, message: updated
+    ? 'The river’s map has been updated since this float.' : 'Route map unavailable' };
+}
+
+export function recapMapDescription(geometry: RecapRouteGeometry) {
+  return `River route from ${geometry.startName} to ${geometry.takeOutName}.` +
+    (geometry.covered.length ? ' Highlighted sections show recorded or estimated river coverage.' : 'No river coverage is shown.') +
+    (geometry.last ? ' The last recorded position is marked.' : '');
+}
 
 /** North-up river-only fallback: the same real geometry without map tiles. */
 export function recapRouteDrawing(geometry: RecapRouteGeometry, width: number, height: number) {

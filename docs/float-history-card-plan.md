@@ -5,6 +5,8 @@ replaces the recap's whole-river strip/lifetime panel, and starting weather is
 shown with water conditions. See ADR 0012 and the iOS README for current display
 and archive-capability rules. The phase notes below describe the earlier rollout;
 history/share measurement and mood rules still apply.
+The unused recap-only lifetime display model and its tests were removed with
+the redesign; the shared coverage/lifetime calculations remain independently tested.
 
 Status: phases 1a to 5 implemented, with phase 4's existing stickers bundled
 and stand-ins for the five moods whose art is not drawn yet. The canvas is in

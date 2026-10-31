@@ -1,8 +1,9 @@
 import { finishFloatTotals } from '@eddy/geo';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { spanCalibration } from '@eddy/conditions/float-recap';
-import { recordedOrigin } from './floatOrigin';
-import { floatAccount, type FloatSession } from './floatSession';
+import { recordedOrigin, relativeStart } from './floatOrigin';
+import { recapMapAnchors } from './floatRecapRoute';
+import { floatAccount, indexRoute, type FloatSession } from './floatSession';
 
 /**
  * Explicit allowlist: the active session contains private raw positions.
@@ -23,11 +24,20 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
   // Without any recording, a selected put-in still describes the planned map.
   const fromPutIn = session.putIn && (origin.id === session.putIn.id || session.startMile == null);
   const startMile = fromPutIn ? session.putIn!.riverMile : session.startMile;
+  const built = indexRoute(session.route);
+  const mapAnchors = startMile != null && built.ok
+    ? recapMapAnchors(session.route, built.index, startMile, session.takeOut.riverMile) : undefined;
+  const key = session.downloadKey ?? session.shortCode;
+  const downloadKey = key && /^[A-Za-z0-9_-]{1,128}$/.test(key) ? key : undefined;
+  const startName = fromPutIn ? session.putIn!.name : session.putIn && startMile != null
+    ? relativeStart(startMile, session.putIn.riverMile, session.putIn.name) : 'Recorded start';
   const routeSnapshot = startMile != null && Number.isFinite(startMile) && session.takeOut.riverMile > startMile
     ? {
       startMile, takeOutMile: session.takeOut.riverMile,
-      startName: fromPutIn ? session.putIn!.name : 'Recorded start',
+      startName: startName.length <= 160 ? startName : 'Recorded start',
       calibration: spanCalibration(session.route.anchors),
+      ...(mapAnchors ? { mapAnchors } : {}),
+      ...(downloadKey ? { downloadKey } : {}),
     } : null;
   return {
     version: 1,

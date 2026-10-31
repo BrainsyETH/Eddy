@@ -49,6 +49,10 @@ export interface FloatRouteSnapshot {
   takeOutMile: number;
   startName: string;
   calibration: string;
+  /** Original calibration references for this stretch, including its bracketing anchors. No coordinates. */
+  mapAnchors?: { id: string; riverMile: number }[];
+  /** A removable, device-local route package; never the only map source. */
+  downloadKey?: string;
 }
 
 export interface CompletedFloat {
