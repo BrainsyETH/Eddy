@@ -64,6 +64,40 @@ test('successful parsing cancels the timeout while tiles continue loading', (t) 
   assert.deepEqual(states, ['ready']);
 });
 
+test('a failed style request fails readiness at once instead of waiting out the timeout', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const map = new StreamingMap();
+  const states: string[] = [];
+  whenStyleReady(map.asMap(), () => states.push('ready'), (reason) => states.push(reason));
+  map.emit('error', { error: new Error('AJAXError: Not Found (404): /map-styles/eddy-immersive.json') });
+  assert.deepEqual(states, ['style-error']);
+  // One failure per watch: the timeout must not report a second one.
+  t.mock.timers.tick(MAP_STYLE_TIMEOUT_MS);
+  assert.deepEqual(states, ['style-error']);
+  // A retried style that arrives late still recovers.
+  map.parseStyle();
+  assert.deepEqual(states, ['style-error', 'ready']);
+  assert.equal(map.listenerCount('error'), 0);
+});
+
+test('tile errors and post-parse resource errors are never fatal', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const map = new StreamingMap();
+  // Node's EventEmitter throws on an unhandled 'error'; a real map does not.
+  map.on('error', () => {});
+  const states: string[] = [];
+  whenStyleReady(map.asMap(), () => states.push('ready'), (reason) => states.push(reason));
+  // A 404 tile from a source that was added before the style finished.
+  map.emit('error', { error: new Error('AJAXError: Not Found (404): /tiles/1/2/3.pbf'), sourceId: 'esri-satellite' });
+  assert.deepEqual(states, []);
+  map.parseStyle();
+  // Sprite/glyph failures only happen after the style parsed; readiness is done.
+  map.emit('error', { error: new Error('AJAXError: Not Found (404): /sprite.json') });
+  assert.deepEqual(states, ['ready']);
+  t.mock.timers.tick(MAP_STYLE_TIMEOUT_MS);
+  assert.deepEqual(states, ['ready']);
+});
+
 test('retry/unmount cancels stale callbacks and a replacement style is independent', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const oldMap = new StreamingMap();

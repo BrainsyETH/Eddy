@@ -311,8 +311,12 @@ export default function MapContainer({
     cancelReadinessRef.current = whenStyleReady(m, () => {
       setMapLoaded(true);
       setMapLoadError(null);
-    }, () => {
-      setMapLoadError('The map is taking longer than expected. Try again or choose another map layer.');
+    }, (reason) => {
+      // A failed style request reports at once; only an unanswered one waits
+      // out the timeout. Tile 404s never reach here (see map-readiness.ts).
+      setMapLoadError(reason === 'style-error'
+        ? 'The map style could not be loaded. Try again or choose another map layer.'
+        : 'The map is taking longer than expected. Try again or choose another map layer.');
     });
   }, []);
 

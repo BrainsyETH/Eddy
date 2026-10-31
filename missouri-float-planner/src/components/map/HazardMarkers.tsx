@@ -137,17 +137,24 @@ export default function HazardMarkers({ hazards }: HazardMarkersProps) {
       enableMarkerKeyboard(el, `${hazard.name}, ${typeLabel}`, () => popup.remove());
 
       if (supportsHoverRef.current) {
+        // A pinned card survives the mouse leaving the pin — moving toward
+        // the card to read it is a mouseleave. Cleared when the card closes
+        // (Escape, another popup, a blank click) so the next hover is plain.
+        let pinned = false;
+        popup.on('close', () => { pinned = false; });
         el.addEventListener('mouseenter', () => {
           presentPopup(map, popup, [lng, lat]);
         });
         el.addEventListener('mouseleave', () => {
-          popup.remove();
+          if (!pinned) popup.remove();
         });
         // Click pins the card and must not fall through to the river
         // line's hit layer beneath (its popup would replace this one).
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
+          pinned = true;
           presentPopup(map, popup, [lng, lat]);
+          map.once('click', () => popup.remove());
         });
       } else {
         el.addEventListener('click', (e: MouseEvent) => {

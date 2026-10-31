@@ -167,15 +167,22 @@ export default function RiverPhotoMarkers({ pins }: RiverPhotoMarkersProps) {
       const open = () => presentPopup(map, popup, [lng, lat]);
 
       if (supportsHoverRef.current) {
+        // A pinned card survives the mouse leaving the pin — moving toward
+        // the card (to flip through a stack) is a mouseleave. Cleared when
+        // the card closes so the next hover is plain.
+        let pinned = false;
+        popup.on('close', () => { pinned = false; });
         el.addEventListener('mouseenter', open);
         el.addEventListener('mouseleave', () => {
-          popup.remove();
+          if (!pinned) popup.remove();
         });
         // Click pins the card; stop propagation so it doesn't fall through to
         // the river line's hit layer beneath.
         el.addEventListener('click', (e: MouseEvent) => {
           e.stopPropagation();
+          pinned = true;
           open();
+          map.once('click', () => popup.remove());
         });
       } else {
         el.addEventListener('click', (e: MouseEvent) => {
