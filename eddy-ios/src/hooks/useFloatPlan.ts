@@ -11,11 +11,9 @@
 // This used to ask for a boat as a third step, and offer a number of nights on
 // the results screen. Both are gone.
 //
-// The boat because it was a required tap that changed nothing anyone noticed: the
-// server already defaults to a canoe, the difference between a canoe and a kayak
-// is inside the error bars of a float-time estimate, and a mandatory step between
-// "I picked two access points" and "how long is it" is a step that loses people.
-// Which boat the estimate assumed is still printed on the answer.
+// The boat is optional: the iOS client defaults to Kayak unless a chosen vessel
+// comes from Find a Float or Ready to float. Which vessel the estimate used is
+// still printed on the answer, and can be changed before starting.
 //
 // The nights because it was a planner inside a planner — a second fetch, a
 // segmented control, an itinerary, and a whole class of "the stretch has fewer

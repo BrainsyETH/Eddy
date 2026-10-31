@@ -1626,3 +1626,28 @@ test('the weather route carries the provider observation time, not just its own 
     globalThis.fetch = original;
   }
 });
+
+test('new quick and planned recordings always carry a vessel, with Kayak as the default', () => {
+  const { route, index } = prepared();
+  for (const kind of ['quick', 'saved'] as const) {
+    for (const boatType of [undefined, null, '', 'unknown', 'canoe', 'kayak', 'raft', 'tube']) {
+      const started = startSession({ id: 'vessel-default', kind, route, index,
+        putInId: kind === 'saved' ? 'akers' : undefined, takeOutId: 'pulltite', boatType, now: T0 });
+      assert.ok(started.ok);
+      const expected = ['canoe', 'kayak', 'raft', 'tube'].includes(boatType ?? '') ? boatType : 'kayak';
+      assert.equal(started.session.boatType, expected);
+      assert.equal(recapFloat(started.session, T0 + 120_000).boatType, expected, 'the recap records the selected vessel');
+    }
+  }
+});
+
+
+test('restoring an older float does not relabel its unknown vessel as Kayak', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'older-float', kind: 'quick', route, index, takeOutId: 'pulltite', now: T0 });
+  assert.ok(made.ok);
+  const restored = restoreSession(JSON.stringify({ ...made.session, boatType: null }));
+  assert.ok(restored);
+  assert.equal(restored.boatType, null);
+  assert.equal(recapFloat(restored, T0 + 120_000).boatType, null);
+});

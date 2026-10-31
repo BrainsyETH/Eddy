@@ -25,6 +25,7 @@
 // no percentage and no time left, which is the whole feature.
 
 import { latestRawFix, restoreRawFix, validCoordinate, type RawFloatFix } from './floatRawFix';
+import { floatVessel } from './vesselTypes';
 import { nearLaunch } from './floatOrigin';
 import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
 import type { RiverSpan, StartCondition, StartWeather } from '@eddy/conditions/float-archive';
@@ -446,7 +447,7 @@ export function startSession(input: {
       totals: { ...EMPTY_FLOAT_TOTALS },
       startCondition: input.startCondition ?? null,
       riverSpan: riverSpanOf(input.route, input.index),
-      boatType: input.boatType ?? null,
+      boatType: floatVessel(input.boatType),
       last: null,
       position: null,
     },
