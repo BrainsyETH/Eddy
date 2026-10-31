@@ -12,6 +12,7 @@ import {
   getNavCoordinates,
   type NavLink,
 } from '@/lib/navigation';
+import { shuttleDriveLinks } from '@/lib/navigation/shuttle';
 
 // Navigation app icon URLs from Vercel blob storage
 const NAV_APP_ICONS: Record<string, string> = {
@@ -43,19 +44,12 @@ export default function AccessPointNav({ accessPoint, compact = false, origin, i
   const navLinks = generateNavLinks(coords, accessPoint.directionsOverride).filter(
     link => !origin || link.app === 'google' || link.app === 'apple'
   );
-  // Driving apps receive both endpoints, using road coordinates.
+  // Driving apps receive both endpoints as coordinates, parking pair first.
   if (origin) {
-    const start = getNavCoordinates(origin);
-    const source = `${start.lat},${start.lng}`;
-    const destination = `${coords.lat},${coords.lng}`;
+    const drive = shuttleDriveLinks(origin, accessPoint);
     for (const link of navLinks) {
-      if (link.app === 'google') {
-        const params = new URLSearchParams({ api: '1', origin: source, destination, travelmode: 'driving' });
-        link.webFallback = `https://www.google.com/maps/dir/?${params}`;
-        link.deepLink = link.webFallback;
-      } else if (link.app === 'apple') {
-        const params = new URLSearchParams({ saddr: source, daddr: destination, dirflg: 'd' });
-        link.webFallback = `https://maps.apple.com/?${params}`;
+      if (link.app === 'google' || link.app === 'apple') {
+        link.webFallback = drive[link.app];
         link.deepLink = link.webFallback;
       }
     }

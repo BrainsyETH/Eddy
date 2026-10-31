@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 import AccessPointNav from '@/components/access-point/AccessPointNav';
+import { shuttleLeg } from '@/lib/navigation/shuttle';
 
 /** What a shuttle endpoint needs: a name and somewhere to drive to. */
 export type ShuttleEndpoint = ComponentProps<typeof AccessPointNav>['accessPoint'];
@@ -13,10 +14,14 @@ export type ShuttleEndpoint = ComponentProps<typeof AccessPointNav>['accessPoint
  * Google's 30). The map apps can time the drive honestly; this card just gets
  * the reader there in one tap. See the note on driveBack in /api/plan.
  *
+ * Runs take-out → put-in (shuttleLeg), matching iOS and /api/shuttle, and
+ * routes to each point's curated parking pair when it has one.
+ *
  * One row — text left, icons right — so the 44px tap targets set the card's
  * height instead of stacking a second line of text under them.
  */
 export default function ShuttleRoute({ plan }: { plan: { putIn: ShuttleEndpoint; takeOut: ShuttleEndpoint } }) {
+  const { from, to } = shuttleLeg(plan);
   return (
     <section
       aria-label="Shuttle Route"
@@ -25,10 +30,10 @@ export default function ShuttleRoute({ plan }: { plan: { putIn: ShuttleEndpoint;
       <div className="min-w-0">
         <h3 className="text-sm font-semibold leading-tight text-primary-700">Shuttle Route</h3>
         <p className="truncate text-xs leading-tight text-neutral-500">
-          {plan.putIn.name} → {plan.takeOut.name} by road
+          {from.name} → {to.name} by road
         </p>
       </div>
-      <AccessPointNav accessPoint={plan.takeOut} origin={plan.putIn} compact iconSize={34} />
+      <AccessPointNav accessPoint={to} origin={from} compact iconSize={34} />
     </section>
   );
 }

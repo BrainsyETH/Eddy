@@ -15,7 +15,7 @@ import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
-import { toHazard } from '@/lib/offline/shapes';
+import { drivingPair, toHazard } from '@/lib/offline/shapes';
 import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (uses cookies and searchParams)
@@ -138,6 +138,7 @@ async function _GET(request: NextRequest) {
         feeRequired: putIn.fee_required ?? false,
         feeNotes: putIn.fee_notes,
         directionsOverride: putIn.directions_override || null,
+        ...drivingPair(putIn),
         imageUrls: putIn.image_urls || [],
         coordinates: {
           lng: (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] || (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
@@ -162,6 +163,7 @@ async function _GET(request: NextRequest) {
         feeRequired: takeOut.fee_required ?? false,
         feeNotes: takeOut.fee_notes,
         directionsOverride: takeOut.directions_override || null,
+        ...drivingPair(takeOut),
         imageUrls: takeOut.image_urls || [],
         coordinates: {
           lng: (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] || (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,

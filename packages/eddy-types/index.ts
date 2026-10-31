@@ -181,6 +181,13 @@ export interface MapAccessPoint {
    * the direction nobody checks.
    */
   isFloatEndpoint?: boolean;
+  /**
+   * Curated parking/road approach, now on the list and plan payloads as well
+   * as the detail. Both or neither; directions prefer it over `coordinates`
+   * (navCoordinatesFor). OPTIONAL: older servers and cached payloads omit it.
+   */
+  drivingLat?: number | null;
+  drivingLng?: number | null;
   slug?: string;
   description?: string | null;
   amenities?: string[];

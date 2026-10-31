@@ -102,6 +102,13 @@ export interface AccessPoint {
     lng: number;
     lat: number;
   };
+  /**
+   * Curated parking/road approach, when it differs from the waterline point.
+   * Both or neither. Directions prefer it (getNavCoordinates). Optional because
+   * older payloads and cached bundles omit it.
+   */
+  drivingLat?: number | null;
+  drivingLng?: number | null;
   // Optional detail fields (available when fetched with detail data)
   roadSurface?: string[];
   parkingCapacity?: string | null;

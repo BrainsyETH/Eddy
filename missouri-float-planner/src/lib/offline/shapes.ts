@@ -103,6 +103,9 @@ export interface AccessPointRow {
   fee_required: boolean | null;
   fee_notes: string | null;
   directions_override: string | null;
+  /** Optional: a projection that does not select them reads as "no parking pair". */
+  driving_lat?: number | string | null;
+  driving_lng?: number | string | null;
   image_urls: string[] | null;
   google_maps_url: string | null;
   location_orig: unknown;
@@ -363,6 +366,24 @@ function withLinkedCampgroundRole(row: AccessPointRow): AccessPointType[] {
     : types;
 }
 
+/**
+ * The curated parking/road approach, as a COMPLETE pair or not at all.
+ *
+ * Hand-mapped for access points whose waterline coordinate sits on the wrong
+ * bank or at the end of the wrong road. Directions must prefer it, and must
+ * never mix one half of it with a waterline coordinate — so a half-filled row
+ * yields neither.
+ */
+export function drivingPair(
+  row: Pick<AccessPointRow, 'driving_lat' | 'driving_lng'>,
+): { drivingLat: number | null; drivingLng: number | null } {
+  const lat = row.driving_lat != null ? parseFloat(String(row.driving_lat)) : NaN;
+  const lng = row.driving_lng != null ? parseFloat(String(row.driving_lng)) : NaN;
+  return Number.isFinite(lat) && Number.isFinite(lng)
+    ? { drivingLat: lat, drivingLng: lng }
+    : { drivingLat: null, drivingLng: null };
+}
+
 export function toAccessPoint(
   row: AccessPointRow,
   npsById: ReadonlyMap<string, NPSCampgroundInfo>,
@@ -406,6 +427,9 @@ export function toAccessPoint(
     imageUrls: withReviewedPlacePhoto('access_points', row).image_urls || [],
     googleMapsUrl: row.google_maps_url,
     coordinates: { lng, lat },
+    // Carried on the list, not only the detail, so the planner's shuttle link
+    // can route to the parking lot without a detail fetch per endpoint.
+    ...drivingPair(row),
     roadSurface: row.road_surface || [],
     parkingCapacity: row.parking_capacity || null,
     managingAgency: row.managing_agency || null,
