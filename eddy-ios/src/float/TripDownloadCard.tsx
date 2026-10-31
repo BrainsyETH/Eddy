@@ -376,35 +376,37 @@ export function TripDownloadCard({
               <Text style={[styles.body, { color: colors.text }]}>Checking offline map</Text>
               <View style={styles.row}>
                 <ActivityIndicator color={colors.interactive} />
-                <Text style={[styles.note, { color: colors.textMuted }]}>Map tiles are saved. Checking the map style…</Text>
+                <Text style={[styles.note, { color: colors.textMuted }]}>Checking the map…</Text>
               </View>
             </>
           ) : (
             <>
               <Text style={[styles.body, { color: colors.text }]}>{savedCopy.title}</Text>
-              <Text style={[styles.note, { color: colors.textMuted }]}>{savedCopy.note}</Text>
+              {savedCopy.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{savedCopy.note}</Text> : null}
               {savedCopy.action === 'finish' ? (
                 <Pressable
                   onPress={() => void start()}
                   style={({ pressed }) => [styles.button, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
                   accessibilityRole="button"
-                  accessibilityHint="Downloads the map style again"
                 >
                   <Text style={[styles.linkText, { color: colors.interactive }]}>Finish download</Text>
                 </Pressable>
               ) : null}
+              {/* The main action when the check is what failed; a link otherwise. */}
               <Pressable
                 disabled={checking}
                 onPress={() => void checkAgain()}
                 accessibilityRole="button"
                 accessibilityState={{ busy: checking, disabled: checking }}
-                style={styles.link}
+                style={savedCopy.action === 'check'
+                  ? ({ pressed }) => [styles.button, { borderColor: colors.border, opacity: checking ? 0.6 : pressed ? 0.6 : 1 }]
+                  : styles.link}
               >
                 <Text style={[styles.linkText, { color: colors.interactive }]}>{checking ? 'Checking…' : 'Check again'}</Text>
               </Pressable>
               {checkedAt && !checking ? (
                 <Text style={[styles.note, { color: colors.textMuted }]} accessibilityLiveRegion="polite">
-                  Checked at {checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Not confirmed yet.
+                  Checked at {checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.
                 </Text>
               ) : null}
             </>

@@ -131,11 +131,14 @@ details. After tiles finish, the card says “Checking offline map”; an absent
 verifier or an exception stops that indicator. A pack that is not yet readable,
 or a read that gets no answer, keeps the bounded recheck window so a style
 finishing just after its tiles can become ready automatically. After the window
-the card says what the check learned (`tilesSavedCopy` in
-`eddy-ios/src/lib/stylePackRead.ts`): the style's percentage, no style saved,
-no answer from the check, or an old build. It offers **Finish download**, which
-resumes the trip and so reloads the style, and a tapped Check again reports
-the time it checked.
+the card gives one of two answers (`tilesSavedCopy` in
+`eddy-ios/src/lib/stylePackRead.ts`). A style short of files, or one the store
+confirms it does not have, is **Download incomplete**, with **Finish download**
+(a resume, which reloads the style). A check with no answer, or a store that
+could not be read, is **Couldn’t check offline map**, with Check again; it is
+never called incomplete or missing, because nothing was learned. The native
+module resolves null only for confirmed absence and rejects on a read error.
+A tapped Check again reports the time it checked.
 A check is capped at 20 seconds, native style reads
 at 8 seconds, and the finishing indicator at 30 seconds independently of reads.
 Only one check runs at a time; chunk statuses are read in parallel so queued

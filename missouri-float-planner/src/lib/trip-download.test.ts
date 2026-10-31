@@ -163,35 +163,36 @@ test('a stalled style check ends and a later recheck can confirm the saved map',
   });
 });
 
-test('saved tiles with an unconfirmed style say what the check learned, never "almost ready"', () => {
-  const short = tilesSavedCopy({ kind: 'counts', counts: { requiredResourceCount: 340, completedResourceCount: 310 } });
-  assert.equal(short.title, 'Map style not finished');
-  assert.match(short.note, /91% downloaded/);
-  assert.equal(short.action, 'finish');
-  // A complete count never reaches this card state, but a rounding edge must not read 100%.
-  assert.match(tilesSavedCopy({ kind: 'counts', counts: { requiredResourceCount: 1000, completedResourceCount: 999 } }).note, /99%/);
-  assert.match(tilesSavedCopy({ kind: 'counts', counts: { requiredResourceCount: 0, completedResourceCount: 0 } }).note, / 0% /);
-
-  const absent = tilesSavedCopy({ kind: 'unconfirmed', reason: 'native-unconfirmed' });
-  assert.equal(absent.title, 'Map style not saved');
-  assert.equal(absent.action, 'finish');
-
-  // The October 30 device reports: every style check timed out. That is not
-  // evidence of progress, and the card must not promise any.
-  for (const reason of ['timeout', 'read-failed'] as const) {
-    const copy = tilesSavedCopy({ kind: 'unconfirmed', reason });
-    assert.equal(copy.title, 'Map style not confirmed');
-    assert.match(copy.note, /couldn’t confirm the map style/);
-    assert.equal(copy.action, 'finish');
+test('saved tiles with an unconfirmed style say incomplete or unchecked, never "almost ready"', () => {
+  // Short of files, or confirmed absent: the download is incomplete, and
+  // finishing it is the fix.
+  for (const read of [
+    { kind: 'counts', counts: { requiredResourceCount: 340, completedResourceCount: 310 } },
+    { kind: 'counts', counts: { requiredResourceCount: 0, completedResourceCount: 0 } },
+    { kind: 'unconfirmed', reason: 'native-unconfirmed' },
+  ] as const) {
+    assert.deepEqual(tilesSavedCopy(read), { title: 'Download incomplete', note: 'Connect to finish downloading.', action: 'finish' });
   }
-  assert.equal(tilesSavedCopy(null).title, 'Map style not confirmed');
+
+  // No answer, or the store could not be read: nothing is known about the
+  // download, so it is never called incomplete or "not saved". The October 30
+  // device reports were all timeouts.
+  for (const read of [
+    { kind: 'unconfirmed', reason: 'timeout' },
+    { kind: 'unconfirmed', reason: 'read-failed' },
+    null,
+  ] as const) {
+    assert.deepEqual(tilesSavedCopy(read), { title: 'Couldn’t check offline map', note: null, action: 'check' });
+  }
 
   const old = tilesSavedCopy({ kind: 'unconfirmed', reason: 'module-missing' });
   assert.equal(old.note, 'Update Eddy before relying on this map offline.');
   assert.equal(old.action, null, 'A download cannot add the missing checker to an old build');
 
-  for (const copy of [short, absent, old, tilesSavedCopy(null)]) {
-    assert.doesNotMatch(`${copy.title} ${copy.note}`, /almost ready|in a moment|—/i);
+  // Eddy's words, not the implementation's.
+  for (const read of [null, { kind: 'unconfirmed', reason: 'native-unconfirmed' }, { kind: 'unconfirmed', reason: 'module-missing' }] as const) {
+    const copy = tilesSavedCopy(read);
+    assert.doesNotMatch(`${copy.title} ${copy.note ?? ''}`, /almost ready|in a moment|tiles|style|background|—/i);
   }
 });
 

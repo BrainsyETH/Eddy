@@ -22,12 +22,13 @@ public final class EddyStylePackModule: Module {
   public func definition() -> ModuleDefinition {
     Name("EddyStylePack")
 
-    // Resolves the pack's counts, or nil when there is no pack for this style
-    // (never downloaded, removed) or the URL is not a style URI. Never rejects:
-    // "unknown" is an answer the caller already treats as "not ready".
+    // Resolves the pack's counts, or nil only when the store CONFIRMS there is
+    // no pack for this style (never downloaded, removed). A store that cannot
+    // be read rejects, which JavaScript reads as `read-failed`: "couldn't
+    // check" and "not saved" are different answers and the card says which.
     AsyncFunction("status") { (styleURL: String, promise: Promise) in
       guard let styleURI = StyleURI(rawValue: styleURL) else {
-        promise.resolve(nil)
+        promise.reject("ERR_STYLE_URI", "Not a style URI: \(styleURL)")
         return
       }
       let manager = self.manager ?? OfflineManager()
@@ -37,13 +38,21 @@ public final class EddyStylePackModule: Module {
         case .success(let pack):
           promise.resolve(Self.counts(pack))
         case .failure:
-          // Before calling the style absent, look for it in the full list:
-          // a lookup error is not evidence that no pack exists.
-          manager.allStylePacks { all in
-            if case .success(let packs) = all, let pack = packs.first(where: { $0.styleURI == styleURL }) {
-              promise.resolve(Self.counts(pack))
-            } else {
-              promise.resolve(nil)
+          // A lookup error is not evidence that no pack exists: check the
+          // full list. Mapbox calls back on a worker thread; go back to main,
+          // where this module does all of its Mapbox work.
+          DispatchQueue.main.async {
+            manager.allStylePacks { all in
+              switch all {
+              case .success(let packs):
+                if let pack = packs.first(where: { $0.styleURI == styleURL }) {
+                  promise.resolve(Self.counts(pack))
+                } else {
+                  promise.resolve(nil)
+                }
+              case .failure(let error):
+                promise.reject("ERR_STYLE_PACK_READ", error.localizedDescription)
+              }
             }
           }
         }

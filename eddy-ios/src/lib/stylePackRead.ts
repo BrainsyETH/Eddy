@@ -6,43 +6,32 @@ export type StylePackRead =
 
 /**
  * What the offline map card says once every map tile is saved but the style
- * (style, sprites, fonts) is not confirmed complete. One sentence per thing the
- * check actually learned: a style still short of its files, a style Mapbox has
- * no record of, a check that got no answer, and a build without the checker.
- * "Almost ready, check again" was shown for all of them and promised progress
- * nothing was making. `finish` re-requests the style (a resume reloads it).
+ * is not confirmed complete. Two answers in Eddy's words, never the
+ * implementation's: a download that is short of something, and a check that
+ * could not tell. "Almost ready, check again" was shown for both and promised
+ * progress nothing was making.
+ *
+ * - The style is short of files, or the store confirms it has none: the
+ *   download is incomplete, and Finish download (a resume reloads the style)
+ *   is what fixes it.
+ * - The check got no answer or could not read the store: nothing is known
+ *   about the download, so the action is Check again, not another download.
+ * - A build without the checker: only an update can tell.
  */
 export interface TilesSavedCopy {
   title: string;
-  note: string;
-  action: 'finish' | null;
+  note: string | null;
+  action: 'finish' | 'check' | null;
 }
 
 export function tilesSavedCopy(read: StylePackRead | null): TilesSavedCopy {
-  if (read?.kind === 'counts') {
-    const { requiredResourceCount: required, completedResourceCount: completed } = read.counts;
-    const percent = required > 0 ? Math.min(99, Math.floor((completed / required) * 100)) : 0;
-    return {
-      title: 'Map style not finished',
-      note: `Map tiles are saved. The map style is ${percent}% downloaded. Finish the download with signal so the map draws offline.`,
-      action: 'finish',
-    };
+  if (read?.kind === 'counts' || (read?.kind === 'unconfirmed' && read.reason === 'native-unconfirmed')) {
+    return { title: 'Download incomplete', note: 'Connect to finish downloading.', action: 'finish' };
   }
   if (read?.kind === 'unconfirmed' && read.reason === 'module-missing') {
-    return { title: 'Map style not confirmed', note: 'Update Eddy before relying on this map offline.', action: null };
+    return { title: 'Couldn’t check offline map', note: 'Update Eddy before relying on this map offline.', action: null };
   }
-  if (read?.kind === 'unconfirmed' && read.reason === 'native-unconfirmed') {
-    return {
-      title: 'Map style not saved',
-      note: 'Map tiles are saved, but the map style isn’t. Finish the download with signal so the map draws offline.',
-      action: 'finish',
-    };
-  }
-  return {
-    title: 'Map style not confirmed',
-    note: 'Map tiles are saved. Eddy couldn’t confirm the map style on this phone, so the background map may not draw offline.',
-    action: 'finish',
-  };
+  return { title: 'Couldn’t check offline map', note: null, action: 'check' };
 }
 
 /** Keep a failed check distinct from a download that is actually progressing. */
