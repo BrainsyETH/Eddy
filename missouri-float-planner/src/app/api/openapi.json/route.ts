@@ -563,7 +563,9 @@ const spec = {
             },
           },
           driveBack: {
-            type: 'object',
+            type: ['object', 'null'],
+            deprecated: true,
+            description: 'Always null. Eddy no longer computes a shuttle drive in the plan; use GET /api/shuttle for a road estimate.',
             properties: {
               minutes: { type: 'number' },
               miles: { type: 'number' },

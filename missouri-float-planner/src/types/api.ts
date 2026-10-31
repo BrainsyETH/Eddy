@@ -102,6 +102,13 @@ export interface AccessPoint {
     lng: number;
     lat: number;
   };
+  /**
+   * Curated parking/road approach, when it differs from the waterline point.
+   * Both or neither. Directions prefer it (getNavCoordinates). Optional because
+   * older payloads and cached bundles omit it.
+   */
+  drivingLat?: number | null;
+  drivingLng?: number | null;
   // Optional detail fields (available when fetched with detail data)
   roadSurface?: string[];
   parkingCapacity?: string | null;
@@ -580,13 +587,19 @@ export interface FloatPlan {
    * two in step.
    */
   floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
+  /**
+   * @deprecated Always null from /api/plan: Eddy no longer computes a shuttle
+   * drive of its own (see the note where it is set in the plan route). Kept in
+   * the shape for older clients and saved snapshots. /api/shuttle still
+   * estimates one for API callers. Mirrored in @eddy/types' FloatPlan.
+   */
   driveBack: {
     minutes: number;
     miles: number;
     formatted: string;
     routeSummary: string | null;
     routeGeometry: GeoJSON.LineString | null;
-  };
+  } | null;
   condition: RiverCondition;
   hazards: Hazard[];
   route: GeoJSON.Feature<GeoJSON.LineString>;

@@ -181,6 +181,13 @@ export interface MapAccessPoint {
    * the direction nobody checks.
    */
   isFloatEndpoint?: boolean;
+  /**
+   * Curated parking/road approach, now on the list and plan payloads as well
+   * as the detail. Both or neither; directions prefer it over `coordinates`
+   * (navCoordinatesFor). OPTIONAL: older servers and cached payloads omit it.
+   */
+  drivingLat?: number | null;
+  drivingLng?: number | null;
   slug?: string;
   description?: string | null;
   amenities?: string[];
@@ -1922,14 +1929,19 @@ export interface FloatPlan {
    * to the dangerous wording — the only case that existed before the field.
    */
   floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
-  /** Take-out → put-in, which is the direction the shuttle actually drives. */
+  /**
+   * Take-out → put-in, which is the direction the shuttle actually drives.
+   * @deprecated Always null from current servers: Eddy hands the shuttle to
+   * Google or Apple Maps instead of computing a drive of its own. Older
+   * servers may still send one.
+   */
   driveBack: {
     minutes: number;
     miles: number;
     formatted: string;
     routeSummary: string | null;
     routeGeometry: RiverGeometry | null;
-  };
+  } | null;
   condition: FloatPlanCondition;
   hazards: Hazard[];
   /** The floated stretch itself. Geometry can be null on an unmapped segment. */

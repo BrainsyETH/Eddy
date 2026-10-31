@@ -7,10 +7,7 @@ import { estimateRoute, RouteEstimateError } from '@/lib/calculations/route-esti
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
-import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
-import { formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
+import { formatFloatTime, formatFloatTimeRange, formatDistance } from '@/lib/calculations/floatTime';
 import {
   calculateDischargePercentile,
 } from '@/lib/usgs/gauges';
@@ -18,7 +15,7 @@ import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { PlanResponse, FloatPlan, AccessPointType } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
-import { toHazard } from '@/lib/offline/shapes';
+import { drivingPair, toHazard } from '@/lib/offline/shapes';
 import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (uses cookies and searchParams)
@@ -54,142 +51,6 @@ async function _GET(request: NextRequest) {
       condition, conditionCode, dailyStats, spanWarnings, floatTimeResult, withholdReason, estimateBasis, availability,
     } = await estimateRoute(supabase, { riverId, startId, endId, vesselTypeId });
 
-    // Get shuttle drive time. Check drive_time_cache first (shared with
-    // /api/shuttle — both model the shuttle drive take-out → put-in) so we
-    // only pay for a Mapbox Directions call on cache miss.
-    // Priority: directions_override (geocoded) > driving_lat/lng > location_snap > location_orig
-    let driveBack: {
-      minutes: number;
-      miles: number;
-      formatted: string;
-      routeSummary: string | null;
-      routeGeometry: GeoJSON.LineString | null;
-    };
-    try {
-      // Cache writes need the service role (RLS restricts writes to admins).
-      const adminSupabase = createAdminClient();
-
-      // During high/dangerous water, roads and low bridges can close, so only
-      // trust cache entries fetched within the last hour (mirrors the 1h
-      // fetch revalidate that getDriveTime uses for those conditions).
-      const isVolatileConditions = conditionCode === 'high' || conditionCode === 'dangerous';
-      const { data: cachedDrive } = await adminSupabase
-        .from('drive_time_cache')
-        .select('drive_miles, drive_minutes, route_summary, route_geometry, fetched_at, expires_at')
-        .eq('start_access_id', endId)
-        .eq('end_access_id', startId)
-        .maybeSingle();
-
-      const cacheAgeMs = cachedDrive?.fetched_at
-        ? Date.now() - new Date(cachedDrive.fetched_at).getTime()
-        : Infinity;
-      const cacheExpired = !cachedDrive?.expires_at
-        || new Date(cachedDrive.expires_at).getTime() < Date.now();
-      const cacheFresh = Boolean(
-        cachedDrive
-        && cachedDrive.drive_minutes != null
-        && !cacheExpired
-        && (!isVolatileConditions || cacheAgeMs < 60 * 60 * 1000)
-      );
-
-      if (cacheFresh && cachedDrive) {
-        driveBack = {
-          minutes: Number(cachedDrive.drive_minutes),
-          miles: Number(cachedDrive.drive_miles ?? 0),
-          formatted: formatDriveTime(Number(cachedDrive.drive_minutes)),
-          routeSummary: cachedDrive.route_summary ?? null,
-          routeGeometry: (cachedDrive.route_geometry as GeoJSON.LineString | null) ?? null,
-        };
-      } else {
-      // Where a car meets the river, for each end of the float.
-      //
-      // Priority: directions_override (geocoded) > driving_lat/lng >
-      // location_snap > location_orig. Written once rather than twice because
-      // the two copies had to stay identical and the geocode is now anchored —
-      // three places to keep in step is one too many.
-      //
-      // THE ANCHOR IS LOAD-BEARING. directions_override is free text and the
-      // geocoder's `proximity` is only a soft bias, so an unchecked result is
-      // whatever Mapbox ranked first anywhere in the country. Passing the
-      // point's own position lets geocodeAddress reject a match that lands in
-      // the wrong state — which is how a Two Rivers, MO shuttle came to be
-      // cached at 1,689 miles by way of Two Rivers, WISCONSIN. A rejection
-      // falls through to the coordinates we already had, which is what the
-      // other 372 access points use anyway.
-      const drivingCoords = async (
-        point: typeof putIn,
-        role: string,
-      ): Promise<[number, number]> => {
-        const own = (point.location_snap as { coordinates?: number[] } | null)?.coordinates
-          || (point.location_orig as { coordinates?: number[] } | null)?.coordinates;
-
-        if (point.directions_override) {
-          const geocoded = await geocodeAddress(
-            point.directions_override,
-            own ? { lng: own[0], lat: own[1] } : null,
-          );
-          if (geocoded) return geocoded;
-        }
-
-        if (point.driving_lat && point.driving_lng) {
-          return [parseFloat(String(point.driving_lng)), parseFloat(String(point.driving_lat))];
-        }
-
-        if (!own) throw new Error(`Missing ${role} coordinates`);
-        return [own[0], own[1]];
-      };
-
-      const [putInLng, putInLat] = await drivingCoords(putIn, 'put-in');
-      const [takeOutLng, takeOutLat] = await drivingCoords(takeOut, 'take-out');
-
-      // Call Mapbox Directions API (shuttle goes take-out -> put-in)
-      const driveResult = await getDriveTime(
-        takeOutLng,
-        takeOutLat,
-        putInLng,
-        putInLat,
-        conditionCode
-      );
-
-      driveBack = {
-        minutes: driveResult.minutes,
-        miles: driveResult.miles,
-        formatted: formatDriveTime(driveResult.minutes),
-        routeSummary: driveResult.routeSummary,
-        routeGeometry: driveResult.geometry,
-      };
-
-      // Write back so /api/shuttle and future plan requests skip Mapbox.
-      // Non-fatal on error (e.g. route_geometry column not yet migrated).
-      const { error: cacheWriteError } = await adminSupabase
-        .from('drive_time_cache')
-        .upsert({
-          start_access_id: endId,
-          end_access_id: startId,
-          drive_miles: driveResult.miles,
-          drive_minutes: driveResult.minutes,
-          route_summary: driveResult.routeSummary,
-          route_geometry: driveResult.geometry,
-          fetched_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        }, {
-          onConflict: 'start_access_id,end_access_id',
-        });
-      if (cacheWriteError) {
-        console.warn('drive_time_cache write failed:', cacheWriteError.message);
-      }
-      }
-    } catch (error) {
-      console.error('Error calculating drive time:', error);
-      driveBack = {
-        minutes: 0,
-        miles: 0,
-        formatted: 'Unknown',
-        routeSummary: null,
-        routeGeometry: null,
-      };
-    }
-
     // Get hazards along the route
     const startMile = parseFloat(String(segmentData.start_river_mile));
     const endMile = parseFloat(String(segmentData.end_river_mile));
@@ -212,25 +73,6 @@ async function _GET(request: NextRequest) {
     // Build warnings array
     const warnings: string[] = [];
     warnings.push(...spanWarnings);
-    // NOT PUSHED INTO `warnings` ANY MORE, deliberately.
-    //
-    // "This shuttle route looks unusually long" was a warning about a number
-    // the app now declines to print — the drive time and its mileage are both
-    // gone from PlanResult, because the routing behind them is only as good as
-    // the endpoints, and 372 of 406 access points still have no driving
-    // coordinates and route from mid-river. A caveat about a figure the reader
-    // cannot see is noise at best and alarming at worst.
-    //
-    // The assessment itself stays, because it is the server-side smoke alarm
-    // for exactly the class of breakage the geocode anchor was added to stop.
-    // Logged, not shown.
-    const shuttlePlausibility = assessShuttlePlausibility(driveBack.miles, distanceMiles);
-    if (shuttlePlausibility.anomaly) {
-      console.warn(
-        `[Plan] Implausible shuttle ${putIn.name} → ${takeOut.name}: ` +
-          `${driveBack.miles.toFixed(0)} road mi against ${distanceMiles.toFixed(1)} river mi.`,
-      );
-    }
     if (condition?.accuracy_warning) {
       warnings.push(condition.accuracy_warning_reason || 'Gauge reading may be inaccurate');
     }
@@ -296,6 +138,7 @@ async function _GET(request: NextRequest) {
         feeRequired: putIn.fee_required ?? false,
         feeNotes: putIn.fee_notes,
         directionsOverride: putIn.directions_override || null,
+        ...drivingPair(putIn),
         imageUrls: putIn.image_urls || [],
         coordinates: {
           lng: (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] || (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
@@ -320,6 +163,7 @@ async function _GET(request: NextRequest) {
         feeRequired: takeOut.fee_required ?? false,
         feeNotes: takeOut.fee_notes,
         directionsOverride: takeOut.directions_override || null,
+        ...drivingPair(takeOut),
         imageUrls: takeOut.image_urls || [],
         coordinates: {
           lng: (takeOut.location_orig as { coordinates?: number[] } | null)?.coordinates?.[0] || (takeOut.location_snap as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
@@ -362,7 +206,17 @@ async function _GET(request: NextRequest) {
       // ordinary generation, where dropping is not the problem and waiting
       // will not help.
       floatTimeWithheldReason: withholdReason,
-      driveBack,
+      // NOT COMPUTED ANY MORE. Null, kept for response shape.
+      //
+      // No client shows a shuttle drive figure: the routing behind it is only
+      // as good as the endpoints, and most access points still have no
+      // driving coordinates and route from mid-river (the web panel once
+      // printed 85 mi for a 30-mile Pulltite → Cedargrove shuttle). Both apps
+      // hand the shuttle to Google or Apple Maps instead. Computing it anyway
+      // made every uncached plan wait on up to three Mapbox calls — two
+      // geocodes and a Directions request, 10 s timeout each — for a number
+      // nobody saw. /api/shuttle still serves an estimate to API callers.
+      driveBack: null,
       condition: {
         availability,
         label: condition?.condition_label || 'Unknown Conditions',
