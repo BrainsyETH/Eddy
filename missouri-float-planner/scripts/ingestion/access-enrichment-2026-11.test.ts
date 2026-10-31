@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  type Lot, type Proposal, addAmenities, agencyFromOwnershipText, agencyFromPadus, belongsTo,
+  type Lot, type Proposal, addAmenities, agencyFromAgfcOwner, agencyFromOwnershipText, agencyFromPadus, belongsTo,
   chooseManagingAgency, line, matchLots, mvumRoadSurface, parkingInfo, ownershipSpelling, parseCsv,
   correctionsFromSheet, roadServes, sideOfRiver, toCsv, usfsHasRestroom,
 } from './access-enrichment-2026-11';
@@ -185,4 +185,17 @@ test('the reviewed sheet becomes one compare-and-set correction per access point
   assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'road_surface', current: '[]', proposed: '["cobbles"]' }]), /invalid road_surface/);
   assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'driving_lat', current: 'null', proposed: '1' }]), /unknown field/);
   assert.throws(() => correctionsFromSheet([rows[1], rows[1]]), /two accepted rows/);
+});
+
+test('AGFC owner values map by an explicit table; unknowns are not evidence', () => {
+  assert.deepEqual(agencyFromAgfcOwner('USACOE'), { agency: 'COE' }, 'the spelling a regex missed (Jim Griffin)');
+  assert.deepEqual(agencyFromAgfcOwner('ASP'), { agency: 'State Park' });
+  assert.deepEqual(agencyFromAgfcOwner('Weyerhaeuser'), { agency: 'Private' });
+  assert.deepEqual(agencyFromAgfcOwner('USFWS'), { agency: null, unsupported: 'USFWS' });
+  for (const unknown of ['Missing', 'Other', 'Various', null, 'Other - See Comments']) assert.equal(agencyFromAgfcOwner(unknown), null);
+  const jimGriffin = chooseManagingAgency([
+    { agency: 'AGFC', source: 'agency_link', detail: 'owner "AGFC"' },
+    { ...agencyFromAgfcOwner('USACOE')!, source: 'agency_link', detail: 'owner "USACOE"' },
+  ]);
+  assert.equal(jimGriffin.confidence, 'flag');
 });

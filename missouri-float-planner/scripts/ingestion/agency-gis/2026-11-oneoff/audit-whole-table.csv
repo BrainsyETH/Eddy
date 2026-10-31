@@ -1,0 +1,5 @@
+source,field,verdict,slug,name,value,why
+pre-existing,managing_agency,contradicted,denny-hollow-float-camp,Denny Hollow Float Camp,USFS,not Forest Service land — at pin: no NPS tract; NON-FS
+pre-existing,managing_agency,contradicted,horse-camp,Horse Camp Access,USFS,not Forest Service land — at pin: no NPS tract; NON-FS
+pre-existing,official_site_url,contradicted,bookers-bend,Bookers Bend Access,https://www.fs.usda.gov/recarea/mtnf/recreation/recarea/?recid=84142,pre-2025 USFS link format; these redirect to the forest’s generic recreation page
+pre-existing,official_site_url,contradicted,east-gate,East Gate Access,https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21814,pre-2025 USFS link format; these redirect to the forest’s generic recreation page

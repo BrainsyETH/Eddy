@@ -1,0 +1,403 @@
+{
+  "applied_at_utc": "2026-10-31",
+  "project": "ilefwfpvphadsbptiaur",
+  "note": "Values BEFORE the round-2 apply.",
+  "access_points": 73,
+  "rollback": [
+    {
+      "id": "662788dc-b203-4896-81fb-c604c31e610a",
+      "slug": "bay-creek",
+      "managing_agency": null
+    },
+    {
+      "id": "63542614-772f-4e56-9932-e983f9b914fd",
+      "slug": "bay-nothing-boat-ramp",
+      "amenities": null,
+      "managing_agency": null,
+      "road_surface": []
+    },
+    {
+      "id": "bda5fb79-d04f-4c40-9192-d7a803a9a713",
+      "slug": "campbell-cemetery-access",
+      "road_surface": []
+    },
+    {
+      "id": "a5c4a822-1782-4e28-a10c-b7d64a9aa7c4",
+      "slug": "catarac-landing",
+      "managing_agency": null
+    },
+    {
+      "id": "a36db353-359e-447d-abb4-218a7e0913fa",
+      "slug": "compton-recreation-area",
+      "road_surface": []
+    },
+    {
+      "id": "ab5c22e7-ff04-44fc-8c1c-b2f981ebd80f",
+      "slug": "cowskin-access",
+      "amenities": null
+    },
+    {
+      "id": "6fe193bd-c704-4d10-8623-fbb40f3b9f8c",
+      "slug": "crooked-creek-gravel-bar-camping-area",
+      "amenities": null,
+      "managing_agency": null
+    },
+    {
+      "id": "31d79668-3294-45f9-92f8-ece72809d0ef",
+      "slug": "dam-quarry-boat-ramp",
+      "amenities": [
+        "boat_ramp",
+        "picnic"
+      ],
+      "parking_info": null
+    },
+    {
+      "id": "2e70c18b-880b-4011-a816-edb45f15a271",
+      "slug": "deer-leap-recreation-area",
+      "managing_agency": null
+    },
+    {
+      "id": "58d2e6d1-bf13-40cc-a0b8-6ee1c76ea02f",
+      "slug": "float-camp-recreation-area",
+      "managing_agency": null,
+      "road_surface": []
+    },
+    {
+      "id": "5706fd9a-0864-45ae-a1cb-2ed4a41e18c7",
+      "slug": "glenwood-access-city-park-boat-ramp",
+      "amenities": null,
+      "parking_info": null
+    },
+    {
+      "id": "abaa410e-3fa6-4674-a0b2-ad92e2ee62fc",
+      "slug": "gooseneck-campground",
+      "managing_agency": null
+    },
+    {
+      "id": "e3dc7b91-6d06-4102-bd80-99ae16fd4ef1",
+      "slug": "greer-spring",
+      "road_surface": []
+    },
+    {
+      "id": "f2abf711-3df1-47da-8528-75c1cccdb120",
+      "slug": "grubb-hollow",
+      "managing_agency": null
+    },
+    {
+      "id": "e318f951-6746-4c6d-8714-21c5968ea07a",
+      "slug": "hickory-landing",
+      "managing_agency": null
+    },
+    {
+      "id": "02acf517-71a9-44f9-8a12-48d62e520e19",
+      "slug": "high-bank-recreation-area",
+      "road_surface": []
+    },
+    {
+      "id": "a0ce5469-7e0b-4cb3-a228-004138fcaef7",
+      "slug": "jerktail-landing",
+      "managing_agency": null
+    },
+    {
+      "id": "da082ee9-07d5-4ae2-a7be-eb45d89fa30a",
+      "slug": "la-russell-access",
+      "parking_info": null,
+      "amenities": null
+    },
+    {
+      "id": "39020014-6bf2-46e6-90c1-ed5f8ce93ecc",
+      "slug": "log-yard-campground",
+      "managing_agency": null
+    },
+    {
+      "id": "e7bd83e9-7625-47a7-b10d-0301bf56dbd9",
+      "slug": "mammoth-access",
+      "amenities": null,
+      "parking_info": null
+    },
+    {
+      "id": "7fae05c8-9523-4d7f-9366-69ad727c954f",
+      "slug": "mark-oliver-access",
+      "amenities": null,
+      "parking_info": null,
+      "managing_agency": null
+    },
+    {
+      "id": "20827276-0425-4059-801a-b623ff09857f",
+      "slug": "merrill-horse-access",
+      "amenities": null,
+      "parking_info": null
+    },
+    {
+      "id": "6721a1dc-d003-4840-8fc1-896afd9e4897",
+      "slug": "north-fork-recreation-area-hammond",
+      "amenities": null,
+      "road_surface": []
+    },
+    {
+      "id": "6ef4bc1f-6b46-4d5c-9abe-4f977d63d950",
+      "slug": "powder-mill",
+      "managing_agency": null
+    },
+    {
+      "id": "00124d96-79b6-4b7a-a6fb-706d507c2025",
+      "slug": "ravenden-access",
+      "amenities": null,
+      "parking_info": null,
+      "managing_agency": null
+    },
+    {
+      "id": "58db4693-ab2f-43cd-ae6c-244669eec3e5",
+      "slug": "redding-recreation-area",
+      "amenities": null,
+      "road_surface": []
+    },
+    {
+      "id": "6662d9d1-2f93-4f3e-a4ef-2807abd0d888",
+      "slug": "roberts-field",
+      "managing_agency": null
+    },
+    {
+      "id": "d3a3551e-f91f-45eb-b5e0-960f7c214734",
+      "slug": "shelvin-rock-access",
+      "parking_info": null,
+      "amenities": null
+    },
+    {
+      "id": "b686e061-6da1-4627-97f7-7910c5a20f5c",
+      "slug": "sinking-creek-campground",
+      "managing_agency": null
+    },
+    {
+      "id": "2b0f7d89-680c-48ad-ae6d-ca53d0d72d1b",
+      "slug": "slabtown",
+      "amenities": [
+        "parking",
+        "camping",
+        "picnic"
+      ]
+    },
+    {
+      "id": "ed61bf47-aaa6-4875-9299-10f9db9d28af",
+      "slug": "sycamore-access",
+      "amenities": null,
+      "parking_info": null
+    },
+    {
+      "id": "fc79022c-49a7-4d5e-8ade-1fd621837c88",
+      "slug": "tan-vat",
+      "managing_agency": null
+    },
+    {
+      "id": "df95672a-e1c5-47b8-b93e-b52e4598f0bc",
+      "slug": "turner-mill-south",
+      "amenities": [
+        "parking"
+      ]
+    },
+    {
+      "id": "f6e3a5cf-cd1b-4417-9123-40416f7df8aa",
+      "slug": "turner-s-mill-and-spring",
+      "amenities": null,
+      "managing_agency": null
+    },
+    {
+      "id": "0c55243c-8c0f-4f86-b05c-ef4a7c1707ba",
+      "slug": "waymeyer",
+      "managing_agency": null
+    },
+    {
+      "id": "2c1a9d4c-612e-4f20-9be6-a28259c8a55e",
+      "slug": "wolf-pen-recreation-area",
+      "road_surface": [],
+      "amenities": null
+    },
+    {
+      "id": "f3c13225-b22f-4d3e-9bff-0cf84e043d11",
+      "slug": "sappington-bridge",
+      "amenities": [
+        "parking"
+      ]
+    },
+    {
+      "id": "51d2976b-3140-4903-8daa-bbd0ecb0a1b8",
+      "slug": "bayou-access",
+      "managing_agency": null
+    },
+    {
+      "id": "6f2f3434-a1e2-49db-abf9-810886011695",
+      "slug": "berry-bluff-access",
+      "managing_agency": null
+    },
+    {
+      "id": "1daa6131-dd01-4dec-bb66-f64a82936ac1",
+      "slug": "bill-ackerman-river-ridge-access",
+      "managing_agency": null
+    },
+    {
+      "id": "fc5a46ba-94b1-4575-bdce-17f32cfdcbad",
+      "slug": "buffalo-city-access",
+      "managing_agency": null
+    },
+    {
+      "id": "9c297aae-cc0e-439c-81b5-55a81192f2d2",
+      "slug": "chesmond-ferry-access",
+      "managing_agency": null
+    },
+    {
+      "id": "40aa2555-d1a2-449b-8575-9f5361fb862b",
+      "slug": "cold-springs-access",
+      "managing_agency": null
+    },
+    {
+      "id": "63138d83-0de4-4cc1-89fb-d3079727447a",
+      "slug": "devils-elbow",
+      "managing_agency": null
+    },
+    {
+      "id": "a459f333-9784-4bde-a23a-2f5d9d1a81a7",
+      "slug": "eminence-city-access",
+      "managing_agency": null
+    },
+    {
+      "id": "69df6260-24c2-4227-9b00-3fc746ab479c",
+      "slug": "gasconade-confluence",
+      "managing_agency": null
+    },
+    {
+      "id": "c997d64d-7459-471d-98af-caff3fe519e4",
+      "slug": "guion-access-izard-county",
+      "managing_agency": null
+    },
+    {
+      "id": "e13e574f-cfee-414e-ac20-a809f1062b54",
+      "slug": "highway-49-bridge",
+      "managing_agency": null
+    },
+    {
+      "id": "d64ed019-7c5f-4c66-8fb1-3bba4e70ffd5",
+      "slug": "highway-v-bridge",
+      "managing_agency": null
+    },
+    {
+      "id": "2962b6bd-54ea-4e6a-808b-68b2afff87c5",
+      "slug": "hwy-182-amity-boat-ramp",
+      "managing_agency": null
+    },
+    {
+      "id": "1eb4587b-f27b-4517-bcc1-f46b0638d230",
+      "slug": "imboden-access",
+      "managing_agency": null
+    },
+    {
+      "id": "17f21843-64f3-4c9d-9f59-5a60c0c8ba1a",
+      "slug": "j-d-fletcher-access-hwy-62",
+      "managing_agency": null
+    },
+    {
+      "id": "8bf13ed8-7d83-4447-8bf8-62ab9118eb6e",
+      "slug": "lb-access-harold-e-alexander-spring-river-wma",
+      "managing_agency": null
+    },
+    {
+      "id": "bce3f071-9165-41c0-8135-e06fc5dd3fec",
+      "slug": "lower-crooked-creek-access",
+      "managing_agency": null
+    },
+    {
+      "id": "45d24827-1947-4091-aab3-bbfb8f2fb0fb",
+      "slug": "marble-access-big-onion-creek",
+      "managing_agency": null
+    },
+    {
+      "id": "9c3345bc-a8d2-4b3c-a673-bed32ae53859",
+      "slug": "mdc-south-prong-access",
+      "managing_agency": null
+    },
+    {
+      "id": "b3a63581-c931-4eaa-8681-6ed43c76232f",
+      "slug": "montauk-state-park",
+      "managing_agency": null
+    },
+    {
+      "id": "78c3f527-927a-4557-ae4f-fd213664b325",
+      "slug": "mount-olive-access",
+      "managing_agency": null
+    },
+    {
+      "id": "15ea1bf2-5fd3-4957-8dcb-4bc74b1899be",
+      "slug": "norman-boating-access",
+      "managing_agency": null
+    },
+    {
+      "id": "a7dc4b47-3de7-4209-b9ab-2300949c6125",
+      "slug": "old-route-66-bridge",
+      "managing_agency": null
+    },
+    {
+      "id": "cb511837-22d7-436c-a5c7-739d07c1fb5c",
+      "slug": "ranchette-access",
+      "managing_agency": null
+    },
+    {
+      "id": "8e2daec9-1879-4bc9-a6f2-bfb311316161",
+      "slug": "red-s-landing-access",
+      "managing_agency": null
+    },
+    {
+      "id": "a2757a09-8faa-4cb4-b035-3e030d3b0156",
+      "slug": "rim-shoals-access",
+      "managing_agency": null
+    },
+    {
+      "id": "a238eae3-7e48-4596-87bf-6f2fc4fb0a6d",
+      "slug": "rockhouse-access",
+      "managing_agency": null
+    },
+    {
+      "id": "d4f8b6df-78ac-4b16-b70c-bf0f1217cfc1",
+      "slug": "round-bottom-access",
+      "managing_agency": null
+    },
+    {
+      "id": "53274499-3f0a-4a71-837d-194d85483f97",
+      "slug": "shipp-s-ferry-access",
+      "managing_agency": null
+    },
+    {
+      "id": "4e43ed07-b5ac-462f-90d8-98ebf6e1c3c9",
+      "slug": "sneed-creek-access",
+      "managing_agency": null
+    },
+    {
+      "id": "a1a3a90b-add4-4d05-b374-a1c4b032c827",
+      "slug": "stoney-point-summers-ford",
+      "managing_agency": null
+    },
+    {
+      "id": "e74aff25-e373-49e6-a9da-1c9aced8b945",
+      "slug": "swinging-bridge-access-caddo-gap",
+      "managing_agency": null
+    },
+    {
+      "id": "408d7163-72df-48ce-b81b-c2e6ba644255",
+      "slug": "sylamore-ferry-access",
+      "managing_agency": null
+    },
+    {
+      "id": "b5f6033a-6483-4825-a579-6bdd32be3bdd",
+      "slug": "war-eagle-creek-walk-in-access-chicken-house-access",
+      "managing_agency": null
+    },
+    {
+      "id": "938a458b-3b64-437d-90b5-d435e325c4a7",
+      "slug": "white-hole-access",
+      "managing_agency": null
+    },
+    {
+      "id": "032f9325-e17e-4510-a2a9-084621973f5b",
+      "slug": "wildcat-shoals-access",
+      "managing_agency": null
+    }
+  ]
+}

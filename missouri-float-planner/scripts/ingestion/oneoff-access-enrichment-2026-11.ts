@@ -35,7 +35,7 @@ import { getScriptClient } from '../lib/db';
 import { type ArcFeature, envelope, envelopeFilter, featureUrl, fetchAll, mapLimit, selectAll } from './arcgis-fetch';
 import {
   type AgencySignal, type LngLat, type Lot, type Proposal, type ProposalField, type Confidence,
-  MAX_LOT_M, PADUS_NON_FEE, addAmenities, agencyFromOwnershipText, agencyFromPadus, belongsTo, chooseManagingAgency,
+  MAX_LOT_M, PADUS_NON_FEE, addAmenities, agencyFromAgfcOwner, agencyFromOwnershipText, agencyFromPadus, belongsTo, chooseManagingAgency,
   mapLink, matchLots, metersBetween, parkingInfo, roadServes, mvumRoadSurface, nameCore, ownershipSpelling, toCsv,
   usfsFeeRequired, usfsHasRestroom,
 } from './access-enrichment-2026-11';
@@ -292,13 +292,9 @@ async function main() {
           ids.push(citeSource(s));
           continue;
         }
-        const o = s.owner ?? '';
-        const agency = /corps|usace|\bcoe\b/i.test(o) ? 'COE' : /national park|\bnps\b/i.test(o) ? 'NPS'
-          : /forest service|usfs/i.test(o) ? 'USFS' : /state park/i.test(o) ? 'State Park'
-          : /\bcity\b|town of/i.test(o) ? 'Municipal' : /county/i.test(o) ? 'County' : null;
-        if (agency) signals.push({ agency, source: 'agency_link', detail: `AGFC record, owner "${o}"` });
-        else if (/agfc|game and fish/i.test(o) || !o) signals.push({ agency: 'AGFC', source: 'agency_link', detail: `AGFC record, owner "${o || 'n/a'}"` });
-        else continue;
+        const sig = agencyFromAgfcOwner(s.owner);
+        if (!sig) continue; // owner unknown ("Missing", "Other"…): not evidence
+        signals.push({ ...sig, source: 'agency_link', detail: `AGFC record, owner "${s.owner}"` });
         ids.push(citeSource(s));
       }
       const fromText = agencyFromOwnershipText(ap.ownership);

@@ -4,7 +4,9 @@ A single pass that proposes values for **existing** `access_points` columns
 from agency map data. It is not a pipeline, and nothing refreshes it. Round 1
 was reviewed and partly applied (see *Applied*). The current `review.csv` is
 round 2, regenerated after that apply and after AGFC became an allowed
-managing agency. **Nothing in round 2 has been written.**
+managing agency. Both rounds were then independently audited. Round 1 was
+corrected and round 2 was applied in part; see *Integrity audit*, which
+supersedes the review notes below.
 
 It adds no access points and moves no pins. Agency parking lots attach to the
 access point they serve, as facts about that place (there is parking; its
@@ -16,11 +18,12 @@ surface). They never become a second coordinate.
   `scripts/ingestion/oneoff-access-enrichment-2026-11.ts` against the
   post-apply database. That's **125 proposed edits and 13 flags**. Flags carry
   no value and can't be applied.
-  - `accept` is pre-filled `y` on the 3 high-confidence rows. Review the rest.
-  - Note that 4 of the AGFC proposals are named as city parks: Yellville City
-    Park, Buffalo City, Calico Rock City Park, and Cotter (Big Spring Park). For
-    those, the AGFC record says AGFC owns the facility, but check that AGFC,
-    not the city, runs it.
+  - Its `accept` column is the pre-audit pre-fill. What was actually written
+    is `round2-decided.csv`.
+  - 3 AGFC proposals are named as city parks: Yellville City Park, Calico
+    Rock City Park, and Cotter (Big Spring Park). The AGFC record says AGFC
+    owns the facility, but whether AGFC or the city runs it is unconfirmed, so
+    they were not written. Buffalo City is a town name, not a park.
 - `review-round1-applied.csv` / `sources-round1.json`: the round-1 sheet
   (225 rows) and evidence, as reviewed. Its 87 `accept=y` rows are what was
   applied.
@@ -173,8 +176,100 @@ Approved access points (362) before → after:
 | No amenities | 43% | 37.0% |
 | Old ownership spellings | 14 | 0 |
 
-The 90 medium/low rows and the 48 flags were **not** applied. To apply any of
-them later, mark them `y` and rerun. Rows already applied are skipped.
+The 90 medium/low rows and the 48 flags were **not** applied in round 1. The
+audit below later took 13 of round 1's amenity additions back out.
+
+## Integrity audit, round-1 corrections and round 2 (2026-10-31)
+
+`scripts/ingestion/audit-access-enrichment-2026-11.ts` (read-only) re-checked
+every value against sources independent of the proposer:
+- **Managing agency:** NPS Land Resources Division tracts (NPS manages only
+  "Federal Land (Fee)"; scenic easements and other land inside the park
+  boundary are not NPS-managed). Also USFS Basic Ownership, NPS campground
+  records linked to the place, and same-named USFS recreation sites. The
+  verdict comes from the parcel at the pin; a match only within 30 m is
+  ambiguous. Public road easements under a pin count as no evidence.
+- **Amenities and parking:** each added amenity is checked against the
+  record's own text and curated types. A denial, a closure, or a hedge
+  ("may have…") means the amenity is not confirmed.
+- **Links:** fetched. A link that redirects to a generic page is dead.
+- **Road surface:** checked against the record's road text.
+
+Outputs:
+- `audit.csv`: per-value verdicts.
+- `round2-decided.csv`: round-2 rows with `accept` and a `decision` reason.
+- `round1-corrections.csv`: round-1 values taken back out.
+- `audit-whole-table.csv`: the same checks over all 362 approved access points.
+
+**What the audit found**
+- **Proposer bugs, fixed:** AGFC's owner field is now read through an
+  explicit table. "USACOE", "ASP" and private timber owners had slipped
+  past a pattern match, and Jim Griffin Access became a COE/AGFC conflict.
+- **All 8 proposed USFS links are dead:** they redirect to the forest's
+  generic recreation page, so none were written.
+- **MDC's "Boat Ramps" layer also lists carry-in and canoe launches**
+  (Millstream Gardens: "no ramp"; Woodson K. Woods: "no formal boat ramp").
+  A same-area MDC privy or campsite can also be elsewhere in a conservation
+  area (Scotts Ford: "No restrooms at this specific access point").
+- **NPS proposals:** Bay Creek's pin is on a scenic easement; it is
+  confirmed NPS by its linked NPS campground record. Grassy Creek and
+  Primitive Access (Pioneer Forest) are ambiguous and were not written.
+
+**Round-1 corrections (applied):** 13 amenity additions from round 1 were not
+confirmed, so the values went back to their pre-apply state plus the confirmed
+additions only. (This includes Camp Branch, whose text describes a "gravel
+canoe launch".)
+- Contradicted by the record's text: restrooms at Baker Ford and Scotts Ford;
+  boat ramps at Camp Branch, Hammer, Millstream Gardens and Woodson K. Woods.
+- Uncorroborated or hedged: restrooms at Brown's Ford, Campbell Bridge,
+  Dillards Ferry, Millstream Gardens and Ponca; boat ramps at the Huzzah
+  Conservation Area Courtois access and Prosperine; camping at Lead Mine.
+- Round-1 managing agencies: 17 of 19 confirmed by land or operator
+  records. The other 2 are MDC sites (Lead Mine, Moon Valley) with two
+  agreeing sources.
+- Round-1 parking descriptions: all 19 consistent.
+
+**Round 2 (applied):** 92 of the 124 proposed edits, across 73 access points.
+- 55 managing agencies:
+  - 16 confirmed NPS or USFS;
+  - 29 AGFC, where the curated ownership and every known-owner AGFC record
+    say AGFC;
+  - 10 corroborated by the place's own name or description.
+- 19 amenity rows, confirmed additions only.
+- 9 parking descriptions.
+- 9 road surfaces from name-matched MVUM roads, not contradicted by the
+  record's road text.
+
+**Not written (reasons in `round2-decided.csv`):**
+- the 8 dead links;
+- Thomasville restrooms (its text says "No restrooms");
+- Warren Bridge Access parking ("officially closed for parking");
+- ambiguous or contradicted agencies (Cartney, Grassy Creek, Primitive
+  Access, the Huzzah low-water bridge);
+- three AGFC rows named as city parks (Yellville City Park, Calico Rock City
+  Park, Cotter / Big Spring Park);
+- every text-only agency without a second source (county low-water bridges,
+  three Kings River private crossings, Herrick Ford, Hwy 96, La Russell).
+
+Every write was compare-and-set and read back, and a rerun previews 0
+pending. Rollbacks: `rollback-round1-corrections-2026-10-31.json` and
+`rollback-round2-2026-10-31.json`. Re-deriving the decisions with the final
+audit rules reproduces exactly what was applied.
+
+**Whole table after the session:** no value written this session is
+contradicted. Four pre-existing findings are left for a person:
+- the USFS links at Bookers Bend and East Gate use the dead pre-2025 format;
+- Denny Hollow Float Camp and Horse Camp are recorded as USFS, but their
+  pins sit on non-Forest Service land.
+
+Approved access points (362), start of session → now:
+
+| Field | Before | After |
+| --- | --- | --- |
+| Managing agency empty | 43% | 22.9% |
+| No parking information | 30% | 22.4% |
+| No amenities | 43% | 32.9% |
+| No road surface | 54% | 51.1% |
 
 ## Sources and terms
 

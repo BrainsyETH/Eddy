@@ -201,6 +201,38 @@ export function agencyFromPadus(managerName: string | null, stateCode: string | 
   }
 }
 
+/**
+ * AGFC's `owner` field, as AGFC actually writes it (every value in the
+ * 2026-10-29 inventory). An explicit table, not a pattern: "USACOE" and "ASP"
+ * slipped past a regex. Unknowns ("Missing", "Other", "Various", null) return
+ * null and are not evidence of anything.
+ */
+const AGFC_OWNERS: Record<string, Omit<AgencySignal, 'source' | 'detail'>> = {
+  AGFC: { agency: 'AGFC' },
+  USACOE: { agency: 'COE' },
+  City: { agency: 'Municipal' },
+  ASP: { agency: 'State Park' },
+  NPS: { agency: 'NPS' },
+  USFS: { agency: 'USFS' },
+  County: { agency: 'County' },
+  Private: { agency: 'Private' },
+  Weyerhaeuser: { agency: 'Private' },
+  'Plum Creek': { agency: 'Private' },
+  Potlatch: { agency: 'Private' },
+  IP: { agency: 'Private' },
+  'The Ross Foundation': { agency: 'Private' },
+  USFWS: { agency: null, unsupported: 'USFWS' },
+  AFC: { agency: null, unsupported: 'Arkansas Forestry Commission' },
+  ANHC: { agency: null, unsupported: 'Arkansas Natural Heritage Commission' },
+  UA: { agency: null, unsupported: 'University of Arkansas' },
+  'US Army': { agency: null, unsupported: 'US Army' },
+  TNC: { agency: null, unsupported: 'The Nature Conservancy' },
+};
+
+export function agencyFromAgfcOwner(owner: string | null): Omit<AgencySignal, 'source' | 'detail'> | null {
+  return AGFC_OWNERS[(owner ?? '').trim()] ?? null;
+}
+
 export function agencyFromOwnershipText(text: string | null): ManagingAgency | null {
   const t = (text ?? '').trim();
   if (/^(MDC|NPS|USFS|COE)$/.test(t)) return t as ManagingAgency;
@@ -349,7 +381,8 @@ export function parseCsv(text: string): Record<string, string>[] {
 const ROAD_SURFACES = new Set(['paved', 'gravel_maintained', 'gravel_unmaintained', 'dirt', 'seasonal', '4wd_required']);
 const FIELD_RULES: Record<ProposalField, (v: unknown) => boolean> = {
   parking_info: (v) => typeof v === 'string' && v.trim().length > 0,
-  amenities: (v) => Array.isArray(v) && v.length > 0 && v.every((a) => typeof a === 'string' && /^[a-z_]+$/.test(a)),
+  // May be empty: a correction can take every added amenity back out.
+  amenities: (v) => Array.isArray(v) && v.every((a) => typeof a === 'string' && /^[a-z_]+$/.test(a)),
   managing_agency: (v) => (MANAGING_AGENCIES as readonly unknown[]).includes(v),
   official_site_url: (v) => typeof v === 'string' && /^https:\/\/\S+$/.test(v),
   fee_required: (v) => typeof v === 'boolean',
