@@ -73,6 +73,12 @@ export function PlannerMapFocus({ place, bounds, request, mode, callout = false,
     let frame = 0;
     let pendingResize = false;
     const takeControl = () => { intent.current.moved = true; cancelAnimationFrame(frame); };
+    // Under cooperative gestures a plain wheel scrolls the page, not the map;
+    // only a modified wheel (MapLibre's bypass key) is the user taking over.
+    const takeControlOnWheel = (event: WheelEvent) => {
+      if (map.cooperativeGestures.isEnabled() && !event.ctrlKey && !event.metaKey) return;
+      takeControl();
+    };
     const focus = (animate = true) => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -150,13 +156,13 @@ export function PlannerMapFocus({ place, bounds, request, mode, callout = false,
     map.on('dragstart', takeControl);
     const canvas = map.getCanvas();
     canvas.addEventListener('pointerdown', takeControl);
-    canvas.addEventListener('wheel', takeControl, { passive: true });
+    canvas.addEventListener('wheel', takeControlOnWheel, { passive: true });
     return () => {
       cancelAnimationFrame(frame); observer.disconnect();
       sheetElement?.removeEventListener('transitionend', resize);
       map.getContainer().removeEventListener('planner-selection-resize', resize);
       map.off('resize', resize); map.off('moveend', finishMove); map.off('dragstart', takeControl);
-      canvas.removeEventListener('pointerdown', takeControl); canvas.removeEventListener('wheel', takeControl);
+      canvas.removeEventListener('pointerdown', takeControl); canvas.removeEventListener('wheel', takeControlOnWheel);
     };
   }, [map, place, west, south, east, north, request, mode, callout, preserveInitialCamera, panelRef, stripRef, sheetRef, mobile, sheetReady, stripReady]);
   return null;

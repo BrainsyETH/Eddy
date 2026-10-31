@@ -353,6 +353,18 @@ export default function AccessPointMarkers({
         el.addEventListener('blur', () => popup.remove());
       }
 
+      // No hover and nothing to press (a read-only map, or a place that is
+      // not a launch): a tap is the only way to read the card. Mirrors
+      // HazardMarkers — the next blank map tap dismisses it. The tap stops
+      // here so that same tap is not also the map click that would close it.
+      if (!supportsHoverRef.current && !(hasClickHandler && canActivate) && interaction !== 'inspect') {
+        el.addEventListener('click', (e: MouseEvent) => {
+          e.stopPropagation();
+          presentPopup(map, popup, [point.coordinates.lng, point.coordinates.lat]);
+          map.once('click', () => popup.remove());
+        });
+      }
+
       markersRef.current.push(marker);
       popupsRef.current.push(popup);
       zoomFadeEntries.push({ el, circle, pinned: isPutIn || isTakeOut });

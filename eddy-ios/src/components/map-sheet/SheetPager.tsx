@@ -129,12 +129,39 @@ function MeasuredSheetPager({
   }));
   const translateX = useSharedValue(0);
   const dragStart = useSharedValue(0);
+  /**
+   * The page a swipe has ALREADY sent the track towards, or null.
+   *
+   * A flick settles itself with a spring that carries the finger's velocity,
+   * then reports its page. The parent sets `index`, and the effect below —
+   * which exists for a TAP on the bar — used to answer that change too,
+   * replacing the spring mid-flight with a fixed 240ms ease from wherever it
+   * had got to. Every swipe therefore lost its momentum and landed on the
+   * same mechanical curve; a snap-back to the same page (no index change)
+   * kept its spring, so the two felt different for no reason the reader
+   * could see.
+   *
+   * Written from the gesture's JS callback, queued BEFORE onIndexChange so it
+   * is in place by the time the parent's state lands. A plain ref: nothing
+   * renders from it.
+   */
+  const settledByGesture = useRef<number | null>(null);
+  const markSettledByGesture = useCallback((page: number) => {
+    settledByGesture.current = page;
+  }, []);
 
   // A tap on the tab bar, or a tab set that shrank under the active index.
-  // Not driven from the gesture — that settles itself and reports afterwards.
+  // Not driven from the gesture — that settles itself and reports afterwards,
+  // and the mark it leaves is what tells this effect to stand aside.
   useEffect(() => {
     const target = -index * width;
     if (width <= 0) return;
+    const gestureAlreadyHeadingThere = settledByGesture.current === index;
+    // Cleared on EVERY index change, not only the one it matches: a mark the
+    // parent never answered (a tab set that shrank under it) must not hold a
+    // later tap on that same page still.
+    settledByGesture.current = null;
+    if (gestureAlreadyHeadingThere) return;
     translateX.value = reducedMotion
       ? withTiming(target, { duration: 0 })
       : withTiming(target, TAP_TIMING);
@@ -183,9 +210,12 @@ function MeasuredSheetPager({
           translateX.value = reducedMotion
             ? withTiming(target, { duration: 0 })
             : withSpring(target, { ...PAGE_SPRING, velocity: event.velocityX });
+          // In this order: runOnJS calls are queued in sequence, so the mark is
+          // set before the parent hears the page and re-renders onto it.
+          runOnJS(markSettledByGesture)(next);
           runOnJS(onIndexChange)(next);
         }),
-    [count, width, reducedMotion, onIndexChange, dragStart, translateX],
+    [count, width, reducedMotion, onIndexChange, markSettledByGesture, dragStart, translateX],
   );
 
   const trackStyle = useAnimatedStyle(() => ({

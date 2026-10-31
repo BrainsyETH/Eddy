@@ -170,9 +170,16 @@ test('POI hit testing queries only the IDs registered by rendered pins', async (
     return { features: [{ properties: { id: 'access:2' } }] };
   };
   await s.press(tap);
-  assert.equal(queries.length, 1);
-  assert.equal(queries[0], s.context.pinHitLayers);
-  for (const id of ['pins-dams-icon', 'pins-allGauges-cluster', 'road-label', 'network-fill']) assert.ok(!queries[0].includes(id));
+  // The pin query leaves alongside the river query (one round trip, resolved
+  // pin-first — see onMapPress), so it is found by identity rather than by
+  // being the only one. Exactly one, and it names only the registered pins.
+  const pinQueries = queries.filter((layers) => layers === s.context.pinHitLayers);
+  assert.equal(pinQueries.length, 1);
+  for (const id of ['pins-dams-icon', 'pins-allGauges-cluster', 'road-label', 'network-fill']) assert.ok(!pinQueries[0].includes(id));
+  // And no query, pin or otherwise, reaches into the basemap.
+  for (const layers of queries) assert.ok(!layers.includes('road-label'));
+  // A pin answered, so nothing asked the public-land layer afterwards.
+  assert.ok(queries.every((layers) => !layers.includes('public-lands-fill')));
   assert.deepEqual(s.selected, ['access:2']);
 });
 

@@ -2118,25 +2118,39 @@ export function RiverMap({
     const current = () => sequence === tapSequence.current && epoch === interactionEpoch.current;
     const box = [y - 22, x - 22, y + 22, x + 22];
     try {
-      const hits = await map.queryRenderedFeaturesInRect(box, [], pinHitLayers);
+      // ── ONE ROUND TRIP, RESOLVED IN PRIORITY ORDER ───────────────────────
+      //
+      // The pin query, the count query per clustered source and the river
+      // query are all read-only and none depends on another's answer, so they
+      // leave together. They used to be awaited one after the next, which made
+      // a tap on empty map — the gesture that closes a sheet, and the most
+      // common tap on this screen — wait for every layer it had missed, each a
+      // bridge round trip, before the sheet moved. What stays sequential is
+      // the ORDER they are read in: a pin beats a count beats the river line,
+      // exactly as before. Public land is still asked last and only when
+      // nothing else answered, because its layer is off by default.
+      const sources = [...clusterSources.current];
+      const [hits, rivers, ...countResults] = await Promise.all([
+        map.queryRenderedFeaturesInRect(box, [], pinHitLayers),
+        map.queryRenderedFeaturesInRect(box, [], ['network-fill']),
+        ...sources.map(([sourceId]) => map.queryRenderedFeaturesInRect(box, [], [`${sourceId}-cluster`])),
+      ]);
       if (!current()) return;
       if (selectPinHits(hits?.features ?? [], event.geometry?.coordinates)) return;
-      // Queried native features omit source identity. Query cluster layers with
-      // their source refs only when no individual POI matched the tap — EVERY
-      // clustered source, then the count nearest the finger. Taking the first
-      // source's hit let an overlapping reference or places count capture a
-      // tap aimed at the gauge count drawn over it.
+      // Queried native features omit source identity. Cluster hits are read
+      // through their source refs only when no individual POI matched the tap
+      // — EVERY clustered source, then the count nearest the finger. Taking
+      // the first source's hit let an overlapping reference or places count
+      // capture a tap aimed at the gauge count drawn over it.
       const counts: { source: ClusterSourceRef; feature: RenderedFeature; lng: number; lat: number }[] = [];
-      for (const [sourceId, source] of clusterSources.current) {
-        const result = await map.queryRenderedFeaturesInRect(box, [], [`${sourceId}-cluster`]);
-        if (!current()) return;
-        for (const feature of result?.features ?? []) {
+      sources.forEach(([, source], index) => {
+        for (const feature of countResults[index]?.features ?? []) {
           const coords = feature.geometry?.coordinates;
           if (typeof feature.properties?.cluster_id === 'number' && coords) {
             counts.push({ source, feature, lng: coords[0], lat: coords[1] });
           }
         }
-      }
+      });
       const tapAt = event.geometry?.coordinates;
       const nearest = nearestHitId(
         counts.map((count, index) => ({ id: String(index), lng: count.lng, lat: count.lat })),
@@ -2155,8 +2169,6 @@ export function RiverMap({
         onZoomToCluster?.({ lng, lat, ...(zoom === undefined ? {} : { zoom }) });
         return;
       }
-      const rivers = await map.queryRenderedFeaturesInRect(box, [], ['network-fill']);
-      if (!current()) return;
       if (rivers?.features.length) {
         const coords = event.geometry?.coordinates;
         onNetworkPress({ features: rivers.features, coordinates: coords ? { longitude: coords[0], latitude: coords[1] } : undefined });
@@ -2610,6 +2622,13 @@ export function RiverMap({
       style={[styles.fill, { backgroundColor: colors.bg }]}
       styleURL={STYLE_URL}
       scaleBarEnabled={false}
+      // NO TILT. Mapbox's default lets a two-finger vertical drag pitch the
+      // map, which is a gesture a pinch produces by accident — and the only
+      // control that undoes a camera move here is the compass, which resets
+      // HEADING alone (resetHeading carries no pitch). A tilted map therefore
+      // stayed tilted for the session. River Mode's map already says no
+      // (FloatMap); rotation stays on, because the compass does answer that.
+      pitchEnabled={false}
       // MAPBOX CHROME. The logo is NOT optional — Mapbox's terms require it on
       // every map they render, on every plan tier, and it may not be restyled.
       // It may only be MOVED. Both props are therefore stated explicitly rather

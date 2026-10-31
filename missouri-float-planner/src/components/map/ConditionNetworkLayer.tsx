@@ -19,7 +19,8 @@
 // every label, and beneath the focused river / route layers (which mount
 // after this one and therefore stack above it). A `excludeRiverId` prop
 // keeps the page's hero river out of the network so the two never
-// double-draw.
+// double-draw — as a layer filter, so switching rivers never re-uploads
+// the statewide geometry.
 
 import { useEffect, useMemo, useState } from 'react';
 import type * as maplibregl from 'maplibre-gl';
@@ -48,6 +49,16 @@ const LABEL_LAYER_ID = 'condition-network-label-layer';
 const NO_MATCH: maplibregl.FilterSpecification = ['==', ['get', 'riverId'], ''];
 const NO_PRIORITY_LAYERS: readonly string[] = [];
 
+// Width treatment, applied at add time and again by setPaintProperty when
+// `prominent` changes (desktop exploration keeps the network legible at
+// the opening zoom).
+function casingWidth(prominent: boolean): maplibregl.ExpressionSpecification {
+  return prominent ? ['interpolate', ['linear'], ['zoom'], 6, 5, 10, 7, 16, 12] : NETWORK_CASING_WIDTH;
+}
+function lineWidth(prominent: boolean): maplibregl.ExpressionSpecification {
+  return prominent ? ['interpolate', ['linear'], ['zoom'], 6, 3, 10, 4.5, 16, 8] : NETWORK_LINE_WIDTH;
+}
+
 export default function ConditionNetworkLayer({
   excludeRiverId,
   onSelectRiver,
@@ -74,8 +85,10 @@ export default function ConditionNetworkLayer({
 }) {
   const map = useMap();
   // One condition-coded feature per curated river; classification shared
-  // with the Filters panel's counts via useConditionNetwork.
-  const { collection } = useConditionNetwork(excludeRiverId);
+  // with the Filters panel's counts via useConditionNetwork. Unfiltered on
+  // purpose: the hero river is kept out by a layer filter below, so a river
+  // switch never rebuilds the collection or its simplified label shadow.
+  const { collection } = useConditionNetwork();
   // Bumped when a style transition finishes so the add-layers effect
   // retries (see whenStyleReady in ./layer-anchors).
   const [styleReadyTick, setStyleReadyTick] = useState(0);
@@ -98,6 +111,15 @@ export default function ConditionNetworkLayer({
     };
   }, [collection]);
 
+  // The sources and five layers are added ONCE per style epoch. Readings
+  // refresh every 15 minutes and the hero river changes on every planner
+  // switch; each used to remove and re-add everything, which flickers and
+  // re-lays-out every label. Later data goes through setData, the hero
+  // river through setFilter, and the width treatment through
+  // setPaintProperty (effects below). `hasData` rather than `collection`
+  // in the deps: the first non-null collection seeds the sources, and a
+  // changed one is uploaded by the setData effect.
+  const hasData = collection !== null;
   useEffect(() => {
     if (!map || !collection) return;
 
@@ -125,7 +147,7 @@ export default function ConditionNetworkLayer({
         id: CASING_LAYER_ID,
         type: 'line',
         source: SOURCE_ID,
-        paint: { 'line-color': CASING_COLOR, 'line-width': prominent ? ['interpolate', ['linear'], ['zoom'], 6, 5, 10, 7, 16, 12] : NETWORK_CASING_WIDTH },
+        paint: { 'line-color': CASING_COLOR, 'line-width': casingWidth(prominent) },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       }, ANCHORS.lines);
 
@@ -135,7 +157,7 @@ export default function ConditionNetworkLayer({
         source: SOURCE_ID,
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': prominent ? ['interpolate', ['linear'], ['zoom'], 6, 3, 10, 4.5, 16, 8] : NETWORK_LINE_WIDTH,
+          'line-width': lineWidth(prominent),
           'line-opacity': 0.95,
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -173,13 +195,16 @@ export default function ConditionNetworkLayer({
       //    text-max-angle on nearly every line placement (the basemap's
       //    own water names vanish the same way), so labels lay along the
       //    smoothed course instead.
-      if (showLabels && labelCollection) {
+      // Always added; the Filters toggle flips its visibility (effect below)
+      // rather than re-adding the layer.
+      if (labelCollection) {
         map.addSource(LABEL_SOURCE_ID, { type: 'geojson', data: labelCollection });
         map.addLayer({
           id: LABEL_LAYER_ID,
           type: 'symbol',
           source: LABEL_SOURCE_ID,
           layout: {
+            visibility: showLabels ? 'visible' : 'none',
             'symbol-placement': 'line',
             'symbol-spacing': 350,
             'text-field': ['get', 'name'],
@@ -215,17 +240,56 @@ export default function ConditionNetworkLayer({
         // Ignore cleanup errors
       }
     };
-  }, [map, collection, labelCollection, styleReadyTick, showLabels, prominent]);
+    // collection/labelCollection/showLabels/prominent only seed the initial
+    // state here; their later values are applied by the effects below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, hasData, styleReadyTick]);
 
-  // Condition filter from the Filters panel's legend chips. setFilter on
-  // the existing layers (cheap) rather than rebuilding the source; deps
-  // include everything that re-adds layers so a rebuild gets re-filtered.
-  // The highlight layer resets — it may point at a now-hidden river.
+  // Fresh readings (or a late geometry load) replace the data in place.
+  useEffect(() => {
+    if (!map || !collection) return;
+    try {
+      (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined)?.setData(collection);
+      if (labelCollection) {
+        (map.getSource(LABEL_SOURCE_ID) as maplibregl.GeoJSONSource | undefined)?.setData(labelCollection);
+      }
+    } catch {
+      // Style mid-transition; the add-layers effect seeds the data on retry.
+    }
+  }, [map, collection, labelCollection, styleReadyTick]);
+
   useEffect(() => {
     if (!map) return;
-    const expr = visibleConditions
-      ? (['in', ['get', 'code'], ['literal', visibleConditions]] as unknown as maplibregl.FilterSpecification)
-      : null;
+    try {
+      if (map.getLayer(LABEL_LAYER_ID)) {
+        map.setLayoutProperty(LABEL_LAYER_ID, 'visibility', showLabels ? 'visible' : 'none');
+      }
+    } catch {
+      // Style mid-transition; the add-layers effect applies this on retry.
+    }
+  }, [map, showLabels, styleReadyTick, hasData]);
+
+  useEffect(() => {
+    if (!map) return;
+    try {
+      if (map.getLayer(CASING_LAYER_ID)) map.setPaintProperty(CASING_LAYER_ID, 'line-width', casingWidth(prominent));
+      if (map.getLayer(LINE_LAYER_ID)) map.setPaintProperty(LINE_LAYER_ID, 'line-width', lineWidth(prominent));
+    } catch {
+      // Style mid-transition; the add-layers effect applies this on retry.
+    }
+  }, [map, prominent, styleReadyTick, hasData]);
+
+  // Layer filter: the hero river (drawn by ConditionRiverLayer/RouteLayer
+  // instead) composed with the Filters panel's legend chips. One setFilter
+  // per layer carries both, because a filter replaces, never stacks. Deps
+  // include what re-adds the layers so a rebuild gets re-filtered. The
+  // highlight layer resets — it may point at a now-hidden river.
+  useEffect(() => {
+    if (!map) return;
+    const clauses: maplibregl.FilterSpecification[] = [];
+    if (excludeRiverId) clauses.push(['!=', ['get', 'riverId'], excludeRiverId] as unknown as maplibregl.FilterSpecification);
+    if (visibleConditions) clauses.push(['in', ['get', 'code'], ['literal', visibleConditions]] as unknown as maplibregl.FilterSpecification);
+    const expr = clauses.length ? (['all', ...clauses] as unknown as maplibregl.FilterSpecification) : null;
     try {
       for (const id of [CASING_LAYER_ID, LINE_LAYER_ID, HIT_LAYER_ID, LABEL_LAYER_ID]) {
         if (map.getLayer(id)) map.setFilter(id, expr);
@@ -234,7 +298,7 @@ export default function ConditionNetworkLayer({
     } catch {
       // Style mid-transition; the add-layers effect re-runs this after.
     }
-  }, [map, visibleConditions, collection, styleReadyTick, showLabels, prominent]);
+  }, [map, excludeRiverId, visibleConditions, styleReadyTick, hasData]);
 
   // Click a context river to make it the active planner river; hovering one
   // lights the whole river up via the highlight layer. Kept in its own

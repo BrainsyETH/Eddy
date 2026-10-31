@@ -1056,6 +1056,7 @@ export default function PlanPageClient({
             initialBounds={defaultBounds}
             showLegend={false}
             syncCameraToUrl
+            cooperativeGestures
             expanded={mapExpanded} onExpandedChange={setMapExpanded}
             extraTools={<>{plannerTools}<MapLegend asControl /></>}
           >
@@ -1206,6 +1207,7 @@ export default function PlanPageClient({
             expanded={mapExpanded} onExpandedChange={setMapExpanded}
             controlsTop={putInPoint && takeOutPoint ? 0 : 64}
             syncCameraToUrl
+            cooperativeGestures
           >
             {mapSelection}
             {markerLayer}

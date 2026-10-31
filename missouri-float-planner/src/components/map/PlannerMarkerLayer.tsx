@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useMemo, useRef } from 'react';
-import { Marker, type GeoJSONSource } from 'maplibre-gl';
+import { Marker, type GeoJSONSource, type MapSourceDataEvent } from 'maplibre-gl';
 import type { FeatureCollection, Point } from 'geojson';
 import { useMap } from './map-context';
 import { enableMarkerKeyboard } from './marker-keyboard';
@@ -23,11 +23,15 @@ interface Props {
   onDismiss: () => void;
 }
 
-function features(places: PlannerMarker[], selectedKey: string | null): FeatureCollection<Point> {
+// Selection is deliberately NOT a feature property: re-uploading the source
+// reruns supercluster and blinks every cluster badge for a single pin change.
+// The reconciler reads `selectedKey` at render time instead. Route roles are
+// part of `places` (they change with the plan, not the inspection), so they
+// can ride along as cluster sums that pick a cluster's face.
+function features(places: PlannerMarker[]): FeatureCollection<Point> {
   return { type: 'FeatureCollection', features: places.map(place => ({
     type: 'Feature', geometry: { type: 'Point', coordinates: [place.coordinates.lng, place.coordinates.lat] },
-    properties: { key: place.key, inspected: Number(place.key === selectedKey),
-      putIn: Number(place.role === 'put-in'), takeOut: Number(place.role === 'take-out') },
+    properties: { key: place.key, putIn: Number(place.role === 'put-in'), takeOut: Number(place.role === 'take-out') },
   })) };
 }
 
@@ -41,6 +45,7 @@ export default function PlannerMarkerLayer(props: Props) {
   const byKeyRef = useRef(byKey);
   useLayoutEffect(() => { byKeyRef.current = byKey; }, [byKey]);
   const latest = useRef(props);
+  const scheduleRef = useRef<() => void>(() => {});
   const renderedRef = useRef(new Map<string, { marker: Marker; signature: string; itemKey?: string; cluster: boolean }>());
   useLayoutEffect(() => {
     const keys = new Set(props.places.map(place => place.key));
@@ -59,9 +64,9 @@ export default function PlannerMarkerLayer(props: Props) {
     let disposed = false;
     let frame = 0;
     const rendered = renderedRef.current;
-    map.addSource(SOURCE, { type: 'geojson', data: features(latest.current.places, latest.current.selectedKey),
+    map.addSource(SOURCE, { type: 'geojson', data: features(latest.current.places),
       cluster: true, clusterRadius: referenceLayer ? 44 : 56, maxzoom: 24, clusterMaxZoom: 22,
-      clusterProperties: { inspected: ['+', ['get', 'inspected']], putIn: ['+', ['get', 'putIn']], takeOut: ['+', ['get', 'takeOut']] },
+      clusterProperties: { putIn: ['+', ['get', 'putIn']], takeOut: ['+', ['get', 'takeOut']] },
     });
     // Load source tiles and give river hit testing a place-priority layer.
     // The accessible HTML pins below own the actual appearance and actions.
@@ -73,7 +78,6 @@ export default function PlannerMarkerLayer(props: Props) {
       if (disposed || !map.isSourceLoaded(SOURCE)) return;
       const { places, selectedKey } = latest.current;
       const byKey = byKeyRef.current;
-      const selected = selectedKey ? byKey.get(selectedKey) : undefined;
       const putIn = places.find(place => place.role === 'put-in');
       const takeOut = places.find(place => place.role === 'take-out');
       const source = map.getSource(SOURCE) as GeoJSONSource;
@@ -85,8 +89,11 @@ export default function PlannerMarkerLayer(props: Props) {
         const cluster = properties.cluster === true;
         const key = cluster ? `${referenceLayer ? 'reference-cluster' : 'cluster'}:${properties.cluster_id}` : String(properties.key);
         if (visible.has(key)) continue;
-        const item = cluster ? properties.inspected && selected ? selected
-          : properties.putIn && putIn ? putIn : properties.takeOut && takeOut ? takeOut : undefined
+        // A cluster wears its endpoint's face. It does not wear the selected
+        // place's: membership is only known through an async worker round
+        // trip, and the inspection focus (PlannerMapFocus) zooms a selected
+        // pin out of its cluster anyway.
+        const item = cluster ? properties.putIn && putIn ? putIn : properties.takeOut && takeOut ? takeOut : undefined
           : byKey.get(key);
         if (!cluster && !item) continue;
         const coordinates = item?.coordinates ?? { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
@@ -192,11 +199,18 @@ export default function PlannerMarkerLayer(props: Props) {
       for (const [key, entry] of rendered) if (!visible.has(key)) { entry.marker.remove(); rendered.delete(key); }
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(update); };
-    map.on('sourcedata', schedule); map.on('moveend', schedule); map.on('resize', schedule);
+    scheduleRef.current = schedule;
+    // Every source fires sourcedata, basemap tiles included; only this
+    // source's own loaded tiles can change which pins exist.
+    const onSourceData = (event: MapSourceDataEvent) => {
+      if (event.sourceId === SOURCE && event.isSourceLoaded) schedule();
+    };
+    map.on('sourcedata', onSourceData); map.on('moveend', schedule); map.on('resize', schedule);
     schedule();
     return () => {
       disposed = true; cancelAnimationFrame(frame);
-      map.off('sourcedata', schedule); map.off('moveend', schedule); map.off('resize', schedule);
+      scheduleRef.current = () => {};
+      map.off('sourcedata', onSourceData); map.off('moveend', schedule); map.off('resize', schedule);
       for (const entry of rendered.values()) entry.marker.remove();
       rendered.clear();
       if (map.getLayer(hitLayer)) map.removeLayer(hitLayer);
@@ -204,7 +218,9 @@ export default function PlannerMarkerLayer(props: Props) {
     };
   }, [map, SOURCE, hitLayer, referenceLayer]);
   useLayoutEffect(() => {
-    (map.getSource(SOURCE) as GeoJSONSource | undefined)?.setData(features(props.places, props.selectedKey));
-  }, [map, SOURCE, props.places, props.selectedKey]);
+    (map.getSource(SOURCE) as GeoJSONSource | undefined)?.setData(features(props.places));
+  }, [map, SOURCE, props.places]);
+  // Selection only restyles the pins already on screen: no source upload.
+  useLayoutEffect(() => { scheduleRef.current(); }, [map, SOURCE, props.selectedKey]);
   return null;
 }

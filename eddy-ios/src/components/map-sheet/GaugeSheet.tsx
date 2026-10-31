@@ -48,7 +48,7 @@ import { observationAgeHours } from '@eddy/conditions/gauge-freshness';
 import { floodAlertLine, floodAlertsToShow } from '@eddy/conditions/flood-alert-copy';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
-import { Absent, Fact, LinkRow, Prose, Section } from './sections';
+import { Absent, Fact, LinkRow, Prose, Retry, Section } from './sections';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { GaugePinFacts } from './gaugeTabs';
 
@@ -57,6 +57,8 @@ export interface GaugeTabProps {
   detail: GaugeDetail | null;
   /** Whether the one request behind these tabs is pending, done or failed. */
   status: DetailStatus;
+  /** Run that request again. Offered only under a line that says it failed. */
+  onRetry?: (() => void) | null;
   onOpenGauge: (siteId: string) => void;
   onOpenRiver: (slug: string) => void;
 }
@@ -142,7 +144,7 @@ export function GaugeReadingRow({
 
 /* ── Levels — curated only ──────────────────────────────────────────────── */
 
-export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabProps) {
+export function GaugeLevelsTab({ facts, detail, status, onOpenRiver, onRetry }: GaugeTabProps) {
   const { colors } = useTheme();
   const links = detail?.thresholds ?? [];
   // A river with no slug has no screen to open, so it is named by its ladder
@@ -157,7 +159,14 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
     // Eddy-rated gauge in the state deny its own ladder for half a second, and
     // a reader who swiped here early would take that as the answer.
     if (status === 'loading') return <Absent>Loading levels…</Absent>;
-    if (status === 'failed') return <Absent>Levels unavailable right now.</Absent>;
+    if (status === 'failed') {
+      return (
+        <View>
+          <Absent>Levels unavailable right now.</Absent>
+          {onRetry ? <Retry onPress={onRetry} /> : null}
+        </View>
+      );
+    }
     // ── AND NEVER WITHOUT A PAYLOAD IN HAND ───────────────────────────────
     // "Not rated" is a claim about Eddy's data, so it may only be made from
     // Eddy's data. A settled request that produced no record — a 404, or a

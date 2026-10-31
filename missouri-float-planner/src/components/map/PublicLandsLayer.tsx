@@ -348,11 +348,24 @@ export default function PublicLandsLayer() {
 
     const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '280px' });
 
+    // closeOnClick is off because MapLibre's own closer fires on the same
+    // click that opened the popup. The parcel handler is itself a map click,
+    // so a `map.once('click')` registered inside it would fire for that same
+    // event too (once-listeners run after the regular ones). Instead the
+    // blank-click closer below runs on every map click and skips the one the
+    // parcel handler just answered — a click on another parcel opens that
+    // parcel's card; a click on open water closes the card.
+    let answered: MouseEvent | null = null;
     const onClick = (e: maplibregl.MapLayerMouseEvent) => {
       const props = e.features?.[0]?.properties as unknown as LandProperties | undefined;
       if (!props) return;
+      answered = e.originalEvent;
       popup.setHTML(popupHtml(props));
       presentPopup(map, popup, e.lngLat);
+    };
+    const onMapClick = (e: maplibregl.MapMouseEvent) => {
+      if (e.originalEvent === answered) return;
+      popup.remove();
     };
     const onEnter = () => {
       map.getCanvas().style.cursor = 'pointer';
@@ -362,11 +375,13 @@ export default function PublicLandsLayer() {
     };
 
     map.on('click', FILL_LAYER_ID, onClick);
+    map.on('click', onMapClick);
     map.on('mouseenter', FILL_LAYER_ID, onEnter);
     map.on('mouseleave', FILL_LAYER_ID, onLeave);
 
     return () => {
       map.off('click', FILL_LAYER_ID, onClick);
+      map.off('click', onMapClick);
       map.off('mouseenter', FILL_LAYER_ID, onEnter);
       map.off('mouseleave', FILL_LAYER_ID, onLeave);
       try {

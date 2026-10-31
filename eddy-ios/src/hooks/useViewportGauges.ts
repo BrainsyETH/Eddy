@@ -57,6 +57,8 @@ import {
 
 /** Idle already means "motion stopped"; this only collapses a burst of them. */
 const DEBOUNCE_MS = 100;
+/** How long a held viewport stays fresh, on the timer and on a foreground. */
+const REFRESH_MS = 5 * 60_000;
 
 /** Normal close-view payload. */
 const DETAIL_LIMIT = 300;
@@ -198,14 +200,29 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
    */
   const lastRequested = useRef<ViewportRequest | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  /**
+   * When the held viewports were last declared stale, so a foreground can
+   * ask whether they are. It used to refresh on EVERY activation with no age
+   * check — the index and curated hooks both check theirs first — so a lock
+   * and unlock at the put-in threw the cache away and re-downloaded up to a
+   * thousand-row overview page the reader was still looking at. The interval
+   * below is the freshness the layer promises; a foreground inside it changes
+   * nothing. A ref: nothing renders from the timestamp. Stamped when the
+   * layer comes on, which is when the window starts.
+   */
+  const refreshedAt = useRef(0);
   useEffect(() => {
     if (!enabled) return;
+    refreshedAt.current = Date.now();
     const refresh = () => {
+      refreshedAt.current = Date.now();
       cache.current.clear(); lastRequested.current = null;
       setRefreshTick(n => n + 1);
     };
-    const interval = setInterval(refresh, 5 * 60_000);
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+    const interval = setInterval(refresh, REFRESH_MS);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && Date.now() - refreshedAt.current >= REFRESH_MS) refresh();
+    });
     return () => { clearInterval(interval); subscription.remove(); };
   }, [enabled]);
   const hasRequested = useRef(false);
