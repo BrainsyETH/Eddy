@@ -1,94 +1,67 @@
-// Shared by the gallery and the server's filename allowlist. HTML stays on disk
-// outside public/ so no diagram can bypass the admin session check.
-//
-// Each card leads with the question its guide answers, then one line on what
-// you can try. `title` must match the guide's own <h1> so the card and the page
-// it opens agree; visual-guides.test.ts checks this.
+// The catalog owns gallery order, standalone navigation and the server allowlist.
+// Run npm run build:visual-guides after changing reader-facing metadata.
+export const GUIDE_GROUPS = [
+  { id: 'river', title: 'On the river' },
+  { id: 'app', title: 'Using Eddy' },
+  { id: 'inside', title: 'Behind the scenes' },
+] as const;
+
 export const VISUAL_GUIDES = [
   {
-    file: 'watershed.html',
-    title: 'How Eddy comes together',
-    question: 'How does a gauge reading reach the app?',
-    tryIt: 'Play a gauge update, or add rain and watch the readings change.',
-    kind: 'demo',
-    icon: 'map',
-    group: 'Behind the scenes',
+    file: 'condition-ladder.html', title: 'How Eddy rates a river', navTitle: 'River conditions',
+    summary: 'Change a reading and see how Eddy rates it.',
+    tryIt: 'Move the water level, then try a missing reading.',
+    kind: 'demo', icon: 'eddy-checking-gauge', group: 'river',
   },
   {
-    file: 'eddys-day.html',
-    title: 'A day behind the scenes',
-    question: 'What runs on its own every day?',
-    tryIt: 'Pick a task and slide through the day to see when it runs.',
-    kind: 'demo',
-    icon: 'clock',
-    group: 'Behind the scenes',
+    file: 'float-board.html', title: 'Build an example float', navTitle: 'Float planning',
+    summary: 'Choose a stretch and compare the time at different water levels.',
+    tryIt: 'Choose your put-in, take-out, and water level.',
+    kind: 'demo', icon: 'eddy-route-planning', group: 'river',
   },
   {
-    file: 'social-delta.html',
-    title: 'From river update to social post',
-    question: 'How does a river update become a post?',
-    tryIt: 'Play an example day, or add a storm to follow an alert post.',
-    kind: 'demo',
-    icon: 'share',
-    group: 'Behind the scenes',
+    file: 'below-the-dam.html', title: 'A float below a dam', navTitle: 'Below a dam',
+    summary: 'A release at the dam reaches each access at a different time.',
+    tryIt: 'Change the launch time, then follow the water downstream.',
+    kind: 'demo', icon: 'eddy-release', group: 'river',
   },
   {
-    file: 'condition-ladder.html',
-    title: 'What makes a river Good or Flowing?',
-    question: 'How does Eddy rate a river?',
-    tryIt: 'Move the water level, or try a missing reading.',
-    kind: 'demo',
-    icon: 'gauge',
-    group: 'Reading the river',
-  },
-  {
-    file: 'how-eddys-read-works.html',
-    title: 'How Eddy writes your Read',
-    question: 'How is the daily Read written and checked?',
-    tryIt: 'Pick a morning and step through it.',
-    kind: 'demo',
-    icon: 'pen',
-    group: 'Reading the river',
-  },
-  {
-    file: 'below-the-dam.html',
-    title: 'Why dam releases change a float',
-    question: 'Why is there no float time below some dams?',
-    tryIt: 'Drag through the day and change the launch time.',
-    kind: 'demo',
-    icon: 'waves',
-    group: 'Reading the river',
-  },
-  {
-    file: 'ios-tour.html',
-    title: 'Take a look around Eddy',
-    question: 'What’s on each screen of the iPhone app?',
+    file: 'ios-tour.html', title: 'Take a look around Eddy', navTitle: 'iPhone tour',
+    summary: 'Explore the five tabs and tap a marker to learn more.',
     tryIt: 'Switch tabs and tap the numbered markers.',
-    kind: 'tour',
-    icon: 'phone',
-    group: 'Exploring the app',
+    kind: 'tour', icon: 'eddy-wave', group: 'app',
   },
   {
-    file: 'ios-plumbing.html',
-    title: 'What happens inside the app',
-    question: 'How does the app get its data, even offline?',
-    tryIt: 'Open the app, then turn the signal off and try again.',
-    kind: 'demo',
-    icon: 'signal',
-    group: 'Exploring the app',
+    file: 'ios-plumbing.html', title: 'What works without signal?', navTitle: 'The app, online and offline',
+    summary: 'Try the same action with and without a connection.',
+    tryIt: 'Open the app, turn off the signal, and try again.',
+    kind: 'demo', icon: 'eddy-paddle-ready', group: 'app',
   },
   {
-    file: 'float-board.html',
-    title: 'Find your kind of float',
-    question: 'How does the water level change trip time?',
-    tryIt: 'Pick a put-in and take-out, then change the water level.',
-    kind: 'demo',
-    icon: 'route',
-    group: 'Exploring the app',
+    file: 'how-eddys-read-works.html', title: 'How Eddy writes your Read', navTitle: 'Eddy’s Read',
+    summary: 'Follow a river report from the first reading to the final check.',
+    tryIt: 'Pick an example morning and step through the report.',
+    kind: 'demo', icon: 'eddy-thinking', group: 'inside',
+  },
+  {
+    file: 'watershed.html', title: 'From gauge to screen', navTitle: 'Where the data goes',
+    summary: 'Follow a reading through Eddy to the places people see it.',
+    tryIt: 'Choose a part of the map, or add a storm.',
+    kind: 'demo', icon: 'eddy-water-droplet', group: 'inside',
+  },
+  {
+    file: 'eddys-day.html', title: 'A day behind the scenes', navTitle: 'Daily schedule',
+    summary: 'See when readings, reports, alerts, and other updates run.',
+    tryIt: 'Pick a day and a task, then move through the clock.',
+    kind: 'demo', icon: 'eddy-today', group: 'inside',
+  },
+  {
+    file: 'social-delta.html', title: 'From river update to social post', navTitle: 'Social posts',
+    summary: 'Follow an example through writing, checks, and publishing.',
+    tryIt: 'Play an example day, or add a storm to follow an alert.',
+    kind: 'demo', icon: 'eddy-ai-assistant', group: 'inside',
   },
 ] as const;
 
 export type VisualGuide = (typeof VISUAL_GUIDES)[number];
-
-/** The guide to suggest to someone new: the big-picture map. */
-export const START_HERE: VisualGuide['file'] = 'watershed.html';
+export const START_HERE: VisualGuide['file'] = 'condition-ladder.html';

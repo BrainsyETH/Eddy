@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Eddy’s Read · Eddy</title>
+<title>How Eddy writes your Read · Eddy visual guides</title>
 <style>
 /* Layout: Eddy's site header, a seven-step pipeline you can play or step
    through, then the step's detail beside the read card it is building. */
@@ -225,6 +225,27 @@ pre.raw mark { background: rgba(220, 38, 38, .35); color: #FECACA; border-radius
 .fine { margin: 0; font-size: 12px; color: var(--color-text-muted); line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } .stepper .fill { transition: none; } }
 
+
+
+
+#scen { width:100%; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+#scen button { padding:10px 12px; }
+.stepper .t { font-size:14px; }
+.stepper .s { font-size:12px; }
+.readframe { padding:2px; }
+@media(max-width:760px) {
+ #scen { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .stepper { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+ .step button { padding:8px 4px; grid-template-columns:36px minmax(0,1fr); column-gap:8px; }
+ .step .node { width:34px; height:34px; }
+ .step .s { display:none; }
+ .step.active button { background:var(--vx-bg); }
+ .field .lbl { align-items:flex-start; flex-direction:column; gap:2px; }
+}
+
+.vx-step-picker{display:none}.work{align-items:start}#detail{min-width:0}@media(max-width:760px){.stepper{display:none}.vx-step-picker{display:grid;gap:8px;padding:0 16px 16px}.vx-step-picker label{font-size:13px;color:var(--vx-muted)}.vx-step-picker select{width:100%;min-height:48px;padding:12px;background:var(--vx-surface);color:var(--vx-text);border:1px solid var(--vx-border);border-radius:12px}.controls{padding:16px;gap:12px}.controls .btns{display:flex;justify-content:space-between;width:100%}}
+</style>
+<!-- SHARED_STYLE --><style>
 /* Collection UI. Kept inline so every explainer still opens offline. */
 :root {
  --vx-bg:var(--color-background,var(--bg,#F7F6F3));
@@ -279,49 +300,105 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
 
+/* Inlined by build:visual-guides. Standalone guides make no asset requests. */
+:root {
+  --vx-bg:#F7F6F3; --vx-surface:#FFFFFF; --vx-text:#2D2A24; --vx-muted:#6B6459;
+  --vx-border:#DBD5CA; --vx-link:#256574; --vx-tint:#EBF5F7; --vx-sand:#F4EFE7;
 
-#scen { width:100%; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
-#scen button { padding:10px 12px; }
-.stepper .t { font-size:14px; }
-.stepper .s { font-size:12px; }
-.readframe { padding:2px; }
-@media(max-width:760px) {
- #scen { grid-template-columns:repeat(2,minmax(0,1fr)); }
- .stepper { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
- .step button { padding:8px 4px; grid-template-columns:36px minmax(0,1fr); column-gap:8px; }
- .step .node { width:34px; height:34px; }
- .step .s { display:none; }
- .step.active button { background:var(--vx-bg); }
- .field .lbl { align-items:flex-start; flex-direction:column; gap:2px; }
 }
+@media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) {
+  --vx-bg:#161615; --vx-surface:#242423; --vx-text:#F5F5F0; --vx-muted:#B8B8B0;
+  --vx-border:#50504B; --vx-link:#92CDDA; --vx-tint:#263B3F; --vx-sand:#333331;
+} }
+:root[data-theme="dark"] { --vx-bg:#161615; --vx-surface:#242423; --vx-text:#F5F5F0; --vx-muted:#B8B8B0; --vx-border:#50504B; --vx-link:#92CDDA; --vx-tint:#263B3F; --vx-sand:#333331; }
+body { margin:0; background:var(--vx-bg); color:var(--vx-text); }
+.vx-nav { max-width:1200px; margin:0 auto; padding:16px 24px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; border-bottom:1px solid var(--vx-border); background:transparent; border-radius:0; }
+.vx-nav label { font-size:15px; font-weight:650; color:var(--vx-text); }
+.vx-nav select { margin-left:auto; width:auto; max-width:100%; min-height:44px; border:1px solid var(--vx-border); border-radius:12px; padding:10px 32px 10px 12px; background:var(--vx-surface); color:var(--vx-text); font:inherit; }
+.vx-admin { display:flex; gap:16px; align-items:center; }
+.vx-admin a { color:var(--vx-link); font-size:14px; text-decoration:none; padding:12px 0; }
+main.page,main.wrap { max-width:1200px; padding:28px 24px 48px; gap:24px; }
+h1,.intro h1 { font-size:clamp(30px,4vw,42px); line-height:1.12; letter-spacing:-.025em; margin:0 0 10px; }
+.titlebar p,.intro p { max-width:60ch; font-size:16px; line-height:1.5; margin:0; color:var(--vx-muted); }
+.vx-kicker { color:var(--vx-link); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px; }
+.eyebrow,.kicker { display:none; }
+.vx-guide { padding:12px 16px; border:0; border-radius:12px; background:var(--vx-sand); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 20px; box-shadow:none; }
+.vx-guide p { margin:0; color:var(--vx-text); font-size:14px; }
+.vx-badge { background:transparent; padding:0; border:0; color:var(--vx-muted); font-size:12px; white-space:nowrap; }
+.card-panel,.panel,.card,.estimator { background:var(--vx-surface); border:1px solid var(--vx-border); border-radius:20px; box-shadow:0 2px 6px #00000005; }
+.panel-head { padding:18px 20px; }
+.panel-head h2,.panel h2,.card h2 { font-size:18px; line-height:1.3; }
+button,a,select,input { -webkit-tap-highlight-color:transparent; }
+button,select,summary { touch-action:manipulation; }
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--vx-link); outline-offset:3px; }
+button:disabled { cursor:default; opacity:.45; }
+.btn-primary,.pill.cta { background:#F07052; color:#1A1814; border-color:#F07052; }
+.vx-technical { padding:16px 20px; border:1px solid var(--vx-border); border-radius:14px; background:transparent; color:var(--vx-muted); font-size:13px; }
+.vx-technical summary { color:var(--vx-link); min-height:24px; cursor:pointer; font-weight:600; }
+.vx-next { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px; border:1px solid var(--vx-border); border-radius:18px; color:var(--vx-link); text-decoration:none; background:var(--vx-surface); }
+.vx-next small { display:block; color:var(--vx-muted); font-size:12px; margin-bottom:4px; }
+.vx-next strong { font-size:17px; }
+.vx-outcome { padding:16px; background:var(--vx-tint); border-radius:14px; }
+.vx-outcome h2 { margin:0 0 8px; font-size:16px; }
+.vx-outcome p { margin:0; font-size:14px; }
+.vx-workspace { display:grid; grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr); gap:20px; align-items:start; }
+.vx-workspace .stage { min-width:0; }
+.vx-workspace #detail { min-width:0; margin:0; }
+.vx-workspace .vx-explorer { margin:0; }
+.vx-workspace .vx-map-toggle { min-height:44px; }
+@media(max-width:900px) { .vx-workspace { grid-template-columns:1fr; } }
+@media(max-width:640px) {
+  .vx-nav { padding:12px 16px; gap:8px 12px; }
+  .vx-nav select { max-width:65%; font-size:14px; }
+  .vx-admin { width:100%; justify-content:space-between; }
+  main.page,main.wrap { padding:24px 16px 36px; gap:20px; }
+  .titlebar,.intro { gap:16px; }
+  .vx-guide { padding:12px 14px; }
+  .panel-head { padding:16px; }
+  .vx-next { padding:16px; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
 
-</style>
+@media(max-width:360px){.vx-nav label{font-size:13px}.vx-nav select{max-width:61%;font-size:13px}}
 
-<header class="site-header">
-  <div class="in">
-    <a class="logo" href="https://eddy.guide" target="_blank" rel="noopener"><img src="data:image/webp;base64,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" alt="Eddy"><span>Eddy</span></a>
-    <span class="tag">How it works</span>
-  </div>
-</header><a class="vx-skip" href="#vx-content">Skip to explainer</a>
-<nav class="vx-nav" aria-label="Eddy explainers"><label for="vx-page">Explore Eddy<small>Interactive field notes</small></label><select id="vx-page"><option value="watershed.html">System map</option><option value="social-delta.html">Social posts</option><option value="eddys-day.html">Daily schedule</option><option value="condition-ladder.html">Condition ratings</option><option value="how-eddys-read-works.html" selected>Eddy’s Read</option><option value="ios-plumbing.html">Inside the iPhone app</option><option value="ios-tour.html">iPhone tour</option><option value="float-board.html">Float Board</option><option value="below-the-dam.html">Below the dam</option></select></nav>
+.vx-technical>summary{padding:0;min-height:36px;display:flex;align-items:center;gap:8px}
+.vx-technical>summary::before{content:"+";font-size:18px}.vx-technical[open]>summary::before{content:"−"}.vx-technical>p{padding:0;margin:12px 0 0}
+
+.titlebar h1,.intro h1{font-size:clamp(30px,4vw,42px);line-height:1.12;font-weight:600}
+.panel-head h2,.est-head h2{font-family:var(--font-body,var(--body,system-ui));font-weight:650}
+
+/* Match legacy theme-selector specificity while mapping their roles to one palette. */
+:root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+  --bg:var(--vx-bg); --surface:var(--vx-surface); --card:var(--vx-surface); --cardRaised:var(--vx-sand);
+  --fg:var(--vx-text); --text:var(--vx-text); --muted:var(--vx-muted); --textMuted:var(--vx-muted);
+  --line:var(--vx-border); --border:var(--vx-border); --interactive:var(--vx-link); --raw:var(--vx-link);
+  --color-background:var(--vx-bg); --color-surface:var(--vx-surface); --color-text-primary:var(--vx-text);
+  --color-text-secondary:var(--vx-muted); --color-text-muted:var(--vx-muted); --color-border:var(--vx-border);
+  --color-surface-hover:var(--vx-sand); --selectionBg:var(--vx-tint); --selectionText:var(--vx-text);
+  --chrome:var(--vx-surface); --textSubtle:var(--vx-muted);
+}
+.vx-event{margin:0;padding:12px 16px;border-left:3px solid var(--vx-link);border-radius:0 10px 10px 0;background:var(--vx-tint);color:var(--vx-text);font-size:14px;line-height:1.5}
+</style><!-- END_SHARED_STYLE -->
+
+<a class="vx-skip" href="#vx-content">Skip to explainer</a>
+<nav class="vx-nav" aria-label="Visual guides"><!-- ADMIN_LINKS --><label for="vx-page">Visual guides</label><select id="vx-page" aria-label="Choose a guide"><optgroup label="On the river"><option value="condition-ladder.html">River conditions</option><option value="float-board.html">Float planning</option><option value="below-the-dam.html">Below a dam</option></optgroup><optgroup label="Using Eddy"><option value="ios-tour.html">iPhone tour</option><option value="ios-plumbing.html">The app, online and offline</option></optgroup><optgroup label="Behind the scenes"><option value="how-eddys-read-works.html" selected>Eddy’s Read</option><option value="watershed.html">Where the data goes</option><option value="eddys-day.html">Daily schedule</option><option value="social-delta.html">Social posts</option></optgroup></select></nav>
 
 
 <main class="page" id="vx-content">
   <div class="titlebar">
     <div>
-      <h1>How Eddy writes your Read</h1>
-      <p>Every morning Eddy checks each river's gauge, gathers what it knows, writes a short read, and checks that read against the numbers before anyone sees it. Pick a morning and play it through.</p>
+      <div class="vx-kicker">Behind the scenes</div><h1>How Eddy writes your Read</h1><p>Follow a river report from the first reading to the final check.</p>
     </div>
     <div class="segmented segmented--md" role="group" aria-label="Scenario" id="scen"></div>
   </div>
 
-  <aside class="vx-guide"><p><strong>Try it.</strong> Choose a scenario, then use Next to follow the story. You can also jump straight to any step.</p><span class="vx-badge">Interactive demo · not live data</span></aside>
+  <aside class="vx-guide"><p>Pick an example morning and step through the report.</p><span class="vx-badge">Example data</span></aside>
 
   <section class="card-panel" aria-label="Pipeline">
     <div class="panel-head">
       <div class="left"><h2>Current River at Van Buren</h2><span class="meta">example values, not today's reading</span></div>
     </div>
-    <ol class="stepper" id="stepper"><span class="fill" id="fill" aria-hidden="true"></span></ol>
+    <div class="vx-step-picker"><label for="vx-step">Follow the Read</label><select id="vx-step"></select></div><ol class="stepper" id="stepper"><span class="fill" id="fill" aria-hidden="true"></span></ol>
     <div class="controls">
       <div class="when" id="when"></div>
       <div class="btns">
@@ -361,6 +438,7 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
       <p class="fine">The prose in the "normal morning" scenario is the example written into Eddy's own system prompt. The other scenarios follow the code's rules with made-up numbers. Which model writes the read is set in <code>llm_config</code>, not here.</p>
     </div>
   </details>
+<!-- NEXT_GUIDE --><a class="vx-next" href="watershed.html"><span><small>Explore next</small><strong>From gauge to screen</strong></span><span aria-hidden="true">→</span></a><!-- END_NEXT_GUIDE -->
 </main>
 
 <script>
@@ -444,11 +522,13 @@ for (const k in SCEN) {
   $("scen").appendChild(b);
 }
 STEPS.forEach((st, i) => {
+  $("vx-step").add(new Option(`${i + 1} of ${STEPS.length} · ${st.t}`, i));
   const li = document.createElement("li"); li.className = "step"; li.dataset.i = i;
   li.innerHTML = `<button type="button" aria-label="Step ${i + 1}: ${st.t}"><span class="node">${svg(st.icon)}</span><span class="txt"><span class="t">${st.t}</span><span class="s">${st.s}</span></span></button>`;
   li.querySelector("button").addEventListener("click", () => { S.step = i; S.playing = false; go(); });
   $("stepper").appendChild(li);
 });
+$("vx-step").addEventListener("change", event => { S.step = +event.target.value; S.playing = false; go(); });
 $("prev").addEventListener("click", () => { S.step = Math.max(0, S.step - 1); S.playing = false; go(); });
 $("next").addEventListener("click", () => { S.step = Math.min(STEPS.length - 1, S.step + 1); S.playing = false; go(); });
 $("play").addEventListener("click", () => { if (S.step === STEPS.length - 1) S.step = 0; S.playing = !S.playing; go(); });
@@ -587,6 +667,7 @@ function typeRaw() {
 // ---- Render ------------------------------------------------------------------------
 const WHEN = ["6:10 AM", "6:10 AM", "6:10 AM", "6:10 AM", "6:10 AM", "6:11 AM", "later today"];
 function go() {
+  $("vx-step").value = String(S.step);
   clearTimeout(S.timer); clearInterval(S.typing);
   const i = S.step;
   $("prev").disabled = i === 0;

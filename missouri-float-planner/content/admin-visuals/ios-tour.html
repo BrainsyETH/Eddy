@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>iPhone tour · Eddy</title>
+<title>Take a look around Eddy · Eddy visual guides</title>
 <style>
 /* Layout: an iPhone running Eddy's five tabs on the left, and "behind this
    screen" notes on the right whose numbers match the coral markers on the phone. */
@@ -256,6 +256,30 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
 .phone.force-light .ctext { color: var(--ci); }
 .phone.force-dark .ctext { color: var(--cs); }
 
+
+
+
+.hs { min-height:32px; width:32px; height:32px; border-radius:50%; line-height:28px; animation:none; }
+.hs::after { content:''; position:absolute; inset:-6px; }
+.note .src { opacity:.85; }
+.notes { gap:18px; }
+.note { padding:18px; }
+#vx-tour-tip { display:none; }
+@media(max-width:860px) {
+ .phone { position:relative; top:auto; }
+ #vx-tour-tip:not([hidden]) { display:block; position:fixed; bottom:16px; left:16px; right:16px; z-index:50; max-height:38dvh; overflow:auto; background:var(--vx-card); color:var(--vx-text); border:1px solid var(--vx-border); border-top:3px solid var(--vx-link); box-shadow:0 8px 36px #0003; border-radius:18px; padding:18px 20px; font-size:14px; }
+ #vx-tour-tip button { float:right; width:44px; background:transparent; border:0; color:var(--vx-link); font-size:24px; }
+ #vx-tour-tip p { line-height:1.6; margin:8px 0 0; }
+ .screen { height:660px; }
+ .notes .note { padding:14px; }
+}
+
+.vx-tour-sub{display:block;font-size:13px;color:var(--textMuted);margin-top:6px}.vx-tour-start{border-radius:20px;display:flex;justify-content:space-between;padding:20px;background:var(--accentFill);color:var(--onAccent);font-weight:650}.vx-tab-icon{width:24px;height:24px;object-fit:contain;opacity:.65}.tab[aria-selected=true] .vx-tab-icon{opacity:1}.hs::after{content:"";position:absolute;inset:-6px}.phone.force-dark{--bg:#161615;--card:#242423;--cardRaised:#333331;--border:#50504B;--text:#F5F5F0;--textMuted:#B8B8B0;--textSubtle:#B8B8B0;--chrome:#242423;--anchor:#333331}.phone .card{background:var(--card);border-color:var(--border)}.phone .cta{background:var(--accentFill);color:var(--onAccent)}#n-eyebrow{display:block}.notes .head{margin-bottom:16px}.notes .note{padding:16px}.notes .note p{font-size:15px;line-height:1.55}
+
+.phone.force-dark .vx-tab-icon{filter:invert(1)}
+@media(prefers-color-scheme:dark){.phone:not(.force-light) .vx-tab-icon{filter:invert(1)}}
+</style>
+<!-- SHARED_STYLE --><style>
 /* Collection UI. Kept inline so every explainer still opens offline. */
 :root {
  --vx-bg:var(--color-background,var(--bg,#F7F6F3));
@@ -310,32 +334,95 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
 
+/* Inlined by build:visual-guides. Standalone guides make no asset requests. */
+:root {
+  --vx-bg:#F7F6F3; --vx-surface:#FFFFFF; --vx-text:#2D2A24; --vx-muted:#6B6459;
+  --vx-border:#DBD5CA; --vx-link:#256574; --vx-tint:#EBF5F7; --vx-sand:#F4EFE7;
 
-.hs { min-height:32px; width:32px; height:32px; border-radius:50%; line-height:28px; animation:none; }
-.hs::after { content:''; position:absolute; inset:-6px; }
-.note .src { opacity:.85; }
-.notes { gap:18px; }
-.note { padding:18px; }
-#vx-tour-tip { display:none; }
-@media(max-width:860px) {
- .phone { position:relative; top:auto; }
- #vx-tour-tip:not([hidden]) { display:block; position:fixed; bottom:16px; left:16px; right:16px; z-index:50; max-height:38dvh; overflow:auto; background:var(--vx-card); color:var(--vx-text); border:1px solid var(--vx-border); border-top:3px solid var(--vx-link); box-shadow:0 8px 36px #0003; border-radius:18px; padding:18px 20px; font-size:14px; }
- #vx-tour-tip button { float:right; width:44px; background:transparent; border:0; color:var(--vx-link); font-size:24px; }
- #vx-tour-tip p { line-height:1.6; margin:8px 0 0; }
- .screen { height:660px; }
- .notes .note { padding:14px; }
 }
+@media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) {
+  --vx-bg:#161615; --vx-surface:#242423; --vx-text:#F5F5F0; --vx-muted:#B8B8B0;
+  --vx-border:#50504B; --vx-link:#92CDDA; --vx-tint:#263B3F; --vx-sand:#333331;
+} }
+:root[data-theme="dark"] { --vx-bg:#161615; --vx-surface:#242423; --vx-text:#F5F5F0; --vx-muted:#B8B8B0; --vx-border:#50504B; --vx-link:#92CDDA; --vx-tint:#263B3F; --vx-sand:#333331; }
+body { margin:0; background:var(--vx-bg); color:var(--vx-text); }
+.vx-nav { max-width:1200px; margin:0 auto; padding:16px 24px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; border-bottom:1px solid var(--vx-border); background:transparent; border-radius:0; }
+.vx-nav label { font-size:15px; font-weight:650; color:var(--vx-text); }
+.vx-nav select { margin-left:auto; width:auto; max-width:100%; min-height:44px; border:1px solid var(--vx-border); border-radius:12px; padding:10px 32px 10px 12px; background:var(--vx-surface); color:var(--vx-text); font:inherit; }
+.vx-admin { display:flex; gap:16px; align-items:center; }
+.vx-admin a { color:var(--vx-link); font-size:14px; text-decoration:none; padding:12px 0; }
+main.page,main.wrap { max-width:1200px; padding:28px 24px 48px; gap:24px; }
+h1,.intro h1 { font-size:clamp(30px,4vw,42px); line-height:1.12; letter-spacing:-.025em; margin:0 0 10px; }
+.titlebar p,.intro p { max-width:60ch; font-size:16px; line-height:1.5; margin:0; color:var(--vx-muted); }
+.vx-kicker { color:var(--vx-link); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px; }
+.eyebrow,.kicker { display:none; }
+.vx-guide { padding:12px 16px; border:0; border-radius:12px; background:var(--vx-sand); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 20px; box-shadow:none; }
+.vx-guide p { margin:0; color:var(--vx-text); font-size:14px; }
+.vx-badge { background:transparent; padding:0; border:0; color:var(--vx-muted); font-size:12px; white-space:nowrap; }
+.card-panel,.panel,.card,.estimator { background:var(--vx-surface); border:1px solid var(--vx-border); border-radius:20px; box-shadow:0 2px 6px #00000005; }
+.panel-head { padding:18px 20px; }
+.panel-head h2,.panel h2,.card h2 { font-size:18px; line-height:1.3; }
+button,a,select,input { -webkit-tap-highlight-color:transparent; }
+button,select,summary { touch-action:manipulation; }
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--vx-link); outline-offset:3px; }
+button:disabled { cursor:default; opacity:.45; }
+.btn-primary,.pill.cta { background:#F07052; color:#1A1814; border-color:#F07052; }
+.vx-technical { padding:16px 20px; border:1px solid var(--vx-border); border-radius:14px; background:transparent; color:var(--vx-muted); font-size:13px; }
+.vx-technical summary { color:var(--vx-link); min-height:24px; cursor:pointer; font-weight:600; }
+.vx-next { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px; border:1px solid var(--vx-border); border-radius:18px; color:var(--vx-link); text-decoration:none; background:var(--vx-surface); }
+.vx-next small { display:block; color:var(--vx-muted); font-size:12px; margin-bottom:4px; }
+.vx-next strong { font-size:17px; }
+.vx-outcome { padding:16px; background:var(--vx-tint); border-radius:14px; }
+.vx-outcome h2 { margin:0 0 8px; font-size:16px; }
+.vx-outcome p { margin:0; font-size:14px; }
+.vx-workspace { display:grid; grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr); gap:20px; align-items:start; }
+.vx-workspace .stage { min-width:0; }
+.vx-workspace #detail { min-width:0; margin:0; }
+.vx-workspace .vx-explorer { margin:0; }
+.vx-workspace .vx-map-toggle { min-height:44px; }
+@media(max-width:900px) { .vx-workspace { grid-template-columns:1fr; } }
+@media(max-width:640px) {
+  .vx-nav { padding:12px 16px; gap:8px 12px; }
+  .vx-nav select { max-width:65%; font-size:14px; }
+  .vx-admin { width:100%; justify-content:space-between; }
+  main.page,main.wrap { padding:24px 16px 36px; gap:20px; }
+  .titlebar,.intro { gap:16px; }
+  .vx-guide { padding:12px 14px; }
+  .panel-head { padding:16px; }
+  .vx-next { padding:16px; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
 
-</style><a class="vx-skip" href="#vx-content">Skip to explainer</a>
-<nav class="vx-nav" aria-label="Eddy explainers"><label for="vx-page">Explore Eddy<small>Interactive field notes</small></label><select id="vx-page"><option value="watershed.html">System map</option><option value="social-delta.html">Social posts</option><option value="eddys-day.html">Daily schedule</option><option value="condition-ladder.html">Condition ratings</option><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="ios-plumbing.html">Inside the iPhone app</option><option value="ios-tour.html" selected>iPhone tour</option><option value="float-board.html">Float Board</option><option value="below-the-dam.html">Below the dam</option></select></nav>
+@media(max-width:360px){.vx-nav label{font-size:13px}.vx-nav select{max-width:61%;font-size:13px}}
+
+.vx-technical>summary{padding:0;min-height:36px;display:flex;align-items:center;gap:8px}
+.vx-technical>summary::before{content:"+";font-size:18px}.vx-technical[open]>summary::before{content:"−"}.vx-technical>p{padding:0;margin:12px 0 0}
+
+.titlebar h1,.intro h1{font-size:clamp(30px,4vw,42px);line-height:1.12;font-weight:600}
+.panel-head h2,.est-head h2{font-family:var(--font-body,var(--body,system-ui));font-weight:650}
+
+/* Match legacy theme-selector specificity while mapping their roles to one palette. */
+:root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+  --bg:var(--vx-bg); --surface:var(--vx-surface); --card:var(--vx-surface); --cardRaised:var(--vx-sand);
+  --fg:var(--vx-text); --text:var(--vx-text); --muted:var(--vx-muted); --textMuted:var(--vx-muted);
+  --line:var(--vx-border); --border:var(--vx-border); --interactive:var(--vx-link); --raw:var(--vx-link);
+  --color-background:var(--vx-bg); --color-surface:var(--vx-surface); --color-text-primary:var(--vx-text);
+  --color-text-secondary:var(--vx-muted); --color-text-muted:var(--vx-muted); --color-border:var(--vx-border);
+  --color-surface-hover:var(--vx-sand); --selectionBg:var(--vx-tint); --selectionText:var(--vx-text);
+  --chrome:var(--vx-surface); --textSubtle:var(--vx-muted);
+}
+.vx-event{margin:0;padding:12px 16px;border-left:3px solid var(--vx-link);border-radius:0 10px 10px 0;background:var(--vx-tint);color:var(--vx-text);font-size:14px;line-height:1.5}
+</style><!-- END_SHARED_STYLE -->
+
+<a class="vx-skip" href="#vx-content">Skip to explainer</a>
+<nav class="vx-nav" aria-label="Visual guides"><!-- ADMIN_LINKS --><label for="vx-page">Visual guides</label><select id="vx-page" aria-label="Choose a guide"><optgroup label="On the river"><option value="condition-ladder.html">River conditions</option><option value="float-board.html">Float planning</option><option value="below-the-dam.html">Below a dam</option></optgroup><optgroup label="Using Eddy"><option value="ios-tour.html" selected>iPhone tour</option><option value="ios-plumbing.html">The app, online and offline</option></optgroup><optgroup label="Behind the scenes"><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="watershed.html">Where the data goes</option><option value="eddys-day.html">Daily schedule</option><option value="social-delta.html">Social posts</option></optgroup></select></nav>
 
 
 <main class="page" id="vx-content">
-  <div class="brand"><img src="data:image/webp;base64,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" alt="Eddy app icon"><span>Eddy</span></div>
+
   <div class="intro">
     <div>
-      <h1>Take a look around Eddy</h1>
-      <p>Explore five example screens, from checking today’s water to saving a favorite river. Tap a tab, then choose a numbered marker to learn more. This is an illustrated tour, so only the tabs and numbered markers respond.</p>
+      <div class="vx-kicker">Using Eddy</div><h1>Take a look around Eddy</h1><p>Explore the five tabs and tap a marker to learn more.</p>
     </div>
     <div class="ctl"><small>Phone appearance</small>
       <div class="seg" id="appearance" role="group" aria-label="Phone appearance">
@@ -344,7 +431,7 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
     </div>
   </div>
 
-  <aside class="vx-guide"><p><strong>Try it.</strong> Switch tabs on the phone. The numbered markers explain what you can do on each screen.</p><span class="vx-badge">Illustrative app tour</span></aside>
+  <aside class="vx-guide"><p>Switch tabs and tap the numbered markers.</p><span class="vx-badge">Illustrated tour</span></aside>
 
   <div class="stage">
     <div class="phone" id="phone">
@@ -444,114 +531,205 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
         <div class="scroll view" data-view="favorites">
           <div class="lt">Favorites</div>
           <div class="tgt" data-n="1" style="margin-top:2px"><button type="button" class="hs" data-n="1" style="right:9px">1</button><div class="fav"><span class="stripe" style="background:#10b981"></span><div class="body"><div class="n">Current River</div><div style="margin-top:6px"><span class="chip" style="background:rgb(219,244,236);color:#065F46;border-color:#6EE7B7">Flowing</span></div><div class="reading"><span class="val">3.06 ft</span><span class="track"><i style="background:#78716c"></i><i style="background:#eab308"></i><i style="background:#84cc16"></i><i style="background:#10b981"></i><i style="background:#f97316"></i><i style="background:#ef4444"></i><span class="m" style="left:58%"></span></span></div></div><span class="star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></span></div><div class="fav"><span class="stripe" style="background:#84cc16"></span><div class="body"><div class="n">Meramec River</div><div style="margin-top:6px"><span class="chip" style="background:rgb(237,247,220);color:#3F6212;border-color:#BEF264">Good</span></div><div class="reading"><span class="val">944 cfs</span><span class="track"><i style="background:#78716c"></i><i style="background:#eab308"></i><i style="background:#84cc16"></i><i style="background:#10b981"></i><i style="background:#f97316"></i><i style="background:#ef4444"></i><span class="m" style="left:42%"></span></span></div></div><span class="star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></span></div><div class="fav"><span class="stripe" style="background:#f97316"></span><div class="body"><div class="n">Niangua</div><div style="margin-top:6px"><span class="chip" style="background:rgb(254,227,208);color:#9A3412;border-color:#FDBA74">High</span></div><div class="reading"><span class="val">4.12 ft</span><span class="track"><i style="background:#78716c"></i><i style="background:#eab308"></i><i style="background:#84cc16"></i><i style="background:#10b981"></i><i style="background:#f97316"></i><i style="background:#ef4444"></i><span class="m" style="left:74%"></span></span></div></div><span class="star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></span></div><div class="fav"><span class="stripe" style="background:var(--border)"></span><div class="body"><div class="n">Eleven Point</div><div class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 0 1 0 9z"/><path d="M3 3l18 18"/></svg>Conditions unavailable offline. Your star is safe.</div></div><span class="star"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></span></div></div>
-          <div class="sec-head"><h3>Saved floats</h3><span>See all</span></div>
-          <div class="card group tgt" data-n="4"><button type="button" class="hs" data-n="4">4</button>
-            <div class="listrow"><span style="display:flex;gap:10px;align-items:center"><img src="data:image/webp;base64,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" alt="" style="width:30px;height:30px;object-fit:contain"><span><span style="display:block;font-weight:600">Akers &#x2192; Pulltite</span><span class="mono" style="font-size:12px;color:var(--textMuted)">9.6 mi &#xb7; ~4h 45m</span></span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></div>
-          </div>
+          <div class="sec-head"><h3>Places</h3></div><div class="card group tgt" data-n="4"><button type="button" class="hs" data-n="4">4</button><div class="listrow"><span><b>Akers Ferry</b><span class="vx-tour-sub">Access point · Current River</span></span><span aria-hidden="true">★</span></div></div>
         </div>
 
-        <!-- SETTINGS -->
-        <div class="scroll view" data-view="settings">
-          <div class="lt">Settings</div>
-          <div class="group-title">Eddy Premium</div>
-          <div class="card premium tgt" data-n="1"><button type="button" class="hs" data-n="1">1</button>
-            <div class="ph"><img src="data:image/webp;base64,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" alt=""><div><h4>More than a number</h4><p>Unlock Eddy Premium to get a daily report on your favorite river.</p></div></div>
-            <span class="cta tgt" data-n="2" style="flex:none">See Eddy Premium<button type="button" class="hs" data-n="2">2</button></span>
-            <span class="apple"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9s-2-.9-3.4-.9c-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z"/></svg>Sign in with Apple</span>
-            <span class="linkish">Restore Purchases</span>
-          </div>
-          <div class="group-title">Preferences</div>
-          <div class="card group tgt" data-n="3"><button type="button" class="hs" data-n="3">3</button>
-            <div class="listrow"><span>Notifications</span><span class="switch" aria-hidden="true"></span></div>
-            <div class="listrow"><span>Quiet hours</span><span class="v">10 PM &#x2013; 6 AM <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></div>
-            <div class="listrow"><span>Offline storage</span><span class="v">25 rivers <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></div>
-          </div>
-          <div class="group-title">Help</div>
-          <div class="card group">
-            <div class="listrow"><span>Send feedback</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></div>
-            <div class="listrow"><span>Email support</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></div>
-            <div class="listrow"><span>Terms of Use</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></div>
-            <div class="listrow"><span>Privacy Policy</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></div>
-          </div>
-          <div class="group-title">Your data</div>
-          <div class="card group tgt" data-n="4"><button type="button" class="hs" data-n="4">4</button>
-            <div class="listrow"><span class="danger">Delete my data</span></div>
-          </div>
-        </div>
+        <!-- FLOATS -->
+        <div class="scroll view" data-view="floats">
+<div class="lt">Float with Eddy</div>
+<div class="card group tgt" data-n="1"><button type="button" class="hs" data-n="1">1</button><div class="vx-tour-start">Start a float <span aria-hidden="true">→</span></div></div>
+<div class="card group tgt" data-n="2"><button type="button" class="hs" data-n="2">2</button><div class="listrow"><b>Plan a float</b><span>→</span></div><div class="listrow"><b>Find a float</b><span>→</span></div></div>
+<div class="sec-head"><h3>Saved floats</h3><span>See all</span></div>
+<div class="card group tgt" data-n="3"><button type="button" class="hs" data-n="3">3</button><div class="listrow"><span><b>Akers → Pulltite</b><span class="vx-tour-sub">Current River · 9.6 mi</span><span class="vx-tour-sub">Saved on this phone</span></span></div></div>
+<div class="sec-head"><h3>Your floats</h3></div>
+<div class="card group tgt" data-n="4"><button type="button" class="hs" data-n="4">4</button><div class="listrow"><span><b>Float history</b><span class="vx-tour-sub">Revisit your time on the river</span></span><span>→</span></div></div>
+</div>
 
-        <nav class="tabbar" role="tablist" aria-label="Tabs">
-          <button class="tab" role="tab" data-tab="today" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Today</button>
-          <button class="tab" role="tab" data-tab="map" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 4-6 2.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Map</button>
-          <button class="tab" role="tab" data-tab="alerts" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Alerts</button>
-          <button class="tab" role="tab" data-tab="favorites" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.2 6.6 20.1l1-6.1-4.4-4.3 6.1-.9z"/></svg>Favorites</button>
-          <button class="tab" role="tab" data-tab="settings" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
-        </nav>
+        <nav class="tabbar" role="tablist" aria-label="Tabs"><button class="tab" role="tab" data-tab="today" aria-selected="true"><img class="vx-tab-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAC7ElEQVRIx92WW4hNURjH55wzmCnDpGaMW2EiUTJJJuVSyu2BzAvFAxlKLk+iKErKpTwMjVDyIiTGg5d5UPIgRqIUocyD62BcHpgx++yzt/+n/zp9fWftY095kFW/9pm11l7f+m7/PRUV//DI8tkEPpNZZu2vjhyfp0FM2s3aoEaGL+bKeDcBvAcF8ho0qPeTzsukMZ71eLeQnomxiL/nesKaTWNkJNgPWsHQhFtXg0Oggxzg3qy5rIwqsBXsBcN9BvfwxnLz+2C+um3Ok89KT9id4cXgESMhZ27zGVzNxT4+JVf1an0GOA4egw/gI3gKToCZat948I1n9NOBJb6cybiuKvAab1zJMParCMTm9wA4yHMkxJ1qzwVfelwopoEn3FTF+ct8MQ8CEBrcnOw5x3NG8MIS1kkJ9fB7wt3QFc1h5YGrTB8h98je3Xx3GM/JpOlFGbPBT+VJIYXRmArUOJj2cNXXzgNClY8CPcknGA+4bx/PGJKm4V04Hqiq/aFCpo0HNB6asHYmtEtJH2kZmkoVkTKvAXWgGexiMUTmArHquy56p0NaUqVuYhRYRYU4Cc6DUxSGeSrHc8AxcBu8AN3gIfc3qbOnsE9LvGzgAT2eftN/y3qbKoxMQmqmgzNMR0zZLI6lVJZY5SJQRkI2vp6T3N2l+mwBa8EmcATcUkKR5/OlNtitCiRSHolE9ZqCiVS7xGUIzb6z2uAdtfEe2EDVqaXSj6Mgt6lIaE8HFKFZfwV2UrmKo5FauA5MBCuoMpfAVRbNZuZlLFgDblDEC8YzucAb6nIL99f62mIMi+ZTQtG4OYnAerZKNdunmZ8zqdzJbAnp5ZX81IW2aCSE303R2K+CLST5PF0BO8ByGpTndnARvDW92aMN9iqRdka+gOfgmVrXxgt/KJpIyaD73BXHTU4GzNky/sNUQ0RtFlEI3pmQO4kLTAR0JI7aPNaxKBak0Nl69lsHI9BnvPrK/wrkO7oRjC4jEP/h+AU/fUM5wCIyrAAAAABJRU5ErkJggg==" alt="">Today</button><button class="tab" role="tab" data-tab="map" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 4-6 2.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Map</button><button class="tab" role="tab" data-tab="floats" aria-selected="false"><img class="vx-tab-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAACXBIWXMAAAPoAAAD6AG1e1JrAAADS0lEQVRIx92We2jNYRjH9ztnG5Hc/hmRcokRjXL5QyO3NBl/aclYDSFELnPNpeYa0jgii9zXKDZp7sSwZotobsdIsTHXw3GMs3N8n/r+6un1G7/jL3nr0/s77+/9Pc/7vO/3ed4TF/cPNg+w2HvUeBLIAd1BMmij5v91sxye+4Cd4CN4BcqBT82xjO9iak3AaNAOdALHwDcQBQ2gns/7QFuQDro6LNZ1k0iOgBJQpxxF+BxVz7V0fEY59bg9M2m9QCGYAX6QLyAE3oBnoBrUgHd0ugvkgQm04Y3l3Lx0eAUUgDVgGsgA68AJjsvYMDACzAObQVosZ2pHmAp201hnjiWwl3M9x4gSjIVOAZMdHHr+5DCP21gM2qv3TcFGGpZ+qHrXHGw1hNMCNHMTYX8QpvzXgp4gBSwHO0AWWAHywXhuqY9KtpsotwzcpSYcm1c5fEunn4EfnAKPwXNu+XamxgVQSuHcBPG0MVKpOMuNcNLUB/epSPm9kKJZDM7zvUQS4EKktQT3wAswwI1ibadi/DurShmfr4MlYA+3vJqRzwSJYBTfS+4OaixFPL/Z3omM4jVL2VPyANwBG1iJpO3n3A9gLMcSzdRwyhdLFekqVVlq6SSitluiWwrmGnMzaSPeKRdTDPna0W3hx3a1ERGdZtmrBLdYdaKsOLMZ/UnQmvW4r+msB89onJHgrbh6MfYSfFWr91M4cp6Hqc5JLIWpynY6bSdrh1JRbrB85TCfisA2ikIcPAGHwCejaDewPwsWMYUKmJ8rwSouxqcdPgJBkM1Je1lH1/MGEEfHmUu9GYWdErbDSyCXW1moHGYzVyu1wyA/CtCBTJwPFrCXc5lOUcyi40yWN9naA6xGMn8O+9VUbIC2a7TDOm6RvdowZS3nV8EtuQYuM5Jy5tlVlfQlVKjs1nvaiKrerx0e5WCIN3pYiSPqcNmWcgFRlRYVxpmGaSvE3/naYRfw0DAaZlWpJyG+E/EcVKki/UWWsAjnmoKS4t3RTI0kXjdVSoka++Mi5pm9qKCqp3quHNNtsEz9o/ul0th/nLqBgWA4czODl6r0U7lVdhQimMHMwTFgCOgHOqji4XjrW5xguSjquayjm3jBNvYvza3N/6j9BLXxKVJzGDJbAAAAAElFTkSuQmCC" alt="">Floats</button><button class="tab" role="tab" data-tab="favorites" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.2 6.6 20.1l1-6.1-4.4-4.3 6.1-.9z"/></svg>Favorites</button><button class="tab" role="tab" data-tab="alerts" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>Alerts</button></nav>
       </div>
     </div>
 
     <section class="notes" aria-live="polite">
       <div class="head"><div class="eyebrow" id="n-eyebrow">TAB 1 OF 5</div><h2 id="n-title">Today</h2><p class="lede" id="n-lede"></p></div>
       <div id="n-list" style="display:grid;gap:10px"></div>
-      <div class="card shared">
-        <h3>Shared with the website</h3>
-        <p>The app is the same product as eddy.guide, not a second one. It reads the web app as a headless API, and it bundles the website's condition code (<code>@eddy/conditions</code>) and shared types (<code>@eddy/types</code>) through <code>file:</code> dependencies. A river that is Flowing on the website is Flowing here, in the same green.</p>
-        <p class="fine">Readings, counts and alert rules on the phone are example data. Colors, type, spacing, card shapes and copy come from <code>eddy-ios/src/theme</code> and the screen components.</p>
-      </div>
+      <details class="vx-technical"><summary>About this tour</summary><p>These are illustrated screens with sample readings. Tabs and numbered markers respond; the other controls explain the app rather than operate it.</p><p>Based on the native tab layout, screen components, and theme in <code>eddy-ios</code>. Available features can vary by account and app version.</p></details>
     </section>
   </div>
+<!-- NEXT_GUIDE --><a class="vx-next" href="ios-plumbing.html"><span><small>Explore next</small><strong>What works without signal?</strong></span><span aria-hidden="true">→</span></a><!-- END_NEXT_GUIDE -->
 </main>
 
 <script>
 (() => {
 const NOTES = {
-  today: {
-    lede: "The tab that answers \u201cwhat can I float today?\u201d Every curated river, ranked by how floatable it is right now, with Eddy's take on top.",
-    items: [
-      ["Ozarks Pulse", "The count is worked out on the phone from the river list already on screen, so it is right whenever the list is. The sentence under it is Eddy's daily statewide update, and the server holds it back whenever it can't stand behind it. The card shows the count either way.", ["TodaySummary.tsx", "/api/eddy-updates"]],
-      ["Search that works offline", "The whole river list arrives in one cached request, so searching and filtering happen on the phone with no signal. Typing switches the screen into search across rivers, gauges and access points.", ["TodayScreen.tsx", "/api/rivers", "/api/search"]],
-      ["Eddy's Reads", "Each card is the morning Read for a river. Everyone gets the summary. The full report is Premium, unlocked through RevenueCat, so the second card shows it blurred with a lock.", ["EddyReadCard.tsx", "PremiumReadPreview.tsx"]],
-      ["River conditions", "Floatable rivers first, then by condition, then by name. The order and the colors come from the website's own condition system, so the app's numbers always match eddy.guide.", ["RiverRow.tsx", "@eddy/conditions"]],
-    ],
+  "today": {
+    "lede": "Check the water, then choose where to go.",
+    "items": [
+      [
+        "Today at a glance",
+        "See the regional overview and how many rivers have floatable readings. Check the reading for the stretch you have in mind.",
+        [
+          "TodaySummary.tsx"
+        ]
+      ],
+      [
+        "Find your river",
+        "Search rivers, gauges, and access points. Your account and settings are available from the account button on Today and Favorites.",
+        [
+          "TodayScreen.tsx"
+        ]
+      ],
+      [
+        "Eddy’s Reads",
+        "Read the daily summary for a river. Premium adds the full report with more context for your day.",
+        [
+          "EddyReadCard.tsx"
+        ]
+      ],
+      [
+        "Compare conditions",
+        "See each river’s condition and latest reading. A river rating describes the gauge; conditions can differ along your route.",
+        [
+          "RiverRow.tsx"
+        ]
+      ]
+    ]
   },
-  map: {
-    lede: "Find a place, see each river in its live condition color, plan the float and take it with you.",
-    items: [
-      ["One search field", "It replaced a strip of river chips that stopped working at thirty rivers. It answers the three questions people arrive with: which river, which gauge, which access point.", ["useEddySearch.ts", "/api/search"]],
-      ["Layers and location", "Access points, hazards and both gauge tiers are on when the map opens, because \u201cwhere do I get on, is there water, what will hurt me\u201d are what the map is for. Campgrounds and outfitters are one tap away in the layers sheet.", ["MapLayersSheet.tsx"]],
-      ["Rivers and pins in live color", "Each river line wears its condition color, and gauge pins are recolored at runtime from the same ladder. Access points wear their layer color. The drawings are built so one pin shape can take any color.", ["src/map/", "/api/gauges"]],
-      ["Plan a float", "Tapping a river opens its sheet. Plan a float picks a put-in and take-out and asks the web planner for the time, so the phone and the website quote the same float.", ["PlanSheet.tsx", "/api/plan"]],
-    ],
+  "map": {
+    "lede": "Explore the river and the places along it.",
+    "items": [
+      [
+        "Search the map",
+        "Find a river, gauge, or access point and bring it into view.",
+        [
+          "useEddySearch.ts"
+        ]
+      ],
+      [
+        "Choose what to show",
+        "Open layers for access points, gauges, hazards, campgrounds, and outfitters. Use location to find yourself on the map.",
+        [
+          "MapLayersSheet.tsx"
+        ]
+      ],
+      [
+        "Read the river",
+        "River and gauge colors show the condition rating. Tap for the reading, its age, and more detail.",
+        [
+          "src/map/"
+        ]
+      ],
+      [
+        "Plan your stretch",
+        "Open a river and choose a put-in and take-out. The planner checks current conditions when it estimates your trip.",
+        [
+          "PlanSheet.tsx"
+        ]
+      ]
+    ]
   },
-  alerts: {
-    lede: "Three things under one tab: the alerts you set, the water running high now, and what agencies have posted about places you'd put in.",
-    items: [
-      ["Add an alert", "The + is on every segment. An empty Mine list explains what an alert is instead of being a dead end, and alerts need Sign in with Apple so they can follow you between devices.", ["alerts.tsx", "AlertSignInSheet.tsx"]],
-      ["Mine, Running high, Notices", "Yours first, then a free statewide readout of rivers running high, then agency notices. Running high is a safety readout, not an inbox, so it needs no account.", ["/api/me/alert-subscriptions", "/api/river-alerts"]],
-      ["Rules as a tree", "A river alert and the gauge alerts on that river's other stations render as one card. The \u201cwhen it rises above 3.50 ft\u201d sentence comes from shared code that also writes the push message, so the row and the notification can't disagree.", ["AlertRuleRow.tsx", "describeAlertRule"]],
-      ["How it reaches you", "Every 15 minutes the server checks gauges against your rules and queues a push; another job delivers through Expo every 5 minutes. Quiet hours hold them overnight. Switch to this tab to see one arrive.", ["evaluate-gauge-alerts", "deliver-push", "QuietHoursRow.tsx"]],
-    ],
+  "floats": {
+    "lede": "Start a float, find a route, or return to a trip you saved.",
+    "items": [
+      [
+        "Start or resume a float",
+        "Start tracking from the Floats tab when River Mode is available. An active float gives you a way back to your trip.",
+        [
+          "float-home.tsx",
+          "YourFloatButton.tsx"
+        ]
+      ],
+      [
+        "Plan or find a route",
+        "Build your own stretch with Plan a float, or browse routes with Find a float.",
+        [
+          "float-home.tsx"
+        ]
+      ],
+      [
+        "Saved floats",
+        "Keep your put-in and take-out together. Check the trip’s offline status before losing signal; saved routes do not promise current conditions.",
+        [
+          "SavedFloatRow.tsx"
+        ]
+      ],
+      [
+        "Float history",
+        "Revisit completed floats and their recaps. Tracking availability determines which route and time details Eddy can show.",
+        [
+          "FloatHistoryCard.tsx"
+        ]
+      ]
+    ]
   },
-  favorites: {
-    lede: "The rivers you starred, checked at a glance. Built for the put-in, where signal is worst.",
-    items: [
-      ["Works with no account and no signal", "Stars live on the phone first, so the list always renders. Conditions are added on top when /api/rivers answers; offline, a card says so instead of vanishing.", ["useStarredRivers.tsx", "favorites.tsx"]],
-      ["A card, not a row", "A favorite gets a condition card. \u201c944 cfs, Good\u201d is a measurement; the card adds where that number sits between too low and flood.", ["FavoriteRiverCard.tsx"]],
-      ["The band track", "The bar under the reading shows the river's bands from too low to flood with a marker for right now. It answers \u201chow much margin is there?\u201d in a glance, with no extra request per river.", ["FavoriteRiverCard.tsx", "ReadingScale.tsx"]],
-      ["Saved floats", "Keep your planned put-in and take-out together so you can reopen the trip. Check current conditions when you return to it.", ["/api/plan/save", "SavedFloatDetails.tsx"]],
-    ],
+  "favorites": {
+    "lede": "Keep rivers and places you care about close at hand.",
+    "items": [
+      [
+        "Your starred rivers",
+        "Favorites stay on your phone. With a connection, Eddy refreshes the readings; offline, check when they were last updated.",
+        [
+          "favorites.tsx"
+        ]
+      ],
+      [
+        "A reading with context",
+        "The card pairs the latest measurement with its condition rating. Tap into the river for the gauge and more detail.",
+        [
+          "FavoriteRiverCard.tsx"
+        ]
+      ],
+      [
+        "Where the reading sits",
+        "The marker places the reading among that gauge’s condition bands. It is a reference for the water level, not an all-clear.",
+        [
+          "ReadingScale.tsx"
+        ]
+      ],
+      [
+        "Saved places",
+        "Return to access points and other places you starred. Saved routes and completed trips live in Floats.",
+        [
+          "favorites.tsx"
+        ]
+      ]
+    ]
   },
-  settings: {
-    lede: "Manage your account, subscription, notifications, and saved data in one place.",
-    items: [
-      ["Eddy Premium", "Premium unlocks the daily full Read for your favorite rivers. The free app works with no account at all, so Sign in with Apple is offered, never forced. Purchases run through RevenueCat.", ["profile.tsx", "PaywallSheet.tsx", "purchases.ts"]],
-      ["Why the button is teal", "On the website the main button is coral. In the app it is teal, because every warm color on a river screen already means a condition, and a coral button would read as a flood warning. Coral stays Eddy's own color: the otter, the kicker, these numbers.", ["palette.ts", "ADR 0007"]],
-      ["Notifications and offline", "The notification switch is Eddy's own opt-out, separate from iOS permission; if iOS has denied it, the row links to Settings instead. Offline storage shows what Eddy keeps on the phone for no-signal put-ins: every river's access points, hazards, line and last reading, refreshed automatically on each launch with a connection.", ["/api/me/notification-preferences", "/api/offline/bundle"]],
-      ["Delete my data", "Remove your Eddy data directly from Settings. When you are signed in, this option is called Delete account.", ["/api/me", "account-deletion"]],
-    ],
-  },
+  "alerts": {
+    "lede": "Keep up with your alerts, high water, and agency notices.",
+    "items": [
+      [
+        "Set an alert",
+        "Choose a river or gauge and the reading you want to hear about. Sign in to keep your alert rules with your account.",
+        [
+          "AlertSignInSheet.tsx"
+        ]
+      ],
+      [
+        "Three useful views",
+        "Mine holds your rules. Running high shows current high-water information. Notices brings together agency updates.",
+        [
+          "alerts.tsx"
+        ]
+      ],
+      [
+        "Know what triggers it",
+        "Each rule describes the level and direction you chose. Open it to change the rule or turn it off.",
+        [
+          "AlertRuleRow.tsx"
+        ]
+      ],
+      [
+        "Manage delivery",
+        "Notifications need permission and a connection. Quiet hours can delay delivery; check fresh conditions before heading out.",
+        [
+          "QuietHoursRow.tsx"
+        ]
+      ]
+    ]
+  }
 };
-const TABS = ["today", "map", "alerts", "favorites", "settings"];
-const TITLES = { today: "Today", map: "Map", alerts: "Alerts", favorites: "Favorites", settings: "Settings" };
+const TABS = ["today", "map", "floats", "favorites", "alerts"];
+const TITLES = { today: "Today", map: "Map", floats: "Floats", favorites: "Favorites", alerts: "Alerts" };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -566,8 +744,8 @@ function show(tab) {
   $("#n-eyebrow").textContent = `TAB ${TABS.indexOf(tab) + 1} OF 5`;
   $("#n-title").textContent = TITLES[tab];
   $("#n-lede").textContent = NOTES[tab].lede;
-  $("#n-list").innerHTML = NOTES[tab].items.map(([h, p, src], i) => `
-    <button type="button" class="note" data-n="${i + 1}"><span class="num">${i + 1}</span><span><h3>${h}</h3><p>${p}</p><span class="src">${src.map((s) => `<code>${s}</code>`).join("")}</span></span></button>`).join("");
+  $("#n-list").innerHTML = NOTES[tab].items.map(([h, p], i) => `
+    <button type="button" class="note" data-n="${i + 1}"><span class="num">${i + 1}</span><span><h3>${h}</h3><p>${p}</p></span></button>`).join("");
   $$("#n-list .note").forEach((n) => n.addEventListener("click", () => light(+n.dataset.n, true)));
   light(0);
   const push = $("#push");

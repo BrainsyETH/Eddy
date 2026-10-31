@@ -30,10 +30,13 @@ quoting either.
 
 ## Exploring the pages
 
-Use **Explore Eddy** at the top of any page to move through the collection.
+Use the **Visual guides** picker at the top of any page to move through the collection.
+The gallery groups guides into On the river, Using Eddy, and Behind the scenes.
+Start with river conditions; each guide also links to the next example.
 All navigation stays within this folder. On a phone, the three system maps
 open as a step picker with the same selectable components; **Show full diagram**
-opens the complete map. The selected explanation sits immediately below it.
+opens the complete map. The selected explanation stays beside the picker on
+desktop and immediately below it on phones. Desktop also shows the full diagram.
 
 Animations start paused. Use Play, the time sliders, or Next to move through an
 example. The Float Board has its own pause control. Reduced-motion preferences
@@ -47,10 +50,26 @@ inventory of the current app or proof of a released feature.
 
 ## Editing
 
-These are generated files. The sources and build scripts were scratch work and
-are not kept here; edit the HTML directly, or rebuild from the referenced
-source files. Keep everything inline (no external requests), and keep the
-"simulated" labels honest when the code they describe changes.
+Edit each demo’s markup and behavior directly in its HTML file. The original
+scratch generators are not retained. Shared collection chrome is now generated:
+
+- `src/lib/admin/visual-guides.ts` owns groups, titles, instructions, order, and the server allowlist.
+- `content/admin-visuals/shared.css` owns shared styling, including neutral dark surfaces.
+- `npm run build:visual-guides` inlines styling, navigation, introductions, and next-guide links into every HTML file.
+- `npm run check:visual-guides` checks for generated-content drift without writing files.
+
+Keep assets inline and example labels honest. The iPhone tour follows Today,
+Map, Floats, Favorites, Alerts; Settings is reached from the account button.
+The daily schedule offers explicit CDT, CST, and UTC examples. Changing its
+weekday or timezone refreshes the jobs shown at the selected minute.
+
+The condition guide places app/alert results beside the slider and keeps
+missing-data controls optional. Float planning puts route choices and time
+results together before the map. Changing the launch below a dam pauses the
+demo at that launch time. Every online/offline action has a visible outcome;
+the sample phone starts with saved river data, and cached lines are distinguished
+from downloaded background tiles. Read scenarios retain all seven steps with
+a compact selector on phones.
 
 ## Admin access and deployment
 
@@ -66,8 +85,8 @@ The route adds admin navigation. Its policy in `next.config.mjs` permits
 inline interactions and embedded assets while blocking external requests.
 The iOS bundle does not include these guides.
 
-When adding a guide, register it in `src/lib/admin/visual-guides.ts` and update
-the collection selector in each HTML file. The catalog is also the server's
+When adding a guide, register it in `src/lib/admin/visual-guides.ts` and
+run `npm run build:visual-guides`. The catalog is also the server’s
 filename allowlist.
 
 ## Checking an edit
@@ -85,4 +104,13 @@ Run `make check-web` for the gallery and access-control tests. Also check the
 signed-in routes in a browser: embedded fonts, collection links, and the return
 to admin navigation must work with the response security headers. Try a direct
 diagram URL after signing out; it must return to sign-in without serving HTML.
-The automated tests do not exercise every standalone diagram interaction.
+Run `npm run test:visual-guides` after `npx playwright install chromium` for
+browser checks across all nine guides. They cover the scenarios above, light
+and dark appearances, 320/390/1280px layouts, reduced motion, runtime errors,
+and unexpected network requests. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can
+point to an existing Chromium installation. Gallery/route tests also check
+catalog assets, the native tab order, and the deployed cron catalog.
+
+These checks supplement visual inspection; they do not replace testing the
+signed-in page under its deployed security policy or testing real native iOS
+behavior. The guides themselves are web simulations.
