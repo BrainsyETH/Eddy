@@ -1346,11 +1346,14 @@ export default function PlanPageClient({
           <ForecastCard days={forecast.days} city={forecast.city} />
         )}
 
-        {putInPoint && takeOutPoint && nearbyServices && (
+        {/* Not gated on nearbyServices: the shuttle route link needs only the
+            two endpoints, and should not wait on (or vanish with) the
+            provider directory. */}
+        {putInPoint && takeOutPoint && (
           <ShuttlePanel
             putIn={putInPoint}
             takeOut={takeOutPoint}
-            services={nearbyServices}
+            services={nearbyServices ?? []}
           />
         )}
 
