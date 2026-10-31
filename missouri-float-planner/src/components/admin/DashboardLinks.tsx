@@ -139,15 +139,19 @@ const ADMIN_SECTIONS = [
 export default function DashboardLinks() {
   return (
     <nav aria-label="Manage Eddy" className="flex flex-wrap gap-2">
-      {ADMIN_SECTIONS.map((s) => (
-        <Link
-          key={s.href}
-          href={s.href}
-          className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-800"
-        >
-          {s.title}
-        </Link>
-      ))}
+      {ADMIN_SECTIONS.map((s) => {
+        const Icon = s.icon;
+        return (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="inline-flex items-center gap-2 rounded-md border-2 border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-primary-800 hover:border-primary-400 hover:bg-primary-50"
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+            {s.title}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

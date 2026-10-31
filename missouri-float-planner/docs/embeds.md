@@ -143,6 +143,12 @@ Every load beacons one impression (`EmbedImpression`) to
 `/api/embed/impression`, aggregated daily per (type, key, host). Family routes
 send the size in the type (`river-card`, `dam-strip`); image renders send
 `river-badge-image` etc., counted per origin fetch (CDN hits are not seen).
-The admin dashboard's "AI & reach" section breaks the last 7/30 days down by
-type, key and host (`src/lib/admin/dashboard/widgets.ts`). Read it before
-cutting a size.
+The admin dashboard's "Which sites show Eddy widgets?" card answers how many
+outside websites embed a widget: distinct external hosts with at least one
+load in the last 30 days, which ones are new this week, and which went quiet
+(`embedSites` in `src/lib/admin/dashboard/widget-model.ts`). Eddy's own pages,
+loads with no referrer, and shared-link hosts (social, search, webmail) are
+kept out of that count and listed separately. Its detail view also breaks
+outside loads down by widget type and river. Read it before cutting a size.
+The dashboard holds 30 days of daily rows, so "new" means first seen within
+that window.

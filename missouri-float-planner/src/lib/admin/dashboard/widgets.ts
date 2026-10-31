@@ -2,6 +2,9 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { WidgetHistory, WidgetRow } from './widget-model';
 
+/** One row per (widget, river, site, day). Refuse rather than chart a partial month. */
+const MAX_ROWS = 5000;
+
 export async function widgetHistory(now: number): Promise<WidgetHistory> {
   const through = new Date(now).toISOString().slice(0, 10);
   const firstPartyHosts = ['eddy.guide', 'www.eddy.guide'];
@@ -37,18 +40,21 @@ export async function widgetHistory(now: number): Promise<WidgetHistory> {
         .lte('day', through)
         .order('id');
     const first = await query().range(0, 999).abortSignal(signal);
-    if (first.error || first.count === null || first.count > 2000)
+    if (first.error || first.count === null || first.count > MAX_ROWS)
       throw new Error('Unavailable or over limit');
-    const second =
-      first.count > 1000
-        ? await query().range(1000, 1999).abortSignal(signal)
-        : null;
-    if (second?.error) throw new Error('Incomplete history');
-    const rows = [
-      ...(first.data ?? []),
-      ...(second?.data ?? []),
-    ] as WidgetRow[];
-    if (rows.length !== first.count) throw new Error('Incomplete history');
+    const total = first.count;
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(0, Math.ceil(total / 1000) - 1) }, (_, i) =>
+        query()
+          .range((i + 1) * 1000, (i + 2) * 1000 - 1)
+          .abortSignal(signal),
+      ),
+    );
+    if (rest.some((r) => r.error)) throw new Error('Incomplete history');
+    const rows = [first, ...rest].flatMap(
+      (r) => (r.data ?? []) as WidgetRow[],
+    );
+    if (rows.length !== total) throw new Error('Incomplete history');
     return { state: 'ok', through, rows, firstPartyHosts };
   } catch {
     return {
@@ -57,7 +63,7 @@ export async function widgetHistory(now: number): Promise<WidgetHistory> {
       rows: [],
       firstPartyHosts,
       reason:
-        'Widget history is unavailable or exceeds the 2,000 daily-counter read limit. No traffic totals are inferred.',
+        'Widget history could not be loaded right now.',
     };
   }
 }

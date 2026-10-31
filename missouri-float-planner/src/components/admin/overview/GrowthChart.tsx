@@ -5,6 +5,7 @@ import {
   type GrowthSeries,
 } from '@/lib/admin/dashboard/overview-model';
 import { useInspectMetric } from './MetricDetails';
+import { Change, Panel } from './bits';
 import styles from './overview.module.css';
 
 const dayLabel = (day: string) =>
@@ -13,17 +14,6 @@ const dayLabel = (day: string) =>
     day: 'numeric',
     timeZone: 'UTC',
   });
-export function changeLabel(
-  total: number,
-  prior: number,
-  percent: number | null,
-) {
-  if (percent === null)
-    return prior === 0 && total > 0
-      ? `${total.toLocaleString()} more than the previous period`
-      : 'No change from the previous period';
-  return `${percent > 0 ? '+' : ''}${Math.round(percent)}% vs previous period`;
-}
 export default function GrowthChart({
   series,
   days,
@@ -50,13 +40,12 @@ export default function GrowthChart({
   const path = (points: Array<{ count: number }>) =>
     points.map((p, i) => `${i ? 'L' : 'M'}${x(i)},${y(p.count)}`).join(' ');
   const active = selected === null ? days - 1 : Math.min(selected, days - 1);
+  const noun = measure === 'plans' ? 'trip plans saved' : 'new accounts';
   return (
-    <section className={styles.panel} aria-labelledby="growth-title">
-      <div className={styles.panelHead}>
-        <div>
-          <h2 id="growth-title">Is Eddy growing?</h2>
-          <p>Daily activity, with the previous period for context.</p>
-        </div>
+    <Panel
+      question="Is Eddy growing?"
+      hint="Each day compared with the period before (dashed)"
+      action={
         <div className={styles.segment} aria-label="Chart measure">
           {(['plans', 'accounts'] as const).map((value) => (
             <button
@@ -67,26 +56,20 @@ export default function GrowthChart({
                 setSelected(null);
               }}
             >
-              {value === 'plans' ? 'Trip plans' : 'Accounts'}
+              {value === 'plans' ? 'Trip plans' : 'New accounts'}
             </button>
           ))}
         </div>
-      </div>
-      <button
-        className={styles.textButton}
-        onClick={() => inspect({ key: measure })}
-      >
-        What counts & daily breakdown →
-      </button>
+      }
+    >
       {period ? (
         <>
-          <div className={styles.chartSummary}>
+          <div className={styles.bigLine}>
             <strong>{period.total.toLocaleString()}</strong>
             <span>
-              {measure === 'plans' ? 'plans saved' : 'accounts created'}
-              <br />
+              {noun}
               <small>
-                {changeLabel(period.total, period.prior, period.percent)}
+                <Change total={period.total} prior={period.prior} days={days} />
               </small>
             </span>
           </div>
@@ -94,7 +77,8 @@ export default function GrowthChart({
             viewBox="0 0 660 230"
             className={styles.chart}
             role="img"
-            aria-label={`${measure}: ${period.total} in the last ${days} complete UTC days; ${period.prior} in the preceding ${days} days. Daily values available below.`}
+            aria-label={`${period.total} ${noun} in the last ${days} days, ${period.prior} in the ${days} days before.`}
+            onMouseLeave={() => setSelected(null)}
           >
             {[0, 0.5, 1].map((f) => (
               <g key={f}>
@@ -132,8 +116,8 @@ export default function GrowthChart({
                   className={styles.chartPoint}
                 >
                   <title>
-                    {dayLabel(p.day)}: {p.count}; previous period:{' '}
-                    {period.previous[i].count}
+                    {dayLabel(p.day)}: {p.count} (period before:{' '}
+                    {period.previous[i].count})
                   </title>
                 </circle>
               </g>
@@ -146,47 +130,21 @@ export default function GrowthChart({
             </text>
           </svg>
           <div className={styles.chartLegend}>
-            <span>● This period</span>
-            <span>┄ Previous period</span>
             <span>
               {dayLabel(period.current[active].day)}:{' '}
-              <b>{period.current[active].count}</b>
+              <b>{period.current[active].count}</b> {noun}
             </span>
+            <button
+              className={styles.textButton}
+              onClick={() => inspect({ key: measure })}
+            >
+              Day-by-day numbers ›
+            </button>
           </div>
-          <p className={styles.note}>
-            Last {days} complete UTC days. Today is excluded so both periods
-            have equal coverage. Saved plans are not completed trips; accounts
-            are not active users.
-          </p>
-          <details className={styles.chartTable}>
-            <summary>View daily numbers</summary>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date (UTC)</th>
-                  <th>This period</th>
-                  <th>Previous date</th>
-                  <th>Previous period</th>
-                </tr>
-              </thead>
-              <tbody>
-                {period.current.map((p, i) => (
-                  <tr key={p.day}>
-                    <td>{dayLabel(p.day)}</td>
-                    <td>{p.count}</td>
-                    <td>{dayLabel(period.previous[i].day)}</td>
-                    <td>{period.previous[i].count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
         </>
       ) : (
-        <div className={styles.empty}>
-          {series.reason ?? 'Growth history is unavailable.'}
-        </div>
+        <p className={styles.empty}>Growth history did not load.</p>
       )}
-    </section>
+    </Panel>
   );
 }

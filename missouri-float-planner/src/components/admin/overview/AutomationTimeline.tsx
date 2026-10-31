@@ -6,6 +6,7 @@ import type {
 } from '@/lib/admin/dashboard/overview-model';
 import { needsAttention, type Metric } from '@/lib/admin/dashboard/model';
 import { relativeRun } from './JobStatusTable';
+import { Panel, Status } from './bits';
 import styles from './overview.module.css';
 
 export const timeLabel = (at: string | null) =>
@@ -17,21 +18,21 @@ export const timeLabel = (at: string | null) =>
         minute: '2-digit',
         timeZone: 'America/Chicago',
       }) + ' CT'
-    : 'Not recorded';
+    : 'Never';
 const shortTime = (at: number) =>
   new Date(at).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     timeZone: 'America/Chicago',
   });
-const statusLabel = (status: string | null) =>
+export const statusLabel = (status: string | null) =>
   ({
-    ok: 'Completed',
-    partial: 'Needs review',
+    ok: 'Worked',
+    partial: 'Partly worked',
     error: 'Failed',
-    skipped: 'Skipped',
+    skipped: 'Nothing to do',
     started: 'Running',
-  })[status ?? ''] ?? 'No run recorded';
+  })[status ?? ''] ?? 'No run yet';
 const severity = (status: string) =>
   ({ error: 5, partial: 4, started: 3, ok: 2, skipped: 1 })[status] ?? 0;
 
@@ -65,6 +66,7 @@ export default function AutomationTimeline({
   const jobs = timeline.jobs;
   const flagged = (id: string) =>
     metrics.some((m) => m.key === `job_${id}` && needsAttention(m));
+  const flaggedCount = jobs.filter((j) => flagged(j.id)).length;
   const primaryJobs = [
     'update-gauges:high-frequency',
     'sync-gauge-latest',
@@ -80,42 +82,44 @@ export default function AutomationTimeline({
     return index < 0 ? primaryJobs.length : index;
   };
   const ordered = [...jobs].sort((a, b) => rank(a.id) - rank(b.id));
-  const shown = all ? ordered : ordered.slice(0, 7);
+  const shown = all ? ordered : ordered.slice(0, Math.max(7, flaggedCount));
   const detail = jobs.find((j) => j.id === selected);
   const from = Date.parse(timeline.from);
   return (
-    <section
+    <Panel
       id="automation"
-      className={styles.panel}
-      aria-labelledby="automation-title"
+      question="Are the automatic tasks running?"
+      hint="What ran in the last 6 hours (Central time). Select a task for its runs."
+      action={
+        timeline.state === 'ok' && (
+          <Status tone={flaggedCount ? 'warn' : 'good'}>
+            {flaggedCount
+              ? `${flaggedCount} of ${jobs.length} need a look`
+              : 'No problems seen'}
+          </Status>
+        )
+      }
     >
-      <div className={styles.panelHead}>
-        <div>
-          <h2 id="automation-title">What ran, and when?</h2>
-          <p>Last 6 hours · Central time · select a job to inspect its runs.</p>
-        </div>
-        <span className={styles.pill}>{jobs.length} scheduled tasks</span>
-      </div>
-      <div className={styles.legend}>
-        <span data-status="ok">● Completed</span>
-        <span data-status="error">◆ Failed / partial</span>
-        <span data-status="started">● Running</span>
-        <span data-status="skipped">● Skipped</span>
-      </div>
       {timeline.state !== 'ok' ? (
-        <p className={styles.empty}>{timeline.reason}</p>
+        <p className={styles.empty}>Task history did not load.</p>
       ) : (
         <>
+          <div className={styles.legend}>
+            <span data-status="ok">● Worked</span>
+            <span data-status="error">◆ Failed</span>
+            <span data-status="started">● Running</span>
+            <span data-status="skipped">● Nothing to do</span>
+          </div>
           <div className={styles.timelineScroll}>
             <div className={styles.timeline}>
               <div className={styles.timelineAxis}>
-                <span>Automation</span>
+                <span>Task</span>
                 <div>
                   {[0, 2, 4, 6].map((h) => (
                     <span key={h}>{shortTime(from + h * 3600000)}</span>
                   ))}
                 </div>
-                <span>Latest run</span>
+                <span>Last run</span>
               </div>
               {shown.map((job) => (
                 <button
@@ -129,7 +133,7 @@ export default function AutomationTimeline({
                   <span className={styles.jobName}>
                     {job.label}
                     {flagged(job.id) && (
-                      <small className={styles.warning}>Needs review</small>
+                      <small className={styles.warning}>Needs a look</small>
                     )}
                   </span>
                   <span className={styles.runTrack}>
@@ -139,13 +143,11 @@ export default function AutomationTimeline({
                         className={styles.runMark}
                         style={{ left: `${(bucket.index / 36) * 100}%` }}
                         data-status={bucket.status}
-                        title={`${bucket.count} run(s) · ${statusLabel(bucket.status)} · ${shortTime(from + bucket.index * 600000)}`}
+                        title={`${shortTime(from + bucket.index * 600000)} · ${statusLabel(bucket.status)}${bucket.count > 1 ? ` (${bucket.count} runs)` : ''}`}
                       />
                     ))}
                     {!job.runs.length && (
-                      <span className={styles.noRuns}>
-                        No recorded run in this window
-                      </span>
+                      <span className={styles.noRuns}>No runs in this window</span>
                     )}
                   </span>
                   <span className={styles.lastRun}>
@@ -158,19 +160,16 @@ export default function AutomationTimeline({
               ))}
             </div>
           </div>
-          <button className={styles.textButton} onClick={() => setAll(!all)}>
-            {all ? 'Show fewer tasks' : `Show all ${jobs.length} tasks`} ↓
-          </button>
+          {jobs.length > shown.length || all ? (
+            <button className={styles.textButton} onClick={() => setAll(!all)}>
+              {all ? 'Show fewer' : `Show all ${jobs.length} tasks`}
+            </button>
+          ) : null}
           {detail && (
             <div className={styles.detail} aria-live="polite">
               <h3>{detail.label}</h3>
               <p>
-                Next scheduled: <b>{timeLabel(detail.nextAt)}</b>. A skipped run
-                may mean there was no work or another run held the lock.
-              </p>
-              <p className={styles.note}>
-                Schedule shown even in previews; Vercel executes these schedules
-                in production. Times are expectations, not guarantees.
+                Next run: <b>{timeLabel(detail.nextAt)}</b>
               </p>
               <div className={styles.runList}>
                 {detail.runs.length ? (
@@ -182,33 +181,25 @@ export default function AutomationTimeline({
                       </strong>
                       <span>
                         {run.duration_ms === null
-                          ? 'Duration not recorded'
+                          ? '—'
                           : `${(run.duration_ms / 1000).toFixed(1)}s`}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <p>
-                    No runs in this six-hour window. Last recorded:{' '}
-                    {timeLabel(detail.lastAt)}.
-                  </p>
+                  <p>No runs in the last 6 hours. Last run: {timeLabel(detail.lastAt)}.</p>
                 )}
               </div>
               <details>
-                <summary>Technical schedule</summary>
+                <summary>Schedule (for developers)</summary>
                 <code>
                   {detail.id} · {detail.schedules.join(' / ')} (UTC)
                 </code>
               </details>
             </div>
           )}
-          <p className={styles.note}>
-            Each mark groups up to 10 minutes and shows the most severe recorded
-            outcome. Empty space means no recorded run, not necessarily failure.
-            History begins when monitoring was enabled.
-          </p>
         </>
       )}
-    </section>
+    </Panel>
   );
 }
