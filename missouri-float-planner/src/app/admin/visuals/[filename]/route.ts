@@ -12,7 +12,7 @@ const PRIVATE_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow',
 };
 
-const ADMIN_NAV = `<nav aria-label="Admin navigation" style="max-width:1120px;margin:16px auto;padding:0 20px;display:flex;flex-wrap:wrap;gap:12px 24px;font:500 14px/1.5 system-ui,sans-serif"><a href="/admin/visuals" style="color:inherit;padding:8px 0">← All visual guides</a><a href="/admin" style="color:inherit;padding:8px 0">Admin dashboard</a></nav>`;
+const ADMIN_NAV = `<span class="vx-admin"><a href="/admin/visuals">← All visual guides</a><a href="/admin">Admin</a></span>`;
 
 export async function GET(
   request: NextRequest,
@@ -43,9 +43,8 @@ export async function GET(
     'utf8',
   );
 
-  // These standalone files omit optional <head>/<body> tags. Insert before
-  // their shared collection nav rather than relying on an explicit body tag.
-  const document = html.replace('<nav class="vx-nav"', `${ADMIN_NAV}<nav class="vx-nav"`);
+  // Keep authenticated navigation in the same bar as the standalone guide picker.
+  const document = html.replace('<!-- ADMIN_LINKS -->', ADMIN_NAV);
   return new NextResponse(document, {
     headers: {
       ...PRIVATE_HEADERS,

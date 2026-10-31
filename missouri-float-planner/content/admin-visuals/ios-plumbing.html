@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Inside the iPhone app · Eddy</title>
+<title>What works without signal? · Eddy visual guides</title>
 <style>
 /* Layout: the Watershed's channel diagram, redrawn for the phone. Servers on the
    left, the app's pipes, what it keeps on the phone, then the five tabs. Shared
@@ -108,6 +108,37 @@ footer { font-size: 12.5px; color: var(--textSubtle); }
 footer a { color: var(--interactive); }
 @media (prefers-reduced-motion: reduce) { .flow, .node.pulse .box, .log li:first-child { animation: none !important; } }
 
+
+
+
+.vx-explorer { display:none; }
+#detail { border-left:4px solid var(--vx-link); }
+#detail p { max-width:90ch; font-size:15px; line-height:1.65; }
+.vx-source { margin-top:12px; font-size:13px; color:var(--vx-muted); }
+.vx-source summary { cursor:pointer; min-height:32px; }
+.map .sub,.map .sb,.map .li { font-family:var(--font-body,var(--body,system-ui)); font-size:12px; }
+.map .name,.map .nm { font-size:16px; }
+.map .col { font-family:var(--font-body,var(--body,system-ui)); font-size:12px; letter-spacing:.04em; }
+@media(max-width:760px) {
+ .vx-explorer { display:grid; gap:12px; padding:16px; border-radius:16px; border:1px solid var(--vx-border); background:var(--vx-card); }
+ .vx-explorer label { font-size:13px; font-weight:600; color:var(--vx-muted); }
+ .vx-explorer select { min-height:48px; width:100%; color:var(--vx-text); background:var(--vx-bg); border:1px solid var(--vx-border); border-radius:10px; padding:8px; }
+ .vx-nodes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+ .vx-nodes button,.vx-map-toggle { padding:10px; border-radius:10px; border:1px solid var(--vx-border); color:var(--vx-text); background:var(--vx-card); font-size:14px; cursor:pointer; }
+ .vx-nodes button[aria-pressed=true] { color:var(--vx-card); background:var(--vx-link); border-color:var(--vx-link); }
+ .stage { display:none; }
+ .stage.vx-map-open { display:block; }
+ .vx-map-toggle { color:var(--vx-link); }
+}
+
+.lower { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+@media(max-width:680px) { .lower { grid-template-columns:1fr; } }
+.map .node:focus-visible .box { stroke:var(--vx-link); stroke-width:3; }
+@media(max-width:760px) { .stage.vx-map-open::before { content:"Swipe sideways to follow all the connections →"; display:block; position:sticky; left:0; padding:12px; color:var(--vx-muted); font-size:12px; } }
+.vx-idle .flow { animation-play-state:paused; }
+.vx-explorer{display:grid;gap:12px;padding:20px;border:1px solid var(--vx-border);border-radius:20px;background:var(--vx-surface)}.vx-explorer label{font-size:13px;color:var(--vx-muted);font-weight:600}.vx-explorer select{min-height:48px;width:100%;border:1px solid var(--vx-border);border-radius:12px;padding:10px;background:var(--vx-surface);color:var(--vx-text);font:inherit}.vx-nodes{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vx-nodes button{border-radius:12px;padding:12px;min-height:48px;background:var(--vx-surface);color:var(--vx-text);border:1px solid var(--vx-border)}.vx-nodes button[aria-pressed=true]{background:var(--vx-tint);color:var(--vx-link);border:2px solid var(--vx-link)}.vx-map-toggle{color:var(--vx-link)}.stage{display:none}.stage.vx-map-open{display:block}.vx-workspace{grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr)}#detail{border-left:1px solid var(--vx-border)}@media(max-width:760px){.vx-workspace{grid-template-columns:1fr}}
+</style>
+<!-- SHARED_STYLE --><style>
 /* Collection UI. Kept inline so every explainer still opens offline. */
 :root {
  --vx-bg:var(--color-background,var(--bg,#F7F6F3));
@@ -162,43 +193,96 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
 
+/* Inlined by build:visual-guides. Standalone guides make no asset requests. */
+:root {
+  --vx-bg:#F7F6F3; --vx-surface:#FFFFFF; --vx-text:#2D2A24; --vx-muted:#6B6459;
+  --vx-border:#DBD5CA; --vx-link:#256574; --vx-tint:#EBF5F7; --vx-sand:#F4EFE7;
 
-.vx-explorer { display:none; }
-#detail { border-left:4px solid var(--vx-link); }
-#detail p { max-width:90ch; font-size:15px; line-height:1.65; }
-.vx-source { margin-top:12px; font-size:13px; color:var(--vx-muted); }
-.vx-source summary { cursor:pointer; min-height:32px; }
-.map .sub,.map .sb,.map .li { font-family:var(--font-body,var(--body,system-ui)); font-size:12px; }
-.map .name,.map .nm { font-size:16px; }
-.map .col { font-family:var(--font-body,var(--body,system-ui)); font-size:12px; letter-spacing:.04em; }
-@media(max-width:760px) {
- .vx-explorer { display:grid; gap:12px; padding:16px; border-radius:16px; border:1px solid var(--vx-border); background:var(--vx-card); }
- .vx-explorer label { font-size:13px; font-weight:600; color:var(--vx-muted); }
- .vx-explorer select { min-height:48px; width:100%; color:var(--vx-text); background:var(--vx-bg); border:1px solid var(--vx-border); border-radius:10px; padding:8px; }
- .vx-nodes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
- .vx-nodes button,.vx-map-toggle { padding:10px; border-radius:10px; border:1px solid var(--vx-border); color:var(--vx-text); background:var(--vx-card); font-size:14px; cursor:pointer; }
- .vx-nodes button[aria-pressed=true] { color:var(--vx-card); background:var(--vx-link); border-color:var(--vx-link); }
- .stage { display:none; }
- .stage.vx-map-open { display:block; }
- .vx-map-toggle { color:var(--vx-link); }
 }
+@media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) {
+  --vx-bg:#161615; --vx-surface:#242423; --vx-text:#F5F5F0; --vx-muted:#B8B8B0;
+  --vx-border:#50504B; --vx-link:#92CDDA; --vx-tint:#263B3F; --vx-sand:#333331;
+} }
+:root[data-theme="dark"] { --vx-bg:#161615; --vx-surface:#242423; --vx-text:#F5F5F0; --vx-muted:#B8B8B0; --vx-border:#50504B; --vx-link:#92CDDA; --vx-tint:#263B3F; --vx-sand:#333331; }
+body { margin:0; background:var(--vx-bg); color:var(--vx-text); }
+.vx-nav { max-width:1200px; margin:0 auto; padding:16px 24px; display:flex; flex-wrap:wrap; gap:12px 24px; align-items:center; border-bottom:1px solid var(--vx-border); background:transparent; border-radius:0; }
+.vx-nav label { font-size:15px; font-weight:650; color:var(--vx-text); }
+.vx-nav select { margin-left:auto; width:auto; max-width:100%; min-height:44px; border:1px solid var(--vx-border); border-radius:12px; padding:10px 32px 10px 12px; background:var(--vx-surface); color:var(--vx-text); font:inherit; }
+.vx-admin { display:flex; gap:16px; align-items:center; }
+.vx-admin a { color:var(--vx-link); font-size:14px; text-decoration:none; padding:12px 0; }
+main.page,main.wrap { max-width:1200px; padding:28px 24px 48px; gap:24px; }
+h1,.intro h1 { font-size:clamp(30px,4vw,42px); line-height:1.12; letter-spacing:-.025em; margin:0 0 10px; }
+.titlebar p,.intro p { max-width:60ch; font-size:16px; line-height:1.5; margin:0; color:var(--vx-muted); }
+.vx-kicker { color:var(--vx-link); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px; }
+.eyebrow,.kicker { display:none; }
+.vx-guide { padding:12px 16px; border:0; border-radius:12px; background:var(--vx-sand); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 20px; box-shadow:none; }
+.vx-guide p { margin:0; color:var(--vx-text); font-size:14px; }
+.vx-badge { background:transparent; padding:0; border:0; color:var(--vx-muted); font-size:12px; white-space:nowrap; }
+.card-panel,.panel,.card,.estimator { background:var(--vx-surface); border:1px solid var(--vx-border); border-radius:20px; box-shadow:0 2px 6px #00000005; }
+.panel-head { padding:18px 20px; }
+.panel-head h2,.panel h2,.card h2 { font-size:18px; line-height:1.3; }
+button,a,select,input { -webkit-tap-highlight-color:transparent; }
+button,select,summary { touch-action:manipulation; }
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--vx-link); outline-offset:3px; }
+button:disabled { cursor:default; opacity:.45; }
+.btn-primary,.pill.cta { background:#F07052; color:#1A1814; border-color:#F07052; }
+.vx-technical { padding:16px 20px; border:1px solid var(--vx-border); border-radius:14px; background:transparent; color:var(--vx-muted); font-size:13px; }
+.vx-technical summary { color:var(--vx-link); min-height:24px; cursor:pointer; font-weight:600; }
+.vx-next { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px; border:1px solid var(--vx-border); border-radius:18px; color:var(--vx-link); text-decoration:none; background:var(--vx-surface); }
+.vx-next small { display:block; color:var(--vx-muted); font-size:12px; margin-bottom:4px; }
+.vx-next strong { font-size:17px; }
+.vx-outcome { padding:16px; background:var(--vx-tint); border-radius:14px; }
+.vx-outcome h2 { margin:0 0 8px; font-size:16px; }
+.vx-outcome p { margin:0; font-size:14px; }
+.vx-workspace { display:grid; grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr); gap:20px; align-items:start; }
+.vx-workspace .stage { min-width:0; }
+.vx-workspace #detail { min-width:0; margin:0; }
+.vx-workspace .vx-explorer { margin:0; }
+.vx-workspace .vx-map-toggle { min-height:44px; }
+@media(max-width:900px) { .vx-workspace { grid-template-columns:1fr; } }
+@media(max-width:640px) {
+  .vx-nav { padding:12px 16px; gap:8px 12px; }
+  .vx-nav select { max-width:65%; font-size:14px; }
+  .vx-admin { width:100%; justify-content:space-between; }
+  main.page,main.wrap { padding:24px 16px 36px; gap:20px; }
+  .titlebar,.intro { gap:16px; }
+  .vx-guide { padding:12px 14px; }
+  .panel-head { padding:16px; }
+  .vx-next { padding:16px; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
 
-.lower { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
-@media(max-width:680px) { .lower { grid-template-columns:1fr; } }
-.map .node:focus-visible .box { stroke:var(--vx-link); stroke-width:3; }
-@media(max-width:760px) { .stage.vx-map-open::before { content:"Swipe sideways to follow all the connections →"; display:block; position:sticky; left:0; padding:12px; color:var(--vx-muted); font-size:12px; } }
-.vx-idle .flow { animation-play-state:paused; }
-</style><a class="vx-skip" href="#vx-content">Skip to explainer</a>
-<nav class="vx-nav" aria-label="Eddy explainers"><label for="vx-page">Explore Eddy<small>Interactive field notes</small></label><select id="vx-page"><option value="watershed.html">System map</option><option value="social-delta.html">Social posts</option><option value="eddys-day.html">Daily schedule</option><option value="condition-ladder.html">Condition ratings</option><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="ios-plumbing.html" selected>Inside the iPhone app</option><option value="ios-tour.html">iPhone tour</option><option value="float-board.html">Float Board</option><option value="below-the-dam.html">Below the dam</option></select></nav>
+@media(max-width:360px){.vx-nav label{font-size:13px}.vx-nav select{max-width:61%;font-size:13px}}
+
+.vx-technical>summary{padding:0;min-height:36px;display:flex;align-items:center;gap:8px}
+.vx-technical>summary::before{content:"+";font-size:18px}.vx-technical[open]>summary::before{content:"−"}.vx-technical>p{padding:0;margin:12px 0 0}
+
+.titlebar h1,.intro h1{font-size:clamp(30px,4vw,42px);line-height:1.12;font-weight:600}
+.panel-head h2,.est-head h2{font-family:var(--font-body,var(--body,system-ui));font-weight:650}
+
+/* Match legacy theme-selector specificity while mapping their roles to one palette. */
+:root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+  --bg:var(--vx-bg); --surface:var(--vx-surface); --card:var(--vx-surface); --cardRaised:var(--vx-sand);
+  --fg:var(--vx-text); --text:var(--vx-text); --muted:var(--vx-muted); --textMuted:var(--vx-muted);
+  --line:var(--vx-border); --border:var(--vx-border); --interactive:var(--vx-link); --raw:var(--vx-link);
+  --color-background:var(--vx-bg); --color-surface:var(--vx-surface); --color-text-primary:var(--vx-text);
+  --color-text-secondary:var(--vx-muted); --color-text-muted:var(--vx-muted); --color-border:var(--vx-border);
+  --color-surface-hover:var(--vx-sand); --selectionBg:var(--vx-tint); --selectionText:var(--vx-text);
+  --chrome:var(--vx-surface); --textSubtle:var(--vx-muted);
+}
+.vx-event{margin:0;padding:12px 16px;border-left:3px solid var(--vx-link);border-radius:0 10px 10px 0;background:var(--vx-tint);color:var(--vx-text);font-size:14px;line-height:1.5}
+</style><!-- END_SHARED_STYLE -->
+
+<a class="vx-skip" href="#vx-content">Skip to explainer</a>
+<nav class="vx-nav" aria-label="Visual guides"><!-- ADMIN_LINKS --><label for="vx-page">Visual guides</label><select id="vx-page" aria-label="Choose a guide"><optgroup label="On the river"><option value="condition-ladder.html">River conditions</option><option value="float-board.html">Float planning</option><option value="below-the-dam.html">Below a dam</option></optgroup><optgroup label="Using Eddy"><option value="ios-tour.html">iPhone tour</option><option value="ios-plumbing.html" selected>The app, online and offline</option></optgroup><optgroup label="Behind the scenes"><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="watershed.html">Where the data goes</option><option value="eddys-day.html">Daily schedule</option><option value="social-delta.html">Social posts</option></optgroup></select></nav>
 
 
 <main class="page" id="vx-content">
-  <div class="brand"><img src="data:image/webp;base64,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" alt="Eddy app icon"><span>Eddy</span><a href="ios-tour.html">Tour the screens</a></div>
+
   <div class="intro">
     <div>
       <div class="kicker">BEHIND THE SCREEN</div>
-      <h1>What happens inside the app</h1>
-      <p>See how river data reaches your phone, what stays available without signal, and how sign-in and alerts work. Every action here is a simulation.</p>
+      <div class="vx-kicker">Using Eddy</div><h1>What works without signal?</h1><p>Try the same action with and without a connection.</p>
     </div>
     <div class="controls">
       <button type="button" class="pill cta" id="b-launch">Open the app</button>
@@ -210,9 +294,9 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
     </div>
   </div>
 
-  <aside class="vx-guide"><p><strong>Try it.</strong> Try opening the app, then turn off the signal and try again. Choose any part to see what happens behind the screen.</p><span class="vx-badge">Interactive demo · not live data</span></aside>
+  <aside class="vx-guide"><p>Open the app, turn off the signal, and try again.</p><span class="vx-badge">Example data</span></aside>
 
-  <div class="stage">
+  <section class="vx-outcome" aria-live="polite"><h2 id="vx-connection">Signal on</h2><p id="vx-result">This example phone already has saved river data. Try an action above.</p></section><div class="stage">
     <svg class="map" id="map" viewBox="0 0 1200 590" role="group" aria-label="Interactive diagram of the Eddy iOS app: the web API, Supabase Auth, RevenueCat and Expo Push on the left; the app's API client, offline bundle, Keychain, purchases module and push handler; the river cache, on-phone grading, Premium state and foreground refresh; and the five tabs, with Mapbox and shared website code.">
       <text class="col" x="30" y="30">SERVERS</text>
       <text class="col" x="270" y="30">CONNECTIONS</text>
@@ -259,7 +343,8 @@ input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer
     </section>
   </div>
 
-  <footer>Requests, timings and outcomes are simulated to show the paths; the components, rules and route names come from <code>eddy-ios/src/</code> (<code>api/client.ts</code>, <code>lib/offline-cache.ts</code>, <code>lib/riverCache.ts</code>, <code>lib/purchases.ts</code>, <code>hooks/usePush.tsx</code>, <code>map/runtime.ts</code>) and <code>eddy-ios/package.json</code>. Colors and type are the app's own. Part of a series with <a href="watershed.html">Eddy Watershed</a>, which shows the server side these pipes drink from.</footer>
+  <details class="vx-technical"><summary>Sources and example assumptions</summary><footer>Requests, timings and outcomes are simulated to show the paths; the components, rules and route names come from <code>eddy-ios/src/</code> (<code>api/client.ts</code>, <code>lib/offline-cache.ts</code>, <code>lib/riverCache.ts</code>, <code>lib/purchases.ts</code>, <code>hooks/usePush.tsx</code>, <code>map/runtime.ts</code>) and <code>eddy-ios/package.json</code>. Colors and type are the app's own. Part of a series with <a href="watershed.html">Eddy Watershed</a>, which shows the server side these pipes drink from.</footer></details>
+<!-- NEXT_GUIDE --><a class="vx-next" href="how-eddys-read-works.html"><span><small>Explore next</small><strong>How Eddy writes your Read</strong></span><span aria-hidden="true">→</span></a><!-- END_NEXT_GUIDE -->
 </main>
 
 <script>
@@ -328,19 +413,20 @@ const NODES = {
   map:      { x: 800, y: 116, w: 160, h: 54, tab: true, name: "Map",
               title: "Map tab", path: "app/(tabs)/(map)/index.tsx", cad: "On open",
               body: "Draws the statewide network from the cache, then colors it from fresh readings." },
-  alerts:   { x: 800, y: 186, w: 160, h: 54, tab: true, name: "Alerts",
+  alerts:   { x: 800, y: 326, w: 160, h: 54, tab: true, name: "Alerts",
               title: "Alerts tab", path: "app/(tabs)/(alerts)/alerts.tsx", cad: "On open",
               body: "Your rules come from /api/me; Running high is a live safety readout and is never served from the cache." },
   favs:     { x: 800, y: 256, w: 160, h: 54, tab: true, name: "Favorites",
               title: "Favorites tab", path: "app/(tabs)/(favorites)/favorites.tsx", cad: "On open",
               body: "Stars live on the phone first, so the list always renders; conditions are added when they arrive." },
-  settings: { x: 800, y: 326, w: 160, h: 54, tab: true, name: "Settings",
-              title: "Settings tab", path: "app/(tabs)/(settings)/profile.tsx", cad: "On open",
-              body: "Account, Premium, notifications and what Eddy stores on the phone." },
+  floats: { x: 800, y: 186, w: 160, h: 54, tab: true, name: "Floats", title: "Floats tab", path: "app/(tabs)/(floats)/float-home.tsx", cad: "On open", body: "Start or resume a float, build a route, and revisit saved trips. Download a trip before losing signal; the trip card shows what is available offline." },
+  settings: { x: 1000, y: 310, w: 170, h: 66, name: "Account",
+              title: "Account and settings", path: "profile.tsx", cad: "On open",
+              body: "Open the account button on Today or Favorites for Premium, notifications, and saved data." },
   mapbox:   { x: 1000, y: 110, w: 170, h: 66, name: "Mapbox", sub: "native \u00b7 lazy-loaded",
               title: "Mapbox", path: "eddy-ios/src/map/runtime.ts",
               cad: "When the Map tab first opens",
-              body: "A native module loaded only when the map is used, so a development build without it still runs every other tab. Old offline tile packs from a removed download feature are swept up automatically." },
+              body: "A native module loaded only when the map is used, so a development build without it still runs every other tab. Downloaded trips can include an offline map. A cached river line alone does not mean the surrounding map tiles were downloaded." },
   sentry:   { x: 1000, y: 210, w: 170, h: 56, name: "Sentry", sub: "crashes \u00b7 slow routes",
               title: "Monitoring", path: "eddy-ios/src/lib/monitoring.ts",
               cad: "Always on",
@@ -364,19 +450,19 @@ const P = {
   "rc-purch":     `M200,344 L270,344`,
   "client-ent":   `M460,90 C505,90 482,336 530,336`,
   "push-hand":    `M200,430 L270,430`,
-  "hand-alerts":  `M460,430 C505,430 500,476 560,476 L740,476 C780,476 770,213 800,213`,
+  "hand-alerts":  `M460,430 C505,430 500,476 560,476 L740,476 C780,476 770,353 800,353`,
   "map-mapbox":   `M960,143 L1000,143`,
   "client-sentry":`M460,62 C480,40 500,8 540,8 L1185,8 L1185,238 L1170,238`,
   "shared-grade": `M500,500 L500,272 C500,262 510,258 530,258`,
   "shared-tabs":  `M770,500 L770,84 C770,76 784,73 800,73`,
 };
-const TABS = ["today", "map", "alerts", "favs", "settings"];
+const TABS = ["today", "map", "floats", "favs", "alerts"];
 ["today", "map", "favs"].forEach((t) => {
   const [x, y] = tabIn(t);
   P[`cache-${t}`] = `M720,118 C760,118 760,${y} ${x},${y}`;
   P[`grade-${t}`] = `M720,258 C760,258 760,${y} ${x},${y}`;
 });
-P["ent-settings"] = `M720,344 C760,344 760,${cy("settings")} 800,${cy("settings")}`;
+P["ent-settings"] = `M720,344 C760,344 940,${cy("settings")} 1000,${cy("settings")}`;
 const NET = ["api-client", "api-bundle", "auth-key", "rc-purch", "push-hand", "client-ent"];
 
 const chans = $("chans"), pathEl = {}, chanEl = {};
@@ -393,7 +479,7 @@ for (const id in NODES) {
   el("text", { class: "nm", x: n.x + 14, y: n.y + 24 }, g).textContent = n.name;
   if (n.sub) el("text", { class: "sb", x: n.x + 14, y: n.y + 42 }, g).textContent = n.sub;
   if (n.list) n.list.forEach((t, i) => { el("text", { class: "li", x: n.x + 14, y: n.y + 66 + i * 17 }, g).textContent = "\u00b7 " + t; });
-  if (n.tab) stateEl[id] = el("text", { class: "state", x: n.x + 14, y: n.y + 42, fill: "var(--textMuted)" }, g);
+  if (n.tab || id === "settings") stateEl[id] = el("text", { class: "state", x: n.x + 14, y: n.y + 42, fill: "var(--textMuted)" }, g);
   nodeEl[id] = g;
   const pick = () => select(id);
   g.addEventListener("click", pick);
@@ -500,7 +586,7 @@ async function openMap() {
   log(`Lines drew as soon as the geometry landed; colors followed when the readings were graded.`);
 }
 async function signInBuy() {
-  if (!S.online) { log(`Sign in and purchases need a connection. Nothing about Premium is stored on the phone to fall back on.`, C.bad); pulse("purch"); return; }
+  if (!S.online) { log(`Sign in and purchases need a connection. A new purchase cannot complete offline.`, C.bad); pulse("purch"); return; }
   log(`Sign in with Apple \u2192 Supabase returns a session.`, C.id);
   await go(["auth-key"], C.id, { onHop: () => pulse("keychain") });
   log(`The session is split across Keychain items, written so a torn write can't be read back.`, C.id);
@@ -528,13 +614,25 @@ async function foreground() {
   pulse("fg");
   log(`Back on screen after a night's sleep. One listener tells every tab; each checks its own data's age.`);
   await sleep(500); pulse("client");
-  if (!S.online) { log(`No signal: readings stay labeled with their age instead of passing as today's.`, C.aged); TABS.slice(0, 3).forEach((t) => t !== "alerts" && setState(t, "last seen 14 h ago", C.aged)); return; }
+  if (!S.online) { log(`No signal: readings stay labeled with their age instead of passing as today's.`, C.aged); ["today", "map", "favs"].forEach((t) => t !== "alerts" && setState(t, "last seen 14 h ago", C.aged)); return; }
   await go(["api-client", "client-cache", "cache-grade"], C.data, { onHop: (r) => pulse(r === "api-client" ? "client" : r === "client-cache" ? "cache" : "grade") });
   await fanToTabs("grade", C.data, ["today", "map", "favs"], () => "refreshed \u00b7 7:02");
   log(`Yesterday's colors replaced before anyone could mistake them for today's.`);
 }
+function outcome(action) {
+  const messages = {
+    coldLaunch: S.online ? "River readings refreshed. Saved river data stays on this example phone." : "Saved river data is available. Readings are dated; live high-water information needs signal.",
+    openMap: S.online ? "River lines and current readings are loaded on the map." : "Cached river lines can appear. Background map tiles need a previously downloaded trip.",
+    signInBuy: S.online ? "The example purchase is complete. Premium is active for this simulated account." : "A new sign-in or purchase needs a connection.",
+    sendPush: S.online ? "An example alert arrived. Tapping it opens the river it describes." : "This example alert cannot reach the phone without a connection.",
+    foreground: S.online ? "Readings refreshed when you returned to the app." : "Saved readings are still available, with their age shown. They have not refreshed."
+  };
+  $("vx-result").textContent = messages[action];
+}
 function setOnline(on) {
   S.online = on;
+  $("vx-connection").textContent = on ? "Signal on" : "Signal off";
+  $("vx-result").textContent = on ? "Try an action to refresh the example phone." : "Try opening the app or map with the data already saved on this example phone.";
   $("b-off").setAttribute("aria-pressed", String(!on));
   $("b-off").textContent = on ? "Turn signal off" : "Turn signal on";
   NET.forEach((id) => { chanEl[id].classList.toggle("cut", !on); pathEl[id].el.classList.toggle("cut", !on); });
@@ -549,7 +647,8 @@ const guard = (fn) => async () => {
   const buttons = [...document.querySelectorAll('.controls button')];
   buttons.forEach(button => { button.disabled = true; });
   $("log").setAttribute('aria-busy', 'true');
-  try { await fn(); } finally {
+  try { await fn();
+    outcome(fn.name); } finally {
     S.busy = false; document.querySelector(".page").classList.add("vx-idle"); buttons.forEach(button => { button.disabled = false; });
     $("log").setAttribute('aria-busy', 'false');
   }
@@ -569,7 +668,7 @@ document.querySelector(".page").classList.add("vx-idle");
 log("Choose an action above to see what happens. No requests leave this demo.");
 
 // Small screens get the same selectable nodes in a readable, keyboard-friendly list.
-const explorerGroups = [["Connect", ["api", "auth", "rc", "push"]], ["Bring it in", ["client", "bundle", "keychain", "purch", "handler"]], ["Keep it ready", ["cache", "grade", "ent", "fg"]], ["Open a tab", ["today", "map", "alerts", "favs", "settings"]], ["Support it", ["mapbox", "sentry", "shared"]]];
+const explorerGroups = [["Connect", ["api", "auth", "rc", "push"]], ["Bring it in", ["client", "bundle", "keychain", "purch", "handler"]], ["Keep it ready", ["cache", "grade", "ent", "fg"]], ["Open a tab", ["today", "map", "floats", "favs", "alerts"]], ["Support it", ["mapbox", "settings", "sentry", "shared"]]];
 const explorer = document.createElement('section');
 explorer.className = 'vx-explorer';
 explorer.setAttribute('aria-label', 'Explore the diagram');
@@ -593,7 +692,15 @@ explorer.querySelector('.vx-map-toggle').addEventListener('click', event => {
  const open = stage.classList.toggle('vx-map-open');
  event.currentTarget.setAttribute('aria-expanded', String(open)); event.currentTarget.textContent = open ? 'Hide full diagram' : 'Show full diagram';
 });
-const detailPanel = document.getElementById('detail'); stage.after(detailPanel);
+if (matchMedia('(min-width:901px)').matches) {
+ stage.classList.add('vx-map-open');
+ explorer.querySelector('.vx-map-toggle').setAttribute('aria-expanded', 'true');
+ explorer.querySelector('.vx-map-toggle').textContent = 'Hide full diagram';
+}
+const detailPanel = document.getElementById('detail');
+const workspace = document.createElement('div'); workspace.className = 'vx-workspace';
+explorer.before(workspace); workspace.append(explorer, detailPanel);
+workspace.after(stage);
 const originalSelect = select;
 select = function(id) {
  originalSelect(id);
