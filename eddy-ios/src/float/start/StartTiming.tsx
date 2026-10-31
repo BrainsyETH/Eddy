@@ -5,6 +5,7 @@ import { startTiming } from '@/lib/floatStartTiming';
 import { useTheme } from '@/theme/ThemeProvider';
 import { accent } from '@/theme/palette';
 import { fonts, type as t } from '@/theme/typography';
+import { VesselSpeedTip } from './VesselSpeedTip';
 
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
@@ -32,15 +33,21 @@ export function StartTiming({ minutes, now, at, loading }: {
             {timing.day ? <Text style={[t.xs, { color: colors.textMuted }]}>{timing.day}</Text> : null}
           </View>
         </View>
-        {daylight ? <View style={local.daylight}>
-          <EddySymbol name="today" size={26} />
-          <Text style={[t.sm, local.daylightCopy, {
-            color: daylight.advisory ? (isDark ? accent[400] : accent[700]) : colors.textMuted,
-          }]}>{daylight.label} · {clockTime(daylight.at)}</Text>
-        </View> : null}
-      </> : <Text style={[t.sm, { color: colors.textMuted }]}>
-        {loading ? 'Checking float time…' : 'Eddy will learn your pace'}
-      </Text>}
+        <View style={local.footer}>
+          {daylight ? <View style={local.daylight}>
+            <EddySymbol name="today" size={26} />
+            <Text style={[t.sm, local.daylightCopy, {
+              color: daylight.advisory ? (isDark ? accent[400] : accent[700]) : colors.textMuted,
+            }]}>{daylight.label} · {clockTime(daylight.at)}</Text>
+          </View> : <View style={local.daylightCopy} />}
+          <VesselSpeedTip />
+        </View>
+      </> : <View style={local.footer}>
+        <Text style={[t.sm, local.daylightCopy, { color: colors.textMuted }]}>
+          {loading ? 'Checking float time…' : 'Eddy will learn your pace'}
+        </Text>
+        <VesselSpeedTip />
+      </View>}
     </View>
   );
 }
@@ -54,6 +61,7 @@ const local = StyleSheet.create({
   arrival: { alignItems: 'flex-end', flexShrink: 1 },
   arrivalStacked: { alignItems: 'flex-start' },
   time: { ...t.xl, fontFamily: fonts.monoMedium },
-  daylight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  daylight: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   daylightCopy: { flex: 1 },
 });

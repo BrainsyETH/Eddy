@@ -1271,7 +1271,7 @@ export async function fetchFloatPlan(
   });
   let vesselId = params.vesselTypeId;
   if (!vesselId && params.boatType) {
-    const vessels = await loadStartVessels();
+    const vessels = await fetchVesselTypes();
     if (signal?.aborted) throw new ApiError('Request cancelled');
     vesselId = vessels.find(vessel => vessel.slug === params.boatType)?.id;
     if (!vesselId) throw new Error('Vessel unavailable');
@@ -1283,7 +1283,7 @@ export async function fetchFloatPlan(
 
 // Not owned by any estimate's AbortSignal: editing a draft must not cancel
 // the shared boat lookup for its replacement request.
-const loadStartVessels = vesselTypeLoader(() => get('/api/vessel-types'));
+export const fetchVesselTypes = vesselTypeLoader(() => get('/api/vessel-types'));
 
 /** The shared moving model, without a shuttle or a saved plan. */
 export async function fetchFloatStartEstimate(params: {
@@ -1298,7 +1298,7 @@ export async function fetchFloatStartEstimate(params: {
   condition?: import('@eddy/conditions/float-archive').StartCondition | null;
 }> {
   if (signal?.aborted) throw new ApiError('Request cancelled');
-  const vesselTypes = await loadStartVessels();
+  const vesselTypes = await fetchVesselTypes();
   if (signal?.aborted) throw new ApiError('Request cancelled');
   const vessel = vesselTypes.find(v => v.slug === params.boatType);
   if (!vessel) throw new Error('Boat unavailable');

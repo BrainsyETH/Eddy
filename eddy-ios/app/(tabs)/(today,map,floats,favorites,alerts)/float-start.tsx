@@ -19,6 +19,7 @@ import { RouteCard } from '@/float/start/RouteCard';
 import { useGpsRiver } from '@/float/start/useGpsRiver';
 import { VesselPicker } from '@/components/VesselPicker';
 import { StartTiming } from '@/float/start/StartTiming';
+import { VesselSpeedTip } from '@/float/start/VesselSpeedTip';
 import { Card, CardHeading, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
@@ -265,7 +266,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
           }} />
           {valid && takeOut ? <StartTiming minutes={minutes} now={location.checkedAt}
-            at={takeOut.lngLat} loading={estimate.loading} /> : null}
+            at={takeOut.lngLat} loading={estimate.loading} />
+            : <View style={local.vesselTip}><VesselSpeedTip /></View>}
         </Card>
         <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} hazards={stretchHazards} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
@@ -303,6 +305,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
 }
 
 const local = StyleSheet.create({
+  vesselTip: { alignItems: 'flex-end', paddingHorizontal: 16, paddingBottom: 4 },
   map: { height: 200, borderRadius: radii.feature, overflow: 'hidden' },
   photo: { width: 44, height: 44, borderRadius: 10, alignSelf: 'center' },
   backup: { textAlign: 'center' },
