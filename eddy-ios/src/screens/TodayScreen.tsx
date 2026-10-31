@@ -95,7 +95,7 @@ import type {
   SearchResultKind,
 } from '@eddy/types';
 import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-band';
-import { floatableHeadline } from '@eddy/conditions/floatable-headline';
+import { floatableHeadlineParts } from '@eddy/conditions/floatable-headline';
 import { clearNavigationCache, fetchGaugeCount } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
@@ -1197,9 +1197,19 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
    * Same reason the chips carry unfiltered counts: this sentence describes the
    * Ozarks, not the list currently on screen. Tapping "Low water" must not
    * rewrite it to "0 of 4 rivers are floatable right now".
+   *
+   * Dam tailwaters are held out of the count and named in their own caveat:
+   * they are unrated by design, so counting them only ever grew the
+   * denominator. See shared/floatable-headline.ts.
    */
-  const headline = useMemo(
-    () => floatableHeadline((rivers ?? []).map((river) => river.currentCondition?.code)),
+  const { headline, tailwaterNote } = useMemo(
+    () =>
+      floatableHeadlineParts(
+        (rivers ?? []).map((river) => ({
+          code: river.currentCondition?.code,
+          riverType: river.riverType,
+        })),
+      ),
     [rivers],
   );
 
@@ -1494,6 +1504,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
                   suppressNetworkNotice={Boolean(error)}
                   statewide={{
                     headline: !error && !awaitingConditions ? headline : null,
+                    headlineNote: !error && !awaitingConditions ? tailwaterNote : null,
                     prose: statewideUpdate?.prose ?? null,
                     generatedAt: statewideUpdate?.generatedAt ?? null,
                   }}

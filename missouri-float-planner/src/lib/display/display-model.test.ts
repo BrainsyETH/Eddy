@@ -32,6 +32,17 @@ test('the count is the canonical floatable count over every river', () => {
   assert.equal(model.floatable, 2);
   assert.equal(model.total, 4);
   assert.equal(model.headline, '2 of 4 rivers are floatable right now');
+  assert.equal(model.headlineNote, null);
+});
+
+test('dam tailwaters stay out of the count, as they do on the app', () => {
+  const model = buildDisplayModel({
+    rivers: [river('a', 'flowing'), river('b', 'low'), river('tw', 'unknown', { type: 'dam_tailwater' })],
+  });
+  assert.equal(model.floatable, 1);
+  assert.equal(model.total, 2);
+  assert.equal(model.headline, '1 of 2 rivers is floatable right now');
+  assert.equal(model.headlineNote, 'Plus 1 dam tailwater, where flow depends on dam releases.');
 });
 
 test('best float prefers the better band, then the nearer access', () => {

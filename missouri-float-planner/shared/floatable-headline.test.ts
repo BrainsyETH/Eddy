@@ -7,7 +7,12 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { READING_LAG_NOTE, floatableHeadline } from './floatable-headline';
+import {
+  READING_LAG_NOTE,
+  floatableHeadline,
+  floatableHeadlineParts,
+  tailwaterNote,
+} from './floatable-headline';
 import { summarizeConditionCounts } from './condition-system';
 
 test('counts flowing and good, and nothing else', () => {
@@ -56,4 +61,47 @@ test('the lag note states the lag and stops there', () => {
   // somebody is about to act on one river, not on a tally of all of them.
   assert.match(READING_LAG_NOTE, /trail the river/);
   assert.doesNotMatch(READING_LAG_NOTE, /before getting on the water/);
+});
+
+test('dam tailwaters leave the tally and get their own caveat', () => {
+  // A tailwater is unrated by design, so counting it put a permanent
+  // "not floatable" in the denominator. The note keeps every row accounted for.
+  const parts = floatableHeadlineParts([
+    { code: 'flowing', riverType: 'spring_fed_float' },
+    { code: 'low', riverType: 'spring_fed_float' },
+    { code: 'unknown', riverType: 'dam_tailwater' },
+    { code: 'unknown', riverType: 'dam_tailwater' },
+  ]);
+  assert.equal(parts.headline, '1 of 2 rivers is floatable right now');
+  assert.equal(parts.tailwaterNote, 'Plus 2 dam tailwaters, where flow depends on dam releases.');
+});
+
+test('a tailwater is never counted floatable, even if it carries a rating', () => {
+  const parts = floatableHeadlineParts([
+    { code: 'low' },
+    { code: 'high' },
+    { code: 'flowing', riverType: 'dam_tailwater' },
+  ]);
+  assert.equal(parts.headline, '0 of 2 rivers are floatable right now');
+  assert.equal(parts.tailwaterNote, 'Plus 1 dam tailwater, where flow depends on dam releases.');
+});
+
+test('no tailwaters, no note', () => {
+  const parts = floatableHeadlineParts([{ code: 'flowing', riverType: null }, { code: 'good' }]);
+  assert.equal(parts.headline, '2 of 2 rivers are floatable right now');
+  assert.equal(parts.tailwaterNote, null);
+  assert.equal(tailwaterNote(0), null);
+});
+
+test('the tailwater note never stands without a headline', () => {
+  // Only tailwaters, or a failed pull on every free-flowing river: the card
+  // must not render on its footnote.
+  assert.deepEqual(floatableHeadlineParts([{ code: 'unknown', riverType: 'dam_tailwater' }]), {
+    headline: null,
+    tailwaterNote: null,
+  });
+  assert.deepEqual(
+    floatableHeadlineParts([{ code: 'unknown' }, { code: 'unknown', riverType: 'dam_tailwater' }]),
+    { headline: null, tailwaterNote: null },
+  );
 });

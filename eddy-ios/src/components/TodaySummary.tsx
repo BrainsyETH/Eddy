@@ -66,6 +66,11 @@ interface Props {
   error?: boolean;
   onRetry?: () => void;
   headline: string | null;
+  /**
+   * "Plus 4 dam tailwaters, where flow depends on dam releases." Part of the
+   * count, not the prose, so it stays visible when the card is folded.
+   */
+  headlineNote?: string | null;
   /** Eddy's written summary, or null when there is none to show. */
   prose: string | null;
   /** When the prose was generated. Ignored when there is no prose. */
@@ -95,6 +100,7 @@ function localDateKey(now = new Date()): string {
 
 export function TodaySummary({
   headline,
+  headlineNote = null,
   prose,
   generatedAt,
   loading = false,
@@ -155,7 +161,7 @@ export function TodaySummary({
         accessibilityState={foldable ? { expanded: open } : undefined}
         accessibilityLabel={
           foldable
-            ? `${headline}. ${open ? "Hide Eddy's update" : "Show Eddy's update"}`
+            ? `${headline}.${headlineNote ? ` ${headlineNote}` : ''} ${open ? "Hide Eddy's update" : "Show Eddy's update"}`
             : undefined
         }
       >
@@ -165,6 +171,9 @@ export function TodaySummary({
         <View style={styles.copy}>
           <Text style={[styles.kicker, { color: colors.accent }]}>OZARKS PULSE</Text>
           <Text style={[styles.headline, { color: colors.text }]}>{headline}</Text>
+          {headlineNote ? (
+            <Text style={[styles.headlineNote, { color: colors.textMuted }]}>{headlineNote}</Text>
+          ) : null}
         </View>
         {foldable ? (
           <ControlIcon
@@ -301,6 +310,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   kicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 2 },
   headline: { ...t.lg, fontFamily: fonts.display },
+  headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   weather: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   weatherAction: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   weatherIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

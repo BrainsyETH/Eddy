@@ -83,6 +83,8 @@ interface Props {
   suppressNetworkNotice: boolean;
   statewide: {
     headline: string | null;
+    /** Caveat for rivers kept out of the count (dam tailwaters). */
+    headlineNote?: string | null;
     prose: string | null;
     generatedAt: string | null;
   };
@@ -577,6 +579,7 @@ export function TodayHub({
         {statewide.headline ? (
           <TodaySummary
             headline={statewide.headline}
+            headlineNote={statewide.headlineNote ?? null}
             prose={statewide.prose}
             generatedAt={statewide.generatedAt}
             loading={readsLoading}

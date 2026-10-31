@@ -31,7 +31,7 @@ import {
   summarizeConditionCounts,
   type ConditionCode,
 } from '@shared/condition-system';
-import { floatableHeadline } from '@shared/floatable-headline';
+import { DAM_TAILWATER_TYPE, floatableHeadlineParts } from '@shared/floatable-headline';
 import { isReadingStale } from '@shared/reading-staleness';
 import { ratedUnit } from '@shared/reading-unit';
 import type { EddyUpdateEntry, RiverAlert, RiverListItem } from '@/types/api';
@@ -114,7 +114,11 @@ export interface DisplayNotice {
 
 export interface DisplayModel {
   headline: string | null;
+  /** Caveat for the dam tailwaters held out of the count, as the app shows it. */
+  headlineNote: string | null;
+  /** Floatable free-flowing rivers; dam tailwaters are never counted. */
   floatable: number;
+  /** Free-flowing rivers, the headline's denominator. */
   total: number;
   mix: Array<{ code: ConditionCode; count: number }>;
   best: DisplayBest | null;
@@ -222,6 +226,14 @@ export function buildDisplayModel(input: DisplayInput): DisplayModel {
   const all = input.rivers.map((r) => toDisplayRiver(r, coords));
 
   const counts = summarizeConditionCounts(input.rivers.map((r) => r.currentCondition?.code));
+  // The headline tally leaves dam tailwaters out, exactly as the app's Ozarks
+  // pulse does; `mix` below still shows every river on the wall.
+  const headlineParts = floatableHeadlineParts(
+    input.rivers.map((r) => ({ code: r.currentCondition?.code, riverType: r.riverType })),
+  );
+  const freeCounts = summarizeConditionCounts(
+    input.rivers.filter((r) => r.riverType !== DAM_TAILWATER_TYPE).map((r) => r.currentCondition?.code),
+  );
   const mix = MIX_ORDER.map((code) => ({ code, count: counts.byCode[code] })).filter((m) => m.count > 0);
 
   // The rivers on screen: the host's pins in their order, else the nearest
@@ -284,9 +296,10 @@ export function buildDisplayModel(input: DisplayInput): DisplayModel {
     : 'No river has a fresh floatable reading right now.';
 
   return {
-    headline: floatableHeadline(input.rivers.map((r) => r.currentCondition?.code)),
-    floatable: counts.floatableNow,
-    total: counts.total,
+    headline: headlineParts.headline,
+    headlineNote: headlineParts.tailwaterNote,
+    floatable: freeCounts.floatableNow,
+    total: freeCounts.total,
     mix,
     best: best ? { river: best, trip: pickTrip(best, input.floats ?? []) } : null,
     emptyBest,
