@@ -2,9 +2,11 @@
 import type { OverviewData } from '@/lib/admin/dashboard/overview-model';
 import { needsAttention, type Metric } from '@/lib/admin/dashboard/model';
 import { useInspectMetric } from './MetricDetails';
+import { Status } from './bits';
+import styles from './overview.module.css';
 
 export function relativeRun(at: string | null, now = Date.now()) {
-  if (!at) return 'Not recorded';
+  if (!at) return 'Never';
   const minutes = Math.max(0, Math.floor((now - Date.parse(at)) / 60000));
   if (!Number.isFinite(minutes)) return 'Unknown';
   if (minutes < 1) return 'Just now';
@@ -21,46 +23,46 @@ export default function JobStatusTable({
 }) {
   const inspect = useInspectMetric();
   if (!timeline || timeline.state !== 'ok')
-    return <p>Job history unavailable. No execution status is assumed.</p>;
+    return <p className={styles.empty}>Task history did not load.</p>;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm text-left text-neutral-200">
+    <div className={styles.tableScroll}>
+      <table className={styles.detailTable}>
         <thead>
           <tr>
-            <th className="p-3">Job</th>
-            <th className="p-3">Last run</th>
-            <th className="p-3">Status</th>
-            <th className="p-3">Next scheduled (CT)</th>
+            <th>Task</th>
+            <th>Last run</th>
+            <th>Result</th>
+            <th>Next run (CT)</th>
           </tr>
         </thead>
         <tbody>
           {timeline.jobs.map((job) => {
             const metric = metrics.find((m) => m.key === `job_${job.id}`);
-            const label =
-              metric && needsAttention(metric)
-                ? 'Needs review'
-                : ({
-                    ok: 'Completed',
-                    error: 'Failed',
-                    partial: 'Partial',
-                    started: 'Running',
-                    skipped: 'Skipped',
-                  }[job.lastStatus ?? ''] ?? 'Unknown');
+            const flagged = metric ? needsAttention(metric) : false;
+            const result = flagged
+              ? { tone: 'bad' as const, text: 'Needs a look' }
+              : ({
+                  ok: { tone: 'good' as const, text: 'Worked' },
+                  error: { tone: 'bad' as const, text: 'Failed' },
+                  partial: { tone: 'warn' as const, text: 'Partly worked' },
+                  started: { tone: 'quiet' as const, text: 'Running' },
+                  skipped: { tone: 'quiet' as const, text: 'Skipped' },
+                }[job.lastStatus ?? ''] ?? { tone: 'quiet' as const, text: 'No run yet' });
             return (
-              <tr key={job.id} className="border-t border-neutral-700">
-                <td className="p-3">
+              <tr key={job.id}>
+                <td>
                   <button
-                    className="text-primary-400 hover:underline text-left"
+                    className={styles.textButton}
                     onClick={() => inspect({ key: `job_${job.id}` })}
                   >
-                    {job.label} →
+                    {job.label}
                   </button>
                 </td>
-                <td className="p-3 whitespace-nowrap">
-                  {relativeRun(job.lastAt)}
+                <td>{relativeRun(job.lastAt)}</td>
+                <td>
+                  <Status tone={result.tone}>{result.text}</Status>
                 </td>
-                <td className="p-3">{label}</td>
-                <td className="p-3 whitespace-nowrap">
+                <td>
                   {job.nextAt
                     ? new Date(job.nextAt).toLocaleString('en-US', {
                         month: 'short',
@@ -69,7 +71,7 @@ export default function JobStatusTable({
                         minute: '2-digit',
                         timeZone: 'America/Chicago',
                       })
-                    : 'Unknown'}
+                    : '—'}
                 </td>
               </tr>
             );

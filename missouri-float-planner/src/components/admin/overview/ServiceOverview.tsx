@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
 import type { ServiceInfo } from '@/lib/admin/dashboard/overview-model';
-import type { Metric } from '@/lib/admin/dashboard/model';
+import { needsAttention, type Metric } from '@/lib/admin/dashboard/model';
 import { useInspectMetric } from './MetricDetails';
+import { Panel, Status, fmt, type Tone } from './bits';
 import styles from './overview.module.css';
 
 function values(metric?: Metric): Record<string, unknown> {
@@ -13,8 +14,69 @@ function values(metric?: Metric): Record<string, unknown> {
     ? metric.value
     : {};
 }
-const number = (n: unknown, suffix = '') =>
-  typeof n === 'number' ? n.toLocaleString() + suffix : 'Not measured';
+const n = (v: unknown) => (typeof v === 'number' ? v : null);
+
+const CANT_CHECK = { tone: 'quiet' as const, text: "Couldn't check", unknown: true };
+
+/**
+ * One plain status per service. Green needs a check that answered: a missing
+ * or unreadable source is "Couldn't check", never healthy.
+ */
+export function serviceStatus(
+  s: ServiceInfo,
+  metrics: Metric[],
+): { tone: Tone; text: string; unknown?: boolean } {
+  const flagged = (key: string) =>
+    metrics.some((m) => m.key === key && needsAttention(m));
+  if (s.configuration.startsWith('Not configured') || s.configuration === 'Reporting not configured')
+    return { tone: 'quiet', text: 'Not set up' };
+  if (s.provider) {
+    if (flagged(`errors_${s.provider}`))
+      return { tone: 'bad', text: 'Failing more than usual' };
+    if (flagged(`429_${s.provider}`))
+      return { tone: 'warn', text: 'Asked us to slow down' };
+    const today = n(values(metrics.find((m) => m.key === `upstream_${s.provider}`)).today);
+    return today === null
+      ? { tone: 'quiet', text: 'Not tracked' }
+      : { tone: 'good', text: `${today.toLocaleString()} calls today` };
+  }
+  if (s.id === 'sentry') {
+    if (metrics.some((m) => m.key === 'sentry' && m.state === 'not_connected'))
+      return { tone: 'quiet', text: 'Not linked to dashboard' };
+    const issues = metrics.filter((m) => m.key.startsWith('sentry_'));
+    if (!issues.length || issues.some((m) => m.state !== 'ok'))
+      return CANT_CHECK;
+    const count = issues.reduce((sum, m) => sum + Number(m.value), 0);
+    return count
+      ? { tone: 'warn', text: `${count} active errors` }
+      : { tone: 'good', text: 'No new errors' };
+  }
+  if (s.id === 'supabase')
+    return metrics.some((m) => m.key === 'subscribers' && m.state === 'ok')
+      ? { tone: 'good', text: 'Answering' }
+      : { tone: 'bad', text: 'Not answering' };
+  if (s.id === 'expo') {
+    const off = metrics.find((m) => m.key === 'effective_push');
+    if (off?.state === 'ok' && off.value === 1)
+      return { tone: 'bad', text: 'Alerts switched off' };
+    if (flagged('push_errors')) return { tone: 'warn', text: 'Some alerts failing' };
+    const errors = metrics.find((m) => m.key === 'push_errors');
+    return off?.state === 'ok' && errors?.state === 'ok'
+      ? { tone: 'good', text: 'Sending alerts' }
+      : CANT_CHECK;
+  }
+  if (s.id === 'vercel') {
+    const jobs = metrics.filter((m) => m.key.startsWith('job_'));
+    if (jobs.some(needsAttention)) return { tone: 'warn', text: 'A task needs a look' };
+    if (!jobs.length || jobs.every((m) => m.state !== 'ok')) return CANT_CHECK;
+    const unread = jobs.filter((m) => m.state !== 'ok').length;
+    return unread
+      ? { tone: 'quiet', text: `${unread} tasks not checked`, unknown: true }
+      : { tone: 'good', text: 'Tasks on schedule' };
+  }
+  return { tone: 'quiet', text: 'Set up' };
+}
+
 export default function ServiceOverview({
   services,
   metrics,
@@ -23,118 +85,93 @@ export default function ServiceOverview({
   metrics: Metric[];
 }) {
   const inspect = useInspectMetric();
-  const [selected, setSelected] = useState('usgs');
-  const service = services.find((s) => s.id === selected) ?? services[0];
-  const metric = metrics.find((m) => m.key === `upstream_${service?.provider}`);
-  const usage = values(metric);
-  function activity(s: ServiceInfo) {
-    if (s.provider) {
-      const today = values(
-        metrics.find((m) => m.key === `upstream_${s.provider}`),
-      ).today;
-      return typeof today === 'number'
-        ? `${today.toLocaleString()} recorded / estimated today`
-        : 'Usage not measured';
-    }
-    if (s.id === 'sentry') {
-      const issues = metrics.filter((m) => m.key.startsWith('sentry_'));
-      if (
-        metrics.some((m) => m.key === 'sentry' && m.state === 'not_connected')
-      )
-        return 'Issue-read access not configured';
-      if (issues.some((m) => m.state === 'unknown'))
-        return 'Issue summary read failed';
-      return issues.length && issues.every((m) => m.state === 'ok')
-        ? `${issues.reduce((n, m) => n + Number(m.value), 0)} active issues (bounded)`
-        : 'Issue summary not measured';
-    }
-    if (s.id === 'supabase')
-      return metrics.some((m) => m.key === 'subscribers' && m.state === 'ok')
-        ? 'Dashboard query succeeded'
-        : 'Dashboard query unavailable';
-    if (s.id === 'expo') {
-      const disabled = metrics.find((m) => m.key === 'effective_push');
-      return disabled?.state === 'ok'
-        ? disabled.value === 1
-          ? 'Push sending disabled'
-          : 'Push switch on; delivery tracked separately'
-        : 'Push switch unknown';
-    }
-    return 'Health not independently checked';
-  }
+  const [selected, setSelected] = useState<string | null>(null);
+  const statuses = services.map((s) => ({ s, status: serviceStatus(s, metrics) }));
+  const problems = statuses.filter((x) => x.status.tone === 'bad' || x.status.tone === 'warn');
+  const unknown = statuses.filter((x) => x.status.unknown).length;
+  const service = services.find((s) => s.id === selected);
+  const usage = values(metrics.find((m) => m.key === `upstream_${service?.provider}`));
   return (
-    <section className={styles.panel} aria-labelledby="services-title">
-      <div className={styles.panelHead}>
-        <div>
-          <h2 id="services-title">Your connected services</h2>
-          <p>What powers Eddy, what we can see, and where coverage stops.</p>
-        </div>
-        <span className={styles.pill}>{services.length} integrations</span>
-      </div>
+    <Panel
+      id="services"
+      title="Outside services"
+      hint="Are the services Eddy depends on working? Select one for details."
+      action={
+        <Status
+          tone={
+            problems.some((p) => p.status.tone === 'bad')
+              ? 'bad'
+              : problems.length
+                ? 'warn'
+                : unknown
+                  ? 'quiet'
+                  : 'good'
+          }
+        >
+          {problems.length
+            ? `${problems.length} to check`
+            : unknown
+              ? `${unknown} couldn't be checked`
+              : 'No problems seen'}
+        </Status>
+      }
+    >
       <div className={styles.services}>
-        {services.map((s) => (
+        {statuses.map(({ s, status }) => (
           <button
             key={s.id}
             className={styles.service}
             aria-pressed={selected === s.id}
-            onClick={() => setSelected(s.id)}
+            onClick={() => setSelected(selected === s.id ? null : s.id)}
           >
-            <span className={styles.serviceName}>
-              {s.name}
-              <span aria-hidden="true">↓</span>
-            </span>
+            <b>{s.name}</b>
             <span>{s.purpose}</span>
-            <strong>{s.configuration}</strong>
-            <small>{activity(s)}</small>
+            <Status tone={status.tone}>{status.text}</Status>
           </button>
         ))}
       </div>
       {service && (
         <div className={styles.detail} aria-live="polite">
-          <div className={styles.panelHead}>
-            <h3>
-              {service.name} · {service.purpose}
-            </h3>
+          <h3>
+            {service.name}: {service.purpose.toLowerCase()}
+          </h3>
+          {service.provider && (
+            <div className={styles.usageStats}>
+              <div>
+                <span>Calls today</span>
+                <strong>{fmt(n(usage.today))}</strong>
+              </div>
+              <div>
+                <span>Calls, last 7 days</span>
+                <strong>{fmt(n(usage.recorded_7_days))}</strong>
+              </div>
+              <div>
+                <span>Failed today</span>
+                <strong>
+                  {n(usage.error_percent_today) === null ? '—' : `${usage.error_percent_today}%`}
+                </strong>
+              </div>
+              <div>
+                <span>95% of calls finish in</span>
+                <strong>
+                  {n(usage.p95_7_days) === null ? '—' : `${fmt(n(usage.p95_7_days))} ms`}
+                </strong>
+              </div>
+            </div>
+          )}
+          <div className={styles.detailLinks}>
             <button
               className={styles.textButton}
               onClick={() => inspect({ key: `service:${service.id}` })}
             >
-              Usage, meaning & next steps →
+              All numbers for {service.name} ›
             </button>
+            {service.href && !service.href.startsWith('#') && (
+              <a href={service.href}>Open {service.name} ›</a>
+            )}
           </div>
-          <p>{service.detail}</p>
-          {service.provider && (
-            <>
-              <div className={styles.usageStats}>
-                <div>
-                  <span>Calls today (UTC)</span>
-                  <strong>{number(usage.today)}</strong>
-                </div>
-                <div>
-                  <span>Recorded / estimated · 7 days</span>
-                  <strong>{number(usage.recorded_7_days)}</strong>
-                </div>
-                <div>
-                  <span>Errors today</span>
-                  <strong>{number(usage.error_percent_today, '%')}</strong>
-                </div>
-                <div>
-                  <span>p95 latency · 7 days</span>
-                  <strong>{number(usage.p95_7_days, ' ms')}</strong>
-                </div>
-              </div>
-              <p className={styles.note}>
-                {metric?.detail ??
-                  'API counters are not available. The integration can still be working. Telemetry is opt-in and does not backfill earlier calls.'}
-              </p>
-            </>
-          )}
-          <p className={styles.note}>
-            {activity(service)}. Configuration alone does not establish service
-            health.
-          </p>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }

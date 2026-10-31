@@ -1,11 +1,10 @@
 'use client';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 import type { DashboardSummary, Metric } from '@/lib/admin/dashboard/model';
 import { comparePeriod } from '@/lib/admin/dashboard/overview-model';
-import {
-  widgetBreakdown,
-  type TrafficSource,
-} from '@/lib/admin/dashboard/widget-model';
+import { referringSites } from '@/lib/admin/dashboard/widget-model';
+import { plain, valueText } from '@/lib/admin/dashboard/plain';
+import { Sparkline, Status, fmt } from './bits';
 import styles from './overview.module.css';
 
 export interface DetailTarget {
@@ -16,33 +15,38 @@ export const InspectMetricContext = createContext<
   (target: DetailTarget) => void
 >(() => {});
 export const useInspectMetric = () => useContext(InspectMetricContext);
-const friendly = (key: string) => key.replaceAll('_', ' ').replaceAll('-', ' ');
+const friendly = (key: string) => {
+  const s = key.replaceAll('_', ' ').replaceAll('-', ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 const day = (value: string) =>
   new Date(value + 'T12:00:00Z').toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
   });
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Chicago',
+  }) + ' CT';
 
-/** Use the same values and windows as the overview. Never invent missing history. */
+/** Same values as the overview. Missing is shown as missing, never zero. */
 function MetricValue({ metric }: { metric: Metric }) {
   if (metric.state !== 'ok')
     return (
-      <p>
-        {metric.state === 'not_connected'
-          ? 'Not connected — this source has not been configured for dashboard reporting.'
-          : 'Unavailable — this snapshot could not establish a value.'}
+      <p className={styles.missing}>
+        {metric.state === 'not_connected' ? 'Not connected yet.' : "Couldn't load this number."}
       </p>
     );
+  const words = valueText(metric);
+  if (words) return <strong className={styles.detailNumber}>{words}</strong>;
   if (Array.isArray(metric.value))
     return metric.value.length ? (
       <table className={styles.detailTable}>
-        <thead>
-          <tr>
-            <th>Breakdown</th>
-            <th>Count</th>
-          </tr>
-        </thead>
         <tbody>
           {metric.value.map((r, i) => (
             <tr key={i}>
@@ -53,7 +57,7 @@ function MetricValue({ metric }: { metric: Metric }) {
         </tbody>
       </table>
     ) : (
-      <p>No records in this period.</p>
+      <p className={styles.missing}>Nothing yet.</p>
     );
   if (metric.value && typeof metric.value === 'object')
     return (
@@ -66,7 +70,9 @@ function MetricValue({ metric }: { metric: Metric }) {
                 ? value
                   ? 'On'
                   : 'Off'
-                : String(value ?? 'Unknown')}
+                : typeof value === 'number'
+                  ? value.toLocaleString()
+                  : String(value ?? '—')}
             </dd>
           </div>
         ))}
@@ -78,234 +84,192 @@ function MetricValue({ metric }: { metric: Metric }) {
         ? metric.value.toLocaleString()
         : typeof metric.value === 'string' &&
             /^\d{4}-\d\d-\d\dT/.test(metric.value)
-          ? new Date(metric.value).toLocaleString('en-US', {
-              timeZone: 'America/Chicago',
-            }) + ' CT'
-          : String(metric.value ?? 'Unknown')}
+          ? when(metric.value)
+          : String(metric.value ?? '—')}
     </strong>
   );
 }
 
-function WidgetDetails({ summary }: { summary: DashboardSummary }) {
-  const [days, setDays] = useState<7 | 30>(7);
-  const [filter, setFilter] = useState<TrafficSource | 'all'>('all');
-  const [host, setHost] = useState<string>();
-  const data = widgetBreakdown(summary.overview?.widgets, days, filter, host);
-  const base = widgetBreakdown(summary.overview?.widgets, days, filter);
-  if (!data)
-    return (
-      <p>
-        {summary.overview?.widgets?.reason ??
-          'Detailed widget history is unavailable. The aggregate may still be available in Diagnostics.'}
-      </p>
-    );
+function MetricBlock({ metric, jobLabel }: { metric: Metric; jobLabel?: string }) {
+  const copy = plain(metric, jobLabel);
+  return (
+    <section className={styles.detailMetric}>
+      <h3>{copy.title}</h3>
+      <MetricValue metric={metric} />
+      {copy.means && <p>{copy.means}</p>}
+      {copy.todo && (
+        <p className={styles.todo}>
+          <b>What to do:</b> {copy.todo}
+        </p>
+      )}
+      {metric.href && <a href={metric.href}>Open in admin ›</a>}
+      {(metric.detail || metric.reason) && (
+        <details className={styles.fine}>
+          <summary>Technical note</summary>
+          <p>
+            {metric.label}. {metric.detail} {metric.reason ?? ''}
+          </p>
+        </details>
+      )}
+    </section>
+  );
+}
+
+function SitesDetails({ summary }: { summary: DashboardSummary }) {
+  const history = summary.overview?.widgets;
+  const sites = referringSites(history);
+  if (!sites)
+    return <p className={styles.missing}>Widget history did not load.</p>;
   return (
     <>
-      <p className={styles.meaning}>
-        A widget load means its page opened and sent an impression beacon. One
-        person can create several loads. This is not unique visitors, clicks,
-        bookings, or confirmed partner-site embeds.
-      </p>
-      <div className={styles.filters}>
-        <label>
-          Period
-          <select
-            aria-label="Period"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value) as 7 | 30)}
-          >
-            <option value={7}>7 days (UTC)</option>
-            <option value={30}>30 days (UTC)</option>
-          </select>
-        </label>
-        <label>
-          Traffic source
-          <select
-            aria-label="Traffic source"
-            value={filter}
-            onChange={(e) => {
-              setFilter(e.target.value as TrafficSource | 'all');
-              setHost(undefined);
-            }}
-          >
-            <option value="all">All recorded loads</option>
-            <option value="external">External referrers</option>
-            <option value="eddy">Eddy / known preview referrers</option>
-            <option value="unknown">No known referrer</option>
-          </select>
-        </label>
-        <label>
-          Referring site
-          <select
-            aria-label="Referring site"
-            value={host ?? ''}
-            onChange={(e) => setHost(e.target.value || undefined)}
-          >
-            <option value="">All sites in this source</option>
-            {host && !base?.hosts.some((h) => h.name === host) && (
-              <option value={host}>{host} (no loads in this period)</option>
-            )}
-            {base?.hosts.map((h) => (
-              <option key={h.name} value={h.name}>
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className={styles.statGrid}>
+        <div>
+          <strong>{sites.total}</strong>
+          <span>sites in 30 days</span>
+        </div>
+        <div>
+          <strong>{sites.activeThisWeek}</strong>
+          <span>active this week</span>
+        </div>
+        <div>
+          <strong>{sites.newThisWeek}</strong>
+          <span>new this week</span>
+        </div>
+        <div>
+          <strong>{sites.quietThisWeek}</strong>
+          <span>quiet this week</span>
+        </div>
       </div>
-      <div className={styles.trafficTotals}>
-        {(['external', 'eddy', 'unknown'] as const).map((key) => (
-          <button
-            key={key}
-            aria-pressed={filter === key}
-            onClick={() => {
-              setFilter(key);
-              setHost(undefined);
-            }}
-          >
-            <strong>{data.totals[key].toLocaleString()}</strong>
-            <span>
-              {key === 'external'
-                ? 'External referrers'
-                : key === 'eddy'
-                  ? 'Eddy / previews'
-                  : 'Unknown referrer'}
-            </span>
-          </button>
-        ))}
-      </div>
-      <h3>{data.total.toLocaleString()} loads in this selection</h3>
-      <p>
-        {day(data.start)}–{day(data.end)} · UTC · today is partial. The source
-        totals above cover the full selected period.
-      </p>
-      <div className={styles.dailyBars} aria-label="Daily widget loads">
-        {data.daily.map((p) => (
-          <div key={p.day} title={`${day(p.day)}: ${p.count}`}>
-            <span
-              style={{
-                height: `${p.count === 0 ? 0 : Math.max(1, (p.count / Math.max(1, ...data.daily.map((d) => d.count))) * 100)}%`,
-              }}
-            />
-            <small>{days === 7 ? day(p.day) : p.day.slice(-2)}</small>
-          </div>
-        ))}
-      </div>
-      <details>
-        <summary>Daily values</summary>
-        <table className={styles.detailTable}>
-          <thead>
-            <tr>
-              <th>Date (UTC)</th>
-              <th>Loads</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.daily.map((p) => (
-              <tr key={p.day}>
-                <td>{day(p.day)}</td>
-                <td>{p.count}</td>
+      {sites.sites.length ? (
+        <div className={styles.tableScroll}>
+          <table className={styles.detailTable}>
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Views, 30 days</th>
+                <th>This week</th>
+                <th>Trend</th>
+                <th>First / last view</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
-      <div className={styles.breakdownColumns}>
-        {[
-          ['Referring sites', data.hosts],
-          ['Widget types', data.types],
-          ['River / widget keys', data.keys],
-        ].map(([title, rows]) => (
-          <section key={String(title)}>
-            <h3>{String(title)}</h3>
-            <table className={styles.detailTable}>
-              <thead>
-                <tr>
-                  <th>{String(title)}</th>
-                  <th>Loads</th>
+            </thead>
+            <tbody>
+              {sites.sites.map((s) => (
+                <tr key={s.host}>
+                  <td>
+                    <a href={`https://${s.host}`} target="_blank" rel="noopener noreferrer">
+                      {s.host}
+                    </a>{' '}
+                    {s.isNew && <Status tone="good">New</Status>}
+                    {s.quiet && <Status tone="quiet">Quiet</Status>}
+                  </td>
+                  <td>{s.loads.toLocaleString()}</td>
+                  <td>{s.loads7.toLocaleString()}</td>
+                  <td className={styles.sparkCell}>
+                    <Sparkline values={s.daily} label={`${s.host} daily views`} />
+                  </td>
+                  <td>
+                    {day(s.firstDay)} – {day(s.lastDay)}
+                  </td>
                 </tr>
-              </thead>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className={styles.missing}>No outside site has sent a widget view in 30 days.</p>
+      )}
+      <div className={styles.breakdownColumns}>
+        <section>
+          <h3>Most-used widgets</h3>
+          <table className={styles.detailTable}>
+            <tbody>
+              {sites.types.slice(0, 8).map((r) => (
+                <tr key={r.name}>
+                  <td>{friendly(r.name)}</td>
+                  <td>{r.count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <section>
+          <h3>Most-shown rivers and dams</h3>
+          <table className={styles.detailTable}>
+            <tbody>
+              {sites.keys.slice(0, 8).map((r) => (
+                <tr key={r.name}>
+                  <td>{friendly(r.name)}</td>
+                  <td>{r.count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <section>
+          <h3>From social, search and email</h3>
+          {sites.links.length ? (
+            <table className={styles.detailTable}>
               <tbody>
-                {(rows as Array<{ name: string; count: number }>).map((r) => (
+                {sites.links.slice(0, 8).map((r) => (
                   <tr key={r.name}>
-                    <td>
-                      {title === 'Referring sites' ? (
-                        <button
-                          className={styles.textButton}
-                          onClick={() => setHost(r.name)}
-                        >
-                          {r.name === 'direct' ? 'No known referrer' : r.name}
-                        </button>
-                      ) : (
-                        friendly(r.name)
-                      )}
-                    </td>
-                    <td>{r.count}</td>
+                    <td>{r.name}</td>
+                    <td>{r.count.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </section>
-        ))}
+          ) : (
+            <p className={styles.missing}>None.</p>
+          )}
+        </section>
       </div>
-      <div className={styles.meaning}>
-        <h3>How to use this</h3>
+      <details className={styles.fine}>
+        <summary>How this is counted</summary>
         <p>
-          External referrals help identify where people discover the widgets.
-          Eddy referrals can include gallery previews and navigation within
-          Eddy. A Facebook referrer can be a link opening a widget, not an
-          embedded widget on Facebook. Referrer data is browser-supplied and can
-          be absent; it does not identify a visitor.
+          A view is one widget page loading. A site appears when a widget
+          loaded from one of its pages in the last 30 days. That can be a
+          widget embedded on the page or a widget link someone clicked there;
+          we can’t tell those apart yet, so this is not a count of confirmed
+          embeds. Eddy’s own pages don’t count. Social media, search and email
+          are listed on their own, and the widget and river rankings above
+          leave them out too. New means a site’s first view in those 30 days
+          came this week. Quiet means no views this week.
         </p>
         <p>
-          For partner outreach, examine the domain and its trend before calling
-          it adoption. Partner labels are descriptive: older rollups keep the
-          first label for the day and cannot reliably prove who owns a site.
+          {sites.unknownLoads.toLocaleString()} views in 30 days arrived without
+          a site name, usually because of browser privacy settings or email
+          image proxies. Cached email images are only counted once per 5
+          minutes.
         </p>
-      </div>
-      <p className={styles.note}>
-        Source: existing daily widget counters. Failed beacons, blocking, rate
-        limits and non-JavaScript clients can cause undercounting. No
-        visitor-level history is stored. Known preview hosts are classified
-        separately from external traffic; unrecognized preview domains may still
-        appear external.
-      </p>
+      </details>
     </>
   );
 }
 
-const groups: Record<
-  string,
-  { title: string; meaning: string; keys: string[] }
-> = {
+const groups: Record<string, { title: string; intro: string; keys: string[] }> = {
   subscribers: {
-    title: 'Premium subscribers',
-    meaning:
-      'People with current Premium access in production. Renewal off means access remains until expiry; it is not already-lost revenue. This is a current snapshot, not a revenue or historical growth chart.',
+    title: 'Premium members',
+    intro: 'Who pays for Premium right now. Members with renewal off keep Premium until it ends.',
     keys: ['subscribers', 'renewal_off', 'expiring', 'billing', 'rc_event'],
   },
   inbox: {
-    title: 'Your combined inbox',
-    meaning:
-      'Outstanding community reports, unread email, and pending feedback. These are work items, not necessarily unique people. Open a category below to act on it.',
+    title: 'Your inbox',
+    intro: 'Things people sent that are waiting on you.',
     keys: ['reports', 'email', 'feedback'],
   },
   email_30: {
-    title: 'Email list growth',
-    meaning:
-      'New email-list entries in the rolling 30-day window. This is not total subscribers, email opens, or marketing conversions. Compare acquisition sources before choosing where to promote Eddy.',
+    title: 'Email list',
+    intro: 'New sign-ups and where they came from.',
     keys: ['email_30', 'email_7', 'email_sources'],
   },
   images: {
-    title: 'Access points needing photos',
-    meaning:
-      'Access points with no stored image. This is a content opportunity, not a service outage. The editor opens unfiltered; this dashboard does not yet have a verified missing-photo filter.',
+    title: 'Access point gaps',
+    intro: 'Put-ins and take-outs missing details.',
     keys: ['images', 'descriptions', 'driving'],
   },
   health: {
-    title: 'River-data freshness',
-    meaning:
-      'These checks cover curated gauge observations and dam snapshot age. A zero count means none tripped these thresholds, not that every service is healthy.',
+    title: 'River data freshness',
+    intro: 'Whether gauge and dam readings are arriving on time.',
     keys: ['gauge_stale', 'gauge_missing', 'dam_stale'],
   },
 };
@@ -345,6 +309,8 @@ export default function MetricDetails({
   const job = target.key.startsWith('job_')
     ? summary.overview?.timeline.jobs.find((j) => 'job_' + j.id === target.key)
     : undefined;
+  const jobLabel = (key: string) =>
+    summary.overview?.timeline.jobs.find((j) => `job_${j.id}` === key)?.label;
   const serviceMetric = (m: Metric) => {
     if (!service) return false;
     if (service.provider)
@@ -381,25 +347,24 @@ export default function MetricDetails({
           ? m.section === target.key.slice(8)
           : m.key === target.key,
   );
+  const riverMetric = summary.metrics.find((m) => m.key === 'plan_rivers');
+  const river = Array.isArray(riverMetric?.value)
+    ? riverMetric.value.find((r) => r.name === target.name)
+    : null;
   const title = service
-    ? service.name + ' — coverage & usage'
+    ? service.name
     : job
       ? job.label
       : target.key === 'widgets'
-        ? 'Widget reach — what the loads mean'
+        ? 'Referring sites'
         : growth
           ? target.key === 'accounts'
             ? 'New accounts'
             : 'Trip plans saved'
           : target.key === 'river'
-            ? (target.name ?? 'River interest')
+            ? (target.name ?? 'River')
             : (group?.title ??
-              metrics[0]?.label ??
-              target.key.replace('section:', ''));
-  const riverMetric = summary.metrics.find((m) => m.key === 'plan_rivers');
-  const river = Array.isArray(riverMetric?.value)
-    ? riverMetric.value.find((r) => r.name === target.name)
-    : null;
+              (metrics[0] ? plain(metrics[0], jobLabel(metrics[0].key)).title : friendly(target.key)));
   return (
     <dialog
       ref={dialog}
@@ -420,199 +385,130 @@ export default function MetricDetails({
       }}
     >
       <div className={styles.dialogHeader}>
-        <div>
-          <span className={styles.eyebrow}>METRIC DETAILS</span>
-          <h2 id="metric-detail-title" ref={heading} tabIndex={-1}>
-            {title}
-          </h2>
-        </div>
-        <button onClick={onClose} aria-label="Close metric details">
+        <h2 id="metric-detail-title" ref={heading} tabIndex={-1}>
+          {title}
+        </h2>
+        <button onClick={onClose} aria-label="Close">
           ✕
         </button>
       </div>
       <div className={styles.dialogBody}>
         {target.key === 'widgets' ? (
-          <WidgetDetails summary={summary} />
+          <SitesDetails summary={summary} />
         ) : growth ? (
           <>
-            <p className={styles.meaning}>
+            <p className={styles.intro}>
               {target.key === 'accounts'
-                ? 'Accounts created during the selected period. Existing signed-in users can use Eddy without creating a new account, so this does not measure active users.'
-                : 'Float plans saved during the selected period. Saving a plan signals planning interest, not a completed trip, booking, or unique visitor.'}
+                ? 'Accounts created each day.'
+                : 'Float plans saved each day. A saved plan shows interest, not a finished trip.'}
             </p>
             {period ? (
               <>
-                <div className={styles.trafficTotals}>
+                <div className={styles.statGrid}>
                   <div>
-                    <strong>{period.total}</strong>
-                    <span>This period</span>
+                    <strong>{period.total.toLocaleString()}</strong>
+                    <span>last {days} days</span>
                   </div>
                   <div>
-                    <strong>{period.prior}</strong>
-                    <span>Previous period</span>
+                    <strong>{period.prior.toLocaleString()}</strong>
+                    <span>the {days} days before</span>
                   </div>
                 </div>
-                <p>
-                  {days} complete UTC days through{' '}
-                  {day(period.current.at(-1)!.day)}. Today is excluded from both
-                  comparisons.
-                </p>
-                <table className={styles.detailTable}>
-                  <thead>
-                    <tr>
-                      <th>Date (UTC)</th>
-                      <th>Count</th>
-                      <th>Previous date</th>
-                      <th>Count</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {period.current.map((p, i) => (
-                      <tr key={p.day}>
-                        <td>{day(p.day)}</td>
-                        <td>{p.count}</td>
-                        <td>{day(period.previous[i].day)}</td>
-                        <td>{period.previous[i].count}</td>
+                <div className={styles.tableScroll}>
+                  <table className={styles.detailTable}>
+                    <thead>
+                      <tr>
+                        <th>Day</th>
+                        <th>Count</th>
+                        <th>Same day, period before</th>
+                        <th>Count</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {period.current.map((p, i) => (
+                        <tr key={p.day}>
+                          <td>{day(p.day)}</td>
+                          <td>{p.count}</td>
+                          <td>{day(period.previous[i].day)}</td>
+                          <td>{period.previous[i].count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className={styles.fineText}>
+                  Days are UTC. Today is left out until it’s over.
+                </p>
               </>
             ) : (
-              <p>Daily history is unavailable. No trend is inferred.</p>
+              <p className={styles.missing}>Daily history did not load.</p>
             )}
-            <h3>How to use this</h3>
-            <p>
-              Compare equal periods and watch the trend over several weeks. A
-              change alone does not explain its cause. Subscriber conversion and
-              completed-trip rates are not measured here.
-            </p>
           </>
         ) : target.key === 'river' ? (
           <>
             <strong className={styles.detailNumber}>
-              {river?.count.toLocaleString() ?? 'Unknown'} saved plans
+              {fmt(river?.count)} trip plans
             </strong>
-            <p className={styles.meaning}>
-              Saved plans associated with {target.name} in the rolling 30-day
-              window. This reflects planning interest, not unique visitors or
-              completed floats. Bars on the overview are scaled against the
-              most-planned river, not a percentage of all users.
-            </p>
-            <h3>How to use this</h3>
-            <p>
-              Use demand to prioritize river content and partner outreach. The
-              dashboard does not yet connect this count to individual trips or
-              photo gaps on this river.
+            <p className={styles.intro}>
+              Float plans saved for {target.name} in the last 30 days. A good
+              place to focus photos, guides and partner outreach.
             </p>
           </>
         ) : (
           <>
+            {group && <p className={styles.intro}>{group.intro}</p>}
             {service && (
-              <div className={styles.meaning}>
-                <h3>
-                  {service.purpose} · {service.configuration}
-                </h3>
-                <p>{service.detail}</p>
-                {service.provider && (
-                  <p>
-                    Calls are recorded operations or sample-weighted estimates.
-                    Error percentage is the proportion recorded as errors. p95
-                    latency means roughly 95% of measured operations finished
-                    within that duration. Missing measurements are not zero
-                    traffic. Coverage notes below name the time window and
-                    exclusions.
-                  </p>
-                )}
+              <div className={styles.intro}>
+                <p>{service.purpose}.</p>
                 {service.href && !service.href.startsWith('#') && (
-                  <a href={service.href}>
-                    Open {service.name} management view →
-                  </a>
+                  <a href={service.href}>Open {service.name} ›</a>
                 )}
               </div>
             )}
             {job && (
-              <section className={styles.meaning}>
+              <section className={styles.detailMetric}>
                 <p>
-                  Next scheduled:{' '}
-                  {job.nextAt
-                    ? new Date(job.nextAt).toLocaleString('en-US', {
-                        timeZone: 'America/Chicago',
-                      }) + ' CT'
-                    : 'Unknown'}
-                  . A skipped run can mean no work or an existing lock. A
-                  successful later run does not erase earlier failures from this
-                  history.
+                  Next run: <b>{job.nextAt ? when(job.nextAt) : '—'}</b>
                 </p>
-                <table className={styles.detailTable}>
-                  <thead>
-                    <tr>
-                      <th>Run (CT)</th>
-                      <th>Outcome</th>
-                      <th>Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {job.runs.map((r, i) => (
-                      <tr key={i}>
-                        <td>
-                          {new Date(r.started_at).toLocaleTimeString('en-US', {
-                            timeZone: 'America/Chicago',
-                          })}
-                        </td>
-                        <td>{r.status}</td>
-                        <td>
-                          {r.duration_ms === null
-                            ? 'Unknown'
-                            : (r.duration_ms / 1000).toFixed(1) + 's'}
-                        </td>
+                {job.runs.length ? (
+                  <table className={styles.detailTable}>
+                    <thead>
+                      <tr>
+                        <th>Started</th>
+                        <th>Result</th>
+                        <th>Took</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!job.runs.length && (
-                  <p>
-                    No recorded runs in the last six hours. This alone does not
-                    mean failure.
-                  </p>
+                    </thead>
+                    <tbody>
+                      {job.runs.map((r, i) => (
+                        <tr key={i}>
+                          <td>{when(r.started_at)}</td>
+                          <td>
+                            {({ ok: 'Worked', partial: 'Partly worked', error: 'Failed', skipped: 'Skipped', started: 'Running' } as Record<string, string>)[r.status] ?? r.status}
+                          </td>
+                          <td>
+                            {r.duration_ms === null
+                              ? '—'
+                              : (r.duration_ms / 1000).toFixed(1) + 's'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className={styles.missing}>No runs in the last 6 hours.</p>
                 )}
               </section>
             )}
-            {group && <p className={styles.meaning}>{group.meaning}</p>}
             {metrics.map((m) => (
-              <section className={styles.detailMetric} key={m.key}>
-                <h3>{m.label}</h3>
-                <MetricValue metric={m} />
-                <p>
-                  {m.detail ||
-                    'This is the stored aggregate for the scope named above. A snapshot alone does not establish a trend or explain the cause.'}
-                </p>
-                {m.href && (
-                  <a href={m.href}>
-                    Open{' '}
-                    {m.section === 'Inbox'
-                      ? m.label.toLowerCase()
-                      : 'related admin view'}{' '}
-                    →
-                  </a>
-                )}
-              </section>
+              <MetricBlock key={m.key} metric={m} jobLabel={jobLabel(m.key)} />
             ))}
-            {!metrics.length && (
-              <p>
-                This source has no detailed metrics in the current snapshot. No
-                healthy state or zero value is assumed.
-              </p>
+            {!metrics.length && !job && (
+              <p className={styles.missing}>No numbers for this yet.</p>
             )}
           </>
         )}
-        <p className={styles.note}>
-          Snapshot:{' '}
-          {new Date(summary.generatedAt).toLocaleString('en-US', {
-            timeZone: 'America/Chicago',
-          })}{' '}
-          CT. Closing returns to your place on the overview.
-        </p>
+        <p className={styles.fineText}>Numbers from {when(summary.generatedAt)}.</p>
       </div>
     </dialog>
   );

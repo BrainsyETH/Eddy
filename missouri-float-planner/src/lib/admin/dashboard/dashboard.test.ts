@@ -6,6 +6,7 @@ import {
   assembleMetrics,
   inboxCount,
   needsAttention,
+  uncheckedMetrics,
   versionAdoption,
 } from './model';
 import { METRICS } from './catalog';
@@ -556,4 +557,126 @@ test('widget attribution reconciles totals, keeps unknown separate, and preserve
   );
   assert.equal(widgetBreakdown({ ...history, state: 'unknown' }, 7), null);
   assert.equal(widgetBreakdown(undefined, 7), null);
+});
+
+test('referring sites count distinct outside hosts and keep links, Eddy and unknown out', async () => {
+  const { referringSites, isLinkHost } = await import('./widget-model');
+  assert.ok(isLinkHost('m.facebook.com'));
+  assert.ok(isLinkHost('www.google.com'));
+  assert.ok(!isLinkHost('www.dillardmill.com'));
+  assert.ok(!isLinkHost('notfacebook.com'));
+  const row = (day: string, host: string, count = 1) => ({
+    day,
+    widget_type: 'river-card',
+    widget_key: 'current',
+    referrer_host: host,
+    count,
+  });
+  const sites = referringSites({
+    state: 'ok',
+    through: '2026-09-30',
+    firstPartyHosts: [],
+    rows: [
+      row('2026-09-02', 'www.dillardmill.com', 4),
+      row('2026-09-29', 'www.dillardmill.com', 6),
+      row('2026-09-28', 'WWW.DILLARDMILL.COM.', 1),
+      row('2026-09-26', 'newoutfitter.example', 3),
+      row('2026-09-05', 'oldblog.example', 2),
+      row('2026-09-29', 'eddy.guide', 500),
+      row('2026-09-29', 'direct', 7),
+      row('2026-09-29', 'l.facebook.com', 9),
+      row('2026-08-31', 'outside-window.example', 99),
+    ],
+  })!;
+  assert.equal(sites.total, 3);
+  assert.deepEqual(
+    sites.sites.map((s) => [s.host, s.loads, s.loads7, s.isNew, s.quiet]),
+    [
+      ['www.dillardmill.com', 11, 7, false, false],
+      ['newoutfitter.example', 3, 3, true, false],
+      ['oldblog.example', 2, 0, false, true],
+    ],
+  );
+  assert.equal(sites.activeThisWeek, 2);
+  assert.equal(sites.newThisWeek, 1);
+  assert.equal(sites.quietThisWeek, 1);
+  assert.deepEqual(sites.links, [{ name: 'l.facebook.com', count: 9 }]);
+  assert.equal(sites.unknownLoads, 7);
+  // Widget and river rankings use the same rows as the site count: the
+  // Facebook, Eddy and unknown loads are not in them.
+  assert.deepEqual(sites.types, [{ name: 'river-card', count: 16 }]);
+  assert.deepEqual(sites.keys, [{ name: 'current', count: 16 }]);
+  assert.equal(
+    sites.types.reduce((n, r) => n + r.count, 0),
+    sites.sites.reduce((n, s) => n + s.loads, 0),
+  );
+  const mill = sites.sites[0];
+  assert.equal(mill.daily.length, 30);
+  assert.equal(mill.daily.reduce((n, v) => n + v, 0), mill.loads);
+  assert.equal(mill.daily[0], 0, 'the window starts on Sep 1');
+  assert.equal(mill.daily[1], 4);
+  assert.equal(referringSites({ state: 'unknown', through: '2026-09-30', rows: [], firstPartyHosts: [] }), null);
+});
+
+test('every dashboard number has plain copy, and every flagged one says what to do', async () => {
+  const { PLAIN, plain } = await import('./plain');
+  for (const m of METRICS) {
+    const copy = PLAIN[m.key];
+    assert.ok(copy, `${m.key} needs plain copy in plain.ts`);
+    assert.ok(copy.title && copy.means, m.key);
+    if (m.attention) assert.ok(copy.todo, `${m.key} is flagged, so it needs a "what to do" line`);
+  }
+  for (const key of ['job_post-blog', 'sentry_web', 'upstream_usgs', '429_mapbox', 'errors_nws', 'effective_push'])
+    assert.notEqual(plain({ key, label: key }, 'Publish blog posts').title, key, key);
+});
+
+test('copy follows the value: healthy jobs and enabled push never read as broken', async () => {
+  const { plain, valueText } = await import('./plain');
+  const job = (value: number | string, state: 'ok' | 'unknown' = 'ok') => ({
+    key: 'job_post-blog', label: 'post-blog', state, value, attention: value === 1,
+  });
+  const healthy = plain(job('ok'), 'Publish blog posts');
+  assert.equal(healthy.title, 'Publish blog posts');
+  assert.equal(healthy.todo, undefined);
+  assert.doesNotMatch(healthy.means, /fail|stall|miss/);
+  assert.equal(valueText(job('ok')), 'Worked');
+  assert.equal(valueText(job('skipped')), 'Skipped');
+  const failed = plain(job(1), 'Publish blog posts');
+  assert.equal(failed.title, 'Publish blog posts');
+  assert.ok(failed.todo);
+  assert.equal(valueText(job(1)), 'Needs a look');
+  assert.equal(plain(job('x', 'unknown')).todo, undefined);
+
+  const push = (value: number) => ({ key: 'effective_push', label: '', state: 'ok' as const, value });
+  assert.equal(valueText(push(0)), 'On');
+  assert.equal(plain(push(0)).todo, undefined);
+  assert.doesNotMatch(plain(push(0)).means, /not sending/);
+  assert.equal(valueText(push(1)), 'Off');
+  assert.ok(plain(push(1)).todo);
+
+  // A count of zero, or a count we couldn't read, carries no instructions.
+  const billing = (value: number | null, state: 'ok' | 'unknown') => ({ key: 'billing', label: '', state, value });
+  assert.equal(plain(billing(0, 'ok')).todo, undefined);
+  assert.equal(plain(billing(null, 'unknown')).todo, undefined);
+  assert.ok(plain(billing(2, 'ok')).todo);
+});
+
+test('a check that did not answer is counted, never treated as healthy', () => {
+  const metrics = assembleMetrics({
+    gauge_stale: { state: 'ok', value: 0 },
+    reports: { state: 'ok', value: 0 },
+  });
+  const unchecked = uncheckedMetrics(metrics);
+  assert.ok(unchecked.some((m) => m.key === 'gauge_missing'));
+  assert.ok(!unchecked.some((m) => m.key === 'gauge_stale'));
+  assert.ok(
+    !unchecked.some((m) => !m.attention),
+    'only metrics that could raise a flag count',
+  );
+  const job = {
+    key: 'job_post-blog', section: 'Scheduled jobs', label: '', detail: '', href: '',
+    attention: false, state: 'unknown' as const, value: null,
+  };
+  assert.ok(uncheckedMetrics([job]).length === 1, 'an unreadable task result counts');
+  assert.equal(uncheckedMetrics([{ ...job, state: 'ok', value: 'ok' }]).length, 0);
 });
