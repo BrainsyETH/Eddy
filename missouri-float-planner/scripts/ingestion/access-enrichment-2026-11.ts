@@ -343,5 +343,58 @@ export function parseCsv(text: string): Record<string, string>[] {
   return body.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
 }
 
+// ── Reviewed sheet → corrections ──────────────────────────────────────────────
+
+/** The access_points column each field writes, and what a valid value looks like. */
+const ROAD_SURFACES = new Set(['paved', 'gravel_maintained', 'gravel_unmaintained', 'dirt', 'seasonal', '4wd_required']);
+const FIELD_RULES: Record<ProposalField, (v: unknown) => boolean> = {
+  parking_info: (v) => typeof v === 'string' && v.trim().length > 0,
+  amenities: (v) => Array.isArray(v) && v.length > 0 && v.every((a) => typeof a === 'string' && /^[a-z_]+$/.test(a)),
+  managing_agency: (v) => (MANAGING_AGENCIES as readonly unknown[]).includes(v),
+  official_site_url: (v) => typeof v === 'string' && /^https:\/\/\S+$/.test(v),
+  fee_required: (v) => typeof v === 'boolean',
+  road_surface: (v) => Array.isArray(v) && v.length > 0 && v.every((s) => ROAD_SURFACES.has(s as string)),
+  ownership: (v) => typeof v === 'string' && v.trim().length > 0,
+};
+
+export interface SheetCorrection {
+  id: string;
+  slug: string;
+  from: Record<string, unknown>;
+  to: Record<string, unknown>;
+}
+
+const ACCEPTED = /^(y|yes)$/i;
+
+/**
+ * Accepted rows of the reviewed sheet, grouped into one compare-and-set
+ * correction per access point. Flags are never applied whatever `accept`
+ * says; they are returned as `skipped`. Any malformed accepted row stops the
+ * whole plan, so a typo in the sheet can't write half a batch.
+ */
+export function correctionsFromSheet(rows: Record<string, string>[]): { corrections: SheetCorrection[]; skipped: string[] } {
+  const byId = new Map<string, SheetCorrection>();
+  const skipped: string[] = [];
+  for (const [i, r] of rows.entries()) {
+    if (!ACCEPTED.test((r.accept ?? '').trim())) continue;
+    const where = `row ${i + 2} (${r.slug} ${r.field})`;
+    if (r.confidence === 'flag' || !r.proposed) { skipped.push(`${where}: flag, never applied`); continue; }
+    const field = r.field as ProposalField;
+    if (!(field in FIELD_RULES)) throw new Error(`${where}: unknown field`);
+    if (!/^[0-9a-f-]{36}$/.test(r.access_point_id ?? '')) throw new Error(`${where}: missing access_point_id`);
+    let from: unknown;
+    let to: unknown;
+    try { from = JSON.parse(r.current); to = JSON.parse(r.proposed); } catch { throw new Error(`${where}: current/proposed is not JSON`); }
+    if (!FIELD_RULES[field](to)) throw new Error(`${where}: invalid ${field} value ${r.proposed}`);
+    const c = byId.get(r.access_point_id) ?? { id: r.access_point_id, slug: r.slug, from: {}, to: {} };
+    if (c.slug !== r.slug) throw new Error(`${where}: slug disagrees with an earlier row for the same access point`);
+    if (field in c.to) throw new Error(`${where}: two accepted rows for the same field`);
+    c.from[field] = from;
+    c.to[field] = to;
+    byId.set(r.access_point_id, c);
+  }
+  return { corrections: [...byId.values()], skipped };
+}
+
 /** For tests and the CLI: a straight line, so callers need not import turf. */
 export const line = (coords: LngLat[]) => lineString(coords).geometry;

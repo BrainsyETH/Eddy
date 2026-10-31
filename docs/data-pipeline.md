@@ -152,6 +152,7 @@ when running the write phases.
 
 | Script | Run | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
+| `repair-access-enrichment-2026-11.ts` | direct (`--sheet=` to override) | `access_points` update of accepted rows from the [one-off enrichment review sheet](../missouri-float-planner/scripts/ingestion/agency-gis/2026-11-oneoff/README.md): existing columns only, compare-and-set on the sheet's `current` value and `updated_at`, read back | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `fix-gauge-associations.ts` | `npm run db:fix-gauges` | `river_gauges.river_id` repoint per hardcoded map | dry-default, `--fix` |
 | `correct-access-point-miles.ts` | `npm run db:correct-miles` | mutating RPC `correct_all_access_point_miles` (accepts `--river-slug=`, `--tolerance=`) | **NONE** — RPC fires on run |
 | `snap-access-points.ts` | `npm run db:snap-access-points` | touches **every** `access_points` row to re-fire the snap trigger | **NONE** |

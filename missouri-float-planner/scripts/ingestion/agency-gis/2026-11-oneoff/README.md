@@ -108,10 +108,21 @@ change.
 Clear `accept` on any pre-accepted row you disagree with, and put `y` on the
 others you want applied. Flags carry no value and are never applied.
 
-The apply step (`scripts/repair-access-enrichment-2026-11.ts`, not written
-yet) will read only accepted rows. It will check that each field still holds
-the `current` value, and condition every write on an unchanged `updated_at`.
-It needs `EXPECTED_SUPABASE_REF` and explicit authorization.
+To apply, run `scripts/repair-access-enrichment-2026-11.ts` from
+`missouri-float-planner/`. It reads only accepted rows, one compare-and-set
+correction per access point. It previews by default and prints the current
+values, which are the rollback.
+- **Before any write:** each id must still carry its slug, and each field must
+  hold either the sheet's `current` value or its `proposed` one (already
+  applied). Any surprise stops the run with nothing written.
+- **During the write:** each update is conditioned on an unchanged
+  `updated_at`, and every row is read back afterwards.
+- **To write:** `--apply` needs `EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur`
+  and explicit authorization.
+
+The 2026-10-31 preview of the 87 pre-accepted rows covered 64 access points:
+35 amenity additions, 19 parking descriptions, 19 managing agencies and 14
+ownership spellings. It found no identity or value mismatch.
 
 ## Sources and terms
 

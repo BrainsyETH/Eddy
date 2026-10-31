@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   type Lot, type Proposal, addAmenities, agencyFromOwnershipText, agencyFromPadus, belongsTo,
   chooseManagingAgency, line, matchLots, mvumRoadSurface, parkingInfo, ownershipSpelling, parseCsv,
-  roadServes, sideOfRiver, toCsv, usfsHasRestroom,
+  correctionsFromSheet, roadServes, sideOfRiver, toCsv, usfsHasRestroom,
 } from './access-enrichment-2026-11';
 
 // A river running due east along 37°N. North is the left bank looking downstream.
@@ -151,4 +151,25 @@ test('the review sheet survives a CSV round trip, including quotes, commas and n
   assert.equal(back.evidence, row.evidence);
   assert.deepEqual(back.evidence_ids.split(' '), ['mdc-privy-1', 'mdc-camp-2']);
   assert.equal(JSON.parse(back.proposed), 'Gravel lot; trailers allowed (MDC).');
+});
+
+test('the reviewed sheet becomes one compare-and-set correction per access point; flags never apply', () => {
+  const id = '11111111-2222-3333-4444-555555555555';
+  const base = { access_point_id: id, slug: 'brown-s-ford', confidence: 'high' };
+  const rows = [
+    { ...base, accept: 'y', field: 'amenities', current: '[]', proposed: '["parking","restrooms"]' },
+    { ...base, accept: 'Y', field: 'parking_info', current: 'null', proposed: '"Gravel lot (MDC)."' },
+    { ...base, accept: '', field: 'managing_agency', current: 'null', proposed: '"MDC"' },
+    { ...base, accept: 'y', field: 'road_surface', current: '[]', proposed: '', confidence: 'flag' },
+  ];
+  const { corrections, skipped } = correctionsFromSheet(rows);
+  assert.equal(corrections.length, 1);
+  assert.deepEqual(corrections[0].to, { amenities: ['parking', 'restrooms'], parking_info: 'Gravel lot (MDC).' });
+  assert.deepEqual(corrections[0].from, { amenities: [], parking_info: null });
+  assert.match(skipped[0], /flag, never applied/);
+
+  assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'managing_agency', current: 'null', proposed: '"AGFC"' }]), /invalid managing_agency/);
+  assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'road_surface', current: '[]', proposed: '["cobbles"]' }]), /invalid road_surface/);
+  assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'driving_lat', current: 'null', proposed: '1' }]), /unknown field/);
+  assert.throws(() => correctionsFromSheet([rows[1], rows[1]]), /two accepted rows/);
 });
