@@ -16,6 +16,15 @@ const RAD = Math.PI / 180;
  * Null when the sun does not set that day (polar summer or winter).
  */
 export function sunsetAt(lat: number, lng: number, at: number): number | null {
+  return sunEventAt(lat, lng, at, 1);
+}
+
+/** Sunrise on the same solar day as sunsetAt; null during polar day/night. */
+export function sunriseAt(lat: number, lng: number, at: number): number | null {
+  return sunEventAt(lat, lng, at, -1);
+}
+
+function sunEventAt(lat: number, lng: number, at: number, direction: 1 | -1): number | null {
   const julian = at / MS_PER_DAY + J1970;
   // The day whose solar noon is nearest `at` here; longitude is east-positive.
   const day = Math.round(julian - J2000 + lng / 360);
@@ -30,6 +39,6 @@ export function sunsetAt(lat: number, lng: number, at: number): number | null {
   const cosHour =
     (Math.sin(-0.833 * RAD) - Math.sin(lat * RAD) * Math.sin(declination)) / (Math.cos(lat * RAD) * Math.cos(declination));
   if (cosHour < -1 || cosHour > 1) return null;
-  const set = transit + Math.acos(cosHour) / RAD / 360;
-  return Math.round((set - J1970) * MS_PER_DAY);
+  const event = transit + direction * Math.acos(cosHour) / RAD / 360;
+  return Math.round((event - J1970) * MS_PER_DAY);
 }

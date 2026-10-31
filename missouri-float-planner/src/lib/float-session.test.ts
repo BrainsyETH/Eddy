@@ -42,6 +42,7 @@ import {
 import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
 import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed, currentStartCondition, putInLocation, estimateStartId } from '../../../eddy-ios/src/lib/floatStart';
 import { startWeatherFrom, startWeatherPoint, START_WEATHER_WINDOW_MS } from '../../../eddy-ios/src/lib/floatStartWeather';
+import { arrivalDayLabel, startTiming } from '../../../eddy-ios/src/lib/floatStartTiming';
 import type { StartCondition } from '@shared/float-archive';
 import { spanCalibration } from '@shared/float-recap';
 import { fetchWeather } from './weather/openweather';
@@ -661,6 +662,47 @@ test('the map frames the chosen stretch, with the access points along it', () =>
   const quick = startSession({ id: 'm2', kind: 'quick', route, index: idx, takeOutId: 'pulltite', now: T0 });
   assert.ok(quick.ok);
   assert.equal(mapFeatures(quick.session, idx).section, null);
+});
+
+test('readiness arrival labels follow calendar days, including month and year boundaries', () => {
+  const now = new Date(2026, 9, 30, 20, 24).getTime();
+  assert.equal(arrivalDayLabel(new Date(2026, 9, 30, 23, 30).getTime(), now), null);
+  assert.equal(arrivalDayLabel(new Date(2026, 9, 31, 4, 38).getTime(), now), 'Tomorrow');
+  assert.equal(arrivalDayLabel(new Date(2026, 10, 1, 8).getTime(), new Date(2026, 9, 31, 20).getTime()), 'Tomorrow');
+  assert.equal(arrivalDayLabel(new Date(2026, 10, 1, 23).getTime(), new Date(2026, 9, 31, 23, 30).getTime()), 'Tomorrow',
+    'the next calendar day remains Tomorrow when fall-back makes it more than 24 hours away');
+  assert.equal(arrivalDayLabel(new Date(2027, 0, 1, 8).getTime(), new Date(2026, 11, 31, 20).getTime()), 'Tomorrow');
+  const longer = new Date(2026, 10, 2, 8);
+  assert.equal(arrivalDayLabel(longer.getTime(), now), longer.toLocaleDateString([], { month: 'short', day: 'numeric' }));
+});
+
+test('readiness separates arrival from concise daylight guidance at the take-out', () => {
+  const takeOut = at(10_000);
+  const noon = Date.parse('2026-07-04T17:00:00Z');
+  const day = startTiming(60, noon, takeOut)!;
+  assert.equal(day.arriveAt, noon + 60 * 60_000);
+  assert.equal(day.daylight?.label, 'Sunset');
+  assert.equal(day.daylight?.advisory, false);
+  const evening = Date.parse('2026-07-05T00:30:00Z');
+  assert.equal(startTiming(45, evening, takeOut)?.daylight?.label, 'Arrives near sunset');
+  const after = startTiming(90, evening, takeOut)!;
+  assert.equal(after.daylight?.label, 'Arrives after sunset');
+  assert.equal(after.daylight?.advisory, true);
+  assert.equal(after.daylight?.at, day.daylight?.at);
+  assert.equal(startTiming(30, Date.parse('2026-07-05T02:00:00Z'), takeOut)?.daylight?.label, 'Starts after sunset');
+  const dawn = startTiming(180, Date.parse('2026-07-05T09:00:00Z'), takeOut)!;
+  assert.equal(dawn.daylight?.label, 'Starts before sunrise');
+  assert.equal(dawn.daylight?.advisory, true);
+  assert.ok(dawn.daylight!.at > Date.parse('2026-07-05T09:00:00Z'));
+  assert.ok(dawn.daylight!.at < dawn.arriveAt, 'a start before sunrise still warns when arrival is in daylight');
+  assert.equal(startTiming(24 * 60, noon, takeOut)?.daylight?.label, 'Continues after sunset');
+});
+
+test('readiness withholds an absent or invalid estimate and unavailable solar data', () => {
+  const now = Date.parse('2026-07-04T17:00:00Z');
+  for (const minutes of [null, 0, -1, NaN, Infinity]) assert.equal(startTiming(minutes, now, at(10_000)), null);
+  assert.equal(startTiming(60, NaN, at(10_000)), null);
+  assert.equal(startTiming(60, now, [0, 80])?.daylight, null);
 });
 
 test('arrival time is weighed against sunset at the take-out', () => {

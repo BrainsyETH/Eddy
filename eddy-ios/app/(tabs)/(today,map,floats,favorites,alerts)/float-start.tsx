@@ -18,6 +18,7 @@ import { RoutePicker } from '@/float/start/RoutePicker';
 import { RouteCard } from '@/float/start/RouteCard';
 import { useGpsRiver } from '@/float/start/useGpsRiver';
 import { VesselPicker } from '@/components/VesselPicker';
+import { StartTiming } from '@/float/start/StartTiming';
 import { Card, CardHeading, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
@@ -25,7 +26,7 @@ import { FloatMap } from '@/float/FloatMap';
 import { RiverPicker } from '@/float/start/RiverPicker';
 import { OfflinePreparation } from '@/float/start/OfflinePreparation';
 import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
-import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
+import { formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
 import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radii } from '@/theme/layout';
@@ -35,7 +36,6 @@ import { matchesSetupDownload } from '@/lib/floatSetupDownload';
 import { readPendingFloatSetup } from '@/float/pendingFloatSetup';
 import type { TripPackage } from '@/lib/tripDownload';
 
-const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const isBoat = (value?: string | null): value is FloatBoat => FLOAT_BOATS.includes(value as FloatBoat);
 const movingMinutes = (miles: number, mph: number | null) => miles > 0 && mph != null
   ? Math.max(5, Math.round(miles / mph * 12) * 5) : null;
@@ -162,8 +162,6 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
       ...(draft.putInId || startMile == null ? {} : { startRiverMile: startMile }),
     } : null, location.checkedAt);
   const minutes = miles != null ? movingMinutes(miles, estimate.speed) : null;
-  const outlook = takeOut ? arrivalOutlook(minutes, location.checkedAt, takeOut.lngLat) : null;
-  const arrival = outlook ? arrivalCopy(outlook, clockTime) : null;
   const start = useStart({ ...draft, boatType: boat, shortCode,
     sessionId: id, downloadKey,
     plannerMph: estimate.speed?.toString(), previewStartMile: startMile ?? undefined,
@@ -266,12 +264,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             boatChosen.current = true; setBoat(value);
             void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
           }} />
-          {valid ? <View style={[local.timing, { borderTopColor: colors.border }]}>
-            <Text style={[styles.body, { color: colors.textMuted }]}>{minutes != null
-              ? 'Moving time · stops not included' : estimate.loading ? 'Checking moving time…' : 'Eddy will learn your pace'}</Text>
-            {arrival ? <Text style={[styles.body, { color: colors.textMuted }]}>If you start now: {arrival.line}</Text> : null}
-            {arrival?.warning ? <Text style={[styles.body, { color: colors.error }]}>{arrival.warning}</Text> : null}
-          </View> : null}
+          {valid && takeOut ? <StartTiming minutes={minutes} now={location.checkedAt}
+            at={takeOut.lngLat} loading={estimate.loading} /> : null}
         </Card>
         <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} hazards={stretchHazards} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
@@ -309,7 +303,6 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
 }
 
 const local = StyleSheet.create({
-  timing: { borderTopWidth: StyleSheet.hairlineWidth, marginHorizontal: 16, paddingVertical: 12, gap: 4 },
   map: { height: 200, borderRadius: radii.feature, overflow: 'hidden' },
   photo: { width: 44, height: 44, borderRadius: 10, alignSelf: 'center' },
   backup: { textAlign: 'center' },
