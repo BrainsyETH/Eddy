@@ -184,6 +184,22 @@ test('saved downstream dams survive a failed refresh without becoming in-route h
 });
 
 
+test('the vessel speed tip follows configured speeds and never invents missing values', async () => {
+  const { vesselSpeedInfo } = await import('../../../eddy-ios/src/lib/vesselTypes');
+  const tip = vesselSpeedInfo([
+    { id: 'k', slug: 'kayak', speeds: { normal: 3.2 } },
+    { id: 'c', slug: 'canoe', speeds: { normal: 2.7 } },
+    { id: 'r', slug: 'raft', speeds: { normal: 0 } },
+    { id: 't', slug: 'tube', speeds: { normal: NaN } },
+  ]);
+  assert.match(tip, /Canoe · 2.7 mph\nKayak · 3.2 mph/);
+  assert.match(tip, /Raft · Unavailable\nTube · Unavailable/);
+  assert.doesNotMatch(tip, /NaN|0 mph/);
+  assert.match(vesselSpeedInfo([]), /Canoe · Unavailable/);
+  assert.match(tip, /normal water/);
+  assert.match(tip, /Stops aren’t included/);
+});
+
 test('boat metadata coalesces requests, survives cancelled consumers, and retries failed loads', async () => {
   const { vesselTypeLoader } = await import('../../../eddy-ios/src/lib/vesselTypes');
   let calls = 0;

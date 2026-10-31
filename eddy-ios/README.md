@@ -1635,6 +1635,9 @@ The sun-over-river mark accompanies a short sunset/sunrise line; daylight
 advisories use readable coral ink instead of error red. Both the picker and
 arrival summary stack at large text sizes. The same compact picker is used by
 Find a float.
+The bottom-right info button lists each vessel's normal-water moving speed
+from the shared vessel API lookup, with a note that river flow adjusts the
+estimate and stops are excluded. It remains available before a route is chosen.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
