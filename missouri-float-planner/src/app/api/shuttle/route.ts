@@ -39,6 +39,20 @@ function extractCoords(
   return null;
 }
 
+/** directions_override, geocoded near the point itself, else extractCoords. */
+async function drivingCoords(ap: ShuttleEndpoint): Promise<[number, number] | null> {
+  if (ap.directions_override) {
+    const own = (ap.location_snap as { coordinates?: number[] } | null)?.coordinates
+      || (ap.location_orig as { coordinates?: number[] } | null)?.coordinates;
+    const geocoded = await geocodeAddress(
+      ap.directions_override,
+      own && own.length >= 2 ? { lng: own[0], lat: own[1] } : null,
+    );
+    if (geocoded) return geocoded;
+  }
+  return extractCoords(ap);
+}
+
 async function _GET(request: NextRequest) {
   try {
     const rateLimitResult = await rateLimit(`shuttle:${getClientIp(request)}`, 30, 60 * 1000);
@@ -124,20 +138,16 @@ async function _GET(request: NextRequest) {
       });
     }
 
-    // Extract coordinates (same priority as /api/plan route)
-    let takeOutCoords: [number, number] | null = null;
-    if (takeOut.directions_override) {
-      const geocoded = await geocodeAddress(takeOut.directions_override);
-      if (geocoded) takeOutCoords = geocoded;
-    }
-    if (!takeOutCoords) takeOutCoords = extractCoords(takeOut);
-
-    let putInCoords: [number, number] | null = null;
-    if (putIn.directions_override) {
-      const geocoded = await geocodeAddress(putIn.directions_override);
-      if (geocoded) putInCoords = geocoded;
-    }
-    if (!putInCoords) putInCoords = extractCoords(putIn);
+    // Extract coordinates (same priority as /api/plan route).
+    //
+    // The geocode is ANCHORED to the point's own position, as /api/plan's is.
+    // It was not here: "Cedar Grove Campground, MO" went to Mapbox with only
+    // a soft Ozarks-centre bias, and the web shuttle panel printed 84.74 mi
+    // "via US 60, MO 17" for a Pulltite → Cedargrove shuttle Google drives in
+    // 30. An unanchored free-text match can land on any same-named place in
+    // the state; a rejected one falls back to the coordinates we already had.
+    const takeOutCoords = await drivingCoords(takeOut);
+    const putInCoords = await drivingCoords(putIn);
 
     if (!takeOutCoords || !putInCoords) {
       return NextResponse.json({ available: false });
@@ -151,8 +161,10 @@ async function _GET(request: NextRequest) {
       return NextResponse.json({ available: false });
     }
 
-    // Cache the result in drive_time_cache
-    await supabase
+    // Cache the result in drive_time_cache. Non-fatal, but logged: it fails
+    // whenever route_geometry is not yet migrated, and silently that meant
+    // every request paid for a fresh Mapbox call.
+    const { error: cacheWriteError } = await supabase
       .from('drive_time_cache')
       .upsert({
         start_access_id: takeOutId,
@@ -166,6 +178,9 @@ async function _GET(request: NextRequest) {
       }, {
         onConflict: 'start_access_id,end_access_id',
       });
+    if (cacheWriteError) {
+      console.warn('drive_time_cache write failed:', cacheWriteError.message);
+    }
 
     const plausibility = assessShuttlePlausibility(result.miles, riverMiles);
     return NextResponse.json({

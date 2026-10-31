@@ -1348,10 +1348,8 @@ export default function PlanPageClient({
 
         {putInPoint && takeOutPoint && nearbyServices && (
           <ShuttlePanel
-            putInId={putInPoint.id}
-            takeOutId={takeOutPoint.id}
-            putInName={putInPoint.name}
-            takeOutName={takeOutPoint.name}
+            putIn={putInPoint}
+            takeOut={takeOutPoint}
             services={nearbyServices}
           />
         )}

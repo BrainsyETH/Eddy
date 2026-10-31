@@ -25,9 +25,12 @@ interface AccessPointNavProps {
   accessPoint: Pick<AccessPointDetail, 'coordinates' | 'name' | 'directionsOverride'> & Partial<Pick<AccessPointDetail, 'drivingLat' | 'drivingLng'>>;
   compact?: boolean;
   origin?: AccessPointNavProps['accessPoint'];
+  /** Icon size in px. Defaults to 24 compact, 28 full. The tap target stays 44px. */
+  iconSize?: number;
 }
 
-export default function AccessPointNav({ accessPoint, compact = false, origin }: AccessPointNavProps) {
+export default function AccessPointNav({ accessPoint, compact = false, origin, iconSize }: AccessPointNavProps) {
+  const imageSize = iconSize ?? (compact ? 24 : 28);
   const coords = getNavCoordinates({
     drivingLat: accessPoint.drivingLat,
     drivingLng: accessPoint.drivingLng,
@@ -69,7 +72,7 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
   };
 
   return (
-    <div className={compact ? "flex shrink-0 items-center gap-1" : origin ? "grid grid-cols-2 gap-2" : "grid grid-cols-4 gap-2"}>
+    <div className={compact ? "flex shrink-0 items-center gap-0.5" : origin ? "grid grid-cols-2 gap-2" : "grid grid-cols-4 gap-2"}>
       {navLinks.map((link) => (
         <a
           key={link.app}
@@ -85,13 +88,13 @@ export default function AccessPointNav({ accessPoint, compact = false, origin }:
             ? "flex h-11 w-11 items-center justify-center rounded-lg hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-colors no-underline"
             : "flex flex-col items-center justify-center gap-1.5 p-3 bg-white border border-neutral-200 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[72px] no-underline"}
         >
-          <div className="flex items-center justify-center w-8 h-8">
+          <div className="flex items-center justify-center" style={{ width: Math.max(32, imageSize), height: Math.max(32, imageSize) }}>
             {NAV_APP_ICONS[link.app] ? (
               <Image
                 src={NAV_APP_ICONS[link.app]}
                 alt=""
-                width={compact ? 24 : 28}
-                height={compact ? 24 : 28}
+                width={imageSize}
+                height={imageSize}
                 className="rounded object-contain"
               />
             ) : (

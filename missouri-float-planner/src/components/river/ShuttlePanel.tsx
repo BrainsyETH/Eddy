@@ -1,44 +1,27 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Car, Phone, Globe, Loader2 } from 'lucide-react';
+import { Car, Phone, Globe } from 'lucide-react';
 import type { NearbyServiceDirectory } from '@/types/api';
+import ShuttleRoute, { type ShuttleEndpoint } from '@/components/plan/ShuttleRoute';
 
 interface ShuttlePanelProps {
-  putInId: string;
-  takeOutId: string;
-  putInName: string;
-  takeOutName: string;
+  putIn: ShuttleEndpoint;
+  takeOut: ShuttleEndpoint;
   services: NearbyServiceDirectory[];
 }
 
-interface ShuttleResponse {
-  available: boolean;
-  miles?: number;
-  minutes?: number;
-  routeSummary?: string;
-  anomaly?: boolean;
-  warning?: string;
-}
-
-function useShuttleDistance(putInId: string, takeOutId: string) {
-  return useQuery<ShuttleResponse>({
-    queryKey: ['shuttle-distance', putInId, takeOutId],
-    queryFn: async () => {
-      const res = await fetch(`/api/shuttle?putInId=${putInId}&takeOutId=${takeOutId}`);
-      if (!res.ok) return { available: false };
-      return res.json();
-    },
-    staleTime: 60 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    retry: 1,
-    throwOnError: false,
-  });
-}
-
-export default function ShuttlePanel({ putInId, takeOutId, putInName, takeOutName, services }: ShuttlePanelProps) {
-  const { data: shuttle, isLoading } = useShuttleDistance(putInId, takeOutId);
-
+/**
+ * Shuttle & Logistics, below the planner.
+ *
+ * This used to print a road distance and drive time of its own from
+ * /api/shuttle ("84.74 mi · ~102 min" for a 30-mile Pulltite → Cedargrove
+ * shuttle). The plan route and the iOS plan card already decline to print that
+ * number — most access points still route from mid-river, and a free-text
+ * directions_override could geocode to a different town of the same name — so
+ * this was the last surface still showing it. It now hands the drive to Google
+ * or Apple Maps, the same as everywhere else.
+ */
+export default function ShuttlePanel({ putIn, takeOut, services }: ShuttlePanelProps) {
   // Asks the CAPABILITY, not the type — a campground or a lodge that runs a
   // shuttle belongs here, and three of the directory's outfitters do not. This
   // was `'shuttle' as never`, a cast left over from before `servicesOffered`
@@ -47,8 +30,6 @@ export default function ShuttlePanel({ putInId, takeOutId, putInName, takeOutNam
   // platforms agree about what a shuttle is.
   const shuttleOutfitters = services.filter(s => s.servicesOffered.includes('shuttle'));
 
-  if (!isLoading && !shuttle?.available && shuttleOutfitters.length === 0) return null;
-
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -56,37 +37,11 @@ export default function ShuttlePanel({ putInId, takeOutId, putInName, takeOutNam
         <h3 className="text-sm font-semibold text-neutral-900">Shuttle & Logistics</h3>
       </div>
 
-      {/* Drive time */}
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-neutral-400 mb-3">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Calculating shuttle drive...
-        </div>
-      ) : shuttle?.available ? (
-        <div className="bg-neutral-50 rounded-lg p-3 mb-3">
-          <p className="text-sm text-neutral-700">
-            <span className="font-medium">{takeOutName}</span>
-            {' → '}
-            <span className="font-medium">{putInName}</span>
-          </p>
-          <p className="text-lg font-bold text-neutral-900 mt-1">
-            {shuttle.miles} mi · ~{shuttle.minutes} min by road
-          </p>
-          {shuttle.routeSummary && (
-            <p className="text-xs text-neutral-400 mt-0.5">via {shuttle.routeSummary}</p>
-          )}
-          {shuttle.anomaly && (
-            <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-800" role="alert">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {shuttle.warning || 'This route looks unusually long. Verify the pickup route and timing with your outfitter.'}
-            </p>
-          )}
-        </div>
-      ) : null}
+      <ShuttleRoute plan={{ putIn, takeOut }} />
 
       {/* Shuttle outfitters */}
       {shuttleOutfitters.length > 0 && (
-        <div>
+        <div className="mt-3">
           <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
             Shuttle providers
           </p>
