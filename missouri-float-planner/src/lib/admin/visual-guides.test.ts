@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
 import { ADMIN_SESSION_COOKIE, createAdminToken } from '../admin-auth';
-import { VISUAL_GUIDES } from './visual-guides';
+import { START_HERE, VISUAL_GUIDES } from './visual-guides';
 import { GET } from '../../app/admin/visuals/[filename]/route';
 
 async function withSecret(run: () => Promise<void>) {
@@ -73,4 +73,15 @@ test('the guide handler rejects unknown files and traversal with a valid session
       assert.equal(await response.text(), 'Guide not found');
     }
   });
+});
+
+test('each gallery card matches the guide it opens and leads with a question', async () => {
+  assert.ok(VISUAL_GUIDES.some((guide) => guide.file === START_HERE));
+  for (const guide of VISUAL_GUIDES) {
+    const html = await readFile(`content/admin-visuals/${guide.file}`, 'utf8');
+    const heading = html.match(/<h1[^>]*>([^<]*)</)?.[1].trim();
+    assert.equal(guide.title, heading, `${guide.file}: card title must match the guide's <h1>`);
+    assert.match(guide.question, /\?$/, `${guide.file}: card heading is a question`);
+    assert.ok(guide.tryIt.length <= 70, `${guide.file}: keep "Try it" to one short line`);
+  }
 });

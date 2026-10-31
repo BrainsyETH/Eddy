@@ -35,6 +35,8 @@ interface AdminLayoutProps {
   children: React.ReactNode;
   title: string;
   description?: string;
+  /** Skip the dark title bar when the page draws its own branded heading. */
+  hideHeader?: boolean;
 }
 
 const NAV_ITEMS = [
@@ -64,7 +66,7 @@ interface NavBadges {
   openCriticalFindings: number;
 }
 
-export default function AdminLayout({ children, title, description }: AdminLayoutProps) {
+export default function AdminLayout({ children, title, description, hideHeader }: AdminLayoutProps) {
   const { isAuthorized, password, setPassword, error, handleSubmit, logout } = useAdminAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -239,7 +241,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
 
       {/* Main Content */}
       <main className="min-w-0 flex-1 flex flex-col lg:pt-0 pt-16">
-        {pathname !== '/admin' && (
+        {pathname !== '/admin' && !hideHeader && (
           <header className="bg-neutral-800 border-b border-neutral-700 px-6 py-4">
             <h1 className="text-2xl font-bold text-white">{title}</h1>
             {description && (

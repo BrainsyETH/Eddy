@@ -1,0 +1,248 @@
+/* Visual guides gallery — the same Eddy look as the admin dashboard
+   (.stitch/DESIGN.md): sandbar hero, 2px river-teal frames with hard offset
+   shadows, coral for the one main action, Fredoka only for Eddy's voice. */
+.page {
+  --ink: var(--color-neutral-900, #2d2a24);
+  --muted: var(--color-neutral-600, #6b6459);
+  --frame: var(--color-primary-700, #1d525f);
+  --teal: var(--color-primary-500, #2d7889);
+  --teal-ink: var(--color-primary-700, #1d525f);
+  --teal-soft: var(--color-primary-50, #ebf5f7);
+  --sand: var(--color-secondary-50, #faf8f4);
+  --line: var(--color-neutral-200, #dbd5ca);
+  min-height: 100%;
+  padding: 24px;
+  display: grid;
+  gap: 28px;
+  align-content: start;
+  background: var(--color-neutral-50, #f7f6f3);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color-scheme: light;
+}
+.page > * {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.page h1,
+.page h2,
+.page h3,
+.page p {
+  margin: 0;
+}
+.page a:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 3px;
+}
+
+/* Hero */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 18px 22px;
+  background: var(--sand);
+  border: 2px solid var(--frame);
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 var(--color-neutral-500, #857d70);
+}
+.hero img {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.heroText {
+  flex: 1;
+  min-width: 240px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.heroText h1 {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--color-primary-800, #163f4a);
+}
+.heroText p {
+  max-width: 560px;
+}
+.start {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border: 2px solid var(--color-neutral-900, #2d2a24);
+  border-radius: 6px;
+  background: var(--color-accent-500, #f07052);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--color-neutral-900, #2d2a24);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.start:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--color-neutral-900, #2d2a24);
+}
+.start svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.facts {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+.facts div {
+  display: grid;
+  min-width: 92px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.facts dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.facts dd {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Groups and cards */
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px !important;
+  font-family: var(--font-heading), system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.groupTitle span {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: 16px;
+  }
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .facts {
+    width: 100%;
+  }
+  .facts div {
+    flex: 1;
+    min-width: 0;
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: #fff;
+  border: 2px solid var(--frame);
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 var(--color-neutral-400, #a49c8e);
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover {
+  transform: translate(-1px, -2px);
+  box-shadow: 4px 4px 0 var(--color-neutral-500, #857d70);
+}
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--teal-soft);
+  color: var(--teal-ink);
+}
+.icon svg {
+  width: 22px;
+  height: 22px;
+}
+.kind {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--color-support-100, #dcf4e2);
+  color: var(--color-support-700, #347a47);
+}
+.kind[data-kind='tour'] {
+  background: var(--color-secondary-200, #e8dfd0);
+  color: var(--color-secondary-800, #5c4e38);
+}
+.card h3 {
+  font-family: var(--font-heading), system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.try {
+  color: var(--muted);
+  font-size: 14px;
+}
+.try b {
+  color: var(--ink);
+}
+.open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal-ink);
+}
+.open svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.card:hover .open svg {
+  transform: translateX(3px);
+}
