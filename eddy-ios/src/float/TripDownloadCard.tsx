@@ -30,7 +30,7 @@ import {
 } from '@/lib/tripDownload';
 import { getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
-import { readStylePackInspection } from '../../modules/eddy-style-pack';
+import { diagnoseStylePack, readStylePackInspection } from '../../modules/eddy-style-pack';
 import { tilesSavedCopy, type StylePackRead } from '@/lib/stylePackRead';
 import { onForeground } from '@/lib/foreground';
 import { prefetchStretchPhotos } from './floatPhotos';
@@ -152,6 +152,13 @@ export function TripDownloadCard({
           if (!styleWaitReported.current) {
             styleWaitReported.current = true;
             warn('float', 'offline map verification unavailable', { reason: style.reason, chunks: packs.length });
+            // Diagnostics only: ask the store directly why the check got no
+            // answer. Up to 30 seconds, in the background; it changes nothing.
+            if (style.reason === 'timeout' || style.reason === 'read-failed') {
+              void diagnoseStylePack(TRIP_STYLE_URL).then((report) => {
+                warn('float', 'offline map style diagnosis', { ...report, reason: style.reason, chunks: packs.length });
+              });
+            }
           }
         } else if (next.kind === 'tiles-saved' && style.kind === 'counts' && !styleWaitReported.current) {
           // The counts the card now shows; until now no report carried them.
