@@ -600,12 +600,17 @@ test('a river mile maps back to its place on the line, and a stretch can be cut 
   assert.equal(stretch.length, 2 + 12);
 });
 
-test('sunset lands where the almanac puts it', async () => {
-  const { sunsetAt } = await import('@eddy/geo');
+test('sunrise and sunset land in their local morning and evening windows', async () => {
+  const { sunriseAt, sunsetAt } = await import('@eddy/geo');
   const minutes = (ms: number | null, iso: string) => Math.abs((ms ?? 0) - Date.parse(iso)) / 60_000;
   // Salem, Missouri: about 8:28 pm CDT on July 4, 4:52 pm CST on December 21.
   assert.ok(minutes(sunsetAt(37.6, -91.5, Date.parse('2026-07-04T18:00:00Z')), '2026-07-05T01:29:00Z') < 5);
   assert.ok(minutes(sunsetAt(37.6, -91.5, Date.parse('2026-12-21T18:00:00Z')), '2026-12-21T22:53:00Z') < 5);
+  const morning = sunriseAt(37.6, -91.5, Date.parse('2026-07-04T18:00:00Z'))!;
+  assert.ok(morning > Date.parse('2026-07-04T10:40:00Z') && morning < Date.parse('2026-07-04T11:00:00Z'));
+  assert.equal(sunriseAt(37.6, -91.5, Date.parse('2026-07-04T09:00:00Z')), morning,
+    'a pre-dawn lookup returns the coming sunrise on the same solar day');
   // No sunset in a polar summer.
   assert.equal(sunsetAt(80, 0, Date.parse('2026-06-21T12:00:00Z')), null);
+  assert.equal(sunriseAt(80, 0, Date.parse('2026-06-21T12:00:00Z')), null);
 });
