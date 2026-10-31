@@ -139,3 +139,31 @@ Deployment order: reviewed migration → web API and policy → new native binar
 with privacy answers updated before submission. New API fields are additive and
 existing binaries retain their contract. The migration stays pending until an
 authorized production apply is recorded; no production apply is implied by a PR.
+
+
+### Route and weather recap presentation (2026-10-31)
+
+The recap centers the individual float's start-to-take-out stretch instead of
+whole-river/lifetime exploration. New summaries optionally persist
+`routeSnapshot` (start mile, take-out mile, start name, calibration, original
+map-anchor IDs/miles and optional download key) and the start
+observation's `conditionIcon`. These are bounded summary fields, not coordinate
+arrays. The API validates them strictly and advertises `recapRouteWeather`;
+clients wait for that capability before uploading either addition. Map anchors
+and the download key also require `recapMapCalibration`. At most 128 accepted
+calibration anchors are retained, limited to the stretch and its bracketing
+neighbors. Anchor entries contain only IDs and miles; coordinates remain rejected.
+Older servers
+must not receive a stripped summary, since completed rows are immutable.
+
+Progress uses the saved denominator. Only confirmed arrival earns 100%; limited
+tracking can preserve arrival while suppressing an unconfirmed percentage. Map
+geometry uses the original calibration: saved anchor miles reconstruct it on
+the public river line, or an original downloaded package supplies it. A change
+to unrelated access points does not invalidate the map. Missing required anchors
+or incompatible geometry are explained without inventing coverage. Older
+snapshots without anchors still require the full calibration hash. Orange coverage is the existing
+credited intervals, including bounded gap estimates; no additional gaps are
+filled. Older summaries retain their available measurements without invented
+route snapshots or sky conditions. Detailed display/fallback rules and native
+verification cases live in the iOS README's River Mode section.

@@ -165,14 +165,18 @@ export function floatBadge(trip: CompletedFloat): FloatBadge | null {
 
 // ── Weather at start ──────────────────────────────────────────────────────
 
-function floatWeather(trip: CompletedFloat): { tempF: number; precipIn1h: number } | null {
+export function floatWeather(trip: CompletedFloat): { tempF: number; precipIn1h: number; observedAt: string; conditionIcon?: string } | null {
   const weather: unknown = trip.startWeather;
   if (!record(weather) || !finite(weather.tempF) || !finite(weather.precipIn1h) || !text(weather.observedAt)) return null;
   const at = Date.parse(weather.observedAt);
   if (!Number.isFinite(at)) return null;
   const before = trip.startedAt - at;
   if (before > MOOD_THRESHOLDS.weatherMaxAgeMs || -before > READING_AFTER_START_MS) return null;
-  return { tempF: weather.tempF, precipIn1h: weather.precipIn1h };
+  return {
+    tempF: weather.tempF, precipIn1h: weather.precipIn1h, observedAt: weather.observedAt,
+    ...(typeof weather.conditionIcon === 'string' && /^(01|02|03|04|09|10|11|13|50)[dn]$/.test(weather.conditionIcon)
+      ? { conditionIcon: weather.conditionIcon } : {}),
+  };
 }
 
 // ── Moods ─────────────────────────────────────────────────────────────────

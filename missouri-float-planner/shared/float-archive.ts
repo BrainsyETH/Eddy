@@ -39,6 +39,20 @@ export interface StartWeather {
   tempF: number;
   precipIn1h: number;
   observedAt: string;
+  /** OpenWeather observation icon; absent on older floats. */
+  conditionIcon?: string;
+}
+
+/** The recap's route in the river's original mile system, never a GPS trace. */
+export interface FloatRouteSnapshot {
+  startMile: number;
+  takeOutMile: number;
+  startName: string;
+  calibration: string;
+  /** Original calibration references for this stretch, including its bracketing anchors. No coordinates. */
+  mapAnchors?: { id: string; riverMile: number }[];
+  /** A removable, device-local route package; never the only map source. */
+  downloadKey?: string;
 }
 
 export interface CompletedFloat {
@@ -86,6 +100,7 @@ export interface CompletedFloat {
   /** Credited river miles (@eddy/geo coveredMiles); null when there were too many to keep. */
   coveredMiles?: [number, number][] | null;
   startWeather?: StartWeather | null;
+  routeSnapshot?: FloatRouteSnapshot | null;
 }
 
 export interface SavedFloatSummary {

@@ -8,7 +8,7 @@ const CAPABILITIES_TTL_MS = 5 * 60_000;
  * strict schema does not know, so each newer field is sent only to a server
  * that names its flag.
  */
-export type ArchiveCapabilities = { startNote?: boolean; recapContext?: boolean };
+export type ArchiveCapabilities = { startNote?: boolean; recapContext?: boolean; recapRouteWeather?: boolean; recapMapCalibration?: boolean };
 type CapabilityFlag = keyof ArchiveCapabilities;
 
 /** The recap fields `recapContext` covers (docs/float-history-card-plan.md, 2e). */
@@ -27,6 +27,8 @@ export function capabilitiesNeeded(row: Pick<ArchiveRow, 'kind' | 'deleted' | 'p
   const flags: CapabilityFlag[] = [];
   if (trip.startNote !== undefined) flags.push('startNote');
   if (RECAP_CONTEXT_FIELDS.some((field) => trip[field] !== undefined)) flags.push('recapContext');
+  if (trip.routeSnapshot !== undefined || trip.startWeather?.conditionIcon !== undefined) flags.push('recapRouteWeather');
+  if (trip.routeSnapshot?.mapAnchors !== undefined || trip.routeSnapshot?.downloadKey !== undefined) flags.push('recapMapCalibration');
   return flags;
 }
 

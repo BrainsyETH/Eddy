@@ -1732,6 +1732,62 @@ also keep their recap context (`startCondition`, `riverSpan`, `coveredMiles`,
 `startWeather`) under its own `recapContext` capability, by the same rule
 (ADR 0012); `missouri-float-planner/shared/float-recap.ts` reads it for the
 history card and recap.
+The recap leads with a compact condition-tinted mood header, then **Your route**:
+the full start-to-take-out river stretch, progress, credited distance and total
+time. It replaces the recap's whole-river exploration/lifetime panel. Existing
+history and share-image measurement rules remain unchanged. New summaries save
+`routeSnapshot` (start/take-out miles, start name, calibration, original map-anchor
+IDs/miles and optional download key), without coordinates. A confirmed launch
+uses its access name; an on-water start uses its position relative to the planned
+put-in, such as **On-river start near Akers**, or **Recorded start** without one. A selected put-in may still
+frame an entirely untracked planned float, without claiming progress.
+
+The map prefers the original downloaded route package when available. It can
+also reconstruct the original mile calibration on cached river geometry using
+the saved anchor IDs/miles. Only accepted anchors needed for this stretch are
+saved (including neighbors bracketing an on-water start/end, at most 128).
+Adding/removing unrelated access points or changing published miles, including
+intermediate miles, does not move historical coverage. A missing required anchor
+or incompatible geometry leaves the map unavailable with **The river’s map has
+been updated since this float.** A missing/offline source uses **Route map
+unavailable** instead. Download removal does not remove the recap's saved
+calibration. Older snapshots without map anchors still require their original
+river-wide hash; a matching original download can supply it. Route names and
+stats remain readable in every case. Older summaries without a snapshot show their
+route names/stats without inventing a map or percentage. Coverage comes from
+credited intervals, including the tracker's existing bounded gap estimates;
+other gaps stay dashed. A solid river line is not the paddler's GPS trace.
+Only confirmed arrival earns **100% complete**. Limited tracking suppresses an
+unconfirmed percentage, but never undoes a confirmed arrival. **Last recorded**
+is not necessarily where the float ended. Maps do not request location and do
+not capture scroll gestures. Both appearances use the downloaded **STYLE_URL**
+(outdoors-v12), with legible light-map overlay ink. Mapbox attribution stays
+visible and separately accessible; both renderers have a VoiceOver description
+that mentions coverage only when present. A river-only
+SVG fallback uses the same geometry when native maps/styles are unavailable.
+
+**Time on the river** appears only with tracked time, and a missing distance or
+speed does not hide other available measurements. Credited coverage is **River
+distance**, in **river mi**; older tracked-distance fallbacks retain **mi**.
+Unavailable GPS, no credited river miles, and unrecorded moving time have
+separate display states in `recapMeasurements`. Positive measurements below
+0.1 mi stay visible. **Conditions at start** adds
+a small row for the saved start-weather observation. The existing two-hour
+weather freshness rule is relative to Start, not the date the recap is opened.
+New observations retain their weather icon code; older ones show temperature
+without inventing sky conditions. Missing weather leaves no placeholder.
+Header condition tint and otter mood retain the shared independent rules.
+
+`routeSnapshot` and the optional `startWeather.conditionIcon` require archive
+capability **recapRouteWeather**; `mapAnchors` and `downloadKey` additionally
+require **recapMapCalibration**. Deploy the archive API update before releasing
+this iOS build. Against an older server these complete summaries stay local and
+retryable, never stripped and acknowledged as backed up. Deletions and older
+summaries can still sync. Native verification is pending: review the recap from
+Finish and History in light/dark appearance, largest text, offline maps, long
+access names, VoiceOver map/attribution traversal, early finish, confirmed arrival with GPS gaps, no tracking,
+weather-only conditions, missing/stale conditions, backup retry and deletion.
+
 Older sessions retain their progress checkpoint; a recorded coordinate is never invented for them. Permission
 and Location Services are required; a GPS timeout does not prevent starting.
 Locked-phone recording uses the native background activity session with When
