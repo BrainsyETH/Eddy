@@ -68,7 +68,7 @@ review are in the 1.5 report; these are the gates it adds.
       Eddy redeems it without showing it, and Settings reads "will get a
       push". Repeat with Eddy in the background (the confirmation shows; a
       tap finishes it).
-- [ ] **The style-pack check answers on a phone** (new binary: the
+- [x] **The style-pack check answers on a phone** (new binary: the
       `eddy-style-pack` module changed on October 30). On the 1.5.0 (11)
       preview build every check timed out, on two trips and across launches
       (Sentry "offline map verification unavailable", `reason: timeout`), so
@@ -79,6 +79,20 @@ review are in the 1.5 report; these are the gates it adds.
       that stretch: the background map draws with labels. Pan beyond the
       downloaded area and back into it: outside it shows blank tiles but
       never "Background map unavailable", and back inside it draws again.
+      *Evidence, 2026-10-31, physical iPhone, a device build made after the
+      module change merged (exact commit not recorded):* Caddo River,
+      Swinging Bridge Access to Glenwood Access, 9.9 mi. The card went from
+      "Downloading · 15%" to "Ready offline", so the style check answered
+      with complete counts. In airplane mode the Ready to float preview drew
+      roads, labels and terrain. After closing Eddy and reopening it in
+      airplane mode, River Mode drew the stretch with labels; panning to St.
+      Louis, outside the download, drew from Mapbox's ordinary cache of
+      places viewed earlier rather than blank tiles, and returning to the
+      stretch drew it again. "Background map unavailable" never appeared.
+      Which of the two module changes fixed it (one shared manager, or the
+      main queue) was not isolated. Not covered here: starting and resuming
+      a float on the river (ADR 0011 device proof 1), and blank tiles
+      outside the download on a phone with no cached area.
 - [ ] **River Mode on a device:** a 10-minute airplane-mode gap mid-float adds
       gap distance and "GPS gap" time; moving time and speeds; arrival, then
       carrying on past the take-out; Discard for a sub-5-minute float; "Stop
