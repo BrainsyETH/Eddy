@@ -97,7 +97,7 @@ export function dossierSlugOf(row: APRow): string {
   return slug;
 }
 
-// access_points_managing_agency_check (00034; AGFC added by 20261031200317)
+// access_points_managing_agency_check (00034; AGFC added by 20261031201435)
 // allows only this set (or NULL). USGS / MoDOT are NOT in it — map known
 // synonyms, else null the column (ownership still records the true operator as
 // free text).

@@ -22,7 +22,7 @@ export type ProposalField =
   | 'road_surface'
   | 'ownership';
 
-/** access_points_managing_agency_check (00034; AGFC added by 20261031200317). USFWS is not in it. */
+/** access_points_managing_agency_check (00034; AGFC added by 20261031201435). USFWS is not in it. */
 export const MANAGING_AGENCIES = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private', 'AGFC'] as const;
 export type ManagingAgency = (typeof MANAGING_AGENCIES)[number];
 

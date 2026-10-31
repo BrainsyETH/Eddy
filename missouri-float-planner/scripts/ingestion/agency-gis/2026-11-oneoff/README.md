@@ -1,8 +1,10 @@
 # One-off access-point enrichment (November 2026)
 
 A single pass that proposes values for **existing** `access_points` columns
-from agency map data. It is not a pipeline, and nothing refreshes it.
-Proposals only: **nothing in this folder has been written to the database.**
+from agency map data. It is not a pipeline, and nothing refreshes it. Round 1
+was reviewed and partly applied (see *Applied*). The current `review.csv` is
+round 2, regenerated after that apply and after AGFC became an allowed
+managing agency. **Nothing in round 2 has been written.**
 
 It adds no access points and moves no pins. Agency parking lots attach to the
 access point they serve, as facts about that place (there is parking; its
@@ -10,10 +12,18 @@ surface). They never become a second coordinate.
 
 ## Files
 
-- `review.csv`: 225 rows for approved access points, generated 2026-10-31 by
-  `scripts/ingestion/oneoff-access-enrichment-2026-11.ts`. That's **177
-  proposed edits and 48 flags**. Flags carry no value and can't be applied.
-  - `accept` is pre-filled `y` on the 87 high-confidence rows. Review the rest.
+- `review.csv`: **round 2**, 138 rows generated 2026-10-31 by
+  `scripts/ingestion/oneoff-access-enrichment-2026-11.ts` against the
+  post-apply database. That's **125 proposed edits and 13 flags**. Flags carry
+  no value and can't be applied.
+  - `accept` is pre-filled `y` on the 3 high-confidence rows. Review the rest.
+  - Note that 4 of the AGFC proposals are named as city parks: Yellville City
+    Park, Buffalo City, Calico Rock City Park, and Cotter (Big Spring Park). For
+    those, the AGFC record says AGFC owns the facility, but check that AGFC,
+    not the city, runs it.
+- `review-round1-applied.csv` / `sources-round1.json`: the round-1 sheet
+  (225 rows) and evidence, as reviewed. Its 87 `accept=y` rows are what was
+  applied.
   - `evidence_ids` names every feature the row rests on, one per fact (each
     added amenity cites its own feature). `evidence_url` gives their links in
     the same order.
@@ -27,6 +37,23 @@ surface). They never become a second coordinate.
   that table.
 
 ## What was proposed
+
+Round 2 (current `review.csv`):
+
+| Field | high | medium | low | flag |
+| --- | ---: | ---: | ---: | ---: |
+| `managing_agency` | 3 | 52 | 21 | 7 |
+| `amenities` (additions) | | 22 | | |
+| `parking_info` | | 10 | | |
+| `ownership` | | | | 3 |
+| `road_surface` | | 9 | | 3 |
+| `official_site_url` | | 6 | 2 | |
+
+35 of round 2's managing-agency proposals are `AGFC`:
+- 3 are high (PAD-US and the AGFC record agree);
+- 32 are medium (AGFC's own records are the only source).
+
+Round 1, as reviewed (`review-round1-applied.csv`):
 
 | Field | high | medium | low | flag |
 | --- | ---: | ---: | ---: | ---: |
@@ -86,7 +113,11 @@ Every identified manager is compared *before* asking whether the column can
 hold it. An AGFC record therefore still contradicts a PAD-US USACE parcel, as
 at Romp Hole and Dry Run Creek, and an AGFC record contradicts a City one, as
 at Hardy Beach. Conflicts are flags, and so are uncontested managers the check
-constraint can't hold (`AGFC`, `USFWS`).
+constraint can't hold (now only `USFWS`).
+
+`AGFC` became allowed with migration `20261031201435_managing_agency_allows_agfc`,
+applied to production on 2026-10-31. PAD-US `SFW` parcels in Arkansas, and
+AGFC records whose owner is AGFC, map to it.
 
 **`official_site_url` / `fee_required`:** from the nearest USFS INFRA
 recreation site within 300 m (medium within 150 m). Check that the named site

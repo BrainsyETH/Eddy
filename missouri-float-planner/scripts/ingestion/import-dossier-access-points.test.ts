@@ -99,7 +99,7 @@ test('an agency outside the managing_agency check nulls the column rather than f
   });
   assert.equal(cols.managing_agency, null);
   assert.equal(cols.ownership, 'MoDOT');
-  // AGFC was the Buffalo precedent (00158) until 20261031200317 added it.
+  // AGFC was the Buffalo precedent (00158) until 20261031201435 added it.
   const agfc = dossierColumns({ name: 'Buffalo City', kind: 'boat_ramp', expected_mile: null, lat: 36.1, lon: -92.5, ownership: 'AGFC' });
   assert.equal(agfc.managing_agency, 'AGFC');
 });
