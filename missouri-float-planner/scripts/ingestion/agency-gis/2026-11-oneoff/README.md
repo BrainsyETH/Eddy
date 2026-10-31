@@ -120,9 +120,30 @@ values, which are the rollback.
 - **To write:** `--apply` needs `EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur`
   and explicit authorization.
 
-The 2026-10-31 preview of the 87 pre-accepted rows covered 64 access points:
-35 amenity additions, 19 parking descriptions, 19 managing agencies and 14
-ownership spellings. It found no identity or value mismatch.
+## Applied (2026-10-31, production `ilefwfpvphadsbptiaur`)
+
+The 87 pre-accepted rows were applied with explicit authorization, across 64
+access points:
+- 35 amenity additions
+- 19 parking descriptions
+- 19 managing agencies
+- 14 ownership spellings
+
+Every row was read back and verified, and a rerun of the preview reports 0
+pending changes. `rollback-2026-10-31.json` holds the pre-apply values of
+every touched column.
+
+Approved access points (362) before → after:
+
+| Field | Before | After |
+| --- | --- | --- |
+| Managing agency empty | 43% | 38.1% |
+| No parking information | 30% | 24.9% |
+| No amenities | 43% | 37.0% |
+| Old ownership spellings | 14 | 0 |
+
+The 90 medium/low rows and the 48 flags were **not** applied. To apply any of
+them later, mark them `y` and rerun. Rows already applied are skipped.
 
 ## Sources and terms
 
