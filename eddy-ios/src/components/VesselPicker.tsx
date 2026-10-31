@@ -1,6 +1,7 @@
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
-import { FLOAT_BOATS, type FloatBoat } from '@eddy/conditions/float-search';
+import { FLOAT_BOATS, floatBoatLabel, type FloatBoat } from '@eddy/conditions/float-search';
+import { floatVessel } from '@/lib/vesselTypes';
 import { ControlIcon } from '@/components/ControlIcon';
 import { VesselIcon } from '@/components/VesselIcon';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -8,14 +9,15 @@ import { fonts, type as t } from '@/theme/typography';
 
 /** Shared by route discovery and readiness; the native menu owns selection and dismissal. */
 export function VesselPicker({ value, onChange, disabled = false }: {
-  value: FloatBoat;
+  value?: FloatBoat | null;
   onChange: (value: FloatBoat) => void;
   disabled?: boolean;
 }) {
   const { colors, isDark } = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale > 1.3;
-  const label = value[0].toUpperCase() + value.slice(1);
+  const selected = floatVessel(value);
+  const label = floatBoatLabel(selected);
   const row = (
     <View
       accessible
@@ -29,7 +31,7 @@ export function VesselPicker({ value, onChange, disabled = false }: {
         <Text style={[local.label, { color: colors.text }]}>Vessel</Text>
       </View>
       <View style={local.selection}>
-        <VesselIcon vessel={value} size={30} color={colors.interactive} />
+        <VesselIcon vessel={selected} size={30} color={colors.interactive} />
         <Text style={[local.value, { color: colors.interactive }]}>{label}</Text>
         <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
       </View>
@@ -44,8 +46,8 @@ export function VesselPicker({ value, onChange, disabled = false }: {
       title="Vessel"
       actions={FLOAT_BOATS.map(boat => ({
         id: boat,
-        title: boat[0].toUpperCase() + boat.slice(1),
-        state: boat === value ? 'on' : 'off',
+        title: floatBoatLabel(boat),
+        state: boat === selected ? 'on' : 'off',
       }))}
       onPressAction={({ nativeEvent }) => {
         const boat = nativeEvent.event as FloatBoat;

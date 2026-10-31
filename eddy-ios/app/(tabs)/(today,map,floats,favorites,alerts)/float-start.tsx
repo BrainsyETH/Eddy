@@ -7,7 +7,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { CommonActions, useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
+import { FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
 import { useSession } from '@/hooks/useSession';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useFloatSession, useFloatSessionLoaded, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
@@ -35,9 +35,9 @@ import { completedFloatRoutes } from '@/lib/floatNavigation';
 import { nextTakeOuts, startPlannerParams } from '@/lib/floatStartSelection';
 import { matchesSetupDownload } from '@/lib/floatSetupDownload';
 import { readPendingFloatSetup } from '@/float/pendingFloatSetup';
+import { floatVessel, isFloatVessel } from '@/lib/vesselTypes';
 import type { TripPackage } from '@/lib/tripDownload';
 
-const isBoat = (value?: string | null): value is FloatBoat => FLOAT_BOATS.includes(value as FloatBoat);
 const movingMinutes = (miles: number, mph: number | null) => miles > 0 && mph != null
   ? Math.max(5, Math.round(miles / mph * 12) * 5) : null;
 
@@ -102,8 +102,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const [id] = useState(newSessionId);
   const [reminders, setReminders] = useState<FloatReminderChoices>(() => ({ ...DEFAULT_REMINDERS }));
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
-  const [boat, setBoat] = useState<FloatBoat>(() => isBoat(initial.boatType) ? initial.boatType : 'kayak');
-  const boatChosen = useRef(isBoat(initial.boatType));
+  const [boat, setBoat] = useState<FloatBoat>(() => floatVessel(initial.boatType));
+  const boatChosen = useRef(isFloatVessel(initial.boatType));
   const [picker, setPicker] = useState<'river' | 'from' | 'to' | null>(null);
   // The iOS location prompt is never fired on arrival: the Location card
   // explains why tracking needs it and its button asks (LocationGate). A
@@ -125,7 +125,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   useEffect(() => {
     let current = true;
     void AsyncStorage.getItem(FLOAT_BOAT_STORAGE_KEY).then(value => {
-      if (current && !boatChosen.current && isBoat(value)) setBoat(value);
+      if (current && !boatChosen.current && isFloatVessel(value)) setBoat(value);
     }).catch(() => {});
     return () => { current = false; };
   }, []);

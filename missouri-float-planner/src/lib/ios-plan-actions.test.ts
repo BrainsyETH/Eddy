@@ -6,6 +6,7 @@ import ts from 'typescript';
 import type { FloatPlan } from '@eddy/types';
 import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/planActions';
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
+import { floatVessel } from '../../../eddy-ios/src/lib/vesselTypes';
 import { floatDurationLabel, savedFloatPhoto } from '../../../eddy-ios/src/lib/floatPresentation';
 import { compactFloatTime } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 
@@ -619,4 +620,39 @@ test('missing network methods and failed native queries are unknown connectivity
   assert.equal(await networkHintFor({})(), false);
   assert.equal(await networkHintFor({ getNetworkStateAsync: async () => { throw new Error('Network query failed'); } })(), false);
   assert.equal(await networkHintFor({ getNetworkStateAsync: () => { throw new Error('Native method unavailable'); } })(), false);
+});
+
+
+test('iOS planning requests Kayak by default and preserves explicit vessel IDs and choices', async () => {
+  const source = readFileSync(new URL('../../../eddy-ios/src/api/client.ts', import.meta.url), 'utf8');
+  const ast = ts.createSourceFile('client.ts', source, ts.ScriptTarget.Latest, true);
+  const declaration = ast.statements.find(statement => ts.isFunctionDeclaration(statement) && statement.name?.text === 'fetchFloatPlan');
+  assert.ok(declaration);
+  const compiled = ts.transpileModule(declaration.getText(ast), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  let vessels = [{ id: 'kayak-id', slug: 'kayak' }, { id: 'canoe-id', slug: 'canoe' }];
+  let lookups = 0;
+  const requests: string[] = [];
+  const exports: { fetchFloatPlan?: (params: { riverId: string; startId: string; endId: string; vesselTypeId?: string; boatType?: string }) => Promise<unknown> } = {};
+  runInNewContext(compiled.outputText, { exports, URLSearchParams, floatVessel, ApiError: Error,
+    fetchVesselTypes: async () => { lookups++; return vessels; },
+    get: async (url: string) => { requests.push(url); return { plan }; },
+  });
+  assert.ok(exports.fetchFloatPlan);
+  const route = { riverId: 'current', startId: 'akers', endId: 'pulltite' };
+  for (const boatType of [undefined, '', 'unknown', 'kayak']) {
+    assert.equal(await exports.fetchFloatPlan({ ...route, boatType }), plan);
+    assert.equal(new URL(requests.at(-1)!, 'https://eddy.guide').searchParams.get('vesselTypeId'), 'kayak-id');
+  }
+  await exports.fetchFloatPlan({ ...route, boatType: 'canoe' });
+  assert.match(requests.at(-1)!, /vesselTypeId=canoe-id/);
+  const before = lookups;
+  await exports.fetchFloatPlan({ ...route, vesselTypeId: 'tube-id', boatType: 'canoe' });
+  assert.match(requests.at(-1)!, /vesselTypeId=tube-id/);
+  assert.equal(lookups, before, 'an explicit vessel ID does not need the default lookup');
+  vessels = [];
+  const sent = requests.length;
+  await assert.rejects(exports.fetchFloatPlan(route), /Vessel unavailable/);
+  assert.equal(requests.length, sent, 'a missing Kayak configuration must not silently request the server’s Canoe default');
 });

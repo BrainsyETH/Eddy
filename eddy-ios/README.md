@@ -1601,6 +1601,11 @@ The iOS location prompt is never fired on arrival at Ready to float: the
 Location card explains why tracking needs it and its button asks. Production
 cold/offline launch and locked-phone delivery verification remain unconfirmed.
 
+New iOS plans and floats default to **Kayak** when no valid vessel is supplied.
+An explicit vessel from a plan, restored setup, or saved preference is preserved;
+the picker and newly created recording both resolve missing/blank values to Kayak.
+Existing sessions and historical recaps keep their recorded vessel unchanged.
+
 Every entry opens **Ready to float** in its originating tab. A plan fills in
 river, named put-in, take-out and boat; the Floats button starts with an empty
 river and take-out unless an unfinished downloaded setup is recovered. River,

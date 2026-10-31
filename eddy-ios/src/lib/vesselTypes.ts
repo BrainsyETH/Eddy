@@ -1,4 +1,14 @@
-import { FLOAT_BOATS, floatBoatLabel } from '@eddy/conditions/float-search';
+import { FLOAT_BOATS, FLOAT_SEARCH_DEFAULT_BOAT, floatBoatLabel, type FloatBoat } from '@eddy/conditions/float-search';
+
+/** Runtime values can come from links, saved drafts, or older app storage. */
+export function isFloatVessel(value: unknown): value is FloatBoat {
+  return typeof value === 'string' && FLOAT_BOATS.includes(value as FloatBoat);
+}
+
+/** Every new float has a vessel; an explicit valid choice always wins. */
+export function floatVessel(value: unknown): FloatBoat {
+  return isFloatVessel(value) ? value : FLOAT_SEARCH_DEFAULT_BOAT;
+}
 
 export interface VesselType {
   id: string;

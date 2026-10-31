@@ -1,5 +1,5 @@
 import { uploadFloatArchive, type ArchiveCapabilities } from '@/lib/floatArchiveUpload';
-import { vesselTypeLoader } from '@/lib/vesselTypes';
+import { floatVessel, vesselTypeLoader } from '@/lib/vesselTypes';
 import type { CampingStayResult } from '@eddy/conditions/camping-stay';
 import type { CampingOverview } from '@eddy/types';
 import type { RiverGuideSummary } from '@/lib/riverGuides';
@@ -1258,7 +1258,7 @@ export async function fetchRiverServices(
  * reading and Mapbox for the shuttle drive — so it runs once on an explicit
  * tap, never speculatively as the user moves between access points.
  *
- * Find a Float can supply a boat; ordinary planning still defaults to canoe.
+ * An explicit vessel is preserved; ordinary iOS planning defaults to Kayak.
  */
 export async function fetchFloatPlan(
   params: { riverId: string; startId: string; endId: string; vesselTypeId?: string; boatType?: string },
@@ -1270,10 +1270,10 @@ export async function fetchFloatPlan(
     endId: params.endId,
   });
   let vesselId = params.vesselTypeId;
-  if (!vesselId && params.boatType) {
+  if (!vesselId) {
     const vessels = await fetchVesselTypes();
     if (signal?.aborted) throw new ApiError('Request cancelled');
-    vesselId = vessels.find(vessel => vessel.slug === params.boatType)?.id;
+    vesselId = vessels.find(vessel => vessel.slug === floatVessel(params.boatType))?.id;
     if (!vesselId) throw new Error('Vessel unavailable');
   }
   if (vesselId) query.set('vesselTypeId', vesselId);

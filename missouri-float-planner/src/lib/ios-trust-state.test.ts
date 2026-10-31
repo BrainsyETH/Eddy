@@ -221,3 +221,15 @@ test('boat metadata coalesces requests, survives cancelled consumers, and retrie
   assert.equal((await retry())[0].slug, 'kayak');
   assert.equal(attempts, 2);
 });
+
+test('new float vessel selection defaults missing or invalid values to Kayak', async () => {
+  const { floatVessel, isFloatVessel } = await import('../../../eddy-ios/src/lib/vesselTypes');
+  for (const value of [undefined, null, '', ' ', 'unknown', 1, ['canoe']]) {
+    assert.equal(floatVessel(value), 'kayak');
+    assert.equal(isFloatVessel(value), false);
+  }
+  for (const value of ['canoe', 'kayak', 'raft', 'tube']) {
+    assert.equal(floatVessel(value), value, 'a plan or saved preference remains selected');
+    assert.equal(isFloatVessel(value), true);
+  }
+});
