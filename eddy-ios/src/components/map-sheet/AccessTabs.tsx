@@ -73,6 +73,7 @@ import {
   FoldedProse,
   LinkRow,
   Prose,
+  Retry,
   Section,
 } from './sections';
 import { compactFloatEstimate } from './floatEstimate';
@@ -123,7 +124,12 @@ interface TabProps {
   /** Whether the one request behind every tab is pending, done or failed. */
   status: DetailStatus;
   estimatesStatus?: EstimateStatus;
-
+  /**
+   * Run the request behind every tab again. Offered only under a line that
+   * says it FAILED — a settled empty answer has nothing to retry. Null where
+   * the caller has no request to repeat.
+   */
+  onRetry?: (() => void) | null;
 }
 
 /* ── Overview ───────────────────────────────────────────────────────────── */
@@ -135,6 +141,7 @@ export function AccessOverviewTab({
   onOpenRiver,
   status: detailStatus,
   galleryWidth = 320,
+  onRetry,
 }: TabProps) {
   const point = detail?.accessPoint;
   const services = servicesByTier(detail);
@@ -257,6 +264,7 @@ export function AccessOverviewTab({
           Only once the request has settled: before that, silence is honest,
           because something may still arrive. */}
       {bare && settled ? <Absent>{waitingCopy(detailStatus, 'description')}</Absent> : null}
+      {bare && detailStatus === 'failed' && onRetry ? <Retry onPress={onRetry} /> : null}
 
       {/* ── EVERYTHING BELOW WAS THE PLACE TAB ────────────────────────────
           Ordered the way somebody standing in a driveway with a boat on the
@@ -379,7 +387,7 @@ export function AccessOverviewTab({
  * once per line. ControlIcon rather than Eddy art: an arrow is a direction, not a
  * thing, and the catalog is a catalog of things.
  */
-export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, status, estimatesStatus }: TabProps) {
+export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, status, estimatesStatus, onRetry }: TabProps) {
   const { colors } = useTheme();
   const nearby = detail?.nearbyAccessPoints ?? [];
 
@@ -397,7 +405,14 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, st
   const canFloatFromHere = accessPoint.isFloatEndpoint !== false;
 
   if (!nearby.length && status === 'loading') return <Absent>Loading nearby access points…</Absent>;
-  if (!nearby.length && status === 'failed') return <Absent>Nearby access points unavailable right now.</Absent>;
+  if (!nearby.length && status === 'failed') {
+    return (
+      <View>
+        <Absent>Nearby access points unavailable right now.</Absent>
+        {onRetry ? <Retry onPress={onRetry} /> : null}
+      </View>
+    );
+  }
   if (!nearby.length) {
     return <Absent>No other access points on this stretch yet.</Absent>;
   }
@@ -572,7 +587,7 @@ function NightStatus({ night }: { night: NightChoice | null }) {
   );
 }
 
-export function AccessCampingTab({ accessPoint, detail, status, active = false, pinAvailability }: TabProps) {
+export function AccessCampingTab({ accessPoint, detail, status, active = false, pinAvailability, onRetry }: TabProps) {
   const { colors } = useTheme();
   const point = detail?.accessPoint;
   const nps = point?.npsCampground ?? null;
@@ -684,6 +699,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
         {timeline}
         <AmenityChips amenities={accessPoint.amenities} />
         <Absent>{waitingCopy(status, 'campground details')}</Absent>
+        {status === 'failed' && onRetry ? <Retry onPress={onRetry} /> : null}
         {stayUrl ? (
           <Section>
             {/* No `symbol`. This row used to carry the campground mark and the

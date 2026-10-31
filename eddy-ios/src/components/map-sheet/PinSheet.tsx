@@ -124,8 +124,15 @@ export function PinSheet(props: PinSheetProps) {
 
 function PinSheetSelection(input: PinSheetProps) {
   const { pin, accessPoint, width } = input;
+  // ── Try again, for the two requests this sheet makes ─────────────────────
+  // One counter for both, bumped by the Retry control under a failed tab;
+  // each hook re-runs its effect for the same key. Per selection (this
+  // component is keyed by pin id), so a retry on one pin cannot re-ask for
+  // another.
+  const [revision, setRevision] = useState(0);
+  const retry = useCallback(() => setRevision((count) => count + 1), []);
   // Core facts first, then float estimates, shared by every tab.
-  const { detail, status, estimatesStatus } = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
+  const { detail, status, estimatesStatus } = useAccessPointDetail(accessPoint ? pin.detailRoute : null, revision);
   const place = detail ? placeFromAccess(detail, new Date().toISOString()) : placeFromPin(pin, new Date().toISOString());
   const favorite = usePlaceFavorite(place);
   const props = place ? { ...input, starred: favorite.starred, onToggleStar: () => void favorite.toggle() } : input;
@@ -134,6 +141,7 @@ function PinSheetSelection(input: PinSheetProps) {
   const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';
   const { detail: gaugeDetail, status: gaugeStatus } = useGaugeDetail(
     isGaugePin ? pin.siteId : null,
+    revision,
   );
 
   const gaugeFacts: GaugePinFacts | null = useMemo(() => {
@@ -270,6 +278,7 @@ function PinSheetSelection(input: PinSheetProps) {
       nearbyMarks: props.nearbyMarks,
       status,
       estimatesStatus,
+      onRetry: retry,
       galleryWidth: Math.max(0, width - 32),
       pinAvailability: pin.availability,
     };
@@ -293,6 +302,7 @@ function PinSheetSelection(input: PinSheetProps) {
       facts: gaugeFacts,
       detail: gaugeDetail,
       status: gaugeStatus,
+      onRetry: retry,
       onOpenGauge: props.onOpenGauge,
       onOpenRiver: props.onOpenRiver,
     };

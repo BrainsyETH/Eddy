@@ -2206,7 +2206,10 @@ Shared chart views retain the timezone saved in the link. New links include a ri
 ### Map interaction contract
 
 A map-level 44-point query resolves POIs across active sources, and the mark
-nearest the finger wins. Places that overlap become one numbered stack, by the
+nearest the finger wins. The pin, cluster and river-line queries leave in one
+round trip and are read in that priority order, so a tap on empty map (the
+gesture that closes a sheet) does not wait on every layer it missed. The map
+rotates but never tilts: pitch is off, because the compass resets heading only. Places that overlap become one numbered stack, by the
 web planner's rule (`src/map/pinStacks.ts`): marks within 56pt of each other at
 the current whole zoom, across every layer drawn as individual marks at that
 zoom. Hazards, route endpoints and the selected place never stack. Tapping a
@@ -2252,7 +2255,12 @@ which keeps its full width. It opens the same branded sheet as a stack: rows
 grouped by layer in the Layers sheet's order, each mark in its layer's
 outlined well, nearest the middle of the map first, with a filter from seven
 places. It is also the VoiceOver route to places on the map.
-Gauge refresh failures retain available data and expose a Retry action.
+Gauge refresh failures retain available data and expose a Retry action, and a
+pin sheet whose detail request failed offers "Try again" under the line that
+says so. Detail answers are remembered for two minutes per place
+(`useAccessPointDetail`, `useGaugeDetail`), so the sheet that search unmounts
+and remounts paints at once and refreshes behind; a failed refresh keeps the
+remembered page.
 
 Map sheets clip at their host, which ends at the tab bar, so a resting sheet
 never paints through the floating glass tab bar. "Plan a float" sits in a row

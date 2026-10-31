@@ -17,6 +17,24 @@
 //   including in the frame between the tap and the request settling. Clearing
 //   to null at the top of the effect would do the same job by cascading a
 //   render, which is the pattern the lint rule is about.
+//
+// ── AND A FOURTH: IT REMEMBERS WHAT IT WAS JUST TOLD ──────────────────────
+//
+// The sheet that owns this hook is UNMOUNTED whenever the search field takes
+// focus (the results list needs the room) and mounted again when search lets
+// go; pin → river → the same pin is a remount too. Each remount started this
+// hook from nothing: the slot went back to "Checking water…", the Overview
+// tab back to "Loading…", and the server was asked for a page it had served
+// seconds earlier — the reader watching their own sheet reload for having
+// glanced at the search box.
+//
+// So answers are kept for a short while, by route, at module scope. A remount
+// paints the remembered page on its first frame; the request still goes out
+// behind it and replaces what it finds, so nothing here is ever older than
+// one round trip plus the window below. The window is short because a water
+// reading is in this payload and a reading is a now-fact; the bound keeps a
+// long session of tapping from holding every put-in in the state. Only
+// successes are remembered — a failure is not an answer worth repeating.
 
 import { useEffect, useState } from 'react';
 import type { AccessPointDetailResponse } from '@eddy/types';
@@ -50,6 +68,48 @@ function slugsFromRoute(route: string | null | undefined): { river: string; acce
  */
 export type DetailStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
+/** How long a remembered answer may stand in for a fresh one. See the header. */
+export const ANSWER_CACHE_MS = 2 * 60_000;
+/** How many answers one cache holds; the oldest leaves first. */
+export const ANSWER_CACHE_SIZE = 12;
+
+/**
+ * A remembered answer for `key`, or null when there is none or it has aged
+ * out. Shared with useGaugeDetail, which keeps its own map by site id.
+ */
+export function recallAnswer<T>(
+  cache: Map<string, { answer: T; at: number }>,
+  key: string,
+  now: number = Date.now(),
+): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (now - entry.at > ANSWER_CACHE_MS) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.answer;
+}
+
+/** Remember an answer, dropping the oldest once the cache is full. */
+export function rememberAnswer<T>(
+  cache: Map<string, { answer: T; at: number }>,
+  key: string,
+  answer: T,
+  now: number = Date.now(),
+): void {
+  // Delete first so a refreshed key moves to the newest end of insertion order.
+  cache.delete(key);
+  cache.set(key, { answer, at: now });
+  while (cache.size > ANSWER_CACHE_SIZE) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
+
+const DETAIL_CACHE = new Map<string, { answer: AccessPointDetailResponse; at: number }>();
+
 export function useAccessPointDetail(detailRoute: string | null | undefined, revision = 0): {
   detail: AccessPointDetailResponse | null;
   /**
@@ -70,7 +130,13 @@ export function useAccessPointDetail(detailRoute: string | null | undefined, rev
 
   const [estimates, setEstimates] = useState<{ route: string; status: EstimateStatus } | null>(null);
 
-  const current = held && held.route === detailRoute ? held : null;
+  // The live answer first, then the remembered one. A failed refresh over a
+  // remembered page keeps the page — see `failed` below — so this only falls
+  // through to the cache while this mount's own request is still out.
+  const remembered = detailRoute ? recallAnswer(DETAIL_CACHE, detailRoute) : null;
+  const current = held && held.route === detailRoute
+    ? held
+    : detailRoute && remembered ? { route: detailRoute, detail: remembered, failed: false } : null;
   const detail = current?.detail ?? null;
   const status: DetailStatus = !detailRoute
     ? 'idle'
@@ -93,15 +159,24 @@ export function useAccessPointDetail(detailRoute: string | null | undefined, rev
       ),
       fetchEstimates: () => fetchAccessPointEstimates(slugs.river, slugs.access, controller.signal),
       estimateStatus: (status) => setEstimates({ route, status }),
-      publish: (response) => setHeld({ route, detail: response, failed: false }),
+      publish: (response) => {
+        rememberAnswer(DETAIL_CACHE, route, response);
+        setHeld({ route, detail: response, failed: false });
+      },
       failed: (err) => {
         warn('map', 'access point detail failed', err);
         const gone = err instanceof ApiError && err.status === 404;
         // A failed refresh (no signal at the put-in) keeps the page it already
-        // showed; only a first load, or an unpublished place, becomes an error.
+        // showed — from this mount, or remembered from an earlier one; only a
+        // first load, or an unpublished place, becomes an error. An unpublished
+        // place is forgotten too, so no later mount can paint it.
+        if (gone) DETAIL_CACHE.delete(route);
+        const kept = gone ? null : recallAnswer(DETAIL_CACHE, route);
         setHeld((prev) => (!gone && prev?.route === route && prev.detail
           ? prev
-          : { route, detail: null, failed: true, error: gone ? 'This access point is no longer published.' : 'Could not load this access point.' }));
+          : kept
+            ? { route, detail: kept, failed: false }
+            : { route, detail: null, failed: true, error: gone ? 'This access point is no longer published.' : 'Could not load this access point.' }));
       },
       estimatesFailed: (err) => warn('map', 'nearby float estimates failed', err),
     });

@@ -544,6 +544,33 @@ export function Absent({ children }: { children: string }) {
   return <Text style={[styles.absent, { color: colors.textMuted }]}>{children}</Text>;
 }
 
+/**
+ * The one control a FAILED request earns: ask again.
+ *
+ * Drawn under an Absent line that says "unavailable right now", and only
+ * there — a request that settled empty has nothing to retry, and a line that
+ * is still loading has not failed yet. Without this the sheet had no way back
+ * from a dropped request at all: the reader closed it and tapped the pin
+ * again, which is the retry done by hand and discovered by accident.
+ *
+ * A text control at the fold toggle's size, with the same laid-out 44pt
+ * target, so it reads as a quiet action under a quiet line rather than a
+ * button competing with the sheet's real ones.
+ */
+export function Retry({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Try again"
+      style={({ pressed }) => [styles.retry, { opacity: pressed ? 0.6 : 1 }]}
+    >
+      <Text style={[styles.foldToggleText, { color: colors.interactive }]}>Try again</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   section: { marginTop: 14 },
   // The mark sits on the heading's row, and the row carries the margin the
@@ -573,6 +600,9 @@ const styles = StyleSheet.create({
     marginBottom: -10,
   },
   foldToggleText: { ...t.sm, fontFamily: fonts.semibold },
+  // The same 44pt target as the fold toggle. No negative margins: this sits
+  // under an Absent line with nothing below it, so the page simply grows.
+  retry: { alignSelf: 'flex-start', paddingVertical: 12, marginTop: -6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   // A row, because a badge may carry a mark before its label. The gap does
   // nothing on the ones that do not, so both kinds keep the same pill.

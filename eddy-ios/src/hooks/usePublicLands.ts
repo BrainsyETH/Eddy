@@ -70,6 +70,17 @@ export function usePublicLands(enabled: boolean, viewport: Viewport | null): Pub
   const lastRequested = useRef<{ bbox: Bounds; zoom: number } | null>(null);
   const inFlight = useRef<AbortController | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Whether this enablement has asked for anything yet.
+   *
+   * The debounce exists to collapse a burst of idles into one request. The
+   * first request after the switch is flipped is not a burst: the camera is
+   * already still, the reader is looking at the row they just turned on, and
+   * 400ms of nothing before the round trip even starts reads as the switch
+   * not working. useViewportGauges skips the delay for the same first load.
+   * Reset when the layer goes off, so switching it back on is prompt again.
+   */
+  const requested = useRef(false);
 
   const load = useCallback(async (bbox: Bounds, zoom: number) => {
     // Zoom is IN the key: the same box simplified for z9 and for z14 are two
@@ -133,6 +144,7 @@ export function usePublicLands(enabled: boolean, viewport: Viewport | null): Pub
       inFlight.current?.abort();
       inFlight.current = null;
       lastRequested.current = null;
+      requested.current = false;
       setState(EMPTY);
       return;
     }
@@ -173,6 +185,11 @@ export function usePublicLands(enabled: boolean, viewport: Viewport | null): Pub
     }
 
     const target = quantizeBbox(padBbox(viewport.bounds, 0.2), viewport.zoom);
+    if (!requested.current) {
+      requested.current = true;
+      void load(target, zoom);
+      return;
+    }
     timer.current = setTimeout(() => void load(target, zoom), DEBOUNCE_MS);
 
     return () => {

@@ -89,7 +89,25 @@ export function GlanceSlot({
     }
   };
 
+  // ── The fade starts FROM ZERO, when the answer arrives ─────────────────
+  // This used to run on mount as well, so by the time `ready` flipped the
+  // opacity was already 1 and the timing had nothing to animate: the answer
+  // popped in, and the crossfade this file describes never happened. Only an
+  // answer that REPLACED a placeholder fades; a slot that is ready on its
+  // first frame (a cached detail — see useAccessPointDetail) was never
+  // pending, so there is nothing to fade in from and it draws at once.
+  const wasPending = useRef(!ready);
   useEffect(() => {
+    if (!ready) {
+      wasPending.current = true;
+      return;
+    }
+    if (!wasPending.current) {
+      opacity.value = 1;
+      return;
+    }
+    wasPending.current = false;
+    opacity.value = 0;
     opacity.value = withTiming(1, { duration: reduced ? 0 : FADE_MS });
   }, [ready, opacity, reduced]);
 
