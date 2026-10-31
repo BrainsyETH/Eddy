@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  type Lot, type Proposal, addAmenities, agencyFromOwnershipText, agencyFromPadus, chooseLot,
-  chooseManagingAgency, line, mdcParkingInfo, mvumRoadSurface, ownershipSpelling, parseCsv,
+  type Lot, type Proposal, addAmenities, agencyFromOwnershipText, agencyFromPadus,
+  chooseManagingAgency, line, matchLots, mvumRoadSurface, parkingInfo, ownershipSpelling, parseCsv,
   sideOfRiver, toCsv, usfsHasRestroom,
 } from './access-enrichment-2026-11';
 
@@ -20,37 +20,37 @@ test('sideOfRiver tells the banks apart and treats the centerline as no bank', (
   assert.equal(sideOfRiver(north(-80), multi).side, -1);
 });
 
-test('chooseLot refuses the far bank, distant lots, and lots nearer another place', () => {
+test('matchLots refuses the far bank, distant lots, and lots nearer another place', () => {
   const launch = north(40);
-  const r = chooseLot(launch, [lot('far-bank', north(-120)), lot('distant', north(900))], [], river);
-  assert.equal(r.choice, null);
+  const r = matchLots(launch, [lot('far-bank', north(-120)), lot('distant', north(900))], [], river);
+  assert.equal(r.match, null);
   assert.ok(r.refused.some((x) => x.startsWith('far-bank: opposite bank')));
   assert.ok(r.refused.some((x) => x.startsWith('distant:')));
 
-  const other = chooseLot(launch, [lot('shared', north(300))], [north(290)], river);
-  assert.equal(other.choice, null);
+  const other = matchLots(launch, [lot('shared', north(300))], [north(290)], river);
+  assert.equal(other.match, null);
   assert.ok(other.refused[0].includes('nearer another access point'));
-
-  const ok = chooseLot(launch, [lot('a', north(250)), lot('b', north(140))], [], river);
-  assert.equal(ok.choice?.lot.id, 'b');
-  assert.equal(ok.choice?.confidence, 'high');
-  assert.match(ok.choice!.note, /1 other lot/);
 });
 
-test('chooseLot prefers a reviewed link, skips lots on top of the launch, and doubts a mid-river pin', () => {
+test('matchLots keeps every lot that belongs to the place, including one beside the launch', () => {
   const launch = north(40);
-  const linkedFirst = chooseLot(launch, [lot('near', north(120)), lot('linked', north(300), 'linked')], [], river);
-  assert.equal(linkedFirst.choice?.lot.id, 'linked');
-  assert.equal(chooseLot(launch, [lot('same', north(50))], [], river).choice, null);
-  const midRiver = chooseLot(north(3), [lot('x', north(200))], [], river);
-  assert.equal(midRiver.choice?.confidence, 'medium');
-  assert.match(midRiver.choice!.note, /bank not checked/);
+  const ok = matchLots(launch, [lot('a', north(250)), lot('b', north(50))], [], river);
+  assert.deepEqual(ok.match?.lots.map((l) => l.lot.id), ['b', 'a']);
+  assert.equal(ok.match?.confidence, 'high');
+  assert.equal(matchLots(launch, [lot('n', north(120), 'same_name')], [], river).match?.confidence, 'medium');
+  const midRiver = matchLots(north(3), [lot('x', north(200))], [], river);
+  assert.equal(midRiver.match?.confidence, 'medium');
+  assert.match(midRiver.match!.note, /bank not checked/);
 });
 
-test('MDC parking info states only what the layer says', () => {
-  assert.equal(mdcParkingInfo({ Surface: 'Gravel', Allows_Trailers: 'Yes' }), 'Gravel lot; trailers allowed (MDC).');
-  assert.equal(mdcParkingInfo({ Surface: null, Allows_Trailers: 'No' }), 'Parking lot; no trailers (MDC).');
-  assert.equal(mdcParkingInfo({ Surface: null, Allows_Trailers: null }), null);
+test('parking info states the surface only, never the unconfirmed trailer field', () => {
+  const mdc = (Surface: unknown, extra = {}): Lot => ({ ...lot('m', north(60)), attributes: { Surface, Allows_Trailers: 'No', ...extra } });
+  const agfc = (fdescrip: string): Lot => ({ ...lot('g', north(60)), provider: 'agfc', attributes: { fdescrip } });
+  assert.equal(parkingInfo([mdc('Paved')]), 'Paved lot (MDC).');
+  assert.equal(parkingInfo([agfc('Dirt'), agfc('Dirt')]), '2 dirt lots (AGFC).');
+  assert.equal(parkingInfo([agfc('Paved'), agfc('Gravel')]), '2 lots: paved, gravel (AGFC).');
+  assert.equal(parkingInfo([mdc(null)]), null);
+  assert.doesNotMatch(parkingInfo([mdc('Gravel')])!, /trailer/i);
 });
 
 test('MVUM surface codes map onto the road_surface check vocabulary', () => {
@@ -102,10 +102,12 @@ test('the review sheet survives a CSV round trip, including quotes, commas and n
   const row: Proposal = {
     access_point_id: 'id-1', slug: 's', name: 'Name, "quoted"', river: 'r', field: 'parking_info',
     current: 'null', proposed: JSON.stringify('Gravel lot; trailers allowed (MDC).'), confidence: 'high',
-    evidence: 'line one\nline two', evidence_url: 'https://x/y?a=1&b=2', launch_map: '', proposed_map: '', note: '',
+    evidence: 'line one\nline two', evidence_url: 'https://x/y?a=1&b=2', launch_map: '', note: '',
   };
   const [back] = parseCsv(toCsv([row]));
-  assert.equal(back.accept, '');
+  assert.equal(back.accept, 'y', 'high-confidence rows are pre-accepted');
+  const [medium] = parseCsv(toCsv([{ ...row, confidence: 'medium' }]));
+  assert.equal(medium.accept, '');
   assert.equal(back.name, row.name);
   assert.equal(back.evidence, row.evidence);
   assert.equal(JSON.parse(back.proposed), 'Gravel lot; trailers allowed (MDC).');

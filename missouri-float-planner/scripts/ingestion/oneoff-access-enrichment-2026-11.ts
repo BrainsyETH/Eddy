@@ -6,11 +6,12 @@
  * agency evidence near each one, and writes a review sheet proposing values for
  * columns that already exist:
  *
- *   driving_pin       primary parking lot — MDC Parking Lots sharing the area ID
- *                     of the place's linked MDC boat ramp, or AGFC Parking Area
- *                     features linked to / named like the place. Refused when
- *                     far, on the opposite bank, or nearer another access point.
- *   parking_info      surface / trailer facts stated by the MDC lot.
+ *   parking_info      the surface of the agency parking lot(s) that belong to the
+ *                     place: MDC Parking Lots sharing the area ID of its linked
+ *                     MDC boat ramp, or AGFC Parking Areas linked to / named like
+ *                     it. A lot far away, on the opposite bank, or nearer another
+ *                     access point does not belong. No separate parking pin: the
+ *                     launch pin stays the place's only coordinate.
  *   amenities         additions only: parking, restrooms, camping, boat_ramp, picnic.
  *   managing_agency   PAD-US manager, linked agency feature, ownership text.
  *   official_site_url USFS INFRA recreation site within 300 m.
@@ -19,8 +20,8 @@
  *   ownership         exact spelling duplicates only; contradictions are flags.
  *
  * Only empty fields get proposals (amenities: only additions). Flags carry no
- * value and are never applied. Fill `accept` with `y` for rows to apply, then
- * run scripts/repair-access-enrichment-2026-11.ts.
+ * value and are never applied. `accept` is pre-filled `y` on high-confidence rows;
+ * review the rest, then run scripts/repair-access-enrichment-2026-11.ts.
  *
  * Run from missouri-float-planner/ (Node 20):
  *   npx tsx scripts/ingestion/oneoff-access-enrichment-2026-11.ts
@@ -33,8 +34,8 @@ import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson
 import { getScriptClient } from '../lib/db';
 import {
   type AgencySignal, type LngLat, type Lot, type Proposal, type ProposalField, type Confidence,
-  PADUS_NON_FEE, addAmenities, agencyFromOwnershipText, agencyFromPadus, chooseLot, chooseManagingAgency,
-  mapLink, mdcParkingInfo, metersBetween, mvumRoadSurface, nameCore, ownershipSpelling, toCsv,
+  PADUS_NON_FEE, addAmenities, agencyFromOwnershipText, agencyFromPadus, chooseManagingAgency, matchLots,
+  mapLink, metersBetween, parkingInfo, mvumRoadSurface, nameCore, ownershipSpelling, toCsv,
   usfsFeeRequired, usfsHasRestroom,
 } from './access-enrichment-2026-11';
 
@@ -126,7 +127,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R
 interface AccessRow {
   id: string; slug: string; name: string; river_id: string | null; approved: boolean | null;
   location_orig: { coordinates?: number[] } | null;
-  driving_lat: number | null; driving_lng: number | null; parking_info: string | null;
+  parking_info: string | null;
   amenities: string[] | null; managing_agency: string | null; ownership: string | null;
   official_site_url: string | null; fee_required: boolean | null; road_surface: string[] | null;
 }
@@ -164,7 +165,7 @@ async function main() {
     (a, b) => db.from('rivers').select('id, slug, geom').order('id').range(a, b));
   const riverById = new Map(rivers.map((r) => [r.id, r]));
   const all = await selectAll<AccessRow>((a, b) => db.from('access_points')
-    .select('id, slug, name, river_id, approved, location_orig, driving_lat, driving_lng, parking_info, amenities, managing_agency, ownership, official_site_url, fee_required, road_surface')
+    .select('id, slug, name, river_id, approved, location_orig, parking_info, amenities, managing_agency, ownership, official_site_url, fee_required, road_surface')
     .order('id').range(a, b));
   const pinOf = (r: AccessRow): LngLat | null => {
     const c = r.location_orig?.coordinates;
@@ -192,17 +193,17 @@ async function main() {
   const evidence: Record<string, unknown> = {};
   const proposals: Proposal[] = [];
   const counters = { padusCalls: 0, mvumCalls: 0 };
+  const lotTally = { matched: 0, refused: 0, none: 0, lots: 0 };
 
   await mapLimit(targets, 6, async (ap) => {
     const pin = pinOf(ap)!;
     const river = riverById.get(ap.river_id ?? '');
     const riverGeom = river?.geom ?? null;
     const push = (field: ProposalField, current: unknown, proposed: unknown, confidence: Confidence,
-      ev: string, url: string, note = '', proposedAt: LngLat | null = null) => proposals.push({
+      ev: string, url: string, note = '') => proposals.push({
       access_point_id: ap.id, slug: ap.slug, name: ap.name, river: river?.slug ?? '', field,
       current: JSON.stringify(current ?? null), proposed: confidence === 'flag' ? '' : JSON.stringify(proposed),
-      confidence, evidence: ev, evidence_url: url, launch_map: mapLink(pin),
-      proposed_map: proposedAt ? mapLink(proposedAt) : '', note,
+      confidence, evidence: ev, evidence_url: url, launch_map: mapLink(pin), note,
     });
     const near = (p: LngLat, m: number) => metersBetween(pin, p) <= m;
     const linked = sourcesRows.filter((s) => s.access_point_id === ap.id);
@@ -235,7 +236,9 @@ async function main() {
     const stateCode = pin[1] < 36.5 && !(pin[0] > -90.4 && pin[1] > 36.0) ? 'AR' : 'MO';
     const padus = parcel ? agencyFromPadus(parcel.manager_name, stateCode) : null;
 
-    // ── Parking pin + parking info ──────────────────────────────────────────
+    // ── Parking lots that belong to this access point ───────────────────────
+    // A lot is evidence about the place (there is parking; its surface), never
+    // a second pin. Lots nearer another access point belong to that one.
     const lots: Lot[] = [
       ...mdcNear(mdcParking, 1000).map((f): Lot => ({
         id: `mdc-lot-${f.attributes.OBJECTID}`, at: at(f), tie: 'same_area', provider: 'mdc',
@@ -246,23 +249,17 @@ async function main() {
         provider: 'agfc', url: s.source_feature_url, attributes: s.attributes,
       })),
     ];
-    let lotChosen = false;
-    if (lots.length && ap.driving_lat == null) {
-      const others = all.filter((o) => o.id !== ap.id).map(pinOf).filter((p): p is LngLat => !!p && metersBetween(pin, p) < 2000);
-      const { choice, refused } = chooseLot(pin, lots, others, riverGeom);
-      if (choice) {
-        lotChosen = true;
-        evidence[choice.lot.id] = choice.lot.attributes;
-        const [lng, lat] = choice.lot.at;
-        push('driving_pin', null, [Number(lat.toFixed(6)), Number(lng.toFixed(6))], choice.confidence,
-          `${choice.lot.provider.toUpperCase()} parking ${choice.lot.tie.replace('_', ' ')}: ${String(choice.lot.attributes.Area_Name ?? choice.lot.attributes.fname ?? '')}`,
-          choice.lot.url, [choice.note, ...refused.map((r) => `refused ${r}`)].join('; '), choice.lot.at);
-        const info = choice.lot.provider === 'mdc' ? mdcParkingInfo(choice.lot.attributes) : null;
-        if (info && !ap.parking_info) push('parking_info', null, info, choice.confidence, 'MDC Parking Lots layer', choice.lot.url);
-      } else if (refused.some((r) => r.includes('opposite bank'))) {
-        // Only the far-bank refusal is worth a look: a lot that close to the launch
-        // or nearer another place is refused correctly and silently.
-        push('driving_pin', null, null, 'flag', 'agency lot refused: opposite bank', '', refused.join('; '));
+    const others = all.filter((o) => o.id !== ap.id).map(pinOf).filter((p): p is LngLat => !!p && metersBetween(pin, p) < 2000);
+    const { match: lotMatch, refused: lotsRefused } = lots.length ? matchLots(pin, lots, others, riverGeom) : { match: null, refused: [] };
+    lotTally[lotMatch ? 'matched' : lots.length ? 'refused' : 'none']++;
+    if (lotMatch) {
+      lotTally.lots += lotMatch.lots.length;
+      for (const { lot } of lotMatch.lots) evidence[lot.id] = lot.attributes;
+      const info = parkingInfo(lotMatch.lots.map((l) => l.lot));
+      const named = lotMatch.lots.map((l) => `${l.lot.provider.toUpperCase()} ${l.lot.tie.replace('_', ' ')}: ${String(l.lot.attributes.Area_Name ?? l.lot.attributes.fname ?? l.lot.id)}`);
+      if (info && !ap.parking_info) {
+        push('parking_info', null, info, lotMatch.confidence, named.join(' | '), lotMatch.lots[0].lot.url,
+          [lotMatch.note, ...lotsRefused.map((r) => `refused ${r}`)].join('; '));
       }
     }
 
@@ -288,30 +285,34 @@ async function main() {
     }
 
     // ── Amenities (additions only) ──────────────────────────────────────────
-    const add: { a: string; why: string; url: string }[] = [];
-    if (lotChosen || linked.some((s) => s.source_type === 'Parking Area')) add.push({ a: 'parking', why: 'agency parking feature', url: lots[0]?.url ?? '' });
-    if (linked.some((s) => s.provider === 'mdc' && s.source_type === 'Boat Ramps')) add.push({ a: 'boat_ramp', why: 'MDC Boat Ramps layer', url: linked.find((s) => s.provider === 'mdc')!.source_feature_url });
+    // `firm`: tied to this place by a reviewed link or a shared agency area ID,
+    // rather than by proximity or a matching name.
+    const add: { a: string; why: string; url: string; firm: boolean }[] = [];
+    if (lotMatch) add.push({ a: 'parking', why: `${lotMatch.lots.length} agency parking lot(s)`, url: lotMatch.lots[0].lot.url, firm: lotMatch.confidence === 'high' });
+    if (linked.some((s) => s.provider === 'mdc' && s.source_type === 'Boat Ramps')) add.push({ a: 'boat_ramp', why: 'MDC Boat Ramps layer', url: linked.find((s) => s.provider === 'mdc')!.source_feature_url, firm: true });
     const privy = mdcNear(mdcPrivies, AMENITY_RADIUS_M)[0];
-    if (privy) add.push({ a: 'restrooms', why: 'MDC privy, same area', url: featureUrl(SOURCES.mdcPrivies.url, privy.attributes.OBJECTID) });
+    if (privy) add.push({ a: 'restrooms', why: 'MDC privy, same area', url: featureUrl(SOURCES.mdcPrivies.url, privy.attributes.OBJECTID), firm: true });
     const camp = mdcNear(mdcCamping, AMENITY_RADIUS_M)[0];
-    if (camp) add.push({ a: 'camping', why: `MDC camping site (${camp.attributes.Type ?? 'type n/a'}), same area`, url: featureUrl(SOURCES.mdcCamping.url, camp.attributes.OBJECTID) });
+    if (camp) add.push({ a: 'camping', why: `MDC camping site (${camp.attributes.Type ?? 'type n/a'}), same area`, url: featureUrl(SOURCES.mdcCamping.url, camp.attributes.OBJECTID), firm: true });
     const agfcRest = agfcNear(['Restroom'], AMENITY_RADIUS_M)[0];
-    if (agfcRest) add.push({ a: 'restrooms', why: 'AGFC Restroom', url: agfcRest.source_feature_url });
+    if (agfcRest) add.push({ a: 'restrooms', why: 'AGFC Restroom', url: agfcRest.source_feature_url, firm: agfcRest.access_point_id === ap.id });
     const agfcCamp = agfcNear(['RVs Allowed - No Hookups', 'RVs Allowed - Hookups and Dump', 'RVs Allowed - Hookups', 'Tents Only'], AMENITY_RADIUS_M)[0];
-    if (agfcCamp) add.push({ a: 'camping', why: `AGFC ${agfcCamp.source_type}`, url: agfcCamp.source_feature_url });
+    if (agfcCamp) add.push({ a: 'camping', why: `AGFC ${agfcCamp.source_type}`, url: agfcCamp.source_feature_url, firm: agfcCamp.access_point_id === ap.id });
     const agfcPicnic = agfcNear(['Picnic Area', 'Pavillion'], AMENITY_RADIUS_M)[0];
-    if (agfcPicnic) add.push({ a: 'picnic', why: `AGFC ${agfcPicnic.source_type}`, url: agfcPicnic.source_feature_url });
+    if (agfcPicnic) add.push({ a: 'picnic', why: `AGFC ${agfcPicnic.source_type}`, url: agfcPicnic.source_feature_url, firm: agfcPicnic.access_point_id === ap.id });
     if (site && site.m <= 150 && usfsHasRestroom(site.f.attributes.restroom_availability)) {
-      add.push({ a: 'restrooms', why: `USFS "${siteName}": ${site.f.attributes.restroom_availability}`, url: siteUrl });
+      add.push({ a: 'restrooms', why: `USFS "${siteName}": ${site.f.attributes.restroom_availability}`, url: siteUrl, firm: false });
     }
     if (site && site.m <= 150 && /CAMP/.test(String(site.f.attributes.site_subtype))) {
-      add.push({ a: 'camping', why: `USFS "${siteName}" (${site.f.attributes.site_subtype})`, url: siteUrl });
+      add.push({ a: 'camping', why: `USFS "${siteName}" (${site.f.attributes.site_subtype})`, url: siteUrl, firm: false });
     }
     const next = addAmenities(ap.amenities, add.map((x) => x.a));
     if (next) {
       const added = next.slice((ap.amenities ?? []).length);
-      const why = added.map((a) => `${a}: ${add.find((x) => x.a === a)!.why}`).join(' | ');
-      push('amenities', ap.amenities ?? [], next, 'medium', why, add.find((x) => added.includes(x.a))!.url);
+      // Cite the firmest source for each added amenity; the row is high only if every one is firm.
+      const best = added.map((a) => add.filter((x) => x.a === a).sort((x, y) => Number(y.firm) - Number(x.firm))[0]);
+      const why = best.map((b) => `${b.a}: ${b.why}`).join(' | ');
+      push('amenities', ap.amenities ?? [], next, best.every((b) => b.firm) ? 'high' : 'medium', why, best[0].url);
     }
 
     // ── Managing agency ─────────────────────────────────────────────────────
@@ -386,6 +387,7 @@ async function main() {
       mdc_parking: mdcParking.features.length, mdc_privies: mdcPrivies.features.length,
       mdc_camping: mdcCamping.features.length, usfs_sites_in_bbox: usfsSites.features.length,
       padus_lookups: counters.padusCalls, mvum_lookups: counters.mvumCalls,
+      parking: lotTally,
     },
     evidence,
   }, null, 2)}\n`);
@@ -393,6 +395,7 @@ async function main() {
   const summary: Record<string, Record<Confidence, number>> = {};
   for (const p of proposals) (summary[p.field] ??= { high: 0, medium: 0, low: 0, flag: 0 })[p.confidence]++;
   console.table(summary);
+  console.log(`Parking: ${lotTally.matched} access points matched ${lotTally.lots} agency lots; ${lotTally.refused} had candidates that all belong elsewhere or are too far/across the river; ${lotTally.none} had none.`);
   console.log(`Wrote ${proposals.length} rows to ${join(outDir, 'review.csv')}. Nothing was written to the database.`);
 }
 

@@ -14,7 +14,6 @@ import type { LineString, MultiLineString } from 'geojson';
 export type LngLat = [number, number];
 export type Confidence = 'high' | 'medium' | 'low' | 'flag';
 export type ProposalField =
-  | 'driving_pin'
   | 'parking_info'
   | 'amenities'
   | 'managing_agency'
@@ -55,12 +54,16 @@ export function sideOfRiver(pt: LngLat, river: LineString | MultiLineString): { 
   return { side: cross > 0 ? 1 : cross < 0 ? -1 : 0, meters };
 }
 
-// ── Parking pin ───────────────────────────────────────────────────────────────
+// ── Parking lots belong to their access point ────────────────────────────────
+//
+// A lot is never a pin of its own. It is evidence ABOUT the access point it
+// serves: that there is parking, and what surface it is. The launch pin stays
+// the place's only coordinate.
 
 export interface Lot {
   id: string;
   at: LngLat;
-  /** 'high' when the lot is tied to this place by a reviewed link or a shared agency area ID. */
+  /** How the lot is tied to this place: a reviewed link, a shared agency area ID, or the same name. */
   tie: 'linked' | 'same_area' | 'same_name';
   provider: 'mdc' | 'agfc';
   url: string;
@@ -68,27 +71,24 @@ export interface Lot {
 }
 
 export const MAX_LOT_M = 600;
-/** A lot this close adds nothing to directions the launch pin does not already give. */
-export const MIN_USEFUL_LOT_M = 25;
 
-export interface LotChoice {
-  lot: Lot;
-  meters: number;
+export interface LotMatch {
+  lots: { lot: Lot; meters: number }[];
   confidence: Confidence;
   note: string;
 }
 
 /**
- * The primary parking pin for one access point, or null with the reasons each
- * candidate lot was refused. A lot is refused when it is too far, on the far
- * bank, or nearer to another access point than to this one.
+ * The agency parking lots that belong to one access point, with the reasons
+ * any candidate was refused. A lot is refused when it is too far, on the far
+ * bank, or nearer another access point than this one (it belongs to that one).
  */
-export function chooseLot(
+export function matchLots(
   launch: LngLat,
   lots: Lot[],
   otherPins: LngLat[],
   river: LineString | MultiLineString | null,
-): { choice: LotChoice | null; refused: string[] } {
+): { match: LotMatch | null; refused: string[] } {
   const refused: string[] = [];
   const launchSide = river ? sideOfRiver(launch, river) : null;
   const ok: { lot: Lot; meters: number }[] = [];
@@ -102,27 +102,36 @@ export function chooseLot(
     if (otherPins.some((o) => metersBetween(o, lot.at) < meters)) { refused.push(`${lot.id}: nearer another access point`); continue; }
     ok.push({ lot, meters });
   }
-  if (ok.length === 0) return { choice: null, refused };
-  const rank = { linked: 0, same_area: 1, same_name: 2 } as const;
-  ok.sort((x, y) => rank[x.lot.tie] - rank[y.lot.tie] || x.meters - y.meters);
-  const best = ok[0];
-  if (best.meters < MIN_USEFUL_LOT_M) return { choice: null, refused: [...refused, `${best.lot.id}: ${Math.round(best.meters)} m, same as launch pin`] };
-  const notes = [`${Math.round(best.meters)} m from launch`];
+  if (ok.length === 0) return { match: null, refused };
+  ok.sort((x, y) => x.meters - y.meters);
+  const notes = [`${ok.length} lot(s), ${ok.map((o) => `${Math.round(o.meters)} m`).join(', ')} from launch`];
+  const bankChecked = !!river && launchSide?.side !== 0;
   if (!river) notes.push('river geometry missing; bank not checked');
-  else if (launchSide?.side === 0) notes.push('launch pin is on the river line; bank not checked');
-  if (ok.length > 1) notes.push(`${ok.length - 1} other lot(s) also qualify`);
-  const confidence: Confidence =
-    best.lot.tie === 'same_name' || !river || launchSide?.side === 0 ? 'medium' : best.meters <= 400 ? 'high' : 'medium';
-  return { choice: { lot: best.lot, meters: best.meters, confidence, note: notes.join('; ') }, refused };
+  else if (!bankChecked) notes.push('launch pin is on the river line; bank not checked');
+  const firm = ok.every((o) => o.lot.tie !== 'same_name' && o.meters <= 400);
+  return { match: { lots: ok, confidence: firm && bankChecked ? 'high' : 'medium', note: notes.join('; ') }, refused };
 }
 
-/** "Gravel lot; trailers allowed (MDC)." Only what the MDC layer states. */
-export function mdcParkingInfo(attrs: Record<string, unknown>): string | null {
-  const surface = typeof attrs.Surface === 'string' && attrs.Surface.trim() ? attrs.Surface.trim() : null;
-  const trailers = attrs.Allows_Trailers === 'Yes' ? 'trailers allowed' : attrs.Allows_Trailers === 'No' ? 'no trailers' : null;
-  if (!surface && !trailers) return null;
-  const parts = [surface ? `${surface} lot` : 'Parking lot', trailers].filter(Boolean);
-  return `${parts.join('; ')} (MDC).`;
+/** The surface a lot record states: MDC `Surface`, AGFC `fdescrip` (Paved/Gravel/Dirt). */
+export function lotSurface(lot: Lot): string | null {
+  const raw = lot.provider === 'mdc' ? lot.attributes.Surface : lot.attributes.fdescrip;
+  return typeof raw === 'string' && /^(paved|gravel|dirt|concrete|asphalt)$/i.test(raw.trim()) ? raw.trim().toLowerCase() : null;
+}
+
+/**
+ * "Paved lot (MDC)." / "2 gravel lots (AGFC)." / "2 lots: paved, dirt (AGFC)."
+ * Surface only. MDC's Allows_Trailers is deliberately not used: its meaning is
+ * unconfirmed, and "no trailers" at a boat ramp would be a costly misreading.
+ */
+export function parkingInfo(lots: Lot[]): string | null {
+  const surfaces = lots.map(lotSurface).filter((s): s is string => s !== null);
+  if (surfaces.length === 0) return null;
+  const who = [...new Set(lots.map((l) => l.provider.toUpperCase()))].join('/');
+  const kinds = [...new Set(surfaces)];
+  const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+  if (lots.length === 1) return `${cap(surfaces[0])} lot (${who}).`;
+  if (kinds.length === 1 && surfaces.length === lots.length) return `${lots.length} ${kinds[0]} lots (${who}).`;
+  return `${lots.length} lots: ${kinds.join(', ')} (${who}).`;
 }
 
 // ── Road surface (MVUM) ───────────────────────────────────────────────────────
@@ -239,13 +248,12 @@ export interface Proposal {
   evidence: string;
   evidence_url: string;
   launch_map: string;
-  proposed_map: string;
   note: string;
 }
 
 export const PROPOSAL_COLUMNS: (keyof Proposal | 'accept')[] = [
   'accept', 'confidence', 'river', 'slug', 'name', 'field', 'current', 'proposed',
-  'evidence', 'evidence_url', 'launch_map', 'proposed_map', 'note', 'access_point_id',
+  'evidence', 'evidence_url', 'launch_map', 'note', 'access_point_id',
 ];
 
 export const mapLink = ([lng, lat]: LngLat) => `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
@@ -257,7 +265,8 @@ export function csvCell(value: unknown): string {
 
 export function toCsv(rows: Proposal[]): string {
   const lines = [PROPOSAL_COLUMNS.join(',')];
-  for (const r of rows) lines.push(PROPOSAL_COLUMNS.map((c) => csvCell(c === 'accept' ? '' : r[c])).join(','));
+  // High-confidence rows are pre-accepted; a reviewer clears any they disagree with.
+  for (const r of rows) lines.push(PROPOSAL_COLUMNS.map((c) => csvCell(c === 'accept' ? (r.confidence === 'high' ? 'y' : '') : r[c])).join(','));
   return `${lines.join('\n')}\n`;
 }
 

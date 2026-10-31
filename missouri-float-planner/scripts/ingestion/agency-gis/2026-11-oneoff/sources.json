@@ -1,5 +1,5 @@
 {
-  "retrieved_at": "2026-10-31T15:33:13.086Z",
+  "retrieved_at": "2026-10-31T18:02:49.639Z",
   "scope": "all approved access points",
   "access_points": 362,
   "layers": {
@@ -15,40 +15,15 @@
     "mdc_camping": 620,
     "usfs_sites_in_bbox": 401,
     "padus_lookups": 362,
-    "mvum_lookups": 22
+    "mvum_lookups": 22,
+    "parking": {
+      "matched": 111,
+      "refused": 1,
+      "none": 250,
+      "lots": 141
+    }
   },
   "evidence": {
-    "agfc-05c710a8-db82-4344-a16f-ec41161db880": {
-      "wma": null,
-      "fcat": 2,
-      "fname": "Ravenden Access Parking Area",
-      "ftype": "Parking Area",
-      "hyp_1": null,
-      "owner": "AGFC",
-      "county": "38",
-      "flabel": "Ravenden ",
-      "comments": "Concrete per Fisheries Division Newsletter",
-      "fdescrip": "Paved",
-      "globalid": "{05C710A8-DB82-4344-A16F-EC41161DB880}",
-      "location": "Ravenden",
-      "objectid": 2477,
-      "waterbody": "Spring River",
-      "last_verified_date": 1332892800000
-    },
-    "usfs-site-5328.006571": {
-      "objectid": 4070314,
-      "site_cn": "5328.006571",
-      "site_name": "HIGH BANK",
-      "public_site_name": "High Bank",
-      "site_subtype": "BOATING SITE",
-      "development_status": "EXISTING",
-      "fee_charged": "N",
-      "fee_description": "No fees are required for this site",
-      "usda_portal_url": "https://www.fs.usda.gov/recarea/osfnf/recreation/recarea/?recid=82725",
-      "rec1stop_url": null,
-      "restroom_availability": "Vault toilet(s)",
-      "open_season": null
-    },
     "agfc-8f085022-1deb-4b90-bdc2-b39d07e26903": {
       "wma": null,
       "fcat": 2,
@@ -66,22 +41,53 @@
       "waterbody": "White River Bull Shoals Tailwater",
       "last_verified_date": 1756339200000
     },
-    "agfc-4c33b708-5899-4ab8-90df-c31310a8d7d5": {
-      "wma": "Buffalo National River WMA",
+    "agfc-e1fb0cc5-c987-4ef4-992b-7de9fb4d39e9": {
+      "wma": null,
       "fcat": 2,
-      "fname": "Tyler Bend Parking Area #3",
+      "fname": "Wildcat Shoals Access Upper Parking Area",
       "ftype": "Parking Area",
-      "hyp_1": "http://www.nps.gov/buff/index.htm#",
-      "owner": "NPS",
-      "county": "65",
-      "flabel": "Tyler Bend",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "03",
+      "flabel": null,
       "comments": null,
       "fdescrip": "Paved",
-      "globalid": "{4C33B708-5899-4AB8-90DF-C31310A8D7D5}",
-      "location": "Buffalo River National Park",
-      "objectid": 2782,
-      "waterbody": "Buffalo River",
-      "last_verified_date": 1347408000000
+      "globalid": "{E1FB0CC5-C987-4EF4-992B-7DE9FB4D39E9}",
+      "location": "Wildcat Shoals Access",
+      "objectid": 22102,
+      "waterbody": "White River Bull Shoals Tailwater",
+      "last_verified_date": 1756339200000
+    },
+    "usfs-site-5328.006571": {
+      "objectid": 4070314,
+      "site_cn": "5328.006571",
+      "site_name": "HIGH BANK",
+      "public_site_name": "High Bank",
+      "site_subtype": "BOATING SITE",
+      "development_status": "EXISTING",
+      "fee_charged": "N",
+      "fee_description": "No fees are required for this site",
+      "usda_portal_url": "https://www.fs.usda.gov/recarea/osfnf/recreation/recarea/?recid=82725",
+      "rec1stop_url": null,
+      "restroom_availability": "Vault toilet(s)",
+      "open_season": null
+    },
+    "agfc-05c710a8-db82-4344-a16f-ec41161db880": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Ravenden Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "38",
+      "flabel": "Ravenden ",
+      "comments": "Concrete per Fisheries Division Newsletter",
+      "fdescrip": "Paved",
+      "globalid": "{05C710A8-DB82-4344-A16F-EC41161DB880}",
+      "location": "Ravenden",
+      "objectid": 2477,
+      "waterbody": "Spring River",
+      "last_verified_date": 1332892800000
     },
     "mvum-17299682": {
       "objectid": 17299682,
@@ -101,6 +107,40 @@
       "Surface": "Paved",
       "Allows_Trailers": "No",
       "ADA": "No"
+    },
+    "agfc-4c33b708-5899-4ab8-90df-c31310a8d7d5": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Tyler Bend Parking Area #3",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "65",
+      "flabel": "Tyler Bend",
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{4C33B708-5899-4AB8-90DF-C31310A8D7D5}",
+      "location": "Buffalo River National Park",
+      "objectid": 2782,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347408000000
+    },
+    "agfc-67b8c972-a6d7-41e2-9f7d-2dfe63540b04": {
+      "wma": "Sylamore WMA",
+      "fcat": 2,
+      "fname": "Calico Rock Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "33",
+      "flabel": "Calico Rock ",
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{67B8C972-A6D7-41E2-9F7D-2DFE63540B04}",
+      "location": null,
+      "objectid": 2747,
+      "waterbody": "White River",
+      "last_verified_date": 1333324800000
     },
     "mdc-lot-1651": {
       "OBJECTID": 1651,
@@ -144,6 +184,14 @@
       "waterbody": "Buffalo River",
       "last_verified_date": 1347321600000
     },
+    "mdc-lot-281": {
+      "OBJECTID": 281,
+      "Area_ID": 6508,
+      "Area_Name": "Union Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "mdc-lot-724": {
       "OBJECTID": 724,
       "Area_ID": 9517,
@@ -152,11 +200,11 @@
       "Allows_Trailers": "No",
       "ADA": "Yes"
     },
-    "mdc-lot-1135": {
-      "OBJECTID": 1135,
-      "Area_ID": 7827,
-      "Area_Name": "Scotts Ford Access",
-      "Surface": "Paved",
+    "mdc-lot-1947": {
+      "OBJECTID": 1947,
+      "Area_ID": 9517,
+      "Area_Name": "Ralph Cox Memorial Access",
+      "Surface": "Gravel",
       "Allows_Trailers": "No",
       "ADA": "No"
     },
@@ -177,19 +225,30 @@
       "waterbody": "Kings River",
       "last_verified_date": null
     },
-    "usfs-site-6800411010602": {
-      "objectid": 4066389,
-      "site_cn": "6800411010602",
-      "site_name": "SILVER MINES DAY USE AREA",
-      "public_site_name": null,
-      "site_subtype": "DAY USE AREA",
-      "development_status": "EXISTING",
-      "fee_charged": "Y",
-      "fee_description": null,
-      "usda_portal_url": null,
-      "rec1stop_url": null,
-      "restroom_availability": null,
-      "open_season": null
+    "mdc-lot-1135": {
+      "OBJECTID": 1135,
+      "Area_ID": 7827,
+      "Area_Name": "Scotts Ford Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "agfc-e748f534-cdf0-4d30-9e45-dbcd9fa8410a": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Bill Ackerman River Ridge Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "03",
+      "flabel": null,
+      "comments": "Bill Ackerman Access is owned by the AG&FC – donated – deed in D2 office.",
+      "fdescrip": "Paved",
+      "globalid": "{E748F534-CDF0-4D30-9E45-DBCD9FA8410A}",
+      "location": null,
+      "objectid": 2831,
+      "waterbody": "North Fork White River",
+      "last_verified_date": 1332806400000
     },
     "mdc-lot-1498": {
       "OBJECTID": 1498,
@@ -198,14 +257,6 @@
       "Surface": "Gravel",
       "Allows_Trailers": "No",
       "ADA": "Yes"
-    },
-    "mdc-lot-2133": {
-      "OBJECTID": 2133,
-      "Area_ID": 9234,
-      "Area_Name": "Camp Branch Access",
-      "Surface": "Paved",
-      "Allows_Trailers": "No",
-      "ADA": "No"
     },
     "agfc-76c71324-3923-4f60-a76d-f11f24a418a4": {
       "wma": null,
@@ -224,13 +275,27 @@
       "waterbody": "Spring River",
       "last_verified_date": null
     },
-    "mdc-lot-283": {
-      "OBJECTID": 283,
-      "Area_ID": 7920,
-      "Area_Name": "Mayers Landing Access",
+    "mdc-lot-2133": {
+      "OBJECTID": 2133,
+      "Area_ID": 9234,
+      "Area_Name": "Camp Branch Access",
       "Surface": "Paved",
       "Allows_Trailers": "No",
       "ADA": "No"
+    },
+    "usfs-site-6800411010602": {
+      "objectid": 4066389,
+      "site_cn": "6800411010602",
+      "site_name": "SILVER MINES DAY USE AREA",
+      "public_site_name": null,
+      "site_subtype": "DAY USE AREA",
+      "development_status": "EXISTING",
+      "fee_charged": "Y",
+      "fee_description": null,
+      "usda_portal_url": null,
+      "rec1stop_url": null,
+      "restroom_availability": null,
+      "open_season": null
     },
     "mdc-lot-1949": {
       "OBJECTID": 1949,
@@ -257,6 +322,14 @@
       "waterbody": "Buffalo River",
       "last_verified_date": 1347235200000
     },
+    "mdc-lot-283": {
+      "OBJECTID": 283,
+      "Area_ID": 7920,
+      "Area_Name": "Mayers Landing Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "usfs-site-6451380010602": {
       "objectid": 4068213,
       "site_cn": "6451380010602",
@@ -279,16 +352,32 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
-    "usfs-site-5090.007271": {
-      "objectid": 4066352,
-      "site_cn": "5090.007271",
-      "site_name": "SLABTOWN",
-      "public_site_name": "Slabtown",
-      "site_subtype": "CAMPING AREA",
+    "mdc-lot-435": {
+      "OBJECTID": 435,
+      "Area_ID": 6320,
+      "Area_Name": "Bennett Spring Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
+    "mdc-lot-434": {
+      "OBJECTID": 434,
+      "Area_ID": 6320,
+      "Area_Name": "Bennett Spring Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
+    "usfs-site-5219.006571": {
+      "objectid": 4044515,
+      "site_cn": "5219.006571",
+      "site_name": "WOLF PEN CG",
+      "public_site_name": "Wolf Pen Campground",
+      "site_subtype": "CAMPGROUND",
       "development_status": "EXISTING",
-      "fee_charged": "N",
-      "fee_description": "No fees are required for this site",
-      "usda_portal_url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21812",
+      "fee_charged": "Y",
+      "fee_description": "Overnight Use:\nSingle Site: $10 per night\nDay Use: $3 per vehicle/day",
+      "usda_portal_url": "https://www.fs.usda.gov/recarea/osfnf/recarea/?recid=43505",
       "rec1stop_url": null,
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
@@ -301,16 +390,16 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
-    "usfs-site-5219.006571": {
-      "objectid": 4044515,
-      "site_cn": "5219.006571",
-      "site_name": "WOLF PEN CG",
-      "public_site_name": "Wolf Pen Campground",
-      "site_subtype": "CAMPGROUND",
+    "usfs-site-5090.007271": {
+      "objectid": 4066352,
+      "site_cn": "5090.007271",
+      "site_name": "SLABTOWN",
+      "public_site_name": "Slabtown",
+      "site_subtype": "CAMPING AREA",
       "development_status": "EXISTING",
-      "fee_charged": "Y",
-      "fee_description": "Overnight Use:\nSingle Site: $10 per night\nDay Use: $3 per vehicle/day",
-      "usda_portal_url": "https://www.fs.usda.gov/recarea/osfnf/recarea/?recid=43505",
+      "fee_charged": "N",
+      "fee_description": "No fees are required for this site",
+      "usda_portal_url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21812",
       "rec1stop_url": null,
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
@@ -350,6 +439,39 @@
       "objectid": 2839,
       "waterbody": "Dry Run Creek",
       "last_verified_date": 1332806400000
+    },
+    "agfc-91d559c8-9fc0-486a-a174-5997b278a5b1": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Dam Quarry Campground Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.reserveamerica.com/camping/Dam_Quarry/r/campgroundDetails.do?contractCode=NRSO&parkId=71122",
+      "owner": "USACOE",
+      "county": "03",
+      "flabel": null,
+      "comments": "ACOE owned, paved parking lot, concrete boat ramp, picnic tables, walk-in access",
+      "fdescrip": "Paved",
+      "globalid": "{91D559C8-9FC0-486A-A174-5997B278A5B1}",
+      "location": null,
+      "objectid": 2432,
+      "waterbody": "Norfork White River",
+      "last_verified_date": 1332806400000
+    },
+    "mdc-lot-1024": {
+      "OBJECTID": 1024,
+      "Area_ID": 9734,
+      "Area_Name": "Van Buren Riverfront Park",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-1023": {
+      "OBJECTID": 1023,
+      "Area_ID": 9734,
+      "Area_Name": "Van Buren Riverfront Park",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
     },
     "mdc-lot-778": {
       "OBJECTID": 778,
@@ -456,6 +578,14 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
+    "mdc-lot-615": {
+      "OBJECTID": 615,
+      "Area_ID": 7301,
+      "Area_Name": "Patrick Bridge Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
     "usfs-site-5186.007271": {
       "objectid": 4072130,
       "site_cn": "5186.007271",
@@ -486,6 +616,23 @@
       "objectid": 2663,
       "waterbody": "Dry Run Creek",
       "last_verified_date": 1338940800000
+    },
+    "agfc-94ed9b34-fa21-4779-ab24-a9432ab74654": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Dry Run Creek Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "USACOE",
+      "county": "03",
+      "flabel": null,
+      "comments": " Norfork National Fish Hatchery Parking Area",
+      "fdescrip": "Paved",
+      "globalid": "{94ED9B34-FA21-4779-AB24-A9432AB74654}",
+      "location": " Norfork National Fish Hatchery",
+      "objectid": 2192,
+      "waterbody": "Dry Run Creek",
+      "last_verified_date": 1332806400000
     },
     "mdc-lot-1558": {
       "OBJECTID": 1558,
@@ -537,6 +684,23 @@
       "waterbody": "Crooked Creek",
       "last_verified_date": 1309910400000
     },
+    "agfc-d75dc963-1015-4959-81a0-5910165b2853": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Bayou Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "25",
+      "flabel": null,
+      "comments": "Loop Parking Area",
+      "fdescrip": "Gravel",
+      "globalid": "{D75DC963-1015-4959-81A0-5910165B2853}",
+      "location": null,
+      "objectid": 2827,
+      "waterbody": "Spring River",
+      "last_verified_date": null
+    },
     "agfc-ca364769-034b-4010-9da2-7315ccb52752": {
       "wma": "Sylamore WMA",
       "fcat": 2,
@@ -554,14 +718,6 @@
       "waterbody": "White River",
       "last_verified_date": 1333324800000
     },
-    "mdc-lot-3236": {
-      "OBJECTID": 3236,
-      "Area_ID": 8024,
-      "Area_Name": "Lead Mine Conservation Area",
-      "Surface": "Paved",
-      "Allows_Trailers": "No",
-      "ADA": "No"
-    },
     "agfc-62e6ac18-f3ce-4952-9c2a-e8b9eda6e4a9": {
       "wma": "Buffalo National River WMA",
       "fcat": 2,
@@ -578,6 +734,39 @@
       "objectid": 2867,
       "waterbody": "Buffalo River",
       "last_verified_date": 1347408000000
+    },
+    "mdc-lot-3236": {
+      "OBJECTID": 3236,
+      "Area_ID": 8024,
+      "Area_Name": "Lead Mine Conservation Area",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-3235": {
+      "OBJECTID": 3235,
+      "Area_ID": 8024,
+      "Area_Name": "Lead Mine Conservation Area",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "agfc-bad497d6-7460-49c2-aa75-0dfe96ff2dcc": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Glenwood Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "City",
+      "county": "55",
+      "flabel": "Glenwood",
+      "comments": "Owned by City of Glenwood",
+      "fdescrip": "Paved",
+      "globalid": "{BAD497D6-7460-49C2-AA75-0DFE96FF2DCC}",
+      "location": null,
+      "objectid": 2628,
+      "waterbody": "Caddo River",
+      "last_verified_date": null
     },
     "agfc-0c844c27-4da6-4ace-8cf4-02dffddc472d": {
       "wma": "Buffalo National River WMA",
@@ -624,6 +813,20 @@
       "restroom_availability": null,
       "open_season": null
     },
+    "usfs-site-1382939010602": {
+      "objectid": 4045693,
+      "site_cn": "1382939010602",
+      "site_name": "REDDING (OHT)",
+      "public_site_name": "Redding",
+      "site_subtype": "TRAILHEAD",
+      "development_status": "EXISTING",
+      "fee_charged": "Y",
+      "fee_description": "No fees are required for this site",
+      "usda_portal_url": "https://www.fs.usda.gov/recarea/osfnf/recreation/recarea/?recid=43467",
+      "rec1stop_url": null,
+      "restroom_availability": "Flush toilet(s) available in Redding CG",
+      "open_season": null
+    },
     "agfc-dea9af37-0a76-4daa-95b6-7c5e31f236aa": {
       "wma": "Buffalo National River WMA",
       "fcat": 2,
@@ -640,20 +843,6 @@
       "objectid": 2555,
       "waterbody": "Buffalo River",
       "last_verified_date": 1347321600000
-    },
-    "usfs-site-1382939010602": {
-      "objectid": 4045693,
-      "site_cn": "1382939010602",
-      "site_name": "REDDING (OHT)",
-      "public_site_name": "Redding",
-      "site_subtype": "TRAILHEAD",
-      "development_status": "EXISTING",
-      "fee_charged": "Y",
-      "fee_description": "No fees are required for this site",
-      "usda_portal_url": "https://www.fs.usda.gov/recarea/osfnf/recreation/recarea/?recid=43467",
-      "rec1stop_url": null,
-      "restroom_availability": "Flush toilet(s) available in Redding CG",
-      "open_season": null
     },
     "agfc-425dad12-c7ab-4018-8a56-01287e813067": {
       "wma": null,
@@ -683,17 +872,6 @@
       "atv": null,
       "districtname": "Doniphan / Eleven Point Ranger District"
     },
-    "mvum-17286467": {
-      "objectid": 17286467,
-      "id": "1003N",
-      "name": "REDDING",
-      "surfacetype": "AGG - CRUSHED AGGREGATE OR GRAVEL",
-      "seasonal": "yearlong",
-      "passengervehicle": "open",
-      "highclearancevehicle": "open",
-      "atv": null,
-      "districtname": "Pleasant Hill Ranger District"
-    },
     "usfs-site-5339.007271": {
       "objectid": 4069789,
       "site_cn": "5339.007271",
@@ -707,6 +885,17 @@
       "rec1stop_url": null,
       "restroom_availability": "No restroom available",
       "open_season": null
+    },
+    "mvum-17286467": {
+      "objectid": 17286467,
+      "id": "1003N",
+      "name": "REDDING",
+      "surfacetype": "AGG - CRUSHED AGGREGATE OR GRAVEL",
+      "seasonal": "yearlong",
+      "passengervehicle": "open",
+      "highclearancevehicle": "open",
+      "atv": null,
+      "districtname": "Pleasant Hill Ranger District"
     },
     "usfs-site-5059.007271": {
       "objectid": 4069465,
@@ -722,17 +911,6 @@
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
     },
-    "mvum-17408570": {
-      "objectid": 17408570,
-      "id": "3140",
-      "name": "BAY NOTHING RECREATION AREA",
-      "surfacetype": "AGG - CRUSHED AGGREGATE OR GRAVEL",
-      "seasonal": "yearlong",
-      "passengervehicle": "open",
-      "highclearancevehicle": "open",
-      "atv": null,
-      "districtname": "Doniphan / Eleven Point Ranger District"
-    },
     "usfs-site-5156.007271": {
       "objectid": 4074360,
       "site_cn": "5156.007271",
@@ -746,6 +924,25 @@
       "rec1stop_url": null,
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
+    },
+    "mdc-lot-1806": {
+      "OBJECTID": 1806,
+      "Area_ID": 9629,
+      "Area_Name": "Bradley A. Hammer Memorial Conservation Area",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mvum-17408570": {
+      "objectid": 17408570,
+      "id": "3140",
+      "name": "BAY NOTHING RECREATION AREA",
+      "surfacetype": "AGG - CRUSHED AGGREGATE OR GRAVEL",
+      "seasonal": "yearlong",
+      "passengervehicle": "open",
+      "highclearancevehicle": "open",
+      "atv": null,
+      "districtname": "Doniphan / Eleven Point Ranger District"
     },
     "agfc-a6ac123f-68cb-4fd5-b156-33ab0dd5efa6": {
       "wma": "Buffalo National River WMA",
@@ -786,6 +983,22 @@
       "restroom_availability": null,
       "open_season": null
     },
+    "mdc-lot-542": {
+      "OBJECTID": 542,
+      "Area_ID": 8306,
+      "Area_Name": "Delaware Town Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-541": {
+      "OBJECTID": 541,
+      "Area_ID": 8306,
+      "Area_Name": "Delaware Town Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "mvum-17407882": {
       "objectid": 17407882,
       "id": "805",
@@ -797,6 +1010,30 @@
       "atv": null,
       "districtname": null
     },
+    "mdc-lot-1028": {
+      "OBJECTID": 1028,
+      "Area_ID": 5601,
+      "Area_Name": "Shepherd of the Hills Fish Hatchery",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
+    "mdc-lot-1029": {
+      "OBJECTID": 1029,
+      "Area_ID": 5601,
+      "Area_Name": "Shepherd of the Hills Fish Hatchery",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-2309": {
+      "OBJECTID": 2309,
+      "Area_ID": 5601,
+      "Area_Name": "Shepherd of the Hills Fish Hatchery",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "mdc-lot-259": {
       "OBJECTID": 259,
       "Area_ID": 6712,
@@ -805,10 +1042,10 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
-    "mdc-lot-1028": {
-      "OBJECTID": 1028,
-      "Area_ID": 5601,
-      "Area_Name": "Shepherd of the Hills Fish Hatchery",
+    "mdc-lot-258": {
+      "OBJECTID": 258,
+      "Area_ID": 6712,
+      "Area_Name": "Helds Island Access",
       "Surface": "Paved",
       "Allows_Trailers": "No",
       "ADA": "Yes"
@@ -855,6 +1092,14 @@
       "waterbody": "White River",
       "last_verified_date": null
     },
+    "mdc-lot-369": {
+      "OBJECTID": 369,
+      "Area_ID": 6424,
+      "Area_Name": "Bell Chute Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
     "agfc-57d5319d-dee9-4838-94c3-c2792de86649": {
       "wma": "Sylamore WMA",
       "fcat": 2,
@@ -872,14 +1117,6 @@
       "waterbody": "White River",
       "last_verified_date": null
     },
-    "mdc-lot-369": {
-      "OBJECTID": 369,
-      "Area_ID": 6424,
-      "Area_Name": "Bell Chute Access",
-      "Surface": "Paved",
-      "Allows_Trailers": "No",
-      "ADA": "Yes"
-    },
     "mdc-lot-1593": {
       "OBJECTID": 1593,
       "Area_ID": 7707,
@@ -895,6 +1132,39 @@
       "Surface": "Paved",
       "Allows_Trailers": "No",
       "ADA": "No"
+    },
+    "mdc-lot-1077": {
+      "OBJECTID": 1077,
+      "Area_ID": 8036,
+      "Area_Name": "Buzzard Bluff Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-1076": {
+      "OBJECTID": 1076,
+      "Area_ID": 8036,
+      "Area_Name": "Buzzard Bluff Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "agfc-f2544c21-e139-42ec-96f4-b11e747276ae": {
+      "wma": "Sylamore WMA",
+      "fcat": 2,
+      "fname": "Cartney Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "03",
+      "flabel": "Cartney ",
+      "comments": null,
+      "fdescrip": "Gravel",
+      "globalid": "{F2544C21-E139-42EC-96F4-B11E747276AE}",
+      "location": null,
+      "objectid": 2806,
+      "waterbody": "White River",
+      "last_verified_date": null
     },
     "mdc-lot-1740": {
       "OBJECTID": 1740,
@@ -921,28 +1191,19 @@
       "waterbody": "Crooked Creek",
       "last_verified_date": 1493078400000
     },
-    "agfc-f2544c21-e139-42ec-96f4-b11e747276ae": {
-      "wma": "Sylamore WMA",
-      "fcat": 2,
-      "fname": "Cartney Access Parking Area",
-      "ftype": "Parking Area",
-      "hyp_1": null,
-      "owner": "AGFC",
-      "county": "03",
-      "flabel": "Cartney ",
-      "comments": null,
-      "fdescrip": "Gravel",
-      "globalid": "{F2544C21-E139-42EC-96F4-B11E747276AE}",
-      "location": null,
-      "objectid": 2806,
-      "waterbody": "White River",
-      "last_verified_date": null
-    },
     "mdc-lot-584": {
       "OBJECTID": 584,
       "Area_ID": 6413,
       "Area_Name": "H. L. Kerr Access",
       "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-7806": {
+      "OBJECTID": 7806,
+      "Area_ID": 6413,
+      "Area_Name": "H. L. Kerr Access",
+      "Surface": "Gravel",
       "Allows_Trailers": "No",
       "ADA": "No"
     },
@@ -965,6 +1226,14 @@
       "Area_ID": 9119,
       "Area_Name": "Roselle Access",
       "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-341": {
+      "OBJECTID": 341,
+      "Area_ID": 8914,
+      "Area_Name": "Brown's Ford Access",
+      "Surface": "Gravel",
       "Allows_Trailers": "No",
       "ADA": "No"
     },
@@ -999,14 +1268,6 @@
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
     },
-    "mdc-lot-711": {
-      "OBJECTID": 711,
-      "Area_ID": 5702,
-      "Area_Name": "Huzzah Conservation Area",
-      "Surface": "Paved",
-      "Allows_Trailers": "No",
-      "ADA": "No"
-    },
     "usfs-site-5179.007271": {
       "objectid": 4058782,
       "site_cn": "5179.007271",
@@ -1020,6 +1281,14 @@
       "rec1stop_url": null,
       "restroom_availability": null,
       "open_season": null
+    },
+    "mdc-lot-711": {
+      "OBJECTID": 711,
+      "Area_ID": 5702,
+      "Area_Name": "Huzzah Conservation Area",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
     },
     "agfc-9be9ba34-fc36-4a2c-adf0-a5ad4bc2496f": {
       "wma": null,
@@ -1077,22 +1346,37 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
-    "agfc-50f3de6c-5dbd-446b-9f5f-2af04dca97d3": {
-      "wma": "McIlroy Madison County WMA",
-      "fcat": 2,
-      "fname": "Rockhouse Parking Parking Area",
-      "ftype": "Parking Area",
-      "hyp_1": null,
-      "owner": "Missing",
-      "county": "44",
-      "flabel": null,
-      "comments": "Source w:\\PamStarks\\CompletedWMAs\\MadisonCoWMA\\; Loaded to can (wcw_10/23/07) 11:25:00 AM",
-      "fdescrip": "Dirt",
-      "globalid": "{50F3DE6C-5DBD-446B-9F5F-2AF04DCA97D3}",
-      "location": null,
-      "objectid": 2597,
-      "waterbody": "Kings River",
-      "last_verified_date": null
+    "mdc-lot-398": {
+      "OBJECTID": 398,
+      "Area_ID": 7511,
+      "Area_Name": "Schlicht Springs Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
+    "mdc-lot-1618": {
+      "OBJECTID": 1618,
+      "Area_ID": 8402,
+      "Area_Name": "Campbell Bridge Access",
+      "Surface": "Gravel",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
+    "mdc-lot-1617": {
+      "OBJECTID": 1617,
+      "Area_ID": 8402,
+      "Area_Name": "Campbell Bridge Access",
+      "Surface": "Gravel",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-1619": {
+      "OBJECTID": 1619,
+      "Area_ID": 8402,
+      "Area_Name": "Campbell Bridge Access",
+      "Surface": "Gravel",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
     },
     "agfc-786f38a9-d248-4642-a459-fb159e3e489a": {
       "wma": null,
@@ -1150,6 +1434,14 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
+    "mdc-lot-339": {
+      "OBJECTID": 339,
+      "Area_ID": 5912,
+      "Area_Name": "Paydown Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "mdc-lot-396": {
       "OBJECTID": 396,
       "Area_ID": 6409,
@@ -1158,13 +1450,22 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
-    "mdc-lot-282": {
-      "OBJECTID": 282,
-      "Area_ID": 9407,
-      "Area_Name": "Dr. Henry A. and Amalia Uhlemeyer Access",
-      "Surface": "Paved",
-      "Allows_Trailers": "No",
-      "ADA": "Yes"
+    "agfc-50f3de6c-5dbd-446b-9f5f-2af04dca97d3": {
+      "wma": "McIlroy Madison County WMA",
+      "fcat": 2,
+      "fname": "Rockhouse Parking Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "Missing",
+      "county": "44",
+      "flabel": null,
+      "comments": "Source w:\\PamStarks\\CompletedWMAs\\MadisonCoWMA\\; Loaded to can (wcw_10/23/07) 11:25:00 AM",
+      "fdescrip": "Dirt",
+      "globalid": "{50F3DE6C-5DBD-446B-9F5F-2AF04DCA97D3}",
+      "location": null,
+      "objectid": 2597,
+      "waterbody": "Kings River",
+      "last_verified_date": null
     },
     "mvum-17421753": {
       "objectid": 17421753,
@@ -1176,6 +1477,14 @@
       "highclearancevehicle": "open",
       "atv": null,
       "districtname": "Doniphan / Eleven Point Ranger District"
+    },
+    "mdc-lot-282": {
+      "OBJECTID": 282,
+      "Area_ID": 9407,
+      "Area_Name": "Dr. Henry A. and Amalia Uhlemeyer Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
     },
     "mdc-lot-305": {
       "OBJECTID": 305,
@@ -1199,6 +1508,57 @@
       "globalid": "{2E5315AC-273A-480A-B25C-CD6508390001}",
       "location": "Buffalo River National Park",
       "objectid": 1968,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347408000000
+    },
+    "agfc-10c13ed8-8bcd-4c18-8cf6-6beb4e48da35": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Buffalo Point Access Buffalo River Parking Area #2",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "45",
+      "flabel": "Buffalo Point",
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{10C13ED8-8BCD-4C18-8CF6-6BEB4E48DA35}",
+      "location": "Buffalo River National Park",
+      "objectid": 1910,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347408000000
+    },
+    "agfc-51ba3449-a128-4d92-b26e-e48748772248": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Buffalo Point Access Buffalo River Parking Area #7",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "45",
+      "flabel": "Buffalo Point",
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{51BA3449-A128-4D92-B26E-E48748772248}",
+      "location": "Buffalo River National Park",
+      "objectid": 2228,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347408000000
+    },
+    "agfc-0f66fde9-5d5d-4457-96f9-1e208f2bcdf1": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Buffalo Point Access Buffalo River Parking Area #1",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "45",
+      "flabel": "Buffalo Point",
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{0F66FDE9-5D5D-4457-96F9-1E208F2BCDF1}",
+      "location": "Buffalo River National Park",
+      "objectid": 1703,
       "waterbody": "Buffalo River",
       "last_verified_date": 1347408000000
     },
@@ -1241,6 +1601,23 @@
       "waterbody": "Buffalo River",
       "last_verified_date": 1347321600000
     },
+    "agfc-74c50436-d98e-458f-bd10-2b320e803141": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Pruitt Landing Buffalo Access Parking Area #1",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "51",
+      "flabel": "Pruitt Landing",
+      "comments": null,
+      "fdescrip": "Gravel",
+      "globalid": "{74C50436-D98E-458F-BD10-2B320E803141}",
+      "location": "Buffalo River National Park",
+      "objectid": 2946,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347321600000
+    },
     "mdc-lot-602": {
       "OBJECTID": 602,
       "Area_ID": 8242,
@@ -1249,16 +1626,21 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
-    "mvum-17421559": {
-      "objectid": 17421559,
-      "id": "3248",
-      "name": "RIVERTON WEST RECREATION AREA",
-      "surfacetype": "AC - ASPHALT",
-      "seasonal": "yearlong",
-      "passengervehicle": "open",
-      "highclearancevehicle": "open",
-      "atv": null,
-      "districtname": null
+    "mdc-lot-2934": {
+      "OBJECTID": 2934,
+      "Area_ID": 9913,
+      "Area_Name": "Rockaway Beach Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
+    },
+    "mdc-lot-2933": {
+      "OBJECTID": 2933,
+      "Area_ID": 9913,
+      "Area_Name": "Rockaway Beach Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "Yes"
     },
     "agfc-e8d4a57a-e963-4096-ac3a-9e905f7365ea": {
       "wma": null,
@@ -1276,6 +1658,25 @@
       "objectid": 2886,
       "waterbody": "White River",
       "last_verified_date": 1333324800000
+    },
+    "mvum-17421559": {
+      "objectid": 17421559,
+      "id": "3248",
+      "name": "RIVERTON WEST RECREATION AREA",
+      "surfacetype": "AC - ASPHALT",
+      "seasonal": "yearlong",
+      "passengervehicle": "open",
+      "highclearancevehicle": "open",
+      "atv": null,
+      "districtname": null
+    },
+    "mdc-lot-501": {
+      "OBJECTID": 501,
+      "Area_ID": 6110,
+      "Area_Name": "Mason Bridge Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
     },
     "agfc-e04cab5e-0bd8-4bb2-94cb-3b6085ec3a78": {
       "wma": null,
@@ -1302,6 +1703,22 @@
       "Allows_Trailers": "No",
       "ADA": "No"
     },
+    "mdc-lot-450": {
+      "OBJECTID": 450,
+      "Area_ID": 7010,
+      "Area_Name": "Big John Access",
+      "Surface": "Gravel",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-1514": {
+      "OBJECTID": 1514,
+      "Area_ID": 6612,
+      "Area_Name": "Fredericksburg Ferry Access",
+      "Surface": "Gravel",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "usfs-site-5374.006571": {
       "objectid": 4044177,
       "site_cn": "5374.006571",
@@ -1316,11 +1733,11 @@
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
     },
-    "mdc-lot-1514": {
-      "OBJECTID": 1514,
-      "Area_ID": 6612,
-      "Area_Name": "Fredericksburg Ferry Access",
-      "Surface": "Gravel",
+    "mdc-lot-1990": {
+      "OBJECTID": 1990,
+      "Area_ID": 9801,
+      "Area_Name": "Mitschele Access",
+      "Surface": "Paved",
       "Allows_Trailers": "No",
       "ADA": "No"
     },
@@ -1334,6 +1751,23 @@
       "highclearancevehicle": "open",
       "atv": "open",
       "districtname": "Boston Mountain Ranger District"
+    },
+    "agfc-9e7aa931-0730-41e4-8826-0a24b500c9a7": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Guion Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "33",
+      "flabel": "Guion  ",
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{9E7AA931-0730-41E4-8826-0A24B500C9A7}",
+      "location": null,
+      "objectid": 2019,
+      "waterbody": "White River",
+      "last_verified_date": null
     },
     "mdc-lot-1557": {
       "OBJECTID": 1557,
@@ -1360,20 +1794,20 @@
       "waterbody": "White River",
       "last_verified_date": 1333324800000
     },
-    "agfc-9e7aa931-0730-41e4-8826-0a24b500c9a7": {
+    "agfc-d6ffff30-08e1-4351-849a-c157880737eb": {
       "wma": null,
       "fcat": 2,
-      "fname": "Guion Access Parking Area",
+      "fname": "Ranchette Parking Area #2",
       "ftype": "Parking Area",
       "hyp_1": null,
       "owner": "AGFC",
-      "county": "33",
-      "flabel": "Guion  ",
+      "county": "03",
+      "flabel": null,
       "comments": null,
       "fdescrip": "Paved",
-      "globalid": "{9E7AA931-0730-41E4-8826-0A24B500C9A7}",
+      "globalid": "{D6FFFF30-08E1-4351-849A-C157880737EB}",
       "location": null,
-      "objectid": 2019,
+      "objectid": 2370,
       "waterbody": "White River",
       "last_verified_date": null
     },
@@ -1424,6 +1858,22 @@
       "waterbody": "White River",
       "last_verified_date": null
     },
+    "mdc-lot-557": {
+      "OBJECTID": 557,
+      "Area_ID": 7705,
+      "Area_Name": "Shelvin Rock Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-558": {
+      "OBJECTID": 558,
+      "Area_ID": 7705,
+      "Area_Name": "Shelvin Rock Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
     "agfc-0c73f980-592a-4a95-80d0-d59471943063": {
       "wma": "Buffalo National River WMA",
       "fcat": 2,
@@ -1440,6 +1890,31 @@
       "objectid": 2065,
       "waterbody": "Buffalo River",
       "last_verified_date": 1347408000000
+    },
+    "mdc-lot-2316": {
+      "OBJECTID": 2316,
+      "Area_ID": 6812,
+      "Area_Name": "La Russell Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "agfc-6d811fe3-1500-4be0-a480-897de841bc12": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Dam 1 Mammoth Spring State Park Parking Area #1",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "ASP",
+      "county": "25",
+      "flabel": "Dam 1",
+      "comments": "Trout Stocking Site/Winter Months",
+      "fdescrip": "Paved",
+      "globalid": "{6D811FE3-1500-4BE0-A480-897DE841BC12}",
+      "location": "Mammoth Spring State Park",
+      "objectid": 2734,
+      "waterbody": "Spring River",
+      "last_verified_date": null
     },
     "usfs-site-5184.007271": {
       "objectid": 4061929,
@@ -1500,6 +1975,23 @@
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
     },
+    "agfc-6091c0b1-1379-4f4c-8fa8-b764844a28a4": {
+      "wma": null,
+      "fcat": 2,
+      "fname": "Swinging Bridge Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "49",
+      "flabel": "Swinging Bridge ",
+      "comments": "Canoe Access, The deed is MISCACC-06 in CLAREC.  The land was acquired in 2006",
+      "fdescrip": "Paved",
+      "globalid": "{6091C0B1-1379-4F4C-8FA8-B764844A28A4}",
+      "location": "Caddo Gap",
+      "objectid": 2054,
+      "waterbody": "Caddo River",
+      "last_verified_date": 1336003200000
+    },
     "mvum-17310505": {
       "objectid": 17310505,
       "id": "3190",
@@ -1510,6 +2002,14 @@
       "highclearancevehicle": "open",
       "atv": null,
       "districtname": null
+    },
+    "mdc-lot-1606": {
+      "OBJECTID": 1606,
+      "Area_ID": 6815,
+      "Area_Name": "Mammoth Access",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
     },
     "mvum-17422081": {
       "objectid": 17422081,
@@ -1536,14 +2036,6 @@
       "restroom_availability": null,
       "open_season": null
     },
-    "mdc-lot-1606": {
-      "OBJECTID": 1606,
-      "Area_ID": 6815,
-      "Area_Name": "Mammoth Access",
-      "Surface": "Paved",
-      "Allows_Trailers": "No",
-      "ADA": "No"
-    },
     "agfc-1af2cd99-1abe-4298-8879-f7b63e7ac047": {
       "wma": "Buffalo National River WMA",
       "fcat": 2,
@@ -1558,6 +2050,23 @@
       "globalid": "{1AF2CD99-1ABE-4298-8879-F7B63E7AC047}",
       "location": "Buffalo River National Park",
       "objectid": 2935,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347408000000
+    },
+    "agfc-ec34b56f-9da5-4bfc-a8c4-d3f93ed4d8a3": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Dillards Ferry Access Buffalo River Parking Area #2",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "45",
+      "flabel": "Dillards Access",
+      "comments": null,
+      "fdescrip": "Dirt",
+      "globalid": "{EC34B56F-9DA5-4BFC-A8C4-D3F93ED4D8A3}",
+      "location": "Buffalo River National Park",
+      "objectid": 2324,
       "waterbody": "Buffalo River",
       "last_verified_date": 1347408000000
     },
@@ -1596,6 +2105,14 @@
       "Area_ID": 8401,
       "Area_Name": "Sappington Bridge Access",
       "Surface": "Gravel",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-440": {
+      "OBJECTID": 440,
+      "Area_ID": 7006,
+      "Area_Name": "Moon Valley Access",
+      "Surface": "Paved",
       "Allows_Trailers": "No",
       "ADA": "No"
     },
@@ -1649,6 +2166,23 @@
       "restroom_availability": "Vault toilet(s)",
       "open_season": null
     },
+    "agfc-61ec5c86-0d98-4392-bcb1-10fc0d8b41b2": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Mt. Hersey Access Buffalo River Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": "http://www.nps.gov/buff/index.htm#",
+      "owner": "NPS",
+      "county": "51",
+      "flabel": "Mt. Hersey Access",
+      "comments": null,
+      "fdescrip": "Gravel",
+      "globalid": "{61EC5C86-0D98-4392-BCB1-10FC0D8B41B2}",
+      "location": "Buffalo River National Park",
+      "objectid": 722,
+      "waterbody": "Buffalo River",
+      "last_verified_date": 1347321600000
+    },
     "agfc-f7d2b94f-2308-42d8-a383-022f4c5ea0be": {
       "wma": "Buffalo National River WMA",
       "fcat": 2,
@@ -1666,8 +2200,33 @@
       "waterbody": "White River",
       "last_verified_date": 1333324800000
     },
+    "agfc-1d206216-8413-42a2-8f93-754439d6aa59": {
+      "wma": "Buffalo National River WMA",
+      "fcat": 2,
+      "fname": "Buffalo City Access Parking Area",
+      "ftype": "Parking Area",
+      "hyp_1": null,
+      "owner": "AGFC",
+      "county": "03",
+      "flabel": null,
+      "comments": null,
+      "fdescrip": "Paved",
+      "globalid": "{1D206216-8413-42A2-8F93-754439D6AA59}",
+      "location": null,
+      "objectid": 2802,
+      "waterbody": "White River",
+      "last_verified_date": 1333324800000
+    },
     "mdc-lot-2513": {
       "OBJECTID": 2513,
+      "Area_ID": 8210,
+      "Area_Name": "Millstream Gardens Conservation Area",
+      "Surface": "Paved",
+      "Allows_Trailers": "No",
+      "ADA": "No"
+    },
+    "mdc-lot-2516": {
+      "OBJECTID": 2516,
       "Area_ID": 8210,
       "Area_Name": "Millstream Gardens Conservation Area",
       "Surface": "Paved",
