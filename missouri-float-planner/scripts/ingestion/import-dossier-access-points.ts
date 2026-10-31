@@ -97,12 +97,12 @@ export function dossierSlugOf(row: APRow): string {
   return slug;
 }
 
-// access_points_managing_agency_check (00034) allows only this set (or NULL).
-// AGFC / USGS / MoDOT are NOT in it — map known synonyms, else null the column
-// (ownership still records the true operator as free text, matching the 00158
-// Buffalo precedent: "managing_agency left null because AGFC is not in the enum").
+// access_points_managing_agency_check (00034; AGFC added by 20261031200317)
+// allows only this set (or NULL). USGS / MoDOT are NOT in it — map known
+// synonyms, else null the column (ownership still records the true operator as
+// free text).
 const ALLOWED_AGENCY = new Set([
-  'MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private',
+  'MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private', 'AGFC',
 ]);
 const AGENCY_SYNONYM: Record<string, string> = {
   City: 'Municipal',

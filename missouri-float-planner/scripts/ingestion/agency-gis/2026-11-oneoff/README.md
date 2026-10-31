@@ -156,3 +156,40 @@ them later, mark them `y` and rerun. Rows already applied are skipped.
 
 Retain agency attribution when displaying derived facts. Ownership is not
 permission: none of these values says a launch is open.
+
+## Missing public-land access finder
+
+`finder.csv` / `finder.geojson`, from
+`scripts/ingestion/propose-public-land-access.ts` (read-only). For Eleven Point
+and Big Piney, it lists places that meet three conditions:
+- an open National Forest route (MVUM road or trail) ends within 300 m of the
+  river line, or crosses it;
+- that end or the bank beside it is on a public PAD-US parcel;
+- Eddy has no access point, approved or not, within 1 km along the river.
+
+**strong** means the route is open to passenger or high-clearance vehicles,
+the end and the bank are public, and at least 90% of the route's last 500 m is
+public too. Everything else that qualifies is **possible**.
+
+These are places for a person to look at, not access points. A route reaching
+public ground says nothing about a launch being legal, safe or usable.
+
+**Recall:** run without the "no known access nearby" rule, the finder
+rediscovered 9 of 9 known road-served public accesses on Eleven Point and 3 of
+4 on Big Piney. It can't see two kinds of access:
+- float camps reached only by water;
+- MDC accesses on county roads, which aren't in MVUM.
+
+**2026-10-31 candidates (4):**
+
+| Tier | River | Route | Vehicle | To water | Between |
+| --- | --- | --- | --- | ---: | --- |
+| strong | Big Piney | FS 255 High Log Eddy (gravel) | passenger | 73 m | Warren Bridge → Slabtown (8.6 km gap) |
+| strong | Eleven Point | FS 3155B Boom Hole Access (native surface) | passenger | 21 m | Hwy 160 → Hwy 19 bridges (8.1 km gap) |
+| possible | Big Piney | FS 1794 (gravel) | passenger | 169 m | Slabtown → Horse Camp (15.2 km gap) |
+| possible | Big Piney | FS 1538 Henry River Access (gravel) | passenger | 40 m | Boiling Spring → Mason Bridge (12.5 km gap) |
+
+For "possible" rows the bank beside the end is not on a public parcel, so check
+whether the road reaches public riverbank at all. To promote a confirmed spot,
+add it to a dossier and import it with
+`scripts/ingestion/import-dossier-access-points.ts`. It lands `approved = false`.

@@ -150,7 +150,8 @@ export type ManagingAgency =
   | 'State Park'
   | 'County'
   | 'Municipal'
-  | 'Private';
+  | 'Private'
+  | 'AGFC';
 
 /** Parking capacity options for quick stats */
 export type ParkingCapacity =

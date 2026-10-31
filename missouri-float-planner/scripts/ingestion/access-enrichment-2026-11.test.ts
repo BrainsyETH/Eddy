@@ -66,7 +66,8 @@ test('MVUM surface codes map onto the road_surface check vocabulary', () => {
 
 test('managing agency: agreement raises confidence, conflict and unsupported managers flag', () => {
   assert.deepEqual(agencyFromPadus('SFW', 'MO'), { agency: 'MDC' });
-  assert.deepEqual(agencyFromPadus('SFW', 'AR'), { agency: null, unsupported: 'AGFC' });
+  assert.deepEqual(agencyFromPadus('SFW', 'AR'), { agency: 'AGFC' });
+  assert.deepEqual(agencyFromPadus('FWS', 'AR'), { agency: null, unsupported: 'USFWS' });
   assert.deepEqual(agencyFromPadus('USACE', 'AR'), { agency: 'COE' });
   assert.equal(agencyFromOwnershipText('Benton County'), 'County');
   assert.equal(agencyFromOwnershipText('City of Glenwood'), 'Municipal');
@@ -83,25 +84,37 @@ test('managing agency: agreement raises confidence, conflict and unsupported man
     { agency: 'MDC', source: 'ownership_text', detail: 'MDC' },
   ]);
   assert.deepEqual([conflict.agency, conflict.confidence], [null, 'flag']);
-  const agfc = chooseManagingAgency([{ agency: null, unsupported: 'AGFC', source: 'agency_link', detail: 'x' }]);
+  const agfc = chooseManagingAgency([{ agency: null, unsupported: 'USFWS', source: 'padus', detail: 'x' }]);
   assert.equal(agfc.confidence, 'flag');
-  assert.match(agfc.evidence, /AGFC is not an allowed/);
+  assert.match(agfc.evidence, /USFWS is not an allowed/);
 });
 
-test('an unsupported manager still counts as disagreement (Romp Hole, Hardy Beach)', () => {
+test('agencies that disagree stay unresolved, supported or not (Romp Hole, Hardy Beach)', () => {
   // PAD-US says USACE, the linked AGFC records say AGFC: unresolved, not COE.
   const rompHole = chooseManagingAgency([
     { agency: 'COE', source: 'padus', detail: 'Table Rock Lake (USACE, REC)' },
-    { agency: null, unsupported: 'AGFC', source: 'agency_link', detail: 'AGFC record, owner "AGFC"' },
+    { agency: 'AGFC', source: 'agency_link', detail: 'AGFC record, owner "AGFC"' },
   ]);
   assert.deepEqual([rompHole.agency, rompHole.confidence], [null, 'flag']);
   assert.match(rompHole.evidence, /conflict \(COE vs AGFC\)/);
   // AGFC records naming both the City and AGFC as owner: unresolved, not Municipal.
   const hardy = chooseManagingAgency([
-    { agency: null, unsupported: 'AGFC', source: 'agency_link', detail: 'owner "AGFC"' },
+    { agency: 'AGFC', source: 'agency_link', detail: 'owner "AGFC"' },
     { agency: 'Municipal', source: 'agency_link', detail: 'owner "City"' },
   ]);
   assert.deepEqual([hardy.agency, hardy.confidence], [null, 'flag']);
+  // A manager the column can't hold still contradicts one it can.
+  const refuge = chooseManagingAgency([
+    { agency: null, unsupported: 'USFWS', source: 'padus', detail: 'NWR' },
+    { agency: 'County', source: 'ownership_text', detail: 'county' },
+  ]);
+  assert.deepEqual([refuge.agency, refuge.confidence], [null, 'flag']);
+  // Uncontested AGFC is now an ordinary proposal.
+  const agfcOnly = chooseManagingAgency([
+    { agency: 'AGFC', source: 'padus', detail: 'Sylamore WMA (SFW)' },
+    { agency: 'AGFC', source: 'agency_link', detail: 'owner "AGFC"' },
+  ]);
+  assert.deepEqual([agfcOnly.agency, agfcOnly.confidence], ['AGFC', 'high']);
 });
 
 test('belongsTo applies distance, bank and nearer-place checks to any agency feature', () => {
@@ -168,7 +181,7 @@ test('the reviewed sheet becomes one compare-and-set correction per access point
   assert.deepEqual(corrections[0].from, { amenities: [], parking_info: null });
   assert.match(skipped[0], /flag, never applied/);
 
-  assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'managing_agency', current: 'null', proposed: '"AGFC"' }]), /invalid managing_agency/);
+  assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'managing_agency', current: 'null', proposed: '"USFWS"' }]), /invalid managing_agency/);
   assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'road_surface', current: '[]', proposed: '["cobbles"]' }]), /invalid road_surface/);
   assert.throws(() => correctionsFromSheet([{ ...base, accept: 'y', field: 'driving_lat', current: 'null', proposed: '1' }]), /unknown field/);
   assert.throws(() => correctionsFromSheet([rows[1], rows[1]]), /two accepted rows/);

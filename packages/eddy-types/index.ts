@@ -348,7 +348,8 @@ export type ManagingAgency =
   | 'State Park'
   | 'County'
   | 'Municipal'
-  | 'Private';
+  | 'Private'
+  | 'AGFC';
 
 /**
  * Free text on the wire, not a number: the column stores buckets ('roadside',

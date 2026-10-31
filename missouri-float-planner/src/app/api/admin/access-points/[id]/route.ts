@@ -315,7 +315,7 @@ export async function PUT(
 
     // Handle managingAgency update
     if (managingAgency !== undefined) {
-      const validAgencies = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private'];
+      const validAgencies = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private', 'AGFC'];
       if (managingAgency === '' || managingAgency === null) {
         updateData.managing_agency = null;
       } else if (validAgencies.includes(managingAgency)) {

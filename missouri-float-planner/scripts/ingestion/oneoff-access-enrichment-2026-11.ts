@@ -32,6 +32,7 @@ import { join } from 'node:path';
 import { booleanPointInPolygon, point, pointToLineDistance, pointToPolygonDistance } from '@turf/turf';
 import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson';
 import { getScriptClient } from '../lib/db';
+import { type ArcFeature, envelope, envelopeFilter, featureUrl, fetchAll, mapLimit, selectAll } from './arcgis-fetch';
 import {
   type AgencySignal, type LngLat, type Lot, type Proposal, type ProposalField, type Confidence,
   MAX_LOT_M, PADUS_NON_FEE, addAmenities, agencyFromOwnershipText, agencyFromPadus, belongsTo, chooseManagingAgency,
@@ -54,73 +55,10 @@ const SOURCES = {
   },
 } as const;
 
-const USER_AGENT = 'eddy-float-planner/1.0 (one-off access enrichment; https://eddy.guide)';
 const AMENITY_RADIUS_M = 300;
 const USFS_SITE_RADIUS_M = 300;
 const MVUM_RADIUS_M = 150;
 const PADUS_NEAR_M = 30;
-
-interface ArcFeature { attributes: Record<string, unknown>; geometry?: { x?: number; y?: number; paths?: number[][][] } }
-
-// ── HTTP ──────────────────────────────────────────────────────────────────────
-
-async function arcgis(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
-  const body = new URLSearchParams({ f: 'json', ...params });
-  for (let attempt = 1; ; attempt++) {
-    try {
-      const res = await fetch(`${url}/query`, {
-        method: 'POST', body, headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(60_000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = (await res.json()) as Record<string, unknown>;
-      if (json.error) throw new Error(`ArcGIS error ${JSON.stringify(json.error)}`);
-      return json;
-    } catch (error) {
-      if (attempt >= 4) throw new Error(`${url}: ${(error as Error).message}`);
-      await new Promise((r) => setTimeout(r, 2000 * 2 ** (attempt - 1)));
-    }
-  }
-}
-
-/** Every feature matching `filter`, by ID inventory then batches — record limits are not pagination. */
-async function fetchAll(source: { url: string; fields: string }, filter: Record<string, string> = { where: '1=1' }) {
-  const listing = await arcgis(source.url, { ...filter, returnIdsOnly: 'true' });
-  const ids = (listing.objectIds as number[] | null) ?? [];
-  const oidField = String(listing.objectIdFieldName ?? 'OBJECTID');
-  const features: ArcFeature[] = [];
-  for (let i = 0; i < ids.length; i += 200) {
-    const want = ids.slice(i, i + 200);
-    const page = await arcgis(source.url, {
-      objectIds: want.join(','), outFields: source.fields, returnGeometry: 'true', outSR: '4326',
-    });
-    const got = (page.features as ArcFeature[]) ?? [];
-    if (page.exceededTransferLimit || got.length !== want.length) {
-      throw new Error(`${source.url}: batch returned ${got.length} of ${want.length}; rerun`);
-    }
-    features.push(...got);
-  }
-  return { features, oidField };
-}
-
-const envelope = ([lng, lat]: LngLat, meters: number) => {
-  const dLat = meters / 111_320;
-  const dLng = meters / (111_320 * Math.cos((lat * Math.PI) / 180));
-  return { xmin: lng - dLng, ymin: lat - dLat, xmax: lng + dLng, ymax: lat + dLat };
-};
-const envelopeFilter = (e: { xmin: number; ymin: number; xmax: number; ymax: number }) => ({
-  where: '1=1', geometry: JSON.stringify({ ...e, spatialReference: { wkid: 4326 } }),
-  geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
-});
-const featureUrl = (layer: string, oid: unknown) => `${layer}/query?objectIds=${oid}&outFields=*&outSR=4326&f=pjson`;
-
-async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let next = 0;
-  await Promise.all(Array.from({ length: limit }, async () => {
-    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
-  }));
-  return out;
-}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -135,17 +73,6 @@ interface SourceRow {
   provider: 'mdc' | 'agfc'; source_id: string; source_type: string; name: string | null; owner: string | null;
   latitude: number; longitude: number; attributes: Record<string, unknown>;
   access_point_id: string | null; source_feature_url: string;
-}
-
-async function selectAll<T>(query: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await query(from, from + 999);
-    if (error) throw error;
-    const rows = (data as T[]) ?? [];
-    out.push(...rows);
-    if (rows.length < 1000) return out;
-  }
 }
 
 function argValue(name: string): string | null {
@@ -370,7 +297,7 @@ async function main() {
           : /forest service|usfs/i.test(o) ? 'USFS' : /state park/i.test(o) ? 'State Park'
           : /\bcity\b|town of/i.test(o) ? 'Municipal' : /county/i.test(o) ? 'County' : null;
         if (agency) signals.push({ agency, source: 'agency_link', detail: `AGFC record, owner "${o}"` });
-        else if (/agfc|game and fish/i.test(o) || !o) signals.push({ agency: null, unsupported: 'AGFC', source: 'agency_link', detail: `AGFC record, owner "${o || 'n/a'}"` });
+        else if (/agfc|game and fish/i.test(o) || !o) signals.push({ agency: 'AGFC', source: 'agency_link', detail: `AGFC record, owner "${o || 'n/a'}"` });
         else continue;
         ids.push(citeSource(s));
       }

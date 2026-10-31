@@ -45,6 +45,7 @@ const AGENCY_LABELS: Record<ManagingAgency, string> = {
   County: 'County',
   Municipal: 'Municipal',
   Private: 'Privately managed',
+  AGFC: 'Arkansas Game and Fish Commission',
 };
 
 export function agencyLabel(agency: string): string {

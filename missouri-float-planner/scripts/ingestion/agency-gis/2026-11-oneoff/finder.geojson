@@ -1,0 +1,145 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.36051131235413,
+     36.8107334655548
+    ]
+   },
+   "properties": {
+    "tier": "strong",
+    "river": "eleven-point",
+    "river_km": "26.22",
+    "gap_km": "8.1",
+    "nearest_access_km": "3.9",
+    "upstream_access": "Hwy 160 Bridge",
+    "downstream_access": "Hwy 19  Bridge",
+    "how": "route end",
+    "layer": "road",
+    "route": "3155B BOOM HOLE ACCESS",
+    "vehicle": "passenger",
+    "seasonal": "yearlong",
+    "surface": "NAT - NATIVE MATERIAL",
+    "distance_to_water_m": 21,
+    "land_unit": "Eleven Point, Missouri Wild and Scenic River",
+    "land_manager": "USFS",
+    "land_access_code": "OA",
+    "end_public": "yes",
+    "bank_public": "yes",
+    "last_500m_public_pct": 100,
+    "district": "",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.810733,-91.360511",
+    "mvum_url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17408374&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.98830544488041,
+     37.47799564594019
+    ]
+   },
+   "properties": {
+    "tier": "possible",
+    "river": "big-piney",
+    "river_km": "72.05",
+    "gap_km": "12.5",
+    "nearest_access_km": "5.5",
+    "upstream_access": "Boiling Spring Access",
+    "downstream_access": "Mason Bridge Access",
+    "how": "route end",
+    "layer": "road",
+    "route": "1538 HENRY RIVER ACCESS",
+    "vehicle": "passenger",
+    "seasonal": "yearlong",
+    "surface": "AGG - CRUSHED AGGREGATE OR GRAVEL",
+    "distance_to_water_m": 40,
+    "land_unit": "Mark Twain National Forest",
+    "land_manager": "USFS",
+    "land_access_code": "OA",
+    "end_public": "yes",
+    "bank_public": "no",
+    "last_500m_public_pct": 91,
+    "district": "Houston/Rolla/Cedar Creek Ranger District",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.477996,-91.988305",
+    "mvum_url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17422065&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.02115938627975,
+     37.54463154137454
+    ]
+   },
+   "properties": {
+    "tier": "strong",
+    "river": "big-piney",
+    "river_km": "88.88",
+    "gap_km": "8.6",
+    "nearest_access_km": "3.6",
+    "upstream_access": "Warren Bridge",
+    "downstream_access": "Slabtown Recreation Area",
+    "how": "route end",
+    "layer": "road",
+    "route": "255 HIGH LOG EDDY",
+    "vehicle": "passenger",
+    "seasonal": "yearlong",
+    "surface": "AGG - CRUSHED AGGREGATE OR GRAVEL",
+    "distance_to_water_m": 73,
+    "land_unit": "Mark Twain National Forest",
+    "land_manager": "USFS",
+    "land_access_code": "OA",
+    "end_public": "yes",
+    "bank_public": "yes",
+    "last_500m_public_pct": 100,
+    "district": "Houston/Rolla/Cedar Creek Ranger District",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.544632,-92.021159",
+    "mvum_url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17402026&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.04783894063488,
+     37.63101614068068
+    ]
+   },
+   "properties": {
+    "tier": "possible",
+    "river": "big-piney",
+    "river_km": "105.23",
+    "gap_km": "15.2",
+    "nearest_access_km": "2.4",
+    "upstream_access": "Slabtown Recreation Area",
+    "downstream_access": "Horse Camp Access",
+    "how": "route end",
+    "layer": "road",
+    "route": "1794 NATIONAL SCENIC TRAIL",
+    "vehicle": "passenger",
+    "seasonal": "yearlong",
+    "surface": "AGG - CRUSHED AGGREGATE OR GRAVEL",
+    "distance_to_water_m": 169,
+    "land_unit": "Mark Twain National Forest",
+    "land_manager": "USFS",
+    "land_access_code": "OA",
+    "end_public": "yes",
+    "bank_public": "no",
+    "last_500m_public_pct": 100,
+    "district": "",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.631016,-92.047839",
+    "mvum_url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17421363&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

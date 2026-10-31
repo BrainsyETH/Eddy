@@ -22,8 +22,8 @@ export type ProposalField =
   | 'road_surface'
   | 'ownership';
 
-/** The 00034 check constraint. AGFC and USFWS are not in it (yet). */
-export const MANAGING_AGENCIES = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private'] as const;
+/** access_points_managing_agency_check (00034; AGFC added by 20261031200317). USFWS is not in it. */
+export const MANAGING_AGENCIES = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private', 'AGFC'] as const;
 export type ManagingAgency = (typeof MANAGING_AGENCIES)[number];
 
 export const metersBetween = (a: LngLat, b: LngLat) => distance(point(a), point(b), { units: 'meters' });
@@ -196,7 +196,7 @@ export function agencyFromPadus(managerName: string | null, stateCode: string | 
     case 'FWS': return { agency: null, unsupported: 'USFWS' };
     case 'SDC':
     case 'SFW':
-      return stateCode === 'MO' ? { agency: 'MDC' } : stateCode === 'AR' ? { agency: null, unsupported: 'AGFC' } : { agency: null };
+      return stateCode === 'MO' ? { agency: 'MDC' } : stateCode === 'AR' ? { agency: 'AGFC' } : { agency: null };
     default: return { agency: null };
   }
 }
