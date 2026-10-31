@@ -5,7 +5,10 @@ import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatActivityControl } from '@/float/FloatActivityControl';
 import { FloatHazardReports } from '@/float/FloatHazardReports';
-import { FloatReminders } from '@/float/FloatReminders';
+import { FloatReminders, FLOAT_SETTINGS_INFO } from '@/float/FloatReminders';
+import { FloatInfoTip } from '@/float/FloatInfoTip';
+import { HazardReportSheet } from '@/float/HazardReportSheet';
+import { HazardReportFeedback } from '@/float/HazardReportFeedback';
 import { PickupContact } from '@/float/PickupContact';
 import { EssentialsConditions } from '@/float/EssentialsConditions';
 import { EssentialsButton, EssentialsSection, essentialsStyles as s } from '@/float/essentialsUi';
@@ -45,6 +48,8 @@ export default function FloatOptionsScreen() {
   const [keepAwake, setKeepAwake] = useKeepAwakePreference();
   const [showAll, setShowAll] = useState(section === 'ahead');
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportedId, setReportedId] = useState<string | null>(null);
   const scroll = useRef<ScrollView>(null);
   const scrolledToAhead = useRef(false);
   const route = session?.route;
@@ -65,7 +70,8 @@ export default function FloatOptionsScreen() {
   const view = viewSession(session, now);
   const takeOut = session.route.anchors.find(a => a.id === session.takeOut.id);
   const unplaced = currentFloatReports(session, reports).filter(r => r.riverMile == null);
-  const hazardNote = hazardAheadNote(session.route, ahead?.items.filter(item => item.kind === 'hazard').length ?? 0);
+  const hazardNote = hazardAheadNote(session.route, ahead?.items.filter(item => item.kind === 'hazard').length ?? 0, ahead?.items.length ?? 0);
+  const hasReports = reports.some(report => report.riverSlug === session.route.riverSlug);
   const share = async (message: string | null) => {
     if (!message) return;
     setError(null);
@@ -77,13 +83,13 @@ export default function FloatOptionsScreen() {
     router.back();
   };
   return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: colors.bg }} keyboardShouldPersistTaps="handled"
-    contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: Math.max(insets.bottom, 16) + 20 }}>
+    contentInsetAdjustmentBehavior="automatic" automaticallyAdjustKeyboardInsets contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(insets.bottom, 16) + 20 }}>
     <View style={{ flexDirection: fontScale > 1.3 ? 'column' : 'row', alignItems: fontScale > 1.3 ? 'stretch' : 'center', justifyContent: 'space-between', gap: 12 }}>
       <View style={styles.titleRow}>
         <EddySymbol name="floatTools" size={30} />
         <Text style={[s.heading, styles.title, { color: colors.text }]} accessibilityRole="header">Float tools</Text>
       </View>
-      <EssentialsButton label="Done" onPress={() => router.back()} />
+      <EssentialsButton label="Done" plain onPress={() => router.back()} />
     </View>
     <EssentialsSection title="Your location">
       {fix ? <>
@@ -91,14 +97,18 @@ export default function FloatOptionsScreen() {
         <Text selectable style={[s.title, styles.coordinates, { color: colors.text }]}>{coordinateText(fix.lngLat)}</Text>
         <Text style={[s.note, { color: colors.textMuted }]}>{fix.stale ? 'Last known' : 'Current'} · {locationAgeLabel(fix.at, now)} · {fix.accuracyMeters == null ? 'Accuracy unavailable' : `±${Math.ceil(fix.accuracyMeters)} m`}</Text>
       </> : <Text style={[s.note, { color: colors.textMuted }]}>Waiting for GPS</Text>}
-      <EssentialsButton label="Share location" disabled={!fix} onPress={() => void share(locationMessage(session, Date.now(), timeLabel))} />
+      <View style={s.actions}>
+        <EssentialsButton label="Share location" icon="share-outline" grow disabled={!fix} onPress={() => void share(locationMessage(session, Date.now(), timeLabel))} />
+        <EssentialsButton label="Report a hazard" symbol="hazard" grow onPress={() => setReportOpen(true)} />
+      </View>
+      {reportedId ? <HazardReportFeedback reportId={reportedId} onDismiss={() => setReportedId(null)} /> : null}
       {error ? <Text accessibilityRole="alert" style={[s.note, { color: colors.error }]}>{error}</Text> : null}
     </EssentialsSection>
     <EssentialsSection title="Take-out">
       {/* The landing itself, as the planner and Ready to float show it: its
           photo, or the Eddy mark for what kind of access it is. */}
       <View style={styles.placeRow}>
-        <PlaceThumb point={places.get(session.takeOut.id) ?? null} symbol="boatRamp" size={72} />
+        <PlaceThumb point={places.get(session.takeOut.id) ?? null} symbol="boatRamp" size={52} />
         <View style={styles.placeText}>
           <Text style={[s.title, { color: colors.text }]}>{session.takeOut.name}</Text>
           {view.milesLeft != null ? <Text style={[styles.placeMiles, { color: colors.interactive }]}>
@@ -109,9 +119,12 @@ export default function FloatOptionsScreen() {
       </View>
       {session.takeOut.offLineMeters != null ? <Text style={[s.note, { color: colors.textMuted }]}>Landing {formatBeyond(session.takeOut.offLineMeters)} beyond mapped river</Text> : null}
       {takeOut ? <View style={s.actions}>
-        <EssentialsButton label="Show on map" onPress={() => showOnMap(takeOut.lngLat, takeOut.name, 'Take-out')} />
-        <EssentialsButton label="Share take-out" onPress={() => void share(`${session.route.riverName} — Take-out: ${takeOut.name}\n${coordinateText(takeOut.lngLat)}\n${locationLink(takeOut.lngLat, takeOut.name)}`)} />
+        <EssentialsButton label="Map" accessibilityLabel="Show take-out on map" icon="map-outline" grow onPress={() => showOnMap(takeOut.lngLat, takeOut.name, 'Take-out')} />
+        <EssentialsButton label="Share" accessibilityLabel="Share take-out" icon="share-outline" grow onPress={() => void share(`${session.route.riverName} — Take-out: ${takeOut.name}\n${coordinateText(takeOut.lngLat)}\n${locationLink(takeOut.lngLat, takeOut.name)}`)} />
       </View> : <Text style={[s.note, { color: colors.textMuted }]}>Location unavailable</Text>}
+      <View style={[styles.divider, { borderTopColor: colors.border }]}>
+        <PickupContact tools message={locationMessage(session, now, timeLabel)} />
+      </View>
     </EssentialsSection>
     <View onLayout={event => {
       if (section === 'ahead' && !scrolledToAhead.current) {
@@ -119,7 +132,7 @@ export default function FloatOptionsScreen() {
         scroll.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
       }
     }}>
-      <EssentialsSection title="Ahead" symbol="river">
+      <EssentialsSection title="Ahead" symbol="river" action={<FloatInfoTip title="What’s ahead" message="Eddy shows mapped stops, mapped hazards and your reports along this float. Coverage can be incomplete, and unmapped hazards can still be there. A listed access is not a guarantee of a safe exit. Distances use your last confirmed river position; its time is shown when it is stale." />}>
         {ahead?.basis?.stale ? <Text style={[s.note, { color: colors.textMuted }]}>From your last river position · {timeLabel(ahead.basis.at)}</Text> : null}
         {ahead?.items.length ? (showAll ? ahead.items : ahead.items.slice(0, 3)).map(item => {
           const distance = item.distance == null ? `River mile ${item.mile.toFixed(1)}` : `${item.distance.toFixed(1)} mi ${ahead.basis?.stale ? 'downstream of that position' : 'ahead'}`;
@@ -137,37 +150,37 @@ export default function FloatOptionsScreen() {
               <Text style={[s.note, { color: colors.textMuted }]}>{item.detail}{item.reportedAt ? ` · ${timeLabel(Date.parse(item.reportedAt))}` : ''}</Text>
             </View>
           </Pressable>;
-        }) : <Text style={[s.note, { color: colors.textMuted }]}>No mapped stops ahead</Text>}
+        }) : null}
         {/* An empty list is never a clear river when Eddy has no hazard data. */}
         {hazardNote ? <Text style={[s.note, { color: colors.textMuted }]}>{hazardNote}</Text> : null}
-        {ahead && ahead.items.length > 3 ? <EssentialsButton label={showAll ? 'Show less' : `Show all (${ahead.items.length})`} onPress={() => setShowAll(v => !v)} /> : null}
+        {ahead && ahead.items.length > 3 ? <EssentialsButton plain label={showAll ? 'Show less' : `Show all (${ahead.items.length})`} onPress={() => setShowAll(v => !v)} /> : null}
       </EssentialsSection>
     </View>
     {unplaced.length ? <EssentialsSection title="Unpositioned reports">{unplaced.map(report => <View key={report.id} style={{ gap: 4 }}>
       <Text style={[s.title, { color: colors.text }]}>{HAZARD_KINDS.find(k => k.id === report.kind)?.label}</Text>
       <Text style={[s.note, { color: colors.textMuted }]}>Your report · {reportStatusLabel(report.status)} · {timeLabel(Date.parse(report.capturedAt))}</Text>
     </View>)}</EssentialsSection> : null}
-    <EssentialsSection title="Pickup contact"><PickupContact message={locationMessage(session, now, timeLabel)} /></EssentialsSection>
-    <EssentialsSection title="River conditions" symbol="gauge"><EssentialsConditions slug={session.route.riverSlug} now={now} /></EssentialsSection>
-    <EssentialsSection title="Screen">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[s.title, { color: colors.text }]}>Keep screen awake</Text>
-          <Text style={[s.note, { color: colors.textMuted }]}>While River Mode is showing. Uses more battery.</Text>
-        </View>
-        <Switch value={keepAwake} onValueChange={value => void setKeepAwake(value)} accessibilityLabel="Keep screen awake while River Mode is showing" />
+    <EssentialsSection title="River conditions" symbol="gauge" bare><EssentialsConditions slug={session.route.riverSlug} now={now} /></EssentialsSection>
+    <EssentialsSection title="Float settings" action={<FloatInfoTip title="Float settings" message={FLOAT_SETTINGS_INFO} />}>
+      <View style={styles.settingRow}>
+        <Text style={[s.title, styles.settingLabel, { color: colors.text }]}>Keep screen awake</Text>
+        <Switch value={keepAwake} onValueChange={value => void setKeepAwake(value)} trackColor={{ true: colors.accentFill }} accessibilityLabel="Keep screen awake while River Mode or Float tools is showing" />
       </View>
+      {tracking.line && tracking.line.action !== 'info' ? <EssentialsButton plain label={tracking.line.text} onPress={tracking.act} /> : null}
+      <View style={[styles.divider, { borderTopColor: colors.border }]}><FloatReminders session={session} /></View>
+      <FloatActivityControl />
     </EssentialsSection>
-    {tracking.line && tracking.line.action !== 'info' ? <EssentialsButton label={tracking.line.text} onPress={tracking.act} /> : null}
-    <FloatReminders session={session} />
-    <EssentialsSection title="Lock Screen"><FloatActivityControl /></EssentialsSection>
-    <EssentialsSection title="Your reports"><FloatHazardReports session={session} /></EssentialsSection>
+    {hasReports ? <EssentialsSection title="Your reports"><FloatHazardReports session={session} /></EssentialsSection> : null}
+    {reportOpen ? <HazardReportSheet session={session} onClose={id => { setReportOpen(false); if (id) setReportedId(id); }} /> : null}
   </ScrollView>;
 }
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  title: { flexShrink: 1 },
+  title: { ...t.xl, flexShrink: 1 },
+  divider: { paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingVertical: 8 },
+  settingLabel: { flex: 1 },
   coordinates: { fontVariant: ['tabular-nums'] },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   placeText: { flex: 1, minWidth: 0, gap: 3 },

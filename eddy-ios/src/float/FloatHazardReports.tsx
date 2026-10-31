@@ -1,19 +1,15 @@
 // eddy-ios/src/float/FloatHazardReports.tsx
-// Report a hazard from River Mode, and what became of the ones you reported
-// on this river: waiting on the phone, sent for review, or not accepted (with
+// History of the hazards you reported on this river: waiting on the phone,
+// sent for review, or not accepted (with
 // the server's reason). Kept small on purpose: this is a float screen, not a
 // hazard dashboard (#1448).
 
-import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatSession } from '@/lib/floatSession';
 import { HAZARD_KINDS, type HazardReport } from '@/lib/hazardReportQueue';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { HazardReportSheet } from './HazardReportSheet';
-import { HazardReportFeedback } from './HazardReportFeedback';
-import { EddySymbol } from '@/components/EddySymbol';
 import { removeHazardReport, retryHazardReport, useHazardReports } from './hazardReports';
 
 function statusLine(report: HazardReport): string {
@@ -33,8 +29,6 @@ function statusLine(report: HazardReport): string {
 
 export function FloatHazardReports({ session }: { session: FloatSession }) {
   const { colors } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [reportedId, setReportedId] = useState<string | null>(null);
   const reports = useHazardReports().filter((report) => report.riverSlug === session.route.riverSlug).slice(0, 5);
   const remove = (report: HazardReport) => {
     const label = HAZARD_KINDS.find((k) => k.id === report.kind)?.label ?? 'this report';
@@ -52,25 +46,15 @@ export function FloatHazardReports({ session }: { session: FloatSession }) {
     );
   };
 
+  if (!reports.length) return null;
   return (
-    <View style={[styles.section, { borderColor: colors.border }]}>
-      <Pressable
-        onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.button, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
-        accessibilityRole="button"
-      >
-        <EddySymbol name="hazard" size={26} />
-        <Text style={[styles.buttonText, { color: colors.interactive }]}>Report a hazard here</Text>
-      </Pressable>
-
-      {reportedId ? <HazardReportFeedback reportId={reportedId} onDismiss={() => setReportedId(null)} /> : null}
-
+    <View style={styles.section}>
       {reports.map((report) => (
         <View key={report.id} style={styles.report}>
           <View style={styles.reportText} accessible accessibilityLabel={`${HAZARD_KINDS.find((k) => k.id === report.kind)?.label}. ${statusLine(report)}`}>
             <Text style={[styles.reportTitle, { color: colors.text }]}>
               {HAZARD_KINDS.find((k) => k.id === report.kind)?.label}
-              {report.riverMile != null ? ` · mile ${report.riverMile.toFixed(1)}` : ''}
+              {report.riverMile != null && report.riverMile >= 0 ? ` · mile ${report.riverMile.toFixed(1)}` : ''}
             </Text>
             <Text style={[styles.note, { color: report.status === 'refused' || report.status === 'failed' ? colors.error : colors.textMuted }]}>{statusLine(report)}</Text>
           </View>
@@ -85,16 +69,12 @@ export function FloatHazardReports({ session }: { session: FloatSession }) {
           </Pressable>
         </View>
       ))}
-
-      {open ? <HazardReportSheet onClose={(id) => { setOpen(false); if (id) setReportedId(id); }} session={session} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { gap: 8, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  button: { minHeight: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  buttonText: { ...t.base, fontFamily: fonts.semibold },
+  section: { gap: 8 },
   report: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   reportText: { flex: 1, paddingVertical: 2 },
   rowAction: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },

@@ -8,6 +8,8 @@
 // GPS gap. The newer one by timestamp wins. Pure, so it is tested from
 // missouri-float-planner/src/lib/hazard-report-position.test.ts.
 
+import { milesBetween } from '@eddy/geo';
+
 export interface ReportPosition {
   latitude: number;
   longitude: number;
@@ -53,4 +55,38 @@ export function positionAgeLabel(at: number, now: number): string {
   if (minutes < 60) return `position from ${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
   return `position from ${hours} h ${minutes % 60} min ago`;
+}
+
+/** Readable context only: the report still stores the original GPS fix and mile.
+ * Calibration can extrapolate negative miles upstream of its first anchor.
+ * Those values are useful internally, but coordinates make a clearer location.
+ */
+export function reportPositionLabel(
+  position: ReportPosition,
+  anchors: readonly { name: string; lngLat: readonly [number, number] }[],
+  riverMile: number | null,
+  now: number,
+): { title: string; detail: string } {
+  const accuracy = position.accuracyMeters;
+  const knownAccuracy = accuracy != null && Number.isFinite(accuracy) && accuracy >= 0;
+  let near: string | null = null;
+  let nearestMeters = 250;
+  // Do not give a coarse or unknown-accuracy fix the certainty of a place name.
+  if (knownAccuracy && accuracy <= 250) {
+    for (const anchor of anchors) {
+      const meters = milesBetween({ lat: position.latitude, lng: position.longitude }, { lat: anchor.lngLat[1], lng: anchor.lngLat[0] }) * 1609.344;
+      if (anchor.name.trim() && meters <= nearestMeters) {
+        near = anchor.name;
+        nearestMeters = meters;
+      }
+    }
+  }
+  return {
+    title: near ? `Near ${near}` : `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}`,
+    detail: [
+      riverMile != null && Number.isFinite(riverMile) && riverMile >= 0 ? `River mile ${riverMile.toFixed(1)}` : null,
+      knownAccuracy ? `±${Math.ceil(accuracy)} m` : 'Accuracy unavailable',
+      positionAgeLabel(position.at, now),
+    ].filter(Boolean).join(' · '),
+  };
 }

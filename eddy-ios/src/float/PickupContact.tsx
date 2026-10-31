@@ -10,14 +10,11 @@ import { TextButton } from './start/ui';
  * The person picking you up: one number, kept on the phone, dialled or
  * texted from Float tools.
  *
- * Two homes. In Float tools (`message` set) it sits under the section's own
- * heading with Call and Message, on the big bordered buttons a wet thumb
- * needs. On Ready to float (`compact`) it is one card among the planning
- * cards: its heading belongs to the card, and its buttons are the plain text
- * buttons the rest of that screen uses, because nothing there is pressed
- * from a moving boat.
+ * In Float tools (`tools`) it sits inside the take-out card with Call/Text
+ * actions and an inline Edit control. Ready to float (`compact`) keeps its
+ * own heading and plain text planning actions.
  */
-export function PickupContact({ message, disabled = false, compact = false }: { message?: string | null; disabled?: boolean; compact?: boolean }) {
+export function PickupContact({ message, disabled = false, compact = false, tools = false }: { message?: string | null; disabled?: boolean; compact?: boolean; tools?: boolean }) {
   const { colors } = useTheme();
   const [contact, setContact] = useState<Contact | null>(null);
   const [ready, setReady] = useState(false);
@@ -26,7 +23,7 @@ export function PickupContact({ message, disabled = false, compact = false }: { 
   const [revision] = useState(() => pickupContact.revision());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const Button = compact ? CompactButton : EssentialsButton;
+  const Button = compact ? CompactButton : ToolsButton;
   useEffect(() => {
     let active = true;
     void pickupContact.read().then(value => { if (active) { setContact(value); setReady(true); } }, () => {
@@ -47,6 +44,7 @@ export function PickupContact({ message, disabled = false, compact = false }: { 
     try { await Linking.openURL(url); setError(null); }
     catch { setError(`Couldn’t open ${app} on this device. The number is shown above to dial by hand.`); }
   };
+  const edit = () => { setDraft(contact ?? { name: '', phone: '' }); setEditing(true); setError(null); };
   return <View style={{ gap: 8 }}>
     {!ready ? <Text style={[s.note, { color: colors.textMuted }]}>Loading contact…</Text> : editing ? <>
       <TextInput value={draft.name} onChangeText={name => setDraft(v => ({ ...v, name }))} placeholder="Name" accessibilityLabel="Pickup contact name"
@@ -61,11 +59,15 @@ export function PickupContact({ message, disabled = false, compact = false }: { 
         {contact ? <Button label="Remove" disabled={busy || disabled} onPress={() => void save(true)} /> : null}
       </View>
     </> : <>
-      {contact ? <>
-        <Text style={[s.title, { color: colors.text }]}>{contact.name || contact.phone}</Text>
-        {/* The number itself, so it can be checked, or dialled by hand. */}
-        {contact.name ? <Text selectable style={[s.note, { color: colors.textMuted }]}>{contact.phone}</Text> : null}
-      </> : compact ? (
+      {contact ? <View style={styles.contactRow}>
+        <View style={styles.contactCopy}>
+          {tools ? <Text style={[s.note, { color: colors.textMuted }]}>Pickup contact</Text> : null}
+          <Text selectable style={[s.title, { color: colors.text }]}>{contact.name || contact.phone}</Text>
+          {/* The number itself, so it can be checked, or dialled by hand. */}
+          {contact.name ? <Text selectable style={[s.note, { color: colors.textMuted }]}>{contact.phone}</Text> : null}
+        </View>
+        {tools ? <EssentialsButton plain label="Edit" accessibilityLabel="Edit pickup contact" onPress={edit} disabled={!ready || disabled} /> : null}
+      </View> : compact ? (
         // What the number is for, said once, before there is one. Float tools
         // shows the Call and Message buttons themselves, so it needs no line.
         <Text style={[s.note, { color: colors.textMuted }]}>One tap to call or text them from the river.</Text>
@@ -73,11 +75,9 @@ export function PickupContact({ message, disabled = false, compact = false }: { 
       <View style={compact ? styles.textActions : s.actions}>
         {contact && message !== undefined ? <>
           <Button label="Call" onPress={() => void open(`tel:${contact.phone}`, 'Phone')} />
-          <Button label="Message" onPress={() => void open(`sms:${contact.phone}${message ? `&body=${encodeURIComponent(message)}` : ''}`, 'Messages')} />
+          <Button label={tools ? 'Text' : 'Message'} onPress={() => void open(`sms:${contact.phone}${message ? `&body=${encodeURIComponent(message)}` : ''}`, 'Messages')} />
         </> : null}
-        <Button label={contact ? 'Edit contact' : 'Add contact'} disabled={!ready || disabled} onPress={() => {
-          setDraft(contact ?? { name: '', phone: '' }); setEditing(true); setError(null);
-        }} />
+        {!(tools && contact) ? <Button label={contact ? 'Edit contact' : tools ? 'Add pickup contact' : 'Add contact'} disabled={!ready || disabled} onPress={edit} /> : null}
       </View>
     </>}
     {error ? <Text accessibilityRole="alert" style={[s.note, { color: colors.error }]}>{error}</Text> : null}
@@ -88,7 +88,17 @@ function CompactButton({ label, onPress, disabled }: { label: string; onPress: (
   return <TextButton label={label} onPress={onPress} disabled={disabled} align="left" />;
 }
 
+function ToolsButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  const call = label === 'Call';
+  const text = label === 'Text' || label === 'Message';
+  return <EssentialsButton label={label} onPress={onPress} disabled={disabled}
+    icon={call ? 'call-outline' : text ? 'chatbubble-outline' : undefined}
+    plain={label.startsWith('Add') || label.startsWith('Edit')} grow={call || text} />;
+}
+
 const styles = StyleSheet.create({
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  contactCopy: { flex: 1, gap: 2 },
   input: { minHeight: 56, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12 },
   // Text buttons have no border to space them; the gap does it.
   textActions: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 24 },

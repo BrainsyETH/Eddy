@@ -11,7 +11,22 @@
 // tracking changes. Pure (storage is passed in), tested from
 // missouri-float-planner/src/lib/float-activity-visibility.test.ts.
 
+import type { ActivityAvailability } from './floatActivity';
+
 export const HIDDEN_ACTIVITY_KEY = 'eddy.floatActivity.hiddenSession';
+
+/** Switch state follows the actual card, never a request that failed to start it. */
+export function floatActivityControlState(availability: ActivityAvailability, hidden: boolean) {
+  return {
+    visible: availability !== 'unavailable',
+    on: availability === 'active' && !hidden,
+    settings: availability === 'disabled',
+    note: availability === 'disabled' ? 'Live Activities are off in iOS Settings.'
+      : availability === 'error' ? 'Couldn’t update the Lock Screen card. Tracking continues.'
+      : availability === 'expired' && !hidden ? 'The Lock Screen card expired after eight hours. Turn it on to show it again.'
+      : null,
+  };
+}
 
 export interface VisibilityStorage {
   getItem(key: string): Promise<string | null>;

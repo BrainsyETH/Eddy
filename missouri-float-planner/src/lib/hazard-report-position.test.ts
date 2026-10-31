@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { newestPosition, positionAgeLabel, recorderPosition } from '../../../eddy-ios/src/lib/hazardReportPosition';
+import { newestPosition, positionAgeLabel, recorderPosition, reportPositionLabel } from '../../../eddy-ios/src/lib/hazardReportPosition';
 
 const NOW = Date.parse('2026-07-04T14:00:00Z');
 const phone = (at: number) => ({ latitude: 37, longitude: -91, accuracyMeters: 30, at });
@@ -44,4 +44,38 @@ test('"just now" lasts under a minute, then the age counts up', () => {
   assert.equal(positionAgeLabel(NOW, NOW + 75 * 60_000), 'position from 1 h 15 min ago');
   // A slightly-ahead clock is not a negative age.
   assert.equal(positionAgeLabel(NOW + 5_000, NOW), 'just now');
+});
+
+
+test('report location names the closest nearby access from raw coordinates', () => {
+  const position = Object.freeze(phone(NOW));
+  const anchors = Object.freeze([
+    { name: 'Farther landing', lngLat: [-91, 37.002] as const },
+    { name: 'Red Bluff', lngLat: [-91, 37.001] as const },
+  ]);
+  const label = reportPositionLabel(position, anchors, 4.2, NOW);
+  assert.equal(label.title, 'Near Red Bluff');
+  assert.equal(label.detail, 'River mile 4.2 · ±30 m · just now');
+  assert.deepEqual(position, phone(NOW), 'display does not snap or change the report position');
+});
+
+test('distant or coarse report positions show coordinates instead of a misleading place', () => {
+  const position = phone(NOW);
+  const nearby = [{ name: 'Landing', lngLat: [-91, 37] as const }];
+  const distant = [{ name: 'Far landing', lngLat: [-91, 37.01] as const }];
+  assert.equal(reportPositionLabel(position, distant, null, NOW).title, '37.00000, -91.00000');
+  assert.equal(reportPositionLabel({ ...position, accuracyMeters: 500 }, nearby, null, NOW).title, '37.00000, -91.00000');
+  for (const accuracyMeters of [null, Number.NaN, -1]) {
+    const label = reportPositionLabel({ ...position, accuracyMeters }, nearby, null, NOW);
+    assert.equal(label.title, '37.00000, -91.00000');
+    assert.match(label.detail, /Accuracy unavailable/);
+  }
+});
+
+test('extrapolated negative mileage is not a display label and never becomes mile zero', () => {
+  const label = reportPositionLabel(phone(NOW), [], -1.8, NOW + 5 * 60_000);
+  assert.equal(label.title, '37.00000, -91.00000');
+  assert.equal(label.detail, '±30 m · position from 5 min ago');
+  assert.match(reportPositionLabel(phone(NOW), [], 0, NOW).detail, /^River mile 0.0/);
+  assert.doesNotMatch(reportPositionLabel(phone(NOW), [], Number.NaN, NOW).detail, /River mile/);
 });
