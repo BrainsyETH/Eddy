@@ -16,11 +16,16 @@ function values(metric?: Metric): Record<string, unknown> {
 }
 const n = (v: unknown) => (typeof v === 'number' ? v : null);
 
-/** One plain status per service. "Not tracked" is never shown as healthy. */
+const CANT_CHECK = { tone: 'quiet' as const, text: "Couldn't check", unknown: true };
+
+/**
+ * One plain status per service. Green needs a check that answered: a missing
+ * or unreadable source is "Couldn't check", never healthy.
+ */
 export function serviceStatus(
   s: ServiceInfo,
   metrics: Metric[],
-): { tone: Tone; text: string } {
+): { tone: Tone; text: string; unknown?: boolean } {
   const flagged = (key: string) =>
     metrics.some((m) => m.key === key && needsAttention(m));
   if (s.configuration.startsWith('Not configured') || s.configuration === 'Reporting not configured')
@@ -40,7 +45,7 @@ export function serviceStatus(
       return { tone: 'quiet', text: 'Not linked to dashboard' };
     const issues = metrics.filter((m) => m.key.startsWith('sentry_'));
     if (!issues.length || issues.some((m) => m.state !== 'ok'))
-      return { tone: 'quiet', text: "Couldn't check" };
+      return CANT_CHECK;
     const count = issues.reduce((sum, m) => sum + Number(m.value), 0);
     return count
       ? { tone: 'warn', text: `${count} active errors` }
@@ -52,17 +57,23 @@ export function serviceStatus(
       : { tone: 'bad', text: 'Not answering' };
   if (s.id === 'expo') {
     const off = metrics.find((m) => m.key === 'effective_push');
-    if (off?.state !== 'ok') return { tone: 'quiet', text: "Couldn't check" };
-    return off.value === 1
-      ? { tone: 'bad', text: 'Alerts switched off' }
-      : flagged('push_errors')
-        ? { tone: 'warn', text: 'Some alerts failing' }
-        : { tone: 'good', text: 'Sending alerts' };
+    if (off?.state === 'ok' && off.value === 1)
+      return { tone: 'bad', text: 'Alerts switched off' };
+    if (flagged('push_errors')) return { tone: 'warn', text: 'Some alerts failing' };
+    const errors = metrics.find((m) => m.key === 'push_errors');
+    return off?.state === 'ok' && errors?.state === 'ok'
+      ? { tone: 'good', text: 'Sending alerts' }
+      : CANT_CHECK;
   }
-  if (s.id === 'vercel')
-    return metrics.some((m) => m.key.startsWith('job_') && needsAttention(m))
-      ? { tone: 'warn', text: 'A task needs a look' }
-      : { tone: 'good', text: 'Running tasks' };
+  if (s.id === 'vercel') {
+    const jobs = metrics.filter((m) => m.key.startsWith('job_'));
+    if (jobs.some(needsAttention)) return { tone: 'warn', text: 'A task needs a look' };
+    if (!jobs.length || jobs.every((m) => m.state !== 'ok')) return CANT_CHECK;
+    const unread = jobs.filter((m) => m.state !== 'ok').length;
+    return unread
+      ? { tone: 'quiet', text: `${unread} tasks not checked`, unknown: true }
+      : { tone: 'good', text: 'Tasks on schedule' };
+  }
   return { tone: 'quiet', text: 'Set up' };
 }
 
@@ -77,16 +88,31 @@ export default function ServiceOverview({
   const [selected, setSelected] = useState<string | null>(null);
   const statuses = services.map((s) => ({ s, status: serviceStatus(s, metrics) }));
   const problems = statuses.filter((x) => x.status.tone === 'bad' || x.status.tone === 'warn');
+  const unknown = statuses.filter((x) => x.status.unknown).length;
   const service = services.find((s) => s.id === selected);
   const usage = values(metrics.find((m) => m.key === `upstream_${service?.provider}`));
   return (
     <Panel
       id="services"
-      question="Are outside services working?"
-      hint="The services Eddy depends on. Select one for details."
+      title="Outside services"
+      hint="Are the services Eddy depends on working? Select one for details."
       action={
-        <Status tone={problems.some((p) => p.status.tone === 'bad') ? 'bad' : problems.length ? 'warn' : 'good'}>
-          {problems.length ? `${problems.length} to check` : 'No problems seen'}
+        <Status
+          tone={
+            problems.some((p) => p.status.tone === 'bad')
+              ? 'bad'
+              : problems.length
+                ? 'warn'
+                : unknown
+                  ? 'quiet'
+                  : 'good'
+          }
+        >
+          {problems.length
+            ? `${problems.length} to check`
+            : unknown
+              ? `${unknown} couldn't be checked`
+              : 'No problems seen'}
         </Status>
       }
     >

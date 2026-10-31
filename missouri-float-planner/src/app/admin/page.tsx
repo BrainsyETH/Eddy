@@ -12,7 +12,7 @@ import {
   type DashboardSummary,
   type Metric,
 } from '@/lib/admin/dashboard/model';
-import { SECTION_NAMES, plain } from '@/lib/admin/dashboard/plain';
+import { SECTION_NAMES, plain, valueText } from '@/lib/admin/dashboard/plain';
 
 /** Compact value for a tile; lists and settings show their size, details open on click. */
 function Value({ metric }: { metric: Metric }) {
@@ -22,6 +22,8 @@ function Value({ metric }: { metric: Metric }) {
         {metric.state === 'not_connected' ? 'Not connected' : '—'}
       </span>
     );
+  const words = valueText(metric);
+  if (words) return <span>{words}</span>;
   if (Array.isArray(metric.value))
     return metric.value.length ? (
       <ol className={styles.tileList}>

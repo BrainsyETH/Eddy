@@ -43,8 +43,8 @@ export default function GrowthChart({
   const noun = measure === 'plans' ? 'trip plans saved' : 'new accounts';
   return (
     <Panel
-      question="Is Eddy growing?"
-      hint="Each day compared with the period before (dashed)"
+      title="Growth"
+      hint="Is Eddy growing? Each day vs the period before (dashed)."
       action={
         <div className={styles.segment} aria-label="Chart measure">
           {(['plans', 'accounts'] as const).map((value) => (

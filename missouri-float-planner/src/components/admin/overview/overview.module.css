@@ -166,8 +166,18 @@
   .main {
     padding: 16px;
   }
-  /* On a phone, what needs attention comes before the chart. */
-  .split > [id='focus'] {
+  /* On a phone, what needs attention sits right under Eddy's status line:
+     the two-column rows dissolve into the page grid so it can move up. */
+  .split {
+    display: contents;
+  }
+  .alert {
+    order: -3;
+  }
+  .hero {
+    order: -2;
+  }
+  .main > .split > [id='focus'] {
     order: -1;
   }
   .topbar {
@@ -273,7 +283,7 @@
   transform: translate(-1px, -2px);
   box-shadow: 4px 4px 0 var(--color-neutral-500, #857d70);
 }
-.kpiQuestion {
+.kpiLabel {
   font-weight: 700;
   font-size: 15px;
   color: var(--teal-ink);
@@ -618,6 +628,17 @@
 .inbox span {
   font-size: 12px;
   font-weight: 600;
+  color: var(--muted);
+}
+
+/* Checks that returned no answer */
+.unchecked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
   color: var(--muted);
 }
 

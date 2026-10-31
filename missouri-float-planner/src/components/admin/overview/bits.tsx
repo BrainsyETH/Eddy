@@ -67,17 +67,17 @@ export function Sparkline({
   );
 }
 
-/** A dashboard card. Its title is the question the card answers. */
+/** A dashboard card: a short title, and the question it answers as the hint. */
 export function Panel({
   id,
-  question,
+  title,
   hint,
   action,
   children,
   wide,
 }: {
   id?: string;
-  question: string;
+  title: string;
   hint?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -92,7 +92,7 @@ export function Panel({
     >
       <header className={styles.panelHead}>
         <div>
-          <h2 id={id ? `${id}-q` : undefined}>{question}</h2>
+          <h2 id={id ? `${id}-q` : undefined}>{title}</h2>
           {hint && <p>{hint}</p>}
         </div>
         {action}

@@ -31,16 +31,15 @@ export function trafficSource(
   return 'external';
 }
 /**
- * Social, search and webmail hosts send a referrer when someone opens a
- * widget link from them. That is a shared link, not a site embedding Eddy, so
- * these never count toward embedding sites.
+ * Social, search and webmail hosts are where links get shared, not where
+ * partners put widgets, so they are listed apart from referring sites.
  */
 const LINK_HOST =
   /(^|\.)(facebook\.com|fb\.com|instagram\.com|t\.co|twitter\.com|x\.com|threads\.net|reddit\.com|linkedin\.com|lnkd\.in|pinterest\.com|youtube\.com|tiktok\.com|google\.[a-z.]+|googleusercontent\.com|bing\.com|duckduckgo\.com|yahoo\.com|baidu\.com|yandex\.[a-z]+|ecosia\.org|outlook\.live\.com|live\.com|office\.com)$/;
 export const isLinkHost = (host: string) =>
   LINK_HOST.test(host.toLowerCase().replace(/\.$/, ''));
 
-export interface EmbedSite {
+export interface ReferringSite {
   host: string;
   /** Loads in the 30-day window. */
   loads: number;
@@ -57,19 +56,30 @@ export interface EmbedSite {
 }
 
 /**
- * Which outside websites show an Eddy widget. Counts distinct external hosts
- * over the 30 days the dashboard holds; Eddy's own pages, unknown referrers
- * and shared-link hosts (social, search, webmail) are excluded and reported
- * separately so the headline is "sites", not "traffic".
+ * Outside websites that sent widget views: distinct external referrer hosts
+ * over the 30 days the dashboard holds. Eddy's own pages, unknown referrers
+ * and social/search/webmail hosts are excluded and reported separately.
+ *
+ * This is a referrer, not proof of an embed. The beacon records
+ * document.referrer, which is the same whether the widget loaded in an
+ * iframe on that site or someone clicked a widget link there. Confirming
+ * embeds needs the beacon to record whether it loaded inside a frame.
  */
-export function embedSites(history: WidgetHistory | undefined) {
+const ranked = (counts: Map<string, number>) =>
+  [...counts]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+export function referringSites(history: WidgetHistory | undefined) {
   if (!history || history.state !== 'ok') return null;
   const end = Date.parse(history.through + 'T00:00:00Z');
   const dayAt = (i: number) =>
     new Date(end - (29 - i) * 86400000).toISOString().slice(0, 10);
   const start = dayAt(0);
   const start7 = dayAt(23);
-  const sites = new Map<string, EmbedSite>();
+  const sites = new Map<string, ReferringSite>();
+  const types = new Map<string, number>();
+  const keys = new Map<string, number>();
   const links = new Map<string, number>();
   let unknownLoads = 0;
   for (const row of history.rows) {
@@ -85,6 +95,8 @@ export function embedSites(history: WidgetHistory | undefined) {
       links.set(host, (links.get(host) ?? 0) + row.count);
       continue;
     }
+    types.set(row.widget_type, (types.get(row.widget_type) ?? 0) + row.count);
+    keys.set(row.widget_key, (keys.get(row.widget_key) ?? 0) + row.count);
     const site = sites.get(host) ?? {
       host,
       loads: 0,
@@ -121,9 +133,10 @@ export function embedSites(history: WidgetHistory | undefined) {
     activeThisWeek: list.filter((s) => s.loads7 > 0).length,
     newThisWeek: list.filter((s) => s.isNew).length,
     quietThisWeek: list.filter((s) => s.quiet).length,
-    links: [...links]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+    links: ranked(links),
+    /** Widget types and rivers/dams, counted over referring-site views only. */
+    types: ranked(types),
+    keys: ranked(keys),
     unknownLoads,
   };
 }

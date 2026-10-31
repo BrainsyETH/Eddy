@@ -46,7 +46,7 @@ export default function JobStatusTable({
                   error: { tone: 'bad' as const, text: 'Failed' },
                   partial: { tone: 'warn' as const, text: 'Partly worked' },
                   started: { tone: 'quiet' as const, text: 'Running' },
-                  skipped: { tone: 'quiet' as const, text: 'Nothing to do' },
+                  skipped: { tone: 'quiet' as const, text: 'Skipped' },
                 }[job.lastStatus ?? ''] ?? { tone: 'quiet' as const, text: 'No run yet' });
             return (
               <tr key={job.id}>

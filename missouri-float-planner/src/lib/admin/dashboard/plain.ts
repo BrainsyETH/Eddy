@@ -268,8 +268,8 @@ export const PLAIN: Record<string, PlainCopy> = {
     means: 'Times an Eddy widget loaded anywhere, last 7 days.',
   },
   embed_hosts: {
-    title: 'Sites showing widgets this week',
-    means: 'Websites a widget loaded from in the last 7 days.',
+    title: 'Referring sites this week',
+    means: 'Websites that sent widget views in the last 7 days, embedded or linked.',
   },
   embed_partners: {
     title: 'Partner widgets this week',
@@ -293,18 +293,68 @@ const PROVIDERS: Record<string, string> = {
 };
 const provider = (id: string) => PROVIDERS[id] ?? id.toUpperCase();
 
-/** Copy for a metric, including the ones built at request time (jobs, providers, Sentry). */
-export function plain(metric: Pick<Metric, 'key' | 'label'>, jobLabel?: string): PlainCopy {
+type CopyInput = Pick<Metric, 'key' | 'label'> &
+  Partial<Pick<Metric, 'state' | 'value' | 'attention'>>;
+
+const JOB_RESULT: Record<string, string> = {
+  ok: 'Worked',
+  partial: 'Partly worked',
+  error: 'Failed',
+  skipped: 'Skipped',
+  started: 'Running',
+};
+
+/**
+ * Words for values that are codes rather than counts: a job's result and the
+ * push switch. Anything else returns null and is shown as its number.
+ */
+export function valueText(metric: CopyInput): string | null {
+  if (metric.state !== 'ok') return null;
+  if (metric.key.startsWith('job_'))
+    return metric.value === 1
+      ? 'Needs a look'
+      : typeof metric.value === 'string'
+        ? (JOB_RESULT[metric.value] ?? metric.value)
+        : null;
+  if (metric.key === 'effective_push')
+    return metric.value === 1 ? 'Off' : metric.value === 0 ? 'On' : null;
+  return null;
+}
+
+/** A positive count that is known. Only then is there something to act on. */
+const hasWork = (m: CopyInput) =>
+  m.state === 'ok' && typeof m.value === 'number' && m.value > 0;
+
+/**
+ * Copy for a metric, including the ones built at request time (jobs,
+ * providers, Sentry). Titles are neutral nouns, so a healthy value never sits
+ * under a title that says something broke. The "what to do" line appears only
+ * when the value shows work to do; without a value (catalog checks) it is kept.
+ */
+export function plain(metric: CopyInput, jobLabel?: string): PlainCopy {
+  const copy = baseCopy(metric, jobLabel);
+  if (metric.key.startsWith('job_') || metric.key === 'effective_push') return copy;
+  if (metric.state === undefined || hasWork(metric)) return copy;
+  return { title: copy.title, means: copy.means };
+}
+
+function baseCopy(metric: CopyInput, jobLabel?: string): PlainCopy {
   const fixed = PLAIN[metric.key];
   if (fixed) return fixed;
   const [prefix, ...rest] = metric.key.split('_');
   const id = rest.join('_');
-  if (metric.key.startsWith('job_'))
-    return {
-      title: `${jobLabel ?? id} didn’t finish`,
-      means: 'This automatic task failed, stalled or missed its schedule.',
-      todo: 'Open it to see recent runs.',
-    };
+  if (metric.key.startsWith('job_')) {
+    const title = jobLabel ?? id;
+    if (metric.state !== 'ok')
+      return { title, means: 'Couldn’t read this task’s latest result.' };
+    return metric.value === 1
+      ? {
+          title,
+          means: 'This automatic task failed, stalled or missed its schedule.',
+          todo: 'Open it to see recent runs.',
+        }
+      : { title, means: 'An automatic task. Its latest result is shown here.' };
+  }
   if (prefix === 'sentry')
     return metric.key === 'sentry'
       ? { title: 'Error tracking', means: 'Sentry is not connected to this dashboard.' }
@@ -319,23 +369,27 @@ export function plain(metric: Pick<Metric, 'key' | 'label'>, jobLabel?: string):
       : { title: 'Outside service usage', means: 'Usage tracking is turned off.' };
   if (prefix === '429')
     return {
-      title: `${provider(id)} asked us to slow down`,
-      means: `Times ${provider(id)} refused a call for being too frequent today.`,
+      title: `${provider(id)} slow-down replies`,
+      means: `Times today ${provider(id)} refused a call because we called too often.`,
     };
   if (prefix === 'errors')
     return {
-      title: `${provider(id)} is failing`,
-      means: `More than 1 in 20 calls to ${provider(id)} failed today.`,
+      title: `${provider(id)} error rate`,
+      means: `Percent of calls to ${provider(id)} that failed today. Shown when it passes 5%.`,
       todo: 'Check that service’s status page.',
     };
   if (prefix === 'ai')
     return { title: `AI use: ${id.replaceAll('-', ' ')}`, means: 'Tokens and estimated cost over 7 days.' };
   if (metric.key === 'effective_push')
-    return {
-      title: 'Phone alerts are switched off',
-      means: 'Eddy is not sending any push alerts right now.',
-      todo: 'Turn push back on in app settings when ready.',
-    };
+    return metric.state !== 'ok'
+      ? { title: 'Phone alerts', means: 'Couldn’t read whether push alerts are on.' }
+      : metric.value === 1
+        ? {
+            title: 'Phone alerts',
+            means: 'Eddy is not sending any push alerts right now.',
+            todo: 'Turn push back on in app settings when ready.',
+          }
+        : { title: 'Phone alerts', means: 'Push alerts are switched on.' };
   if (metric.key === 'below_min')
     return { title: 'Phones on an unsupported version', means: 'They need to update the app.' };
   if (metric.key === 'latest_version')
@@ -347,7 +401,7 @@ export function plain(metric: Pick<Metric, 'key' | 'label'>, jobLabel?: string):
   if (metric.key === 'telemetry_budget')
     return { title: 'Usage tracking budget', means: 'Tracking operations used today.' };
   if (metric.key === 'telemetry_capped')
-    return { title: 'Usage tracking hit its cap', means: 'Some usage today was not counted.' };
+    return { title: 'Usage tracking cap', means: 'Above zero means tracking hit its daily limit and some usage wasn’t counted.' };
   if (metric.key === 'telemetry_dropped')
     return { title: 'Usage events dropped', means: 'Usage events lost before they were saved.' };
   return { title: metric.label, means: '' };

@@ -45,6 +45,17 @@ export function needsAttention(metric: Metric): boolean {
     metric.value > 0
   );
 }
+/**
+ * Checks that could raise a flag but returned no answer: a flaggable metric
+ * that is unknown, or a scheduled task whose result could not be read. The
+ * dashboard may call things healthy only when this is zero.
+ */
+export function uncheckedMetrics(metrics: Metric[]): Metric[] {
+  return metrics.filter(
+    (m) =>
+      m.state === 'unknown' && (m.attention || m.key.startsWith('job_')),
+  );
+}
 export function inboxCount(metrics: Metric[]): number | null {
   const inbox = metrics.filter((m) => m.section === 'Inbox');
   return inbox.length === 3 &&

@@ -30,7 +30,7 @@ export const statusLabel = (status: string | null) =>
     ok: 'Worked',
     partial: 'Partly worked',
     error: 'Failed',
-    skipped: 'Nothing to do',
+    skipped: 'Skipped',
     started: 'Running',
   })[status ?? ''] ?? 'No run yet';
 const severity = (status: string) =>
@@ -67,6 +67,10 @@ export default function AutomationTimeline({
   const flagged = (id: string) =>
     metrics.some((m) => m.key === `job_${id}` && needsAttention(m));
   const flaggedCount = jobs.filter((j) => flagged(j.id)).length;
+  // A task whose result couldn't be read is not "fine": count it separately.
+  const uncheckedCount = jobs.filter(
+    (j) => metrics.find((m) => m.key === `job_${j.id}`)?.state !== 'ok',
+  ).length;
   const primaryJobs = [
     'update-gauges:high-frequency',
     'sync-gauge-latest',
@@ -88,14 +92,18 @@ export default function AutomationTimeline({
   return (
     <Panel
       id="automation"
-      question="Are the automatic tasks running?"
-      hint="What ran in the last 6 hours (Central time). Select a task for its runs."
+      title="Automatic tasks"
+      hint="Are they running? Last 6 hours, Central time. Select a task for its runs."
       action={
         timeline.state === 'ok' && (
-          <Status tone={flaggedCount ? 'warn' : 'good'}>
+          <Status
+            tone={flaggedCount ? 'warn' : uncheckedCount ? 'quiet' : 'good'}
+          >
             {flaggedCount
               ? `${flaggedCount} of ${jobs.length} need a look`
-              : 'No problems seen'}
+              : uncheckedCount
+                ? `${uncheckedCount} of ${jobs.length} not checked`
+                : 'No problems seen'}
           </Status>
         )
       }
@@ -108,7 +116,7 @@ export default function AutomationTimeline({
             <span data-status="ok">● Worked</span>
             <span data-status="error">◆ Failed</span>
             <span data-status="started">● Running</span>
-            <span data-status="skipped">● Nothing to do</span>
+            <span data-status="skipped">● Skipped</span>
           </div>
           <div className={styles.timelineScroll}>
             <div className={styles.timeline}>

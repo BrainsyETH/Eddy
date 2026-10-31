@@ -2,8 +2,8 @@
 import { createContext, useContext, useEffect, useRef } from 'react';
 import type { DashboardSummary, Metric } from '@/lib/admin/dashboard/model';
 import { comparePeriod } from '@/lib/admin/dashboard/overview-model';
-import { embedSites, widgetBreakdown } from '@/lib/admin/dashboard/widget-model';
-import { plain } from '@/lib/admin/dashboard/plain';
+import { referringSites } from '@/lib/admin/dashboard/widget-model';
+import { plain, valueText } from '@/lib/admin/dashboard/plain';
 import { Sparkline, Status, fmt } from './bits';
 import styles from './overview.module.css';
 
@@ -42,6 +42,8 @@ function MetricValue({ metric }: { metric: Metric }) {
         {metric.state === 'not_connected' ? 'Not connected yet.' : "Couldn't load this number."}
       </p>
     );
+  const words = valueText(metric);
+  if (words) return <strong className={styles.detailNumber}>{words}</strong>;
   if (Array.isArray(metric.value))
     return metric.value.length ? (
       <table className={styles.detailTable}>
@@ -115,9 +117,8 @@ function MetricBlock({ metric, jobLabel }: { metric: Metric; jobLabel?: string }
 
 function SitesDetails({ summary }: { summary: DashboardSummary }) {
   const history = summary.overview?.widgets;
-  const sites = embedSites(history);
-  const outside = widgetBreakdown(history, 30, 'external');
-  if (!sites || !outside)
+  const sites = referringSites(history);
+  if (!sites)
     return <p className={styles.missing}>Widget history did not load.</p>;
   return (
     <>
@@ -175,14 +176,14 @@ function SitesDetails({ summary }: { summary: DashboardSummary }) {
           </table>
         </div>
       ) : (
-        <p className={styles.missing}>No outside site has loaded a widget in 30 days.</p>
+        <p className={styles.missing}>No outside site has sent a widget view in 30 days.</p>
       )}
       <div className={styles.breakdownColumns}>
         <section>
           <h3>Most-used widgets</h3>
           <table className={styles.detailTable}>
             <tbody>
-              {outside.types.slice(0, 8).map((r) => (
+              {sites.types.slice(0, 8).map((r) => (
                 <tr key={r.name}>
                   <td>{friendly(r.name)}</td>
                   <td>{r.count.toLocaleString()}</td>
@@ -195,7 +196,7 @@ function SitesDetails({ summary }: { summary: DashboardSummary }) {
           <h3>Most-shown rivers and dams</h3>
           <table className={styles.detailTable}>
             <tbody>
-              {outside.keys.slice(0, 8).map((r) => (
+              {sites.keys.slice(0, 8).map((r) => (
                 <tr key={r.name}>
                   <td>{friendly(r.name)}</td>
                   <td>{r.count.toLocaleString()}</td>
@@ -205,7 +206,7 @@ function SitesDetails({ summary }: { summary: DashboardSummary }) {
           </table>
         </section>
         <section>
-          <h3>Opened from shared links</h3>
+          <h3>From social, search and email</h3>
           {sites.links.length ? (
             <table className={styles.detailTable}>
               <tbody>
@@ -225,11 +226,14 @@ function SitesDetails({ summary }: { summary: DashboardSummary }) {
       <details className={styles.fine}>
         <summary>How this is counted</summary>
         <p>
-          A view is one widget loading on a page. A site counts once it has one
-          view in the last 30 days. Eddy’s own pages don’t count. Social media,
-          search and webmail are listed as shared links, not sites. New means
-          its first view in those 30 days came this week. Quiet means no views
-          this week.
+          A view is one widget page loading. A site appears when a widget
+          loaded from one of its pages in the last 30 days. That can be a
+          widget embedded on the page or a widget link someone clicked there;
+          we can’t tell those apart yet, so this is not a count of confirmed
+          embeds. Eddy’s own pages don’t count. Social media, search and email
+          are listed on their own, and the widget and river rankings above
+          leave them out too. New means a site’s first view in those 30 days
+          came this week. Quiet means no views this week.
         </p>
         <p>
           {sites.unknownLoads.toLocaleString()} views in 30 days arrived without
@@ -352,7 +356,7 @@ export default function MetricDetails({
     : job
       ? job.label
       : target.key === 'widgets'
-        ? 'Sites showing Eddy widgets'
+        ? 'Referring sites'
         : growth
           ? target.key === 'accounts'
             ? 'New accounts'
@@ -480,7 +484,7 @@ export default function MetricDetails({
                         <tr key={i}>
                           <td>{when(r.started_at)}</td>
                           <td>
-                            {({ ok: 'Worked', partial: 'Partly worked', error: 'Failed', skipped: 'Nothing to do', started: 'Running' } as Record<string, string>)[r.status] ?? r.status}
+                            {({ ok: 'Worked', partial: 'Partly worked', error: 'Failed', skipped: 'Skipped', started: 'Running' } as Record<string, string>)[r.status] ?? r.status}
                           </td>
                           <td>
                             {r.duration_ms === null

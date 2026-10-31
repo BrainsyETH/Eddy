@@ -3,11 +3,12 @@ import { useState } from 'react';
 import {
   inboxCount,
   needsAttention,
+  uncheckedMetrics,
   type DashboardSummary,
   type Metric,
 } from '@/lib/admin/dashboard/model';
 import { comparePeriod } from '@/lib/admin/dashboard/overview-model';
-import { embedSites } from '@/lib/admin/dashboard/widget-model';
+import { referringSites } from '@/lib/admin/dashboard/widget-model';
 import { plain } from '@/lib/admin/dashboard/plain';
 import { EDDY_IMAGES } from '@/constants';
 import GrowthChart from './GrowthChart';
@@ -96,7 +97,7 @@ export default function OverviewDashboard({
   const behind = FRESHNESS.reduce((n, f) => n + (num(f.key) ?? 0), 0);
   const accounts = overview && comparePeriod(overview.accounts, days);
   const plans = overview && comparePeriod(overview.plans, days);
-  const sites = embedSites(overview?.widgets);
+  const sites = referringSites(overview?.widgets);
   const inbox = inboxCount(metrics);
   const top = metrics.find((m) => m.key === 'plan_rivers');
   const rivers =
@@ -106,6 +107,10 @@ export default function OverviewDashboard({
   const stale =
     summary && Date.now() - Date.parse(summary.generatedAt) > 360000;
   const pushOff = num('effective_push') === 1;
+  // A missing answer is never healthy: count it, and keep the hero off green.
+  const unchecked = uncheckedMetrics(metrics);
+  const timelineDown = !!summary && overview?.timeline.state !== 'ok';
+  const unknownCount = unchecked.length + (timelineDown ? 1 : 0);
 
   const mood = !summary
     ? EDDY_IMAGES.favicon
@@ -113,12 +118,16 @@ export default function OverviewDashboard({
       ? EDDY_IMAGES.red
       : attention.length
         ? EDDY_IMAGES.yellow
-        : EDDY_IMAGES.green;
+        : unknownCount
+          ? EDDY_IMAGES.favicon
+          : EDDY_IMAGES.green;
   const headline = !summary
     ? 'Checking on the river…'
     : attention.length
       ? `${plural(attention.length, 'thing needs', 'things need')} you.`
-      : 'All calm on the water.';
+      : unknownCount
+        ? 'Some checks didn’t answer.'
+        : 'All calm on the water.';
   const subline = !summary
     ? 'Loading the latest numbers.'
     : [
@@ -142,6 +151,9 @@ export default function OverviewDashboard({
             ? `${plural(inbox, 'item', 'items')} in your inbox`
             : 'Inbox is clear',
         pushOff ? 'Phone alerts are off' : null,
+        unknownCount
+          ? `${plural(unknownCount, 'check', 'checks')} didn’t load`
+          : null,
       ]
         .filter(Boolean)
         .join(' · ');
@@ -154,25 +166,25 @@ export default function OverviewDashboard({
   const kpis = [
     {
       key: 'accounts',
-      question: 'Are new people joining?',
+      label: 'New accounts',
       value: accounts?.total ?? null,
-      unit: `new accounts, last ${days} days`,
+      unit: `created in the last ${days} days`,
       change: accounts,
       series: accounts?.current.map((p) => p.count) ?? [],
     },
     {
       key: 'plans',
-      question: 'Are people planning floats?',
+      label: 'Trip plans',
       value: plans?.total ?? null,
-      unit: `trip plans saved, last ${days} days`,
+      unit: `saved in the last ${days} days`,
       change: plans,
       series: plans?.current.map((p) => p.count) ?? [],
     },
     {
       key: 'subscribers',
-      question: 'How many pay for Premium?',
+      label: 'Premium members',
       value: num('subscribers'),
-      unit: 'Premium members right now',
+      unit: 'paying right now',
       note:
         num('renewal_off') === null
           ? null
@@ -182,9 +194,9 @@ export default function OverviewDashboard({
     },
     {
       key: 'widgets',
-      question: 'Which sites show Eddy widgets?',
+      label: 'Referring sites',
       value: sites?.total ?? null,
-      unit: 'outside websites, last 30 days',
+      unit: 'outside sites sending widget views, last 30 days',
       note: sites
         ? sites.newThisWeek
           ? `+${plural(sites.newThisWeek, 'new site', 'new sites')} this week`
@@ -254,7 +266,7 @@ export default function OverviewDashboard({
                 className={styles.kpi}
                 onClick={() => setTarget({ key: k.key })}
               >
-                <span className={styles.kpiQuestion}>{k.question}</span>
+                <span className={styles.kpiLabel}>{k.label}</span>
                 <strong>{summary ? fmt(k.value) : '—'}</strong>
                 <span className={styles.kpiUnit}>{k.unit}</span>
                 {k.change ? (
@@ -269,7 +281,7 @@ export default function OverviewDashboard({
                 {k.series && (
                   <Sparkline
                     values={k.series}
-                    label={`${k.question} Daily trend.`}
+                    label={`${k.label}, daily trend.`}
                   />
                 )}
               </button>
@@ -294,14 +306,14 @@ export default function OverviewDashboard({
                 onMeasure={setMeasure}
               />
             ) : (
-              <Panel question="Is Eddy growing?">
+              <Panel title="Growth" hint="Is Eddy growing?">
                 <p className={styles.empty}>
                   {summary ? 'Growth history did not load.' : 'Loading…'}
                 </p>
               </Panel>
             )}
 
-            <Panel id="focus" question="What needs me today?">
+            <Panel id="focus" title="Needs attention" hint="What needs me today?">
               {attention.length ? (
                 <ol className={styles.actions}>
                   {(showAllActions ? attention : attention.slice(0, 5)).map(
@@ -326,10 +338,12 @@ export default function OverviewDashboard({
                     },
                   )}
                 </ol>
+              ) : !summary ? (
+                <p className={styles.empty}>Checking…</p>
+              ) : unknownCount ? (
+                <p className={styles.empty}>Nothing flagged in the checks that answered.</p>
               ) : (
-                <p className={styles.allClear}>
-                  {summary ? 'Nothing flagged. Go float.' : 'Checking…'}
-                </p>
+                <p className={styles.allClear}>Nothing flagged. Go float.</p>
               )}
               {attention.length > 5 && (
                 <button
@@ -338,6 +352,29 @@ export default function OverviewDashboard({
                 >
                   {showAllActions ? 'Show fewer' : `Show all ${attention.length}`}
                 </button>
+              )}
+              {unknownCount > 0 && (
+                <>
+                  <h3 className={styles.subhead}>Couldn’t check</h3>
+                  <ul className={styles.unchecked}>
+                    {timelineDown && <li>Automatic task history</li>}
+                    {unchecked.slice(0, timelineDown ? 4 : 5).map((m) => (
+                      <li key={m.key}>
+                        <button
+                          className={styles.textButton}
+                          onClick={() => setTarget({ key: m.key })}
+                        >
+                          {plain(m, jobLabel(m.key)).title}
+                        </button>
+                      </li>
+                    ))}
+                    {unknownCount > 5 && (
+                      <li>
+                        and {unknownCount - 5} more in Every number below
+                      </li>
+                    )}
+                  </ul>
+                </>
               )}
               <h3 className={styles.subhead}>Inbox</h3>
               <div className={styles.inbox}>
@@ -353,7 +390,8 @@ export default function OverviewDashboard({
 
           <div className={styles.trio}>
             <Panel
-              question="Is the river data fresh?"
+              title="River data"
+              hint="Are gauge and dam readings arriving on time?"
               action={
                 summary && (
                   <Status tone={!freshKnown ? 'quiet' : behind ? 'bad' : 'good'}>
@@ -388,8 +426,8 @@ export default function OverviewDashboard({
             </Panel>
 
             <Panel
-              question="Which sites show Eddy widgets?"
-              hint="Outside websites with a widget, last 30 days"
+              title="Referring sites"
+              hint="Which outside sites send widget views? Last 30 days."
             >
               {sites ? (
                 <>
@@ -424,7 +462,7 @@ export default function OverviewDashboard({
                     </ul>
                   ) : (
                     <p className={styles.empty}>
-                      No outside site has loaded a widget yet.
+                      No outside site has sent a widget view yet.
                     </p>
                   )}
                 </>
@@ -442,8 +480,8 @@ export default function OverviewDashboard({
             </Panel>
 
             <Panel
-              question="Where do people want to float?"
-              hint="Trip plans saved per river, last 30 days"
+              title="Top rivers"
+              hint="Where do people want to float? Trip plans, last 30 days."
             >
               {rivers?.length ? (
                 <div className={styles.riverBars}>
@@ -483,8 +521,8 @@ export default function OverviewDashboard({
               <ServiceOverview services={overview.services} metrics={metrics} />
             )}
             <Panel
-              question="What content is missing?"
-              hint="Gaps to fill, not problems"
+              title="Content gaps"
+              hint="What should we fill in next?"
             >
               <ul className={styles.rows}>
                 {CONTENT.map((c) => (

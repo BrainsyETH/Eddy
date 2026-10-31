@@ -143,12 +143,15 @@ Every load beacons one impression (`EmbedImpression`) to
 `/api/embed/impression`, aggregated daily per (type, key, host). Family routes
 send the size in the type (`river-card`, `dam-strip`); image renders send
 `river-badge-image` etc., counted per origin fetch (CDN hits are not seen).
-The admin dashboard's "Which sites show Eddy widgets?" card answers how many
-outside websites embed a widget: distinct external hosts with at least one
-load in the last 30 days, which ones are new this week, and which went quiet
-(`embedSites` in `src/lib/admin/dashboard/widget-model.ts`). Eddy's own pages,
-loads with no referrer, and shared-link hosts (social, search, webmail) are
-kept out of that count and listed separately. Its detail view also breaks
-outside loads down by widget type and river. Read it before cutting a size.
-The dashboard holds 30 days of daily rows, so "new" means first seen within
-that window.
+The admin dashboard's "Referring sites" card counts distinct outside hosts
+that sent widget views in the last 30 days, which ones are new this week, and
+which went quiet (`referringSites` in `src/lib/admin/dashboard/widget-model.ts`).
+Eddy's own pages, loads with no referrer, and social, search and webmail hosts
+are kept out of that count and listed separately; the detail view's widget and
+river rankings use the same rows. Read it before cutting a size.
+
+A referring site is not a confirmed embed. The beacon sends
+`document.referrer`, which is the same whether the widget loaded in an iframe
+on that site or someone clicked a widget link there. Confirming embeds needs
+the beacon to record whether it loaded inside a frame. The dashboard holds 30
+days of daily rows, so "new" means first seen within that window.
