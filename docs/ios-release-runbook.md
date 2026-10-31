@@ -2,8 +2,14 @@
 
 ## Current release
 
-- **Release in progress:** 1.5 (`eddy-ios/app.json` is `1.5.0`, repository
-  version checked 2026-10-29; this does not confirm a submitted or live build)
+- **Release in progress:** 1.6 (`eddy-ios/app.json` is `1.6.0`, repository
+  version checked 2026-10-30; this does not confirm a submitted or live build).
+  There is no 1.6 readiness report yet; the 1.5 report and its delta gates
+  below carry into it unclosed.
+- **Last build seen in the field:** 1.5.0 (11), an ad hoc `preview` build
+  on runtime `2af3dd12…`, from Sentry events on 2026-10-30. That runtime
+  matches neither fingerprint in the 1.5 report, so the build's commit is
+  unconfirmed, and it says nothing about the App Store.
 - **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
@@ -62,6 +68,17 @@ review are in the 1.5 report; these are the gates it adds.
       Eddy redeems it without showing it, and Settings reads "will get a
       push". Repeat with Eddy in the background (the confirmation shows; a
       tap finishes it).
+- [ ] **The style-pack check answers on a phone** (new binary: the
+      `eddy-style-pack` module changed on October 30). On the 1.5.0 (11)
+      preview build every check timed out, on two trips and across launches
+      (Sentry "offline map verification unavailable", `reason: timeout`), so
+      no trip could reach Ready offline. Download a fresh stretch with
+      signal: the card reaches Ready offline. If it says "Couldn’t check
+      offline map" instead, the module change did not fix it; record the
+      Sentry event's `reason`. Then airplane mode, cold launch, River Mode on
+      that stretch: the background map draws with labels. Pan beyond the
+      downloaded area and back into it: outside it shows blank tiles but
+      never "Background map unavailable", and back inside it draws again.
 - [ ] **River Mode on a device:** a 10-minute airplane-mode gap mid-float adds
       gap distance and "GPS gap" time; moving time and speeds; arrival, then
       carrying on past the take-out; Discard for a sub-5-minute float; "Stop

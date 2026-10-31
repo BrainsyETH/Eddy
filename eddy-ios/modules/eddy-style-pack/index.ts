@@ -2,8 +2,10 @@
 // Whether the offline map style is complete on this phone (ADR 0011).
 //
 // Optional on purpose: a binary built before this module, Expo Go, or any
-// failure reads as null, which callers treat as "cannot confirm", so a trip
-// is never called Ready offline without the evidence.
+// failure reads as unconfirmed, so a trip is never called Ready offline
+// without the evidence. Native resolves null only for a style the store
+// confirms it does not have, and rejects when it cannot read the store
+// (`read-failed` in src/lib/stylePackRead.ts).
 
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';

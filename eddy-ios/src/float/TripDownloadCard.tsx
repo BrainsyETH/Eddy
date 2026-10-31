@@ -31,7 +31,7 @@ import {
 import { getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
 import { readStylePackInspection } from '../../modules/eddy-style-pack';
-import type { StylePackRead } from '@/lib/stylePackRead';
+import { tilesSavedCopy, type StylePackRead } from '@/lib/stylePackRead';
 import { onForeground } from '@/lib/foreground';
 import { prefetchStretchPhotos } from './floatPhotos';
 import { radii } from '@/theme/layout';
@@ -98,6 +98,8 @@ export function TripDownloadCard({
   const [checkError, setCheckError] = useState<string | null>(null);
   const [styleRead, setStyleRead] = useState<StylePackRead | null>(null);
   const [checking, setChecking] = useState(false);
+  /** When a tapped Check again finished, so the tap visibly did something. */
+  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
   const mounted = useRef(true);
   const starting = useRef(false);
   // The pack creation in flight, so Stop and remove can halt it and wait for
@@ -142,14 +144,23 @@ export function TripDownloadCard({
           setDownloading(false);
           setError(null);
         } else if (next.kind === 'tiles-saved' && style.kind === 'unconfirmed') {
-          // A not-yet-readable pack can appear shortly after tiles finish.
-          // Keep the bounded recheck window for that case; missing support or
-          // a failed read cannot tell us that a download is still progressing.
-          if (style.reason !== 'native-unconfirmed') setDownloading(false);
+          // A not-yet-readable pack, or a read that got no answer while the
+          // style is still being written, can settle shortly after the tiles.
+          // Keep the bounded recheck window for those; missing support or a
+          // read that threw cannot tell us a download is still progressing.
+          if (style.reason === 'module-missing' || style.reason === 'read-failed') setDownloading(false);
           if (!styleWaitReported.current) {
             styleWaitReported.current = true;
             warn('float', 'offline map verification unavailable', { reason: style.reason, chunks: packs.length });
           }
+        } else if (next.kind === 'tiles-saved' && style.kind === 'counts' && !styleWaitReported.current) {
+          // The counts the card now shows; until now no report carried them.
+          styleWaitReported.current = true;
+          warn('float', 'offline map style incomplete', {
+            required: style.counts.requiredResourceCount,
+            completed: style.counts.completedResourceCount,
+            chunks: packs.length,
+          });
         }
       } catch {
         if (!current()) return;
@@ -166,6 +177,14 @@ export function TripDownloadCard({
     checkInFlight.current = work;
     return work;
   }, [tripKey, fallbackChunks]);
+
+  // A tapped check reports its outcome; one that changes the state shows the
+  // new state instead, and one that fails shows the check error.
+  const checkAgain = useCallback(async () => {
+    setCheckedAt(null);
+    await refresh();
+    if (mounted.current) setCheckedAt(new Date());
+  }, [refresh]);
 
   useFocusEffect(useCallback(() => {
     if (!available || fallbackChunks.length === 0) return;
@@ -252,6 +271,7 @@ export function TripDownloadCard({
       // Float tools shows them at the river; not part of map readiness.
       void prefetchStretchPhotos({ riverSlug: pkg.route.riverSlug, takeOutId: pkg.toId, fromId: pkg.fromId || null });
       styleWaitReported.current = false;
+      setCheckedAt(null);
       setDownloading(true);
       const controller = new AbortController();
       const run = startTripDownload(chunks, (message) => {
@@ -320,7 +340,7 @@ export function TripDownloadCard({
     </View>
   ) : null;
   const compactOffer = compact && state?.kind === 'none' && !downloading;
-  const missingVerifier = styleRead?.kind === 'unconfirmed' && styleRead.reason === 'module-missing';
+  const savedCopy = tilesSavedCopy(styleRead);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
@@ -351,24 +371,44 @@ export function TripDownloadCard({
         </>
       ) : state.kind === 'tiles-saved' ? (
         <>
-          <Text style={[styles.body, { color: colors.text }]}>{downloading || checking ? 'Checking offline map' : 'Offline map almost ready'}</Text>
           {downloading ? (
-            <View style={styles.row}>
-              <ActivityIndicator color={colors.interactive} />
-              <Text style={[styles.note, { color: colors.textMuted }]}>Checking the map…</Text>
-            </View>
+            <>
+              <Text style={[styles.body, { color: colors.text }]}>Checking offline map</Text>
+              <View style={styles.row}>
+                <ActivityIndicator color={colors.interactive} />
+                <Text style={[styles.note, { color: colors.textMuted }]}>Checking the map…</Text>
+              </View>
+            </>
           ) : (
             <>
-              <Text style={[styles.note, { color: colors.textMuted }]}>
-                {missingVerifier ? 'Update Eddy before relying on this map offline.'
-                  : 'Almost ready. Check again in a moment.'}
-              </Text>
-              <Pressable disabled={checking} onPress={() => void refresh()} accessibilityRole="button" style={styles.link}>
+              <Text style={[styles.body, { color: colors.text }]}>{savedCopy.title}</Text>
+              {savedCopy.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{savedCopy.note}</Text> : null}
+              {savedCopy.action === 'finish' ? (
+                <Pressable
+                  onPress={() => void start()}
+                  style={({ pressed }) => [styles.button, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.linkText, { color: colors.interactive }]}>Finish download</Text>
+                </Pressable>
+              ) : null}
+              {/* The main action when the check is what failed; a link otherwise. */}
+              <Pressable
+                disabled={checking}
+                onPress={() => void checkAgain()}
+                accessibilityRole="button"
+                accessibilityState={{ busy: checking, disabled: checking }}
+                style={savedCopy.action === 'check'
+                  ? ({ pressed }) => [styles.button, { borderColor: colors.border, opacity: checking ? 0.6 : pressed ? 0.6 : 1 }]
+                  : styles.link}
+              >
                 <Text style={[styles.linkText, { color: colors.interactive }]}>{checking ? 'Checking…' : 'Check again'}</Text>
               </Pressable>
-              {!missingVerifier ? <Pressable onPress={() => void start()} accessibilityRole="button" style={styles.link}>
-                <Text style={[styles.linkText, { color: colors.interactive }]}>Retry download</Text>
-              </Pressable> : null}
+              {checkedAt && !checking ? (
+                <Text style={[styles.note, { color: colors.textMuted }]} accessibilityLiveRegion="polite">
+                  Checked at {checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.
+                </Text>
+              ) : null}
             </>
           )}
           <Pressable onPress={() => remove()} accessibilityRole="button" style={styles.link}>

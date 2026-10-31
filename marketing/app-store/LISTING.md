@@ -176,6 +176,80 @@ Later releases: say what changed for the person reading it, not what changed in
 the codebase. "The Today tab remembers whether you had the daily report open"
 rather than "fixed TodaySummary fold state".
 
+### 1.6.0 — drafted October 30, 2026, not yet submitted
+
+Written against the **1.5.0 version bump (October 26, `e4c5a80e`)**, the
+commit the maintainer states the last build was made from (see
+`release-readiness-1.5.md`; it was not read from an EAS record). Every
+paragraph below describes something merged to `main` between October 26 and
+October 30; nothing in it is device-verified (the runbook's 1.5 delta gates
+still apply). If the live build's `gitCommitHash` is older than `e4c5a80e`,
+the River Mode, widget and Find a Float features of the October 6–26 span are
+missing from these notes and need their own paragraphs. The iOS 18
+requirement is not new to this version, so it is not mentioned.
+
+```
+Eddy 1.6 is about the float itself.
+
+RIVER MODE
+Floats keep going through GPS gaps: miles under a bluff or out of service still count. A float that ends at the take-out is measured to the take-out, not to the parking lot, and a float of only a few minutes can be discarded instead of saved. Finish a float straight from the arrival notification. Mid-float, Float tools shows the take-out's photo and what is ahead of you. The Lock Screen card stays readable at the largest text sizes.
+
+FLOAT HISTORY
+A float's card now leads with the stretch you floated, the water that day, and how much of the river you have explored so far. The recap compares Moving with Breaks and shows your moving speed. Share a float as an image.
+
+A NEW MAP
+One statewide view of gauges, access points, campgrounds and hazards. Grouped places are numbered; tap a group for the list. A compass resets to north-up, public land is labelled, and search works offline. Planning a stretch from the map starts with the route.
+
+DAMS
+Bull Shoals minimum flow is called minimum flow, not generation, on the dam page, in Favorites and in the widget. Spillway releases show. Tomorrow's schedule appears once it is posted, and schedule times read in Central time.
+
+ALSO
+• Dark mode is easier to read on every tab.
+• Onboarding is shorter, with motion and dam cards that say something.
+• Saved places lead with camping availability.
+• Restore Purchases works while signed out.
+• Gauge chart times read in the station's local time.
+• Plainer words throughout, and one safety disclaimer instead of several.
+```
+
+**1,564 characters.** Section map:
+
+| Section | PRs |
+| --- | --- |
+| River Mode: gaps, take-out measurement, Discard, Finish action | #1604, #1649, #1653, #1656 |
+| River Mode: Float tools, take-out photo, Ahead rows | #1609, #1610, #1622 |
+| Lock Screen card at accessibility sizes | #1653 |
+| Float history card, river explored, water that day, share image | #1663 |
+| Recap: Moving, Breaks, moving speed | #1668 |
+| A new map | #1613, #1620, #1621, #1623, #1635–#1637, #1641, #1645 |
+| Dams | #1629, #1631, #1633, #1638, #1642, #1643, #1654, #1655, #1656 |
+| Dark mode | #1592 |
+| Onboarding | #1648 |
+| Saved places lead with camping | #1587, #1595 |
+| Restore while signed out | #1608 |
+| Station-local chart times | #1547 |
+| Plainer words, one disclaimer | #1647, #1657 |
+
+Short form, if the long one reads as a changelog (**560 characters**):
+
+```
+River Mode keeps counting through GPS gaps, measures a float to the take-out rather than the parking lot, and lets you finish from the arrival notification. Each float's card leads with the stretch you floated and the water that day, with a recap of Moving against Breaks you can share as an image. The map is one statewide view with numbered groups, a compass and offline search. Bull Shoals minimum flow is called minimum flow, spillway releases show, and dam schedules read in Central time. Dark mode is easier to read, and the words are plainer throughout.
+```
+
+Before pasting either:
+
+- Confirm the baseline against App Store Connect and the EAS build record,
+  and bump `eddy-ios/app.json` to 1.6.0 together with the runbook's *Current
+  release* section (`ios-release-runbook.test.ts` ties them together).
+- "Share a float as an image" needs `GET /api/share/float/image` live, which
+  deploys from `main`; confirm the route answers before the build is out.
+- Nothing here names a paid feature. Keep it that way: the daily written
+  report is the only thing a subscription buys.
+- The age-rating note below still says the app "embeds no browser". Since
+  #1482 links open in an in-app Safari sheet (`SFSafariViewController`), so
+  reword that sentence when this version is submitted; the answer itself
+  (no unrestricted web access) does not change.
+
 ---
 
 ## Fields that are not copy

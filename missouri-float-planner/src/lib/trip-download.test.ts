@@ -9,7 +9,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { buildRouteIndex, type LngLat } from '@eddy/geo';
-import { inspectStylePack } from '../../../eddy-ios/src/lib/stylePackRead';
+import { inspectStylePack, tilesSavedCopy } from '../../../eddy-ios/src/lib/stylePackRead';
+import { styleLoadFailed } from '../../../eddy-ios/src/lib/mapLoadingError';
 import {
   CHUNK_METERS,
   PAD_METERS,
@@ -160,6 +161,54 @@ test('a stalled style check ends and a later recheck can confirm the saved map',
   assert.deepEqual(await inspectStylePack(() => pending), {
     kind: 'counts', counts: { requiredResourceCount: 40, completedResourceCount: 40 },
   });
+});
+
+test('saved tiles with an unconfirmed style say incomplete or unchecked, never "almost ready"', () => {
+  // Short of files, or confirmed absent: the download is incomplete, and
+  // finishing it is the fix.
+  for (const read of [
+    { kind: 'counts', counts: { requiredResourceCount: 340, completedResourceCount: 310 } },
+    { kind: 'counts', counts: { requiredResourceCount: 0, completedResourceCount: 0 } },
+    { kind: 'unconfirmed', reason: 'native-unconfirmed' },
+  ] as const) {
+    assert.deepEqual(tilesSavedCopy(read), { title: 'Download incomplete', note: 'Connect to finish downloading.', action: 'finish' });
+  }
+
+  // No answer, or the store could not be read: nothing is known about the
+  // download, so it is never called incomplete or "not saved". The October 30
+  // device reports were all timeouts.
+  for (const read of [
+    { kind: 'unconfirmed', reason: 'timeout' },
+    { kind: 'unconfirmed', reason: 'read-failed' },
+    null,
+  ] as const) {
+    assert.deepEqual(tilesSavedCopy(read), { title: 'Couldn’t check offline map', note: null, action: 'check' });
+  }
+
+  const old = tilesSavedCopy({ kind: 'unconfirmed', reason: 'module-missing' });
+  assert.equal(old.note, 'Update Eddy before relying on this map offline.');
+  assert.equal(old.action, null, 'A download cannot add the missing checker to an old build');
+
+  // Eddy's words, not the implementation's.
+  for (const read of [null, { kind: 'unconfirmed', reason: 'native-unconfirmed' }, { kind: 'unconfirmed', reason: 'module-missing' }] as const) {
+    const copy = tilesSavedCopy(read);
+    assert.doesNotMatch(`${copy.title} ${copy.note ?? ''}`, /almost ready|in a moment|tiles|style|background|—/i);
+  }
+});
+
+test('River Mode drops to the plain background only when the style itself fails', () => {
+  // Style, sprite or glyph errors name no tile and no source.
+  assert.equal(styleLoadFailed({ error: 'The Internet connection appears to be offline.' }), true);
+  // rnmapbox's own invalid-URI event.
+  assert.equal(styleLoadFailed({ error: 'invalid URI: nope' }), true);
+  // A tile outside the downloaded corridor, offline: the style still draws.
+  assert.equal(styleLoadFailed({ error: 'offline', tileId: 'x:270 y:785 z:11', sourceId: 'composite' }), false);
+  assert.equal(styleLoadFailed({ error: 'offline', sourceId: 'mapbox-dem' }), false);
+  assert.equal(styleLoadFailed({ error: 'offline', tileId: 'x:1 y:2 z:3' }), false);
+  // Empty identifiers are absent, and an unknown shape is the safe reading.
+  assert.equal(styleLoadFailed({ error: 'x', tileId: '', sourceId: '' }), true);
+  assert.equal(styleLoadFailed(undefined), true);
+  assert.equal(styleLoadFailed('error'), true);
 });
 
 test('Ready offline means the whole trip, not only its tiles', () => {
