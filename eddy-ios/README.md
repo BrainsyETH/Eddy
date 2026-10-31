@@ -1510,13 +1510,17 @@ for why safety data can never sit behind a wall.
 ### River Mode tools
 
 Float tools keeps the `/float-options` route so existing notification and Live Activity
-links keep working. It leads with raw location sharing and the take-out, followed by
-Ahead, the optional pickup contact, timestamped gauge readings, and the Keep screen
-awake switch (one tap away, off unless chosen). Reminders, Lock Screen controls
-and report history are directly visible, without a nested settings toggle. Keep labels short; reserve secondary copy for accuracy, stale data, report
-status and actionable errors. Hazard instructions are never truncated.
-Live Activity status, including update errors and the system's eight-hour expiry
-(reported as `expired`, distinct from a swipe-away), remains in the Lock Screen section.
+links keep working. Branded grouped cards lead with raw location sharing and Report a
+hazard, then the take-out with Map/Share actions and its pickup contact. Ahead and
+timestamped gauge readings follow. Refresh conditions sits beside the reading age.
+Float settings groups Keep screen awake (off unless chosen), reminders, and Show on
+Lock Screen. Info tips hold battery, reminder timing and coverage explanations;
+accuracy, stale data, report status and actionable errors stay visible. Hazard
+instructions are never truncated. Live Activity update errors and the system's
+eight-hour expiry (distinct from a swipe-away) remain visible beside its switch;
+disabled Live Activities offer Open Settings. Report history only appears when
+there are reports for this river. The root remains a ScrollView for native formSheet
+measurement. Large text can wrap actions and switches use Eddy's teal accent.
 A hazard report can be withdrawn while it waits; a report Eddy gave up sending
 (a day of attempts, or a week old) says so with Retry.
 
@@ -1538,6 +1542,8 @@ Calls and messages require a saved number
 and an explicit tap. Removing a contact is also available in its editor.
 
 Ahead uses the last confirmed river mile and dates that basis when it is stale.
+A known-empty list gets one “No mapped stops or hazards ahead” line; unavailable
+hazard data always keeps its visible warning, even when the list is empty.
 Mapped accesses are not described as safe exits. Only this phone's reports captured
 since the current float started appear in Ahead or the unpositioned list. They are
 labeled as reports and keep their submission status. Unpositioned reports are separate;
@@ -1554,6 +1560,14 @@ the next offline open. Tracking and progress remain independent of the network. 
 and stale/expired handling. The toolbar labels are Tools, Report and End float;
 ending remains the explicit way to stop a float and choose a different river.
 There is no river-switch action that discards an active session.
+
+The report sheet shows a nearby access name only within 250 m of a raw GPS fix
+with known accuracy of 250 m or better; otherwise it shows selectable coordinates.
+Accuracy and position age remain visible. Calibration can extrapolate negative
+river miles upstream of the first anchor: those miles stay unchanged in the stored
+report, but are omitted from its display. Choices use two columns, or one with
+larger text, and the Save report footer stays above the keyboard and safe area.
+The local-first delivery promise is visible; review details live in an info tip.
 
 Saving a hazard report acknowledges local storage immediately, then updates the
 visible, dismissible confirmation when the API receives or refuses it. Only a

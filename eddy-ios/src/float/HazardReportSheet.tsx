@@ -1,5 +1,5 @@
 // eddy-ios/src/float/HazardReportSheet.tsx
-// "Report a hazard here" from River Mode (#1448 Phase 5, #1453).
+// "Report a hazard" from River Mode (#1448 Phase 5, #1453).
 //
 // One question (what is it?), an optional note, and the position it will be
 // reported at, shown before sending so the paddler can confirm it: river mile
@@ -8,17 +8,22 @@
 // and says so. Reports are reviewed before anyone else sees them.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import * as Location from 'expo-location';
 import { locateOnRoute } from '@eddy/geo';
 import { indexRoute, type FloatSession } from '@/lib/floatSession';
 import { HAZARD_KINDS, newReportId, type HazardKind } from '@/lib/hazardReportQueue';
-import { newestPosition, positionAgeLabel, recorderPosition, type ReportPosition } from '@/lib/hazardReportPosition';
+import { newestPosition, reportPositionLabel, recorderPosition, type ReportPosition } from '@/lib/hazardReportPosition';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { addHazardReport } from './hazardReports';
 import { successFeedback } from '@/lib/haptics';
 import { EddySymbol } from '@/components/EddySymbol';
+import { ControlIcon } from '@/components/ControlIcon';
+import { FloatInfoTip } from './FloatInfoTip';
+import { radii } from '@/theme/layout';
 
 /** A fresh fix is worth waiting this long for; then the last known one is used. */
 const FIX_TIMEOUT_MS = 10_000;
@@ -30,6 +35,9 @@ const AGE_TICK_MS = 15_000;
 /** Mounted only while open, so every report starts from a clean sheet. */
 export function HazardReportSheet({ onClose, session }: { onClose: (reportId?: string) => void; session: FloatSession }) {
   const { colors } = useTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
+  const singleColumn = fontScale > 1.3 || width < 350;
   const [kind, setKind] = useState<HazardKind | null>(null);
   const [note, setNote] = useState('');
   const [here, setHere] = useState<ReportPosition | null>(null);
@@ -86,13 +94,7 @@ export function HazardReportSheet({ onClose, session }: { onClose: (reportId?: s
     return placed && placed.offsetMeters <= ON_RIVER_M ? placed.riverMile : null;
   }, [here, session.route]);
 
-  const whereLine = !here
-    ? null
-    : [
-        riverMile != null ? `Near river mile ${riverMile.toFixed(1)}` : 'Away from the river line',
-        here.accuracyMeters != null ? `±${Math.round(here.accuracyMeters)} m` : null,
-        positionAgeLabel(here.at, now),
-      ].filter(Boolean).join(' · ');
+  const where = here ? reportPositionLabel(here, session.route.anchors, riverMile, now) : null;
 
   const save = async () => {
     if (!kind || !here || saving) return;
@@ -121,76 +123,64 @@ export function HazardReportSheet({ onClose, session }: { onClose: (reportId?: s
     }
   };
 
+  const close = () => { if (!saving) onClose(); };
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { if (!saving) onClose(); }}>
-      <View style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]}>
-        <View style={styles.head}>
-          <EddySymbol name="hazard" size={30} />
-          <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Report a hazard here</Text>
-          <Pressable onPress={() => onClose()} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving }} style={styles.cancelButton}>
-            <Text style={[styles.cancel, { color: colors.interactive }]}>Cancel</Text>
-          </Pressable>
-        </View>
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <View style={[styles.where, { backgroundColor: colors.card }]}>
-            {locating ? (
-              <View style={styles.row}>
-                <ActivityIndicator color={colors.interactive} />
-                <Text style={[styles.note, { color: colors.textMuted }]}>Finding your position…</Text>
+    <Modal visible animationType={reducedMotion ? 'none' : 'slide'} presentationStyle="pageSheet" onRequestClose={close}>
+      <SafeAreaProvider>
+        <SafeAreaView style={[styles.sheet, { backgroundColor: colors.sheetGrouped }]} accessibilityViewIsModal onAccessibilityEscape={close}>
+          <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.head}>
+              <EddySymbol name="hazard" size={28} />
+              <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Report a hazard</Text>
+              <Pressable onPress={close} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving }} style={styles.cancelButton}>
+                <Text style={[styles.cancel, { color: colors.interactive }]}>Cancel</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={styles.sheet} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+              <View style={[styles.where, { backgroundColor: colors.card }]}>
+                {locating ? <View style={styles.row}>
+                  <ActivityIndicator color={colors.interactive} />
+                  <Text style={[styles.note, { color: colors.textMuted }]}>Finding your position…</Text>
+                </View> : where ? <>
+                  <Text selectable style={[styles.whereText, { color: colors.text }]}>{where.title}</Text>
+                  <Text style={[styles.note, { color: colors.textMuted }]}>{where.detail}</Text>
+                </> : <Text style={[styles.note, { color: colors.textMuted }]}>Couldn’t get your location. Try again in a moment.</Text>}
               </View>
-            ) : here ? (
-              <Text style={[styles.whereText, { color: colors.text }]}>{whereLine}</Text>
-            ) : (
-              <Text style={[styles.note, { color: colors.textMuted }]}>Eddy can’t place you right now, so there’s nothing to report a location for. Try again in a moment.</Text>
-            )}
-          </View>
 
-          <Text style={[styles.label, { color: colors.textMuted }]}>What is it?</Text>
-          <View style={styles.kinds}>
-            {HAZARD_KINDS.map((option) => {
-              const selected = option.id === kind;
-              return (
-                <Pressable
-                  key={option.id}
-                  onPress={() => setKind(option.id)}
-                  style={[styles.kind, { borderColor: selected ? colors.interactive : colors.border, backgroundColor: selected ? colors.selectionBg : colors.card }]}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected }}
-                >
-                  <Text style={[styles.kindText, { color: selected ? colors.interactive : colors.text }]}>{option.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+              <Text style={[styles.label, { color: colors.textMuted }]}>What is it?</Text>
+              <View style={styles.kinds}>
+                {HAZARD_KINDS.map(option => {
+                  const selected = option.id === kind;
+                  return <Pressable key={option.id} onPress={() => setKind(option.id)} disabled={saving}
+                    style={[styles.kind, { width: singleColumn ? '100%' : '48.5%', borderColor: selected ? colors.interactive : colors.border, backgroundColor: selected ? colors.selectionBg : colors.card }]}
+                    accessibilityRole="radio" accessibilityState={{ checked: selected, disabled: saving }}>
+                    <Text style={[styles.kindText, { color: selected ? colors.interactive : colors.text }]}>{option.label}</Text>
+                    <View style={styles.check}>{selected ? <ControlIcon name="checkmark" size={18} color={colors.interactive} /> : null}</View>
+                  </Pressable>;
+                })}
+              </View>
 
-          <Text style={[styles.label, { color: colors.textMuted }]}>Anything else? (optional)</Text>
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            accessibilityLabel="Anything else about this hazard, optional"
-            placeholder="Which side, how much of the channel, how to get around it"
-            placeholderTextColor={colors.textSubtle}
-            multiline
-            maxLength={500}
-            style={[styles.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
-          />
-
-          {error ? <Text style={[styles.note, { color: colors.error }]} accessibilityRole="alert">{error}</Text> : null}
-
-          <Pressable
-            onPress={() => void save()}
-            disabled={!kind || !here || saving}
-            style={({ pressed }) => [styles.primary, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, opacity: !kind || !here || saving ? 0.5 : 1 }]}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !kind || !here || saving, busy: saving }}
-          >
-            <Text style={[styles.primaryText, { color: colors.onAccent }]}>{saving ? 'Saving…' : 'Save report'}</Text>
-          </Pressable>
-          <Text style={[styles.note, { color: colors.textMuted }]}>
-            Saved on your phone first and sent when you have signal. Reports are checked before anyone else sees them.
-          </Text>
-        </ScrollView>
-      </View>
+              <Text style={[styles.label, { color: colors.textMuted }]}>Details (optional)</Text>
+              <TextInput value={note} onChangeText={setNote} editable={!saving}
+                accessibilityLabel="Details about this hazard, optional" placeholder="Which side? Can you get around it?"
+                placeholderTextColor={colors.textSubtle} multiline maxLength={500}
+                style={[styles.input, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]} />
+            </ScrollView>
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              {error ? <Text style={[styles.note, { color: colors.error }]} accessibilityRole="alert">{error}</Text> : null}
+              <Pressable onPress={() => void save()} disabled={!kind || !here || saving}
+                style={({ pressed }) => [styles.primary, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, opacity: !kind || !here || saving ? 0.5 : 1 }]}
+                accessibilityRole="button" accessibilityState={{ disabled: !kind || !here || saving, busy: saving }}>
+                <Text style={[styles.primaryText, { color: colors.onAccent }]}>{saving ? 'Saving…' : 'Save report'}</Text>
+              </Pressable>
+              <View style={styles.row}>
+                <Text style={[styles.note, styles.footerCopy, { color: colors.textMuted }]}>Saved on your phone. Sends when you have signal.</Text>
+                <FloatInfoTip title="Hazard reports" message="Reports are checked before anyone else sees them. Saving keeps the report on your phone first; its status tells you when Eddy receives it for review. You can retry a failed report or withdraw one while it waits." />
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -201,17 +191,19 @@ const styles = StyleSheet.create({
   title: { ...t.lg, fontFamily: fonts.heading, flex: 1 },
   cancel: { ...t.base, fontFamily: fonts.semibold },
   cancelButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end', paddingLeft: 12 },
-  body: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
-  where: { borderRadius: 12, padding: 12 },
-  whereText: { ...t.sm, fontFamily: fonts.semibold },
+  body: { paddingHorizontal: 16, paddingBottom: 20, gap: 12 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  footerCopy: { flex: 1 },
+  where: { borderRadius: radii.card, padding: 14, gap: 4 },
+  whereText: { ...t.base, fontFamily: fonts.semibold },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: { ...t.xs, fontFamily: fonts.semibold, marginTop: 4 },
-  kinds: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  // 44 pt tall: a wet thumb's target, and Apple's minimum.
-  kind: { borderWidth: 1, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, minHeight: 44, justifyContent: 'center' },
-  kindText: { ...t.sm, fontFamily: fonts.semibold },
+  kinds: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 },
+  kind: { borderWidth: 1, borderRadius: radii.inset, paddingHorizontal: 12, paddingVertical: 12, minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  kindText: { ...t.sm, fontFamily: fonts.semibold, flex: 1 },
+  check: { width: 18, height: 18 },
   input: { minHeight: 88, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, textAlignVertical: 'top', ...t.base, fontFamily: fonts.body },
   note: { ...t.sm, fontFamily: fonts.body },
-  primary: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  primary: { minHeight: 48, padding: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   primaryText: { ...t.base, fontFamily: fonts.semibold },
 });

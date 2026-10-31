@@ -80,15 +80,13 @@ export async function refreshRouteHazards(
 /**
  * The line Float tools shows under "Ahead" about hazards, so an empty list
  * is never read as a clear river when Eddy simply has no hazard data.
- * `aheadCount` is the mapped hazards still ahead on this stretch.
+ * `aheadCount` is the mapped hazards still ahead on this stretch. When the
+ * caller also knows the total item count, known-empty coverage gets one line.
  */
-export function hazardAheadNote(route: Pick<FloatRoute, 'hazards'>, aheadCount: number): string | null {
-  switch (hazardDataState(route)) {
-    case 'unavailable':
-      return 'Hazard data isn’t available for this float. Eddy can’t show hazards ahead; watch the water.';
-    case 'none':
-      return 'No mapped hazards on this stretch. Unmapped ones can still be there.';
-    case 'mapped':
-      return aheadCount > 0 ? null : 'No mapped hazards ahead.';
+export function hazardAheadNote(route: Pick<FloatRoute, 'hazards'>, aheadCount: number, itemCount?: number): string | null {
+  if (hazardDataState(route) === 'unavailable') {
+    return 'Hazard data isn’t available for this float. Eddy can’t show hazards ahead; watch the water.';
   }
+  if (itemCount === 0) return 'No mapped stops or hazards ahead.';
+  return aheadCount > 0 ? null : 'No mapped hazards ahead.';
 }

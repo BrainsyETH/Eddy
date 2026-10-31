@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { HIDDEN_ACTIVITY_KEY, createFloatActivityVisibility, type VisibilityStorage } from '../../../eddy-ios/src/lib/floatActivityVisibility';
+import { HIDDEN_ACTIVITY_KEY, createFloatActivityVisibility, floatActivityControlState, type VisibilityStorage } from '../../../eddy-ios/src/lib/floatActivityVisibility';
 
 function disk(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -68,4 +68,24 @@ test('storage failures never throw; memory still answers', async () => {
   await visibility.setHidden('float-1', true);
   assert.equal(visibility.isHidden('float-1'), true);
   assert.equal(warnings.length, 2);
+});
+
+
+test('Lock Screen switch reflects the actual card and explicit visibility choice', () => {
+  assert.equal(floatActivityControlState('active', false).on, true);
+  assert.equal(floatActivityControlState('active', true).on, false);
+  for (const availability of ['idle', 'dismissed', 'expired', 'disabled', 'error', 'unavailable'] as const) {
+    assert.equal(floatActivityControlState(availability, false).on, false, availability);
+  }
+  assert.equal(floatActivityControlState('unavailable', false).visible, false);
+  assert.equal(floatActivityControlState('idle', false).visible, true);
+});
+
+test('Lock Screen problems retain an explanation and disabled iOS settings get an action', () => {
+  assert.equal(floatActivityControlState('disabled', false).settings, true);
+  assert.match(floatActivityControlState('disabled', false).note!, /iOS Settings/);
+  assert.match(floatActivityControlState('error', false).note!, /Tracking continues/);
+  assert.match(floatActivityControlState('expired', false).note!, /eight hours/);
+  assert.equal(floatActivityControlState('expired', true).note, null, 'a deliberately hidden card is not an expiry prompt');
+  assert.equal(floatActivityControlState('active', false).settings, false);
 });

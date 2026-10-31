@@ -34,9 +34,11 @@ interface Props {
   details?: readonly ReadingInfoItem[];
   /** Accuracy caveats and current NWS status stay visible. */
   children?: ReactNode;
+  /** Optional local actions beside the observation age, such as refresh. */
+  footerActions?: ReactNode;
 }
 
-export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children }: Props) {
+export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children, footerActions }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [infoOpen, setInfoOpen] = useState(false);
   const close = () => setInfoOpen(false);
@@ -95,6 +97,7 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
             {ageWarning || offline ? <Ionicons name={ageWarning ? 'alert-circle-outline' : 'cloud-offline-outline'} size={14} color={ageWarning ? colors.text : colors.textMuted} /> : null}
             <Text style={[styles.age, { color: ageWarning ? colors.text : colors.textSubtle }]}>{age ?? 'Observation time unavailable'}</Text>
           </View>
+          {footerActions}
           <Pressable accessibilityRole="button" accessibilityLabel="About this reading" accessibilityHint="Opens station and reading details" onPress={() => setInfoOpen(true)} style={({ pressed }) => [styles.info, { opacity: pressed ? 0.6 : 1 }]}>
             <Ionicons name="information-circle-outline" size={20} color={colors.textMuted} />
           </Pressable>

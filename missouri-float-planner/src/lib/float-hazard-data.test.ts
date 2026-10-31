@@ -40,7 +40,7 @@ test('a loaded list with nothing on the line is "none", distinct from unavailabl
   assert.equal(hazardDataState(empty), 'none');
   // Off the line is not on this stretch, but the data was still loaded.
   assert.equal(hazardDataState(withKnownHazards(route, index, [hazard('far', 5_000, true)])), 'none');
-  assert.match(hazardAheadNote(empty, 0)!, /No mapped hazards on this stretch/);
+  assert.match(hazardAheadNote(empty, 0)!, /No mapped hazards ahead/);
 });
 
 test('mapped hazards say nothing while one is ahead, and say so once all are passed', () => {
@@ -87,4 +87,17 @@ test('with nothing cached, a failed refresh leaves the float honestly without ha
   const { route, index } = prepared();
   const after = await refreshRouteHazards(route, index, { fetchHazards: async () => { throw new Error('offline'); } });
   assert.equal(hazardDataState(after), 'unavailable');
+});
+
+
+test('combined Ahead empty state requires known hazard coverage and no places or reports', () => {
+  const { route, index } = prepared();
+  const empty = withKnownHazards(route, index, []);
+  const mapped = withKnownHazards(route, index, [hazard('behind', 2_000)]);
+  assert.equal(hazardAheadNote(empty, 0, 0), 'No mapped stops or hazards ahead.');
+  assert.equal(hazardAheadNote(mapped, 0, 0), 'No mapped stops or hazards ahead.');
+  assert.match(hazardAheadNote(route, 0, 0)!, /isn’t available/);
+  assert.doesNotMatch(hazardAheadNote(route, 0, 0)!, /No mapped stops or hazards/);
+  assert.equal(hazardAheadNote(empty, 0, 1), 'No mapped hazards ahead.', 'an access or personal report still occupies the list');
+  assert.equal(hazardAheadNote(mapped, 1, 1), null);
 });
