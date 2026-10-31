@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  type Lot, type Proposal, addAmenities, agencyFromOwnershipText, agencyFromPadus,
+  type Lot, type Proposal, addAmenities, agencyFromOwnershipText, agencyFromPadus, belongsTo,
   chooseManagingAgency, line, matchLots, mvumRoadSurface, parkingInfo, ownershipSpelling, parseCsv,
-  sideOfRiver, toCsv, usfsHasRestroom,
+  roadServes, sideOfRiver, toCsv, usfsHasRestroom,
 } from './access-enrichment-2026-11';
 
 // A river running due east along 37°N. North is the left bank looking downstream.
@@ -88,6 +88,44 @@ test('managing agency: agreement raises confidence, conflict and unsupported man
   assert.match(agfc.evidence, /AGFC is not an allowed/);
 });
 
+test('an unsupported manager still counts as disagreement (Romp Hole, Hardy Beach)', () => {
+  // PAD-US says USACE, the linked AGFC records say AGFC: unresolved, not COE.
+  const rompHole = chooseManagingAgency([
+    { agency: 'COE', source: 'padus', detail: 'Table Rock Lake (USACE, REC)' },
+    { agency: null, unsupported: 'AGFC', source: 'agency_link', detail: 'AGFC record, owner "AGFC"' },
+  ]);
+  assert.deepEqual([rompHole.agency, rompHole.confidence], [null, 'flag']);
+  assert.match(rompHole.evidence, /conflict \(COE vs AGFC\)/);
+  // AGFC records naming both the City and AGFC as owner: unresolved, not Municipal.
+  const hardy = chooseManagingAgency([
+    { agency: null, unsupported: 'AGFC', source: 'agency_link', detail: 'owner "AGFC"' },
+    { agency: 'Municipal', source: 'agency_link', detail: 'owner "City"' },
+  ]);
+  assert.deepEqual([hardy.agency, hardy.confidence], [null, 'flag']);
+});
+
+test('belongsTo applies distance, bank and nearer-place checks to any agency feature', () => {
+  const launch = north(40);
+  assert.equal(belongsTo(launch, north(-150), [], river, 300).refused, 'opposite bank');
+  assert.equal(belongsTo(launch, north(200), [north(190)], river, 300).refused, 'nearer another access point');
+  assert.equal(belongsTo(launch, north(400), [], river, 300).refused, '360 m away');
+  const ok = belongsTo(launch, north(200), [], river, 300);
+  assert.deepEqual([ok.refused, ok.bankChecked], [null, true]);
+  // A feature on the river line can't be assigned a bank: allowed, but not firm.
+  assert.equal(belongsTo(launch, north(5), [], river, 300).bankChecked, false);
+  assert.equal(belongsTo(launch, north(200), [], null, 300).bankChecked, false);
+});
+
+test('a road surface needs a road whose name serves the access, not merely the nearest road', () => {
+  assert.equal(roadServes('Turner Mill South', 'TURNER MILL NORTH'), false);
+  assert.equal(roadServes('Riverton', 'RIVERTON WEST RECREATION AREA'), false);
+  assert.equal(roadServes('Bay Nothing Boat Ramp', 'BAY NOTHING RECREATION AREA'), true);
+  assert.equal(roadServes('Float Camp Recreation Area', 'FLOAT CAMP PICNIC AREA'), true);
+  assert.equal(roadServes('North Fork Recreation Area (Hammond)', 'NORTH FORK RECREATION AREA'), true);
+  assert.equal(roadServes('Campbell Cemetery access', 'CAMPBELL CEMETERY CANOE ACCESS'), true);
+  assert.equal(roadServes('Anywhere', null), false);
+});
+
 test('ownership spelling touches exact duplicates only; amenities only grow', () => {
   assert.equal(ownershipSpelling('County'), 'county');
   assert.equal(ownershipSpelling('county'), null);
@@ -102,7 +140,8 @@ test('the review sheet survives a CSV round trip, including quotes, commas and n
   const row: Proposal = {
     access_point_id: 'id-1', slug: 's', name: 'Name, "quoted"', river: 'r', field: 'parking_info',
     current: 'null', proposed: JSON.stringify('Gravel lot; trailers allowed (MDC).'), confidence: 'high',
-    evidence: 'line one\nline two', evidence_url: 'https://x/y?a=1&b=2', launch_map: '', note: '',
+    evidence: 'line one\nline two', evidence_url: 'https://x/y?a=1&b=2 https://x/z', evidence_ids: 'mdc-privy-1 mdc-camp-2',
+    launch_map: '', note: '',
   };
   const [back] = parseCsv(toCsv([row]));
   assert.equal(back.accept, 'y', 'high-confidence rows are pre-accepted');
@@ -110,5 +149,6 @@ test('the review sheet survives a CSV round trip, including quotes, commas and n
   assert.equal(medium.accept, '');
   assert.equal(back.name, row.name);
   assert.equal(back.evidence, row.evidence);
+  assert.deepEqual(back.evidence_ids.split(' '), ['mdc-privy-1', 'mdc-camp-2']);
   assert.equal(JSON.parse(back.proposed), 'Gravel lot; trailers allowed (MDC).');
 });

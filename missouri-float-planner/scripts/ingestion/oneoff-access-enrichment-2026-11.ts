@@ -34,8 +34,8 @@ import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson
 import { getScriptClient } from '../lib/db';
 import {
   type AgencySignal, type LngLat, type Lot, type Proposal, type ProposalField, type Confidence,
-  PADUS_NON_FEE, addAmenities, agencyFromOwnershipText, agencyFromPadus, chooseManagingAgency, matchLots,
-  mapLink, metersBetween, parkingInfo, mvumRoadSurface, nameCore, ownershipSpelling, toCsv,
+  MAX_LOT_M, PADUS_NON_FEE, addAmenities, agencyFromOwnershipText, agencyFromPadus, belongsTo, chooseManagingAgency,
+  mapLink, matchLots, metersBetween, parkingInfo, roadServes, mvumRoadSurface, nameCore, ownershipSpelling, toCsv,
   usfsFeeRequired, usfsHasRestroom,
 } from './access-enrichment-2026-11';
 
@@ -190,7 +190,23 @@ async function main() {
   console.log(`  MDC: ${mdcParking.features.length} lots, ${mdcPrivies.features.length} privies, ${mdcCamping.features.length} camping; USFS: ${usfsSites.features.length} sites.`);
 
   const at = (f: ArcFeature): LngLat => [Number(f.geometry?.x), Number(f.geometry?.y)];
-  const evidence: Record<string, unknown> = {};
+  const pointGeom = ([lng, lat]: LngLat) => ({ type: 'Point', coordinates: [lng, lat] });
+  /**
+   * Every feature a proposal rests on, keyed by the ID the review sheet cites:
+   * its layer, link, geometry and attributes — enough to re-check the match
+   * without refetching. PAD-US parcels are cited by their public_lands ID; their
+   * geometry stays in that table (a national forest is ~60,000 vertices).
+   */
+  const evidence: Record<string, { kind: string; url: string; geometry: unknown; attributes: Record<string, unknown> }> = {};
+  const cite = (id: string, kind: string, url: string, geometry: unknown, attributes: Record<string, unknown>) => {
+    evidence[id] = { kind, url, geometry, attributes };
+    return id;
+  };
+  const citeArc = (prefix: string, layerUrl: string, f: ArcFeature, oidField = 'OBJECTID') =>
+    cite(`${prefix}-${f.attributes[oidField]}`, prefix, featureUrl(layerUrl, f.attributes[oidField]), pointGeom(at(f)), f.attributes);
+  const citeSource = (s: SourceRow) =>
+    cite(`${s.provider}-${s.source_id}`, `${s.provider} ${s.source_type}`, s.source_feature_url,
+      pointGeom([s.longitude, s.latitude]), { name: s.name, owner: s.owner, ...s.attributes });
   const proposals: Proposal[] = [];
   const counters = { padusCalls: 0, mvumCalls: 0 };
   const lotTally = { matched: 0, refused: 0, none: 0, lots: 0 };
@@ -200,19 +216,23 @@ async function main() {
     const river = riverById.get(ap.river_id ?? '');
     const riverGeom = river?.geom ?? null;
     const push = (field: ProposalField, current: unknown, proposed: unknown, confidence: Confidence,
-      ev: string, url: string, note = '') => proposals.push({
+      ev: string, ids: string[], note = '') => proposals.push({
       access_point_id: ap.id, slug: ap.slug, name: ap.name, river: river?.slug ?? '', field,
       current: JSON.stringify(current ?? null), proposed: confidence === 'flag' ? '' : JSON.stringify(proposed),
-      confidence, evidence: ev, evidence_url: url, launch_map: mapLink(pin), note,
+      confidence, evidence: ev, evidence_ids: ids.join(' '), evidence_url: ids.map((id) => evidence[id]?.url ?? '').join(' '),
+      launch_map: mapLink(pin), note,
     });
-    const near = (p: LngLat, m: number) => metersBetween(pin, p) <= m;
+    const others = all.filter((o) => o.id !== ap.id).map(pinOf).filter((p): p is LngLat => !!p && metersBetween(pin, p) < 2000);
+    /** The same belonging test parking uses: distance, same bank, not nearer another access point. */
+    const belongs = (p: LngLat, maxM: number) => belongsTo(pin, p, others, riverGeom, maxM);
     const linked = sourcesRows.filter((s) => s.access_point_id === ap.id);
     const mdcAreaIds = new Set(linked.filter((s) => s.provider === 'mdc').map((s) => Number(s.attributes.Area_ID)));
     const agfcNames = new Set([nameCore(ap.name), ...linked.filter((s) => s.provider === 'agfc').map((s) => nameCore(s.name))].filter(Boolean));
-    const agfcNear = (types: string[], m: number) => sourcesRows.filter((s) => s.provider === 'agfc' && types.includes(s.source_type) &&
-      (s.access_point_id === ap.id || (!s.access_point_id && agfcNames.has(nameCore(s.name)) && near([s.longitude, s.latitude], m))));
-    const mdcNear = (layer: { features: ArcFeature[] }, m: number) =>
-      layer.features.filter((f) => mdcAreaIds.has(Number(f.attributes.Area_ID)) && near(at(f), m));
+    /** AGFC features of these types tied to this place by a reviewed link, or unlinked with the same name. */
+    const agfcCandidates = (types: string[]) => sourcesRows.filter((s) => s.provider === 'agfc' && types.includes(s.source_type) &&
+      (s.access_point_id === ap.id || (!s.access_point_id && agfcNames.has(nameCore(s.name)))));
+    /** MDC features in the same conservation area as the place's linked boat ramp. */
+    const mdcCandidates = (layer: { features: ArcFeature[] }) => layer.features.filter((f) => mdcAreaIds.has(Number(f.attributes.Area_ID)));
 
     // ── PAD-US parcel at the launch ─────────────────────────────────────────
     counters.padusCalls++;
@@ -221,7 +241,7 @@ async function main() {
       p_west: e.xmin, p_south: e.ymin, p_east: e.xmax, p_north: e.ymax, p_tolerance: 0, p_limit: 50,
     });
     if (landsError) throw landsError;
-    const parcels = ((lands as Array<{ unit_name: string; manager_name: string | null; designation: string | null; gis_acres: number | null; geojson: string }>) ?? [])
+    const parcels = ((lands as Array<{ id: string; unit_name: string; manager_name: string | null; designation: string | null; public_access: string | null; gis_acres: number | null; geojson: string }>) ?? [])
       .filter((l) => !PADUS_NON_FEE.has((l.designation ?? '').toUpperCase()))
       .filter((l) => {
         const g = JSON.parse(l.geojson) as Polygon | MultiPolygon;
@@ -232,6 +252,12 @@ async function main() {
       .sort((a, b) => Number(a.designation === 'WSR') - Number(b.designation === 'WSR') ||
         Number(a.gis_acres ?? Infinity) - Number(b.gis_acres ?? Infinity));
     const parcel = parcels[0] ?? null;
+    const parcelId = parcel
+      ? cite(`padus-${parcel.id}`, 'PAD-US parcel', `public_lands.id=${parcel.id}`, { table: 'public_lands', id: parcel.id }, {
+        unit_name: parcel.unit_name, manager_name: parcel.manager_name, designation: parcel.designation,
+        public_access: parcel.public_access, gis_acres: parcel.gis_acres,
+      })
+      : null;
     // The MO/AR line (36.5°N, and 36°N in the Bootheel), used only to read PAD-US SFW/SDC.
     const stateCode = pin[1] < 36.5 && !(pin[0] > -90.4 && pin[1] > 36.0) ? 'AR' : 'MO';
     const padus = parcel ? agencyFromPadus(parcel.manager_name, stateCode) : null;
@@ -240,136 +266,158 @@ async function main() {
     // A lot is evidence about the place (there is parking; its surface), never
     // a second pin. Lots nearer another access point belong to that one.
     const lots: Lot[] = [
-      ...mdcNear(mdcParking, 1000).map((f): Lot => ({
+      ...mdcCandidates(mdcParking).map((f): Lot => ({
         id: `mdc-lot-${f.attributes.OBJECTID}`, at: at(f), tie: 'same_area', provider: 'mdc',
         url: featureUrl(SOURCES.mdcParking.url, f.attributes.OBJECTID), attributes: f.attributes,
       })),
-      ...agfcNear(['Parking Area'], 1000).map((s): Lot => ({
+      ...agfcCandidates(['Parking Area']).map((s): Lot => ({
         id: `agfc-${s.source_id}`, at: [s.longitude, s.latitude], tie: s.access_point_id === ap.id ? 'linked' : 'same_name',
-        provider: 'agfc', url: s.source_feature_url, attributes: s.attributes,
+        provider: 'agfc', url: s.source_feature_url, attributes: { name: s.name, ...s.attributes },
       })),
     ];
-    const others = all.filter((o) => o.id !== ap.id).map(pinOf).filter((p): p is LngLat => !!p && metersBetween(pin, p) < 2000);
     const { match: lotMatch, refused: lotsRefused } = lots.length ? matchLots(pin, lots, others, riverGeom) : { match: null, refused: [] };
     lotTally[lotMatch ? 'matched' : lots.length ? 'refused' : 'none']++;
+    const lotIds = (lotMatch?.lots ?? []).map(({ lot }) => cite(lot.id, `${lot.provider} parking lot`, lot.url, pointGeom(lot.at), lot.attributes));
     if (lotMatch) {
       lotTally.lots += lotMatch.lots.length;
-      for (const { lot } of lotMatch.lots) evidence[lot.id] = lot.attributes;
       const info = parkingInfo(lotMatch.lots.map((l) => l.lot));
-      const named = lotMatch.lots.map((l) => `${l.lot.provider.toUpperCase()} ${l.lot.tie.replace('_', ' ')}: ${String(l.lot.attributes.Area_Name ?? l.lot.attributes.fname ?? l.lot.id)}`);
+      const named = lotMatch.lots.map((l) => `${l.lot.provider.toUpperCase()} ${l.lot.tie.replace('_', ' ')}: ${String(l.lot.attributes.Area_Name ?? l.lot.attributes.name ?? l.lot.id)}`);
       if (info && !ap.parking_info) {
-        push('parking_info', null, info, lotMatch.confidence, named.join(' | '), lotMatch.lots[0].lot.url,
+        push('parking_info', null, info, lotMatch.confidence, named.join(' | '), lotIds,
           [lotMatch.note, ...lotsRefused.map((r) => `refused ${r}`)].join('; '));
       }
     }
 
-    // ── USFS recreation site ────────────────────────────────────────────────
+    // ── USFS recreation site: the nearest one that belongs to this place ────
     const site = usfsSites.features
-      .map((f) => ({ f, m: metersBetween(pin, at(f)) }))
-      .filter((s) => s.m <= USFS_SITE_RADIUS_M)
-      .sort((a, b) => a.m - b.m)[0] ?? null;
+      .map((f) => ({ f, b: belongs(at(f), USFS_SITE_RADIUS_M) }))
+      .filter((s) => !s.b.refused)
+      .sort((a, b) => a.b.meters - b.b.meters)[0] ?? null;
     const siteName = site ? String(site.f.attributes.public_site_name ?? site.f.attributes.site_name ?? '') : '';
-    const siteUrl = site ? featureUrl(SOURCES.usfsSites.url, site.f.attributes.objectid) : '';
-    const siteConf: Confidence = site && site.m <= 150 ? 'medium' : 'low';
+    const siteId = site ? citeArc('usfs-site', SOURCES.usfsSites.url, site.f, 'objectid') : '';
+    const siteConf: Confidence = site && site.b.meters <= 150 ? 'medium' : 'low';
     if (site) {
-      evidence[`usfs-site-${site.f.attributes.site_cn}`] = site.f.attributes;
       const link = String(site.f.attributes.usda_portal_url ?? site.f.attributes.rec1stop_url ?? '').trim();
       if (link && !ap.official_site_url) {
-        push('official_site_url', null, link, siteConf, `USFS site "${siteName}" (${site.f.attributes.site_subtype})`, siteUrl, `${Math.round(site.m)} m from launch`);
+        push('official_site_url', null, link, siteConf, `USFS site "${siteName}" (${site.f.attributes.site_subtype})`, [siteId], `${Math.round(site.b.meters)} m from launch`);
       }
       const fee = usfsFeeRequired(site.f.attributes.fee_charged);
       if (fee !== null && ap.fee_required == null) {
-        push('fee_required', null, fee, siteConf, `USFS site "${siteName}" fee_charged=${site.f.attributes.fee_charged}`, siteUrl,
+        push('fee_required', null, fee, siteConf, `USFS site "${siteName}" fee_charged=${site.f.attributes.fee_charged}`, [siteId],
           String(site.f.attributes.fee_description ?? ''));
       }
     }
 
     // ── Amenities (additions only) ──────────────────────────────────────────
-    // `firm`: tied to this place by a reviewed link or a shared agency area ID,
-    // rather than by proximity or a matching name.
-    const add: { a: string; why: string; url: string; firm: boolean }[] = [];
-    if (lotMatch) add.push({ a: 'parking', why: `${lotMatch.lots.length} agency parking lot(s)`, url: lotMatch.lots[0].lot.url, firm: lotMatch.confidence === 'high' });
-    if (linked.some((s) => s.provider === 'mdc' && s.source_type === 'Boat Ramps')) add.push({ a: 'boat_ramp', why: 'MDC Boat Ramps layer', url: linked.find((s) => s.provider === 'mdc')!.source_feature_url, firm: true });
-    const privy = mdcNear(mdcPrivies, AMENITY_RADIUS_M)[0];
-    if (privy) add.push({ a: 'restrooms', why: 'MDC privy, same area', url: featureUrl(SOURCES.mdcPrivies.url, privy.attributes.OBJECTID), firm: true });
-    const camp = mdcNear(mdcCamping, AMENITY_RADIUS_M)[0];
-    if (camp) add.push({ a: 'camping', why: `MDC camping site (${camp.attributes.Type ?? 'type n/a'}), same area`, url: featureUrl(SOURCES.mdcCamping.url, camp.attributes.OBJECTID), firm: true });
-    const agfcRest = agfcNear(['Restroom'], AMENITY_RADIUS_M)[0];
-    if (agfcRest) add.push({ a: 'restrooms', why: 'AGFC Restroom', url: agfcRest.source_feature_url, firm: agfcRest.access_point_id === ap.id });
-    const agfcCamp = agfcNear(['RVs Allowed - No Hookups', 'RVs Allowed - Hookups and Dump', 'RVs Allowed - Hookups', 'Tents Only'], AMENITY_RADIUS_M)[0];
-    if (agfcCamp) add.push({ a: 'camping', why: `AGFC ${agfcCamp.source_type}`, url: agfcCamp.source_feature_url, firm: agfcCamp.access_point_id === ap.id });
-    const agfcPicnic = agfcNear(['Picnic Area', 'Pavillion'], AMENITY_RADIUS_M)[0];
-    if (agfcPicnic) add.push({ a: 'picnic', why: `AGFC ${agfcPicnic.source_type}`, url: agfcPicnic.source_feature_url, firm: agfcPicnic.access_point_id === ap.id });
-    if (site && site.m <= 150 && usfsHasRestroom(site.f.attributes.restroom_availability)) {
-      add.push({ a: 'restrooms', why: `USFS "${siteName}": ${site.f.attributes.restroom_availability}`, url: siteUrl, firm: false });
+    // Every feature passes the same belonging test as parking. `firm`: tied to
+    // this place by a reviewed link or a shared MDC area ID AND bank-checked,
+    // rather than by proximity or a matching name. Each addition cites its own feature.
+    const add: { a: string; why: string; id: string; firm: boolean }[] = [];
+    if (lotMatch) add.push({ a: 'parking', why: `${lotMatch.lots.length} agency parking lot(s)`, id: lotIds[0], firm: lotMatch.confidence === 'high' });
+    const ramp = linked.find((s) => s.provider === 'mdc' && s.source_type === 'Boat Ramps');
+    if (ramp) add.push({ a: 'boat_ramp', why: 'MDC Boat Ramps layer (reviewed link)', id: citeSource(ramp), firm: true });
+    const nearestMdc = (layer: { features: ArcFeature[] }) => mdcCandidates(layer)
+      .map((f) => ({ f, b: belongs(at(f), AMENITY_RADIUS_M) })).filter((x) => !x.b.refused).sort((x, y) => x.b.meters - y.b.meters)[0];
+    const privy = nearestMdc(mdcPrivies);
+    if (privy) add.push({ a: 'restrooms', why: `MDC privy, same area, ${Math.round(privy.b.meters)} m`, id: citeArc('mdc-privy', SOURCES.mdcPrivies.url, privy.f), firm: privy.b.bankChecked });
+    const camp = nearestMdc(mdcCamping);
+    if (camp) add.push({ a: 'camping', why: `MDC camping site (${camp.f.attributes.Type ?? 'type n/a'}), same area, ${Math.round(camp.b.meters)} m`, id: citeArc('mdc-camp', SOURCES.mdcCamping.url, camp.f), firm: camp.b.bankChecked });
+    const nearestAgfc = (types: string[]) => agfcCandidates(types)
+      .map((s) => ({ s, b: belongs([s.longitude, s.latitude], s.access_point_id === ap.id ? MAX_LOT_M : AMENITY_RADIUS_M) }))
+      .filter((x) => !x.b.refused).sort((x, y) => x.b.meters - y.b.meters)[0];
+    for (const [a, types] of [
+      ['restrooms', ['Restroom']],
+      ['camping', ['RVs Allowed - No Hookups', 'RVs Allowed - Hookups and Dump', 'RVs Allowed - Hookups', 'Tents Only']],
+      ['picnic', ['Picnic Area', 'Pavillion']],
+    ] as const) {
+      const hit = nearestAgfc([...types]);
+      if (hit) {
+        add.push({ a, why: `AGFC ${hit.s.source_type}${hit.s.access_point_id === ap.id ? ' (reviewed link)' : ' (same name)'}, ${Math.round(hit.b.meters)} m`,
+          id: citeSource(hit.s), firm: hit.s.access_point_id === ap.id && hit.b.bankChecked });
+      }
     }
-    if (site && site.m <= 150 && /CAMP/.test(String(site.f.attributes.site_subtype))) {
-      add.push({ a: 'camping', why: `USFS "${siteName}" (${site.f.attributes.site_subtype})`, url: siteUrl, firm: false });
+    if (site && site.b.meters <= 150 && usfsHasRestroom(site.f.attributes.restroom_availability)) {
+      add.push({ a: 'restrooms', why: `USFS "${siteName}": ${site.f.attributes.restroom_availability}`, id: siteId, firm: false });
+    }
+    if (site && site.b.meters <= 150 && /CAMP/.test(String(site.f.attributes.site_subtype))) {
+      add.push({ a: 'camping', why: `USFS "${siteName}" (${site.f.attributes.site_subtype})`, id: siteId, firm: false });
     }
     const next = addAmenities(ap.amenities, add.map((x) => x.a));
     if (next) {
       const added = next.slice((ap.amenities ?? []).length);
       // Cite the firmest source for each added amenity; the row is high only if every one is firm.
       const best = added.map((a) => add.filter((x) => x.a === a).sort((x, y) => Number(y.firm) - Number(x.firm))[0]);
-      const why = best.map((b) => `${b.a}: ${b.why}`).join(' | ');
-      push('amenities', ap.amenities ?? [], next, best.every((b) => b.firm) ? 'high' : 'medium', why, best[0].url);
+      push('amenities', ap.amenities ?? [], next, best.every((b) => b.firm) ? 'high' : 'medium',
+        best.map((b) => `${b.a}: ${b.why} [${b.id}]`).join(' | '), best.map((b) => b.id));
     }
 
     // ── Managing agency ─────────────────────────────────────────────────────
     if (!ap.managing_agency) {
       const signals: AgencySignal[] = [];
-      if (parcel && (padus?.agency || padus?.unsupported)) {
+      const ids: string[] = [];
+      if (parcel && parcelId && (padus?.agency || padus?.unsupported)) {
         signals.push({ ...padus!, source: 'padus', detail: `${parcel.unit_name} (${parcel.manager_name}, ${parcel.designation}${parcel.designation === 'WSR' ? ' corridor' : ''})` });
+        ids.push(parcelId);
       }
       for (const s of linked) {
-        if (s.provider === 'mdc') signals.push({ agency: 'MDC', source: 'agency_link', detail: `MDC ${s.source_type}: ${s.name}` });
-        else {
-          const o = s.owner ?? '';
-          const agency = /corps|usace|\bcoe\b/i.test(o) ? 'COE' : /national park|\bnps\b/i.test(o) ? 'NPS'
-            : /forest service|usfs/i.test(o) ? 'USFS' : /state park/i.test(o) ? 'State Park'
-            : /\bcity\b|town of/i.test(o) ? 'Municipal' : /county/i.test(o) ? 'County' : null;
-          if (agency) signals.push({ agency, source: 'agency_link', detail: `AGFC record, owner "${o}"` });
-          else if (/agfc|game and fish/i.test(o) || !o) signals.push({ agency: null, unsupported: 'AGFC', source: 'agency_link', detail: `AGFC record, owner "${o || 'n/a'}"` });
+        if (s.provider === 'mdc') {
+          signals.push({ agency: 'MDC', source: 'agency_link', detail: `MDC ${s.source_type}: ${s.name}` });
+          ids.push(citeSource(s));
+          continue;
         }
+        const o = s.owner ?? '';
+        const agency = /corps|usace|\bcoe\b/i.test(o) ? 'COE' : /national park|\bnps\b/i.test(o) ? 'NPS'
+          : /forest service|usfs/i.test(o) ? 'USFS' : /state park/i.test(o) ? 'State Park'
+          : /\bcity\b|town of/i.test(o) ? 'Municipal' : /county/i.test(o) ? 'County' : null;
+        if (agency) signals.push({ agency, source: 'agency_link', detail: `AGFC record, owner "${o}"` });
+        else if (/agfc|game and fish/i.test(o) || !o) signals.push({ agency: null, unsupported: 'AGFC', source: 'agency_link', detail: `AGFC record, owner "${o || 'n/a'}"` });
+        else continue;
+        ids.push(citeSource(s));
       }
       const fromText = agencyFromOwnershipText(ap.ownership);
       if (fromText) signals.push({ agency: fromText, source: 'ownership_text', detail: `ownership "${ap.ownership}"` });
       if (signals.length) {
         const pick = chooseManagingAgency(signals);
-        if (pick.agency || pick.confidence === 'flag') {
-          push('managing_agency', null, pick.agency, pick.confidence, pick.evidence,
-            linked[0]?.source_feature_url ?? '', parcel ? `PAD-US parcel: ${parcel.unit_name}` : '');
-        }
+        if (pick.agency || pick.confidence === 'flag') push('managing_agency', null, pick.agency, pick.confidence, pick.evidence, ids);
       }
     }
 
     // ── Ownership spelling + contradictions ─────────────────────────────────
     const spelled = ownershipSpelling(ap.ownership);
-    if (spelled) push('ownership', ap.ownership, spelled, 'high', 'spelling only', '');
+    if (spelled) push('ownership', ap.ownership, spelled, 'high', 'spelling only', []);
     if (/^private$/i.test((ap.ownership ?? '').trim()) && padus?.agency && padus.agency !== 'Private') {
-      push('ownership', ap.ownership, null, 'flag', `PAD-US: ${parcel!.unit_name} (${parcel!.manager_name})`, '', `text says private; launch is on or within 30 m of a public parcel${parcel!.designation === 'WSR' ? ' (a Wild and Scenic corridor, which can include private land)' : ''}`);
+      push('ownership', ap.ownership, null, 'flag', `PAD-US: ${parcel!.unit_name} (${parcel!.manager_name})`, [parcelId!],
+        `text says private; launch is on or within 30 m of a public parcel${parcel!.designation === 'WSR' ? ' (a Wild and Scenic corridor, which can include private land)' : ''}`);
     }
 
     // ── Road surface from MVUM (USFS ground only) ───────────────────────────
+    // Only from a road whose NAME shows it serves this access (roadServes).
+    // A nearby road that does not is a flag for a person, never a value.
     const usfsGround = padus?.agency === 'USFS' || /usfs/i.test(ap.ownership ?? '') || !!site;
     if (usfsGround && !(ap.road_surface?.length)) {
       counters.mvumCalls++;
       const { features } = await fetchAll(SOURCES.mvumRoads, envelopeFilter(envelope(pin, MVUM_RADIUS_M + 50)));
-      const road = features
-        .filter((f) => f.geometry?.paths?.length)
+      const roads = features
+        .filter((f) => f.geometry?.paths?.some((p) => p.length > 1))
         .map((f) => ({ f, m: Math.min(...f.geometry!.paths!.filter((p) => p.length > 1).map((p) =>
           pointToLineDistance(point(pin), { type: 'LineString', coordinates: p } as LineString, { units: 'meters' }))) }))
         .filter((r) => r.m <= MVUM_RADIUS_M)
-        .sort((a, b) => a.m - b.m)[0];
-      const surface = road ? mvumRoadSurface(road.f.attributes.surfacetype, road.f.attributes.seasonal) : null;
-      if (road && surface) {
-        const a = road.f.attributes;
+        .sort((a, b) => a.m - b.m);
+      const citeRoad = (r: (typeof roads)[number]) => cite(`mvum-${r.f.attributes.objectid}`, 'MVUM road',
+        featureUrl(SOURCES.mvumRoads.url, r.f.attributes.objectid), { type: 'MultiLineString', coordinates: r.f.geometry!.paths }, r.f.attributes);
+      const serving = roads.find((r) => roadServes(ap.name, r.f.attributes.name));
+      const surface = serving ? mvumRoadSurface(serving.f.attributes.surfacetype, serving.f.attributes.seasonal) : null;
+      if (serving && surface) {
+        const a = serving.f.attributes;
         const hcvOnly = a.passengervehicle !== 'open' && a.highclearancevehicle === 'open';
-        evidence[`mvum-${a.objectid}`] = a;
         push('road_surface', ap.road_surface ?? [], surface, hcvOnly ? 'low' : 'medium',
-          `MVUM road ${a.id} ${a.name ?? ''}: ${a.surfacetype}, ${a.seasonal ?? 'season n/a'}`,
-          featureUrl(SOURCES.mvumRoads.url, a.objectid),
-          `${Math.round(road.m)} m from launch${hcvOnly ? '; HIGH-CLEARANCE VEHICLES ONLY — add 4wd_required by hand if right' : ''}; nearest MVUM road, not necessarily the approach`);
+          `MVUM road ${a.id} ${a.name ?? ''}: ${a.surfacetype}, ${a.seasonal ?? 'season n/a'}`, [citeRoad(serving)],
+          `${Math.round(serving.m)} m from launch; road name matches the place${hcvOnly ? '; HIGH-CLEARANCE VEHICLES ONLY — add 4wd_required by hand if right' : ''}`);
+      } else if (roads.length) {
+        const r = roads[0];
+        push('road_surface', ap.road_surface ?? [], null, 'flag',
+          `nearest MVUM road ${r.f.attributes.id} ${r.f.attributes.name ?? ''} (${Math.round(r.m)} m) is not shown to serve this access`, [citeRoad(r)],
+          'confirm the approach road before recording a surface');
       }
     }
   });

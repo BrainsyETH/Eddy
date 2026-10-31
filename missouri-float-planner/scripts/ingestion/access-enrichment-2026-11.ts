@@ -83,6 +83,37 @@ export interface LotMatch {
  * any candidate was refused. A lot is refused when it is too far, on the far
  * bank, or nearer another access point than this one (it belongs to that one).
  */
+export interface Belonging {
+  /** Null when the feature belongs to this place; otherwise why it does not. */
+  refused: string | null;
+  meters: number;
+  /** False when either point sits on the river line or there is no river geometry. */
+  bankChecked: boolean;
+}
+
+/**
+ * Whether an agency feature (lot, privy, campsite, recreation site) belongs to
+ * this access point: within `maxM`, on the same bank, and not nearer another
+ * access point (then it belongs to that one). Every amenity and parking match
+ * goes through this one test.
+ */
+export function belongsTo(
+  launch: LngLat,
+  at: LngLat,
+  otherPins: LngLat[],
+  river: LineString | MultiLineString | null,
+  maxM: number,
+): Belonging {
+  const meters = metersBetween(launch, at);
+  const launchSide = river ? sideOfRiver(launch, river).side : 0;
+  const featureSide = river ? sideOfRiver(at, river).side : 0;
+  const bankChecked = !!river && launchSide !== 0 && featureSide !== 0;
+  if (meters > maxM) return { refused: `${Math.round(meters)} m away`, meters, bankChecked };
+  if (bankChecked && featureSide !== launchSide) return { refused: 'opposite bank', meters, bankChecked };
+  if (otherPins.some((o) => metersBetween(o, at) < meters)) return { refused: 'nearer another access point', meters, bankChecked };
+  return { refused: null, meters, bankChecked };
+}
+
 export function matchLots(
   launch: LngLat,
   lots: Lot[],
@@ -90,26 +121,23 @@ export function matchLots(
   river: LineString | MultiLineString | null,
 ): { match: LotMatch | null; refused: string[] } {
   const refused: string[] = [];
-  const launchSide = river ? sideOfRiver(launch, river) : null;
-  const ok: { lot: Lot; meters: number }[] = [];
+  const ok: { lot: Lot; meters: number; bankChecked: boolean }[] = [];
   for (const lot of lots) {
-    const meters = metersBetween(launch, lot.at);
-    if (meters > MAX_LOT_M) { refused.push(`${lot.id}: ${Math.round(meters)} m away`); continue; }
-    if (river && launchSide && launchSide.side !== 0) {
-      const lotSide = sideOfRiver(lot.at, river);
-      if (lotSide.side !== 0 && lotSide.side !== launchSide.side) { refused.push(`${lot.id}: opposite bank`); continue; }
-    }
-    if (otherPins.some((o) => metersBetween(o, lot.at) < meters)) { refused.push(`${lot.id}: nearer another access point`); continue; }
-    ok.push({ lot, meters });
+    const b = belongsTo(launch, lot.at, otherPins, river, MAX_LOT_M);
+    if (b.refused) refused.push(`${lot.id}: ${b.refused}`);
+    else ok.push({ lot, meters: b.meters, bankChecked: b.bankChecked });
   }
   if (ok.length === 0) return { match: null, refused };
   ok.sort((x, y) => x.meters - y.meters);
   const notes = [`${ok.length} lot(s), ${ok.map((o) => `${Math.round(o.meters)} m`).join(', ')} from launch`];
-  const bankChecked = !!river && launchSide?.side !== 0;
+  const bankChecked = ok.every((o) => o.bankChecked);
   if (!river) notes.push('river geometry missing; bank not checked');
-  else if (!bankChecked) notes.push('launch pin is on the river line; bank not checked');
+  else if (!bankChecked) notes.push('a pin is on the river line; bank not checked');
   const firm = ok.every((o) => o.lot.tie !== 'same_name' && o.meters <= 400);
-  return { match: { lots: ok, confidence: firm && bankChecked ? 'high' : 'medium', note: notes.join('; ') }, refused };
+  return {
+    match: { lots: ok.map(({ lot, meters }) => ({ lot, meters })), confidence: firm && bankChecked ? 'high' : 'medium', note: notes.join('; ') },
+    refused,
+  };
 }
 
 /** The surface a lot record states: MDC `Surface`, AGFC `fdescrip` (Paved/Gravel/Dirt). */
@@ -183,15 +211,19 @@ export function agencyFromOwnershipText(text: string | null): ManagingAgency | n
   return null;
 }
 
+/**
+ * Every identified manager is compared BEFORE asking whether the column can
+ * hold it. Dropping an unsupported manager first would turn "AGFC vs COE" into
+ * an uncontested COE; it must stay a flag until a person resolves it.
+ */
 export function chooseManagingAgency(signals: AgencySignal[]): { agency: ManagingAgency | null; confidence: Confidence; evidence: string } {
   const evidence = signals.map((s) => `${s.source}: ${s.detail}`).join(' | ');
-  const values = [...new Set(signals.map((s) => s.agency).filter((a): a is ManagingAgency => a !== null))];
-  if (values.length > 1) return { agency: null, confidence: 'flag', evidence: `conflict (${values.join(' vs ')}) — ${evidence}` };
+  const identified = [...new Set(signals.map((s) => s.agency ?? s.unsupported).filter((a): a is string => !!a))];
+  if (identified.length > 1) return { agency: null, confidence: 'flag', evidence: `conflict (${identified.join(' vs ')}) — ${evidence}` };
+  if (identified.length === 0) return { agency: null, confidence: 'low', evidence };
+  const values = signals.map((s) => s.agency).filter((a): a is ManagingAgency => a !== null);
   if (values.length === 0) {
-    const unsupported = [...new Set(signals.map((s) => s.unsupported).filter(Boolean))];
-    return unsupported.length
-      ? { agency: null, confidence: 'flag', evidence: `manager ${unsupported.join('/')} is not an allowed managing_agency value — ${evidence}` }
-      : { agency: null, confidence: 'low', evidence };
+    return { agency: null, confidence: 'flag', evidence: `manager ${identified[0]} is not an allowed managing_agency value — ${evidence}` };
   }
   const agreeing = signals.filter((s) => s.agency === values[0]);
   const independent = new Set(agreeing.map((s) => s.source)).size;
@@ -233,6 +265,20 @@ export function nameCore(name: string | null): string {
     .trim();
 }
 
+/**
+ * Whether an MVUM road's NAME shows it serves this access: every distinctive
+ * word of the road name must be in the place name. "TURNER MILL NORTH" does not
+ * serve "Turner Mill South", and "RIVERTON WEST RECREATION AREA" is not shown
+ * to serve "Riverton". Being the nearest road is not evidence of the approach.
+ */
+export function roadServes(placeName: string, roadName: unknown): boolean {
+  const generic = /\b(picnic|road|rd|fs|forest|service|day|use|ramp)\b/g;
+  const tokens = (s: string) => new Set(nameCore(s).replace(generic, ' ').split(' ').filter((t) => t.length > 1));
+  const road = tokens(typeof roadName === 'string' ? roadName : '');
+  const place = tokens(placeName);
+  return road.size > 0 && [...road].every((t) => place.has(t));
+}
+
 // ── Review sheet ──────────────────────────────────────────────────────────────
 
 export interface Proposal {
@@ -246,14 +292,17 @@ export interface Proposal {
   proposed: string;
   confidence: Confidence;
   evidence: string;
+  /** One URL per contributing feature, space-separated, in `evidence_ids` order. */
   evidence_url: string;
+  /** Keys into sources.json `evidence`: each holds the feature's ID, attributes and geometry. */
+  evidence_ids: string;
   launch_map: string;
   note: string;
 }
 
 export const PROPOSAL_COLUMNS: (keyof Proposal | 'accept')[] = [
   'accept', 'confidence', 'river', 'slug', 'name', 'field', 'current', 'proposed',
-  'evidence', 'evidence_url', 'launch_map', 'note', 'access_point_id',
+  'evidence', 'evidence_ids', 'evidence_url', 'launch_map', 'note', 'access_point_id',
 ];
 
 export const mapLink = ([lng, lat]: LngLat) => `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
