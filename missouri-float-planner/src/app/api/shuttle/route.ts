@@ -161,9 +161,10 @@ async function _GET(request: NextRequest) {
       return NextResponse.json({ available: false });
     }
 
-    // Cache the result in drive_time_cache. Non-fatal, but logged: it fails
-    // whenever route_geometry is not yet migrated, and silently that meant
-    // every request paid for a fresh Mapbox call.
+    // Cache the result in drive_time_cache. Non-fatal, but logged. It used to
+    // include route_geometry, a column production never had, so every write
+    // was rejected silently (the newest cached row is from 2026-07-02). No
+    // client draws the drive line, so the geometry is simply not stored.
     const { error: cacheWriteError } = await supabase
       .from('drive_time_cache')
       .upsert({
@@ -172,7 +173,6 @@ async function _GET(request: NextRequest) {
         drive_miles: result.miles,
         drive_minutes: result.minutes,
         route_summary: result.routeSummary,
-        route_geometry: result.geometry,
         fetched_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       }, {

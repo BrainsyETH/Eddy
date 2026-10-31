@@ -1922,14 +1922,19 @@ export interface FloatPlan {
    * to the dangerous wording — the only case that existed before the field.
    */
   floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
-  /** Take-out → put-in, which is the direction the shuttle actually drives. */
+  /**
+   * Take-out → put-in, which is the direction the shuttle actually drives.
+   * @deprecated Always null from current servers: Eddy hands the shuttle to
+   * Google or Apple Maps instead of computing a drive of its own. Older
+   * servers may still send one.
+   */
   driveBack: {
     minutes: number;
     miles: number;
     formatted: string;
     routeSummary: string | null;
     routeGeometry: RiverGeometry | null;
-  };
+  } | null;
   condition: FloatPlanCondition;
   hazards: Hazard[];
   /** The floated stretch itself. Geometry can be null on an unmapped segment. */
