@@ -10,7 +10,8 @@ export interface PlannerSelectionHistory {
 }
 
 type SelectionAction =
-  | { type: 'change' | 'validate'; patch: Partial<PlannerSelection> }
+  // 'change' is a route edit (Undo-able); 'validate' and 'browse' are not.
+  | { type: 'change' | 'validate' | 'browse'; patch: Partial<PlannerSelection> }
   | { type: 'undo' };
 
 /** Preserve the planner's downstream ordering, whichever endpoint is picked first. */
@@ -20,6 +21,17 @@ export function orderedPlannerEndpoints(
 ): Pick<PlannerSelection, 'selectedPutIn' | 'selectedTakeOut'> {
   const [putIn, takeOut] = first.riverMile > second.riverMile ? [second, first] : [first, second];
   return { selectedPutIn: putIn.id, selectedTakeOut: takeOut.id };
+}
+
+/**
+ * Which river owns the planner after inspecting a place on `placeRiver`.
+ * Another river's place carries the planner with it when nothing would be
+ * lost; with a route in progress elsewhere, the planner browses all rivers
+ * instead, so the old river is never shown as current beside the new place.
+ */
+export function plannerRiverForPlace(current: PlannerSelection, placeRiver: string): 'same' | 'switch' | 'browse' {
+  if (!placeRiver || placeRiver === current.riverSlug) return 'same';
+  return current.selectedPutIn || current.selectedTakeOut ? 'browse' : 'switch';
 }
 
 /** Only deliberate route edits enter history; camera moves and inspection don't. */
