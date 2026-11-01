@@ -213,6 +213,30 @@ export function mergeStars(local: LocalStar[], server: ServerStar[], kind: StarK
   return { merged, toStar, toUnstar };
 }
 
+/**
+ * Marks stars this device just UPLOADED as confirmed by the server.
+ *
+ * mergeStars only confirms a star it sees in a server read, so a star created
+ * here and POSTed successfully stayed unconfirmed — and when another device
+ * later removed it, this device read the missing row as "never uploaded" and
+ * created it again. Call with the ids whose POST succeeded, on the plan this
+ * pass built.
+ *
+ * Only still-starred entries of `kind` are touched. A local edit made while
+ * the pass was on the wire is protected by the caller, which discards the whole
+ * pass when the local set moved (useStarredRivers' mutation generation check),
+ * so a confirmation can never land on an entry the user changed since.
+ */
+export function confirmUploaded(merged: LocalStar[], kind: StarKind, uploadedIds: readonly string[]): LocalStar[] {
+  if (uploadedIds.length === 0) return merged;
+  const uploaded = new Set(uploadedIds);
+  return merged.map((entry) =>
+    entry.kind === kind && entry.starred && !entry.confirmed && uploaded.has(entry.entityId)
+      ? { ...entry, confirmed: true }
+      : entry,
+  );
+}
+
 /** The starred subset, newest first — what the UI lists. Both kinds, one clock. */
 export function visibleStars(local: LocalStar[]): LocalStar[] {
   return local

@@ -3,6 +3,7 @@
 // Facebook as a link post. Rotation + publishing live in blog-poster; this route
 // just gates on the master posting switch and dedups same-day double-fires.
 
+import { MAY_HAVE_PUBLISHED } from '@/lib/social/publish-outcome';
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -58,7 +59,7 @@ async function handleGET(request: NextRequest) {
       .from('social_posts')
       .select('id')
       .eq('post_type', 'blog_feature')
-      .in('status', ['publishing', 'published'])
+      .in('status', [...MAY_HAVE_PUBLISHED])
       .gte('created_at', todayStart.toISOString())
       .limit(1);
     if (dedupError) {

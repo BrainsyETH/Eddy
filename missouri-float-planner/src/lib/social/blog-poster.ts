@@ -19,6 +19,7 @@ import { blogHighlights, guideMaterial } from './blog-highlights';
 import { generateCaption } from './caption-generator';
 import { GUIDE_CAPTION_CTA, GUIDE_OPENINGS, finalizeGuideBody } from './blog-voice';
 import { hasMetaCredentials, publishLinkToFacebook } from './meta-client';
+import { outcomeFields, thrownFields, writeOutcome } from './publish-outcome';
 import { riverDisplayLong } from './river-display';
 import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 
@@ -168,18 +169,21 @@ export async function publishBlogFeature(supabase: any): Promise<BlogPostResult>
 
   if (insertError) return { ok: false, error: insertError.message };
 
-  const result = await publishLinkToFacebook({ message: caption, link: url });
+  let result: Awaited<ReturnType<typeof publishLinkToFacebook>>;
+  try {
+    result = await publishLinkToFacebook({ message: caption, link: url });
+  } catch (err) {
+    await writeOutcome(supabase, record.id, thrownFields(err));
+    return { ok: false, blogSlug: blog.slug, caption, captionSource, error: 'outcome unknown' };
+  }
 
-  await supabase
-    .from('social_posts')
-    .update({
-      status: result.success ? 'published' : 'failed',
-      platform_post_id: result.postId || null,
-      published_at: result.success ? new Date().toISOString() : null,
-      error_message: result.success ? null : (result.error || 'Unknown error'),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', record.id);
+  // An ambiguous failure (timeout / 5xx on the feed post) is `unknown`, which
+  // post-blog's same-day guard treats as possibly posted (publish-outcome.ts).
+  await writeOutcome(
+    supabase,
+    record.id,
+    outcomeFields({ success: result.success, platformPostId: result.postId, error: result.error, ambiguous: result.ambiguous }),
+  );
 
   if (result.success) {
     await supabase

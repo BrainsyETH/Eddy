@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth, logAdminAction } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from '@/lib/social/publish-outcome';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
 
@@ -75,44 +76,21 @@ export async function POST(request: NextRequest) {
       const publishResult = await adapter.publishPost({
         caption: caption.trim(),
         imageUrl: imageUrl || '',
+        onProviderAttempt: providerAttemptRecorder(supabase, record.id),
       });
-
-      if (publishResult.success) {
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'published',
-            platform_post_id: publishResult.platformPostId || null,
-            published_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', record.id);
-
-        results.push({ platform, success: true, postId: publishResult.platformPostId });
-      } else {
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'failed',
-            error_message: publishResult.error || 'Unknown error',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', record.id);
-
-        results.push({ platform, success: false, error: publishResult.error });
-      }
+      // An ambiguous failure is `unknown`, never `failed`; an inbox delivery is
+      // `inbox`, not `published` (publish-outcome.ts).
+      await writeOutcome(supabase, record.id, outcomeFields(publishResult));
+      results.push(
+        publishResult.success
+          ? { platform, success: true, postId: publishResult.platformPostId }
+          : { platform, success: false, error: publishResult.error },
+      );
     } catch (err) {
+      // A throw does not prove the platform refused the post.
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase
-        .from('social_posts')
-        .update({
-          status: 'failed',
-          error_message: msg,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', record.id);
-
-      results.push({ platform, success: false, error: msg });
+      await writeOutcome(supabase, record.id, thrownFields(err));
+      results.push({ platform, success: false, error: `outcome unknown — ${msg}` });
     }
   }
 

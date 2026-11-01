@@ -60,7 +60,7 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
   private payload: Row | Row[] | null = null;
   private upsertOpts: { onConflict?: string; ignoreDuplicates?: boolean } = {};
   private returning = false;
-  private single = false;
+  private singleRow = false;
 
   constructor(private readonly db: FakeOutboxDb, private readonly table: string) {}
 
@@ -134,7 +134,12 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
     return this;
   }
   maybeSingle() {
-    this.single = true;
+    this.singleRow = true;
+    return this;
+  }
+  /** Modelled as maybeSingle: tests do not depend on single()'s not-found error. */
+  single() {
+    this.singleRow = true;
     return this;
   }
 
@@ -182,7 +187,7 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
       }
       if (this.window) out = out.slice(this.window.from, this.window.to + 1);
       if (this.limitN !== null) out = out.slice(0, this.limitN);
-      if (this.single) return { data: out[0] ?? null, error: null };
+      if (this.singleRow) return { data: out[0] ?? null, error: null };
       return { data: out, error: null };
     }
 
@@ -212,7 +217,9 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
       rows.push(row);
       written.push(row);
     }
-    return { data: this.returning ? written.map((r) => ({ ...r })) : null, error: null };
+    const returned = written.map((r) => ({ ...r }));
+    if (this.singleRow) return { data: this.returning ? (returned[0] ?? null) : null, error: null };
+    return { data: this.returning ? returned : null, error: null };
   }
 
   then<A = { data: unknown; error: unknown; count?: number }, B = never>(

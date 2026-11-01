@@ -16,14 +16,24 @@ cannot be read (an unreadable check never passes).
 
 | Check | Passes when | Source |
 | --- | --- | --- |
-| `job:update-gauges` | the hourly or 15-minute gauge pass finished (`ok`/`partial`) within 75 min | `admin_job_runs` |
+| `job:update-gauges` | the hourly full pass finished (`ok`/`partial`) within 75 min | `admin_job_runs` |
+| `job:update-gauges:high-frequency` | the :15/:30/:45 pass finished within 50 min | `admin_job_runs` |
 | `job:evaluate-gauge-alerts` | finished within 50 min | `admin_job_runs` |
 | `job:deliver-push` | finished within 20 min | `admin_job_runs` |
-| `freshness:curated-readings` | the newest curated gauge reading is under 120 min old | `get_latest_curated_readings` |
+| `freshness:curated-readings` | at least 90% of curated stations have a reading under 120 min old | `get_latest_curated_readings` |
 | `outbox:oldest-pending-alert` | no deliverable alert has waited over 30 min (empty passes) | both outbox tables |
 
 Thresholds live in `src/lib/monitoring/pipeline-health.ts`; each allows a couple
 of missed runs so a single dropped Vercel invocation does not page anyone.
+
+What counts as a completion: `ok` or `partial`. `partial` is useful progress (an
+enrichment budget ran out, a few sends to dead tokens failed). A run that could
+not do its job records `error` instead — notably the evaluator when it fails to
+save fired alerts, which otherwise looks healthy because the outbox stays
+empty. The two gauge passes are separate checks so the 15-minute pass cannot
+mask a failing hourly pass, and freshness is coverage across the curated set so
+one live gauge cannot stand in for the rest (51 of 52 were fresh when the 90%
+line was set).
 
 Unauthenticated callers get only `ok` per check, CDN-cached for 60s and
 rate-limited. With `Authorization: Bearer $CRON_SECRET` the response adds ages

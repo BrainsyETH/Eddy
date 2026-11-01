@@ -22,6 +22,15 @@ import { logger } from '@/lib/logger';
 
 export type PostOutcomeStatus = 'published' | 'inbox' | 'failed' | 'unknown';
 
+/**
+ * Statuses where the post may be live on the platform. EVERY duplicate guard,
+ * cooldown and cap that asks "has this already gone out?" must include all of
+ * them — `unknown` above all, which the reaper makes out of a stuck
+ * `publishing` row. A guard listing only publishing/published stops protecting
+ * a post the moment it is reaped. social-status-guards.test.ts enforces this.
+ */
+export const MAY_HAVE_PUBLISHED = ['publishing', 'unknown', 'published', 'inbox'] as const;
+
 export function outcomeStatus(result: PublishResult): PostOutcomeStatus {
   if (result.success) return result.delivery ?? 'published';
   return result.ambiguous ? 'unknown' : 'failed';

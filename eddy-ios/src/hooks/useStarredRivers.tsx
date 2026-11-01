@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   addStars,
   mergeLoadedStars,
+  confirmUploaded,
   mergeStars,
   migrateStars,
   starSyncPolicy,
@@ -83,7 +84,7 @@ async function pushPlan(
   kind: StarKind,
   star: (id: string, starredAt: string | undefined) => Promise<void>,
   unstar: (id: string) => Promise<void>,
-): Promise<{ settled: string[]; failed: number }> {
+): Promise<{ settled: string[]; uploaded: string[]; failed: number }> {
   // Each star carries the time it was made here, so the server row it creates
   // is dated on this phone's clock (see starRiver in the API client).
   const editedAt = new Map(plan.merged.filter((e) => e.kind === kind).map((e) => [e.entityId, e.updatedAt]));
@@ -92,7 +93,10 @@ async function pushPlan(
     ...plan.toUnstar.map((id) => unstar(id)),
   ]);
   const settled = plan.toUnstar.filter((_, i) => results[plan.toStar.length + i].status === 'fulfilled');
-  return { settled, failed: results.filter((r) => r.status === 'rejected').length };
+  // Stars the server now holds because WE put them there — confirmed below, so
+  // a later removal on another device is not undone by this one.
+  const uploaded = plan.toStar.filter((_, i) => results[i].status === 'fulfilled');
+  return { settled, uploaded, failed: results.filter((r) => r.status === 'rejected').length };
 }
 
 /** A starred river or gauge, as the UI consumes it. */
@@ -324,7 +328,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       if (riverServer) {
         const plan = mergeStars(merged, riverServer, 'river');
         const pushed = await pushPlan(plan, 'river', (id, at) => starRiver(token, id, at), (id) => unstarRiver(token, id));
-        merged = plan.merged;
+        merged = confirmUploaded(plan.merged, 'river', pushed.uploaded);
         settledIds.push(...pushed.settled);
         failedPushes += pushed.failed;
       }
@@ -333,7 +337,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       if (gaugeServer) {
         const plan = mergeStars(merged, gaugeServer, 'gauge');
         const pushed = await pushPlan(plan, 'gauge', (id, at) => starGauge(token, id, at), (id) => unstarGauge(token, id));
-        merged = plan.merged;
+        merged = confirmUploaded(plan.merged, 'gauge', pushed.uploaded);
         settledIds.push(...pushed.settled);
         failedPushes += pushed.failed;
       }
@@ -342,7 +346,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       if (damServer) {
         const plan = mergeStars(merged, damServer, 'dam');
         const pushed = await pushPlan(plan, 'dam', (id, at) => starDam(token, id, at), (id) => unstarDam(token, id));
-        merged = plan.merged;
+        merged = confirmUploaded(plan.merged, 'dam', pushed.uploaded);
         settledIds.push(...pushed.settled);
         failedPushes += pushed.failed;
       }

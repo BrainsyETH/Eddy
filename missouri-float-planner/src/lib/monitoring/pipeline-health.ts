@@ -28,7 +28,9 @@ export interface CheckResult {
   ageMinutes: number | null;
   thresholdMinutes: number;
   /** Why it failed, in a word, for the authenticated view. */
-  reason?: 'stale' | 'never' | 'unreadable';
+  reason?: 'stale' | 'never' | 'unreadable' | 'low_coverage';
+  /** Freshness only: how many curated stations are fresh, of how many. */
+  coverage?: { fresh: number; total: number; minRatio: number };
 }
 
 export interface PipelineHealth {
@@ -43,12 +45,24 @@ export interface PipelineHealth {
  * pages on that is a monitor people learn to ignore.
  */
 export const JOB_CHECKS: Array<{ name: string; jobs: string[]; thresholdMinutes: number }> = [
-  // Hourly full pass plus the */15 high-frequency pass; either proves ingestion runs.
-  { name: 'job:update-gauges', jobs: ['update-gauges', 'update-gauges:high-frequency'], thresholdMinutes: 75 },
+  // The two gauge passes are watched SEPARATELY. They used to share one check,
+  // so the :15/:30/:45 high-frequency pass kept it green while the hourly
+  // full pass — the only one covering most gauges — failed every hour.
+  { name: 'job:update-gauges', jobs: ['update-gauges'], thresholdMinutes: 75 },
+  // :15/:30/:45 leaves a 30-minute gap across the hour.
+  { name: 'job:update-gauges:high-frequency', jobs: ['update-gauges:high-frequency'], thresholdMinutes: 50 },
   { name: 'job:evaluate-gauge-alerts', jobs: ['evaluate-gauge-alerts'], thresholdMinutes: 50 },
   { name: 'job:deliver-push', jobs: ['deliver-push'], thresholdMinutes: 20 },
 ];
 export const FRESHNESS_THRESHOLD_MINUTES = 120;
+/**
+ * Share of curated stations that must have a reading inside the freshness
+ * window. COVERAGE, not the newest reading anywhere: one live gauge used to
+ * pass the check for the whole collection. Not 100% — some sensor is down at
+ * any given time (51 of 52 were fresh when this was set), and a check that
+ * pages on every dead sensor is one people learn to ignore.
+ */
+export const FRESHNESS_MIN_COVERAGE = 0.9;
 export const OUTBOX_THRESHOLD_MINUTES = 30;
 /** Mirrors deliver-push: rows at or past this are no longer deliverable. */
 const MAX_ATTEMPTS = 5;
@@ -74,7 +88,15 @@ const unreadable = (name: string, thresholdMinutes: number): CheckResult => ({
   reason: 'unreadable',
 });
 
-/** The most recent finish among several job identities, or null. */
+/**
+ * The most recent finish among several job identities, or null.
+ *
+ * `partial` counts as a completion because it means useful progress (an
+ * enrichment budget ran out, a few sends to dead tokens failed). A run that
+ * could NOT do its job — the evaluator failing to save its alerts — records
+ * itself as `error` (monitoring_status), not partial, so it never satisfies
+ * this check.
+ */
 async function lastCompletion(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -97,10 +119,11 @@ async function lastCompletion(
   return latest;
 }
 
-async function newestCuratedReading(
+async function curatedCoverage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-): Promise<string | null> {
+  now: Date,
+): Promise<{ fresh: number; total: number }> {
   const { data: stations, error } = await supabase
     .from('gauge_stations')
     .select('id')
@@ -110,15 +133,17 @@ async function newestCuratedReading(
     .limit(1000);
   if (error) throw new Error(error.message);
   const ids = (stations ?? []).map((s: { id: string }) => s.id);
-  if (ids.length === 0) return null;
+  if (ids.length === 0) return { fresh: 0, total: 0 };
   // One index seek per station; a max over gauge_readings has no index to use.
   const { data, error: rpcError } = await supabase.rpc('get_latest_curated_readings', { p_station_ids: ids });
   if (rpcError) throw new Error(rpcError.message);
-  let newest: string | null = null;
-  for (const row of (data ?? []) as Array<{ reading_timestamp: string | null }>) {
-    if (row.reading_timestamp && (newest === null || row.reading_timestamp > newest)) newest = row.reading_timestamp;
+  const cutoff = now.getTime() - FRESHNESS_THRESHOLD_MINUTES * 60000;
+  const freshStations = new Set<string>();
+  for (const row of (data ?? []) as Array<{ gauge_station_id: string; reading_timestamp: string | null }>) {
+    if (row.reading_timestamp && Date.parse(row.reading_timestamp) >= cutoff) freshStations.add(row.gauge_station_id);
   }
-  return newest;
+  // A station with no reading at all counts against coverage, not for it.
+  return { fresh: freshStations.size, total: ids.length };
 }
 
 /** Oldest still-deliverable event across both outboxes, or null when empty. */
@@ -169,7 +194,16 @@ export async function checkPipelineHealth(
   }
 
   try {
-    checks.push(judge('freshness:curated-readings', await newestCuratedReading(supabase), FRESHNESS_THRESHOLD_MINUTES, now));
+    const { fresh, total } = await curatedCoverage(supabase, now);
+    const ok = total > 0 && fresh / total >= FRESHNESS_MIN_COVERAGE;
+    checks.push({
+      name: 'freshness:curated-readings',
+      ok,
+      ageMinutes: null,
+      thresholdMinutes: FRESHNESS_THRESHOLD_MINUTES,
+      coverage: { fresh, total, minRatio: FRESHNESS_MIN_COVERAGE },
+      ...(ok ? {} : { reason: total === 0 ? ('never' as const) : ('low_coverage' as const) }),
+    });
   } catch (error) {
     logger.warn('[pipeline-health] freshness check unreadable', { error: String(error) });
     checks.push(unreadable('freshness:curated-readings', FRESHNESS_THRESHOLD_MINUTES));

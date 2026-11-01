@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   addStars,
+  confirmUploaded,
   mergeLoadedStars,
   mergeStars as mergeStarsRaw,
   migrateStars,
@@ -559,4 +560,39 @@ test('confirmation survives a reload from disk', () => {
   const synced = mergeStars([local('current', true, EARLY)], [server('current', EARLY)]).merged;
   const reloaded = migrateStars(JSON.parse(JSON.stringify(synced)));
   assert.equal(reloaded[0].confirmed, true);
+});
+
+// ── uploaded here, removed elsewhere ──────────────────────────────
+
+test('a star this device uploaded is not recreated after another device removes it', () => {
+  // The case the first fix missed: confirmation only came from a server READ,
+  // so a star created here and POSTed successfully stayed unconfirmed. When
+  // device B removed it, device A read the absent row as "never uploaded".
+  const starred = toggleLocal([], { kind: 'river', entityId: 'current', name: 'current', slug: 'current' }, EARLY);
+  const first = mergeStars(starred, []);
+  assert.deepEqual(first.toStar, ['current'], 'Pushed once');
+  const afterUpload = confirmUploaded(first.merged, 'river', first.toStar); // POST succeeded
+
+  const second = mergeStars(afterUpload, []); // device B removed it
+  assert.deepEqual(second.toStar, [], 'Not recreated');
+  assert.equal(visibleStars(second.merged).length, 0);
+});
+
+test('a star whose upload FAILED is pushed again', () => {
+  const starred = toggleLocal([], { kind: 'river', entityId: 'current', name: 'current', slug: 'current' }, EARLY);
+  const first = mergeStars(starred, []);
+  const afterFailure = confirmUploaded(first.merged, 'river', []); // POST rejected
+  assert.deepEqual(mergeStars(afterFailure, []).toStar, ['current']);
+});
+
+test('confirming uploads touches only still-starred entries of that kind', () => {
+  const store: LocalStar[] = [
+    local('a', true, EARLY),
+    local('b', false, EARLY),
+    local('a', true, EARLY, 'a', 'gauge'),
+  ];
+  const result = confirmUploaded(store, 'river', ['a', 'b']);
+  assert.equal(result[0].confirmed, true);
+  assert.equal(result[1].confirmed, undefined, 'A tombstone is never confirmed');
+  assert.equal(result[2].confirmed, undefined, 'Another kind with the same id is untouched');
 });

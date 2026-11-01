@@ -10,6 +10,7 @@
 // publishes straight to the profile with no pending-draft limit, so the helpers
 // below no-op when TIKTOK_DIRECT_POST is enabled.
 
+import { MAY_HAVE_PUBLISHED } from './publish-outcome';
 import { isTikTokDirectPost } from './tiktok-client';
 
 export const TIKTOK_DAILY_CAP = 5;
@@ -29,7 +30,7 @@ export async function tiktokPostCount24h(
     .select('id', { count: 'exact', head: true })
     .eq('platform', 'tiktok')
     .gte('created_at', since)
-    .in('status', ['rendering', 'publishing', 'published']);
+    .in('status', ['rendering', ...MAY_HAVE_PUBLISHED]);
   if (error) {
     console.warn(`[TikTokCap] count query failed, treating as 0: ${error.message}`);
     return 0;

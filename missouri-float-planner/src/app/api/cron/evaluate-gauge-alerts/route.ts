@@ -280,11 +280,15 @@ async function run(request: NextRequest) {
       outboxFailed: persisted.outboxFailed ? 1 : 0,
       stateWritten: persisted.stateWritten,
       stateFailed: persisted.stateFailed,
+      // Failing to save fired alerts is not "partial progress": the alerts
+      // were not persisted, and the outbox stays empty, so nothing downstream
+      // looks wrong. Recorded as an error so the pipeline monitor sees it.
+      ...(persisted.outboxFailed ? { monitoring_status: 'error' } : {}),
       skipped: plan.skipped,
       durationMs,
     };
     logger.info('[evaluate-gauge-alerts] pass complete', summary);
-    return NextResponse.json(summary);
+    return NextResponse.json(summary, { status: persisted.outboxFailed ? 500 : 200 });
   } catch (error) {
     logger.error('[evaluate-gauge-alerts] pass failed', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
