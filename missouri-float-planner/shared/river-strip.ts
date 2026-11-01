@@ -93,6 +93,12 @@ export interface StripLabel {
 
 export interface Box { x0: number; x1: number; y0: number; y1: number }
 
+export interface StripFlag {
+  x: number;
+  y: number;
+  at: { x: number; y: number };
+}
+
 export interface RiverStripLayout {
   domain: { start: number; end: number };
   view: RiverStripView;
@@ -103,8 +109,12 @@ export interface RiverStripLayout {
   /** Routes in view, in draw order: others, then the selected, then the hovered on top. */
   routes: StripRoute[];
   callouts: StripCallout[];
-  /** The selected route's ends, drawn as flags; null without a selection in view. */
-  flags: { putIn: { x: number; y: number }; takeOut: { x: number; y: number } } | null;
+  /**
+   * The selected route's ends, drawn as flags; null without a selection in view.
+   * `at` is the true river position. When a short float's flags would overlap,
+   * they are drawn apart (x, y) and `offset` asks for a connector to `at`.
+   */
+  flags: { putIn: StripFlag; takeOut: StripFlag; offset: boolean } | null;
   /** Access points in view, minus the selected route's two ends. */
   dots: StripDot[];
   labels: StripLabel[];
@@ -121,6 +131,8 @@ export const CALLOUT_SIZE = 44;
 /** An end flag's drawn size; its keep-clear box adds FLAG_MARGIN. */
 export const FLAG_SIZE = 32;
 const FLAG_MARGIN = 4;
+/** Flag centres at least this far apart: neither flag's keep-clear box covers the other. */
+const FLAG_PITCH = FLAG_SIZE + 2 * FLAG_MARGIN;
 /** Centre-to-centre spacing of callouts in a lane: tap areas plus a gutter. */
 const CALLOUT_PITCH = CALLOUT_SIZE + 4;
 const LANE = CALLOUT_SIZE;
@@ -274,7 +286,11 @@ export function riverStripLayout(input: RiverStripInput): RiverStripLayout | nul
     .sort((m, n) => drawRank(m.state) - drawRank(n.state));
 
   const flags = selected && visible(selected.put.mile) && visible(selected.take.mile)
-    ? { putIn: { x: round(x(selected.put.mile)), y: round(y(selected.put.mile)) }, takeOut: { x: round(x(selected.take.mile)), y: round(y(selected.take.mile)) } }
+    ? endFlags(
+      { x: x(selected.put.mile), y: y(selected.put.mile) },
+      { x: x(selected.take.mile), y: y(selected.take.mile) },
+      width,
+    )
     : null;
   const flagged = new Set(flags && selected ? [selected.put.id, selected.take.id] : []);
   const shown = points.filter((p) => visible(p.mile));
@@ -329,6 +345,28 @@ export function riverStripLayout(input: RiverStripInput): RiverStripLayout | nul
       window: { start: frac(a), end: frac(b) },
     },
   };
+}
+
+/**
+ * Flags for the selected float's two ends. On a short float at a wide zoom the
+ * true positions can sit closer than one flag; then the flags are pushed apart
+ * along the river's axis, each keeping its true y, and marked `offset` so the
+ * drawing joins each to its true point. Mile positions never move.
+ */
+function endFlags(put: { x: number; y: number }, take: { x: number; y: number }, width: number) {
+  const half = FLAG_SIZE / 2;
+  let px = put.x;
+  let tx = take.x;
+  const offset = tx - px < FLAG_PITCH;
+  if (offset) {
+    const push = (FLAG_PITCH - (tx - px)) / 2;
+    px -= push;
+    tx += push;
+    if (px < half) { px = half; tx = half + FLAG_PITCH; }
+    if (tx > width - half) { tx = width - half; px = tx - FLAG_PITCH; }
+  }
+  const flag = (cx: number, at: { x: number; y: number }): StripFlag => ({ x: round(cx), y: round(at.y), at: { x: round(at.x), y: round(at.y) } });
+  return { putIn: flag(px, put), takeOut: flag(tx, take), offset };
 }
 
 function drawRank(state: RouteState) {
@@ -417,12 +455,14 @@ function placeLabels(args: {
       const isPut = p.id === selected!.put.id;
       const home: -1 | 1 = isPut ? -1 : 1;
       const other = args.flagBoxes ? (isPut ? args.flagBoxes.take : args.flagBoxes.put) : null;
-      const lean = !other ? x(p.mile)
-        : isPut ? Math.min(x(p.mile), other.x0 - halfW - 1) : Math.max(x(p.mile), other.x1 + halfW + 1);
       // Its own flag sits exactly one name-offset away; only the other flag blocks.
       const own = args.flagBoxes ? (isPut ? args.flagBoxes.put : args.flagBoxes.take) : null;
+      // Centre the name on the flag as drawn, which a crowded float may have moved.
+      const fx = own ? (own.x0 + own.x1) / 2 : x(p.mile);
+      const lean = !other ? fx
+        : isPut ? Math.min(fx, other.x0 - halfW - 1) : Math.max(fx, other.x1 + halfW + 1);
       const blockers = [...taken, ...args.obstacles.filter((o) => o !== own)];
-      const options = [place(home, x(p.mile)), place(home === -1 ? 1 : -1, x(p.mile)), place(home, lean)];
+      const options = [place(home, fx), place(home === -1 ? 1 : -1, fx), place(home, lean)];
       chosen = options.find((b) => clear(b, blockers, false)) ?? options[0];
     } else {
       const preferred: -1 | 1 = (order.get(p.id) ?? 0) % 2 === 0 ? -1 : 1;

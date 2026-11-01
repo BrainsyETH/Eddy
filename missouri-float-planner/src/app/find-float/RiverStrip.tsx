@@ -128,6 +128,11 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
                   <path d={route.path} fill="none" stroke={CASING} strokeWidth={route.state === 'selected' ? 13 : 11} strokeLinecap="round" strokeLinejoin="round" />
                   <path d={route.path} fill="none" stroke={route.state === 'selected' ? ROUTE : ROUTE_HOVER} strokeWidth={route.state === 'selected' ? 7 : 6} strokeLinecap="round" strokeLinejoin="round" />
                 </g>)}
+              {/* A short float's flags are drawn apart; each stays tied to its true point. */}
+              {layout.flags?.offset && ([[layout.flags.putIn, PUT_IN], [layout.flags.takeOut, TAKE_OUT]] as const).map(([flag, color]) => <g key={color}>
+                <line x1={flag.x} y1={flag.y} x2={flag.at.x} y2={flag.at.y} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+                <circle cx={flag.at.x} cy={flag.at.y} r={4.5} fill={color} stroke="#ffffff" strokeWidth={2} />
+              </g>)}
             </svg>
 
             {layout.dots.map(dot => <span key={dot.id} title={`${dot.name} · mile ${formatMile(dot.mile)}`}
@@ -145,7 +150,7 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
 
             {layout.callouts.map(c => {
               const option = optionFor(c.id);
-              return <button key={c.id} type="button" aria-pressed={c.state === 'selected'}
+              return <button key={c.id} type="button" data-route-id={c.id} aria-pressed={c.state === 'selected'}
                 aria-label={`Float ${c.number}: ${option.putIn.name} to ${option.takeOut.name}`}
                 onClick={() => onSelect(c.id)} onMouseEnter={() => onHover(c.id)} onMouseLeave={() => onHover(null)}
                 onFocus={() => onHover(c.id)} onBlur={() => onHover(null)}
@@ -189,6 +194,34 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
       </div>
     </Card>
   );
+}
+
+/**
+ * Holds the strip's place while the river's access points load, so the cards
+ * below do not jump when it arrives. Sized like the usual strip at each width.
+ */
+export function RiverStripPlaceholder({ riverName }: { riverName: string }) {
+  return (
+    <Card variant="framed" as="section" aria-busy="true" aria-label={`${riverName}: loading the river`}
+      className="mb-6 flex h-[420px] flex-col sm:h-[307px]">
+      <div className="px-4 pt-3 sm:px-5">
+        <h3 style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold">{riverName}</h3>
+      </div>
+      <div className="flex flex-1 items-center px-5" aria-hidden="true">
+        <div className="h-8 w-full rounded-full bg-[var(--color-secondary-100)] motion-safe:animate-pulse" />
+      </div>
+      <p className="border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 text-sm text-[var(--color-text-secondary)] sm:px-5">Loading the river…</p>
+    </Card>
+  );
+}
+
+/** Focus the strip's callout for a route: after "Show on river", the next Tab continues in the strip. */
+export function focusStripRoute(id: string) {
+  const strip = document.getElementById(RIVER_STRIP_ID);
+  if (!strip) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  strip.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+  strip.querySelector<HTMLButtonElement>(`button[data-route-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
 }
 
 function formatMile(mile: number) {

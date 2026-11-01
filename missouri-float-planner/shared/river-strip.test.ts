@@ -181,6 +181,32 @@ test('the stretch view frames the selected route; without one it shows all float
   assert.equal(unplaceable.view, 'all');
 });
 
+test('the two end flags never overlap, and crowded ones stay tied to their true points', () => {
+  let offsets = 0;
+  for (const width of [330, 1100]) {
+    for (const view of ['all', 'stretch'] as const) {
+      for (const r of ROUTES) {
+        const layout = riverStripLayout({ ...base, selectedId: r.id, view, width, compact: width < 560 })!;
+        const { putIn, takeOut, offset } = layout.flags!;
+        assert.ok(!boxesOverlap(flagArea(putIn), flagArea(takeOut)), `${r.id} at ${width}px ${view}: flags overlap`);
+        assert.ok(putIn.x >= FLAG_SIZE / 2 && takeOut.x <= width - FLAG_SIZE / 2, 'flags inside the strip');
+        assert.ok(putIn.x < takeOut.x, 'put-in stays upstream of take-out');
+        // The true points are the route's ends; a drawn flag is moved only when crowded.
+        const drawn = layout.routes.find((route) => route.id === r.id)!;
+        assert.deepEqual([putIn.at.x, takeOut.at.x], [drawn.putIn.x, drawn.takeOut.x]);
+        if (offset) offsets++;
+        else assert.deepEqual([putIn.x, takeOut.x], [putIn.at.x, takeOut.at.x]);
+        assertTapAreasClear(layout);
+      }
+    }
+  }
+  assert.ok(offsets > 0, 'the fixture includes a crowded float');
+  // The reviewed case: Van Buren to Big Spring, all floats, 330px.
+  const vb = riverStripLayout({ ...base, selectedId: 'r3', width: 330, compact: true })!.flags!;
+  assert.equal(vb.offset, true);
+  assert.ok(vb.takeOut.x - vb.putIn.x >= FLAG_SIZE + 8);
+});
+
 test('on a phone, a short selected float keeps its names off its own flags', () => {
   const layout = riverStripLayout({ ...base, selectedId: 'r2', width: 330, compact: true })!;
   const flags = [layout.flags!.putIn, layout.flags!.takeOut].map(flagArea);

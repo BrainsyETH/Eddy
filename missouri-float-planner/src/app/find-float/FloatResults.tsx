@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useMemo, useState, type MouseEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -17,7 +18,7 @@ import {
 } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
 import { riverStripPlaceable, type RiverStripPoint, type RouteState } from '@shared/river-strip';
-import RiverStrip, { NumberChip, RIVER_STRIP_ID, type NumberedRoute } from './RiverStrip';
+import RiverStrip, { focusStripRoute, NumberChip, RiverStripPlaceholder, type NumberedRoute } from './RiverStrip';
 import { routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
 
 const NO_POINTS: RiverStripPoint[] = [];
@@ -68,7 +69,9 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   // offers a float the strip cannot show.
   const ordered = useMemo(() => [...matches, ...alternatives], [matches, alternatives]);
   const stripRiver = input.river && ordered.length > 0 && ordered.every(option => option.riverSlug === input.river) ? input.river : null;
-  const { data: accessPoints } = useAccessPoints(stripRiver);
+  const { data: accessPoints, isError: pointsFailed } = useAccessPoints(stripRiver);
+  // First load only: hold the strip's space. A failure falls back to plain cards.
+  const pointsLoading = Boolean(stripRiver) && !accessPoints && !pointsFailed;
   const points = useMemo(() => accessPoints?.map(point => ({
     id: point.id, name: point.name, mile: point.riverMile, endpoint: point.isFloatEndpoint !== false,
   })) ?? NO_POINTS, [accessPoints]);
@@ -85,9 +88,9 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   const selectedId = onStrip(chosenId);
   const hoveredId = onStrip(pointedId);
   const showOnRiver = (id: string) => {
-    setChosenId(id);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById(RIVER_STRIP_ID)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+    // Render the selection first so its callout exists to take focus.
+    flushSync(() => setChosenId(id));
+    focusStripRoute(id);
   };
   const card = (option: FloatSearchOption) => {
     const number = stripRoutes.find(route => route.option.id === option.id)?.number;
@@ -120,6 +123,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
         <p className="font-medium">{floatSearchEmptyMessage(data)}</p>
         {recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
       </Card>}
+      {pointsLoading && <RiverStripPlaceholder riverName={ordered[0].riverName} />}
       {stripRiver && stripRoutes.length > 0 && <RiverStrip riverSlug={stripRiver} riverName={stripRoutes[0].option.riverName}
         points={points} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
         onSelect={setChosenId} onHover={setPointedId} stale={stale} onPlan={onPlan} />}
@@ -158,9 +162,12 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
           : <div className="flex h-full items-center justify-center"><EddyIcon name="wave" size={110} /></div>}
       </div>
       <div className="flex flex-1 flex-col gap-4 p-5">
-        <div>
-          <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
-          <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
+            <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
+          </div>
+          {strip && <NumberChip number={strip.number} state={strip.state} />}
         </div>
         <div className="flex flex-wrap gap-y-3 divide-x divide-[var(--color-border)]">
           <div className={`${metric} pr-4`}>
@@ -191,8 +198,7 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
             Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
           </button>
           {strip && <button type="button" aria-pressed={strip.state === 'selected'} onClick={strip.onShow}
-            className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-primary-600)]">
-            <NumberChip number={strip.number} state={strip.state} size={22} />
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-primary-600)]">
             {strip.state === 'selected'
               ? <span><span className="sr-only">Float {strip.number} </span>On the river</span>
               : <span>Show <span className="sr-only">float {strip.number} </span>on river</span>}
