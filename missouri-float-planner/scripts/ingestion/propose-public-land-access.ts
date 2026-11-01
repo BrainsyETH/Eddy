@@ -63,7 +63,7 @@ import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson
 import { getScriptClient } from '../lib/db';
 import { type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink, parseCsv } from './access-enrichment-2026-11';
 import { type ArcFeature, arcgis, envelope, envelopeFilter, featureUrl, fetchAll, selectAll } from './arcgis-fetch';
-import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, offMvumNote, rankRoadEnd, reviewedVerdict, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
+import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, nhdNameFor, offMvumNote, rankRoadEnd, reviewedVerdict, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer';
 const MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer';
@@ -121,10 +121,11 @@ async function main() {
 
     // ── The real channel (NHD), plus named tributary mouths ──────────────────
     const nhd = await fetchAll(SOURCES.nhd, { ...envelopeFilter(box), where: 'gnis_name IS NOT NULL' });
-    const channel = nhd.features.filter((f) => String(f.attributes.gnis_name) === river.name).flatMap((f) => f.geometry?.paths ?? []).filter((p) => p.length > 1);
-    if (!channel.length) throw new Error(`${slug}: no NHD flowline named "${river.name}" in the river's box; check the name`);
+    const nhdName = nhdNameFor(river.name, nhd.features.map((f) => String(f.attributes.gnis_name)));
+    if (!nhdName) throw new Error(`${slug}: no NHD flowline named like "${river.name}" in the river's box; check the name`);
+    const channel = nhd.features.filter((f) => String(f.attributes.gnis_name) === nhdName).flatMap((f) => f.geometry?.paths ?? []).filter((p) => p.length > 1);
     const toWater = channelIndex(channel);
-    const mouths = nhd.features.filter((f) => String(f.attributes.gnis_name) !== river.name)
+    const mouths = nhd.features.filter((f) => String(f.attributes.gnis_name) !== nhdName)
       .flatMap((f) => (f.geometry?.paths ?? []).filter((p) => p.length > 1).map((p) => ({ name: String(f.attributes.gnis_name), at: p[p.length - 1] as LngLat })))
       .filter((m) => toWater(m.at) <= 60);
 

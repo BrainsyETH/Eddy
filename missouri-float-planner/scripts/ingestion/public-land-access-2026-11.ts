@@ -222,6 +222,17 @@ export function reviewedVerdict(river: string, at: LngLat, reviewed: { river: st
   return null;
 }
 
+/**
+ * The USGS NHD name for Eddy's river: its own name if NHD uses it, else a
+ * common variant ("Jacks Fork River" is "Jacks Fork" in NHD; "Buffalo National
+ * River" is "Buffalo River"). Null when none is present.
+ */
+export function nhdNameFor(riverName: string, nhdNames: readonly string[]): string | null {
+  const have = new Set(nhdNames);
+  const variants = [riverName, riverName.replace(/ National River$/, ' River'), riverName.replace(/ River$/, ''), `${riverName} River`];
+  return variants.find((v) => have.has(v)) ?? null;
+}
+
 /** "Long Hollow Creek mouth" from the nearest named tributary confluence, for naming and searching. */
 export function nearestMouth(end: LngLat, mouths: { name: string; at: LngLat }[], withinM = 400): string | null {
   let best: { name: string; m: number } | null = null;

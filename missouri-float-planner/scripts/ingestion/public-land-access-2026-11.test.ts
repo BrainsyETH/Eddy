@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { line } from './access-enrichment-2026-11';
-import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, offMvumNote, rankRoadEnd, reviewedVerdict, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
+import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, nhdNameFor, offMvumNote, rankRoadEnd, reviewedVerdict, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 test('vehicleClass reports the most capable vehicle an MVUM route is open to', () => {
   assert.equal(vehicleClass({ passengervehicle: 'open', atv: 'open' }), 'passenger');
@@ -156,4 +156,11 @@ test('reviewedVerdict finds a hand-checked spot on the same river within 300 m',
   assert.equal(reviewedVerdict('big-piney', [-92.0396, 37.1950], reviewed), 'access');
   assert.equal(reviewedVerdict('big-piney', [-92.0396, 37.2000], reviewed), null, '~600 m away');
   assert.equal(reviewedVerdict('eleven-point', [-92.039614, 37.194717], reviewed), null, 'another river');
+});
+
+test('nhdNameFor matches Eddy river names to NHD names', () => {
+  assert.equal(nhdNameFor('Eleven Point River', ['Eleven Point River', 'Hurricane Creek']), 'Eleven Point River');
+  assert.equal(nhdNameFor('Jacks Fork River', ['Jacks Fork', 'Alley Spring Branch']), 'Jacks Fork');
+  assert.equal(nhdNameFor('Buffalo National River', ['Buffalo River']), 'Buffalo River');
+  assert.equal(nhdNameFor('Nowhere River', ['Elk River']), null);
 });

@@ -1,0 +1,869 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17701333449476,
+     37.80836153387741
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 77,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS 2011 RED BLUFF REC AREA",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 4,
+    "to_water_m": 129,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway V Bridge → Red Bluff Recreation Area",
+    "gap_km": "3.4",
+    "notes": "",
+    "search": "\"FS 2011 RED BLUFF REC AREA\" Huzzah Creek access",
+    "lat": "37.808362",
+    "lon": "-91.177013",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.808362,-91.177013",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17421555&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.1734388638493,
+     37.812567967828926
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 56,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS 2011 RED BLUFF REC AREA",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 4,
+    "to_water_m": 193,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway V Bridge → Red Bluff Recreation Area",
+    "gap_km": "3.4",
+    "notes": "",
+    "search": "\"FS 2011 RED BLUFF REC AREA\" Huzzah Creek access",
+    "lat": "37.812568",
+    "lon": "-91.173439",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.812568,-91.173439",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17421555&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17734000013319,
+     37.8563700001183
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 95,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Yocum Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 16,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Yocum Rd\" Huzzah Creek access",
+    "lat": "37.856370",
+    "lon": "-91.177340",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.856370,-91.177340",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9946016&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.20838000018507,
+     37.71330000006761
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "huzzah",
+    "place": "Crooked Creek mouth",
+    "kind": "road loops to river",
+    "road": "Dillard Mill Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 65,
+    "land": "not shown public",
+    "between": "(river start) → Dillard Mill",
+    "gap_km": "3.4",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Crooked Creek\" Huzzah Creek access",
+    "lat": "37.713300",
+    "lon": "-91.208380",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.713300,-91.208380",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6638203&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17878000043194,
+     37.945559000056925
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 31,
+    "land": "not shown public",
+    "between": "Low-water bridge access → Huzzah Valley Resort",
+    "gap_km": "9.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.945559",
+    "lon": "-91.178780",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.945559,-91.178780",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12891276&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.16728300030304,
+     37.891076999895326
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 74,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 32,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.891077",
+    "lon": "-91.167283",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.891077,-91.167283",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1510616&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17674000008356,
+     37.75966900009673
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 39,
+    "land": "not shown public",
+    "between": "Highway 49 Bridge → Highway V Bridge",
+    "gap_km": "11.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.759669",
+    "lon": "-91.176740",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.759669,-91.176740",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2811007&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.19763999956632,
+     37.95971599997971
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 38,
+    "land": "not shown public",
+    "between": "Low-water bridge access → Huzzah Valley Resort",
+    "gap_km": "9.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.959716",
+    "lon": "-91.197640",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.959716,-91.197640",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9843486&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.21398099957482,
+     37.990289999826636
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "The Barn Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge (Lower) → Huzzah Conservation Area",
+    "gap_km": "8.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"The Barn Ln\" Huzzah Creek access",
+    "lat": "37.990290",
+    "lon": "-91.213981",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.990290,-91.213981",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13847044&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17780999958815,
+     37.93154000001606
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "Low-water bridge access → Huzzah Valley Resort",
+    "gap_km": "9.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.931540",
+    "lon": "-91.177810",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.931540,-91.177810",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8956174&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17516000004271,
+     37.939180000131614
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "Fish Hawk Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 92,
+    "land": "not shown public",
+    "between": "Low-water bridge access → Huzzah Valley Resort",
+    "gap_km": "9.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Fish Hawk Ln\" Huzzah Creek access",
+    "lat": "37.939180",
+    "lon": "-91.175160",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.939180,-91.175160",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=915839&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.2100289998229,
+     37.69904699984095
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "huzzah",
+    "place": "West Fork Huzzah Creek mouth",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 47,
+    "land": "not shown public",
+    "between": "(river start) → Dillard Mill",
+    "gap_km": "3.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"West Fork Huzzah Creek\" Huzzah Creek access",
+    "lat": "37.699047",
+    "lon": "-91.210029",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.699047,-91.210029",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11155933&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.20457099964996,
+     37.96302299972615
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 51,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Low-water bridge access → Huzzah Valley Resort",
+    "gap_km": "9.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.963023",
+    "lon": "-91.204571",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.963023,-91.204571",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10315387&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.15847000005475,
+     37.893340000126585
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 65,
+    "river": "huzzah",
+    "place": "Shoal Creek mouth",
+    "kind": "road end",
+    "road": "Mincher Trl",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 106,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Shoal Creek\" Huzzah Creek access",
+    "lat": "37.893340",
+    "lon": "-91.158470",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.893340,-91.158470",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15101986&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17655299958749,
+     37.84396799979051
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 63,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Yocum Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 111,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Yocum Rd\" Huzzah Creek access",
+    "lat": "37.843968",
+    "lon": "-91.176553",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.843968,-91.176553",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13866489&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18592999990038,
+     37.83231000026249
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.832310",
+    "lon": "-91.185930",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.832310,-91.185930",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=337077&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18208899957824,
+     37.824358999940216
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 73,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.824359",
+    "lon": "-91.182089",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.824359,-91.182089",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1712526&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18214800002778,
+     37.75629299994705
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Domes Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 137,
+    "land": "not shown public",
+    "between": "Highway 49 Bridge → Highway V Bridge",
+    "gap_km": "11.2",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Domes Rd\" Huzzah Creek access",
+    "lat": "37.756293",
+    "lon": "-91.182148",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.756293,-91.182148",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=909562&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.16765999987157,
+     37.882840000132596
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 51,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 102,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.882840",
+    "lon": "-91.167660",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.882840,-91.167660",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1203905&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.20868999980647,
+     37.99995999990668
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 49,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 109,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge (Lower) → Huzzah Conservation Area",
+    "gap_km": "8.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.999960",
+    "lon": "-91.208690",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.999960,-91.208690",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8498162&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17033000040682,
+     37.887659999857455
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 113,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.887660",
+    "lon": "-91.170330",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.887660,-91.170330",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4716744&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.19204300037454,
+     37.959081999988804
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 36,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Magnolia Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 192,
+    "land": "not shown public",
+    "between": "Low-water bridge access → Huzzah Valley Resort",
+    "gap_km": "9.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Magnolia Dr\" Huzzah Creek access",
+    "lat": "37.959082",
+    "lon": "-91.192043",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.959082,-91.192043",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7527611&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18742000042786,
+     37.839450000144076
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 32,
+    "river": "huzzah",
+    "place": "Rock Branch mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 159,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Rock Branch\" Huzzah Creek access",
+    "lat": "37.839450",
+    "lon": "-91.187420",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.839450,-91.187420",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12949439&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.20378999985039,
+     37.73138000029223
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 27,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 174,
+    "land": "not shown public",
+    "between": "Dillard Mill → Highway 49 Bridge",
+    "gap_km": "2.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.731380",
+    "lon": "-91.203790",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.731380,-91.203790",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5048593&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18002999986159,
+     37.86580000009364
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 25,
+    "river": "huzzah",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 181,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Huzzah Creek access",
+    "lat": "37.865800",
+    "lon": "-91.180030",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.865800,-91.180030",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9522051&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.16684749288899,
+     37.77509571035913
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "huzzah",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Sellers Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Highway 49 Bridge → Highway V Bridge",
+    "gap_km": "11.2",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Sellers Rd\" Huzzah Creek access",
+    "lat": "37.775096",
+    "lon": "-91.166847",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.775096,-91.166847",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9182128&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17977506818485,
+     37.821315130985575
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "huzzah",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Crabtree Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Red Bluff Recreation Area → Highway Z Bridge",
+    "gap_km": "13.9",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Crabtree Rd\" Huzzah Creek access",
+    "lat": "37.821315",
+    "lon": "-91.179775",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.821315,-91.179775",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14672601&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}
