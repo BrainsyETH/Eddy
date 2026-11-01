@@ -1,0 +1,121 @@
+[
+ {
+  "name": "County Road 5328 Access",
+  "slug": "county-road-5328",
+  "kind": "access",
+  "roles": [
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 10.9,
+  "lat": 37.194717,
+  "lon": -92.039614,
+  "is_public": true,
+  "ownership": "county (road right-of-way)",
+  "managing_agency": "County",
+  "description": "A county road access on the upper Big Piney, above Simmons Ford and Baptist Camp. The upper river is small and runs best after rain.",
+  "road_access": "Texas County Road 5328, just off US 63.",
+  "parking_info": "Parking near the river.",
+  "facilities": "No facilities. The land around it is private.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
+ },
+ {
+  "name": "Henry River Access",
+  "slug": "henry-river-access",
+  "kind": "access",
+  "roles": [
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 45.8,
+  "lat": 37.477996,
+  "lon": -91.988305,
+  "is_public": true,
+  "ownership": "USFS",
+  "managing_agency": "USFS",
+  "description": "A Forest Service road access on Mark Twain National Forest land, about a mile below Boiling Spring.",
+  "road_access": "Forest Road 1538, a gravel road suitable for passenger cars and open all year. The access is at the end of the road.",
+  "parking_info": "No developed parking.",
+  "facilities": "No facilities. Some neighboring land is private.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1",
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer/0"
+  ]
+ },
+ {
+  "name": "High Log Eddy",
+  "slug": "high-log-eddy",
+  "kind": "access",
+  "roles": [
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 57.1,
+  "lat": 37.547917,
+  "lon": -92.024972,
+  "is_public": true,
+  "ownership": "USFS",
+  "managing_agency": "USFS",
+  "description": "A primitive access at the end of the High Log Eddy road, on Mark Twain National Forest land between Warren Bridge and Slabtown.",
+  "road_access": "Forest Road 255 (High Log Eddy), a gravel road suitable for passenger cars and open all year. Follow it to the end at the river.",
+  "parking_info": "No developed parking.",
+  "facilities": "No facilities.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1",
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
+ },
+ {
+  "name": "Forest Road 1794 Access",
+  "slug": "forest-road-1794",
+  "kind": "access",
+  "roles": [
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 67.2,
+  "lat": 37.629502,
+  "lon": -92.047691,
+  "is_public": true,
+  "ownership": "USFS",
+  "managing_agency": "USFS",
+  "description": "Where Forest Road 1794 reaches the Big Piney on Mark Twain National Forest land, about a mile and a half above Horse Camp.",
+  "road_access": "Forest Road 1794, a gravel Forest Service road maintained for high-clearance vehicles.",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1",
+   "https://www.trailsoffroad.com/US/missouri/scout-routes/5411-national-scenic-trail"
+  ]
+ },
+ {
+  "name": "County Road 5117 Bridge",
+  "slug": "county-road-5117-bridge",
+  "kind": "bridge",
+  "roles": [
+   "bridge",
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 22.4,
+  "lat": 37.281373,
+  "lon": -92.009044,
+  "is_public": true,
+  "ownership": "county (road right-of-way)",
+  "managing_agency": "County",
+  "description": "County road bridge between Baptist Camp and Dogs Bluff. Access is from the road right-of-way only; the land around it is private.",
+  "road_access": "Texas County Road 5117.",
+  "parking_info": "No parking. Don't block the road.",
+  "facilities": "No facilities.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
+ }
+]

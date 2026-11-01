@@ -1,0 +1,4 @@
+river,slug,name,approved,pin_to_channel_m,map
+courtois,berryman-campground,Berryman Campground,false,>500,"https://www.google.com/maps/search/?api=1&query=37.929700,-91.062400"
+courtois,courtois-huzzah-confluence-scotia-bridge,Courtois-Huzzah Confluence (Scotia Bridge),true,375,"https://www.google.com/maps/search/?api=1&query=38.029130,-91.212958"
+courtois,hazel-creek-courtois,Hazel Creek Recreation Area,false,>500,"https://www.google.com/maps/search/?api=1&query=37.837500,-91.016800"

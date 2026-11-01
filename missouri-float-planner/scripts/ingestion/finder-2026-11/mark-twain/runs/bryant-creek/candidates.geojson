@@ -1,0 +1,1445 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.33716500004955,
+     36.77163300010618
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 98,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 162",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 36,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 162\" Bryant Creek access",
+    "lat": "36.771633",
+    "lon": "-92.337165",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.771633,-92.337165",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=848526&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.2921599998982,
+     36.734450000358954
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 90,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 179",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 60,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 179\" Bryant Creek access",
+    "lat": "36.734450",
+    "lon": "-92.292160",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.734450,-92.292160",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10800998&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.43317400012528,
+     36.850515000119636
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 86,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 14-339",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 71,
+    "land": "not shown public",
+    "between": "Monastery Bridge → Bertha Ford",
+    "gap_km": "9.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 14-339\" Bryant Creek access",
+    "lat": "36.850515",
+    "lon": "-92.433174",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.850515,-92.433174",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9005859&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.50955400006428,
+     36.95245600003998
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 86,
+    "river": "bryant-creek",
+    "place": "Camp Creek mouth",
+    "kind": "road loops to river",
+    "road": "State Hwy 76",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 73,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Camp Creek\" Bryant Creek access",
+    "lat": "36.952456",
+    "lon": "-92.509554",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.952456,-92.509554",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=212458&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.3031139998789,
+     36.63104400008014
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 324",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 88,
+    "land": "not shown public",
+    "between": "Warren Bridge Access → Florence C. Cook Access",
+    "gap_km": "12.2",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 324\" Bryant Creek access",
+    "lat": "36.631044",
+    "lon": "-92.303114",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.631044,-92.303114",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=335158&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.27965000016613,
+     36.72748000020463
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 170",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 86,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 170\" Bryant Creek access",
+    "lat": "36.727480",
+    "lon": "-92.279650",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.727480,-92.279650",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5432468&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.28365999964437,
+     36.672519999825205
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 328",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 97,
+    "land": "not shown public",
+    "between": "Sycamore Access → Warren Bridge Access",
+    "gap_km": "11.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 328\" Bryant Creek access",
+    "lat": "36.672520",
+    "lon": "-92.283660",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.672520,-92.283660",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7554601&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.30663899983357,
+     36.73868500004339
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 174",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 102,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 174\" Bryant Creek access",
+    "lat": "36.738685",
+    "lon": "-92.306639",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.738685,-92.306639",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3553028&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.48738599981189,
+     36.90279399987787
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 14-223",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 120,
+    "land": "not shown public",
+    "between": "Vera Cruz Access → Highway 14 Access",
+    "gap_km": "4.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 14-223\" Bryant Creek access",
+    "lat": "36.902794",
+    "lon": "-92.487386",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.902794,-92.487386",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2899366&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.30652699968057,
+     36.63185700006633
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "bryant-creek",
+    "place": "Pine Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 45,
+    "land": "not shown public",
+    "between": "Warren Bridge Access → Florence C. Cook Access",
+    "gap_km": "12.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Pine Creek\" Bryant Creek access",
+    "lat": "36.631857",
+    "lon": "-92.306527",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.631857,-92.306527",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5176565&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.3813729996095,
+     36.81541899975457
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "Bertha Ford → Highway 95 / Bell School low-water bridge",
+    "gap_km": "7.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.815419",
+    "lon": "-92.381373",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.815419,-92.381373",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6415759&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.36218700006187,
+     36.797813999835114
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 52,
+    "land": "not shown public",
+    "between": "Bertha Ford → Highway 95 / Bell School low-water bridge",
+    "gap_km": "7.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.797814",
+    "lon": "-92.362187",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.797814,-92.362187",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8111871&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.4684329998928,
+     36.869652999884295
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "bryant-creek",
+    "place": "Rippee Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 54,
+    "land": "not shown public",
+    "between": "Highway 14 Access → Monastery Bridge",
+    "gap_km": "5.8",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Rippee Creek\" Bryant Creek access",
+    "lat": "36.869653",
+    "lon": "-92.468433",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.869653,-92.468433",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8724175&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.33705000042184,
+     36.76556700012289
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 162",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 132,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 162\" Bryant Creek access",
+    "lat": "36.765567",
+    "lon": "-92.337050",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.765567,-92.337050",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=848526&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.5292750002625,
+     37.00942499971154
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy U",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 132,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy U\" Bryant Creek access",
+    "lat": "37.009425",
+    "lon": "-92.529275",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.009425,-92.529275",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2410102&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.60000799988268,
+     37.03166600015202
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 65,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 104",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 135,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 104\" Bryant Creek access",
+    "lat": "37.031666",
+    "lon": "-92.600008",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.031666,-92.600008",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10968272&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.27467599969185,
+     36.69027199969961
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 70,
+    "land": "not shown public",
+    "between": "Sycamore Access → Warren Bridge Access",
+    "gap_km": "11.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.690272",
+    "lon": "-92.274676",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.690272,-92.274676",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6017352&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.262596999955,
+     36.68385700005893
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 337",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 149,
+    "land": "not shown public",
+    "between": "Sycamore Access → Warren Bridge Access",
+    "gap_km": "11.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 337\" Bryant Creek access",
+    "lat": "36.683857",
+    "lon": "-92.262597",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.683857,-92.262597",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9044220&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.59662699986806,
+     37.029676999945195
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 59,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 104",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 152,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 104\" Bryant Creek access",
+    "lat": "37.029677",
+    "lon": "-92.596627",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.029677,-92.596627",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10968272&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.3812100003012,
+     36.81886000031945
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "Bertha Ford → Highway 95 / Bell School low-water bridge",
+    "gap_km": "7.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.818860",
+    "lon": "-92.381210",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.818860,-92.381210",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=681655&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.4962989996193,
+     36.923927999920544
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 214",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 162,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 214\" Bryant Creek access",
+    "lat": "36.923928",
+    "lon": "-92.496299",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.923928,-92.496299",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5668301&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.27853000043281,
+     36.676340000114465
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 336",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 169,
+    "land": "not shown public",
+    "between": "Sycamore Access → Warren Bridge Access",
+    "gap_km": "11.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 336\" Bryant Creek access",
+    "lat": "36.676340",
+    "lon": "-92.278530",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.676340,-92.278530",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5723578&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.51371099985562,
+     36.955791999777226
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "bryant-creek",
+    "place": "Camp Creek mouth",
+    "kind": "road loops to river",
+    "road": "76-216",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 137,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Camp Creek\" Bryant Creek access",
+    "lat": "36.955792",
+    "lon": "-92.513711",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.955792,-92.513711",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14231112&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.27245700014166,
+     36.69237799991056
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 98,
+    "land": "not shown public",
+    "between": "Sycamore Access → Warren Bridge Access",
+    "gap_km": "11.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.692378",
+    "lon": "-92.272457",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.692378,-92.272457",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6017352&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.36033599985939,
+     36.80488700027987
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy 95",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 173,
+    "land": "not shown public",
+    "between": "Bertha Ford → Highway 95 / Bell School low-water bridge",
+    "gap_km": "7.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy 95\" Bryant Creek access",
+    "lat": "36.804887",
+    "lon": "-92.360336",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.804887,-92.360336",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=212148&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.4205379999965,
+     36.840095000093626
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 51,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 14-341",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 177,
+    "land": "not shown public",
+    "between": "Monastery Bridge → Bertha Ford",
+    "gap_km": "9.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 14-341\" Bryant Creek access",
+    "lat": "36.840095",
+    "lon": "-92.420538",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.840095,-92.420538",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=308363&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.31247799977301,
+     36.754801999900586
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 48,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 171",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 186,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 171\" Bryant Creek access",
+    "lat": "36.754802",
+    "lon": "-92.312478",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.754802,-92.312478",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4134099&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.31647999975364,
+     36.76267000005727
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "bryant-creek",
+    "place": "Muddy Branch mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 113,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Muddy Branch\" Bryant Creek access",
+    "lat": "36.762670",
+    "lon": "-92.316480",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.762670,-92.316480",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6116318&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.44963499978438,
+     36.853386999900046
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 41,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 132,
+    "land": "not shown public",
+    "between": "Monastery Bridge → Bertha Ford",
+    "gap_km": "9.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.853387",
+    "lon": "-92.449635",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.853387,-92.449635",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9710971&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.26290900012454,
+     36.665058999841165
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "Prv Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 179,
+    "land": "not shown public",
+    "between": "Sycamore Access → Warren Bridge Access",
+    "gap_km": "11.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Prv Dr\" Bryant Creek access",
+    "lat": "36.665059",
+    "lon": "-92.262909",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.665059,-92.262909",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6020924&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.46385099995402,
+     36.869431999642615
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 38,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 140,
+    "land": "not shown public",
+    "between": "Highway 14 Access → Monastery Bridge",
+    "gap_km": "5.8",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.869432",
+    "lon": "-92.463851",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.869432,-92.463851",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8724175&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.50452799971148,
+     36.96202699976915
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 38,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 142,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.962027",
+    "lon": "-92.504528",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.962027,-92.504528",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9635348&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.4310840004465,
+     36.840340999703045
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 37,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "N 337D",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 188,
+    "land": "not shown public",
+    "between": "Monastery Bridge → Bertha Ford",
+    "gap_km": "9.0",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"N 337D\" Bryant Creek access",
+    "lat": "36.840341",
+    "lon": "-92.431084",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.840341,-92.431084",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1013292&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.28827000007055,
+     36.63257400006263
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 37,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 143,
+    "land": "not shown public",
+    "between": "Warren Bridge Access → Florence C. Cook Access",
+    "gap_km": "12.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.632574",
+    "lon": "-92.288270",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.632574,-92.288270",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5527813&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.29990600011664,
+     36.73581899997679
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 34,
+    "river": "bryant-creek",
+    "place": "Hurricane Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 154,
+    "land": "not shown public",
+    "between": "Highway 95 / Bell School low-water bridge → Sycamore Access",
+    "gap_km": "16.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Hurricane Creek\" Bryant Creek access",
+    "lat": "36.735819",
+    "lon": "-92.299906",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.735819,-92.299906",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4389131&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.29194200033832,
+     36.638306000033104
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 33,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 155,
+    "land": "not shown public",
+    "between": "Warren Bridge Access → Florence C. Cook Access",
+    "gap_km": "12.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.638306",
+    "lon": "-92.291942",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.638306,-92.291942",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15689081&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.58393700021092,
+     37.021782999850544
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 30,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 164,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "37.021783",
+    "lon": "-92.583937",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.021783,-92.583937",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9746132&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.37885799978328,
+     36.81240799988173
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 29,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 168,
+    "land": "not shown public",
+    "between": "Bertha Ford → Highway 95 / Bell School low-water bridge",
+    "gap_km": "7.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Bryant Creek access",
+    "lat": "36.812408",
+    "lon": "-92.378858",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.812408,-92.378858",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8576764&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.60984016051762,
+     37.037795557288284
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 514",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 514\" Bryant Creek access",
+    "lat": "37.037796",
+    "lon": "-92.609840",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.037796,-92.609840",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=228982&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.52036260814796,
+     37.00977776677921
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "crosses river",
+    "road": "State Hwy U",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"State Hwy U\" Bryant Creek access",
+    "lat": "37.009778",
+    "lon": "-92.520363",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.009778,-92.520363",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2410102&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.58815512627356,
+     37.02450264399426
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 103",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 103\" Bryant Creek access",
+    "lat": "37.024503",
+    "lon": "-92.588155",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.024503,-92.588155",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4764787&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.52032905255265,
+     36.97724874069686
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 76-114",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 76-114\" Bryant Creek access",
+    "lat": "36.977249",
+    "lon": "-92.520329",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.977249,-92.520329",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7781100&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.55445157775436,
+     37.01690467458915
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 104",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 104\" Bryant Creek access",
+    "lat": "37.016905",
+    "lon": "-92.554452",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.016905,-92.554452",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10968272&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.54818768737984,
+     37.01507566267854
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 104",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Vera Cruz Access",
+    "gap_km": "29.1",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 104\" Bryant Creek access",
+    "lat": "37.015076",
+    "lon": "-92.548188",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.015076,-92.548188",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10968272&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.47182595201699,
+     36.87125949991326
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "bryant-creek",
+    "place": "Rippee Creek mouth",
+    "kind": "crosses river",
+    "road": "Co Rd 14-326",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Highway 14 Access → Monastery Bridge",
+    "gap_km": "5.8",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Rippee Creek\" Bryant Creek access",
+    "lat": "36.871259",
+    "lon": "-92.471826",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.871259,-92.471826",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11658111&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

@@ -1,0 +1,933 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.31890099980812,
+     37.17128099970612
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 122,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 203",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 23,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Eminence City Access → Shawnee Creek",
+    "gap_km": "8.3",
+    "notes": "",
+    "search": "\"Co Rd 203\" Jacks Fork River access",
+    "lat": "37.171281",
+    "lon": "-91.318901",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.171281,-91.318901",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12379932&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.42237200042013,
+     37.16300999969408
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 118,
+    "river": "jacks-fork",
+    "place": "Water Branch mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 106-308",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 36,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "",
+    "search": "\"Water Branch\" Jacks Fork River access",
+    "lat": "37.163010",
+    "lon": "-91.422372",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.163010,-91.422372",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1415062&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.41698200001926,
+     37.16315999974741
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 117,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 106-308",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 39,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "",
+    "search": "\"Co Rd 106-308\" Jacks Fork River access",
+    "lat": "37.163160",
+    "lon": "-91.416982",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.163160,-91.416982",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1415062&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.50488199965339,
+     37.12076699977412
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 115,
+    "river": "jacks-fork",
+    "place": "Bay Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 106-425",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 45,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Rymers Access → Bay Creek",
+    "gap_km": "17.0",
+    "notes": "",
+    "search": "\"Bay Creek\" Jacks Fork River access",
+    "lat": "37.120767",
+    "lon": "-91.504882",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.120767,-91.504882",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4155879&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.68496599983291,
+     37.06250099969067
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 108,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 4686",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "MDC South Prong Access → Buck Hollow",
+    "gap_km": "11.3",
+    "notes": "",
+    "search": "\"Co Rd 4686\" Jacks Fork River access",
+    "lat": "37.062501",
+    "lon": "-91.684966",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.062501,-91.684966",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15171137&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.56554099972499,
+     37.05365399964928
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 102,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd M-471",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Bachers → Rymers Access",
+    "gap_km": "8.1",
+    "notes": "",
+    "search": "\"Co Rd M-471\" Jacks Fork River access",
+    "lat": "37.053654",
+    "lon": "-91.565541",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.053654,-91.565541",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14556139&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.51070700024745,
+     37.10743299988199
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 95,
+    "river": "jacks-fork",
+    "place": "Bee Hollow Branch mouth",
+    "kind": "road end",
+    "road": "Co Rd 106-425",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 106,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Rymers Access → Bay Creek",
+    "gap_km": "17.0",
+    "notes": "",
+    "search": "\"Bee Hollow Branch\" Jacks Fork River access",
+    "lat": "37.107433",
+    "lon": "-91.510707",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.107433,-91.510707",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4155879&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.42493400010201,
+     37.160386999869054
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 92,
+    "river": "jacks-fork",
+    "place": "Water Branch mouth",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 40,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"Water Branch\" Jacks Fork River access",
+    "lat": "37.160387",
+    "lon": "-91.424934",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.160387,-91.424934",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=815656&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.45833599981925,
+     37.14413399982238
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 83,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 67,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Bay Creek → Alley Spring",
+    "gap_km": "6.6",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.144134",
+    "lon": "-91.458336",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.144134,-91.458336",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8681411&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.39614899958535,
+     37.15767600001044
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 106-309A",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 97,
+    "land": "not shown public",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 106-309A\" Jacks Fork River access",
+    "lat": "37.157676",
+    "lon": "-91.396149",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.157676,-91.396149",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7493819&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.40657000036188,
+     37.15702299983648
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 80,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.157023",
+    "lon": "-91.406570",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.157023,-91.406570",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12434665&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.72372699998888,
+     37.07555799996525
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 27,
+    "land": "not shown public",
+    "between": "MDC South Prong Access → Buck Hollow",
+    "gap_km": "11.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.075558",
+    "lon": "-91.723727",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.075558,-91.723727",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6963272&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.54157499987188,
+     37.075460999975654
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 458",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 113,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Rymers Access → Bay Creek",
+    "gap_km": "17.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 458\" Jacks Fork River access",
+    "lat": "37.075461",
+    "lon": "-91.541575",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.075461,-91.541575",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6427103&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.28993399971657,
+     37.185385999844556
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 19-203",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 117,
+    "land": "not shown public",
+    "between": "Shawnee Creek → Two Rivers",
+    "gap_km": "4.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 19-203\" Jacks Fork River access",
+    "lat": "37.185386",
+    "lon": "-91.289934",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.185386,-91.289934",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4148096&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.32588999961808,
+     37.16730800026432
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 19-203",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 120,
+    "land": "not shown public",
+    "between": "Eminence City Access → Shawnee Creek",
+    "gap_km": "8.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 19-203\" Jacks Fork River access",
+    "lat": "37.167308",
+    "lon": "-91.325890",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.167308,-91.325890",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4148096&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.34486400035189,
+     37.15106900019764
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 63,
+    "land": "not shown public",
+    "between": "Eminence City Access → Shawnee Creek",
+    "gap_km": "8.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.151069",
+    "lon": "-91.344864",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.151069,-91.344864",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5917663&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.36889600032725,
+     37.156285000163614
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "jacks-fork",
+    "place": "Storys Creek mouth",
+    "kind": "road end",
+    "road": "Circle B Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 109,
+    "land": "not shown public",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Storys Creek\" Jacks Fork River access",
+    "lat": "37.156285",
+    "lon": "-91.368896",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.156285,-91.368896",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13185532&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.38263399974768,
+     37.153078000334105
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 86,
+    "land": "not shown public",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.153078",
+    "lon": "-91.382634",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.153078,-91.382634",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=445556&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.57052299969686,
+     37.05139699967999
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 55,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 149,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Bachers → Rymers Access",
+    "gap_km": "8.1",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.051397",
+    "lon": "-91.570523",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.051397,-91.570523",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13590576&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.37724300042022,
+     37.15382700000958
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 53,
+    "river": "jacks-fork",
+    "place": "Mahans Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 97,
+    "land": "not shown public",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Mahans Creek\" Jacks Fork River access",
+    "lat": "37.153827",
+    "lon": "-91.377243",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.153827,-91.377243",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13760481&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.51626300032964,
+     37.08844899990055
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 99,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Rymers Access → Bay Creek",
+    "gap_km": "17.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.088449",
+    "lon": "-91.516263",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.088449,-91.516263",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14465394&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.51017300032005,
+     37.0937329997404
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 113,
+    "land": "not shown public",
+    "between": "Rymers Access → Bay Creek",
+    "gap_km": "17.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.093733",
+    "lon": "-91.510173",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.093733,-91.510173",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4574865&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.33337399989568,
+     37.16623700012211
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 115,
+    "land": "not shown public",
+    "between": "Eminence City Access → Shawnee Creek",
+    "gap_km": "8.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.166237",
+    "lon": "-91.333374",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.166237,-91.333374",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6365808&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.45297200025597,
+     37.14715099964966
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 42,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 190,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Bay Creek → Alley Spring",
+    "gap_km": "6.6",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.147151",
+    "lon": "-91.452972",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.147151,-91.452972",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14182893&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.5467280004463,
+     37.06842700033948
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 37,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 144,
+    "land": "not shown public",
+    "between": "Rymers Access → Bay Creek",
+    "gap_km": "17.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.068427",
+    "lon": "-91.546728",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.068427,-91.546728",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5295845&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.46665699997295,
+     37.133424999717164
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 35,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Steele Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 195,
+    "land": "not shown public",
+    "between": "Bay Creek → Alley Spring",
+    "gap_km": "6.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Steele Rd\" Jacks Fork River access",
+    "lat": "37.133425",
+    "lon": "-91.466657",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.133425,-91.466657",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7988052&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.70820799978785,
+     37.07114599970147
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 34,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 154,
+    "land": "not shown public",
+    "between": "MDC South Prong Access → Buck Hollow",
+    "gap_km": "11.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.071146",
+    "lon": "-91.708208",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.071146,-91.708208",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15857554&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.40164199991838,
+     37.155610000266876
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 30,
+    "river": "jacks-fork",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 164,
+    "land": "not shown public",
+    "between": "Alley Spring → Eminence City Access",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Jacks Fork River access",
+    "lat": "37.155610",
+    "lon": "-91.401642",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.155610,-91.401642",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5917662&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.68292666488918,
+     37.05616791877011
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "jacks-fork",
+    "place": "Gill Branch mouth",
+    "kind": "crosses river",
+    "road": "Co Rd 4666",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "MDC South Prong Access → Buck Hollow",
+    "gap_km": "11.3",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Gill Branch\" Jacks Fork River access",
+    "lat": "37.056168",
+    "lon": "-91.682927",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.056168,-91.682927",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10969355&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

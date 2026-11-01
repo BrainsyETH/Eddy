@@ -1,0 +1,50 @@
+river,lat,lon,verdict,access_slug,note
+eleven-point,36.776422,-91.275183,no_access,,v2 tier A (Forest Rd 4031 at Hurricane Creek mouth); not an access
+eleven-point,36.651746,-91.186327,no_access,,v2 tier A (unnamed S1740 loop); not an access
+eleven-point,36.750056,-91.249741,no_access,,v2 tier A (Forest Rd 3230A loop); not an access
+eleven-point,36.785240,-91.311326,no_access,,v2 tier A (unnamed road end); not an access
+eleven-point,36.565231,-91.176195,no_access,,v2 tier A (unnamed S1740 at Rush Creek mouth); not an access
+eleven-point,36.791437,-91.413010,access_no_parking,county-road-405-bridge,Co Rd 405; the bridge is at 36.79382 -91.41470; surrounded by private land with no parking
+eleven-point,36.575559,-91.180848,no_access,,unnamed road
+big-piney,37.544632,-92.021159,access,high-log-eddy,FS 255; the road's real end is 37.547917 -92.024972 (the MVUM line stops short)
+big-piney,37.477996,-91.988305,access,henry-river-access,FS 1538
+big-piney,37.823958,-92.081598,no_access,,Tulsa Rd; not public land despite PAD-US
+big-piney,37.498927,-91.988673,access_private,,State Hwy 32 bridge; access looks private
+big-piney,37.281373,-92.009044,access_no_parking,county-road-5117-bridge,Co Rd 5117 bridge; surrounded by private land
+big-piney,37.317141,-92.004456,no_access,,Hwy Z bridge
+big-piney,37.629502,-92.047691,access,forest-road-1794,FS 1794; limited parking
+big-piney,37.140126,-92.079372,no_access,,US Hwy 63 bridge
+big-piney,37.129836,-92.153144,no_access,,Co Rd 5966
+big-piney,37.209419,-92.015870,no_access,,Co Rd 4320
+big-piney,37.194717,-92.039614,access,county-road-5328,Co Rd 5328; parking
+big-piney,37.125446,-92.125057,no_access,,Co Rd 5930B
+big-piney,37.833450,-92.085606,no_access,,Co Rd 2630
+big-piney,37.491889,-91.970620,no_access,,Co Rd 2530 at Boone Creek mouth
+current,37.359459,-91.525706,access,county-road-kk-359,Co Rd KK-359 road end; owner-approved as a 4x4 access with limited parking
+current,37.033283,-91.054017,access,county-road-m-135,Co Rd M-135; owner-approved as a 4x4 access with limited parking (possibly NPS's Raftyard)
+current,36.654734,-90.860705,access,dunrovin,FS 4819 Dunrovin road end; owner-approved as a 4x4 access with limited parking (Dun Roven in an older MDC guide)
+current,37.052243,-91.054118,access,county-road-126,Co Rd 126 road end; owner-approved as a 4x4 access with limited parking (possibly NPS's Pin Oak)
+current,36.901606,-90.908289,access,county-road-f-217,Co Rd F-217; owner placed it at 36.89492 -90.90929 and confirmed it is separate from Hickory Landing (opposite bank)
+current,37.314805,-91.451338,unconfirmed,,Co Rd 327 loop; owner could not confirm on imagery
+current,37.318354,-91.450851,unconfirmed,,Co Rd 327 end; owner could not confirm on imagery
+current,37.381314,-91.561012,unconfirmed,,State Hwy K; owner could not confirm on imagery
+current,36.946979,-90.989274,unconfirmed,,State Hwy Z; owner could not confirm on imagery
+current,36.754278,-90.929288,unconfirmed,,Co Rd C-9C; owner could not confirm on imagery
+current,37.346145,-91.477357,unconfirmed,,Co Rd 357-B; owner could not confirm on imagery
+jacks-fork,37.120767,-91.504882,access,bay-creek,Co Rd 106-425 at Bay Creek mouth: the owner moved Bay Creek's pin here (NPS Bay Creek Campground is 86 m away); the old pin 37.119672 -91.483904 was misplaced
+jacks-fork,37.107433,-91.510707,access,bee-bluff-access,Co Rd 106-425 end at Bee Hollow Branch mouth; owner-approved as Bee Bluff Access
+jacks-fork,37.171281,-91.318901,not_added,,Co Rd 203; owner added only the listed spots
+jacks-fork,37.163010,-91.422372,not_added,,Co Rd 106-308 at Water Branch mouth; owner added only the listed spots
+jacks-fork,37.163160,-91.416982,not_added,,Co Rd 106-308; owner added only the listed spots
+jacks-fork,37.062501,-91.684966,not_added,,Co Rd 4686; owner added only the listed spots
+jacks-fork,37.053654,-91.565541,not_added,,Co Rd M-471; owner added only the listed spots
+black,37.271721,-90.778064,access,black-river-bottoms-access,Co Rd 464 in the Black River Bottoms (Corps of Engineers)
+black,36.905811,-90.478565,access,hendrickson-boat-launch,FS 3046 Hendrickson Boat Launch; owner placed the launch at 36.90278 -90.47430
+black,36.289997,-90.719512,not_added,,Co Rd 202 near Datto; owner added only the listed spots
+black,37.306484,-90.776528,not_added,,Co Rd 459 at Clearwater; owner added only the listed spots
+black,36.982621,-90.606448,not_added,,FS 2997 Markham Spring Rec Area road; owner added only the listed spots
+north-fork-white,36.795099,-92.147735,not_added,,Co Rd 360 at Spring Creek mouth; owner added only the listed spots
+huzzah,37.808362,-91.177013,not_added,,FS 2011 Red Bluff Rec Area road; owner added only the listed spots
+huzzah,37.812568,-91.173439,not_added,,FS 2011 Red Bluff Rec Area road; owner added only the listed spots
+courtois,37.798443,-91.059708,not_added,,Co Rd 664 at Bailey Branch mouth; owner added only the listed spots
+courtois,37.881580,-91.063717,not_added,,FS 2514 Timber Lane; owner added only the listed spots

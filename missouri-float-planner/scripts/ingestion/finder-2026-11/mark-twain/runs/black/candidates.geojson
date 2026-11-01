@@ -1,0 +1,4037 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.71951200041079,
+     36.289996999740026
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 120,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 202",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 29,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Kody Riggan Datto Boat Ramp → Brookings Boat Ramp",
+    "gap_km": "10.3",
+    "notes": "",
+    "search": "\"Co Rd 202\" Black River access",
+    "lat": "36.289997",
+    "lon": "-90.719512",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.289997,-90.719512",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6087850&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77652799962863,
+     37.30648400000993
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 109,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 459",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 63,
+    "land": "Clearwater Recreation Area (USACE)",
+    "between": "Highway K Recreation Area (Clearwater Lake) → River Road Park (below Clearwater Dam)",
+    "gap_km": "28.2",
+    "notes": "",
+    "search": "\"Co Rd 459\" Black River access",
+    "lat": "37.306484",
+    "lon": "-90.776528",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.306484,-90.776528",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11089099&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77806400018686,
+     37.271721000231416
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 106,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 464",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 72,
+    "land": "Clearwater Recreation Area (USACE)",
+    "between": "Highway K Recreation Area (Clearwater Lake) → River Road Park (below Clearwater Dam)",
+    "gap_km": "28.2",
+    "notes": "",
+    "search": "\"Co Rd 464\" Black River access",
+    "lat": "37.271721",
+    "lon": "-90.778064",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.271721,-90.778064",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12610240&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.60644834347015,
+     36.98262056173999
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 101,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS 2997 MARKHAM SPRING REC AREA",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 4,
+    "to_water_m": 58,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Mill Spring (Hwy 49) City Park → Markham Springs Recreation Area",
+    "gap_km": "14.8",
+    "notes": "",
+    "search": "\"FS 2997 MARKHAM SPRING REC AREA\" Black River access",
+    "lat": "36.982621",
+    "lon": "-90.606448",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.982621,-90.606448",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17411784&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.47856474020612,
+     36.90581088556487
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 66,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS 3046 HENDRICKSON BOAT LAUNCH",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 4,
+    "to_water_m": 163,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "",
+    "search": "\"FS 3046 HENDRICKSON BOAT LAUNCH\" Black River access",
+    "lat": "36.905811",
+    "lon": "-90.478565",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.905811,-90.478565",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17421362&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.34299100034767,
+     36.72610400034979
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 102,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 611",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 25,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 611\" Black River access",
+    "lat": "36.726104",
+    "lon": "-90.342991",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.726104,-90.342991",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1475653&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4605939996671,
+     36.473458999801636
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 98,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 306",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 36,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 306\" Black River access",
+    "lat": "36.473459",
+    "lon": "-90.460594",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.473459,-90.460594",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7630776&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4467459997435,
+     36.84185899995026
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 97,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 525",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 38,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 525\" Black River access",
+    "lat": "36.841859",
+    "lon": "-90.446746",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.841859,-90.446746",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1977709&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.71544599995772,
+     36.316075000034765
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 96,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 26,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Kody Riggan Datto Boat Ramp → Brookings Boat Ramp",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.316075",
+    "lon": "-90.715446",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.316075,-90.715446",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6576861&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.71665600010272,
+     37.08093900004589
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 95,
+    "river": "black",
+    "place": "Cedar Bay mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 459",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Cedar Bay\" Black River access",
+    "lat": "37.080939",
+    "lon": "-90.716656",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.080939,-90.716656",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4562125&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.5849389998226,
+     36.358091999976516
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 95,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 228",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 45,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 228\" Black River access",
+    "lat": "36.358092",
+    "lon": "-90.584939",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.358092,-90.584939",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9343986&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.75733299986018,
+     37.1252820001246
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 34,
+    "land": "Clearwater Recreation Area (USACE)",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.125282",
+    "lon": "-90.757333",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.125282,-90.757333",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3508632&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.72635700028071,
+     36.31856999969706
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 34,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Kody Riggan Datto Boat Ramp → Brookings Boat Ramp",
+    "gap_km": "10.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.318570",
+    "lon": "-90.726357",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.318570,-90.726357",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11504754&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.75525599970189,
+     37.11985700028279
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 93,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 455",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 51,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 455\" Black River access",
+    "lat": "37.119857",
+    "lon": "-90.755256",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.119857,-90.755256",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7582264&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.71267500003847,
+     37.08488400021489
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 93,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 459 A",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 51,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 459 A\" Black River access",
+    "lat": "37.084884",
+    "lon": "-90.712675",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.084884,-90.712675",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11827563&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.72060000035705,
+     36.29429699999869
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 92,
+    "river": "black",
+    "place": "Little River mouth",
+    "kind": "road end",
+    "road": "Co Rd 202",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 55,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Kody Riggan Datto Boat Ramp → Brookings Boat Ramp",
+    "gap_km": "10.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Little River\" Black River access",
+    "lat": "36.294297",
+    "lon": "-90.720600",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.294297,-90.720600",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6087850&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4739560002422,
+     36.897230999766435
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 92,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 519",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 55,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 519\" Black River access",
+    "lat": "36.897231",
+    "lon": "-90.473956",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.897231,-90.473956",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15081458&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.69575400007183,
+     36.3335989999084
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 91,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 41,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.333599",
+    "lon": "-90.695754",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.333599,-90.695754",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12634778&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.49846100004557,
+     36.4135589998399
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 90,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Barnhill Camp Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 31,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Barnhill Camp Rd\" Black River access",
+    "lat": "36.413559",
+    "lon": "-90.498461",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.413559,-90.498461",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11493989&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.30266199984642,
+     36.618126999642726
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 89,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 2021",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 62,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 2021\" Black River access",
+    "lat": "36.618127",
+    "lon": "-90.302662",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.618127,-90.302662",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5889028&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.5406760000111,
+     36.4085490002578
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 87,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 183",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 70,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 183\" Black River access",
+    "lat": "36.408549",
+    "lon": "-90.540676",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.408549,-90.540676",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5911586&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.39067100015882,
+     36.75732299994472
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 87,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Rio Vista Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 40,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Rio Vista Dr\" Black River access",
+    "lat": "36.757323",
+    "lon": "-90.390671",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.757323,-90.390671",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14151480&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.49360600029533,
+     36.91872699975301
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 86,
+    "river": "black",
+    "place": "Swift Creek mouth",
+    "kind": "road end",
+    "road": "River Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 42,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Swift Creek\" Black River access",
+    "lat": "36.918727",
+    "lon": "-90.493606",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.918727,-90.493606",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12948556&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.88204600026172,
+     36.2505770003424
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Schaeffer's Eddy Boat Ramp → (river end)",
+    "gap_km": "25.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.250577",
+    "lon": "-90.882046",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.250577,-90.882046",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3976374&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.92361199977381,
+     36.25012500013013
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy 304 N",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 76,
+    "land": "not shown public",
+    "between": "Schaeffer's Eddy Boat Ramp → (river end)",
+    "gap_km": "25.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy 304 N\" Black River access",
+    "lat": "36.250125",
+    "lon": "-90.923612",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.250125,-90.923612",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7283423&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.44211000027636,
+     36.859022999931994
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Riparian Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 45,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Riparian Ln\" Black River access",
+    "lat": "36.859023",
+    "lon": "-90.442110",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.859023,-90.442110",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9095717&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.72986499961863,
+     37.114398000007824
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Tacketts Pocket",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Tacketts Pocket\" Black River access",
+    "lat": "37.114398",
+    "lon": "-90.729865",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.114398,-90.729865",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12292624&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.39469099968281,
+     36.75265199986514
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Park Ave",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 45,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Park Ave\" Black River access",
+    "lat": "36.752652",
+    "lon": "-90.394691",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.752652,-90.394691",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14517140&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.30014399964715,
+     36.64873099978889
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 84,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Simplicity Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 47,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Simplicity Ln\" Black River access",
+    "lat": "36.648731",
+    "lon": "-90.300144",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.648731,-90.300144",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11276445&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.41272700025822,
+     36.810725000034154
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 82,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Marble Hill Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 55,
+    "land": "not shown public",
+    "between": "Hilliard Access → Sportsman's Park Access (Poplar Bluff)",
+    "gap_km": "13.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Marble Hill Rd\" Black River access",
+    "lat": "36.810725",
+    "lon": "-90.412727",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.810725,-90.412727",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1477878&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.54117200030365,
+     36.40196499965911
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 82,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Clay County Road 301",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 53,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Clay County Road 301\" Black River access",
+    "lat": "36.401965",
+    "lon": "-90.541172",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.401965,-90.541172",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7598277&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.57205800036975,
+     36.36232300033289
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 235",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 235\" Black River access",
+    "lat": "36.362323",
+    "lon": "-90.572058",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.362323,-90.572058",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9343987&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.73602499994844,
+     37.1201719999396
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy Hh",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy Hh\" Black River access",
+    "lat": "37.120172",
+    "lon": "-90.736025",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.120172,-90.736025",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10650720&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.39054899996009,
+     36.75397299990208
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 80,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "S Riverview Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 61,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"S Riverview Dr\" Black River access",
+    "lat": "36.753973",
+    "lon": "-90.390549",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.753973,-90.390549",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=259151&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.34292799970017,
+     36.73290699970013
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 80,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 602",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 91,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 602\" Black River access",
+    "lat": "36.732907",
+    "lon": "-90.342928",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.732907,-90.342928",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1315513&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.74838800026573,
+     37.12004400005978
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "black",
+    "place": "Brewer Bay mouth",
+    "kind": "road loops to river",
+    "road": "Ralph Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Brewer Bay\" Black River access",
+    "lat": "37.120044",
+    "lon": "-90.748388",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.120044,-90.748388",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8606166&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.29985099974421,
+     36.69147900014789
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 616",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 97,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 616\" Black River access",
+    "lat": "36.691479",
+    "lon": "-90.299851",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.691479,-90.299851",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14402165&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.3960210003767,
+     36.80721099976988
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Ravenwood Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 68,
+    "land": "not shown public",
+    "between": "Hilliard Access → Sportsman's Park Access (Poplar Bluff)",
+    "gap_km": "13.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Ravenwood Ln\" Black River access",
+    "lat": "36.807211",
+    "lon": "-90.396021",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.807211,-90.396021",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9289298&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.36042100012735,
+     36.73302199976794
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Scenic Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 68,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Scenic Ln\" Black River access",
+    "lat": "36.733022",
+    "lon": "-90.360421",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.733022,-90.360421",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10405009&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.73078600005861,
+     36.28445500025945
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Clay 2003 Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 68,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Brookings Boat Ramp → Schaeffer's Eddy Boat Ramp",
+    "gap_km": "17.2",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Clay 2003 Rd\" Black River access",
+    "lat": "36.284455",
+    "lon": "-90.730786",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.284455,-90.730786",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14165490&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.3683170001336,
+     36.79438199995084
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Wilcox Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 69,
+    "land": "not shown public",
+    "between": "Hilliard Access → Sportsman's Park Access (Poplar Bluff)",
+    "gap_km": "13.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Wilcox Rd\" Black River access",
+    "lat": "36.794382",
+    "lon": "-90.368317",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.794382,-90.368317",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15995801&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.71613600041903,
+     37.08700099989009
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 459",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 106,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 459\" Black River access",
+    "lat": "37.087001",
+    "lon": "-90.716136",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.087001,-90.716136",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8387418&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.70848399991193,
+     37.067491999800424
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 454",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 105,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 454\" Black River access",
+    "lat": "37.067492",
+    "lon": "-90.708484",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.067492,-90.708484",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11983314&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.61409370019842,
+     37.0037646773272
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "FS 3824B LONE BEE",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 2,
+    "to_water_m": 61,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Mill Spring (Hwy 49) City Park → Markham Springs Recreation Area",
+    "gap_km": "14.8",
+    "notes": "high-clearance Forest Service track",
+    "search": "\"FS 3824B LONE BEE\" Black River access",
+    "lat": "37.003765",
+    "lon": "-90.614094",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.003765,-90.614094",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17316475&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.44527899968057,
+     36.83728700026913
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 74,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 33,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.837287",
+    "lon": "-90.445279",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.837287,-90.445279",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2063600&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.29870699972146,
+     36.64580200013996
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 74,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 32,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.645802",
+    "lon": "-90.298707",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.645802,-90.298707",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4712734&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.45164800024774,
+     36.86825799965577
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 35,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.868258",
+    "lon": "-90.451648",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.868258,-90.451648",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=646514&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.55383699984642,
+     36.40131700001325
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 37,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.401317",
+    "lon": "-90.553837",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.401317,-90.553837",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12895484&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.44293999958143,
+     36.853113000047415
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 35,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.853113",
+    "lon": "-90.442940",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.853113,-90.442940",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13791096&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.34220799999996,
+     36.723073000106744
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Sunset Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Sunset Ln\" Black River access",
+    "lat": "36.723073",
+    "lon": "-90.342208",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.723073,-90.342208",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5271180&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.29109699994545,
+     36.62453800005842
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 41,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.624538",
+    "lon": "-90.291097",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.624538,-90.291097",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7456469&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.38837600044063,
+     36.74424699970863
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Wilson St",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 86,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Wilson St\" Black River access",
+    "lat": "36.744247",
+    "lon": "-90.388376",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.744247,-90.388376",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12594623&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.81117999967383,
+     37.377871000030936
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 372",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 117,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 372\" Black River access",
+    "lat": "37.377871",
+    "lon": "-90.811180",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.377871,-90.811180",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13039679&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.7867200000763,
+     37.337688999711325
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 336",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 121,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 336\" Black River access",
+    "lat": "37.337689",
+    "lon": "-90.786720",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.337689,-90.786720",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=979664&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.39130600036853,
+     36.74585199995309
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Thomas St",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 91,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Thomas St\" Black River access",
+    "lat": "36.745852",
+    "lon": "-90.391306",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.745852,-90.391306",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1658527&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.5953019999745,
+     36.965808999875556
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 424",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 120,
+    "land": "not shown public",
+    "between": "Markham Springs Recreation Area → Hammer Access (Bradley A. Hammer Memorial CA)",
+    "gap_km": "5.2",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 424\" Black River access",
+    "lat": "36.965809",
+    "lon": "-90.595302",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.965809,-90.595302",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11328112&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.31939000036755,
+     36.598249999927354
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 44,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.598250",
+    "lon": "-90.319390",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.598250,-90.319390",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14561300&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.38825099986884,
+     36.760003000008226
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 48,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.760003",
+    "lon": "-90.388251",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.760003,-90.388251",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=760573&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.33649000043434,
+     36.5602220002987
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 47,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.560222",
+    "lon": "-90.336490",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.560222,-90.336490",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9175360&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.54639199992688,
+     36.40310600004955
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 49,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.403106",
+    "lon": "-90.546392",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.403106,-90.546392",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12895484&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.49269699955089,
+     36.42072300004322
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 50,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.420723",
+    "lon": "-90.492697",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.420723,-90.492697",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3113302&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.30498800042508,
+     36.6992380000438
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 51,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.699238",
+    "lon": "-90.304988",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.699238,-90.304988",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8630810&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.3307359999854,
+     36.59689699964676
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 52,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.596897",
+    "lon": "-90.330736",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.596897,-90.330736",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8937702&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.61914999982683,
+     36.354855999800705
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 52,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.354856",
+    "lon": "-90.619150",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.354856,-90.619150",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4883959998195,
+     36.90990499994795
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Franny Kay",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 95,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Franny Kay\" Black River access",
+    "lat": "36.909905",
+    "lon": "-90.488396",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.909905,-90.488396",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10352517&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.48787399958769,
+     36.44472199994186
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 51,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.444722",
+    "lon": "-90.487874",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.444722,-90.487874",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15302486&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.39480700003378,
+     36.749799000188894
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 54,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.749799",
+    "lon": "-90.394807",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.749799,-90.394807",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15643937&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.46187199958415,
+     36.897832000205604
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy O",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 128,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy O\" Black River access",
+    "lat": "36.897832",
+    "lon": "-90.461872",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.897832,-90.461872",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=26557&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.75055999996029,
+     36.28690500019402
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 116,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Brookings Boat Ramp → Schaeffer's Eddy Boat Ramp",
+    "gap_km": "17.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.286905",
+    "lon": "-90.750560",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.286905,-90.750560",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1210249&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.44754699963457,
+     36.87368399997621
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 58,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.873684",
+    "lon": "-90.447547",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.873684,-90.447547",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1899374&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.33783600012345,
+     36.55176599967797
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 56,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.551766",
+    "lon": "-90.337836",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.551766,-90.337836",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3204679&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.29851500010083,
+     36.683797000201885
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 6471",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 131,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 6471\" Black River access",
+    "lat": "36.683797",
+    "lon": "-90.298515",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.683797,-90.298515",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8463762&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.66345799984418,
+     36.35485499996766
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 58,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.354855",
+    "lon": "-90.663458",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.354855,-90.663458",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.88197799959134,
+     36.23592400026454
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 65,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy 304",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 136,
+    "land": "not shown public",
+    "between": "Schaeffer's Eddy Boat Ramp → (river end)",
+    "gap_km": "25.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy 304\" Black River access",
+    "lat": "36.235924",
+    "lon": "-90.881978",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.235924,-90.881978",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13301647&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.40695600009083,
+     36.80881099977912
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 63,
+    "land": "not shown public",
+    "between": "Hilliard Access → Sportsman's Park Access (Poplar Bluff)",
+    "gap_km": "13.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.808811",
+    "lon": "-90.406956",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.808811,-90.406956",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1058795&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.44242599974554,
+     36.84984199983807
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 64,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.849842",
+    "lon": "-90.442426",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.849842,-90.442426",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8292776&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77604800012791,
+     37.191138999868365
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "black",
+    "place": "Finley Branch mouth",
+    "kind": "road loops to river",
+    "road": "State Hwy Aa",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 137,
+    "land": "Clearwater Lake (USACE)",
+    "between": "Highway K Recreation Area (Clearwater Lake) → River Road Park (below Clearwater Dam)",
+    "gap_km": "28.2",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Finley Branch\" Black River access",
+    "lat": "37.191139",
+    "lon": "-90.776048",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.191139,-90.776048",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12071489&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.79334800021125,
+     37.18471299966687
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 63,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 126,
+    "land": "Clearwater Lake (USACE)",
+    "between": "Highway K Recreation Area (Clearwater Lake) → River Road Park (below Clearwater Dam)",
+    "gap_km": "28.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.184713",
+    "lon": "-90.793348",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.184713,-90.793348",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=68851&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.58842699996735,
+     36.36326399974566
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 63,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 65,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.363264",
+    "lon": "-90.588427",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.363264,-90.588427",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=909068&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.376420999654,
+     36.50878099997222
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 249",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 143,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 249\" Black River access",
+    "lat": "36.508781",
+    "lon": "-90.376421",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.508781,-90.376421",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2416341&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.3513729997024,
+     36.52446400031957
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 69,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.524464",
+    "lon": "-90.351373",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.524464,-90.351373",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3204677&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.3447470001156,
+     36.536382000001254
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 68,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.536382",
+    "lon": "-90.344747",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.536382,-90.344747",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9725689&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.79823100044892,
+     37.34396200001567
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 68,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.343962",
+    "lon": "-90.798231",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.343962,-90.798231",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12169379&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.74459799999721,
+     37.119819000160554
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 61,
+    "river": "black",
+    "place": "Brewer Bay mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 71,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Brewer Bay\" Black River access",
+    "lat": "37.119819",
+    "lon": "-90.744598",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.119819,-90.744598",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4413569&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.7169230000664,
+     37.09911700001956
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 75,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.099117",
+    "lon": "-90.716923",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.099117,-90.716923",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=913611&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.71479599967938,
+     37.09688699969197
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 74,
+    "land": "not shown public",
+    "between": "River Road Park (below Clearwater Dam) → Mill Spring (Hwy 49) City Park",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.096887",
+    "lon": "-90.714796",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.096887,-90.714796",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=913611&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4281379996059,
+     36.83134799965918
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Alex Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 120,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Alex Ln\" Black River access",
+    "lat": "36.831348",
+    "lon": "-90.428138",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.831348,-90.428138",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5213418&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.61268900009647,
+     36.35799000019923
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 75,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.357990",
+    "lon": "-90.612689",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.357990,-90.612689",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.3903380000729,
+     36.7508019997475
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 59,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 77,
+    "land": "not shown public",
+    "between": "Sportsman's Park Access (Poplar Bluff) → Dan River Access",
+    "gap_km": "12.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.750802",
+    "lon": "-90.390338",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.750802,-90.390338",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13593231&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.34857400019406,
+     36.5344580002913
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 58,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 80,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.534458",
+    "lon": "-90.348574",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.534458,-90.348574",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5586558&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.62691100011388,
+     36.354945999915394
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 58,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 81,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.354946",
+    "lon": "-90.626911",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.354946,-90.626911",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.43344500016609,
+     36.832308999919064
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 57,
+    "river": "black",
+    "place": "Mill Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Mill Creek\" Black River access",
+    "lat": "36.832309",
+    "lon": "-90.433445",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.832309,-90.433445",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7644687&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.30087799959108,
+     36.67658300021733
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 650",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 161,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 650\" Black River access",
+    "lat": "36.676583",
+    "lon": "-90.300878",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.676583,-90.300878",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2830019&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.33989400001518,
+     36.554735999874836
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 88,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.554736",
+    "lon": "-90.339894",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.554736,-90.339894",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10312506&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4305520000481,
+     36.49839900008651
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.498399",
+    "lon": "-90.430552",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.498399,-90.430552",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14282222&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.82773599976748,
+     37.37926300005995
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 372",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 161,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 372\" Black River access",
+    "lat": "37.379263",
+    "lon": "-90.827736",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.379263,-90.827736",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14657625&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.824237999577,
+     37.38634699983109
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 55,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 90,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.386347",
+    "lon": "-90.824238",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.386347,-90.824238",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10245071&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.79179199956154,
+     37.180727999688
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 152,
+    "land": "Clearwater Recreation Area (USACE)",
+    "between": "Highway K Recreation Area (Clearwater Lake) → River Road Park (below Clearwater Dam)",
+    "gap_km": "28.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.180728",
+    "lon": "-90.791792",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.180728,-90.791792",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13556960&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.6458720004289,
+     36.351738999846326
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 53,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 97,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.351739",
+    "lon": "-90.645872",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.351739,-90.645872",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.80677900038333,
+     37.36953000004936
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 49,
+    "river": "black",
+    "place": "Hyatts Creek mouth",
+    "kind": "road end",
+    "road": "Co Rd 334",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 184,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Hyatts Creek\" Black River access",
+    "lat": "37.369530",
+    "lon": "-90.806779",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.369530,-90.806779",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12225903&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.68941899983983,
+     36.33958299987165
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 48,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 170,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.339583",
+    "lon": "-90.689419",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.339583,-90.689419",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12634778&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.79179699958442,
+     37.3344709998041
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 48,
+    "river": "black",
+    "place": "Mayberry Branch mouth",
+    "kind": "road loops to river",
+    "road": "State Hwy K",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 185,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Mayberry Branch\" Black River access",
+    "lat": "37.334471",
+    "lon": "-90.791797",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.334471,-90.791797",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=91690&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.58058700003758,
+     36.35508200008423
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Clay 228 Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 159,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Clay 228 Rd\" Black River access",
+    "lat": "36.355082",
+    "lon": "-90.580587",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.355082,-90.580587",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1188680&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.65578399959578,
+     36.35435800032367
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 113,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.354358",
+    "lon": "-90.655784",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.354358,-90.655784",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.33945700017217,
+     36.54517999988805
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy N",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 190,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy N\" Black River access",
+    "lat": "36.545180",
+    "lon": "-90.339457",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.545180,-90.339457",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=26556&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.4400080000037,
+     36.84499399997974
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 532",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 198,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 532\" Black River access",
+    "lat": "36.844994",
+    "lon": "-90.440008",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.844994,-90.440008",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1065449&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.43742399968218,
+     36.49477900001693
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 122,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.494779",
+    "lon": "-90.437424",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.494779,-90.437424",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4531278&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.89845699969212,
+     36.241254999644696
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 124,
+    "land": "not shown public",
+    "between": "Schaeffer's Eddy Boat Ramp → (river end)",
+    "gap_km": "25.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.241255",
+    "lon": "-90.898457",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.241255,-90.898457",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6070959&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.36903699983382,
+     36.78004999977665
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 124,
+    "land": "not shown public",
+    "between": "Hilliard Access → Sportsman's Park Access (Poplar Bluff)",
+    "gap_km": "13.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.780050",
+    "lon": "-90.369037",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.780050,-90.369037",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12400248&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.50570500012367,
+     36.922084999885854
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 124,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.922085",
+    "lon": "-90.505705",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.922085,-90.505705",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15887919&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.81874500014229,
+     37.385061000208395
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 43,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 125,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.385061",
+    "lon": "-90.818745",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.385061,-90.818745",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4367642&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.65205500032494,
+     36.35286599985812
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 43,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 126,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.352866",
+    "lon": "-90.652055",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.352866,-90.652055",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9007198&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.44527500038092,
+     36.862357000111565
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 40,
+    "river": "black",
+    "place": "Widow Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 136,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Widow Creek\" Black River access",
+    "lat": "36.862357",
+    "lon": "-90.445275",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.862357,-90.445275",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9462390&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.82345099992962,
+     37.40365600012904
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 40,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 121,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.403656",
+    "lon": "-90.823451",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.403656,-90.823451",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10074023&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.47439100043539,
+     36.902448999955865
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 40,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 196,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.902449",
+    "lon": "-90.474391",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.902449,-90.474391",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14627059&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.31270799980592,
+     36.70228400022064
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 34,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 154,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.702284",
+    "lon": "-90.312708",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.702284,-90.312708",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8630810&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.30477699963957,
+     36.60942600009664
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 31,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 163,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.609426",
+    "lon": "-90.304777",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.609426,-90.304777",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2065166&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.45167099981396,
+     36.87883099992023
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 30,
+    "river": "black",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 151,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.878831",
+    "lon": "-90.451671",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.878831,-90.451671",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1156365&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.52015200027196,
+     36.9263199997482
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 29,
+    "river": "black",
+    "place": "Ligett Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 169,
+    "land": "not shown public",
+    "between": "Hammer Access (Bradley A. Hammer Memorial CA) → Hilliard Access",
+    "gap_km": "26.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Ligett Creek\" Black River access",
+    "lat": "36.926320",
+    "lon": "-90.520152",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.926320,-90.520152",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8292864&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.41487200018857,
+     36.81494800028633
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 27,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 173,
+    "land": "not shown public",
+    "between": "Hilliard Access → Sportsman's Park Access (Poplar Bluff)",
+    "gap_km": "13.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.814948",
+    "lon": "-90.414872",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.814948,-90.414872",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9192453&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.48967200008673,
+     36.425086000299814
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 26,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 176,
+    "land": "Dave Donaldson Black River Wildlife Management Area (SFW)",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.425086",
+    "lon": "-90.489672",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.425086,-90.489672",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13215013&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.7701470002642,
+     37.34022199998624
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 23,
+    "river": "black",
+    "place": "Champion Spring Branch mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 185,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Champion Spring Branch\" Black River access",
+    "lat": "37.340222",
+    "lon": "-90.770147",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.340222,-90.770147",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11042285&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.40454099982372,
+     36.50355100029819
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 23,
+    "river": "black",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 185,
+    "land": "not shown public",
+    "between": "Coon Island Conservation Area → Kody Riggan Datto Boat Ramp",
+    "gap_km": "78.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "36.503551",
+    "lon": "-90.404541",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.503551,-90.404541",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15136315&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.33432067279438,
+     36.584852798543665
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "black",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 214",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 214\" Black River access",
+    "lat": "36.584853",
+    "lon": "-90.334321",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.584853,-90.334321",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10734205&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.81815258492907,
+     37.394330334483676
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "black",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Lesterville Access → Highway K Recreation Area (Clearwater Lake)",
+    "gap_km": "18.4",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Black River access",
+    "lat": "37.394330",
+    "lon": "-90.818153",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.394330,-90.818153",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14785665&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.28996672972795,
+     36.63161069829637
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "black",
+    "place": "",
+    "kind": "crosses river",
+    "road": "State Hwy 53",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Dan River Access → Coon Island Conservation Area",
+    "gap_km": "32.6",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"State Hwy 53\" Black River access",
+    "lat": "36.631611",
+    "lon": "-90.289967",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.631611,-90.289967",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=196309&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

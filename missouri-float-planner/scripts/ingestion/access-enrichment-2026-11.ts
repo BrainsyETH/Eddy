@@ -14,6 +14,7 @@ import type { LineString, MultiLineString } from 'geojson';
 export type LngLat = [number, number];
 export type Confidence = 'high' | 'medium' | 'low' | 'flag';
 export type ProposalField =
+  | 'river_mile_downstream'
   | 'description'
   | 'facilities'
   | 'road_access'
@@ -400,6 +401,9 @@ export const isUserText = (v: unknown) =>
   v === null || (typeof v === 'string' && v.trim().length > 0 && v.length <= 600 && !v.includes('—') && !RESEARCH_NOTE.test(v));
 
 const FIELD_RULES: Record<ProposalField, (v: unknown) => boolean> = {
+  // A curated river mile (some rivers' miles follow a published float chart,
+  // not the line geometry, so a geometry-derived mile can be corrected).
+  river_mile_downstream: (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000,
   description: isUserText,
   facilities: isUserText,
   road_access: isUserText,

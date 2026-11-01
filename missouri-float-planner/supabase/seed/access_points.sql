@@ -93,7 +93,11 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
     description = EXCLUDED.description,
     approved = EXCLUDED.approved;
 
--- Scotia Bridge Access
+-- Scotia Bridge Access: not an available access (owner check, 2026-11-01); the
+-- production row was deleted. The block stays because ACCESS_SLUG_RENAMES (and
+-- its migration) pins 'scotia-bridge-access' as a seeded slug, but it seeds the
+-- row unapproved so a re-seed never publishes it. Listed in
+-- ACCESS_SLUG_ABSENT_EXCEPTIONS.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
     description, amenities, parking_info, fee_required, approved
@@ -110,30 +114,12 @@ SELECT
     ARRAY['parking'],
     'Roadside parking near bridge',
     false,
-    true
+    false
 FROM rivers r WHERE r.slug = 'meramec'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
--- Steelville City Park
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, is_public, ownership,
-    description, amenities, parking_info, fee_required, approved
-)
-SELECT 
-    r.id,
-    'Steelville City Park',
-    'steelville-city-park',
-    ST_SetSRID(ST_MakePoint(-91.3421, 37.9678), 4326),
-    'park',
-    true,
-    'city',
-    'City park with paved ramp and good facilities. Popular shuttle pick-up point.',
-    ARRAY['parking', 'restrooms', 'boat_ramp', 'picnic'],
-    'Paved parking lot with trailer access',
-    false,
-    true
-FROM rivers r WHERE r.slug = 'meramec'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+-- Steelville City Park: removed 2026-11-01. The owner checked it and it is not
+-- an available access; the production row was deleted.
 
 -- Meramec State Park
 INSERT INTO access_points (
@@ -505,27 +491,11 @@ SELECT
 FROM rivers r WHERE r.slug = 'eleven-point'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
--- Turner Mill North — Mile 21.5
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, road_access, facilities,
-    fee_required, road_surface, parking_capacity, managing_agency,
-    official_site_url, river_mile_downstream, approved
-)
-SELECT
-    r.id, 'Turner Mill North', 'turner-mill-north',
-    ST_SetSRID(ST_MakePoint(-91.2700, 36.7690), 4326),
-    'access', ARRAY['access'], true, 'USFS',
-    'Left bank access at historic Turner Mill site. Day use only, no camping.',
-    ARRAY['parking', 'restrooms'],
-    'Small USFS gravel lot. ~8-10 vehicles.',
-    'Remote. From Winona, Hwy 19 south 11.5 mi, right on NF-3152 for 6 mi, right on NF-3190.',
-    'Day-use picnic area with vault toilet and boat launch. No camping. No water.',
-    false, ARRAY['gravel_maintained']::text[], '10', 'USFS',
-    'https://www.fs.usda.gov/r09/marktwain/recreation/turner-mill-north-river-access',
-    21.5, true
-FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+-- Turner Mill North: removed 2026-11-01. Production carries this access as
+-- 'turner-s-mill-and-spring-north', which took this row's facts; the duplicate
+-- 'turner-mill-north' was deleted and its URL redirects
+-- (src/lib/access-points/merged-slugs.ts). Seeding it again would bring the
+-- duplicate back as approved.
 
 -- McDowell Access — Mile 24.2
 INSERT INTO access_points (
@@ -701,6 +671,11 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
 -- ============================================
 
 -- 1. Charity Access (MDC) — Uppermost practical access
+-- Unapproved 2026-11-01 (owner's call). The Niangua's published mile index
+-- starts at the Hwy 32 bridge below Charity (Big John is mile 1.3), so Charity
+-- sits about 18 river miles before mile 0 and has no correct mile on that
+-- index; at 0.0 a Charity to Big John plan reads as about one mile instead of
+-- about 19. Seeded unapproved until the river's mile datum is settled.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
@@ -718,7 +693,7 @@ SELECT
     'Concrete boat ramp. No restrooms, no water, no camping allowed.',
     false, ARRAY['paved', 'gravel_maintained']::text[], '10', 'MDC',
     'https://mdc.mo.gov/discover-nature/places/charity-access',
-    0.0, true
+    0.0, false
 FROM rivers r WHERE r.slug = 'niangua'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
@@ -2008,7 +1983,10 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
     fee_notes = EXCLUDED.fee_notes,
     approved = EXCLUDED.approved;
 
--- Butts Low-Water Bridge — Mile 15.4
+-- Butts Low-Water Bridge: removed from production by the owner 2026-11-01. The
+-- block stays because ACCESS_SLUG_RENAMES (and its migration) pins
+-- 'butts-low-water-bridge' as a seeded slug, but it seeds the row unapproved so
+-- a re-seed never publishes it. Listed in ACCESS_SLUG_ABSENT_EXCEPTIONS.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
@@ -2033,7 +2011,7 @@ SELECT
     ARRAY['gravel_maintained']::text[],
     '10',
     15.4,
-    true,
+    false,
     '[{"name": "Bass River Resort", "type": "outfitter", "phone": "573-786-8517", "website": "https://bassresort.com", "distance": "1.5 miles", "notes": "Canoe/kayak/raft rentals, shuttle service for Huzzah, Courtois, and Meramec. Camping, cabins, horseback riding. Family-run 50+ years."}]'::jsonb
 FROM rivers r WHERE r.slug = 'huzzah'
 ON CONFLICT (river_id, slug) DO UPDATE SET
@@ -2092,11 +2070,11 @@ SELECT
     ARRAY['access', 'bridge'],
     true,
     'state',
-    'State highway bridge at mile 23.0. Major access point. Dry Creek enters from the left just above the bridge, fed by James Spring (flow exceeds 1 million gallons per day). Reliable water from here downstream. Most popular commercial float trip put-in.',
+    'State highway bridge. Dry Creek enters from the left just above the bridge, fed by James Spring (more than 1 million gallons a day), so water levels are reliable from here downstream. A private campground with river access is on the right before the bridge.',
     ARRAY['parking'],
     'Roadside parking near bridge. Space for approximately 10 vehicles.',
     'Paved State Highway 8. From Steelville, head east on Hwy 8 approximately 15 miles. From Leasburg/I-44, head south to Hwy 8 then west. Well-signed.',
-    'No public facilities at bridge. Private campground on right (upstream side).',
+    'No public facilities at the bridge. A private campground is next door on the right (upstream side); ask there about access and fees.',
     false,
     ARRAY['paved']::text[],
     '10',

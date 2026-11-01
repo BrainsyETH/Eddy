@@ -1,0 +1,1157 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.1477350004176,
+     36.79509899979619
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 119,
+    "river": "north-fork-white",
+    "place": "Spring Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 360",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 33,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 14 bridge (Twin Bridges) over North Fork → North Fork Recreation Area (Hammond)",
+    "gap_km": "7.9",
+    "notes": "",
+    "search": "\"Spring Creek\" North Fork River access",
+    "lat": "36.795099",
+    "lon": "-92.147735",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.795099,-92.147735",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10905095&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19265000015727,
+     36.887062999984984
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 116,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "Forest Rd 454",
+    "road_source": "Census roads",
+    "road_kind": "forest",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 12,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road",
+    "search": "\"Forest Rd 454\" North Fork River access",
+    "lat": "36.887063",
+    "lon": "-92.192650",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.887063,-92.192650",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3883923&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18362299964875,
+     36.707153000263055
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 100,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 368",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 31,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 368\" North Fork River access",
+    "lat": "36.707153",
+    "lon": "-92.183623",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.707153,-92.183623",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12970581&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18717000024304,
+     36.721409999794155
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 374",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 49,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 374\" North Fork River access",
+    "lat": "36.721410",
+    "lon": "-92.187170",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.721410,-92.187170",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11555025&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20330500038722,
+     36.68330399997634
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 90,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "River Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 29,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"River Rd\" North Fork River access",
+    "lat": "36.683304",
+    "lon": "-92.203305",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.683304,-92.203305",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5483780&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.192179999804,
+     36.70246000018536
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "Gunflint Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Gunflint Rd\" North Fork River access",
+    "lat": "36.702460",
+    "lon": "-92.192180",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.702460,-92.192180",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12975883&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.17104199977155,
+     37.023684999960324
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 83,
+    "river": "north-fork-white",
+    "place": "Hungry Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd Ee-160",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 80,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Hungry Creek\" North Fork River access",
+    "lat": "37.023685",
+    "lon": "-92.171042",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.023685,-92.171042",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13026974&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18273800009207,
+     37.02244600025883
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 83,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd Ee-160",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 82,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd Ee-160\" North Fork River access",
+    "lat": "37.022446",
+    "lon": "-92.182738",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.022446,-92.182738",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13026974&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19324900038197,
+     37.07978000028317
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "north-fork-white",
+    "place": "Panther Creek mouth",
+    "kind": "road loops to river",
+    "road": "Pleasant Hill Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Panther Creek\" North Fork River access",
+    "lat": "37.079780",
+    "lon": "-92.193249",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.079780,-92.193249",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7826594&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19415700040318,
+     36.906373999882234
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Forest Rd 454",
+    "road_source": "Census roads",
+    "road_kind": "forest",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 128,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road",
+    "search": "\"Forest Rd 454\" North Fork River access",
+    "lat": "36.906374",
+    "lon": "-92.194157",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.906374,-92.194157",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3883923&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.2326120002374,
+     37.119177999955426
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Hidden Valley Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 71,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Hidden Valley Dr\" North Fork River access",
+    "lat": "37.119178",
+    "lon": "-92.232612",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.119178,-92.232612",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10466667&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19460000009397,
+     36.69526999999688
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 74,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "McKee Village Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 77,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"McKee Village Rd\" North Fork River access",
+    "lat": "36.695270",
+    "lon": "-92.194600",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.695270,-92.194600",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10051926&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18767999988097,
+     36.70450999974819
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "Bluebird Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 89,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Bluebird Ln\" North Fork River access",
+    "lat": "36.704510",
+    "lon": "-92.187680",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.704510,-92.187680",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12195155&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18991199984998,
+     36.91202299965417
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 52,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.912023",
+    "lon": "-92.189912",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.912023,-92.189912",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10702414&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18305593711882,
+     36.95083476752563
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS 491 GOTT",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 2,
+    "to_water_m": 84,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "high-clearance Forest Service track",
+    "search": "\"FS 491 GOTT\" North Fork River access",
+    "lat": "36.950835",
+    "lon": "-92.183056",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.950835,-92.183056",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17422925&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19737000018831,
+     36.68950899973549
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 62,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.689509",
+    "lon": "-92.197370",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.689509,-92.197370",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14412330&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20891199962475,
+     36.649909999909255
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 63,
+    "river": "north-fork-white",
+    "place": "Spring Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 65,
+    "land": "not shown public",
+    "between": "Blair Bridge Access → Patrick Bridge Access",
+    "gap_km": "4.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Spring Creek\" North Fork River access",
+    "lat": "36.649910",
+    "lon": "-92.208912",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.649910,-92.208912",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13495787&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18618500022895,
+     37.030233000055595
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd Ee-160",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 150,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd Ee-160\" North Fork River access",
+    "lat": "37.030233",
+    "lon": "-92.186185",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.030233,-92.186185",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13026974&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18533699958388,
+     36.84395899995874
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 14-279",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 163,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Hebron Access (Steel Bridge) → Highway 14 bridge (Twin Bridges) over North Fork",
+    "gap_km": "9.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 14-279\" North Fork River access",
+    "lat": "36.843959",
+    "lon": "-92.185337",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.843959,-92.185337",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=157218&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.21595400003648,
+     37.11492100000644
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 86,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "37.114921",
+    "lon": "-92.215954",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.114921,-92.215954",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5056837&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20095200004438,
+     36.686102999914695
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "River Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 131,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"River Rd\" North Fork River access",
+    "lat": "36.686103",
+    "lon": "-92.200952",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.686103,-92.200952",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5483780&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.22414799996857,
+     36.66434500007925
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 55,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 75,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.664345",
+    "lon": "-92.224148",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.664345,-92.224148",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8386575&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20066199961617,
+     36.92735899972749
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 123,
+    "land": "not shown public",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.927359",
+    "lon": "-92.200662",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.927359,-92.200662",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13848680&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19101599968975,
+     36.69907499980546
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 42,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "Prv Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 173,
+    "land": "not shown public",
+    "between": "North Fork Recreation Area (Hammond) → Blair Bridge Access",
+    "gap_km": "16.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Prv Dr\" North Fork River access",
+    "lat": "36.699075",
+    "lon": "-92.191016",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.699075,-92.191016",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=500287&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18483199996882,
+     36.864319999738186
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 35,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "Forest Rd 738",
+    "road_source": "Census roads",
+    "road_kind": "forest",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 194,
+    "land": "not shown public",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Forest Rd 738\" North Fork River access",
+    "lat": "36.864320",
+    "lon": "-92.184832",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.864320,-92.184832",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4114196&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.21100999969946,
+     36.64258000012417
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 32,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 160,
+    "land": "not shown public",
+    "between": "Blair Bridge Access → Patrick Bridge Access",
+    "gap_km": "4.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.642580",
+    "lon": "-92.211010",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.642580,-92.211010",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8186450&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.15836299998506,
+     36.796067999725814
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 27,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 173,
+    "land": "not shown public",
+    "between": "Highway 14 bridge (Twin Bridges) over North Fork → North Fork Recreation Area (Hammond)",
+    "gap_km": "7.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.796068",
+    "lon": "-92.158363",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.796068,-92.158363",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12099772&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20310100017272,
+     36.93113100010648
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 19,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 198,
+    "land": "not shown public",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" North Fork River access",
+    "lat": "36.931131",
+    "lon": "-92.203101",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.931131,-92.203101",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13848680&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.195939176826,
+     36.91496079727531
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 15,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS 470 SAM WOOD HOLLOW",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 2,
+    "to_water_m": 181,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "high-clearance Forest Service track; land at the end or bank not shown public: check legality",
+    "search": "\"FS 470 SAM WOOD HOLLOW\" North Fork River access",
+    "lat": "36.914961",
+    "lon": "-92.195939",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.914961,-92.195939",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17418723&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18944708748687,
+     37.038513664388965
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "crosses river",
+    "road": "State Hwy Ee",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"State Hwy Ee\" North Fork River access",
+    "lat": "37.038514",
+    "lon": "-92.189447",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.038514,-92.189447",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3247113&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18741659030051,
+     36.88229681120683
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Co Rd 278",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Co Rd 278\" North Fork River access",
+    "lat": "36.882297",
+    "lon": "-92.187417",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.882297,-92.187417",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4776980&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20213374189234,
+     36.947310146485144
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "crosses river",
+    "road": "State Hwy E",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Highway 76 bridge (upper put-in) → Hebron Access (Steel Bridge)",
+    "gap_km": "31.0",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"State Hwy E\" North Fork River access",
+    "lat": "36.947310",
+    "lon": "-92.202134",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.947310,-92.202134",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5188205&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.19233479186256,
+     37.07161945469757
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Dogwood Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Dogwood Rd\" North Fork River access",
+    "lat": "37.071619",
+    "lon": "-92.192335",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.071619,-92.192335",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6972256&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.20860575882226,
+     37.09484439911791
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Pleasant Hill Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Pleasant Hill Rd\" North Fork River access",
+    "lat": "37.094844",
+    "lon": "-92.208606",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.094844,-92.208606",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7826594&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.14897319071862,
+     36.79853201668989
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "Spring Creek mouth",
+    "kind": "crosses river",
+    "road": "Co Rd 360",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Highway 14 bridge (Twin Bridges) over North Fork → North Fork Recreation Area (Hammond)",
+    "gap_km": "7.9",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Spring Creek\" North Fork River access",
+    "lat": "36.798532",
+    "lon": "-92.148973",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.798532,-92.148973",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10905095&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.18955578498615,
+     37.03451232778235
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "north-fork-white",
+    "place": "Parker Branch mouth",
+    "kind": "crosses river",
+    "road": "Co Rd Ee-160",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Highway 76 bridge (upper put-in)",
+    "gap_km": "20.0",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Parker Branch\" North Fork River access",
+    "lat": "37.034512",
+    "lon": "-92.189556",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.034512,-92.189556",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13026974&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

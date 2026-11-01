@@ -1,0 +1,3941 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.52570599986649,
+     37.35945900005928
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 115,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd Kk-359",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "",
+    "search": "\"Co Rd Kk-359\" Current River access",
+    "lat": "37.359459",
+    "lon": "-91.525706",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.359459,-91.525706",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2544279&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.05401699980169,
+     37.033283000230945
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 111,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd M-135",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 56,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "",
+    "search": "\"Co Rd M-135\" Current River access",
+    "lat": "37.033283",
+    "lon": "-91.054017",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.033283,-91.054017",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7008363&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.86070479003315,
+     36.65473419675546
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 107,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "FS 4819 DUNROVIN",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 3,
+    "to_water_m": 39,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Float Camp Recreation Area → T. L. Wright Memorial Access (Doniphan)",
+    "gap_km": "8.8",
+    "notes": "",
+    "search": "\"FS 4819 DUNROVIN\" Current River access",
+    "lat": "36.654734",
+    "lon": "-90.860705",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.654734,-90.860705",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17347403&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.45133799978845,
+     37.31480499975661
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 102,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 327",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 69,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "4WD trail",
+    "search": "\"Co Rd 327\" Current River access",
+    "lat": "37.314805",
+    "lon": "-91.451338",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.314805,-91.451338",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15060433&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.56101200038798,
+     37.381313999727055
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 101,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy K",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Flying W Access → Akers Ferry",
+    "gap_km": "7.5",
+    "notes": "",
+    "search": "\"State Hwy K\" Current River access",
+    "lat": "37.381314",
+    "lon": "-91.561012",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.381314,-91.561012",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15489898&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.98927399973368,
+     36.946979000272094
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 99,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy Z",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 92,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Big Spring → Big Tree",
+    "gap_km": "11.1",
+    "notes": "",
+    "search": "\"State Hwy Z\" Current River access",
+    "lat": "36.946979",
+    "lon": "-90.989274",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.946979,-90.989274",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=90049&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.90828900028968,
+     36.901605999867904
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 94,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd F-217",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 108,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Clubhouse → Hickory Landing",
+    "gap_km": "3.7",
+    "notes": "",
+    "search": "\"Co Rd F-217\" Current River access",
+    "lat": "36.901606",
+    "lon": "-90.908289",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.901606,-90.908289",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8677338&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.92928800040495,
+     36.75427799973724
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 92,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd C-9C",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 115,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "",
+    "search": "\"Co Rd C-9C\" Current River access",
+    "lat": "36.754278",
+    "lon": "-90.929288",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.754278,-90.929288",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13858019&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.05411800008403,
+     37.05224299996112
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 88,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 126",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 127,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "",
+    "search": "\"Co Rd 126\" Current River access",
+    "lat": "37.052243",
+    "lon": "-91.054118",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.052243,-91.054118",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9576518&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.45085099971674,
+     37.3183540001586
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 73,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 327",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 155,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "4WD trail",
+    "search": "\"Co Rd 327\" Current River access",
+    "lat": "37.318354",
+    "lon": "-91.450851",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.318354,-91.450851",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15060433&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.47735700040874,
+     37.34614500016911
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 68,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 357-B",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 187,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "",
+    "search": "\"Co Rd 357-B\" Current River access",
+    "lat": "37.346145",
+    "lon": "-91.477357",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.346145,-91.477357",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7448583&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.5343879996952,
+     37.3586940001162
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 105,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 1,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.358694",
+    "lon": "-91.534388",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.358694,-91.534388",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=952657&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.4728640001584,
+     37.319328999880774
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 105,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 1,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.319329",
+    "lon": "-91.472864",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.319329,-91.472864",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8161036&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.499779000206,
+     37.35876399981439
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 98,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 359",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 35,
+    "land": "not shown public",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 359\" Current River access",
+    "lat": "37.358764",
+    "lon": "-91.499779",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.358764,-91.499779",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1884242&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.89986400037891,
+     36.274430000277526
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 96,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 105",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 41,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 105\" Current River access",
+    "lat": "36.274430",
+    "lon": "-90.899864",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.274430,-90.899864",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5164040&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.22301499975605,
+     37.17854200032979
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 95,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 29,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Two Rivers → Powder Mill",
+    "gap_km": "11.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.178542",
+    "lon": "-91.223015",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.178542,-91.223015",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4561284&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.03046500022538,
+     37.01054100016407
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 107",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 48,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 107\" Current River access",
+    "lat": "37.010541",
+    "lon": "-91.030465",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.010541,-91.030465",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3096113&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.95580800044235,
+     36.937721000069956
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Brown Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 79,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Big Spring → Big Tree",
+    "gap_km": "11.1",
+    "notes": "local road of unknown status: may be private",
+    "search": "\"Brown Rd\" Current River access",
+    "lat": "36.937721",
+    "lon": "-90.955808",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.937721,-90.955808",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8641341&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.62793700019627,
+     37.43708699968204
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 33,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Baptist Camp → Cedargrove",
+    "gap_km": "9.7",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.437087",
+    "lon": "-91.627937",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.437087,-91.627937",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12157679&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.87793600032605,
+     36.27905200031438
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 105",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 49,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 105\" Current River access",
+    "lat": "36.279052",
+    "lon": "-90.877936",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.279052,-90.877936",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12885537&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.09895300035608,
+     37.11786000000995
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 90,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Log Yard Campground → Waymeyer",
+    "gap_km": "16.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.117860",
+    "lon": "-91.098953",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.117860,-91.098953",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=732648&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.92714199975136,
+     36.75872899997595
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 90,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Forest Rd 4887",
+    "road_source": "Census roads",
+    "road_kind": "forest",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 90,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "",
+    "search": "\"Forest Rd 4887\" Current River access",
+    "lat": "36.758729",
+    "lon": "-90.927142",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.758729,-90.927142",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8073963&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77326399978988,
+     36.4572080002285
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 90,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 100",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 60,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 100\" Current River access",
+    "lat": "36.457208",
+    "lon": "-90.773264",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.457208,-90.773264",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11174055&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.57403599995595,
+     37.38676500002597
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 89,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 48,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Flying W Access → Akers Ferry",
+    "gap_km": "7.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.386765",
+    "lon": "-91.574036",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.386765,-91.574036",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7334043&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.78296699961768,
+     36.49886200002736
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 88,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd E-4",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd E-4\" Current River access",
+    "lat": "36.498862",
+    "lon": "-90.782967",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.498862,-90.782967",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10092956&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.56319999997604,
+     37.375935999835654
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 88,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 52,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Flying W Access → Akers Ferry",
+    "gap_km": "7.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.375936",
+    "lon": "-91.563200",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.375936,-91.563200",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12194635&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.58734099973134,
+     37.39711800021182
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 87,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 54,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Flying W Access → Akers Ferry",
+    "gap_km": "7.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.397118",
+    "lon": "-91.587341",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.397118,-91.587341",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6249497&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.99034199958845,
+     36.95330400005394
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 87,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 53,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Big Spring → Big Tree",
+    "gap_km": "11.1",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.953304",
+    "lon": "-90.990342",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.953304,-90.990342",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9453568&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.84281899995044,
+     36.339534999903485
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 86,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Cox Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 42,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Cox Rd\" Current River access",
+    "lat": "36.339535",
+    "lon": "-90.842819",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.339535,-90.842819",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2826957&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.60652899982708,
+     37.41615600008196
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "current",
+    "place": "Big Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 59,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Cedargrove → Flying W Access",
+    "gap_km": "4.6",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"Big Creek\" Current River access",
+    "lat": "37.416156",
+    "lon": "-91.606529",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.416156,-91.606529",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4474453&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85531500033713,
+     36.305778999685955
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 84,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Holiday Trl",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 48,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Holiday Trl\" Current River access",
+    "lat": "36.305779",
+    "lon": "-90.855315",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.305779,-90.855315",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7422055&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.82921299987618,
+     36.545718000235475
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 83,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd U-4B",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 81,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd U-4B\" Current River access",
+    "lat": "36.545718",
+    "lon": "-90.829213",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.545718,-90.829213",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2699215&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.543913999971,
+     37.36651400029461
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 83,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.366514",
+    "lon": "-91.543914",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.366514,-91.543914",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4359932&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85764000019255,
+     36.652607000215184
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 83,
+    "river": "current",
+    "place": "Isaacs Creek mouth",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 67,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Float Camp Recreation Area → T. L. Wright Memorial Access (Doniphan)",
+    "gap_km": "8.8",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; unnamed road of unknown status: may be private",
+    "search": "\"Isaacs Creek\" Current River access",
+    "lat": "36.652607",
+    "lon": "-90.857640",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.652607,-90.857640",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13392524&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.80439000005549,
+     36.51691400021801
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 82,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Spring Bay Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 55,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Spring Bay Rd\" Current River access",
+    "lat": "36.516914",
+    "lon": "-90.804390",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.516914,-90.804390",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2557514&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.29380799965068,
+     37.19347300020348
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 72,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Broadfoot → Two Rivers",
+    "gap_km": "3.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.193473",
+    "lon": "-91.293808",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.193473,-91.293808",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3925783&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.80740299982408,
+     36.33914200022743
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Cox Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 56,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Cox Rd\" Current River access",
+    "lat": "36.339142",
+    "lon": "-90.807403",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.339142,-90.807403",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5770068&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.84477399990999,
+     36.64440899983216
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "current",
+    "place": "Bills Creek mouth",
+    "kind": "road end",
+    "road": "Co Rd Y-1",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "Float Camp Recreation Area → T. L. Wright Memorial Access (Doniphan)",
+    "gap_km": "8.8",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Bills Creek\" Current River access",
+    "lat": "36.644409",
+    "lon": "-90.844774",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.644409,-90.844774",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6788852&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.8520809997373,
+     36.626812000312405
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 81,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 160 W-1",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 86,
+    "land": "not shown public",
+    "between": "Float Camp Recreation Area → T. L. Wright Memorial Access (Doniphan)",
+    "gap_km": "8.8",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 160 W-1\" Current River access",
+    "lat": "36.626812",
+    "lon": "-90.852081",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.626812,-90.852081",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13449484&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.46613700028927,
+     37.346346000236714
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 80,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 74,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.346346",
+    "lon": "-91.466137",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.346346,-91.466137",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10106474&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.78076200031119,
+     36.3684170000797
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 80,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Hurst Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 60,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Hurst Rd\" Current River access",
+    "lat": "36.368417",
+    "lon": "-90.780762",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.368417,-90.780762",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13053320&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.12088800008165,
+     37.1088019997951
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Log Yard Campground → Waymeyer",
+    "gap_km": "16.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.108802",
+    "lon": "-91.120888",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.108802,-91.120888",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4175167&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77638600023673,
+     36.37038599998564
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 77,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Vacation Trl",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 68,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Vacation Trl\" Current River access",
+    "lat": "36.370386",
+    "lon": "-90.776386",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.370386,-90.776386",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9000750&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.05784899990303,
+     37.12126200006359
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 86,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Log Yard Campground → Waymeyer",
+    "gap_km": "16.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.121262",
+    "lon": "-91.057849",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.121262,-91.057849",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4810186&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.1501370002055,
+     37.141091999717354
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Roberts Field → Log Yard Campground",
+    "gap_km": "7.4",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.141092",
+    "lon": "-91.150137",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.141092,-91.150137",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7667687&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.83671999972,
+     36.340182999872226
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Pearl St",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 71,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Pearl St\" Current River access",
+    "lat": "36.340183",
+    "lon": "-90.836720",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.340183,-90.836720",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13684031&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.43599400038792,
+     37.32123800003333
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Cr 19D",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 76,
+    "land": "not shown public",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Cr 19D\" Current River access",
+    "lat": "37.321238",
+    "lon": "-91.435994",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.321238,-91.435994",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=400282&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.8262290004199,
+     36.342759000289035
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Cox Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 74,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Cox Rd\" Current River access",
+    "lat": "36.342759",
+    "lon": "-90.826229",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.342759,-90.826229",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2826957&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.93771599979046,
+     36.833779000085734
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 90,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Grubb Hollow → Gooseneck Campground",
+    "gap_km": "3.8",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.833779",
+    "lon": "-90.937716",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.833779,-90.937716",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3667521&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.16918200018611,
+     37.15304600033753
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 90,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Rocky Creek Conservation Area → Roberts Field",
+    "gap_km": "5.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.153046",
+    "lon": "-91.169182",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.153046,-91.169182",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7498902&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17076100040204,
+     37.15685500023577
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 90,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Rocky Creek Conservation Area → Roberts Field",
+    "gap_km": "5.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.156855",
+    "lon": "-91.170761",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.156855,-91.170761",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7498903&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.46521099982641,
+     37.33980700009013
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 91,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Akers Ferry → Pulltite",
+    "gap_km": "14.3",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.339807",
+    "lon": "-91.465211",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.339807,-91.465211",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11871569&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.57315100039929,
+     37.38910199993234
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 89,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Flying W Access → Akers Ferry",
+    "gap_km": "7.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.389102",
+    "lon": "-91.573151",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.389102,-91.573151",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13032919&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77479500032523,
+     36.46321599989761
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Current River Trl",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 76,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Current River Trl\" Current River access",
+    "lat": "36.463216",
+    "lon": "-90.774795",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.463216,-90.774795",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13533836&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.92239900015409,
+     36.74979499964911
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "current",
+    "place": "Little Barren Creek mouth",
+    "kind": "road end",
+    "road": "Co Rd C-9C",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 106,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Little Barren Creek\" Current River access",
+    "lat": "36.749795",
+    "lon": "-90.922399",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.749795,-90.922399",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13858019&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.02188200013084,
+     36.99945699983181
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 74,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Carter Co M 103",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 79,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Carter Co M 103\" Current River access",
+    "lat": "36.999457",
+    "lon": "-91.021882",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.999457,-91.021882",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1400849&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77350999983717,
+     36.47109200034938
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 74,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Osborne Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 78,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Osborne Rd\" Current River access",
+    "lat": "36.471092",
+    "lon": "-90.773510",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.471092,-90.773510",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15114905&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.01884300042299,
+     37.007887000260304
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 36,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.007887",
+    "lon": "-91.018843",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.007887,-91.018843",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8246156&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.9377330004072,
+     36.76186799992754
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 37,
+    "land": "not shown public",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.761868",
+    "lon": "-90.937733",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.761868,-90.937733",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15073578&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.02116499990535,
+     37.01171500004774
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Rich Bark Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 81,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Rich Bark Ln\" Current River access",
+    "lat": "37.011715",
+    "lon": "-91.021165",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.011715,-91.021165",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15645019&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.32493200026649,
+     37.21564300029864
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 98,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Jerktail Landing → Broadfoot",
+    "gap_km": "5.4",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.215643",
+    "lon": "-91.324932",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.215643,-91.324932",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=49128&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.09626699992732,
+     37.12072299978279
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 98,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Log Yard Campground → Waymeyer",
+    "gap_km": "16.2",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.120723",
+    "lon": "-91.096267",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.120723,-91.096267",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1336147&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.0412960001824,
+     37.02689999995116
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 132C",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 115,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 132C\" Current River access",
+    "lat": "37.026900",
+    "lon": "-91.041296",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.026900,-91.041296",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3809109&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.45947300016931,
+     37.3121710002666
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 327",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 100,
+    "land": "not shown public",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "4WD trail; land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 327\" Current River access",
+    "lat": "37.312171",
+    "lon": "-91.459473",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.312171,-91.459473",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5662064&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.80572400004904,
+     36.525266999862325
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "current",
+    "place": "Hurricane Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 39,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Hurricane Creek\" Current River access",
+    "lat": "36.525267",
+    "lon": "-90.805724",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.525267,-90.805724",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7488979&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85936300034854,
+     36.30066499994885
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 72,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Holiday Trl",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Holiday Trl\" Current River access",
+    "lat": "36.300665",
+    "lon": "-90.859363",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.300665,-90.859363",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11218619&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.854150000398,
+     36.58070199980391
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd U-1B",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 117,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd U-1B\" Current River access",
+    "lat": "36.580702",
+    "lon": "-90.854150",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.580702,-90.854150",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4149437&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.03574699977288,
+     37.023481999699655
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "current",
+    "place": "House Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd M-133",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 118,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"House Creek\" Current River access",
+    "lat": "37.023482",
+    "lon": "-91.035747",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.023482,-91.035747",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7005607&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.76716000043487,
+     36.43466799996633
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 101",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 118,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 101\" Current River access",
+    "lat": "36.434668",
+    "lon": "-90.767160",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.434668,-90.767160",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13244563&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.87407200043766,
+     36.27703500003205
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.277035",
+    "lon": "-90.874072",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.277035,-90.874072",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5346143&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.79656699984416,
+     36.49439000021089
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Legate Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 92,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Legate Rd\" Current River access",
+    "lat": "36.494390",
+    "lon": "-90.796567",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.494390,-90.796567",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15521972&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.87599899990983,
+     36.68982100023264
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 68,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 51,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Compton Recreation Area → Deer Leap Recreation Area",
+    "gap_km": "8.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.689821",
+    "lon": "-90.875999",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.689821,-90.875999",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8823918&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.81102200038839,
+     36.3373549999586
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 53,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.337355",
+    "lon": "-90.811022",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.337355,-90.811022",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14581947&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.83009300030828,
+     36.3414300000259
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 66,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Cox Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 101,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Cox Rd\" Current River access",
+    "lat": "36.341430",
+    "lon": "-90.830093",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.341430,-90.830093",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2826957&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.76409200041469,
+     36.40558699968988
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 65,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 60,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.405587",
+    "lon": "-90.764092",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.405587,-90.764092",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8441873&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.92163800044598,
+     36.92878700026079
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 209-A",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 137,
+    "land": "not shown public",
+    "between": "Big Spring → Big Tree",
+    "gap_km": "11.1",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 209-A\" Current River access",
+    "lat": "36.928787",
+    "lon": "-90.921638",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.928787,-90.921638",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5622578&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.9064949999886,
+     36.25390399967069
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 63,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.253904",
+    "lon": "-90.906495",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.253904,-90.906495",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15373481&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.94510510269919,
+     36.77980473215109
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 63,
+    "river": "current",
+    "place": "Big Barren Creek mouth",
+    "kind": "road end",
+    "road": "FS 4761 UNKNOWN",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 2,
+    "to_water_m": 95,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "high-clearance Forest Service track",
+    "search": "\"Big Barren Creek\" Current River access",
+    "lat": "36.779805",
+    "lon": "-90.945105",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.779805,-90.945105",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17421968&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.94173200001481,
+     36.78394399966392
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 69,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.783944",
+    "lon": "-90.941732",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.783944,-90.941732",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7222772&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.48729000039033,
+     37.331774999723905
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 62,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 128,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.331775",
+    "lon": "-91.487290",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.331775,-91.487290",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12455053&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.14231499981909,
+     37.14216599986881
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 61,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 73,
+    "land": "not shown public",
+    "between": "Roberts Field → Log Yard Campground",
+    "gap_km": "7.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.142166",
+    "lon": "-91.142315",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.142166,-91.142315",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2154160&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.32019499961869,
+     37.20840200024225
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 61,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 72,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Jerktail Landing → Broadfoot",
+    "gap_km": "5.4",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.208402",
+    "lon": "-91.320195",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.208402,-91.320195",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13476667&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.81384400036129,
+     36.5174689999797
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "current",
+    "place": "Davis Cutoff mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 76,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Davis Cutoff\" Current River access",
+    "lat": "36.517469",
+    "lon": "-90.813844",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.517469,-90.813844",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1336543&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.8524260004171,
+     36.566273000318866
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Violet Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 119,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Violet Ln\" Current River access",
+    "lat": "36.566273",
+    "lon": "-90.852426",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.566273,-90.852426",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10765712&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.91840200019632,
+     36.72497200024203
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 59,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 79,
+    "land": "not shown public",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.724972",
+    "lon": "-90.918402",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.724972,-90.918402",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1461702&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.88633500029754,
+     36.273565999807
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 59,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 78,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.273566",
+    "lon": "-90.886335",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.273566,-90.886335",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2340943&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.02984500008425,
+     37.01620499973709
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 59,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 79,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.016205",
+    "lon": "-91.029845",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.016205,-91.029845",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15941293&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.26237299958859,
+     37.184088000279836
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 58,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 142,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Two Rivers → Powder Mill",
+    "gap_km": "11.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.184088",
+    "lon": "-91.262373",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.184088,-91.262373",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13813299&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.01820300019041,
+     37.00414000020084
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 57,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Watercress Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 129,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Watercress Rd\" Current River access",
+    "lat": "37.004140",
+    "lon": "-91.018203",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.004140,-91.018203",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3437171&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85977400025227,
+     36.60338699976405
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 57,
+    "river": "current",
+    "place": "Briar Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 83,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Briar Creek\" Current River access",
+    "lat": "36.603387",
+    "lon": "-90.859774",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.603387,-90.859774",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12655756&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.8887480000165,
+     36.27027800027457
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 88,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.270278",
+    "lon": "-90.888748",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.270278,-90.888748",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2340943&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.89200600000748,
+     36.2737329996526
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 105",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 163,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 105\" Current River access",
+    "lat": "36.273733",
+    "lon": "-90.892006",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.273733,-90.892006",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5164040&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.86016900026249,
+     36.29804000010753
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "not shown public",
+    "between": "Johnston's Eddy Boat Ramp → (river end)",
+    "gap_km": "29.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.298040",
+    "lon": "-90.860169",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.298040,-90.860169",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5382683&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85760300038264,
+     36.575162000110815
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 56,
+    "river": "current",
+    "place": "McKinney Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 73,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"McKinney Creek\" Current River access",
+    "lat": "36.575162",
+    "lon": "-90.857603",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.575162,-90.857603",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8376602&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.88582999978416,
+     36.699572999744625
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 55,
+    "river": "current",
+    "place": "Sugar Camp Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 89,
+    "land": "not shown public",
+    "between": "Compton Recreation Area → Deer Leap Recreation Area",
+    "gap_km": "8.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Sugar Camp Creek\" Current River access",
+    "lat": "36.699573",
+    "lon": "-90.885830",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.699573,-90.885830",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10789383&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.84696099967317,
+     36.63790900033597
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 55,
+    "river": "current",
+    "place": "Bills Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 89,
+    "land": "not shown public",
+    "between": "Float Camp Recreation Area → T. L. Wright Memorial Access (Doniphan)",
+    "gap_km": "8.8",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Bills Creek\" Current River access",
+    "lat": "36.637909",
+    "lon": "-90.846961",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.637909,-90.846961",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11425516&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.24318299984301,
+     37.18077799970601
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 154,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Two Rivers → Powder Mill",
+    "gap_km": "11.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.180778",
+    "lon": "-91.243183",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.180778,-91.243183",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9319585&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.1573960003522,
+     37.13263000016423
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 152,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Roberts Field → Log Yard Campground",
+    "gap_km": "7.4",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.132630",
+    "lon": "-91.157396",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.132630,-91.157396",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10101161&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.46546799974435,
+     37.31401400033949
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 98,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Pulltite → Sinking Creek Campground",
+    "gap_km": "12.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.314014",
+    "lon": "-91.465468",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.314014,-91.465468",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7253774&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85114400030209,
+     36.59521499975814
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 98,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.595215",
+    "lon": "-90.851144",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.595215,-90.851144",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10877386&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.81558800043366,
+     36.543036999818895
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 100,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.543037",
+    "lon": "-90.815588",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.543037,-90.815588",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14100904&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85509199985606,
+     36.6069929998844
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 52,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy 21",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 173,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"State Hwy 21\" Current River access",
+    "lat": "36.606993",
+    "lon": "-90.855092",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.606993,-90.855092",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=149877&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.98082799990652,
+     36.94436599964141
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 51,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Carter Co Z 204",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 148,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Big Spring → Big Tree",
+    "gap_km": "11.1",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Carter Co Z 204\" Current River access",
+    "lat": "36.944366",
+    "lon": "-90.980828",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.944366,-90.980828",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12358320&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.21827299998371,
+     37.17536999964898
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 50,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 166,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Two Rivers → Powder Mill",
+    "gap_km": "11.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.175370",
+    "lon": "-91.218273",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.175370,-91.218273",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12523344&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.84650499956358,
+     36.62412299993184
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 49,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Riverway Dr",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 153,
+    "land": "Current River Purchase Unit (USFS)",
+    "between": "Float Camp Recreation Area → T. L. Wright Memorial Access (Doniphan)",
+    "gap_km": "8.8",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Riverway Dr\" Current River access",
+    "lat": "36.624123",
+    "lon": "-90.846505",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.624123,-90.846505",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=647514&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77990699999344,
+     36.496153000304226
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 49,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 109,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.496153",
+    "lon": "-90.779907",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.496153,-90.779907",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=999706&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06727899991937,
+     37.13016600008421
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 49,
+    "river": "current",
+    "place": "Paint Rock Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 107,
+    "land": "not shown public",
+    "between": "Log Yard Campground → Waymeyer",
+    "gap_km": "16.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Paint Rock Creek\" Current River access",
+    "lat": "37.130166",
+    "lon": "-91.067279",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.130166,-91.067279",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4956252&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77693500023273,
+     36.45496799989498
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 48,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Swift Water Trl",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 156,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Swift Water Trl\" Current River access",
+    "lat": "36.454968",
+    "lon": "-90.776935",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.454968,-90.776935",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15365924&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85535600034501,
+     36.56864600011669
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 114,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.568646",
+    "lon": "-90.855356",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.568646,-90.855356",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=339638&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.03305700004448,
+     37.02115699969981
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "current",
+    "place": "House Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 113,
+    "land": "not shown public",
+    "between": "Waymeyer → Van Buren Riverfront Park",
+    "gap_km": "11.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"House Creek\" Current River access",
+    "lat": "37.021157",
+    "lon": "-91.033057",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.021157,-91.033057",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4324119&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.64600300001058,
+     37.42327799965888
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 47,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 100,
+    "land": "not shown public",
+    "between": "Baptist Camp → Cedargrove",
+    "gap_km": "9.7",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.423278",
+    "lon": "-91.646003",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.423278,-91.646003",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6058469&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.94140499977667,
+     36.78757300017447
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 46,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 118,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.787573",
+    "lon": "-90.941405",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.787573,-90.941405",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11515770&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.93198399998114,
+     36.85841500019542
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 46,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 116,
+    "land": "not shown public",
+    "between": "Catarac Landing → Grubb Hollow",
+    "gap_km": "6.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.858415",
+    "lon": "-90.931984",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.858415,-90.931984",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14547947&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.30730599976991,
+     37.253280000075534
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 167,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Williams Landing → Bee Bluff",
+    "gap_km": "5.5",
+    "notes": "4WD trail; unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.253280",
+    "lon": "-91.307306",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.253280,-91.307306",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10397465&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.91597699988347,
+     36.74306800001755
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 41,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 131,
+    "land": "not shown public",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.743068",
+    "lon": "-90.915977",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.743068,-90.915977",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2990719&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.61370400030822,
+     37.43399200023605
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 39,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 137,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Baptist Camp → Cedargrove",
+    "gap_km": "9.7",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.433992",
+    "lon": "-91.613704",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.433992,-91.613704",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1872237&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.91832000018057,
+     36.74689399990868
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 37,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 128,
+    "land": "not shown public",
+    "between": "Bay Nothing Boat Ramp → Compton Recreation Area",
+    "gap_km": "11.1",
+    "notes": "4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.746894",
+    "lon": "-90.918320",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.746894,-90.918320",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8105484&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.78036599957775,
+     36.44081399968846
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 37,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "Elmont Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 188,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Elmont Rd\" Current River access",
+    "lat": "36.440814",
+    "lon": "-90.780366",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.440814,-90.780366",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13734795&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.85510899957448,
+     36.597720999673925
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 33,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 156,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.597721",
+    "lon": "-90.855109",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.597721,-90.855109",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13030708&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.23734499972848,
+     37.17656799964888
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 29,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 168,
+    "land": "not shown public",
+    "between": "Two Rivers → Powder Mill",
+    "gap_km": "11.0",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.176568",
+    "lon": "-91.237345",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.176568,-91.237345",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9319585&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.77986000013776,
+     36.43128799981595
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 27,
+    "river": "current",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 173,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.431288",
+    "lon": "-90.779860",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.431288,-90.779860",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14191082&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -90.75916099959817,
+     36.40470399987311
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 20,
+    "river": "current",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 196,
+    "land": "not shown public",
+    "between": "T. L. Wright Memorial Access (Doniphan) → Johnston's Eddy Boat Ramp",
+    "gap_km": "47.5",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "36.404704",
+    "lon": "-90.759161",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.404704,-90.759161",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14048499&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.61510519428215,
+     37.42775406737769
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "current",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Ozark National Scenic Riverway (NPS)",
+    "between": "Baptist Camp → Cedargrove",
+    "gap_km": "9.7",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Current River access",
+    "lat": "37.427754",
+    "lon": "-91.615105",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.427754,-91.615105",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12157679&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

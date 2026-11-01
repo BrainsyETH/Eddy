@@ -1,0 +1,773 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.05970799960313,
+     37.798442999923566
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 125,
+    "river": "courtois",
+    "place": "Bailey Branch mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 664",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 15,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "",
+    "search": "\"Bailey Branch\" Courtois Creek access",
+    "lat": "37.798443",
+    "lon": "-91.059708",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.798443,-91.059708",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3810637&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06371719111442,
+     37.88157985306453
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 62,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "FS 2514 TIMBER LANE",
+    "road_source": "Forest Service (MVUM)",
+    "road_kind": "mvum",
+    "four_wd": "",
+    "usfs_maint_level": 3,
+    "to_water_m": 173,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Brazil Low-Water Bridge (CR 657) → Highway 8 Bridge",
+    "gap_km": "12.8",
+    "notes": "",
+    "search": "\"FS 2514 TIMBER LANE\" Courtois Creek access",
+    "lat": "37.881580",
+    "lon": "-91.063717",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.881580,-91.063717",
+    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17411490&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.10471600012752,
+     37.92888600019169
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 99,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "Berryman Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 64,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; local road of unknown status: may be private",
+    "search": "\"Berryman Rd\" Courtois Creek access",
+    "lat": "37.928886",
+    "lon": "-91.104716",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.928886,-91.104716",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14978523&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.05815400039985,
+     37.8770360001523
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 98,
+    "river": "courtois",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 21,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Brazil Low-Water Bridge (CR 657) → Highway 8 Bridge",
+    "gap_km": "12.8",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.877036",
+    "lon": "-91.058154",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.877036,-91.058154",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3096132&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.08657499997015,
+     37.892528999998234
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 93,
+    "river": "courtois",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 602",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 50,
+    "land": "not shown public",
+    "between": "Brazil Low-Water Bridge (CR 657) → Highway 8 Bridge",
+    "gap_km": "12.8",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 602\" Courtois Creek access",
+    "lat": "37.892529",
+    "lon": "-91.086575",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.892529,-91.086575",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9795300&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.10081000040636,
+     37.92813999972
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 78,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "Ewing Trce",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 65,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Ewing Trce\" Courtois Creek access",
+    "lat": "37.928140",
+    "lon": "-91.100810",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.928140,-91.100810",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15358532&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.13048999962712,
+     37.9408400002539
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "Blue Bird Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 73,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Blue Bird Ln\" Courtois Creek access",
+    "lat": "37.940840",
+    "lon": "-91.130490",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.940840,-91.130490",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7394360&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.17811799955972,
+     37.99394299968346
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 27,
+    "land": "not shown public",
+    "between": "Bass River Resort → Huzzah Conservation Area (Courtois Access)",
+    "gap_km": "8.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.993943",
+    "lon": "-91.178118",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.993943,-91.178118",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13545651&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.14912000040437,
+     37.97214999987266
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 75,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 31,
+    "land": "not shown public",
+    "between": "Blunt Low-Water Bridge (CR 544) → Bass River Resort",
+    "gap_km": "7.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.972150",
+    "lon": "-91.149120",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.972150,-91.149120",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1847499&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06436400006007,
+     37.75557699988929
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 42,
+    "land": "not shown public",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.755577",
+    "lon": "-91.064364",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.755577,-91.064364",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14066556&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06398999996625,
+     37.7877320002085
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 46,
+    "land": "not shown public",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.787732",
+    "lon": "-91.063990",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.787732,-91.063990",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13174651&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06711200041312,
+     37.88787700029219
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 54,
+    "land": "not shown public",
+    "between": "Brazil Low-Water Bridge (CR 657) → Highway 8 Bridge",
+    "gap_km": "12.8",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.887877",
+    "lon": "-91.067112",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.887877,-91.067112",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3165892&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06338400006885,
+     37.83288400013908
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 64,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 63,
+    "land": "not shown public",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.832884",
+    "lon": "-91.063384",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.832884,-91.063384",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3049465&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.18349899973975,
+     38.00396300010791
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 60,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 74,
+    "land": "not shown public",
+    "between": "Bass River Resort → Huzzah Conservation Area (Courtois Access)",
+    "gap_km": "8.2",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "38.003963",
+    "lon": "-91.183499",
+    "map": "https://www.google.com/maps/search/?api=1&query=38.003963,-91.183499",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9519416&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06696400027509,
+     37.779094000155105
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 59,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 79,
+    "land": "not shown public",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.779094",
+    "lon": "-91.066964",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.779094,-91.066964",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14064824&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06039399986648,
+     37.823524000249456
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 58,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 80,
+    "land": "not shown public",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.823524",
+    "lon": "-91.060394",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.823524,-91.060394",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4809796&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.12082000030958,
+     37.944259999844434
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 54,
+    "river": "courtois",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 92,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.944260",
+    "lon": "-91.120820",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.944260,-91.120820",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1624182&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.15793000027959,
+     37.970069999650185
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 43,
+    "river": "courtois",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 126,
+    "land": "not shown public",
+    "between": "Blunt Low-Water Bridge (CR 544) → Bass River Resort",
+    "gap_km": "7.1",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.970070",
+    "lon": "-91.157930",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.970070,-91.157930",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11904373&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.12070999980641,
+     37.93910999984031
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 38,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "Kings Ln",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 185,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Kings Ln\" Courtois Creek access",
+    "lat": "37.939110",
+    "lon": "-91.120710",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.939110,-91.120710",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6298378&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.13161000025873,
+     37.949599999712596
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 36,
+    "river": "courtois",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Blunt Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 193,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Blunt Rd\" Courtois Creek access",
+    "lat": "37.949600",
+    "lon": "-91.131610",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.949600,-91.131610",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8710307&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.07095200001204,
+     37.88281899991701
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 24,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 184,
+    "land": "Mark Twain National Forest (USFS)",
+    "between": "Brazil Low-Water Bridge (CR 657) → Highway 8 Bridge",
+    "gap_km": "12.8",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.882819",
+    "lon": "-91.070952",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.882819,-91.070952",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3941798&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.12396000029979,
+     37.936520000290265
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 20,
+    "river": "courtois",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 196,
+    "land": "not shown public",
+    "between": "Highway 8 Bridge → Blunt Low-Water Bridge (CR 544)",
+    "gap_km": "8.3",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Courtois Creek access",
+    "lat": "37.936520",
+    "lon": "-91.123960",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.936520,-91.123960",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13558800&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.06195444023913,
+     37.791676722060444
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "courtois",
+    "place": "Cub Creek mouth",
+    "kind": "crosses river",
+    "road": "Co Rd 664",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Brazil Low-Water Bridge (CR 657)",
+    "gap_km": "11.6",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Cub Creek\" Courtois Creek access",
+    "lat": "37.791677",
+    "lon": "-91.061954",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.791677,-91.061954",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3810637&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -91.0829930185447,
+     37.890469895136754
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "courtois",
+    "place": "",
+    "kind": "crosses river",
+    "road": "Hanson Farm Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "Brazil Low-Water Bridge (CR 657) → Highway 8 Bridge",
+    "gap_km": "12.8",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Hanson Farm Rd\" Courtois Creek access",
+    "lat": "37.890470",
+    "lon": "-91.082993",
+    "map": "https://www.google.com/maps/search/?api=1&query=37.890470,-91.082993",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8032076&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

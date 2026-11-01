@@ -1,0 +1,49 @@
+[
+ {
+  "name": "Black River Bottoms Access",
+  "slug": "black-river-bottoms-access",
+  "kind": "access",
+  "roles": [
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 28.96,
+  "lat": 37.271721,
+  "lon": -90.778064,
+  "is_public": true,
+  "ownership": "USACE",
+  "managing_agency": "COE",
+  "description": "Primitive access in the Black River Bottoms, Corps of Engineers land at the upper end of Clearwater Lake.",
+  "road_access": "Reynolds County Road 464 through the Black River Bottoms. Dirt and sand roads; high clearance recommended.",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities.",
+  "confidence": "medium (owner-approved on imagery 2026-11-01)",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8",
+   "https://www.onxmaps.com/offroad/dirt-bike-trails-near-me/annapolis-mo"
+  ]
+ },
+ {
+  "name": "Hendrickson Boat Launch",
+  "slug": "hendrickson-boat-launch",
+  "kind": "boat_ramp",
+  "roles": [
+   "boat_ramp",
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 70.68,
+  "lat": 36.90278,
+  "lon": -90.4743,
+  "is_public": true,
+  "ownership": "USFS",
+  "managing_agency": "USFS",
+  "description": "Forest Service boat launch on the Black River near Hendrickson, on Mark Twain National Forest land, between Hammer and Hilliard.",
+  "road_access": "Forest Road 3046, paved and open to passenger cars all year.",
+  "facilities": "Boat launch.",
+  "confidence": "medium (owner-placed pin 2026-11-01; Forest Service road named Hendrickson Boat Launch)",
+  "source_urls": [
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1"
+  ]
+ }
+]

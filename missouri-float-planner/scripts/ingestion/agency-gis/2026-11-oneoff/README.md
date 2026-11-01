@@ -285,6 +285,11 @@ permission: none of these values says a launch is open.
 
 ## Missing public-land access finder
 
+> **Superseded by v2** ([`../../finder-2026-11/README.md`](../../finder-2026-11/README.md)).
+> This v1 list read only Forest Service roads. Its Boom Hole pick was wrong;
+> the real access nearby, Long Hollow, is on a county road. Kept as the record
+> of the first pass.
+
 `finder.csv` / `finder.geojson`, from
 `scripts/ingestion/propose-public-land-access.ts` (read-only). For Eleven Point
 and Big Piney, it lists places that meet three conditions:
