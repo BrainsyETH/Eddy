@@ -1,0 +1,50 @@
+[
+ {
+  "name": "County Road 79 Access",
+  "slug": "county-road-79",
+  "expected_mile": 26.23,
+  "lat": 36.05501,
+  "lon": -93.17776,
+  "description": "Access on the Buffalo National River between Erbie and Ozark, reached on County Road 79.",
+  "road_access": "County Road 79.",
+  "parking_info": "No developed parking.",
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "facilities": "No facilities.",
+  "confidence": "medium (owner-placed pin, approved on imagery 2026-11-01)",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
+ },
+ {
+  "name": "County Road 252 Access",
+  "slug": "county-road-252",
+  "expected_mile": 63.79,
+  "lat": 35.962357,
+  "lon": -92.823554,
+  "description": "Primitive access on the Buffalo National River at the end of County Road 252, between Woolum and Baker Ford.",
+  "road_access": "County Road 252. A 4x4 is likely required.",
+  "parking_info": "Limited parking.",
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "facilities": "No facilities.",
+  "confidence": "medium (owner-placed pin, approved on imagery 2026-11-01)",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
+ }
+]
