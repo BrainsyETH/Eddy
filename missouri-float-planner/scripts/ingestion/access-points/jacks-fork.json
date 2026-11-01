@@ -21,5 +21,34 @@
   "source_urls": [
    "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
   ]
+ },
+ {
+  "name": "Circle B Campground & Resort",
+  "slug": "circle-b-campground",
+  "kind": "access",
+  "roles": [
+   "access",
+   "campground",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 36.66,
+  "lat": 37.158735,
+  "lon": -91.365888,
+  "is_public": false,
+  "ownership": "private",
+  "managing_agency": "Private",
+  "official_site_url": "https://circlebcampground.com/",
+  "description": "Private riverfront campground and resort on the Jacks Fork in Eminence, in a bend about 0.7 river miles above Eminence City Access. The river runs past a large gravel bar along the campground. Cabins, tent and RV camping, canoe rentals, a store and showers.",
+  "road_access": "18823 Circle B Road, Eminence, MO 65466. Through the campground to the gravel bar.",
+  "parking_info": "Campground parking.",
+  "facilities": "Air-conditioned cabins, tent camping, full-hookup RV sites, canoe and kayak rentals with shuttle, store, showers and laundry. Gravel bar on the river.",
+  "fee_required": true,
+  "fee_notes": "Private campground: camping, cabin and rental fees apply. If you are not a guest, call Circle B at 573-226-3618 before launching or parking and ask what it costs.",
+  "confidence": "medium (owner-requested 2026-11-01; pin on the campground's gravel bar from imagery)",
+  "source_urls": [
+   "https://circlebcampground.com/",
+   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer"
+  ]
  }
 ]
