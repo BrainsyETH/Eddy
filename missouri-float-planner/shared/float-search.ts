@@ -155,7 +155,153 @@ export interface FloatSearchOption extends DurationChoice {
   driveMinutes?: number | null;
   /** Short facts that matched or describe the route, e.g. "Camping". */
   highlights?: string[];
+  /** Structured cautions for display; `cautions` keeps the full sentences for older clients. */
+  cautionItems?: FloatCaution[];
+  /** What each end offers. Absent on older payloads. */
+  endpointFacts?: { putIn: FloatEndpointFacts; takeOut: FloatEndpointFacts };
+  /** Boat-rental and shuttle businesses on this river, most relevant to this float first. */
+  outfitters?: FloatOutfitter[];
+  /** What lies strictly between the put-in and the take-out, in river order. */
+  along?: FloatStop[];
 }
+
+export type FloatFacility = 'camping' | 'restrooms' | 'parking';
+export interface FloatEndpointFacts {
+  facilities: FloatFacility[];
+  /** null = not recorded. */
+  feeRequired: boolean | null;
+}
+
+/**
+ * Where a caution applies, so a regional notice never reads as a confirmed
+ * problem on the float:
+ *   route     recorded on the water between the ends (hazard, portage)
+ *   endpoint  at the put-in or take-out (launch below / land above)
+ *   area      a park or regional notice not matched to this stretch
+ *   check     something Eddy could not verify (alert sources, forecast)
+ */
+export type FloatCautionScope = 'route' | 'endpoint' | 'area' | 'check';
+export interface FloatCaution {
+  scope: FloatCautionScope;
+  /** A short, complete phrase for one line: "Low dam: portage required". */
+  summary: string;
+  /** The full sentence, for route details. */
+  detail: string;
+}
+export const FLOAT_CAUTION_LABELS: Record<FloatCautionScope, string> = {
+  route: 'On this float',
+  endpoint: 'At an end',
+  area: 'Area notice',
+  check: 'Verify',
+};
+const CAUTION_ORDER: FloatCautionScope[] = ['route', 'endpoint', 'check', 'area'];
+/** Most specific first: something confirmed on the float outranks a park-wide notice. */
+export function sortFloatCautions(items: FloatCaution[]) {
+  return [...items].sort((a, b) => CAUTION_ORDER.indexOf(a.scope) - CAUTION_ORDER.indexOf(b.scope));
+}
+
+/** A floating-relevant offering: a boat rental for some vessel, or a shuttle. */
+export type FloatOutfitterOffer = 'shuttle' | 'canoe' | 'kayak' | 'raft' | 'tube';
+/**
+ * How the business relates to this float:
+ *   run      it lists a run from this put-in to this take-out
+ *   stretch  it lists a run that starts at or above this put-in and ends at or below this take-out
+ *   river    it rents or shuttles on this river; this float is not among its listed runs
+ */
+export type FloatOutfitterMatch = 'run' | 'stretch' | 'river';
+export interface FloatOutfitter {
+  id: string;
+  name: string;
+  offers: FloatOutfitterOffer[];
+  website: string | null;
+  phone: string | null;
+  match: FloatOutfitterMatch;
+}
+export const FLOAT_OUTFITTER_MATCH_LABELS: Record<FloatOutfitterMatch, string> = {
+  run: 'Lists this float',
+  stretch: 'Lists a run covering this float',
+  river: 'Serves this river',
+};
+export type FloatStopKind = 'access' | 'campground' | 'spring' | 'cave' | 'sight' | 'hazard' | 'portage';
+export interface FloatStop {
+  kind: FloatStopKind;
+  name: string;
+  mile: number;
+  /** Accesses and campgrounds only. A private stop is never counted as a place to get off. */
+  isPublic?: boolean | null;
+}
+
+export const FLOAT_FACILITY_LABELS: Record<FloatFacility, string> = {
+  camping: 'Camping',
+  restrooms: 'Restrooms',
+  parking: 'Parking',
+};
+export const FLOAT_OFFER_LABELS: Record<FloatOutfitterOffer, string> = {
+  shuttle: 'Shuttle',
+  canoe: 'Canoes',
+  kayak: 'Kayaks',
+  raft: 'Rafts',
+  tube: 'Tubes',
+};
+/** One business's own services, in two words: "Shuttle · Rentals", "Rentals", "Shuttle". */
+export function outfitterServiceLabel(offers: FloatOutfitterOffer[]) {
+  return [offers.includes('shuttle') && 'Shuttle', offers.some(offer => offer !== 'shuttle') && 'Rentals'].filter(Boolean).join(' · ');
+}
+
+export const FLOAT_STOP_LABELS: Record<FloatStopKind, string> = {
+  access: 'Access',
+  campground: 'Campground',
+  spring: 'Spring',
+  cave: 'Cave',
+  sight: 'Point of interest',
+  hazard: 'Hazard',
+  portage: 'Portage',
+};
+
+/** Which end has a facility: "at put-in", "at take-out", "at both ends", or null. */
+export function facilityWhere(o: Pick<FloatSearchOption, 'endpointFacts'>, facility: FloatFacility) {
+  const put = o.endpointFacts?.putIn.facilities.includes(facility) ?? false;
+  const take = o.endpointFacts?.takeOut.facilities.includes(facility) ?? false;
+  return put && take ? 'at both ends' : put ? 'at put-in' : take ? 'at take-out' : null;
+}
+
+export type FloatHighlightKind = 'outfitter' | 'camping' | 'restrooms' | 'spring' | 'sight' | 'access';
+export interface FloatHighlight { kind: FloatHighlightKind; label: string }
+
+/**
+ * At most two short facts that tell floats apart, each a visible phrase (not
+ * an icon to decode). A facility the search filtered for comes first.
+ */
+export function floatCardHighlights(o: FloatSearchOption, filters?: FloatSearchFilters, limit = 2): FloatHighlight[] {
+  const out: FloatHighlight[] = [];
+  const listed = o.outfitters?.find(outfitter => outfitter.match !== 'river');
+  if (listed) out.push({ kind: 'outfitter', label: `${listed.name}: ${listed.match === 'run' ? 'lists this float' : 'runs cover it'}` });
+  const camping = facilityWhere(o, 'camping');
+  const restrooms = facilityWhere(o, 'restrooms');
+  const facilities: FloatHighlight[] = [];
+  if (camping) facilities.push({ kind: 'camping', label: `Camping ${camping}` });
+  if (restrooms) facilities.push({ kind: 'restrooms', label: `Restrooms ${restrooms}` });
+  // A requested facility leads, ahead of even an outfitter.
+  const wanted = facilities.filter(h => (h.kind === 'camping' && filters?.camping) || (h.kind === 'restrooms' && filters?.restrooms));
+  out.unshift(...wanted);
+  out.push(...facilities.filter(h => !wanted.includes(h)));
+  const sight = o.along?.find(stop => stop.kind === 'spring' || stop.kind === 'cave' || stop.kind === 'sight');
+  if (sight) out.push({ kind: sight.kind === 'spring' ? 'spring' : 'sight', label: `${sight.name} on the way` });
+  const publicStops = o.along?.filter(stop => stop.kind === 'access' && stop.isPublic === true).length ?? 0;
+  if (publicStops) out.push({ kind: 'access', label: `${publicStops} public ${publicStops === 1 ? 'access' : 'accesses'} on the way` });
+  return out.slice(0, limit);
+}
+
+/** Readable access status for the card: never an icon alone. */
+export function routeAccessText(o: Pick<FloatSearchOption, 'putIn' | 'takeOut'>) {
+  const put = o.putIn.isPublic, take = o.takeOut.isPublic;
+  if (put === false && take === false) return { text: 'Private put-in & take-out', private: true };
+  if (put === false) return { text: 'Private put-in', private: true };
+  if (take === false) return { text: 'Private take-out', private: true };
+  if (put === true && take === true) return { text: 'Public access', private: false };
+  return { text: 'Access unconfirmed', private: false };
+}
+
 export interface FloatSearchResponse {
   matches: FloatSearchOption[];
   alternatives: FloatSearchOption[];

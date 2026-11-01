@@ -13,13 +13,15 @@ import { optimizeBlogImage } from '@/lib/blog-image';
 import {
   driveLabel, floatBoatLabel, floatPlanPath, floatSearchEmptyMessage, floatSortsFor, floatTripLabel,
   FLOAT_DISTANCE_INFO, FLOAT_SEARCH_LOADING_DETAIL, FLOAT_SEARCH_LOADING_TITLE, FLOAT_TIME_INFO,
-  publicAccessLabel, sortFloatOptions,
-  type floatSearchRecoveryOptions, type FloatSearchOption, type FloatSort,
+  sortFloatOptions,
+  type floatSearchRecoveryOptions, type FloatSearchFilters, type FloatSearchOption, type FloatSort,
 } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
 import { riverStripPlaceable, type RiverStripPoint, type RouteState } from '@shared/river-strip';
 import RiverStrip, { focusStripRoute, NumberChip, RiverStripPlaceholder, type NumberedRoute } from './RiverStrip';
-import { INFO_COLORS, routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
+import {
+  INFO_COLORS, RouteAccessBadge, RouteCautionRow, RouteConditionBadge, RouteDetails, routeEstimateLabel, RouteHighlights, routeTimeLabel,
+} from './route-facts';
 
 const NO_POINTS: RiverStripPoint[] = [];
 const floatCardId = (id: string) => `float-result-${encodeURIComponent(id)}`;
@@ -70,6 +72,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   const points = useMemo(() => accessPoints?.map(point => ({
     id: point.id, name: point.name, mile: point.riverMile, endpoint: point.isFloatEndpoint !== false,
   })) ?? NO_POINTS, [accessPoints]);
+  const pointInfo = useMemo(() => new Map((accessPoints ?? []).map(point => [point.id, point])), [accessPoints]);
   const stripRoutes = useMemo<NumberedRoute[]>(() => {
     if (!stripRiver || points.length < 2) return [];
     const placeable = riverStripPlaceable(points, ordered.map(o => ({ id: o.id, number: 0, putInId: o.putIn.id, takeOutId: o.takeOut.id })));
@@ -103,7 +106,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
       onShow: () => showOnRiver(option.id),
       onHover: (on: boolean) => setPointedId(on ? option.id : null),
     } : undefined;
-    return <FloatCard key={option.id} option={option} riverPhoto={riverPhoto(option.riverSlug)} stale={stale} onPlan={onPlan} strip={strip} />;
+    return <FloatCard key={option.id} option={option} filters={input.filters} riverPhoto={riverPhoto(option.riverSlug)} stale={stale} onPlan={onPlan} strip={strip} />;
   };
   return (
     <div className={stale ? 'pointer-events-none opacity-50 transition-opacity' : 'transition-opacity'} inert={stale || undefined}>
@@ -128,22 +131,28 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
       </Card>}
       {pointsLoading && <RiverStripPlaceholder riverName={ordered[0].riverName} routeCount={ordered.length} />}
       {stripRiver && stripRoutes.length > 0 && <RiverStrip riverSlug={stripRiver} riverName={stripRoutes[0].option.riverName}
-        points={points} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
+        points={points} pointInfo={pointInfo} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
         onSelect={setChosenId} onHover={setPointedId} onView={viewFloat} />}
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
+      <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
         {matches.map(card)}
       </div>
       {data.alternatives.length > 0 && <section className="mt-10" aria-label="Alternative routes">
         <h3 style={{ fontFamily: 'var(--font-display)' }} className="mb-4 text-2xl font-medium">Shorter or longer</h3>
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{alternatives.map(card)}</div>
+        <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">{alternatives.map(card)}</div>
       </section>}
     </div>
   );
 }
 
-/** Route first, compact comparison facts, details on demand, then the plan action. */
-function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
+/**
+ * Route, time and distance, condition and access, two facts that set it apart,
+ * the most specific caution, then actions. Everything else is in route details.
+ * Cards in a row keep their own height (the grid is items-start), so opening
+ * one never stretches its neighbours.
+ */
+function FloatCard({ option: o, filters, riverPhoto, stale, onPlan, strip }: {
   option: FloatSearchOption;
+  filters?: FloatSearchFilters;
   riverPhoto?: string | null;
   stale: boolean;
   onPlan: () => boolean;
@@ -154,16 +163,26 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
   const [failed, setFailed] = useState<string[]>([]);
   const photo = [o.photo?.url, riverPhoto].find((url): url is string => !!url && !failed.includes(url));
   const titleId = `${floatCardId(o.id)}-title`;
+  const detailsId = `${floatCardId(o.id)}-details`;
+  const cautionsId = `${floatCardId(o.id)}-cautions`;
+  const openCautions = () => {
+    // Render the details first so the cautions group exists to take focus.
+    flushSync(() => setExpanded(true));
+    document.getElementById(cautionsId)?.focus();
+  };
   return (
     <Card id={floatCardId(o.id)} variant="framed" as="article" tabIndex={-1} aria-labelledby={titleId}
       className="flex scroll-mt-24 flex-col overflow-hidden transition-[border-color,box-shadow] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-text-link)]"
       onMouseEnter={strip && (() => strip.onHover(true))} onMouseLeave={strip && (() => strip.onHover(false))}
       style={strip?.state === 'selected' ? { borderColor: 'var(--color-accent-700)', boxShadow: '4px 4px 0 var(--color-accent-700)' } : undefined}>
-      <div className="relative h-28 shrink-0 bg-[var(--color-surface-hover)] sm:h-32">
-        {photo
-          ? <Image key={photo} src={photo} alt="" fill unoptimized={!optimizeBlogImage(photo)} sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" className="object-cover" onError={() => setFailed(previous => [...previous, photo])} />
-          : <div className="flex h-full items-center justify-center"><EddyIcon name="wave" size={110} /></div>}
-      </div>
+      {photo
+        ? <div className="relative h-28 shrink-0 bg-[var(--color-surface-hover)] sm:h-32">
+          <Image key={photo} src={photo} alt="" fill unoptimized={!optimizeBlogImage(photo)} sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" className="object-cover" onError={() => setFailed(previous => [...previous, photo])} />
+        </div>
+        // No photo: a slim band of Eddy art rather than a full-height placeholder that repeats on every card.
+        : <div className="flex h-12 shrink-0 items-center justify-end overflow-hidden bg-[color-mix(in_srgb,var(--color-primary-300)_14%,var(--color-surface))] px-4" aria-hidden="true">
+          <EddyIcon name="wave" size={64} className="translate-y-2" />
+        </div>}
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[var(--color-text-link)]">{o.riverName}</p>
@@ -185,14 +204,15 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
           {o.driveMinutes != null && <span className="inline-flex items-center text-xs text-[var(--color-text-secondary)]">{driveLabel(o.driveMinutes)} drive
             <InfoTip quiet size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <RouteConditionBadge option={o} />
-          <span className="text-[var(--color-text-secondary)]">{[routeAccessLabel(o), ...(o.highlights ?? [])].join(' · ')}</span>
-          {o.relation !== 'match' && <span className="text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
+          <RouteAccessBadge option={o} />
+          {o.relation !== 'match' && <span className="text-xs text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
         </div>
-        <RouteCautions option={o} />
-        <div className="flex flex-wrap items-center gap-x-5">
-          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}
+        <RouteHighlights option={o} filters={filters} />
+        <RouteCautionRow option={o} onOpen={openCautions} />
+        <div className="-my-1 flex flex-wrap items-center gap-x-5">
+          <button type="button" aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(value => !value)}
             className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-text-link)]">
             Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
           </button>
@@ -203,12 +223,8 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
               : <span>Show <span className="sr-only">float {strip.number} </span>on river</span>}
           </button>}
         </div>
-        {expanded && <div className="-mt-2 space-y-2 text-sm text-[var(--color-text-secondary)]">
-          <p>Put-in: {publicAccessLabel(o.putIn.isPublic)}<br />Take-out: {publicAccessLabel(o.takeOut.isPublic)}</p>
-          <p>{o.estimateBasis === 'current_conditions' ? 'Estimate uses current conditions.' : 'Estimate uses typical conditions.'}
-            {o.observedAt && o.estimateBasis === 'current_conditions' ? ` Reading ${new Date(o.observedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : ''}</p>
-          {o.description && <p>{o.description}</p>}
-          {o.photo?.caption && photo === o.photo.url && <p className="text-xs">{o.photo.caption}</p>}
+        {expanded && <div id={detailsId}>
+          <RouteDetails option={o} cautionsId={cautionsId} photoCaption={o.photo?.caption && photo === o.photo.url ? o.photo.caption : null} />
         </div>}
         <div className="mt-auto pt-1">
           <Button href={floatPlanPath(o)} className="w-full" tabIndex={stale ? -1 : undefined}
