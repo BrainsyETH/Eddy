@@ -17,7 +17,7 @@ import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { resolvePlanningMonth } from '@/lib/camping/window';
-import { loadFacilitySites } from '@/lib/camping/sites';
+import { loadFacilitySites, toWireSites, toWireStay } from '@/lib/camping/sites';
 import { loadCampingStay, validPlanningStay } from '@/lib/camping/stay-read';
 
 export const dynamic = 'force-dynamic';
@@ -52,9 +52,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Provide arrival and departure within the next 90 nights, without month' }, { status: 400 });
     }
     const supabase = await createClient();
+    // Projected for the wire: the stored per-site codes include a
+    // server-internal continuation-only state the app's codec does not carry
+    // (see toWireSiteNights). Stay search has already read it by this point.
     const result = hasStay
-      ? await loadCampingStay(supabase, facilityId, arrival!, departure!, now)
-      : await loadFacilitySites(supabase, facilityId, now, month);
+      ? await loadCampingStay(supabase, facilityId, arrival!, departure!, now).then(
+          (stay) => stay && toWireStay(stay),
+        )
+      : await loadFacilitySites(supabase, facilityId, now, month).then(
+          (sites) => sites && toWireSites(sites),
+        );
 
     // A facility Eddy does not track, or one whose sites have not been synced
     // yet, is a different question rather than a fault.

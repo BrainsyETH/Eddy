@@ -16,6 +16,33 @@ const STATES: Record<string, CampingNightState> = {
   C: 'closed',
   N: 'not_yet_released',
 };
+
+/**
+ * SITE_NIGHT_CODE.continuation_only. Not in STATES because it has no state of
+ * its own: what it means depends on the stay around it.
+ */
+const CONTINUATION_ONLY = 'O';
+
+/**
+ * Per-night states for one site's stay, resolving continuation-only nights.
+ *
+ * A continuation-only night (recreation.gov `Open`, at the edge of a rolling
+ * booking window) can be booked only as a later night of a stay that arrives
+ * on a bookable night. So it is `open` when it follows a valid arrival and
+ * `not_yet_released` as an arrival — or after an arrival that was never
+ * bookable, where the stay fails anyway and the honest reason is the release
+ * window, not a booking. Every other code maps exactly as STATES says.
+ */
+function resolveStayNights(codes: (string | undefined)[]): CampingNightState[] {
+  const arrivalBookable = codes[0] === 'A';
+  return codes.map((code, i) => {
+    if (code === undefined) return 'unknown';
+    if (code === CONTINUATION_ONLY) {
+      return i > 0 && arrivalBookable ? 'open' : 'not_yet_released';
+    }
+    return STATES[code] ?? 'unknown';
+  });
+}
 export function searchCampingStay(
   campground: CampsiteSitesResult,
   arrival: string,
@@ -32,16 +59,12 @@ export function searchCampingStay(
     campground.window.nights.map((date, i) => [date, i]),
   );
   const sites: CampsiteStay[] = campground.sites.map((site) => {
-    const nights = dates.map((date) => {
+    const codes = dates.map((date) => {
       const i = positions.get(date);
-      return {
-        date,
-        state:
-          fresh && i !== undefined
-            ? (STATES[site.nights[i]] ?? 'unknown')
-            : ('unknown' as CampingNightState),
-      };
+      return fresh && i !== undefined ? site.nights[i] : undefined;
     });
+    const states = resolveStayNights(codes);
+    const nights = dates.map((date, i) => ({ date, state: states[i] }));
     const state = nights.every((n) => n.state === 'open')
       ? 'available'
       : nights.every((n) => n.state === 'walk_up')

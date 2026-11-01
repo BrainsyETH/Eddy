@@ -336,6 +336,8 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     kind: 'mechanical',
     action: 'Recompute the mile marker; equal-to-river-length is a clamped placeholder.',
     where: 'npm run db:correct-miles',
+    method:
+      'The rule already excuses a point within 0.25 mi of the downstream end of the line, because the last take-out on a reach cut at that take-out legitimately carries mile = length (Guion on the White, Norfork Access on the Norfork; 20261101174701). A row that still fires is genuinely somewhere else on the river, or its position cannot be measured (no snap, multi-part line) — fix the snap first in that case. One finding per river lists every point, so a river can never emit the rule twice.',
   },
   mileage_segment_implausible: {
     kind: 'judgment',

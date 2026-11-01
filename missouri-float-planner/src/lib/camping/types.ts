@@ -53,7 +53,20 @@ export interface DailyAggregate {
  * denominator lie, which is why foldNight excludes them. Storing the status
  * rather than a boolean is what lets both be true at once.
  */
-export type UnitStatus = 'open' | 'reserved' | 'walk_up' | 'closed' | 'not_yet_released';
+export type UnitStatus =
+  | 'open'
+  | 'reserved'
+  | 'walk_up'
+  | 'closed'
+  | 'not_yet_released'
+  /**
+   * Free, but only as a later night of a stay that arrives on an `open` night
+   * — recreation.gov's `Open` cell at the edge of a rolling booking window.
+   * Never an arrival. Server-internal: stay search reads it, and the
+   * /api/campsites wire projects it to `not_yet_released`
+   * (toWireSiteNights in sites.ts), so the app's codec never sees it.
+   */
+  | 'continuation_only';
 
 /**
  * One individual site, as its booking system describes it.

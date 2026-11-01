@@ -11,7 +11,12 @@ import test from 'node:test';
 import { siteBooking } from '../../../eddy-ios/src/components/map-sheet/siteBooking';
 import type { CampsiteSite } from '@eddy/types';
 import { CAMPSITE_NIGHT_CODES, decodeCampsiteNights } from '@eddy/types';
-import { SITE_NIGHT_CODE, SITE_NIGHT_UNKNOWN } from './camping/sites';
+import {
+  SITE_NIGHT_CODE,
+  SITE_NIGHT_UNKNOWN,
+  toWireSiteNights,
+  WIRE_SITE_NIGHT_CODES,
+} from './camping/sites';
 import {
   filterCounts,
   groupSites,
@@ -45,7 +50,10 @@ test('every server code decodes to a state the app knows', () => {
   // The duplication guard. A status added on the server without a matching
   // entry in the app's table would decode to "unknown" and quietly render a
   // real site as unmeasured.
+  // Only codes the wire can carry: a server-internal code is projected away
+  // by toWireSiteNights before any response, and is checked below instead.
   for (const [status, code] of Object.entries(SITE_NIGHT_CODE)) {
+    if (!WIRE_SITE_NIGHT_CODES.has(code)) continue;
     assert.equal(
       CAMPSITE_NIGHT_CODES[code],
       status,
@@ -53,6 +61,17 @@ test('every server code decodes to a state the app knows', () => {
     );
   }
   assert.equal(CAMPSITE_NIGHT_CODES[SITE_NIGHT_UNKNOWN], 'unknown');
+});
+
+test('every server-internal code is projected to one the app knows', () => {
+  // A new internal code without a projection would reach the app and decode
+  // to "unknown". This is the guard on that.
+  const every = Object.values(SITE_NIGHT_CODE).join('') + SITE_NIGHT_UNKNOWN;
+  for (const code of toWireSiteNights(every)) {
+    assert.ok(WIRE_SITE_NIGHT_CODES.has(code) || code === SITE_NIGHT_UNKNOWN, `'${code}' reaches the wire`);
+    assert.notEqual(CAMPSITE_NIGHT_CODES[code], undefined, `the app cannot decode '${code}'`);
+  }
+  assert.equal(toWireSiteNights(SITE_NIGHT_CODE.continuation_only), SITE_NIGHT_CODE.not_yet_released);
 });
 
 test('an unrecognised character is unknown, never taken', () => {
