@@ -185,7 +185,9 @@ There is no term for discharge (CFS), gradient, or channel geometry. A river at 
 ---
 
 ### F13 — Reverse-direction 1.5× penalty and kayak==canoe in the (empty) calibrated path — *Severity: Low*
-**Evidence.** `get_segment_float_time` (`00011`) multiplies upstream floats by a flat `1.5×` and returns canoe times for kayaks. Harmless today (table empty, F2) but wrong if populated: floating upstream is usually infeasible, not 1.5× slower, and kayaks are meaningfully faster than canoes.
+**Evidence.** `get_segment_float_time` (`00011`) multiplies upstream floats by a flat `1.5×` and returns canoe times for kayaks. Harmless today (table empty, F2) but wrong if populated: floating upstream is usually infeasible, not 1.5× slower.
+
+**Resolved (kayak half), 2026-11-01.** The claim that kayaks are meaningfully faster was unsourced, and the modeled path's kayak speeds (2.5 / 3.0 / 4.0) contradicted the published path's kayak = canoe. For Ozark rental boats (long tandem canoes, short sit-on-top kayaks) current and stops dominate. Migration `20261101161525_kayak_floats_at_canoe_pace.sql` gives the kayak the canoe's 2.0 / 2.5 / 3.5, so both paths agree. Revisit only with calibration data showing a real difference. The reverse-direction 1.5× penalty is unchanged.
 
 ---
 
