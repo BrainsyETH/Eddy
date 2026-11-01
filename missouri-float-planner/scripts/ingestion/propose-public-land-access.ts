@@ -31,10 +31,23 @@
  *     mouth") with a search phrase, because a quick search confirmed Long
  *     Hollow in minutes.
  *
- * Tiers: A = drivable road ends at public riverbank. B = road ends at the water
- * but the land is not shown public (often a county right-of-way; check
- * legality), or a high-clearance Forest Service track. C = a road crosses the
- * river (bridge or ford).
+ * ── v3 recalibration (same day) ──────────────────────────────────────────────
+ * The owner reviewed v2's five Eleven Point tier-A spots against the map:
+ * none was an access. All five were Census roads on National Forest land with
+ * no MVUM route within 300 m: two "Forest Rd"s missing from the MVUM, two S1740
+ * private service roads, one unnamed road. On National Forest land only MVUM
+ * routes and county/state roads are open to vehicles (36 CFR 212.51), but the
+ * MVUM omits county roads (Cane Bluff's CR 405 is "Forest Rd 3189" in Census)
+ * and site roads (East Gate), so dropping off-MVUM roads lost real accesses.
+ * v3 instead stops reading S1740 as drivable, gives tier A only to county/state
+ * roads (TIGER RTTYP C/S/U/I) and passenger-grade MVUM roads, and flags a
+ * forest road end that is off the MVUM.
+ *
+ * Tiers: A = a county/state road, or an MVUM road open to passenger vehicles,
+ * reaches public riverbank. B = it reaches the water but the land is not shown
+ * public (often a county right-of-way; check legality), or it is a
+ * high-clearance Forest Service track, or a local/unnamed road of unknown
+ * status. C = a road crosses the river (bridge or ford).
  *
  * Run from missouri-float-planner/ (Node 20):
  *   npx tsx scripts/ingestion/propose-public-land-access.ts --river=eleven-point,big-piney
@@ -49,7 +62,7 @@ import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson
 import { getScriptClient } from '../lib/db';
 import { type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink } from './access-enrichment-2026-11';
 import { type ArcFeature, arcgis, envelope, envelopeFilter, featureUrl, fetchAll, selectAll } from './arcgis-fetch';
-import { type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, rankRoadEnd, tigerClass, vehicleClass } from './public-land-access-2026-11';
+import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, offMvumNote, rankRoadEnd, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer';
 const MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer';
@@ -68,7 +81,7 @@ const TRUSTED_PIN_M = 300; // a known access pinned farther than this from the c
 const KNOWN_KM = 1.0;
 const NEAR_PARCEL_M = 30;
 
-interface Road { source: RoadSource; name: string; fourWd: boolean; maintLevel: number | null; paths: number[][][]; url: string }
+interface Road { source: RoadSource; kind: RoadKind; name: string; fourWd: boolean; maintLevel: number | null; paths: number[][][]; url: string }
 
 function argValue(name: string): string | null {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -155,16 +168,18 @@ async function main() {
       for (const f of (await fetchAll(layer, envelopeFilter(box))).features) {
         const cls = tigerClass(f.attributes.MTFCC);
         if (!cls.drivable || !f.geometry?.paths?.length) continue;
-        roads.push({ source: 'county', name: String(f.attributes.NAME ?? 'unnamed road'), fourWd: cls.fourWd, maintLevel: null, paths: f.geometry.paths, url: featureUrl(layer.url, f.attributes.OBJECTID) });
+        roads.push({ source: 'county', kind: tigerRoadKind(f.attributes), name: String(f.attributes.NAME ?? 'unnamed road'), fourWd: cls.fourWd, maintLevel: null, paths: f.geometry.paths, url: featureUrl(layer.url, f.attributes.OBJECTID) });
       }
     }
     for (const layer of [SOURCES.mvumRoads, SOURCES.mvumTrails]) {
       for (const f of (await fetchAll(layer, envelopeFilter(box))).features) {
         if (vehicleClass(f.attributes) === 'none' || !f.geometry?.paths?.length) continue;
         const maint = parseInt(String(f.attributes.operationalmaintlevel ?? ''), 10);
-        roads.push({ source: 'usfs', name: `FS ${f.attributes.id} ${f.attributes.name ?? ''}`.trim(), fourWd: vehicleClass(f.attributes) !== 'passenger' && vehicleClass(f.attributes) !== 'high_clearance', maintLevel: Number.isFinite(maint) ? maint : null, paths: f.geometry.paths, url: featureUrl(layer.url, f.attributes.objectid) });
+        roads.push({ source: 'usfs', kind: 'mvum', name: `FS ${f.attributes.id} ${f.attributes.name ?? ''}`.trim(), fourWd: vehicleClass(f.attributes) !== 'passenger' && vehicleClass(f.attributes) !== 'high_clearance', maintLevel: Number.isFinite(maint) ? maint : null, paths: f.geometry.paths, url: featureUrl(layer.url, f.attributes.objectid) });
       }
     }
+    // A Census road that is the same road as an MVUM route is open as that route.
+    const toMvum = channelIndex(roads.filter((r) => r.source === 'usfs').flatMap((r) => r.paths), 0.002);
     const pathsOf = (src: RoadSource) => roads.filter((r) => r.source === src).flatMap((r) => r.paths);
     const ends = new Map<string, LngLat>();
     for (const src of ['county', 'usfs'] as const) {
@@ -191,12 +206,15 @@ async function main() {
             return dd < best.d ? { v: v as LngLat, d: dd } : best;
           }, { v: end, d: Infinity }).v;
           const [landEnd, landBank] = await Promise.all([publicAt(end), publicAt(nearestOnChannel)]);
-          const r = rankRoadEnd({ source: road.source, toWaterM: d, fourWd: road.fourWd, maintLevel: road.maintLevel, publicEnd: !!landEnd, publicBank: !!landBank });
-          raw.push({ kind, road, at: end, toWaterM: Math.round(d), km: alongRiverKm(eddyLine, end).km, tier: r.tier, score: r.score, notes: r.notes, land: landEnd ?? landBank });
+          const r = rankRoadEnd({ kind: road.kind, toWaterM: d, fourWd: road.fourWd, maintLevel: road.maintLevel, publicEnd: !!landEnd, publicBank: !!landBank });
+          // Judged by the land the road ENDS on: a private resort road beside forest bank is not a forest road.
+          const offMvum = offMvumNote({ kind: road.kind, endOnNationalForest: !!landEnd?.endsWith('(USFS)'), onMvum: toMvum(end) <= 30 });
+          raw.push({ kind, road, at: end, toWaterM: Math.round(d), km: alongRiverKm(eddyLine, end).km, tier: r.tier, score: r.score, notes: offMvum ? [offMvum, ...r.notes] : r.notes, land: landEnd ?? landBank });
         }
         for (const x of lineIntersect(lineString(path), { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: channel } }).features) {
           const at = x.geometry.coordinates as LngLat;
-          raw.push({ kind: 'crosses river', road, at, toWaterM: 0, km: alongRiverKm(eddyLine, at).km, tier: 'C', score: 40, notes: ['bridge or ford: check bank access and parking'], land: await publicAt(at) });
+          const land = await publicAt(at);
+          raw.push({ kind: 'crosses river', road, at, toWaterM: 0, km: alongRiverKm(eddyLine, at).km, tier: 'C', score: 40, notes: ['bridge or ford: check bank access and parking'], land });
         }
       }
     }
@@ -204,6 +222,8 @@ async function main() {
     // Recall: trusted, road-served launches the raw candidates would have found.
     const roadServed = trusted.filter((k) => k.is_float_endpoint && raw.some((c) => Math.abs(c.km - k.km) <= 0.5));
     const launches = trusted.filter((k) => k.is_float_endpoint);
+    const missed = launches.filter((k) => !roadServed.includes(k));
+    if (missed.length) console.log(`  ${slug}: launches with no road candidate within 0.5 km: ${missed.map((k) => k.slug).join(', ')}`);
     for (const h of holdout) {
       const k = trusted.find((t) => t.slug === h);
       if (!k) { holdoutReport.push(`${slug}/${h}: not a trusted access on this river`); continue; }
@@ -232,7 +252,8 @@ async function main() {
         place: place ?? '',
         kind: c.kind,
         road: c.road.name,
-        road_source: c.road.source === 'county' ? 'Census roads (county, local, forest)' : 'Forest Service (MVUM)',
+        road_source: c.road.source === 'county' ? 'Census roads' : 'Forest Service (MVUM)',
+        road_kind: c.road.kind,
         four_wd: c.road.fourWd ? 'yes' : '',
         usfs_maint_level: c.road.maintLevel ?? '',
         to_water_m: c.toWaterM,

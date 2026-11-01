@@ -1,4 +1,4 @@
-# Missing river-access finder, v2 (2026-11-01)
+# Missing river-access finder, v3 (2026-11-01)
 
 Output of `scripts/ingestion/propose-public-land-access.ts` (read-only; it
 writes nothing to the database). It replaces the v1 list in
@@ -6,8 +6,8 @@ writes nothing to the database). It replaces the v1 list in
 
 | File | What it is |
 | --- | --- |
-| `candidates.csv` / `candidates.geojson` | Places to check, sorted by tier then score, one per 300 m of river |
-| `suspect-records.csv` | Access points pinned more than 300 m from the real channel; not trusted as "known" |
+| `candidates.csv` / `candidates.geojson` | Places to check, sorted by tier then score, one per 300 m of river. `road_kind` says what the road is (below) |
+| `suspect-records.csv` | Access points pinned more than 300 m from the real channel, not trusted as "known". Empty after the pin fixes below |
 
 These are places for a person to look at, not access points. A road reaching
 public ground says nothing about a launch being legal, safe or usable.
@@ -30,68 +30,114 @@ three reasons:
    approach points. Its dead-end test also ignores a road's own vertices:
    TIGER has seven vertices in Long Hollow's last 49 m.
 
-Ranking also changed. A county road ending on public bank now outranks a
-high-clearance Forest Service track, and closer ends outrank farther ones.
-Candidates are named by the nearest tributary mouth, with a search phrase. A
-quick search confirmed Long Hollow in minutes.
+## Why v3: five false positives
 
-The pure helpers and their tests are in `public-land-access-2026-11.ts`. The
-tests include Long Hollow vs Boom Hole and the seven-vertex stub.
+The owner reviewed v2's five Eleven Point tier-A spots, and none is an access.
+Each sits on National Forest land with no MVUM route within 300 m:
+
+| Spot | Census road | Why it isn't a way in |
+| --- | --- | --- |
+| Hurricane Creek mouth, 36.776422, -91.275183 | Forest Rd 4031 (S1400) | Forest Service road missing from the MVUM |
+| 36.651746, -91.186327 | unnamed (S1740) | S1740 is a private service road (logging, ranch) |
+| 36.750056, -91.249741 | Forest Rd 3230A (S1400) | The MVUM lists 3230A as high-clearance only, and not down to this point |
+| 36.785240, -91.311326 | unnamed (S1400) | unnamed woods road, not on the MVUM |
+| Rush Creek mouth, 36.565231, -91.176195 | unnamed (S1740) | private service road |
+
+Long Hollow, the true find, is the only one on a road Census codes as a
+**county** route (RTTYP `C`).
+
+On National Forest land, motor vehicles may use only MVUM routes (36 CFR
+212.51). The MVUM, though, lists only Forest Service roads, so a road missing
+from it is not necessarily closed:
+- **Cane Bluff** is reached on County Road 405, which Census names
+  "Forest Rd 3189" and the MVUM omits.
+- **East Gate**'s entry road is an unnamed recreation-site road.
+
+Dropping every off-MVUM road on the forest cost those real accesses, and recall
+fell to 11/12 and 12/18. So v3 does three things instead:
+- it stops reading S1740 as drivable;
+- it gives **tier A only** to county, state or US routes (TIGER RTTYP C/S/U/I)
+  and to MVUM roads open to passenger vehicles (maintenance level 3 or above);
+- it flags a road end on National Forest land that is off the MVUM. A local or
+  unnamed road end is noted as "unknown status: may be private".
+
+The land test uses the land where the road **ends**. A private resort road
+beside forest bank is not a forest road.
+
+The five spots are fixtures in `public-land-access-2026-11.test.ts`: none can
+reach tier A again.
 
 ## Tiers
 
-- **A**: a drivable road ends at, or loops down to, public riverbank.
-- **B**: one of two things:
-  - the road reaches the water, but the land is not shown as public (often a
-    county right-of-way, so check legality);
-  - or it is a high-clearance Forest Service track.
+- **A**: a county or state road, or a passenger-grade MVUM road, reaches public
+  riverbank.
+- **B**: a road reaches the water, but one of these applies:
+  - the land is not shown public (often a county right-of-way, so check
+    legality);
+  - it is a high-clearance Forest Service track;
+  - it is a local or unnamed road of unknown status.
 - **C**: a road crosses the river (a bridge or ford).
 
 ## Validation
 
 - **Holdout:** `--river=eleven-point --holdout=long-hollow` treats Long Hollow
-  as unknown. v2 found it as the **#1 tier-A candidate**: Co Rd 416, 47 m to
-  water, 15 m from the access pin. Boom Hole fell to tier B (score 87).
+  as unknown. v3 still finds it as **tier A**: Co Rd 416, 47 m to water, 15 m
+  from the access pin.
 - **Recall:** trusted launches with a road candidate within 0.5 km:
   - Eleven Point: 12 of 12;
-  - Big Piney: 14 of 17. The misses weren't investigated; v1 noted that
-    water-only float camps can't be found from roads.
-- **v1 picks under v2:**
-  - High Log Eddy stays tier A;
-  - Henry River moves to B (bank not shown public);
-  - FS 1794 is a C crossing;
-  - Boom Hole is no longer listed, because Long Hollow is now a known access
-    within 1 km.
+  - Big Piney: 15 of 18, which now includes Boiling Spring. The misses are
+    Mineral Springs, Sandy Shoals Ford and Warren Bridge, the same three
+    the v2 rules miss on today's data.
+- **Precision:** none of the five reviewed false positives is tier A. Only one
+  tier-A spot remains on either river.
 
-## 2026-11-01 run
+## 2026-11-01 run (v3)
 
-141 candidates:
+123 candidates:
 
 | River | Tier A | Tier B | Tier C |
 | --- | ---: | ---: | ---: |
-| Eleven Point | 5 | 45 | 1 |
-| Big Piney | 4 | 80 | 6 |
+| Eleven Point | 0 | 44 | 0 |
+| Big Piney | 1 | 72 | 6 |
 
-Tier A:
+Tier A is **High Log Eddy** on the Big Piney: FS 255, an MVUM road at
+maintenance level 3, 65 m to water on Mark Twain National Forest land,
+37.544632, -92.021159, between Warren Bridge and Slabtown.
 
-| River | Place | Road | To water | Between | Pin |
-| --- | --- | --- | ---: | --- | --- |
-| Eleven Point | Hurricane Creek mouth | Forest Rd 4031 (end) | 51 m | Greer Crossing → Turner's Mill | 36.776422, -91.275183 |
-| Eleven Point | (unnamed) | unnamed road (loop) | 65 m | Boze Mill → Riverton | 36.651746, -91.186327 |
-| Eleven Point | (unnamed) | Forest Rd 3230A (loop) | 71 m | Turner Mill South → McDowell | 36.750056, -91.249741 |
-| Eleven Point | (unnamed) | unnamed road (end) | 92 m | Greer Crossing → Turner's Mill | 36.785240, -91.311326 |
-| Eleven Point | Rush Creek mouth | unnamed road (end) | 94 m | Riverton → Morgan Spring | 36.565231, -91.176195 |
-| Big Piney | (unnamed) | unnamed road (loop) | 47 m | East Gate → Crossroads | 37.766383, -92.053059 |
-| Big Piney | (unnamed) | FS 255 High Log Eddy (end, MVUM) | 65 m | Warren Bridge → Slabtown | 37.544632, -92.021159 |
-| Big Piney | (unnamed) | unnamed road (end) | 101 m | Warren Bridge → Slabtown | 37.548110, -92.033993 |
-| Big Piney | (unnamed) | unnamed road (loop) | 133 m | Wilderness Ridge → East Gate | 37.740849, -92.040548 |
+The best tier B leads are county roads that reach the water on land not shown
+as public. These are likely right-of-way spots, so check legality:
 
-## Suspect records (not changed)
+| River | Road | To water | Between | Pin |
+| --- | --- | ---: | --- | --- |
+| Big Piney | Co Rd 5966 (loop) | 20 m | river start → Baptist Camp | 37.129836, -92.153144 |
+| Big Piney | Co Rd 4320 (loop) | 40 m | river start → Baptist Camp | 37.209419, -92.015870 |
+| Big Piney | Co Rd 2630 (loop) | 43 m | Bookers Bend → Gasconade confluence | 37.833450, -92.085606 |
+| Big Piney | Co Rd 5328 (loop) | 42 m | river start → Baptist Camp | 37.194717, -92.039614 |
+| Big Piney | Co Rd 5930B (loop) | 61 m | river start → Baptist Camp | 37.125446, -92.125057 |
+| Eleven Point | Co Rd 405 (loop) | 103 m | Denny Hollow → Cane Bluff | 36.791437, -91.413010 |
 
-| River | Record | Approved | Pin to channel |
-| --- | --- | --- | ---: |
-| Eleven Point | Hwy 160 Bridge (`hwy-160-bridge`) | no | over 500 m |
-| Big Piney | Boiling Spring Access (`boiling-spring`) | **yes** | 429 m |
+## Pin fixes (applied 2026-11-01)
+
+Both suspect records from the v2 run were fixed in production with
+authorization. The SQL is guarded: compare-and-set, and each update must
+match exactly one row. It is in
+`../access-points/reviews/pin-fixes-2026-11-01.sql`, with its rollback.
+
+| Record | Was | Now | Evidence |
+| --- | --- | --- | --- |
+| Boiling Spring Access (Big Piney, approved) | 37.435, -91.97, a rounded placeholder 458 m off Eddy's line; mile 42.4 | 37.461580, -91.987636, snap 42 m; mile 44.6 (upstream 63.3) | MDC Boat Ramps layer, OBJECTID 39, 14 m from the channel |
+| Hwy 160 Bridge (Eleven Point, unapproved) | 36.7985, -91.3834, 17 km upriver | 36.648742, -91.200844, snap 0 m | where US Hwy 160 crosses the NHD channel |
+
+Boiling Spring's pin is 2.1 line-miles downstream of the old one, so the mile
+was re-interpolated on the curated scale between:
+- Sandy Shoals Ford: mile 34.6, line 33.5;
+- Mason Bridge: mile 50.4, line 48.9.
+
+Boiling Spring to Mason Bridge is now 5.8 mi, and published float reports put
+it at about 6. Sandy Shoals to Boiling Spring is now 10.0 mi, while reports
+range from 6 to 8. Sandy Shoals' own pin (212 m from the line) is worth a look.
+
+Hwy 160 Bridge duplicates Riverton, 34 m away, and stays unapproved.
 
 ## Promoted from this finder
 

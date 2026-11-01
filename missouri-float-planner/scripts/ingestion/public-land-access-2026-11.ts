@@ -2,8 +2,8 @@
  * Pure rules for the read-only missing-public-access finder (November 2026).
  * The CLI is propose-public-land-access.ts. Nothing here decides that a spot
  * is a legal or usable launch: a candidate is a place for a person to look,
- * where an open National Forest route reaches public riverbank that Eddy has
- * no access point near. Ownership is not permission (00209 header).
+ * where a road open to the public reaches riverbank that Eddy has no access
+ * point near. Ownership is not permission (00209 header).
  */
 import { nearestPointOnLine, point } from '@turf/turf';
 import type { LineString, MultiLineString } from 'geojson';
@@ -82,12 +82,58 @@ export function dedupeAlongRiver<T extends Candidate & { offsetM: number }>(cand
 
 export type RoadSource = 'county' | 'usfs';
 
-/** Census TIGER MTFCC → how drivable the road is. S1500 is a 4WD vehicular trail. */
+/**
+ * Census TIGER MTFCC → how drivable the road is. S1500 is a 4WD vehicular
+ * trail. S1740 is a PRIVATE road for service vehicles (logging, ranches): v2
+ * counted it, and two of the five Eleven Point false positives were S1740.
+ */
 export function tigerClass(mtfcc: unknown): { drivable: boolean; fourWd: boolean } {
   const c = String(mtfcc ?? '');
   if (c === 'S1500') return { drivable: true, fourWd: true };
-  if (/^S1(100|200|400|640|740)$/.test(c)) return { drivable: true, fourWd: false };
-  return { drivable: false, fourWd: false }; // walkways, alleys, ramps, private service drives
+  if (/^S1(100|200|400|640)$/.test(c)) return { drivable: true, fourWd: false };
+  return { drivable: false, fourWd: false }; // walkways, alleys, ramps, private service roads
+}
+
+// ── v3: who may drive the road (Eleven Point review, 2026-11-01) ──────────────
+//
+// The owner reviewed v2's five Eleven Point tier-A spots and none was an access.
+// All five were on National Forest land and none had an MVUM route within
+// 300 m. Long Hollow, the one true find, is on a COUNTY road (TIGER RTTYP "C").
+// On National Forest System land, motor vehicles may use only the routes on the
+// Motor Vehicle Use Map (36 CFR 212.51), but the MVUM lists only Forest Service
+// roads. Two known accesses show a road missing from it is not necessarily
+// closed:
+//   - Cane Bluff is reached on County Road 405, which Census names
+//     "Forest Rd 3189" and the MVUM omits;
+//   - East Gate's entry road is an unnamed recreation-site road.
+// So a Census road that is neither a county/state route nor on the MVUM stays
+// a candidate, flagged, but can never be tier A.
+
+/**
+ * What kind of road a Census TIGER segment is, by route type (RTTYP) and name:
+ * public = county, state, US or interstate route; forest = a "Forest Rd" in
+ * Census data (which says nothing about whether it is open); local = some
+ * other named road; unnamed = no name at all.
+ */
+export type RoadKind = 'public' | 'mvum' | 'forest' | 'local' | 'unnamed';
+
+export function tigerRoadKind(attrs: { NAME?: unknown; RTTYP?: unknown }): RoadKind {
+  const rttyp = String(attrs.RTTYP ?? '').toUpperCase();
+  const name = String(attrs.NAME ?? '').trim();
+  if (['C', 'S', 'U', 'I'].includes(rttyp)) return 'public';
+  if (/^(Forest|Fs|Fsr|National Forest)\s*(Rd|Road|Development Rd)\b/i.test(name)) return 'forest';
+  if (!name) return 'unnamed';
+  return 'local';
+}
+
+/**
+ * A warning for a road end on National Forest land that is neither a
+ * county/state road nor on the MVUM, or null: vehicles are allowed there only
+ * if it is in fact a county road or a developed site's road.
+ */
+export function offMvumNote(c: { kind: RoadKind; endOnNationalForest: boolean; onMvum: boolean }): string | null {
+  if (!c.endOnNationalForest || c.kind === 'public' || c.kind === 'mvum' || c.onMvum) return null;
+  return 'National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road';
 }
 
 /**
@@ -128,7 +174,7 @@ export function deadEnds(paths: number[][][], toleranceM = 8, continuing: number
 }
 
 export interface RoadEnd {
-  source: RoadSource;
+  kind: RoadKind;
   /** Metres from the end to the actual channel (high-resolution flowline). */
   toWaterM: number;
   fourWd: boolean;
@@ -139,21 +185,26 @@ export interface RoadEnd {
 }
 
 /**
- * Tier and score. A: a drivable road ends at public riverbank. B: a road ends
- * at the water but the land is not shown public (often a county right-of-way;
- * check legality). A high-clearance-only Forest Service track is never tier A
- * on its own (Boom Hole). Higher score first.
+ * Tier and score. A: a county/state road, or an MVUM road open to passenger
+ * vehicles at maintenance level 3 or above, reaches public riverbank. B:
+ * everything else that reaches the water: land not shown public (often a
+ * county right-of-way; check legality), a high-clearance Forest Service track
+ * (Boom Hole), or a local or unnamed road whose status is unknown (often a
+ * private drive). Higher score first.
  */
 export function rankRoadEnd(e: RoadEnd): { tier: 'A' | 'B'; score: number; notes: string[] } {
   const notes: string[] = [];
-  const hcvTrack = e.source === 'usfs' && e.maintLevel !== null && e.maintLevel <= 2;
+  const hcvTrack = e.kind === 'mvum' && e.maintLevel !== null && e.maintLevel <= 2;
   if (e.fourWd) notes.push('4WD trail');
   if (hcvTrack) notes.push('high-clearance Forest Service track');
+  if (e.kind === 'local' || e.kind === 'unnamed') notes.push(`${e.kind} road of unknown status: may be private`);
   const publicLand = e.publicEnd && e.publicBank;
-  const tier = publicLand && !hcvTrack ? 'A' : 'B';
+  const publicRoad = e.kind === 'public' || (e.kind === 'mvum' && !hcvTrack && !e.fourWd);
+  const tier = publicLand && publicRoad ? 'A' : 'B';
   if (!publicLand) notes.push('land at the end or bank not shown public: check legality');
   let score = 100 - Math.min(e.toWaterM, 300) / 3;
-  if (e.source === 'county') score += 10;
+  if (e.kind === 'public') score += 10;
+  if (e.kind === 'unnamed') score -= 15;
   if (hcvTrack) score -= 25;
   if (e.fourWd) score -= 5;
   if (publicLand) score += 20;

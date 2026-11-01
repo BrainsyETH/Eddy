@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { line } from './access-enrichment-2026-11';
-import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, rankRoadEnd, routeEnds, tigerClass, vehicleClass } from './public-land-access-2026-11';
+import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, offMvumNote, rankRoadEnd, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 test('vehicleClass reports the most capable vehicle an MVUM route is open to', () => {
   assert.equal(vehicleClass({ passengervehicle: 'open', atv: 'open' }), 'passenger');
@@ -40,10 +40,11 @@ test('dedupeAlongRiver keeps one candidate per stretch, preferring the most capa
   assert.deepEqual(kept.map((k) => [k.km, k.vehicle]), [[5.1, 'passenger'], [9.0, 'high_clearance']]);
 });
 
-test('TIGER classes: county roads drivable, S1500 is a 4WD trail, walkways are not roads', () => {
+test('TIGER classes: county roads drivable, S1500 is a 4WD trail, walkways and private service roads are not', () => {
   assert.deepEqual(tigerClass('S1400'), { drivable: true, fourWd: false });
   assert.deepEqual(tigerClass('S1500'), { drivable: true, fourWd: true });
   assert.deepEqual(tigerClass('S1710'), { drivable: false, fourWd: false });
+  assert.deepEqual(tigerClass('S1740'), { drivable: false, fourWd: false }, 'S1740 is a private road for service vehicles');
 });
 
 test('deadEnds keeps road ends nothing continues from, and drops junctions', () => {
@@ -54,12 +55,12 @@ test('deadEnds keeps road ends nothing continues from, and drops junctions', () 
 });
 
 test('ranking: a county road end on public bank beats a high-clearance Forest Service track (Long Hollow vs Boom Hole)', () => {
-  const longHollow = rankRoadEnd({ source: 'county', toWaterM: 48, fourWd: false, maintLevel: null, publicEnd: true, publicBank: true });
-  const boomHole = rankRoadEnd({ source: 'usfs', toWaterM: 21, fourWd: false, maintLevel: 2, publicEnd: true, publicBank: true });
+  const longHollow = rankRoadEnd({ kind: 'public', toWaterM: 48, fourWd: false, maintLevel: null, publicEnd: true, publicBank: true });
+  const boomHole = rankRoadEnd({ kind: 'mvum', toWaterM: 21, fourWd: false, maintLevel: 2, publicEnd: true, publicBank: true });
   assert.equal(longHollow.tier, 'A');
   assert.equal(boomHole.tier, 'B');
   assert.ok(longHollow.score > boomHole.score);
-  const rowEnd = rankRoadEnd({ source: 'county', toWaterM: 30, fourWd: false, maintLevel: null, publicEnd: false, publicBank: false });
+  const rowEnd = rankRoadEnd({ kind: 'public', toWaterM: 30, fourWd: false, maintLevel: null, publicEnd: false, publicBank: false });
   assert.equal(rowEnd.tier, 'B');
   assert.match(rowEnd.notes.join(), /check legality/);
 });
@@ -104,4 +105,48 @@ test('approachPoints finds a road that loops down to the river and back, not one
   // A road running alongside the river at 80 m: level distance, no approach point.
   const parallel = [north(80, -91.01), north(80, -91.005), north(80, -91.0), north(80, -90.995), north(80, -90.99)];
   assert.equal(approachPoints(parallel, dist).length, 0);
+});
+
+// The five Eleven Point tier-A spots v2 proposed on 2026-11-01. The owner
+// reviewed each: none is an access. Census attributes as fetched; all five are on
+// National Forest land with no MVUM route within 300 m.
+const ELEVEN_POINT_FALSE_POSITIVES = [
+  { at: 'Hurricane Creek mouth 36.776422,-91.275183', attrs: { NAME: 'Forest Rd 4031', MTFCC: 'S1400', RTTYP: 'O' } },
+  { at: 'loop 36.651746,-91.186327', attrs: { NAME: null, MTFCC: 'S1740', RTTYP: null } },
+  { at: 'loop 36.750056,-91.249741', attrs: { NAME: 'Forest Rd 3230A', MTFCC: 'S1400', RTTYP: 'O' } },
+  { at: 'end 36.785240,-91.311326', attrs: { NAME: null, MTFCC: 'S1400', RTTYP: null } },
+  { at: 'Rush Creek mouth 36.565231,-91.176195', attrs: { NAME: null, MTFCC: 'S1740', RTTYP: null } },
+];
+
+test('road kind from Census route type and name', () => {
+  assert.equal(tigerRoadKind({ NAME: 'Co Rd 416', RTTYP: 'C' }), 'public');
+  assert.equal(tigerRoadKind({ NAME: 'State Hwy 19', RTTYP: 'S' }), 'public');
+  assert.equal(tigerRoadKind({ NAME: 'Forest Rd 4031', RTTYP: 'O' }), 'forest');
+  assert.equal(tigerRoadKind({ NAME: 'Riverview Ln', RTTYP: 'M' }), 'local');
+  assert.equal(tigerRoadKind({ NAME: null, RTTYP: null }), 'unnamed');
+});
+
+test('none of the five reviewed Eleven Point false positives can be tier A', () => {
+  for (const fp of ELEVEN_POINT_FALSE_POSITIVES) {
+    if (!tigerClass(fp.attrs.MTFCC).drivable) continue; // S1740: not read at all
+    const kind = tigerRoadKind(fp.attrs);
+    assert.equal(rankRoadEnd({ kind, toWaterM: 50, fourWd: false, maintLevel: null, publicEnd: true, publicBank: true }).tier, 'B', fp.at);
+    assert.match(offMvumNote({ kind, endOnNationalForest: true, onMvum: false }) ?? '', /not on the Motor Vehicle Use Map/, fp.at);
+  }
+});
+
+test('Long Hollow (Co Rd 416, county) is tier A with no MVUM warning; a road that is also an MVUM route gets none either', () => {
+  const kind = tigerRoadKind({ NAME: 'Co Rd 416', RTTYP: 'C' });
+  assert.equal(offMvumNote({ kind, endOnNationalForest: true, onMvum: false }), null);
+  assert.equal(rankRoadEnd({ kind, toWaterM: 47, fourWd: false, maintLevel: null, publicEnd: true, publicBank: true }).tier, 'A');
+  assert.equal(offMvumNote({ kind: 'forest', endOnNationalForest: true, onMvum: true }), null);
+  assert.equal(offMvumNote({ kind: 'unnamed', endOnNationalForest: false, onMvum: false }), null, 'a private resort road beside forest bank');
+});
+
+test('only county/state roads and passenger-grade MVUM roads reach tier A', () => {
+  const at = { toWaterM: 50, fourWd: false, maintLevel: null, publicEnd: true, publicBank: true };
+  assert.equal(rankRoadEnd({ ...at, kind: 'unnamed' }).tier, 'B');
+  assert.equal(rankRoadEnd({ ...at, kind: 'local' }).tier, 'B');
+  assert.equal(rankRoadEnd({ ...at, kind: 'mvum', maintLevel: 3 }).tier, 'A', 'High Log Eddy: FS 255, maintenance level 3');
+  assert.equal(rankRoadEnd({ ...at, kind: 'mvum', fourWd: true, maintLevel: 3 }).tier, 'B', 'an ATV-only route');
 });
