@@ -21,8 +21,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamScheduleDay } from '@eddy/types';
 import {
-  idleWindowSentence,
-  scheduleDayHasMinimumFlow,
   oldestRetrievedAt,
   retrievalSentence,
   scheduleDayLabel,
@@ -67,12 +65,11 @@ function DayRow({
   return (
     <CollapsibleSection
       title={scheduleDayLabel(day.scheduleDate)}
-      // The old layout omitted an all-day summary because its 24/24 h tally
-      // already said the same thing. Without that tally, an empty summary
-      // would hide all-day generation until expanded, so name it explicitly.
-      // Keep every no-generation window visible when collapsed as well.
-      summary={day.idle.length > 0 ? idleWindowSentence(day.idle, { minimumFlow: scheduleDayHasMinimumFlow(day) }) : 'Generation scheduled all day.'}
-      summaryLayout="below"
+      // No visible sentence under the day header. The bars and the peak line
+      // already show when the units run, and a written list of every idle
+      // window ("…: midnight – 6 AM, 8 AM – 9 AM, 11 AM – 4 PM…") restated
+      // the bars in a harder-to-read form. The web schedule shows none either;
+      // the hour summary stays for VoiceOver, which cannot see the bars.
       accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), peak ? schedulePeakVoiceOver(peak) : null, 'Central time'].filter(Boolean).join('. ')}
       defaultExpanded={defaultExpanded}
       trailing={now ? (
