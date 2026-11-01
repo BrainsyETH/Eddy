@@ -95,6 +95,13 @@ test('maintenance RPCs deny public roles and retain service-role access with saf
     assert.deepEqual(await inspect(), ['Unexpected public SECURITY DEFINER RPC: accidental_public_definer()']);
     await db.exec('REVOKE EXECUTE ON FUNCTION public.accidental_public_definer() FROM PUBLIC');
     assert.deepEqual(await inspect(), []);
+    // A table a client role can reach must have RLS, whichever table it is.
+    await db.exec('CREATE TABLE public.accidental_open(id integer); GRANT SELECT, INSERT ON public.accidental_open TO anon');
+    assert.deepEqual(await inspect(), ['Client-accessible table without RLS: accidental_open']);
+    await db.exec('ALTER TABLE public.accidental_open ENABLE ROW LEVEL SECURITY');
+    assert.deepEqual(await inspect(), []);
+    await db.exec('CREATE TABLE public.server_only(id integer)');
+    assert.deepEqual(await inspect(), [], 'A table no client role holds privileges on needs no RLS');
     for (const role of ['anon', 'authenticated']) {
       await db.exec(`SET ROLE ${role}`);
       await assert.rejects(db.query('SELECT public.claim_clip_for_posting($1, 15)', [owner]));

@@ -15,7 +15,7 @@ import { getSecondaryGaugeTargets } from '@/lib/eddy/generate-gauge-update';
 import { regenerateGaugeUpdate } from '@/lib/eddy/regenerate-gauge';
 import { resolveModels, type ResolvedModels } from '@/lib/ai/resolve-models';
 import { confirmsGaugeConditionChange, MAX_GAUGE_REGENS_PER_POLL } from '@/lib/eddy/gauge-update-policy';
-import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
+import { tryCronLockDetailed, releaseCronLock } from '@/lib/social/cron-lock';
 import { gateReading, type GateRejection } from '@/lib/alerts/gate';
 import { logger } from '@/lib/logger';
 import { classifyEventKind } from '@/lib/alerts/event-kind';
@@ -86,10 +86,20 @@ async function runUpdate(request: NextRequest) {
   // :15/:30/:45 passes. At 120s the worst case is one skipped cycle.
   const LOCK_JOB = 'update_gauges';
   const LOCK_STALE_SECONDS = 120;
-  const gotLock = await tryCronLock(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
-  if (!gotLock) {
+  const lock = await tryCronLockDetailed(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
+  if (!lock.acquired) {
+    // A lock that cannot be evaluated is not contention: every reading, alert
+    // and Eddy update stops while each run reports a calm "skipped". 503 so the
+    // job monitor records an error (same rule as trust-tick and deliver-push).
+    if (lock.reason === 'unavailable') {
+      logger.error('[update-gauges] cron lock unavailable', new Error(lock.error), { job: LOCK_JOB });
+      return NextResponse.json(
+        { ok: false, monitoring_status: 'error', skipped: true, reason: 'lock_unavailable' },
+        { status: 503 },
+      );
+    }
     console.log('[update-gauges] Skipped: another run holds the lock');
-    return NextResponse.json({ skipped: true, reason: 'concurrent run' });
+    return NextResponse.json({ skipped: true, monitoring_status: 'skipped', reason: 'concurrent run' });
   }
 
   try {

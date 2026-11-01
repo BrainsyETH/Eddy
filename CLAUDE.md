@@ -84,6 +84,9 @@ scripts and mirror CI exactly:
   `SECURITY DEFINER` RPCs against the reviewed public API allowlist in
   `scripts/lib/client-access-contract.ts` under the web app. New public definer
   functions require an explicit allowlist review; report writes remain server-only.
+  It also fails on any public table that `anon`/`authenticated` can touch without
+  RLS enabled — whichever table it is — so RLS switched on by hand in production
+  cannot silently drift from the migrations.
 - `make check` — all of the above
 - `make dev` — run the app locally on a simulator
 - `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps

@@ -27,15 +27,15 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
-import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
+import { tryCronLockDetailed, releaseCronLock } from '@/lib/social/cron-lock';
 import { loadLatestReadings } from '@/lib/gauges/latest-readings';
 import {
   ladderKey,
   planGaugeAlerts,
   type GaugeAlertSubscription,
   type LadderRow,
-  type StateUpdate,
 } from '@/lib/alerts/gauge-threshold';
+import { persistGaugeAlertPlan } from '@/lib/alerts/gauge-alert-persist';
 import { isRuleLive, parentIdsOf } from '@/lib/alerts/gating';
 import { toNum } from '@/lib/utils/num';
 import { logger } from '@/lib/logger';
@@ -50,8 +50,6 @@ const LOCK_STALE_SECONDS = 90;
 const PAGE = 1000;
 /** Parent ids per `in` filter, bounded by the request line's length. */
 const PARENT_CHUNK = 200;
-/** State writes run in small parallel batches rather than one at a time. */
-const WRITE_CONCURRENCY = 10;
 
 const SUBSCRIPTION_COLUMNS =
   'id, user_id, gauge_station_id, river_id, mode, condition_kind, metric, comparator, ' +
@@ -190,25 +188,6 @@ async function loadLadders(
   return out;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function writeStateUpdates(supabase: any, updates: StateUpdate[]): Promise<number> {
-  let written = 0;
-  for (let i = 0; i < updates.length; i += WRITE_CONCURRENCY) {
-    const batch = updates.slice(i, i + WRITE_CONCURRENCY);
-    const results = await Promise.all(
-      batch.map(({ id, ...fields }) =>
-        supabase
-          .from('gauge_alert_subscriptions')
-          .update(fields)
-          .eq('id', id)
-          .then((r: { error: unknown }) => r.error),
-      ),
-    );
-    written += results.filter((error) => !error).length;
-  }
-  return written;
-}
-
 async function run(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -228,9 +207,18 @@ async function run(request: NextRequest) {
   // lives in deliver-push. Stopping evaluation as well would freeze every rule's
   // crossing state, so on the far side of an outage a river that rose and fell
   // would look to us as though it had never moved.
-  const gotLock = await tryCronLock(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
-  if (!gotLock) {
-    return NextResponse.json({ skipped: true, reason: 'concurrent run' });
+  // Contention is a quiet skip; a lock that cannot be evaluated is an outage
+  // and a 503, so the job monitor records it as an error (same as trust-tick).
+  const lock = await tryCronLockDetailed(supabase, LOCK_JOB, LOCK_STALE_SECONDS);
+  if (!lock.acquired) {
+    if (lock.reason === 'unavailable') {
+      logger.error('[evaluate-gauge-alerts] cron lock unavailable', new Error(lock.error), { job: LOCK_JOB });
+      return NextResponse.json(
+        { ok: false, monitoring_status: 'error', skipped: true, reason: 'lock_unavailable' },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ skipped: true, monitoring_status: 'skipped', reason: 'concurrent run' });
   }
 
   const startedAt = Date.now();
@@ -271,28 +259,9 @@ async function run(request: NextRequest) {
 
     const plan = planGaugeAlerts({ subscriptions, readings, ladders });
 
-    let inserted = 0;
-    if (plan.fired.length > 0) {
-      // ignoreDuplicates against the (subscription_id, reading_at) unique index:
-      // a pass that dies after inserting but before writing state re-fires the
-      // same rule on the same reading next time, and this is what makes that
-      // retry harmless rather than a second notification.
-      const { data, error } = await supabase
-        .from('gauge_alert_events')
-        .upsert(plan.fired, { onConflict: 'subscription_id,reading_at', ignoreDuplicates: true })
-        .select('id');
-
-      if (error) {
-        logger.error('[evaluate-gauge-alerts] could not write outbox', error);
-      } else {
-        inserted = data?.length ?? 0;
-      }
-    }
-
-    // Written AFTER the outbox insert. The other order would advance last_state
-    // past a crossing whose event failed to record, and an edge-triggered rule
-    // does not get a second chance at an edge it has already forgotten.
-    const stateWritten = await writeStateUpdates(supabase, plan.stateUpdates);
+    // Outbox first, then state, and a fired rule's state only behind a written
+    // event — the ordering argument is in lib/alerts/gauge-alert-persist.ts.
+    const persisted = await persistGaugeAlertPlan(supabase, plan);
 
     const durationMs = Date.now() - startedAt;
     const summary = {
@@ -304,8 +273,13 @@ async function run(request: NextRequest) {
       stations: stationIds.length,
       readings: readings.size,
       fired: plan.fired.length,
-      inserted,
-      stateWritten,
+      inserted: persisted.inserted,
+      // Non-zero means the outbox write failed and those rules were held back
+      // to re-fire next pass; jobOutcome reads `*Failed` keys as partial.
+      heldBack: persisted.heldBack,
+      outboxFailed: persisted.outboxFailed ? 1 : 0,
+      stateWritten: persisted.stateWritten,
+      stateFailed: persisted.stateFailed,
       skipped: plan.skipped,
       durationMs,
     };

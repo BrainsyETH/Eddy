@@ -46,6 +46,18 @@ WITH exposed_definers AS (
      OR NOT coalesce(path = ANY(p.proconfig), false)
      OR NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
   UNION ALL
+  -- Schema-wide: a public table a client role can touch must have RLS on.
+  -- Five tables (clip_library, admin_activity_log, cron_runs, float_segments,
+  -- river_mile_markers) were created by migrations that never enabled RLS and
+  -- were only protected because it was switched on in production by hand. A
+  -- migration replay, a branch database, or the next table to repeat that
+  -- omission would expose Supabase's default anon/authenticated grants.
+  SELECT 'Client-accessible table without RLS: ' || c.relname
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity
+    AND (has_table_privilege('anon', c.oid, 'SELECT, INSERT, UPDATE, DELETE')
+      OR has_table_privilege('authenticated', c.oid, 'SELECT, INSERT, UPDATE, DELETE'))
+  UNION ALL
   SELECT 'Client can create objects in trusted schema: ' || schema_name || ' / ' || role_name
   FROM (VALUES ('public'), ('extensions')) AS schemas(schema_name)
   CROSS JOIN (VALUES ('anon'), ('authenticated')) AS roles(role_name)
