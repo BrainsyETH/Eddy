@@ -14,15 +14,14 @@
 // (components/map/AccessPointMarkers.tsx, line-style.ts) so the strip and the
 // map read as one product.
 
-import { useCallback, useMemo, useState, type MouseEvent } from 'react';
-import { ArrowRight, Flag, FlagOff } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import { useCallback, useMemo, useState } from 'react';
+import { ArrowDown, ArrowRight, Flag, FlagOff } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import InfoTip from '@/components/ui/InfoTip';
 import Segmented from '@/components/ui/Segmented';
-import { floatPlanPath, type FloatSearchOption } from '@shared/float-search';
-import { RIVER_STRIP_INFO, riverStripLayout, type RiverStripPoint, type RiverStripView, type RouteState } from '@shared/river-strip';
-import { INFO_COLORS, routeAccessLabel, routeCautionsPresent, RouteCautions, RouteConditionBadge, routeTimeLabel } from './route-facts';
+import type { FloatSearchOption } from '@shared/float-search';
+import { CALLOUT_SIZE, RIVER_STRIP_INFO, riverStripLayout, type RiverStripPoint, type RiverStripView, type RouteState } from '@shared/river-strip';
+import { INFO_COLORS, routeCautionsPresent, RouteConditionBadge, routeTimeLabel } from './route-facts';
 
 // AccessPointMarkers: river-forest put-in, sky-warm take-out, river-gravel stops.
 const PUT_IN = '#478559';
@@ -43,7 +42,7 @@ export interface NumberedRoute {
 /** The strip's element id; a card's "Show on river" scrolls here. */
 export const RIVER_STRIP_ID = 'river-strip';
 
-export default function RiverStrip({ riverSlug, riverName, points, routes, selectedId, hoveredId, onSelect, onHover, stale, onPlan }: {
+export default function RiverStrip({ riverSlug, riverName, points, routes, selectedId, hoveredId, onSelect, onHover, onView }: {
   riverSlug: string;
   riverName: string;
   points: RiverStripPoint[];
@@ -53,18 +52,11 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
   hoveredId: string | null;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
-  /** Results are dimmed and inert; the plan link must not open. */
-  stale: boolean;
-  onPlan: () => boolean;
+  /** Reveal the selected card without changing result order. */
+  onView: (id: string) => void;
 }) {
-  const [width, setWidth] = useState(0);
+  const [width, measure] = useStripMeasure();
   const [view, setView] = useState<RiverStripView>('all');
-  // A callback ref follows the element if it is ever replaced; React 19 runs the returned cleanup.
-  const measure = useCallback((node: HTMLDivElement) => {
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
 
   const compact = width > 0 && width < COMPACT_BELOW;
   const layout = useMemo(() => riverStripLayout({
@@ -79,24 +71,15 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
   }), [riverSlug, points, routes, selectedId, hoveredId, view, width, compact]);
 
   const selected = routes.find(route => route.option.id === selectedId)?.option ?? null;
+  const hasCautions = selected ? routeCautionsPresent(selected) : false;
   const optionFor = (id: string) => routes.find(route => route.option.id === id)!.option;
 
   return (
     <Card id={RIVER_STRIP_ID} variant="framed" as="section" aria-labelledby="river-strip-title" className="mb-6 scroll-mt-24">
-      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 pt-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2">
-          <h3 id="river-strip-title" style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold">{riverName}</h3>
-          <InfoTip size={16} title="About this view" ariaLabel="About this view" body={RIVER_STRIP_INFO.join(' ')} colors={INFO_COLORS} />
-        </div>
-        <Segmented aria-label="River view" value={layout?.view ?? view} onChange={setView}
-          options={[
-            { value: 'all', label: 'All floats' },
-            { value: 'stretch', label: 'Your stretch', disabled: !selected, title: selected ? undefined : 'Choose a float first' },
-          ]} />
-      </div>
+      <StripHeader riverName={riverName} view={layout?.view ?? view} onView={setView} hasSelection={Boolean(selected)} />
 
       <div className="px-3 pt-2 sm:px-5">
-        {layout && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-text-secondary)]">
+        {layout?.view === 'stretch' && <div data-river-overview className="mb-2 flex items-center text-xs text-[var(--color-text-secondary)]">
           <div className="flex min-w-[12rem] flex-1 items-center gap-2 sm:max-w-sm" aria-hidden="true">
             <span className="tabular-nums">mi {formatMile(layout.domain.start)}</span>
             <div className="relative h-1.5 flex-1 rounded-full bg-[var(--color-border)]">
@@ -107,7 +90,6 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
             </div>
             <span className="tabular-nums">{formatMile(layout.domain.end)}</span>
           </div>
-          <span className="ml-auto inline-flex items-center gap-1 font-semibold">Downstream<ArrowRight size={14} aria-hidden="true" /></span>
         </div>}
 
         <div ref={measure} className="relative" style={{ height: layout?.height ?? PLACEHOLDER_HEIGHT }} aria-busy={!layout || undefined}>
@@ -122,8 +104,8 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
                 stroke={c.state === 'other' ? 'var(--color-neutral-500)' : c.state === 'selected' ? ROUTE : ROUTE_HOVER}
                 strokeWidth={c.state === 'other' ? 1.25 : 2} strokeDasharray={c.state === 'other' ? '3 3' : undefined} />)}
               {layout.routes.map(route => route.state === 'other'
-                ? <path key={route.id} d={route.path} fill="none" stroke={ROUTE} strokeOpacity={0.55} strokeWidth={compact ? 4 : 5} strokeLinecap="round" strokeLinejoin="round" />
-                : <g key={route.id}>
+                ? <path key={route.id} data-route-state="other" d={route.path} fill="none" stroke={ROUTE} strokeOpacity={selected ? 0.18 : 0.35} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                : <g key={route.id} data-route-state={route.state}>
                   <path d={route.path} fill="none" stroke={CASING} strokeWidth={route.state === 'selected' ? 13 : 11} strokeLinecap="round" strokeLinejoin="round" />
                   <path d={route.path} fill="none" stroke={route.state === 'selected' ? ROUTE : ROUTE_HOVER} strokeWidth={route.state === 'selected' ? 7 : 6} strokeLinecap="round" strokeLinejoin="round" />
                 </g>)}
@@ -153,7 +135,7 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
                 aria-label={`Float ${c.number}: ${option.putIn.name} to ${option.takeOut.name}`}
                 onClick={() => onSelect(c.id)} onMouseEnter={() => onHover(c.id)} onMouseLeave={() => onHover(null)}
                 onFocus={() => onHover(c.id)} onBlur={() => onHover(null)}
-                className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)]"
+                className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-text-link)]"
                 style={{ left: c.x, top: c.y }}>
                 <NumberChip number={c.number} state={c.state} size={c.state === 'other' ? 26 : 30} />
               </button>;
@@ -161,35 +143,34 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
           </>}
         </div>
 
-        {layout && <div className="relative mb-2 h-4 text-xs tabular-nums text-[var(--color-text-secondary)]" aria-hidden="true">
-          {layout.ticks.map(tick => <span key={tick.mile} className="absolute -top-1 -translate-x-1/2 whitespace-nowrap" style={{ left: tick.x }}>mi {formatMile(tick.mile)}</span>)}
-        </div>}
+        <div className="pb-2 text-xs text-[var(--color-text-secondary)]">
+          <div className="relative h-4 tabular-nums" aria-hidden="true">
+            {layout?.ticks.map(tick => <span key={tick.mile} className="absolute -top-1 -translate-x-1/2 whitespace-nowrap" style={{ left: tick.x }}>mi {formatMile(tick.mile)}</span>)}
+          </div>
+          <Downstream />
+        </div>
       </div>
 
       {/* The chosen float's facts; nothing until one is chosen. */}
-      <div aria-live="polite" className={selected ? 'flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 sm:px-5' : undefined}>
+      <div aria-live="polite" className={selected ? 'flex flex-col items-start gap-1 border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5' : undefined}>
         {selected && <>
-          <div className="min-w-0 space-y-2">
-            <p className="flex flex-wrap items-center gap-2 font-semibold">
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="flex items-start gap-2 font-semibold">
               <NumberChip number={routes.find(route => route.option === selected)!.number} state="selected" size={24} />
-              <span>{selected.putIn.name}</span>
-              <span aria-label="to" className="text-[var(--color-text-muted)]">→</span>
-              <span>{selected.takeOut.name}</span>
+              <span>{selected.putIn.name} <span aria-label="to" className="text-[var(--color-text-muted)]">→</span> {selected.takeOut.name}</span>
             </p>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <RouteConditionBadge option={selected} />
-              <span className="rounded-full bg-[var(--color-surface)] px-3 py-1 text-[var(--color-text-secondary)]">{routeAccessLabel(selected)}</span>
               <span className="text-[var(--color-text-secondary)]">
                 {selected.distanceMiles.toFixed(1)} mi · {routeTimeLabel(selected)}{selected.estimateBasis === 'typical' ? ' · Typical estimate' : ''}
               </span>
+              <RouteConditionBadge option={selected} />
             </div>
-            {routeCautionsPresent(selected) && <div className="space-y-1"><RouteCautions option={selected} /></div>}
           </div>
-          <Button href={floatPlanPath(selected)} tabIndex={stale ? -1 : undefined}
-            aria-label={`Plan this float from ${selected.putIn.name} to ${selected.takeOut.name}`}
-            onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (stale || !onPlan()) event.preventDefault(); }}>
-            Plan this float<ArrowRight size={18} aria-hidden="true" />
-          </Button>
+          <button type="button" onClick={() => onView(selected.id)}
+            aria-label={`${hasCautions ? 'View cautions for' : 'View float from'} ${selected.putIn.name} to ${selected.takeOut.name}`}
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded text-sm font-semibold text-[var(--color-text-link)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-text-link)]">
+            {hasCautions ? 'View cautions' : 'View float'}<ArrowDown size={16} aria-hidden="true" />
+          </button>
         </>}
       </div>
     </Card>
@@ -197,21 +178,62 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
 }
 
 /**
- * Holds the strip's place while the river's access points load, so the cards
- * below do not jump when it arrives. Sized like the usual strip at each width.
+ * Reserves the strip's expected height while access points load. The placeable
+ * count is not known yet: if six results become five drawable routes, a narrow
+ * phone can lose a 44px lane on load. An access-point failure removes the strip.
  */
-export function RiverStripPlaceholder({ riverName }: { riverName: string }) {
+export function RiverStripPlaceholder({ riverName, routeCount }: { riverName: string; routeCount: number }) {
+  const [width, measure] = useStripMeasure();
+  // Match the layout's 44px lanes, including a second lane for six floats on a narrow phone.
+  const perLane = width > 0 ? Math.max(1, Math.floor((width - CALLOUT_SIZE) / (CALLOUT_SIZE + 4)) + 1) : routeCount;
+  const height = PLACEHOLDER_HEIGHT + (Math.max(1, Math.ceil(routeCount / perLane)) - 1) * CALLOUT_SIZE;
   return (
     <Card variant="framed" as="section" aria-busy="true" aria-label={`${riverName}: loading the river`}
-      className="mb-6 flex h-[375px] flex-col sm:h-[279px] lg:h-[261px]">
-      <div className="px-4 pt-3 sm:px-5">
-        <h3 style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold">{riverName}</h3>
-      </div>
-      <div className="flex flex-1 items-center px-5" aria-hidden="true">
-        <div className="h-8 w-full rounded-full bg-[var(--color-secondary-100)] motion-safe:animate-pulse" />
+      className="mb-6">
+      <StripHeader riverName={riverName} view="all" onView={() => {}} hasSelection={false} loading />
+      <div className="px-3 pt-2 sm:px-5" aria-hidden="true">
+        <div ref={measure} style={{ height }} className="flex items-center">
+          <div className="h-8 w-full rounded-full bg-[var(--color-secondary-100)] motion-safe:animate-pulse" />
+        </div>
+        <div className="pb-2 text-xs text-[var(--color-text-secondary)]"><div className="h-4" /><Downstream /></div>
       </div>
     </Card>
   );
+}
+
+function useStripMeasure() {
+  const [width, setWidth] = useState(0);
+  // React 19 runs the cleanup when the measured element is replaced or unmounted.
+  const measure = useCallback((node: HTMLDivElement) => {
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return [width, measure] as const;
+}
+
+function StripHeader({ riverName, view, onView, hasSelection, loading = false }: {
+  riverName: string;
+  view: RiverStripView;
+  onView: (view: RiverStripView) => void;
+  hasSelection: boolean;
+  loading?: boolean;
+}) {
+  return <div inert={loading || undefined} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3 sm:px-5">
+    <div className="flex min-w-0 items-center">
+      <h3 id={loading ? undefined : 'river-strip-title'} style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold">{riverName}</h3>
+      <InfoTip quiet size={16} title="About this view" ariaLabel="About this view" body={RIVER_STRIP_INFO.join(' ')} colors={INFO_COLORS} />
+    </div>
+    <Segmented aria-label="River view" value={view} onChange={onView}
+      options={[
+        { value: 'all', label: 'All floats' },
+        { value: 'stretch', label: 'Selected float', disabled: !hasSelection, title: hasSelection ? undefined : 'Choose a float first' },
+      ]} />
+  </div>;
+}
+
+function Downstream() {
+  return <span className="flex items-center justify-end gap-1 font-semibold">Downstream<ArrowRight size={14} aria-hidden="true" /></span>;
 }
 
 /** Focus the strip's callout for a route: after "Show on river", the next Tab continues in the strip. */
@@ -219,7 +241,7 @@ export function focusStripRoute(id: string) {
   const strip = document.getElementById(RIVER_STRIP_ID);
   if (!strip) return;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  strip.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+  strip.scrollIntoView({ behavior: reduce ? 'instant' : 'smooth', block: 'nearest' });
   strip.querySelector<HTMLButtonElement>(`button[data-route-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
 }
 

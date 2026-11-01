@@ -28,11 +28,13 @@ interface InfoTipProps {
   colors: InfoTipColors;
   size?: number;
   branded?: boolean;
+  /** A small unframed glyph inside a full-size touch target. */
+  quiet?: boolean;
 }
 
 const POPOVER_WIDTH = 240;
 
-export default function InfoTip({ title, body, ariaLabel, colors, size = 16, branded = false }: InfoTipProps) {
+export default function InfoTip({ title, body, ariaLabel, colors, size = 16, branded = false, quiet = false }: InfoTipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -84,7 +86,8 @@ export default function InfoTip({ title, body, ariaLabel, colors, size = 16, bra
     if (rect.bottom > window.innerHeight - 10) setPos({ ...pos, top: Math.max(10, window.innerHeight - rect.height - 10) });
   }, [open, pos]);
 
-  const glyph = Math.round(size * 0.72);
+  const glyph = quiet ? size : Math.round(size * 0.72);
+  const target = quiet ? Math.max(44, size) : size;
 
   return (
     <>
@@ -101,13 +104,13 @@ export default function InfoTip({ title, body, ariaLabel, colors, size = 16, bra
           alignItems: 'center',
           justifyContent: 'center',
           flex: 'none',
-          width: size,
-          height: size,
-          minWidth: branded ? size : undefined,
-          minHeight: branded ? size : undefined,
+          width: target,
+          height: target,
+          minWidth: quiet || branded ? target : undefined,
+          minHeight: quiet || branded ? target : undefined,
           padding: 0,
           borderRadius: '9999px',
-          border: branded ? 'none' : `1px solid ${colors.triggerBorder}`,
+          border: quiet || branded ? 'none' : `1px solid ${colors.triggerBorder}`,
           background: 'transparent',
           color: colors.trigger,
           cursor: 'pointer',

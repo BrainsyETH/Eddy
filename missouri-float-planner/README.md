@@ -169,8 +169,9 @@ assets for visual review; otherwise image requests use a local Eddy fixture.
 `/find-float` is the Floats landing page. A **Plan a float** header CTA retains
 river/endpoint context. The **Find a float** form sits above discovery:
 Where and nearby radius, then trip length, time and vessel, then a Filters row
-that shares a line with the submit button. Its inputs, filters and result cards
-match the iOS finder; see `docs/find-a-float.md`. The header order is Map, Conditions,
+that shares a line with the submit button. Its inputs, filters and route facts
+match the iOS finder; the web cards use a compact layout with river-strip selection.
+See `docs/find-a-float.md`. The header order is Map, Conditions,
 Floats, Guides on desktop and mobile.
 
 **Featured Floats** uses the same `/api/favorite-floats?v=2` catalogue and local-day

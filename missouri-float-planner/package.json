@@ -55,6 +55,7 @@
     "test:analytics-browser": "node scripts/analytics-browser-smoke.mjs",
     "test:planner-map": "node scripts/planner-map-smoke.mjs",
     "test:float-finder": "node scripts/float-finder-smoke.mjs",
+    "test:river-strip": "node scripts/river-strip-smoke.mjs",
     "test:conditions": "node scripts/conditions-smoke.mjs",
     "test:national-gauges": "NATIONAL_GAUGES_ONLY=1 node scripts/planner-map-smoke.mjs",
     "build:visual-guides": "node --import tsx scripts/build-visual-guides.ts",
