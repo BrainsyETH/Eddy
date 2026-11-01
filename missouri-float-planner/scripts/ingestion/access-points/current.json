@@ -1,0 +1,99 @@
+[
+ {
+  "name": "County Road KK-359 Access",
+  "slug": "county-road-kk-359",
+  "expected_mile": 19.71,
+  "lat": 37.359459,
+  "lon": -91.525706,
+  "description": "Primitive gravel bar access on the Ozark National Scenic Riverways, about 2.5 river miles below Akers Ferry, at the end of County Road KK-359.",
+  "road_access": "County Road KK-359. Off-road track at the end; a 4x4 is recommended.",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ],
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities. Limited access: a primitive track, not a developed landing.",
+  "confidence": "medium (owner-approved on imagery 2026-11-01)"
+ },
+ {
+  "name": "County Road M-135 Access",
+  "slug": "county-road-m-135",
+  "expected_mile": 81.94,
+  "lat": 37.033283,
+  "lon": -91.054017,
+  "description": "Primitive gravel bar access on the Ozark National Scenic Riverways, about 2.5 river miles below Waymeyer, reached on County Road M-135 off Route M.",
+  "road_access": "County Road M-135 off Route M, north of Van Buren. Off-road track to the gravel bar; a 4x4 is recommended.",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ],
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities. Limited access: a primitive track, not a developed landing.",
+  "confidence": "medium (owner-approved on imagery 2026-11-01)"
+ },
+ {
+  "name": "County Road 126 Access",
+  "slug": "county-road-126",
+  "expected_mile": 80.37,
+  "lat": 37.052243,
+  "lon": -91.054118,
+  "description": "Primitive access on the Ozark National Scenic Riverways about a mile below Waymeyer, at the end of County Road 126.",
+  "road_access": "County Road 126 off Route M, north of Van Buren. Off-road track at the end; a 4x4 is recommended.",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ],
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities. Limited access: a primitive track, not a developed landing.",
+  "confidence": "medium (owner-approved on imagery 2026-11-01)"
+ },
+ {
+  "name": "Dunrovin",
+  "slug": "dunrovin",
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 121.95,
+  "lat": 36.654734,
+  "lon": -90.860705,
+  "is_public": true,
+  "ownership": "USFS",
+  "managing_agency": "USFS",
+  "description": "Unimproved access on river right at the end of the Dunrovin road (Forest Road 4819), on Mark Twain National Forest land about 1.3 river miles below Float Camp.",
+  "road_access": "Forest Road 4819 (Dunrovin). Off-road track at the end; a 4x4 is recommended.",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities. Limited access: a primitive track, not a developed landing.",
+  "confidence": "medium (owner-approved on imagery 2026-11-01; listed as Dun Roven in an older MDC float guide)",
+  "source_urls": [
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1",
+   "https://missouricanoe.org/?p=271"
+  ]
+ }
+]
