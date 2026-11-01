@@ -93,7 +93,11 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
     description = EXCLUDED.description,
     approved = EXCLUDED.approved;
 
--- Scotia Bridge Access
+-- Scotia Bridge Access: not an available access (owner check, 2026-11-01); the
+-- production row was deleted. The block stays because ACCESS_SLUG_RENAMES (and
+-- its migration) pins 'scotia-bridge-access' as a seeded slug, but it seeds the
+-- row unapproved so a re-seed never publishes it. Listed in
+-- ACCESS_SLUG_ABSENT_EXCEPTIONS.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, is_public, ownership,
     description, amenities, parking_info, fee_required, approved
@@ -110,30 +114,12 @@ SELECT
     ARRAY['parking'],
     'Roadside parking near bridge',
     false,
-    true
+    false
 FROM rivers r WHERE r.slug = 'meramec'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
--- Steelville City Park
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, is_public, ownership,
-    description, amenities, parking_info, fee_required, approved
-)
-SELECT 
-    r.id,
-    'Steelville City Park',
-    'steelville-city-park',
-    ST_SetSRID(ST_MakePoint(-91.3421, 37.9678), 4326),
-    'park',
-    true,
-    'city',
-    'City park with paved ramp and good facilities. Popular shuttle pick-up point.',
-    ARRAY['parking', 'restrooms', 'boat_ramp', 'picnic'],
-    'Paved parking lot with trailer access',
-    false,
-    true
-FROM rivers r WHERE r.slug = 'meramec'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+-- Steelville City Park: removed 2026-11-01. The owner checked it and it is not
+-- an available access; the production row was deleted.
 
 -- Meramec State Park
 INSERT INTO access_points (
@@ -505,27 +491,11 @@ SELECT
 FROM rivers r WHERE r.slug = 'eleven-point'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
--- Turner Mill North — Mile 21.5
-INSERT INTO access_points (
-    river_id, name, slug, location_orig, type, types, is_public, ownership,
-    description, amenities, parking_info, road_access, facilities,
-    fee_required, road_surface, parking_capacity, managing_agency,
-    official_site_url, river_mile_downstream, approved
-)
-SELECT
-    r.id, 'Turner Mill North', 'turner-mill-north',
-    ST_SetSRID(ST_MakePoint(-91.2700, 36.7690), 4326),
-    'access', ARRAY['access'], true, 'USFS',
-    'Left bank access at historic Turner Mill site. Day use only, no camping.',
-    ARRAY['parking', 'restrooms'],
-    'Small USFS gravel lot. ~8-10 vehicles.',
-    'Remote. From Winona, Hwy 19 south 11.5 mi, right on NF-3152 for 6 mi, right on NF-3190.',
-    'Day-use picnic area with vault toilet and boat launch. No camping. No water.',
-    false, ARRAY['gravel_maintained']::text[], '10', 'USFS',
-    'https://www.fs.usda.gov/r09/marktwain/recreation/turner-mill-north-river-access',
-    21.5, true
-FROM rivers r WHERE r.slug = 'eleven-point'
-ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
+-- Turner Mill North: removed 2026-11-01. Production carries this access as
+-- 'turner-s-mill-and-spring-north', which took this row's facts; the duplicate
+-- 'turner-mill-north' was deleted and its URL redirects
+-- (src/lib/access-points/merged-slugs.ts). Seeding it again would bring the
+-- duplicate back as approved.
 
 -- McDowell Access — Mile 24.2
 INSERT INTO access_points (
