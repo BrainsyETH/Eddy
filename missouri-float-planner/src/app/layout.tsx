@@ -36,7 +36,7 @@ const geistHeading = localFont({
   weight: "100 900",
 });
 
-const EDDY_FAVICON_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
+const EDDY_LOGO_URL = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
 const GA_TRACKING_ID = analyticsTrackingId(process.env);
 
@@ -50,10 +50,9 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   ...appBannerMetadata(),
-  icons: {
-    icon: EDDY_FAVICON_URL,
-    apple: EDDY_FAVICON_URL,
-  },
+  // Tab and touch icons are the app/favicon.ico, app/icon.png and
+  // app/apple-icon.png files: a crop of the iOS app icon that stays legible
+  // at 16 and 32 px, served from this deployment rather than blob storage.
   title: {
     default: "Eddy - Your River Guide",
     template: "%s | Eddy",
@@ -96,7 +95,7 @@ export default function RootLayout({
                   '@id': `${BASE_URL}/#organization`,
                   name: 'Eddy',
                   url: BASE_URL,
-                  logo: EDDY_FAVICON_URL,
+                  logo: EDDY_LOGO_URL,
                   sameAs: SOCIAL_SAME_AS,
                 },
                 {

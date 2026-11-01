@@ -2,6 +2,7 @@
 // About page explaining how Eddy works and condition codes
 
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Droplets, MapPin, Clock, Gauge, TrendingUp, AlertTriangle, Info, Database, Waves, Code2 } from 'lucide-react';
@@ -16,11 +17,12 @@ import { getCoverageCounts, getCuratedRivers, curatedStates } from '@/lib/covera
 // so this page must be rebuilt periodically rather than frozen at deploy.
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: 'How Eddy Works',
-  description: 'Learn how Eddy uses real-time USGS gauge data to provide live river conditions, float time estimates, and access point information for planning your float trip.',
-  alternates: { canonical: '/about' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'How Eddy Works',
+  'Learn how Eddy uses real-time USGS gauge data to provide live river conditions, float time estimates, and access point information for planning your float trip.',
+  '/about',
+  SHARE_IMAGES.site,
+);
 
 // Eddy otter images for different conditions
 const EDDY_IMAGES: Record<string, string> = {

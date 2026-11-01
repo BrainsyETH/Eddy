@@ -15,6 +15,7 @@ import { redirectSystemPath } from '../../../../eddy-ios/app/+native-intent';
 import {
   parseChartShare,
   chartSharePath,
+  chartAppPath,
   chartShareQuery,
   chartShareTitle,
   chartImagePath,
@@ -37,11 +38,12 @@ import {
   fixtureImageData,
   fixtureThresholds,
 } from './__fixtures__/chart-share';
-import { ChartShareImage } from '../og/chart-share-image';
+import { ChartShareImage, chartImageLegend } from '../og/chart-share-image';
 import { loadOgFonts } from '../og/fonts';
 import { GET as imageRoute } from '../../app/api/share/chart/[provider]/[siteId]/image/route';
 import { GET as detailRoute } from '../../app/api/gauges/[siteId]/route';
 import { gaugeDetailResponse } from './detail-response';
+import { generateMetadata as shareChartMetadata } from '../../app/share/chart/[provider]/[siteId]/page';
 import { gaugeHistoryResponse } from './history-response';
 import { loadChartShareData } from './chart-share-data';
 import { getFlowProvider } from '../flow-providers';
@@ -721,4 +723,75 @@ test('missing context is a typed attachment error or neutral preview; outages st
   const outage = await imageRoute(request(), context);
   assert.equal(outage.status, 503);
   assert.equal(outage.headers.get('cache-control'), 'no-store');
+});
+
+test('the image legend follows the plotted segments inside the shared window', () => {
+  const data = fixtureImageData();
+  const domain = data.view.domain!;
+  const HOUR = 3_600_000;
+  const point = (t: number, v = 600) => ({ t, v, timestamp: new Date(t).toISOString(), qualifiers: [] });
+  const legend = (view: Partial<typeof data.view>, layers = data.state.layers) =>
+    chartImageLegend({ ...data.view, ...view }, layers).map((entry) => entry.label);
+  const before = (h: number) => domain.t0 - h * HOUR;
+  const after = (h: number) => domain.t1 + h * HOUR;
+
+  // A forecast that starts after the window is clipped out of the plot.
+  assert.ok(!legend({ forecast: [point(after(1)), point(after(2))] }).includes('NWS forecast'));
+  assert.ok(legend({ forecast: [point(domain.t1 - HOUR), point(after(1))] }).includes('NWS forecast'));
+
+  // A line that crosses the window with both readings outside it is drawn.
+  const crossing = [point(before(1), 600), point(after(1), 700)];
+  assert.ok(legend({ observed: crossing }).includes('Observed'));
+  const priorCrossing = crossing.map((p) => ({ ...p, sourceDate: '2025-03-20', alignedDate: '2026-03-20' }));
+  assert.ok(legend({ prior: priorCrossing }).includes('Last year'));
+
+  // A telemetry gap across the window splits the line, so nothing is drawn there.
+  const gapped = [before(3), before(2), before(1), after(1), after(2), after(3)].map((t) => point(t));
+  assert.ok(!legend({ observed: gapped }).includes('Observed'));
+
+  // Isolated readings are dots and count only inside the window.
+  assert.ok(legend({ observed: [point(domain.t0 + HOUR)] }).includes('Observed'));
+  assert.ok(!legend({ observed: [point(after(1))] }).includes('Observed'));
+
+  // Band and median paths entirely outside the window are not listed.
+  const typicalOutside = [before(48), before(24)].map((t) => ({ t, low: 400, high: 900, median: 600 }));
+  const outside = legend({ typical: typicalOutside });
+  assert.ok(!outside.includes('Typical range') && !outside.includes('Median'));
+  const typicalCrossing = [before(24), after(24)].map((t) => ({ t, low: 400, high: 900, median: 600 }));
+  const inside = legend({ typical: typicalCrossing });
+  assert.ok(inside.includes('Typical range') && inside.includes('Median'));
+  assert.ok(!legend({ typical: typicalCrossing }, []).includes('Typical range'), 'layers that are off are not drawn');
+
+  assert.ok(!legend({}).some((label) => /^Fit to|Full scale/.test(label)), 'chart controls are not legend entries');
+});
+
+async function shareBanner(t: TestContext, query: string) {
+  for (const [key, value] of Object.entries({ NEXT_PUBLIC_SUPABASE_URL: 'https://banner-test.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-only-key' })) {
+    const previous = process.env[key];
+    process.env[key] = value;
+    t.after(() => { if (previous === undefined) delete process.env[key]; else process.env[key] = previous; });
+  }
+  t.mock.method(globalThis, 'fetch', async () => Response.json([]));
+  const metadata = await shareChartMetadata({
+    params: Promise.resolve({ provider: 'usgs', siteId: '07067000' }),
+    searchParams: Promise.resolve(Object.fromEntries(new URLSearchParams(query))),
+  });
+  const banner = String(metadata.other?.['apple-itunes-app'] ?? '');
+  return banner.match(/app-argument=eddy:\/\/([^,]+)/)?.[1] ?? null;
+}
+
+test('the Smart App Banner opens the same screen as the universal-link handler', async (t) => {
+  const valid = chartShareQuery(fixtureState);
+  assert.equal(await shareBanner(t, valid), sharedGaugeDestination(`/share/chart/usgs/07067000?${valid}`));
+  assert.equal(await shareBanner(t, valid), chartAppPath(fixtureState));
+
+  // An unsupported version opens the gauge flagged, so it can explain that the
+  // shared view could not be restored rather than silently showing today.
+  const unsupported = valid.replace('v=1', 'v=2');
+  assert.equal(await shareBanner(t, unsupported), '/gauge/07067000?shareUnavailable=1');
+  assert.equal(await shareBanner(t, unsupported), sharedGaugeDestination(`/share/chart/usgs/07067000?${unsupported}`));
+
+  // The banner hands the app eddy://<path>; the app routes it unchanged.
+  const appPath = chartAppPath(fixtureState);
+  assert.equal(redirectSystemPath({ path: `eddy://${appPath}`, initial: false }), appPath);
 });

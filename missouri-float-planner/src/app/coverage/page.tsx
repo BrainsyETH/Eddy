@@ -15,6 +15,7 @@
 // than re-audited each time the roster changes.
 
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import Link from 'next/link';
 import { Gauge, MapPin, Waves, AlertTriangle, Tent, Building2, Database } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -27,12 +28,12 @@ import { getCoverageCounts, getCuratedRivers, curatedStates, type CoverageCount 
 // hardcoded roster survive two dozen onboardings.
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: 'What Eddy Covers',
-  description:
-    'Eddy curates float conditions, access points and logistics for Ozark rivers in Missouri and Arkansas, and carries live USGS readings and forecasts for reference gauges nationwide. Here is exactly what each means.',
-  alternates: { canonical: '/coverage' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'What Eddy Covers',
+  'Eddy curates float conditions, access points and logistics for Ozark rivers in Missouri and Arkansas, and carries live USGS readings and forecasts for reference gauges nationwide. Here is exactly what each means.',
+  '/coverage',
+  SHARE_IMAGES.site,
+);
 
 /**
  * Counts render with thousands separators, and a null renders as an em dash.

@@ -1,16 +1,63 @@
 import type { Metadata } from 'next';
+import { linkPreviewAsset, type LinkPreviewKind } from '@/lib/og/link-preview';
 
-export function publicPageMetadata(title: string, description: string, path: string, shareImage?: string): Metadata {
+/** A link-preview image a page names explicitly. Alt text describes this image. */
+export interface ShareImage {
+  url: string;
+  alt: string;
+}
+
+/**
+ * The page's own route segment ships opengraph-image and twitter-image files.
+ * Next serves those over any config image in the same segment, so the helper
+ * leaves `images` out. sharing-previews.test.ts checks both files exist.
+ */
+export const ROUTE_SHARE_IMAGE = 'route-files' as const;
+
+const SITE_IMAGE: ShareImage = {
+  url: '/opengraph-image',
+  alt: 'Eddy — live river conditions, water levels, and float trip plans',
+};
+
+function illustration(kind: LinkPreviewKind): ShareImage {
+  const asset = linkPreviewAsset(kind);
+  return { url: `/share/${asset.file}`, alt: asset.alt };
+}
+
+/** Known-good images for pages without artwork of their own. */
+export const SHARE_IMAGES = {
+  site: SITE_IMAGE,
+  river: illustration('river'),
+  gauge: illustration('gauge'),
+  plan: illustration('plan'),
+} as const satisfies Record<string, ShareImage>;
+
+/**
+ * Open Graph and Twitter metadata for a public page.
+ *
+ * Nested metadata is replaced, not merged: a page that sets only a title and
+ * description inherits the root's whole openGraph object, including its
+ * homepage og:url. Every public page goes through here so that cannot happen,
+ * and the image is required so no page unfurls without one.
+ */
+export function publicPageMetadata(
+  title: string,
+  description: string,
+  path: string,
+  image: ShareImage | typeof ROUTE_SHARE_IMAGE,
+): Metadata {
+  const explicit = image === ROUTE_SHARE_IMAGE ? null : image;
   return {
     title, description,
     alternates: { canonical: path },
-    // Nested metadata is replaced, not merged. Routes without their own
-    // file-based image need explicit fallbacks when overriding openGraph.
     openGraph: {
       type: 'website', siteName: 'Eddy', title, description, url: path,
-      ...(shareImage ? { images: [{ url: shareImage, width: 1200, height: 630, alt: 'Eddy — live river conditions, water levels, and float trip plans' }] } : {}),
+      ...(explicit ? { images: [{ url: explicit.url, width: 1200, height: 630, alt: explicit.alt }] } : {}),
     },
-    twitter: { card: 'summary_large_image', title, description, ...(shareImage ? { images: [shareImage] } : {}) },
+    twitter: {
+      card: 'summary_large_image', title, description,
+      ...(explicit ? { images: [{ url: explicit.url, alt: explicit.alt }] } : {}),
+    },
   };
 }
 

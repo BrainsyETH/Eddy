@@ -4,6 +4,7 @@
 // client island (AddPhotoIsland).
 
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -36,12 +37,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const url = `${riverPath(river.state, slug)}/add-photo`;
 
   return {
-    title,
+    ...publicPageMetadata(title, description, url, SHARE_IMAGES.river),
     robots: { index: false, follow: true },
-    description,
-    alternates: { canonical: url },
-    openGraph: { title, description, url, type: 'website' },
-    twitter: { card: 'summary', title, description },
   };
 }
 

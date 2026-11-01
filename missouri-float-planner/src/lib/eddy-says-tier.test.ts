@@ -27,8 +27,8 @@
 // Neither was the real invariant. Both were the belt to the selector's braces,
 // and the selector is what remains: it CANNOT return quote_text, by its return
 // type, so no surface downstream can render it however the props are named.
-// selectEddySays still feeds the share note, the map sheet's river head, the
-// Favorites cards and the Today tab, and every one of them is covered by the
+// selectEddySays still feeds the map sheet's river head, the Favorites cards
+// and the Today tab (river shares no longer carry it: see shareLink), and every one of them is covered by the
 // shape assertions above rather than by a grep over a component.
 
 import assert from 'node:assert/strict';

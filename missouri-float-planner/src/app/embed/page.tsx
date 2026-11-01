@@ -3,26 +3,15 @@
 // only, so the widget iframe routes keep their own) and renders the client UI.
 
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import EmbedWorkbench from '@/components/embed/EmbedWorkbench';
 
-export const metadata: Metadata = {
-  title: 'Widgets',
-  description:
-    'Free Missouri river widgets — live conditions, gauge reports, a float-trip planner, services directory and condition badges. Configure, preview and copy the code for your website.',
-  alternates: { canonical: '/embed' },
-  openGraph: {
-    title: 'Widgets | Eddy',
-    description:
-      'Free Missouri river widgets — live conditions, gauge reports, a float-trip planner and more. Configure, preview and copy the code for your site.',
-    url: '/embed',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Widgets | Eddy',
-    description: 'Free Missouri river widgets. Configure, preview and copy the code for your site.',
-  },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Widgets',
+  'Free Missouri river widgets — live conditions, gauge reports, a float-trip planner and more. Configure, preview and copy the code for your site.',
+  '/embed',
+  SHARE_IMAGES.site,
+);
 
 export default function EmbedPage() {
   return <EmbedWorkbench />;

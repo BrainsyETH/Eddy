@@ -25,6 +25,9 @@ interface EddyQuoteProps {
   optimalRange?: string | null;
   /** When true, removes outer border/rounded/bg wrapper (parent provides it) */
   embedded?: boolean;
+  /** River name and canonical page path for the Share button. Without them the
+   * share falls back to the legacy /rivers/<slug> URL, which redirects. */
+  share?: { title: string; path: string } | null;
 }
 
 import { getEddyImageForCondition } from '@/constants';
@@ -52,7 +55,7 @@ function formatGeneratedAge(generatedAt: string): string {
   return `Updated ${Math.round(hours)} hrs ago`;
 }
 
-export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange, embedded }: EddyQuoteProps) {
+export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange, embedded, share }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
@@ -89,19 +92,23 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   // Static fallback
   const staticQuote = buildEddyQuote(riverSlug, conditionCode, gaugeHeightFt, weather, optimalRange);
 
-  // Share handler — only use native share on mobile (touch devices)
+  // Share handler — only use native share on mobile (touch devices).
+  // The river's name and link only: the report text would reach the recipient
+  // with no time attached and read as current long after this reading
+  // (docs/SHARING_PREVIEWS.md). Opening the link shows current conditions.
+  const sharePath = share?.path ?? `/rivers/${riverSlug}`;
+  const shareTitle = share?.title;
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/rivers/${riverSlug}`;
+    const url = `${window.location.origin}${sharePath}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
     if (isMobile && navigator.share) {
-      const title = `River conditions on Eddy`;
-      const text = aiUpdate?.summaryText || staticQuote.text;
       try {
-        await navigator.share({ title, text, url });
+        await navigator.share(shareTitle ? { title: shareTitle, url } : { url });
         return;
-      } catch {
-        // User cancelled or share failed — fall through to clipboard
+      } catch (error) {
+        // Cancelling the sheet is not a failure and must not copy anything.
+        if (error instanceof Error && error.name === 'AbortError') return;
       }
     }
 
@@ -112,7 +119,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     } catch {
       // Clipboard failed
     }
-  }, [riverSlug, aiUpdate, staticQuote.text]);
+  }, [sharePath, shareTitle]);
 
   // Public web callers receive the summary only. Fall back to the static,
   // live-condition copy when no generated summary is available.

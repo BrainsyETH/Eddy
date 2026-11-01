@@ -132,7 +132,6 @@ import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { gaugePlaceLabel, gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { useAccount } from '@/hooks/useAccount';
-import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useSession } from '@/hooks/useSession';
@@ -140,7 +139,6 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
-import { selectEddySays } from '@/lib/eddySays';
 import { observationAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
 import { observedStamp } from '@/lib/observedStamp';
@@ -410,20 +408,6 @@ export default function RiverDetailScreen() {
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
-  /**
-   * Eddy's FREE line about this river, for the deck over EddyTake's read.
-   *
-   * INITIATES, unlike the map sheet's reader — this screen is reachable
-   * directly from a deep link or a push, so it cannot assume the Today tab has
-   * already filled the shared cache. One batched request covers every river and
-   * is shared with every other surface that wants a line.
-   *
-   * Selected rather than read: selectEddySays returns a shape with no field the
-   * paid quote could arrive in, which is what keeps the gated column out of a
-   * free surface by construction rather than by care. See src/lib/eddySays.ts.
-   */
-  const { updates: eddyUpdates } = useEddyUpdates();
-  const eddySays = selectEddySays(slug ? eddyUpdates?.[slug] : null);
 
   // Eddy's take is the one gated card on this screen, and it fails OPEN — see
   // the `entitled` computation below and the prop comment in EddyTake. Every
@@ -1343,11 +1327,12 @@ export default function RiverDetailScreen() {
       <NativeHeaderHome />
 
       <Stack.Toolbar placement="right">
-        {/* Keep the canonical website path and only Eddy's free summary. */}
+        {/* The canonical website path and the river's name. No condition
+            summary: it would reach the recipient undated (see shareLink). */}
         <Stack.Toolbar.Button
           icon="square.and.arrow.up"
           accessibilityLabel={`Share ${river.name}`}
-          onPress={() => void shareLink(river.name, river.path, eddySays?.text ?? null)}
+          onPress={() => void shareLink(river.name, river.path)}
         >
           Share
         </Stack.Toolbar.Button>

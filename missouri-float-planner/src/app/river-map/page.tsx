@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import MOSurfaceWaterApp from '@/components/mo-surface-water/MOSurfaceWaterApp';
 
-export const metadata: Metadata = {
-  title: 'Live River Map — Eddy',
-  description:
-    'Live Ozarks river conditions and nationwide USGS gauges, with flow and stage filters, station details, river forecasts, and 30-day trends.',
-  alternates: { canonical: '/river-map' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Live River Map',
+  'Live Ozarks river conditions and nationwide USGS gauges, with flow and stage filters, station details, river forecasts, and 30-day trends.',
+  '/river-map',
+  SHARE_IMAGES.gauge,
+);
 
 // Bypass static generation; the live USGS feed is the point.
 export const dynamic = 'force-dynamic';

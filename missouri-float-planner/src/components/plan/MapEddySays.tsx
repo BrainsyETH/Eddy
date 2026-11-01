@@ -20,6 +20,8 @@ interface MapEddySaysProps {
   conditionCode: ConditionCode;
   gaugeHeightFt: number | null;
   onSubmitPhoto?: () => void;
+  /** River name and canonical page path for the report's Share button. */
+  share?: { title: string; path: string } | null;
 }
 
 export default function MapEddySays({
@@ -27,6 +29,7 @@ export default function MapEddySays({
   conditionCode,
   gaugeHeightFt,
   onSubmitPhoto,
+  share,
 }: MapEddySaysProps) {
   const [open, setOpen] = useState(false);
 
@@ -64,6 +67,7 @@ export default function MapEddySays({
               conditionCode={conditionCode}
               gaugeHeightFt={gaugeHeightFt}
               embedded
+              share={share}
             />
             {onSubmitPhoto && (
               <button

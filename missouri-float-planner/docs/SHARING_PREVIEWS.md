@@ -40,8 +40,44 @@ Photo provenance and reuse terms are in `public/share/credits.txt`.
 Commit inputs, renderer and outputs together; version filenames for revisions.
 Already-sent chat previews may remain cached even after deployment.
 
+## Page metadata
+
+- Every public page builds its Open Graph and Twitter tags with
+  `publicPageMetadata()` (`src/lib/seo.ts`). Next.js replaces nested metadata
+  instead of merging it, so a page that sets only a title and description
+  inherits the root's whole `openGraph`, including the homepage `og:url`.
+- The helper requires an image: a `SHARE_IMAGES` entry (the homepage card or
+  one of the committed illustrations, each with its own alt text) or
+  `ROUTE_SHARE_IMAGE` when the route segment ships its own
+  `opengraph-image`/`twitter-image` files. A page's config image wins over a
+  parent segment's image file; an image file in the page's own segment wins
+  over its config.
+- Titles never include "Eddy": the root template appends "| Eddy".
+- `sharing-previews.test.ts` fails when a public route sets metadata without
+  Open Graph, when a `ROUTE_SHARE_IMAGE` route lacks either image file, or
+  when a title would render the brand twice.
+- Tab and touch icons are local files (`src/app/favicon.ico`, `icon.png`,
+  `apple-icon.png`), cropped from the iOS app icon so the face and sunglasses
+  stay legible at 16 and 32 px.
+
+## Share text
+
+- A link share is the title and the link. Ordinary river shares carry no
+  condition summary, on iOS (`shareLink`) or the web (`EddyQuote`): it would
+  reach the recipient undated. A share that does state a condition, such as a
+  future alert share, includes the observation's date, time and time zone.
+
 ## Behavior
 
+- The Smart App Banner opens the related screen where the app has one:
+  river guides open their river, `/find-float` opens Find a Float, and a
+  shared chart opens its gauge with the shared view, or with
+  `shareUnavailable=1` when the view can't be restored, so the screen says so
+  instead of silently showing current conditions. Both come from
+  `chartShareAppPath`, which the universal-link handler also uses. Pages
+  without a related screen keep the default.
+- The shared chart image's legend lists a series only when its plotted
+  segments (gap-split, as drawn) intersect the shared window.
 - Gauge redirects happen in `proxy.ts` before streaming, returning temporary HTTP 307
   directly to `/rivers/<state>/<slug>` and preserving the query. Only exact
   gauge detail paths perform bounded public catalog reads; image paths do not.

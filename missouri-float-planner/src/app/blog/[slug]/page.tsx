@@ -11,6 +11,7 @@ import RiverGuideLayout from '@/components/blog/RiverGuideLayout';
 import GuideArticleLayout from '@/components/blog/GuideArticleLayout';
 import type { GuideData, RiverGuidePost, ArticleGuideData, ArticleGuidePost } from '@/types/blog';
 import { jsonLdString } from '@/lib/json-ld';
+import { appBannerMetadata } from '@/lib/app-discovery';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -89,6 +90,7 @@ export async function generateMetadata(
       description: post.description || undefined,
       type: 'article',
       url: `${BASE_URL}/blog/${slug}`,
+      siteName: 'Eddy',
       publishedTime: post.published_at || undefined,
       // Share image comes from the branded opengraph-image.tsx in this segment.
     },
@@ -98,6 +100,8 @@ export async function generateMetadata(
       description: post.description || undefined,
       // Share image comes from the branded twitter-image.tsx in this segment.
     },
+    // Safari's banner opens the guide's river in the app, not the default tab.
+    ...appBannerMetadata(post.river_slug ? `/river/${encodeURIComponent(post.river_slug)}` : undefined),
   };
 }
 

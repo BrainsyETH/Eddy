@@ -6,6 +6,7 @@
 // Unknown segments 404.
 
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
@@ -14,8 +15,6 @@ import { riverPath } from '@/lib/navigation/river-path';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const revalidate = 300;
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://eddy.guide';
 
 interface Props {
   params: Promise<{ state: string }>;
@@ -29,11 +28,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {};
   }
   const name = stateName(stateCode);
-  return {
-    title: `${name} Float Trips & River Conditions`,
-    description: `Live water levels, float conditions, access points, and river guides for ${name} float rivers. Plan your next float on Eddy.`,
-    alternates: { canonical: `${BASE_URL}/rivers/${state}` },
-  };
+  return publicPageMetadata(
+    `${name} Float Trips & River Conditions`,
+    `Live water levels, float conditions, access points, and river guides for ${name} float rivers. Plan your next float on Eddy.`,
+    `/rivers/${state}`,
+    SHARE_IMAGES.river,
+  );
 }
 
 export default async function StateRiversPage({ params }: Props) {

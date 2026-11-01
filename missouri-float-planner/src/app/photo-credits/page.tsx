@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { guidePhotos } from '@/lib/photos/guides';
 import { reviewedPhotos } from '@/lib/photos/reviewed';
 
-export const metadata: Metadata = {
-  title: 'Photo credits | Eddy',
-  description: 'Creators, sources, and licenses for Eddy’s curated place photographs.',
-  alternates: { canonical: '/photo-credits' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Photo credits',
+  'Creators, sources, and licenses for Eddy’s curated place photographs.',
+  '/photo-credits',
+  SHARE_IMAGES.site,
+);
 
 export default function PhotoCreditsPage() {
   return (

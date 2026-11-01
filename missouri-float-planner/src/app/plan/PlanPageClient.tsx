@@ -817,6 +817,11 @@ export default function PlanPageClient({
 
   const activeRiver = river?.slug === riverSlug ? river : null;
   const viewRiver = showAllRivers ? null : activeRiver;
+  // Canonical river page for the report's Share button, from the catalog list.
+  const riverShare = (slug: string) => {
+    const item = rivers?.find((r) => r.slug === slug);
+    return item ? { title: item.name, path: item.path } : null;
+  };
   const localPlaces = useMemo(() => activeRiver && !accessPlaceholder
     ? (visibleAccessPoints ?? []).map(point => ({ id: point.id, name: point.name, slug: point.slug,
       riverId: activeRiver.id, riverSlug: activeRiver.slug, riverName: activeRiver.name, coordinates: point.coordinates, type: point.type, types: point.types }))
@@ -1125,6 +1130,7 @@ export default function PlanPageClient({
           <div className="pointer-events-none absolute inset-y-0 left-[380px] right-14 z-30">
           {activeRiver && <MapEddySays
             riverSlug={activeRiver.slug}
+            share={riverShare(activeRiver.slug)}
             conditionCode={condition?.code ?? 'unknown'}
             gaugeHeightFt={isLastValidFallback ? null : plan?.condition?.gaugeHeightFt ?? null}
             onSubmitPhoto={() => setShowVisualSubmitForm(true)}
@@ -1289,6 +1295,7 @@ export default function PlanPageClient({
           {viewRiver && !(putInPoint && takeOutPoint) && (
             <MapEddySays
               riverSlug={viewRiver.slug}
+              share={riverShare(viewRiver.slug)}
               conditionCode={condition?.code ?? 'unknown'}
               gaugeHeightFt={isLastValidFallback ? null : plan?.condition?.gaugeHeightFt ?? null}
               onSubmitPhoto={() => setShowVisualSubmitForm(true)}

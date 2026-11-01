@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import SiteFooter from '@/components/ui/SiteFooter';
 
-export const metadata: Metadata = {
-  title: 'Terms of Service | Eddy',
-  description: 'Terms of Service for Eddy, your river float trip companion.',
-  alternates: { canonical: '/terms' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Terms of Service',
+  'Terms of Service for Eddy, your river float trip companion.',
+  '/terms',
+  SHARE_IMAGES.site,
+);
 
 export default function TermsPage() {
   return (

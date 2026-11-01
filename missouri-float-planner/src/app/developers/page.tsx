@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { AGENT_TOOLS } from '@/lib/agent-tools/catalog';
@@ -6,11 +7,12 @@ import { AGENT_VERSION } from '@/lib/agent-tools/contracts';
 import { getCuratedRivers, curatedStates } from '@/lib/coverage';
 
 export const revalidate = 300;
-export const metadata: Metadata = {
-  title: 'River Conditions MCP & Developer API | Eddy',
-  description: 'Connect an AI assistant to Eddy for curated river conditions, public access points, hazards, weather and float planning. Free remote MCP with explicit source freshness.',
-  alternates: { canonical: '/developers' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'River Conditions MCP & Developer API',
+  'Connect an AI assistant to Eddy for curated river conditions, public access points, hazards, weather and float planning. Free remote MCP with explicit source freshness.',
+  '/developers',
+  SHARE_IMAGES.site,
+);
 const code = 'overflow-x-auto rounded-lg bg-primary-800 text-primary-100 p-4 text-sm';
 export default async function DevelopersPage() {
   const rivers = await getCuratedRivers();

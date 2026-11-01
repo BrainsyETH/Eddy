@@ -23,7 +23,7 @@ const illustrations: Record<LinkPreviewKind, LinkPreviewAsset> = {
 export const LINK_PREVIEW_PHOTOS: Partial<Record<LinkPreviewKind, Record<string, LinkPreviewAsset>>> = {
   river: {
     current: { file: 'river-current-v2.jpg', contentType: 'image/jpeg', sourcePhoto: 'current.jpg',
-      alt: 'Archival photograph of a red canoe beside the Current River, not current conditions.' },
+      alt: 'Archival photograph of a red kayak beside the Current River, not current conditions.' },
   },
   dam: {
     'ameren-bagnell-dam': { file: 'dam-bagnell-v2.jpg', contentType: 'image/jpeg', sourcePhoto: 'bagnell.jpg',

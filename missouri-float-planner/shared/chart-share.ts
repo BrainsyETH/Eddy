@@ -191,6 +191,22 @@ export function chartShareQuery(state: ChartShareState): string {
 export function chartSharePath(state: ChartShareState): string {
   return `/share/chart/usgs/${state.siteId}?${chartShareQuery(state)}`;
 }
+/** The app route that restores this chart view: the web's Smart App Banner and
+ * the app's universal-link handler both use it, so the two cannot drift. */
+export function chartAppPath(state: ChartShareState): string {
+  return `/gauge/${state.siteId}?chart=${encodeURIComponent(chartShareQuery(state))}`;
+}
+/** The app screen for a station: dams for USACE, gauges for USGS. */
+export function stationAppPath(station: ShareStation): string {
+  return station.provider === 'usace' ? `/dam/${station.siteId}` : `/gauge/${station.siteId}`;
+}
+/** Where a /share/chart link opens in the app. A view that cannot be restored
+ * (an unknown version, a malformed query) still opens the station, flagged so
+ * the screen explains the shared view was unavailable instead of silently
+ * showing current conditions. `state` is parseChartShare's result. */
+export function chartShareAppPath(station: ShareStation, state: ChartShareState | null): string {
+  return state ? chartAppPath(state) : `${stationAppPath(station)}?shareUnavailable=1`;
+}
 export function chartImagePath(state: ChartShareState, preview = false): string {
   return `/api/share/chart/usgs/${state.siteId}/image?${chartShareQuery(state)}${preview ? '&preview=1' : ''}`;
 }
