@@ -2,21 +2,25 @@
 
 import Image from 'next/image';
 import { useMemo, useState, type MouseEvent } from 'react';
-import { ArrowRight, ChevronDown, Waves } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import ConditionBadge from '@/components/ui/ConditionBadge';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import InfoTip from '@/components/ui/InfoTip';
+import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { optimizeBlogImage } from '@/lib/blog-image';
 import {
-  driveLabel, floatBoatLabel, floatPlanPath, floatRangeLabel, floatSearchEmptyMessage, floatSortsFor, floatTripLabel,
+  driveLabel, floatBoatLabel, floatPlanPath, floatSearchEmptyMessage, floatSortsFor, floatTripLabel,
   FLOAT_DISTANCE_INFO, FLOAT_SEARCH_LOADING_DETAIL, FLOAT_SEARCH_LOADING_TITLE, FLOAT_TIME_INFO,
   publicAccessLabel, sortFloatOptions,
   type floatSearchRecoveryOptions, type FloatSearchOption, type FloatSort,
 } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
-import RiverStrip, { NumberChip, RIVER_STRIP_ID } from './RiverStrip';
+import { riverStripPlaceable, type RiverStripPoint, type RouteState } from '@shared/river-strip';
+import RiverStrip, { NumberChip, RIVER_STRIP_ID, type NumberedRoute } from './RiverStrip';
+import { routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
+
+const NO_POINTS: RiverStripPoint[] = [];
 
 const INFO_COLORS = {
   trigger: 'var(--color-primary-600)', triggerBorder: 'var(--color-border-strong)',
@@ -56,28 +60,42 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   const days = input.days ?? 1;
   const routes = [...data.matches, ...data.alternatives];
   const sorts = floatSortsFor(routes);
-  const matches = sortFloatOptions(data.matches, sort);
-  const alternatives = sortFloatOptions(data.alternatives, sort);
-  // One river searched: draw it, numbering floats in the order their cards appear.
-  const numbered = useMemo(() => [...matches, ...alternatives].map((option, i) => ({ option, number: i + 1 })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the sorted lists are derived from these.
-    [data, sort]);
-  const stripRiver = input.river && numbered.length > 0 && numbered.every(({ option }) => option.riverSlug === input.river) ? input.river : null;
-  // The parent keys these results by search, so a new search starts on its first float.
-  const [selectedId, setSelectedId] = useState<string | null>(() => (stripRiver ? numbered[0]?.option.id ?? null : null));
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const matches = useMemo(() => sortFloatOptions(data.matches, sort), [data.matches, sort]);
+  const alternatives = useMemo(() => sortFloatOptions(data.alternatives, sort), [data.alternatives, sort]);
+
+  // One river searched: draw it. The strip exists only once its access points
+  // have loaded, and only routes it can place get a number, so a card never
+  // offers a float the strip cannot show.
+  const ordered = useMemo(() => [...matches, ...alternatives], [matches, alternatives]);
+  const stripRiver = input.river && ordered.length > 0 && ordered.every(option => option.riverSlug === input.river) ? input.river : null;
+  const { data: accessPoints } = useAccessPoints(stripRiver);
+  const points = useMemo(() => accessPoints?.map(point => ({
+    id: point.id, name: point.name, mile: point.riverMile, endpoint: point.isFloatEndpoint !== false,
+  })) ?? NO_POINTS, [accessPoints]);
+  const stripRoutes = useMemo<NumberedRoute[]>(() => {
+    if (!stripRiver || points.length < 2) return [];
+    const placeable = riverStripPlaceable(points, ordered.map(o => ({ id: o.id, number: 0, putInId: o.putIn.id, takeOutId: o.takeOut.id })));
+    return ordered.filter(o => placeable.has(o.id)).map((option, i) => ({ option, number: i + 1 }));
+  }, [stripRiver, points, ordered]);
+  const onStrip = (id: string | null) => (id && stripRoutes.some(route => route.option.id === id) ? id : null);
+
+  // The parent keys these results by search; a new search opens on all floats, none chosen.
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const [pointedId, setPointedId] = useState<string | null>(null);
+  const selectedId = onStrip(chosenId);
+  const hoveredId = onStrip(pointedId);
   const showOnRiver = (id: string) => {
-    setSelectedId(id);
+    setChosenId(id);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     document.getElementById(RIVER_STRIP_ID)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
   };
   const card = (option: FloatSearchOption) => {
-    const number = numbered.find(n => n.option.id === option.id)?.number;
-    const strip = stripRiver && number ? {
+    const number = stripRoutes.find(route => route.option.id === option.id)?.number;
+    const strip = number ? {
       number,
-      state: option.id === selectedId ? 'selected' as const : option.id === hoveredId ? 'hovered' as const : 'other' as const,
+      state: (option.id === selectedId ? 'selected' : option.id === hoveredId ? 'hovered' : 'other') as RouteState,
       onShow: () => showOnRiver(option.id),
-      onHover: (on: boolean) => setHoveredId(on ? option.id : null),
+      onHover: (on: boolean) => setPointedId(on ? option.id : null),
     } : undefined;
     return <FloatCard key={option.id} option={option} riverPhoto={riverPhoto(option.riverSlug)} stale={stale} onPlan={onPlan} strip={strip} />;
   };
@@ -102,8 +120,9 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
         <p className="font-medium">{floatSearchEmptyMessage(data)}</p>
         {recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
       </Card>}
-      {stripRiver && <RiverStrip riverSlug={stripRiver} riverName={numbered[0].option.riverName} routes={numbered}
-        selectedId={selectedId} hoveredId={hoveredId} onSelect={setSelectedId} onHover={setHoveredId} stale={stale} onPlan={onPlan} />}
+      {stripRiver && stripRoutes.length > 0 && <RiverStrip riverSlug={stripRiver} riverName={stripRoutes[0].option.riverName}
+        points={points} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
+        onSelect={setChosenId} onHover={setPointedId} stale={stale} onPlan={onPlan} />}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
         {matches.map(card)}
       </div>
@@ -122,15 +141,12 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
   riverPhoto?: string | null;
   stale: boolean;
   onPlan: () => boolean;
-  /** Present when the results show a river strip: the card's number and its link to it. */
-  strip?: { number: number; state: 'selected' | 'hovered' | 'other'; onShow: () => void; onHover: (on: boolean) => void };
+  /** Present only when the river strip shows this route: its number and the link to it. */
+  strip?: { number: number; state: RouteState; onShow: () => void; onHover: (on: boolean) => void };
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
   const photo = [o.photo?.url, riverPhoto].find((url): url is string => !!url && !failed.includes(url));
-  const code = o.conditionCode ?? 'unknown';
-  const access = o.putIn.isPublic === true && o.takeOut.isPublic === true ? 'Public access'
-    : o.putIn.isPublic === false || o.takeOut.isPublic === false ? 'Includes private access' : 'Access unconfirmed';
   const metric = 'flex min-w-0 flex-1 flex-col gap-1';
   return (
     <Card variant="framed" as="article" className="flex flex-col overflow-hidden transition-[border-color,box-shadow]"
@@ -142,17 +158,14 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
           : <div className="flex h-full items-center justify-center"><EddyIcon name="wave" size={110} /></div>}
       </div>
       <div className="flex flex-1 flex-col gap-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
-            <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
-          </div>
-          {strip && <NumberChip number={strip.number} state={strip.state} />}
+        <div>
+          <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
+          <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
         </div>
         <div className="flex flex-wrap gap-y-3 divide-x divide-[var(--color-border)]">
           <div className={`${metric} pr-4`}>
-            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{floatRangeLabel(o.timeRange).replace(' hours', ' hr')}</span>
-            <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{o.estimateBasis === 'typical' ? 'Typical estimate' : 'Estimated time'}
+            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{routeTimeLabel(o)}</span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{routeEstimateLabel(o)}
               <InfoTip size={16} title="About float times" ariaLabel="About float times" body={FLOAT_TIME_INFO.join(' ')} colors={INFO_COLORS} /></span>
           </div>
           <div className={`${metric} px-4`}>
@@ -166,17 +179,25 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
           </div>}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="inline-flex rounded-full bg-white"><ConditionBadge code={code} label={o.conditionLabel} /></span>
-          <span className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{access}</span>
+          <RouteConditionBadge option={o} />
+          <span className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{routeAccessLabel(o)}</span>
           {o.highlights?.map(highlight => <span key={highlight} className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{highlight}</span>)}
           {o.relation !== 'match' && <span className="text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
         </div>
-        {o.conditional && !o.cautions.length && <p className="text-sm font-medium">Check route cautions before going.</p>}
-        {o.cautions.map((caution, i) => <p className="text-sm font-medium" key={i}>{caution}</p>)}
-        <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}
-          className="inline-flex min-h-11 items-center gap-2 self-start text-sm font-semibold text-[var(--color-primary-600)]">
-          Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
-        </button>
+        <RouteCautions option={o} />
+        <div className="flex flex-wrap items-center gap-x-5">
+          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}
+            className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-primary-600)]">
+            Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
+          </button>
+          {strip && <button type="button" aria-pressed={strip.state === 'selected'} onClick={strip.onShow}
+            className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-primary-600)]">
+            <NumberChip number={strip.number} state={strip.state} size={22} />
+            {strip.state === 'selected'
+              ? <span><span className="sr-only">Float {strip.number} </span>On the river</span>
+              : <span>Show <span className="sr-only">float {strip.number} </span>on river</span>}
+          </button>}
+        </div>
         {expanded && <div className="-mt-2 space-y-2 text-sm text-[var(--color-text-secondary)]">
           <p>Put-in: {publicAccessLabel(o.putIn.isPublic)}<br />Take-out: {publicAccessLabel(o.takeOut.isPublic)}</p>
           <p>{o.estimateBasis === 'current_conditions' ? 'Estimate uses current conditions.' : 'Estimate uses typical conditions.'}
@@ -184,10 +205,7 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
           {o.description && <p>{o.description}</p>}
           {o.photo?.caption && photo === o.photo.url && <p className="text-xs">{o.photo.caption}</p>}
         </div>}
-        <div className="mt-auto flex flex-col gap-2 pt-1">
-          {strip && <Button variant="outline" className="w-full" aria-pressed={strip.state === 'selected'} onClick={strip.onShow}>
-            <Waves size={16} aria-hidden="true" />{strip.state === 'selected' ? 'Showing on the river' : `Show #${strip.number} on the river`}
-          </Button>}
+        <div className="mt-auto pt-1">
           <Button href={floatPlanPath(o)} className="w-full" tabIndex={stale ? -1 : undefined}
             aria-label={`Plan this float from ${o.putIn.name} to ${o.takeOut.name}`}
             onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (stale || !onPlan()) event.preventDefault(); }}>
