@@ -220,6 +220,31 @@ Use `<Segmented stretch>` for equal-width choices in a narrow preference panel.
 It keeps 44px targets and compact horizontal padding so labels and vessel glyphs
 remain inside their buttons at 320px viewport widths.
 
+### Map layer rows
+
+The map filter panel's controls, rendered with `LayerRow`, `LayerChip` and
+`LayerSwitch` (`src/components/ui/LayerRow.tsx`) — the website's twin of the
+iOS layers sheet.
+
+- **Row:** a 32px mark well, the label with a muted sublabel, and a switch on
+  the right; the whole row is the control (`aria-pressed`), 44px tall.
+- **Mark:** Eddy's own art (`EddyIcon`) wherever the catalog has drawn the
+  thing; a Lucide glyph tinted Primary 600 only where it has not. Never a
+  Lucide glyph where an Eddy mark exists.
+- **Well:** outlined, never filled — 2px Primary 600 border when on, Neutral
+  200 when off, with the mark at 45% opacity. A filled well hides fixed-colour
+  art (a coral mark on a coral chip).
+- **Switch:** Primary 600 track with a 2px Primary 700 edge when on.
+- **Refinements** sit indented under the row they narrow, as `LayerChip`s,
+  and appear only while that row is on. Pressed chips are outlined Primary
+  600 on a 10% Primary 600 tint. One switch per question: a refinement is a
+  chip, not a second switch.
+- **A colour key that can filter is the filter.** Condition and flow-band
+  chips both explain the map's colours and narrow to them; never draw a
+  separate swatch legend beside the same chips.
+- **Panel:** the Framed card treatment (2px Primary 700 border, md hard
+  shadow) on a solid surface, never translucent over imagery.
+
 ### Cards
 
 | Variant | Background | Border | Shadow | Radius | Behavior |

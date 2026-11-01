@@ -346,9 +346,9 @@ async function main() {
 
       check('national gauge layer renders its index fixture', await page.locator('[data-national-gauges] [data-gauge-visible="true"]').count() > 0);
       const gaugeFilters = page.getByRole('region', { name: 'USGS gauge filters' });
-      await gaugeFilters.getByRole('button', { name: /^Other USGS/ }).click();
-      check('Other USGS toggle removes the reference layer', await page.locator('[data-national-gauges] [role="button"]').count() === 0);
-      await gaugeFilters.getByRole('button', { name: /^Other USGS/ }).click();
+      await gaugeFilters.getByRole('button', { name: /^Other gauges/ }).click();
+      check('Other gauges toggle removes the reference layer', await page.locator('[data-national-gauges] [role="button"]').count() === 0);
+      await gaugeFilters.getByRole('button', { name: /^Other gauges/ }).click();
       await page.locator('[data-national-gauges] [data-gauge-visible="true"]').first().waitFor();
       await page.screenshot({ path: path.join(OUT_DIR, 'desktop.png') });
 

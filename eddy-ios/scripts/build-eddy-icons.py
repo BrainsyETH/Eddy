@@ -164,6 +164,10 @@ WEB_ICONS = (
     "eddy-inflow",
     "eddy-fishery",
     "eddy-hazard",
+    # The planner map's filter panel, which is the website's twin of the app's
+    # layers sheet and draws the same row marks: the river network row and the
+    # gauge rows (eddy-other-usgs-gauge, above).
+    "eddy-river",
     # The float share image (api/share/float/image) draws the same mood
     # sticker the recap shows, so the server needs every one of them.
     *MOODS,

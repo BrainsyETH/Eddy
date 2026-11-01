@@ -47,6 +47,15 @@ const ICONS = {
   gravelBar: { file: 'eddy-gravel-bar', size: 24, alt: 'Gravel bar' },
   outfitter: { file: 'eddy-outfitter', size: 24, alt: 'Outfitter' },
   weather: { file: 'eddy-weather', size: 18, alt: 'Weather' },
+  // The map filter panel's row marks, matching the app's layers sheet
+  // (eddy-ios/src/map/layers.ts). `gaugeStation` is a USGS station as a MAP
+  // LAYER — the staff gauge the app's Gauges row draws — and not `gauge` above,
+  // which the site uses for a river reading and draws as a droplet.
+  river: { file: 'eddy-river', size: 20, alt: 'Rivers' },
+  gaugeStation: { file: 'eddy-other-usgs-gauge', size: 20, alt: 'USGS gauges' },
+  // The same droplet as `gauge`, under the name of the thing it marks, as in
+  // EddySymbol: the day Eddy gets a spring drawing, this line changes alone.
+  spring: { file: 'eddy-water-droplet', size: 18, alt: 'Springs' },
   ai: { file: 'eddy-ai-assistant', size: 18, alt: 'Eddy' },
 
   // The access-point section marks. These three were already on that page, as
