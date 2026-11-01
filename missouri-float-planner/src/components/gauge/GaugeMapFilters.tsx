@@ -70,15 +70,18 @@ export default function GaugeMapFilters({ state, dark = false, note }: {
       onClick={() => setLayers({ rated: !enabled, other: !enabled })}
     />
 
-    {enabled && <div className="space-y-2 pb-2 pl-[2.6rem] pr-1">
+    {/* A tray under the row rather than an indent: the row's well already
+        says "this belongs to gauges", and at phone width an indent left the
+        chips too narrow to print "Eddy-rated" whole. */}
+    {enabled && <div className={`mb-2 space-y-2 rounded-md p-2 ${dark ? 'bg-white/5' : 'bg-[var(--color-background)]'}`}>
       <div role="group" aria-label="Which gauges" className="grid grid-cols-2 gap-1.5">
-        <LayerChip dark={dark} pressed={layers.rated} title="Gauges Eddy rates for floating"
+        <LayerChip dark={dark} pressed={layers.rated} title="Gauges Eddy rates for floating" className="justify-center !px-1.5"
           onClick={() => setLayers(previous => ({ ...previous, rated: !previous.rated }))}>
-          <EddyRatedMark /><span className="truncate">Eddy-rated</span>
+          <EddyRatedMark /><span className="whitespace-nowrap">Eddy-rated</span>
         </LayerChip>
-        <LayerChip dark={dark} pressed={layers.other} title="Every other USGS gauge, not rated by Eddy"
+        <LayerChip dark={dark} pressed={layers.other} title="Every other USGS gauge, not rated by Eddy" className="justify-center !px-1.5"
           onClick={() => setLayers(previous => ({ ...previous, other: !previous.other }))}>
-          <EddyIcon name="gaugeStation" size={16} /><span className="truncate">Other gauges</span>
+          <EddyIcon name="gaugeStation" size={16} className="shrink-0" /><span className="whitespace-nowrap">Other gauges</span>
         </LayerChip>
       </div>
 

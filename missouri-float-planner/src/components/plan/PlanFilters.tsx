@@ -377,7 +377,7 @@ export default function PlanFilters({
                   return (
                     <LayerChip key={c} pressed={active} onClick={() => onToggleCategory(c)} className="!rounded-full">
                       {'eddy' in meta.mark ? (
-                        <EddyIcon name={meta.mark.eddy} size={16} className={active ? '' : 'opacity-45'} />
+                        <EddyIcon name={meta.mark.eddy} size={16} className={`shrink-0 ${active ? '' : 'opacity-45'}`} />
                       ) : (
                         <meta.mark.glyph className={`h-3.5 w-3.5 ${active ? 'text-primary-600' : ''}`} />
                       )}

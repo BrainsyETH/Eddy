@@ -179,9 +179,9 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     : route.fulfill({ json: { capped: true, total, gauges: [nationalGaugeDetail('10000001')] } }));
   await legacy.goto(`${origin}/planner-map-layout-check`, { timeout: 120_000 });
   await legacy.getByRole('button', { name: 'Map filters', exact: true }).click();
-  const legacyGauges = legacy.getByRole('button', { name: /^River gauges/ });
+  // The saved choice is restored after mount, so wait for the row to read off.
+  const legacyGauges = legacy.getByRole('button', { name: /^River gauges/, pressed: false });
   await legacyGauges.waitFor();
-  assert.equal(await legacyGauges.getAttribute('aria-pressed'), 'false');
   assert.equal(requests, 0, 'Legacy gauges-off choice prevents the national download');
   await legacyGauges.click();
   await waitForMapData(legacy, async total => (await window.plannerMap?.getSource('planner-reference-gauges')?.getData())?.features.length === total, total);
