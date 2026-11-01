@@ -121,6 +121,11 @@ export const ACCESS_SLUG_ABSENT_EXCEPTIONS: readonly AccessSlugException[] = [
     seedSlug: 'scotia-bridge-access',
     note: 'not an available access (owner check 2026-11-01); production row deleted, seeded unapproved because ACCESS_SLUG_RENAMES pins the slug',
   },
+  {
+    river: 'huzzah',
+    seedSlug: 'butts-low-water-bridge',
+    note: 'removed from production by the owner 2026-11-01; seeded unapproved because ACCESS_SLUG_RENAMES pins the slug',
+  },
 ];
 
 export interface SeedAccessRow {

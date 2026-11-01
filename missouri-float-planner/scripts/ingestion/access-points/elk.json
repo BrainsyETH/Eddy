@@ -22,25 +22,6 @@
     "parking_info": "Use the developed parking area beside the city boat ramp, reached from Rhine Road."
   },
   {
-    "name": "US-71 Bridge (I-49) Access",
-    "kind": "bridge",
-    "expected_mile": null,
-    "lat": null,
-    "lon": null,
-    "is_public": false,
-    "ownership": "MoDOT",
-    "managing_agency": "MoDOT",
-    "official_site_url": null,
-    "facilities": "Highway crossing; no public launch, parking or landowner permission verified.",
-    "description": "HELD: the previous coordinate identified the I-49/US-71 bridge, not a verified launch. Use the separate City of Pineville access. A public road crossing alone is not evidence of permission to launch.",
-    "confidence": "unverified",
-    "source_urls": [
-      "https://www.floatmissouri.com/plan/missouri-rivers/elk-river/",
-      "https://overpass-api.de/api/interpreter"
-    ],
-    "is_float_endpoint": false
-  },
-  {
     "name": "Mount Shira Access",
     "kind": "access",
     "expected_mile": 7.78,
@@ -61,26 +42,6 @@
     "is_float_endpoint": true,
     "road_access": "Highway 59, approximately 2 miles north of Noel.",
     "parking_info": "Large parking lot beside the gravel launch."
-  },
-  {
-    "name": "Noel / Shadow Lake Access (Hwy 59 bridge)",
-    "kind": "access",
-    "expected_mile": null,
-    "lat": null,
-    "lon": null,
-    "is_public": false,
-    "ownership": "Unverified",
-    "managing_agency": null,
-    "official_site_url": null,
-    "facilities": "No verified public launch at the highway-bridge pin.",
-    "description": "HELD: the former pin was a bridge coordinate with no established ramp or landing rights. The historical Noel City Park access is on Butler Creek, not this bridge. Verify an operator landing at Wayside or River Ranch/Sycamore separately.",
-    "confidence": "unverified",
-    "source_urls": [
-      "https://mdc.mo.gov/media/107435",
-      "https://www.elkriverfloats.com/float-trips/",
-      "https://riverranchresort.com/plan-your-trip/maps/sycamore-landing-map/"
-    ],
-    "is_float_endpoint": false
   },
   {
     "name": "Sycamore Landing",
@@ -124,24 +85,6 @@
     "parking_info": "Parking lot at the concrete boat ramp."
   },
   {
-    "name": "Lanagan Access",
-    "kind": "access",
-    "expected_mile": null,
-    "lat": null,
-    "lon": null,
-    "is_public": true,
-    "ownership": "City",
-    "managing_agency": "Municipal",
-    "official_site_url": "https://mdc.mo.gov/discover-nature/places/lanagan-access",
-    "facilities": "City-maintained access on Indian Creek, not the Elk mainstem.",
-    "description": "EXCLUDED from Elk endpoints: MDC identifies this as Indian Creek access. The former Elk snap was over 2.3 km away. Retain for a separate Indian Creek dossier.",
-    "confidence": "unverified",
-    "source_urls": [
-      "https://mdc.mo.gov/discover-nature/places/lanagan-access"
-    ],
-    "is_float_endpoint": false
-  },
-  {
     "name": "Kozy Kamp River Access",
     "kind": "gravel_bar",
     "roles": [
@@ -149,22 +92,22 @@
       "campground"
     ],
     "expected_mile": 0.43,
-    "lat": 36.58841,
-    "lon": -94.3895,
+    "lat": 36.588523,
+    "lon": -94.388958,
     "is_public": false,
     "ownership": "Elk River Floats (private)",
     "managing_agency": "Private",
     "official_site_url": "https://kozykamp.com/float-trips",
     "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
-    "description": "North/right bank; campground track to the water west of the highway bridge. Confirm operator-designated launch at the selected track and parking/check-in entrance. Owner screenshot approach pin is 36.588894,-94.389059, not a water-entry pin.",
-    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "description": "Private campground on the north bank in Pineville, just west of the highway bridge. A campground track leads down to the water.",
+    "confidence": "medium (owner-approved 2026-11-01; pin set by the owner)",
     "source_urls": [
       "https://kozykamp.com/float-trips",
       "https://www.elkriverfloats.com/float-trips/",
       "https://waysidecamp.com/rates",
       "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
     ],
-    "is_float_endpoint": false,
+    "is_float_endpoint": true,
     "fee_required": true,
     "fee_notes": "Operator rental or paid river-access pass required; confirm current availability and terms.",
     "directions_override": "71 Elk River Road, Pineville, MO 64856",
@@ -179,22 +122,22 @@
       "campground"
     ],
     "expected_mile": 6.55,
-    "lat": 36.58521,
-    "lon": -94.45495,
+    "lat": 36.585309,
+    "lon": -94.454766,
     "is_public": false,
     "ownership": "Elk River Floats (private)",
     "managing_agency": "Private",
     "official_site_url": "https://trestlepark.com/elk-river-campground",
     "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
-    "description": "Northeast/right bank beach, immediately downstream/northwest of the Elk Springs Road low-water crossing. Confirm whether the upper-trip take-out and Noel-trip put-in use different sides of the crossing, and the operator-approved passage/walk between them. Candidate is the beach, not the cabins.",
-    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "description": "Private campground beach on the northeast bank, just below the Elk Springs Road low-water crossing.",
+    "confidence": "medium (owner-approved 2026-11-01; pin set by the owner)",
     "source_urls": [
       "https://trestlepark.com/elk-river-campground",
       "https://www.elkriverfloats.com/float-trips/",
       "https://waysidecamp.com/rates",
       "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
     ],
-    "is_float_endpoint": false,
+    "is_float_endpoint": true,
     "fee_required": true,
     "fee_notes": "Operator rental or paid river-access pass required; confirm current availability and terms.",
     "directions_override": "435 Elk Springs Road, Noel, MO 64854",
@@ -216,15 +159,15 @@
     "managing_agency": "Private",
     "official_site_url": "https://waysidecamp.com/camping",
     "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
-    "description": "Southwest/left bank designated beach near the office/highway junction, upstream of the campground no-watercraft boundary. Confirm this part of the designated beach is the current trip landing and check-in parking route; do not use the peninsula tip. Shadow Lake Dam is approximately 0.3 river miles downstream of this landing candidate.",
-    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "description": "Private campground beach on the southwest bank, near the office by the highway. Use the designated beach, not the peninsula tip, and stay above the campground's no-watercraft boundary. Shadow Lake Dam is about 0.3 miles downstream.",
+    "confidence": "medium (owner-approved 2026-11-01; pin set by the owner)",
     "source_urls": [
       "https://waysidecamp.com/camping",
       "https://www.elkriverfloats.com/float-trips/",
       "https://waysidecamp.com/rates",
       "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
     ],
-    "is_float_endpoint": false,
+    "is_float_endpoint": true,
     "fee_required": true,
     "fee_notes": "Operator rental or paid river-access pass required; confirm current availability and terms.",
     "directions_override": "201 Minnow Springs Ave, Noel, MO 64854",

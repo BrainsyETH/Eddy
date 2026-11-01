@@ -1978,7 +1978,10 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
     fee_notes = EXCLUDED.fee_notes,
     approved = EXCLUDED.approved;
 
--- Butts Low-Water Bridge — Mile 15.4
+-- Butts Low-Water Bridge: removed from production by the owner 2026-11-01. The
+-- block stays because ACCESS_SLUG_RENAMES (and its migration) pins
+-- 'butts-low-water-bridge' as a seeded slug, but it seeds the row unapproved so
+-- a re-seed never publishes it. Listed in ACCESS_SLUG_ABSENT_EXCEPTIONS.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
@@ -2003,7 +2006,7 @@ SELECT
     ARRAY['gravel_maintained']::text[],
     '10',
     15.4,
-    true,
+    false,
     '[{"name": "Bass River Resort", "type": "outfitter", "phone": "573-786-8517", "website": "https://bassresort.com", "distance": "1.5 miles", "notes": "Canoe/kayak/raft rentals, shuttle service for Huzzah, Courtois, and Meramec. Camping, cabins, horseback riding. Family-run 50+ years."}]'::jsonb
 FROM rivers r WHERE r.slug = 'huzzah'
 ON CONFLICT (river_id, slug) DO UPDATE SET
@@ -2062,11 +2065,11 @@ SELECT
     ARRAY['access', 'bridge'],
     true,
     'state',
-    'State highway bridge at mile 23.0. Major access point. Dry Creek enters from the left just above the bridge, fed by James Spring (flow exceeds 1 million gallons per day). Reliable water from here downstream. Most popular commercial float trip put-in.',
+    'State highway bridge. Dry Creek enters from the left just above the bridge, fed by James Spring (more than 1 million gallons a day), so water levels are reliable from here downstream. A private campground with river access is on the right before the bridge.',
     ARRAY['parking'],
     'Roadside parking near bridge. Space for approximately 10 vehicles.',
     'Paved State Highway 8. From Steelville, head east on Hwy 8 approximately 15 miles. From Leasburg/I-44, head south to Hwy 8 then west. Well-signed.',
-    'No public facilities at bridge. Private campground on right (upstream side).',
+    'No public facilities at the bridge. A private campground is next door on the right (upstream side); ask there about access and fees.',
     false,
     ARRAY['paved']::text[],
     '10',
