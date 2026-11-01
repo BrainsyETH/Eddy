@@ -20,7 +20,7 @@ import { pageRivers } from '@/lib/data/public-pages';
 import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { getCoordinates } from '@/lib/api-utils';
-import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { getConditionShortLabel, gradeReading } from '@/lib/conditions';
 import { computeTrend, type TrendDirection } from '@shared/gauge-trend';
 import { sampleChartReadings } from '@shared/chart-model';
 import { loadLatestEddyUpdate } from '@/lib/eddy/latest-update';
@@ -129,6 +129,7 @@ interface LadderRow {
   level_optimal_max: unknown;
   level_high: unknown;
   level_dangerous: unknown;
+  flood_stage_ft: unknown;
   gauge_stations: StationRow | StationRow[] | null;
 }
 
@@ -140,7 +141,7 @@ async function loadGauges(
     .from('river_gauges')
     .select(`
       gauge_station_id, is_primary, threshold_unit,
-      level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous,
+      level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, flood_stage_ft,
       gauge_stations!inner ( id, usgs_site_id, site_id_external, provider, name, location, curated, active )
     `)
     .eq('river_id', riverId);
@@ -175,10 +176,11 @@ async function loadGauges(
       levelDangerous: toNum(row.level_dangerous),
       unit,
     };
-    const thresholds: ConditionThresholds = { ...ladder, thresholdUnit: unit };
     const gaugeHeightFt = reading?.gauge_height_ft ?? null;
     const dischargeCfs = reading?.discharge_cfs ?? null;
-    const result = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
+    // The flood stage now counts here too; the embed used to show "High" for a
+    // river the river screen called "Dangerous".
+    const result = gradeReading(row, gaugeHeightFt, dischargeCfs);
     const qualifiers = classifyQualifiers(reading?.qualifiers ?? null, station.provider);
     return {
       id: station.id,

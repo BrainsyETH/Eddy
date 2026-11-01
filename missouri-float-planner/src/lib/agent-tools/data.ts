@@ -4,8 +4,7 @@ import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
 import { getCoordinates } from '@/lib/api-utils';
 import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import {
-  applyFloodStageOverride,
-  computeConditionFromDbRow,
+  gradeReading,
   getConditionShortLabel,
   type DbThresholdRow,
 } from '@/lib/conditions';
@@ -295,11 +294,7 @@ export function createDataContext(db: Db, now = Date.now()) {
     const qual = classifyQualifiers(reading?.qualifiers ?? []);
     const height = numeric(reading?.gauge_height_ft),
       discharge = numeric(reading?.discharge_cfs);
-    const rated = applyFloodStageOverride(
-      computeConditionFromDbRow(height, link, discharge).code,
-      height,
-      numeric(link.flood_stage_ft),
-    );
+    const rated = gradeReading(link, height, discharge).code;
     const usable =
       age.stale === false &&
       !qual.suspect &&

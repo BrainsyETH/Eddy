@@ -5,8 +5,14 @@ serves them, and where the data comes from. `CLAUDE.md` is the routing guide
 ("I want to change X, where do I go"); this is the shape of the thing being
 routed through.
 
-Counts below were read from the tree at commit `5b56e80` (2026-08-22). They are
-orientation, not contract — re-derive before quoting them anywhere load-bearing.
+Counts below were read from the tree on 2026-11-01 (branch
+`claude/fervent-dijkstra-qx5dex`, after `d20b7ed`). They are orientation, not
+contract — re-derive before quoting them anywhere load-bearing. How they were
+counted: pages are `page.tsx` files under `src/app`; route handlers are
+`route.ts(x)` under `src/app/api`; iOS screens are route files under
+`eddy-ios/app` excluding layouts; lib modules are top-level directories of
+`src/lib` (plus 46 single-file modules beside them); shared modules are the
+non-test files under `shared/`.
 
 ## The stack
 
@@ -18,8 +24,8 @@ credentials Supabase will accept.
                                  ENTRY POINTS
  ┌─────────────┐ ┌─────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────┐
  │ Next.js web │ │  Expo iOS   │ │   Embeds   │ │ MCP + chat │ │   Machine    │
- │  48 pages   │ │ 19 screens  │ │  badge     │ │  /api/mcp  │ │  triggers    │
- │ eddy.guide  │ │ Expo SDK 57 │ │  planner   │ │  /api/chat │ │  27 crons    │
+ │  59 pages   │ │ 34 screens  │ │  badge     │ │  /api/mcp  │ │  triggers    │
+ │ eddy.guide  │ │ Expo SDK 57 │ │  planner   │ │  /api/chat │ │  35 crons    │
  │             │ │             │ │  card      │ │            │ │  + webhooks  │
  └──────┬──────┘ └──────┬──────┘ └─────┬──────┘ └─────┬──────┘ └──────┬───────┘
         └───────────────┴──────────────┴──────────────┴───────────────┘
@@ -27,7 +33,7 @@ credentials Supabase will accept.
                                        ▼
               ┌──────────────────────────────────────────────────┐
               │ missouri-float-planner/src/app/api               │
-              │ 166 route handlers                               │
+              │ 188 route handlers                               │
               │ rivers · gauges · dams · alerts · plan · reports  │
               │ admin · cron · webhooks · embed · export          │
               └────────────────────────┬─────────────────────────┘
@@ -35,9 +41,9 @@ credentials Supabase will accept.
                                        ▼
   ┌──────────────────┐      ┌──────────────────────────────────────────────────┐
   │ shared/ +        │      │ missouri-float-planner/src/lib                   │
-  │ packages/        │─────▶│ 40 domain modules                                │
+  │ packages/        │─────▶│ 51 domain modules                                │
   │                  │      │ conditions · alerts · trust · social · geo       │
-  │ 18 condition     │      │ push · ingestion · offline · embed · revenuecat  │
+  │ 58 shared        │      │ push · ingestion · offline · embed · revenuecat  │
   │ modules          │      │ chat · email · gauges · camping · reports        │
   │ @eddy/types      │      └────────────────────────┬─────────────────────────┘
   │ @eddy/geo        │                               │ service-role client
@@ -45,7 +51,7 @@ credentials Supabase will accept.
   │ @eddy/sync       │                               ▼
   └──────────────────┘      ┌──────────────────────────────────────────────────┐
                             │ Supabase — Postgres + PostGIS                    │
-                            │ 305 migrations · RLS · geometry columns          │
+                            │ 390 migrations · RLS · geometry columns          │
                             │ rivers · access_points · gauge_readings · alerts │
                             └──────────────────────────────────────────────────┘
 
@@ -59,7 +65,7 @@ credentials Supabase will accept.
 Arrows follow the call, not the data. The machine-trigger column is the only
 entry point with no human on the other end: Vercel's scheduler and two webhooks
 (RevenueCat, Resend) hit ordinary routes under `/api/cron` and `/api/webhooks`,
-which is why the cron handlers are counted inside the 166.
+which is why the cron handlers are counted inside the 188.
 
 ## One number becomes one condition code, once
 
@@ -105,18 +111,22 @@ thresholds — that mismatch is how a dead stage sensor once manufactured a
 ## The clock
 
 Nothing is fetched live from a government API on a page request. Vercel Cron
-fills the database on a schedule (27 entries over 21 handlers, in
+fills the database on a schedule (35 entries over 23 handlers, in
 `missouri-float-planner/vercel.json`); every read serves what the clock already
 collected.
 
 | Group | Jobs | Cadence | What it does |
 | --- | --- | --- | --- |
-| Water & dams | 6 | 15 min → monthly | Gauge readings hourly at :00 plus a high-frequency pass at :15/:30/:45, latest-value sync, dam generation history, **assembled dam snapshots**, monthly percentile snapshots |
-| Land & availability | 5 | daily / weekly | Campsite availability from Recreation.gov and Missouri State Parks; NPS and USFS public-lands sync |
+| Water & dams | 6 | 15 min → hourly | Gauge readings hourly at :00 plus a high-frequency pass at :15/:30/:45, latest-value sync, dam generation history, **assembled dam snapshots**, percentile snapshots |
+| Land & availability | 11 | daily / weekly | Campsite availability from Recreation.gov and Missouri State Parks; NPS and USFS public-lands sync |
 | Alerts & push | 3 | 5–15 min | Evaluate gauge thresholds against subscriber rules, drain the delivery queue to Expo push, reconcile receipts 4×/hour |
 | Eddy updates | 3 | daily | Anthropic writes the river and gauge prose, gated by a knowledge base and a prose gate before it can publish |
 | Social & media | 9 | 30 min → weekly | Post scheduler, preflight, clip brand-check by vision, clip posting, weekday guide, insight fetch, weekly review |
-| Integrity | 1 | hourly | The trust tick — registered data checks, severity scoring, decay and remediation against a ledger |
+| Integrity & housekeeping | 3 | 15 min → daily | The trust tick — registered data checks, severity scoring, decay and remediation against a ledger; telemetry rollup; Apple token revocation queue |
+
+Whether the clock is actually running is watched from outside Vercel through
+`/api/health/pipeline` (job completion, reading freshness, oldest pending
+alert); see `docs/pipeline-monitoring.md`.
 
 ### Two read paths are assembled ahead of the reader
 
@@ -150,10 +160,10 @@ nothing is written from a failed read, on purpose. See
 | --- | --- | --- |
 | `missouri-float-planner/` | The web app **and** the entire API. Vercel's Root Directory. Also hosts the Remotion video projects. | Browsers, the iOS app, embeds, MCP clients |
 | `missouri-float-planner/shared/` | The canonical condition system: threshold ladder, condition codes, chart model, dam forecast copy. Pure TypeScript. | Web build, Expo bundle, Remotion |
-| `missouri-float-planner/src/lib/` | 40 domain modules. | The 166 API routes and server components |
+| `missouri-float-planner/src/lib/` | 51 domain modules plus 46 single-file modules. | The 188 API routes and server components |
 | `missouri-float-planner/scripts/` | 68 ingestion, validation and generation scripts. Guard levels per script in `docs/data-pipeline.md`. | Operators, by hand and in CI |
-| `missouri-float-planner/supabase/` | 305 migrations plus seeds and SQL diagnostics. | The linked Supabase project |
-| `eddy-ios/` | The Expo app: 19 screens, 68 components, Mapbox, RevenueCat, Expo push. Talks to the web app as a headless API. | TestFlight and the App Store |
+| `missouri-float-planner/supabase/` | 390 migrations plus seeds and SQL diagnostics. | The linked Supabase project |
+| `eddy-ios/` | The Expo app: 34 screens, 151 components, Mapbox, RevenueCat, Expo push. Talks to the web app as a headless API. | TestFlight and the App Store |
 | `packages/` | Four pure packages, no build step: `@eddy/types`, `@eddy/geo`, `@eddy/hazards`, `@eddy/sync`. | Both apps, via `file:` deps |
 | `scripts/clipengine/` + `clipengine-local/` | ClipEngine: scan paddling channels, clip the most-replayed peak, brand with Remotion, gate with vision, auto-post. | 11 GitHub Actions workflows |
 

@@ -5,7 +5,8 @@ import { X402_ENABLED } from '@/lib/x402/config';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { getConditionShortLabel, gradeReading } from '@/lib/conditions';
+import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600; // Revalidate every hour
@@ -40,7 +41,7 @@ export async function GET() {
       .select(`
         river_id, is_primary, threshold_unit,
         level_too_low, level_low, level_optimal_min, level_optimal_max,
-        level_high, level_dangerous,
+        level_high, level_dangerous, flood_stage_ft,
         gauge_stations ( id, usgs_site_id, name )
       `)
       .eq('is_primary', true),
@@ -58,39 +59,20 @@ export async function GET() {
       .filter(Boolean) as string[];
 
     if (gaugeIds.length > 0) {
-      // Fetch latest reading per gauge
-      const { data: readings } = await supabase
-        .from('gauge_readings')
-        .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
-        .in('gauge_station_id', gaugeIds)
-        .order('reading_timestamp', { ascending: false });
-
-      // Deduplicate to latest per gauge
-      const latestByGauge: Record<string, { gauge_height_ft: number | null; discharge_cfs: number | null }> = {};
-      for (const r of readings || []) {
-        if (!r.gauge_station_id) continue;
-        if (!latestByGauge[r.gauge_station_id]) {
-          latestByGauge[r.gauge_station_id] = r;
-        }
-      }
+      // The newest reading per gauge through the shared read path. This used to
+      // be one unbounded `.in(...).order(desc)` over every primary gauge's whole
+      // history — truncated at PostgREST's row cap, so sparse gauges fell off
+      // the end and their river showed no condition.
+      const latest = await loadCurrentReadings(supabase, gaugeIds);
 
       for (const rg of riverGauges) {
         const gs = Array.isArray(rg.gauge_stations) ? rg.gauge_stations[0] : rg.gauge_stations;
         const gaugeId = (gs as { id: string } | null)?.id;
-        if (!gaugeId || !latestByGauge[gaugeId]) continue;
+        const reading = gaugeId ? latest.get(gaugeId) : undefined;
+        if (!reading) continue;
 
-        const reading = latestByGauge[gaugeId];
-        const thresholds: ConditionThresholds = {
-          levelTooLow: rg.level_too_low,
-          levelLow: rg.level_low,
-          levelOptimalMin: rg.level_optimal_min,
-          levelOptimalMax: rg.level_optimal_max,
-          levelHigh: rg.level_high,
-          levelDangerous: rg.level_dangerous,
-          thresholdUnit: (rg.threshold_unit || 'ft') as 'ft' | 'cfs',
-        };
-
-        const condition = computeCondition(reading.gauge_height_ft, thresholds, reading.discharge_cfs);
+        // Same grading as every other surface, flood stage included.
+        const condition = gradeReading(rg, reading.gauge_height_ft, reading.discharge_cfs);
         if (rg.river_id) conditionsByRiver[rg.river_id] = getConditionShortLabel(condition.code);
       }
     }

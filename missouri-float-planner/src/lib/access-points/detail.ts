@@ -6,7 +6,7 @@ import { createRouteEstimateContext, estimateRoute, type SegmentReader } from '@
 // renders its content on the server (crawlable, no client fetch waterfall).
 
 import type { createClient } from '@/lib/supabase/server';
-import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { getConditionShortLabel, gradeReading } from '@/lib/conditions';
 import { riverAccessPath } from '@/lib/navigation/river-path';
 import type {
   AccessPointDetail,
@@ -473,19 +473,7 @@ export async function getGaugeStatus(
     const heightFt = latestReading?.gauge_height_ft ?? null;
     const cfs = latestReading?.discharge_cfs ?? null;
 
-    // Use computeCondition for consistent condition evaluation
-    const thresholds: ConditionThresholds = {
-      levelTooLow: riverGauge.level_too_low,
-      levelLow: riverGauge.level_low,
-      levelOptimalMin: riverGauge.level_optimal_min,
-      levelOptimalMax: riverGauge.level_optimal_max,
-      levelHigh: riverGauge.level_high,
-      levelDangerous: riverGauge.level_dangerous,
-      floodStageFt: riverGauge.flood_stage_ft,
-      thresholdUnit: (riverGauge.threshold_unit || 'ft') as 'ft' | 'cfs',
-    };
-
-    const condition = computeCondition(heightFt, thresholds, cfs);
+    const condition = gradeReading(riverGauge, heightFt, cfs);
 
     return {
       level: condition.code,

@@ -59,13 +59,11 @@ import { getCoordinates, optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeTrend } from '@shared/gauge-trend';
 import {
-  applyFloodStageOverride,
-  computeConditionFromDbRow,
+  gradeReading,
   mapConditionCode,
   type ConditionThresholds,
 } from '@/lib/conditions';
 import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
-import { toNum } from '@/lib/utils/num';
 import { fetchAhpsForecast } from '@/lib/usgs/ahps-forecast';
 import { fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
@@ -438,15 +436,7 @@ async function _GET(
         ? mapConditionCode(conditionRow.condition_code)
         : 'unknown'
       : latestReading
-        ? applyFloodStageOverride(
-            computeConditionFromDbRow(
-              toNum(latestReading.gauge_height_ft),
-              gauge,
-              toNum(latestReading.discharge_cfs),
-            ).code,
-            toNum(latestReading.gauge_height_ft),
-            toNum(gauge.flood_stage_ft),
-          )
+        ? gradeReading(gauge, latestReading.gauge_height_ft, latestReading.discharge_cfs).code
         : 'unknown';
 
     const readings =

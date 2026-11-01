@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
-import { applyFloodStageOverride, computeConditionFromDbRow } from '@/lib/conditions';
+import { gradeReading } from '@/lib/conditions';
 import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
 import { optionalEntitlement } from '@/lib/entitlement';
 import { tierGeneratedEddyProse } from '@/lib/eddy/tiered-prose';
@@ -97,11 +97,7 @@ export async function GET(
 
     const liveHeight = toNum(reading.gauge_height_ft);
     const liveDischarge = toNum(reading.discharge_cfs);
-    const liveCondition = applyFloodStageOverride(
-      computeConditionFromDbRow(liveHeight, thresholdRow, liveDischarge).code,
-      liveHeight,
-      toNum(thresholdRow.flood_stage_ft),
-    );
+    const liveCondition = gradeReading(thresholdRow, liveHeight, liveDischarge).code;
 
     if (!isGaugeReportCompatible({
       storedCondition: data.condition_code,
