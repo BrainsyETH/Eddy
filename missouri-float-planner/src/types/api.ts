@@ -1487,8 +1487,9 @@ export type SpringPositionSource = 'surveyed' | 'derived';
  * The spring fields the map needs, and only those.
  *
  * A structural subset of the full points_of_interest row, on the same reasoning
- * as MapAccessPoint in @eddy/types: that row carries images, amenities, NPS
- * ids and body text for a river page, none of which a pin and a callout use.
+ * as MapAccessPoint in @eddy/types: that row carries a gallery, amenities, NPS
+ * ids and body text for a river page. The callout uses one photo of it
+ * (`imageUrl`) and none of the rest.
  */
 export interface MapSpring {
   id: string;
@@ -1501,6 +1502,11 @@ export interface MapSpring {
   positionBracketMiles: number | null;
   /** The source says this spring is on private ground. */
   isPrivate: boolean;
+  /**
+   * One photograph of the spring, or null. Optional: the phone keeps bundles
+   * written before this field existed. See packages/eddy-types.
+   */
+  imageUrl?: string | null;
 }
 
 // ── /api/gauges/[siteId]/history ────────────────────────────────────────────

@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { MapSpring as WebSpring } from '@/types/api';
 import type { MapSpring as AppSpring } from '@eddy/types';
 import { toSpring, type SpringRow } from '@/lib/offline/shapes';
+import { reviewedPhotos } from '@/lib/photos/reviewed';
 
 // ── One wire format, declared twice, pinned here ──────────────────────────
 //
@@ -29,6 +30,7 @@ test('the two declarations of MapSpring are the same type', () => {
     positionSource: 'surveyed',
     positionBracketMiles: null,
     isPrivate: false,
+    imageUrl: 'https://www.nps.gov/common/uploads/cropped_image/blue-spring.jpg',
   };
   const asWeb: WebSpring = fromApp;
   const backToApp: AppSpring = asWeb;
@@ -100,4 +102,55 @@ test('numeric columns arriving as strings are parsed', () => {
 
 test('a spring nobody has placed on a mile still draws', () => {
   assert.equal(toSpring(row({ river_mile: null }))?.riverMile, null);
+});
+
+// ── The photo ─────────────────────────────────────────────────────────────
+//
+// The iOS spring sheet showed the droplet for every spring, including the five
+// on the Current with NPS photos, because this mapper dropped `images`.
+
+const NPS_PHOTO = 'https://www.nps.gov/common/uploads/cropped_image/round-spring.jpg';
+
+test('the first image on the row becomes the spring photo', () => {
+  const images = [{ url: NPS_PHOTO, title: 'Round Spring', altText: 'a blue round pool' }];
+  assert.equal(toSpring(row({ images }))?.imageUrl, NPS_PHOTO);
+});
+
+// Production stores most of these as a JSON string of a JSON string.
+test('images stored as twice-encoded JSON still yield the photo', () => {
+  const images = JSON.stringify(JSON.stringify([{ url: NPS_PHOTO, title: 'Round Spring' }]));
+  assert.equal(toSpring(row({ images }))?.imageUrl, NPS_PHOTO);
+});
+
+test('a map is skipped in favour of a photograph', () => {
+  const images = [
+    { url: 'https://www.nps.gov/map.jpg', title: 'Park map' },
+    { url: NPS_PHOTO, title: 'Round Spring' },
+  ];
+  assert.equal(toSpring(row({ images }))?.imageUrl, NPS_PHOTO);
+});
+
+test('no image, an empty array or junk gives null rather than a broken photo', () => {
+  assert.equal(toSpring(row())?.imageUrl, null);
+  assert.equal(toSpring(row({ images: [] }))?.imageUrl, null);
+  assert.equal(toSpring(row({ images: '"[]"' }))?.imageUrl, null);
+  assert.equal(toSpring(row({ images: 'not json' }))?.imageUrl, null);
+  assert.equal(toSpring(row({ images: [{ url: 'http://example.com/a.jpg' }] }))?.imageUrl, null);
+  assert.equal(toSpring(row({ images: [{ url: 'javascript:alert(1)' }] }))?.imageUrl, null);
+});
+
+// The same read-time addition /api/rivers/[slug]/pois applies, so the app and
+// the website show the same photo for the same spring.
+test('a reviewed photo fills an empty local spring', () => {
+  const entry = reviewedPhotos.find((p) => p.table === 'points_of_interest' && p.name === 'Blue Spring');
+  assert.ok(entry, 'the reviewed catalog has a Blue Spring photo');
+  const spring = toSpring(row({ id: entry.id, name: entry.name, images: '"[]"', nps_id: null }));
+  assert.equal(spring?.imageUrl, entry.image.url);
+});
+
+test('a reviewed photo never replaces the row\'s own image', () => {
+  const entry = reviewedPhotos.find((p) => p.table === 'points_of_interest' && p.name === 'Blue Spring');
+  assert.ok(entry);
+  const images = [{ url: NPS_PHOTO, title: 'Blue Spring' }];
+  assert.equal(toSpring(row({ id: entry.id, name: entry.name, images, nps_id: null }))?.imageUrl, NPS_PHOTO);
 });

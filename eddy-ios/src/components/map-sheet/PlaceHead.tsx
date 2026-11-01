@@ -107,7 +107,9 @@ export function PlaceHead({
   // What the pin is wearing on the map: a condition for a gauge, a layer colour
   // for everything else.
   const state = pin.color ?? layer?.color(colors) ?? colors.interactive;
-  const photo = accessPoint && pin.imageUrl ? pin.imageUrl : null;
+  // Any pin that carries one: access points, and springs. It was gated on
+  // `accessPoint`, which hid a spring's photo behind the droplet.
+  const photo = pin.imageUrl || null;
 
   return (
     <View style={styles.row}>
