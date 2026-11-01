@@ -12,6 +12,7 @@ import { linkPreviewFile, linkPreviewAsset, type LinkPreviewKind } from './og/li
 import { generateMetadata as planMetadata } from '../app/plan/[shortCode]/layout';
 import { generateImageMetadata as riverImageMetadata } from '../app/rivers/[state]/[slug]/opengraph-image';
 import { generateImageMetadata as damImageMetadata } from '../app/dams/[damId]/opengraph-image';
+import { publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } from './seo';
 
 // Exercise actual catalog reads in route tests, independent of warm instances.
 const redirect = (url: string) => gaugeShareRedirect(new NextRequest(url), gaugeRedirectPath);
@@ -165,7 +166,7 @@ test('an unknown place never borrows another named location’s photograph', () 
 test('image metadata describes the selected photograph or illustration with its actual MIME type', async () => {
   for (const [slug, photo] of [['current', true], ['jacks-fork', false]] as const) {
     const [metadata] = await riverImageMetadata({ params: Promise.resolve({ slug }) });
-    assert.match(metadata.alt, photo ? /red canoe beside the Current River/ : /illustration of a river/);
+    assert.match(metadata.alt, photo ? /red kayak beside the Current River/ : /illustration of a river/);
     assert.equal(metadata.contentType, photo ? 'image/jpeg' : 'image/png');
     assert.doesNotMatch(metadata.alt, / or /);
   }
@@ -205,4 +206,87 @@ test('redirect cache bounds entries, caches orphan results, and never retains er
   unavailable = false;
   assert.equal(await cached('error'), null);
   assert.equal(calls.filter(slug => slug === 'error').length, 2);
+});
+
+// ── Every public page names itself in link previews ───────────────────────
+// Nested metadata is replaced, not merged: a page that sets only a title and
+// description inherits the root's whole openGraph object, so it unfurls as
+// the homepage with og:url pointing there. These routes either render the
+// homepage itself, are noindex embeds/admin, or are error states.
+const INHERITS_ROOT_PREVIEW = new Set([
+  'src/app/layout.tsx',
+  'src/app/page.tsx',
+  'src/app/not-found.tsx',
+]);
+
+async function metadataRoutes(): Promise<string[]> {
+  const { readdir } = await import('node:fs/promises');
+  const entries = await readdir('src/app', { recursive: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const file = `src/app/${entry}`;
+    if (!/(^|\/)(page|layout)\.tsx$/.test(entry)) continue;
+    if (/^(admin|api)\//.test(entry) || /^embed\/.+\//.test(entry)) continue;
+    const source = await readFile(file, 'utf8');
+    if (/export (const metadata|(async )?function generateMetadata)/.test(source)) files.push(file);
+  }
+  return files.sort();
+}
+
+test('every public route sets its own Open Graph metadata instead of inheriting the homepage', async () => {
+  const files = await metadataRoutes();
+  assert.ok(files.length >= 25, `found only ${files.length} metadata routes`);
+  for (const file of files) {
+    if (INHERITS_ROOT_PREVIEW.has(file)) continue;
+    const source = await readFile(file, 'utf8');
+    assert.match(source, /publicPageMetadata\(|openGraph:|sharedPlanMetadata\(/,
+      `${file} sets a title without openGraph, so it unfurls as the homepage`);
+  }
+});
+
+test('routes that rely on their own image files actually ship both of them', async () => {
+  const { access } = await import('node:fs/promises');
+  for (const file of await metadataRoutes()) {
+    if (!(await readFile(file, 'utf8')).includes('ROUTE_SHARE_IMAGE')) continue;
+    const dir = file.slice(0, file.lastIndexOf('/'));
+    for (const image of ['opengraph-image.tsx', 'twitter-image.tsx']) {
+      await access(`${dir}/${image}`).catch(() => assert.fail(`${file} uses ROUTE_SHARE_IMAGE without ${image}`));
+    }
+  }
+});
+
+test('public page metadata always carries a described image and the page’s own URL', () => {
+  for (const image of Object.values(SHARE_IMAGES)) {
+    const metadata = publicPageMetadata('About', 'About Eddy.', '/about', image);
+    assert.equal(metadata.openGraph?.url, metadata.alternates?.canonical);
+    assert.equal(metadata.openGraph?.siteName, 'Eddy');
+    assert.deepEqual(metadata.openGraph?.images, [{ url: image.url, width: 1200, height: 630, alt: image.alt }]);
+    assert.deepEqual(metadata.twitter?.images, [{ url: image.url, alt: image.alt }]);
+    assert.ok(image.alt.length > 10);
+  }
+  const route = publicPageMetadata('Rivers', 'Rivers.', '/rivers', ROUTE_SHARE_IMAGE);
+  assert.ok(!Object.hasOwn(route.openGraph!, 'images'), 'route image files win over config in the same segment');
+});
+
+test('static illustrations named as fallback share images exist and fit the card budget', async () => {
+  for (const image of Object.values(SHARE_IMAGES)) {
+    if (!image.url.startsWith('/share/')) continue;
+    const bytes = await readFile(`public${image.url}`);
+    const { width, height } = await sharp(bytes).metadata();
+    assert.equal(width, 1200);
+    assert.equal(height, 630);
+  }
+});
+
+test('no page title repeats the brand once the root template appends it', async () => {
+  for (const file of await metadataRoutes()) {
+    if (file === 'src/app/layout.tsx') continue;
+    const source = await readFile(file, 'utf8');
+    for (const [, title] of source.matchAll(/title: ['"`]([^'"`]+)['"`]/g)) {
+      assert.doesNotMatch(title, /(\| |— |- )Eddy$/, `${file}: "${title}" becomes "… Eddy | Eddy"`);
+    }
+    for (const [, title] of source.matchAll(/publicPageMetadata\(\s*['"`]([^'"`]+)['"`]/g)) {
+      assert.doesNotMatch(title, /(\| |— |- )Eddy$/, `${file}: "${title}" becomes "… Eddy | Eddy"`);
+    }
+  }
 });

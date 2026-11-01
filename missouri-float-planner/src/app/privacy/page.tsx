@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import SiteFooter from '@/components/ui/SiteFooter';
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy | Eddy',
-  description: 'How Eddy collects, uses, shares, and protects information.',
-  alternates: { canonical: '/privacy' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Privacy Policy',
+  'How Eddy collects, uses, shares, and protects information.',
+  '/privacy',
+  SHARE_IMAGES.site,
+);
 
 const heading = 'text-2xl font-bold text-neutral-900 mb-3';
 const body = 'text-neutral-700 leading-relaxed';

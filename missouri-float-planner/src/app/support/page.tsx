@@ -11,13 +11,15 @@
 
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import SiteFooter from '@/components/ui/SiteFooter';
 
-export const metadata: Metadata = {
-  title: 'Support',
-  description: 'Get help with Eddy — report a wrong reading, a missing access point, or a problem with your subscription.',
-  alternates: { canonical: '/support' },
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Support',
+  'Get help with Eddy — report a wrong reading, a missing access point, or a problem with your subscription.',
+  '/support',
+  SHARE_IMAGES.site,
+);
 
 const SUPPORT_EMAIL = 'eddy@eddy.guide';
 

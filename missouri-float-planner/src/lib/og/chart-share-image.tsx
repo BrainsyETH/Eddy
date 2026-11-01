@@ -4,6 +4,31 @@ import { chartStatisticForUnit, chartStatisticLabel, resolutionNotice } from '@s
 import { buildZones } from '@shared/threshold-zones';
 import type { ChartShareData } from '@/lib/gauges/chart-share-data';
 
+const OBSERVED = '#117b6c';
+const FORECAST = '#698eae';
+const PRIOR = '#9a6e39';
+const TYPICAL = '#a38259';
+
+/** A legend entry for each series the image actually draws inside its window.
+ * A forecast that starts after the shared window is clipped from the plot, so
+ * naming it would describe a line the recipient cannot see. */
+export function chartImageLegend(
+  view: ChartImageData['view'],
+  layers: readonly string[],
+): { label: string; color: string; dashed: boolean }[] {
+  const domain = view.domain;
+  const visible = (points: readonly { t: number }[]) =>
+    !!domain && points.some((p) => p.t >= domain.t0 && p.t <= domain.t1);
+  const band = view.typical.filter((r) => r.low !== null && r.high !== null);
+  return [
+    visible(view.observed) && { label: 'Observed', color: OBSERVED, dashed: false },
+    visible(view.forecast) && { label: 'NWS forecast', color: FORECAST, dashed: true },
+    layers.includes('lastYear') && visible(view.prior) && { label: 'Last year', color: PRIOR, dashed: true },
+    layers.includes('typical') && band.length > 1 && { label: 'Typical range', color: TYPICAL, dashed: false },
+    layers.includes('median') && view.typical.length > 1 && { label: 'Median', color: TYPICAL, dashed: true },
+  ].filter((entry): entry is { label: string; color: string; dashed: boolean } => Boolean(entry));
+}
+
 /** Satori draws this SVG from the same model as the interactive charts. */
 export type ChartImageData = Omit<ChartShareData, 'gauge'> & {
   gauge: Pick<ChartShareData['gauge'], 'name' | 'floodStages'>;
@@ -63,11 +88,14 @@ export function ChartShareImage({ data }: { data: ChartImageData }) {
       <div style={{ display: 'flex', fontSize: 16, marginTop: 5 }}>
         {stamp(state.visible.from)} — {stamp(state.visible.to)}
       </div>
+      <div style={{ display: 'flex', fontSize: 14, marginTop: 14 }}>
+        {state.unit === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)'}
+      </div>
       <div
         style={{
           display: 'flex',
           position: 'relative',
-          marginTop: 22,
+          marginTop: 8,
           marginLeft: 62,
           width: 1010,
           height: 290,
@@ -134,9 +162,9 @@ export function ChartShareImage({ data }: { data: ChartImageData }) {
                 strokeDasharray="4 3"
               />
             )}
-            {series('prior', '#9a6e39', '5 4')}
-            {series('observed', '#117b6c')}
-            {series('forecast', '#698eae', '7 5')}
+            {series('prior', PRIOR, '5 4')}
+            {series('observed', OBSERVED)}
+            {series('forecast', FORECAST, '7 5')}
           </g>
         </svg>
         {geometry.yTicks.map((t) => (
@@ -174,24 +202,21 @@ export function ChartShareImage({ data }: { data: ChartImageData }) {
           </span>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 18, fontSize: 16, marginTop: 15 }}>
-        <span>Observed</span>
-        {view.forecast.length > 0 && <span style={{ color: '#698eae' }}>NWS forecast</span>}
-        {state.layers.includes('lastYear') && <span style={{ color: '#9a6e39' }}>Last year</span>}
-        {state.layers.includes('typical') && <span>Typical range</span>}
-        {state.layers.includes('median') && <span>Median</span>}
-        <span>
-          {state.scale === 'loaded'
-            ? 'Fit to dates'
-            : state.scale === 'visible'
-              ? 'Fit to zoom'
-              : 'Full scale'}
-        </span>
+      <div style={{ display: 'flex', gap: 22, fontSize: 16, marginTop: 15 }}>
+        {chartImageLegend(view, state.layers).map((entry) => (
+          <div key={entry.label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <svg width="22" height="6" viewBox="0 0 22 6">
+              <line x1="0" x2="22" y1="3" y2="3" stroke={entry.color} strokeWidth="3"
+                strokeDasharray={entry.dashed ? '5 3' : undefined} />
+            </svg>
+            <span>{entry.label}</span>
+          </div>
+        ))}
       </div>
       <div style={{ display: 'flex', fontSize: 15, marginTop: 8 }}>
         {resolutionNotice(state.statistic, chartStatisticForUnit(history.statistic, state.unit)) ??
           chartStatisticLabel(chartStatisticForUnit(history.statistic, state.unit))}
-        {history.sampled ? ' · Sampled' : ''}
+        {history.sampled ? ' · Some readings thinned for display' : ''}
         {!history.coverageComplete ? ' · Partial coverage' : ''}
         {unavailable.length ? ` · ${unavailable.join(' · ')}` : ''}
       </div>

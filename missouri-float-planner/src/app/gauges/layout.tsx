@@ -5,16 +5,16 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
 export const metadata: Metadata = {
-  title: 'River Reports | Eddy',
+  title: 'River Reports',
   description: 'Real-time water levels and flow trends from USGS gauge stations. Check river conditions before your float trip.',
   openGraph: {
-    title: 'River Reports | Eddy',
+    title: 'River Reports',
     description: 'Real-time water levels and flow trends from USGS gauge stations. Check conditions before you float.',
     // OG image is auto-discovered from opengraph-image.tsx
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'River Reports | Eddy',
+    title: 'River Reports',
     description: 'Real-time water levels and flow trends from USGS gauge stations. Check conditions before you float.',
     // Twitter image is auto-discovered from twitter-image.tsx
   },

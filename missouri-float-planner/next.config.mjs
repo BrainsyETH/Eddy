@@ -44,6 +44,10 @@ const nextConfig = {
         destination: '/dams/:damId/:image/preview',
       },
       {
+        source: '/blog/:slug/:image(opengraph-image|twitter-image)',
+        destination: '/blog/:slug/:image/preview',
+      },
+      {
         // Universal links. A REWRITE, never a redirect: Apple's CDN does not
         // follow redirects when fetching this file, and a 3xx here breaks
         // universal links with nothing failing anywhere that anyone would see.

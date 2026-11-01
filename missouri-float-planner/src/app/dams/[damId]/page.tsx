@@ -6,7 +6,7 @@
 // can, and that is what a wading angler plans around.
 
 import StationShareButton from '@/components/gauge/StationShareButton';
-import { publicPageMetadata } from '@/lib/seo';
+import { publicPageMetadata, ROUTE_SHARE_IMAGE } from '@/lib/seo';
 import { appBannerMetadata } from '@/lib/app-discovery';
 import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 import type { Metadata } from 'next';
@@ -56,6 +56,7 @@ export async function generateMetadata({
         dam.lakeName ? ` on ${dam.lakeName}` : ''
       }.`,
       `/dams/${damId}`,
+      ROUTE_SHARE_IMAGE,
     ),
     ...appBannerMetadata(`/dam/${encodeURIComponent(damId)}`),
   };

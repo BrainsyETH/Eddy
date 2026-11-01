@@ -7,7 +7,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFredokaFont, loadEddyAvatar } from '@/lib/og/fonts';
 import { CardFrame } from '@/lib/og/cardLayout';
 
-export const alt = 'Float trip guide on Eddy';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -23,12 +22,11 @@ const CATEGORY_KICKER: Record<string, string> = {
   Guides: 'Guide',
 };
 
-export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+type Props = { params: Promise<{ slug: string }> };
 
+async function postCard(slug: string) {
   let title = 'Float Trip Guide';
   let category = 'Guide';
-
   try {
     const supabase = createAdminClient();
     const { data: post } = await supabase
@@ -44,6 +42,18 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   } catch {
     // Fall back to brand defaults.
   }
+  return { title: truncate(title, 76), eyebrow: CATEGORY_KICKER[category] ?? category };
+}
+
+/** The card shows the post title, so its alt text names it. next.config.mjs
+ * rewrites the bare image URLs already cached in chats to this `preview` id. */
+export async function generateImageMetadata({ params }: Props) {
+  const { title } = await postCard((await params).slug);
+  return [{ id: 'preview', alt: `Eddy guide title card: ${title}`, size, contentType }];
+}
+
+export default async function Image({ params }: Props) {
+  const { title, eyebrow } = await postCard((await params).slug);
 
   const fonts = loadFredokaFont();
   const avatar = await loadEddyAvatar().catch(() => null);
@@ -51,8 +61,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   return new ImageResponse(
     (
       <CardFrame
-        eyebrow={CATEGORY_KICKER[category] ?? category}
-        title={truncate(title, 76)}
+        eyebrow={eyebrow}
+        title={title}
         avatar={avatar}
       />
     ),

@@ -10,7 +10,7 @@ import { AppRouterContext, type AppRouterInstance } from 'next/dist/shared/lib/a
 import { SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import { ImageConfigContext } from 'next/dist/shared/lib/image-config-context.shared-runtime';
 import { imageConfigDefault } from 'next/dist/shared/lib/image-config';
-import { accessFeeSchema, publicPageMetadata } from './seo';
+import { accessFeeSchema, publicPageMetadata, ROUTE_SHARE_IMAGE, SHARE_IMAGES } from './seo';
 import ArticleByline from '../components/blog/ArticleByline';
 import ConditionsLayout from '../components/conditions/ConditionsLayout';
 import GenerationSchedule from '../components/dam/GenerationSchedule';
@@ -251,14 +251,14 @@ test('paid access is never marked free, and unknown fees remain unspecified', ()
 });
 
 test('public metadata names the actual page instead of inheriting the homepage', () => {
-  const metadata = publicPageMetadata('Lake Levels', 'Dam release schedules.', '/dams', '/opengraph-image');
+  const metadata = publicPageMetadata('Lake Levels', 'Dam release schedules.', '/dams', SHARE_IMAGES.site);
   assert.equal(metadata.alternates?.canonical, '/dams');
   assert.equal(metadata.openGraph?.url, '/dams');
   assert.equal(metadata.openGraph?.title, 'Lake Levels');
   assert.equal(metadata.twitter?.title, 'Lake Levels');
   assert.deepEqual(metadata.openGraph?.images, [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Eddy — live river conditions, water levels, and float trip plans' }]);
-  assert.deepEqual(metadata.twitter?.images, ['/opengraph-image']);
-  const riverMetadata = publicPageMetadata('River Reports', 'Live river levels.', '/rivers');
+  assert.deepEqual(metadata.twitter?.images, [{ url: '/opengraph-image', alt: 'Eddy — live river conditions, water levels, and float trip plans' }]);
+  const riverMetadata = publicPageMetadata('River Reports', 'Live river levels.', '/rivers', ROUTE_SHARE_IMAGE);
   assert.ok(!Object.hasOwn(riverMetadata.openGraph!, 'images'), 'preserve route-specific file-based river images');
 });
 

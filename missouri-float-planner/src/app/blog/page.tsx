@@ -3,23 +3,22 @@ import Image from 'next/image';
 import { optimizeBlogImage } from '@/lib/blog-image';
 import { guideCover, isGuidePlaceholder } from '@/lib/photos/guides';
 import type { Metadata } from 'next';
+import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import SiteFooter from '@/components/ui/SiteFooter';
 
+const blogMetadata = publicPageMetadata(
+  "Eddy's Thoughts - Float Trip Guides & Resources",
+  'Expert guides and tips for planning the perfect float trip. Learn about water conditions, access points, and the best times to float.',
+  '/blog',
+  SHARE_IMAGES.site,
+);
 export const metadata: Metadata = {
-  title: "Eddy's Thoughts - Float Trip Guides & Resources",
-  description: 'Expert guides and tips for planning the perfect float trip. Learn about water conditions, access points, and the best times to float.',
+  ...blogMetadata,
   alternates: {
-    canonical: '/blog',
+    ...blogMetadata.alternates,
     types: { 'application/rss+xml': '/blog/feed.xml' },
-  },
-  openGraph: {
-    type: 'website',
-    siteName: 'Eddy',
-    url: '/blog',
-    title: "Eddy's Thoughts - Float Trip Guides & Resources",
-    description: 'Expert guides and tips for planning the perfect float trip.',
   },
 };
 

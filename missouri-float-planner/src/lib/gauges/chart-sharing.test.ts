@@ -15,6 +15,7 @@ import { redirectSystemPath } from '../../../../eddy-ios/app/+native-intent';
 import {
   parseChartShare,
   chartSharePath,
+  chartAppPath,
   chartShareQuery,
   chartShareTitle,
   chartImagePath,
@@ -37,7 +38,7 @@ import {
   fixtureImageData,
   fixtureThresholds,
 } from './__fixtures__/chart-share';
-import { ChartShareImage } from '../og/chart-share-image';
+import { ChartShareImage, chartImageLegend } from '../og/chart-share-image';
 import { loadOgFonts } from '../og/fonts';
 import { GET as imageRoute } from '../../app/api/share/chart/[provider]/[siteId]/image/route';
 import { GET as detailRoute } from '../../app/api/gauges/[siteId]/route';
@@ -721,4 +722,25 @@ test('missing context is a typed attachment error or neutral preview; outages st
   const outage = await imageRoute(request(), context);
   assert.equal(outage.status, 503);
   assert.equal(outage.headers.get('cache-control'), 'no-store');
+});
+
+test('the image legend names only series drawn inside the shared window', () => {
+  const data = fixtureImageData();
+  const domain = data.view.domain!;
+  const point = (t: number) => ({ t, v: 600, timestamp: new Date(t).toISOString(), qualifiers: [] });
+  const labels = (forecast: ReturnType<typeof point>[]) =>
+    chartImageLegend({ ...data.view, forecast }, data.state.layers).map((entry) => entry.label);
+  assert.ok(!labels([]).includes('NWS forecast'));
+  assert.ok(!labels([point(domain.t1 + 3_600_000), point(domain.t1 + 7_200_000)]).includes('NWS forecast'),
+    'a forecast that starts after the window is clipped, so the legend must not name it');
+  assert.ok(labels([point(domain.t1 - 3_600_000), point(domain.t1 + 3_600_000)]).includes('NWS forecast'));
+  assert.ok(labels([]).includes('Observed'));
+  assert.ok(!labels([]).some((label) => /^Fit to|Full scale/.test(label)), 'chart controls are not legend entries');
+});
+
+test('the Smart App Banner and the universal-link handler open the same chart view', () => {
+  const appPath = chartAppPath(fixtureState);
+  assert.equal(sharedGaugeDestination(chartSharePath(fixtureState)), appPath);
+  // The banner hands the app eddy://<path>; the app must route it unchanged.
+  assert.equal(redirectSystemPath({ path: `eddy://${appPath}`, initial: false }), appPath);
 });

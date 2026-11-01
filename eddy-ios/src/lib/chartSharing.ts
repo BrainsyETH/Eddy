@@ -1,5 +1,5 @@
 import { captureChart } from '@eddy/conditions/chart-snapshot';
-import { chartShareQuery, parseChartShare, shareStation } from '@eddy/conditions/chart-share';
+import { chartAppPath, parseChartShare, shareStation } from '@eddy/conditions/chart-share';
 
 export const captureNativeChart = captureChart;
 
@@ -16,9 +16,8 @@ export function sharedGaugeDestination(local: string): string | null {
     station.provider === 'usace' ? `/dam/${station.siteId}` : `/gauge/${station.siteId}`;
   if (match[1] === 'gauge') return destination;
   const state = parseChartShare(station.provider, station.siteId, url.searchParams);
-  return state
-    ? `${destination}?chart=${encodeURIComponent(chartShareQuery(state))}`
-    : `${destination}?shareUnavailable=1`;
+  // A parsed chart state is always USGS, so its app path is the gauge screen.
+  return state ? chartAppPath(state) : `${destination}?shareUnavailable=1`;
 }
 
 export { chartView as nativeChartView } from '@eddy/conditions/chart-view';

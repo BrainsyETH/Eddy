@@ -55,22 +55,19 @@ export function gaugeSharePath(provider: string | null | undefined, siteId: stri
  * Resolves quietly when the user cancels: dismissing a share sheet is not an
  * error and must never produce an alert.
  *
- * ── `note` is OPTIONAL, and every existing caller omits it ─────────────────
+ * ── No condition text ───────────────────────────────────────────────────
  *
- * One line between the title and the link, for callers that have something
- * worth saying about the thing being shared. Omit it and the message is exactly
- * what it has always been — the gauge and access-point screens share this
- * function and their output is unchanged by its existence.
- *
- * What it must NOT carry is the paid report. The river screen passes Eddy's
- * free summary, which is the block the generator writes for "share cards and
- * compact views" and is under 120 characters; the website's EddyQuote falls
- * back from it to the full quote, and this deliberately does not. A share sheet
- * is the one control designed to send things to people who have not paid.
+ * The message is the title and the link, nothing else. Eddy's condition
+ * summary once rode along as a middle line, and it reached the recipient with
+ * no time attached, so a verdict about this morning's water read as current
+ * days later. Opening the link is how a recipient gets current conditions
+ * (missouri-float-planner/docs/SHARING_PREVIEWS.md). A share that states a
+ * condition, such as a future alert share, carries the observation's date,
+ * time and time zone in its own helper.
  */
-export async function shareLink(title: string, path: string, note?: string | null): Promise<void> {
+export async function shareLink(title: string, path: string): Promise<void> {
   const url = webUrl(path);
-  const message = note?.trim() ? `${title}\n${note.trim()}\n${url}` : `${title}\n${url}`;
+  const message = `${title}\n${url}`;
   try {
     await Share.share({ title, url, message });
   } catch {

@@ -191,6 +191,11 @@ export function chartShareQuery(state: ChartShareState): string {
 export function chartSharePath(state: ChartShareState): string {
   return `/share/chart/usgs/${state.siteId}?${chartShareQuery(state)}`;
 }
+/** The app route that restores this chart view: the web's Smart App Banner and
+ * the app's universal-link handler both use it, so the two cannot drift. */
+export function chartAppPath(state: ChartShareState): string {
+  return `/gauge/${state.siteId}?chart=${encodeURIComponent(chartShareQuery(state))}`;
+}
 export function chartImagePath(state: ChartShareState, preview = false): string {
   return `/api/share/chart/usgs/${state.siteId}/image?${chartShareQuery(state)}${preview ? '&preview=1' : ''}`;
 }
