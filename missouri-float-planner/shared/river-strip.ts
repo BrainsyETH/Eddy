@@ -126,6 +126,12 @@ export interface RiverStripLayout {
   };
 }
 
+/** Behind the strip's ⓘ: Find a Float puts no explainer copy on the surface. */
+export const RIVER_STRIP_INFO = [
+  'Each float sits at its real place on the river: river miles are to scale.',
+  'The bends are drawn for illustration, not traced from the river.',
+];
+
 /** A callout's tap area: square, the minimum touch target. */
 export const CALLOUT_SIZE = 44;
 /** An end flag's drawn size; its keep-clear box adds FLAG_MARGIN. */

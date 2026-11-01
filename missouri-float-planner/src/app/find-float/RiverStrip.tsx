@@ -18,10 +18,11 @@ import { useCallback, useMemo, useState, type MouseEvent } from 'react';
 import { ArrowRight, Flag, FlagOff } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import InfoTip from '@/components/ui/InfoTip';
 import Segmented from '@/components/ui/Segmented';
 import { floatPlanPath, type FloatSearchOption } from '@shared/float-search';
-import { riverStripLayout, type RiverStripPoint, type RiverStripView, type RouteState } from '@shared/river-strip';
-import { routeAccessLabel, routeCautionsPresent, RouteCautions, RouteConditionBadge, routeTimeLabel } from './route-facts';
+import { RIVER_STRIP_INFO, riverStripLayout, type RiverStripPoint, type RiverStripView, type RouteState } from '@shared/river-strip';
+import { INFO_COLORS, routeAccessLabel, routeCautionsPresent, RouteCautions, RouteConditionBadge, routeTimeLabel } from './route-facts';
 
 // AccessPointMarkers: river-forest put-in, sky-warm take-out, river-gravel stops.
 const PUT_IN = '#478559';
@@ -83,9 +84,9 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
   return (
     <Card id={RIVER_STRIP_ID} variant="framed" as="section" aria-labelledby="river-strip-title" className="mb-6 scroll-mt-24">
       <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 pt-3 sm:px-5">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
+        <div className="flex min-w-0 items-center gap-2">
           <h3 id="river-strip-title" style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold">{riverName}</h3>
-          <span className="text-sm text-[var(--color-text-secondary)]">{routes.length} {routes.length === 1 ? 'float' : 'floats'} on the river</span>
+          <InfoTip size={16} title="About this view" ariaLabel="About this view" body={RIVER_STRIP_INFO.join(' ')} colors={INFO_COLORS} />
         </div>
         <Segmented aria-label="River view" value={layout?.view ?? view} onChange={setView}
           options={[
@@ -106,9 +107,7 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
             </div>
             <span className="tabular-nums">{formatMile(layout.domain.end)}</span>
           </div>
-          <span className="ml-auto inline-flex items-center gap-1">River miles to scale. Bends illustrative.
-            <span className="ml-2 inline-flex items-center gap-1 font-semibold">Downstream<ArrowRight size={14} aria-hidden="true" /></span>
-          </span>
+          <span className="ml-auto inline-flex items-center gap-1 font-semibold">Downstream<ArrowRight size={14} aria-hidden="true" /></span>
         </div>}
 
         <div ref={measure} className="relative" style={{ height: layout?.height ?? PLACEHOLDER_HEIGHT }} aria-busy={!layout || undefined}>
@@ -167,8 +166,9 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
         </div>}
       </div>
 
-      <div aria-live="polite" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 sm:px-5">
-        {selected ? <>
+      {/* The chosen float's facts; nothing until one is chosen. */}
+      <div aria-live="polite" className={selected ? 'flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 sm:px-5' : undefined}>
+        {selected && <>
           <div className="min-w-0 space-y-2">
             <p className="flex flex-wrap items-center gap-2 font-semibold">
               <NumberChip number={routes.find(route => route.option === selected)!.number} state="selected" size={24} />
@@ -190,7 +190,7 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
             onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (stale || !onPlan()) event.preventDefault(); }}>
             Plan this float<ArrowRight size={18} aria-hidden="true" />
           </Button>
-        </> : <p className="text-sm">Choose a number to compare a float.</p>}
+        </>}
       </div>
     </Card>
   );
@@ -203,14 +203,13 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
 export function RiverStripPlaceholder({ riverName }: { riverName: string }) {
   return (
     <Card variant="framed" as="section" aria-busy="true" aria-label={`${riverName}: loading the river`}
-      className="mb-6 flex h-[420px] flex-col sm:h-[307px]">
+      className="mb-6 flex h-[375px] flex-col sm:h-[279px] lg:h-[261px]">
       <div className="px-4 pt-3 sm:px-5">
         <h3 style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold">{riverName}</h3>
       </div>
       <div className="flex flex-1 items-center px-5" aria-hidden="true">
         <div className="h-8 w-full rounded-full bg-[var(--color-secondary-100)] motion-safe:animate-pulse" />
       </div>
-      <p className="border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 text-sm text-[var(--color-text-secondary)] sm:px-5">Loading the river…</p>
     </Card>
   );
 }

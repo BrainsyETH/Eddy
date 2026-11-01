@@ -19,15 +19,10 @@ import {
 import type { SearchSnapshot } from './FindFloatClient';
 import { riverStripPlaceable, type RiverStripPoint, type RouteState } from '@shared/river-strip';
 import RiverStrip, { focusStripRoute, NumberChip, RiverStripPlaceholder, type NumberedRoute } from './RiverStrip';
-import { routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
+import { INFO_COLORS, routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
 
 const NO_POINTS: RiverStripPoint[] = [];
 
-const INFO_COLORS = {
-  trigger: 'var(--color-primary-600)', triggerBorder: 'var(--color-border-strong)',
-  popBg: 'var(--color-surface)', popBorder: 'var(--color-primary-700)', title: 'var(--color-text-primary)',
-  body: 'var(--color-text-secondary)', focus: 'var(--color-primary-500)',
-};
 
 export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
   return <Card variant="panel" role="status" aria-live="polite"

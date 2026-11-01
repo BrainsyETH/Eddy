@@ -5,6 +5,13 @@
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { floatRangeLabel, type FloatSearchOption } from '@shared/float-search';
 
+/** InfoTip colours shared by the cards and the river strip. */
+export const INFO_COLORS = {
+  trigger: 'var(--color-primary-600)', triggerBorder: 'var(--color-border-strong)',
+  popBg: 'var(--color-surface)', popBorder: 'var(--color-primary-700)', title: 'var(--color-text-primary)',
+  body: 'var(--color-text-secondary)', focus: 'var(--color-primary-500)',
+};
+
 export function routeAccessLabel(o: FloatSearchOption) {
   return o.putIn.isPublic === true && o.takeOut.isPublic === true ? 'Public access'
     : o.putIn.isPublic === false || o.takeOut.isPublic === false ? 'Includes private access' : 'Access unconfirmed';
