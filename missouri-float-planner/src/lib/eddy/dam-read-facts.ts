@@ -1,43 +1,47 @@
 // src/lib/eddy/dam-read-facts.ts
-// The facts behind a dam's Eddy's Read, computed before any model sees them.
+// The facts behind a dam's Eddy's Read, and the rows they render as.
 //
 // Pure: no SDK, no database, no network. The generator fetches the inputs and
 // hands them here; everything a reader could be misled by is decided in this
-// file, where a test can replay it. The same split report-facts.ts makes for
-// river and gauge reads.
+// file, where a test can replay it.
 //
-// ── What a dam Read is allowed to say ──────────────────────────────────────
-// Four things, each from its own source and each labelled by kind:
+// ── Code states the facts; the model only interprets ───────────────────────
+// The first version let the model write the schedule, the times and the
+// counts, and checked its prose afterwards. A review showed the check could
+// not hold: it asked whether a time appeared SOMEWHERE in the facts, so "No
+// generation is scheduled for the rest of today" passed beside a posted 2-9 PM
+// schedule, "6 AM to 9 PM" passed by borrowing 6 AM from the pattern, and an
+// invented "14 of 14" passed because counts were never checked at all.
 //
-//   1. What SWPA has POSTED for today and tomorrow. A plan. It always outranks
-//      the pattern: when a schedule is posted, the pattern is background.
-//   2. What the units USUALLY did lately: the first start of each recent day,
-//      weekdays and weekends apart. An observation summarised, never a promise.
-//   3. How closely recent posted schedules matched what the turbines then did.
-//   4. Water temperature and dissolved oxygen below the dam, when measured.
+// So every fact is now a ROW rendered here (damReadRows): the posted schedule,
+// the recent starts, the earliest start, the mornings, the run, the release,
+// how the schedule held, the water readings. The model writes two or three
+// sentences of interpretation beside them, and damProseProblems rejects any
+// digit, clock word, schedule claim, "today", live-state claim or measurement
+// in that prose. Those rules are simple enough to be airtight, which the old
+// ones were not.
 //
 // ── Why 14 days and not 90 ─────────────────────────────────────────────────
-// Because these powerhouses change regime with the season. Measured
-// 2026-08-07..2026-11-01: Table Rock's first start was 6 AM on 20 of 24 August
-// days and 3-5 PM through October; Bull Shoals moved from 5 AM in September to
-// 3-4 PM in October. A 90-day median put Bull Shoals' weekday start at 11 AM,
-// an hour it almost never started at lately. A short window follows the regime.
+// These powerhouses change regime with the season. Measured 2026-08-07 to
+// 2026-11-01: Table Rock's first start was 6 AM on 20 of 24 August days and
+// 3-5 PM through October. A 90-day median put Bull Shoals' weekday start at
+// 11 AM, an hour it almost never started at lately.
 //
 // ── Why "no consistent pattern" is an answer ───────────────────────────────
-// A median always exists. When recent starts are spread wide, a median is a
-// confident number describing nothing, so the pattern is only stated when the
-// middle half of recent starts sits inside CONSISTENT_SPREAD_HOURS. Backtested
-// against the same data, "today starts within an hour of the last fortnight's
-// median" held on 67% of days at Table Rock, 61% at Norfork and 53% at Bull
-// Shoals, and Bull Shoals started more than an hour EARLIER than that median on
-// 20% of days. That last number is why the earliest recent start is always
-// carried alongside the typical one: early is the direction that puts someone
-// in rising water.
+// A median always exists. The usual start is only stated when the middle half
+// of recent starts sits inside CONSISTENT_SPREAD_HOURS. The EARLIEST recent
+// start is a row of its own whenever one is known, stated or not: early is the
+// direction that catches someone in rising water.
+//
+// ── A gap is not an afternoon start ────────────────────────────────────────
+// A day whose first observed start comes after a missing hour has an UNKNOWN
+// first start: the gap could hide an earlier run. Such days drop out of the
+// start pattern and the schedule scoring rather than counting as later starts.
 //
 // ── Everything is at the dam ───────────────────────────────────────────────
-// Both the schedule and the observations describe the powerhouse. Nothing here
-// models how long a rise takes to reach an access downstream, so every time is
-// "at the dam", in Central time, and the generated prose must say so.
+// Schedule and observations both describe the powerhouse. Nothing here models
+// how long a rise takes to reach an access downstream; AT_THE_DAM_CAVEAT
+// travels with every Read.
 
 import {
   centralClock,
@@ -45,13 +49,13 @@ import {
   hourEndingNow,
   nextDayKey,
   oldestRetrievedAt,
+  scheduleDayLabel,
   scheduleIsStale,
   scheduledGeneration,
   windowLabel,
 } from '@shared/dam-schedule-copy';
-import type { DamScheduleDay } from '@shared/dam-types';
+import type { DamReadRow, DamScheduleDay } from '@shared/dam-types';
 import { centralDayHours, centralDayStart, patternDayKeys } from '@/lib/data/dam-history';
-import { parseEddyResponse, type ParsedEddyResponse } from './parse-response';
 
 export { DAM_READ_DAM_IDS, damHasRead } from './dam-read-dams';
 
@@ -63,17 +67,20 @@ export const MIN_DAY_COVERAGE_HOURS = 20;
 export const MIN_STARTS_FOR_PATTERN = 3;
 /** Widest middle-half spread of recent first starts still called a pattern. */
 export const CONSISTENT_SPREAD_HOURS = 3;
+/** Fewer known days than this and the mornings/run/release rows are left out. */
+export const MIN_DAYS_FOR_SHAPE = 5;
 /** Fewer scored days than this and schedule reliability is not stated at all. */
 export const MIN_RELIABILITY_DAYS = 10;
 /**
  * The plan a day is scored against is the one Eddy held by this hour of that
  * morning (Central). Not midnight: SWPA's sheet for a day often lands just
  * after it, and scoring "the plan before the day began" left half of recent
- * days unscored. 5 AM is what someone checking before dawn would have read,
- * and a revision after it is not credited to the plan.
+ * days unscored. A revision after it is not credited to the plan.
  */
 export const PLAN_CUTOFF_HOUR = 5;
-/** Water-quality readings older than this are left out of the Read. */
+/** "Mornings" are the hours before this (Central). */
+export const MORNING_ENDS_HOUR = 12;
+/** Water-quality readings older than this are left out. */
 export const WATER_QUALITY_MAX_AGE_HOURS = 24;
 
 const HOUR_MS = 3_600_000;
@@ -85,7 +92,7 @@ export interface ObservedHourRow {
   valueCfs: number;
 }
 
-/** One complete-or-not Central day of turbine observations. */
+/** One Central day of turbine observations. */
 export interface ObservedDay {
   dayKey: string;
   weekend: boolean;
@@ -93,13 +100,28 @@ export interface ObservedDay {
   coverage: number;
   /** True when coverage reaches MIN_DAY_COVERAGE_HOURS. */
   complete: boolean;
+  /** True when every hour of the day is stored. */
+  fullyObserved: boolean;
   generatingHours: number;
   /**
    * Central hour-of-day (0-23) of the first off-to-on transition WITHIN the
-   * day, or null when there was none. A run carried over from the night before
-   * is not a start: it began yesterday.
+   * day, when it is known. A run carried over from the night before is not a
+   * start: it began yesterday.
    */
   firstStartHour: number | null;
+  /**
+   * True when a missing hour could be hiding the first start: one came before
+   * the first observed transition, or the day had gaps and no transition.
+   */
+  startUnknown: boolean;
+  /** No generation before MORNING_ENDS_HOUR; false if any morning hour ran; null when a missing hour leaves it open. */
+  morningOff: boolean | null;
+  /** Length of the run that began at firstStartHour, on a fully observed day. */
+  firstRunHours: number | null;
+  /** Central hour the day's last generation ended (exclusive; 24 = midnight), on a fully observed day. */
+  endHour: number | null;
+  /** Highest hourly turbine flow while generating, cfs. */
+  peakCfs: number | null;
   /** Generating by Central hour-of-day; null where no observation is stored. */
   byHour: Array<boolean | null>;
 }
@@ -114,12 +136,9 @@ function isWeekendDay(dayKey: string): boolean {
  * Fold stored turbine hours into the last `days` COMPLETE Central days.
  *
  * Today is excluded: a day that has not finished has not had its first start
- * for certain, and counting a half day as "no generation" would bias the
- * pattern towards idle every morning.
- *
- * `floorCfs` is the registry's generationOnCfs, the same line the dam page's
- * "generating" uses. At Bull Shoals that line sits above the minimum flow the
- * Corps passes through a turbine, so minimum flow is not generation here either.
+ * for certain. `floorCfs` is the registry's generationOnCfs, the same line the
+ * dam page's "generating" uses; at Bull Shoals it sits above the minimum flow
+ * the Corps passes through a turbine, so minimum flow is not generation here.
  */
 export function observedDays(
   rows: readonly ObservedHourRow[],
@@ -136,38 +155,73 @@ export function observedDays(
     values.set(ms, row.valueCfs);
   }
 
-  // patternDayKeys ends with today; drop it.
   return patternDayKeys(days, now).slice(0, -1).map((dayKey) => {
     const start = centralDayStart(dayKey);
     const length = centralDayHours(dayKey);
     const byHour: Array<boolean | null> = new Array(24).fill(null);
     let coverage = 0;
     let generatingHours = 0;
-    let firstStartHour: number | null = null;
+    let peakCfs: number | null = null;
+    let gapSeen = false;
+    let firstStartIndex: number | null = null;
+    let startUnknown = false;
+    let lastOnIndex: number | null = null;
 
     for (let i = 0; i < length; i += 1) {
       const ms = start + i * HOUR_MS;
       const value = values.get(ms);
-      if (value === undefined) continue;
+      if (value === undefined) {
+        gapSeen = true;
+        continue;
+      }
       const on = value >= floorCfs;
       coverage += 1;
-      if (on) generatingHours += 1;
       const hour = Math.floor(centralClock(ms).hoursElapsed);
       // The repeated hour each November keeps its first occurrence.
       if (byHour[hour] === null) byHour[hour] = on;
-      if (firstStartHour === null && on && i > 0) {
+      if (!on) continue;
+      generatingHours += 1;
+      lastOnIndex = i;
+      peakCfs = peakCfs === null ? value : Math.max(peakCfs, value);
+      if (firstStartIndex === null && !startUnknown && i > 0) {
         const previous = values.get(ms - HOUR_MS);
-        if (previous !== undefined && previous < floorCfs) firstStartHour = hour;
+        if (previous !== undefined && previous < floorCfs) {
+          if (gapSeen) startUnknown = true;
+          else firstStartIndex = i;
+        } else if (previous === undefined) {
+          startUnknown = true;
+        }
       }
     }
+    if (firstStartIndex === null && gapSeen) startUnknown = true;
 
+    const fullyObserved = coverage === length;
+    const hourOf = (i: number) => Math.floor(centralClock(start + i * HOUR_MS).hoursElapsed);
+
+    let firstRunHours: number | null = null;
+    if (fullyObserved && firstStartIndex !== null) {
+      let end = firstStartIndex;
+      while (end < length && (values.get(start + end * HOUR_MS) ?? 0) >= floorCfs) end += 1;
+      firstRunHours = end - firstStartIndex;
+    }
+
+    const morningHours = byHour.slice(0, MORNING_ENDS_HOUR);
     return {
       dayKey,
       weekend: isWeekendDay(dayKey),
       coverage,
       complete: coverage >= MIN_DAY_COVERAGE_HOURS,
+      fullyObserved,
       generatingHours,
-      firstStartHour,
+      firstStartHour: firstStartIndex === null ? null : hourOf(firstStartIndex),
+      startUnknown,
+      // An observed morning run settles it even with gaps; otherwise any
+      // missing morning hour leaves it unknown.
+      morningOff: morningHours.some((h) => h === true) ? false : morningHours.some((h) => h === null) ? null : true,
+      firstRunHours,
+      // A run still going at midnight did not end that day.
+      endHour: fullyObserved && lastOnIndex !== null && lastOnIndex < length - 1 ? hourOf(lastOnIndex) + 1 : null,
+      peakCfs,
       byHour,
     };
   });
@@ -178,47 +232,46 @@ function rank(sorted: readonly number[], p: number): number {
   return sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)];
 }
 
+function median(values: readonly number[]): number | null {
+  if (!values.length) return null;
+  return rank([...values].sort((a, b) => a - b), 0.5);
+}
+
 export type DayGroup = 'weekday' | 'weekend';
 
 export interface StartPattern {
   group: DayGroup;
-  /** Complete days in the group. */
+  /** Complete days in the group whose first start is known (or known absent). */
   days: number;
   daysWithoutGeneration: number;
   daysWithStart: number;
-  /** Median first start, Central hour-of-day. Null with no starts. */
+  /** Median first start, Central hour-of-day. */
   typicalStartHour: number | null;
   /** The middle half of first starts, Central hour-of-day. */
   rangeFromHour: number | null;
   rangeToHour: number | null;
-  /** Earliest first start in the window. */
-  earliestStartHour: number | null;
-  /** Starts more than CONSISTENT_SPREAD_HOURS before the typical one. */
+  /** Starts at least CONSISTENT_SPREAD_HOURS before the typical one. */
   earlyDays: number;
   /** True when the middle half is tight enough, and numerous enough, to state. */
   consistent: boolean;
-  /** Median generating hours per complete day. */
-  typicalGeneratingHours: number | null;
+}
+
+/** Days the pattern may count: complete, and with a first start that is not hidden by a gap. */
+function patternPool(days: readonly ObservedDay[]): ObservedDay[] {
+  return days.filter((d) => d.complete && !d.startUnknown);
 }
 
 export function startPattern(days: readonly ObservedDay[], group: DayGroup): StartPattern | null {
-  const pool = days.filter((d) => d.complete && d.weekend === (group === 'weekend'));
+  const pool = patternPool(days).filter((d) => d.weekend === (group === 'weekend'));
   if (pool.length === 0) return null;
 
   const starts = pool
     .map((d) => d.firstStartHour)
     .filter((h): h is number => h !== null)
     .sort((a, b) => a - b);
-  const hours = pool.map((d) => d.generatingHours).sort((a, b) => a - b);
-
   const typical = starts.length ? rank(starts, 0.5) : null;
   const from = starts.length ? rank(starts, 0.25) : null;
   const to = starts.length ? rank(starts, 0.75) : null;
-  const consistent =
-    starts.length >= MIN_STARTS_FOR_PATTERN &&
-    from !== null &&
-    to !== null &&
-    to - from <= CONSISTENT_SPREAD_HOURS;
 
   return {
     group,
@@ -228,10 +281,48 @@ export function startPattern(days: readonly ObservedDay[], group: DayGroup): Sta
     typicalStartHour: typical,
     rangeFromHour: from,
     rangeToHour: to,
-    earliestStartHour: starts.length ? starts[0] : null,
-    earlyDays: typical === null ? 0 : starts.filter((h) => h < typical - CONSISTENT_SPREAD_HOURS).length,
-    consistent,
-    typicalGeneratingHours: rank(hours, 0.5),
+    earlyDays: typical === null ? 0 : starts.filter((h) => h <= typical - CONSISTENT_SPREAD_HOURS).length,
+    consistent: starts.length >= MIN_STARTS_FOR_PATTERN && from !== null && to !== null && to - from <= CONSISTENT_SPREAD_HOURS,
+  };
+}
+
+/** What a typical recent day looked like, across both day types. */
+export interface RecentShape {
+  /** The earliest known first start in the window, and the day it fell on. */
+  earliest: { hour: number; dayKey: string } | null;
+  /** Days with every morning hour observed, and how many of them had no generation before noon. */
+  morningsKnown: number;
+  morningsOff: number;
+  /** Median length of the first run, hours, and how many days it was measured on. */
+  typicalRunHours: number | null;
+  runDays: number;
+  /** Median hour generation ended (24 = midnight). */
+  typicalEndHour: number | null;
+  /** Median daily peak turbine flow on generating days, cfs, and how many days. */
+  typicalPeakCfs: number | null;
+  peakDays: number;
+}
+
+export function recentShape(days: readonly ObservedDay[]): RecentShape {
+  const pool = patternPool(days);
+  const withStart = pool.filter((d) => d.firstStartHour !== null);
+  const earliest = withStart.reduce<ObservedDay | null>(
+    (best, d) => (!best || d.firstStartHour! < best.firstStartHour! ? d : best),
+    null,
+  );
+  const mornings = days.filter((d) => d.complete && d.morningOff !== null);
+  const runs = days.map((d) => d.firstRunHours).filter((h): h is number => h !== null);
+  const ends = days.map((d) => d.endHour).filter((h): h is number => h !== null);
+  const peaks = days.filter((d) => d.complete).map((d) => d.peakCfs).filter((v): v is number => v !== null);
+  return {
+    earliest: earliest ? { hour: earliest.firstStartHour!, dayKey: earliest.dayKey } : null,
+    morningsKnown: mornings.length,
+    morningsOff: mornings.filter((d) => d.morningOff).length,
+    typicalRunHours: median(runs),
+    runDays: runs.length,
+    typicalEndHour: median(ends),
+    typicalPeakCfs: median(peaks),
+    peakDays: peaks.length,
   };
 }
 
@@ -245,12 +336,14 @@ export interface ScheduleReliability {
   daysCompared: number;
   /** First start within an hour of the posted one, or both idle. */
   matched: number;
-  /** Units came on more than an hour before the posted start. */
-  startedEarly: number;
+  /** Days the units came on more than an hour before the posted start. */
+  startedEarlyDays: string[];
   /** Units came on more than an hour after the posted start. */
   startedLate: number;
-  /** Generation on a day the posted schedule had none, or none on a day it had some. */
-  onOffMismatch: number;
+  /** Days the units generated when nothing was posted. */
+  ranUnpostedDays: string[];
+  /** Days generation was posted and none ran, or the shape otherwise disagreed. */
+  otherMismatch: number;
 }
 
 function scheduledFirstStart(hours: Pick<DamScheduleDay, 'hours'>['hours']): { any: boolean; start: number | null } {
@@ -270,13 +363,11 @@ function scheduledFirstStart(hours: Pick<DamScheduleDay, 'hours'>['hours']): { a
 /**
  * How the plan a reader saw that morning compared with what then ran.
  *
- * For each complete observed day, the schedule scored is the latest version
- * Eddy had stored by PLAN_CUTOFF_HOUR that morning: the one somebody planning
- * the day would have read. A later same-day revision is not credited to it.
- *
- * Versions must come with minimum-flow hours marked (markMinimumFlowHours):
- * Bull Shoals' stored schedules from before that flag existed post its 7 MW
- * minimum flow in every hour, which unmarked reads as generating all day.
+ * The plan scored is the latest version stored by PLAN_CUTOFF_HOUR that
+ * morning. Versions must come with minimum-flow hours marked
+ * (markMinimumFlowHours): Bull Shoals' schedules stored before that flag
+ * existed post its minimum flow in every hour. Days whose first start is
+ * hidden by a gap are not scored.
  */
 export function scheduleReliability(
   versions: readonly ScheduleVersion[],
@@ -287,10 +378,9 @@ export function scheduleReliability(
     .filter((v) => Number.isFinite(v.seen))
     .sort((a, b) => a.seen - b.seen);
 
-  const result: ScheduleReliability = { daysCompared: 0, matched: 0, startedEarly: 0, startedLate: 0, onOffMismatch: 0 };
+  const result: ScheduleReliability = { daysCompared: 0, matched: 0, startedEarlyDays: [], startedLate: 0, ranUnpostedDays: [], otherMismatch: 0 };
 
-  for (const day of days) {
-    if (!day.complete) continue;
+  for (const day of patternPool(days)) {
     const cutoff = centralDayStart(day.dayKey) + PLAN_CUTOFF_HOUR * HOUR_MS;
     let plan: Pick<DamScheduleDay, 'hours'> | undefined;
     for (const version of ordered) {
@@ -305,13 +395,14 @@ export function scheduleReliability(
     result.daysCompared += 1;
 
     if (!scheduled.any && !observedAny) result.matched += 1;
-    else if (scheduled.any !== observedAny) result.onOffMismatch += 1;
+    else if (!scheduled.any && observedAny) result.ranUnpostedDays.push(day.dayKey);
+    else if (scheduled.any && !observedAny) result.otherMismatch += 1;
     else if (scheduled.start === null && day.firstStartHour === null) result.matched += 1;
-    else if (scheduled.start === null || day.firstStartHour === null) result.onOffMismatch += 1;
+    else if (scheduled.start === null || day.firstStartHour === null) result.otherMismatch += 1;
     else {
       const diff = day.firstStartHour - scheduled.start;
       if (Math.abs(diff) <= 1) result.matched += 1;
-      else if (diff < 0) result.startedEarly += 1;
+      else if (diff < 0) result.startedEarlyDays.push(day.dayKey);
       else result.startedLate += 1;
     }
   }
@@ -329,7 +420,10 @@ export interface PostedWindow {
 export interface PostedDay {
   scheduleDate: string;
   dayOffset: 0 | 1;
+  /** Windows still to come (today) or all of them (tomorrow). */
   windows: PostedWindow[];
+  /** First posted start of the WHOLE day, hour-of-day; null when none. */
+  firstStartHour: number | null;
   /** Nothing but minimum flow posted (Bull Shoals' idle day). */
   minimumFlowOnly: boolean;
 }
@@ -343,10 +437,10 @@ export interface PostedSchedule {
 /**
  * Today's and tomorrow's posted generation, as windows.
  *
- * Today keeps only windows that have not ended: a stretch that finished at
- * 9 AM is not news to someone reading at noon. Tomorrow is only read when it
- * is the next calendar day, the same consecutive-days rule scheduleStateNow
- * keeps.
+ * Today keeps only windows that have not ended. Tomorrow is only read when it
+ * is the next calendar day, the consecutive-days rule scheduleStateNow keeps.
+ * Recomputed against the CURRENT snapshot each time a Read is served, so a
+ * window that ended at noon is gone by one.
  */
 export function postedSchedule(
   schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
@@ -378,6 +472,7 @@ export function postedSchedule(
       scheduleDate: day.scheduleDate,
       dayOffset: offset as 0 | 1,
       windows: offset === 0 ? windows.filter((w) => w.toHour > currentHour) : windows,
+      firstStartHour: windows.length ? windows[0].fromHour : null,
       minimumFlowOnly: windows.length === 0 && day.hours.some((h) => h.minimumFlow === true),
     };
   });
@@ -395,35 +490,40 @@ export interface WaterQualityFact {
   where: string;
 }
 
+export interface GenerationRef {
+  units: number;
+  fullGenerationCfs: number;
+}
+
 export interface DamReadInputs {
   damId: string;
   damName: string;
-  /** The tailwater river's display name, when Eddy carries it. */
   riverName: string | null;
   tailwaterFishery: 'trout' | 'warmwater' | null;
   floorCfs: number;
+  /** SWPA's reference pair, for the release row's unit equivalents. */
+  reference: GenerationRef | null;
   schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>;
   observed: readonly ObservedHourRow[];
   scheduleVersions: readonly ScheduleVersion[];
   waterTempF: WaterQualityFact | null;
   dissolvedOxygenMgL: WaterQualityFact | null;
-  /** Measured turbine state now, or null when unknown. */
-  generatingNow: boolean | null;
   now?: number;
 }
 
+/** Plain JSON: stored in dam_updates.facts and re-rendered when served. */
 export interface DamReadFacts {
   damId: string;
   damName: string;
   riverName: string | null;
   tailwaterFishery: 'trout' | 'warmwater' | null;
-  /** The group today belongs to, so the Read leads with the relevant pattern. */
+  reference: GenerationRef | null;
   todayGroup: DayGroup;
   todayWeekday: string;
-  generatingNow: boolean | null;
   posted: PostedSchedule | null;
   weekday: StartPattern | null;
   weekend: StartPattern | null;
+  shape: RecentShape;
   reliability: ScheduleReliability | null;
   waterTempF: WaterQualityFact | null;
   dissolvedOxygenMgL: WaterQualityFact | null;
@@ -447,17 +547,27 @@ export function buildDamReadFacts(input: DamReadInputs): DamReadFacts {
     damName: input.damName,
     riverName: input.riverName,
     tailwaterFishery: input.tailwaterFishery,
+    reference: input.reference,
     todayGroup: isWeekendDay(today) ? 'weekend' : 'weekday',
     todayWeekday: new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }),
-    generatingNow: input.generatingNow,
     posted: postedSchedule(input.schedule, now),
     weekday: startPattern(days, 'weekday'),
     weekend: startPattern(days, 'weekend'),
+    shape: recentShape(days),
     reliability: scheduleReliability(input.scheduleVersions, days),
     waterTempF: freshEnough(input.waterTempF, now),
     dissolvedOxygenMgL: freshEnough(input.dissolvedOxygenMgL, now),
     now,
   };
+}
+
+/** The same facts with the posted schedule re-read from the current snapshot. */
+export function withCurrentSchedule(
+  facts: DamReadFacts,
+  schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
+  now = Date.now(),
+): DamReadFacts {
+  return { ...facts, posted: postedSchedule(schedule, now), now };
 }
 
 /** Whether there is anything worth writing a Read about. */
@@ -466,7 +576,7 @@ export function damReadHasSubstance(f: DamReadFacts): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Words
+// Rows: the facts, in words, rendered by code
 // ---------------------------------------------------------------------------
 
 /** Central hour-of-day -> "3 PM", "noon", "midnight". The schedule's own labels. */
@@ -481,284 +591,263 @@ function groupPlural(group: DayGroup): string {
   return group === 'weekday' ? 'weekdays' : 'weekends';
 }
 
-/** The pattern for one group, as a sentence, or null when there is none to state. */
 /** "6 AM – 8 AM, 9 AM – 11 AM and 4 PM – 7 PM". */
 function listWindows(windows: readonly PostedWindow[]): string {
   const labels = windows.map((w) => w.label);
   return labels.length <= 1 ? labels.join('') : `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`;
 }
 
-/** "around 4 PM" or "between 2 PM and 3 PM". */
-function rangePhrase(from: number, to: number): string {
-  return from === to ? `around ${clockLabel(from)}` : `between ${clockLabel(from)} and ${clockLabel(to)}`;
+function rangeLabel(from: number, to: number): string {
+  return from === to ? `Around ${clockLabel(from)}` : `${clockLabel(from)} – ${clockLabel(to)}`;
 }
 
-/**
- * The pattern for one group, as a sentence, or null when there is none to state.
- *
- * `follow` phrases it as the second of two, so the full Read does not open two
- * sentences in a row with the same clause.
- */
-export function patternSentence(p: StartPattern | null, options: { follow?: boolean } = {}): string | null {
-  if (!p) return null;
-  const plural = groupPlural(p.group);
-  if (p.daysWithStart === 0) {
-    return p.daysWithoutGeneration === p.days
-      ? `On recent ${plural} the units at the dam have mostly stayed off.`
-      : null;
-  }
-  if (!p.consistent || p.rangeFromHour === null || p.rangeToHour === null) {
-    return `Recent ${p.group} start times at the dam have varied too much to call a pattern.`;
-  }
-  const when = rangePhrase(p.rangeFromHour, p.rangeToHour);
-  let sentence = options.follow
-    ? `On ${plural} the usual first start has been ${when}`
-    : `Over the last two weeks the units at the dam have usually come on ${when} on ${plural}`;
-  if (p.earlyDays > 0 && p.earliestStartHour !== null) {
-    sentence += p.earlyDays === 1
-      ? `, though once as early as ${clockLabel(p.earliestStartHour)}`
-      : `, though ${p.earlyDays} times as early as ${clockLabel(p.earliestStartHour)}`;
-  }
-  return `${sentence}.`;
+function postedValue(day: PostedDay | undefined): string {
+  if (!day) return 'Not posted yet';
+  if (day.windows.length) return listWindows(day.windows);
+  if (day.dayOffset === 0 && day.firstStartHour !== null) return 'Done for the day';
+  return day.minimumFlowOnly ? 'Minimum flow only' : 'No generation';
 }
 
-export function postedSentence(f: DamReadFacts): string | null {
+function patternValue(p: StartPattern): string {
+  if (p.consistent && p.rangeFromHour !== null && p.rangeToHour !== null) return rangeLabel(p.rangeFromHour, p.rangeToHour);
+  if (p.daysWithStart === 0 && p.daysWithoutGeneration === p.days) return 'Mostly off';
+  return 'No consistent pattern';
+}
+
+function roundCfs(cfs: number): number {
+  return Math.round(cfs / 100) * 100;
+}
+
+function centralTimeOf(iso: string): string | null {
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? clockLabel(Math.floor(centralClock(ms).hoursElapsed)) : null;
+}
+
+/** Today's posted start against the recent pattern for today's kind of day. */
+function todayAgainstUsual(f: DamReadFacts): string | null {
   const today = f.posted?.days.find((d) => d.dayOffset === 0);
-  if (!today) return null;
-  const outdated = f.posted?.mayBeOutdated ? ' Eddy\'s copy may be out of date.' : '';
-  if (today.windows.length > 0) {
-    return `Generation is scheduled ${listWindows(today.windows)} today at the dam.${outdated}`;
+  const p = f.todayGroup === 'weekend' ? f.weekend : f.weekday;
+  if (!today || !p) return null;
+  const plural = groupPlural(p.group);
+  if (today.firstStartHour === null) {
+    return p.daysWithoutGeneration * 2 < p.days ? `Quieter than most recent ${plural}` : null;
   }
-  return today.minimumFlowOnly
-    ? `Only minimum flow is scheduled at the dam for the rest of today.${outdated}`
-    : `No generation is scheduled at the dam for the rest of today.${outdated}`;
+  if (!p.consistent || p.rangeFromHour === null || p.rangeToHour === null) return null;
+  if (today.firstStartHour < p.rangeFromHour - 1) return `Earlier start than recent ${plural}`;
+  if (today.firstStartHour > p.rangeToHour + 1) return `Later start than recent ${plural}`;
+  return `In line with recent ${plural}`;
 }
 
-export function tomorrowSentence(f: DamReadFacts): string | null {
+export function damReadRows(f: DamReadFacts): DamReadRow[] {
+  const rows: DamReadRow[] = [];
+  const today = f.posted?.days.find((d) => d.dayOffset === 0);
   const tomorrow = f.posted?.days.find((d) => d.dayOffset === 1);
-  if (!tomorrow) return null;
-  if (tomorrow.windows.length > 0) {
-    return `Tomorrow's posted schedule has generation ${listWindows(tomorrow.windows)}.`;
+
+  rows.push({
+    key: 'posted-today',
+    label: 'Posted today',
+    value: postedValue(today),
+    detail: f.posted?.mayBeOutdated ? 'Eddy\'s copy may be out of date' : 'At the dam · subject to change',
+  });
+  if (tomorrow) rows.push({ key: 'posted-tomorrow', label: 'Posted tomorrow', value: postedValue(tomorrow) });
+
+  const against = todayAgainstUsual(f);
+  if (against) rows.push({ key: 'today-vs-usual', label: 'Against recent days', value: against });
+
+  for (const p of [f.weekday, f.weekend]) {
+    if (!p) continue;
+    rows.push({
+      key: `start-${p.group}s`,
+      label: `Usual first start, ${groupPlural(p.group)}`,
+      value: patternValue(p),
+      detail: `Last ${PATTERN_WINDOW_DAYS} days · ${p.days} ${p.group === 'weekday' ? 'weekdays' : 'weekend days'} measured`,
+    });
   }
-  return tomorrow.minimumFlowOnly
-    ? 'Tomorrow\'s posted schedule has only minimum flow.'
-    : 'Tomorrow\'s posted schedule has no generation.';
+
+  // Stated whenever known, pattern or no pattern: early is the dangerous miss.
+  if (f.shape.earliest) {
+    rows.push({
+      key: 'earliest',
+      label: 'Earliest recent start',
+      value: clockLabel(f.shape.earliest.hour),
+      detail: scheduleDayLabel(f.shape.earliest.dayKey),
+    });
+  }
+
+  if (f.shape.morningsKnown >= MIN_DAYS_FOR_SHAPE) {
+    rows.push({
+      key: 'mornings',
+      label: 'Mornings',
+      value: `Off before noon on ${f.shape.morningsOff} of ${f.shape.morningsKnown} days`,
+    });
+  }
+
+  if (f.shape.typicalRunHours !== null && f.shape.runDays >= MIN_DAYS_FOR_SHAPE) {
+    const hours = f.shape.typicalRunHours;
+    rows.push({
+      key: 'run',
+      label: 'Typical run',
+      value: `About ${hours} ${hours === 1 ? 'hour' : 'hours'}`,
+      detail: f.shape.typicalEndHour !== null ? `Usually off by ${clockLabel(f.shape.typicalEndHour)}` : undefined,
+    });
+  }
+
+  if (f.shape.typicalPeakCfs !== null && f.shape.peakDays >= MIN_DAYS_FOR_SHAPE) {
+    const cfs = roundCfs(f.shape.typicalPeakCfs);
+    // The arithmetic of unitEquivalents in shared/dam-generation.ts: flow as a
+    // share of SWPA's full-generation discharge, times the unit count.
+    const ref = f.reference;
+    const units = ref && ref.fullGenerationCfs > 0 && ref.units > 0 ? (f.shape.typicalPeakCfs / ref.fullGenerationCfs) * ref.units : null;
+    rows.push({
+      key: 'release',
+      label: 'Typical daily peak',
+      value: units === null
+        ? `About ${cfs.toLocaleString('en-US')} cfs`
+        : units < 0.75 ? 'Under one unit' : `About ${Math.round(units)} of ${ref!.units} units`,
+      detail: units === null ? 'Estimated from turbine flow' : `About ${cfs.toLocaleString('en-US')} cfs · estimated from flow`,
+    });
+  }
+
+  if (f.reliability) {
+    const r = f.reliability;
+    const notes: string[] = [];
+    if (r.startedEarlyDays.length) notes.push(`Came on earlier than posted: ${r.startedEarlyDays.map(scheduleDayLabel).join(', ')}`);
+    if (r.ranUnpostedDays.length) notes.push(`Ran with nothing posted: ${r.ranUnpostedDays.map(scheduleDayLabel).join(', ')}`);
+    rows.push({
+      key: 'schedule-held',
+      label: 'Posted schedule held',
+      value: `First start within an hour on ${r.matched} of ${r.daysCompared} days`,
+      detail: notes.length ? notes.join(' · ') : undefined,
+    });
+  }
+
+  // Each reading keeps its own station: they are often different monitors.
+  if (f.waterTempF) {
+    const at = centralTimeOf(f.waterTempF.observedAt);
+    rows.push({ key: 'water-temp', label: 'Water temperature', value: `${Math.round(f.waterTempF.value)}°F`, detail: `${f.waterTempF.where}${at ? `, as of ${at}` : ''}` });
+  }
+  if (f.dissolvedOxygenMgL) {
+    const at = centralTimeOf(f.dissolvedOxygenMgL.observedAt);
+    rows.push({ key: 'oxygen', label: 'Dissolved oxygen', value: `${f.dissolvedOxygenMgL.value.toFixed(1)} mg/L`, detail: `${f.dissolvedOxygenMgL.where}${at ? `, as of ${at}` : ''}` });
+  }
+
+  return rows;
 }
 
-export function reliabilitySentence(r: ScheduleReliability | null): string | null {
-  if (!r) return null;
-  let sentence = `Lately the posted schedule has called the day's first start within an hour on ${r.matched} of ${r.daysCompared} days`;
-  if (r.startedEarly > 0) sentence += `, and the units came on early on ${r.startedEarly}`;
-  return `${sentence}.`;
-}
-
-function formatTemp(value: number): string {
-  return `${Math.round(value)}°F`;
-}
-
-function formatOxygen(value: number): string {
-  return `${value.toFixed(1)} mg/L`;
-}
-
-export function waterQualitySentence(f: DamReadFacts): string | null {
-  const parts: string[] = [];
-  if (f.waterTempF) parts.push(`${formatTemp(f.waterTempF.value)} water`);
-  if (f.dissolvedOxygenMgL) parts.push(`${formatOxygen(f.dissolvedOxygenMgL.value)} dissolved oxygen`);
-  if (parts.length === 0) return null;
-  const where = f.waterTempF?.where ?? f.dissolvedOxygenMgL?.where;
-  return `Below the dam the latest readings show ${parts.join(' and ')}${where ? ` (${where})` : ''}.`;
+/** One sentence about today, from the posted schedule; rendered by code. */
+export function damReadHeadline(f: DamReadFacts): string {
+  const today = f.posted?.days.find((d) => d.dayOffset === 0);
+  if (today) {
+    if (today.windows.length) return `Generation scheduled ${listWindows(today.windows)} today at the dam.`;
+    if (today.firstStartHour !== null) return 'Today\'s scheduled generation at the dam is done.';
+    return today.minimumFlowOnly
+      ? 'Only minimum flow scheduled at the dam for the rest of today.'
+      : 'No generation scheduled at the dam for the rest of today.';
+  }
+  const p = f.todayGroup === 'weekend' ? f.weekend : f.weekday;
+  if (p?.consistent && p.rangeFromHour !== null && p.rangeToHour !== null) {
+    const when = p.rangeFromHour === p.rangeToHour ? `around ${clockLabel(p.rangeFromHour)}` : `between ${clockLabel(p.rangeFromHour)} and ${clockLabel(p.rangeToHour)}`;
+    return `No schedule posted yet. Recent ${groupPlural(p.group)} have usually started ${when} at the dam.`;
+  }
+  return 'No schedule posted for today yet.';
 }
 
 export const AT_THE_DAM_CAVEAT =
-  'All times are at the dam, in Central time; water downstream rises later the farther below it you are.';
+  'Times are at the dam, in Central time. Water downstream rises later the farther below it you are, and the posted schedule can change. Check it before you wade.';
 
 // ---------------------------------------------------------------------------
-// The model's side of the contract
+// Prose: the model's part, and the rules it cannot get around
 // ---------------------------------------------------------------------------
 
-/**
- * The exact line the model must echo before its blocks, the same handshake
- * report-facts uses: a model that did not read the facts cannot reproduce it.
- */
-export function damReadClaimsLine(f: DamReadFacts): string {
-  const today = f.posted?.days.find((d) => d.dayOffset === 0);
-  const posted = !today ? 'none' : today.windows.length ? today.windows.map((w) => w.label).join(', ') : 'idle';
-  const group = (p: StartPattern | null) =>
-    !p ? 'none'
-      : !p.consistent || p.rangeFromHour === null || p.rangeToHour === null ? 'varied'
-        : p.rangeFromHour === p.rangeToHour ? clockLabel(p.rangeFromHour) : `${clockLabel(p.rangeFromHour)}-${clockLabel(p.rangeToHour)}`;
-  return `[CLAIMS] dam=${f.damName}; today=${posted}; weekdays=${group(f.weekday)}; weekends=${group(f.weekend)}`;
-}
-
-/** Every Central hour-of-day the facts name. A clock time outside this set is invented. */
-export function allowedHours(f: DamReadFacts): Set<number> {
-  const hours = new Set<number>();
-  for (const day of f.posted?.days ?? []) {
-    for (const w of day.windows) {
-      hours.add(w.fromHour % 24);
-      hours.add(w.toHour % 24);
-    }
-  }
-  for (const p of [f.weekday, f.weekend]) {
-    if (!p) continue;
-    for (const h of [p.typicalStartHour, p.rangeFromHour, p.rangeToHour, p.earliestStartHour]) {
-      if (h !== null) hours.add(h);
-    }
-  }
-  return hours;
-}
-
-/**
- * Clock times written in prose, as Central hours-of-day.
- *
- * Reads "3 PM", "3:00 p.m.", "noon", "midnight", and ranges whose first
- * number borrows the second's meridiem ("2-5 PM", "2 to 5 PM"). Minutes other
- * than :00 are returned as NaN: no fact here has a minute, so one in the
- * prose is invented.
- */
-export function clockTimesIn(text: string): number[] {
-  const out: number[] = [];
-  const toHour = (h: number, min: string | undefined, meridiem: string): number => {
-    if (min !== undefined && min !== '00') return Number.NaN;
-    const pm = /^p/i.test(meridiem);
-    return (h % 12) + (pm ? 12 : 0);
-  };
-  const meridiem = '([ap])\\.?\\s?m\\.?(?![a-z])';
-  const range = new RegExp(`\\b(\\d{1,2})(?::(\\d{2}))?\\s*(?:-|–|to|and)\\s*(\\d{1,2})(?::(\\d{2}))?\\s*${meridiem}`, 'gi');
-  let rest = text.replace(range, (_all, h1: string, m1: string | undefined, h2: string, m2: string | undefined, mer: string) => {
-    out.push(toHour(Number(h1), m1, mer), toHour(Number(h2), m2, mer));
-    return ' ';
-  });
-  const single = new RegExp(`\\b(\\d{1,2})(?::(\\d{2}))?\\s*${meridiem}`, 'gi');
-  rest = rest.replace(single, (_all, h: string, m: string | undefined, mer: string) => {
-    out.push(toHour(Number(h), m, mer));
-    return ' ';
-  });
-  if (/\bnoon\b/i.test(rest)) out.push(12);
-  if (/\bmidnight\b/i.test(rest)) out.push(0);
-  return out;
-}
-
-const PROMISE_PATTERNS: RegExp[] = [
-  /\bwill (?:start|rise|come on|come up|generate|run|begin|turn on|kick on|be (?:off|on|running|generating))\b/i,
-  /\bguarantee/i,
-  /\b(?:predictable|reliably|like clockwork)\b/i,
-  /\bpercentile\b/i,
+const PROSE_RULES: Array<[RegExp, string]> = [
+  [/\d/, 'contains a number'],
+  [/\b(?:noon|midnight|o'?clock)\b|\b[ap]\.?\s?m\b\.?/i, 'contains a clock time'],
+  [/\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen|twenty)\b/i, 'spells out a number'],
+  [/\b(?:today|tonight|tomorrow|this (?:morning|afternoon|evening))\b/i, 'talks about today; the rows do that'],
+  [/\b(?:schedul\w*|posted|plan(?:s|ned)?)\b/i, 'describes the schedule; the rows do that'],
+  [/\b(?:right now|currently|at the moment|at present|as of)\b|\b(?:is|are) (?:now )?(?:generating|running|off|idle|releasing)\b/i, 'claims a live state'],
+  [/\bwill (?:start|rise|come on|come up|generate|run|begin|turn on|kick on|be)\b|\bguarantee|\b(?:predictable|reliably|like clockwork)\b/i, 'makes a promise'],
+  [/\b(?:cfs|mg\/?l|percent|oxygen|degrees?)\b|°|%/i, 'quotes a measurement'],
 ];
 
-/** Problems with a written Read against its facts. Empty means it may be served. */
-export function damReadProblems(report: ParsedEddyResponse, f: DamReadFacts): string[] {
-  const problems: string[] = [];
-  const allowed = allowedHours(f);
-  const texts = [report.summaryText ?? '', report.eddyRead ?? '', report.quoteText];
-  const all = texts.join('\n');
-
-  for (const hour of clockTimesIn(all)) {
-    if (!Number.isFinite(hour)) problems.push('a clock time with minutes');
-    else if (!allowed.has(hour)) problems.push(`clock time ${clockLabel(hour)} is not in the facts`);
-  }
-  for (const pattern of PROMISE_PATTERNS) {
-    if (pattern.test(all)) problems.push(`promise wording: ${pattern.source}`);
-  }
-  if (clockTimesIn(report.quoteText).length > 0 && !/\bat the dam\b/i.test(report.quoteText)) {
-    problems.push('full read names times without saying they are at the dam');
-  }
-  // Water-quality numbers must be the ones measured.
-  for (const match of all.matchAll(/(\d+(?:\.\d+)?)\s*°\s*F/gi)) {
-    if (!f.waterTempF || Math.round(Number(match[1])) !== Math.round(f.waterTempF.value)) problems.push('water temperature not in the facts');
-  }
-  for (const match of all.matchAll(/(\d+(?:\.\d+)?)\s*mg\/L/gi)) {
-    if (!f.dissolvedOxygenMgL || Math.abs(Number(match[1]) - f.dissolvedOxygenMgL.value) > 0.051) problems.push('dissolved oxygen not in the facts');
-  }
-  if (!report.summaryText || !report.quoteText) problems.push('missing block');
-  return problems;
+/** Problems with model prose. Empty means it may be served. */
+export function damProseProblems(prose: string): string[] {
+  const text = prose.trim();
+  if (text.length < 20) return ['too short'];
+  if (text.length > 600) return ['too long'];
+  return PROSE_RULES.filter(([pattern]) => pattern.test(text)).map(([, reason]) => reason);
 }
 
-/** The Read written from the facts alone, when the model's cannot be served. */
-export function damReadFallback(f: DamReadFacts): ParsedEddyResponse {
+function timeOfDay(hour: number): string {
+  return hour < MORNING_ENDS_HOUR ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+}
+
+/** The interpretation written from the facts alone, when the model's cannot be served. */
+export function damProseFallback(f: DamReadFacts): string {
   const lead = f.todayGroup === 'weekend' ? f.weekend : f.weekday;
   const other = f.todayGroup === 'weekend' ? f.weekday : f.weekend;
-  const posted = postedSentence(f);
-  const leadPattern = patternSentence(lead);
+  const sentences: string[] = [];
 
-  const summary = posted
-    ?? (leadPattern ? `No schedule is posted for today yet. ${leadPattern}` : `No schedule is posted for ${f.damName} today yet.`);
-  const eddyRead = leadPattern ?? patternSentence(other) ?? summary;
-  const full = [
-    posted,
-    tomorrowSentence(f),
-    leadPattern,
-    patternSentence(other, { follow: Boolean(leadPattern) }),
-    posted || f.posted ? null : 'Check the posted schedule before you wade; a pattern is not a plan.',
-    reliabilitySentence(f.reliability),
-    waterQualitySentence(f),
-    AT_THE_DAM_CAVEAT,
-  ].filter((s): s is string => Boolean(s));
-
-  return { summaryText: summary, eddyRead, quoteText: full.join(' ') };
-}
-
-/** Parse, verify, and fall back. The one door a generated dam Read passes through. */
-export function prepareDamRead(raw: string, f: DamReadFacts): { report: ParsedEddyResponse; usedFallback: boolean; problems: string[] } {
-  const lines = raw.trim().split(/\r?\n/);
-  const claims = lines.filter((line) => /\[CLAIMS\]/i.test(line));
-  const expected = damReadClaimsLine(f);
-  if (claims.length !== 1 || claims[0].trim() !== expected) {
-    return { report: damReadFallback(f), usedFallback: true, problems: ['claims line mismatch'] };
+  if (!lead && !other) {
+    sentences.push('There is not enough recent history at this dam to describe a pattern.');
+  } else if (lead?.consistent && lead.typicalStartHour !== null) {
+    sentences.push(`${timeOfDay(lead.typicalStartHour)} runs have been the rule on recent ${groupPlural(lead.group)}.`);
+  } else if (lead && lead.daysWithStart === 0 && lead.daysWithoutGeneration === lead.days) {
+    sentences.push(`Recent ${groupPlural(lead.group)} have been mostly quiet at the dam.`);
+  } else if (lead) {
+    sentences.push(`Start times on recent ${groupPlural(lead.group)} have moved around too much to lean on.`);
   }
-  const parsed = parseEddyResponse(lines.filter((line) => !/\[CLAIMS\]/i.test(line)).join('\n'));
-  const problems = damReadProblems(parsed, f);
-  return problems.length
-    ? { report: damReadFallback(f), usedFallback: true, problems }
-    : { report: parsed, usedFallback: false, problems };
+
+  const s = f.shape;
+  if (s.morningsKnown >= MIN_DAYS_FOR_SHAPE && s.morningsOff / s.morningsKnown >= 0.8) {
+    sentences.push('Mornings have stayed quiet on most days.');
+  }
+  if (s.typicalRunHours !== null && s.runDays >= MIN_DAYS_FOR_SHAPE) {
+    if (s.typicalRunHours <= 5) sentences.push('Runs have been short peaking runs rather than all-day releases.');
+    else if (s.typicalRunHours >= 12) sentences.push('Runs have lasted most of the day.');
+  }
+  if (lead?.consistent && other?.consistent && lead.typicalStartHour !== null && other.typicalStartHour !== null
+    && Math.abs(lead.typicalStartHour - other.typicalStartHour) >= 2) {
+    const weekend = lead.group === 'weekend' ? lead : other;
+    const weekday = lead.group === 'weekend' ? other : lead;
+    sentences.push(`Weekends have started ${weekend.typicalStartHour! > weekday.typicalStartHour! ? 'later' : 'earlier'} than weekdays.`);
+  }
+  if ((f.weekday?.earlyDays ?? 0) + (f.weekend?.earlyDays ?? 0) > 0) {
+    sentences.push('Now and then the units have come on well before the usual time, which is the case that catches people in rising water.');
+  }
+  return sentences.join(' ');
 }
 
-/** The facts block of the prompt. Every time in it is a Central hour at the dam. */
+/** Take the model's [READ] block, check it, and fall back. The one door prose passes through. */
+export function prepareDamProse(raw: string, f: DamReadFacts): { prose: string; usedFallback: boolean; problems: string[] } {
+  const match = raw.match(/\[READ\]\s*([\s\S]*)$/i);
+  const prose = match ? match[1].trim() : '';
+  const problems = prose ? damProseProblems(prose) : ['missing [READ] block'];
+  return problems.length
+    ? { prose: damProseFallback(f), usedFallback: true, problems }
+    : { prose, usedFallback: false, problems };
+}
+
+/** The facts block of the prompt: the rows the reader will see, plus the pattern in words. */
 export function damReadFactsPrompt(f: DamReadFacts): string {
   const lines: string[] = [];
-  lines.push(damReadClaimsLine(f));
-  lines.push('');
   lines.push(`Dam: ${f.damName}${f.tailwaterFishery === 'trout' ? ', on a trout tailwater' : ''}.${f.riverName ? ` Water below it: ${f.riverName}.` : ''}`);
-  lines.push(`Today is ${f.todayWeekday}, a ${f.todayGroup}. All times below are Central time at the dam.`);
-  if (f.generatingNow !== null) lines.push(`Measured right now: units ${f.generatingNow ? 'generating' : 'not generating'}.`);
-
+  lines.push(`Today is ${f.todayWeekday}, a ${f.todayGroup}.`);
   lines.push('');
-  lines.push('[POSTED SCHEDULE — the plan; it outranks the pattern]');
-  if (!f.posted) lines.push('No schedule is posted for today.');
-  else {
-    for (const day of f.posted.days) {
-      const name = day.dayOffset === 0 ? 'Rest of today' : 'Tomorrow';
-      lines.push(`${name}: ${day.windows.length ? day.windows.map((w) => w.label).join(', ') : day.minimumFlowOnly ? 'only minimum flow' : 'no generation'}`);
-    }
-    if (f.posted.mayBeOutdated) lines.push('Eddy\'s copy of the schedule is old enough that it may have been revised.');
-  }
-
+  lines.push('[ROWS THE READER SEES BESIDE YOUR TEXT — do not repeat them]');
+  for (const row of damReadRows(f)) lines.push(`${row.label}: ${row.value}${row.detail ? ` (${row.detail})` : ''}`);
   lines.push('');
-  lines.push(`[RECENT PATTERN — what the units actually did, last ${PATTERN_WINDOW_DAYS} complete days]`);
+  lines.push('[PATTERN NOTES — for your interpretation]');
   for (const p of [f.weekday, f.weekend]) {
     if (!p) continue;
-    const head = `${groupPlural(p.group)} (${p.days} days, ${p.daysWithoutGeneration} with no generation, typically ${p.typicalGeneratingHours ?? 0} generating hours)`;
-    if (!p.daysWithStart) lines.push(`${head}: no starts.`);
-    else if (!p.consistent) lines.push(`${head}: starts varied too widely to call a pattern; earliest ${clockLabel(p.earliestStartHour!)}.`);
-    else {
-      lines.push(`${head}: usually first came on ${rangePhrase(p.rangeFromHour!, p.rangeToHour!)} (typical ${clockLabel(p.typicalStartHour!)}); earliest ${clockLabel(p.earliestStartHour!)}${p.earlyDays ? `, ${p.earlyDays} day(s) well before the typical start` : ''}.`);
-    }
+    const plural = groupPlural(p.group);
+    if (!p.daysWithStart) lines.push(`${plural}: no starts in the window.`);
+    else if (!p.consistent) lines.push(`${plural}: starts varied too widely to call a pattern.`);
+    else lines.push(`${plural}: usually a ${timeOfDay(p.typicalStartHour!).toLowerCase()} start${p.earlyDays ? '; on some days the units came on well before the usual time' : ''}.`);
   }
-  if (!f.weekday && !f.weekend) lines.push('Not enough recent observations to describe a pattern.');
-
-  const reliability = reliabilitySentence(f.reliability);
-  if (reliability) {
-    lines.push('');
-    lines.push('[HOW THE POSTED SCHEDULE HAS HELD UP]');
-    lines.push(reliability);
-    if (f.reliability!.startedLate) lines.push(`Units came on late on ${f.reliability!.startedLate} day(s); on/off disagreed on ${f.reliability!.onOffMismatch}.`);
-  }
-
-  const water = waterQualitySentence(f);
-  if (water) {
-    lines.push('');
-    lines.push('[WATER BELOW THE DAM]');
-    lines.push(water);
+  if (f.weekday?.consistent && f.weekend?.consistent && f.weekday.typicalStartHour !== null && f.weekend.typicalStartHour !== null) {
+    const diff = f.weekend.typicalStartHour - f.weekday.typicalStartHour;
+    if (Math.abs(diff) >= 2) lines.push(`Weekends start ${diff > 0 ? 'later' : 'earlier'} than weekdays.`);
   }
   return lines.join('\n');
 }

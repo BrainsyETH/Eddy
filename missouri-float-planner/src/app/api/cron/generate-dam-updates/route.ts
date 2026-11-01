@@ -86,9 +86,11 @@ async function runGeneration(request: NextRequest) {
 
         const { error } = await supabase.from('dam_updates').insert({
           dam_id: update.damId,
-          summary_text: update.summaryText,
-          eddy_read: update.eddyRead,
-          quote_text: update.quoteText,
+          // The headline as written, kept for the record; the route re-renders
+          // it and the rows from `facts` against the schedule posted when served.
+          summary_text: update.headline,
+          eddy_read: null,
+          quote_text: update.prose,
           facts: update.facts,
           schedule_hash: update.scheduleHash,
           used_fallback: update.usedFallback,

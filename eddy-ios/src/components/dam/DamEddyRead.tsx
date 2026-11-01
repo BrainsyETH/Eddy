@@ -4,21 +4,28 @@
 // Two requests, kept apart the way the gauge screen keeps them: the public one
 // says whether a Read exists today and when it was written, which is all a
 // non-subscriber's locked card needs; the Premium one, sent only for an
-// entitlement verified for THIS session's user, carries the prose. Nothing
-// renders until the public answer says a Read is available, so a dam without
-// one draws no card, and a Read withheld because the schedule changed
-// disappears rather than lingering.
+// entitlement verified for THIS session's user, carries the headline, the rows
+// and Eddy's interpretation.
 //
-// The three states come from readPremiumAccess.ts, the same rules the Today
-// rail and the Reads list use: prose only for `premiumUserId`, an offer only
-// when `canUnlock`, and a neutral blurred preview while either is unknown, so
-// a loading or switching account never flashes a sales offer at a member.
+// ── Refreshed with the screen ──────────────────────────────────────────────
+// Both requests run on every focus, not only on mount: the dam screen
+// re-reads its schedule each time it is focused, and a Read fetched once would
+// sit beside a newer schedule, or carry yesterday's "today" into the morning.
+// The server re-renders the rows against the schedule posted now, so a fresh
+// request is all it takes to keep the two in step.
+//
+// ── Every state is drawn ───────────────────────────────────────────────────
+// Unknown account: a neutral blurred preview, never a sales offer (the rules
+// in readPremiumAccess.ts). Member, Read withheld since the public check (the
+// schedule changed and the next hourly run has not rewritten it): a plain
+// "being updated" line, never an indefinite placeholder. Failed request: retry.
 //
 // The measured pattern strip and the posted schedule on this screen stay free;
 // they are the whole of the data the Read interprets.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import type { DamReadResponse } from '@eddy/types';
 import { ApiError, fetchDamRead } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
@@ -29,7 +36,14 @@ import { fonts, textStyles } from '@/theme/typography';
 import { ControlIcon } from '@/components/ControlIcon';
 import { BlurredReadPreview } from '@/components/EddyReadCard';
 
-type Prose = NonNullable<DamReadResponse['read']>;
+type Read = NonNullable<DamReadResponse['read']>;
+type Premium =
+  | { key: string; state: 'ready'; read: Read }
+  | { key: string; state: 'unavailable' }
+  | { key: string; state: 'failed' };
+
+/** The one-line pitch on the locked card. */
+export const DAM_READ_LOCKED_COPY = 'Today’s generation schedule, recent patterns, and how closely the schedule has held.';
 
 export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, revision = 0 }: {
   damId: string;
@@ -39,41 +53,54 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
   /** canOfferReadPremium(...): true only for a settled, non-member account. */
   canUnlock: boolean;
   onUnlock: () => void;
-  /** Bumped by the screen's pull-to-refresh. */
+  /** Bumped by the screen's "Try again". */
   revision?: number;
 }) {
   const { colors, elevation } = useTheme();
   const { getAccessToken } = useSession();
 
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [prose, setProse] = useState<{ key: string; read: Prose | null; failed: boolean } | null>(null);
+  const [premium, setPremium] = useState<Premium | null>(null);
   const [retry, setRetry] = useState(0);
   // The user is part of the key: Premium prose never crosses accounts.
-  const key = `${premiumUserId}:${damId}:${revision}:${retry}`;
+  const key = `${premiumUserId}:${damId}`;
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchDamRead(damId, controller.signal)
-      .then((data) => { if (!controller.signal.aborted) setGeneratedAt(data.available ? data.generatedAt : null); })
-      .catch(() => { if (!controller.signal.aborted) setGeneratedAt(null); });
-    return () => controller.abort();
-  }, [damId, revision]);
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      void (async () => {
+        let available: string | null = null;
+        try {
+          const data = await fetchDamRead(damId, controller.signal);
+          available = data.available ? data.generatedAt : null;
+        } catch {
+          available = null;
+        }
+        if (controller.signal.aborted) return;
+        setGeneratedAt(available);
+        if (!available || !premiumUserId) return;
 
-  useEffect(() => {
-    if (!premiumUserId || !generatedAt) return;
-    const controller = new AbortController();
-    void (async () => {
-      const token = await getAccessToken();
-      if (!token) throw new ApiError('No active session', 401);
-      return fetchDamRead(damId, controller.signal, token);
-    })()
-      .then((data) => { if (!controller.signal.aborted) setProse({ key, read: data.available ? data.read : null, failed: false }); })
-      .catch(() => { if (!controller.signal.aborted) setProse({ key, read: null, failed: true }); });
-    return () => controller.abort();
-  }, [damId, generatedAt, getAccessToken, key, premiumUserId]);
+        try {
+          const token = await getAccessToken();
+          if (!token) throw new ApiError('No active session', 401);
+          const data = await fetchDamRead(damId, controller.signal, token);
+          if (controller.signal.aborted) return;
+          setPremium(data.available && data.read
+            ? { key, state: 'ready', read: data.read }
+            : { key, state: 'unavailable' });
+        } catch {
+          if (!controller.signal.aborted) setPremium({ key, state: 'failed' });
+        }
+      })();
+      return () => controller.abort();
+    // `revision` and `retry` are re-run triggers: "Try again" and Retry refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [damId, getAccessToken, key, premiumUserId, revision, retry]),
+  );
 
   if (!generatedAt) return null;
-  const current = premiumUserId && prose?.key === key ? prose : null;
+  // Held across a refresh so a focus never blanks a Read already on screen.
+  const current = premiumUserId && premium?.key === key ? premium : null;
   const age = writtenAge(generatedAt);
 
   return (
@@ -83,12 +110,28 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
         {!premiumUserId ? <ControlIcon name="lock-closed" size={14} color={colors.textMuted} /> : null}
       </View>
 
-      {current?.read ? (
-        <View style={styles.prose}>
-          <Text style={[styles.summary, { color: colors.text }]}>{current.read.summaryText}</Text>
-          <Text style={[styles.body, { color: colors.text }]}>{current.read.quoteText}</Text>
+      {current?.state === 'ready' ? (
+        <View style={styles.read}>
+          <Text style={[styles.headline, { color: colors.text }]}>{current.read.headline}</Text>
+          <View style={styles.rows}>
+            {current.read.rows.map((row) => (
+              <View key={row.key} style={styles.row} accessible accessibilityLabel={`${row.label}: ${row.value}${row.detail ? `. ${row.detail}` : ''}`}>
+                <View style={styles.rowLine}>
+                  <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{row.label}</Text>
+                  <Text style={[styles.rowValue, { color: colors.text }]}>{row.value}</Text>
+                </View>
+                {row.detail ? <Text style={[styles.rowDetail, { color: colors.textSubtle }]}>{row.detail}</Text> : null}
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.body, { color: colors.text }]}>{current.read.prose}</Text>
+          <Text style={[styles.caveat, { color: colors.textMuted }]}>{current.read.caveat}</Text>
         </View>
-      ) : current?.failed ? (
+      ) : current?.state === 'unavailable' ? (
+        <Text style={[styles.body, { color: colors.textMuted }]}>
+          This Read is being updated for the latest schedule. Check back shortly.
+        </Text>
+      ) : current?.state === 'failed' ? (
         <Pressable onPress={() => setRetry((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Retry Eddy's Read" style={styles.retry}>
           <Text style={[styles.body, { color: colors.textMuted }]}>Couldn’t load this Read.</Text>
           <Text style={[styles.action, { color: colors.interactive }]}>Retry</Text>
@@ -101,15 +144,13 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
           accessibilityHint="Opens Premium subscription options"
           style={({ pressed }) => [styles.locked, { opacity: pressed ? 0.75 : 1 }]}
         >
-          <Text style={[styles.body, { color: colors.text }]}>
-            When the units have usually come on lately, how closely the posted schedule has held, and what today&apos;s plan means beside it.
-          </Text>
+          <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
           <BlurredReadPreview lines={4} />
           <Text style={[styles.action, { color: colors.interactive }]}>Unlock with Premium</Text>
         </Pressable>
       ) : (
-        // Loading, a member's prose in flight, or an account not yet settled:
-        // reserve the space without either the Read or an offer.
+        // A member's Read in flight, or an account not yet settled: reserve the
+        // space without either the Read or an offer.
         <BlurredReadPreview lines={4} />
       )}
 
@@ -122,9 +163,16 @@ const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   kicker: { fontFamily: fonts.heading, fontSize: 12, letterSpacing: 0.7 },
-  prose: { gap: 8 },
-  summary: { ...textStyles.cardTitle },
+  read: { gap: 12 },
+  headline: { ...textStyles.cardTitle },
+  rows: { gap: 8 },
+  row: { gap: 1 },
+  rowLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
+  rowLabel: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, flexShrink: 1 },
+  rowValue: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, textAlign: 'right', flexShrink: 1 },
+  rowDetail: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, textAlign: 'right' },
   body: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  caveat: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
   locked: { gap: 10, minHeight: 44 },
   retry: { gap: 4, minHeight: 44, justifyContent: 'center' },
   action: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },

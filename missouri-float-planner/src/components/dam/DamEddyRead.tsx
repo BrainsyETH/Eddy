@@ -40,13 +40,13 @@ export default function DamEddyRead({ damId, damName, now }: { damId: string; da
       <div className="flex items-center gap-2">
         <EddyIcon name="ai" size={20} />
         <h2 id="dam-eddy-read-heading" className="flex-1 text-xl font-semibold text-primary-800" style={{ fontFamily: 'var(--font-display)' }}>
-          Eddy&apos;s Read
+          Eddy&apos;s Read<span className="sr-only"> for {damName}</span>
         </h2>
         <Lock className="h-4 w-4 text-neutral-500" aria-label="Premium" />
       </div>
       <p className="mt-2 text-sm leading-relaxed text-neutral-700">
-        When the units at {damName} usually come on lately, weekdays and weekends apart, how closely the posted schedule
-        has held, and what today&apos;s plan means beside it. Written each day in the Eddy app with Premium.
+        Today&apos;s generation schedule, recent patterns, and how closely the schedule has held. Written each day in the
+        Eddy app with Premium.
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2">
         <span className="text-xs text-neutral-500">{age ? `Written ${age}` : null}</span>

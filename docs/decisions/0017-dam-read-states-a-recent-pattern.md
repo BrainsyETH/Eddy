@@ -32,20 +32,30 @@ Measured on that history (backtest in
 ## Decision
 
 1. **The dam Read may describe the recent pattern, labelled as one.** It
-   reports the typical and earliest first start over the last 14 complete
-   Central days, for weekdays and for weekends. It says "usually" or "lately",
-   never "will". When the starts are spread too widely, it says there is no
-   consistent pattern. It always gives the earliest recent start, because an
-   early start is the miss that catches someone in rising water.
-2. **A posted schedule always outranks the pattern.** The Read leads with
-   today's posted plan when one exists. All times are at the dam, in Central
-   time; nothing estimates when water reaches a downstream access.
-3. **Facts are computed in code; prose is checked against them.**
-   `dam-read-facts.ts` computes everything. The model (the `gauge_update`
-   workload) must echo a `[CLAIMS]` line and may use only clock times that
-   appear in the facts. A Read that invents a time, adds minutes, uses promise
-   wording ("will start"), leaves out "at the dam", or misquotes the water
-   readings is replaced by deterministic text written from the same facts.
+   reports the usual first start over the last 14 complete Central days,
+   weekdays and weekends apart, and says "no consistent pattern" when the
+   middle half of starts is wider than 3 hours. The **earliest recent start is
+   always its own row** when one is known, pattern or no pattern, because an
+   early start is the miss that catches someone in rising water. A day whose
+   first start could be hidden by missing observations has an unknown start
+   and is left out of the pattern and the scoring; it never counts as a later
+   start.
+2. **A posted schedule always outranks the pattern.** The headline and the
+   first row are today's posted schedule, re-read from the current snapshot
+   each time the Read is served. All times are at the dam, in Central time;
+   nothing estimates when water reaches a downstream access.
+3. **Code states every fact; the model only interprets.** `damReadRows` in
+   `dam-read-facts.ts` renders the posted schedule, the usual and earliest
+   starts, how often mornings were off before noon, the typical run and when
+   it ended, the typical daily peak in units, how the posted schedule held
+   (naming the days it missed), and each water reading with its own station.
+   The model (the `gauge_update` workload) writes two or three sentences of
+   interpretation, and `damProseProblems` rejects any digit, number word,
+   clock word, schedule or "today" claim, live-state claim, promise or
+   measurement in them, falling back to deterministic text. This replaced a
+   first version in which the model wrote the facts and a checker looked for
+   their times; review showed that checker passed a wrong schedule, a borrowed
+   time and invented counts.
 4. **Rewritten when due, served only while true.** `/api/cron/generate-dam-updates`
    runs hourly at :47 and rewrites a dam's Read when none exists for today,
    when the posted schedule changes, or when the last one is 6 hours old. A

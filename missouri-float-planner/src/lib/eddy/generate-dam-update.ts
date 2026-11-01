@@ -1,7 +1,7 @@
 // src/lib/eddy/generate-dam-update.ts
-// Eddy's Read for a dam: facts computed in dam-read-facts.ts, prose by the
-// gauge-update model (Haiku), checked, and replaced by deterministic text when
-// the check fails or the model is unavailable.
+// Eddy's Read for a dam: facts and rows computed in dam-read-facts.ts, an
+// interpretation by the gauge-update model (Haiku), checked, and replaced by
+// deterministic text when the check fails or the model is unavailable.
 //
 // The gauge generator excludes USACE stations with "Revisit when dam context is
 // deliberately added to the prompt." This is that prompt, kept separate rather
@@ -9,9 +9,12 @@
 // decision and the questions a reader brings are different: when do the units
 // come on, and how much can the posted plan be trusted.
 //
-// Unlike the gauge generator, a failed model call does not skip the dam. The
-// fallback is written from the same facts and passes the same checks, so a
-// Read always exists when there is something to say.
+// Code renders every fact (damReadRows); the model writes only the
+// interpretation beside them, and anything in it that looks like a fact is
+// rejected (damProseProblems). Unlike the gauge generator, a failed model call
+// does not skip the dam: the fallback interpretation is written from the same
+// facts and passes the same checks, so a Read exists whenever there is
+// something to say.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { trackedAnthropic } from '@/lib/telemetry/upstream';
@@ -31,10 +34,11 @@ import type { ResolvedModel } from '@/lib/ai/resolve-models';
 import {
   PATTERN_WINDOW_DAYS,
   buildDamReadFacts,
+  damProseFallback,
   damReadFactsPrompt,
-  damReadFallback,
   damReadHasSubstance,
-  prepareDamRead,
+  damReadHeadline,
+  prepareDamProse,
   type DamReadFacts,
   type ObservedHourRow,
   type ScheduleVersion,
@@ -46,9 +50,10 @@ const CORPS_TEMP_SOURCE = 'Corps tailwater sensor';
 
 export interface GeneratedDamUpdate {
   damId: string;
-  summaryText: string;
-  eddyRead: string | null;
-  quoteText: string;
+  /** From the posted schedule at write time; re-rendered when served. */
+  headline: string;
+  /** Eddy's interpretation, checked by damProseProblems or the fallback. */
+  prose: string;
   facts: DamReadFacts;
   scheduleHash: string | null;
   usedFallback: boolean;
@@ -155,12 +160,14 @@ export async function loadDamReadFacts(
     riverName: river?.name ?? null,
     tailwaterFishery: snapshot.tailwaterFishery ?? null,
     floorCfs: dam.generationOnCfs,
+    reference: snapshot.generationReference
+      ? { units: snapshot.generationReference.units, fullGenerationCfs: snapshot.generationReference.fullGenerationCfs }
+      : null,
     schedule: snapshot.schedule,
     observed,
     scheduleVersions: versions,
     waterTempF: water.temp,
     dissolvedOxygenMgL: water.oxygen,
-    generatingNow: snapshot.generating,
     now,
   });
   if (!damReadHasSubstance(facts)) return null;
@@ -182,12 +189,9 @@ export async function generateDamUpdate(
   const loaded = await loadDamReadFacts(damId, now);
   if (!loaded) return null;
   const { facts, snapshot, sourcesUsed } = loaded;
-  const base = { damId, facts, scheduleHash: scheduleHashOf(snapshot), sourcesUsed };
+  const base = { damId, facts, headline: damReadHeadline(facts), scheduleHash: scheduleHashOf(snapshot), sourcesUsed };
 
-  const fallback = (): GeneratedDamUpdate => {
-    const report = damReadFallback(facts);
-    return { ...base, summaryText: report.summaryText!, eddyRead: report.eddyRead, quoteText: report.quoteText, usedFallback: true, usage: null };
-  };
+  const fallback = (): GeneratedDamUpdate => ({ ...base, prose: damProseFallback(facts), usedFallback: true, usage: null });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return fallback();
@@ -205,49 +209,36 @@ export async function generateDamUpdate(
     const raw = text?.text ? replaceEmDashes(text.text.trim()) : '';
     if (!raw) return fallback();
 
-    const { report, usedFallback, problems } = prepareDamRead(raw, facts);
+    const { prose, usedFallback, problems } = prepareDamProse(raw, facts);
     if (usedFallback) logger.warn('generate-dam-update: prose failed checks', { damId, problems });
-    return {
-      ...base,
-      summaryText: stripEddyMarkers(report.summaryText!),
-      eddyRead: report.eddyRead ? stripEddyMarkers(report.eddyRead) : null,
-      quoteText: stripEddyMarkers(report.quoteText),
-      usedFallback,
-      usage: extractUsage(model.id, message.usage),
-    };
+    return { ...base, prose: stripEddyMarkers(prose), usedFallback, usage: extractUsage(model.id, message.usage) };
   } catch (err) {
     logger.warn('generate-dam-update: model call failed', { damId, error: err instanceof Error ? err.message : String(err) });
     return fallback();
   }
 }
 
-export const DAM_SYSTEM_PROMPT = `You are Eddy, the otter guide in a float and fishing trip app. You write a short Read for a hydropower dam on a trout tailwater, for an angler or floater deciding when to be on the water below it.
+/**
+ * The model's whole job is interpretation. Every fact it might be tempted to
+ * restate is a row rendered by code beside its text, and damProseProblems
+ * rejects digits, clock words, schedule claims, "today", live-state claims and
+ * measurements outright, so the rules below are instructions the check
+ * enforces rather than hopes.
+ */
+export const DAM_SYSTEM_PROMPT = `You are Eddy, the otter guide in a float and fishing trip app. You write the short interpretive part of a Read for a hydropower dam on a trout tailwater.
 
-WHO READS THIS: someone who wants to know when the water is likely to come up. The page beside your text already shows the measured hourly chart and the posted schedule, so say what those cannot: what the plan and the recent pattern mean together.
+WHO READS THIS: an angler or floater deciding when to be on the water below the dam. Beside your text the app shows rows with the posted schedule, the usual and earliest start times, how the mornings have gone, how long runs last, how big they are, how the posted schedule has held, and the water readings. Do not repeat any of them. Say what they add up to: the character of this dam lately.
 
 VOICE: A local guide who knows this tailwater. Warm, plain, direct about anything that affects wading. No forced jokes, puns or catchphrases.
 
-THE THREE KINDS OF FACT, never blurred:
-- POSTED SCHEDULE: what SWPA has planned. It always outranks the pattern. Call it scheduled or posted.
-- RECENT PATTERN: what the units actually did lately. Say usually, lately, or over the last two weeks. It is never a promise.
-- HOW THE SCHEDULE HAS HELD UP: how closely recent posted plans matched what ran.
+OUTPUT FORMAT (strict): the marker [READ] on its own line, then two or three sentences, under 400 characters in all. Output nothing else.
 
-OUTPUT FORMAT (strict):
-Begin with the exact [CLAIMS] line from the facts. Then three blocks, each starting with its marker on its own line: [SUMMARY], [EDDY_READ], [FULL]. Use each marker once. Output nothing else.
+WHAT TO WRITE: the shape of recent days in words. For example whether generation has come in the morning, the afternoon or the evening, whether mornings have stayed quiet, whether runs have been short peaking runs or long releases, whether weekends differ from weekdays, and whether the units have sometimes come on well before the usual time. When there is no consistent pattern, say so plainly.
 
-[SUMMARY]
-One sentence, under 140 characters: the most useful thing about today. If a schedule is posted, lead with it.
-
-[EDDY_READ]
-One or two sentences, under 260 characters: the pattern insight a reader could not get from today's schedule alone, such as how weekends differ from weekdays, or how early the units have started on odd days. When there is no consistent pattern, say so plainly.
-
-[FULL]
-3 to 5 sentences. Cover today's posted schedule (and tomorrow's when given), the recent pattern for today's kind of day, how the schedule has held up when given, and the water readings when given. It must say the times are at the dam and that water downstream rises later.
-
-RULES:
-- Use only clock times that appear in the facts, written like "3 PM", "noon" or "midnight". Never add minutes, never invent a time, never shift one.
-- Never say the units will start, rise, run or generate. Plans are "scheduled"; patterns are "usually" or "lately". Never call the dam predictable or reliable.
-- When the earliest recent start is well before the usual one, mention it: early is the direction that catches someone in rising water.
-- All times are at the dam. Do not estimate when water reaches any place downstream.
-- Copy water temperature and dissolved oxygen exactly as given, with the station named; attach no verdict about fish.
+RULES (text that breaks any of them is discarded):
+- No numbers of any kind, written as digits or as words. No clock times, no "noon" or "midnight".
+- Do not mention today, tonight, tomorrow or this morning, and do not describe the schedule or the plan. The rows do that.
+- Do not say what the dam is doing now. No "right now", "currently", "is generating".
+- Describe the past only: "lately", "usually", "on recent weekdays". Never say the units will do anything. Never call the dam predictable or reliable.
+- No measurements: no flows, temperatures or oxygen.
 - No em dashes, emojis, hashtags or exclamation marks. No greeting, sign-off or "I".`;

@@ -2854,6 +2854,7 @@ export type {
   DamMetricValue,
   DamPatternDay,
   DamReadResponse,
+  DamReadRow,
   DamScheduleDay,
   DamSnapshot,
   DamStaleness,

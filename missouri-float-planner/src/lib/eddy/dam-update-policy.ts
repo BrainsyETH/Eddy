@@ -68,12 +68,6 @@ export function servable(
   return (currentScheduleHash ?? null) === (latest.scheduleHash ?? null);
 }
 
-export interface DamReadProse {
-  summaryText: string;
-  eddyRead: string | null;
-  quoteText: string;
-}
-
 /**
  * The public/Premium contract for a dam Read: ALL of it is Premium.
  *
@@ -83,6 +77,6 @@ export interface DamReadProse {
  * posted schedule stay free on the dam page; what is sold is Eddy's reading of
  * them. ADR 0017.
  */
-export function tierDamRead(entitled: boolean, prose: DamReadProse): DamReadProse | null {
-  return entitled ? prose : null;
+export function tierDamRead<T>(entitled: boolean, read: T): T | null {
+  return entitled ? read : null;
 }

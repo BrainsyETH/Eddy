@@ -7,19 +7,20 @@ import type { DamScheduleDay, ScheduledHour } from '@shared/dam-types';
 import {
   CONSISTENT_SPREAD_HOURS,
   DAM_READ_DAM_IDS,
-  allowedHours,
   buildDamReadFacts,
   clockLabel,
-  clockTimesIn,
-  damReadClaimsLine,
-  damReadFallback,
-  damReadProblems,
+  damProseFallback,
+  damProseProblems,
+  damReadFactsPrompt,
+  damReadHeadline,
+  damReadRows,
   observedDays,
-  patternSentence,
   postedSchedule,
-  prepareDamRead,
+  prepareDamProse,
+  recentShape,
   scheduleReliability,
   startPattern,
+  withCurrentSchedule,
   type DamReadInputs,
   type ObservedHourRow,
   type ScheduleVersion,
@@ -50,7 +51,7 @@ function previousDay(dayKey: string): string {
   return new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10);
 }
 
-/** Noon Central on a day, which is 17:00 UTC under CDT. */
+/** Noon Central on a day. */
 function noonOn(dayKey: string): number {
   return centralDayStart(dayKey) + 12 * HOUR;
 }
@@ -58,17 +59,19 @@ function noonOn(dayKey: string): number {
 // Saturday 2026-10-31. The 14 complete days behind it run Oct 17 (Sat) to Oct 30 (Fri).
 const NOW = noonOn('2026-10-31');
 
-function fortnight(startFor: (dayKey: string, weekend: boolean) => number | null): ObservedHourRow[] {
+function fortnight(startFor: (dayKey: string, weekend: boolean) => number | null, length = 4): ObservedHourRow[] {
   const rows: ObservedHourRow[] = [];
   let day = '2026-10-17';
   for (let i = 0; i < 14; i += 1) {
     const [y, m, d] = day.split('-').map(Number);
     const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-    rows.push(...dayRows(day, bitsFor(startFor(day, dow === 0 || dow === 6))));
+    rows.push(...dayRows(day, bitsFor(startFor(day, dow === 0 || dow === 6), length)));
     day = nextDayKey(day);
   }
   return rows;
 }
+
+const row = (rows: ReturnType<typeof damReadRows>, key: string) => rows.find((r) => r.key === key);
 
 test('the Read covers the White River tailwaters, and each is a real dam with a turbine floor', () => {
   for (const id of DAM_READ_DAM_IDS) {
@@ -79,96 +82,125 @@ test('the Read covers the White River tailwaters, and each is a real dam with a 
   }
 });
 
+// ── Observed days ──────────────────────────────────────────────────────────
+
 test('observedDays reads the last 14 COMPLETE days and leaves today out', () => {
   const days = observedDays(fortnight(() => 15), FLOOR, { now: NOW });
   assert.equal(days.length, 14);
   assert.equal(days[0].dayKey, '2026-10-17');
   assert.equal(days.at(-1)!.dayKey, '2026-10-30');
-  assert.ok(days.every((d) => d.complete && d.firstStartHour === 15 && d.generatingHours === 4));
+  for (const d of days) {
+    assert.equal(d.firstStartHour, 15);
+    assert.equal(d.startUnknown, false);
+    assert.equal(d.firstRunHours, 4);
+    assert.equal(d.endHour, 19);
+    assert.equal(d.morningOff, true);
+    assert.equal(d.peakCfs, 5_000);
+  }
 });
 
-test('a run carried over from the night before is not a start', () => {
-  const rows = dayRows('2026-10-30', '111000000000000000000000');
-  const [day] = observedDays(rows, FLOOR, { now: NOW }).slice(-1);
-  assert.equal(day.firstStartHour, null);
-  assert.equal(day.generatingHours, 3);
+test('a run carried over from the night before is not a start, and one still going at midnight has no end', () => {
+  const [carried] = observedDays(dayRows('2026-10-30', '111000000000000000000000'), FLOOR, { now: NOW }).slice(-1);
+  assert.equal(carried.firstStartHour, null);
+  assert.equal(carried.startUnknown, false);
+  assert.equal(carried.morningOff, false);
+  const [late] = observedDays(dayRows('2026-10-30', '000000000000000000000111'), FLOOR, { now: NOW }).slice(-1);
+  assert.equal(late.firstStartHour, 21);
+  assert.equal(late.endHour, null);
 });
 
-test('a start after an unobserved hour is not claimed, and a gappy day is not a pattern day', () => {
-  const rows = dayRows('2026-10-30', '00000000000000.111000000');
-  const [day] = observedDays(rows, FLOOR, { now: NOW }).slice(-1);
-  assert.equal(day.firstStartHour, null);
-  assert.equal(day.complete, true);
+test('a gap before a start makes the first start UNKNOWN, not the later restart (review case)', () => {
+  // A morning run whose start falls in missing hours, then a 3 PM run.
+  const [day] = observedDays(dayRows('2026-10-30', '00000..11000000111100000'), FLOOR, { now: NOW }).slice(-1);
+  assert.equal(day.complete, true, '22 of 24 hours stored');
+  assert.equal(day.startUnknown, true);
+  assert.equal(day.firstStartHour, null, 'not 3 PM');
+  assert.equal(day.morningOff, false, 'the observed morning run still counts against "off before noon"');
+});
 
-  const gappy = dayRows('2026-10-29', '0000000000............00');
-  const days = observedDays(gappy, FLOOR, { now: NOW });
-  assert.equal(days.find((d) => d.dayKey === '2026-10-29')!.complete, false);
+test('a gap anywhere on a day with no start leaves the start unknown; a gap after a start does not', () => {
+  const [quiet] = observedDays(dayRows('2026-10-30', '00000000000000.000000000'), FLOOR, { now: NOW }).slice(-1);
+  assert.equal(quiet.startUnknown, true);
+  const [after] = observedDays(dayRows('2026-10-30', '000000000000000111100.00'), FLOOR, { now: NOW }).slice(-1);
+  assert.equal(after.firstStartHour, 15);
+  assert.equal(after.startUnknown, false);
+  assert.equal(after.endHour, null, 'not fully observed');
+  assert.equal(after.firstRunHours, null);
+});
+
+test('days with an unknown start drop out of the pattern and the schedule scoring', () => {
+  const rows = fortnight(() => 15).filter((r) => {
+    // Hide 5-6 AM on Oct 20 and Oct 21, around a morning run nobody saw start.
+    const ms = Date.parse(r.observedHour);
+    return ![centralDayStart('2026-10-20'), centralDayStart('2026-10-21')].some((s) => ms === s + 5 * HOUR || ms === s + 6 * HOUR);
+  });
+  const days = observedDays(rows, FLOOR, { now: NOW });
+  const weekday = startPattern(days, 'weekday')!;
+  assert.equal(weekday.days, 8, 'two weekdays dropped');
+  const versions = versionsFor(() => 15);
+  assert.equal(scheduleReliability(versions, days)!.daysCompared, 12);
 });
 
 test('minimum flow below the floor is not generation (Bull Shoals)', () => {
   const floor = USACE_DAMS['swl-bull-shoals-dam'].generationOnCfs!;
-  const rows = dayRows('2026-10-30', bitsFor(15), { on: 8_000, off: 800 });
-  const [day] = observedDays(rows, floor, { now: NOW }).slice(-1);
+  const [day] = observedDays(dayRows('2026-10-30', bitsFor(15), { on: 8_000, off: 800 }), floor, { now: NOW }).slice(-1);
   assert.equal(day.firstStartHour, 15);
   assert.equal(day.generatingHours, 4);
 });
 
 test('the fall-back day keeps Central hours right', () => {
-  // 2026-11-01 is 25 hours long. Index 16 from the day's start is 3 PM CST.
   const start = centralDayStart('2026-11-01');
   const rows: ObservedHourRow[] = [];
   for (let i = 0; i < 25; i += 1) {
     rows.push({ observedHour: new Date(start + i * HOUR).toISOString(), valueCfs: i >= 16 && i < 20 ? 5_000 : 20 });
   }
-  const days = observedDays(rows, FLOOR, { now: noonOn('2026-11-03') });
-  const nov1 = days.find((d) => d.dayKey === '2026-11-01')!;
+  const nov1 = observedDays(rows, FLOOR, { now: noonOn('2026-11-03') }).find((d) => d.dayKey === '2026-11-01')!;
   assert.equal(nov1.coverage, 25);
+  assert.equal(nov1.fullyObserved, true);
   assert.equal(nov1.firstStartHour, 15);
+  assert.equal(nov1.endHour, 19);
 });
 
-test('a steady weekday pattern is stated with its range, and an early outlier is carried', () => {
+// ── Patterns and shape ─────────────────────────────────────────────────────
+
+test('a steady weekday pattern with an early outlier', () => {
   const rows = fortnight((day, weekend) => (weekend ? 16 : day === '2026-10-19' ? 6 : day === '2026-10-21' ? 13 : 15));
   const days = observedDays(rows, FLOOR, { now: NOW });
   const weekday = startPattern(days, 'weekday')!;
   assert.equal(weekday.days, 10);
   assert.equal(weekday.consistent, true);
   assert.equal(weekday.typicalStartHour, 15);
-  assert.equal(weekday.earliestStartHour, 6);
   assert.equal(weekday.earlyDays, 1);
-  assert.equal(
-    patternSentence(weekday),
-    'Over the last two weeks the units at the dam have usually come on around 3 PM on weekdays, though once as early as 6 AM.',
-  );
-
-  const weekend = startPattern(days, 'weekend')!;
-  assert.equal(weekend.days, 4);
-  assert.equal(weekend.typicalStartHour, 16);
-  assert.equal(patternSentence(weekend), 'Over the last two weeks the units at the dam have usually come on around 4 PM on weekends.');
+  assert.deepEqual(recentShape(days).earliest, { hour: 6, dayKey: '2026-10-19' });
 });
 
-test('starts spread wider than the gate are not called a pattern', () => {
+test('a start exactly CONSISTENT_SPREAD_HOURS early counts as early (review case)', () => {
+  const rows = fortnight((day) => (day === '2026-10-20' ? 15 - CONSISTENT_SPREAD_HOURS : 15));
+  assert.equal(startPattern(observedDays(rows, FLOOR, { now: NOW }), 'weekday')!.earlyDays, 1);
+});
+
+test('starts spread wider than the gate are not called a pattern, and the earliest is still a row (review case)', () => {
   const spread = [5, 9, 13, 17, 21];
   let i = 0;
-  const rows = fortnight((_day, weekend) => (weekend ? 16 : spread[i++ % spread.length]));
-  const weekday = startPattern(observedDays(rows, FLOOR, { now: NOW }), 'weekday')!;
-  assert.ok(weekday.rangeToHour! - weekday.rangeFromHour! > CONSISTENT_SPREAD_HOURS);
-  assert.equal(weekday.consistent, false);
-  assert.equal(patternSentence(weekday), 'Recent weekday start times at the dam have varied too much to call a pattern.');
+  const f = buildDamReadFacts(inputs({ observed: fortnight((_day, weekend) => (weekend ? 16 : spread[i++ % spread.length])) }));
+  assert.equal(f.weekday!.consistent, false);
+  const rows = damReadRows(f);
+  assert.equal(row(rows, 'start-weekdays')!.value, 'No consistent pattern');
+  assert.equal(row(rows, 'earliest')!.value, '5 AM');
 });
 
-test('a fortnight with no generation says the units stayed off', () => {
-  const p = startPattern(observedDays(fortnight(() => null), FLOOR, { now: NOW }), 'weekday')!;
-  assert.equal(p.daysWithoutGeneration, 10);
-  assert.equal(patternSentence(p), 'On recent weekdays the units at the dam have mostly stayed off.');
+test('a fortnight with no generation reads "Mostly off" and has no earliest row', () => {
+  const rows = damReadRows(buildDamReadFacts(inputs({ observed: fortnight(() => null) })));
+  assert.equal(row(rows, 'start-weekdays')!.value, 'Mostly off');
+  assert.equal(row(rows, 'earliest'), undefined);
 });
 
 // ── Schedule reliability ───────────────────────────────────────────────────
 
 function hours(onFrom: number | null, length = 4, minimumFlow = false): ScheduledHour[] {
   return Array.from({ length: 24 }, (_, i) => {
-    const he = i + 1;
-    const on = onFrom !== null && he - 1 >= onFrom && he - 1 < onFrom + length;
-    return { hourEnding: he, megawatts: on ? 50 : minimumFlow ? 3 : 0, cfs: on ? 3_000 : null, isRamp: false, minimumFlow: minimumFlow && !on ? true : undefined };
+    const on = onFrom !== null && i >= onFrom && i < onFrom + length;
+    return { hourEnding: i + 1, megawatts: on ? 50 : minimumFlow ? 3 : 0, cfs: on ? 3_000 : null, isRamp: false, minimumFlow: minimumFlow && !on ? true : undefined };
   });
 }
 
@@ -176,33 +208,18 @@ function versionsFor(plan: (dayKey: string) => number | null): ScheduleVersion[]
   const out: ScheduleVersion[] = [];
   let day = '2026-10-17';
   for (let i = 0; i < 14; i += 1) {
-    // Posted the afternoon before, as SWPA does.
     out.push({ firstSeenAt: new Date(centralDayStart(day) - 8 * HOUR).toISOString(), days: [{ scheduleDate: day, hours: hours(plan(day)) }] });
     day = nextDayKey(day);
   }
   return out;
 }
 
-test('schedule reliability scores the plan posted before the day against what ran', () => {
+test('schedule reliability scores the morning plan against what ran, naming the early days', () => {
   const observed = observedDays(fortnight((day) => (day === '2026-10-19' ? 6 : 15)), FLOOR, { now: NOW });
   const r = scheduleReliability(versionsFor(() => 15), observed)!;
   assert.equal(r.daysCompared, 14);
   assert.equal(r.matched, 13);
-  assert.equal(r.startedEarly, 1);
-  assert.equal(r.startedLate, 0);
-});
-
-test('a same-day revision is not credited to the plan', () => {
-  const observed = observedDays(fortnight(() => 15), FLOOR, { now: NOW });
-  const versions = versionsFor(() => 10);
-  // A corrected copy appears mid-morning on each day; it must be ignored.
-  for (const v of [...versions]) {
-    const day = v.days[0].scheduleDate;
-    versions.push({ firstSeenAt: new Date(centralDayStart(day) + 9 * HOUR).toISOString(), days: [{ scheduleDate: day, hours: hours(15) }] });
-  }
-  const r = scheduleReliability(versions, observed)!;
-  assert.equal(r.matched, 0);
-  assert.equal(r.startedLate, 14);
+  assert.deepEqual(r.startedEarlyDays, ['2026-10-19']);
 });
 
 test('a sheet that lands just after midnight is the plan; one after dawn is a revision', () => {
@@ -210,26 +227,24 @@ test('a sheet that lands just after midnight is the plan; one after dawn is a re
   const versions: ScheduleVersion[] = [];
   let day = '2026-10-17';
   for (let i = 0; i < 14; i += 1) {
-    // Fetched at 12:35 AM, as the real sheets often are, then revised at 9 AM.
     versions.push({ firstSeenAt: new Date(centralDayStart(day) + 35 * 60_000).toISOString(), days: [{ scheduleDate: day, hours: hours(15) }] });
     versions.push({ firstSeenAt: new Date(centralDayStart(day) + 9 * HOUR).toISOString(), days: [{ scheduleDate: day, hours: hours(9) }] });
     day = nextDayKey(day);
   }
-  const r = scheduleReliability(versions, observed)!;
-  assert.equal(r.daysCompared, 14);
-  assert.equal(r.matched, 14);
+  assert.equal(scheduleReliability(versions, observed)!.matched, 14);
 });
 
-test('reliability is withheld until enough days have been scored', () => {
+test('generation with nothing posted is named; too few scored days withholds reliability', () => {
   const observed = observedDays(fortnight(() => 15), FLOOR, { now: NOW });
+  const r = scheduleReliability(versionsFor((day) => (day === '2026-10-22' ? null : 15)), observed)!;
+  assert.deepEqual(r.ranUnpostedDays, ['2026-10-22']);
   assert.equal(scheduleReliability(versionsFor(() => 15).slice(0, 9), observed), null);
 });
 
 test('scheduled minimum flow is not a scheduled start', () => {
   const observed = observedDays(fortnight(() => null), FLOOR, { now: NOW });
   const versions = versionsFor(() => null).map((v) => ({ ...v, days: v.days.map((d) => ({ ...d, hours: hours(null, 0, true) })) }));
-  const r = scheduleReliability(versions, observed)!;
-  assert.equal(r.matched, 14);
+  assert.equal(scheduleReliability(versions, observed)!.matched, 14);
 });
 
 // ── Posted schedule ────────────────────────────────────────────────────────
@@ -244,26 +259,14 @@ test('posted schedule keeps today\'s windows that have not ended, and tomorrow o
     scheduleDay('2026-11-01', 13, 5),
   ];
   const posted = postedSchedule(schedule, NOW)!;
-  assert.equal(posted.days.length, 2);
-  // 6-9 AM has ended by noon; 2-9 PM has not.
   assert.deepEqual(posted.days[0].windows.map((w) => w.label), ['2 PM – 9 PM']);
+  assert.equal(posted.days[0].firstStartHour, 6, 'the whole day\'s first start, for the comparison row');
   assert.deepEqual(posted.days[1].windows.map((w) => w.label), ['1 PM – 6 PM']);
-  assert.equal(posted.mayBeOutdated, false);
-
-  const gap = postedSchedule([scheduleDay('2026-10-31', 15), scheduleDay('2026-11-02', 15)], NOW)!;
-  assert.equal(gap.days.length, 1);
+  assert.equal(postedSchedule([scheduleDay('2026-10-31', 15), scheduleDay('2026-11-02', 15)], NOW)!.days.length, 1);
   assert.equal(postedSchedule([scheduleDay('2026-11-01', 15)], NOW), null);
 });
 
-test('an old copy of the schedule is flagged, and minimum flow only is named', () => {
-  const day = { ...scheduleDay('2026-10-31', null, 0, true), retrievedAt: new Date(NOW - 3 * HOUR).toISOString() };
-  const posted = postedSchedule([day], NOW)!;
-  assert.equal(posted.mayBeOutdated, true);
-  assert.equal(posted.days[0].minimumFlowOnly, true);
-  assert.deepEqual(posted.days[0].windows, []);
-});
-
-// ── The model's contract ───────────────────────────────────────────────────
+// ── Rows ───────────────────────────────────────────────────────────────────
 
 function inputs(overrides: Partial<DamReadInputs> = {}): DamReadInputs {
   return {
@@ -272,94 +275,135 @@ function inputs(overrides: Partial<DamReadInputs> = {}): DamReadInputs {
     riverName: 'White River',
     tailwaterFishery: 'trout',
     floorCfs: FLOOR,
+    reference: { units: 8, fullGenerationCfs: 26_400 },
     schedule: [scheduleDay('2026-10-31', 14, 7), scheduleDay('2026-11-01', 15, 4)],
     observed: fortnight((day, weekend) => (weekend ? 16 : day === '2026-10-19' ? 6 : 15)),
     scheduleVersions: versionsFor(() => 15),
-    waterTempF: { value: 52.4, observedAt: new Date(NOW - HOUR).toISOString(), where: 'White River at Bull Shoals Dam near Flippin' },
+    waterTempF: { value: 52.4, observedAt: new Date(NOW - HOUR).toISOString(), where: 'Corps tailwater sensor' },
     dissolvedOxygenMgL: { value: 6.12, observedAt: new Date(NOW - HOUR).toISOString(), where: 'White River at Bull Shoals Dam near Flippin' },
-    generatingNow: false,
     now: NOW,
     ...overrides,
   };
 }
 
-test('clock times are read from prose, including ranges, noon and midnight', () => {
-  assert.deepEqual(clockTimesIn('around 3 PM, as early as 6 a.m.'), [15, 6]);
-  assert.deepEqual(clockTimesIn('between 2-5 PM'), [14, 17]);
-  assert.deepEqual(clockTimesIn('from 2 to 5 pm, then noon and midnight'), [14, 17, 12, 0]);
-  assert.ok(Number.isNaN(clockTimesIn('at 3:30 PM')[0]));
-  assert.deepEqual(clockTimesIn('on 9 of 13 days, I am here'), []);
-  assert.equal(clockLabel(0), 'midnight');
-  assert.equal(clockLabel(12), 'noon');
-  assert.equal(clockLabel(15), '3 PM');
+test('every fact is a row rendered by code', () => {
+  const rows = damReadRows(buildDamReadFacts(inputs()));
+  const values = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  assert.deepEqual(values, {
+    'posted-today': '2 PM – 9 PM',
+    'posted-tomorrow': '3 PM – 7 PM',
+    'today-vs-usual': 'Earlier start than recent weekends',
+    'start-weekdays': 'Around 3 PM',
+    'start-weekends': 'Around 4 PM',
+    earliest: '6 AM',
+    mornings: 'Off before noon on 13 of 14 days',
+    run: 'About 4 hours',
+    release: 'About 2 of 8 units',
+    'schedule-held': 'First start within an hour on 13 of 14 days',
+    'water-temp': '52°F',
+    oxygen: '6.1 mg/L',
+  });
+  assert.equal(row(rows, 'earliest')!.detail, 'Mon, Oct 19');
+  assert.equal(row(rows, 'run')!.detail, 'Usually off by 7 PM');
+  assert.equal(row(rows, 'release')!.detail, 'About 5,000 cfs · estimated from flow');
+  assert.equal(row(rows, 'schedule-held')!.detail, 'Came on earlier than posted: Mon, Oct 19');
 });
 
-test('a Read that follows the facts is served as written', () => {
+test('each water reading keeps its own station (review case)', () => {
+  const rows = damReadRows(buildDamReadFacts(inputs()));
+  assert.equal(row(rows, 'water-temp')!.detail, 'Corps tailwater sensor, as of 11 AM');
+  assert.equal(row(rows, 'oxygen')!.detail, 'White River at Bull Shoals Dam near Flippin, as of 11 AM');
+  const stale = buildDamReadFacts(inputs({ waterTempF: { value: 50, observedAt: new Date(NOW - 30 * HOUR).toISOString(), where: 'x' } }));
+  assert.equal(row(damReadRows(stale), 'water-temp'), undefined);
+});
+
+test('the posted rows and headline follow the CURRENT schedule when served', () => {
+  const written = buildDamReadFacts(inputs());
+  assert.equal(damReadHeadline(written), 'Generation scheduled 2 PM – 9 PM today at the dam.');
+  // Served at 10 PM: the 2-9 PM window has ended.
+  const late = centralDayStart('2026-10-31') + 22 * HOUR;
+  const served = withCurrentSchedule(written, inputs().schedule, late);
+  assert.equal(row(damReadRows(served), 'posted-today')!.value, 'Done for the day');
+  assert.equal(damReadHeadline(served), 'Today\'s scheduled generation at the dam is done.');
+});
+
+test('without a posted schedule the headline leans on the pattern and says so', () => {
+  const f = buildDamReadFacts(inputs({ schedule: [] }));
+  assert.equal(row(damReadRows(f), 'posted-today')!.value, 'Not posted yet');
+  assert.equal(damReadHeadline(f), 'No schedule posted yet. Recent weekends have usually started around 4 PM at the dam.');
+});
+
+test('a release with no reference pair is stated in cfs', () => {
+  const rows = damReadRows(buildDamReadFacts(inputs({ reference: null })));
+  assert.equal(row(rows, 'release')!.value, 'About 5,000 cfs');
+});
+
+// ── Prose: the model's part ────────────────────────────────────────────────
+
+test('prose that restates or invents facts is rejected (review cases)', () => {
+  const cases: Array<[string, RegExp]> = [
+    ['No generation is scheduled for the rest of today at the dam.', /today|schedule/],
+    ['Generation is planned from 6 AM to 9 PM at the dam lately.', /number|clock|schedule/],
+    ['The schedule held on fourteen of fourteen days lately.', /number|schedule/],
+    ['The units are generating right now at the dam.', /live state/],
+    ['Lately the units will start in the afternoon.', /promise/],
+    ['The water has been cold with good oxygen lately.', /measurement/],
+    ['Afternoon runs lately, mornings quiet, by noon it is off.', /clock/],
+  ];
+  for (const [prose, reason] of cases) {
+    const problems = damProseProblems(prose);
+    assert.ok(problems.some((p) => reason.test(p)), `${prose} -> ${problems.join('; ')}`);
+  }
+});
+
+test('interpretation without facts in it is served as written', () => {
   const f = buildDamReadFacts(inputs());
-  assert.ok(allowedHours(f).has(14));
-  const raw = [
-    damReadClaimsLine(f),
-    '[SUMMARY]',
-    'Generation is scheduled 2 PM – 9 PM today at Bull Shoals Dam.',
-    '[EDDY_READ]',
-    'Weekends lately have come on around 4 PM at the dam, a little later than weekdays.',
-    '[FULL]',
-    'The posted schedule has the units on from 2 PM to 9 PM today at the dam. On weekdays they usually come on around 3 PM, once as early as 6 AM. The water below read 52°F with 6.1 mg/L dissolved oxygen. Water downstream rises later.',
-  ].join('\n');
-  const out = prepareDamRead(raw, f);
+  const raw = '[READ]\nAfternoon runs have been the rule lately, with mornings mostly quiet. Weekends have tended to start a little later than weekdays, and now and then the units have come on well before the usual time.';
+  const out = prepareDamProse(raw, f);
   assert.deepEqual(out.problems, []);
   assert.equal(out.usedFallback, false);
+  assert.equal(prepareDamProse('Afternoon runs lately.', f).usedFallback, true, 'missing marker');
 });
 
-test('an invented time, a promise, or a missing "at the dam" sends the Read to the fallback', () => {
-  const f = buildDamReadFacts(inputs());
-  const write = (full: string) => [damReadClaimsLine(f), '[SUMMARY]', 'Scheduled from 2 PM today at the dam.', '[EDDY_READ]', 'Weekends run later.', '[FULL]', full].join('\n');
-
-  assert.match(prepareDamRead(write('Units at the dam come on at 11 AM.'), f).problems.join(), /11 AM is not in the facts/);
-  assert.match(prepareDamRead(write('The units will start at 2 PM at the dam.'), f).problems.join(), /promise/);
-  assert.match(prepareDamRead(write('Units come on at 2 PM.'), f).problems.join(), /at the dam/);
-  assert.match(prepareDamRead(write('At the dam it read 60°F.'), f).problems.join(), /temperature/);
-  assert.equal(prepareDamRead(write('At the dam, 2 PM.').replace('[CLAIMS] dam=Bull', '[CLAIMS] dam=Bul'), f).usedFallback, true);
-});
-
-test('the fallback passes its own checks in every shape the facts take', () => {
+test('the fallback interpretation passes its own checks in every shape the facts take', () => {
+  let i = 0;
+  const spread = [5, 9, 13, 17, 21];
   const shapes: Partial<DamReadInputs>[] = [
     {},
     { schedule: [] },
     { schedule: [], observed: [] },
     { observed: fortnight(() => null), schedule: [scheduleDay('2026-10-31', null, 0, true)] },
-    { waterTempF: null, dissolvedOxygenMgL: null, scheduleVersions: [] },
+    { observed: fortnight(() => (spread[i++ % spread.length])) },
+    { observed: fortnight(() => 6, 14) },
+    { waterTempF: null, dissolvedOxygenMgL: null, scheduleVersions: [], reference: null },
     { now: noonOn('2026-10-30'), schedule: [scheduleDay('2026-10-30', 15)] },
   ];
   for (const shape of shapes) {
     const f = buildDamReadFacts(inputs(shape));
-    const fallback = damReadFallback(f);
-    assert.deepEqual(damReadProblems(fallback, f), [], JSON.stringify(shape).slice(0, 80));
-    assert.ok(fallback.summaryText && fallback.quoteText);
+    const prose = damProseFallback(f);
+    assert.deepEqual(damProseProblems(prose), [], `${prose} (${Object.keys(shape).join(',')})`);
   }
 });
 
-test('the fallback leads with the posted plan and the day-type that today is', () => {
-  const f = buildDamReadFacts(inputs());
-  const fallback = damReadFallback(f);
-  assert.equal(fallback.summaryText, 'Generation is scheduled 2 PM – 9 PM today at the dam.');
-  // Saturday: the weekend pattern leads.
-  assert.match(fallback.eddyRead!, /on weekends/);
-  assert.match(fallback.quoteText, /within an hour on 13 of 14 days, and the units came on early on 1\./);
-  assert.match(fallback.quoteText, /52°F water and 6\.1 mg\/L dissolved oxygen/);
-  assert.match(fallback.quoteText, /All times are at the dam/);
+test('the fallback names the early-start risk and the weekend difference', () => {
+  const prose = damProseFallback(buildDamReadFacts(inputs()));
+  assert.match(prose, /Afternoon runs have been the rule on recent weekends/);
+  assert.match(prose, /well before the usual time/);
 });
 
-test('stale water-quality readings are left out', () => {
-  const f = buildDamReadFacts(inputs({ waterTempF: { value: 50, observedAt: new Date(NOW - 30 * HOUR).toISOString(), where: 'x' } }));
-  assert.equal(f.waterTempF, null);
+test('the prompt carries the rows and no live state', () => {
+  const prompt = damReadFactsPrompt(buildDamReadFacts(inputs()));
+  assert.match(prompt, /Posted today: 2 PM – 9 PM/);
+  assert.doesNotMatch(prompt, /right now|currently|generating now/i);
+  assert.equal(clockLabel(0), 'midnight');
+  assert.equal(clockLabel(12), 'noon');
 });
 
 // ── Backtest on real history ───────────────────────────────────────────────
 //
 // What the pattern would have said on each day of Aug-Oct 2026, scored against
-// what the units then did. This is the regression guard the feature rests on:
-// a change that makes the stated pattern less often right fails here.
+// what the units then did. A change that makes the stated pattern less often
+// right fails here.
 
 const fixture = JSON.parse(readFileSync('src/lib/eddy/__fixtures__/dam-generation-onoff-2026.json', 'utf8')) as {
   year: number;
@@ -395,28 +439,25 @@ function backtest(damId: string) {
       continue;
     }
     stated += 1;
-    // "Usually between X and Y": right when the start lands in the stated range, give or take an hour.
     if (actual.firstStartHour >= pattern.rangeFromHour - 1 && actual.firstStartHour <= pattern.rangeToHour + 1) within += 1;
     else if (actual.firstStartHour < pattern.rangeFromHour - 1) early += 1;
-    // Sanity: yesterday is the last day the window reads.
     assert.equal(window.at(-1)!.dayKey, previousDay(day));
   }
   return { stated, within, early, unstated, hitRate: within / stated, earlyRate: early / stated };
 }
 
 test('backtest: the stated pattern holds on most days at each tailwater', () => {
-  // Measured on this fixture when the rules were written (days with a start,
-  // after the first 14):
+  // Measured on this fixture when the rules were written (days with a known
+  // start, after the first 14):
   //
   //   Table Rock   stated 55, unstated 16; within range ±1h 80%, earlier 4%
-  //   Norfork      stated 61, unstated  3; within range ±1h 82%, earlier 5%
+  //   Norfork      stated 60, unstated  3; within range ±1h 82%, earlier 5%
   //   Bull Shoals  stated 36, unstated 34; within range ±1h 67%, earlier 14%
   //
   // Bull Shoals is the honest outlier: its starts move enough that the gate
   // withholds the pattern on half of days, and when stated it is still right
-  // only two times in three. That is why the Read always carries the earliest
-  // recent start. Floors sit a few points under the measurement, so a real
-  // regression fails while a tie does not.
+  // only two times in three. That is why the earliest recent start is a row of
+  // its own. Floors sit a few points under the measurement.
   const floors: Record<string, { hit: number; maxEarly: number; minStated: number }> = {
     'swl-table-rock-dam': { hit: 0.75, maxEarly: 0.08, minStated: 50 },
     'swl-norfork-dam': { hit: 0.77, maxEarly: 0.1, minStated: 55 },

@@ -432,12 +432,26 @@ export interface DamsResponse {
 }
 
 /**
+ * One fact in a dam's Eddy's Read, rendered by code rather than written by a
+ * model: the posted schedule, the recent pattern, how the schedule held, the
+ * water readings. A row is the only place a clock time or a number appears.
+ */
+export interface DamReadRow {
+  /** Stable id, e.g. 'posted-today', 'earliest', 'release'. */
+  key: string;
+  label: string;
+  value: string;
+  /** Qualifier or source, e.g. "Corps tailwater sensor, as of 3 PM". */
+  detail?: string;
+}
+
+/**
  * GET /api/dam-update/[damId] — Eddy's Read for a dam.
  *
- * ALL of the prose is Premium. A public caller learns only whether a Read
- * exists and when it was written, which is what the locked card draws; an
- * entitled caller (bearer token) gets `read`. The measured pattern strip and
- * the posted schedule on the dam page stay free. ADR 0017.
+ * ALL of it is Premium. A public caller learns only whether a Read exists and
+ * when it was written, which is what the locked card draws; an entitled caller
+ * (bearer token) gets `read`. The measured pattern strip and the posted
+ * schedule on the dam page stay free. ADR 0017.
  *
  * `available: false` covers every reason a Read is not served: the dam has no
  * Read, none was written today, or the posted schedule changed since it was
@@ -447,12 +461,14 @@ export interface DamReadResponse {
   available: boolean;
   generatedAt: string | null;
   read: {
-    /** One sentence: the most useful thing about today. */
-    summaryText: string;
-    /** The pattern insight, one or two sentences. */
-    eddyRead: string | null;
-    /** The full Read, 3-5 sentences. */
-    quoteText: string;
+    /** One sentence about today, rendered from the current posted schedule. */
+    headline: string;
+    /** The facts, rendered by code. Posted rows reflect the schedule now. */
+    rows: DamReadRow[];
+    /** Eddy's interpretation: no times, numbers or schedule claims. */
+    prose: string;
+    /** The at-the-dam caveat, rendered under the rows. */
+    caveat: string;
     sourcesUsed: string[];
   } | null;
 }
