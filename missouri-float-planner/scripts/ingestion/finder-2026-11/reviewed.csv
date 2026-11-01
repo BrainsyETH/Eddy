@@ -24,7 +24,7 @@ current,37.359459,-91.525706,access,county-road-kk-359,Co Rd KK-359 road end; ow
 current,37.033283,-91.054017,access,county-road-m-135,Co Rd M-135; owner-approved as a 4x4 access with limited parking (possibly NPS's Raftyard)
 current,36.654734,-90.860705,access,dunrovin,FS 4819 Dunrovin road end; owner-approved as a 4x4 access with limited parking (Dun Roven in an older MDC guide)
 current,37.052243,-91.054118,access,county-road-126,Co Rd 126 road end; owner-approved as a 4x4 access with limited parking (possibly NPS's Pin Oak)
-current,36.901606,-90.908289,pending,,Co Rd F-217; owner placed it at 36.89492 -90.90929, 442 m from Hickory Landing: confirm it is not Hickory Landing
+current,36.901606,-90.908289,access,county-road-f-217,Co Rd F-217; owner placed it at 36.89492 -90.90929 and confirmed it is separate from Hickory Landing (opposite bank)
 current,37.314805,-91.451338,unconfirmed,,Co Rd 327 loop; owner could not confirm on imagery
 current,37.318354,-91.450851,unconfirmed,,Co Rd 327 end; owner could not confirm on imagery
 current,37.381314,-91.561012,unconfirmed,,State Hwy K; owner could not confirm on imagery

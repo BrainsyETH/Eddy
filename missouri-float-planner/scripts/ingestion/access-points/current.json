@@ -95,5 +95,29 @@
    "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1",
    "https://missouricanoe.org/?p=271"
   ]
+ },
+ {
+  "name": "County Road F-217 Access",
+  "slug": "county-road-f-217",
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 99.37,
+  "lat": 36.89492,
+  "lon": -90.90929,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "description": "Primitive gravel bar access on the Ozark National Scenic Riverways at the end of County Road F-217, across the river from Hickory Landing.",
+  "road_access": "County Road F-217. Off-road track at the end; a 4x4 is recommended.",
+  "parking_info": "Limited parking.",
+  "facilities": "No facilities. Limited access: a primitive track, not a developed landing.",
+  "confidence": "medium (owner-placed pin 2026-11-01; owner confirmed it is separate from Hickory Landing, on the opposite bank)",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
  }
 ]

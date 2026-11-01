@@ -23,3 +23,16 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT; IF n <> 4 THEN RAISE EXCEPTION 'expected 4, matched %', n; END IF;
 END $$;
 -- Rollback: UPDATE access_points SET approved = false WHERE slug IN (the four above);
+
+-- Co Rd F-217 (added after the owner confirmed it is its own access, on the
+-- bank opposite Hickory Landing): imported from ../current.json at the owner's
+-- pin 36.89492, -90.90929, mile 99.37 (geometry; the Current's miles track the
+-- line), then this block, then --approve.
+DO $$
+DECLARE n int;
+BEGIN
+  UPDATE access_points ap SET road_surface = '{dirt,4wd_required}', amenities = '{parking}'
+    FROM rivers r WHERE r.id = ap.river_id AND r.slug = 'current' AND ap.slug = 'county-road-f-217' AND NOT ap.approved
+     AND coalesce(ap.road_surface, '{}') = '{}';
+  GET DIAGNOSTICS n = ROW_COUNT; IF n <> 1 THEN RAISE EXCEPTION 'f-217: matched %', n; END IF;
+END $$;
