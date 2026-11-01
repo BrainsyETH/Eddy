@@ -65,3 +65,18 @@ END $$;
 -- Rollback: the previous text of each field is in the 2026-11-01 session record
 -- and, for the Elk beaches, in git history of ../elk.json; the mile was NULL
 -- and is_float_endpoint false on the two Huzzah/Meramec rows.
+
+-- Charity Access: unapproved at the owner's call. Its stored mile (0.1) puts it
+-- 1.2 mi above Big John; it is about 19 river miles. The Niangua's published
+-- index starts at the Hwy 32 bridge below Charity, so no mile on that index is
+-- right for it. The seed now creates it unapproved too.
+DO $$
+DECLARE n int;
+BEGIN
+  UPDATE access_points ap SET approved = false, approved_at = NULL
+    FROM rivers r
+   WHERE r.id = ap.river_id AND r.slug = 'niangua'
+     AND ap.id = 'd37e43b2-77ce-430e-8f21-f3d11aab57a4' AND ap.slug = 'charity-access' AND ap.approved
+     AND ap.updated_at = '2026-11-01 15:33:50.229132+00';
+  GET DIAGNOSTICS n = ROW_COUNT; IF n <> 1 THEN RAISE EXCEPTION 'charity-access: matched %', n; END IF;
+END $$;

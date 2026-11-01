@@ -671,6 +671,11 @@ ON CONFLICT (river_id, slug) DO UPDATE SET
 -- ============================================
 
 -- 1. Charity Access (MDC) — Uppermost practical access
+-- Unapproved 2026-11-01 (owner's call). The Niangua's published mile index
+-- starts at the Hwy 32 bridge below Charity (Big John is mile 1.3), so Charity
+-- sits about 18 river miles before mile 0 and has no correct mile on that
+-- index; at 0.0 a Charity to Big John plan reads as about one mile instead of
+-- about 19. Seeded unapproved until the river's mile datum is settled.
 INSERT INTO access_points (
     river_id, name, slug, location_orig, type, types, is_public, ownership,
     description, amenities, parking_info, road_access, facilities,
@@ -688,7 +693,7 @@ SELECT
     'Concrete boat ramp. No restrooms, no water, no camping allowed.',
     false, ARRAY['paved', 'gravel_maintained']::text[], '10', 'MDC',
     'https://mdc.mo.gov/discover-nature/places/charity-access',
-    0.0, true
+    0.0, false
 FROM rivers r WHERE r.slug = 'niangua'
 ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 
