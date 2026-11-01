@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { orderedPlannerEndpoints, plannerSelectionReducer as reduce, type PlannerSelectionHistory } from './planner-selection';
+import { orderedPlannerEndpoints, plannerRiverForPlace, plannerSelectionReducer as reduce, type PlannerSelectionHistory } from './planner-selection';
 
 const route: PlannerSelectionHistory = {
   current: { riverSlug: 'current', selectedPutIn: 'akers', selectedTakeOut: 'pulltite' }, past: [],
@@ -55,4 +55,21 @@ test('Undo reverses automatic ordering as one edit and restores the first pick',
   ) });
   assert.deepEqual(completed.current, route.current);
   assert.deepEqual(reduce(completed, { type: 'undo' }), firstPick);
+});
+
+test('inspecting another river follows it unless a route is in progress there', () => {
+  const idle = { riverSlug: 'current', selectedPutIn: null, selectedTakeOut: null };
+  assert.equal(plannerRiverForPlace(idle, 'current'), 'same');
+  assert.equal(plannerRiverForPlace(idle, ''), 'same');
+  assert.equal(plannerRiverForPlace(idle, 'black'), 'switch');
+  assert.equal(plannerRiverForPlace({ ...idle, riverSlug: null }, 'black'), 'switch');
+  assert.equal(plannerRiverForPlace(route.current, 'black'), 'browse');
+  assert.equal(plannerRiverForPlace({ ...idle, selectedPutIn: 'akers' }, 'black'), 'browse');
+});
+
+test('following an inspected place to its river is not an Undo step', () => {
+  const idle: PlannerSelectionHistory = { current: { riverSlug: 'current', selectedPutIn: null, selectedTakeOut: null }, past: [] };
+  const browsed = reduce(idle, { type: 'browse', patch: { riverSlug: 'black' } });
+  assert.equal(browsed.current.riverSlug, 'black');
+  assert.deepEqual(browsed.past, []);
 });

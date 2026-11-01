@@ -59,7 +59,7 @@ import Button from '@/components/ui/Button';
 import { plannerMarkers, referenceGaugeMarkers, type PlannerMarker } from '@/lib/planner-markers';
 import type { GaugeStation } from '@/hooks/useGaugeStations';
 import type { PointOfInterest } from '@/types/nps';
-import { orderedPlannerEndpoints, plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
+import { orderedPlannerEndpoints, plannerRiverForPlace, plannerSelectionReducer, type PlannerSelection } from '@/lib/planner-selection';
 import { plannerMapPois } from '@/lib/planner-map-catalog';
 import type { PlannerMapPlace } from '@/lib/planner-map-catalog';
 import { currentPlannerAccessPoints, reconcilePlannerEndpoints } from '@/lib/planner-access';
@@ -437,7 +437,12 @@ export default function PlanPageClient({
       previewReturnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
     setSelectedPoi(null); resetOtherInspection();
-    setShowAllRivers(false);
+    // The river header follows the inspected place (see plannerRiverForPlace).
+    const placeRiver = plannerRiverForPlace({ riverSlug, selectedPutIn, selectedTakeOut }, place.riverSlug);
+    if (placeRiver === 'switch') {
+      dispatchSelection({ type: 'browse', patch: { riverSlug: place.riverSlug, selectedPutIn: null, selectedTakeOut: null } });
+    }
+    setShowAllRivers(placeRiver === 'browse');
     setFocusPlace(place);
     setFocusMode(source === 'search' ? 'locate' : 'reveal');
     setFocusRequest(value => value + 1);
