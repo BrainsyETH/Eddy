@@ -7,6 +7,7 @@ import {
   riverStripLayout,
   riverStripPlaceable,
   riverStripSeed,
+  stripDotTargets,
   type Box,
   type RiverStripInput,
   type RiverStripLayout,
@@ -227,4 +228,25 @@ test('too little to draw returns null', () => {
   assert.equal(riverStripLayout({ ...base, points: POINTS.slice(0, 1) }), null);
   assert.equal(riverStripLayout({ ...base, width: 0 }), null);
   assert.equal(riverStripLayout({ ...base, routes: [route('x', 1, 'pulltite', 'akers')] }), null);
+});
+
+test('access tap targets are 44px, never overlap, and dots too close to separate share one target', () => {
+  const dot = (id: string, mile: number, x: number, y: number) => ({ id, name: id, mile, x, y, endpoint: true });
+  // b and c are one pixel apart; d sits under a bend close to a without being adjacent in miles.
+  const targets = stripDotTargets([dot('a', 1, 100, 80), dot('b', 2, 200, 80), dot('c', 2.1, 201, 80), dot('e', 4, 400, 80), dot('d', 3, 130, 118)]);
+  assert.deepEqual(targets.map(t => t.dots.map(d => d.id)), [['a', 'd'], ['b', 'c'], ['e']]);
+  for (const target of targets) {
+    assert.ok(target.box.x1 - target.box.x0 >= CALLOUT_SIZE && target.box.y1 - target.box.y0 >= CALLOUT_SIZE, `${target.id} is at least 44px`);
+    for (const d of target.dots) assert.ok(d.x > target.box.x0 && d.x < target.box.x1 && d.y > target.box.y0 && d.y < target.box.y1);
+  }
+  for (const [i, t] of targets.entries()) for (const u of targets.slice(i + 1)) assert.ok(!boxesOverlap(t.box, u.box), `${t.id} and ${u.id} overlap`);
+});
+
+test('real layouts produce non-overlapping access targets at every width', () => {
+  for (const width of [320, 390, 700, 1280]) {
+    const layout = riverStripLayout({ ...base, selectedId: null, width, compact: width < 560 })!;
+    const targets = stripDotTargets(layout.dots);
+    assert.equal(targets.flatMap(t => t.dots).length, layout.dots.length, `${width}: every dot has a target`);
+    for (const [i, t] of targets.entries()) for (const u of targets.slice(i + 1)) assert.ok(!boxesOverlap(t.box, u.box), `${width}: ${t.id} / ${u.id}`);
+  }
 });

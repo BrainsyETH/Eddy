@@ -487,3 +487,50 @@ function placeLabels(args: {
   }
   return labels;
 }
+
+/** One tap target on the strip: a single in-between access, or several too close to tell apart. */
+export interface StripDotTarget {
+  id: string;
+  /** In river order. */
+  dots: StripDot[];
+  /** Centre of the target. */
+  x: number;
+  y: number;
+  /** At least `size` square; grown to cover every dot it holds. */
+  box: Box;
+}
+
+/**
+ * Tap targets for the in-between dots. Each dot gets a `size` square (44px by
+ * default, the same as a callout); dots whose squares would overlap share one
+ * target, which opens a list to choose from. Merging repeats until no two
+ * targets overlap, so a target never steals a tap meant for its neighbour, even
+ * where a bend brings two non-adjacent dots close.
+ */
+export function stripDotTargets(dots: StripDot[], size = CALLOUT_SIZE): StripDotTarget[] {
+  const half = size / 2;
+  const make = (members: StripDot[]): StripDotTarget => {
+    const box = {
+      x0: Math.min(...members.map(d => d.x)) - half,
+      x1: Math.max(...members.map(d => d.x)) + half,
+      y0: Math.min(...members.map(d => d.y)) - half,
+      y1: Math.max(...members.map(d => d.y)) + half,
+    };
+    return { id: members.map(d => d.id).join('+'), dots: members, x: round((box.x0 + box.x1) / 2), y: round((box.y0 + box.y1) / 2), box };
+  };
+  const groups = [...dots].sort((a, b) => a.mile - b.mile).map(dot => [dot]);
+  for (let merged = true; merged;) {
+    merged = false;
+    search: for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        if (boxesOverlap(make(groups[i]).box, make(groups[j]).box)) {
+          groups[i] = [...groups[i], ...groups[j]].sort((a, b) => a.mile - b.mile);
+          groups.splice(j, 1);
+          merged = true;
+          break search;
+        }
+      }
+    }
+  }
+  return groups.map(make);
+}

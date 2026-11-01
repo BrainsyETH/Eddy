@@ -34,7 +34,10 @@ import { RiverNotFoundError } from './contracts';
 import { assignRoutePhotos, loadRoutePhotos } from './route-photos';
 import { pairPasses, portageMiles, riverPasses, routeHighlights, shuttleRivers } from './float-filters';
 import { mapboxDriveFrom, type DriveFrom } from './drive-from';
-import { loadRiverOutfitters, loadRiverSights, putInCoordinates, routeFacilities, routeOutfitters, routeStops } from './route-context';
+import { cautionItem, endpointFacts, loadRiverOutfitters, loadRiverSights, putInCoordinates, routeOutfitters, routeStops } from './route-context';
+import type { RecommendationReason } from './recommendation';
+
+type Assessed = { candidate: Candidate; river: River; reasons: RecommendationReason[] };
 
 /** Full route checks may replace rejected candidates up to this many attempts,
  * still returning at most MAX_ESTIMATES routes. */
@@ -120,7 +123,7 @@ export async function findNearbyFloats(
   /** Facilities, outfitters and stops for the routes a card will show. Enrichment: never fails the search. */
   async function addRouteFacts(
     routes: FloatSearchOption[],
-    assessed: Map<string, { candidate: Candidate; river: River }>,
+    assessed: Map<string, Assessed>,
     routeRivers: River[],
     vessel: string,
   ) {
@@ -134,10 +137,12 @@ export async function findNearbyFloats(
         const source = assessed.get(option.id);
         const context = source && rivers.get(source.river.id);
         if (!source || !context) continue;
-        const { candidate: { putIn, takeOut }, river } = source;
+        const { candidate: { putIn, takeOut }, river, reasons } = source;
         const [points, sights] = context;
-        option.facilities = routeFacilities(putIn, takeOut);
-        option.outfitters = routeOutfitters(outfitters.get(river.id) ?? [], putIn, takeOut, putInCoordinates(putIn, river), vessel);
+        const hazardNames = new Map(sights.hazards.map(hazard => [hazard.id, hazard.name]));
+        option.cautionItems = reasons.map(reason => cautionItem(reason, hazardNames));
+        option.endpointFacts = { putIn: endpointFacts(putIn), takeOut: endpointFacts(takeOut) };
+        option.outfitters = routeOutfitters(outfitters.get(river.id) ?? [], points, putIn, takeOut, putInCoordinates(putIn, river), vessel);
         option.along = routeStops(points, sights, putIn, takeOut);
       }
     } catch {
@@ -317,7 +322,7 @@ export async function findNearbyFloats(
     let inFlight = 0;
     const driveTargets = new Map<string, { lat: number; lng: number }>();
     // The rows behind each assessed route, for the card facts filled in at the end.
-    const assessed = new Map<string, { candidate: Candidate; river: River }>();
+    const assessed = new Map<string, Assessed>();
     async function assess({ candidate, river, nearbyMiles }: (typeof candidates)[number]) {
       const plan = await planning.calculate({
         river: river.slug,
@@ -348,7 +353,9 @@ export async function findNearbyFloats(
         const point = lat != null && lng != null ? { lat, lng } : accessView(candidate.putIn, river).coordinates;
         if (point) driveTargets.set(candidate.putIn.id, point);
       }
-      assessed.set(`${candidate.putIn.id}:${candidate.takeOut.id}`, { candidate, river });
+      // Endpoint hazards are named on the card without demoting the route.
+      const reasons = [...p.routeAssessment.cautionReasons, ...p.routeAssessment.notices.filter(n => n.code === 'hazard_at_endpoint')];
+      assessed.set(`${candidate.putIn.id}:${candidate.takeOut.id}`, { candidate, river, reasons });
       output.push({
         id: `${candidate.putIn.id}:${candidate.takeOut.id}`,
         riverId: river.id,
@@ -373,8 +380,7 @@ export async function findNearbyFloats(
         conditionCode: p.routeAssessment.conditionCode,
         conditionLabel: p.routeAssessment.label,
         conditional: p.routeAssessment.recommendationStatus === 'conditional',
-        // Endpoint hazards are named on the card without demoting the route.
-        cautions: [...p.routeAssessment.cautionReasons, ...p.routeAssessment.notices.filter(n => n.code === 'hazard_at_endpoint')].map((r) => r.message),
+        cautions: reasons.map((r) => r.message),
         estimateBasis:
           p.estimateBasis === 'current_conditions'
             ? 'current_conditions'

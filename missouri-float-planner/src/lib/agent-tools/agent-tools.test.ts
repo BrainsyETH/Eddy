@@ -1661,13 +1661,14 @@ test('a hazard at the put-in or take-out never blocks or demotes that route', as
   assert.equal(plan.routeAssessment.cautionReasons.some((r: { code: string }) => r.code === 'portage_required'), false);
 });
 
-test('Find a Float cards carry facilities, route outfitters and what lies between the ends', async () => {
+test('Find a Float cards carry per-end facilities, directional outfitter matches, stops with access status and scoped cautions', async () => {
   const f = fixture({ points: 4 });
   const [a, b, c, d] = f.tables.access_points;
   a.amenities = ['parking', 'restrooms'];
   a.fee_required = false;
-  c.is_public = false;
-  b.amenities = ['camping'];
+  d.amenities = ['camping'];
+  b.is_public = false;
+  c.amenities = ['camping'];
   f.tables.points_of_interest.push(
     { river_id: uuid(1), active: true, is_on_water: true, name: 'Blue Spring', type: 'spring', river_mile: 2 },
     { river_id: uuid(1), active: true, is_on_water: true, name: 'Far Cave', type: 'cave', river_mile: 40 },
@@ -1675,11 +1676,13 @@ test('Find a Float cards carry facilities, route outfitters and what lies betwee
   f.tables.river_hazards.push({ id: 'dam', river_id: uuid(1), active: true, portage_required: true, river_mile_downstream: 6, name: 'Low dam', type: 'low_water_dam', severity: 'warning' });
   const business = (id: string, name: string, offered: string[], routes: unknown[] = [], status = 'active') => ({
     river_id: uuid(1), services_offered: [], routes,
-    nearby_services: { id, name, phone: null, website: `https://${id}.example`, latitude: 37, longitude: -91, services_offered: offered, status },
+    nearby_services: { id, name, phone: null, website: null, latitude: 37, longitude: -91, services_offered: offered, status },
   });
   f.tables.service_rivers.push(
-    business('near', 'Near Canoe', ['canoe_rental', 'shuttle']),
-    business('runs', 'Runs It', ['kayak_rental'], [{ name: 'Day run', putIn: 'Launch 0', takeOut: 'Launch 3' }]),
+    business('near', 'Near Canoe', ['canoe_rental']),
+    business('exact', 'Exact Run', ['shuttle'], [{ name: 'Day', putIn: 'Launch 0', takeOut: 'Launch 3' }]),
+    // Launches at our take-out: an upstream business must not read as serving this float.
+    business('backwards', 'Starts At Take-out', ['shuttle', 'kayak_rental'], [{ name: 'Lower', putIn: 'Launch 3', takeOut: 'Launch 0' }]),
     business('closed', 'Closed Co', ['canoe_rental'], [], 'permanently_closed'),
     business('lodge', 'Just Cabins', ['cabins']),
   );
@@ -1687,15 +1690,49 @@ test('Find a Float cards carry facilities, route outfitters and what lies betwee
   const routes = [...result.matches, ...result.alternatives];
   const long = routes.find(route => route.putIn.id === a.id && route.takeOut.id === d.id);
   assert.ok(long, 'the full-length route is offered');
-  assert.deepEqual(long.facilities, ['restrooms', 'parking'], 'facilities come from the two ends, not the stops between');
-  assert.deepEqual(long.along?.map(stop => [stop.kind, stop.name]), [
-    ['spring', 'Blue Spring'], ['access', 'Launch 1'], ['campground', 'Launch 1'], ['portage', 'Low dam'], ['access', 'Launch 2'],
-  ], 'stops inside the route only, in river order; endpoints and outside points excluded');
-  assert.deepEqual(long.outfitters?.map(o => [o.id, o.servesRoute]), [['runs', true], ['near', false]],
-    'a listed run from the put-in ranks first; closed and non-floating businesses are left out');
-  assert.deepEqual(long.outfitters?.[1].offers, ['shuttle', 'canoe']);
-  const first = routes.find(route => route.putIn.id === a.id && route.takeOut.id === b.id);
-  if (first) assert.deepEqual(first.facilities, ['camping', 'restrooms', 'parking']);
+  assert.deepEqual(long.endpointFacts, {
+    putIn: { facilities: ['restrooms', 'parking'], feeRequired: false },
+    takeOut: { facilities: ['camping'], feeRequired: null },
+  }, 'facilities stay with the end that has them');
+  assert.deepEqual(long.along?.map(stop => [stop.kind, stop.name, stop.isPublic ?? 'n/a']), [
+    ['spring', 'Blue Spring', 'n/a'], ['access', 'Launch 1', false], ['portage', 'Low dam', 'n/a'], ['access', 'Launch 2', true], ['campground', 'Launch 2', true],
+  ], 'stops inside the route only, in river order, private accesses kept private');
+  assert.deepEqual(long.outfitters?.map(o => [o.id, o.match]), [['exact', 'run'], ['near', 'river'], ['backwards', 'river']],
+    'a listed run in the right direction ranks first; a reversed run is only a river outfitter');
+  assert.deepEqual(long.outfitters?.find(o => o.id === 'backwards')?.offers, ['shuttle', 'kayak']);
+  assert.deepEqual(long.cautionItems, [{ scope: 'route', summary: 'Low dam: portage required', detail: long.cautions[0] }]);
+});
+
+test('route context: run ends resolve with direction, and only unambiguously', async () => {
+  const { outfitterMatch, resolveRunEnd } = await import('./route-context');
+  const points = [
+    { id: 'akers', name: 'Akers Ferry', river_mile_downstream: 10 },
+    { id: 'pull', name: 'Pulltite', river_mile_downstream: 20 },
+    { id: 'round', name: 'Round Spring', river_mile_downstream: 30 },
+    { id: 'rs2', name: 'Round Spring Campground', river_mile_downstream: 30.5 },
+  ];
+  assert.equal(resolveRunEnd('Akers', points)?.id, 'akers', 'a short name finds the one access containing it');
+  assert.equal(resolveRunEnd('Round Spring', points)?.id, 'round', 'an exact name wins over looser matches');
+  assert.equal(resolveRunEnd('Round', points), null, 'two candidates is no answer');
+  const putIn = points[1], takeOut = points[2];
+  assert.equal(outfitterMatch({ runs: [{ from: 'Pulltite', to: 'Round Spring' }] }, points, putIn, takeOut), 'run');
+  assert.equal(outfitterMatch({ runs: [{ from: 'Akers', to: 'Round Spring' }] }, points, putIn, takeOut), 'stretch');
+  assert.equal(outfitterMatch({ runs: [{ from: 'Round Spring', to: 'Pulltite' }] }, points, putIn, takeOut), 'river', 'reversed direction is not service');
+  assert.equal(outfitterMatch({ runs: [{ from: 'Akers', to: 'Pulltite' }] }, points, putIn, takeOut), 'river', 'ending at our put-in is not service');
+});
+
+test('route context: caution items come from reason codes, and an unmatched notice stays an area notice', async () => {
+  const { cautionItem } = await import('./route-context');
+  const { ALERT_SCOPE_SUFFIX } = await import('./recommendation');
+  const notice = `South Woolum Road Closed, Alternate Route Available${ALERT_SCOPE_SUFFIX}`;
+  assert.deepEqual(cautionItem({ code: 'alert_scope_unverified', message: notice }),
+    { scope: 'area', summary: 'South Woolum Road Closed, Alternate Route Available', detail: notice });
+  const titled = `Closure: Steel Creek: day use${ALERT_SCOPE_SUFFIX}`;
+  assert.equal(cautionItem({ code: 'alert_scope_unverified', message: titled }).summary, 'Closure: Steel Creek: day use', 'colons in a title survive');
+  assert.deepEqual(cautionItem({ code: 'portage_required', message: 'Mill: dam: portage required. Carry left.', sourceId: 'h1' }, new Map([['h1', 'Mill: dam']])),
+    { scope: 'route', summary: 'Mill: dam: portage required', detail: 'Mill: dam: portage required. Carry left.' });
+  assert.equal(cautionItem({ code: 'hazard_at_endpoint', message: 'Ledge is at the put-in; launch below it.' }).scope, 'endpoint');
+  assert.equal(cautionItem({ code: 'alert_source_incomplete', message: 'NPS: timed out. Verify official notices before launch.' }).scope, 'check');
 });
 
 test('route facts fail soft: a broken directory read keeps every route', async () => {
@@ -1706,16 +1743,23 @@ test('route facts fail soft: a broken directory read keeps every route', async (
   assert.ok(routes.every(route => Array.isArray(route.along)));
 });
 
-test('stop groups and private-access notes read as short card labels', async () => {
-  const { floatStopGroups, privateAccessNote } = await import('@shared/float-search');
-  const groups = floatStopGroups([
-    { kind: 'access', name: 'A', mile: 1 }, { kind: 'spring', name: 'Big Spring', mile: 2 },
-    { kind: 'access', name: 'B', mile: 3 }, { kind: 'portage', name: 'Dam', mile: 4 },
-  ]);
-  assert.deepEqual(groups.map(g => [g.kind, g.label]), [['portage', '1 portage'], ['access', '2 accesses'], ['spring', 'Big Spring']]);
-  assert.equal(groups[1].detail, 'A (mi 1), B (mi 3)');
+test('card highlights are short phrases that say where, never count private stops, and lead with a requested facility', async () => {
+  const { floatCardHighlights, outfitterServiceLabel, routeAccessText } = await import('@shared/float-search');
   const end = (isPublic: boolean | null) => ({ id: 'x', name: 'x', isPublic });
-  assert.equal(privateAccessNote({ putIn: end(true), takeOut: end(null) }), null);
-  assert.equal(privateAccessNote({ putIn: end(false), takeOut: end(true) }), 'Private put-in: permission required');
-  assert.equal(privateAccessNote({ putIn: end(false), takeOut: end(false) }), 'Private put-in and take-out: permission required');
+  const option = {
+    putIn: end(true), takeOut: end(true),
+    endpointFacts: { putIn: { facilities: ['restrooms'], feeRequired: null }, takeOut: { facilities: ['camping', 'restrooms'], feeRequired: null } },
+    outfitters: [{ id: 'o', name: 'River Co', offers: ['canoe'], website: null, phone: null, match: 'river' }],
+    along: [{ kind: 'access', name: 'Private Bar', mile: 3, isPublic: false }, { kind: 'access', name: 'Ramp', mile: 4, isPublic: true }],
+  } as any;
+  assert.deepEqual(floatCardHighlights(option).map(h => h.label), ['Camping at take-out', 'Restrooms at both ends'],
+    'a river-only outfitter is not presented as a highlight');
+  assert.deepEqual(floatCardHighlights(option, { restrooms: true }).map(h => h.label)[0], 'Restrooms at both ends');
+  assert.deepEqual(floatCardHighlights({ ...option, endpointFacts: undefined }, undefined, 5).map(h => h.label), ['1 public access on the way'],
+    'the private access is not counted');
+  assert.equal(floatCardHighlights({ ...option, outfitters: [{ ...option.outfitters[0], match: 'run' }] })[0].label, 'River Co: lists this float');
+  assert.equal(outfitterServiceLabel(['canoe']), 'Rentals', 'a business is labeled with its own services only');
+  assert.equal(outfitterServiceLabel(['shuttle', 'kayak']), 'Shuttle · Rentals');
+  assert.deepEqual(routeAccessText({ putIn: end(true), takeOut: end(false) }), { text: 'Private take-out', private: true });
+  assert.deepEqual(routeAccessText({ putIn: end(true), takeOut: end(true) }), { text: 'Public access', private: false });
 });

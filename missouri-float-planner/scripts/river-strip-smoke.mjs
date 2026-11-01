@@ -22,11 +22,23 @@ const routes = [[5, 6], [0, 1], [2, 4], [4, 7], [3, 5], [1, 2]].map(([start, end
   formattedTime: '', url: '', highlights: ['Restrooms', 'No fees'],
   photo: { url: river.photoUrl, caption: 'Fixture image' },
   // Two routes carry the icon-row facts; the rest stay on the older text highlights.
+  // Two routes carry the newer structured facts; the rest stay on the older text highlights and caution strings.
   ...(index === 0 ? {
-    facilities: ['restrooms', 'noFees'],
-    outfitters: [{ id: 'o-1', name: 'Fixture Canoe Rental', offers: ['shuttle', 'kayak'], website: null, phone: '417-555-0100', servesRoute: true }, { id: 'o-2', name: 'Second Outfitter', offers: ['kayak'], website: null, phone: null, servesRoute: false }],
-    along: [{ kind: 'spring', name: 'Fixture Spring', mile: 54 }, { kind: 'portage', name: 'Fixture Dam', mile: 56 }],
-  } : index === 1 ? { facilities: [] } : {}),
+    endpointFacts: { putIn: { facilities: ['restrooms'], feeRequired: false }, takeOut: { facilities: ['camping', 'parking'], feeRequired: null } },
+    outfitters: [
+      { id: 'o-1', name: 'Fixture Canoe Rental', offers: ['shuttle', 'kayak'], website: null, phone: '417-555-0100', match: 'run' },
+      { id: 'o-2', name: 'Second Outfitter', offers: ['kayak'], website: null, phone: null, match: 'river' },
+    ],
+    along: [{ kind: 'spring', name: 'Fixture Spring', mile: 54 }, { kind: 'portage', name: 'Fixture Dam', mile: 56 }, { kind: 'access', name: 'Private Bar', mile: 57, isPublic: false }],
+    description: 'A fixture description of this float.',
+  } : index === 3 ? {
+    // A confirmed caution on the water outranks a park-wide notice on the one-line row.
+    cautions: ['Carry around the fallen tree.', 'Fixture Road Closed: this regional or park notice has not been matched to the trip\'s exact stretch; verify its relevance.'],
+    cautionItems: [
+      { scope: 'area', summary: 'Fixture Road Closed', detail: 'Fixture Road Closed: this regional or park notice has not been matched to the trip\'s exact stretch; verify its relevance.' },
+      { scope: 'route', summary: 'Fallen tree: portage required', detail: 'Carry around the fallen tree.' },
+    ],
+  } : index === 1 ? { endpointFacts: { putIn: { facilities: [], feeRequired: null }, takeOut: { facilities: [], feeRequired: null } } } : {}),
 }));
 
 async function assertCardLanding(card) {
@@ -173,26 +185,49 @@ try {
     assert(await info.evaluate(node => node === document.activeElement));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: no horizontal overflow`);
 
-    // Card facts: icon rows, one-line outfitter, private access named; the long form stays behind Route details.
+    // Card facts: labeled highlights that say which end, a scoped one-line caution, the inventory in grouped details.
     const first = page.locator('#float-result-route-1');
-    assert.equal(await first.getByText('Fixture Canoe Rental', { exact: true }).count(), 1);
-    assert.equal(await first.getByText('+1 more in route details').count(), 1, 'more outfitters collapse to a count');
-    assert.equal(await first.getByText('1 portage', { exact: true }).count(), 1);
-    assert.equal(await first.getByText('Fixture Spring', { exact: true }).count(), 1);
-    assert.equal(await page.locator('#float-result-route-2').getByText('Private put-in: permission required').count(), 1);
+    assert.equal(await first.getByText('Fixture Canoe Rental: lists this float', { exact: true }).count(), 1);
+    assert.equal(await first.getByText('Camping at take-out', { exact: true }).count(), 1);
+    const fourth = page.locator('#float-result-route-4');
+    assert.equal(await fourth.getByText('On this float:', { exact: true }).count(), 1, 'the confirmed caution leads');
+    assert.equal(await fourth.getByText('Fallen tree: portage required', { exact: true }).count(), 1);
+    assert.equal(await fourth.getByText('Area notice:', { exact: true }).count(), 0, 'the park notice waits behind +1');
+    assert.equal(await page.locator('#float-result-route-2').getByText('Private put-in: permission required', { exact: true }).count(), 1);
     assert.equal(await first.getByText('417-555-0100').count(), 0, 'phone numbers wait for route details');
+    const neighbour = page.locator('#float-result-route-2');
+    const before = (await neighbour.boundingBox()).height;
+    await fourth.getByRole('button', { name: /On this float/ }).click();
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Cautions', 'the caution row opens details at the cautions');
+    assert.match(await fourth.innerText(), /Area notice: Fixture Road Closed: this regional or park notice has not been matched/);
+    await fourth.getByRole('button', { name: 'Route details', exact: true }).click();
+    await first.getByRole('button', { name: 'Route details', exact: true }).click();
+    for (const heading of ['Access', 'Along the way', 'Outfitters', 'About this float']) {
+      assert.equal(await first.getByRole('heading', { name: heading, exact: true }).count(), 1, `details group: ${heading}`);
+    }
+    assert.match(await first.innerText(), /Private Bar · Access \(private: permission required\)/);
+    assert.match(await first.innerText(), /417-555-0100/);
+    assert.equal((await neighbour.boundingBox()).height, before, `${width}: opening one card leaves its neighbour's height alone`);
+    await first.getByRole('button', { name: 'Route details', exact: true }).click();
 
-    // In-between accesses open a details card on hover or focus, and Escape closes it.
+    // In-between accesses: 44px targets; Enter opens, Tab continues inside the card, Escape inside it closes and returns focus.
     const dot = strip.locator('[data-strip-point]').first();
     if (width === 1280) assert(await dot.count(), 'the strip draws in-between accesses');
     if (await dot.count()) {
+      const box = await dot.boundingBox();
+      assert(box.width >= 44 && box.height >= 44, `${width}: access target is at least 44px`);
       await dot.focus();
-      const pointCard = page.locator('#river-strip-point');
+      assert.equal(await dot.getAttribute('aria-expanded'), 'false', 'focus alone does not open it');
+      await dot.press('Enter');
+      const pointCard = page.locator(`[id^="river-strip-point-"]`);
       await pointCard.waitFor();
       assert.match(await pointCard.innerText(), /mi \d/);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: point card stays on screen`);
-      await dot.press('Escape');
+      await page.keyboard.press('Tab');
+      assert(await pointCard.evaluate(node => node.contains(document.activeElement)), `${width}: Tab moves into the open card`);
+      await page.keyboard.press('Escape');
       assert.equal(await pointCard.count(), 0);
+      await page.waitForFunction(() => document.activeElement?.hasAttribute('data-strip-point'));
     }
     await strip.getByRole('heading').click();
     await page.addStyleTag({ content: 'nextjs-portal { display:none }' });

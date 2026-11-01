@@ -98,6 +98,9 @@ export function closureAffectsRoute(
   return false;
 }
 
+/** Appended to a regional/park notice's title; Find a Float strips it to recover the title. */
+export const ALERT_SCOPE_SUFFIX = ": this regional or park notice has not been matched to the trip's exact stretch; verify its relevance.";
+
 /** A single decision table shared by explicit plans and ranked searches. */
 export function assessRecommendation(input: RecommendationInput) {
   const blockingReasons: RecommendationReason[] = [];
@@ -194,7 +197,7 @@ export function assessRecommendation(input: RecommendationInput) {
     ) {
       caution(
         'alert_scope_unverified',
-        `${alert.title}: this regional or park notice has not been matched to the trip's exact stretch; verify its relevance.`,
+        `${alert.title}${ALERT_SCOPE_SUFFIX}`,
         alert.id,
       );
     }
