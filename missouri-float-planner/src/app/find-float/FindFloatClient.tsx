@@ -237,7 +237,7 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
         {(expired || result || busy === 'search') && <section className="min-w-0" aria-label="Matching Floats">
           {expired && <p role="status" className="mb-5 text-sm font-medium">{FLOAT_SEARCH_EXPIRED_MESSAGE}</p>}
           {busy === 'search' && <FloatSearchLoading compact={Boolean(result)} />}
-          {result && <FloatResults snapshot={result} riverPhoto={slug => rivers.find(r => r.slug === slug)?.photoUrl} stale={dirty || busy !== null} sort={state.sort} onSort={sort => setState(s => ({ ...s, sort }))} onPlan={remember}
+          {result && <FloatResults key={`${result.data.estimatedAt} ${floatSearchIdentity(result.input)}`} snapshot={result} riverPhoto={slug => rivers.find(r => r.slug === slug)?.photoUrl} stale={dirty || busy !== null} sort={state.sort} onSort={sort => setState(s => ({ ...s, sort }))} onPlan={remember}
             recoveryOptions={floatSearchRecoveryOptions(result.input, result.data, rivers.find(r => r.slug === result.input.river))}
             onRecover={option => {
               const location = option.location ?? result.location;

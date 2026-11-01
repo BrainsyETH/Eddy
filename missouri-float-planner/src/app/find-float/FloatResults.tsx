@@ -1,8 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, type MouseEvent } from 'react';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { useMemo, useState, type MouseEvent } from 'react';
+import { ArrowRight, ChevronDown, Waves } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import ConditionBadge from '@/components/ui/ConditionBadge';
@@ -16,6 +16,7 @@ import {
   type floatSearchRecoveryOptions, type FloatSearchOption, type FloatSort,
 } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
+import RiverStrip, { NumberChip, RIVER_STRIP_ID } from './RiverStrip';
 
 const INFO_COLORS = {
   trigger: 'var(--color-primary-600)', triggerBorder: 'var(--color-border-strong)',
@@ -55,7 +56,31 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   const days = input.days ?? 1;
   const routes = [...data.matches, ...data.alternatives];
   const sorts = floatSortsFor(routes);
-  const card = (option: FloatSearchOption) => <FloatCard key={option.id} option={option} riverPhoto={riverPhoto(option.riverSlug)} stale={stale} onPlan={onPlan} />;
+  const matches = sortFloatOptions(data.matches, sort);
+  const alternatives = sortFloatOptions(data.alternatives, sort);
+  // One river searched: draw it, numbering floats in the order their cards appear.
+  const numbered = useMemo(() => [...matches, ...alternatives].map((option, i) => ({ option, number: i + 1 })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the sorted lists are derived from these.
+    [data, sort]);
+  const stripRiver = input.river && numbered.length > 0 && numbered.every(({ option }) => option.riverSlug === input.river) ? input.river : null;
+  // The parent keys these results by search, so a new search starts on its first float.
+  const [selectedId, setSelectedId] = useState<string | null>(() => (stripRiver ? numbered[0]?.option.id ?? null : null));
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const showOnRiver = (id: string) => {
+    setSelectedId(id);
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById(RIVER_STRIP_ID)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+  };
+  const card = (option: FloatSearchOption) => {
+    const number = numbered.find(n => n.option.id === option.id)?.number;
+    const strip = stripRiver && number ? {
+      number,
+      state: option.id === selectedId ? 'selected' as const : option.id === hoveredId ? 'hovered' as const : 'other' as const,
+      onShow: () => showOnRiver(option.id),
+      onHover: (on: boolean) => setHoveredId(on ? option.id : null),
+    } : undefined;
+    return <FloatCard key={option.id} option={option} riverPhoto={riverPhoto(option.riverSlug)} stale={stale} onPlan={onPlan} strip={strip} />;
+  };
   return (
     <div className={stale ? 'pointer-events-none opacity-50 transition-opacity' : 'transition-opacity'} inert={stale || undefined}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4" aria-live="polite">
@@ -77,12 +102,14 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
         <p className="font-medium">{floatSearchEmptyMessage(data)}</p>
         {recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
       </Card>}
+      {stripRiver && <RiverStrip riverSlug={stripRiver} riverName={numbered[0].option.riverName} routes={numbered}
+        selectedId={selectedId} hoveredId={hoveredId} onSelect={setSelectedId} onHover={setHoveredId} stale={stale} onPlan={onPlan} />}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
-        {sortFloatOptions(data.matches, sort).map(card)}
+        {matches.map(card)}
       </div>
       {data.alternatives.length > 0 && <section className="mt-10" aria-label="Alternative routes">
         <h3 style={{ fontFamily: 'var(--font-display)' }} className="mb-4 text-2xl font-medium">Shorter or longer</h3>
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{sortFloatOptions(data.alternatives, sort).map(card)}</div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{alternatives.map(card)}</div>
       </section>}
     </div>
   );
@@ -90,7 +117,14 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
 
 /** Mirrors the iOS FloatSearchCard: photo, route, three metrics, badges,
  * cautions, details on demand, then one filled call to action. */
-function FloatCard({ option: o, riverPhoto, stale, onPlan }: { option: FloatSearchOption; riverPhoto?: string | null; stale: boolean; onPlan: () => boolean }) {
+function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
+  option: FloatSearchOption;
+  riverPhoto?: string | null;
+  stale: boolean;
+  onPlan: () => boolean;
+  /** Present when the results show a river strip: the card's number and its link to it. */
+  strip?: { number: number; state: 'selected' | 'hovered' | 'other'; onShow: () => void; onHover: (on: boolean) => void };
+}) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
   const photo = [o.photo?.url, riverPhoto].find((url): url is string => !!url && !failed.includes(url));
@@ -99,16 +133,21 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan }: { option: FloatSear
     : o.putIn.isPublic === false || o.takeOut.isPublic === false ? 'Includes private access' : 'Access unconfirmed';
   const metric = 'flex min-w-0 flex-1 flex-col gap-1';
   return (
-    <Card variant="framed" as="article" className="flex flex-col overflow-hidden">
+    <Card variant="framed" as="article" className="flex flex-col overflow-hidden transition-[border-color,box-shadow]"
+      onMouseEnter={strip && (() => strip.onHover(true))} onMouseLeave={strip && (() => strip.onHover(false))}
+      style={strip?.state === 'selected' ? { borderColor: 'var(--color-accent-700)', boxShadow: '4px 4px 0 var(--color-accent-700)' } : undefined}>
       <div className="relative h-40 shrink-0 bg-[var(--color-surface-hover)]">
         {photo
           ? <Image key={photo} src={photo} alt="" fill unoptimized={!optimizeBlogImage(photo)} sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" className="object-cover" onError={() => setFailed(previous => [...previous, photo])} />
           : <div className="flex h-full items-center justify-center"><EddyIcon name="wave" size={110} /></div>}
       </div>
       <div className="flex flex-1 flex-col gap-4 p-5">
-        <div>
-          <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
-          <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
+            <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
+          </div>
+          {strip && <NumberChip number={strip.number} state={strip.state} />}
         </div>
         <div className="flex flex-wrap gap-y-3 divide-x divide-[var(--color-border)]">
           <div className={`${metric} pr-4`}>
@@ -145,7 +184,10 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan }: { option: FloatSear
           {o.description && <p>{o.description}</p>}
           {o.photo?.caption && photo === o.photo.url && <p className="text-xs">{o.photo.caption}</p>}
         </div>}
-        <div className="mt-auto pt-1">
+        <div className="mt-auto flex flex-col gap-2 pt-1">
+          {strip && <Button variant="outline" className="w-full" aria-pressed={strip.state === 'selected'} onClick={strip.onShow}>
+            <Waves size={16} aria-hidden="true" />{strip.state === 'selected' ? 'Showing on the river' : `Show #${strip.number} on the river`}
+          </Button>}
           <Button href={floatPlanPath(o)} className="w-full" tabIndex={stale ? -1 : undefined}
             aria-label={`Plan this float from ${o.putIn.name} to ${o.takeOut.name}`}
             onClick={(event: MouseEvent<HTMLAnchorElement>) => { if (stale || !onPlan()) event.preventDefault(); }}>
