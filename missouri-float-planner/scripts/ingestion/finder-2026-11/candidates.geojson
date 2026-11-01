@@ -6,70 +6,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -91.27518299979464,
-     36.77642200004694
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 103,
-    "river": "eleven-point",
-    "place": "Hurricane Creek mouth",
-    "kind": "road end",
-    "road": "Forest Rd 4031",
-    "road_source": "Census roads",
-    "road_kind": "forest",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 51,
-    "land": "Eleven Point, Missouri Wild and Scenic River (USFS)",
-    "between": "Greer Crossing → Turner's Mill and Spring",
-    "gap_km": "8.0",
-    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road",
-    "search": "\"Hurricane Creek\" Eleven Point River access",
-    "lat": "36.776422",
-    "lon": "-91.275183",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.776422,-91.275183",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9965987&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.24974099965776,
-     36.75005600024081
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 96,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Forest Rd 3230A",
-    "road_source": "Census roads",
-    "road_kind": "forest",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 71,
-    "land": "Eleven Point, Missouri Wild and Scenic River (USFS)",
-    "between": "Turner Mill South → McDowell Access",
-    "gap_km": "4.2",
-    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road",
-    "search": "\"Forest Rd 3230A\" Eleven Point River access",
-    "lat": "36.750056",
-    "lon": "-91.249741",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.750056,-91.249741",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13785898&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -91.08680299957578,
      36.28754000004331
     ]
@@ -87,46 +23,14 @@
     "usfs_maint_level": "",
     "to_water_m": 33,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"James Ranch Rd\" Eleven Point River access",
     "lat": "36.287540",
     "lon": "-91.086803",
     "map": "https://www.google.com/maps/search/?api=1&query=36.287540,-91.086803",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2650531&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.13939800030995,
-     36.41903199986809
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 89,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Township Rd",
-    "road_source": "Census roads",
-    "road_kind": "local",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 34,
-    "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
-    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"Township Rd\" Eleven Point River access",
-    "lat": "36.419032",
-    "lon": "-91.139398",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.419032,-91.139398",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4969670&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -151,8 +55,8 @@
     "usfs_maint_level": "",
     "to_water_m": 42,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Haney Rd\" Eleven Point River access",
     "lat": "36.174066",
@@ -183,8 +87,8 @@
     "usfs_maint_level": "",
     "to_water_m": 53,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Cedar Creek\" Eleven Point River access",
     "lat": "36.183767",
@@ -215,8 +119,8 @@
     "usfs_maint_level": "",
     "to_water_m": 57,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Summer Rd\" Eleven Point River access",
     "lat": "36.266037",
@@ -247,8 +151,8 @@
     "usfs_maint_level": "",
     "to_water_m": 59,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"McUrter Trl\" Eleven Point River access",
     "lat": "36.294569",
@@ -279,46 +183,14 @@
     "usfs_maint_level": "",
     "to_water_m": 66,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Myrtle Access → Dalton Boat Ramp",
+    "gap_km": "17.3",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"England Trl\" Eleven Point River access",
     "lat": "36.489723",
     "lon": "-91.172758",
     "map": "https://www.google.com/maps/search/?api=1&query=36.489723,-91.172758",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2147537&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.41301000017584,
-     36.791436999811886
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 76,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 405",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 103,
-    "land": "not shown public",
-    "between": "Denny Hollow Float Camp → Cane Bluff",
-    "gap_km": "3.8",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 405\" Eleven Point River access",
-    "lat": "36.791437",
-    "lon": "-91.413010",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.791437,-91.413010",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2380695&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -343,46 +215,14 @@
     "usfs_maint_level": "",
     "to_water_m": 75,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Kilo Vista Rd\" Eleven Point River access",
     "lat": "36.237706",
     "lon": "-91.083898",
     "map": "https://www.google.com/maps/search/?api=1&query=36.237706,-91.083898",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15933334&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.31132600019221,
-     36.78524000019945
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 74,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 92,
-    "land": "Eleven Point, Missouri Wild and Scenic River (USFS)",
-    "between": "Greer Crossing → Turner's Mill and Spring",
-    "gap_km": "8.0",
-    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; unnamed road of unknown status: may be private",
-    "search": "\"unnamed road\" Eleven Point River access",
-    "lat": "36.785240",
-    "lon": "-91.311326",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.785240,-91.311326",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8378707&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -407,8 +247,8 @@
     "usfs_maint_level": "",
     "to_water_m": 80,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Driftwood Trl\" Eleven Point River access",
     "lat": "36.347497",
@@ -439,46 +279,14 @@
     "usfs_maint_level": "",
     "to_water_m": 83,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Heron Trl\" Eleven Point River access",
     "lat": "36.290632",
     "lon": "-91.097760",
     "map": "https://www.google.com/maps/search/?api=1&query=36.290632,-91.097760",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12048756&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.1372619997021,
-     36.41618400031336
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 71,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 43,
-    "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
-    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"unnamed road\" Eleven Point River access",
-    "lat": "36.416184",
-    "lon": "-91.137262",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.416184,-91.137262",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9293404&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -503,46 +311,14 @@
     "usfs_maint_level": "",
     "to_water_m": 87,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Summit Rd\" Eleven Point River access",
     "lat": "36.308068",
     "lon": "-91.098429",
     "map": "https://www.google.com/maps/search/?api=1&query=36.308068,-91.098429",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11514900&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.18084800036941,
-     36.57555899971487
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 68,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 51,
-    "land": "not shown public",
-    "between": "Riverton → Morgan Spring Float Camp",
-    "gap_km": "12.6",
-    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"unnamed road\" Eleven Point River access",
-    "lat": "36.575559",
-    "lon": "-91.180848",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.575559,-91.180848",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2439078&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -567,8 +343,8 @@
     "usfs_maint_level": "",
     "to_water_m": 56,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.228819",
@@ -599,8 +375,8 @@
     "usfs_maint_level": "",
     "to_water_m": 105,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Greengrove Trl\" Eleven Point River access",
     "lat": "36.369896",
@@ -631,46 +407,14 @@
     "usfs_maint_level": "",
     "to_water_m": 111,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"McAllister Rd\" Eleven Point River access",
     "lat": "36.232100",
     "lon": "-91.082215",
     "map": "https://www.google.com/maps/search/?api=1&query=36.232100,-91.082215",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1740188&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.08622599999069,
-     36.250405000172314
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 63,
-    "river": "eleven-point",
-    "place": "Powell Creek mouth",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 67,
-    "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
-    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"Powell Creek\" Eleven Point River access",
-    "lat": "36.250405",
-    "lon": "-91.086226",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.250405,-91.086226",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9370447&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -695,8 +439,8 @@
     "usfs_maint_level": "",
     "to_water_m": 112,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Deer Run Trl\" Eleven Point River access",
     "lat": "36.395338",
@@ -727,8 +471,8 @@
     "usfs_maint_level": "",
     "to_water_m": 66,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.260415",
@@ -759,46 +503,14 @@
     "usfs_maint_level": "",
     "to_water_m": 78,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.291456",
     "lon": "-91.101689",
     "map": "https://www.google.com/maps/search/?api=1&query=36.291456,-91.101689",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1456838&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.14035200036191,
-     36.4233020002713
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 59,
-    "river": "eleven-point",
-    "place": "Cameron Creek mouth",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 77,
-    "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
-    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"Cameron Creek\" Eleven Point River access",
-    "lat": "36.423302",
-    "lon": "-91.140352",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.423302,-91.140352",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6941801&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -823,8 +535,8 @@
     "usfs_maint_level": "",
     "to_water_m": 91,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Myrtle Access → Dalton Boat Ramp",
+    "gap_km": "17.3",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.486778",
@@ -855,8 +567,8 @@
     "usfs_maint_level": "",
     "to_water_m": 90,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Vandergriff Creek\" Eleven Point River access",
     "lat": "36.341880",
@@ -887,8 +599,8 @@
     "usfs_maint_level": "",
     "to_water_m": 92,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Myrtle Access → Dalton Boat Ramp",
+    "gap_km": "17.3",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.456937",
@@ -951,8 +663,8 @@
     "usfs_maint_level": "",
     "to_water_m": 141,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Walden Trl\" Eleven Point River access",
     "lat": "36.279486",
@@ -1015,8 +727,8 @@
     "usfs_maint_level": "",
     "to_water_m": 103,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.409097",
@@ -1047,8 +759,8 @@
     "usfs_maint_level": "",
     "to_water_m": 151,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Myrtle Access → Dalton Boat Ramp",
+    "gap_km": "17.3",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Floyd Trl\" Eleven Point River access",
     "lat": "36.447568",
@@ -1079,46 +791,14 @@
     "usfs_maint_level": "",
     "to_water_m": 114,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Tattle Creek\" Eleven Point River access",
     "lat": "36.313206",
     "lon": "-91.095608",
     "map": "https://www.google.com/maps/search/?api=1&query=36.313206,-91.095608",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10155477&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.08290000022767,
-     36.24320200013785
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 44,
-    "river": "eleven-point",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Jacks Trl",
-    "road_source": "Census roads",
-    "road_kind": "local",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 167,
-    "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
-    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"Jacks Trl\" Eleven Point River access",
-    "lat": "36.243202",
-    "lon": "-91.082900",
-    "map": "https://www.google.com/maps/search/?api=1&query=36.243202,-91.082900",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6558448&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -1143,8 +823,8 @@
     "usfs_maint_level": "",
     "to_water_m": 139,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Myrtle Access → Dalton Boat Ramp",
+    "gap_km": "17.3",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.457570",
@@ -1175,8 +855,8 @@
     "usfs_maint_level": "",
     "to_water_m": 137,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.366378",
@@ -1207,8 +887,8 @@
     "usfs_maint_level": "",
     "to_water_m": 192,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Dalton Boat Ramp → Eleven Point Boat Ramp",
+    "gap_km": "31.2",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Walden Trl\" Eleven Point River access",
     "lat": "36.282705",
@@ -1239,8 +919,8 @@
     "usfs_maint_level": "",
     "to_water_m": 158,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.191086",
@@ -1303,8 +983,8 @@
     "usfs_maint_level": "",
     "to_water_m": 165,
     "land": "not shown public",
-    "between": "Myrtle Access → (river end)",
-    "gap_km": "65.0",
+    "between": "Eleven Point Boat Ramp → (river end)",
+    "gap_km": "16.5",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Eleven Point River access",
     "lat": "36.165219",
@@ -1414,134 +1094,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -92.02115938627975,
-     37.54463154137454
-    ]
-   },
-   "properties": {
-    "tier": "A",
-    "score": 98,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road end",
-    "road": "FS 255 HIGH LOG EDDY",
-    "road_source": "Forest Service (MVUM)",
-    "road_kind": "mvum",
-    "four_wd": "",
-    "usfs_maint_level": 3,
-    "to_water_m": 65,
-    "land": "Mark Twain National Forest (USFS)",
-    "between": "Warren Bridge → Slabtown Recreation Area",
-    "gap_km": "8.6",
-    "notes": "",
-    "search": "\"FS 255 HIGH LOG EDDY\" Big Piney River access",
-    "lat": "37.544632",
-    "lon": "-92.021159",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.544632,-92.021159",
-    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17402026&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.15314400018671,
-     37.129835999678946
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 103,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 5966",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 20,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 5966\" Big Piney River access",
-    "lat": "37.129836",
-    "lon": "-92.153144",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.129836,-92.153144",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8162932&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.01586999999947,
-     37.209419000287035
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 97,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 4320",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 40,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 4320\" Big Piney River access",
-    "lat": "37.209419",
-    "lon": "-92.015870",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.209419,-92.015870",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5109199&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.08560599991002,
-     37.83345000034394
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 96,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 2630",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 43,
-    "land": "not shown public",
-    "between": "Bookers Bend Access → Gasconade River Confluence",
-    "gap_km": "5.6",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 2630\" Big Piney River access",
-    "lat": "37.833450",
-    "lon": "-92.085606",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.833450,-92.085606",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2130436&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -91.94985800023524,
      37.41112100007612
     ]
@@ -1574,38 +1126,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -92.03961400009476,
-     37.19471700000562
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 96,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 5328",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 42,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 5328\" Big Piney River access",
-    "lat": "37.194717",
-    "lon": "-92.039614",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.194717,-92.039614",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13335895&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -92.10397899987099,
      37.119686999889346
     ]
@@ -1623,8 +1143,8 @@
     "usfs_maint_level": "",
     "to_water_m": 20,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Peabody Ave\" Big Piney River access",
     "lat": "37.119687",
@@ -1655,8 +1175,8 @@
     "usfs_maint_level": "",
     "to_water_m": 24,
     "land": "not shown public",
-    "between": "Warren Bridge → Slabtown Recreation Area",
-    "gap_km": "8.6",
+    "between": "Warren Bridge → High Log Eddy",
+    "gap_km": "5.5",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Hazelton Dr\" Big Piney River access",
     "lat": "37.529694",
@@ -1687,46 +1207,14 @@
     "usfs_maint_level": "",
     "to_water_m": 26,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Walnut St\" Big Piney River access",
     "lat": "37.119956",
     "lon": "-92.094781",
     "map": "https://www.google.com/maps/search/?api=1&query=37.119956,-92.094781",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2729130&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.12505699962897,
-     37.12544600017774
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 90,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 5930B",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 61,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 5930B\" Big Piney River access",
-    "lat": "37.125446",
-    "lon": "-92.125057",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.125446,-92.125057",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2698021&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -1759,38 +1247,6 @@
     "lon": "-92.053059",
     "map": "https://www.google.com/maps/search/?api=1&query=37.766383,-92.053059",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=6390953&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.98830544488041,
-     37.47799564594019
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 88,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road end",
-    "road": "FS 1538 HENRY RIVER ACCESS",
-    "road_source": "Forest Service (MVUM)",
-    "road_kind": "mvum",
-    "four_wd": "",
-    "usfs_maint_level": 3,
-    "to_water_m": 37,
-    "land": "Mark Twain National Forest (USFS)",
-    "between": "Boiling Spring Access → Mason Bridge Access",
-    "gap_km": "9.0",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"FS 1538 HENRY RIVER ACCESS\" Big Piney River access",
-    "lat": "37.477996",
-    "lon": "-91.988305",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.477996,-91.988305",
-    "road_record": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query?objectIds=17422065&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -1862,38 +1318,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -92.00956999992759,
-     37.24184000031851
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 85,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 0,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"unnamed road\" Big Piney River access",
-    "lat": "37.241840",
-    "lon": "-92.009570",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.241840,-92.009570",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4525040&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -91.95596300031347,
      37.408410999770304
     ]
@@ -1943,8 +1367,8 @@
     "usfs_maint_level": "",
     "to_water_m": 12,
     "land": "not shown public",
-    "between": "Slabtown Recreation Area → Horse Camp Access",
-    "gap_km": "15.2",
+    "between": "Slabtown Recreation Area → Forest Road 1794 Access",
+    "gap_km": "12.7",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.566831",
@@ -2007,46 +1431,14 @@
     "usfs_maint_level": "",
     "to_water_m": 26,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "County Road 5328 Access → Simmons Ford Access",
+    "gap_km": "9.9",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.223341",
     "lon": "-92.006936",
     "map": "https://www.google.com/maps/search/?api=1&query=37.223341,-92.006936",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5419520&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.0815980000816,
-     37.823958000031354
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 74,
-    "river": "big-piney",
-    "place": "Dry Creek mouth",
-    "kind": "road end",
-    "road": "Tulsa Rd",
-    "road_source": "Census roads",
-    "road_kind": "local",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 78,
-    "land": "Mark Twain National Forest (USFS)",
-    "between": "Bookers Bend Access → Gasconade River Confluence",
-    "gap_km": "5.6",
-    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"Dry Creek\" Big Piney River access",
-    "lat": "37.823958",
-    "lon": "-92.081598",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.823958,-92.081598",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5342085&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -2135,46 +1527,14 @@
     "usfs_maint_level": "",
     "to_water_m": 40,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "County Road 5328 Access → Simmons Ford Access",
+    "gap_km": "9.9",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.226703",
     "lon": "-92.007315",
     "map": "https://www.google.com/maps/search/?api=1&query=37.226703,-92.007315",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5419520&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.0339929997152,
-     37.54811000028549
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 71,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 101,
-    "land": "Mark Twain National Forest (USFS)",
-    "between": "Warren Bridge → Slabtown Recreation Area",
-    "gap_km": "8.6",
-    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; unnamed road of unknown status: may be private",
-    "search": "\"unnamed road\" Big Piney River access",
-    "lat": "37.548110",
-    "lon": "-92.033993",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.548110,-92.033993",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9550950&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -2199,8 +1559,8 @@
     "usfs_maint_level": "",
     "to_water_m": 42,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "County Road 5328 Access → Simmons Ford Access",
+    "gap_km": "9.9",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.214194",
@@ -2438,38 +1798,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -92.0171959995971,
-     37.2473730002254
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 66,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road loops to river",
-    "road": "Co Rd 5157",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 133,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Co Rd 5157\" Big Piney River access",
-    "lat": "37.247373",
-    "lon": "-92.017196",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.247373,-92.017196",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14487662&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -92.01403100039086,
      37.203767000084504
     ]
@@ -2487,46 +1815,14 @@
     "usfs_maint_level": "",
     "to_water_m": 105,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "County Road 5328 Access → Simmons Ford Access",
+    "gap_km": "9.9",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Elk Creek\" Big Piney River access",
     "lat": "37.203767",
     "lon": "-92.014031",
     "map": "https://www.google.com/maps/search/?api=1&query=37.203767,-92.014031",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13985546&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.97061999962575,
-     37.49188899984368
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 65,
-    "river": "big-piney",
-    "place": "Boone Creek mouth",
-    "kind": "road end",
-    "road": "Co Rd 2530",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 134,
-    "land": "not shown public",
-    "between": "Boiling Spring Access → Mason Bridge Access",
-    "gap_km": "9.0",
-    "notes": "land at the end or bank not shown public: check legality",
-    "search": "\"Boone Creek\" Big Piney River access",
-    "lat": "37.491889",
-    "lon": "-91.970620",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.491889,-91.970620",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14768951&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -2551,8 +1847,8 @@
     "usfs_maint_level": "",
     "to_water_m": 112,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Barton Ln\" Big Piney River access",
     "lat": "37.130642",
@@ -2615,8 +1911,8 @@
     "usfs_maint_level": "",
     "to_water_m": 72,
     "land": "not shown public",
-    "between": "Warren Bridge → Slabtown Recreation Area",
-    "gap_km": "8.6",
+    "between": "Warren Bridge → High Log Eddy",
+    "gap_km": "5.5",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.527790",
@@ -2679,8 +1975,8 @@
     "usfs_maint_level": "",
     "to_water_m": 150,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "land at the end or bank not shown public: check legality",
     "search": "\"US Hwy 63\" Big Piney River access",
     "lat": "37.180114",
@@ -2839,8 +2135,8 @@
     "usfs_maint_level": "",
     "to_water_m": 136,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Ozark St\" Big Piney River access",
     "lat": "37.130818",
@@ -2935,8 +2231,8 @@
     "usfs_maint_level": "",
     "to_water_m": 142,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Metrecal St\" Big Piney River access",
     "lat": "37.120877",
@@ -2967,8 +2263,8 @@
     "usfs_maint_level": "",
     "to_water_m": 100,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.149799",
@@ -2999,8 +2295,8 @@
     "usfs_maint_level": "",
     "to_water_m": 143,
     "land": "not shown public",
-    "between": "Slabtown Recreation Area → Horse Camp Access",
-    "gap_km": "15.2",
+    "between": "Slabtown Recreation Area → Forest Road 1794 Access",
+    "gap_km": "12.7",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Wheeling Ln\" Big Piney River access",
     "lat": "37.603160",
@@ -3063,8 +2359,8 @@
     "usfs_maint_level": "",
     "to_water_m": 149,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Airport Rd\" Big Piney River access",
     "lat": "37.123760",
@@ -3095,8 +2391,8 @@
     "usfs_maint_level": "",
     "to_water_m": 108,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "County Road 5328 Access → Simmons Ford Access",
+    "gap_km": "9.9",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.231908",
@@ -3127,8 +2423,8 @@
     "usfs_maint_level": "",
     "to_water_m": 157,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Cannady Ln\" Big Piney River access",
     "lat": "37.122904",
@@ -3159,8 +2455,8 @@
     "usfs_maint_level": "",
     "to_water_m": 114,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Potter Creek\" Big Piney River access",
     "lat": "37.147668",
@@ -3255,8 +2551,8 @@
     "usfs_maint_level": "",
     "to_water_m": 170,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Locust Ave\" Big Piney River access",
     "lat": "37.121258",
@@ -3287,8 +2583,8 @@
     "usfs_maint_level": "",
     "to_water_m": 171,
     "land": "not shown public",
-    "between": "Slabtown Recreation Area → Horse Camp Access",
-    "gap_km": "15.2",
+    "between": "Slabtown Recreation Area → Forest Road 1794 Access",
+    "gap_km": "12.7",
     "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Wheeling Ln\" Big Piney River access",
     "lat": "37.609233",
@@ -3319,8 +2615,8 @@
     "usfs_maint_level": "",
     "to_water_m": 132,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.146033",
@@ -3359,38 +2655,6 @@
     "lon": "-92.062844",
     "map": "https://www.google.com/maps/search/?api=1&query=37.880911,-92.062844",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10546368&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.01206399983742,
-     37.24448999986952
-    ]
-   },
-   "properties": {
-    "tier": "B",
-    "score": 38,
-    "river": "big-piney",
-    "place": "",
-    "kind": "road end",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 142,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
-    "search": "\"unnamed road\" Big Piney River access",
-    "lat": "37.244490",
-    "lon": "-92.012064",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.244490,-92.012064",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=420646&outFields=*&outSR=4326&f=pjson"
    }
   },
   {
@@ -3447,8 +2711,8 @@
     "usfs_maint_level": "",
     "to_water_m": 148,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.178754",
@@ -3479,8 +2743,8 @@
     "usfs_maint_level": "",
     "to_water_m": 160,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Bear Creek\" Big Piney River access",
     "lat": "37.152660",
@@ -3543,8 +2807,8 @@
     "usfs_maint_level": "",
     "to_water_m": 166,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Berry Branch\" Big Piney River access",
     "lat": "37.172300",
@@ -3607,8 +2871,8 @@
     "usfs_maint_level": "",
     "to_water_m": 174,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.159621",
@@ -3639,8 +2903,8 @@
     "usfs_maint_level": "",
     "to_water_m": 188,
     "land": "not shown public",
-    "between": "Slabtown Recreation Area → Horse Camp Access",
-    "gap_km": "15.2",
+    "between": "Slabtown Recreation Area → Forest Road 1794 Access",
+    "gap_km": "12.7",
     "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"Slabtown Branch\" Big Piney River access",
     "lat": "37.563426",
@@ -3671,8 +2935,8 @@
     "usfs_maint_level": "",
     "to_water_m": 176,
     "land": "Mark Twain National Forest (USFS)",
-    "between": "Warren Bridge → Slabtown Recreation Area",
-    "gap_km": "8.6",
+    "between": "Warren Bridge → High Log Eddy",
+    "gap_km": "5.5",
     "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; 4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
     "search": "\"unnamed road\" Big Piney River access",
     "lat": "37.536374",
@@ -3750,102 +3014,6 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     -92.00445646089457,
-     37.31714147870949
-    ]
-   },
-   "properties": {
-    "tier": "C",
-    "score": 40,
-    "river": "big-piney",
-    "place": "",
-    "kind": "crosses river",
-    "road": "Hwy Z",
-    "road_source": "Census roads",
-    "road_kind": "local",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 0,
-    "land": "not shown public",
-    "between": "Baptist Camp Access → Dogs Bluff Access",
-    "gap_km": "13.4",
-    "notes": "bridge or ford: check bank access and parking",
-    "search": "\"Hwy Z\" Big Piney River access",
-    "lat": "37.317141",
-    "lon": "-92.004456",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.317141,-92.004456",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3051132&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.009044341105,
-     37.28137277122849
-    ]
-   },
-   "properties": {
-    "tier": "C",
-    "score": 40,
-    "river": "big-piney",
-    "place": "",
-    "kind": "crosses river",
-    "road": "Co Rd 5117",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 0,
-    "land": "not shown public",
-    "between": "Baptist Camp Access → Dogs Bluff Access",
-    "gap_km": "13.4",
-    "notes": "bridge or ford: check bank access and parking",
-    "search": "\"Co Rd 5117\" Big Piney River access",
-    "lat": "37.281373",
-    "lon": "-92.009044",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.281373,-92.009044",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7884892&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.04769116326551,
-     37.629502192514764
-    ]
-   },
-   "properties": {
-    "tier": "C",
-    "score": 40,
-    "river": "big-piney",
-    "place": "",
-    "kind": "crosses river",
-    "road": "unnamed road",
-    "road_source": "Census roads",
-    "road_kind": "unnamed",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 0,
-    "land": "not shown public",
-    "between": "Slabtown Recreation Area → Horse Camp Access",
-    "gap_km": "15.2",
-    "notes": "bridge or ford: check bank access and parking",
-    "search": "\"unnamed road\" Big Piney River access",
-    "lat": "37.629502",
-    "lon": "-92.047691",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.629502,-92.047691",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9999320&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
      -92.0867449013198,
      37.12802173989445
     ]
@@ -3863,78 +3031,14 @@
     "usfs_maint_level": "",
     "to_water_m": 0,
     "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
+    "between": "(river start) → County Road 5328 Access",
+    "gap_km": "17.0",
     "notes": "bridge or ford: check bank access and parking",
     "search": "\"Airport Rd\" Big Piney River access",
     "lat": "37.128022",
     "lon": "-92.086745",
     "map": "https://www.google.com/maps/search/?api=1&query=37.128022,-92.086745",
     "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11622790&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -92.07937221852269,
-     37.14012563732834
-    ]
-   },
-   "properties": {
-    "tier": "C",
-    "score": 40,
-    "river": "big-piney",
-    "place": "",
-    "kind": "crosses river",
-    "road": "US Hwy 63",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 0,
-    "land": "not shown public",
-    "between": "(river start) → Baptist Camp Access",
-    "gap_km": "29.9",
-    "notes": "bridge or ford: check bank access and parking",
-    "search": "\"US Hwy 63\" Big Piney River access",
-    "lat": "37.140126",
-    "lon": "-92.079372",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.140126,-92.079372",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=221220&outFields=*&outSR=4326&f=pjson"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     -91.98867344152116,
-     37.49892653632859
-    ]
-   },
-   "properties": {
-    "tier": "C",
-    "score": 40,
-    "river": "big-piney",
-    "place": "",
-    "kind": "crosses river",
-    "road": "State Hwy 32",
-    "road_source": "Census roads",
-    "road_kind": "public",
-    "four_wd": "",
-    "usfs_maint_level": "",
-    "to_water_m": 0,
-    "land": "not shown public",
-    "between": "Boiling Spring Access → Mason Bridge Access",
-    "gap_km": "9.0",
-    "notes": "bridge or ford: check bank access and parking",
-    "search": "\"State Hwy 32\" Big Piney River access",
-    "lat": "37.498927",
-    "lon": "-91.988673",
-    "map": "https://www.google.com/maps/search/?api=1&query=37.498927,-91.988673",
-    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=229277&outFields=*&outSR=4326&f=pjson"
    }
   }
  ]

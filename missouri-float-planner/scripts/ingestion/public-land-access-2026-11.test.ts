@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { line } from './access-enrichment-2026-11';
-import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, offMvumNote, rankRoadEnd, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
+import { alongRiverKm, approachPoints, channelIndex, deadEnds, dedupeAlongRiver, gapAround, nearestMouth, offMvumNote, rankRoadEnd, reviewedVerdict, routeEnds, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 test('vehicleClass reports the most capable vehicle an MVUM route is open to', () => {
   assert.equal(vehicleClass({ passengervehicle: 'open', atv: 'open' }), 'passenger');
@@ -149,4 +149,11 @@ test('only county/state roads and passenger-grade MVUM roads reach tier A', () =
   assert.equal(rankRoadEnd({ ...at, kind: 'local' }).tier, 'B');
   assert.equal(rankRoadEnd({ ...at, kind: 'mvum', maintLevel: 3 }).tier, 'A', 'High Log Eddy: FS 255, maintenance level 3');
   assert.equal(rankRoadEnd({ ...at, kind: 'mvum', fourWd: true, maintLevel: 3 }).tier, 'B', 'an ATV-only route');
+});
+
+test('reviewedVerdict finds a hand-checked spot on the same river within 300 m', () => {
+  const reviewed = [{ river: 'big-piney', lat: 37.194717, lon: -92.039614, verdict: 'access' }];
+  assert.equal(reviewedVerdict('big-piney', [-92.0396, 37.1950], reviewed), 'access');
+  assert.equal(reviewedVerdict('big-piney', [-92.0396, 37.2000], reviewed), null, '~600 m away');
+  assert.equal(reviewedVerdict('eleven-point', [-92.039614, 37.194717], reviewed), null, 'another river');
 });

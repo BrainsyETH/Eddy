@@ -53,16 +53,17 @@
  *   npx tsx scripts/ingestion/propose-public-land-access.ts --river=eleven-point,big-piney
  *   npx tsx scripts/ingestion/propose-public-land-access.ts --river=eleven-point --holdout=long-hollow
  * --holdout treats the named access points as unknown, to test that the finder
- * finds them. Output goes to scripts/ingestion/finder-2026-11/ (or --out=).
+ * finds them. Spots in finder-2026-11/reviewed.csv (checked by hand) are left
+ * out of the output. Output goes to scripts/ingestion/finder-2026-11/ (or --out=).
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { booleanPointInPolygon, length, lineIntersect, lineString, point, pointToPolygonDistance } from '@turf/turf';
 import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson';
 import { getScriptClient } from '../lib/db';
-import { type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink } from './access-enrichment-2026-11';
+import { type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink, parseCsv } from './access-enrichment-2026-11';
 import { type ArcFeature, arcgis, envelope, envelopeFilter, featureUrl, fetchAll, selectAll } from './arcgis-fetch';
-import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, offMvumNote, rankRoadEnd, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
+import { type RoadKind, type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, offMvumNote, rankRoadEnd, reviewedVerdict, tigerClass, tigerRoadKind, vehicleClass } from './public-land-access-2026-11';
 
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer';
 const MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer';
@@ -94,6 +95,11 @@ async function main() {
   const holdout = new Set((argValue('holdout') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
   const outDir = argValue('out') ?? join(__dirname, 'finder-2026-11');
   const db = getScriptClient({ script: 'propose-public-land-access', write: false });
+  // Spots the owner already checked by hand; a rerun leaves them out.
+  const reviewedFile = join(__dirname, 'finder-2026-11', 'reviewed.csv');
+  const reviewed = existsSync(reviewedFile)
+    ? parseCsv(readFileSync(reviewedFile, 'utf8')).map((r) => ({ river: r.river, lat: Number(r.lat), lon: Number(r.lon), verdict: r.verdict }))
+    : [];
 
   const rows: Record<string, unknown>[] = [];
   const features: unknown[] = [];
@@ -237,8 +243,16 @@ async function main() {
     const fresh = raw
       .filter((c) => gapAround(c.km, known.map((k) => k.km), riverKm).nearestKm >= KNOWN_KM)
       .sort((a, b) => ({ A: 0, B: 1, C: 2 }[a.tier as 'A'] - { A: 0, B: 1, C: 2 }[b.tier as 'A']) || b.score - a.score);
+    // A reviewed spot still holds its stretch, so a weaker neighbour can't take its place.
+    const taken: Cand[] = [];
     const kept: Cand[] = [];
-    for (const c of fresh) if (!kept.some((k) => Math.abs(k.km - c.km) < 0.3)) kept.push(c);
+    let alreadyReviewed = 0;
+    for (const c of fresh) {
+      if (taken.some((k) => Math.abs(k.km - c.km) < 0.3)) continue;
+      taken.push(c);
+      if (reviewedVerdict(slug, c.at, reviewed)) alreadyReviewed++;
+      else kept.push(c);
+    }
 
     for (const c of kept) {
       const g = gapAround(c.km, known.map((k) => k.km), riverKm);
@@ -273,7 +287,7 @@ async function main() {
     summary.push({
       river: slug, roads: roads.length, road_ends_at_water: raw.filter((c) => c.kind !== 'crosses river').length,
       crossings: raw.filter((c) => c.kind === 'crosses river').length,
-      candidates: kept.length, tier_A: kept.filter((c) => c.tier === 'A').length,
+      already_reviewed: alreadyReviewed, candidates: kept.length, tier_A: kept.filter((c) => c.tier === 'A').length,
       recall: `${roadServed.length}/${launches.length} trusted launches have a road candidate within 0.5 km`,
       suspect_records: located.filter((k) => k.offChannelM > TRUSTED_PIN_M).length,
     });

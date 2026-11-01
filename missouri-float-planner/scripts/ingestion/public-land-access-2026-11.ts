@@ -211,6 +211,17 @@ export function rankRoadEnd(e: RoadEnd): { tier: 'A' | 'B'; score: number; notes
   return { tier, score: Math.round(score), notes };
 }
 
+/**
+ * The owner's verdict on a spot already checked by hand (finder-2026-11/reviewed.csv),
+ * or null. A rerun leaves reviewed spots out so the list holds only new work.
+ */
+export function reviewedVerdict(river: string, at: LngLat, reviewed: { river: string; lat: number; lon: number; verdict: string }[], withinM = 300): string | null {
+  for (const r of reviewed) {
+    if (r.river === river && Math.hypot((r.lon - at[0]) * 89_000, (r.lat - at[1]) * 111_000) <= withinM) return r.verdict;
+  }
+  return null;
+}
+
 /** "Long Hollow Creek mouth" from the nearest named tributary confluence, for naming and searching. */
 export function nearestMouth(end: LngLat, mouths: { name: string; at: LngLat }[], withinM = 400): string | null {
   let best: { name: string; m: number } | null = null;

@@ -7,6 +7,7 @@ writes nothing to the database). It replaces the v1 list in
 | File | What it is |
 | --- | --- |
 | `candidates.csv` / `candidates.geojson` | Places to check, sorted by tier then score, one per 300 m of river. `road_kind` says what the road is (below) |
+| `reviewed.csv` | Input: spots the owner checked by hand, with a verdict. The finder leaves them out of `candidates.csv` |
 | `suspect-records.csv` | Access points pinned more than 300 m from the real channel, not trusted as "known". Empty after the pin fixes below |
 
 These are places for a person to look at, not access points. A road reaching
@@ -91,7 +92,66 @@ reach tier A again.
 - **Precision:** none of the five reviewed false positives is tier A. Only one
   tier-A spot remains on either river.
 
-## 2026-11-01 run (v3)
+## Owner review of the v3 list (2026-11-01)
+
+The owner checked 16 spots on imagery. Every verdict, with its coordinates,
+is in `reviewed.csv`, which the finder reads: a rerun leaves reviewed spots
+(and the 300 m around them) out, so the list holds only unchecked places.
+
+| Kind of spot | Checked | Real access |
+| --- | ---: | --- |
+| MVUM road reaching the river on forest land | 3 | **3**: High Log Eddy (FS 255), Henry River (FS 1538), FS 1794 |
+| County road reaching the water on land not shown public | 7 | 1 with parking (Co Rd 5328); 1 bridge with no parking (Co Rd 405) |
+| Bridge on a state, US or county road | 5 | 2 that look usable but private or without parking (Hwy 32, Co Rd 5117) |
+| Local road on land PAD-US shows public | 1 | 0 (Tulsa Rd: the land isn't public) |
+
+Lessons for the next calibration:
+- An MVUM road open to passenger or high-clearance vehicles that reaches
+  forest riverbank is the strongest signal. All three were real. The MVUM line
+  can stop short of the road's real end (High Log Eddy, about 480 m), so
+  check the end on imagery.
+- A county road reaching the water without public land is mostly not an
+  access (1 of 7). Tier B is right for it.
+- Bridges rarely have a usable public launch.
+
+Added to Eddy from this review, through the dossier importer and its
+validation, then guarded SQL. The SQL and its rollback are in
+`../access-points/reviews/finder-review-2026-11-01.sql`:
+
+| Access | River | Mile | Notes |
+| --- | --- | ---: | --- |
+| County Road 5328 Access | Big Piney | 10.88 | county road; parking |
+| Henry River Access | Big Piney | 45.82 | FS 1538, gravel, passenger cars |
+| High Log Eddy | Big Piney | 57.11 | FS 255, gravel; pinned at the road's real end |
+| Forest Road 1794 Access | Big Piney | 67.18 | FS 1794, high clearance; limited parking |
+
+Approved: three existing records whose spots the finder hit and the owner
+confirmed. Each was a bare "Boat ramp" row and is now a float endpoint with
+the agency's facts:
+- **Simmons Ford Access** (Big Piney, MDC): mile 17.17.
+- **Dalton Boat Ramp** (Eleven Point, AGFC): mile **58.7, was 65.7**.
+- **Eleven Point Boat Ramp** (Eleven Point, AGFC, locally the Dunn Road
+  access): mile **78.0, was 86.16**.
+
+The two Arkansas miles were overstated. Myrtle to Dalton was 17.7 mi, but it
+measures 11.2 on the USGS channel and 10.7 on Eddy's line. Dalton to the
+Eleven Point ramp was 20.5, against 19.9 on the channel. Both are now set by
+line distance below Myrtle (48.0), the same way the line matches the curated
+Riverton to Myrtle miles (12.6 vs 12.4).
+
+Pending the owner's call: the Co Rd 405 bridge near Cane Bluff (36.79382,
+-91.41470) and the Co Rd 5117 bridge (37.281373, -92.009044). Both have river
+access but no parking and private land around them.
+
+## 2026-11-01 run (v3, after the review)
+
+95 candidates. Reviewed spots are left out: 5 on the Eleven Point and 10 on
+the Big Piney. Neither river has a tier-A spot left. Recall is 14 of 14 on the
+Eleven Point and 19 of 23 on the Big Piney. The misses are:
+- Mineral Springs, Sandy Shoals Ford and Warren Bridge, as before;
+- High Log Eddy, whose MVUM line stops short of the river.
+
+### The pre-review run
 
 123 candidates:
 
