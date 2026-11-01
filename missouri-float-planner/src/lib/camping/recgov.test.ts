@@ -63,7 +63,7 @@ test('Open never counts as an open or reservable site', () => {
   assert.deepEqual(out, { sitesOpen: 1, sitesReservable: 1, status: 'open' });
 });
 
-test('an Open cell reaches the per-site list as not_yet_released', () => {
+test('an Open cell reaches the per-site list as continuation_only', () => {
   const sites = parseMonthSites({
     campsites: {
       '77015': {
@@ -83,7 +83,7 @@ test('an Open cell reaches the per-site list as not_yet_released', () => {
     sites.siteNights.map((n) => [n.date, n.status]),
     [
       ['2027-05-01', 'open'],
-      ['2027-05-02', 'not_yet_released'],
+      ['2027-05-02', 'continuation_only'],
       ['2027-05-15', 'not_yet_released'],
     ],
   );

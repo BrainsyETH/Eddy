@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveHorizon, resolvePlanningMonth, type CampingWindow } from './window';
 import { MAX_AGE_MS } from './freshness';
 import type { UnitStatus } from './types';
+import type { CampingStayResult } from '../../../shared/camping-stay';
 
 /**
  * One night of one site, as a single character.
@@ -33,10 +34,79 @@ export const SITE_NIGHT_CODE: Record<UnitStatus, string> = {
   walk_up: 'W',
   closed: 'C',
   not_yet_released: 'N',
+  // Server-internal. Never leaves this process: see toWireSiteNights.
+  continuation_only: 'O',
 };
 
 /** The night was not measured. Never rendered as "taken". */
 export const SITE_NIGHT_UNKNOWN = '-';
+
+/**
+ * Codes that are read by the server only and replaced before a response.
+ *
+ * `O` (continuation_only) is a night bookable only after a valid arrival.
+ * Stay search needs that distinction — Available then Open is a real two-night
+ * stay — but a per-night list cannot say "free if you are already here", and
+ * the app's table (CAMPSITE_NIGHT_CODES) does not carry it. On the wire it
+ * reads as the arrival question it answers: not yet released.
+ */
+const WIRE_PROJECTION: Readonly<Record<string, string>> = {
+  [SITE_NIGHT_CODE.continuation_only]: SITE_NIGHT_CODE.not_yet_released,
+};
+
+/**
+ * One site's night string, server-side: a code per `windowNights` entry,
+ * `-` where nothing was measured. Pure, so the codec is tested end to end
+ * (provider parse -> encode -> stay search) without a database.
+ */
+export function encodeSiteNights(
+  windowNights: readonly string[],
+  byDate: ReadonlyMap<string, UnitStatus> | undefined,
+): string {
+  return windowNights
+    .map((date) => {
+      const status = byDate?.get(date);
+      return status ? SITE_NIGHT_CODE[status] : SITE_NIGHT_UNKNOWN;
+    })
+    .join('');
+}
+
+/** One site's night string as the app may see it. */
+export function toWireSiteNights(nights: string): string {
+  let out = '';
+  for (const code of nights) out += WIRE_PROJECTION[code] ?? code;
+  return out;
+}
+
+/** Every code that can appear in an /api/campsites response. */
+export const WIRE_SITE_NIGHT_CODES: ReadonlySet<string> = new Set(
+  Object.values(SITE_NIGHT_CODE).filter((code) => !(code in WIRE_PROJECTION)),
+);
+
+/** A site list for the wire. Does not mutate its input. */
+export function toWireSites(result: CampsiteSitesResult): CampsiteSitesResult {
+  return {
+    ...result,
+    sites: result.sites.map((site) => ({ ...site, nights: toWireSiteNights(site.nights) })),
+  };
+}
+
+/**
+ * A stay-search result for the wire. Only the raw night strings are
+ * projected: each site's per-night `state` and whole-stay verdict were
+ * computed from the internal codes and are already in the app's vocabulary.
+ */
+export function toWireStay(result: CampingStayResult): CampingStayResult {
+  const wire = <S extends { nights: string }>(site: S): S => ({
+    ...site,
+    nights: toWireSiteNights(site.nights),
+  });
+  return {
+    ...result,
+    availableSites: result.availableSites.map(wire),
+    sites: result.sites.map((entry) => ({ ...entry, site: wire(entry.site) })),
+  };
+}
 
 /**
  * Rows per request.
@@ -234,12 +304,7 @@ export async function loadFacilitySitesForWindow(
           siteType: site.site_type,
           maxOccupancy: site.max_occupancy,
           bookingUrl: bookingUrl(source, site.source_site_id),
-          nights: window.nights
-            .map((date) => {
-              const status = nights?.get(date);
-              return status ? SITE_NIGHT_CODE[status] : SITE_NIGHT_UNKNOWN;
-            })
-            .join(''),
+          nights: encodeSiteNights(window.nights, nights),
         };
       })
       // A site with nothing measured at all is noise in a list somebody is

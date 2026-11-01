@@ -39,10 +39,13 @@ const BASE = 'https://www.recreation.gov/api/camps/availability/campground';
  * arrival date the window had released — read `Available`, May 2–14 read
  * `Open` on every site, and May 15 onward read `NYR`. Thirteen nights after
  * the last bookable arrival is exactly a fourteen-night maximum stay, so `Open`
- * is a night bookable only as the tail of a stay that arrives earlier. Nobody
- * can arrive on it, so it is counted as not yet released. Before this it was
- * outside the union and dropped, so a wholly `Open` night folded to zero cells
- * and printed as fully booked.
+ * is a night bookable only as the tail of a stay that arrives earlier.
+ *
+ * So it is two things, and both are kept. Per site it is `continuation_only`
+ * (UNIT_STATUS), which stay search reads: Available then Open is a real
+ * two-night stay. Folded into one night's aggregate it counts as not yet
+ * released (foldNight), because that aggregate answers "can I arrive tonight",
+ * and nobody can arrive on it.
  */
 type Cell = 'Available' | 'Reserved' | 'Not Reservable' | 'Closed' | 'NYR' | 'Open';
 
@@ -61,7 +64,7 @@ const UNIT_STATUS: Record<Cell, UnitStatus> = {
   Closed: 'closed',
   NYR: 'not_yet_released',
   // Bookable only as a continuation, never as an arrival — see Cell.
-  Open: 'not_yet_released',
+  Open: 'continuation_only',
 };
 
 /**
@@ -151,6 +154,7 @@ export function foldNight(cells: Cell[]): Omit<DailyAggregate, 'date'> {
         closed++;
         break;
       case 'NYR':
+      // A single night's aggregate is an arrival question; see Cell.
       case 'Open':
         nyr++;
         break;

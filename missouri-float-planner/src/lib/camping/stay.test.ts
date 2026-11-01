@@ -4,7 +4,8 @@ import { searchCampingStay } from './stay';
 import { stayGridNights } from './stay-grid';
 import { validPlanningStay } from './stay-read';
 import { stayNights, nextCampingDate } from '../../../shared/camping-stay';
-import type { CampsiteSitesResult } from './sites';
+import { encodeSiteNights, toWireSites, toWireStay, type CampsiteSitesResult } from './sites';
+import { parseMonthSites } from './recgov';
 import type { UnitStatus } from './types';
 const NOW = new Date('2026-10-15T12:00:00Z');
 const dates = ['2026-10-16', '2026-10-17'];
@@ -226,4 +227,104 @@ test('the mobile detail sheet displays the server classifications and expires th
     ),
   );
   assert.deepEqual(currentCampingStay(null, 259200, NOW.getTime()), []);
+});
+
+// ── Continuation-only nights (recreation.gov `Open`) ─────────────────────
+//
+// End to end, from the provider's payload: recgov parse -> the server's own
+// night-string encoder -> stay search -> the wire projection. An `Open` night
+// is bookable only after a valid arrival, so Available then Open is a real
+// two-night stay, while an arrival ON an Open night is not.
+
+function fromRecgov(cells: Record<string, string>): CampsiteSitesResult {
+  const parsed = parseMonthSites({
+    campsites: {
+      '77015': {
+        campsite_id: '77015',
+        site: '06',
+        loop: 'WAR EAGLE CAMPGROUND',
+        type_of_use: 'Overnight',
+        availabilities: Object.fromEntries(
+          Object.entries(cells).map(([date, cell]) => [`${date}T00:00:00Z`, cell]),
+        ),
+      },
+    },
+  } as never);
+  const byDate = new Map<string, UnitStatus>(
+    parsed.siteNights.map((night) => [night.date, night.status]),
+  );
+  const base = snapshot([]);
+  return {
+    ...base,
+    sites: parsed.sites.map((site) => ({
+      id: site.sourceSiteId,
+      name: site.name,
+      loop: site.loop,
+      siteType: site.siteType,
+      maxOccupancy: site.maxOccupancy,
+      bookingUrl: null,
+      nights: encodeSiteNights(dates, byDate),
+    })),
+  };
+}
+
+test('Available then Open is a bookable two-night stay', () => {
+  const sites = fromRecgov({ [dates[0]]: 'Available', [dates[1]]: 'Open' });
+  assert.equal(sites.sites[0].nights, 'AO', 'the distinction survives encoding');
+
+  const out = searchCampingStay(sites, dates[0], '2026-10-18', NOW);
+  assert.deepEqual(out.availableSites.map((s) => s.id), ['77015']);
+  assert.deepEqual(out.sites[0].nights.map((n) => n.state), ['open', 'open']);
+  assert.equal(out.sites[0].state, 'available');
+  assert.equal(out.summary?.status, 'open');
+  assert.equal(out.summary?.sitesOpen, 1);
+});
+
+test('an arrival on an Open night is refused, as not yet released', () => {
+  const sites = fromRecgov({ [dates[0]]: 'Available', [dates[1]]: 'Open' });
+  const out = searchCampingStay(sites, dates[1], '2026-10-18', NOW);
+  assert.deepEqual(out.availableSites, []);
+  assert.deepEqual(out.sites[0].nights.map((n) => n.state), ['not_yet_released']);
+  assert.equal(out.summary?.status, 'not_yet_released');
+});
+
+test('Open after an arrival that was never bookable does not rescue the stay', () => {
+  const sites = fromRecgov({ [dates[0]]: 'Reserved', [dates[1]]: 'Open' });
+  const out = searchCampingStay(sites, dates[0], '2026-10-18', NOW);
+  assert.deepEqual(out.availableSites, []);
+  assert.deepEqual(out.sites[0].nights.map((n) => n.state), ['reserved', 'not_yet_released']);
+  assert.equal(out.sites[0].state, 'unavailable');
+});
+
+test('the single-night grid treats an Open night as an arrival question', () => {
+  const grid = stayGridNights(
+    {
+      nights: [
+        { date: dates[0], sitesOpen: 1, sitesReservable: 1, status: 'open' },
+        { date: dates[1], sitesOpen: 0, sitesReservable: 0, status: 'not_yet_released' },
+      ],
+      sites: [],
+      siteNights: [
+        { sourceSiteId: '77015', date: dates[0], status: 'open' },
+        { sourceSiteId: '77015', date: dates[1], status: 'continuation_only' },
+      ],
+    },
+    NOW,
+  );
+  assert.deepEqual(grid.map((n) => [n.date, n.status]), [
+    [dates[0], 'open'],
+    [dates[1], 'not_yet_released'],
+  ]);
+});
+
+test('the wire never carries the continuation code, and keeps the stay verdict', () => {
+  const sites = fromRecgov({ [dates[0]]: 'Available', [dates[1]]: 'Open' });
+  assert.equal(toWireSites(sites).sites[0].nights, 'AN');
+  assert.equal(sites.sites[0].nights, 'AO', 'projection does not mutate its input');
+
+  const stay = toWireStay(searchCampingStay(sites, dates[0], '2026-10-18', NOW));
+  assert.equal(stay.sites[0].site.nights, 'AN');
+  assert.equal(stay.availableSites[0].nights, 'AN');
+  assert.equal(stay.sites[0].state, 'available', 'computed before projection');
+  assert.equal(stay.summary?.status, 'open');
 });
