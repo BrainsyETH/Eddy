@@ -254,8 +254,10 @@ spacing, attribution, keyboard search, and desktop/mobile layouts.
 
 ## Nationwide gauges on both web maps
 
-The planner (`/plan`) and Live River Map (`/river-map`) share **USGS gauges**
-controls: **Eddy-rated** and **Other USGS**, both enabled by default. Explicit
+The planner (`/plan`) and Live River Map (`/river-map`) share one **River
+gauges** layer row (`GaugeMapFilters`). Its switch turns gauges on or off;
+under it, **Eddy-rated** and **Other gauges** chips split the same USGS
+network, both enabled by default, as in the app's layers sheet. Explicit
 layer choices persist across both maps and open tabs. On first use, the previous planner
 `showGauges` preference seeds both switches, preserving a saved off choice.
 The national layer uses the complete,
@@ -271,7 +273,8 @@ Freshness updates run at observation boundaries, rather than rebuilding the
 national layer every minute.
 
 Other gauges show measurements and the shared historical flow-comparison colors,
-never a floatability verdict; the filter controls show the color key, and count
+never a floatability verdict. The flow-band chips are both the color key and the
+filter (tap a color to narrow to it), and count
 bubbles are parchment with an ink edge so a group never reads as a comparison
 color. Stage-only stations are included. Historical
 observations are opt-in; delayed, suspect and missing-comparison readings do not

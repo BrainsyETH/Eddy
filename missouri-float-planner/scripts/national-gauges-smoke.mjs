@@ -103,8 +103,7 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     await page.getByRole('button', { name: 'Close gauge details', exact: true }).click();
     await page.getByRole('button', { name: 'Map filters', exact: true }).click();
     const filters = page.getByRole('region', { name: 'USGS gauge filters' });
-    assert.equal(await filters.getByRole('button', { name: /^USGS gauges/ }).getAttribute('aria-pressed'), 'true');
-    await filters.getByText('Filter other gauges', { exact: true }).click();
+    assert.equal(await filters.getByRole('button', { name: /^River gauges/ }).getAttribute('aria-pressed'), 'true');
     await filters.getByRole('button', { name: 'Include historical', exact: true }).click();
     await sourceCount(total + 1);
     await filters.getByRole('button', { name: 'Clear gauge filters', exact: true }).click();
@@ -121,13 +120,13 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     }), 'Expanded filters stay above route tools and the phone sheet');
     await page.screenshot({ path: `${out}/national-planner-filters-${width}.png` });
     await filters.getByRole('button', { name: 'Clear gauge filters', exact: true }).click();
-    await filters.getByRole('button', { name: /^Other USGS/ }).click();
+    await filters.getByRole('button', { name: /^Other gauges/ }).click();
     await sourceCount(0);
     await page.reload();
     await sourceCount(0);
     assert.equal(indexRequests, 1, 'Saved-off layer does not fetch on reload');
     await page.getByRole('button', { name: 'Map filters', exact: true }).click();
-    await filters.getByRole('button', { name: /^Other USGS/ }).click();
+    await filters.getByRole('button', { name: /^Other gauges/ }).click();
     await sourceCount(total);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('eddy-web-gauge-layers-v1')).other === true);
     assert.deepEqual(errors, []);
@@ -139,11 +138,10 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     if (width < 768) await page.getByRole('button', { name: /rivers floatable/ }).click();
     const liveFilters = page.getByRole('region', { name: 'USGS gauge filters' });
     await page.screenshot({ path: `${out}/national-live-overview-${width}.png` });
-    await liveFilters.getByRole('button', { name: /^Other USGS/ }).click();
+    await liveFilters.getByRole('button', { name: /^Other gauges/ }).click();
     await page.waitForFunction(() => document.querySelectorAll('[data-national-gauges] [data-gauge-visible="true"]').length === 0);
-    await liveFilters.getByRole('button', { name: /^Other USGS/ }).click();
+    await liveFilters.getByRole('button', { name: /^Other gauges/ }).click();
     await page.locator('[data-national-gauges] [data-gauge-visible="true"]').first().waitFor();
-    await liveFilters.getByText('Filter other gauges', { exact: true }).click();
     await liveFilters.getByRole('button', { name: 'Much higher', exact: true }).click();
     if (width < 768) await page.getByRole('button', { name: 'Close panel' }).click();
     const svgMarker = page.locator('[data-usgs-site-id="10000001"]');
@@ -181,9 +179,11 @@ export async function runNationalGaugeChecks({ browser, origin, out, routeHandle
     : route.fulfill({ json: { capped: true, total, gauges: [nationalGaugeDetail('10000001')] } }));
   await legacy.goto(`${origin}/planner-map-layout-check`, { timeout: 120_000 });
   await legacy.getByRole('button', { name: 'Map filters', exact: true }).click();
-  await legacy.getByRole('button', { name: 'Other USGS · Off', exact: true }).waitFor();
+  // The saved choice is restored after mount, so wait for the row to read off.
+  const legacyGauges = legacy.getByRole('button', { name: /^River gauges/, pressed: false });
+  await legacyGauges.waitFor();
   assert.equal(requests, 0, 'Legacy gauges-off choice prevents the national download');
-  await legacy.getByRole('button', { name: /^Other USGS/ }).click();
+  await legacyGauges.click();
   await waitForMapData(legacy, async total => (await window.plannerMap?.getSource('planner-reference-gauges')?.getData())?.features.length === total, total);
   await legacy.waitForFunction(() => { const map = window.plannerMap; if (!map || map.isMoving()) return false; map.jumpTo({ center: [-91.3, 37.1], zoom: 15 }); return true; });
   await legacy.getByRole('button', { name: 'Retry names', exact: true }).waitFor();

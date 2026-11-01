@@ -453,12 +453,12 @@ try {
   assert.equal(await attribution.evaluate(el => el.classList.contains('maplibregl-compact-show')), false);
   for (const text of ['Your next river day', 'River colors show current', 'Make a day of it']) assert.equal(await page.getByText(text, { exact: false }).count(), 0);
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
-  for (const name of ['Nearby rivers', 'River names', 'USGS gauges', 'Water flow', 'Points of interest', 'River photos']) {
+  for (const name of ['Nearby rivers', 'River names', 'River gauges', 'Water flow', 'Points of interest', 'River photos']) {
     assert.equal(await page.getByRole('button', { name: new RegExp(`^${name}`) }).getAttribute('aria-pressed'), 'true');
   }
-  await page.getByRole('button', { name: /^USGS gauges/ }).click();
+  await page.getByRole('button', { name: /^River gauges/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('.gauge-station-marker').length === 0);
-  await page.getByRole('button', { name: /^USGS gauges/ }).click();
+  await page.getByRole('button', { name: /^River gauges/ }).click();
   await page.getByRole('button', { name: 'Map filters', exact: true }).click();
   console.log('All desktop filters start enabled; statewide gauges, POIs and collapsed attribution verified');
   delayRiver = true;

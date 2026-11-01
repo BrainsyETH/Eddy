@@ -15,16 +15,14 @@
 
 import GaugeMapFilters from '@/components/gauge/GaugeMapFilters';
 import type { NationalGaugeState } from '@/hooks/useNationalGauges';
+import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
+import { LayerChip, LayerRow } from '@/components/ui/LayerRow';
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   SlidersHorizontal,
   Waves,
   Type,
-  Wind,
-  Sailboat,
-  Tent,
-  Droplets,
   Mountain,
   Eye,
   Landmark,
@@ -40,18 +38,21 @@ import {
   type ConditionCode,
 } from '@shared/condition-system';
 
-// Canonical POI category → label + icon. Order is the display order in the
+// Canonical POI category → label + mark. Order is the display order in the
 // panel; only categories actually present on the current river are shown.
-const POI_CATEGORY_META: Record<string, { label: string; icon: LucideIcon }> = {
-  outfitter: { label: 'Outfitters', icon: Sailboat },
-  float_camp: { label: 'Camps', icon: Tent },
-  spring: { label: 'Springs', icon: Droplets },
-  waterfall: { label: 'Waterfalls', icon: Droplets },
-  scenic_viewpoint: { label: 'Scenic', icon: Eye },
-  cave: { label: 'Caves', icon: Mountain },
-  historical_site: { label: 'Historic', icon: Landmark },
-  geological: { label: 'Geology', icon: CircleDot },
-  other: { label: 'Other', icon: Star },
+// Eddy's own art where the catalog has drawn the thing (the same marks the
+// app's layers sheet uses); a Lucide glyph only where it has not, yet.
+type Mark = { eddy: EddyIconName } | { glyph: LucideIcon };
+const POI_CATEGORY_META: Record<string, { label: string; mark: Mark }> = {
+  outfitter: { label: 'Outfitters', mark: { eddy: 'outfitter' } },
+  float_camp: { label: 'Camps', mark: { eddy: 'campground' } },
+  spring: { label: 'Springs', mark: { eddy: 'spring' } },
+  waterfall: { label: 'Waterfalls', mark: { eddy: 'spring' } },
+  scenic_viewpoint: { label: 'Scenic', mark: { glyph: Eye } },
+  cave: { label: 'Caves', mark: { glyph: Mountain } },
+  historical_site: { label: 'Historic', mark: { glyph: Landmark } },
+  geological: { label: 'Geology', mark: { glyph: CircleDot } },
+  other: { label: 'Other', mark: { glyph: Star } },
 };
 const CATEGORY_ORDER = Object.keys(POI_CATEGORY_META);
 
@@ -230,46 +231,48 @@ export default function PlanFilters({
           Height clamps to the viewport with internal scroll — the panel
           outgrew short phones. */}
       {open && (
+        // The Framed card from DESIGN.md: 2px Primary 700 border and the hard
+        // offset shadow, so the panel reads as Eddy's over any basemap.
         <div
-          className={`${floating ? `absolute top-full ${compact ? 'right-0' : 'left-0'} z-40` : ''} mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border shadow-2xl`}
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className={`${floating ? `absolute top-full ${compact ? 'right-0' : 'left-0'} z-40` : ''} mt-2 max-h-[min(65dvh,36rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border-2 border-primary-700 shadow-md`}
+          style={{ background: 'var(--color-surface)' }}
         >
           {/* Map layers */}
           <div className="px-3 py-2.5">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[color:var(--color-text-muted)]">
               Show on map
             </p>
-            <ToggleRow
-              icon={Waves}
+            <LayerRow
+              mark={<EddyIcon name="river" size={20} />}
               label="Nearby rivers"
               sublabel="Live conditions statewide"
               on={showNetwork}
               onClick={onToggleNetwork}
             />
-            <ToggleRow
-              icon={Type}
+            <LayerRow
+              mark={<Type className="h-4 w-4" />}
               label="River names"
               sublabel="Labels along each river"
               on={showRiverNames}
               onClick={onToggleRiverNames}
             />
             <GaugeMapFilters state={gaugeState} />
-            <ToggleRow
-              icon={Wind}
+            <LayerRow
+              mark={<Waves className="h-4 w-4" />}
               label="Water flow"
               sublabel="Animated current"
               on={showFlow}
               onClick={onToggleFlow}
             />
-            <ToggleRow
-              icon={Star}
+            <LayerRow
+              mark={<EddyIcon name="accessPoint" size={18} />}
               label="Points of interest"
               sublabel="Outfitters, camps, springs…"
               on={showPOIs}
               onClick={onTogglePOIs}
             />
-            <ToggleRow
-              icon={Camera}
+            <LayerRow
+              mark={<Camera className="h-4 w-4" />}
               label="River photos"
               sublabel="Community water-level pics"
               on={showPhotos}
@@ -370,23 +373,16 @@ export default function PlanFilters({
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((c) => {
                   const meta = POI_CATEGORY_META[c];
-                  const Icon = meta.icon;
                   const active = !hiddenCategories.has(c);
                   return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => onToggleCategory(c)}
-                      aria-pressed={active}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        active
-                          ? 'border-primary-600 bg-primary-600 text-white'
-                          : 'border-[color:var(--color-border)] bg-[var(--color-surface)] text-[color:var(--color-text-secondary)] hover:border-primary-300'
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
+                    <LayerChip key={c} pressed={active} onClick={() => onToggleCategory(c)} className="!rounded-full">
+                      {'eddy' in meta.mark ? (
+                        <EddyIcon name={meta.mark.eddy} size={16} className={`shrink-0 ${active ? '' : 'opacity-45'}`} />
+                      ) : (
+                        <meta.mark.glyph className={`h-3.5 w-3.5 ${active ? 'text-primary-600' : ''}`} />
+                      )}
                       {meta.label}
-                    </button>
+                    </LayerChip>
                   );
                 })}
               </div>
@@ -417,52 +413,5 @@ export default function PlanFilters({
         </div>
       )}
     </div>
-  );
-}
-
-function ToggleRow({
-  icon: Icon,
-  label,
-  sublabel,
-  on,
-  onClick,
-}: {
-  icon: LucideIcon;
-  label: string;
-  sublabel: string;
-  on: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={on}
-      className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-2 text-left transition-colors hover:bg-[var(--color-background)]"
-    >
-      <Icon
-        className={`h-4 w-4 shrink-0 ${on ? 'text-primary-600' : 'text-[color:var(--color-text-muted)]'}`}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-[color:var(--color-text-primary)]">
-          {label}
-        </span>
-        <span className="block truncate text-[11px] text-[color:var(--color-text-muted)]">
-          {sublabel}
-        </span>
-      </span>
-      {/* Track + knob */}
-      <span
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          on ? 'bg-primary-600' : 'bg-[var(--color-border-strong)]'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
-            on ? 'left-[18px]' : 'left-0.5'
-          }`}
-        />
-      </span>
-    </button>
   );
 }
