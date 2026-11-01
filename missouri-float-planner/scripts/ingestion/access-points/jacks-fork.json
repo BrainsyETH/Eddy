@@ -1,0 +1,25 @@
+[
+ {
+  "name": "Bee Bluff Access",
+  "slug": "bee-bluff-access",
+  "kind": "access",
+  "roles": [
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 23.57,
+  "lat": 37.107433,
+  "lon": -91.510707,
+  "is_public": true,
+  "ownership": "NPS",
+  "managing_agency": "NPS",
+  "description": "Primitive access on the Ozark National Scenic Riverways at the end of County Road 106-425, near the mouth of Bee Hollow Branch, about 1.7 river miles above Bay Creek.",
+  "road_access": "County Road 106-425, the Bay Creek road. Follow it to its end at the river.",
+  "parking_info": "No developed parking.",
+  "facilities": "No facilities.",
+  "confidence": "medium (owner-approved on imagery 2026-11-01)",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
+ }
+]
