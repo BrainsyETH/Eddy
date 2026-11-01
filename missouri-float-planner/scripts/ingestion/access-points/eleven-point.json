@@ -26,5 +26,29 @@
    "https://forums.ozarkanglers.com/topic/27263-areas-outside-of-ozark-national-scenic-riverways",
    "https://www.exploretheozarksonline.com/activities/parksnature/wildscenicrivers/elevenpoint/index.html"
   ]
+ },
+ {
+  "name": "County Road 405 Bridge",
+  "slug": "county-road-405-bridge",
+  "kind": "bridge",
+  "roles": [
+   "bridge",
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 8.2,
+  "lat": 36.79382,
+  "lon": -91.4147,
+  "is_public": true,
+  "ownership": "county (road right-of-way)",
+  "managing_agency": "County",
+  "description": "County road bridge about a mile above Cane Bluff. Access is from the road right-of-way only; the land on both sides is private.",
+  "road_access": "County Road 405, the road to Cane Bluff.",
+  "parking_info": "No parking. Don't block the road.",
+  "facilities": "No facilities.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+  ]
  }
 ]

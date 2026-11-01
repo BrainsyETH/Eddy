@@ -4,13 +4,13 @@ eleven-point,36.651746,-91.186327,no_access,,v2 tier A (unnamed S1740 loop); not
 eleven-point,36.750056,-91.249741,no_access,,v2 tier A (Forest Rd 3230A loop); not an access
 eleven-point,36.785240,-91.311326,no_access,,v2 tier A (unnamed road end); not an access
 eleven-point,36.565231,-91.176195,no_access,,v2 tier A (unnamed S1740 at Rush Creek mouth); not an access
-eleven-point,36.791437,-91.413010,access_no_parking,,Co Rd 405; the bridge is at 36.79382 -91.41470; surrounded by private land with no parking
+eleven-point,36.791437,-91.413010,access_no_parking,county-road-405-bridge,Co Rd 405; the bridge is at 36.79382 -91.41470; surrounded by private land with no parking
 eleven-point,36.575559,-91.180848,no_access,,unnamed road
 big-piney,37.544632,-92.021159,access,high-log-eddy,FS 255; the road's real end is 37.547917 -92.024972 (the MVUM line stops short)
 big-piney,37.477996,-91.988305,access,henry-river-access,FS 1538
 big-piney,37.823958,-92.081598,no_access,,Tulsa Rd; not public land despite PAD-US
 big-piney,37.498927,-91.988673,access_private,,State Hwy 32 bridge; access looks private
-big-piney,37.281373,-92.009044,access_no_parking,,Co Rd 5117 bridge; surrounded by private land
+big-piney,37.281373,-92.009044,access_no_parking,county-road-5117-bridge,Co Rd 5117 bridge; surrounded by private land
 big-piney,37.317141,-92.004456,no_access,,Hwy Z bridge
 big-piney,37.629502,-92.047691,access,forest-road-1794,FS 1794; limited parking
 big-piney,37.140126,-92.079372,no_access,,US Hwy 63 bridge

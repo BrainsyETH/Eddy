@@ -3,7 +3,9 @@
   "name": "County Road 5328 Access",
   "slug": "county-road-5328",
   "kind": "access",
-  "roles": ["access"],
+  "roles": [
+   "access"
+  ],
   "is_float_endpoint": true,
   "expected_mile": 10.9,
   "lat": 37.194717,
@@ -24,7 +26,9 @@
   "name": "Henry River Access",
   "slug": "henry-river-access",
   "kind": "access",
-  "roles": ["access"],
+  "roles": [
+   "access"
+  ],
   "is_float_endpoint": true,
   "expected_mile": 45.8,
   "lat": 37.477996,
@@ -46,7 +50,9 @@
   "name": "High Log Eddy",
   "slug": "high-log-eddy",
   "kind": "access",
-  "roles": ["access"],
+  "roles": [
+   "access"
+  ],
   "is_float_endpoint": true,
   "expected_mile": 57.1,
   "lat": 37.547917,
@@ -68,7 +74,9 @@
   "name": "Forest Road 1794 Access",
   "slug": "forest-road-1794",
   "kind": "access",
-  "roles": ["access"],
+  "roles": [
+   "access"
+  ],
   "is_float_endpoint": true,
   "expected_mile": 67.2,
   "lat": 37.629502,
@@ -84,6 +92,30 @@
   "source_urls": [
    "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1",
    "https://www.trailsoffroad.com/US/missouri/scout-routes/5411-national-scenic-trail"
+  ]
+ },
+ {
+  "name": "County Road 5117 Bridge",
+  "slug": "county-road-5117-bridge",
+  "kind": "bridge",
+  "roles": [
+   "bridge",
+   "access"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 22.4,
+  "lat": 37.281373,
+  "lon": -92.009044,
+  "is_public": true,
+  "ownership": "county (road right-of-way)",
+  "managing_agency": "County",
+  "description": "County road bridge between Baptist Camp and Dogs Bluff. Access is from the road right-of-way only; the land around it is private.",
+  "road_access": "Texas County Road 5117.",
+  "parking_info": "No parking. Don't block the road.",
+  "facilities": "No facilities.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
   ]
  }
 ]

@@ -139,9 +139,21 @@ Eleven Point ramp was 20.5, against 19.9 on the channel. Both are now set by
 line distance below Myrtle (48.0), the same way the line matches the curated
 Riverton to Myrtle miles (12.6 vs 12.4).
 
-Pending the owner's call: the Co Rd 405 bridge near Cane Bluff (36.79382,
--91.41470) and the Co Rd 5117 bridge (37.281373, -92.009044). Both have river
-access but no parking and private land around them.
+Also added, at the owner's call: **County Road 405 Bridge** (Eleven Point,
+mile 8.2, about a mile above Cane Bluff) and **County Road 5117 Bridge** (Big
+Piney, mile 22.42). Both have river access but no parking and private land
+around them, which their text says. Their SQL and rollback are in
+`../access-points/reviews/bridges-and-sandy-shoals-2026-11-01.sql`.
+
+**Sandy Shoals Ford** (Big Piney) was the third rounded placeholder pin
+(37.378, -91.974), with no road crossing within 4 km. Census still draws Sand
+Shoals Rd through the old low-water ford (37.411016, -91.949972), and the
+owner's parcel map shows private land on both banks there. The road now
+crosses on a bridge about 200 m north, so the pin is at that bridge
+(37.412816, -91.950842, snap 8 m). The mile moves from 34.6 to 37.9, which
+makes Sandy Shoals to Boiling Spring 6.7 mi; published reports say 6 to 8, and
+it was 10.0. The text no longer describes a ford or an unverified 8 to 10 car
+pull-off.
 
 ## 2026-11-01 run (v3, after the review)
 
