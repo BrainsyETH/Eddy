@@ -20,6 +20,7 @@
 // I/O — which is the whole reason it can be tested without a database.
 
 import { withReviewedPlacePhoto } from '@/lib/photos/reviewed';
+import { npsHeroImage } from '@/lib/services/npsCampground';
 import { calculateBounds, type GeoBounds } from '@/lib/utils/geo';
 import { inBounds } from '@/lib/geo/region-bounds';
 import { bookingUrlFor } from '@/lib/camping/booking';
@@ -218,6 +219,33 @@ export interface SpringRow {
   river_mile: number | string | null;
   position_source: string | null;
   raw_data: Record<string, unknown> | null;
+  /**
+   * Optional so a narrower select still type-checks, but the bundle selects
+   * `*` and both arrive. `images` is JSON that is sometimes stored as a string
+   * (twice-encoded, in production); `nps_id` is what withReviewedPlacePhoto
+   * checks before it adds a reviewed photo, and without it no reviewed photo
+   * is added.
+   */
+  images?: unknown;
+  nps_id?: string | null;
+}
+
+/**
+ * The spring's one photo, or null.
+ *
+ * Reviewed additions apply first (an empty row only — they never replace an
+ * existing image), then the first image that is not a map. Only https is passed
+ * through: the app loads this URL directly, and the bundle is served to every
+ * install.
+ */
+function springImageUrl(row: SpringRow): string | null {
+  const hero = npsHeroImage(withReviewedPlacePhoto('points_of_interest', row).images);
+  if (!hero) return null;
+  try {
+    return new URL(hero.url).protocol === 'https:' ? hero.url : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -253,6 +281,7 @@ export function toSpring(row: SpringRow): MapSpring | null {
         ? bracket
         : null,
     isPrivate: raw.private === true,
+    imageUrl: springImageUrl(row),
   };
 }
 

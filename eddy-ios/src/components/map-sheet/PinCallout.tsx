@@ -4,6 +4,7 @@ import { openExternalLink } from '@/lib/openExternalLink';
 // description and links in a bounded scroller below it.
 
 import { ServiceCampingSites } from '@/components/ServiceCampingSites';
+import { ScenicImage } from '@/components/ScenicImage';
 import type { ComponentProps } from 'react';
 import { MapSheet } from './MapSheet';
 import { SheetBody } from './SheetPager';
@@ -517,6 +518,20 @@ export function PinCallout({
             />
           ) : null}
 
+          {/* A spring's photo, full width, above what the guide says about it.
+              Springs have no tabbed sheet, so this is where the gallery an
+              access point's Overview tab shows would be — one image, the same
+              16:10 card. The 44pt thumbnail in the peek is the same photo. */}
+          {pin.layer === 'springs' && pin.imageUrl ? (
+            <ScenicImage
+              imageWidth={828}
+              source={{ uri: pin.imageUrl }}
+              style={[styles.calloutPhoto, { backgroundColor: colors.cardRaised }]}
+              accessibilityLabel={`${pin.name} photo`}
+              accessibilityIgnoresInvertColors
+            />
+          ) : null}
+
           {pin.body ? (
             <Text style={[styles.calloutBody, { color: colors.textMuted }]}>{pin.body}</Text>
           ) : null}
@@ -598,6 +613,8 @@ const styles = StyleSheet.create({
   calloutChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   calloutChipText: { ...t.sm, fontFamily: fonts.semibold },
   calloutBody: { ...t.sm, fontFamily: fonts.body, marginTop: 9 },
+  // AccessTabs' gallery card: 16:10, radius 12, the sheet's full content width.
+  calloutPhoto: { width: '100%', aspectRatio: 16 / 10, borderRadius: 12, marginTop: 4 },
   // A hairline spine rather than a filled card: this sits directly under a
   // severity chip that is already tinted, and a second coloured block would
   // compete with the one signal that carries the danger. The rule and the

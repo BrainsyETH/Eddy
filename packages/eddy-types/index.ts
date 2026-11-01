@@ -899,9 +899,10 @@ export interface HazardsResponse {
 // and until this type existed the iOS map had no way to know one was there.
 //
 // A STRUCTURAL SUBSET of the web's PointOfInterest, on the same reasoning as
-// MapAccessPoint above: that type carries images, amenities, NPS ids, booking
-// urls and body text for a river page, and restating those here would be pure
-// drift risk for a map that draws a pin and a callout.
+// MapAccessPoint above: that type carries an image gallery, amenities, NPS ids,
+// booking urls and body text for a river page, and restating those here would
+// be pure drift risk for a map that draws a pin and a callout. The callout takes
+// one photo from the gallery (`imageUrl`) and nothing else.
 
 /**
  * How a spring's coordinates were obtained, which the map has to be able to
@@ -945,6 +946,19 @@ export interface MapSpring {
    * it like every other one has been misled by this app.
    */
   isPrivate: boolean;
+  /**
+   * One photograph of the spring, or null when Eddy has none.
+   *
+   * The first usable image on the points_of_interest row (NPS, an uploaded
+   * photo, or a reviewed addition from src/data/reviewed-place-photos.json),
+   * skipping maps. ONE, not the gallery: the spring sheet is an identification,
+   * like an access point's callout.
+   *
+   * Optional because the phone keeps bundles written before this field
+   * existed. Absent means the same as null — no photo — and a layout using it
+   * must read as normal without one.
+   */
+  imageUrl?: string | null;
 }
 
 // ── Gauge stations (GET /api/gauges) ─────────────────────────────

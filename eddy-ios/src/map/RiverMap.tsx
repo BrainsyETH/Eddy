@@ -744,6 +744,9 @@ export function mapSpringPin(s: MapSpring & PlaceRiver): MapPin {
     coordinates: s.coordinates,
     instruction: notes.length > 0 ? notes.join('\n\n') : null,
     body: s.description,
+    // The spring itself — Round Spring's blue pool says more than its name. A
+    // bundle cached before the field existed has none, which reads as no photo.
+    imageUrl: s.imageUrl ?? null,
     // What puts "View river" on the callout.
     riverSlug: s.riverSlug ?? null,
   };
