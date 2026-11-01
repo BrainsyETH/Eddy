@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  amenityVerdict, cityParkName, decideAgency, landVerdict, linkVerdict, roadVerdict, sharesDistinctiveName,
+  amenityVerdict, cityParkName, decideAgency, landVerdict, linkVerdict, redirectsToGeneric, roadVerdict, sharesDistinctiveName,
 } from './audit-access-enrichment-2026-11';
 
 const land = (at: Partial<{ npsTracts: { alpha: string; estate: string; interest: string }[]; usfs: string[] }>, near = at) => ({
@@ -88,4 +88,10 @@ test('whole-table false positives stay confirmed: a named ramp, a season, a road
   assert.equal(amenityVerdict('camping', 'Camping is seasonal (Sept 15 – May 15 only). Day-use only in summer.', []).verdict, 'confirmed', 'Huzzah');
   assert.equal(amenityVerdict('parking', 'Lot at the landing; since March 2023 no parking is allowed anywhere along Kyles Landing Road.', []).verdict, 'confirmed', 'Kyles Landing');
   assert.equal(amenityVerdict('camping', 'Boat ramp, two parking lots, day-use only, no camping.', []).verdict, 'contradicted');
+});
+
+test('a redirect to a shallower page, or one that drops the site ID, is a dead link', () => {
+  assert.ok(redirectsToGeneric('https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21814', 'https://www.fs.usda.gov/r09/marktwain/recreation'));
+  assert.ok(!redirectsToGeneric('https://bigbearriverresort.com/', 'https://bigbearriverresort.com/'));
+  assert.ok(!redirectsToGeneric('http://example.org/a/b', 'https://example.org/a/b/'));
 });

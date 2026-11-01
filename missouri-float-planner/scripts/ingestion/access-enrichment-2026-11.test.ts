@@ -199,3 +199,11 @@ test('AGFC owner values map by an explicit table; unknowns are not evidence', ()
   ]);
   assert.equal(jimGriffin.confidence, 'flag');
 });
+
+test('official_site_url accepts a page or a removal, never a map-service query', () => {
+  const base = { access_point_id: '11111111-2222-3333-4444-555555555555', slug: 's', confidence: 'high', accept: 'y', field: 'official_site_url' };
+  const gis = 'https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=143&outFields=*&outSR=4326&f=pjson';
+  assert.deepEqual(correctionsFromSheet([{ ...base, current: JSON.stringify(gis), proposed: 'null' }]).corrections[0].to, { official_site_url: null });
+  assert.throws(() => correctionsFromSheet([{ ...base, current: 'null', proposed: JSON.stringify(gis) }]), /invalid official_site_url/);
+  assert.equal(correctionsFromSheet([{ ...base, current: 'null', proposed: '"https://www.fs.usda.gov/r09/marktwain/recreation/east-gate"' }]).corrections.length, 1);
+});

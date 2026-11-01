@@ -319,3 +319,38 @@ For "possible" rows the bank beside the end is not on a public parcel, so check
 whether the road reaches public riverbank at all. To promote a confirmed spot,
 add it to a dossier and import it with
 `scripts/ingestion/import-dossier-access-points.ts`. It lands `approved = false`.
+
+## Link fixes (2026-11-01, production `ilefwfpvphadsbptiaur`)
+
+`audit-access-enrichment-2026-11.ts --links` fetches every access point's
+`official_site_url`, approved or not. A link counts as dead when it isn't
+HTTP 200, or when it redirects to a shallower page or drops the site ID: old
+USFS links answer 200 after landing on the forest's generic page. Results are
+in `audit-links.csv`.
+
+Applied with authorization from `link-fixes.csv`, with compare-and-set and
+read-back. A rerun previews 0 pending, and the pre-fix values are in
+`rollback-link-fixes-2026-11-01.json`. Every replacement was checked to load
+and to name the same site:
+
+| Access point | Approved | Was | Now |
+| --- | --- | --- | --- |
+| Bookers Bend | yes | old USFS `recid=84142` link | `fs.usda.gov/r09/marktwain/recreation/bookers-bend` |
+| East Gate | yes | old USFS `recid=21814` link | `…/recreation/east-gate` |
+| Short Bend | yes | MDC 404 | `mdc.mo.gov/discover-nature/places/short-bend-access` |
+| Hazel Creek Recreation Area (Courtois and Huzzah entries) | no | old USFS `recid=21846` link | `…/recreation/hazel-creek-campground` |
+| Joe Crighton Access | no | MDC 404 | `…/places/joe-crighton-access` |
+| Johnston's Eddy, Eleven Point, Dalton, Indian Creek, Big Eddy | no | AGFC map-service query (data, not a page) | cleared |
+
+The cleared AGFC links stay as evidence on each record's linked
+`agency_gis_features` row. The apply script now refuses a map-service URL as
+an `official_site_url`, so this can't recur through it.
+
+Not changed, because neither result is evidence of a dead link:
+- **Big Bear River Resort:** answers 202 to scripts and 200 to a browser.
+- **Dam-Quarry (USACE PDF):** the Corps site refuses this network for every
+  page, including its home page.
+
+After the fixes, the whole-table scan reports only Denny Hollow Float Camp and
+Horse Camp ("USFS" on non-Forest Service land at the pin). Both were reviewed
+and confirmed as correct as recorded.

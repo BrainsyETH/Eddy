@@ -384,7 +384,10 @@ const FIELD_RULES: Record<ProposalField, (v: unknown) => boolean> = {
   // May be empty: a correction can take every added amenity back out.
   amenities: (v) => Array.isArray(v) && v.every((a) => typeof a === 'string' && /^[a-z_]+$/.test(a)),
   managing_agency: (v) => (MANAGING_AGENCIES as readonly unknown[]).includes(v),
-  official_site_url: (v) => typeof v === 'string' && /^https:\/\/\S+$/.test(v),
+  // null clears a dead or wrong link. A map-service query is data, not a page
+  // for people: five AGFC candidates were staged with one (2026-10-29).
+  official_site_url: (v) => v === null || (typeof v === 'string' && /^https:\/\/\S+$/.test(v) &&
+    !/arcgis\/rest|\/(MapServer|FeatureServer)\b|[?&]f=p?json\b/i.test(v)),
   fee_required: (v) => typeof v === 'boolean',
   road_surface: (v) => Array.isArray(v) && v.length > 0 && v.every((s) => ROAD_SURFACES.has(s as string)),
   ownership: (v) => typeof v === 'string' && v.trim().length > 0,

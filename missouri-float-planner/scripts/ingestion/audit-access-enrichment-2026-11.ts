@@ -443,4 +443,35 @@ async function wholeTable() {
   console.log(`Wrote ${findings.length} findings to ${join(DIR, 'audit-whole-table.csv')}. Nothing was written to the database.`);
 }
 
-if (require.main === module) (process.argv.includes('--whole-table') ? wholeTable() : main()).catch((error) => { console.error(error); process.exitCode = 1; });
+/**
+ * --links: fetch every access point's official_site_url (approved or not).
+ * Dead = not 200, or a redirect that lands somewhere shallower than it asked
+ * for (a site page that now opens the agency's generic landing page).
+ * Writes audit-links.csv; changes nothing.
+ */
+export function redirectsToGeneric(requested: string, finalUrl: string): boolean {
+  if (finalUrl === requested) return false;
+  const depth = (u: string) => new URL(u).pathname.split('/').filter(Boolean).length;
+  const req = new URL(requested);
+  const lostId = [...req.searchParams.values()].some((v) => /\d{3,}/.test(v) && !finalUrl.includes(v));
+  return lostId || depth(finalUrl) < depth(requested);
+}
+
+async function linksCheck() {
+  const db = getScriptClient({ script: 'audit-access-enrichment-2026-11:links', write: false });
+  const aps = await selectAll<{ slug: string; approved: boolean | null; official_site_url: string | null }>(
+    (a, b) => db.from('access_points').select('slug, approved, official_site_url').not('official_site_url', 'is', null).order('slug').range(a, b));
+  const rows = await mapLimit(aps, 6, async (ap) => {
+    const url = ap.official_site_url!.trim();
+    const { status, finalUrl } = await fetchLink(url);
+    const dead = status !== 200 || !finalUrl || redirectsToGeneric(url, finalUrl);
+    return { slug: ap.slug, approved: String(!!ap.approved), url, status: String(status ?? 'error'), final_url: finalUrl ?? '', verdict: dead ? 'dead' : 'ok' };
+  });
+  const bad = rows.filter((r) => r.verdict === 'dead');
+  const cols = ['verdict', 'approved', 'slug', 'status', 'url', 'final_url'];
+  writeFileSync(join(DIR, 'audit-links.csv'), `${[cols.join(','), ...rows.sort((a, b) => a.verdict.localeCompare(b.verdict) || a.slug.localeCompare(b.slug)).map((r) => cols.map((c) => csvCell((r as Record<string, string>)[c])).join(','))].join('\n')}\n`);
+  console.log(`${rows.length} links checked: ${bad.length} dead. Wrote audit-links.csv. Nothing was written to the database.`);
+  for (const b of bad) console.log(`  ${b.approved === 'true' ? 'approved' : 'pending '} ${b.slug} — ${b.status} ${b.url}${b.final_url && b.final_url !== b.url ? ` → ${b.final_url}` : ''}`);
+}
+
+if (require.main === module) (process.argv.includes('--links') ? linksCheck() : process.argv.includes('--whole-table') ? wholeTable() : main()).catch((error) => { console.error(error); process.exitCode = 1; });
