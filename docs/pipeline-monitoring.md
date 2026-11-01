@@ -58,5 +58,5 @@ mode it replaces.
 ## Outcomes on outbox rows
 
 Drained events record why in `push_outcome` (`sent`, `skipped`, `expired`,
-`given_up`) once migration `20261101180000_push_outcome.sql` is applied. Code
-deployed before the migration keeps draining and logs one warning per instance.
+`given_up`). Migration `20261101155515_push_outcome.sql` added the column
+(applied to production 2026-11-01); rows drained before then have NULL.
