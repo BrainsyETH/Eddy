@@ -5,21 +5,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchForecast, fetchWeather } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
+import { BoundedTtlCache, parseWeatherCoords } from '@/lib/weather/request';
 
-// Simple in-memory cache
-const forecastCache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+// Per-instance, size-bounded cache; see lib/weather/request.ts.
+const forecastCache = new BoundedTtlCache<unknown>(60 * 60 * 1000);
 
 async function _GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const lat = searchParams.get('lat');
-  const lon = searchParams.get('lon');
+  // Before anything that can cost an upstream call.
+  const limited = await rateLimit(`weather-forecast:${getClientIp(request)}`, 30, 60 * 1000);
+  if (limited) return limited;
 
-  if (!lat || !lon) {
-    return NextResponse.json(
-      { error: 'Missing lat or lon parameter' },
-      { status: 400 }
-    );
+  const coords = parseWeatherCoords(request.nextUrl.searchParams);
+  if (!coords.ok) {
+    return NextResponse.json({ error: coords.error }, { status: 400 });
   }
 
   const apiKey = process.env.OPENWEATHER_API_KEY;
@@ -30,13 +29,13 @@ async function _GET(request: NextRequest) {
     );
   }
 
-  const roundedLat = Math.round(parseFloat(lat) * 100) / 100;
-  const roundedLon = Math.round(parseFloat(lon) * 100) / 100;
-  const cacheKey = `forecast-${roundedLat},${roundedLon}`;
+  const roundedLat = coords.lat;
+  const roundedLon = coords.lon;
+  const cacheKey = `forecast-${coords.key}`;
 
   const cached = forecastCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return NextResponse.json(cached.data, { headers: cdnCacheHeaders(1800, 3600) });
+  if (cached) {
+    return NextResponse.json(cached, { headers: cdnCacheHeaders(1800, 3600) });
   }
 
   try {
@@ -54,7 +53,7 @@ async function _GET(request: NextRequest) {
       current: current ? { ...current, fetchedAt: new Date().toISOString() } : null,
     };
 
-    forecastCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+    forecastCache.set(cacheKey, responseData);
 
     return NextResponse.json(responseData, { headers: cdnCacheHeaders(1800, 3600) });
   } catch (error) {

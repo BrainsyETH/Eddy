@@ -37,10 +37,12 @@ export async function applyMediaTransitions(
   supabase: SupabaseClient,
   status: 'verified' | 'rejected' | 'pending',
   rows: MediaRow[],
-): Promise<{ published: number; removed: number; failed: number }> {
+): Promise<{ published: number; removed: number; failed: number; failedIds: string[] }> {
   let published = 0;
   let removed = 0;
   let failed = 0;
+  /** Which rows failed, so a verify can leave exactly those unverified. */
+  const failedIds: string[] = [];
 
   for (const row of rows) {
     const action = planMediaTransition(status, {
@@ -61,6 +63,7 @@ export async function applyMediaTransitions(
         if (copyError && !/exists|duplicate/i.test(copyError.message)) {
           logger.error('Could not publish moderated image', copyError, { reportId: row.id });
           failed += 1;
+          failedIds.push(row.id);
           continue;
         }
 
@@ -74,6 +77,7 @@ export async function applyMediaTransitions(
         if (updateError) {
           logger.error('Could not record published image URL', updateError, { reportId: row.id });
           failed += 1;
+          failedIds.push(row.id);
           continue;
         }
 
@@ -110,13 +114,17 @@ export async function applyMediaTransitions(
           }
         }
         if (complete) removed += 1;
-        else failed += 1;
+        else {
+          failed += 1;
+          failedIds.push(row.id);
+        }
       }
     } catch (err) {
       logger.error('Media moderation transition failed', err, { reportId: row.id, status });
       failed += 1;
+      failedIds.push(row.id);
     }
   }
 
-  return { published, removed, failed };
+  return { published, removed, failed, failedIds };
 }

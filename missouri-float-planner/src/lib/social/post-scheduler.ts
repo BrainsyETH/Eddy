@@ -395,7 +395,9 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox']);
+    // `unknown` blocks too: it may have published, and treating it as absent
+    // would let the scheduler post the same thing again the same day.
+    .in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox', 'unknown']);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);

@@ -41,7 +41,7 @@
   },
   {
     "path": "/api/cron/update-gauges?highFrequency=1",
-    "schedule": "*/15 * * * *"
+    "schedule": "15,30,45 * * * *"
   },
   {
     "path": "/api/cron/sync-gauge-latest",

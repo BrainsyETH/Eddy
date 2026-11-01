@@ -24,12 +24,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
 import { DEFAULT_ENTITLEMENT_ID } from '@/lib/entitlement';
 import { reconcileEntitlement } from '@/lib/revenuecat/api';
+import { applyToEntitlement, revokeTransferredSource, type ApplyResult } from '@/lib/revenuecat/apply-event';
 import {
   computeEntitlementPatch,
   entitlementIdsFor,
   eventTimestamp,
   toSupabaseUserId,
-  type EntitlementPatch,
   type RevenueCatEvent,
 } from '@/lib/revenuecat/events';
 
@@ -39,83 +39,6 @@ const LOG_PREFIX = '[RevenueCatWebhook]';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminClient = any;
-
-interface ApplyResult {
-  status: 'applied' | 'duplicate' | 'stale' | 'unknown_user' | 'error';
-}
-
-/**
- * Idempotent upsert of one (user, entitlement) pair.
- *
- * Two guards make redelivery safe without a separate processed-events table:
- *   * same event id as the last applied one → duplicate, no-op
- *   * event older than the last applied one → stale, no-op (webhooks can
- *     arrive out of order; a late CANCELLATION must not undo a newer RENEWAL)
- */
-async function applyToEntitlement(
-  supabase: AdminClient,
-  params: {
-    userId: string;
-    entitlementId: string;
-    patch: EntitlementPatch;
-    event: RevenueCatEvent;
-    eventAt: string;
-  }
-): Promise<ApplyResult> {
-  const { userId, entitlementId, patch, event, eventAt } = params;
-
-  const { data: existing, error: readError } = await supabase
-    .from('entitlements')
-    .select('last_event_id, last_event_at')
-    .eq('user_id', userId)
-    .eq('entitlement_id', entitlementId)
-    .maybeSingle();
-
-  if (readError) {
-    console.error(`${LOG_PREFIX} Read failed for ${entitlementId}:`, readError);
-    return { status: 'error' };
-  }
-
-  if (existing?.last_event_id && event.id && existing.last_event_id === event.id) {
-    return { status: 'duplicate' };
-  }
-
-  if (existing?.last_event_at && new Date(eventAt) < new Date(existing.last_event_at)) {
-    return { status: 'stale' };
-  }
-
-  // Only fields the event actually carries are written; `undefined` entries
-  // are dropped so a BILLING_ISSUE can't blank an existing expiry.
-  const row: Record<string, unknown> = {
-    user_id: userId,
-    entitlement_id: entitlementId,
-    rc_app_user_id: event.app_user_id ?? null,
-    rc_original_app_user_id: event.original_app_user_id ?? null,
-    last_event_id: event.id ?? null,
-    last_event_type: event.type ?? null,
-    last_event_at: eventAt,
-  };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value !== undefined) row[key] = value;
-  }
-
-  const { error: upsertError } = await supabase
-    .from('entitlements')
-    .upsert(row, { onConflict: 'user_id,entitlement_id' });
-
-  if (upsertError) {
-    // 23503 = FK violation: the appUserID is a well-formed uuid but no such
-    // auth user exists (deleted account). Not retryable.
-    if (upsertError.code === '23503') {
-      console.warn(`${LOG_PREFIX} No auth user for ${userId} — dropping event ${event.id}`);
-      return { status: 'unknown_user' };
-    }
-    console.error(`${LOG_PREFIX} Upsert failed for ${entitlementId}:`, upsertError);
-    return { status: 'error' };
-  }
-
-  return { status: 'applied' };
-}
 
 /**
  * TRANSFER — the subscription moved between Apple IDs / app users. Re-key the
@@ -188,17 +111,15 @@ async function applyTransfer(
 
         // Revoke on the source side, stamped with this event so a redelivery
         // is caught by the duplicate guard.
-        const { error: revokeError } = await supabase
-          .from('entitlements')
-          .update({
-            expires_at: eventAt,
-            will_renew: false,
-            last_event_id: event.id ?? null,
-            last_event_type: event.type ?? null,
-            last_event_at: eventAt,
-          })
-          .eq('user_id', sourceId)
-          .eq('entitlement_id', source.entitlement_id);
+        // Guarded like every other write: a source row that has since seen a
+        // NEWER event (a re-purchase on that account) is not revoked by a
+        // late-arriving transfer. See lib/revenuecat/apply-event.ts.
+        const { error: revokeError } = await revokeTransferredSource(supabase, {
+          userId: sourceId,
+          entitlementId: source.entitlement_id,
+          event,
+          eventAt,
+        });
 
         if (revokeError) {
           console.error(`${LOG_PREFIX} TRANSFER revoke failed:`, revokeError);

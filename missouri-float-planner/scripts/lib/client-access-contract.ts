@@ -1,5 +1,5 @@
 /** Read-only catalog gate. Function privileges include inherited PUBLIC grants.
- * These four existing RPCs intentionally form part of the public API; adding
+ * These three existing RPCs intentionally form part of the public API; adding
  * another requires review here, rather than inheriting Supabase's defaults.
  */
 export const CLIENT_ACCESS_SQL = `
@@ -14,8 +14,7 @@ WITH exposed_definers AS (
   FROM exposed_definers WHERE signature NOT IN (
     'is_admin()',
     'get_float_plan_by_code(text, boolean)',
-    'float_plan_code_available(text)',
-    'increment_plan_view_count(text)'
+    'float_plan_code_available(text)'
   )
   UNION ALL
   SELECT 'Client report write privileges remain: ' || role_name

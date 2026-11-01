@@ -11,10 +11,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
 import { getAdapter } from '@/lib/social/adapters';
-import type { SocialPlatform, ScheduledPost } from '@/lib/social/types';
+import type { SocialPlatform, ScheduledPost, PublishResult } from '@/lib/social/types';
 import { triggerVideoRender, getCompositionForPost, videoRenderGroup } from '@/lib/social/video-renderer';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { buildPostContext } from '@/lib/social/post-context';
+import { savedPostMedia } from '@/lib/social/review';
+import { getInstagramContainerStatus } from '@/lib/social/meta-client';
+import {
+  UNKNOWN_MESSAGE,
+  outcomeFields,
+  providerAttemptRecorder,
+  reconcileUnknownPosts,
+  thrownFields,
+  writeOutcome,
+} from '@/lib/social/publish-outcome';
 import type { PostKind } from '@/lib/social/post-types';
 
 const CRON_LOCK_NAME = 'post_social';
@@ -28,11 +38,14 @@ const CRON_LOCK_NAME = 'post_social';
 // run killed at maxDuration never reaches its `finally`, and the lock stays
 // held for the full stale window — a 30-minute posting outage from one timeout.
 // Keep this comfortably above maxDuration but far below the 30-minute cadence.
-const CRON_STALE_SECONDS = 5 * 60;
+const CRON_STALE_SECONDS = 6 * 60;
 
 export const dynamic = 'force-dynamic';
 // Declared explicitly so the stale window above has a real bound to sit above.
-export const maxDuration = 60;
+// 300, not 60: an Instagram Reel's container can take up to 150s to process
+// (meta-client waitForContainer, 30 × 5s), so a 60s ceiling killed every video
+// retry mid-flight — after the container existed, sometimes after publishing.
+export const maxDuration = 300;
 
 const LOG_PREFIX = '[SocialCron]';
 
@@ -108,15 +121,35 @@ async function runSocialPosting(request: NextRequest) {
   try {
   // --- Reap stale non-terminal records ---
   // Previously: deleted rows. That broke the video-callback whose .eq('id')
-  // lookup would come back empty for long-running renders. Now: mark failed
-  // and keep the row so the callback can still find and report it.
+  // lookup would come back empty for long-running renders. Now: keep the row
+  // so the callback can still find and report it.
+  //
+  // A stale `publishing` row becomes UNKNOWN, not failed. It means a platform
+  // call was in flight when the run stopped — the post may well be live — and
+  // failed auto-posts are retried, which is how a Reel that published as the
+  // function limit hit got posted twice. `pending` and `rendering` never
+  // reached a platform, so failing those is safe.
   try {
     const nonRenderCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     // Full-reading reels scale with report length; allow longer renders
     // before exposing a retry in the admin history.
     const renderCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-    const { count: nonRenderStale } = await supabase
+    const { count: unknownStale, error: unknownError } = await supabase
+      .from('social_posts')
+      .update(
+        { status: 'unknown', error_message: `${UNKNOWN_MESSAGE} (stopped mid-publish)`, updated_at: new Date().toISOString() },
+        { count: 'exact' },
+      )
+      .eq('status', 'publishing')
+      .lt('updated_at', nonRenderCutoff);
+    if (unknownError) {
+      // 23514 until the migration allowing `unknown` is applied. Those rows stay
+      // in `publishing`, which is never auto-retried either — the safe direction.
+      console.warn(`${LOG_PREFIX} Could not mark stale publishing posts unknown: ${unknownError.message}`);
+    }
+
+    const { count: pendingStale } = await supabase
       .from('social_posts')
       .update(
         {
@@ -126,8 +159,9 @@ async function runSocialPosting(request: NextRequest) {
         },
         { count: 'exact' },
       )
-      .in('status', ['publishing', 'pending'])
+      .eq('status', 'pending')
       .lt('updated_at', nonRenderCutoff);
+    const nonRenderStale = (unknownStale || 0) + (pendingStale || 0);
 
     const { count: renderStale } = await supabase
       .from('social_posts')
@@ -203,7 +237,7 @@ async function runSocialPosting(request: NextRequest) {
           .eq('post_type', post.postType)
           .eq('platform', post.platform)
           .eq('auto_publish', true)
-          .in('status', ['failed', 'publishing', 'pending'])
+          .in('status', ['failed', 'pending'])
           .gte('created_at', todayStart.toISOString());
         if (post.postType === 'river_highlight') cleanup = cleanup.like('image_url', '%type=weekend-read&%');
         await cleanup;
@@ -270,7 +304,7 @@ async function runSocialPosting(request: NextRequest) {
             const adapter = getAdapter(post.platform);
             if (!adapter) continue;
 
-            await supabase
+            const { data: claimedFallback } = await supabase
               .from('social_posts')
               .update({
                 media_type: 'image',
@@ -278,23 +312,28 @@ async function runSocialPosting(request: NextRequest) {
                 error_message: fallbackReason,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', id);
+              .eq('id', id)
+              .eq('status', 'rendering')
+              .select('id');
+            if (!claimedFallback?.length) continue;
 
-            const pubResult = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl, mediaType: 'image' });
-
-            await supabase
-              .from('social_posts')
-              .update({
-                status: pubResult.success ? 'published' : 'failed',
-                platform_post_id: pubResult.platformPostId || null,
-                published_at: pubResult.success ? new Date().toISOString() : null,
-                // Keep the fallback breadcrumb on success too — without it
-                // the published image looks indistinguishable from an
-                // intentional image post.
-                error_message: pubResult.success ? fallbackReason : pubResult.error,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', id);
+            let pubResult: PublishResult;
+            try {
+              pubResult = await adapter.publishPost({
+                caption: post.caption,
+                imageUrl: post.imageUrl,
+                mediaType: 'image',
+                onProviderAttempt: providerAttemptRecorder(supabase, id),
+              });
+            } catch (err) {
+              await writeOutcome(supabase, id, thrownFields(err));
+              failed++;
+              errors.push(`${post.platform}/${post.postType}: fallback publish — outcome unknown`);
+              continue;
+            }
+            // Keep the fallback breadcrumb on success too — without it the
+            // published image looks indistinguishable from an intentional image post.
+            await writeOutcome(supabase, id, outcomeFields(pubResult, new Date(), { messageOnSuccess: fallbackReason }));
 
             if (pubResult.success) published++;
             else { failed++; errors.push(`${post.platform}/${post.postType}: fallback publish — ${pubResult.error}`); }
@@ -328,7 +367,7 @@ async function runSocialPosting(request: NextRequest) {
         .eq('post_type', post.postType)
         .eq('platform', post.platform)
         .eq('auto_publish', true)
-          .in('status', ['failed', 'publishing', 'pending'])
+          .in('status', ['failed', 'pending'])
         .gte('created_at', todayStart.toISOString());
 
       const { data: record, error: insertError } = await supabase
@@ -354,18 +393,14 @@ async function runSocialPosting(request: NextRequest) {
       }
 
       try {
-        const pubResult = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl, mediaType: 'image' });
+        const pubResult = await adapter.publishPost({
+          caption: post.caption,
+          imageUrl: post.imageUrl,
+          mediaType: 'image',
+          onProviderAttempt: providerAttemptRecorder(supabase, record.id),
+        });
 
-        await supabase
-          .from('social_posts')
-          .update({
-            status: pubResult.success ? 'published' : 'failed',
-            platform_post_id: pubResult.platformPostId || null,
-            published_at: pubResult.success ? new Date().toISOString() : null,
-            error_message: pubResult.success ? null : (pubResult.error || 'Unknown error'),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', record.id);
+        await writeOutcome(supabase, record.id, outcomeFields(pubResult));
 
         if (pubResult.success) {
           published++;
@@ -375,10 +410,11 @@ async function runSocialPosting(request: NextRequest) {
           errors.push(`${post.platform}/${post.postType}: ${pubResult.error}`);
         }
       } catch (err) {
+        // A throw from inside publishPost does not prove the platform refused it.
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', record.id);
+        await writeOutcome(supabase, record.id, thrownFields(err));
         failed++;
-        errors.push(`${post.platform}/${post.postType}: ${msg}`);
+        errors.push(`${post.platform}/${post.postType}: outcome unknown — ${msg}`);
       }
     }
   } catch (err) {
@@ -386,7 +422,23 @@ async function runSocialPosting(request: NextRequest) {
     errors.push(`Scheduling error: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
+  // --- Settle posts whose outcome is unknown, where the platform can say ---
+  let reconciled: { checked: number; published: number; failed: number } | undefined;
+  try {
+    if (getAdapter('instagram')) {
+      reconciled = await reconcileUnknownPosts(supabase, getInstagramContainerStatus);
+      if (reconciled.checked > 0) console.log(`${LOG_PREFIX} Reconciled unknown posts:`, reconciled);
+    }
+  } catch (err) {
+    console.error(`${LOG_PREFIX} Error reconciling unknown posts:`, err);
+  }
+
   // --- Retry failed posts ---
+  //
+  // Only DEFINITIVE failures reach here: getRetryablePosts reads `failed`, and
+  // anything that may have published is `unknown`. Each retry CLAIMS its row
+  // (failed → publishing, compare-and-swap) before calling the platform, the
+  // same claim the admin retry route makes, so the two can never both publish.
   try {
     const retryable = await getRetryablePosts();
     console.log(`${LOG_PREFIX} ${retryable.length} posts eligible for retry`);
@@ -396,26 +448,28 @@ async function runSocialPosting(request: NextRequest) {
       if (!adapter) continue;
 
       const { data: fullPost } = await supabase.from('social_posts').select('*').eq('id', post.id).single();
-      if (!fullPost) continue;
+      if (!fullPost || fullPost.status !== 'failed') continue;
 
-      await supabase.from('social_posts').update({ status: 'publishing', retry_count: fullPost.retry_count + 1, updated_at: new Date().toISOString() }).eq('id', post.id);
+      // The saved media, exactly as the admin retry uses it — never rebuilt.
+      let media;
+      try {
+        media = savedPostMedia(fullPost);
+      } catch (err) {
+        console.log(`${LOG_PREFIX} Retry skipped for ${post.id}: ${err instanceof Error ? err.message : err}`);
+        continue;
+      }
+
+      const { data: claimed } = await supabase
+        .from('social_posts')
+        .update({ status: 'publishing', retry_count: (fullPost.retry_count ?? 0) + 1, updated_at: new Date().toISOString() })
+        .eq('id', post.id)
+        .eq('status', 'failed')
+        .select('id');
+      if (!claimed?.length) continue; // someone else (the admin route) took it
 
       try {
-        const pubResult = await adapter.publishPost({
-          caption: fullPost.caption,
-          imageUrl: fullPost.image_url,
-          videoUrl: fullPost.video_url || undefined,
-          coverUrl: fullPost.image_url || undefined,
-          mediaType: fullPost.media_type || 'image',
-        });
-
-        await supabase.from('social_posts').update({
-          status: pubResult.success ? 'published' : 'failed',
-          platform_post_id: pubResult.platformPostId || null,
-          published_at: pubResult.success ? new Date().toISOString() : null,
-          error_message: pubResult.success ? null : (pubResult.error || 'Retry failed'),
-          updated_at: new Date().toISOString(),
-        }).eq('id', post.id);
+        const pubResult = await adapter.publishPost({ ...media, onProviderAttempt: providerAttemptRecorder(supabase, post.id) });
+        await writeOutcome(supabase, post.id, outcomeFields(pubResult));
 
         if (pubResult.success) {
           published++;
@@ -428,8 +482,7 @@ async function runSocialPosting(request: NextRequest) {
           console.log(`${LOG_PREFIX} Retry succeeded: ${post.id}`);
         } else { failed++; }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        await supabase.from('social_posts').update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() }).eq('id', post.id);
+        await writeOutcome(supabase, post.id, thrownFields(err));
         failed++;
       }
     }
@@ -440,6 +493,7 @@ async function runSocialPosting(request: NextRequest) {
   return NextResponse.json({
     message: 'Social media posting complete',
     published, failed, skipped, rendering,
+    ...(reconciled ? { reconciled } : {}),
     errors: errors.length > 0 ? errors : undefined,
     diagnostics,
     executionTime: new Date().toISOString(),

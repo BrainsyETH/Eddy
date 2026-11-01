@@ -526,3 +526,37 @@ test('a device time is bounded: never after the server, never nonsense', () => {
   assert.equal(clientStarredAt(12345, now), undefined);
   assert.equal(clientStarredAt(undefined, now), undefined);
 });
+
+// ── unstarred on ANOTHER device ───────────────────────────────────
+
+test('a star another device removed is not pushed back by this one', () => {
+  // Device B synced the star (the server held it), device A unstarred it and
+  // the row is gone. B still has it starred locally. The server keeps no
+  // tombstones, so B used to read "starred here, absent there" as "never
+  // synced" and POST it straight back.
+  const first = mergeStars([local('current', true, EARLY)], [server('current', EARLY)]);
+  assert.equal(first.merged[0].confirmed, true, 'Seen on the server');
+
+  const second = mergeStars(first.merged, []);
+  assert.deepEqual(second.toStar, [], 'Not resurrected');
+  assert.equal(visibleStars(second.merged).length, 0);
+});
+
+test('a star never confirmed by the server is still pushed', () => {
+  const plan = mergeStars([local('current', true, LATE)], []);
+  assert.deepEqual(plan.toStar, ['current']);
+});
+
+test('re-starring here after the server confirmed an earlier star is a new edit, and is pushed', () => {
+  const synced = mergeStars([local('current', true, EARLY)], [server('current', EARLY)]).merged;
+  const unstarred = toggleLocal(synced, { kind: 'river', entityId: 'current', name: 'current', slug: 'current' }, LATE);
+  const restarred = toggleLocal(unstarred, { kind: 'river', entityId: 'current', name: 'current', slug: 'current' }, LATE);
+  assert.equal(restarred[0].confirmed, undefined, 'Any edit clears confirmation');
+  assert.deepEqual(mergeStars(restarred, []).toStar, ['current']);
+});
+
+test('confirmation survives a reload from disk', () => {
+  const synced = mergeStars([local('current', true, EARLY)], [server('current', EARLY)]).merged;
+  const reloaded = migrateStars(JSON.parse(JSON.stringify(synced)));
+  assert.equal(reloaded[0].confirmed, true);
+});

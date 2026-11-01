@@ -18,6 +18,7 @@ import { confirmsGaugeConditionChange, MAX_GAUGE_REGENS_PER_POLL } from '@/lib/e
 import { tryCronLockDetailed, releaseCronLock } from '@/lib/social/cron-lock';
 import { gateReading, type GateRejection } from '@/lib/alerts/gate';
 import { logger } from '@/lib/logger';
+import { readAll, readAllIn } from '@/lib/supabase/paged-read';
 import { classifyEventKind } from '@/lib/alerts/event-kind';
 import { isLedgerSilent } from '@/lib/trust/heartbeat';
 
@@ -74,12 +75,13 @@ async function runUpdate(request: NextRequest) {
     request.headers.get('x-high-frequency') === 'true' ||
     new URL(request.url).searchParams.get('highFrequency') === '1';
 
-  // Serialize runs. The hourly cron and the 15-minute high-frequency cron BOTH
-  // fire at :00, and until now nothing stopped them processing the same
-  // stations concurrently. One shared lock name is deliberate — separate names
-  // per variant would leave exactly the collision we're removing. The hourly
-  // pass covers a superset of the high-frequency stations, so the 15-minute run
-  // losing the :00 race is pure duplicate work skipped.
+  // Serialize runs. The high-frequency pass is scheduled at :15/:30/:45 only
+  // (vercel.json), because the hourly pass at :00 covers a superset of its
+  // stations. Both used to fire at :00 and share this lock, and nothing decided
+  // who won: production recorded the 15-minute pass skipped every hour, and had
+  // the race gone the other way the full pass would have been the one skipped,
+  // leaving every non-high-frequency gauge two hours stale. The shared lock
+  // stays as the backstop for a run that overruns into the next slot.
   //
   // The stale window is 2x maxDuration, not the 600s default: a run killed at
   // the ceiling never reaches its finally, so a long window would starve the
@@ -113,32 +115,63 @@ async function runUpdate(request: NextRequest) {
     // Starred gauges are IN, curated or not: a star is someone asking to watch
     // a gauge, and the history behind its hydrograph has to come from somewhere.
     // That set grows with subscribers, not with the size of the country.
-    const { data: starredRows, error: starredError } = await supabase
-      .from('starred_gauges')
-      .select('gauge_station_id');
-    if (starredError) {
+    //
+    // Both reads are PAGED and the starred ids go out in CHUNKS. The starred
+    // read used to be one unpaged select — past PostgREST's max-rows setting
+    // (1,000 by default) starred gauges silently stopped collecting history —
+    // and the ids were inlined into a single `or=(...id.in.(...))` filter, so
+    // once enough distinct gauges were starred the request line was too long
+    // and stationsError failed the WHOLE pass: no readings, no conditions, no
+    // alerts for any river.
+    let starredIds: string[] = [];
+    try {
+      const starredRows = await readAll<{ gauge_station_id: string | null }>('starred gauges', (from, to) =>
+        supabase
+          .from('starred_gauges')
+          .select('gauge_station_id')
+          .order('user_id')
+          .order('gauge_station_id')
+          .range(from, to),
+      );
+      starredIds = Array.from(
+        new Set(starredRows.map((r) => r.gauge_station_id).filter((id): id is string => !!id)),
+      );
+    } catch (error) {
       // Non-fatal: a curated-only pass is a correct pass, just a narrower one.
-      console.error('[update-gauges] starred_gauges lookup failed:', starredError.message);
-    }
-    const starredIds = Array.from(
-      new Set((starredRows ?? []).map((r) => r.gauge_station_id).filter(Boolean)),
-    );
-
-    let stationsQuery = supabase
-      .from('gauge_stations')
-      .select('id, usgs_site_id, provider, site_id_external, high_frequency_flag')
-      .eq('active', true);
-
-    stationsQuery = starredIds.length
-      ? stationsQuery.or(`curated.eq.true,id.in.(${starredIds.join(',')})`)
-      : stationsQuery.eq('curated', true);
-
-    // For high-frequency polls, only fetch gauges with the flag set
-    if (isHighFrequencyPoll) {
-      stationsQuery = stationsQuery.eq('high_frequency_flag', true);
+      console.error('[update-gauges] starred_gauges lookup failed:', error instanceof Error ? error.message : error);
     }
 
-    const { data: stationsData, error: stationsError } = await stationsQuery;
+    type StationRow = {
+      id: string;
+      usgs_site_id: string | null;
+      provider: string | null;
+      site_id_external: string | null;
+      high_frequency_flag: boolean;
+    };
+    const STATION_COLUMNS = 'id, usgs_site_id, provider, site_id_external, high_frequency_flag';
+    // For high-frequency polls, only gauges with the flag set.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scoped = (query: any) => (isHighFrequencyPoll ? query.eq('high_frequency_flag', true) : query);
+
+    let stationsData: StationRow[] | null = null;
+    let stationsError: unknown = null;
+    try {
+      const curated = await readAll<StationRow>('curated stations', (from, to) =>
+        scoped(supabase.from('gauge_stations').select(STATION_COLUMNS).eq('active', true).eq('curated', true))
+          .order('id')
+          .range(from, to),
+      );
+      const starred = await readAllIn<StationRow>('starred stations', starredIds, (chunk, from, to) =>
+        scoped(supabase.from('gauge_stations').select(STATION_COLUMNS).eq('active', true).in('id', chunk))
+          .order('id')
+          .range(from, to),
+      );
+      const byId = new Map<string, StationRow>();
+      for (const row of [...curated, ...starred]) byId.set(row.id, row);
+      stationsData = [...byId.values()];
+    } catch (error) {
+      stationsError = error instanceof Error ? error.message : error;
+    }
 
     if (stationsError || !stationsData) {
       console.error('Error fetching gauge stations:', stationsError);
@@ -343,7 +376,14 @@ async function runUpdate(request: NextRequest) {
     const ENRICH_BUDGET_MS = 30_000;
     const enrichStart = Date.now();
     let enrichmentSkipped = 0;
-    const wiredEntries = entries.filter(({ station }) => wiredByStation.has(station.id));
+    // ROTATED, so a budget overrun skips a different tail each run. The order
+    // used to be fixed, and the stations at the end of it were the ones skipped
+    // every time the budget ran out — the same gauges, every pass, never
+    // flatline-checked and never emitting a condition change. Keyed to the
+    // 15-minute slot so consecutive passes start at different stations.
+    const wiredInOrder = entries.filter(({ station }) => wiredByStation.has(station.id));
+    const rotation = wiredInOrder.length > 0 ? Math.floor(Date.now() / (15 * 60 * 1000)) % wiredInOrder.length : 0;
+    const wiredEntries = [...wiredInOrder.slice(rotation), ...wiredInOrder.slice(0, rotation)];
 
     for (const [index, { reading, station }] of wiredEntries.entries()) {
       if (Date.now() - enrichStart > ENRICH_BUDGET_MS) {
@@ -917,6 +957,9 @@ async function runUpdate(request: NextRequest) {
       outboxOutcomes,
       outboxErrors,
       enrichmentSkipped,
+      // A pass that ran out of enrichment budget is not a clean run, and the
+      // job monitor's key heuristics would have recorded it as `ok`.
+      ...(enrichmentSkipped > 0 ? { monitoring_status: 'partial' } : {}),
       eddyRegensGenerated,
       eddyRegensSkipped,
       executionTime,

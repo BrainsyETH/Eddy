@@ -1,6 +1,7 @@
 // src/lib/alerts/fake-outbox-db.ts
 // An in-memory stand-in for the PostgREST client, for the alert-delivery
-// failure-path tests. Test-only; nothing in the app imports it.
+// failure-path tests (and the few other write-ordering tests that need a
+// database that can fail on cue). Test-only; nothing in the app imports it.
 //
 // The bugs these tests pin down all lived in the glue between the pure planners
 // and the database — a read that resolved with an error and was treated as
@@ -17,7 +18,7 @@ type Mode = 'select' | 'update' | 'upsert' | 'insert';
 
 type Filter =
   | { op: 'eq' | 'lt' | 'gte'; column: string; value: unknown }
-  | { op: 'is'; column: string; value: null }
+  | { op: 'is' | 'notnull'; column: string; value: null }
   | { op: 'in'; column: string; value: unknown[] };
 
 export interface FailureSpec {
@@ -52,6 +53,7 @@ function compare(a: unknown, b: unknown): number {
 class Query implements PromiseLike<{ data: unknown; error: unknown; count?: number }> {
   private mode: Mode = 'select';
   private filters: Filter[] = [];
+  private orGroups: Array<Array<{ column: string; op: string; value: string }>> = [];
   private orders: Array<{ column: string; ascending: boolean }> = [];
   private window: { from: number; to: number } | null = null;
   private limitN: number | null = null;
@@ -102,6 +104,23 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
     this.filters.push({ op: 'in', column, value });
     return this;
   }
+  /**
+   * `.or('a.is.null,b.lte.value')`: a comma-separated OR of `column.op.value`
+   * with op is/eq/lte/gte. Values may contain dots (ISO timestamps).
+   */
+  or(expression: string) {
+    const terms = expression.split(',').map((term) => {
+      const [column, op, ...rest] = term.split('.');
+      return { column, op, value: rest.join('.') };
+    });
+    this.orGroups.push(terms);
+    return this;
+  }
+  /** Only `.not(column, 'is', null)` is modelled. */
+  not(column: string, op: 'is', value: null) {
+    this.filters.push({ op: 'notnull', column, value });
+    return this;
+  }
   order(column: string, opts?: { ascending?: boolean }) {
     this.orders.push({ column, ascending: opts?.ascending !== false });
     return this;
@@ -120,6 +139,17 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
   }
 
   private matches(row: Row): boolean {
+    const orOk = this.orGroups.every((group) =>
+      group.some(({ column, op, value }) => {
+        const v = row[column];
+        if (op === 'is') return value === 'null' ? v === null || v === undefined : String(v) === value;
+        if (op === 'eq') return String(v) === value;
+        if (op === 'lte') return v !== null && v !== undefined && compare(v, value) <= 0;
+        if (op === 'gte') return v !== null && v !== undefined && compare(v, value) >= 0;
+        throw new Error(`fake or(): unsupported op ${op}`);
+      }),
+    );
+    if (!orOk) return false;
     return this.filters.every((f) => {
       const v = row[f.column];
       switch (f.op) {
@@ -127,6 +157,8 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
           return v === f.value;
         case 'is':
           return v === null || v === undefined;
+        case 'notnull':
+          return v !== null && v !== undefined;
         case 'in':
           return f.value.includes(v);
         case 'lt':
@@ -155,13 +187,13 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
     }
 
     if (this.mode === 'update') {
-      let count = 0;
+      const updated: Row[] = [];
       for (const row of rows) {
         if (!this.matches(row)) continue;
         Object.assign(row, this.payload);
-        count++;
+        updated.push(row);
       }
-      return { data: null, error: null, count };
+      return { data: this.returning ? updated.map((r) => ({ ...r })) : null, error: null, count: updated.length };
     }
 
     const incoming = Array.isArray(this.payload) ? this.payload : [this.payload as Row];

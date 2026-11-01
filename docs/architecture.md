@@ -67,7 +67,7 @@ This is the load-bearing path in the repo, and the reason `shared/` exists.
 
 ```
   USGS · NWS · USACE  ──polls──▶  /api/cron/update-gauges  ──writes──▶  gauge_readings
-   stage ft, cfs                  hourly + */15 high-freq              one row per poll
+   stage ft, cfs                  hourly + :15/:30/:45 HF              one row per poll
                                                                               │
                                         raw number + gauge thresholds ────────┘
                                                      │
@@ -111,7 +111,7 @@ collected.
 
 | Group | Jobs | Cadence | What it does |
 | --- | --- | --- | --- |
-| Water & dams | 6 | 15 min → monthly | Gauge readings hourly plus a `*/15` high-frequency pass, latest-value sync, dam generation history, **assembled dam snapshots**, monthly percentile snapshots |
+| Water & dams | 6 | 15 min → monthly | Gauge readings hourly at :00 plus a high-frequency pass at :15/:30/:45, latest-value sync, dam generation history, **assembled dam snapshots**, monthly percentile snapshots |
 | Land & availability | 5 | daily / weekly | Campsite availability from Recreation.gov and Missouri State Parks; NPS and USFS public-lands sync |
 | Alerts & push | 3 | 5–15 min | Evaluate gauge thresholds against subscriber rules, drain the delivery queue to Expo push, reconcile receipts 4×/hour |
 | Eddy updates | 3 | daily | Anthropic writes the river and gauge prose, gated by a knowledge base and a prose gate before it can publish |

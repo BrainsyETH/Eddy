@@ -180,6 +180,7 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   inbox: { label: 'Sent to TikTok inbox', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   published: { label: 'Published', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
   failed: { label: 'Failed', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  unknown: { label: 'Outcome unknown', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   pending: { label: 'Pending', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
   publishing: { label: 'Publishing', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   rendering: { label: 'Rendering', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
@@ -610,17 +611,28 @@ export default function SocialAdminPage() {
     }
   };
 
-  const retryPost = async (postId: string, action: 'retry' | 'approve' | 'render' = 'retry') => {
+  const retryPost = async (
+    postId: string,
+    action: 'retry' | 'approve' | 'render' | 'resolve' = 'retry',
+    outcome?: 'published' | 'failed',
+  ) => {
     try {
       const res = await adminFetch('/api/admin/social/retry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: postId, action }),
+        body: JSON.stringify({ id: postId, action, outcome }),
       });
       if (res.ok) {
         fetchPosts();
         setVideoPreviewPost(null);
-        showToast(action === 'render' ? 'Rendering a new draft for review' : 'Delivery complete — check the post status', 'success');
+        showToast(
+          action === 'render'
+            ? 'Rendering a new draft for review'
+            : action === 'resolve'
+              ? outcome === 'published' ? 'Marked as published' : 'Marked as not published — it can be retried'
+              : 'Delivery complete — check the post status',
+          'success',
+        );
       } else {
         const data = await res.json().catch(() => ({}));
         showToast(data.error || `Retry failed (${res.status})`, 'error');
@@ -1923,6 +1935,26 @@ export default function SocialAdminPage() {
                                         <Copy className="w-3 h-3" />
                                         Copy caption
                                       </button>
+                                    )}
+                                    {post.status === 'unknown' && (
+                                      <>
+                                        <button
+                                          onClick={() => retryPost(post.id, 'resolve', 'published')}
+                                          className="flex items-center gap-1 px-2 py-1 text-xs text-green-400 hover:text-green-300 bg-green-500/10 hover:bg-green-500/20 rounded transition-colors"
+                                          title="You checked the account and the post is live"
+                                        >
+                                          <CheckCircle className="w-3 h-3" />
+                                          It is live
+                                        </button>
+                                        <button
+                                          onClick={() => retryPost(post.id, 'resolve', 'failed')}
+                                          className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded transition-colors"
+                                          title="You checked the account and the post is NOT there; this allows a retry"
+                                        >
+                                          <XCircle className="w-3 h-3" />
+                                          Not posted
+                                        </button>
+                                      </>
                                     )}
                                     {post.status === 'failed' && (
                                       <button
