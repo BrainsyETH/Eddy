@@ -9,8 +9,8 @@ const KINDS = ['access', 'bridge', 'boat_ramp', 'park', 'campground', 'gravel_ba
 const AMENITIES = ['parking', 'restrooms', 'camping', 'boat_ramp', 'picnic', 'store'];
 const PARKING_CAPACITY = ['5', '10', '15', '20', '25', '30', '50+', 'roadside', 'limited', 'unknown'];
 const ROAD_SURFACE = ['paved', 'gravel_maintained', 'gravel_unmaintained', 'dirt', 'seasonal', '4wd_required'];
-// access_points_managing_agency_check. AGFC is not in it; ownership keeps the operator.
-const AGENCIES = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private'];
+// access_points_managing_agency_check (00034, AGFC added 20261031201435).
+const AGENCIES = ['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private', 'AGFC'];
 const OPEN_LICENSES = /^(Public domain|CC0 1\.0|CC BY(-SA)? [1-4]\.0)$/;
 
 export interface EnrichmentImage {

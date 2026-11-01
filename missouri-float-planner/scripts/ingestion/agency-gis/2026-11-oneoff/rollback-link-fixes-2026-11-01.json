@@ -1,0 +1,63 @@
+{
+  "applied_at_utc": "2026-11-01",
+  "project": "ilefwfpvphadsbptiaur",
+  "note": "official_site_url values BEFORE the link fixes.",
+  "access_points": 11,
+  "rollback": [
+    {
+      "id": "2837ab7f-d98a-4aae-a2e4-5dcfb2ba1c5a",
+      "slug": "bookers-bend",
+      "official_site_url": "https://www.fs.usda.gov/recarea/mtnf/recreation/recarea/?recid=84142"
+    },
+    {
+      "id": "0af8d212-6f03-4fed-8bdd-baa6a6cbc835",
+      "slug": "east-gate",
+      "official_site_url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21814"
+    },
+    {
+      "id": "7a6a3b0b-dad3-4695-957a-c23557f24682",
+      "slug": "hazel-creek-courtois",
+      "official_site_url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21846"
+    },
+    {
+      "id": "0b39863f-ec2c-4800-89eb-af4129eed08a",
+      "slug": "hazel-creek-recreation-area",
+      "official_site_url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21846"
+    },
+    {
+      "id": "e56d9c29-51d9-4333-bac0-518f5a179567",
+      "slug": "short-bend",
+      "official_site_url": "https://mdc.mo.gov/discover-nature/places/short-bend-conservation-area"
+    },
+    {
+      "id": "0f84297d-669d-456e-ac07-d8467e02ff07",
+      "slug": "joe-crighton-access",
+      "official_site_url": "https://mdc.mo.gov/discover-nature/places/crighton-joe-access"
+    },
+    {
+      "id": "099e3eb4-f039-485e-986f-896875e423d7",
+      "slug": "johnston-s-eddy-boat-ramp",
+      "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=143&outFields=*&outSR=4326&f=pjson"
+    },
+    {
+      "id": "9d982ef6-089c-431b-8af9-74f6898f7189",
+      "slug": "eleven-point-boat-ramp",
+      "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1035&outFields=*&outSR=4326&f=pjson"
+    },
+    {
+      "id": "b8c8fcfa-a2b5-42d1-8775-9fd2758c0029",
+      "slug": "dalton-boat-ramp",
+      "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=1543&outFields=*&outSR=4326&f=pjson"
+    },
+    {
+      "id": "eb9b0cc2-37d2-4c70-b18c-87d4de0f0858",
+      "slug": "indian-creek-access",
+      "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=16405&outFields=*&outSR=4326&f=pjson"
+    },
+    {
+      "id": "4d360d5f-e75a-4f36-8e05-2e28a045b10b",
+      "slug": "big-eddy-canoe-access",
+      "official_site_url": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1/query?objectIds=17210&outFields=*&outSR=4326&f=pjson"
+    }
+  ]
+}

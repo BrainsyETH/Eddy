@@ -358,6 +358,7 @@ export function getAgencyFullName(agency: string | null): string {
     'County': 'County',
     'Municipal': 'Municipal',
     'Private': 'Private',
+    'AGFC': 'Arkansas Game and Fish Commission',
   };
 
   return names[agency] || agency;

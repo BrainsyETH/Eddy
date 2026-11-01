@@ -110,6 +110,7 @@ const MANAGING_AGENCY_OPTIONS = [
   { value: 'County', label: 'County' },
   { value: 'Municipal', label: 'Municipal' },
   { value: 'Private', label: 'Private' },
+  { value: 'AGFC', label: 'AGFC - Arkansas Game and Fish Commission' },
 ];
 
 const SERVICE_TYPE_OPTIONS = [

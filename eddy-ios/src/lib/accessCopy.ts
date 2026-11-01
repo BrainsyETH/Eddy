@@ -45,7 +45,24 @@ const AGENCY_LABELS: Record<ManagingAgency, string> = {
   County: 'County',
   Municipal: 'Municipal',
   Private: 'Privately managed',
+  AGFC: 'Arkansas Game and Fish Commission',
 };
+
+/**
+ * The one small attribution line on an access point ("Includes data from the
+ * Missouri Department of Conservation."). Attribution lives here, not inside
+ * the sentences. Mirrors missouri-float-planner/src/lib/access-points/source-line.ts;
+ * source-line-parity.test.ts keeps the two identical.
+ */
+export const SOURCE_NAMES: Record<string, string> = {
+  MDC: 'Missouri Department of Conservation',
+  AGFC: 'Arkansas Game and Fish Commission',
+};
+
+export function sourceLine(sources: readonly string[] | null | undefined): string | null {
+  const names = [...new Set(sources ?? [])].map((s) => SOURCE_NAMES[s] ?? s);
+  return names.length ? `Includes data from the ${names.join(' and the ')}.` : null;
+}
 
 export function agencyLabel(agency: string): string {
   return AGENCY_LABELS[agency as ManagingAgency] ?? agency;

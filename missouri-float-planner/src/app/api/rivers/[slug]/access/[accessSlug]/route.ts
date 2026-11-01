@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import { getAccessPointDetail } from '@/lib/access-points/detail';
+import { agencySources } from '@/lib/access-points/source-line';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 
 // Force dynamic rendering (uses cookies for Supabase)
@@ -40,6 +42,21 @@ async function _GET(
         { error: 'Access point has invalid coordinates' },
         { status: 500 }
       );
+    }
+
+    if (!estimatesOnly) {
+      // Attribution only: which agencies' data this page uses. agency_gis_features
+      // is service-role only by design, so read the provider codes here and
+      // expose nothing else from it. A failure drops the line, never the page.
+      try {
+        const { data: links } = await createAdminClient()
+          .from('agency_gis_features')
+          .select('provider')
+          .eq('access_point_id', result.data.accessPoint.id);
+        result.data.accessPoint.dataSources = agencySources(links);
+      } catch {
+        result.data.accessPoint.dataSources = [];
+      }
     }
 
     return NextResponse.json(estimatesOnly ? { nearbyAccessPoints: result.data.nearbyAccessPoints } : result.data, {

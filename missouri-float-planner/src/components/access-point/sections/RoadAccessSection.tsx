@@ -3,6 +3,7 @@
 
 import type { AccessPointDetail } from '@/types/api';
 import { formatRoadSurface } from '@/lib/navigation';
+import { FactRow, ProseBlock } from './DetailText';
 
 interface RoadAccessSectionProps {
   accessPoint: AccessPointDetail;
@@ -15,16 +16,11 @@ export default function RoadAccessSection({ accessPoint }: RoadAccessSectionProp
     <div className="space-y-3">
       {/* Road surface types */}
       {hasRoadSurface && (
-        <InfoRow
-          label="Road type"
-          value={formatRoadSurface(accessPoint.roadSurface)}
-        />
+        <FactRow label="Road type" value={formatRoadSurface(accessPoint.roadSurface)} />
       )}
 
-      {/* Free text road access notes */}
-      {accessPoint.roadAccess && (
-        <InfoRow label="Details" value={accessPoint.roadAccess} />
-      )}
+      {/* Free text: full-width prose, not a right-aligned value */}
+      {accessPoint.roadAccess && <ProseBlock text={accessPoint.roadAccess} />}
 
       {/* Coordinates */}
       {accessPoint.drivingLat && accessPoint.drivingLng && (
