@@ -2273,7 +2273,8 @@ gesture that closes a sheet) does not wait on every layer it missed. The map
 rotates but never tilts: pitch is off, because the compass resets heading only. Places that overlap become one numbered stack, by the
 web planner's rule (`src/map/pinStacks.ts`): marks within 56pt of each other at
 the current whole zoom, across every layer drawn as individual marks at that
-zoom. Hazards, route endpoints and the selected place never stack. Tapping a
+zoom. Hazards stack like every other place; route endpoints and the selected
+place never stack. Tapping a
 stack below zoom 13 eases in to the zoom where it splits, capped at 15, when
 that is more than half a level away; otherwise it opens "N places here" in the
 places sheet. Cluster taps ask the owning source for its expansion zoom,
@@ -2281,18 +2282,18 @@ falling back to two more zoom levels if that query fails or returns an invalid
 value. There is no tap cycling and no hint banner.
 
 Below `ZOOM.cluster` every Eddy pin layer that is on — places, services, rated
-gauges and dams — is counted by ONE statewide index, so a lone dam or gauge is
+gauges, dams and hazards — is counted by ONE statewide index, so a lone dam or gauge is
 never a dot beside a count that should hold it; the USGS reference tier keeps
 its own parchment counts. Every count breaks into pins at the same zoom
-(`ZOOM.cluster`), and with three exceptions every
-layer takes the same rungs: a `ZOOM.min` floor, marks at `ZOOM.places`, names
-at `ZOOM.names`. Hazards never cluster and resolve at `ZOOM.cluster` (a safety
-rule); the selected place is drawn by its own source on top of every place
+(`ZOOM.cluster`), and every layer, hazards included, takes the same rungs
+after it: dots to `ZOOM.places`, marks from there, names at `ZOOM.names`.
+Hazards are a place layer with no draw priority: they paint over the other
+place layers but under the numbered stacks, the route endpoints and the
+selection. The selected place is drawn by its own source on top of every place
 layer, at a larger scale and named at every zoom, even if its layer is
 switched off while its sheet is open. Pin sources are mounted for the life of
 the map and empty when their layer is off: a source mounted on a toggle lands
-at the top of the native style and paints over hazards. Hazards are the last
-pin source, over the route endpoints and the selection. Map marks use the
+at the top of the native style and paints over the stacks. Map marks use the
 light palette in both appearances, because the basemap is light in both. A tap
 picks the mark nearest the finger, measuring a bottom-anchored pin from its
 bulb; overlapping counts resolve the same way. A tap on public land opens a

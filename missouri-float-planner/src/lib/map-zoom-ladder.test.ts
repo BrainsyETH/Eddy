@@ -118,27 +118,27 @@ test('the statewide index covers exactly the band the layers leave', () => {
   }
 });
 
-test('one statewide index counts every Eddy layer, gauges and dams included', () => {
+test('one statewide index counts every Eddy layer, gauges, dams and hazards included', () => {
   // There were four counts — places, services, rated gauges, dams — each
   // clustering only its own points, so on a device a lone dam or gauge sat as
   // a dot beside a places count that should have held it. One index now.
   assert.match(CODE, /\{statewideIndexLayer\(statewideIndexShape\)\}/, 'the index must be mounted');
   const shape = CODE.slice(CODE.indexOf('const statewideIndexShape'), CODE.indexOf('const pinShapes'));
   for (const list of ['accessPins', 'campgroundPins', 'boatRampPins', 'springPins',
-    'outfitterPins', 'lodgingPins', 'gaugePins', 'dams']) {
+    'outfitterPins', 'lodgingPins', 'gaugePins', 'dams', 'hazardPins']) {
     assert.match(shape, new RegExp(`\\.\\.\\.(\\()?${list}`), `${list} must be counted in the index`);
   }
-  assert.doesNotMatch(shape, /hazardPins|referenceGauges/, 'hazards never join a count; the reference tier keeps its own');
+  assert.doesNotMatch(shape, /referenceGauges/, 'the reference tier keeps its own counts');
   assert.match(shape, /filter\(\(pin\) => on\.has\(pin\.layer\)\)/, 'a count holds only layers that are on');
   // Keyed on the switches that can change a count, so toggling radar, public
-  // land, hazards or the USGS tier does not rebuild and re-upload the index.
-  assert.match(shape, /\[accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, indexLayersKey, endpointIds\]/);
+  // land or the USGS tier does not rebuild and re-upload the index.
+  assert.match(shape, /\[accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, hazardPins, indexLayersKey, endpointIds\]/);
   assert.doesNotMatch(shape, /\blayers\b/, 'the index must not depend on the whole layers array');
   const outside = /const OUTSIDE_INDEX[^=]*= new Set\(\[([^\]]*)\]\)/.exec(CODE)?.[1] ?? '';
-  for (const layer of ['weatherRadar', 'publicLand', 'hazards', 'allGauges']) {
+  for (const layer of ['weatherRadar', 'publicLand', 'allGauges']) {
     assert.match(outside, new RegExp(`'${layer}'`), `${layer} cannot change a count`);
   }
-  for (const member of ['access', 'campgrounds', 'boatRamps', 'springs', 'outfitters', 'lodging', 'gauges', 'dams']) {
+  for (const member of ['access', 'campgrounds', 'boatRamps', 'springs', 'outfitters', 'lodging', 'gauges', 'dams', 'hazards']) {
     assert.doesNotMatch(outside, new RegExp(`'${member}'`), `${member} is counted, so its switch must rebuild the index`);
   }
   // And nothing else counts Eddy pins: the only other clustered source is the
@@ -172,21 +172,18 @@ test('the access source no longer clusters on its own', () => {
   );
 });
 
-test('hazards resolve a rung early and never cluster', () => {
+test('hazards climb the ladder like every other place', () => {
+  // They were the one exception: never counted, a triangle a rung early, and
+  // drawn over everything. On a device that read as hazards outranking the
+  // map — triangles on top of the numbered stacks, hiding their counts. A
+  // hazard is a place now: counted below ZOOM.cluster, a dot to ZOOM.places,
+  // the triangle after it, named at ZOOM.names.
   const args = pinLayerArgs().get('hazards');
   assert.ok(args, 'hazards must be drawn through pinLayer');
-  assert.equal(args[3], 'ZOOM.min', 'hazards observe the ladder floor like everything else');
-  assert.equal(
-    args[4],
-    'ZOOM.cluster',
-    'a hazard becomes a triangle as soon as the bubbles break, not at ZOOM.places',
-  );
-  // THE ONE RULE HERE THAT IS NOT A TUNING. A hazard must never disappear into
-  // a count: a badge reading "3" where a low-water dam is cannot be acted on.
-  // pinLayer cannot cluster at all, and hazards are not in the statewide index.
+  assert.equal(args[2], 'ZOOM.names');
+  assert.equal(args[3], 'ZOOM.cluster', 'below ZOOM.cluster a hazard is in the statewide index');
+  assert.equal(args[4], 'ZOOM.places', 'the triangle arrives with the other place marks');
   assert.doesNotMatch(sourceBlock('const pinLayer'), /\n\s*cluster(=|\s*$)/m, 'pinLayer must not cluster');
-  const index = CODE.slice(CODE.indexOf('const statewideIndexShape'), CODE.indexOf('const pinShapes'));
-  assert.doesNotMatch(index, /hazardPins/, 'a hazard must never join a count');
 });
 
 test('lakes & dams climb the ladder with no exception', () => {
@@ -205,8 +202,8 @@ test('no layer is named before the names rung, and none sits below the floor', (
   // The general form of the dam rule, so the next "landmark" exception fails
   // here rather than on a device. Rated gauges were the last holdout: named a
   // rung early and drawn below ZOOM.min. Indexed layers floor at ZOOM.cluster,
-  // where the statewide index hands over; hazards, never indexed, at ZOOM.min.
-  const family = new Set(['outfitters', 'lodging', 'campgrounds', 'springs', 'boatRamps', 'gauges', 'dams']);
+  // where the statewide index hands over.
+  const family = new Set(['outfitters', 'lodging', 'campgrounds', 'springs', 'boatRamps', 'gauges', 'dams', 'hazards']);
   for (const [key, args] of pinLayerArgs()) {
     assert.equal(args[2], 'ZOOM.names', `${key} must not be named before ZOOM.names`);
     assert.equal(args[3], family.has(key) ? 'ZOOM.cluster' : 'ZOOM.min', `${key} must observe the ladder floor`);

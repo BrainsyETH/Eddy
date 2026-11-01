@@ -36,8 +36,10 @@ import { serviceContactActions, type ServiceContactAction } from '@/lib/serviceC
 // ── Draw order ──────────────────────────────────────────────────────────────
 // Later sources paint over earlier ones, so the order below is deliberate:
 // river line, then the planned segment on top of it, then places, then
-// campgrounds over places, then gauges, then hazards over everything. A hazard
-// must never be hidden under a put-in.
+// campgrounds over places, then gauges, dams and hazards, then the numbered
+// stacks, the route endpoints and the selection over all of them. Hazards are
+// a place layer like any other: they stack, count and resolve on the same
+// rungs, and a numbered stack is never painted over by one.
 //
 // ── Label ink is not the theme's text colour ────────────────────────────────
 // Mapbox's outdoors style is a LIGHT basemap in both app appearances — there is
@@ -952,9 +954,9 @@ interface Props {
 
 /**
  * Layers whose switch cannot change the statewide index: two draw areas, not
- * pins; hazards never join a count; the USGS tier keeps its own counts.
+ * pins; the USGS tier keeps its own counts.
  */
-const OUTSIDE_INDEX: ReadonlySet<string> = new Set(['weatherRadar', 'publicLand', 'hazards', 'allGauges']);
+const OUTSIDE_INDEX: ReadonlySet<string> = new Set(['weatherRadar', 'publicLand', 'allGauges']);
 
 /**
  * GeoJSON for one layer, or for many at once (the statewide index).
@@ -1394,10 +1396,12 @@ export function RiverMap({
    * The web planner's rule, in map/pinStacks.ts: places within 56pt of each
    * other at the current zoom draw as one numbered mark. Only marks that are
    * drawn individually at this zoom take part; below a clustered layer's
-   * ceiling its native bubbles already do this job. Three things never stack:
-   * hazards (a hazard must never disappear into a count), route endpoints
-   * (they have their own source and badge) and the selected place (the open
-   * sheet is about it, so it stays visible beside whatever else is there).
+   * ceiling its native bubbles already do this job. Two things never stack:
+   * route endpoints (they have their own source and badge) and the selected
+   * place (the open sheet is about it, so it stays visible beside whatever
+   * else is there). Hazards stack like every other place: drawn on top of
+   * everything and kept out of every count, their triangles sat over the
+   * numbers and outranked the map they annotate.
    *
    * Computed from the camera's last STOP, never per frame, and padded like
    * the gauge request box so a mark just off screen still groups with its
@@ -1429,10 +1433,11 @@ export function RiverMap({
     add(gaugePins);
     add(referenceGauges);
     add(dams);
+    add(hazardPins);
     return pinStacks(candidates, zoom);
   }, [
     visibleViewport, layers, selectedPinId, endpointIds, accessPins, campgroundPins,
-    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, referenceGauges, dams,
+    boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, referenceGauges, dams, hazardPins,
   ]);
   const stacksById = useMemo(() => new Map(stacks.map((stack) => [stack.id, stack])), [stacks]);
   // PRIMITIVE KEYS, so a camera stop that regroups nothing re-uploads nothing.
@@ -1566,9 +1571,10 @@ export function RiverMap({
    * source, so on a device a lone dam or gauge sat as a dot right beside a
    * places count that visibly should have held it — the counts were not
    * counting what was there. One index counts everything in a patch of ground.
-   * The two things kept out are deliberate: hazards never join a count (a
-   * safety rule), and the USGS reference tier keeps its own parchment counts
-   * because they say "reference, not Eddy" and it is often far denser.
+   * The one thing kept out is deliberate: the USGS reference tier keeps its
+   * own parchment counts because they say "reference, not Eddy" and it is
+   * often far denser. Hazards are counted like everything else; the sheet
+   * and the coloured river lines carry their urgency, not draw priority.
    *
    * ── Why an INDEX rather than merging the sources ────────────────────────
    *
@@ -1592,9 +1598,9 @@ export function RiverMap({
    * own source at every zoom.
    */
   // Keyed on the switches that can change a count, not on the whole `layers`
-  // array: toggling weather radar, public land, hazards or the USGS tier puts
-  // nothing in or out of this index, and used to rebuild and re-upload all of
-  // it. The members are the eight lists spread below; see OUTSIDE_INDEX.
+  // array: toggling weather radar, public land or the USGS tier puts nothing
+  // in or out of this index, and used to rebuild and re-upload all of it. The
+  // members are the nine lists spread below; see OUTSIDE_INDEX.
   const indexLayersKey = layers.filter((layer) => !OUTSIDE_INDEX.has(layer)).sort().join('|');
   const statewideIndexShape = useMemo(
     () => {
@@ -1602,12 +1608,12 @@ export function RiverMap({
       return featureCollection(
         [
           ...accessPins, ...campgroundPins, ...boatRampPins, ...springPins,
-          ...outfitterPins, ...lodgingPins, ...gaugePins, ...(dams ?? []),
+          ...outfitterPins, ...lodgingPins, ...gaugePins, ...(dams ?? []), ...hazardPins,
         ].filter((pin) => on.has(pin.layer)),
         (pin) => layerColorFor(pin.layer), endpointIds,
       );
     },
-    [accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, indexLayersKey, endpointIds],
+    [accessPins, campgroundPins, boatRampPins, springPins, outfitterPins, lodgingPins, gaugePins, dams, hazardPins, indexLayersKey, endpointIds],
   );
 
   const pinShapes = useMemo(
@@ -2258,8 +2264,8 @@ export function RiverMap({
      * together (see statewideIndexLayer).
      */
     // Stacked members draw as their stack's number, not as themselves; see
-    // notStacked. Hazards never stack, so their layer needs no clause.
-    const solo = id === 'hazards' ? unselected() : unselected(notStacked);
+    // notStacked.
+    const solo = unselected(notStacked);
     return (
       <Mapbox.ShapeSource
         id={`pins-${id}`}
@@ -2952,8 +2958,8 @@ export function RiverMap({
 
       {/* ── The statewide index, under everything it consolidates ──────────
           Below ZOOM.cluster it is the ONLY thing the Eddy pin layers draw, so
-          it goes first: a hazard must paint over a count, never under it. It
-          holds only the members whose layer is on. */}
+          it goes first: every mark it hands over to paints over it. It holds
+          only the members whose layer is on, hazards included. */}
       {statewideIndexLayer(statewideIndexShape)}
 
       {accessLayer()}
@@ -3032,16 +3038,32 @@ export function RiverMap({
           layer had already gone quiet. A dam is a place like a campground is;
           its name arrives when names do, and the sheet names it on a tap.
 
-          Drawn before hazards so the low-water-dam layer still paints on top:
-          where both land in one place, the one that can kill you is on top. */}
+          Drawn before hazards so the low-water-dam layer still paints on top
+          where both land in one place. */}
       {pinLayer('dams', 'dam', ZOOM.names, ZOOM.cluster, ZOOM.places)}
+
+      {/* ── Hazards: a place layer, on the same rungs as every other ───────
+          Counted in the statewide index to ZOOM.cluster, severity dots to
+          ZOOM.places, the triangle, then the name at ZOOM.names; and they
+          join numbered stacks like everything else.
+
+          They used to be the exception to all of it — never counted, never
+          stacked, a triangle a rung early, and the LAST pin source, over the
+          stacks, the route endpoints and the selection. On a device that read
+          as hazards outranking the map: triangles sat over the numbered
+          stacks and hid the count beneath them. A hazard is now one more kind
+          of place; the sheet, the coloured river lines and the float plan's
+          hazard list carry the warning. Drawn last of the place layers, so a
+          triangle still paints over a put-in where both land together, and
+          under the stacks, endpoints and selection like every place. */}
+      {pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.cluster, ZOOM.places)}
 
       {/* ── Numbered stacks, the web planner's mark ───────────────────────
           The place count badge at the web's own 34pt: a white rounded
           square, a Deep River Teal ring and a hard offset shadow, as on
           eddy.guide's planner. The number is how many places are under it.
-          Above every place layer, because it stands in for their members,
-          and below the selection and hazards, which never join a stack.
+          Above every place layer, hazards included, because it stands in for
+          their members, and below the selection, which never joins a stack.
           The tap target is the 44pt query box around the finger. */}
       <Mapbox.ShapeSource id="pins-stacks" shape={stackShape}>
         {/* One symbol, image and number together — see PLACE_COUNT_BADGE for
@@ -3113,9 +3135,8 @@ export function RiverMap({
       </Mapbox.ShapeSource>
 
       {/* ── The selected place, over every place layer ─────────────────────
-          See selectedShape. Above the stacks and the route endpoints, because
-          the open sheet is about it; below hazards, because nothing outranks a
-          hazard — a selected put-in must not hide the low-water dam beside it.
+          See selectedShape. Above the stacks, the route endpoints and every
+          place layer, hazards included, because the open sheet is about it.
           Its name is always drawn and wins collision over its neighbours'. */}
       <Mapbox.ShapeSource id="pins-selected" shape={selectedShape}>
         {(['center', 'bottom'] as const).map(anchor => (
@@ -3172,26 +3193,6 @@ export function RiverMap({
         />
       </Mapbox.ShapeSource>
 
-      {/* ── Hazards get a dot rung, and do NOT get a bubble ────────────────
-          Nineteen marks are not what crowded this map, but they were the
-          loudest thing on it: full warning triangles at continental zoom, drawn
-          over the two layers that answer which river to drive to. A severity
-          dot below ZOOM.cluster says "there is something here" in the same
-          colour without shouting it, and the triangle arrives one rung earlier
-          than the place marks do — at ZOOM.cluster rather than ZOOM.places —
-          because a hazard should resolve as soon as the bubbles break.
-
-          NO CLUSTER, deliberately, and this is the one layer where that is a
-          rule rather than a tuning: a hazard must never disappear into a count.
-          The floor is the ladder's own — below it there is no river to read a
-          hazard against, and every other statewide layer is silent there.
-
-          LAST of the pin sources, over the route endpoints and the selection.
-          It once drew before the endpoints, so a put-in badge covered the
-          low-water-dam triangle at the same landing — the one inversion of
-          "a hazard must never be hidden under a put-in" the draw-order note at
-          the top of this file exists to prevent. */}
-      {pinLayer('hazards', 'hazard', ZOOM.names, ZOOM.min, ZOOM.cluster)}
     </Mapbox.MapView>
     {placesListOpen ? (
       <MapPlacesSheet
