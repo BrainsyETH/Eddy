@@ -227,3 +227,34 @@ Approved, USFS-managed, float endpoint.
 
 To promote another confirmed spot, add it to a dossier and import it. It lands
 `approved = false`.
+
+## Placeholder-pin scan, all rivers (2026-11-01)
+
+After three rounded placeholder pins turned up (Boiling Spring, Hwy 160 Bridge,
+Sandy Shoals Ford), every pin was checked in two ways:
+- each of the 40 pins with 4 or fewer decimals was measured against the
+  USGS NHD channel;
+- every pin was compared with the agency's own feature of the same name.
+
+Moved to MDC's boat ramp with authorization. The SQL and rollback are in
+`../access-points/reviews/mdc-ramp-pins-2026-11-01.sql`.
+
+| Access | River | Was off by | Mile |
+| --- | --- | ---: | --- |
+| Mineral Springs Access (placeholder 37.344, -91.988) | Big Piney | 2.7 km | 30.4 → 33.4 |
+| Blair Bridge Access | North Fork | 482 m | unchanged |
+| Ross Access | Big Piney | 465 m | unchanged |
+| Blue Springs Creek Conservation Area | Meramec | 404 m | unchanged |
+| Syenite Access | St. Francis | 355 m | unchanged |
+| Mount Shira Access | Elk | 288 m | unchanged |
+
+Millstream Gardens Conservation Area was flagged but is correct: it is the
+Tiemann Shut-Ins put-in, and the MDC ramp belongs to Millstream Gardens
+Fisherman's Access.
+
+Still open, not changed:
+- Lucky Clover Resort (approved) is 297 m from the channel, probably pinned at
+  the office.
+- Five unapproved records have doubtful pins: Beal Landing on left (Current,
+  1 km), Turner Mill North (Eleven Point), Berryman Campground and Hazel Creek
+  Recreation Area (Courtois), and Van Buren City Access (Current).
