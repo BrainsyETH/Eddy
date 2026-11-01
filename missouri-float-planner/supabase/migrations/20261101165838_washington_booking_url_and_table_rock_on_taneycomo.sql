@@ -17,18 +17,24 @@
 -- is on bookingUrlFor()'s mo_state_parks allowlist (src/lib/camping/booking.ts),
 -- so the overview will accept it.
 --
--- ── 2. Table Rock State Park campgrounds serve the Taneycomo ────────────
+-- ── 2. Table Rock State Park campgrounds, listed under the Taneycomo ────
 --
 -- trust finding service_no_river_link, service
 -- b0ca7a25-6d7a-49ec-b13e-2adbe4fa27fc. The row has a pin and no river, so it
--- appears in no river's directory. Its pin (36.58067, -93.30390, Hwy 165 by
--- Table Rock Dam) is 1.0 mi from Eddy's Taneycomo line, which begins at that
--- dam; the hatchery bank access and the dam-area launches are the park's
--- nearest water on any Eddy river. The park's own shoreline is Table Rock
--- Lake, which Eddy does not model, so this is the only river link it can
--- honestly carry. The other two unlinked parks in the same review (Roaring
--- River, Devil's Den) are 12-19 mi from any Eddy river and are deliberately
--- NOT linked here; whether they stay in the directory is an open decision.
+-- appears in no river's directory.
+--
+-- Be exact about what this claims. The park's campsites are on TABLE ROCK
+-- LAKE, per Missouri State Parks' own description — not on the Taneycomo,
+-- and Eddy does not model the lake. What is true is that the campgrounds sit
+-- by Table Rock Dam (pin 36.58067, -93.30390, Hwy 165), 1.0 mi from Eddy's
+-- Taneycomo line, which begins at that dam. So this lists the park as nearby
+-- camping in the Taneycomo's directory, and the section description says
+-- where it actually is. It creates no access point and no float endpoint:
+-- service_rivers is a directory link, nothing more.
+--
+-- The other two unlinked parks in the same review (Roaring River, Devil's
+-- Den) are 12-19 mi from any Eddy river and are deliberately NOT linked here;
+-- whether they stay in the directory is an open decision.
 --
 -- Expected on apply: both findings resolve on the next camping_inventory and
 -- service_geo_consistency runs.
@@ -71,7 +77,7 @@ BEGIN
   INSERT INTO public.service_rivers
     (service_id, river_id, is_primary, section_description, verified_source, checked_at)
   VALUES
-    (table_rock.id, taneycomo_id, true, 'Table Rock Dam / upper Taneycomo',
+    (table_rock.id, taneycomo_id, true, 'Table Rock Lake, near upper Taneycomo',
      'https://mostateparks.com/park/table-rock-state-park', DATE '2026-11-01');
 END
 $$;
