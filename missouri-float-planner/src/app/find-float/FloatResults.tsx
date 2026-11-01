@@ -13,13 +13,15 @@ import { optimizeBlogImage } from '@/lib/blog-image';
 import {
   driveLabel, floatBoatLabel, floatPlanPath, floatSearchEmptyMessage, floatSortsFor, floatTripLabel,
   FLOAT_DISTANCE_INFO, FLOAT_SEARCH_LOADING_DETAIL, FLOAT_SEARCH_LOADING_TITLE, FLOAT_TIME_INFO,
-  publicAccessLabel, sortFloatOptions,
+  FLOAT_OFFER_LABELS, publicAccessLabel, sortFloatOptions,
   type floatSearchRecoveryOptions, type FloatSearchOption, type FloatSort,
 } from '@shared/float-search';
 import type { SearchSnapshot } from './FindFloatClient';
 import { riverStripPlaceable, type RiverStripPoint, type RouteState } from '@shared/river-strip';
 import RiverStrip, { focusStripRoute, NumberChip, RiverStripPlaceholder, type NumberedRoute } from './RiverStrip';
-import { INFO_COLORS, routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
+import {
+  INFO_COLORS, RouteAlong, RouteCautionLine, RouteCautions, RouteConditionBadge, routeEstimateLabel, RouteFacilities, RouteOutfitters, routeTimeLabel,
+} from './route-facts';
 
 const NO_POINTS: RiverStripPoint[] = [];
 const floatCardId = (id: string) => `float-result-${encodeURIComponent(id)}`;
@@ -70,6 +72,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   const points = useMemo(() => accessPoints?.map(point => ({
     id: point.id, name: point.name, mile: point.riverMile, endpoint: point.isFloatEndpoint !== false,
   })) ?? NO_POINTS, [accessPoints]);
+  const pointInfo = useMemo(() => new Map((accessPoints ?? []).map(point => [point.id, point])), [accessPoints]);
   const stripRoutes = useMemo<NumberedRoute[]>(() => {
     if (!stripRiver || points.length < 2) return [];
     const placeable = riverStripPlaceable(points, ordered.map(o => ({ id: o.id, number: 0, putInId: o.putIn.id, takeOutId: o.takeOut.id })));
@@ -128,7 +131,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
       </Card>}
       {pointsLoading && <RiverStripPlaceholder riverName={ordered[0].riverName} routeCount={ordered.length} />}
       {stripRiver && stripRoutes.length > 0 && <RiverStrip riverSlug={stripRiver} riverName={stripRoutes[0].option.riverName}
-        points={points} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
+        points={points} pointInfo={pointInfo} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
         onSelect={setChosenId} onHover={setPointedId} onView={viewFloat} />}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
         {matches.map(card)}
@@ -185,13 +188,17 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
           {o.driveMinutes != null && <span className="inline-flex items-center text-xs text-[var(--color-text-secondary)]">{driveLabel(o.driveMinutes)} drive
             <InfoTip quiet size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <RouteConditionBadge option={o} />
-          <span className="text-[var(--color-text-secondary)]">{[routeAccessLabel(o), ...(o.highlights ?? [])].join(' · ')}</span>
-          {o.relation !== 'match' && <span className="text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
+          <RouteFacilities option={o} />
+          {o.relation !== 'match' && <span className="text-xs text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
         </div>
-        <RouteCautions option={o} />
-        <div className="flex flex-wrap items-center gap-x-5">
+        {(o.along?.length || o.outfitters?.length) ? <div className="space-y-1.5">
+          <RouteAlong option={o} />
+          <RouteOutfitters option={o} />
+        </div> : null}
+        <RouteCautionLine option={o} />
+        <div className="-my-1 flex flex-wrap items-center gap-x-5">
           <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}
             className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-text-link)]">
             Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
@@ -203,13 +210,7 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
               : <span>Show <span className="sr-only">float {strip.number} </span>on river</span>}
           </button>}
         </div>
-        {expanded && <div className="-mt-2 space-y-2 text-sm text-[var(--color-text-secondary)]">
-          <p>Put-in: {publicAccessLabel(o.putIn.isPublic)}<br />Take-out: {publicAccessLabel(o.takeOut.isPublic)}</p>
-          <p>{o.estimateBasis === 'current_conditions' ? 'Estimate uses current conditions.' : 'Estimate uses typical conditions.'}
-            {o.observedAt && o.estimateBasis === 'current_conditions' ? ` Reading ${new Date(o.observedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : ''}</p>
-          {o.description && <p>{o.description}</p>}
-          {o.photo?.caption && photo === o.photo.url && <p className="text-xs">{o.photo.caption}</p>}
-        </div>}
+        {expanded && <RouteDetails option={o} photoCaption={o.photo?.caption && photo === o.photo.url ? o.photo.caption : null} />}
         <div className="mt-auto pt-1">
           <Button href={floatPlanPath(o)} className="w-full" tabIndex={stale ? -1 : undefined}
             aria-label={`Plan this float from ${o.putIn.name} to ${o.takeOut.name}`}
@@ -220,4 +221,27 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
       </div>
     </Card>
   );
+}
+
+/** The long form, on demand: every caution in full, each end's access, each stop by mile, every outfitter. */
+function RouteDetails({ option: o, photoCaption }: { option: FloatSearchOption; photoCaption: string | null }) {
+  const formatMile = (mile: number) => (Number.isInteger(mile) ? String(mile) : mile.toFixed(1));
+  return <div className="-mt-2 space-y-2 text-sm text-[var(--color-text-secondary)]">
+    <div className="space-y-1 text-[var(--color-text-primary)]"><RouteCautions option={o} /></div>
+    <p>Put-in: {publicAccessLabel(o.putIn.isPublic)}<br />Take-out: {publicAccessLabel(o.takeOut.isPublic)}</p>
+    {o.along && o.along.length > 0 && <ul className="space-y-0.5" aria-label="Stops along the way">
+      {o.along.map((stop, i) => <li key={`${stop.kind}-${i}`} className="tabular-nums">mi {formatMile(stop.mile)} · {stop.name}{stop.kind === 'portage' ? ' (portage)' : stop.kind === 'hazard' ? ' (hazard)' : stop.kind === 'campground' ? ' (camping)' : ''}</li>)}
+    </ul>}
+    {o.outfitters && o.outfitters.length > 0 && <ul className="space-y-0.5" aria-label="Outfitters">
+      {o.outfitters.map(outfitter => <li key={outfitter.id}>
+        <span className="font-medium text-[var(--color-text-primary)]">{outfitter.name}</span>
+        {` · ${outfitter.offers.map(offer => FLOAT_OFFER_LABELS[offer]).join(', ')}`}
+        {outfitter.phone && <> · <a className="text-[var(--color-text-link)]" href={`tel:${outfitter.phone.replace(/[^+\d]/g, '')}`}>{outfitter.phone}</a></>}
+      </li>)}
+      <li className="text-xs">Directory listings, not live availability. Call ahead.</li>
+    </ul>}
+    <p>{o.estimateBasis === 'current_conditions' ? 'Estimate uses current conditions.' : 'Estimate uses typical conditions.'}
+      {o.observedAt && o.estimateBasis === 'current_conditions' ? ` Reading ${new Date(o.observedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : ''}</p>
+    {photoCaption && <p className="text-xs">{photoCaption}</p>}
+  </div>;
 }

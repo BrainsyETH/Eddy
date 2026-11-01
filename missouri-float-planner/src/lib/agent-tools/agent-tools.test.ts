@@ -179,6 +179,7 @@ function fixture(
     usgs_daily_percentiles: [],
     river_hazards: [],
     service_rivers: [],
+    points_of_interest: [],
   };
   function query(name: string, initial: any[]) {
     let rows = initial,
@@ -1658,4 +1659,63 @@ test('a hazard at the put-in or take-out never blocks or demotes that route', as
   const plan = (await f.execute('plan_float', { river: 'current', putIn: 'launch-0', takeOut: 'launch-1', vesselType: 'canoe' })).data as any;
   assert.deepEqual(plan.hazards.atEndpoints, [{ id: 'dam', at: 'take_out' }]);
   assert.equal(plan.routeAssessment.cautionReasons.some((r: { code: string }) => r.code === 'portage_required'), false);
+});
+
+test('Find a Float cards carry facilities, route outfitters and what lies between the ends', async () => {
+  const f = fixture({ points: 4 });
+  const [a, b, c, d] = f.tables.access_points;
+  a.amenities = ['parking', 'restrooms'];
+  a.fee_required = false;
+  c.is_public = false;
+  b.amenities = ['camping'];
+  f.tables.points_of_interest.push(
+    { river_id: uuid(1), active: true, is_on_water: true, name: 'Blue Spring', type: 'spring', river_mile: 2 },
+    { river_id: uuid(1), active: true, is_on_water: true, name: 'Far Cave', type: 'cave', river_mile: 40 },
+  );
+  f.tables.river_hazards.push({ id: 'dam', river_id: uuid(1), active: true, portage_required: true, river_mile_downstream: 6, name: 'Low dam', type: 'low_water_dam', severity: 'warning' });
+  const business = (id: string, name: string, offered: string[], routes: unknown[] = [], status = 'active') => ({
+    river_id: uuid(1), services_offered: [], routes,
+    nearby_services: { id, name, phone: null, website: `https://${id}.example`, latitude: 37, longitude: -91, services_offered: offered, status },
+  });
+  f.tables.service_rivers.push(
+    business('near', 'Near Canoe', ['canoe_rental', 'shuttle']),
+    business('runs', 'Runs It', ['kayak_rental'], [{ name: 'Day run', putIn: 'Launch 0', takeOut: 'Launch 3' }]),
+    business('closed', 'Closed Co', ['canoe_rental'], [], 'permanently_closed'),
+    business('lodge', 'Just Cabins', ['cabins']),
+  );
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current', publicOnly: false, targetHours: 4 }, { sources: f.sources, now: NOW });
+  const routes = [...result.matches, ...result.alternatives];
+  const long = routes.find(route => route.putIn.id === a.id && route.takeOut.id === d.id);
+  assert.ok(long, 'the full-length route is offered');
+  assert.deepEqual(long.facilities, ['restrooms', 'parking'], 'facilities come from the two ends, not the stops between');
+  assert.deepEqual(long.along?.map(stop => [stop.kind, stop.name]), [
+    ['spring', 'Blue Spring'], ['access', 'Launch 1'], ['campground', 'Launch 1'], ['portage', 'Low dam'], ['access', 'Launch 2'],
+  ], 'stops inside the route only, in river order; endpoints and outside points excluded');
+  assert.deepEqual(long.outfitters?.map(o => [o.id, o.servesRoute]), [['runs', true], ['near', false]],
+    'a listed run from the put-in ranks first; closed and non-floating businesses are left out');
+  assert.deepEqual(long.outfitters?.[1].offers, ['shuttle', 'canoe']);
+  const first = routes.find(route => route.putIn.id === a.id && route.takeOut.id === b.id);
+  if (first) assert.deepEqual(first.facilities, ['camping', 'restrooms', 'parking']);
+});
+
+test('route facts fail soft: a broken directory read keeps every route', async () => {
+  const f = fixture({ points: 4, fail: 'points_of_interest' });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current' }, { sources: f.sources, now: NOW });
+  const routes = [...result.matches, ...result.alternatives];
+  assert.ok(routes.length > 0);
+  assert.ok(routes.every(route => Array.isArray(route.along)));
+});
+
+test('stop groups and private-access notes read as short card labels', async () => {
+  const { floatStopGroups, privateAccessNote } = await import('@shared/float-search');
+  const groups = floatStopGroups([
+    { kind: 'access', name: 'A', mile: 1 }, { kind: 'spring', name: 'Big Spring', mile: 2 },
+    { kind: 'access', name: 'B', mile: 3 }, { kind: 'portage', name: 'Dam', mile: 4 },
+  ]);
+  assert.deepEqual(groups.map(g => [g.kind, g.label]), [['portage', '1 portage'], ['access', '2 accesses'], ['spring', 'Big Spring']]);
+  assert.equal(groups[1].detail, 'A (mi 1), B (mi 3)');
+  const end = (isPublic: boolean | null) => ({ id: 'x', name: 'x', isPublic });
+  assert.equal(privateAccessNote({ putIn: end(true), takeOut: end(null) }), null);
+  assert.equal(privateAccessNote({ putIn: end(false), takeOut: end(true) }), 'Private put-in: permission required');
+  assert.equal(privateAccessNote({ putIn: end(false), takeOut: end(false) }), 'Private put-in and take-out: permission required');
 });

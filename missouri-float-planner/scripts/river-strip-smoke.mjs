@@ -21,6 +21,12 @@ const routes = [[5, 6], [0, 1], [2, 4], [4, 7], [3, 5], [1, 2]].map(([start, end
   estimateBasis: index === 1 ? 'typical' : 'current_conditions', observedAt: index === 1 ? null : new Date().toISOString(),
   formattedTime: '', url: '', highlights: ['Restrooms', 'No fees'],
   photo: { url: river.photoUrl, caption: 'Fixture image' },
+  // Two routes carry the icon-row facts; the rest stay on the older text highlights.
+  ...(index === 0 ? {
+    facilities: ['restrooms', 'noFees'],
+    outfitters: [{ id: 'o-1', name: 'Fixture Canoe Rental', offers: ['shuttle', 'kayak'], website: null, phone: '417-555-0100', servesRoute: true }, { id: 'o-2', name: 'Second Outfitter', offers: ['kayak'], website: null, phone: null, servesRoute: false }],
+    along: [{ kind: 'spring', name: 'Fixture Spring', mile: 54 }, { kind: 'portage', name: 'Fixture Dam', mile: 56 }],
+  } : index === 1 ? { facilities: [] } : {}),
 }));
 
 async function assertCardLanding(card) {
@@ -132,7 +138,7 @@ try {
     await assertCardLanding(selectedCard);
     assert.match(await selectedCard.innerText(), /Typical estimate/);
     assert.match(await selectedCard.innerText(), /Expect shallow stretches/);
-    assert.match(await selectedCard.innerText(), /Includes private access/);
+    assert.match(await selectedCard.innerText(), /Private put-in/);
     assert.equal(await selectedCard.getByRole('link', { name: /Plan this float/ }).count(), 1);
     await selectedCard.getByRole('button', { name: 'Float 2 On the river', exact: true }).click();
     assert(await strip.locator('[data-route-id="route-2"]').evaluate(node => node === document.activeElement), 'card action focuses the route callout');
@@ -166,6 +172,28 @@ try {
     await page.keyboard.press('Escape');
     assert(await info.evaluate(node => node === document.activeElement));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: no horizontal overflow`);
+
+    // Card facts: icon rows, one-line outfitter, private access named; the long form stays behind Route details.
+    const first = page.locator('#float-result-route-1');
+    assert.equal(await first.getByText('Fixture Canoe Rental', { exact: true }).count(), 1);
+    assert.equal(await first.getByText('+1 more in route details').count(), 1, 'more outfitters collapse to a count');
+    assert.equal(await first.getByText('1 portage', { exact: true }).count(), 1);
+    assert.equal(await first.getByText('Fixture Spring', { exact: true }).count(), 1);
+    assert.equal(await page.locator('#float-result-route-2').getByText('Private put-in: permission required').count(), 1);
+    assert.equal(await first.getByText('417-555-0100').count(), 0, 'phone numbers wait for route details');
+
+    // In-between accesses open a details card on hover or focus, and Escape closes it.
+    const dot = strip.locator('[data-strip-point]').first();
+    if (width === 1280) assert(await dot.count(), 'the strip draws in-between accesses');
+    if (await dot.count()) {
+      await dot.focus();
+      const pointCard = page.locator('#river-strip-point');
+      await pointCard.waitFor();
+      assert.match(await pointCard.innerText(), /mi \d/);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: point card stays on screen`);
+      await dot.press('Escape');
+      assert.equal(await pointCard.count(), 0);
+    }
     await strip.getByRole('heading').click();
     await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
     await strip.scrollIntoViewIfNeeded();
@@ -182,7 +210,7 @@ try {
     assert(contrast >= 4.5, `${width}: dark-mode text action contrast ${contrast}`);
     await page.screenshot({ path: `${out}/results-${width}-dark.png`, fullPage: true });
     await strip.screenshot({ path: `${out}/strip-${width}-dark.png` });
-    console.log(`PASS ${width}px: loading height, selection, card focus, sort, zoom, facts, info target, overflow`);
+    console.log(`PASS ${width}px: loading height, selection, card focus, sort, zoom, facts, point card, info target, overflow`);
     await context.close();
   }
   assert.deepEqual(errors, [], 'no browser exceptions');

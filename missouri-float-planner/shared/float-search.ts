@@ -155,6 +155,84 @@ export interface FloatSearchOption extends DurationChoice {
   driveMinutes?: number | null;
   /** Short facts that matched or describe the route, e.g. "Camping". */
   highlights?: string[];
+  /** Facilities at either endpoint, as icon keys. Absent on older payloads. */
+  facilities?: FloatFacility[];
+  /** Outfitters that rent boats or run shuttles on this route, most relevant first. */
+  outfitters?: FloatOutfitter[];
+  /** What lies strictly between the put-in and the take-out, in river order. */
+  along?: FloatStop[];
+}
+
+export type FloatFacility = 'camping' | 'restrooms' | 'parking' | 'noFees';
+/** A floating-relevant offering: a boat rental for some vessel, or a shuttle. */
+export type FloatOutfitterOffer = 'shuttle' | 'canoe' | 'kayak' | 'raft' | 'tube';
+export interface FloatOutfitter {
+  id: string;
+  name: string;
+  offers: FloatOutfitterOffer[];
+  website: string | null;
+  phone: string | null;
+  /** The business lists a run that starts or ends at this route's put-in or take-out. */
+  servesRoute: boolean;
+}
+export type FloatStopKind = 'access' | 'campground' | 'spring' | 'cave' | 'sight' | 'hazard' | 'portage';
+export interface FloatStop {
+  kind: FloatStopKind;
+  name: string;
+  mile: number;
+}
+
+export const FLOAT_FACILITY_LABELS: Record<FloatFacility, string> = {
+  camping: 'Camping',
+  restrooms: 'Restrooms',
+  parking: 'Parking',
+  noFees: 'No fees',
+};
+export const FLOAT_OFFER_LABELS: Record<FloatOutfitterOffer, string> = {
+  shuttle: 'Shuttle',
+  canoe: 'Canoes',
+  kayak: 'Kayaks',
+  raft: 'Rafts',
+  tube: 'Tubes',
+};
+const STOP_LABELS: Record<FloatStopKind, [string, string]> = {
+  access: ['access', 'accesses'],
+  campground: ['campground', 'campgrounds'],
+  spring: ['spring', 'springs'],
+  cave: ['cave', 'caves'],
+  sight: ['sight', 'sights'],
+  hazard: ['hazard', 'hazards'],
+  portage: ['portage', 'portages'],
+};
+/** Display order: what can stop the trip first, then where to stop, then what to see. */
+const STOP_ORDER: FloatStopKind[] = ['portage', 'hazard', 'access', 'campground', 'spring', 'cave', 'sight'];
+
+/** Stops grouped by kind for one compact row: "2 accesses", "Big Spring". */
+export function floatStopGroups(stops: FloatStop[] | undefined) {
+  const groups = new Map<FloatStopKind, FloatStop[]>();
+  for (const stop of stops ?? []) groups.set(stop.kind, [...(groups.get(stop.kind) ?? []), stop]);
+  return STOP_ORDER.filter(kind => groups.has(kind)).map(kind => {
+    const items = groups.get(kind)!;
+    const [one, many] = STOP_LABELS[kind];
+    return {
+      kind,
+      stops: items,
+      // A lone named place reads better by name; counts keep the row short.
+      label: items.length === 1 && kind !== 'access' && kind !== 'hazard' && kind !== 'portage'
+        ? items[0].name
+        : `${items.length} ${items.length === 1 ? one : many}`,
+      detail: items.map(item => `${item.name} (mi ${Number.isInteger(item.mile) ? item.mile : item.mile.toFixed(1)})`).join(', '),
+    };
+  });
+}
+
+/** Which endpoints, if any, are private. Null when nothing is recorded private. */
+export function privateAccessNote(o: Pick<FloatSearchOption, 'putIn' | 'takeOut'>) {
+  const putIn = o.putIn.isPublic === false, takeOut = o.takeOut.isPublic === false;
+  if (putIn && takeOut) return 'Private put-in and take-out: permission required';
+  if (putIn) return 'Private put-in: permission required';
+  if (takeOut) return 'Private take-out: permission required';
+  return null;
 }
 export interface FloatSearchResponse {
   matches: FloatSearchOption[];

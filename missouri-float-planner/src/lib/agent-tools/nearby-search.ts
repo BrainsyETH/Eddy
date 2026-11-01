@@ -34,6 +34,7 @@ import { RiverNotFoundError } from './contracts';
 import { assignRoutePhotos, loadRoutePhotos } from './route-photos';
 import { pairPasses, portageMiles, riverPasses, routeHighlights, shuttleRivers } from './float-filters';
 import { mapboxDriveFrom, type DriveFrom } from './drive-from';
+import { loadRiverOutfitters, loadRiverSights, putInCoordinates, routeFacilities, routeOutfitters, routeStops } from './route-context';
 
 /** Full route checks may replace rejected candidates up to this many attempts,
  * still returning at most MAX_ESTIMATES routes. */
@@ -115,6 +116,33 @@ export async function findNearbyFloats(
         }
       }),
     );
+  }
+  /** Facilities, outfitters and stops for the routes a card will show. Enrichment: never fails the search. */
+  async function addRouteFacts(
+    routes: FloatSearchOption[],
+    assessed: Map<string, { candidate: Candidate; river: River }>,
+    routeRivers: River[],
+    vessel: string,
+  ) {
+    try {
+      const [outfitters, perRiver] = await Promise.all([
+        loadRiverOutfitters(ctx, routeRivers.map(r => r.id)),
+        Promise.all(routeRivers.map(async river => [river.id, await Promise.all([ctx.access(river.id), loadRiverSights(ctx, river.id)])] as const)),
+      ]);
+      const rivers = new Map(perRiver);
+      for (const option of routes) {
+        const source = assessed.get(option.id);
+        const context = source && rivers.get(source.river.id);
+        if (!source || !context) continue;
+        const { candidate: { putIn, takeOut }, river } = source;
+        const [points, sights] = context;
+        option.facilities = routeFacilities(putIn, takeOut);
+        option.outfitters = routeOutfitters(outfitters.get(river.id) ?? [], putIn, takeOut, putInCoordinates(putIn, river), vessel);
+        option.along = routeStops(points, sights, putIn, takeOut);
+      }
+    } catch {
+      // A card without these facts is still a correct card.
+    }
   }
   try {
     const catalog = input.river
@@ -288,6 +316,8 @@ export async function findNearbyFloats(
     // or the attempt cap is reached; work in flight counts toward the six.
     let inFlight = 0;
     const driveTargets = new Map<string, { lat: number; lng: number }>();
+    // The rows behind each assessed route, for the card facts filled in at the end.
+    const assessed = new Map<string, { candidate: Candidate; river: River }>();
     async function assess({ candidate, river, nearbyMiles }: (typeof candidates)[number]) {
       const plan = await planning.calculate({
         river: river.slug,
@@ -318,6 +348,7 @@ export async function findNearbyFloats(
         const point = lat != null && lng != null ? { lat, lng } : accessView(candidate.putIn, river).coordinates;
         if (point) driveTargets.set(candidate.putIn.id, point);
       }
+      assessed.set(`${candidate.putIn.id}:${candidate.takeOut.id}`, { candidate, river });
       output.push({
         id: `${candidate.putIn.id}:${candidate.takeOut.id}`,
         riverId: river.id,
@@ -365,6 +396,7 @@ export async function findNearbyFloats(
       }
     }, () => output.length + inFlight >= MAX_ESTIMATES);
     const endpointIds = new Set(output.flatMap(option => [option.putIn.id, option.takeOut.id]));
+    const routeRivers = [...new Map([...assessed.values()].map(({ river }) => [river.id, river])).values()];
     const [photos, minutes] = await Promise.all([
       loadRoutePhotos(
         ctx.db,
@@ -376,6 +408,7 @@ export async function findNearbyFloats(
         ? (options.driveFrom ?? mapboxDriveFrom)(near, [...driveTargets].map(([id, point]) => ({ id, ...point })), budget.signal)
             .catch(() => new Map<string, number>())
         : new Map<string, number>(),
+      addRouteFacts(output, assessed, routeRivers, input.vesselType),
     ]);
     routePhotos = photos;
     for (const option of output) option.driveMinutes = minutes.get(option.putIn.id) ?? null;

@@ -14,9 +14,12 @@
 // (components/map/AccessPointMarkers.tsx, line-style.ts) so the strip and the
 // map read as one product.
 
-import { useCallback, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, Flag, FlagOff } from 'lucide-react';
 import Card from '@/components/ui/Card';
+import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
+import type { AccessPoint, AccessPointType } from '@/types/api';
 import InfoTip from '@/components/ui/InfoTip';
 import Segmented from '@/components/ui/Segmented';
 import type { FloatSearchOption } from '@shared/float-search';
@@ -42,10 +45,12 @@ export interface NumberedRoute {
 /** The strip's element id; a card's "Show on river" scrolls here. */
 export const RIVER_STRIP_ID = 'river-strip';
 
-export default function RiverStrip({ riverSlug, riverName, points, routes, selectedId, hoveredId, onSelect, onHover, onView }: {
+export default function RiverStrip({ riverSlug, riverName, points, pointInfo, routes, selectedId, hoveredId, onSelect, onHover, onView }: {
   riverSlug: string;
   riverName: string;
   points: RiverStripPoint[];
+  /** Full records behind the dots, for the hover card. A dot without one still shows its name and mile. */
+  pointInfo?: Map<string, AccessPoint>;
   /** Placeable routes only, numbered in card order. */
   routes: NumberedRoute[];
   selectedId: string | null;
@@ -73,9 +78,13 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
   const selected = routes.find(route => route.option.id === selectedId)?.option ?? null;
   const hasCautions = selected ? routeCautionsPresent(selected) : false;
   const optionFor = (id: string) => routes.find(route => route.option.id === id)!.option;
+  const [activeDot, showDot, hideDot] = useDotCard();
+  const dot = layout?.dots.find(d => d.id === activeDot) ?? null;
 
   return (
-    <Card id={RIVER_STRIP_ID} variant="framed" as="section" aria-labelledby="river-strip-title" className="mb-6 scroll-mt-24">
+    <Card id={RIVER_STRIP_ID} variant="framed" as="section" aria-labelledby="river-strip-title" className="mb-6 scroll-mt-24"
+      // A point's hover card may extend past the strip's edge rather than be cut off.
+      style={{ overflow: 'visible' }}>
       <StripHeader riverName={riverName} view={layout?.view ?? view} onView={setView} hasSelection={Boolean(selected)} />
 
       <div className="px-3 pt-2 sm:px-5">
@@ -116,9 +125,22 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
               </g>)}
             </svg>
 
-            {layout.dots.map(dot => <span key={dot.id} title={`${dot.name} · mile ${formatMile(dot.mile)}`}
-              className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
-              style={{ left: dot.x, top: dot.y, background: dot.endpoint ? GRAVEL : 'var(--color-surface)', borderColor: dot.endpoint ? '#ffffff' : GRAVEL, boxShadow: '1px 1px 0 var(--color-neutral-700)' }} />)}
+            {layout.dots.map(d => {
+              const active = d.id === activeDot;
+              return <button key={d.id} type="button" data-strip-point={d.id}
+                aria-label={`${d.name}, mile ${formatMile(d.mile)}`} aria-expanded={active}
+                aria-describedby={active ? STRIP_POINT_CARD_ID : undefined}
+                onPointerEnter={e => { if (e.pointerType === 'mouse') showDot(d.id); }} onPointerLeave={e => { if (e.pointerType === 'mouse') hideDot(); }}
+                onFocus={() => showDot(d.id)} onClick={() => showDot(d.id)}
+                // Focus moving into the card (its link) keeps it open.
+                onBlur={e => { if (!document.getElementById(STRIP_POINT_CARD_ID)?.contains(e.relatedTarget)) hideDot(); }}
+                onKeyDown={e => { if (e.key === 'Escape') hideDot(true); }}
+                className="absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-text-link)]"
+                style={{ left: d.x, top: d.y }}>
+                <span aria-hidden="true" className="h-3 w-3 rounded-full border-2 transition-transform motion-reduce:transition-none"
+                  style={{ background: d.endpoint ? GRAVEL : 'var(--color-surface)', borderColor: d.endpoint ? '#ffffff' : GRAVEL, boxShadow: '1px 1px 0 var(--color-neutral-700)', transform: active ? 'scale(1.5)' : undefined }} />
+              </button>;
+            })}
 
             {layout.labels.map(label => <span key={label.id} aria-hidden="true"
               className={`river-strip-label pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap ${compact ? 'text-xs' : 'text-[13px]'} ${label.emphasis === 'selected' ? 'font-bold' : label.emphasis === 'route' ? 'font-semibold' : 'font-medium text-[var(--color-text-secondary)]'}`}
@@ -140,6 +162,10 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
                 <NumberChip number={c.number} state={c.state} size={c.state === 'other' ? 26 : 30} />
               </button>;
             })}
+
+            {dot && <StripPointCard dot={dot} info={pointInfo?.get(dot.id)} riverSlug={riverSlug} layout={layout}
+              selected={selected && routes.find(route => route.option === selected)} points={points}
+              onEnter={() => showDot(dot.id)} onLeave={() => hideDot()} />}
           </>}
         </div>
 
@@ -152,7 +178,7 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
       </div>
 
       {/* The chosen float's facts; nothing until one is chosen. */}
-      <div aria-live="polite" className={selected ? 'flex flex-col items-start gap-1 border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5' : undefined}>
+      <div aria-live="polite" className={selected ? 'flex flex-col items-start gap-1 rounded-b-md border-t border-[var(--color-border)] bg-[var(--color-surface-hover)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5' : undefined}>
         {selected && <>
           <div className="min-w-0 flex-1 space-y-1">
             <p className="flex items-start gap-2 font-semibold">
@@ -234,6 +260,89 @@ function StripHeader({ riverName, view, onView, hasSelection, loading = false }:
 
 function Downstream() {
   return <span className="flex items-center justify-end gap-1 font-semibold">Downstream<ArrowRight size={14} aria-hidden="true" /></span>;
+}
+
+const STRIP_POINT_CARD_ID = 'river-strip-point';
+const CARD_WIDTH = 248;
+
+/** Which dot's card is open. Leaving waits a moment so the pointer can cross into the card. */
+function useDotCard() {
+  const [active, setActive] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancel = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; };
+  useEffect(() => cancel, []);
+  const show = useCallback((id: string) => { cancel(); setActive(id); }, []);
+  const hide = useCallback((now = false) => {
+    cancel();
+    if (now) setActive(null);
+    else timer.current = setTimeout(() => setActive(null), 150);
+  }, []);
+  return [active, show, hide] as const;
+}
+
+const TYPE_LABELS: Record<AccessPointType, string> = {
+  boat_ramp: 'Boat ramp', gravel_bar: 'Gravel bar', campground: 'Campground', bridge: 'Bridge', access: 'Access', park: 'Park',
+};
+
+/** The amenity marks a floater stops for, from the access point's own record. */
+function pointFacilities(info: AccessPoint) {
+  const has = (key: string) => (info.amenities ?? []).includes(key);
+  const marks: { icon: EddyIconName; label: string }[] = [];
+  if (has('camping') || (info.types ?? []).includes('campground')) marks.push({ icon: 'campground', label: 'Camping' });
+  if (has('restrooms') || has('toilets')) marks.push({ icon: 'facilities', label: 'Restrooms' });
+  if (has('parking')) marks.push({ icon: 'parking', label: 'Parking' });
+  return marks;
+}
+
+/**
+ * The hover card for an in-between access: what it is, who may use it, what is
+ * there, and where it sits in the chosen float. Drawn inside the strip so it
+ * scrolls with it; placed on the side of the river with more room.
+ */
+function StripPointCard({ dot, info, riverSlug, layout, selected, points, onEnter, onLeave }: {
+  dot: { id: string; name: string; mile: number; x: number; y: number; endpoint: boolean };
+  info: AccessPoint | undefined;
+  riverSlug: string;
+  layout: { width: number; height: number };
+  selected: NumberedRoute | null | undefined;
+  points: RiverStripPoint[];
+  onEnter: () => void;
+  onLeave: () => void;
+}) {
+  const below = dot.y < layout.height / 2;
+  const left = Math.max(0, Math.min(dot.x - CARD_WIDTH / 2, layout.width - CARD_WIDTH));
+  const kind = info ? TYPE_LABELS[info.types?.[0] ?? info.type] ?? 'Access' : null;
+  const access = info ? (info.isPublic ? 'Public' : 'Private') : null;
+  const marks = info ? pointFacilities(info) : [];
+  const fee = info?.feeRequired === false ? 'No fee' : info?.feeRequired === true ? 'Fee' : null;
+  // Where this point sits in the chosen float, when it is inside one.
+  let inFloat: string | null = null;
+  if (selected) {
+    const start = points.find(p => p.id === selected.option.putIn.id)?.mile;
+    const end = points.find(p => p.id === selected.option.takeOut.id)?.mile;
+    if (start != null && end != null && dot.mile > start && dot.mile < end) {
+      inFloat = `${formatMile(Math.round((dot.mile - start) * 10) / 10)} mi below ${selected.option.putIn.name} · float ${selected.number}`;
+    }
+  }
+  return <div id={STRIP_POINT_CARD_ID} role="group" aria-label={dot.name} onPointerEnter={onEnter}
+    onPointerLeave={e => { if (e.pointerType === 'mouse') onLeave(); }}
+    onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) onLeave(); }}
+    className="absolute z-30 rounded-lg border-2 border-[var(--color-primary-700)] bg-[var(--color-surface)] p-3 text-left text-sm"
+    style={{ left, width: CARD_WIDTH, boxShadow: '3px 3px 0 var(--color-neutral-700)', ...(below ? { top: dot.y + 14 } : { bottom: layout.height - dot.y + 14 }) }}>
+    <p className="font-semibold leading-snug">{dot.name}</p>
+    <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+      {[`mi ${formatMile(dot.mile)}`, kind, access].filter(Boolean).join(' · ')}
+      {!dot.endpoint && <><br />On the water, not a launch</>}
+    </p>
+    {inFloat && <p className="mt-1 text-xs font-semibold text-[var(--color-accent-700)]">{inFloat}</p>}
+    {(marks.length > 0 || fee) && <ul className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-label="Facilities">
+      {marks.map(mark => <li key={mark.icon} className="inline-flex items-center gap-1"><EddyIcon name={mark.icon} size={18} />{mark.label}</li>)}
+      {fee && <li className="font-semibold text-[var(--color-text-secondary)]">{fee}</li>}
+    </ul>}
+    {info?.slug && <Link href={`/rivers/${riverSlug}/access/${info.slug}`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-text-link)] hover:underline">
+      Access details<ArrowRight size={12} aria-hidden="true" />
+    </Link>}
+  </div>;
 }
 
 /** Focus the strip's callout for a route: after "Show on river", the next Tab continues in the strip. */
