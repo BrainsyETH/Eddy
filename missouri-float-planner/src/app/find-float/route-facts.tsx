@@ -1,15 +1,14 @@
-// Facts about one Find a Float route, worded once for every place that shows
-// them: the route card and the river strip's selected-float bar. A fact added
-// to a card belongs here so the bar cannot fall behind it.
+// Route facts for Find a Float. Time and condition labels are shared with
+// the river strip; access details and cautions stay on the full route card.
 
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { floatRangeLabel, type FloatSearchOption } from '@shared/float-search';
 
 /** InfoTip colours shared by the cards and the river strip. */
 export const INFO_COLORS = {
-  trigger: 'var(--color-primary-600)', triggerBorder: 'var(--color-border-strong)',
-  popBg: 'var(--color-surface)', popBorder: 'var(--color-primary-700)', title: 'var(--color-text-primary)',
-  body: 'var(--color-text-secondary)', focus: 'var(--color-primary-500)',
+  trigger: 'var(--color-text-link)', triggerBorder: 'var(--color-border-strong)',
+  popBg: 'var(--color-surface)', popBorder: 'var(--color-text-link)', title: 'var(--color-text-primary)',
+  body: 'var(--color-text-secondary)', focus: 'var(--color-text-link)',
 };
 
 export function routeAccessLabel(o: FloatSearchOption) {
@@ -27,10 +26,6 @@ export function routeEstimateLabel(o: FloatSearchOption) {
 
 export function RouteConditionBadge({ option: o }: { option: FloatSearchOption }) {
   return <span className="inline-flex rounded-full bg-white"><ConditionBadge code={o.conditionCode ?? 'unknown'} label={o.conditionLabel} /></span>;
-}
-
-export function routeCautionsPresent(o: FloatSearchOption) {
-  return o.cautions.length > 0 || Boolean(o.conditional);
 }
 
 export function RouteCautions({ option: o }: { option: FloatSearchOption }) {

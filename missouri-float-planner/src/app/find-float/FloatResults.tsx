@@ -22,7 +22,7 @@ import RiverStrip, { focusStripRoute, NumberChip, RiverStripPlaceholder, type Nu
 import { INFO_COLORS, routeAccessLabel, RouteCautions, RouteConditionBadge, routeEstimateLabel, routeTimeLabel } from './route-facts';
 
 const NO_POINTS: RiverStripPoint[] = [];
-
+const floatCardId = (id: string) => `float-result-${encodeURIComponent(id)}`;
 
 export function FloatSearchLoading({ compact = false }: { compact?: boolean }) {
   return <Card variant="panel" role="status" aria-live="polite"
@@ -87,6 +87,14 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
     flushSync(() => setChosenId(id));
     focusStripRoute(id);
   };
+  const viewFloat = (id: string) => {
+    const target = document.getElementById(floatCardId(id));
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // "auto" inherits the page's smooth-scroll CSS even with reduced motion.
+    target.scrollIntoView({ behavior: reduce ? 'instant' : 'smooth', block: 'start' });
+  };
   const card = (option: FloatSearchOption) => {
     const number = stripRoutes.find(route => route.option.id === option.id)?.number;
     const strip = number ? {
@@ -101,7 +109,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
     <div className={stale ? 'pointer-events-none opacity-50 transition-opacity' : 'transition-opacity'} inert={stale || undefined}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4" aria-live="polite">
         <div className="min-w-0">
-          <p className="mb-1 text-sm font-semibold text-[var(--color-primary-600)]">{location}</p>
+          <p className="mb-1 text-sm font-semibold text-[var(--color-text-link)]">{location}</p>
           <h2 style={{ fontFamily: 'var(--font-display)' }} className="text-3xl font-medium">Matching Floats</h2>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
             {days > 1 ? `${floatTripLabel(days)} · ${hoursLabel(input.targetHours)} a day` : `About ${hoursLabel(input.targetHours)}`} · {floatBoatLabel(input.vesselType)} · Checked {new Date(data.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
@@ -118,10 +126,10 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
         <p className="font-medium">{floatSearchEmptyMessage(data)}</p>
         {recoveryOptions.length > 0 && <div className="flex flex-wrap gap-3">{recoveryOptions.map(option => <Button key={option.label} variant="outline" onClick={() => onRecover(option)}>{option.label}<ArrowRight size={16} aria-hidden="true" /></Button>)}</div>}
       </Card>}
-      {pointsLoading && <RiverStripPlaceholder riverName={ordered[0].riverName} />}
+      {pointsLoading && <RiverStripPlaceholder riverName={ordered[0].riverName} routeCount={ordered.length} />}
       {stripRiver && stripRoutes.length > 0 && <RiverStrip riverSlug={stripRiver} riverName={stripRoutes[0].option.riverName}
         points={points} routes={stripRoutes} selectedId={selectedId} hoveredId={hoveredId}
-        onSelect={setChosenId} onHover={setPointedId} stale={stale} onPlan={onPlan} />}
+        onSelect={setChosenId} onHover={setPointedId} onView={viewFloat} />}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Matching routes">
         {matches.map(card)}
       </div>
@@ -133,8 +141,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
   );
 }
 
-/** Mirrors the iOS FloatSearchCard: photo, route, three metrics, badges,
- * cautions, details on demand, then one filled call to action. */
+/** Route first, compact comparison facts, details on demand, then the plan action. */
 function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
   option: FloatSearchOption;
   riverPhoto?: string | null;
@@ -146,54 +153,49 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
   const photo = [o.photo?.url, riverPhoto].find((url): url is string => !!url && !failed.includes(url));
-  const metric = 'flex min-w-0 flex-1 flex-col gap-1';
+  const titleId = `${floatCardId(o.id)}-title`;
   return (
-    <Card variant="framed" as="article" className="flex flex-col overflow-hidden transition-[border-color,box-shadow]"
+    <Card id={floatCardId(o.id)} variant="framed" as="article" tabIndex={-1} aria-labelledby={titleId}
+      className="flex scroll-mt-24 flex-col overflow-hidden transition-[border-color,box-shadow] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-text-link)]"
       onMouseEnter={strip && (() => strip.onHover(true))} onMouseLeave={strip && (() => strip.onHover(false))}
       style={strip?.state === 'selected' ? { borderColor: 'var(--color-accent-700)', boxShadow: '4px 4px 0 var(--color-accent-700)' } : undefined}>
-      <div className="relative h-40 shrink-0 bg-[var(--color-surface-hover)]">
+      <div className="relative h-28 shrink-0 bg-[var(--color-surface-hover)] sm:h-32">
         {photo
           ? <Image key={photo} src={photo} alt="" fill unoptimized={!optimizeBlogImage(photo)} sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" className="object-cover" onError={() => setFailed(previous => [...previous, photo])} />
           : <div className="flex h-full items-center justify-center"><EddyIcon name="wave" size={110} /></div>}
       </div>
-      <div className="flex flex-1 flex-col gap-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-primary-600)]">{o.riverName}</p>
-            <h3 style={{ fontFamily: 'var(--font-display)' }} className="mt-1 text-xl font-semibold leading-snug">{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</h3>
-          </div>
-          {strip && <NumberChip number={strip.number} state={strip.state} />}
+      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[var(--color-text-link)]">{o.riverName}</p>
+          <h3 id={titleId} style={{ fontFamily: 'var(--font-display)' }} className="mt-1 flex items-start gap-2 text-xl font-semibold leading-snug">
+            {strip && <NumberChip number={strip.number} state={strip.state} />}
+            <span>{strip && <span className="sr-only">Float {strip.number}: </span>}{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</span>
+          </h3>
         </div>
-        <div className="flex flex-wrap gap-y-3 divide-x divide-[var(--color-border)]">
-          <div className={`${metric} pr-4`}>
-            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{routeTimeLabel(o)}</span>
-            <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{routeEstimateLabel(o)}
-              <InfoTip size={16} title="About float times" ariaLabel="About float times" body={FLOAT_TIME_INFO.join(' ')} colors={INFO_COLORS} /></span>
+        <div>
+          <p style={{ fontFamily: 'var(--font-display)' }} className="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold tabular-nums">
+            <span>{routeTimeLabel(o)}</span><span aria-hidden="true" className="text-[var(--color-text-muted)]">·</span><span>{o.distanceMiles.toFixed(1)} mi</span>
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 text-xs text-[var(--color-text-secondary)]">
+            <span className="inline-flex items-center">{routeEstimateLabel(o)}
+              <InfoTip quiet size={16} title="About float times" ariaLabel="About float times" body={FLOAT_TIME_INFO.join(' ')} colors={INFO_COLORS} /></span>
+            {o.driveMinutes != null && <span className="inline-flex items-center">{driveLabel(o.driveMinutes)} drive
+              <InfoTip quiet size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>}
           </div>
-          <div className={`${metric} px-4`}>
-            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{o.distanceMiles.toFixed(1)} mi</span>
-            <span className="text-xs text-[var(--color-text-secondary)]">On the river</span>
-          </div>
-          {o.driveMinutes != null && <div className={`${metric} pl-4`}>
-            <span style={{ fontFamily: 'var(--font-display)' }} className="text-xl font-semibold tabular-nums">{driveLabel(o.driveMinutes)}</span>
-            <span className="flex items-center gap-1 whitespace-nowrap text-xs text-[var(--color-text-secondary)]">Drive
-              <InfoTip size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>
-          </div>}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <RouteConditionBadge option={o} />
-          <span className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{routeAccessLabel(o)}</span>
-          {o.highlights?.map(highlight => <span key={highlight} className="rounded-full bg-[var(--color-surface-hover)] px-3 py-1 text-[var(--color-text-secondary)]">{highlight}</span>)}
+          <span className="text-[var(--color-text-secondary)]">{[routeAccessLabel(o), ...(o.highlights ?? [])].join(' · ')}</span>
           {o.relation !== 'match' && <span className="text-[var(--color-text-secondary)]">{o.relation === 'shorter' ? 'Shorter option' : 'Longer option'}</span>}
         </div>
         <RouteCautions option={o} />
         <div className="flex flex-wrap items-center gap-x-5">
           <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}
-            className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-primary-600)]">
+            className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--color-text-link)]">
             Route details<ChevronDown size={16} aria-hidden="true" className={expanded ? 'rotate-180' : ''} />
           </button>
           {strip && <button type="button" aria-pressed={strip.state === 'selected'} onClick={strip.onShow}
-            className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-primary-600)]">
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-[var(--color-text-link)]">
             {strip.state === 'selected'
               ? <span><span className="sr-only">Float {strip.number} </span>On the river</span>
               : <span>Show <span className="sr-only">float {strip.number} </span>on river</span>}
