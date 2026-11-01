@@ -51,6 +51,44 @@ test('a wholly unreleased night is not_yet_released', () => {
   assert.equal(out.status, 'not_yet_released');
 });
 
+test('a wholly Open night is not yet released, not fully booked', () => {
+  // War Eagle (233279), May 2-14 2027 on 2026-11-01: the tail of a stay that
+  // arrives on the last released night. Bookable as a continuation only.
+  const out = foldNight(cell({ Open: 26 }) as never);
+  assert.deepEqual(out, { sitesOpen: 0, sitesReservable: 0, status: 'not_yet_released' });
+});
+
+test('Open never counts as an open or reservable site', () => {
+  const out = foldNight(cell({ Open: 26, Available: 1 }) as never);
+  assert.deepEqual(out, { sitesOpen: 1, sitesReservable: 1, status: 'open' });
+});
+
+test('an Open cell reaches the per-site list as not_yet_released', () => {
+  const sites = parseMonthSites({
+    campsites: {
+      '77015': {
+        campsite_id: '77015',
+        site: '06',
+        loop: 'WAR EAGLE CAMPGROUND ',
+        type_of_use: 'Overnight',
+        availabilities: {
+          '2027-05-01T00:00:00Z': 'Available',
+          '2027-05-02T00:00:00Z': 'Open',
+          '2027-05-15T00:00:00Z': 'NYR',
+        },
+      },
+    },
+  } as never);
+  assert.deepEqual(
+    sites.siteNights.map((n) => [n.date, n.status]),
+    [
+      ['2027-05-01', 'open'],
+      ['2027-05-02', 'not_yet_released'],
+      ['2027-05-15', 'not_yet_released'],
+    ],
+  );
+});
+
 test('an empty night degrades to full rather than throwing', () => {
   assert.equal(foldNight([]).status, 'full');
 });

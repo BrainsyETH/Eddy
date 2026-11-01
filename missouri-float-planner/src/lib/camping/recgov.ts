@@ -33,11 +33,21 @@ const BASE = 'https://www.recreation.gov/api/camps/availability/campground';
  * this union is not a boolean: Alley Spring reports 2,177 closed cells in
  * September, and rendering those as "fully booked" would send people hunting
  * for a cancellation that cannot exist.
+ *
+ * `Open` is the release edge, and it is NOT "available". Observed 2026-11-01 on
+ * War Eagle (233279, a six-month rolling window): May 1 2027 — the last
+ * arrival date the window had released — read `Available`, May 2–14 read
+ * `Open` on every site, and May 15 onward read `NYR`. Thirteen nights after
+ * the last bookable arrival is exactly a fourteen-night maximum stay, so `Open`
+ * is a night bookable only as the tail of a stay that arrives earlier. Nobody
+ * can arrive on it, so it is counted as not yet released. Before this it was
+ * outside the union and dropped, so a wholly `Open` night folded to zero cells
+ * and printed as fully booked.
  */
-type Cell = 'Available' | 'Reserved' | 'Not Reservable' | 'Closed' | 'NYR';
+type Cell = 'Available' | 'Reserved' | 'Not Reservable' | 'Closed' | 'NYR' | 'Open';
 
 /**
- * The same five values, as one site's own state.
+ * The same six values, as one site's own state.
  *
  * A total function over `Cell`, so a value the feed starts emitting tomorrow
  * fails the type check here rather than silently landing in the database as
@@ -50,6 +60,8 @@ const UNIT_STATUS: Record<Cell, UnitStatus> = {
   'Not Reservable': 'walk_up',
   Closed: 'closed',
   NYR: 'not_yet_released',
+  // Bookable only as a continuation, never as an arrival — see Cell.
+  Open: 'not_yet_released',
 };
 
 /**
@@ -139,6 +151,7 @@ export function foldNight(cells: Cell[]): Omit<DailyAggregate, 'date'> {
         closed++;
         break;
       case 'NYR':
+      case 'Open':
         nyr++;
         break;
       // 'Not Reservable' is walk-up inventory: counted nowhere on purpose.

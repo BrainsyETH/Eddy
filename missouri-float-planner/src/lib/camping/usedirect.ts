@@ -11,8 +11,9 @@
 //
 // Two calls per park: `search/place` lists the bookable loops, `search/grid`
 // returns per-unit, per-night freedom for one loop. Unlike Recreation.gov the
-// grid accepts an arbitrary date range, so a Fri–Sun window is one request per
-// loop regardless of whether it crosses month-end.
+// grid is not bound to a calendar month, so a Fri–Sun window is one request per
+// loop regardless of whether it crosses month-end — but it IS bound to
+// GRID_MAX_NIGHTS, see below.
 //
 // UseDirect serves no robots.txt (404) and states no policy, so the pacing the
 // caller passes is simply courtesy: measured latency is ~400ms and nine parks
@@ -29,6 +30,48 @@ import type {
 } from './types';
 
 const BASE = 'https://msprdr.usedirect.com/MSPRDR/rdr';
+
+/**
+ * The most nights one `search/grid` call returns, counted from its StartDate.
+ *
+ * MEASURED 2026-11-01 against Washington State Park (place 96, loop 841):
+ * Dec 1 → Jan 1, Dec 1 → Feb 1 and Dec 15 → Jan 10 each came back with exactly
+ * 21 nights from the start date, and Dec 1 → Dec 15 with all 15. The response
+ * is HTTP 200 and simply stops — nothing says it was cut.
+ *
+ * Asking for a calendar month in one call therefore dropped every night from
+ * the 22nd onward. The trust console's camping_calendar_gaps finding caught it
+ * on five parks at once, all missing Nov 22–30 and Dec 22–31 and holding
+ * Jan 1–21. A month is now read in chunks of at most this many nights.
+ */
+export const GRID_MAX_NIGHTS = 21;
+
+/**
+ * One window as the grid can answer it: consecutive pieces of at most
+ * `GRID_MAX_NIGHTS` nights, in order, covering every night exactly once.
+ * Pure, so the cap is tested without the network.
+ */
+export function splitGridWindows(
+  window: CampingWindow,
+  maxNights: number = GRID_MAX_NIGHTS,
+): CampingWindow[] {
+  if (!Number.isInteger(maxNights) || maxNights < 1) {
+    throw new Error(`splitGridWindows: maxNights must be a positive integer, got ${maxNights}`);
+  }
+  if (window.nights.length <= maxNights) return [window];
+
+  const pieces: CampingWindow[] = [];
+  for (let i = 0; i < window.nights.length; i += maxNights) {
+    const nights = window.nights.slice(i, i + maxNights);
+    const startDate = nights[0];
+    // The departure date is the night after the piece's last night, except
+    // for the final piece, which keeps the window's own departure date.
+    const endDate =
+      i + maxNights < window.nights.length ? window.nights[i + maxNights] : window.endDate;
+    pieces.push({ startDate, endDate, nights, label: window.label });
+  }
+  return pieces;
+}
 
 /** Shared body fields both endpoints demand, none of which we vary. */
 const COMMON_BODY = {
@@ -209,8 +252,9 @@ export function foldGridSites(
 /**
  * Availability for one state park across one window.
  *
- * Costs one `search/place` plus one `search/grid` per in-season loop — nine
- * parks came to 42 requests per window when measured. Out-of-season discovery
+ * Costs one `search/place` plus one `search/grid` per in-season loop per
+ * GRID_MAX_NIGHTS piece — so a full calendar month is two grid calls per loop,
+ * not one. Out-of-season discovery
  * establishes closure only on the discovery date, never the rest of the month.
  */
 async function fetchMonth(
@@ -272,31 +316,43 @@ async function fetchMonth(
   const sites: CampsiteRecord[] = [];
   const siteNights: SiteNight[] = [];
 
+  // Every piece of the window comes back separately, so a night is counted
+  // only from the piece that asked for it. Without that filter, a grid that
+  // ever returned one night past its EndDate would count that night twice,
+  // once from each neighbouring piece.
+  const pieces = splitGridWindows(window);
+
   for (const loop of loops) {
-    const grid = await post<GridResponse>(
-      'search/grid',
-      {
-        ...COMMON_BODY,
-        FacilityId: loop.FacilityId!,
-        StartDate: window.startDate,
-        EndDate: window.endDate,
-        UnitSort: 'orderby',
-      },
-      limiter,
-    );
+    for (const piece of pieces) {
+      const grid = await post<GridResponse>(
+        'search/grid',
+        {
+          ...COMMON_BODY,
+          FacilityId: loop.FacilityId!,
+          StartDate: piece.startDate,
+          EndDate: piece.endDate,
+          UnitSort: 'orderby',
+        },
+        limiter,
+      );
 
-    for (const [date, counts] of foldGrid(grid)) {
-      const bucket = totals.get(date) ?? { open: 0, total: 0 };
-      bucket.open += counts.open;
-      bucket.total += counts.total;
-      totals.set(date, bucket);
+      const pieceNights = new Set(piece.nights);
+      for (const [date, counts] of foldGrid(grid)) {
+        if (!pieceNights.has(date)) continue;
+        const bucket = totals.get(date) ?? { open: 0, total: 0 };
+        bucket.open += counts.open;
+        bucket.total += counts.total;
+        totals.set(date, bucket);
+      }
+
+      // The loop's own name is the only grouping a state park offers, and it
+      // lives on the place response rather than the grid.
+      // A site appears in every piece's grid; fetch() below already keys the
+      // site list by sourceSiteId, exactly as it does across months.
+      const parsed = foldGridSites(grid, loop.Name?.trim() || null);
+      sites.push(...parsed.sites);
+      siteNights.push(...parsed.siteNights.filter((night) => pieceNights.has(night.date)));
     }
-
-    // The loop's own name is the only grouping a state park offers, and it
-    // lives on the place response rather than the grid.
-    const parsed = foldGridSites(grid, loop.Name?.trim() || null);
-    sites.push(...parsed.sites);
-    siteNights.push(...parsed.siteNights);
   }
 
   const wanted = new Set(window.nights);

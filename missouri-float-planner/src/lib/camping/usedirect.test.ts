@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bookableLoops, campgroundLoops, foldGrid } from './usedirect';
+import {
+  bookableLoops,
+  campgroundLoops,
+  foldGrid,
+  GRID_MAX_NIGHTS,
+  splitGridWindows,
+} from './usedirect';
+import { resolvePlanningMonth, splitCalendarMonths } from './window';
 
 // Fixture shapes are transcribed from live `search/place` and `search/grid`
 // responses for Meramec (place 60, loops keyed by their own global ids) and
@@ -184,4 +191,49 @@ test('monthly discovery does not extend one closed date across later months', as
   assert.deepEqual(result.nights.filter((night) => night.status === 'closed').map((night) => night.date), ['2026-09-28']);
   assert.equal(result.nights.find((night) => night.date === '2026-10-01')?.sitesOpen, 1);
   assert.equal(result.sites.length, 1, 'same site in several months is one catalog record');
+});
+
+// ── search/grid returns at most GRID_MAX_NIGHTS nights ───────────────────
+//
+// Measured 2026-11-01 (Washington SP, loop 841): every request longer than 21
+// nights came back with exactly 21, from its StartDate. A calendar month asked
+// for in one call lost the 22nd onward, which is the camping_calendar_gaps
+// finding on five parks at once (Nov 22-30 and Dec 22-31 missing).
+
+test('the grid cap is the measured twenty-one nights', () => {
+  assert.equal(GRID_MAX_NIGHTS, 21);
+});
+
+test('a month longer than the cap is split, and every night is asked for exactly once', () => {
+  const december = resolvePlanningMonth('2026-12', new Date('2026-11-01T12:00:00Z'));
+  assert.ok(december);
+  const [month] = splitCalendarMonths(december);
+  assert.equal(month.nights.length, 31);
+
+  const pieces = splitGridWindows(month);
+  assert.equal(pieces.length, 2);
+  assert.ok(pieces.every((p) => p.nights.length <= GRID_MAX_NIGHTS));
+  assert.deepEqual(pieces.flatMap((p) => p.nights), month.nights, 'no night lost or repeated');
+  assert.deepEqual(
+    pieces.map((p) => [p.startDate, p.endDate]),
+    [
+      ['2026-12-01', '2026-12-22'],
+      ['2026-12-22', month.endDate],
+    ],
+  );
+});
+
+test('a window within the cap is one request, unchanged', () => {
+  const window = {
+    startDate: '2026-11-06',
+    endDate: '2026-11-08',
+    nights: ['2026-11-06', '2026-11-07'],
+    label: 'Fri-Sun',
+  };
+  assert.deepEqual(splitGridWindows(window), [window]);
+});
+
+test('a nonsensical cap is refused rather than looping forever', () => {
+  const window = { startDate: '2026-11-06', endDate: '2026-11-07', nights: ['2026-11-06'], label: '' };
+  assert.throws(() => splitGridWindows(window, 0));
 });
