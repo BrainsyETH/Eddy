@@ -93,7 +93,7 @@ export default function DamPatternStrip({
         </h2>
         <DamInfoTip title="Generation pattern">
           <p>Solid bars show measured generation. Outlined bars show upcoming scheduled generation. Gaps mean a reading is missing, not that generation stopped.</p>
-          <p>Today switches from measured hours to the posted schedule at the now marker. All times are Central time at the dam. Past generation does not predict future releases.</p>
+          <p>Today switches from measured hours to the posted schedule at the now marker. All times are Central time at the dam. Past generation is a pattern, not a plan: the posted schedule outranks it.</p>
         </DamInfoTip>
       </div>
       {/* WHICH DAYS. The hour axis under the rows has always said what a column

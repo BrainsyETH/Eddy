@@ -1063,6 +1063,33 @@ export type Database = {
         }
         Relationships: []
       }
+      dam_forecast_history: {
+        Row: {
+          content_hash: string
+          dam_id: string
+          first_seen_at: string
+          last_seen_at: string
+          payload: Json
+          source: string
+        }
+        Insert: {
+          content_hash: string
+          dam_id: string
+          first_seen_at: string
+          last_seen_at: string
+          payload: Json
+          source: string
+        }
+        Update: {
+          content_hash?: string
+          dam_id?: string
+          first_seen_at?: string
+          last_seen_at?: string
+          payload?: Json
+          source?: string
+        }
+        Relationships: []
+      }
       dam_metric_readings: {
         Row: {
           dam_id: string
@@ -1108,6 +1135,63 @@ export type Database = {
           dam_id?: string
           payload?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      dam_updates: {
+        Row: {
+          cache_creation_tokens: number | null
+          cache_read_tokens: number | null
+          dam_id: string
+          eddy_read: string | null
+          expires_at: string
+          facts: Json
+          generated_at: string
+          id: string
+          input_tokens: number | null
+          model_used: string | null
+          output_tokens: number | null
+          quote_text: string
+          schedule_hash: string | null
+          sources_used: Json
+          summary_text: string
+          used_fallback: boolean
+        }
+        Insert: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
+          dam_id: string
+          eddy_read?: string | null
+          expires_at: string
+          facts: Json
+          generated_at?: string
+          id?: string
+          input_tokens?: number | null
+          model_used?: string | null
+          output_tokens?: number | null
+          quote_text: string
+          schedule_hash?: string | null
+          sources_used?: Json
+          summary_text: string
+          used_fallback?: boolean
+        }
+        Update: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
+          dam_id?: string
+          eddy_read?: string | null
+          expires_at?: string
+          facts?: Json
+          generated_at?: string
+          id?: string
+          input_tokens?: number | null
+          model_used?: string | null
+          output_tokens?: number | null
+          quote_text?: string
+          schedule_hash?: string | null
+          sources_used?: Json
+          summary_text?: string
+          used_fallback?: boolean
         }
         Relationships: []
       }

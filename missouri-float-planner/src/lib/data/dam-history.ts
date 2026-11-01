@@ -137,8 +137,11 @@ export interface StoredHour {
  * phantom gap. Start from the UTC midnight of the same date, then walk to the
  * first hour whose Central day key matches — at most a few steps, and correct
  * on every day of the year including the two odd ones.
+ *
+ * Exported for the dam Read's pattern facts (src/lib/eddy/dam-read-facts.ts),
+ * which walks the same stored hours by the same day boundaries.
  */
-function centralDayStart(dayKey: string): number {
+export function centralDayStart(dayKey: string): number {
   const [y, m, d] = dayKey.split('-').map(Number);
   const utcMidnight = Date.UTC(y, m - 1, d);
   // Central is UTC-5 or UTC-6, so the day begins between 04:00 and 07:00 UTC.

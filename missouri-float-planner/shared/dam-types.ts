@@ -430,3 +430,29 @@ export interface DamSnapshot {
 export interface DamsResponse {
   dams: DamSnapshot[];
 }
+
+/**
+ * GET /api/dam-update/[damId] — Eddy's Read for a dam.
+ *
+ * ALL of the prose is Premium. A public caller learns only whether a Read
+ * exists and when it was written, which is what the locked card draws; an
+ * entitled caller (bearer token) gets `read`. The measured pattern strip and
+ * the posted schedule on the dam page stay free. ADR 0017.
+ *
+ * `available: false` covers every reason a Read is not served: the dam has no
+ * Read, none was written today, or the posted schedule changed since it was
+ * written and the next hourly run has not rewritten it yet.
+ */
+export interface DamReadResponse {
+  available: boolean;
+  generatedAt: string | null;
+  read: {
+    /** One sentence: the most useful thing about today. */
+    summaryText: string;
+    /** The pattern insight, one or two sentences. */
+    eddyRead: string | null;
+    /** The full Read, 3-5 sentences. */
+    quoteText: string;
+    sourcesUsed: string[];
+  } | null;
+}

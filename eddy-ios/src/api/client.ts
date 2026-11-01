@@ -25,6 +25,7 @@ import type {
   HighWaterResponse,
   AppConfigResponse,
   ConditionResponse,
+  DamReadResponse,
   DamSnapshot,
   DamsResponse,
   FavoriteFloatsResponse,
@@ -2297,6 +2298,19 @@ export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
  */
 export async function fetchDam(damId: string, signal?: AbortSignal): Promise<DamSnapshot> {
   return get<DamSnapshot>(`/api/dams/${encodeURIComponent(damId)}`, signal);
+}
+
+/**
+ * Eddy's Read for a dam (GET /api/dam-update/[damId]).
+ *
+ * Without a token the response says only whether a Read exists and when it
+ * was written, which is what the locked card draws. With a Premium token it
+ * carries the prose. A failed token check THROWS with its status (401/402/403)
+ * rather than quietly degrading to the public shape, the same contract as
+ * fetchPremiumEddyRead.
+ */
+export async function fetchDamRead(damId: string, signal?: AbortSignal, token?: string | null): Promise<DamReadResponse> {
+  return get<DamReadResponse>(`/api/dam-update/${encodeURIComponent(damId)}`, signal, token);
 }
 
 /**

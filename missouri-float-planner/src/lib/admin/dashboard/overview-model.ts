@@ -100,6 +100,7 @@ export function friendlyJob(id: string): string {
     'revoke-apple-tokens': 'Retry Apple account revocations',
     'generate-eddy-updates': 'Write Eddy Reads',
     'generate-gauge-updates': 'Write gauge Reads',
+    'generate-dam-updates': 'Write dam Reads',
     'post-social': 'Publish social posts',
     'social-preflight': 'Prepare social posts',
     'brand-check-pending': 'Review social branding',

@@ -47,6 +47,11 @@ import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationCard } from '@/components/dam/GenerationCard';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
 import { GenerationForecast } from '@/components/dam/GenerationForecast';
+import { DamEddyRead } from '@/components/dam/DamEddyRead';
+import { PaywallSheet } from '@/components/PaywallSheet';
+import { useAccount } from '@/hooks/useAccount';
+import { useSession } from '@/hooks/useSession';
+import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -278,6 +283,16 @@ export default function DamDetailScreen() {
    * leaving the screen and coming back.
    */
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const account = useAccount();
+  const { session, ready: sessionReady } = useSession();
+  // The same access rules as the Today rail and the Reads list.
+  const readAccess = { sessionReady, userId: session?.user.id ?? null,
+    loaded: account.loaded, error: account.error, profileId: account.profile?.id ?? null,
+    isActive: account.entitlement?.isActive ?? false };
+  const premiumUserId = premiumReadUserId(readAccess);
+  const canUnlockRead = canOfferReadPremium(readAccess);
+  const refreshAccount = account.refresh;
 
   const retry = useCallback(() => {
     // A retry IS an arrival again: it must show the spinner and own the failure
@@ -476,6 +491,11 @@ export default function DamDetailScreen() {
                   each carrying its own copy of the publisher, the freshness and
                   the change warning. See GenerationCard. */}
               <GenerationCard dam={dam} />
+            </View>
+            {/* Eddy's Read sits under the hero it interprets: the plan and the
+                measured pattern below are free; the Read of them is Premium. */}
+            <View style={styles.section}>
+              <DamEddyRead damId={dam.id} damName={dam.name} premiumUserId={premiumUserId} canUnlock={canUnlockRead} onUnlock={() => setPaywallOpen(true)} revision={reloadNonce} />
             </View>
           </>
         ) : detailPending || failed ? (
@@ -689,6 +709,11 @@ export default function DamDetailScreen() {
           </Text>
         ) : null}
       </ScrollView>
+      <PaywallSheet
+        visible={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        onPurchased={() => void refreshAccount()}
+      />
     </SafeAreaView>
   );
 }
