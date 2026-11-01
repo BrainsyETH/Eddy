@@ -1,0 +1,30 @@
+[
+ {
+  "name": "Long Hollow",
+  "slug": "long-hollow",
+  "kind": "access",
+  "roles": [
+   "access",
+   "gravel_bar"
+  ],
+  "is_float_endpoint": true,
+  "expected_mile": 13.1,
+  "lat": 36.81738,
+  "lon": -91.36392,
+  "is_public": true,
+  "ownership": "USFS",
+  "managing_agency": "USFS",
+  "description": "An unofficial put-in at the mouth of Long Hollow Creek, on Mark Twain National Forest land. It sits roughly halfway between Cane Bluff and Greer Crossing, so it splits that float into two short runs.",
+  "road_access": "From the south on Oregon County Road 413, which becomes County Road 416 and ends at Long Hollow Creek. Primitive road; a 4x4 is needed. Expect a short walk to the gravel bar.",
+  "parking_info": "No developed parking.",
+  "facilities": "No facilities. Not a developed or signed Forest Service access.",
+  "confidence": "medium",
+  "source_urls": [
+   "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8",
+   "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer/0",
+   "https://www.arownbackyard.com/2024/08/26/greer-crossing-to-whitten-on-the-eleven-point-river/",
+   "https://forums.ozarkanglers.com/topic/27263-areas-outside-of-ozark-national-scenic-riverways",
+   "https://www.exploretheozarksonline.com/activities/parksnature/wildscenicrivers/elevenpoint/index.html"
+  ]
+ }
+]

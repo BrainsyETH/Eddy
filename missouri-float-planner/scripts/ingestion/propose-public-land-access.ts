@@ -1,65 +1,74 @@
 #!/usr/bin/env npx tsx
 /**
- * Missing public-land access finder (one-off, November 2026).
+ * Missing river-access finder, v2 (November 2026). WRITES NOTHING TO THE DATABASE.
  *
- * WRITES NOTHING TO THE DATABASE, EVER. For each river it lists places where:
- *   1. an open National Forest route (MVUM road or trail) ends within 300 m of
- *      the river line, or crosses it. 300 m, not less: known access pins sit up
- *      to ~300 m off the NHD river line (Turner Mill North 317 m, Greer Crossing
- *      159 m), and Forest Service access roads end at a lot, not the water;
- *   2. that end, and the riverbank beside it, are on a public PAD-US parcel;
- *   3. Eddy has no access point (approved or not) within 1 km along the river.
+ * For each river it lists places where a drivable road ends at the water, or
+ * crosses it, and Eddy has no trusted access point nearby. Each is a place for
+ * a person to check, not an access point.
  *
- * Each candidate is a place for a person to look at, not an access point. A
- * route reaching public ground says nothing about a launch being legal, safe or
- * usable — the 00209 rule, ownership is not permission. Promotion is by hand:
- * a reviewed candidate goes into a dossier, and import-dossier-access-points.ts
- * lands it `approved = false`.
+ * ── What v2 changed, and why (Long Hollow, Eleven Point, 2026-11-01) ───────────
+ * v1 read only Forest Service (MVUM) roads and measured against Eddy's river
+ * line. It ranked "Boom Hole" first, a 1.5-mile high-clearance Forest Service
+ * track to a river feature. The access floaters actually use, Long Hollow, is a
+ * COUNTY road ending 48 m from the channel, which v1 could not see. So v2:
+ *   - reads county and local roads (Census TIGER; MTFCC S1500 marks a 4WD
+ *     trail) alongside Forest Service roads and trails (MVUM vehicle and
+ *     maintenance class);
+ *   - measures distance to water against the high-resolution USGS channel
+ *     (NHD), not Eddy's line, which has one vertex per ~400 m; Eddy's line is
+ *     used only for position along the river;
+ *   - takes a road END only where nothing continues from it (segments split at
+ *     every junction), AND a road's closest approach where it comes down to
+ *     the water and turns back: Long Hollow is County Road 416 looping to the
+ *     river, so its nearest point is mid-road, not an end;
+ *   - counts as "known" only APPROVED access points whose pin is within 300 m
+ *     of the real channel, and reports the rest as suspect records (an
+ *     unapproved "Hwy 160 Bridge" pinned 17 km from its bridge distorted v1's
+ *     gaps);
+ *   - ranks county road ends on public bank above high-clearance Forest
+ *     Service tracks, and closer ends above farther ones;
+ *   - names each candidate by the nearest tributary mouth ("Long Hollow Creek
+ *     mouth") with a search phrase, because a quick search confirmed Long
+ *     Hollow in minutes.
  *
- * Tiers:
- *   strong    open to passenger or high-clearance vehicles, the end and the bank
- *             are public, and at least 90% of the route's last 500 m is too.
- *   possible  anything else that passed 1–3: ATV/motorcycle routes, a route that
- *             leaves public ground before the river, or a river crossing.
- *
- * Recall check: the same rules are run without step 3 and reported against the
- * river's existing access points that sit on public land AND have an open MVUM
- * route within 300 m — how many of the known road-served public accesses the
- * method would have found on its own. Float camps reached only by water, and
- * MDC accesses on county roads (not in MVUM), are outside what it can find.
+ * Tiers: A = drivable road ends at public riverbank. B = road ends at the water
+ * but the land is not shown public (often a county right-of-way; check
+ * legality), or a high-clearance Forest Service track. C = a road crosses the
+ * river (bridge or ford).
  *
  * Run from missouri-float-planner/ (Node 20):
- *   npx tsx scripts/ingestion/propose-public-land-access.ts
- *   npx tsx scripts/ingestion/propose-public-land-access.ts --river=big-piney --out=/tmp/x
+ *   npx tsx scripts/ingestion/propose-public-land-access.ts --river=eleven-point,big-piney
+ *   npx tsx scripts/ingestion/propose-public-land-access.ts --river=eleven-point --holdout=long-hollow
+ * --holdout treats the named access points as unknown, to test that the finder
+ * finds them. Output goes to scripts/ingestion/finder-2026-11/ (or --out=).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  booleanPointInPolygon, length, lineIntersect, lineSliceAlong, lineString, point, pointToLineDistance, pointToPolygonDistance,
-} from '@turf/turf';
+import { booleanPointInPolygon, length, lineIntersect, lineString, point, pointToPolygonDistance } from '@turf/turf';
 import type { LineString, MultiLineString, MultiPolygon, Polygon } from 'geojson';
 import { getScriptClient } from '../lib/db';
-import {
-  type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink, metersBetween,
-} from './access-enrichment-2026-11';
-import { type ArcFeature, envelopeFilter, featureUrl, fetchAll, selectAll } from './arcgis-fetch';
-import { type VehicleClass, VEHICLE_RANK, alongRiverKm, dedupeAlongRiver, gapAround, routeEnds, vehicleClass } from './public-land-access-2026-11';
+import { type LngLat, PADUS_NON_FEE, agencyFromPadus, csvCell, mapLink } from './access-enrichment-2026-11';
+import { type ArcFeature, arcgis, envelope, envelopeFilter, featureUrl, fetchAll, selectAll } from './arcgis-fetch';
+import { type RoadSource, alongRiverKm, approachPoints, channelIndex, deadEnds, gapAround, nearestMouth, rankRoadEnd, tigerClass, vehicleClass } from './public-land-access-2026-11';
 
-const DEFAULT_RIVERS = ['eleven-point', 'big-piney'];
+const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer';
 const MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer';
-const VEHICLE_FIELDS = 'passengervehicle,highclearancevehicle,atv,motorcycle,otherwheeled_ohv,other_ohv_lt50inches';
-const LAYERS = {
-  road: { url: `${MVUM}/1`, fields: `objectid,id,name,surfacetype,seasonal,districtname,${VEHICLE_FIELDS}` },
-  trail: { url: `${MVUM}/2`, fields: `objectid,id,name,seasonal,districtname,${VEHICLE_FIELDS}` },
-} as const;
+const NHD_FLOWLINE = 'https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6';
+const USFS_OWNERSHIP = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer/0';
+const SOURCES = {
+  tigerLocal: { url: `${TIGER}/8`, fields: 'OBJECTID,NAME,MTFCC,RTTYP' },
+  tigerSecondary: { url: `${TIGER}/6`, fields: 'OBJECTID,NAME,MTFCC,RTTYP' },
+  mvumRoads: { url: `${MVUM}/1`, fields: 'objectid,id,name,operationalmaintlevel,seasonal,passengervehicle,highclearancevehicle,atv,motorcycle' },
+  mvumTrails: { url: `${MVUM}/2`, fields: 'objectid,id,name,seasonal,passengervehicle,highclearancevehicle,atv,motorcycle' },
+  nhd: { url: NHD_FLOWLINE, fields: 'objectid,gnis_name' },
+};
 
-const REACH_M = 300;
+const REACH_M = 200; // a road end this close to the real channel reaches the water
+const TRUSTED_PIN_M = 300; // a known access pinned farther than this from the channel is suspect
 const KNOWN_KM = 1.0;
-const TAIL_M = 500;
 const NEAR_PARCEL_M = 30;
-const RECALL_KM = 0.5;
 
-interface Parcel { id: string; unit_name: string; manager_name: string | null; designation: string | null; public_access: string | null; gis_acres: number | null; geom: Polygon | MultiPolygon }
+interface Road { source: RoadSource; name: string; fourWd: boolean; maintLevel: number | null; paths: number[][][]; url: string }
 
 function argValue(name: string): string | null {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -67,149 +76,199 @@ function argValue(name: string): string | null {
 }
 
 async function main() {
-  for (const a of process.argv.slice(2)) if (!['--river', '--out'].includes(a.split('=')[0])) throw new Error(`Unknown argument ${a}`);
-  const slugs = (argValue('river') ?? DEFAULT_RIVERS.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
-  const outDir = argValue('out') ?? join(__dirname, 'agency-gis', '2026-11-oneoff');
+  for (const a of process.argv.slice(2)) if (!['--river', '--out', '--holdout'].includes(a.split('=')[0])) throw new Error(`Unknown argument ${a}`);
+  const slugs = (argValue('river') ?? 'eleven-point,big-piney').split(',').map((s) => s.trim()).filter(Boolean);
+  const holdout = new Set((argValue('holdout') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
+  const outDir = argValue('out') ?? join(__dirname, 'finder-2026-11');
   const db = getScriptClient({ script: 'propose-public-land-access', write: false });
 
   const rows: Record<string, unknown>[] = [];
   const features: unknown[] = [];
   const summary: Record<string, unknown>[] = [];
+  const suspects: Record<string, unknown>[] = [];
+  const holdoutReport: string[] = [];
 
   for (const slug of slugs) {
     const { data: river, error } = await db.from('rivers').select('id, slug, name, geom').eq('slug', slug).single();
     if (error || !river?.geom) throw new Error(`river ${slug}: ${error?.message ?? 'no geometry'}`);
-    const geom = river.geom as LineString | MultiLineString;
-    const riverKm = length({ type: 'Feature', properties: {}, geometry: geom }, { units: 'kilometers' });
-    const coords = (geom.type === 'LineString' ? [geom.coordinates] : geom.coordinates).flat();
+    const eddyLine = river.geom as LineString | MultiLineString;
+    const riverKm = length({ type: 'Feature', properties: {}, geometry: eddyLine }, { units: 'kilometers' });
+    const coords = (eddyLine.type === 'LineString' ? [eddyLine.coordinates] : eddyLine.coordinates).flat();
     const box = {
       xmin: Math.min(...coords.map((c) => c[0])) - 0.01, ymin: Math.min(...coords.map((c) => c[1])) - 0.01,
       xmax: Math.max(...coords.map((c) => c[0])) + 0.01, ymax: Math.max(...coords.map((c) => c[1])) + 0.01,
     };
+    console.log(`\n${slug}: fetching the channel, roads and land…`);
 
-    const aps = await selectAll<{ id: string; name: string; approved: boolean | null; location_orig: { coordinates?: number[] } | null }>(
-      (a, b) => db.from('access_points').select('id, name, approved, location_orig').eq('river_id', river.id).order('id').range(a, b));
-    const existing = aps.flatMap((ap) => {
+    // ── The real channel (NHD), plus named tributary mouths ──────────────────
+    const nhd = await fetchAll(SOURCES.nhd, { ...envelopeFilter(box), where: 'gnis_name IS NOT NULL' });
+    const channel = nhd.features.filter((f) => String(f.attributes.gnis_name) === river.name).flatMap((f) => f.geometry?.paths ?? []).filter((p) => p.length > 1);
+    if (!channel.length) throw new Error(`${slug}: no NHD flowline named "${river.name}" in the river's box; check the name`);
+    const toWater = channelIndex(channel);
+    const mouths = nhd.features.filter((f) => String(f.attributes.gnis_name) !== river.name)
+      .flatMap((f) => (f.geometry?.paths ?? []).filter((p) => p.length > 1).map((p) => ({ name: String(f.attributes.gnis_name), at: p[p.length - 1] as LngLat })))
+      .filter((m) => toWater(m.at) <= 60);
+
+    // ── Known accesses: approved and pinned near the real channel ────────────
+    const aps = await selectAll<{ slug: string; name: string; approved: boolean | null; is_float_endpoint: boolean; location_orig: { coordinates?: number[] } | null }>(
+      (a, b) => db.from('access_points').select('slug, name, approved, is_float_endpoint, location_orig').eq('river_id', river.id).order('slug').range(a, b));
+    const located = aps.flatMap((ap) => {
       const c = ap.location_orig?.coordinates;
       if (!c) return [];
-      return [{ name: ap.name, approved: !!ap.approved, at: [c[0], c[1]] as LngLat, km: alongRiverKm(geom, [c[0], c[1]]).km }];
+      const at: LngLat = [c[0], c[1]];
+      return [{ ...ap, at, km: alongRiverKm(eddyLine, at).km, offChannelM: Math.round(toWater(at)) }];
     });
+    for (const k of located) {
+      if (k.offChannelM > TRUSTED_PIN_M) suspects.push({ river: slug, slug: k.slug, name: k.name, approved: !!k.approved, pin_to_channel_m: Number.isFinite(k.offChannelM) ? k.offChannelM : '>500', map: mapLink(k.at) });
+    }
+    const trusted = located.filter((k) => k.approved && k.offChannelM <= TRUSTED_PIN_M);
+    const known = trusted.filter((k) => !holdout.has(k.slug));
 
-    // PAD-US for the whole corridor in one viewport query, lightly simplified (≈2 m).
+    // ── Public land (PAD-US, refined by USFS ownership on national forests) ──
     const { data: lands, error: landsError } = await db.rpc('public_lands_in_bbox', {
       p_west: box.xmin, p_south: box.ymin, p_east: box.xmax, p_north: box.ymax, p_tolerance: 0.00002, p_limit: 1000,
     });
     if (landsError) throw landsError;
-    const landRows = (lands as Array<Omit<Parcel, 'geom'> & { geojson: string; total: number }>) ?? [];
-    // `total` counts bbox overlaps before parcels that only touch the edge are
-    // dropped, so fewer rows than `total` is normal. The cap is the 1000-row limit.
-    if (landRows.length && Number(landRows[0].total) > 1000) throw new Error(`${slug}: PAD-US query capped at 1000 of ${landRows[0].total}`);
-    const parcels: Parcel[] = landRows
-      .filter((l) => !PADUS_NON_FEE.has((l.designation ?? '').toUpperCase()))
-      .map((l) => ({ ...l, geom: JSON.parse(l.geojson) as Polygon | MultiPolygon }));
+    const landRows = (lands as Array<{ unit_name: string; manager_name: string | null; designation: string | null; gis_acres: number | null; geojson: string; total: number }>) ?? [];
+    if (landRows.length && Number(landRows[0].total) > 1000) throw new Error(`${slug}: PAD-US query capped`);
     const stateOf = (p: LngLat) => (p[1] < 36.5 && !(p[0] > -90.4 && p[1] > 36.0) ? 'AR' : 'MO');
-    /** The public (non-private, known-manager) fee parcel at a point, smallest first. */
-    const publicAt = (p: LngLat, nearM = 0): Parcel | null => parcels
-      .filter((l) => agencyFromPadus(l.manager_name, stateOf(p)).agency && agencyFromPadus(l.manager_name, stateOf(p)).agency !== 'Private')
-      .filter((l) => booleanPointInPolygon(point(p), l.geom) || (nearM > 0 && pointToPolygonDistance(point(p), l.geom, { units: 'meters' }) <= nearM))
-      .sort((a, b) => Number(a.gis_acres ?? Infinity) - Number(b.gis_acres ?? Infinity))[0] ?? null;
+    const parcels = landRows.filter((l) => !PADUS_NON_FEE.has((l.designation ?? '').toUpperCase()))
+      .map((l) => ({ ...l, geom: JSON.parse(l.geojson) as Polygon | MultiPolygon }));
+    const publicAt = async (p: LngLat): Promise<string | null> => {
+      const hit = parcels
+        .filter((l) => { const a = agencyFromPadus(l.manager_name, stateOf(p)).agency; return a && a !== 'Private'; })
+        .filter((l) => booleanPointInPolygon(point(p), l.geom) || pointToPolygonDistance(point(p), l.geom, { units: 'meters' }) <= NEAR_PARCEL_M)
+        .sort((a, b) => Number(a.gis_acres ?? Infinity) - Number(b.gis_acres ?? Infinity))[0];
+      if (!hit) return null;
+      if (hit.manager_name === 'USFS') {
+        // PAD-US blurs inholdings; the Forest Service's own ownership decides.
+        const r = await arcgis(USFS_OWNERSHIP, { ...envelopeFilter(envelope(p, NEAR_PARCEL_M)), outFields: 'ownerclassification', returnGeometry: 'false' });
+        const classes = ((r.features as ArcFeature[]) ?? []).map((f) => String(f.attributes.ownerclassification));
+        if (!classes.includes('USDA FOREST SERVICE')) return null;
+      }
+      return `${hit.unit_name} (${hit.manager_name})`;
+    };
 
-    const routes: { kind: 'road' | 'trail'; f: ArcFeature }[] = [];
-    for (const kind of ['road', 'trail'] as const) {
-      const { features: fs } = await fetchAll(LAYERS[kind], envelopeFilter(box));
-      for (const f of fs) if (f.geometry?.paths?.length && vehicleClass(f.attributes) !== 'none') routes.push({ kind, f });
+    // ── Roads: county/local (TIGER) and Forest Service (MVUM) ───────────────
+    const roads: Road[] = [];
+    for (const layer of [SOURCES.tigerLocal, SOURCES.tigerSecondary]) {
+      for (const f of (await fetchAll(layer, envelopeFilter(box))).features) {
+        const cls = tigerClass(f.attributes.MTFCC);
+        if (!cls.drivable || !f.geometry?.paths?.length) continue;
+        roads.push({ source: 'county', name: String(f.attributes.NAME ?? 'unnamed road'), fourWd: cls.fourWd, maintLevel: null, paths: f.geometry.paths, url: featureUrl(layer.url, f.attributes.OBJECTID) });
+      }
+    }
+    for (const layer of [SOURCES.mvumRoads, SOURCES.mvumTrails]) {
+      for (const f of (await fetchAll(layer, envelopeFilter(box))).features) {
+        if (vehicleClass(f.attributes) === 'none' || !f.geometry?.paths?.length) continue;
+        const maint = parseInt(String(f.attributes.operationalmaintlevel ?? ''), 10);
+        roads.push({ source: 'usfs', name: `FS ${f.attributes.id} ${f.attributes.name ?? ''}`.trim(), fourWd: vehicleClass(f.attributes) !== 'passenger' && vehicleClass(f.attributes) !== 'high_clearance', maintLevel: Number.isFinite(maint) ? maint : null, paths: f.geometry.paths, url: featureUrl(layer.url, f.attributes.objectid) });
+      }
+    }
+    const pathsOf = (src: RoadSource) => roads.filter((r) => r.source === src).flatMap((r) => r.paths);
+    const ends = new Map<string, LngLat>();
+    for (const src of ['county', 'usfs'] as const) {
+      for (const e of deadEnds(pathsOf(src), 8, pathsOf(src === 'county' ? 'usfs' : 'county'))) ends.set(`${src}|${e.join()}`, e);
     }
 
-    type Cand = { km: number; offsetM: number; vehicle: VehicleClass; at: LngLat; onRiver: LngLat; how: 'route end' | 'crosses river';
-      kind: 'road' | 'trail'; f: ArcFeature; land: Parcel | null; bank: Parcel | null; tailPct: number };
+    // ── Candidates ────────────────────────────────────────────────────────────
+    type Cand = { kind: 'road end' | 'road loops to river' | 'crosses river'; road: Road; at: LngLat; toWaterM: number; km: number; tier: string; score: number; notes: string[]; land: string | null };
     const raw: Cand[] = [];
-    for (const { kind, f } of routes) {
-      const vehicle = vehicleClass(f.attributes);
-      const paths = f.geometry!.paths!.filter((p) => p.length > 1);
-      const consider = (at: LngLat, how: Cand['how'], path: number[][]) => {
-        const a = alongRiverKm(geom, at);
-        if (a.offsetM > REACH_M) return;
-        // The last TAIL_M of the route leading to `at`, sampled every 50 m.
-        const oriented = metersBetween([path[0][0], path[0][1]], at) < metersBetween([path[path.length - 1][0], path[path.length - 1][1]], at) ? path : [...path].reverse();
-        const line = lineString(oriented);
-        const total = length(line, { units: 'meters' });
-        const tail = lineSliceAlong(line, 0, Math.min(TAIL_M, total), { units: 'meters' });
-        const tailLen = length(tail, { units: 'meters' });
-        const samples: LngLat[] = [];
-        for (let m = 0; m <= tailLen; m += 50) {
-          const s = lineSliceAlong(tail, 0, Math.max(m, 0.01), { units: 'meters' }).geometry.coordinates;
-          samples.push(s[s.length - 1] as LngLat);
+    for (const road of roads) {
+      for (const path of road.paths.filter((p) => p.length > 1)) {
+        const pathEnds = ([path[0], path[path.length - 1]] as LngLat[]).filter((e) => ends.has(`${road.source}|${e.join()}`));
+        // A road that comes down to the water and turns back (Long Hollow) has
+        // its nearest point mid-road; take it unless a dead end is right there.
+        const loops = approachPoints(path, toWater, REACH_M)
+          // On the channel itself it is a bridge or ford, which the crossing test reports.
+          .filter((a) => toWater(a) > 15)
+          .filter((a) => !pathEnds.some((e) => Math.hypot((e[0] - a[0]) * 89_000, (e[1] - a[1]) * 111_000) < 30));
+        for (const [end, kind] of [...pathEnds.map((e) => [e, 'road end'] as const), ...loops.map((a) => [a, 'road loops to river'] as const)]) {
+          const d = toWater(end);
+          if (d > REACH_M) continue;
+          const nearestOnChannel = channel.flat().reduce((best, v) => {
+            const dd = Math.hypot((v[0] - end[0]) * 89_000, (v[1] - end[1]) * 111_000);
+            return dd < best.d ? { v: v as LngLat, d: dd } : best;
+          }, { v: end, d: Infinity }).v;
+          const [landEnd, landBank] = await Promise.all([publicAt(end), publicAt(nearestOnChannel)]);
+          const r = rankRoadEnd({ source: road.source, toWaterM: d, fourWd: road.fourWd, maintLevel: road.maintLevel, publicEnd: !!landEnd, publicBank: !!landBank });
+          raw.push({ kind, road, at: end, toWaterM: Math.round(d), km: alongRiverKm(eddyLine, end).km, tier: r.tier, score: r.score, notes: r.notes, land: landEnd ?? landBank });
         }
-        const tailPct = samples.length ? samples.filter((s) => publicAt(s)).length / samples.length : 0;
-        raw.push({ km: a.km, offsetM: a.offsetM, vehicle, at, onRiver: a.onRiver, how, kind, f,
-          land: publicAt(at, NEAR_PARCEL_M), bank: publicAt(a.onRiver, NEAR_PARCEL_M), tailPct });
-      };
-      for (const path of paths) {
-        for (const end of routeEnds([path])) consider(end, 'route end', path);
-        for (const x of lineIntersect(lineString(path), { type: 'Feature', properties: {}, geometry: geom }).features) {
-          consider(x.geometry.coordinates as LngLat, 'crosses river', path);
+        for (const x of lineIntersect(lineString(path), { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: channel } }).features) {
+          const at = x.geometry.coordinates as LngLat;
+          raw.push({ kind: 'crosses river', road, at, toWaterM: 0, km: alongRiverKm(eddyLine, at).km, tier: 'C', score: 40, notes: ['bridge or ford: check bank access and parking'], land: await publicAt(at) });
         }
       }
     }
-    const publicRaw = raw.filter((c) => c.land || c.bank);
 
-    // Recall against existing access points that are on public land.
-    const routeNear = (p: LngLat) => routes.some(({ f }) => f.geometry!.paths!.some((path) => path.length > 1 &&
-      pointToLineDistance(point(p), lineString(path), { units: 'meters' }) <= REACH_M));
-    const knownPublic = existing.filter((e) => publicAt(e.at, NEAR_PARCEL_M) && routeNear(e.at));
-    const found = knownPublic.filter((e) => publicRaw.some((c) => Math.abs(c.km - e.km) <= RECALL_KM));
+    // Recall: trusted, road-served launches the raw candidates would have found.
+    const roadServed = trusted.filter((k) => k.is_float_endpoint && raw.some((c) => Math.abs(c.km - k.km) <= 0.5));
+    const launches = trusted.filter((k) => k.is_float_endpoint);
+    for (const h of holdout) {
+      const k = trusted.find((t) => t.slug === h);
+      if (!k) { holdoutReport.push(`${slug}/${h}: not a trusted access on this river`); continue; }
+      const hits = raw.filter((c) => Math.abs(c.km - k.km) <= 0.5).sort((a, b) => b.score - a.score);
+      holdoutReport.push(hits.length
+        ? `${slug}/${h}: FOUND as tier ${hits[0].tier} via ${hits[0].road.name} (${hits[0].toWaterM} m to water, ${Math.round(Math.hypot((hits[0].at[0] - k.at[0]) * 89_000, (hits[0].at[1] - k.at[1]) * 111_000))} m from the access pin)`
+        : `${slug}/${h}: NOT FOUND`);
+    }
 
-    const fresh = dedupeAlongRiver(publicRaw.filter((c) => gapAround(c.km, existing.map((e) => e.km), riverKm).nearestKm >= KNOWN_KM));
-    for (const c of fresh) {
-      const g = gapAround(c.km, existing.map((e) => e.km), riverKm);
-      const up = existing.find((e) => e.km === g.upKm);
-      const down = existing.find((e) => e.km === g.downKm);
-      const strong = VEHICLE_RANK[c.vehicle] >= VEHICLE_RANK.high_clearance && c.how === 'route end' && c.land && c.bank && c.tailPct >= 0.9;
-      const a = c.f.attributes;
-      const parcel = c.land ?? c.bank!;
+    // Unknown stretches only; one per 300 m, best first.
+    const fresh = raw
+      .filter((c) => gapAround(c.km, known.map((k) => k.km), riverKm).nearestKm >= KNOWN_KM)
+      .sort((a, b) => ({ A: 0, B: 1, C: 2 }[a.tier as 'A'] - { A: 0, B: 1, C: 2 }[b.tier as 'A']) || b.score - a.score);
+    const kept: Cand[] = [];
+    for (const c of fresh) if (!kept.some((k) => Math.abs(k.km - c.km) < 0.3)) kept.push(c);
+
+    for (const c of kept) {
+      const g = gapAround(c.km, known.map((k) => k.km), riverKm);
+      const up = known.find((k) => k.km === g.upKm);
+      const down = known.find((k) => k.km === g.downKm);
+      const place = nearestMouth(c.at, mouths);
       const row = {
-        tier: strong ? 'strong' : 'possible',
+        tier: c.tier,
+        score: c.score,
         river: slug,
-        river_km: c.km.toFixed(2),
+        place: place ?? '',
+        kind: c.kind,
+        road: c.road.name,
+        road_source: c.road.source === 'county' ? 'Census roads (county, local, forest)' : 'Forest Service (MVUM)',
+        four_wd: c.road.fourWd ? 'yes' : '',
+        usfs_maint_level: c.road.maintLevel ?? '',
+        to_water_m: c.toWaterM,
+        land: c.land ?? 'not shown public',
+        between: `${up?.name ?? '(river start)'} → ${down?.name ?? '(river end)'}`,
         gap_km: g.gapKm.toFixed(1),
-        nearest_access_km: g.nearestKm.toFixed(1),
-        upstream_access: up?.name ?? '(river start)',
-        downstream_access: down?.name ?? '(river end)',
-        how: c.how,
-        layer: c.kind,
-        route: `${a.id ?? ''} ${a.name ?? ''}`.trim(),
-        vehicle: c.vehicle,
-        seasonal: a.seasonal ?? '',
-        surface: a.surfacetype ?? '',
-        distance_to_water_m: Math.round(c.offsetM),
-        land_unit: parcel.unit_name,
-        land_manager: parcel.manager_name ?? '',
-        land_access_code: parcel.public_access ?? 'UK',
-        end_public: c.land ? 'yes' : 'no',
-        bank_public: c.bank ? 'yes' : 'no',
-        last_500m_public_pct: Math.round(c.tailPct * 100),
-        district: a.districtname ?? '',
+        notes: c.notes.join('; '),
+        search: `"${(place ?? c.road.name).replace(/ mouth$/, '')}" ${river.name} access`,
+        lat: c.at[1].toFixed(6),
+        lon: c.at[0].toFixed(6),
         map: mapLink(c.at),
-        mvum_url: featureUrl(LAYERS[c.kind].url, a.objectid),
+        road_record: c.road.url,
       };
       rows.push(row);
       features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: c.at }, properties: row });
     }
     summary.push({
-      river: slug, river_km: Math.round(riverKm), existing_access_points: existing.length,
-      open_routes: routes.length, reaching_public_bank: publicRaw.length,
-      candidates: fresh.length, strong: fresh.filter((c) => rows.find((r) => r.river === slug && r.river_km === c.km.toFixed(2))?.tier === 'strong').length,
-      recall: `${found.length}/${knownPublic.length} known road-served public accesses rediscovered`,
+      river: slug, roads: roads.length, road_ends_at_water: raw.filter((c) => c.kind !== 'crosses river').length,
+      crossings: raw.filter((c) => c.kind === 'crosses river').length,
+      candidates: kept.length, tier_A: kept.filter((c) => c.tier === 'A').length,
+      recall: `${roadServed.length}/${launches.length} trusted launches have a road candidate within 0.5 km`,
+      suspect_records: located.filter((k) => k.offChannelM > TRUSTED_PIN_M).length,
     });
   }
 
-  rows.sort((a, b) => String(a.tier).localeCompare(String(b.tier)) * -1 || Number(b.gap_km) - Number(a.gap_km));
   mkdirSync(outDir, { recursive: true });
-  const cols = Object.keys(rows[0] ?? { tier: '' });
-  writeFileSync(join(outDir, 'finder.csv'), `${[cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\n')}\n`);
-  writeFileSync(join(outDir, 'finder.geojson'), `${JSON.stringify({ type: 'FeatureCollection', features }, null, 1)}\n`);
+  const write = (file: string, list: Record<string, unknown>[]) => {
+    const cols = Object.keys(list[0] ?? { none: '' });
+    writeFileSync(join(outDir, file), `${[cols.join(','), ...list.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\n')}\n`);
+  };
+  write('candidates.csv', rows);
+  write('suspect-records.csv', suspects);
+  writeFileSync(join(outDir, 'candidates.geojson'), `${JSON.stringify({ type: 'FeatureCollection', features }, null, 1)}\n`);
   console.table(summary);
-  console.log(`Wrote ${rows.length} candidates to ${join(outDir, 'finder.csv')} (+ finder.geojson). Nothing was written to the database.`);
+  for (const h of holdoutReport) console.log(`holdout ${h}`);
+  console.log(`Wrote ${rows.length} candidates and ${suspects.length} suspect records to ${outDir}. Nothing was written to the database.`);
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
