@@ -56,6 +56,7 @@ test('hour ending names the hour the water starts moving', () => {
 test('midnight is spelled, not printed as 12 AM', () => {
   assert.equal(windowLabel(1, 6), 'midnight – 6 AM');
   assert.equal(windowLabel(7, 24), '6 AM – midnight');
+  assert.equal(windowLabel(1, 24), 'all day', 'not "midnight – midnight"');
 });
 
 test('a full day of generation says so rather than going quiet', () => {

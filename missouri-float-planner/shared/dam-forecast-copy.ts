@@ -137,7 +137,9 @@ function pushSpan(
   const endLabel = midnightAware(forecastClockLabel(new Date(endMs).toISOString(), timeZone));
   day.spans.push({
     generating: w.generating,
-    label: `${startLabel} – ${endLabel}`,
+    // A span never leaves its day, so midnight to midnight is the whole day
+    // (23 or 25 hours on a DST change). Same wording as windowLabel.
+    label: startLabel === 'midnight' && endLabel === 'midnight' ? 'all day' : `${startLabel} – ${endLabel}`,
     // The "~" is the hedge: a forecast peak is the plan's number, not a
     // measurement, and the rounding already stripped false precision.
     peakLabel:

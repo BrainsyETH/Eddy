@@ -65,7 +65,7 @@ test('the 25-hour fall-back day stays one day', () => {
   );
   assert.equal(days.length, 1);
   assert.equal(days[0].dayKey, '2026-11-01');
-  assert.equal(days[0].spans[0].label, 'midnight – midnight');
+  assert.equal(days[0].spans[0].label, 'all day');
 });
 
 test('the 23-hour spring-forward day stays one day', () => {
@@ -76,7 +76,7 @@ test('the 23-hour spring-forward day stays one day', () => {
   );
   assert.equal(days.length, 1);
   assert.equal(days[0].dayKey, '2026-03-08');
-  assert.equal(days[0].spans[0].label, 'midnight – midnight');
+  assert.equal(days[0].spans[0].label, 'all day');
 });
 
 // ── nextForecastChangeSentence ──────────────────────────────────────────────

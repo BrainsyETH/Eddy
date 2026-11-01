@@ -42,6 +42,9 @@ export function hourEndingLabel(hourEnding: number): string {
 
 /** A window given as hour-ending bounds -> "midnight – 6 AM". */
 export function windowLabel(from: number, to: number): string {
+  // Every hour of the day: "midnight – midnight" makes the reader work out
+  // that it means the whole day.
+  if (from === 1 && to === 24) return 'all day';
   const start = hourEndingLabel(from);
   const end = hourEndingLabel(to + 1);
   return `${start === '12 AM' ? 'midnight' : start} – ${end === '12 AM' ? 'midnight' : end}`;

@@ -28,8 +28,6 @@ import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
-  idleWindowSentence,
-  scheduleDayHasMinimumFlow,
   relativeAge,
   readingStaleness,
 } from '@eddy/conditions/dam-schedule-copy';
@@ -105,13 +103,9 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
         </View>
       ) : null}
 
-      {/* Today's idle windows — the part of the schedule that measured EXACT
-          against turbine flow, and the one a wading angler is actually after. */}
-      {today ? (
-        <Text style={[styles.windows, { color: colors.text }]}>
-          {idleWindowSentence(today.idle, { minimumFlow: scheduleDayHasMinimumFlow(today) })}
-        </Text>
-      ) : null}
+      {/* No idle-window sentence here. The dam detail screen draws today's
+          schedule as bars; a written list of every off window was harder to
+          read than the chart it restated, and the link below goes there. */}
 
       <Text
         style={[styles.link, { color: colors.interactive }]}
@@ -144,7 +138,6 @@ const styles = StyleSheet.create({
   release: { ...t['2xl'], fontFamily: fonts.heading },
   releaseUnit: { ...t.base, fontFamily: fonts.medium },
   releaseSub: { ...t.sm },
-  windows: { ...t.sm, fontFamily: fonts.semibold, marginTop: 10 },
   link: { ...t.sm, fontFamily: fonts.semibold, marginTop: 12 },
   footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
   footerText: { ...t.xs },
