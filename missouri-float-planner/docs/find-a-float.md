@@ -56,6 +56,14 @@ Screening continues to exclude `too_low`, `high`, and `dangerous`, including pos
 
 Variety is a preference: reuse the existing overlap/put-in/reach selection, prefer at most two picks per river, then backfill. Selecting a river disables the river cap and the radius filter, and both apps hide the radius control. A visible starting point still orders launches and supplies drive times.
 
+## River strip (web)
+
+When every result is on the searched river, the web results open with a river strip above the cards (`src/app/find-float/RiverStrip.tsx`, geometry in `shared/river-strip.ts` so iOS can draw the same strip later; iOS does not yet). It draws the river from its first access point to its last, fitted to the returned routes, with each route a coral stretch and a numbered callout matching its card. River miles are to scale; the bends are seeded from the slug and say so behind the ⓘ (`RIVER_STRIP_INFO`), never on the surface.
+
+- Only routes the strip can place (`riverStripPlaceable`: both ends among the river's access points, take-out downstream) get a number and a card "Show on river" action. If the access points fail to load, cards stay ordinary cards; while they first load, a placeholder of the strip's height holds its place.
+- Choosing a float (a callout or "Show on river") flags its ends and shows its facts beneath the strip, worded by `route-facts.tsx` exactly as on its card. "Your stretch" zooms onto it. "Show on river" moves keyboard focus to that float's callout.
+- Callouts never share a 44px tap area and never cover an end flag; a short float's two flags are drawn apart, each tied to its true point. `shared/river-strip.test.ts` checks these.
+
 ## Bounded API
 
 `POST /api/float-search` accepts:

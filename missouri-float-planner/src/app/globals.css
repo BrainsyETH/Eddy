@@ -1569,3 +1569,27 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 767px) {
   .maplibregl-ctrl-group button { width: 44px; height: 44px; }
 }
+
+/* River strip (Find a Float results, src/app/find-float/RiverStrip.tsx).
+   Sandbar banks around river-teal water; the route and pins take the map's
+   colours from the component. The halo keeps names readable over the ribbon. */
+:root {
+  --river-strip-bank: var(--color-secondary-400);
+  --river-strip-sand: var(--color-secondary-200);
+  --river-strip-water: var(--color-primary-400);
+  --river-strip-halo: var(--color-surface);
+}
+[data-theme="dark"] {
+  --river-strip-bank: var(--color-secondary-900);
+  --river-strip-sand: var(--color-secondary-800);
+  --river-strip-water: var(--color-primary-500);
+  --river-strip-halo: var(--color-neutral-900);
+}
+.river-strip-label {
+  text-shadow: 0 0 3px var(--river-strip-halo), 0 0 3px var(--river-strip-halo), 0 0 3px var(--river-strip-halo);
+}
+@keyframes river-strip-flow { to { stroke-dashoffset: -40; } }
+.river-strip-flow { animation: river-strip-flow 3s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .river-strip-flow { animation: none; }
+}
