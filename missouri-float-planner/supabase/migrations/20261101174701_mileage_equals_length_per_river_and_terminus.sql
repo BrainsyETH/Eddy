@@ -1,4 +1,8 @@
--- Pending. Replaces validate_river_data() to repair one rule: mileage_equals_length.
+-- APPLIED to production (ilefwfpvphadsbptiaur) on 2026-11-01 as version 20261101174701,
+-- the version the recording assigned, not the 20261101165213 this file was authored as.
+-- Renamed to match. The ledger is supabase/production-migrations.txt.
+--
+-- Replaces validate_river_data() to repair one rule: mileage_equals_length.
 -- Every other branch is copied unchanged from 20261004044114, which is the
 -- definition production runs (checked against pg_get_functiondef on 2026-11-01).
 --
@@ -244,7 +248,7 @@ FROM (
 WHERE next_frac IS NOT NULL AND next_frac < frac - 0.01
 
 UNION ALL
--- CHANGED (20261101165213): one row per river, and a point that really is the
+-- CHANGED (20261101174701): one row per river, and a point that really is the
 -- last thing on the line no longer counts as a placeholder. See the header.
 SELECT river_slug, 'mileage_equals_length', 'warning',
        count(*)::text || ' access point(s) carry a river_mile exactly equal to ' ||

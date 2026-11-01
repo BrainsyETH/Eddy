@@ -1,4 +1,8 @@
--- Pending. Apply AFTER 20261101165213, whose definition this replaces.
+-- APPLIED to production (ilefwfpvphadsbptiaur) on 2026-11-01 as version 20261101175651,
+-- the version the recording assigned, not the 20261101173323 this file was authored as.
+-- Renamed to match. The ledger is supabase/production-migrations.txt.
+--
+-- Apply AFTER 20261101174701, whose definition this replaces.
 --
 -- Makes validate_river_data() return at most one row per (river_slug,
 -- check_name), for every rule at once.
@@ -9,7 +13,7 @@
 -- for one river and rule is one identity reported twice, which indexEmitted()
 -- refuses (src/lib/trust/ledger.test.ts), so the whole run is check_error and
 -- every finding the check owns freezes. That is what mileage_equals_length did
--- from 2026-10-29; 20261101165213 fixed that one rule.
+-- from 2026-10-29; 20261101174701 fixed that one rule.
 --
 -- Four more branches can still do it, because each emits a row per gauge,
 -- access point or pair rather than per river:
@@ -34,7 +38,7 @@
 --   * severity: 'error' if any row was an error. Each rule emits one severity
 --     today, so this only matters if that ever stops being true.
 --
--- The branches inside are copied unchanged from 20261101165213.
+-- The branches inside are copied unchanged from 20261101174701.
 --
 -- review_river_activation() reads this function and blocks on any 'error'
 -- row; fewer, merged rows block exactly the same rivers.
@@ -49,7 +53,7 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 AS $$
--- CHANGED (20261101173323): one row per (river, rule), whatever the branches
+-- CHANGED (20261101175651): one row per (river, rule), whatever the branches
 -- below emit. See the header. A single row keeps its detail verbatim.
 SELECT raw.river_slug,
        raw.check_name,
@@ -249,7 +253,7 @@ FROM (
     WHERE next_frac IS NOT NULL AND next_frac < frac - 0.01
 
     UNION ALL
-    -- CHANGED (20261101165213): one row per river, and a point that really is the
+    -- CHANGED (20261101174701): one row per river, and a point that really is the
     -- last thing on the line no longer counts as a placeholder. See the header.
     SELECT river_slug, 'mileage_equals_length', 'warning',
            count(*)::text || ' access point(s) carry a river_mile exactly equal to ' ||

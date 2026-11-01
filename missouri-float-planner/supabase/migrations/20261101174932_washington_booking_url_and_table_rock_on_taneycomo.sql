@@ -1,4 +1,8 @@
--- Pending. Two directory corrections from the 2026-11-01 trust-console review.
+-- APPLIED to production (ilefwfpvphadsbptiaur) on 2026-11-01 as version 20261101174932,
+-- the version the recording assigned, not the 20261101165838 this file was authored as.
+-- Renamed to match. The ledger is supabase/production-migrations.txt.
+--
+-- Two directory corrections from the 2026-11-01 trust-console review.
 -- Each is guarded on the state it was reviewed against, so a row that has
 -- moved since is refused rather than overwritten.
 --

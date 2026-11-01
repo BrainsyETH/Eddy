@@ -1,5 +1,9 @@
--- Pending. MUST be applied before the code that writes 'continuation_only' is
--- deployed: until it is, any per-site row carrying the new status fails this
+-- APPLIED to production (ilefwfpvphadsbptiaur) on 2026-11-01 as version 20261101175133,
+-- the version the recording assigned, not the 20261101173216 this file was authored as.
+-- Renamed to match. The ledger is supabase/production-migrations.txt.
+--
+-- Applied before the code that writes 'continuation_only' deploys, as it
+-- must be: without it, any per-site row carrying the new status fails this
 -- CHECK and the facility's upsert fails with it.
 --
 -- Adds one per-site status: a night that can be booked only as a later night
