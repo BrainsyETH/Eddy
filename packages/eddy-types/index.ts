@@ -689,6 +689,11 @@ export interface AccessPointDetail {
   parkingInfo: string | null;
   roadAccess: string | null;
   facilities: string | null;
+  /**
+   * Agencies whose published data this place uses ('MDC', 'AGFC'), for one small
+   * attribution line. Absent on older payloads. See sourceLine in accessCopy.ts.
+   */
+  dataSources?: string[];
   feeRequired: boolean;
   feeNotes: string | null;
   imageUrls: string[];

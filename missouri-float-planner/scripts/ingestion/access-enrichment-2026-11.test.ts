@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   type Lot, type Proposal, addAmenities, agencyFromAgfcOwner, agencyFromOwnershipText, agencyFromPadus, belongsTo,
   chooseManagingAgency, line, matchLots, mvumRoadSurface, parkingInfo, ownershipSpelling, parseCsv,
-  correctionsFromSheet, roadServes, sideOfRiver, toCsv, usfsHasRestroom,
+  correctionsFromSheet, isUserText, roadServes, sideOfRiver, toCsv, usfsHasRestroom,
 } from './access-enrichment-2026-11';
 
 // A river running due east along 37°N. North is the left bank looking downstream.
@@ -171,13 +171,13 @@ test('the reviewed sheet becomes one compare-and-set correction per access point
   const base = { access_point_id: id, slug: 'brown-s-ford', confidence: 'high' };
   const rows = [
     { ...base, accept: 'y', field: 'amenities', current: '[]', proposed: '["parking","restrooms"]' },
-    { ...base, accept: 'Y', field: 'parking_info', current: 'null', proposed: '"Gravel lot (MDC)."' },
+    { ...base, accept: 'Y', field: 'parking_info', current: 'null', proposed: '"Gravel lot."' },
     { ...base, accept: '', field: 'managing_agency', current: 'null', proposed: '"MDC"' },
     { ...base, accept: 'y', field: 'road_surface', current: '[]', proposed: '', confidence: 'flag' },
   ];
   const { corrections, skipped } = correctionsFromSheet(rows);
   assert.equal(corrections.length, 1);
-  assert.deepEqual(corrections[0].to, { amenities: ['parking', 'restrooms'], parking_info: 'Gravel lot (MDC).' });
+  assert.deepEqual(corrections[0].to, { amenities: ['parking', 'restrooms'], parking_info: 'Gravel lot.' });
   assert.deepEqual(corrections[0].from, { amenities: [], parking_info: null });
   assert.match(skipped[0], /flag, never applied/);
 
@@ -206,4 +206,19 @@ test('official_site_url accepts a page or a removal, never a map-service query',
   assert.deepEqual(correctionsFromSheet([{ ...base, current: JSON.stringify(gis), proposed: 'null' }]).corrections[0].to, { official_site_url: null });
   assert.throws(() => correctionsFromSheet([{ ...base, current: 'null', proposed: JSON.stringify(gis) }]), /invalid official_site_url/);
   assert.equal(correctionsFromSheet([{ ...base, current: 'null', proposed: '"https://www.fs.usda.gov/r09/marktwain/recreation/east-gate"' }]).corrections.length, 1);
+});
+
+test('user-facing text refuses research notes, em dashes and inline attribution', () => {
+  assert.ok(isUserText('Concrete boat ramp off Mammoth Rd at Mammoth Bridge.'));
+  assert.ok(isUserText(null), 'null clears a field that held only notes');
+  assert.ok(isUserText('<p>Day use only June through mid-September.</p>'));
+  for (const bad of [
+    'Coord = MDC GIS Boat Ramps layer, corroborated by USGS 07018000.',
+    'Paved lot (MDC).',
+    'Gravel bar access — no formal ramp.',
+    'Near the gauge (37.0066,-93.3647).',
+    '~RM 23.3 on the Big River.',
+    'HAZARD: dam ruins adjacent.',
+    '',
+  ]) assert.ok(!isUserText(bad), bad);
 });

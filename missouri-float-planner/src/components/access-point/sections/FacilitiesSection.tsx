@@ -5,6 +5,8 @@ import { ExternalLink, Tent, Droplets, Phone, Flame, Trash2 } from 'lucide-react
 import type { AccessPointDetail } from '@/types/api';
 import { getAgencyFullName } from '@/lib/navigation';
 import AvailabilityChip from '@/components/ui/AvailabilityChip';
+import { AMENITIES } from '@/constants';
+import { FactRow, ProseBlock, SourceNote } from './DetailText';
 
 interface FacilitiesSectionProps {
   accessPoint: AccessPointDetail;
@@ -17,8 +19,11 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
   const hasFee = accessPoint.feeRequired;
   const nps = accessPoint.npsCampground;
   const hasLinkedCamping = !nps && !!(accessPoint.availability || accessPoint.booking);
+  // NPS campgrounds carry their own amenity chips above; everywhere else the
+  // structured amenities column is the at-a-glance list.
+  const amenities = nps ? [] : (accessPoint.amenities ?? []);
 
-  if (!hasAgency && !hasFacilities && !hasFee && !nps && !hasLinkedCamping) {
+  if (!hasAgency && !hasFacilities && !hasFee && !nps && !hasLinkedCamping && amenities.length === 0) {
     return (
       <p className="text-sm text-neutral-500 italic">
         No facilities information available.
@@ -93,7 +98,10 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
             </a>
           )}
           {nps.reservationInfo && !nps.reservationUrl && (
-            <InfoRow label="Reservations" value={nps.reservationInfo} />
+            <div>
+              <SectionLabel>Reservations</SectionLabel>
+              <ProseBlock text={nps.reservationInfo} />
+            </div>
           )}
 
           {/* Site Counts */}
@@ -181,12 +189,15 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
 
           {/* Operating Season */}
           {nps.operatingHours.length > 0 && nps.operatingHours[0].description && (
-            <InfoRow label="Season" value={nps.operatingHours[0].description} />
+            <div>
+              <SectionLabel>Season</SectionLabel>
+              <ProseBlock text={nps.operatingHours[0].description} />
+            </div>
           )}
 
           {/* Classification */}
           {nps.classification && (
-            <InfoRow label="Type" value={nps.classification} />
+            <FactRow label="Type" value={nps.classification} />
           )}
 
           {/* NPS page link */}
@@ -211,28 +222,32 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
         </div>
       )}
 
-      {/* Existing facilities text */}
-      {hasFacilities && (
-        <InfoRow label="Amenities" value={accessPoint.facilities!} />
+      {/* At a glance: the structured amenities, as chips */}
+      {amenities.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {amenities.map((a) => (
+            <AmenityChip key={a} label={amenityLabel(a)} />
+          ))}
+        </div>
       )}
 
-      {/* Fee info (only show if no NPS data, since NPS has its own fees) */}
+      {/* Free text about what is there: full-width prose, not a labelled value */}
+      {hasFacilities && <ProseBlock text={accessPoint.facilities!} />}
+
+      {/* Fee: a short fact, with any detail as prose underneath (NPS has its own fees) */}
       {!nps && accessPoint.feeRequired && (
-        <InfoRow
-          label="Fee"
-          value={accessPoint.feeNotes || 'Fee required'}
-        />
+        <>
+          <FactRow label="Fee" value="Required" />
+          {accessPoint.feeNotes && <ProseBlock text={accessPoint.feeNotes} />}
+        </>
       )}
-      {!nps && accessPoint.feeRequired === false && hasFacilities && (
-        <InfoRow label="Fee" value="No fee" />
+      {!nps && accessPoint.feeRequired === false && (hasFacilities || amenities.length > 0) && (
+        <FactRow label="Fee" value="No fee" />
       )}
 
       {/* Managing agency */}
       {hasAgency && (
-        <InfoRow
-          label="Managed by"
-          value={getAgencyFullName(accessPoint.managingAgency)}
-        />
+        <FactRow label="Managed by" value={getAgencyFullName(accessPoint.managingAgency)} />
       )}
 
       {/* Official site link */}
@@ -249,19 +264,16 @@ export default function FacilitiesSection({ accessPoint }: FacilitiesSectionProp
           <ExternalLink className="w-4 h-4 text-primary-600" />
         </a>
       )}
+
+      <SourceNote sources={accessPoint.dataSources} />
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-start gap-3">
-      <span className="text-sm text-neutral-500 flex-shrink-0">{label}</span>
-      <span className="text-sm text-neutral-900 font-medium text-right">
-        {value}
-      </span>
-    </div>
-  );
+/** "boat_ramp" → "Boat Ramp", via the shared vocabulary; unknown values title-cased. */
+function amenityLabel(slug: string): string {
+  return (AMENITIES as Record<string, string>)[slug]
+    ?? slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

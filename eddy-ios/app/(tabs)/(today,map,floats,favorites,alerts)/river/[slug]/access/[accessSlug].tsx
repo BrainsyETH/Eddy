@@ -70,7 +70,7 @@ import { accessDetailPresentation, retainNewerSavedObservations } from '@/lib/ac
 import { accessAvailability } from '@/components/map-sheet/availabilitySource';
 import { onForeground } from '@/lib/foreground';
 import { SavedPlaceSchedule } from '@/components/SavedPlaceSchedule';
-import { AmenityChips } from '@/components/map-sheet/sections';
+import { AmenityChips, FoldedProse, SourceNote } from '@/components/map-sheet/sections';
 import { placeFromAccess } from '@/lib/savedPlaces';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import {
@@ -730,7 +730,9 @@ export default function AccessPointDetailScreen() {
               })}
             </View>
             {point.roadAccess ? (
-              <Text style={[styles.prose, { color: colors.textMuted }]}>{point.roadAccess}</Text>
+              <View style={styles.fold}>
+                <FoldedProse lines={4} subject="road directions">{point.roadAccess}</FoldedProse>
+              </View>
             ) : null}
           </Section>
         ) : null}
@@ -741,7 +743,9 @@ export default function AccessPointDetailScreen() {
               <Text style={[styles.prose, { color: colors.text }]}>{parking}</Text>
             ) : null}
             {point.parkingInfo ? (
-              <Text style={[styles.prose, { color: colors.textMuted }]}>{point.parkingInfo}</Text>
+              <View style={styles.fold}>
+                <FoldedProse lines={4} subject="parking details">{point.parkingInfo}</FoldedProse>
+              </View>
             ) : null}
           </Section>
         ) : null}
@@ -750,11 +754,18 @@ export default function AccessPointDetailScreen() {
           <Section title="Facilities" symbol="facilities">
             <View style={{ paddingHorizontal: 20 }}><AmenityChips amenities={point.amenities} /></View>
             {point.facilities ? (
-              <Text style={[styles.prose, { color: colors.textMuted }]}>{point.facilities}</Text>
+              <View style={styles.fold}>
+                <FoldedProse lines={4} subject="facilities">{point.facilities}</FoldedProse>
+              </View>
             ) : null}
             {point.feeNotes ? (
-              <Text style={[styles.prose, { color: colors.textMuted }]}>{point.feeNotes}</Text>
+              <View style={styles.fold}>
+                <FoldedProse lines={4} subject="fee details">{point.feeNotes}</FoldedProse>
+              </View>
             ) : null}
+            <View style={styles.fold}>
+              <SourceNote sources={point.dataSources} />
+            </View>
 
             {/* NPS campgrounds carry booking information nothing else here does,
                 and "can I reserve this or is it first-come" is the whole
@@ -1032,6 +1043,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { ...t.lg, fontFamily: fonts.heading },
   prose: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 8, lineHeight: 21 },
+  // FoldedProse carries its own type; this gives it the page's gutter.
+  fold: { paddingHorizontal: 20, marginTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 20 },
   chipOutline: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 9, borderWidth: 1 },
   chipOutlineText: { ...t.xs, fontFamily: fonts.medium },

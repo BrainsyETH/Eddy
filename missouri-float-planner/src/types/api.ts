@@ -92,6 +92,12 @@ export interface AccessPoint {
   parkingInfo: string | null;
   roadAccess: string | null;
   facilities: string | null;
+  /**
+   * Agencies whose published data this page uses ('MDC', 'AGFC'), for the one
+   * small attribution line. From the reviewed agency_gis_features links;
+   * absent on older payloads. See src/lib/access-points/source-line.ts.
+   */
+  dataSources?: string[];
   /** null = not verified. Only an explicit false may be shown as "No fee". */
   feeRequired: boolean | null;
   feeNotes: string | null;

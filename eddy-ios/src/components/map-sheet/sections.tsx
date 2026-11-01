@@ -25,6 +25,7 @@ import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
+import { sourceLine } from '@/lib/accessCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { accessBadgeTypes, accessTypeSymbol } from './placeSymbol';
 import { accessAmenities } from './accessAmenities';
@@ -132,9 +133,12 @@ export function Prose({ children }: { children: string | null | undefined }) {
 export function FoldedProse({
   children,
   lines = 2,
+  subject = 'description',
 }: {
   children: string | null | undefined;
   lines?: number;
+  /** What VoiceOver says is folded: "Show the full parking details". */
+  subject?: string;
 }) {
   const { colors } = useTheme();
   // ── BOTH ANSWERS ARE HELD AGAINST THE STRING THEY BELONG TO ──────────────
@@ -186,7 +190,7 @@ export function FoldedProse({
           style={({ pressed }) => [styles.foldToggle, { opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
           accessibilityState={{ expanded }}
-          accessibilityLabel={expanded ? 'Show less of the description' : 'Show the full description'}
+          accessibilityLabel={expanded ? `Show less of the ${subject}` : `Show the full ${subject}`}
         >
           <Text style={[styles.foldToggleText, { color: colors.interactive }]}>
             {expanded ? 'Less' : 'More'}
@@ -195,6 +199,17 @@ export function FoldedProse({
       ) : null}
     </View>
   );
+}
+
+/**
+ * One small line naming the agencies whose published data this place uses.
+ * Absent when there are none. See sourceLine in src/lib/accessCopy.ts.
+ */
+export function SourceNote({ sources }: { sources: readonly string[] | null | undefined }) {
+  const { colors } = useTheme();
+  const line = sourceLine(sources);
+  if (!line) return null;
+  return <Text style={[styles.sourceNote, { color: colors.textMuted }]}>{line}</Text>;
 }
 
 export function Chips({ labels }: { labels: string[] }) {
@@ -600,6 +615,7 @@ const styles = StyleSheet.create({
     marginBottom: -10,
   },
   foldToggleText: { ...t.sm, fontFamily: fonts.semibold },
+  sourceNote: { ...t.xs, marginTop: 10 },
   // The same 44pt target as the fold toggle. No negative margins: this sits
   // under an Absent line with nothing below it, so the page simply grows.
   retry: { alignSelf: 'flex-start', paddingVertical: 12, marginTop: -6 },

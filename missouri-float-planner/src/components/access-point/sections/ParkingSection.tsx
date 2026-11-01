@@ -3,6 +3,7 @@
 
 import type { AccessPointDetail } from '@/types/api';
 import { formatParkingCapacity } from '@/lib/navigation';
+import { FactRow, ProseBlock } from './DetailText';
 
 interface ParkingSectionProps {
   accessPoint: AccessPointDetail;
@@ -23,26 +24,10 @@ export default function ParkingSection({ accessPoint }: ParkingSectionProps) {
   return (
     <div className="space-y-3">
       {hasCapacity && (
-        <InfoRow
-          label="Capacity"
-          value={formatParkingCapacity(accessPoint.parkingCapacity)}
-        />
+        <FactRow label="Capacity" value={formatParkingCapacity(accessPoint.parkingCapacity)} />
       )}
 
-      {hasInfo && (
-        <InfoRow label="Details" value={accessPoint.parkingInfo!} />
-      )}
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-start gap-3">
-      <span className="text-sm text-neutral-500 flex-shrink-0">{label}</span>
-      <span className="text-sm text-neutral-900 font-medium text-right">
-        {value}
-      </span>
+      {hasInfo && <ProseBlock text={accessPoint.parkingInfo!} />}
     </div>
   );
 }

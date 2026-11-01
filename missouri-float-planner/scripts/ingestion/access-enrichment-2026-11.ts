@@ -14,6 +14,11 @@ import type { LineString, MultiLineString } from 'geojson';
 export type LngLat = [number, number];
 export type Confidence = 'high' | 'medium' | 'low' | 'flag';
 export type ProposalField =
+  | 'description'
+  | 'facilities'
+  | 'road_access'
+  | 'local_tips'
+  | 'fee_notes'
   | 'parking_info'
   | 'amenities'
   | 'managing_agency'
@@ -379,8 +384,28 @@ export function parseCsv(text: string): Record<string, string>[] {
 
 /** The access_points column each field writes, and what a valid value looks like. */
 const ROAD_SURFACES = new Set(['paved', 'gravel_maintained', 'gravel_unmaintained', 'dirt', 'seasonal', '4wd_required']);
+/**
+ * Research notes that must never reach a user-facing text field: coordinates,
+ * source and gauge IDs, map-layer names, river-mile references, attribution in
+ * parentheses ("(MDC)"; attribution is a separate small line on the page), and
+ * internal labels. 92 fields carried these before the November 2026 copy pass.
+ */
+export const RESEARCH_NOTE = /(\bcoord\b|\bcoordinate|\bGIS\b|\bUSGS\s*\d|station \d{6,}|\bOSM\b|openstreetmap|\bdossier|corroborat|verified (via|against|by)|-?\d{2}\.\d{4,},\s*-?\d{2}\.\d{4,}|\((MDC|AGFC|MDC GIS)\)|~?\bRM \d|\bAgnew\b|floatmissouri|single source|pre-confirmed|\bper (MDC|NPS|USFS|AGFC|OSM)\b|\b(HAZARD|NOTE):)/i;
+
+/**
+ * User-facing prose: plain text (local_tips is HTML from the admin editor), no
+ * em dashes, no research notes. null clears a field that held only notes.
+ */
+export const isUserText = (v: unknown) =>
+  v === null || (typeof v === 'string' && v.trim().length > 0 && v.length <= 600 && !v.includes('—') && !RESEARCH_NOTE.test(v));
+
 const FIELD_RULES: Record<ProposalField, (v: unknown) => boolean> = {
-  parking_info: (v) => typeof v === 'string' && v.trim().length > 0,
+  description: isUserText,
+  facilities: isUserText,
+  road_access: isUserText,
+  local_tips: isUserText,
+  fee_notes: isUserText,
+  parking_info: isUserText,
   // May be empty: a correction can take every added amenity back out.
   amenities: (v) => Array.isArray(v) && v.every((a) => typeof a === 'string' && /^[a-z_]+$/.test(a)),
   managing_agency: (v) => (MANAGING_AGENCIES as readonly unknown[]).includes(v),
