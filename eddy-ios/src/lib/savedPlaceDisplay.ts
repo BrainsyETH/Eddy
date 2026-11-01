@@ -1,5 +1,5 @@
 import { CONDITION_SYSTEM } from '@eddy/conditions';
-import { centralDayKey, nextDayKey, scheduleDayLabel, windowLabel } from '@eddy/conditions/dam-schedule-copy';
+import { centralDayKey, nextDayKey, scheduleDayLabel, scheduledGeneration, windowLabel } from '@eddy/conditions/dam-schedule-copy';
 import { CAMPING_MAX_AGE_MS } from '@eddy/conditions/camping-freshness';
 import { availabilityHero, availabilityVoiceOver, nightBars } from '../components/map-sheet/availability';
 import { readingBand } from './offline-cache';
@@ -81,7 +81,8 @@ export function savedPlaceSummary(place: SavedPlace, now: number) {
   if (day && savedScheduleState(day, new Date(now)) === 'Downloaded schedule' && day.hours.length === 24) {
     const runs: { from: number; to: number }[] = [];
     for (const hour of [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding)) {
-      if (hour.megawatts <= 0) continue;
+      // Minimum-flow hours are not generation; see scheduledGeneration.
+      if (!scheduledGeneration(hour)) continue;
       const last = runs.at(-1);
       if (last?.to === hour.hourEnding - 1) last.to = hour.hourEnding;
       else runs.push({ from: hour.hourEnding, to: hour.hourEnding });

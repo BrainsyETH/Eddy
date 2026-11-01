@@ -296,7 +296,7 @@ function WidgetIllustration({ kind }: { kind: WidgetGuideKind }) {
             {(kind === 'dam' ? [
               ['Bull Shoals Dam', '6,600 cfs'],
               ['Turbine flow', 'Generating now'],
-              ['Next scheduled change · CT', 'Stops at 6 PM'],
+              ['Next scheduled change · CT', 'Generation stops at 6 PM'],
             ] : kind === 'report' ? [
               ['Current River', '250 cfs'],
               ['Observed trend', 'Steady'],

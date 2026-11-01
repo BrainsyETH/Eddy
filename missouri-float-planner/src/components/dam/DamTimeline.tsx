@@ -102,7 +102,7 @@ export default function DamTimeline({
   const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
   const defaultReadout = plainLanguage
     ? peakWindow
-      ? `Peak window: ${peak?.windows.length === 1 && peak.windows[0].from === 1 && peak.windows[0].to === 24 ? 'all day' : peakWindow}`
+      ? `Peak window: ${peakWindow}`
       : scheduledHoursSummary(day.hours)
     : 'Select an hour for details';
   const readout = (

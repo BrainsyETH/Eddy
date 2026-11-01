@@ -137,7 +137,7 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
     }));
   });
   const textContent = html.replace(/<[^>]*>/g, '');
-  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Generation increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
   assert.match(html, /aria-label="Today’s generation schedule"/);
   assert.doesNotMatch(html, /Generating now|of full generation|Below-dam elevation/);
   assert.match(html, /role="img" aria-label="Flow \(cfs\) trend chart/);

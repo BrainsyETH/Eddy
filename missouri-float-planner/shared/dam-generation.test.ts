@@ -261,17 +261,17 @@ test('an idle plant with a start ahead of it says both halves', () => {
 test('short next-change copy preserves timing, bounded stops and unpublished hours', () => {
   const summary = (schedule: ReturnType<typeof day>[]) =>
     scheduledChangeSummary(schedule, BULL_SHOALS, NOON_CENTRAL);
-  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Starts at 1 PM.');
+  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Generation starts at 1 PM.');
   assert.equal(summary([
     day('2026-07-28', {}), day('2026-07-29', { 1: 300 }),
-  ]), 'Starts at midnight tonight.');
+  ]), 'Generation starts at midnight tonight.');
   assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300 })]),
-    'Stops at 2 PM. Later hours have not been posted.');
+    'Generation stops at 2 PM. Later hours have not been posted.');
   assert.equal(summary([
     day('2026-07-28', { 13: 300, 14: 300 }), day('2026-07-29', { 7: 300 }),
-  ]), 'Stops at 2 PM. Resumes at 6 AM tomorrow.');
-  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Increases at 2 PM.');
-  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Decreases at 2 PM.');
+  ]), 'Generation stops at 2 PM. Resumes at 6 AM tomorrow.');
+  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Generation increases at 2 PM.');
+  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Generation decreases at 2 PM.');
   assert.equal(summary([day('2026-07-28', {})]),
     'No more releases in the posted schedule.');
   assert.equal(summary([]), null);
@@ -1341,6 +1341,30 @@ test('a day of only minimum flow is not described as generation', () => {
     hours: Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: 7, cfs: 500, isRamp: false, minimumFlow: true })),
   };
   assert.equal(scheduleDayVoiceOver(minimumFlowDay, BULL_SHOALS), 'Only minimum flow scheduled, no generation above it.');
+});
+
+test('minimum-flow hours never set the peak', () => {
+  // A minimum-flow day showed "Peak scheduled release ~500 cfs · midnight–midnight"
+  // with a peak bracket across the whole chart, beside a measured release that
+  // disagreed with it. There is no peak on a day with no generation.
+  const minimumFlowHour = (hourEnding: number) => ({ hourEnding, megawatts: 7, cfs: 500, isRamp: false, minimumFlow: true });
+  const allMinimum = { scheduleDate: '2026-11-01', hours: Array.from({ length: 24 }, (_, i) => minimumFlowHour(i + 1)) };
+  assert.equal(schedulePeak(allMinimum, BULL_SHOALS), null);
+
+  // On a mixed day the peak is the generation block, unaffected by the floor.
+  const mixed = {
+    scheduleDate: '2026-11-02',
+    hours: Array.from({ length: 24 }, (_, i) =>
+      i + 1 >= 17 && i + 1 <= 19 ? { hourEnding: i + 1, megawatts: 100, cfs: 6_800, isRamp: false } : minimumFlowHour(i + 1)),
+  };
+  const peak = schedulePeak(mixed, BULL_SHOALS)!;
+  assert.equal(peak.megawatts, 100);
+  assert.equal(schedulePeakValue(peak), '~6,800 cfs · 4–7 PM');
+});
+
+test('a peak that runs every hour reads "all day"', () => {
+  const allDay = scheduledDay(Array.from({ length: 24 }, (_, i) => ({ hourEnding: i + 1, megawatts: 335, cfs: 22_600 })));
+  assert.equal(schedulePeakValue(schedulePeak(allDay, BULL_SHOALS)!), '~22,600 cfs · all day');
 });
 
 test('a spillway release is read from its own series, not inferred from total flow', () => {

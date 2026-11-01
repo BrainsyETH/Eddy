@@ -676,7 +676,13 @@ function observedClause(
     : `${phrase} now.`;
 }
 
-/** Short copy for a panel already headed "Next scheduled change". */
+/**
+ * Short copy for a panel already headed "Next scheduled change".
+ *
+ * Still names its subject. "Starts at 6 AM tomorrow." under that heading left
+ * the reader to guess what starts, and the same string reaches widgets and
+ * embeds where no heading sits above it.
+ */
 export function scheduledChangeSummary(
   schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
@@ -706,7 +712,7 @@ function scheduledClause(
   const when = moveClock(outlook.move);
   switch (outlook.move.kind) {
     case 'start':
-      return underScheduleHeading ? `Starts at ${when}.` : `Generation scheduled to start at ${when}.`;
+      return underScheduleHeading ? `Generation starts at ${when}.` : `Generation scheduled to start at ${when}.`;
     case 'stop':
       // ── Why this is bounded ────────────────────────────────────────────────
       // "No generation scheduled after 10 PM" reads as open-ended, and stays
@@ -716,16 +722,16 @@ function scheduledClause(
       // restart, it says so rather than implying there is not one.
       if (outlook.resumesAt) {
         return underScheduleHeading
-          ? `Stops at ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`
+          ? `Generation stops at ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`
           : `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt)}.`;
       }
       return underScheduleHeading
-        ? `Stops at ${when}. Later hours have not been posted.`
+        ? `Generation stops at ${when}. Later hours have not been posted.`
         : `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
     case 'increase':
-      return underScheduleHeading ? `Increases at ${when}.` : `Generation scheduled to increase at ${when}.`;
+      return underScheduleHeading ? `Generation increases at ${when}.` : `Generation scheduled to increase at ${when}.`;
     case 'decrease':
-      return underScheduleHeading ? `Decreases at ${when}.` : `Generation scheduled to decrease at ${when}.`;
+      return underScheduleHeading ? `Generation decreases at ${when}.` : `Generation scheduled to decrease at ${when}.`;
   }
 }
 
@@ -1039,7 +1045,15 @@ export function schedulePeak(
 ): SchedulePeak | null {
   // Sorted before the contiguity walk below, which reads neighbours by hour
   // number: array order is the parser's business, not this function's.
-  const hours = [...day.hours].sort((a, b) => a.hourEnding - b.hourEnding);
+  //
+  // Minimum-flow hours are not generation (see scheduledGeneration), so they
+  // never set the peak. Bull Shoals schedules ~7 MW in every hour of a
+  // minimum-flow day, and counting those showed "Peak scheduled release
+  // ~500 cfs" bracketed across the whole day — a peak that is not one, beside
+  // a measured release that disagreed with it.
+  const hours = [...day.hours]
+    .filter((h) => scheduledGeneration(h))
+    .sort((a, b) => a.hourEnding - b.hourEnding);
   const megawatts = hours.reduce((max, h) => (h.megawatts > max ? h.megawatts : max), 0);
   // A wholly idle day has no peak worth naming, and "0 MW" is not one.
   if (megawatts <= 0) return null;
