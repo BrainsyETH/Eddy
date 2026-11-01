@@ -16,11 +16,32 @@ const routes = [[5, 6], [0, 1], [2, 4], [4, 7], [3, 5], [1, 2]].map(([start, end
   takeOut: { id: points[end].id, name: points[end].name, isPublic: true },
   vesselTypeId: 'kayak-id', minutes: 240 + index * 15, timeRange: { min: 180 + index * 15, max: 300 + index * 15 },
   distanceMiles: (end - start) * 10, conditionCode: 'low', conditionLabel: 'Low',
-  conditional: index === 1, cautions: index === 1 ? ['Expect shallow stretches.'] : [], relation: 'match',
+  conditional: index === 1 || index === 2,
+  cautions: index === 1 ? ['Expect shallow stretches.'] : index === 3 ? ['Carry around the fallen tree.'] : [], relation: 'match',
   estimateBasis: index === 1 ? 'typical' : 'current_conditions', observedAt: index === 1 ? null : new Date().toISOString(),
   formattedTime: '', url: '', highlights: ['Restrooms', 'No fees'],
   photo: { url: river.photoUrl, caption: 'Fixture image' },
 }));
+
+async function assertCardLanding(card) {
+  const position = await card.evaluate(node => {
+    const root = document.documentElement;
+    const top = node.getBoundingClientRect().top;
+    const documentTop = top + window.scrollY;
+    const offset = (parseFloat(getComputedStyle(node).scrollMarginTop) || 0)
+      + (parseFloat(getComputedStyle(root).scrollPaddingTop) || 0);
+    const maxScroll = Math.max(0, root.scrollHeight - window.innerHeight);
+    const expectedScroll = Math.min(maxScroll, Math.max(0, documentTop - offset));
+    return {
+      focused: node === document.activeElement,
+      top, expectedTop: documentTop - expectedScroll,
+      headerBottom: document.querySelector('header')?.getBoundingClientRect().bottom ?? 0,
+    };
+  });
+  assert(position.focused, 'card action transfers keyboard focus');
+  assert(Math.abs(position.top - position.expectedTop) <= 1, 'reduced-motion jump lands immediately at the computed scroll margin');
+  assert(position.top >= position.headerBottom, 'focused card clears the sticky header');
+}
 
 let server, browser, currentPage;
 let serverLog = '';
@@ -71,6 +92,9 @@ try {
       return route.fallback();
     });
     await page.goto(`${origin}/find-float?river=eleven-point`, { waitUntil: 'networkidle' });
+    // The client-loaded river name proves hydration has attached the form handlers.
+    // Clicking the server-rendered form sooner can trigger a native GET submission.
+    await page.waitForFunction(name => document.querySelector('input[role="combobox"]')?.value === name, river.name);
     await page.getByRole('button', { name: 'Find floats', exact: true }).click();
     const cards = page.locator('article[id^="float-result-"]');
     await cards.first().waitFor();
@@ -88,15 +112,24 @@ try {
     const order = await cards.evaluateAll(nodes => nodes.map(node => node.id));
     assert.equal(await strip.locator('[data-river-overview]').count(), 0);
     assert.equal(await strip.getByRole('button', { name: 'Selected float', exact: true }).getAttribute('aria-disabled'), 'true');
+    // A low condition alone is not a caution. Either route text or a conditional flag is.
+    for (const [id, action] of [['route-1', 'View float'], ['route-3', 'View cautions'], ['route-4', 'View cautions']]) {
+      await strip.locator(`[data-route-id="${id}"]`).click();
+      const routeAction = strip.getByRole('button', { name: new RegExp(`^${action} (for|from)`) });
+      assert.equal((await routeAction.innerText()).trim(), action);
+      await routeAction.click();
+      await assertCardLanding(page.locator(`#float-result-${id}`));
+    }
+    assert.equal(await page.locator('#float-result-route-3').getByText('Check route cautions before going.', { exact: true }).count(), 1);
+    assert.equal(await strip.getByText('Carry around the fallen tree.', { exact: true }).count(), 0, 'full caution text stays on the card');
     await strip.locator('[data-route-id="route-2"]').click();
     assert.equal(await strip.locator('[data-route-id="route-2"]').getAttribute('aria-pressed'), 'true');
     assert.deepEqual(await cards.evaluateAll(nodes => nodes.map(node => node.id)), order, 'selection preserves card order');
     assert.equal(await strip.getByRole('link', { name: /Plan this float/ }).count(), 0);
     assert.equal(await strip.locator('[data-route-state="other"]').first().getAttribute('stroke-opacity'), '0.18');
     const selectedCard = page.locator('#float-result-route-2');
-    await strip.getByRole('button', { name: 'View float from Thomasville to Cane Bluff' }).click();
-    assert(await selectedCard.evaluate(node => node === document.activeElement), 'View float focuses the corresponding card');
-    assert(Math.abs((await selectedCard.boundingBox()).y - 96) <= 1, 'reduced-motion jump lands immediately below the sticky header');
+    await strip.getByRole('button', { name: 'View cautions for Thomasville to Cane Bluff' }).click();
+    await assertCardLanding(selectedCard);
     assert.match(await selectedCard.innerText(), /Typical estimate/);
     assert.match(await selectedCard.innerText(), /Expect shallow stretches/);
     assert.match(await selectedCard.innerText(), /Includes private access/);
@@ -113,13 +146,21 @@ try {
     assert.notDeepEqual(await cards.evaluateAll(nodes => nodes.map(node => node.id)), order, 'sort changes card order');
     assert.equal(await strip.locator('[data-route-id="route-2"]').getAttribute('aria-pressed'), 'true');
     assert.match(await selectedCard.getByRole('heading').innerText(), new RegExp(`Float ${selectedNumber.trim()}:`));
-    await strip.getByRole('button', { name: 'View float from Thomasville to Cane Bluff' }).click();
-    assert(await selectedCard.evaluate(node => node === document.activeElement), 'sort retains logical selection and card target');
-    assert(Math.abs((await selectedCard.boundingBox()).y - 96) <= 1, 'renumbered card jump is immediate with reduced motion');
+    // Use a different valid margin to prove this check follows the layout, not 96px.
+    await selectedCard.evaluate(node => { node.style.scrollMarginTop = `${(parseFloat(getComputedStyle(node).scrollMarginTop) || 0) + 24}px`; });
+    await strip.getByRole('button', { name: 'View cautions for Thomasville to Cane Bluff' }).click();
+    await assertCardLanding(selectedCard);
     const info = selectedCard.getByRole('button', { name: 'About float times', exact: true });
     const target = await info.boundingBox();
     assert(target.width >= 44 && target.height >= 44, 'quiet info glyph retains touch target');
     assert.equal(await info.locator('svg').getAttribute('width'), '16');
+    const caption = await selectedCard.getByText('Typical estimate', { exact: true }).boundingBox();
+    const metrics = await info.locator('..').boundingBox();
+    const metricCopy = await info.locator('..').locator(':scope > div').boundingBox();
+    assert(caption.height < target.height, 'caption keeps its own line height');
+    assert(target.x >= metricCopy.x + metricCopy.width - 1, 'info target does not overlap metric text');
+    assert(Math.abs(target.y + target.height / 2 - metrics.y - metrics.height / 2) <= 1, 'info target is centered beside the combined metrics');
+    assert(metrics.height <= Math.max(metricCopy.height, target.height) + 1, 'info target adds no extra caption row height');
     await info.click();
     await page.getByRole('dialog', { name: 'About float times' }).waitFor();
     await page.keyboard.press('Escape');
@@ -132,7 +173,7 @@ try {
     await strip.screenshot({ path: `${out}/strip-${width}.png` });
     await selectedCard.screenshot({ path: `${out}/selected-card-${width}.png` });
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
-    const contrast = await strip.getByRole('button', { name: 'View float from Thomasville to Cane Bluff' }).evaluate(button => {
+    const contrast = await strip.getByRole('button', { name: 'View cautions for Thomasville to Cane Bluff' }).evaluate(button => {
       const luminance = color => color.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
       const ink = luminance(getComputedStyle(button).color);
       const background = luminance(getComputedStyle(button.parentElement).backgroundColor);

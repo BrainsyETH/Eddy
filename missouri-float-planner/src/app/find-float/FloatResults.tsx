@@ -172,16 +172,18 @@ function FloatCard({ option: o, riverPhoto, stale, onPlan, strip }: {
             <span>{strip && <span className="sr-only">Float {strip.number}: </span>}{o.putIn.name} <span aria-label="to">→</span> {o.takeOut.name}</span>
           </h3>
         </div>
-        <div>
-          <p style={{ fontFamily: 'var(--font-display)' }} className="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold tabular-nums">
-            <span>{routeTimeLabel(o)}</span><span aria-hidden="true" className="text-[var(--color-text-muted)]">·</span><span>{o.distanceMiles.toFixed(1)} mi</span>
-          </p>
-          <div className="flex flex-wrap items-center gap-x-4 text-xs text-[var(--color-text-secondary)]">
-            <span className="inline-flex items-center">{routeEstimateLabel(o)}
-              <InfoTip quiet size={16} title="About float times" ariaLabel="About float times" body={FLOAT_TIME_INFO.join(' ')} colors={INFO_COLORS} /></span>
-            {o.driveMinutes != null && <span className="inline-flex items-center">{driveLabel(o.driveMinutes)} drive
-              <InfoTip quiet size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <div className="flex min-w-0 items-center">
+            <div className="min-w-0">
+              <p style={{ fontFamily: 'var(--font-display)' }} className="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold tabular-nums">
+                <span>{routeTimeLabel(o)}</span><span aria-hidden="true" className="text-[var(--color-text-muted)]">·</span><span>{o.distanceMiles.toFixed(1)} mi</span>
+              </p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{routeEstimateLabel(o)}</p>
+            </div>
+            <InfoTip quiet size={16} title="About float times" ariaLabel="About float times" body={FLOAT_TIME_INFO.join(' ')} colors={INFO_COLORS} />
           </div>
+          {o.driveMinutes != null && <span className="inline-flex items-center text-xs text-[var(--color-text-secondary)]">{driveLabel(o.driveMinutes)} drive
+            <InfoTip quiet size={16} title="About distance" ariaLabel="About distance" body={FLOAT_DISTANCE_INFO.join(' ')} colors={INFO_COLORS} /></span>}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <RouteConditionBadge option={o} />

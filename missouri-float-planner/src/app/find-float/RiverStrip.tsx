@@ -21,7 +21,7 @@ import InfoTip from '@/components/ui/InfoTip';
 import Segmented from '@/components/ui/Segmented';
 import type { FloatSearchOption } from '@shared/float-search';
 import { CALLOUT_SIZE, RIVER_STRIP_INFO, riverStripLayout, type RiverStripPoint, type RiverStripView, type RouteState } from '@shared/river-strip';
-import { INFO_COLORS, RouteConditionBadge, routeTimeLabel } from './route-facts';
+import { INFO_COLORS, routeCautionsPresent, RouteConditionBadge, routeTimeLabel } from './route-facts';
 
 // AccessPointMarkers: river-forest put-in, sky-warm take-out, river-gravel stops.
 const PUT_IN = '#478559';
@@ -71,6 +71,7 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
   }), [riverSlug, points, routes, selectedId, hoveredId, view, width, compact]);
 
   const selected = routes.find(route => route.option.id === selectedId)?.option ?? null;
+  const hasCautions = selected ? routeCautionsPresent(selected) : false;
   const optionFor = (id: string) => routes.find(route => route.option.id === id)!.option;
 
   return (
@@ -166,9 +167,9 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
             </div>
           </div>
           <button type="button" onClick={() => onView(selected.id)}
-            aria-label={`View float from ${selected.putIn.name} to ${selected.takeOut.name}`}
+            aria-label={`${hasCautions ? 'View cautions for' : 'View float from'} ${selected.putIn.name} to ${selected.takeOut.name}`}
             className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded text-sm font-semibold text-[var(--color-text-link)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-text-link)]">
-            View float<ArrowDown size={16} aria-hidden="true" />
+            {hasCautions ? 'View cautions' : 'View float'}<ArrowDown size={16} aria-hidden="true" />
           </button>
         </>}
       </div>
@@ -177,8 +178,9 @@ export default function RiverStrip({ riverSlug, riverName, points, routes, selec
 }
 
 /**
- * Holds the strip's place while the river's access points load, so the cards
- * below do not jump when it arrives. Sized like the usual strip at each width.
+ * Reserves the strip's expected height while access points load. The placeable
+ * count is not known yet: if six results become five drawable routes, a narrow
+ * phone can lose a 44px lane on load. An access-point failure removes the strip.
  */
 export function RiverStripPlaceholder({ riverName, routeCount }: { riverName: string; routeCount: number }) {
   const [width, measure] = useStripMeasure();

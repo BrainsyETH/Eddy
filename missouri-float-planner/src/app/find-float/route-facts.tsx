@@ -28,6 +28,10 @@ export function RouteConditionBadge({ option: o }: { option: FloatSearchOption }
   return <span className="inline-flex rounded-full bg-white"><ConditionBadge code={o.conditionCode ?? 'unknown'} label={o.conditionLabel} /></span>;
 }
 
+export function routeCautionsPresent(o: FloatSearchOption) {
+  return o.cautions.length > 0 || Boolean(o.conditional);
+}
+
 export function RouteCautions({ option: o }: { option: FloatSearchOption }) {
   return <>
     {o.conditional && !o.cautions.length && <p className="text-sm font-medium">Check route cautions before going.</p>}
