@@ -1,0 +1,1346 @@
+{
+  "applied_at_utc": "2026-11-01",
+  "project": "ilefwfpvphadsbptiaur",
+  "note": "Text values BEFORE the copy rewrite.",
+  "access_points": 228,
+  "rollback": [
+    {
+      "id": "00124d96-79b6-4b7a-a6fb-706d507c2025",
+      "slug": "ravenden-access",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "02184d3f-c3fe-4985-a6a2-d5542214d145",
+      "slug": "noser-mill-conservation-area",
+      "description": "210.6-acre MDC conservation area on the Bourbeuse just downstream of the historic Noser Mill dam, acquired from the Corps of Engineers in 2015. Offers the only public land at the Noser Mill upper/lower river boundary - a carry-in put-in below the dam that avoids both the private Devils Back ramp and the dam portage. Undeveloped; expect a short walk from the parking lot to the water."
+    },
+    {
+      "id": "0551a94a-8dc3-4072-9bf3-59505bc697fc",
+      "slug": "tyler-bend",
+      "description": "The main developed access of the middle Buffalo, with the park's visitor center, a full-service campground, and upper and lower gravel launches. Common overnight base for Baker Ford-to-Gilbert floats; the St. Joe USGS gauge (07056000) used for middle-river float levels is nearby.",
+      "facilities": "Middle-district hub: visitor center, 27 drive-in + 10 walk-in + 5 group sites; water, hot showers, and flush restrooms year-round; seasonal dump station; no hookups. Two gravel launch lanes (upper and lower) — no concrete boat ramp."
+    },
+    {
+      "id": "0588fa91-6a7d-4170-aa1f-694e7ce6626d",
+      "slug": "vera-cruz-access",
+      "facilities": "Hwy AB low-water bridge put-in; primitive gravel access, 80-ac MDC area in Douglas Co.; Hunter Creek confluence. Coord is the on-channel Hwy AB bridge; MDC parking/entry parcel ~470 m N (~36.9185,-92.4967)."
+    },
+    {
+      "id": "06af1da7-5086-4d68-93e8-8980d870ac7f",
+      "slug": "rymers-access",
+      "description": "Rymers sits just downstream from Ebb & Flow Spring on river right. It's the first real intermediate access between Buck Hollow and Bay Creek, making it a useful takeout for a 9.4-mile day float from Buck Hollow or a put-in for the 9-mile run to Bay Creek. The valley begins opening slightly here but is still deeply forested and remote. Rymers is named after an early settler family. The campground is quiet and rarely crowded - a good overnight option for multi-day trips through the upper Jacks Fork. No cell service.",
+      "facilities": "NPS backcountry campground with vault toilet, fire rings, lantern posts, and picnic tables. No water, no trash service. Camping fee: $10/night (as of 2022). 14-day max stay, 6 people/2 tents/2 vehicles per site."
+    },
+    {
+      "id": "06cb0854-291a-4c82-80dd-44fa0484464e",
+      "slug": "markham-springs",
+      "description": "Developed USFS recreation area on the right bank of the lower Black River below Clearwater Dam, 3 miles west of Williamsville. Concrete single-lane boat launch plus campground, picnic area, springs, and trails; the usual put-in for the short float down to Hammer Access (2.7 miles).",
+      "facilities": "Mark Twain NF recreation area: single-lane concrete boat launch, campground (electric loop + 3 primitive loops, showers, drinking water, vault toilets), day-use/picnic area with pavilion, 2-acre mill pond and springs, Fuchs House cabin rental. Campground season May 1 - Oct 1; day-use 6 AM-10 PM year-round."
+    },
+    {
+      "id": "08dea300-5b35-472b-bccb-146d8e27c732",
+      "slug": "river-road-park",
+      "description": "COE park on the Black River tailwater immediately below Clearwater Dam - the uppermost public put-in for the lower (dam-release) Black River reach that runs down past Markham Springs and Hammer Access. 107-site campground with a boat ramp; trout-like clear releases, year-round access.",
+      "facilities": "US Army Corps of Engineers campground with 107 sites (most electric/water), hot showers, flush toilets, dump station, boat ramp, fish-cleaning stations, three group picnic shelters, playground. Open year-round."
+    },
+    {
+      "id": "0af8d212-6f03-4fed-8bdd-baa6a6cbc835",
+      "slug": "east-gate",
+      "description": "USFS river access at approximately mile 66.8 near Fort Leonard Wood's East Gate entrance. Only developed Forest Service access in Pulaski County. Primary put-in/take-out for private recreationists and Fort Leonard Wood military personnel. The 12-mile stretch upstream from Ross Bridge passes entirely through Fort Leonard Wood — this is the first public access below the base. USGS gauge station nearby (06930000). East Gate Fort Wood Campground is on the left bank at the bridge (mile 66.5). Short 3-mile float downstream to Crossroads Access, or 11-mile float to Bookers Bend."
+    },
+    {
+      "id": "0b33a1f8-65b9-4625-991e-b9c49e52160b",
+      "slug": "mineral-springs",
+      "description": "MDC access at mile 14.6 with concrete boat ramp. 6.3-acre area on the Big Piney River near Houston. Mineral Spring is 0.5 mile up a branch. Horseshoe Bend Natural Area is across the river. Good fishing for bass and sunfish. Popular put-in for the long 40-mile run to Ross Access."
+    },
+    {
+      "id": "0c501566-12ce-4b7a-ae6d-8c013694cf71",
+      "slug": "mother-nature-s-riverfront-retreat",
+      "description": "Mother Nature's private Family Side access, about two river miles below Whistle Bridge. The riverfront campground has a gravel beach, boat ramp, primitive camping, electric/RV sites, rentals and shuttle service. This is separate from the operator's Wild Side take-out farther downstream.",
+      "parking_info": "Private campground parking at the Family Side access. Parking, beach access and shuttles may require a fee; arrange access with the operator."
+    },
+    {
+      "id": "0c55243c-8c0f-4f86-b05c-ef4a7c1707ba",
+      "slug": "waymeyer",
+      "description": "Waymeyer sits on river right at the mouth of Chilton Creek, accessed via County Road M-151 off Hwy M, about 10 miles north of Van Buren. This access has seen significant management changes in recent years. Due to riverbank erosion, the NPS restricts Waymeyer to non-commercial floaters only on summer weekends (Friday-Sunday). Commercial outfitters must use the nearby Pin Oak access during those times. Monday through Thursday, both commercial and non-commercial users can launch here. The Waymeyer to Van Buren run (about 7 miles) is a popular day float on the lower river."
+    },
+    {
+      "id": "0f5bca4f-ab9f-4598-ae5e-c06050437955",
+      "slug": "mill-spring-city-park",
+      "description": "City park launch at the Hwy 49 bridge in Mill Spring, between Clearwater Dam and Markham Springs on the lower Black River. MDC's watershed inventory lists it (with Hammer CA) as one of the small-boat/canoe launch points on this reach; the floatmissouri chart (mile 50.6) notes camping available at Mill Spring."
+    },
+    {
+      "id": "10852062-7582-49b9-9f49-8a415893164f",
+      "slug": "maramec-spring-park",
+      "description": "Historic James Foundation park at the headwaters of the Meramec River. Fifth-largest spring in Missouri (96 million gallons/day) feeds crystal-clear water into the upper Meramec. Features the restored 1857 Maramec Iron Works and museum. Rainbow trout fishing in the spring branch (catch-and-release Nov–Feb, harvest Mar–Oct). Popular put-in for upper Meramec floats — the spring branch enters the river about 0.5 miles downstream of the park.",
+      "facilities": "Operated by the James Foundation (private, nonprofit). Campground with 34 electric/water sites and primitive tent sites. Bathhouse with hot showers (seasonal April–October). Picnic shelters (reservable), playgrounds, nature trails. Trout hatchery and museum. General store with bait, tackle, snacks, and firewood. Rainbow trout fishing in spring branch — Missouri trout permit required. No boat ramp — carry-in access via gravel bar below spring branch.",
+      "parking_info": "Large paved parking lot near spring and museum. Additional gravel parking at campground. Ample space for vehicles with trailers. Overflow parking available on busy weekends.",
+      "road_access": "From I-44 exit 195 (St. James), take Hwy 8 south approximately 6 miles. Follow signs to Maramec Spring Park entrance. All paved roads. From Steelville, take Hwy 8 north approximately 8 miles. Address: 21880 Maramec Spring Dr, St. James, MO 65559."
+    },
+    {
+      "id": "118c5463-1d9d-4641-976a-16b7a3d3969b",
+      "slug": "laubinger-ford",
+      "description": "Very obscure unimproved ford where Laubinger Ford Road historically crossed the Bourbeuse, three miles below Wenkel Ford. Agnew lists it as an access but calls it hard to find; there are no facilities and effectively no parking. Interpolated river-line mile (44.8) confirms Agnew's mile 45.0.",
+      "road_access": "At the river end of Laubinger Ford Road (named on both banks), between Wenkel Ford and Peters Ford. Very obscure and hard to find (Agnew)."
+    },
+    {
+      "id": "122d937b-3e16-4c71-8a31-5dbc66fd7574",
+      "slug": "guion-access",
+      "facilities": "Concrete ramp on the Stone County bank at the Highway 58 bridge — the downstream end of the trout water"
+    },
+    {
+      "id": "12939a61-65be-41a8-8439-275eee3b76e7",
+      "slug": "union-mdc-access",
+      "description": "10.3-acre MDC boat and fishing access in the town of Union at the US 50 bridge, beside the USGS Union streamgage (07016500) that governs lower-river floatability. Concrete ramp with in-town convenience. Take-out for the 8.4-mile float from Mayers Landing; note Guths Mill Dam (portage) 3.5 miles downstream.",
+      "facilities": "Concrete boat ramp (OSM surface=concrete; in MDC's ramp inventory) plus gravel-bar bank access. No restrooms on site; convenience store adjacent. Camping prohibited.",
+      "parking_info": "Paved parking lot at the ramp (MDC GIS)."
+    },
+    {
+      "id": "13742e7e-637f-453c-b6c6-b32c3e3810fd",
+      "slug": "galena-y-bridge-access-ralph-cox-memorial-access",
+      "description": "The confirmed 'Galena Y-Bridge' take-out IS the MDC Ralph Cox Memorial Access ramp, adjacent to the Galena Y-Bridge and the USGS 07052500 gauge. Southernmost/downstream MDC access before Table Rock Lake backwater.",
+      "parking_info": "2 lots: paved, gravel (MDC)."
+    },
+    {
+      "id": "1491433c-6295-4ed8-b412-17268402c0c5",
+      "slug": "courtois-huzzah-confluence-scotia-bridge",
+      "description": "The confluence of Courtois Creek with Huzzah Creek at the Scotia Bridge (MDC access on Huzzah Creek) 0.3 mile downstream on the low-water bridge off Highway E. This marks the end of Courtois Creek. The combined flow then reaches the Meramec River approximately 1 mile further downstream. Scotia Bridge is the nearest vehicle access — there is no direct road access at the actual confluence point. The Ozark Outdoors \"Courtois Primitive\" 5-mile float (1 mi Courtois + 2 mi Huzzah + 2 mi Meramec) ends at Ozark Outdoors Resort.",
+      "parking_info": "Gravel parking at the Scotia Bridge / Hwy E low-water bridge. Space for approximately 15 vehicles. Within Huzzah Conservation Area.",
+      "road_access": "Highway E from Steelville heading northeast, approximately 8 miles to the low-water bridge. Address vicinity: 586 State Hwy E, Steelville, MO 65565. Last stretch includes gravel. Also accessible from I-44 at Leasburg via Hwy H and local roads south.",
+      "local_tips": "<p>End of Courtois Creek. From here you are on Huzzah Creek flowing to the Meramec. The \"Butts Slab\" 10-mile float from Bass Resort ends at Ozark Outdoors Resort, passing through this confluence. Scotia Bridge can be impassable during high water. The Meramec River confluence is approximately 1 mile downstream.</p>"
+    },
+    {
+      "id": "16108cf7-5215-49ec-b3a7-72621b86cb07",
+      "slug": "scotts-ford",
+      "description": "MDC access at mile 35.1, downstream of Maramec Spring. Named for a historic river ford. 36-acre site with boat ramp access to the Meramec. Good smallmouth bass fishing in this spring-fed stretch. Popular put-in for the scenic middle section of the upper Meramec heading toward Steelville.",
+      "facilities": "MDC boat ramp — gravel surface. No restrooms at this specific access point. No water, no trash service — pack in, pack out."
+    },
+    {
+      "id": "163efa09-4a49-4611-b27d-31763f9ee20a",
+      "slug": "hwy-19-bridge",
+      "description": "State Highway 19 bridge over the upper Bourbeuse, mile 0.0 of the classic Hawksley/floatmissouri mile chart, which calls it a possible put-in. Roadside access on the public right-of-way; no facilities. Useful upper-river alternative when Mint Spring's reach is too low to bother with."
+    },
+    {
+      "id": "16c74538-6818-4a44-976a-8551176aeecc",
+      "slug": "enke-road-bridge",
+      "description": "County road bridge over the upper Bourbeuse at mile 7.7, about a river mile above the Highway 19 crossing. Very poor access - steep, brushy right-of-way; an emergency exit more than a planned put-in. The Hawksley/floatmissouri chart notes it as 'another bridge 1.1 miles upstream' of Hwy 19, 'reached from Hwy. 19'.",
+      "facilities": "None. Roadside crossing with very limited/poor access to the water (Agnew)."
+    },
+    {
+      "id": "17f21843-64f3-4c9d-9f59-5a60c0c8ba1a",
+      "slug": "j-d-fletcher-access-hwy-62",
+      "parking_info": "Gravel lot (AGFC)."
+    },
+    {
+      "id": "19d9f625-91b6-4420-b3ac-8cae63c457c9",
+      "slug": "old-mill-dam-at-galesburg",
+      "facilities": "access near Galesburg; OLD MILL DAM — scout/portage"
+    },
+    {
+      "id": "1a0794ea-4470-4e7b-80b4-19414c1a9176",
+      "slug": "silver-mines-recreation-area-hwy-d",
+      "description": "Mark Twain National Forest recreation area at the old Highway D bridge, the take-out for the Millstream Gardens/Tiemann Shut-Ins whitewater run and a put-in for the calmer float below. Slipways flank the old bridge (now a footbridge) with day-use areas on both banks and campgrounds on both sides of the river. Site of the historic Einstein silver mine and dam.",
+      "facilities": "USFS campground with 70 individual sites (11 electric) in four loops plus a group site, ADA vault toilets, potable water, picnic tables; two day-use areas with river access at the old D bridge. Carry-in access, no constructed boat ramp. No showers or dump station.",
+      "parking_info": "Day-use parking lots by the old Highway D bridge (the standard whitewater take-out meeting spot) plus paved/gravel spurs in the campground loops."
+    },
+    {
+      "id": "1d02742d-9bfa-450f-805c-880663b5e714",
+      "slug": "rockford-beach-park",
+      "facilities": "Jefferson County (Rockford Park / Rockford Beach, 4320 State Rd W, House Springs): concrete boat ramp, sand beach, restrooms, parking. = floatmissouri 'House Springs Access' ~RM 73. Coord = OSM park polygon nearest Big River channel (no exact ramp node) - medium precision."
+    },
+    {
+      "id": "1d4edd7c-b640-43ec-b388-3b526f2113c8",
+      "slug": "gasconade-park-access",
+      "parking_info": "Gravel lot with ADA stall (MDC GIS)."
+    },
+    {
+      "id": "1daa6131-dd01-4dec-bb66-f64a82936ac1",
+      "slug": "bill-ackerman-river-ridge-access",
+      "description": "AGFC walk-in fishing access on the North Fork River, dedicated in 2004 to former commissioner Bill Ackerman and AGFC's first handicapped-accessible walk-in fishing facility on the river. It is the only public access between the Norfork Dam boat ramp and the White River confluence.",
+      "facilities": "Walk-in fishing access off River Ridge Road; ADA T-shaped fishing pier, paved parking, year-round restroom; the only public access between the dam area and the confluence. No boat ramp",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "1e26daee-a0c5-4cb8-ba2a-e0f71b254dce",
+      "slug": "camp-branch-access",
+      "description": "Uppermost MDC access on the Gasconade/Woods Fork headwaters east of Hartville, with a gravel canoe launch and designated camping. This far up the river is only floatable at higher flows; the chart places it at mile 2.5, well above the usual Buzzard Bluff put-in.",
+      "parking_info": "Paved parking area (MDC GIS)."
+    },
+    {
+      "id": "1eb4587b-f27b-4517-bcc1-f46b0638d230",
+      "slug": "imboden-access",
+      "parking_info": "Gravel lot (AGFC)."
+    },
+    {
+      "id": "1f13a7af-751d-4775-bf90-f9633aa71ae5",
+      "slug": "dillard-mill",
+      "description": "Dillard Mill State Historic Site on upper Huzzah Creek. Beautiful red gristmill (1908) set on the blue waters of Huzzah Creek. Uppermost access — only floatable in good water conditions. The mill sits on a rock dam that creates a scenic cascade. This is near the \"Dillard access\" at mile 0.0.",
+      "facilities": "State historic site with picnic area (5 tables with pedestal grills), covered accessible shelter, restrooms, and 1.4-mile Mill View Trail. Mill tours available ($5 adults, $4 ages 6–17, free under 5). Open May–Oct 8am–8pm, Nov–Apr 8am–5pm.\n\nPrivate lodging available at Pine Valley, right next door. ",
+      "road_access": "From Cherryville, take Highway 49 south and watch for signs for Dillard Mill Road. Go approximately 1.7 miles down Dillard Mill Road. Road starts paved then becomes gravel near the parking area. Address: 142 Dillard Mill Rd, Viburnum, MO 65566."
+    },
+    {
+      "id": "1f8c6fc5-2b17-4333-a8d6-acb6505bf1b4",
+      "slug": "highway-8-bridge",
+      "description": "Rough Public access on west side. Private access on east side. The most popular put-in for Courtois Creek float trips. USFS land extends along the west bank for approximately 3/4 mile downstream. USGS streamgage 07014200 is located here (drainage area: 173 sq mi, datum: 739 ft NAVD88). Berryman Campground (USFS, free, 8 sites) is 1.2 miles north on FR 2266. The Highway 8 (Berryman) Trailhead for the Ozark Trail and Berryman Trail is on the north side of Hwy 8.",
+      "facilities": "No public facilities at the bridge itself. Berryman Campground (1.2 mi north) has vault toilets but no water. The trailhead parking area on the north side of Hwy 8 is well-maintained.",
+      "parking_info": "Small pull-off on the north side of Hwy 8 at the trailhead. Space for approximately 8–10 vehicles. The 4x4 trail to the creek access on the south side has very limited parking — 2–3 vehicles only.",
+      "road_access": "Paved State Highway 8. From Potosi, head west on Hwy 8 for approximately 17 miles. From Steelville, head east on Hwy 8 approximately 18.5 miles. The bridge is well-visible from the road. Berryman Campground is 1.2 miles north on CR 207 / FR 2266.",
+      "local_tips": "<p><strong>Primary put-in for Courtois Creek floats.</strong> The 4x4 access trail on the south side of the bridge is the traditional boat launch — 4WD recommended, especially after rain. Check the USGS gage (07014200) before launching. The 13-mile float from here to Bass River Resort (Butts LWB) is the classic Courtois day trip. First 4 miles can be very shallow with tight turns and fallen trees; improves after mile 5. If the water looks too low at the bridge, don't attempt the float.</p>"
+    },
+    {
+      "id": "201b465d-874d-4897-bd58-cb88ed9ff4f6",
+      "slug": "mayers-landing-mdc-access",
+      "description": "6.6-acre MDC access on the lower Bourbeuse just southwest of Union. The ramp remains, but the river's main channel has migrated away from it (MDC), so expect a shallow-side landing at normal flows. Common take-out for the 11-mile float from Reiker Ford; Union Access is 8.4 miles downstream.",
+      "parking_info": "Paved parking lot at the ramp (MDC GIS)."
+    },
+    {
+      "id": "20827276-0425-4059-801a-b623ff09857f",
+      "slug": "merrill-horse-access",
+      "facilities": "MDC concrete boat ramp, parking. Jefferson County, Route H W of De Soto, ~RM 28.7. NOTE: official name is 'Merrill Horse' (not 'Merrill Horne'). Coord = MDC GIS Boat Ramps layer + OSM slipway (38.16349,-90.70927).",
+      "parking_info": "Paved lot (MDC)."
+    },
+    {
+      "id": "2356fe98-53d5-4e24-98d2-6f2514bb5636",
+      "slug": "meramec-state-park",
+      "description": "Missouri's most-visited state park on the Meramec River. 6,896 acres with over 40 caves, 13 miles of hiking trails, and a scenic stretch of river. The upper boat ramp near Campground 3 and the park store is the primary launch for floaters. Concession operates canoe/kayak/raft rentals with shuttle service. Popular float: Meramec SP to Onondaga Cave SP (approximately 20 miles, full day).",
+      "facilities": "Concrete motorboat launch and separate canoe/kayak launch near park store and Campground 3. Campground 3: 32 sites with electric hookups, picnic tables, fire rings (driveways 35–63 ft accommodate RVs). Shower house with hot water and laundry (seasonal April–October). RV dump station. Frost-free water spigot available Nov–April. Visitor center, gift shop, camp store, restaurant. Three picnic shelters (reservable, capacity ~75 each). Cave tours (Cathedral Cave, Fisher Cave). 13 miles of trails. Canoe/kayak/raft rentals and shuttle service through park concession.",
+      "parking_info": "Spacious paved parking lot near boat ramp accommodates vehicles and trailers. Four large parking lots at the campground. Ample room for oversized vehicles.",
+      "local_tips": "<p><strong>Shuttle tip:</strong> Park concession runs shuttles on a fixed schedule — arrive 30 minutes early. No refunds for missed departures. Weekends fill up fast in summer.</p><p><strong>Cave tours:</strong> Cathedral Cave and Fisher Cave tours available — check at the visitor center for schedules and fees.</p>"
+    },
+    {
+      "id": "24e2c301-3310-4953-93ae-925a9ffffbdd",
+      "slug": "highway-k-rec-area",
+      "description": "COE recreation area at the MO Hwy K bridge west of Annapolis - the standard take-out for the Lesterville float reach and, per the floatmissouri chart (mile 25.0), the last take-out above Clearwater Lake when the lake is at full pool. Campground with 83 sites straddles both banks at the bridge.",
+      "facilities": "US Army Corps of Engineers campground at the upper end of Clearwater Lake: 83 sites (many electric, some water hookups), showers, dump station, picnic shelter, playground, concessions; sand/gravel river launch at the bridge."
+    },
+    {
+      "id": "25f01ef8-1a54-4ddd-a73d-ac9885fff4bb",
+      "slug": "ponca",
+      "description": "The classic upper-Buffalo put-in at the Ponca low-water bridge, used when the USGS Ponca gauge (07055660) shows floatable flows. Launches the famous Ponca-to-Kyles Landing run (10.7 mi) past Big Bluff and Hemmed-in Hollow. Boaters coming from Boxley must portage the low-water bridge.",
+      "parking_info": "Gravel parking on both sides of the low-water bridge. No overnight parking at this access — arrange a shuttle for multi-day trips."
+    },
+    {
+      "id": "2777e0b1-1bf9-4f45-b84d-5a05503cdc22",
+      "slug": "steel-creek",
+      "facilities": "26 tent-only sites plus 14 horse sites; seasonal flush restrooms and water spigots (vault toilet in winter); no showers or hookups; camper trailers/RVs prohibited. Gravel-bar launch at the day-use area."
+    },
+    {
+      "id": "2837ab7f-d98a-4aae-a2e4-5dcfb2ba1c5a",
+      "slug": "bookers-bend",
+      "description": "USFS river access at approximately mile 77.8 — the last Forest Service access on the Big Piney before the Gasconade confluence. Thomas Lane dead-ends at Bookers Bend. Single-lane gravel boat launch. The river here is deeper, slower moving, and wider than upstream sections. Smallmouth bass special management area. 8 miles downstream from Crossroads, 11 miles from East Gate. From here, 8 more miles to the Gasconade River confluence. Most land along this stretch is private — stay aware of property boundaries if stopping.",
+      "parking_info": "Small gravel parking area. Limited — approximately 5 vehicles."
+    },
+    {
+      "id": "2a0b22fa-9a08-4769-bc4f-5e831d67a0d0",
+      "slug": "akers-ferry",
+      "description": "Akers Ferry is one of the Current River's marquee access points and home to the last remaining two-car ferry in Missouri - a hand-cranked cable ferry that's been operating for over a century. This is a major hub for float trips: the Akers to Pulltite stretch (10 miles) is widely considered the single best day float on the Current River, featuring Cave Spring where you can paddle 100+ feet into a cave. The NPS operates a group campground here with basic amenities. A seasonal camp store sells firewood, ice, snacks, and supplies. Multiple outfitters operate from this area including Akers Ferry Canoe Rental. The area sits at the junction of Hwys K and KK.",
+      "facilities": "NPS group campground (4 group sites, tent-only, up to 45 people per site). Vault toilets, potable water, trash collection. Seasonal camp store nearby with firewood, ice, snacks. Canoe/kayak rentals available on site."
+    },
+    {
+      "id": "2aed0797-c32c-49b8-8be1-752d9320e5dd",
+      "slug": "jewett-access-hwy-c-bridge",
+      "description": "The only documented access in the 43-mile gap between Silver Mines and Sam A. Baker State Park, at the Route C crossing near Jewett/Saco. The float chart notes a 'high bank but can be used as an access'; it splits the long middle float roughly in half (20 miles below Silver Mines, 23 above the park).",
+      "facilities": "Undeveloped bridge access with a high bank - a steep carry, usable but rough. No facilities. USGS gauge 07036100 (St. Francis River near Saco) is at this crossing. Bridge replaced by MoDOT (2020s project)."
+    },
+    {
+      "id": "2b0f7d89-680c-48ad-ae6d-ca53d0d72d1b",
+      "slug": "slabtown",
+      "description": "First Forest Service access on the Big Piney at mile 39.8. Small, quiet USFS campground and river access with 5 primitive tent-only campsites. Start of the Smallmouth Bass Special Management Area (1 smallmouth, 15-inch minimum, downstream to Gasconade confluence). Popular put-in for the 6-mile float to Horse Camp or 10-mile float to Ross Bridge. 1-mile Slabtown Bluff Trail winds through hardwoods with river overlooks (best fall–spring). Downriver from here the river is narrower and shallower with multiple riffles.",
+      "facilities": "5 primitive tent camping sites with picnic tables and fire rings. Vault toilet (accessible). No drinking water. No boat ramp — carry-in access. 1-mile Slabtown Bluff Trail. First-come, first-served. Tent camping only.",
+      "parking_info": "Boat launch parking for 3 vehicles with trailers. Picnic/camping area fits 8 vehicles. Total capacity approximately 11 vehicles.",
+      "road_access": "From Roby, MO, take Highway 17 north 1.5 miles to County Road 800, turn right and travel 7 miles on gravel road. When you pass the Big Piney Bridge, the road turns to asphalt. Slabtown is on the right just past the bridge. Last stretch is gravel."
+    },
+    {
+      "id": "2d7df5dc-c35a-422d-b78b-e0e5e117907e",
+      "slug": "hilliard-access",
+      "description": "1-acre MDC ramp access on the Black River at the Highway W bridge, 2.6 miles north of Poplar Bluff. Take-out for floats coming down from the Williamsville/Hammer area; the floatmissouri chart (mile 79.1, 'Hillard') notes the river flattens from here downstream. Popular walleye water between here and Clearwater Dam."
+    },
+    {
+      "id": "2e4f69ab-3860-49b0-bb9d-d2085fee36f1",
+      "slug": "sportsmans-park-access",
+      "description": "Municipal boat ramp in Sportsman's Park on the southwest side of Poplar Bluff (floatmissouri chart mile 87.3, one mile above the US 60 bridge). Downstream limit of the commonly floated Black River in Missouri and a standard take-out/launch for the flatwater below Hilliard Access; excellent walleye and bass water.",
+      "facilities": "City park boat ramp on the Black River with pavilion, picnic tables, and an ADA-accessible fishing platform (built 2019). Operated by Poplar Bluff Parks & Recreation under a cooperative agreement with MDC."
+    },
+    {
+      "id": "2f5e7f3c-bfcd-44f7-9ea5-55ab9c730e9a",
+      "slug": "chouteau-claim",
+      "description": "MDC access at mile 132.8 in Franklin County at the confluence of the Bourbeuse and Meramec Rivers. 15-acre site with boat ramp. Named for the historic Chouteau family land claim. The Bourbeuse River enters from the west, adding significant volume. Serves paddlers on both rivers.",
+      "parking_info": "Parking area for the 15-acre site. Trailer access likely — boat ramp present. Specific lot surface and capacity unconfirmed.",
+      "road_access": "From Moselle, take St. Mary's Road northeast to the confluence of the Meramec and Bourbeuse rivers. Access via Hwy AH to St. Mary's Road. Franklin County. Road condition warning: St. Mary's Road has had historical problems including potholes, partial flooding, and gate closures — verify current conditions before visiting.",
+      "local_tips": "<p><strong>Road warning:</strong> St. Mary's Road has had issues with potholes, seasonal flooding, and occasional gate closures. Franklin County and MDC have worked to improve access but verify conditions before visiting, especially after heavy rain.</p><p><strong>Confluence:</strong> The Bourbeuse River enters here — watch for increased current and debris after rain events on the Bourbeuse watershed.</p>"
+    },
+    {
+      "id": "31d79668-3294-45f9-92f8-ece72809d0ef",
+      "slug": "dam-quarry-boat-ramp",
+      "parking_info": "2 paved lots (AGFC)."
+    },
+    {
+      "id": "330ae0ce-dd7d-4c37-8784-d887bd4503e4",
+      "slug": "van-buren-riverfront-park",
+      "description": "Van Buren Riverfront Park is the main in-town access point on the Current River, sitting right at the Hwy 60 bridge in the town of Van Buren. This is the civilized hub of the lower Current - Van Buren is a small town but it has restaurants, a coffee shop, a gas station (Sinclair), basic shopping, and lodging options. The park has a developed riverfront area. Van Buren also serves as the gateway to Big Spring, located just 4 miles south on Hwy 103. This is a natural resupply and logistics point for longer river trips. Expect more motorized boat traffic in this area."
+    },
+    {
+      "id": "34ad1dea-56d5-49d3-b8e1-ad91643423b9",
+      "slug": "baptist-camp",
+      "description": "Baptist Camp is the first real put-in on the Current River and the starting point for one of the most iconic upper river day floats. Managed by the Missouri Department of Conservation, this is a no-frills gravel access with a privy and parking area. The river here is narrow, clear, and intimate - you're floating through the blue ribbon trout waters just below Montauk. In summer, the pool at the access doubles as a popular swimming hole, which can make it feel crowded. Cedargrove is 8 miles downstream, making this a manageable 3-5 hour day float with plenty of springs and scenery along the way, including Schafer Spring and the Susie Nichols cabin.",
+      "road_access": "Follow the road out the back of Montauk State Park. It turns to blacktop, then take the first right at the MDC sign for Baptist Camp. The paved road down to the access is passable for all vehicles, but narrow."
+    },
+    {
+      "id": "381f094f-381f-436e-bd92-efa77236fe32",
+      "slug": "mint-spring-mdc-access",
+      "description": "10.5-acre MDC access on the upper Bourbeuse in northwest Crawford County, effectively the head of navigation and mile 0.0 for this river. A gravel boat ramp launches to a shallow reach best suited to canoes; the upper river is seldom floatable without dragging in dry summers. Open 4 a.m.-10 p.m. (boating 24 hours).",
+      "parking_info": "Paved parking lot (MDC GIS; lot not sized for trailers)."
+    },
+    {
+      "id": "38b52366-63fb-4a1a-bba6-e5e20971afa0",
+      "slug": "red-bluff-recreation-area",
+      "description": "USFS campground in the Potosi-Fredericktown Ranger District of Mark Twain National Forest at mile 8.3. Named for towering red bluffs along Huzzah Creek, carved by the elements over 10,000 years. Four camping loops: Creek Loop, Ridge Top Loop, Pines Overlook Loop, and Group Loop. Many sites are within 200 yards of Huzzah Creek. Three new loops (Ridge Top, Creek, Group) were constructed above the floodplain with modern restrooms, water, and electricity. The 1.2-mile Red Bluff Trail loops through a pine plantation and big oak timber.",
+      "facilities": "Major USFS campground with 4 camping loops. Creek Loop, Ridge Top Loop, and Group Loop have modern restrooms with flush toilets, running water, and electricity (30-amp and 50-amp pedestals). Pines Overlook (PO) loop is non-electric. New shower house and dump station. Two pavilions (one accommodates 75 people). Individual picnic sites with tables and grills. Water spigots throughout. 1.2-mile Red Bluff Trail. Swimming and tubing in Huzzah Creek (unmanaged). Fishing for bass, perch, and catfish.",
+      "road_access": "From St. Louis, take I-44 west to Cuba. Continue on Hwy 19 south to Cherryville. Take Hwy 49 south to Hwy V, turn left to Davisville and travel approximately 1 mile, turn left into the campground. Approximately 1 mile from Davisville. All paved roads.",
+      "local_tips": "<p>Red Bluff is a full-service USFS campground — not just a river access. Reservations recommended on summer weekends. Creek Loop sites are closest to the water. Pines Overlook sites are more secluded but non-electric. Dogs must be leashed (6 ft). Firewood: collect dead/downed only. No fireworks.</p>",
+      "fee_notes": "Single site $15/night, electric site $25/night, double site $25/night, double electric $35/night, group site $50–$100/night. Additional vehicle $2/night. Day use $5/vehicle/day. Reservations available on Recreation.gov."
+    },
+    {
+      "id": "39020014-6bf2-46e6-90c1-ed5f8ce93ecc",
+      "slug": "log-yard-campground",
+      "description": "Log Yard is a backcountry access and campground on river left. Named for its history as a timber staging area, it's now a quiet camping spot on the middle Current. This stretch of river features impressive bluffs, including Paint Rock Bluff at mile 72.5 downstream. The area is remote and sees modest traffic - a good overnight stop on a multi-day float."
+    },
+    {
+      "id": "39b1bd76-f62b-4653-903c-f42146ea07bc",
+      "slug": "hwy-45-bridge-hindsville-access",
+      "facilities": "AR-45 bridge at Hindsville (ZIP 72738); common take-out for the Hwy 23-to-Hwy 45 float (~13.5 mi) and put-in for lower sections. USGS gauge 07049000 'War Eagle Creek near Hindsville' sits at 36.2000,-93.8550 (~250 m from bridge)."
+    },
+    {
+      "id": "3be450ba-34f9-4a3e-823e-6f10fcf7d30c",
+      "slug": "washington-state-park-access",
+      "facilities": "Missouri State Parks main put-in / concession (canoe-raft-tube rental, shuttle service), concrete boat ramp, vault toilet, parking. St. Francois/Washington Co. Coord = OSM slipway, corroborated by USGS 'Big River at Washington State Park' (38.08762,-90.68071)."
+    },
+    {
+      "id": "3d719752-a323-42f6-bc1c-e22eb2cfb995",
+      "slug": "pointers-creek-access",
+      "parking_info": "Paved parking area (MDC GIS)."
+    },
+    {
+      "id": "3f6062d1-5fc4-457e-ae2c-89422d7f9b27",
+      "slug": "mo-28-bridge",
+      "description": "Route 28 'Veterans Bridge' crossing (chart mile 140.4), used as a put-in 3.3 miles above Boiling Spring Campground - BSC Outdoors starts its 3-mile tube floats here. An OSM slipway is mapped at the bridge."
+    },
+    {
+      "id": "40196105-a800-4c21-8725-546c76400cde",
+      "slug": "red-horse-access",
+      "description": "MDC access at approximately mile 112 in Franklin County. 43-acre site with a wide boat ramp in good condition. Located just around the bend from where Big Indian Creek enters the Meramec. Paddlers cross under the Hwy K bridge to reach the take-out. Large parking lot described as well-maintained.",
+      "facilities": "Wide boat ramp leading into a deep pool — more rocks and less mud than other Meramec access points. Picnic tables on-site. Wheelchair accessible areas. Campsites reported on Paddling.com (verify in field). No confirmed restrooms outside of user-submitted reports.",
+      "local_tips": "<p><strong>Directions note:</strong> After crossing the Hwy K bridge southbound, the turn to Old Route K is easy to miss. Watch for the turn east just after the bridge. The ramp leads into a deep pool — good for launching but watch the rocks at lower water levels.</p>"
+    },
+    {
+      "id": "40aa2555-d1a2-449b-8575-9f5361fb862b",
+      "slug": "cold-springs-access",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "41c7f87a-1ad9-4bf9-8f2d-7d613e07e55d",
+      "slug": "boxley",
+      "description": "Uppermost NPS river access at the Boxley Bridge (AR 21), mile 0 of the NPS mileage chart. The 6.1-mile Boxley-to-Ponca reach is the most technical section of the Buffalo — NPS recommends it only for highly experienced whitewater paddlers, and the river runs straight into willow thickets below the bridge. Rain-dependent; floatable only at seasonal high flows."
+    },
+    {
+      "id": "427018cb-e17b-4aa0-bb72-b78600445263",
+      "slug": "patrick-bridge-access",
+      "description": "Reported coordinate is the bridge crossing on-channel. Per floatmissouri the gravel ramp is on the NE side of the H bridge (~36.6436, -92.2222 per the OSM access node). Directions: Hwy 160 W from Caulfield ~3.5 mi, then Route H north 4 mi.",
+      "parking_info": "2 paved lots (MDC)."
+    },
+    {
+      "id": "42aad76d-0c11-448e-bd2e-190a889c5050",
+      "slug": "millstream-gardens-conservation-area",
+      "description": "MDC conservation area in Madison County that is the put-in for Missouri's only Class II-IV whitewater run, the 2.3-mile Tiemann Shut-Ins reach down to Silver Mines. Paddlers carry down a short slope to a gravel put-in on river-left just above the rapids. The Missouri Whitewater Championships run this reach each spring.",
+      "facilities": "Carry-down gravel put-in on river-left above the Tiemann Shut-Ins (no constructed boat ramp); picnic areas, hiking trails and an accessible boardwalk to the shut-ins overlook within the 915.9-acre area.",
+      "parking_info": "Designated gravel/paved lots inside the conservation area near the put-in; vehicle use restricted to established parking areas."
+    },
+    {
+      "id": "440a40b7-d4cf-4dd1-b0ba-65dc177b3412",
+      "slug": "tecumseh-norfork-lake-public-access",
+      "description": "Pre-confirmed value VERIFIED via USGS. Ownership of the ramp itself unconfirmed (upper Norfork Lake is USACE-managed; may be MDC/USACE/county). Coordinate is the USGS gauge; verify the exact ramp if a distinct launch is needed."
+    },
+    {
+      "id": "44241556-d384-44a7-851e-bad7b998a5bc",
+      "slug": "pulltite-spring",
+      "description": "Pulltite is a well-developed NPS campground and the take-out for the famous Akers to Pulltite day float. It's also the put-in for the next classic section down to Round Spring (9 miles). The campground is one of the nicest on the river with paved roads and parking spurs, flush toilets and showers (seasonal, April 15-Oct 15), and an amphitheater with ranger-led programs in summer. Across the river from the campground is the historic Pulltite Cabin and scenic Pulltite Spring - an azure pool filled with lime-green watercress at the base of a bluff. You can reach them by wading or paddling across. Current River Canoe Rental operates here and handles shuttles.",
+      "facilities": "NPS campground with about 55 sites. All sites are reservation only on recreation.gov, with same-day reservations available. Flush toilets and hot showers. Picnic tables, fire rings, and grills. Seasonal camp host, camp store, firewood, and ice. Amphitheater. Current River Canoe Rental on site.",
+      "parking_info": "Paved parking spurs in the campground. Separate day-use parking near the river access. Fills on peak weekends but generally adequate."
+    },
+    {
+      "id": "44e48fe6-fe38-4bdd-b7d6-65a14f98591b",
+      "slug": "whites-creek-float-camp",
+      "description": "Float camp on the left bank at mile 28.5, just 0.5 miles below Whitten Access. River access only. A spur trail connects to the 18.6-mile Whites Creek Trail into the Irish Wilderness. Whites Creek Cave, the largest cave on the Eleven Point, is a ~20-minute hike from the river."
+    },
+    {
+      "id": "452b248a-75eb-4774-ac1f-55d7a832ab1e",
+      "slug": "huzzah-conservation-area",
+      "description": "MDC conservation area at mile 28.4, just upstream of the Meramec River confluence. 6,225 acres of rugged Ozark forest. Access via low-water bridge off Hwy E. Historical remains of the Scotia Furnace and Iron Works (1870–1880) on the property. The Ozark Trail transects the area.",
+      "facilities": "Primitive camping allowed September 15 through May 15 (day use only remainder of year). 14-day camping limit per 30-day period. Vault toilets at main parking area. No water, no trash service — pack it in, pack it out. Bulletin boards at parking areas with area maps and regulations. Ozark Trail trailhead access.",
+      "parking_info": "Gravel parking area at the low-water bridge. Space for approximately 15–20 vehicles. Additional parking at the campground area. No commercial vehicle storage allowed during closed hours (10 PM – 4 AM).",
+      "road_access": "From Steelville, take Hwy E northeast approximately 8 miles to the low-water bridge crossing at Huzzah Creek. Alternatively, from I-44 at Leasburg, take Hwy H south to Onondaga Cave State Park area, then cross the Meramec River. Last stretch is gravel. Address: 5070 Christy Mine Road, Bourbon, MO 65441. Also accessible from Hwy E at the Scotia low-water bridge (586 State Hwy E, Steelville, MO 65565).",
+      "local_tips": "<p>Most popular take-out for Huzzah floats. Below the Courtois Creek junction the creek widens considerably. Low-water bridge can be impassable during high water — check conditions before driving out. Day-use only June through mid-September.</p>"
+    },
+    {
+      "id": "45894ef8-8dc6-459b-8277-193463ce2fd1",
+      "slug": "dry-run-creek-access-norfork-national-fish-hatchery",
+      "parking_info": "2 paved lots (AGFC).",
+      "local_tips": "Catch-and-release only for anglers under 16 and mobility-impaired anglers (card required), single barbless artificial lures only, and mobility-impaired anglers must fish from the access pier or boardwalk. Hours: Fishing sunrise to sunset (AGFC rule); hatchery open daily 7 a.m.-3:15 p.m., closed federal holidays."
+    },
+    {
+      "id": "47179784-49a2-4005-adcb-2a9d50a217a1",
+      "slug": "rollins-ferry-access",
+      "parking_info": "Gravel parking area (MDC GIS)."
+    },
+    {
+      "id": "4910de08-822a-49ea-a7d0-93c707e744bf",
+      "slug": "big-tree",
+      "description": "Big Tree is home to 7 campsites: 6 standard and 1 cluster. These sites are all located right along the river, making for a beautiful destination. Throughout the year, campers can enjoy views of the Current River, easy swimming access, and a variety of scenic ecosystems."
+    },
+    {
+      "id": "499e9460-6f49-4770-a56f-5ff4d8dab2f8",
+      "slug": "highway-m-low-water-bridge",
+      "description": "County low-water bridge crossing at mile 6.3 on the upper Meramec. Simple gravel bar access below the bridge. The river is still narrow here with moderate current and frequent riffles over gravel bars. Watch for the low-water bridge slab — portage may be necessary at low water.",
+      "local_tips": "<p>Low-water bridge may be impassable during high water — check conditions before driving. At very low water, you may need to portage over or around the bridge slab.</p>"
+    },
+    {
+      "id": "4c9b1143-289e-4919-8f59-33ff9563bdac",
+      "slug": "woodson-k-woods-memorial-ca",
+      "description": "MDC conservation area at mile 26.2, just upstream of Maramec Spring Park. 906 acres of Ozark forest with Meramec River frontage. Named for prominent Missouri conservationist. Provides access to the river above where the Maramec Spring branch enters, adding significant cold-water flow.",
+      "facilities": "Undeveloped MDC access. Vault toilets available. No water, no trash service. Gravel bar access — no formal boat ramp. Primitive camping allowed per MDC regulations (Sept 15 – May 15). Hunting permitted in season."
+    },
+    {
+      "id": "4cbfec66-87fe-4712-bbb1-6e53ac1b0f6f",
+      "slug": "st-francois-state-park-access-2",
+      "description": "Upstream canoe and kayak access on the Big River in St. Francois State Park, near the Shelter 2 picnic area. Parking and vault toilets are nearby. The park campground is a separate destination within the park; camping reservations are available through Missouri State Parks. Motorized boats are not recommended by the park."
+    },
+    {
+      "id": "4f0b7934-b63e-45d4-86bf-b7cb835cf211",
+      "slug": "indian-springs-resort",
+      "description": "Private family resort on the upper Meramec River at mile 41.0 with direct riverfront access via a large sandy beach. Approximately 100 campsites (tent and RV with 30-amp electric/water). Canoe, kayak, and raft rentals with 6.5–7 mile shuttle float back to the resort. Also offers motel rooms, cabins, and tipis. Sandy beach serves as the take-out for float trips.",
+      "facilities": "http://indianspringsfamilyresort.com/\nFamily resort: ~100 campsites (RV with 30-amp electric/water pull-throughs, tent sites — some riverfront). Big Chief Motel (16 units), cabins (Black Eagle, Standing Bear, Little Wolf), painted tipis. Shower houses with hot water ($0.25). Camp store. Seasonal swimming pool. Large sandy beach with natural swimming holes. Volleyball, horseshoes, playground. Organized events: pancake breakfasts, fish fries, BBQ nights, movie nights. Canoe/kayak/raft rentals with shuttle. Pet-friendly.",
+      "road_access": "From Steelville, take Hwy 8 west approximately 2–3 miles. Turn onto Indian Springs Road (marked by a red canoe sign). Follow 2 miles to the resort. Hwy 8 is paved; Indian Springs Road surface unconfirmed (likely gravel). Address: 185 Indian Springs Road, Steelville, MO 65565.",
+      "local_tips": "<p><strong>Private access — fee required.</strong> Indian Springs serves primarily as a take-out for their 6.5–7 mile shuttle float. Large sandy beach launch area. Showers are $0.25. Between Scotts Ford (mile 35.1) and Riverview (mile 42.3). Confirm with resort whether BYO boat launch is permitted — (573) 775-2266.</p>",
+      "fee_notes": "Access fee required. Float trip rental rates vary. Camping/lodging fees separate. Call (573) 775-2266 for current rates. Confirm whether BYO boat launch is permitted."
+    },
+    {
+      "id": "5159908d-80cf-4935-91cd-22cd2b7950b4",
+      "slug": "shine-eye",
+      "description": "NPS primitive camping gravel bar on river left about half a mile below Grinders Ferry, opposite Shine Eye Bluff. A popular overnight or swim stop on the Grinders Ferry-to-Gilbert float; walk-in or float-in only, so it is a camp/stop rather than a vehicle launch."
+    },
+    {
+      "id": "51599e7a-2839-46b8-b219-fd5911b75034",
+      "slug": "peters-ford",
+      "description": "Unimproved public ford where Peters Ford Road meets the Bourbeuse in Franklin County, 6 miles above Noser Mill. The Hawksley/floatmissouri chart lists it plainly: 'Access. County road right of way only.' No facilities and virtually no parking - a bare-bones put-in for locals.",
+      "parking_info": "County road right-of-way only; Agnew notes parking is essentially non-existent without landowner permission."
+    },
+    {
+      "id": "5186d1c7-c1ef-437a-a202-725652949e85",
+      "slug": "sam-a-baker-state-park-access",
+      "description": "The state park's river access is a concrete boat launch at Campground 1 on the St. Francis River, usually shallow enough that only canoes, kayaks and small boats can launch. The park store rents canoes, kayaks and rafts for floats of roughly 4-18 miles on the St. Francis (Big Creek is kayak-only in high water). Below the park the river noticeably slows toward Wappapello Lake.",
+      "facilities": "Concrete boat launch on the St. Francis River at Campground 1, open except during heavy flooding; no launch fee. Full-service state park: campgrounds with showers, cabins, dining lodge, and the Mudlick Mountain park store with canoe/kayak/raft rental (floats April-November)."
+    },
+    {
+      "id": "51b02136-fe96-4326-bae3-ff78d8177dfa",
+      "slug": "lesterville-access",
+      "description": "53-acre MDC walk-in access on the upper Black River below Lesterville (Reynolds County), the only official public access on the Lesterville-to-Hwy K float reach above the COE Highway K park. The river channel shifted away from the parking area, so canoes must be carried about 1/3 mile along the old gravel channel to the water."
+    },
+    {
+      "id": "51b412fa-d78a-4353-ab33-c8a94f602b9c",
+      "slug": "yellville-city-park-access",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "51d2976b-3140-4903-8daa-bbd0ecb0a1b8",
+      "slug": "bayou-access",
+      "parking_info": "Gravel lot (AGFC)."
+    },
+    {
+      "id": "53ebb5f3-35ad-4315-9a51-26cc21a55f1b",
+      "slug": "grinders-ferry",
+      "parking_info": "Parking on the gravel bar; the river floods it regularly, so surfaces can be soft — park at your own risk."
+    },
+    {
+      "id": "5706fd9a-0864-45ae-a1cb-2ed4a41e18c7",
+      "slug": "glenwood-access-city-park-boat-ramp",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "570a5e8c-230d-4619-9407-36c4bab89718",
+      "slug": "spring-creek",
+      "facilities": "12 free tent sites with vault toilet; no drinking water or showers. NPS: 'Spring Creek Landing has been closed to vehicle-assisted launches' — watercraft may still be put in/taken out but must be hand carried."
+    },
+    {
+      "id": "584cef31-660d-4ef6-b9c0-482726ec27cb",
+      "slug": "thomasville",
+      "description": "Mile zero on the Eleven Point. Thomasville is where the Middle Fork joins the main stem, bringing enough water to make floating possible — but only during higher flows, typically March through June. In summer and fall, the river above Greer Spring is often too low for comfortable floating. The upper section from here to Cane Bluff (9.3 miles) passes through beautiful but rugged terrain with smallmouth bass, goggle-eye, and chain pickerel. Expect shallow riffles, possible portages around remnants of an old low-water bridge at mile 3.8, and absolutely no services.",
+      "facilities": "No amenities. No restrooms, no water, no trash service. Note: Forest Service has listed this site as \"Closed\" in the past — verify status before planning a launch here.",
+      "parking_info": "USFS gravel lot at the Hwy 99 bridge. Small lot, fits ~10-12 vehicles. Rarely crowded due to seasonal limitations on this upper section."
+    },
+    {
+      "id": "5a1b3e18-dfc9-4e1c-a69f-ff8600ea82c9",
+      "slug": "hasty",
+      "facilities": "Undeveloped launch — NPS: 'slide your boat into the water from the sandy bank at Hasty.' No toilets or water documented. Primitive gravel-bar camping exists downstream near Blue Hole."
+    },
+    {
+      "id": "5b6c991a-d004-4774-9617-c16245d60fd6",
+      "slug": "lucky-clover-resort",
+      "description": "Private 100-acre resort on the Meramec River between Steelville and Garrison's with approximately 1 mile of river frontage. Offers canoe, kayak, raft, and tube rentals with shuttle. Also has two stocked lakes (20-acre and 4-acre) for fishing. Personal watercraft launch permitted weekdays only with armband and fees.",
+      "facilities": "https://www.luckyclovercampground.com/\n100-acre resort: 44+ tent sites (many lakefront, some with electric and river access), 26–29 RV sites with 30-amp electric and water (gravel pads, pull-throughs up to 80 ft, 40 ft max RV length). 2 cabins. Bathrooms with hot showers. Swimming pool, playground, beach, dump station, camp store, Wi-Fi. Two stocked fishing lakes. Canoe/kayak/raft/tube rentals with shuttle. Pet-friendly. Open May 1 – October 31.",
+      "road_access": "From I-44 Exit 208 (Cuba), take Hwy 19 south 5.5 miles. Turn right onto Becker Road, then immediately left onto Lucky Clover Road. Follow approximately 0.5 miles to the end — when you see the sign, stay left. Address: 69 Lucky Clover Rd, Steelville, MO 65565.",
+      "local_tips": "<p><strong>Private access — fee required.</strong> Personal watercraft launch is weekdays only ($15/craft + $15 parking). Armbands must be purchased and worn while floating — anyone landing without an armband will not be permitted. Shuttle for personal canoes/kayaks is $45/craft (no rafts or tubes). Weekend personal launches are no longer permitted due to traffic.</p><p><strong>Fishing:</strong> Two stocked lakes on-site (20-acre and 4-acre) — a nice option if the river is too high or low.</p>",
+      "fee_notes": "Personal watercraft launch: $15/craft + $15 parking pass (weekdays only — weekend launches no longer permitted). Shuttle for personal boats: $45/craft (canoes/kayaks only, no rafts/tubes, may not be available on holidays). Rental and camping rates vary — call (573) 775-2419."
+    },
+    {
+      "id": "5c12ba2d-d665-4bdb-8827-3cc9847f22d8",
+      "slug": "leadwood-access",
+      "facilities": "Small MDC access (electric motors only), carry/gravel launch, parking. St. Francois County, Hwy 8 & Hunt St, Leadwood. Coord = MDC GIS Entry Point, corroborated by USGS gauge 'Big River Below Leadwood Access' (37.86804,-90.58293)."
+    },
+    {
+      "id": "5d333fce-ff0a-4e51-95fb-207a72f39289",
+      "slug": "broadfoot",
+      "description": "Broadfoot Campground is nestled between the Current River and a huge field. This location offers a mix of sunny and shady sites, all found right on the water's edge. Though vehicles cannot reach the river, visitors still enjoy swimming, fishing, and more. At night, campers can enjoy amazing views of the moon and stars.   As part of the park's horse trail network, Broadfoot also features a horse staging area. This maintained field is found along the entry road."
+    },
+    {
+      "id": "5fbc1c15-1cde-4cdb-b441-c9c9717de529",
+      "slug": "buck-hollow",
+      "description": "The standard put-in for the upper Jacks Fork. Buck Hollow is where most spring-season floaters begin, as the river above here is often too shallow or choked with deadfall. From here downstream to Bay Creek (18.4 miles), the river carves through one of Missouri's deepest and most dramatic valleys - 200-foot bluffs, towering cedars, and virtually zero development. The gradient is steep (~7-9 ft/mi) with frequent Class I-II shoals. Blue Spring enters at mile 9.6, where the river constricts and can be a challenging run. Jam Up Cave, with its 80-foot-high entrance arch, is visible from the river. No cell service. This is wilderness floating - bring maps, first aid, and be self-sufficient."
+    },
+    {
+      "id": "604f3bee-1273-4789-b585-17b054f8f94b",
+      "slug": "hwy-cc-bridge",
+      "facilities": "None. Agnew rates access here 'very poor'; the Hawksley/floatmissouri chart says 'Champion City (Hwy CC) Bridge. No access.'"
+    },
+    {
+      "id": "60a0d6ed-c4f8-4caf-b3c2-596430e29fc2",
+      "slug": "baptist-camp",
+      "description": "Uppermost public put-in on the floatable Big Piney River at mile 0.0. Forested MDC area with low-water bridge and canoe/kayak access. Start of the good smallmouth bass fishing on the upper river. The gradient from here to Boiling Spring is 4.2 ft/mile — relatively swift with riffles. The river is narrow and scenic through this stretch with overhanging trees and small bluffs.",
+      "facilities": "Privy (vault toilet), picnic area, low-water bridge. No drinking water. No boat ramp — carry-in access at low-water bridge."
+    },
+    {
+      "id": "63138d83-0de4-4cc1-89fb-d3079727447a",
+      "slug": "devils-elbow",
+      "description": "Historic Highway V bridge crossing at Devil's Elbow, mile 82.4. NO PUBLIC ACCESS at the bridge itself. This is on the famous Route 66 corridor. The old steel truss bridge is a popular Route 66 landmark. BSC Outdoors operates a private put-in called Piney Landing nearby for their 5-mile float trip to the Gasconade confluence. Shanghai Spring (Blue Spring) is 2.4 miles upstream at mile 80.0 — a massive spring comparable to Boiling Spring."
+    },
+    {
+      "id": "6345bcbd-46b6-4603-9c2f-e3ccfd3235ea",
+      "slug": "hwy-412-bridge-access",
+      "facilities": "US-412 bridge E of Huntsville; documented upper put-in (~5 creek mi to Withrow Springs/Hwy 23 per Float Eureka). Schraeder Bend Class I ~1.8 mi downstream. Single US-412 x War Eagle Creek crossing."
+    },
+    {
+      "id": "648d46cb-5f32-430d-bf71-f4f536ef1fbd",
+      "slug": "monastery-bridge",
+      "facilities": "Low-water crossing (OSM: County Road 14-335) off Hwy OO near Assumption Abbey monastery; may need to portage/walk boats. OSM road name differs from local 'Monastery Bridge' name."
+    },
+    {
+      "id": "650e54ca-9dcb-46cc-9c01-5b74fe4cf712",
+      "slug": "myrtle-access",
+      "description": "The last Missouri access on the Eleven Point, at the site of the old Stubblefield Ferry. About 4 miles below The Narrows and ~1 mile north of the Arkansas state line. MDC manages 26 acres here. The Wild and Scenic designation ended at The Narrows, so the river here is wider, slower, and less dramatic. Good smallmouth bass, goggle-eye, and walleye fishing."
+    },
+    {
+      "id": "65e2e035-8deb-4b89-8c55-8a142732f36e",
+      "slug": "florence-c-cook-access",
+      "facilities": "'Cook's Landing'; dirt/gravel ramp at end of County Road 308 (N off Hwys 160/J), minimal parking, just above Norfork Lake. STATUS: flood-damaged, officially CLOSED awaiting repair; used informally."
+    },
+    {
+      "id": "662788dc-b203-4896-81fb-c604c31e610a",
+      "slug": "bay-creek",
+      "description": "Bay Creek marks the transition from the upper Jacks Fork (seasonal, Class II) to the lower Jacks Fork (year-round, Class I). This is where the deep, narrow valley starts to widen and the river becomes more accessible. It's the most popular put-in for the classic 5.8-mile float to Alley Spring - a perfect half-day trip that passes through Fish Trap Hole and Grandma Rocks before arriving at Alley Spring. Outfitters like Windy's and Harvey's regularly shuttle here. Also works as the takeout for the long Bay Creek run from Buck Hollow (18.4 miles, full-day expedition). The campground is basic but functional for overnighters.",
+      "parking_info": "NPS gravel lot on river left. Moderate capacity, ~15-20 vehicles. Can get busy on peak weekends since it's a popular put-in for the Bay Creek to Alley Spring float."
+    },
+    {
+      "id": "6662d9d1-2f93-4f3e-a4ef-2807abd0d888",
+      "slug": "roberts-field",
+      "description": "Roberts Field is a small backcountry access and campground where Rocky Creek enters the Current on the right. It's a quiet, lightly-used stop in a scenic stretch of river. The Falls of Rocky Creek, about 3 miles southwest, are a scenic side attraction for those willing to explore. This area sees far less traffic than the upper river access points."
+    },
+    {
+      "id": "68dc6aee-7b53-49ce-85a9-c7fbe3b2735e",
+      "slug": "hammer-access",
+      "description": "344-acre MDC conservation area on the lower Black River about a half mile south of Williamsville, with 1.4 miles of river frontage. Primitive canoe/small-boat access off County Road 424, commonly used as the take-out 2.7 river miles below Markham Springs; primitive camping allowed.",
+      "facilities": "Primitive small-boat/canoe launch (MDC watershed inventory: only small boats or canoes can be launched). Designated individual campsites on the area; no restrooms or drinking water.",
+      "parking_info": "Paved MDC lot at the river access; trailers not allowed per MDC GIS."
+    },
+    {
+      "id": "69df6260-24c2-4227-9b00-3fc746ab479c",
+      "slug": "gasconade-confluence",
+      "description": "Junction of the Big Piney River with the Gasconade River at mile 85.7 near Jerome, MO. Private access on right bank with lodging, refreshments, and parking available. End of the Big Piney River. From here, floaters continue downstream on the Gasconade River where additional public access points exist. BSC Outdoors take-out is on the Gasconade near here.",
+      "road_access": "Near Jerome, MO, off I-44. Private access — contact outfitters for arrangements."
+    },
+    {
+      "id": "6a8597e2-0634-4ff3-b05e-9feab392d763",
+      "slug": "ozark",
+      "facilities": "33-site campground (some sites RV-suitable, no hookups) with seasonal water and flush restrooms, vault toilet in winter; no showers. Sandy-beach launch below the campground; popular swimming hole."
+    },
+    {
+      "id": "6e7bbe95-a7a4-4410-9ede-477843387946",
+      "slug": "delaware-town-access",
+      "description": "Uppermost MDC access on the floatable main James. ~1.5 mi upstream of the USGS 'James River near Boaz' gauge 07052250 (37.0066,-93.3647).",
+      "parking_info": "2 paved lots (MDC)."
+    },
+    {
+      "id": "6e8d29ca-954c-4f94-854c-37c07b12a090",
+      "slug": "kyles-landing",
+      "facilities": "33 tent-only sites (RVs, trailers, and camper vans prohibited); seasonal flush restrooms and water, vault toilet in winter; no showers. Gravel-bar launch and Buffalo River Trail trailhead.",
+      "parking_info": "Lot at the landing; since March 2023 no parking is allowed anywhere along Kyles Landing Road (CR 56) to keep it open for emergency vehicles — NPS suggests weekday trips and carpooling."
+    },
+    {
+      "id": "6ef4bc1f-6b46-4d5c-9abe-4f977d63d950",
+      "slug": "powder-mill",
+      "description": "Powder Mill is an old ferry site turned NPS campground and river access, reopened after significant flood damage repairs (closed from 2017 to 2020). The campground has 8 sites and sits near the Hwy 106 bridge. The gravel bar has changed significantly from pre-flood conditions, and vehicles should use caution to avoid getting stuck in loose gravel when accessing the river. Blue Spring - the ninth largest spring in Missouri, famous for its incredibly deep blue color - is just 1.3 miles downstream. It's reached by a quarter-mile walk up its spring branch on river left."
+    },
+    {
+      "id": "6f93c21f-9ebe-4a95-ab44-98108a569bdc",
+      "slug": "hwy-96-access",
+      "facilities": "access at Hwy 96; LOW-HEAD DAM here — portage river right"
+    },
+    {
+      "id": "70d48dd5-74f5-4656-bf54-cd3d58932471",
+      "slug": "helds-island-access",
+      "parking_info": "Two paved lots (MDC GIS), one ADA."
+    },
+    {
+      "id": "7167c966-a874-48ab-9685-ff82f07f589f",
+      "slug": "erbie",
+      "description": "Campground and river access in the Erbie historic district (Parker-Hickman Farmstead nearby), between Kyles Landing and Ozark. The take-out is on river right about a mile below the concrete Erbie Ford vehicle crossing. Gateway to a serene 5.4-mile float down to Ozark.",
+      "facilities": "Boat launch area with picnic tables, vault toilet, and an emergency phone. Adjacent campground: 14 drive-in (RV-suitable), 13 walk-in, and 5 group sites; seasonal water and flush restrooms; vault toilet in winter."
+    },
+    {
+      "id": "71e0551e-a8ca-46b9-8806-0e6ec5374387",
+      "slug": "ozark-outdoors-resort",
+      "description": "Large private resort on the east side of the Hwy H bridge at mile 68.4, directly across from Onondaga Cave State Park. Over 100 acres with 1 mile of Meramec River frontage and two resort beach areas. One of the primary outfitters on the Meramec — canoe, kayak, raft, and tube rentals with shuttle service on the Meramec, Courtois, and Huzzah. Operating since 1960.",
+      "facilities": "https://ozarkoutdoorsresort.com/\nFull-service resort: 200+ RV sites with hookups and large primitive tent camping areas (many riverfront). Cabins available. Three shower houses. Country store with supplies, snacks, firewood, ice. Swimming pool, volleyball courts, horseshoe pits, playground. Paddlers Bar & Grill (seasonal weekends). Canoe/kayak/raft/tube rentals with shuttle. Two riverfront beach areas for launching. Floating Treetops Aerial Park on-site.",
+      "parking_info": "Large paved and gravel parking areas throughout the resort. Space for 50+ vehicles. Trailer-friendly with ample turnaround room.",
+      "road_access": "From I-44, take Exit 214 (Hwy H). Go south on Hwy H approximately 7.5 miles, cross the Meramec River bridge, then turn left into the resort. All paved roads. Address: 200 Ozark Outdoor Lane, Leasburg, MO 65535.",
+      "local_tips": "<p><strong>Private access — fee required.</strong> Ozark Outdoors is across the bridge from Onondaga Cave State Park. They have two beach areas on the river with easy launching. This is a major shuttle operation — they run trips on the Meramec, Huzzah, and Courtois rivers. Must arrive 30 min before shuttle departure.</p><p><strong>Nearby:</strong> Onondaga Cave State Park is directly across the Hwy H bridge with public access on the west side.</p>"
+    },
+    {
+      "id": "73d2f197-1f0e-4d4e-938d-753c1eb8346f",
+      "slug": "hog-trough-road-low-water-bridge",
+      "description": "Low-water bridge carrying Hog Trough Road over the upper Bourbeuse at mile 10.7. The Hawksley/floatmissouri chart lists it as a 'low-water bridge with access' - an undeveloped roadside put-in on the county right-of-way. The slab is a hazard for floaters at higher flows.",
+      "road_access": "Hog Trough Road (county road) low-water crossing of the upper Bourbeuse; Highway 19 is about 2.8 road-miles west (floatmissouri chart)."
+    },
+    {
+      "id": "759276c1-7315-424b-8cc1-389b04c41325",
+      "slug": "ross-bridge",
+      "description": "MDC access at approximately mile 54.8. Mostly forested gravel bar area providing access for floating and fishing. LAST TAKE-OUT before the river enters Fort Leonard Wood military reservation — no public access is permitted through the base. The 15-mile stretch from Slabtown to Ross is the core of the Smallmouth Bass Special Management Area (1 smallmouth, 15-inch minimum). After Ross, the river begins to get wider and deeper. From here the river enters Fort Leonard Wood for approximately 12 miles with no access.",
+      "facilities": "Parking area. No restrooms. No drinking water. No boat ramp — gravel bar access. Open 4 AM – 10 PM; fishing/hunting/boating allowed 24 hrs."
+    },
+    {
+      "id": "790ada2b-7530-494a-8148-d0f9f481d89d",
+      "slug": "bell-chute-access",
+      "parking_info": "Paved lot at the ramp (MDC GIS), ADA stall."
+    },
+    {
+      "id": "7973df1a-c3c0-43af-8f75-adb2213dbe08",
+      "slug": "north-maumee",
+      "facilities": "Launch access only — no camping facilities, toilets, or water."
+    },
+    {
+      "id": "7a147d78-ff80-4ae8-b5b6-70ec2247de8e",
+      "slug": "sand-ford",
+      "description": "MDC access at mile 95.4 near Stanton in Franklin County. 31-acre site with two boat ramps and 3/10 mile of public fishing access on the Meramec River. Located near Meramec Caverns (mile 94.3). Fair fishing for bass, catfish, suckers, and sunfish. Hours: open 4 AM to 10 PM daily; boat launching allowed 24 hours.",
+      "facilities": "Two boat ramps (surface material not confirmed). 3/10 mile of public fishing access on the Meramec. Open 4 AM – 10 PM daily; boat launching allowed 24 hours. No overnight boat storage permitted. No confirmed restrooms on-site.",
+      "parking_info": "Parking area for the 31-acre site. Two boat ramps suggest adequate trailer parking. Surface type not confirmed — likely gravel.",
+      "local_tips": "<p><strong>Near Meramec Caverns:</strong> Just 1 mile upstream from Sand Ford, Meramec Caverns offers cave tours and riverside attractions. Caveman Floating operates raft rentals nearby. Boat launching allowed 24 hours — no overnight boat storage.</p>"
+    },
+    {
+      "id": "7a915c4d-969b-41d0-9975-33308cb1a23e",
+      "slug": "huzzah-valley-resort",
+      "description": "Family-run resort since 1979, located 10 miles east of Steelville on Hwy 8. Offers 2.5 miles of riverfront camping, canoe/kayak/raft rentals, cabins, and shuttle service. Popular mid-river stop — the 12-mile canoe trip passes through the campground in time for a lunch break. At river mile ~6.0 near the Hwy V bridge.",
+      "facilities": "Full-service private resort. Three shower houses with coin-operated showers ($0.50). Clean restrooms throughout. Camp store with river gear and essentials. Restaurant on-site. Playground, volleyball and basketball courts. Golf cart rentals. RV sites with 50-amp electric, water, and sewer hookups. Tent camping along the river. Cabins and A-frames sleeping 2–30 people. Horseback riding available.",
+      "road_access": "Fully paved via State Highway 8. From Steelville, head east on Hwy 8 for approximately 10 miles. Well-signed entrance on the south side of the highway. From I-44, take the Cuba exit (Exit 208), then south on Hwy 19 to Steelville, then east on Hwy 8."
+    },
+    {
+      "id": "7ad75ba6-e14a-4955-bd8b-a8b811b8d36f",
+      "slug": "robertsville-mo-state-park",
+      "description": "State park approximately 40 miles west of downtown St. Louis with 2+ miles of Meramec River frontage. Single-lane boat launch at the day-use area. 12 basic + 13 electric campsites, family campsite, and 3 tent-platform sites. Excellent smallmouth bass fishing. Popular with St. Louis metro paddlers for accessible weekend floats.",
+      "facilities": "Single-lane boat launch at the day-use area — suitable for small boats and canoes/kayaks. 2+ miles of river frontage. 12 basic + 13 electric campsites (reservable). 3 tent-platform sites + 1 family campsite. RV dump station, frost-free water spigots. Restroom/shower area (seasonal April 1 – October 31). Two large picnic shelters (electricity, grills, seating for 75 each, water faucets — reservable). Firewood and ice for purchase. Spice Bush Trail and Lost Hills Trail (2.6 miles). Playground.",
+      "parking_info": "Large paved parking lot at the boat-launching area. Accommodates vehicles with trailers. Four large parking lots at the campground. Additional parking near picnic shelters and trailheads.",
+      "road_access": "Approximately 40 miles west of downtown St. Louis, just off I-44. From I-44, take the Robertsville exit and follow signs to the park. All paved roads. Address: 900 State Park Road, Robertsville, MO 63072. Franklin County.",
+      "local_tips": "<p><strong>Metro-accessible:</strong> Only 40 miles from downtown St. Louis — makes for an easy day trip or weekend camping float. The single-lane boat launch can get busy on summer weekends.</p><p><strong>Fishing:</strong> Excellent smallmouth bass fishing along the 2+ miles of river frontage. Best in spring and fall.</p>"
+    },
+    {
+      "id": "7c822d93-5a84-4199-b7d7-5b056c36415d",
+      "slug": "buzzard-bluff",
+      "parking_info": "Three paved parking areas (MDC GIS); no trailer-designated stalls listed."
+    },
+    {
+      "id": "7fae05c8-9523-4d7f-9366-69ad727c954f",
+      "slug": "mark-oliver-access",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "81beb32e-a84c-4127-9dd9-e9a6622831f7",
+      "slug": "mill-creek",
+      "description": "Informal put-in at the mouth of Mill Creek on the upper Black River below Lesterville (Reynolds County). The floatmissouri chart calls this the best starting point at normal or low water, with an iron-bridge road crossing 0.4 mile upstream at chart mile 10.3. Used as the put-in for documented moherp trips (8.3 mi to the mile-19 bluff, 14.3 mi to Hwy K).",
+      "road_access": "Reached from the Lesterville area via Peola Road (CR 342); the floatmissouri chart notes an iron bridge crossing 0.4 mile upstream (mile 10.3) as the better put-in/take-out spot."
+    },
+    {
+      "id": "8455512e-fb31-4437-b45e-01e5fa3401b5",
+      "slug": "bass-river-resort",
+      "description": "Family-run private resort since 1967, nestled along the crystal-clear waters of Courtois Creek at mile 20.1. Located at the Butts low-water bridge (CR 550). Offers canoe, kayak, raft, and tube rentals with shuttle service on three rivers: Courtois, Huzzah, and Meramec. Float trips of 6, 7, and 13 miles. The resort sits at a key mid-river access point — the most popular floats pass through the campground. 60 cabins, 200 RV hookups, 400 camping sites along the creek.",
+      "facilities": "Full-service private resort. 60 cabins (sleeping 2–20+). 200 RV sites with hookups. 400+ tent camping sites along the creek. Inground swimming pool. Sand volleyball. Horseback riding. Hayrides. Camp store with essentials. Restaurant/meals available. Shower houses. Sit-on-top kayaks for easy entry/exit. Shuttle service to put-ins on Courtois, Huzzah, and Meramec rivers.",
+      "road_access": "From I-44, take Cuba exit, south on Hwy 19 to Steelville. Go straight through the 3-way stop in Steelville, east on Hwy 8, 10.5 miles to the big yellow Bass' River Resort sign on your left. Follow the blacktop 1.5 miles to the resort. "
+    },
+    {
+      "id": "85594317-ba39-4e8a-bab0-ae364a56b281",
+      "slug": "hwy-185-at-noser-mill-devils-back-campground",
+      "description": "Private campground and float outfitter on the north bank above the Noser Mill dam - the practical access at Noser Mill, since the Highway 185 bridge itself has no public access. Floating downstream from here requires portaging the low mill dam about half a mile below. Marks the traditional boundary between the upper and lower Bourbeuse (upper mile 59 = lower mile 0).",
+      "facilities": "Concrete boat ramp, primitive riverside campsites, canoe/kayak/jon boat rentals. Family-run outfitter operating since 1980 - the only outfitter on the Bourbeuse. Ramp and campground customer-access; reservations required for floats."
+    },
+    {
+      "id": "8618c6f4-cbd1-44c6-aa4e-c41f500b732a",
+      "slug": "alley-spring",
+      "description": "Alley Spring is the largest NPS campground in Ozark National Scenic Riverways and a main river access on the Jacks Fork, about 6 miles west of Eminence on Highway 106. It is the usual take-out for floats from Bay Creek and the put-in for the Alley Spring to Eminence float. The whole campground is within walking distance of the river. The red Alley Mill and the spring are a short walk from the campground and worth the stop.",
+      "facilities": "Largest NPS campground in Ozark National Scenic Riverways: electric and non-electric family sites, cluster sites, and group sites. All sites are reservation only on recreation.gov, with same-day reservations available. Flush toilets, hot showers, and a dump station. Seasonal camp host, camp store, firewood, and ice. A general store is on Highway 106 at the campground turn.",
+      "parking_info": "Parking is in the campground, which is within walking distance of the river. The campground is often full in summer, so arrive early on weekends.",
+      "road_access": "Fully paved. From Eminence, take Hwy 106 west ~6 miles. Well-signed NPS entrance on the south side of Hwy 106, just before crossing the Jacks Fork. From Mountain View, take Hwy 60 east to County Hwy E, north 10 miles to Hwy 106, then west 2 miles.",
+      "fee_notes": "No fee to use the river access. Summer campsites (April 15 to October 15) are $20 non-electric and $30 electric per night; winter rates are lower. Reserve on recreation.gov."
+    },
+    {
+      "id": "8655f9a1-65b2-4ef3-8b49-21a8f78fda2c",
+      "slug": "wilderness-ridge-resort",
+      "description": "Private resort and campground on the Big Piney River near Duke, MO. Offers canoe/raft/tube rentals, cabins, lodge, RV hookups, tent camping, and shuttle service. The campground sits on a bluff overlooking the Big Piney River. Relatively calm section of river, suitable for children and families. Close to Mark Twain National Forest and Paddy Creek Wilderness.",
+      "facilities": "Lodge, cabins (A/C, linens, dishes, fridge, stove), RV sites with electric and water hookups, tent camping with fire rings and picnic tables. General amenities on a bluff overlooking the river.",
+      "road_access": "From the north, take Hwy 63 south 23 miles to Hwy K, turn left on Hwy K and go through Duke. Address: 33850 Windsor Ln, Duke, MO 65461. Approximately 80 miles from Springfield, 100 miles from St. Louis."
+    },
+    {
+      "id": "866a8682-d5e9-45d8-b073-29a6973e8ec6",
+      "slug": "h-l-kerr-access",
+      "parking_info": "2 lots: paved, gravel (MDC)."
+    },
+    {
+      "id": "87774bdd-28d5-4678-a449-d5966c43e32d",
+      "slug": "crossroads",
+      "description": "USFS carry-in access at approximately mile 69.8. Provides parking and a 100-foot trail to the Big Piney River for canoeing and fishing — you must carry canoes/kayaks down the trail. Day use only — no overnight camping. 3-mile paddle downstream from East Gate, or 8 miles upstream from Bookers Bend. River has varying runs and riffles with mostly gravel bottom.",
+      "facilities": "Carry-in access only — 100-foot trail to the river. No restrooms. No drinking water. Day use only — no overnight camping."
+    },
+    {
+      "id": "8afca5ce-84ea-4bb1-ad9c-dfd61e067339",
+      "slug": "roselle-access",
+      "description": "MDC access at the Highway 72 bridge, the put-in for the 'Upper St. Francis' Class I-II whitewater run down to Millstream Gardens. The NWS/USGS Roselle gauge (07034000/ROZM7) that paddlers use for the runnable range is at this bridge. Gravel ramp serves the slow pool above the bridge for fishing when levels are low.",
+      "facilities": "Gravel/dirt boat ramp near the parking lot; 21.9-acre MDC access at the confluence area of the St. Francis River and Stouts Creek. No camping (prohibited). Cafe and store historically nearby on Hwy 72."
+    },
+    {
+      "id": "8b90fbd7-9e9d-4ae2-8e2e-756f418c548d",
+      "slug": "st-francois-state-park-access-1",
+      "description": "Downstream canoe and kayak access on the Big River in St. Francois State Park, in the northern day-use picnic area south of the ballfield. Parking and vault toilets are nearby. The park campground is a separate destination within the park; camping reservations are available through Missouri State Parks. Motorized boats are not recommended by the park."
+    },
+    {
+      "id": "8bb5fcfc-22ea-44d5-a472-0daa2d71c69f",
+      "slug": "highway-pp-bridge-north-fork-high-bridge",
+      "description": "Coordinate is the OSM bridge centerline (single coordinate source, but route-ref + waterway-name + float-guide together make the identification unambiguous). River meanders here: PP (mile 45.3) sits slightly south of the Tecumseh take-out because the river loops through Dawt (mile 47) before bending north into Norfork Lake.",
+      "facilities": "Public MoDOT highway bridge. A low-water dam sits just downstream (a 'canoe-buster' — portage on the right)."
+    },
+    {
+      "id": "8d226110-5aa1-4d6a-ac78-1a220390d154",
+      "slug": "brown-s-ford-access",
+      "facilities": "MDC boat ramp; grounds/facilities maintained by Jefferson County Parks (636-797-5334). Jefferson County, Brown's Ford Rd bridge, ~RM 34. Coord = MDC GIS Boat Ramps layer + OSM slipway (38.21262,-90.70613).",
+      "parking_info": "Gravel lot (MDC)."
+    },
+    {
+      "id": "8d46b4d6-a718-4555-99ea-ff2db9f013a8",
+      "slug": "shepherd-of-the-hills-hatchery-bank-access",
+      "local_tips": "No fishing within 760 feet below Table Rock Dam, in hatchery raceways or the marked outlets; from there to Fall Creek only flies and artificial lures are allowed and rainbow trout 12-20 inches must be released. Hours: Area 4 a.m.-10 p.m. daily; conservation center Tue-Sat 9 a.m.-5 p.m., closed Sun, Mon and state holidays."
+    },
+    {
+      "id": "8f1e21a0-26d2-4d7c-ac84-5c2bcc69572f",
+      "slug": "war-eagle-mill-war-eagle-bridge",
+      "facilities": "Historic 1907 one-lane steel-truss War Eagle Bridge (NRHP) on Benton County Rd 98 at War Eagle Mill; just above Beaver Lake backwater. Common take-out. Double-corroborated: USGS gauge 07049050 'War Eagle Creek at War Eagle' = 36.26757,-93.94325 and Wikipedia/NRHP = 36.26750,-93.94333 (~10 m)."
+    },
+    {
+      "id": "90c6d913-105b-4a32-91e0-7badca88ce92",
+      "slug": "wenkle-ford-mdc-access",
+      "facilities": "Unimproved gravel ford/carry-down canoe launch (OSM tags the crossing ford=yes; no ramp in MDC's inventory). No restrooms. Camping prohibited.",
+      "parking_info": "Paved parking lot ~90 m from the launch (MDC GIS)."
+    },
+    {
+      "id": "931f51f5-65a0-4d7b-94a2-d10c5e9217ce",
+      "slug": "reiker-ford-mdc-access",
+      "parking_info": "Paved parking lot ~90 m from the water (MDC GIS)."
+    },
+    {
+      "id": "947e8cd7-f906-4670-926a-0fa3aa14a040",
+      "slug": "bachers",
+      "description": "Found just downriver from Blue Spring, this campground is home to deep swimming holes and impressive bluffs. Like other campgrounds on the Jacks Fork, Bachers is a fantastic destination for camping, floating, and more. At the campground, the deep, blue swimming holes invite campers to cool off. Also, about 1 mile downstream, Jam Up Cave is a popular trip for summertime floaters. The whole area is great for viewing wildlife, and fall can be particularly pretty."
+    },
+    {
+      "id": "96e35d58-3f33-4fc4-a04d-a4fa15df9bb2",
+      "slug": "boze-mill-float-camp-spring",
+      "description": "Float camp at mile 33.4, at Boze Mill Spring — a sparkling blue pool producing 12-14 million gallons/day. Remnants of the historic mill dam wall and turbine are visible. Can be accessed from the river or via a short path from a parking area off County Road 152. Only 2 miles upstream of Riverton."
+    },
+    {
+      "id": "981c0426-720e-4a15-ac83-7f34a9ad3fa4",
+      "slug": "shawnee-creek",
+      "description": "A quiet backcountry stop 4 miles downstream from Eminence on river right. Shawnee Creek enters the Jacks Fork here, and the campground sits at the confluence. It's useful as an intermediate access between Eminence and Two Rivers - either a short 4.6-mile float from Eminence or a 2.7-mile paddle to Two Rivers. The old Salem, Winona and Southern Railroad once ran up Horse Hollow (mile 32.3) and along the Jacks Fork through this area. This stretch of river is gentle Class I with good gravel bars for swimming and camping. Most people float past Shawnee Creek on the way to Two Rivers."
+    },
+    {
+      "id": "989ef709-3888-400c-9ea2-158c0f7cc201",
+      "slug": "mcdowell-access",
+      "description": "Primitive access on the left bank. Just past McDowell, the river makes a sharp bend around a narrow bluff line forming a horseshoe bend. Located 2.7 miles below Turner Mill in the White Ribbon Trout Area. No amenities — this is an unimproved access for experienced river users who know what they're looking for."
+    },
+    {
+      "id": "98dd4907-9362-4f03-8629-69e198c790f9",
+      "slug": "two-rivers",
+      "description": "Where the Jacks Fork ends and the Current River begins. The confluence is dramatic - the Jacks Fork doubles the volume of the Current, and from here downstream the river is substantially wider and deeper. Two Rivers is the standard takeout for the Eminence to Two Rivers float (7.3 mi, 3-4 hrs) and a launching point for continuing down the Current toward Powder Mill, Log Yard, and beyond. The general store here is essential for multi-day trips - stock up, because there's nothing until Van Buren (~34 river miles downstream on the Current). Expect more motorized traffic (jon boats) on the Current below this point, especially on weekends.",
+      "facilities": "NPS campground operated by Two Rivers Canoe Rental. General store - the last one for ~30 miles if heading downstream on the Current. Outfitter services, canoe/kayak/raft/tube rentals, and shuttle. Vault toilets.",
+      "parking_info": "NPS gravel lot with moderate capacity, ~20-25 vehicles. Can be very busy on summer weekends since it serves both Jacks Fork takeouts and Current River floaters."
+    },
+    {
+      "id": "99487531-0bed-4d4e-a669-ade4ba074ab4",
+      "slug": "huzzah-conservation-area-courtois-access",
+      "description": "MDC conservation area river access, on the right bank at the downstream end of the campground area. Part of the 6,225-acre Huzzah Conservation Area. This is the \"Courtois Primitive\" access point — the last take-out before Courtois Creek joins Huzzah Creek at mile 25.2. The Narrows, a dramatic narrow hogback ridge between Huzzah and Courtois Creeks, is in the southwest portion of the conservation area. The Ozark Trail transects the area.",
+      "facilities": "MDC conservation area with primitive camping September 15 through May 15 (day use only remainder of year). 14-day camping limit per 30-day period. Vault toilets at parking area. No water, no trash service — pack in, pack out. Quiet hours 10 PM – 6 AM. Only foot traffic allowed within the conservation area.",
+      "road_access": "From Steelville, take Hwy 8 east approximately 10 miles. Turn left on Butts Road, then left on Lower Narrows Road. Travel approximately 1.5 miles to the conservation area access. Alternatively, from Hwy E, follow signs to Huzzah Conservation Area. ",
+      "local_tips": "<p><strong>Last take-out on Courtois Creek.</strong> Below this point, Courtois Creek joins Huzzah Creek (mile 25.2) and then the Huzzah flows into the Meramec River. If you miss this take-out, the next access is the Scotia/Hwy E Bridge on Huzzah Creek, approximately 1 mile downstream of the confluence. Camping is seasonal (Sept 15 – May 15 only). Day-use only in summer.</p>"
+    },
+    {
+      "id": "9999901a-4fda-4c98-b4fe-a3e92af52fa7",
+      "slug": "whistle-bridge",
+      "description": "Low-water concrete crossing at Whistle Road and Tunnel Dam Road. Usable only when the channel below Tunnel Dam is carrying water. It can serve as a river access, but there is no public parking and the surrounding land is private. Use only for a lawful drop-off/pickup and do not enter adjacent property."
+    },
+    {
+      "id": "99a4ae71-aaa5-4207-a29c-65efa5e2c801",
+      "slug": "clubhouse",
+      "description": "Clubhouse Campground is nestled on the banks of the lower Current River. This remote campground is far off the beaten path, allowing for a rustic experience. Basic amenities and partial shade make for a lovely campground. Visitors can enjoy easy river access and a number of nearby attractions, like Clubhouse Bluff or the old Tram Road. Clubhouse Bluff is located a short drive from the campground."
+    },
+    {
+      "id": "9a1a0cb2-1a44-481d-8236-26c5d8325d5b",
+      "slug": "tea-mdc-access",
+      "description": "3.4-acre MDC fishing and boating access on the upper Bourbeuse in Gasconade County, south of Owensville at the hamlet of Tea. An unimproved ramp and paved lot sit beside the Route T bridge. First reliable public access below Mint Spring - 17.6 river miles of thinly-accessed water above it.",
+      "facilities": "Unimproved launch ramp to the river (MDC photo captions 'the ramp at Tea Access'; OSM tags the slipway surface as unpaved; NOT in MDC's statewide boat-ramp inventory). No restrooms. Camping prohibited.",
+      "parking_info": "Paved parking lot at the launch (MDC GIS).",
+      "road_access": "From Owensville take Highway 19 south 2 miles, then Route V east 5 miles, and Route T south 4 miles to Tea Road (MDC directions). The access sits on the north bank just downstream of the Route T bridge."
+    },
+    {
+      "id": "9a1a7b6c-2476-4fc8-a512-740227fff6d7",
+      "slug": "romp-hole-access",
+      "parking_info": "Gravel lot (AGFC)."
+    },
+    {
+      "id": "9a9f4464-7b40-4d1d-bae7-6e86adbf2ab7",
+      "slug": "horse-camp",
+      "description": "USFS river access approximately 6 miles downstream from Slabtown. Located near the Big Piney Equestrian Camp — one of 3 trailheads for the 18-mile Big Piney Trail through Paddy Creek Wilderness. The equestrian camp has 5 sites designed for horse trailers with picnic tables, fire rings, and highline posts. Road dead-ends at the river access past the horse camp. Common take-out for the 6-mile float from Slabtown.",
+      "road_access": "From Licking, take Hwy 32 west 4 miles to Hwy N, turn right on Hwy N and go 2 miles to Hwy AF, turn left onto Hwy AF and travel 5 miles to Slabtown Road, continue straight past the asphalt for 1.5 miles. Road dead-ends at the river."
+    },
+    {
+      "id": "9bcba0fa-a260-4b4c-9e4e-3423391607d2",
+      "slug": "cane-bluff",
+      "description": "The first public access below Thomasville. The towering 250-foot Cane Bluff directly across the river is the landmark here. A rock slide in 1991 scarred the bluff face, adding to the dramatic scenery. This works as a takeout for the 9.3-mile Thomasville run or as a put-in for the 7.3-mile float to Greer Crossing. The river between Cane Bluff and Greer is still in the warm-water section — good smallmouth and goggle-eye fishing with moderate current.",
+      "facilities": "Vault toilet. No water, no camping, no trash service — pack in/pack out."
+    },
+    {
+      "id": "9c297aae-cc0e-439c-81b5-55a81192f2d2",
+      "slug": "chesmond-ferry-access",
+      "parking_info": "Paved parking; AGFC funded chip sealing of the access road and parking area through the Marine Fuel Tax program in 2022. AGFC rules prohibit storing vehicles or boats at the access."
+    },
+    {
+      "id": "9c3345bc-a8d2-4b3c-a673-bed32ae53859",
+      "slug": "mdc-south-prong-access",
+      "description": "This is mile zero - the technical start of the Jacks Fork where the North and South Prongs meet. Floating from here requires high water (typically March-May only) and is only recommended for experienced paddlers. The river here is very narrow, shallow, and prone to strainers and deadfall at bends. In normal or low water, you'll be walking more than floating. Most floaters skip this and start at Buck Hollow, 6.8 miles downstream. If you do launch here, expect Class I-II water with a steep gradient of ~9 ft/mile and absolutely no services until Buck Hollow."
+    },
+    {
+      "id": "9c468fab-f2d5-450e-9efa-2eccc726df28",
+      "slug": "schlicht-springs-access",
+      "description": "MDC access at Schlicht Spring on the Moccasin Bend/Narrows reach (chart mile 106.1), just below the old grist mill spring branch. Sits inside the documented losing reach - in low water the river can nearly disappear just upstream, so check flows before putting in here.",
+      "parking_info": "Two paved parking areas, one ADA (MDC GIS)."
+    },
+    {
+      "id": "9c7aa920-ef91-4383-889e-33d799deb4b1",
+      "slug": "two-rivers",
+      "description": "Two Rivers is where the Jacks Fork River flows into the Current, nearly doubling its size. This is a major landmark on the river and a natural transition point - above here is the quieter upper Current; below, the river is bigger, deeper, and you'll see increasing motorized boat traffic heading toward Van Buren. The NPS operates a campground here with full amenities. Two Rivers Canoe Rental operates from this location. This is also where most multi-day upper river trips end. The widened river below Two Rivers is popular with jon boats and jet boats, especially on weekends."
+    },
+    {
+      "id": "9d46017a-2d94-4a30-8507-490f79554cfe",
+      "slug": "campbell-bridge",
+      "facilities": "MDC boat and fishing access. No specific restroom information — may have portable or vault toilet seasonally. No water, no trash service.",
+      "parking_info": "Paved parking area — described as having lots of paved surface. Space for approximately 15 vehicles. Likely trailer-friendly based on paved surface."
+    },
+    {
+      "id": "a0ce5469-7e0b-4cb3-a228-004138fcaef7",
+      "slug": "jerktail-landing",
+      "description": "Jerktail Landing is a backcountry access point between Round Spring and Two Rivers. It's significantly less developed and less used than the major upper river access points, making it a good choice for floaters looking for solitude. This is remote Ozark wilderness - expect gravel roads and minimal facilities. The landing serves primarily as a put-in or take-out for multi-day trips or for paddlers wanting to shorten the long Round Spring to Two Rivers run."
+    },
+    {
+      "id": "a238eae3-7e48-4596-87bf-6f2fc4fb0a6d",
+      "slug": "rockhouse-access",
+      "parking_info": "Dirt lot (AGFC)."
+    },
+    {
+      "id": "a25c5f74-c529-425e-aa3e-5a8c0cad6329",
+      "slug": "pecks-last-resort",
+      "description": "Family-owned private campground and canoe outfitter on the Big Piney River near Duke, MO. Formerly known as Rich's Last Resort. Offers camping, cabins, canoe/kayak/raft rentals, and shuttle service. Beautiful Missouri Ozark landscape. Note: cell service drops out about 20 minutes before arriving."
+    },
+    {
+      "id": "a26fe9b9-3c1f-469c-8abb-db55a7175932",
+      "slug": "hwy-h-bridge",
+      "description": "Route H highway bridge over the Bourbeuse at mile 31.1, the only mapped crossing in the 17-mile gap between Tea Access and Mill Rock Access. Listed in the Hawksley/floatmissouri chart as an access, with the caveat 'poor access'. Roadside right-of-way only; no facilities.",
+      "facilities": "None. Undeveloped state-highway bridge; the Hawksley/floatmissouri chart rates it 'poor access'."
+    },
+    {
+      "id": "a36db353-359e-447d-abb4-218a7e0913fa",
+      "slug": "compton-recreation-area",
+      "description": "True backcountry access spot for camping, fishing, and launching — very little infrastructure. Best for experienced users comfortable with primitive conditions.",
+      "road_access": "Access via Forest Road 3144 off State Highway C near Doniphan — it’s a long, gravel forest road that may include a creek crossing and steep sections near the river, not ideal for low-clearance vehicles."
+    },
+    {
+      "id": "a415033b-45c0-4ede-a57c-a2b697103af2",
+      "slug": "carver",
+      "facilities": "8 tent-only campsites with vault toilet and seasonal drinking water; no flush restrooms or showers. Gravel launch; popular swimming and fishing area where Big Creek enters the Buffalo."
+    },
+    {
+      "id": "a44cda39-f538-4311-a49d-9e936cb9a0e0",
+      "slug": "paydown-access",
+      "description": "MDC access at Paydown Spring (chart mile 187.6), site of former mills. Agnew's guide treats Paydown as the gateway to the last ~80 miles of the lower river.",
+      "parking_info": "Two paved parking areas (MDC GIS)."
+    },
+    {
+      "id": "a459f333-9784-4bde-a23a-2f5d9d1a81a7",
+      "slug": "eminence-city-access",
+      "description": "Eminence is the hub of the Jacks Fork and your last chance for real civilization until the river meets the Current. It's the takeout for the Alley Spring to Eminence float (6.3 mi) and the put-in for the gentle Eminence to Two Rivers run (7.3 mi) that ends at the Current River confluence. The stretch below Eminence is noticeably calmer - Class I water, wider channels, and more gravel bars. This is the most accessible point on the river for day-trippers: paved roads, nearby food and gas, and multiple outfitters within walking distance. Cell service is spotty but available in town. If you're resupplying mid-trip, this is the place.",
+      "facilities": "Eminence is a full-service town. Gas, restaurants, stores, outfitters (Harvey's, Windy's, Jacks Fork Canoe Rental), lodging. Jacks Fork Campground (NPS) at mile 38.1 offers electric sites for RVs.",
+      "parking_info": "Town access with multiple parking options. NPS access at Buttin Rock on river right just upstream of the Hwy 19 bridge. Additional parking at Joshua T. Chilton Memorial Landing (mile 37.6) and Jacks Fork Campground (mile 38.1). Combined capacity 30+ vehicles.",
+      "road_access": "Fully paved via State Highway 19 in downtown Eminence. The town sits at the intersection of Hwy 19 and Hwy 106. From the north: Hwy 19 south from Winona (12 miles). From the south: Hwy 19 north from Alton."
+    },
+    {
+      "id": "a4f6574a-1eba-4349-8dee-162a4fdaddbc",
+      "slug": "riddle-bridge-access",
+      "description": "MDC concrete-ramp access at the Route Y bridge north of St. Robert (chart mile 129.9). BSC Outdoors uses it as the put-in for its 14-mile float down to Boiling Spring, corroborating the mileage.",
+      "parking_info": "Paved parking area (MDC GIS)."
+    },
+    {
+      "id": "a50489c1-941f-4289-a5d6-75850fe6920c",
+      "slug": "echo-bluff-state-park",
+      "description": "Missouri's newest state park (2016), on Sinking Creek about two-thirds of a mile off the Current River. Betty Lea Lodge, cabins, Timbuktu Campground, a dining hall and a pool, with trails along the creek. It is a base camp rather than a launch — float parties staying here put in at Sinking Creek Campground, 0.8 mi south-west, or Round Spring, 2 mi due south on Hwy 19, or drive south to the Jacks Fork at Alley Spring.",
+      "local_tips": "<p><strong>This is a base, not a put-in.</strong> Echo Bluff sits on Sinking Creek, about two-thirds of a mile up from where it meets the Current — there is no float access from the park itself. The nearest launches are Sinking Creek Campground, 0.8 mi south-west, and Round Spring, 2 mi due south on Hwy 19; both are on the Current and both are in the planner.</p><p>It is also within reach of the Jacks Fork if you do not mind driving: Alley Spring is about 11 miles south. The park is listed under the Current, which is the river it is actually on.</p>"
+    },
+    {
+      "id": "a5175d00-0660-4187-b36c-f70c343a1ed8",
+      "slug": "dr-henry-a-and-amalia-uhlemeyer-mdc-access",
+      "description": "12.3-acre MDC access on the lowest Bourbeuse beneath the I-44/Historic Route 66 crossings east of Union. ADA boat ramp, privy and paved lot make it the best-equipped access on the river. Last easy access before Chouteau Claim at the Meramec confluence, 5.3 miles downstream.",
+      "parking_info": "Paved ADA parking lot (MDC GIS)."
+    },
+    {
+      "id": "a8c13106-c589-42f9-a919-242cb63784bd",
+      "slug": "highway-14-bridge-twin-bridges-over-north-fork",
+      "description": "This is the PUBLIC Hwy 14 bridge coordinate. The private Twin Bridges Canoe & Campground resort sits at this crossing and is handled separately as a service. 'Twin Bridges' = the two adjacent Hwy 14 bridges (North Fork + Spring Creek)."
+    },
+    {
+      "id": "a91dbfea-0acf-4c0b-9167-2e838272b644",
+      "slug": "boiling-spring",
+      "description": "MDC access at mile 25.8 with concrete boat ramp and picnic area. Famous for Boiling Spring — a massive spring at river level pumping roughly 10 million gallons per day at a constant 50 degrees F. Classic swimming hole and rope swing at the spring pool. Common take-out for the popular Sandy Shoals to Boiling Spring day float. Also serves as a put-in for floats downstream toward Mason Bridge and Slabtown. The Resort at Boiling Springs (private campground/RV park with cabins, canoe rentals, and shuttle) is adjacent."
+    },
+    {
+      "id": "a9fe963d-f9ca-4496-a808-11c0d3768335",
+      "slug": "mill-rock-mdc-access",
+      "description": "10.1-acre MDC access on the middle Bourbeuse in Franklin County, reached from Sullivan via Highway 185, Route H and Mill Rock Road. Ramp launch on a scenic reach known for smallmouth, sunfish and catfish. Standard pairing: Tea to Mill Rock (~17 mi) or Mill Rock to Wenkel Ford (~7 mi).",
+      "facilities": "Boat/canoe ramp (in MDC's statewide ramp inventory; OSM also maps a drive-down ford track beside it). Paved lot. No restrooms. Camping prohibited.",
+      "parking_info": "Paved parking lot near the ramp (MDC GIS)."
+    },
+    {
+      "id": "aa4a08d5-cb7a-4ff7-a5f8-ae4648ba62ce",
+      "slug": "buffalo-point",
+      "description": "The lower river's developed hub — full-amenity campground, ranger station, and Indian Rockhouse trails — 1.4 miles below Dillards Ferry. NPS currently recommends launching/taking out at Dillards Ferry instead because the Buffalo Point launch road is closed and the bank is a steep gravel-bar carry.",
+      "facilities": "Largest developed campground on the river: 80+ drive-in sites with water and 30/50-amp electric hookups, 21 walk-in tent sites, 5 group sites, 3 pavilions; hot showers, flush restrooms, seasonal dump station; ranger station and cabins/restaurant concession nearby. River launch is currently a gravel-bar carry (no usable ramp while the launch road is closed).",
+      "road_access": "Via paved AR 268 off AR 14, about 3 miles to the developed area (ranger station). The road down to the river launch is CLOSED — boats and gear must be carried across a steep gravel bar between the river and the parking lot."
+    },
+    {
+      "id": "aa807908-2eef-4f46-968b-8de8b8efb99d",
+      "slug": "riverton",
+      "description": "Riverton is the second-most important access on the Eleven Point, and the easiest to reach. Sitting right on Hwy 160 with a paved lot and outfitter services, it's the takeout for the popular Greer to Riverton 2-day float (19 mi) and the Whitten to Riverton day float (8 mi). It's also the put-in for the 8.7-mile run down to The Narrows (Hwy 142), the final float on the scenic river. Hufstedler's outfitter is right at the bridge and handles rentals and shuttles. Below Riverton, the river valley widens. At mile 33.4 (Boze Mill Spring), the valley opens noticeably. Morgan Spring Float Camp sits 7.7 miles downstream, and the dramatic Narrows area features the ridge between the Eleven Point and Frederick Creek - only 30 feet wide at the overlook. No camping at the Riverton access itself, but Hufstedler's has cabin and campsite options.",
+      "facilities": "Accessible restroom (vault toilet). Boat ramp. This is the main landing side. No camping allowed. Hufstedler's Camp, Canoe Rental and Store is located at the Riverton bridge - canoe, kayak, raft, paddleboard, and tube rentals; cabins (1-3 bedroom); hot showers; free firewood; store.",
+      "parking_info": "USFS lot on river left, just upstream of the Hwy 160 bridge. Paved. Good capacity - this is a major landing/launch area. Additional overflow parking nearby."
+    },
+    {
+      "id": "abaa410e-3fa6-4674-a0b2-ad92e2ee62fc",
+      "slug": "gooseneck-campground",
+      "description": "Gooseneck is a Forest Service campground on river right, accessed via Farm Road 3142/County Road C10 off Hwy C. Named for the dramatic river bend in this area, it marks the transition into the remote lower Current. Below Gooseneck, the river enters increasingly wild and sparsely accessed territory heading toward Doniphan. This area is popular with fishing-focused floaters and those seeking solitude on multi-day trips. The stretch from Big Spring to Gooseneck passes several smaller springs and bluffs."
+    },
+    {
+      "id": "afbfff24-1333-4e01-8869-470502af817c",
+      "slug": "mason-bridge",
+      "description": "MDC access at mile 31.8. 7-acre area with concrete boat ramp providing public access to the Big Piney River for canoeing and fishing. Located on Mason Bridge Road. Good bass and sunfish fishing. The river is getting wider and deeper through this section. About 8 miles downstream from Boiling Spring and 8 miles upstream from Slabtown."
+    },
+    {
+      "id": "b11ee120-5f1c-41c4-a7c9-6cccfa6a7064",
+      "slug": "hardy-beach-access",
+      "parking_info": "Gravel lot (AGFC)."
+    },
+    {
+      "id": "b129bfcb-371b-46e5-b99c-50c4210c946b",
+      "slug": "wilbur-allen",
+      "parking_info": "Two gravel parking areas (MDC GIS), one at the ramp/camping area."
+    },
+    {
+      "id": "b22a15eb-560e-4840-bdc1-5cd72c20c3a1",
+      "slug": "riverview-public-access",
+      "facilities": "MDC boat ramp — gravel surface, suitable for small boats and canoes/kayaks. No restrooms. No water, no trash service — pack in, pack out."
+    },
+    {
+      "id": "b3a63581-c931-4eaa-8681-6ed43c76232f",
+      "slug": "montauk-state-park",
+      "description": "The first put-in on the Current River, at the headwaters where Montauk Spring rises. The park is the launch and the base camp both: campground, cabins, lodge and dining are all here. Below the hatchery this is Missouri Blue Ribbon trout water — a trout permit is required, and the stretch down to Cedargrove is fly-and-artificial-only. Tan Vat (mile 0.9) and Baptist Camp (mile 2.1) are the next accesses downstream.",
+      "fee_notes": "No launch fee. Camping, cabins, lodge rooms and dining are paid — see mostateparks.com for current rates. A Missouri trout permit is required to fish."
+    },
+    {
+      "id": "b43f2f81-ab3a-4091-aa5a-bc2e560fac8a",
+      "slug": "old-quaker-mill",
+      "facilities": "historic mill site; river braids/rejoins here — ownership unverified"
+    },
+    {
+      "id": "b5f6033a-6483-4825-a579-6bdd32be3bdd",
+      "slug": "war-eagle-creek-walk-in-access-chicken-house-access",
+      "facilities": "AGFC walk-in access on War Eagle Creek between Withrow Springs (Hwy 23) and the Hwy 45 bridge; locally called the 'Chicken House Access'. From AGFC 'Public Use Facilities' layer (AGFC-owned)."
+    },
+    {
+      "id": "b686e061-6da1-4627-97f7-7910c5a20f5c",
+      "slug": "sinking-creek-campground",
+      "description": "This is one of the most popular swimming and camping spots in the entire Ozark National Scenic Riverways. The large gravel bar at the confluence attracts summer crowds who wade in both the warm Sinking Creek water and the cooler spring-fed Current River. In 2011, the NPS placed boulders to block vehicle access to the gravel bar and restricted camping to the 8 designated sites — a controversial move that ended decades of informal gravel bar camping. Canoes, kayaks, and tubes can still be launched here, but must be hand-carried from the parking area. This is the standard put-in for the short 1.5-mile float downstream to Round Spring (about 45 minutes to 1 hour by tube, great for families). It also works as a takeout for anyone floating the 9-mile Pulltite → Round Spring stretch on the Current who wants to pull off early. Round Spring campground and the Hwy 19 bridge are just 1.5 miles downstream.",
+      "facilities": "NPS backcountry campground: 8 designated campsites, each with picnic table, fire ring grill, and lantern post. Vault toilet. $10/night per site (as of 2022). No reservations — first-come, first-served. Stays limited to 14 days, max 6 people, 2 tents, and 2 vehicles per site. No water, no trash service — pack in/pack out. A general store with supplies, beverages, and hot showers has historically operated nearby (verify current status). Large gravel bar for swimming and sunbathing where Sinking Creek meets the Current River.",
+      "parking_info": "NPS gravel parking area with two designated lots totaling approximately 20 spaces (10 standard + 2 at the restroom). Boulders block vehicle access to the gravel bar — boats must be carried from parking to the water.",
+      "road_access": "Off Highway 19, approximately 1.5 miles south of the Round Spring bridge. Watch for the turnoff on the east side of Highway 19 — it’s easy to miss. A short gravel road leads down to the campground. The turn comes shortly after crossing the Sinking Creek bridge on Highway 19."
+    },
+    {
+      "id": "be632e91-1826-4bea-8ff3-d6768e82c66b",
+      "slug": "fredericksburg-ferry-access",
+      "parking_info": "Gravel parking area (MDC GIS)."
+    },
+    {
+      "id": "c1510487-ce21-4187-a308-0e5d8de995b6",
+      "slug": "onondaga-cave-state-park",
+      "description": "State park renowned for Onondaga Cave, a National Natural Landmark with spectacular cave formations. The river landing is at the Hwy H bridge on the northeast corner. A concrete boat ramp sits upstream of the bridge on the west side, and a canoe launch is downstream in the picnic grounds. 1,317 acres with campground, trails, and cave tours.",
+      "facilities": "Concrete boat ramp upstream of bridge (west side) and separate canoe launch downstream in picnic grounds. 19 basic + 45 premium (electric/water) + 3 accessible campsites. Shower houses with hot water near campsites (seasonal April–October). Laundry facility. RV dump station. Fire rings, picnic tables, lantern hangers. Playground, amphitheater. Vault toilets at day-use areas. 6 miles of trails. Cave tours: Onondaga Cave ($15 adults, $9 ages 6–12) and Cathedral Cave ($20 adults, $12 ages 6–12). Visitor center with gift shop.",
+      "parking_info": "Paved parking near visitor center and day-use areas. Two overflow lots near the campsite area. Short walk to canoe launch from day-use parking. Trailer access at the boat ramp parking area.",
+      "road_access": "From I-44 exit 214 (Leasburg), take Hwy H south approximately 7 miles through Leasburg. Paved road throughout. The state river landing is on the northeast corner of the Hwy H bridge. Address: 7556 Hwy H, Leasburg, MO 65535.",
+      "local_tips": "<p><strong>Two launch areas:</strong> The concrete boat ramp (upstream, west side of bridge) works well for motorized boats and trailer launches. For canoes/kayaks, the picnic grounds launch (downstream of bridge) is easier with a gentle slope.</p><p><strong>Cave tours:</strong> Worth the stop — Onondaga Cave is one of Missouri's most beautiful show caves.</p>"
+    },
+    {
+      "id": "c38afeed-fca2-4a8b-9112-c5e138840000",
+      "slug": "cedargrove",
+      "description": "Cedargrove is a primitive backcountry campground managed by the National Park Service, sitting at a low-water bridge crossing. This is the take-out for the Baptist Camp day float and put-in for the popular Cedargrove to Akers section. The low-water bridge is a notable feature - at normal levels you'll need to portage your boat across the road. About 12-15 primitive campsites sit along the river, first-come first-served. There's a small country store and Jadwin Canoe Rental about a mile up Hwy ZZ at the junction with Hwy K. The NPS charges a nightly camping fee ($10/night as of recent years). Outhouses are the only facilities."
+    },
+    {
+      "id": "c464cd1a-4348-4a92-8904-7aeaee7f0757",
+      "slug": "mitschele-access",
+      "parking_info": "Paved parking area (MDC GIS)."
+    },
+    {
+      "id": "c5337faa-c879-409f-90b5-d3b12cae270a",
+      "slug": "denny-hollow-float-camp",
+      "description": "Primitive float camp on the left bank at mile 6.5, in the warm-water upper section between Thomasville and Cane Bluff. River access only — no road access. Near Blowing Spring (mile 6.1) and Roaring Spring."
+    },
+    {
+      "id": "c63e459b-dd4d-4bb8-9874-e57fa4029b0e",
+      "slug": "spanish-claim-access",
+      "description": "Remote MDC access within the Meramec Conservation Area at approximately mile 92. Carry-in access only — no boat ramp. A trail of approximately 100–200 yards leads through woods and across a large gravel bar to the river. An old concrete silo marks the parking area. Part of the 3,938-acre Meramec Conservation Area.",
+      "facilities": "Carry-in access only. No boat ramp. Trail (100–200 yards) through woods to gravel bar and river — has been cleared and widened in recent years. No restrooms at this specific access point. The broader Meramec Conservation Area offers 10.5 miles of multi-use trails, paved ADA walking path, horseback riding, and 6 caves.",
+      "parking_info": "Gravel parking lot — has been upgraded from formerly muddy conditions. An old concrete silo marks the location. Boats must be carried approximately 100–200 yards to the river, making trailer access impractical.",
+      "road_access": "From I-44 near Sullivan, take Hwy 185 south approximately 5 miles past the Meramec Work Station. Turn left onto Rt. K, follow 1.4 miles, turn left onto Spanish Claim Road (gravel). Follow approximately 4.5 miles to the dead-end parking area. Road is entirely gravel and is not well-marked on maps. Remote location."
+    },
+    {
+      "id": "c78c5bc5-d990-448d-b6ae-231dc87db8b8",
+      "slug": "round-spring",
+      "description": "Round Spring is a full-service NPS campground and a natural dividing line on the Current River - above here is the quieter upper river; below, you begin to see more jon boats and motorized traffic toward Two Rivers. The campground is one of the best-equipped on the entire river system with electric hookups (50-amp), a dump station, flush toilets and showers (seasonal), paved roads and sites, and a ranger station. The namesake Round Spring is a stunning collapsed cavern with turquoise water - a short trail from the parking lot leads you there. Ranger-guided cave tours of Round Spring Cave are offered daily in summer. Wild horses are sometimes spotted in the adjacent fields.",
+      "facilities": "NPS campground with ~60 sites including electric hookups (50-amp). Flush toilets and showers (April 15-Oct 15). Dump station. Ranger station. Picnic areas. Cave tours. Canoe rental (Carr's Canoe Rental) nearby."
+    },
+    {
+      "id": "c97788e8-4291-4822-8a6c-dff879496aac",
+      "slug": "chouteau-claim-mdc-access",
+      "facilities": "Concrete boat ramp at the Bourbeuse-Meramec confluence (MDC ramp inventory; OSM surface=concrete). No restrooms. Camping prohibited.",
+      "parking_info": "Two lots at the ramp: paved, plus a gravel ADA lot (MDC GIS)."
+    },
+    {
+      "id": "cb890706-c6ca-434d-924c-45f58a2da529",
+      "slug": "river-round-conservation-area",
+      "parking_info": "Large parking lot in good condition. Trailer access confirmed — boat ramp present. Gravel surface."
+    },
+    {
+      "id": "d3a3551e-f91f-45eb-b5e0-960f7c214734",
+      "slug": "shelvin-rock-access",
+      "parking_info": "2 paved lots (MDC)."
+    },
+    {
+      "id": "d5e38e69-94b8-4fae-a406-24b62d29f893",
+      "slug": "bootleg-access",
+      "facilities": "Primitive MDC canoe/kayak access, primitive camping (Sep 15-May 15), hiking loop; no concrete ramp. Washington County. Coord = MDC GIS Entry Point (road/parking); Big River channel ~450 m E (~37.8156,-90.7646)."
+    },
+    {
+      "id": "d5e74a70-0775-427c-8563-afbb94661c8b",
+      "slug": "gar-hole-road-low-water-crossing-the-slab",
+      "facilities": "Low-water slab crossing where Gar Hole Rd (runs off AR-12 near Lookout) meets War Eagle Creek, between the Hwy 45 bridge and War Eagle Mill (~4.6 creek mi above the mill); used to split the lower float. Channel point projected from the OSM Gar Hole Rd terminus (36.23554,-93.90432, ~73 m to mapped channel)."
+    },
+    {
+      "id": "d64ed019-7c5f-4c66-8fb1-3bba4e70ffd5",
+      "slug": "highway-v-bridge",
+      "facilities": "No public facilities at the bridge itself. Private campground and access adjacent — ask locally for availability.",
+      "parking_info": "Roadside pull-off parking near bridge. Limited space — fits approximately 5 vehicles."
+    },
+    {
+      "id": "d658aa48-f902-46cb-95fb-48e3cd3f77e4",
+      "slug": "blue-springs-creek-conservation-area",
+      "description": "MDC conservation area at mile 78.6 in Crawford County. 859-acre area managed primarily for rainbow trout fishing on Blue Springs Creek, which enters the Meramec here. The old low-water bridge has been removed but pilings remain. Carry-in access only — fair for canoes and kayaks. No formal boat ramp.",
+      "facilities": "Carry-in access only — old low-water bridge removed, pilings remain. No formal boat ramp. No restrooms at river access. 859-acre area managed for trout fishing. Hunting and fishing permitted per regulations.",
+      "parking_info": "Three parking areas in the conservation area, off Route N and Blue Springs Road. Gravel surface. Space for approximately 10 vehicles total.",
+      "local_tips": "<p><strong>Carry-in only:</strong> The old low-water bridge has been removed. Pilings remain and can be a hazard at certain water levels. This is best used as a fishing access rather than a float trip access due to the carry-in difficulty. Rainbow trout fishing on Blue Springs Creek is the main attraction.</p>"
+    },
+    {
+      "id": "d6f4dd9f-216b-41ad-9363-a935b60c66b1",
+      "slug": "gilbert",
+      "facilities": "Gravel-bar launch with free primitive camping downstream of the access road; vault toilet; no water. Gilbert General Store (est. 1901) and a canoe outfitter are in the village a short walk away."
+    },
+    {
+      "id": "d6f8e233-f5ec-42c0-b26b-6dbc5bc5ca9b",
+      "slug": "mammoth-spring-state-park-dam-1",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "da082ee9-07d5-4ae2-a7be-eb45d89fa30a",
+      "slug": "la-russell-access",
+      "parking_info": "Paved lot (MDC)."
+    },
+    {
+      "id": "db54bf93-7b3a-4a2b-b877-8880ec870ebb",
+      "slug": "morgan-spring-float-camp",
+      "description": "Float camp on the right bank at mile 43.3, just past the spring branch inlet from Morgan Spring, 7.7 miles downstream of Riverton. Footpaths lead to Morgan, Sullivan, Jones, and Blue Springs — deep blue, mineral-rich springs adding 140 million gallons of 58-degree water to the river daily. A short drive from the Hwy 142 parking area provides hiking access to Morgan Spring."
+    },
+    {
+      "id": "dbe5204e-d5cd-40c1-8c3c-4bcf63acc7e7",
+      "slug": "salvation-army-camp",
+      "description": "A minor access point primarily useful as an intermediate stop between Buck Hollow and Rymers. The scenery here is stunning - you're deep in the valley with towering bluffs. Blue Spring access is just 0.4 miles downstream at mile 9.6 and is the better stop if you're looking to explore. Bluff View works as an emergency takeout or for paddlers who want a shorter 2.4-mile run from Buck Hollow, but most floaters blow right past it."
+    },
+    {
+      "id": "dcc34976-c989-44c2-8eb0-9bbe13f70300",
+      "slug": "hwy-23-upper-access-near-fish-hatchery-witter",
+      "facilities": "Uppermost AR-23 bridge crossing of War Eagle Creek, ~1 mi W of Witter (ZIP 72776), SE Madison Co; near War Eagle Fish Distributors/Minnow Farm (the 'fish hatchery', 23812 Hwy 23). Head of the ~38-mi Hwy 23-to-War Eagle Mill run per American Whitewater. Informal put-in; a locked gate has been reported. Bridge/channel point is precise (OSM); the minnow-farm landmark itself is not separately geocodable. NOTE alternate: a second AR-23xcreek crossing exists at 36.04215,-93.70427 (~4 mi S of Huntsville) if 'fish hatchery' was meant further north."
+    },
+    {
+      "id": "dda207a5-9d7f-413e-8757-18167b1f981a",
+      "slug": "riverview-ranch",
+      "description": "Private resort on the Meramec River near Campbell Bridge at approximately mile 73.5. Direct riverfront tent camping with fire rings and picnic tables. Canoe, kayak, raft, and tube rentals with 5-mile and 10-mile shuttle floats ending at the ranch. Cabins and RV sites also available. The float trip take-out is at the ranch near Campbell Bridge.",
+      "facilities": "http://www.riverviewranch.org/\nPrivate resort: tent sites (many directly on riverbank with picnic table and fire ring), two large group camping areas (separated for louder parties). RV sites with 30-amp electric hookups. Rustic cabins and bunkhouses (unfurnished — bring own bedding). Flush restrooms with hot showers (low water pressure reported). Swimming pool. Canoe/kayak/raft/tube rentals with shuttle. Quiet hours 11 PM – 7 AM. Pets allowed ($15/pet fee). Open seasonally.",
+      "local_tips": "<p><strong>Private access — fee required.</strong> Riverview Ranch serves as the take-out for 5-mile and 10-mile shuttle floats. Riverfront tent sites are right on the water. Near Campbell Bridge Access (mile 73.7, public). Confirm BYO boat access policy by calling (573) 732-5544.</p><p><strong>Note:</strong> River access quality varies by site — the group camp area has rougher access than the standard riverside tent sites.</p>",
+      "fee_notes": "Access fee required. Rental and camping rates vary — call (573) 732-5544 or (800) 748-8439. Confirm whether BYO boat launch is permitted and any associated fee."
+    },
+    {
+      "id": "de1a8de2-1924-4bb1-aacd-ac6f0ba24d8d",
+      "slug": "bird-s-nest-access",
+      "description": "Access point at mile 50.0 near the Bird's Nest Lodge area. Named for the lodge and campground that has been serving floaters on the Meramec for decades. This is a key mid-river access for the popular Steelville-to-Onondaga corridor. The river is well-established here with good flow and scenic bluffs."
+    },
+    {
+      "id": "df5dceb2-7a77-4b51-8112-586d1ca8a148",
+      "slug": "morse-mill-access",
+      "facilities": "Jefferson County (Morse Mill Park, 6700 Morse Mill Park Rd, Hillsboro): concrete boat ramp (upstream access), primitive camping, restrooms, picnic. HAZARD: Morse Mill Dam ~0.1 mi downstream - portage required. ~RM 52.3. Coord = OSM slipway, corroborated by adjacent Historic Morse Mill Bridge (38.27532,-90.65237)."
+    },
+    {
+      "id": "df95672a-e1c5-47b8-b93e-b52e4598f0bc",
+      "slug": "turner-mill-south",
+      "description": "The more accessible of the two Turner Mill accesses, on the south bank. Turner Mill South is a popular choice for both put-in and takeout. It's the standard takeout for the Greer to Turner Mill float (4.9 mi, a great half-day trout fishing trip through the Blue Ribbon area) and a put-in for the longer Turner Mill to Whitten (6.5 mi) or Turner Mill to Riverton (14 mi) runs. The 5 campsites are rustic but adequate for an overnight along the river. Below Turner Mill, the river enters White Ribbon Trout Area waters with stocked rainbow trout from MDC (March-October). The TripAdvisor-favorite \"Turner's Mill to Riverton\" float (about 14 miles, 6 hrs) passes through increasingly scenic territory with bluffs, float camps, and the Irish Wilderness nearby.",
+      "facilities": "USFS campground: 5 rustic campsites with tables, fire rings, lantern posts. Vault toilet. Single-lane concrete boat launch. No water, no trash service. Dispersed camping in the national forest is also permitted outside designated sites.",
+      "road_access": "From Alton, take Hwy 19 north 1.5 miles, turn right on Hwy AA for 4.8 miles, then left on County Road 127 (becomes FS-3153) for 4.5 miles to the river. Mix of paved and gravel. Less remote than Turner Mill North but still a gravel finish."
+    },
+    {
+      "id": "e029c802-8976-4d16-9721-ab78a77b15ef",
+      "slug": "warren-bridge",
+      "description": "Low-water bridge crossing at mile 33.3. Road connects Hwys FF and H. Excellent swimming hole below the bridge. Informal access — usable as a put-in or take-out but no developed facilities. About 1.5 miles downstream from Mason Bridge.",
+      "facilities": "No facilities. Low-water crossing — may be impassable in high water.",
+      "parking_info": "Roadside pull-off parking. Limited — approximately 5 vehicles."
+    },
+    {
+      "id": "e318f951-6746-4c6d-8714-21c5968ea07a",
+      "slug": "hickory-landing",
+      "parking_info": "There is primitive parking at or very near the landing — essentially a roadside pull-off area where vehicles can park while accessing the river.",
+      "road_access": "No major paved access road directly parallels the river here — this is a backcountry/river access site, not a developed park road."
+    },
+    {
+      "id": "e37843ca-6ddb-4340-9f7d-bc3f24c3fffe",
+      "slug": "rush",
+      "description": "Gateway to the Lower Buffalo Wilderness and the last vehicle access on the Buffalo — the next take-out is 24.2 miles downstream at Buffalo City on the White River. Clabber Creek Shoals, a quarter mile below the landing, is the notable rapid (portage possible on river left).",
+      "facilities": "Rush Landing gravel launch; 12-site tent-only campground just upstream with vault toilet and seasonal water spigot (no launch at the campground itself). Rush Historic District 1880s zinc-mining ghost town adjacent.",
+      "road_access": "From AR 14 near Caney, about 5.5 miles down Rush Road (CR 6035) through the Rush Historic District — asphalt most of the way, gravel on the final stretch to the landing. The campground entrance crosses Rush Creek and may be inaccessible during high water."
+    },
+    {
+      "id": "e3dc7b91-6d06-4102-bd80-99ae16fd4ef1",
+      "slug": "greer-spring",
+      "description": "The hub of the Eleven Point and the river's most important access point. Greer Crossing sits at the Hwy 19 bridge, right where Greer Spring Branch enters the river 0.6 miles upstream. Greer Spring - the 2nd largest in Missouri at 214+ million gallons/day - doubles the size of the river and drops the water temperature dramatically, creating a cold-water fishery that supports trout year-round. The 5.5-mile stretch downstream from here to Turner Mill South is designated Blue Ribbon Trout Area (flies and artificial lures only, 1 trout daily, 18\" minimum). This is the standard put-in for most Eleven Point floats: Greer to Turner Mill (4.9 mi, 2-3 hrs), Greer to Whitten (11 mi, 5-6 hrs), or the popular Greer to Riverton (19 mi, excellent 2-day float or one long day). The campground fills on weekends - arrive Friday afternoon or reserve ahead. Richard's Outfitters operates nearby for canoe/kayak rentals.",
+      "facilities": "USFS campground: 16 single sites ($10/night) and 3 double sites ($15/night), paid at the fee tube. 50% discount with Interagency Senior/Access Pass. Each site has table, fire ring, lantern post. Vault toilet. Seasonal drinking water and trash bins (May 1-Oct 1). Campground host in summer. Single-lane concrete boat ramp. Picnic area with 5 sites, pedestal grills, and drinking water. Greer Spring trailhead parking nearby (0.9-mile hike down to the spring). Greer Mill historic site accessible by short trail. 4-mile hiking trail to McCormack Lake. Ozark Trail passes through.",
+      "parking_info": "Paved USFS parking area with separate lots for the campground, picnic area, and boat ramp. Ample capacity. This is the busiest access on the Eleven Point - arrive early on summer weekends."
+    },
+    {
+      "id": "e56d9c29-51d9-4333-bac0-518f5a179567",
+      "slug": "short-bend",
+      "description": "MDC conservation area access at mile 0.9 on the uppermost floatable reach of the Meramec River. Part of the Short Bend Conservation Area — 1,081 acres of rugged Ozark forest. The Meramec is narrow and intimate here, winding through wooded bluffs. Gravel bar access suitable for canoes and kayaks. This is the uppermost developed put-in on the Meramec.",
+      "facilities": "Undeveloped MDC access. No restrooms, no water, no trash service — pack in, pack out. Gravel bar launch only, no boat ramp. Primitive camping allowed per MDC regulations (Sept 15 – May 15 in conservation areas).",
+      "road_access": "From Salem, take Hwy 19 south, then east on Hwy KK to the conservation area entrance. Last mile is gravel. Remote area — limited cell service."
+    },
+    {
+      "id": "e5de40a4-9d06-49a3-b5dd-28d7dd718252",
+      "slug": "sandy-shoals-ford",
+      "description": "Low-water ford crossing at mile 19.3. Sand Shoals Road connects Hwy E on the east to Hwy AA on the west. Popular put-in for the scenic 6–8 mile float to Boiling Spring — one of the best day trips in Missouri. Up here the river is more like a swift creek with occasional Class II riffles, sheer bluffs rising overhead topped with pine trees. Dense foliage overhangs the channel providing great shade.",
+      "facilities": "No facilities. Low-water ford — may be impassable during high water.",
+      "parking_info": "Roadside pull-off parking near the ford. Limited — approximately 8–10 vehicles."
+    },
+    {
+      "id": "e74aff25-e373-49e6-a9da-1c9aced8b945",
+      "slug": "swinging-bridge-access-caddo-gap",
+      "facilities": "Paved AGFC canoe ramp at the historic Swinging Bridge, Caddo Gap (Montgomery Co) off Manfred Rd; the classic put-in, marked by a green AG&F 'Swinging Bridge' sign. Paved parking. Land acquired 2006 (deed MISCACC-06). AGFC-verified 2012-05-03.",
+      "parking_info": "Paved lot (AGFC)."
+    },
+    {
+      "id": "e7bd83e9-7625-47a7-b10d-0301bf56dbd9",
+      "slug": "mammoth-access",
+      "facilities": "MDC concrete boat ramp, parking. Washington County, off Mammoth Rd (Mammoth Bridge), ~RM 23.3. Coord = MDC GIS Boat Ramps layer, corroborated by USGS 07018000 + station 380722090403501 and OSM slipway.",
+      "parking_info": "Paved lot (MDC)."
+    },
+    {
+      "id": "e9723c31-1dad-4099-a9de-e8b73bf0e697",
+      "slug": "hwy-34-bridge",
+      "facilities": "Undeveloped bridge access; no ramp, toilets or water. USGS gaging station 07037500 (St. Francis River near Patterson, NWS PAZM7) is at this bridge."
+    },
+    {
+      "id": "e9cb63e4-5a59-4088-aeb8-76a3eeb67b2f",
+      "slug": "brazil-low-water-bridge-cr-657",
+      "description": "Low-water bridge on Washington County Road 657 near the community of Brazil. This is the usual head of navigation for Courtois Creek — the practical upstream limit for most float trips. From here to Highway 8 it is mostly shallow, fast water with a few nice pools. The creek is not serviced by outfitters above this point — strictly a do-it-yourself float. The main paddling reach of 21.5 miles begins here.",
+      "road_access": "From Potosi, head south on Hwy P for 14 miles to Hwy C, then west on Hwy C for 4 miles to Hwy Z. Continue northwest on Hwy Z (also called Brazil Rd / Co Rd 657). Low-water bridge is on CR 657. Pavement ends before reaching the bridge — last stretch is gravel. Remote area — no cell service.",
+      "local_tips": "<p><strong>Usual head of navigation.</strong> Check water levels at the USGS gage (07014100) near here before launching. From Brazil to Hwy 8 the gradient is 9.2 ft/mile — fast, shallow water with tight turns. Difficulty is frequently Class II due to sharp turns, obstructions, and narrow channels. Not for beginners in high water. Bring your own shuttle — no outfitter service this far upstream.</p>"
+    },
+    {
+      "id": "ea25d26f-bf9e-4bad-82ac-5db4661d28d4",
+      "slug": "woolum",
+      "description": "Gravel access and free primitive camp at the mouth of Richland Creek, take-out for the Mt. Hersey run and put-in for the 10.9-mile float to Baker Ford. The river below Woolum is a losing stream that can run dry in low water — check Tyler Bend Visitor Center before floating this reach.",
+      "road_access": "7 miles from US 65 at St. Joe — the first 4 miles paved, the last 3 graded gravel. The access is on river left at the Richland Creek confluence; continuing beyond Woolum requires fording Richland Creek (impassable at high water)."
+    },
+    {
+      "id": "ea28759c-829e-44e0-a0a0-269faecb26b0",
+      "slug": "dillards-ferry",
+      "description": "The Highway 14 bridge access, hub of the lower river and reference point for NPS lower-district float levels ('Dillard's Ferry/Highway 14'). Currently the NPS-recommended launch in the Buffalo Point area while the Buffalo Point launch road is closed — Buffalo Point is 1.4 miles downstream, Rush 8.9."
+    },
+    {
+      "id": "ea4d26af-4600-4736-a306-60641df31015",
+      "slug": "highway-76-bridge-upper-put-in",
+      "description": "Bonus/upstream point. Coordinate from OSM only (single source) but unambiguous. This is the northernmost/top crossing near the Willow Springs headwaters."
+    },
+    {
+      "id": "ea64410e-17d3-4713-ae4c-6ea12548c2bb",
+      "slug": "whitehouse-ford",
+      "road_access": "Via County Road 9020 through the cabin community north of Jerome; several approach lanes are mapped private in OSM."
+    },
+    {
+      "id": "ebdcc2af-163f-455d-97c3-5e0ccaf91c1f",
+      "slug": "jerome-access",
+      "parking_info": "Gravel lot; the only Gasconade MDC lot flagged as allowing trailers in MDC GIS."
+    },
+    {
+      "id": "ed61bf47-aaa6-4875-9299-10f9db9d28af",
+      "slug": "sycamore-access",
+      "parking_info": "Paved lot (MDC)."
+    },
+    {
+      "id": "ed85d224-486b-4612-baf6-9649e41aa327",
+      "slug": "meramec-caverns-campground",
+      "description": "Private campground and river access at the famous Meramec Caverns in Stanton at mile 94.3. The LaJolla Natural Park campground sits along the Meramec River with direct launch access. Canoe, kayak, and raft rentals with shuttle — 6-mile and 11-mile float options with shuttle upstream and float back to the caverns. Also home to Missouri's most visited show cave.",
+      "facilities": "LaJolla Natural Park campground: ~40 electric-only sites, ~40 electric/water sites, primitive tent sites. Dump station at entrance (no sewer hookups at sites). Motel rooms also available. Shower houses with restrooms. Concession stand/restaurant, pavilions, playground, barbecue pits. Canoe/kayak/raft rentals via Cavern Canoe and Raft Rental (seasonal, April–September). Zip line, Jesse James Wax Museum, cave tours. One vehicle per campsite; extra vehicles must park in visitor lot.",
+      "road_access": "From I-44, take Exit 230 (Stanton). Follow signs to Meramec Caverns — approximately 3 miles south on Hwy W. Well-signed from the interstate. All paved roads. Address: 1135 Highway W, Stanton, MO 63079.",
+      "local_tips": "<p><strong>Rental-only access — no personal watercraft allowed.</strong> Meramec Caverns does NOT permit BYO canoes, kayaks, or tubes to launch or take out on their property. You must rent from Cavern Canoe and Raft Rental (6-mile and 11-mile float options; shuttle takes you upstream, you float back). For your own boats, use the free MDC Sand Ford Access (mile 95.4) essentially next door off Hwy W.</p><p><strong>Cave tours:</strong> While you're here, Meramec Caverns is worth the visit — one of Missouri's most spectacular show caves.</p>",
+      "fee_notes": "Rental-only river access — personal watercraft (canoes, kayaks, tubes) NOT permitted to launch or take out on the property. Must rent from Cavern Canoe and Raft Rental. For BYO boats, use MDC Sand Ford Access (mile 95.4) next door instead. Campground open April 1 – October 31. Call (573) 468-3166 for reservations."
+    },
+    {
+      "id": "ee8219ed-a039-4a3e-9eee-bea0b66b222d",
+      "slug": "buffalo-city",
+      "description": "The traditional final take-out for the Buffalo, listed at mile 131.4 on the NPS mileage chart but located outside the park at the White River confluence. The last leg is on the White River, whose cold, swift dam-release flows demand caution in small craft; NPS also notes Shipps Ferry, 6 miles further down the White, as an alternative take-out. Boat rentals, camping, and cabins are available in the Buffalo City community.",
+      "facilities": "Concrete public launch ramp on the White River with trailer parking. The take-out for Buffalo floats: paddle past the confluence and about 0.7 mile down the White to the ramp on the left (west) bank. Ramp can flood during high White River releases from Bull Shoals Dam."
+    },
+    {
+      "id": "f1a16481-540d-4773-94b4-302ffe0a8238",
+      "slug": "garrison-s-river-resort",
+      "description": "Full-service private resort on the Meramec River at mile 55.3. One of the larger outfitters on the upper Meramec with 180 campsites and direct riverfront access. Offers canoe, raft, kayak, and tube rentals with shuttle service. Popular take-out for 10-mile floats from Bird's Nest; also serves as put-in for downstream floats toward Onondaga.",
+      "facilities": "https://www.garrisonscampground.com/\nFull-service resort: 180 campsites (tent, RV with full hookups including 30 amp electric, water). Three shower houses with hot showers. Country store with supplies, snacks, firewood. Swimming pool, sand volleyball, basketball court, horseshoe pits. Canoe/kayak/raft/tube rentals with shuttle. Gravel bar river access. Open year-round; floating seasonal.",
+      "local_tips": "<p><strong>Private access — fee required.</strong> Garrison's is a major outfitter with direct river access via a sandy beach/gravel bar. Their 10-mile float puts in at their own campground, 9-mile float from Fishing Springs, and 6-mile float from Bird's Nest. Shuttle departures at 8, 9, 10, 11, 12, and 1 PM. Showers are quarter-operated.</p>"
+    },
+    {
+      "id": "f1a812a0-12a0-4aae-aaa1-30142b889995",
+      "slug": "cook-station",
+      "description": "County road crossing near the Cook Station community on the upper Meramec at mile 8.7. Gravel bar access below a low-water bridge. The river flows through mixed hardwood forest with occasional bluffs. Named for the nearby Cook Station community along the railroad."
+    },
+    {
+      "id": "f1dc959d-53ad-4f4e-bd8f-e828db6b4232",
+      "slug": "withrow-springs-state-park-boating-access-hwy-23-bridge",
+      "facilities": "Traditional float base at the Hwy 23 bridge ~4 mi N of Huntsville. STATUS: SP river access & parking CLOSED for the Hwy 23 bridge replacement (announced 2024); new boat ramp/lot planned post-construction. Park shuttle 479-559-2593. Coord from AGFC 'Public Use Facilities' (designated boating access); OSM AR-23 bridge x channel = 36.15014,-93.73977 (~70 m)."
+    },
+    {
+      "id": "f2abf711-3df1-47da-8528-75c1cccdb120",
+      "slug": "grubb-hollow",
+      "description": "Grubb Hollow Campground is located on the lower Current River, just across the water from Kelley Bluff. This backcountry campground offers 5 campsites right along the riverway in one of the more remote sections of Ozark National Scenic Riverways. While backcountry campgrounds have fewer amenities than developed sites, they offer some of the most beautiful and peaceful locations in the park.",
+      "road_access": "Remote site reached via gravel/county roads off maintained highways (e.g., State Hwy C → Hwy F → County Road F-227 near Eastwood, MO) — the last few miles are unpaved and rough."
+    },
+    {
+      "id": "f3c13225-b22f-4d3e-9bff-0cf84e043d11",
+      "slug": "sappington-bridge",
+      "description": "MDC access at mile 83.2 in Crawford County. 10-acre site with boat and fishing access to the Meramec. The USGS Meramec River gauge is located here — useful for checking water levels before floating. Convenient access between the Blue Springs Creek area and Meramec State Park.",
+      "local_tips": "<p><strong>USGS gauge:</strong> The Meramec River gauge is located here — check readings before your float at waterdata.usgs.gov. This is the most reliable water level reference for planning Meramec floats in this corridor.</p>"
+    },
+    {
+      "id": "f3c7efb9-1f36-4dad-8136-80f710ef7865",
+      "slug": "moon-valley",
+      "parking_info": "Paved lot (MDC)."
+    },
+    {
+      "id": "f3c9428e-33ab-4c43-87bc-be449600ddd8",
+      "slug": "whitten-access",
+      "description": "Popular midpoint access on the Eleven Point. Standard put-in for the Whitten to Riverton day float (8 miles, 4-5 hrs) — one of the most recommended floats on the river. Also the takeout for the Greer to Whitten run (11 mi, 5-6 hrs). White Ribbon Trout Area with stocked rainbow trout plus good smallmouth. Between Whitten and Riverton, the river passes Whites Creek, Greenbriar, and Boze Mill float camps — all primitive camps for overnighting.",
+      "road_access": "From Alton, take Hwy 19 north 1.5 miles, right on Hwy AA for 9 miles, then left on Whitten Church Road (FR-4144 / County Road 137) for 2.2 miles. Mix of paved and gravel with a steep descent to the river."
+    },
+    {
+      "id": "f6e3a5cf-cd1b-4417-9123-40416f7df8aa",
+      "slug": "turner-s-mill-and-spring",
+      "road_access": "Remote. From Winona, take Hwy 19 south 11.5 miles, turn right on NF-3152 for 6 miles, then right on NF-3190, which dead-ends at the river. All gravel for the last ~6 miles. High-clearance vehicle recommended after rain."
+    },
+    {
+      "id": "f7f2a743-7e55-449e-916d-bcfe4280f803",
+      "slug": "blunt-low-water-bridge-cr-544",
+      "description": "Low-water bridge on Crawford County Road 544 at the community of Blunt. Mid-river access point that allows you to cut the 13-mile Berryman-to-Bass float in half — approximately 4.6 miles from Hwy 8 bridge, and 3.9 miles to Butts LWB. Private camping and parking reported nearby. Often referenced by floaters as \"Blunt's Bridge.\" FloatMissouri lists this at approximately mile 11.5 in their system.",
+      "facilities": "No public facilities. Undeveloped bridge access. Private camping reported adjacent — check locally for availability and fees.",
+      "parking_info": "Small gravel pull-off near the low-water bridge. Space for approximately 5 vehicles. Private parking may be available nearby — ask locally.",
+      "road_access": "Crawford County Road 544. From Hwy 8 near Berryman, head north on local county roads. Gravel road, maintained. Specific route varies — check local maps or GPS. High-clearance vehicle recommended after rain.",
+      "local_tips": "<p>Good mid-trip access for splitting the Berryman-to-Bass float. The low-water bridge may be impassable by vehicle during high water. Portage required over the bridge at normal water levels. Private land on both sides — stay near the bridge and on gravel bars.</p>"
+    },
+    {
+      "id": "f830f03e-44f3-44de-82ae-a160ac732187",
+      "slug": "hootentown-access",
+      "parking_info": "Paved lot (MDC)."
+    },
+    {
+      "id": "f93d056b-a786-4b91-b617-c5d3f1d2ffdf",
+      "slug": "the-narrows-highway-142",
+      "description": "The last access on the Eleven Point National Scenic River. The Narrows gets its name from the dramatic geological feature: a narrow ridge of land (only ~30 feet wide at the overlook) separates the Eleven Point from Frederick Creek. Sullivan, Jones, and Blue Springs enter from the right at mile 44.0 against the steep bluff. A foot trail leads to an overlook at the top. Standard takeout for the Riverton to Narrows float (8.7 mi, 4-5 hrs). Below the Hwy 142 bridge, the Wild and Scenic designation ends."
+    },
+    {
+      "id": "fa67b005-05b1-4757-a430-e920070a0242",
+      "slug": "big-spring",
+      "description": "Big Spring is one of the crown jewels of Missouri - one of the largest freshwater springs in North America, producing an average of 276 million gallons of water per day. The spring emerges from a massive cave opening at the base of a dolomite bluff, creating an awe-inspiring turquoise pool. The NPS operates a full-service campground here with paved sites, electric hookups, flush toilets, showers, picnic pavilions, and hiking trails. A 1.8-mile loop trail takes you above the spring with panoramic views. The campground is beautifully maintained with spacious sites. Historic CCC-era cabins on the property are being renovated. The spring itself is very accessible - you can drive right to it with ample parking including handicap spots.",
+      "facilities": "Full-service NPS campground with electric and non-electric sites. Flush toilets, showers, picnic pavilions (recently rebuilt). Paved roads and sites. Hiking trails. Self-serve pay station. No on-site store - bring supplies from Van Buren."
+    },
+    {
+      "id": "fab05658-e4ef-46eb-8bed-f8964571095e",
+      "slug": "cedar-hill-access",
+      "facilities": "Jefferson County (Cedar Hill Park, 6801 Cedar Hill Rd): Big River access, picnic, restrooms. HAZARD: Cedar Hill Dam ruins immediately adjacent. ~RM 63.2. Coord = OSM slipway, corroborated by USGS 'Big River at Cedar Hill' (38.34990,-90.64444) and OSM Cedar Hill dam ruins (38.34992,-90.64405)."
+    },
+    {
+      "id": "fcda788f-7be3-4daa-a9e0-0329254b9d1c",
+      "slug": "millstream-gardens-fishermans-access",
+      "description": "The upstream (western) river access in Millstream Gardens Conservation Area, used as the take-out for the Class I-II 'Upper St. Francis' run from Roselle and as a fishing access on the pool above the shut-ins. About half a mile upstream of the whitewater put-in."
+    },
+    {
+      "id": "fe42a39c-7647-4b7d-91a4-f016d1214e36",
+      "slug": "ha-ha-tonka-state-park",
+      "description": "Free carry-in kayak access at the spring, the Lake of the Ozarks/Big Niangua River Trail terminus and 13.3 miles downstream of Whistle Bridge. The park provides stone kayak-launch steps and a launch rail, not a boat ramp; the first portion upstream is lake paddling. The castle ruins, spring and geology are the park's draw."
+    },
+    {
+      "id": "feebd145-bc1c-498e-8da2-184d768827f0",
+      "slug": "lake-creek",
+      "description": "COE recreation area on the right bank of the St. Francis River at the head of Wappapello Lake, the standard last take-out below Sam A. Baker before the lake. Boat ramp with courtesy dock in the day-use area plus a large full-hookup campground on the Old Greenville townsite. Big Lake Creek enters on river-right just upstream (the old float charts' 'Lake Creek, campground' point at mile 76.4).",
+      "facilities": "US Army Corps of Engineers campground (106 full-hookup sites, showers, renovated 2019) with a day-use area: boat ramp with courtesy dock, 14 picnic sites, shelter, playground. Staffed April-November; built on the Old Greenville townsite.",
+      "parking_info": "Paved day-use parking beside the ramp (OSM-mapped lot adjacent).",
+      "fee_notes": "A fee/day-use pass is required to use the boat ramp (Greenville Recreation Area Day Use Pass via Recreation.gov); amount not verified. Camping fees via Recreation.gov."
+    }
+  ]
+}

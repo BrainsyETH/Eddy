@@ -64,4 +64,23 @@ write is compare-and-set on the original text and read back.
 The apply rules now refuse em dashes and research-note patterns in these six
 fields (`isUserText`).
 
-**Status: not yet applied.**
+## Applied (2026-11-01, production `ilefwfpvphadsbptiaur`)
+
+All 426 rows were applied with explicit authorization, across 228 access
+points. Every write was compare-and-set on the original text and read back,
+and a rerun previews 0 pending. Pre-write values are in
+`rollback-copy-2026-11-01.json`.
+
+After the apply, no approved access point has research notes or an em dash in
+any of the six fields:
+
+| Field | Average length before | Average length after |
+| --- | ---: | ---: |
+| `description` | 278 | 198 |
+| `facilities` | 140 | 111 |
+| `parking_info` | 65 | 57 |
+
+Kyles Landing's rewritten parking text ("No parking on Kyles Landing Road")
+briefly tripped the whole-table audit's "no parking" rule, which now treats
+"no parking on <road>" as a road restriction. The scan is back to the two
+known, accepted findings (Denny Hollow Float Camp and Horse Camp).

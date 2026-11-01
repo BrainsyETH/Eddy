@@ -95,3 +95,8 @@ test('a redirect to a shallower page, or one that drops the site ID, is a dead l
   assert.ok(!redirectsToGeneric('https://bigbearriverresort.com/', 'https://bigbearriverresort.com/'));
   assert.ok(!redirectsToGeneric('http://example.org/a/b', 'https://example.org/a/b/'));
 });
+
+test('"no parking on <road>" restricts the road, not the lot (Kyles Landing, rewritten)', () => {
+  assert.equal(amenityVerdict('parking', 'Landing lot only. No parking on Kyles Landing Road (CR 56); it is kept clear for emergencies.', []).verdict, 'confirmed');
+  assert.equal(amenityVerdict('parking', 'No parking. Drop-off only.', []).verdict, 'contradicted');
+});

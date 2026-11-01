@@ -130,7 +130,7 @@ export function amenityVerdict(amenity: string, text: string, types: string[]): 
     // "day-use only June through mid-September" is a season, not a ban (Huzzah).
     camping: /\bno (confirmed |designated )*camping|camping (is )?(prohibited|not allowed)|day-use only(?! (in summer|in the summer|june|from|through|during|between|in season))/,
     // "no parking … along Kyles Landing Road" is about the road, not the lot.
-    parking: /\bno (public )?parking\b(?! is allowed (anywhere )?along| along)|closed for parking|no vehicle access/,
+    parking: /\bno (public )?parking\b(?! is allowed (anywhere )?along| along| on [a-z0-9 ]*\b(road|rd|street|highway|hwy|cr)\b)|closed for parking|no vehicle access/,
     picnic: /\bno picnic/,
   };
   const affirm: Record<string, RegExp> = {
