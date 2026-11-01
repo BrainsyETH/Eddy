@@ -75,6 +75,7 @@ import {
   Prose,
   Retry,
   Section,
+  SourceNote,
 } from './sections';
 import { compactFloatEstimate } from './floatEstimate';
 import type { EstimateStatus } from '@/lib/loadAccessDetail';
@@ -274,14 +275,14 @@ export function AccessOverviewTab({
       {hasGettingIn ? (
         <Section title="Getting in" symbol="road">
           <Fact label="Road" value={road} />
-          <Prose>{point?.roadAccess}</Prose>
+          <FoldedProse lines={3} subject="road directions">{point?.roadAccess}</FoldedProse>
         </Section>
       ) : null}
 
       {hasParking ? (
         <Section title="Parking" symbol="parking">
           <Fact label="Capacity" value={parking} />
-          <Prose>{point?.parkingInfo}</Prose>
+          <FoldedProse lines={3} subject="parking details">{point?.parkingInfo}</FoldedProse>
         </Section>
       ) : null}
 
@@ -297,9 +298,13 @@ export function AccessOverviewTab({
               "boat_ramp" in another. Picnic and store keep the label alone
               rather than borrow a drawing that means something else. */}
           <AmenityChips amenities={point?.amenities} />
-          <Prose>{point?.facilities}</Prose>
-          <Fact label="Fees" value={point?.feeNotes} />
+          <FoldedProse lines={3} subject="facilities">{point?.facilities}</FoldedProse>
+          {/* A fee note is a sentence, not a value: the short fact goes in the
+              row and the note folds underneath, like every other paragraph. */}
+          <Fact label="Fees" value={point?.feeRequired ? 'Fee required' : null} />
+          <FoldedProse lines={3} subject="fee details">{point?.feeNotes}</FoldedProse>
           <Fact label="Managed by" value={managedBy} />
+          <SourceNote sources={point?.dataSources} />
         </Section>
       ) : null}
 

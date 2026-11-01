@@ -1,0 +1,124 @@
+{
+  "applied_at_utc": "2026-10-31",
+  "project": "ilefwfpvphadsbptiaur",
+  "note": "Values BEFORE the round-1 amenity corrections (i.e. the round-1 applied values).",
+  "access_points": 13,
+  "rollback": [
+    {
+      "id": "0eb56f3d-b2da-4938-b7ef-f85e20e2bdaf",
+      "slug": "baker-ford",
+      "amenities": [
+        "parking",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "1e26daee-a0c5-4cb8-ba2a-e0f71b254dce",
+      "slug": "camp-branch-access",
+      "amenities": [
+        "parking",
+        "camping",
+        "picnic",
+        "boat_ramp"
+      ]
+    },
+    {
+      "id": "68dc6aee-7b53-49ce-85a9-c7fbe3b2735e",
+      "slug": "hammer-access",
+      "amenities": [
+        "parking",
+        "camping",
+        "boat_ramp"
+      ]
+    },
+    {
+      "id": "fcda788f-7be3-4daa-a9e0-0329254b9d1c",
+      "slug": "millstream-gardens-fishermans-access",
+      "amenities": [
+        "parking",
+        "boat_ramp",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "16108cf7-5215-49ec-b3a7-72621b86cb07",
+      "slug": "scotts-ford",
+      "amenities": [
+        "parking",
+        "boat_ramp",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "4c9b1143-289e-4919-8f59-33ff9563bdac",
+      "slug": "woodson-k-woods-memorial-ca",
+      "amenities": [
+        "parking",
+        "boat_ramp",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "8d226110-5aa1-4d6a-ac78-1a220390d154",
+      "slug": "brown-s-ford-access",
+      "amenities": [
+        "parking",
+        "boat_ramp",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "9d46017a-2d94-4a30-8507-490f79554cfe",
+      "slug": "campbell-bridge",
+      "amenities": [
+        "parking",
+        "boat_ramp",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "ea28759c-829e-44e0-a0a0-269faecb26b0",
+      "slug": "dillards-ferry",
+      "amenities": [
+        "parking",
+        "picnic",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "99487531-0bed-4d4e-a669-ade4ba074ab4",
+      "slug": "huzzah-conservation-area-courtois-access",
+      "amenities": [
+        "parking",
+        "restrooms",
+        "camping",
+        "boat_ramp"
+      ]
+    },
+    {
+      "id": "54b9a902-b33a-46ea-b592-785badeb1357",
+      "slug": "lead-mine-access",
+      "amenities": [
+        "parking",
+        "boat_ramp",
+        "camping"
+      ]
+    },
+    {
+      "id": "25f01ef8-1a54-4ddd-a73d-ac9885fff4bb",
+      "slug": "ponca",
+      "amenities": [
+        "parking",
+        "restrooms"
+      ]
+    },
+    {
+      "id": "0710b291-7204-430b-bcc7-4d2adaf996ca",
+      "slug": "prosperine",
+      "amenities": [
+        "parking",
+        "boat_ramp"
+      ]
+    }
+  ]
+}

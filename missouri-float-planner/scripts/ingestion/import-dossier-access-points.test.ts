@@ -86,19 +86,22 @@ test('the dossier still owns the description of a place', () => {
   assert.deepEqual(cols.location_orig, { type: 'Point', coordinates: [-91.2, 37.9] });
 });
 
-test('an agency outside the 00034 enum nulls the column rather than failing the insert', () => {
-  // The Buffalo precedent (00158): AGFC is the real operator and is not in the
-  // enum, so managing_agency goes null and `ownership` carries the truth.
+test('an agency outside the managing_agency check nulls the column rather than failing the insert', () => {
+  // MoDOT operates bridge accesses but is not in the check, so managing_agency
+  // goes null and `ownership` carries the truth.
   const cols = dossierColumns({
-    name: 'Buffalo City',
-    kind: 'boat_ramp',
+    name: 'Highway Bridge',
+    kind: 'bridge',
     expected_mile: null,
     lat: 36.1,
     lon: -92.5,
-    ownership: 'AGFC',
+    ownership: 'MoDOT',
   });
   assert.equal(cols.managing_agency, null);
-  assert.equal(cols.ownership, 'AGFC');
+  assert.equal(cols.ownership, 'MoDOT');
+  // AGFC was the Buffalo precedent (00158) until 20261031201435 added it.
+  const agfc = dossierColumns({ name: 'Buffalo City', kind: 'boat_ramp', expected_mile: null, lat: 36.1, lon: -92.5, ownership: 'AGFC' });
+  assert.equal(agfc.managing_agency, 'AGFC');
 });
 
 test('an existing-row patch preserves every optional field the dossier omits', () => {

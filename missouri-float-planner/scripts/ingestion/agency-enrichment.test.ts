@@ -38,7 +38,7 @@ test('rejects restrictive licenses, GIS links as websites, unsourced prose and o
   assert.throws(() => validateEnrichment([unsourced]), /no source/);
   const amenity = site(); amenity.amenities = ['wifi'];
   assert.throws(() => validateEnrichment([amenity]), /vocabulary/);
-  const agency = site(); agency.managing_agency = 'AGFC';
+  const agency = site(); agency.managing_agency = 'MoDOT';
   assert.throws(() => validateEnrichment([agency]), /managing_agency/);
   const fee = site(); fee.fee_required = null;
   assert.throws(() => validateEnrichment([fee]), /fee note/);
