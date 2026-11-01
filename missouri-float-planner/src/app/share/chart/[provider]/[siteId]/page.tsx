@@ -6,7 +6,7 @@ import {
   shareStation,
   shareParams,
   chartImagePath,
-  chartAppPath,
+  chartShareAppPath,
   chartSharePath,
   chartShareTitle,
   chartStatisticLabel,
@@ -24,6 +24,7 @@ type Props = {
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { provider, siteId } = await params;
   const state = parseChartShare(provider, siteId, shareParams(await searchParams));
+  const station = shareStation(provider, siteId);
   // The title is the most prominent line of a Messages or Slack preview, so it
   // names the station and the dates rather than a site number. A catalog
   // outage must not fail the page; the site number is the fallback.
@@ -43,8 +44,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     robots: { index: false, follow: true },
     openGraph: { type: 'website', siteName: 'Eddy', url, title, description, images },
     twitter: { card: 'summary_large_image', title, description, images },
-    // Safari's banner opens this gauge with the shared view, as a universal link would.
-    ...appBannerMetadata(state ? chartAppPath(state) : `/gauge/${encodeURIComponent(siteId)}`),
+    // Safari's banner opens the same screen a universal link would: the gauge
+    // with the shared view, or flagged as unavailable when it can't be restored.
+    ...(station ? appBannerMetadata(chartShareAppPath(station, state)) : {}),
   };
 }
 export default async function SharedChartPage({ params, searchParams }: Props) {

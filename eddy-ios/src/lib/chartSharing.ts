@@ -1,5 +1,10 @@
 import { captureChart } from '@eddy/conditions/chart-snapshot';
-import { chartAppPath, parseChartShare, shareStation } from '@eddy/conditions/chart-share';
+import {
+  chartShareAppPath,
+  parseChartShare,
+  shareStation,
+  stationAppPath,
+} from '@eddy/conditions/chart-share';
 
 export const captureNativeChart = captureChart;
 
@@ -12,12 +17,9 @@ export function sharedGaugeDestination(local: string): string | null {
   // Preserve the invalid path so Expo Router explains that the link was not
   // found, instead of silently sending the user to an unrelated Today screen.
   if (!station) return local;
-  const destination =
-    station.provider === 'usace' ? `/dam/${station.siteId}` : `/gauge/${station.siteId}`;
-  if (match[1] === 'gauge') return destination;
-  const state = parseChartShare(station.provider, station.siteId, url.searchParams);
-  // A parsed chart state is always USGS, so its app path is the gauge screen.
-  return state ? chartAppPath(state) : `${destination}?shareUnavailable=1`;
+  if (match[1] === 'gauge') return stationAppPath(station);
+  // The Smart App Banner on the share page calls chartShareAppPath too.
+  return chartShareAppPath(station, parseChartShare(station.provider, station.siteId, url.searchParams));
 }
 
 export { chartView as nativeChartView } from '@eddy/conditions/chart-view';

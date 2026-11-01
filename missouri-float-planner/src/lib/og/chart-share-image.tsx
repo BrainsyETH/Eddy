@@ -1,4 +1,6 @@
 import { chartGeometry } from '@shared/chart-geometry';
+import { chartSegments, type ChartPoint } from '@shared/chart-model';
+import { visibleChartGeometry } from '@shared/chart-viewport';
 import { chartStamp } from '@shared/chart-calendar';
 import { chartStatisticForUnit, chartStatisticLabel, resolutionNotice } from '@shared/chart-share';
 import { buildZones } from '@shared/threshold-zones';
@@ -10,22 +12,37 @@ const PRIOR = '#9a6e39';
 const TYPICAL = '#a38259';
 
 /** A legend entry for each series the image actually draws inside its window.
- * A forecast that starts after the shared window is clipped from the plot, so
- * naming it would describe a line the recipient cannot see. */
+ *
+ * Visibility follows the plotted marks, not the readings: the same gap-split
+ * segments chartGeometry draws, clipped to the window by visibleChartGeometry,
+ * so a line that crosses the window with both readings outside it counts, and
+ * a band or median that lies entirely outside it does not. Isolated readings
+ * are drawn as dots and count only inside the window. */
 export function chartImageLegend(
   view: ChartImageData['view'],
   layers: readonly string[],
 ): { label: string; color: string; dashed: boolean }[] {
   const domain = view.domain;
-  const visible = (points: readonly { t: number }[]) =>
-    !!domain && points.some((p) => p.t >= domain.t0 && p.t <= domain.t1);
+  if (!domain) return [];
+  const window = { start: domain.t0, end: domain.t1 };
+  const crosses = (segments: readonly (readonly { t: number; v: number }[])[]) =>
+    visibleChartGeometry(segments, window).length > 0;
+  const drawn = (points: ChartPoint[]) => {
+    const { lines, isolated } = chartSegments(points);
+    return crosses(lines) || isolated.some((p) => p.t >= window.start && p.t <= window.end);
+  };
+  // chartGeometry draws the band and the median as single unbroken paths.
   const band = view.typical.filter((r) => r.low !== null && r.high !== null);
+  const bandDrawn =
+    band.length > 1 &&
+    crosses([band.map((r) => ({ t: r.t, v: r.high! })), band.map((r) => ({ t: r.t, v: r.low! }))]);
+  const medianDrawn = view.typical.length > 1 && crosses([view.typical.map((r) => ({ t: r.t, v: r.median }))]);
   return [
-    visible(view.observed) && { label: 'Observed', color: OBSERVED, dashed: false },
-    visible(view.forecast) && { label: 'NWS forecast', color: FORECAST, dashed: true },
-    layers.includes('lastYear') && visible(view.prior) && { label: 'Last year', color: PRIOR, dashed: true },
-    layers.includes('typical') && band.length > 1 && { label: 'Typical range', color: TYPICAL, dashed: false },
-    layers.includes('median') && view.typical.length > 1 && { label: 'Median', color: TYPICAL, dashed: true },
+    drawn(view.observed) && { label: 'Observed', color: OBSERVED, dashed: false },
+    drawn(view.forecast) && { label: 'NWS forecast', color: FORECAST, dashed: true },
+    drawn(view.prior) && { label: 'Last year', color: PRIOR, dashed: true },
+    layers.includes('typical') && bandDrawn && { label: 'Typical range', color: TYPICAL, dashed: false },
+    layers.includes('median') && medianDrawn && { label: 'Median', color: TYPICAL, dashed: true },
   ].filter((entry): entry is { label: string; color: string; dashed: boolean } => Boolean(entry));
 }
 

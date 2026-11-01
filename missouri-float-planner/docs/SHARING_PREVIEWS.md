@@ -71,9 +71,13 @@ Already-sent chat previews may remain cached even after deployment.
 
 - The Smart App Banner opens the related screen where the app has one:
   river guides open their river, `/find-float` opens Find a Float, and a
-  shared chart opens its gauge with the shared view (`chartAppPath`, the same
-  path the universal-link handler produces). Pages without a related screen
-  keep the default.
+  shared chart opens its gauge with the shared view, or with
+  `shareUnavailable=1` when the view can't be restored, so the screen says so
+  instead of silently showing current conditions. Both come from
+  `chartShareAppPath`, which the universal-link handler also uses. Pages
+  without a related screen keep the default.
+- The shared chart image's legend lists a series only when its plotted
+  segments (gap-split, as drawn) intersect the shared window.
 - Gauge redirects happen in `proxy.ts` before streaming, returning temporary HTTP 307
   directly to `/rivers/<state>/<slug>` and preserving the query. Only exact
   gauge detail paths perform bounded public catalog reads; image paths do not.
