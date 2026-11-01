@@ -375,7 +375,7 @@ test('a stack tap follows the web planner rule exactly', () => {
   assert.equal(nearestHitId([], { lng: 0, lat: 0 }), null);
 });
 
-test('only individually drawn, enabled, non-hazard places stack; the selection and endpoints stay out', () => {
+test('only individually drawn, enabled places stack, hazards included; the selection and endpoints stay out', () => {
   const at = (id: string, layer: string, lng: number) => ({ id, layer, coordinates: { lng, lat: 37.153 } });
   const base = -91.4430;
   const near = lngApart(20, 15);
@@ -389,7 +389,7 @@ test('only individually drawn, enabled, non-hazard places stack; the selection a
     campgroundPins: [at('access:2', 'campgrounds', base + near)],
     boatRampPins: [], springPins: [], outfitterPins: [], lodgingPins: [],
     gaugePins: [at('gauge:3', 'gauges', base + 2 * near)],
-    referenceGauges: [], dams: [],
+    referenceGauges: [], dams: [], hazardPins: [],
     ...overrides,
   });
   const stacks = (overrides?: Record<string, unknown>) =>
@@ -403,8 +403,10 @@ test('only individually drawn, enabled, non-hazard places stack; the selection a
   assert.deepEqual(stacks({ visibleViewport: { bounds: [-91.46, 37.14, -91.43, 37.17], zoom: 7.9 } }), [],
     'below the cluster rung the family index already groups places');
   assert.deepEqual(stacks({ visibleViewport: { bounds: [-80, 30, -79, 31], zoom: 15.2 } }), [], 'off-screen places do not stack');
-  assert.doesNotMatch(mapText.slice(mapText.indexOf('const stacks = useMemo'), mapText.indexOf('const stacksById')),
-    /hazardPins/, 'a hazard must never disappear into a count');
+  assert.deepEqual(stacks({ hazardPins: [at('hazard:4', 'hazards', base + 1.5 * near)] }), [['access:1', 'access:2', 'gauge:3', 'hazard:4']],
+    'a hazard stacks like any other place, rather than drawing over the number');
+  assert.deepEqual(stacks({ layers: ['access', 'gauges', 'campgrounds'], hazardPins: [at('hazard:4', 'hazards', base + 1.5 * near)] }),
+    [['access:1', 'access:2', 'gauge:3']], 'hazards switched off draw nothing to stack');
 });
 
 test('stacked members are hidden by a layer filter, so a camera stop re-uploads no pin source', () => {
@@ -429,9 +431,9 @@ test('stacked members are hidden by a layer filter, so a camera stop re-uploads 
   assert.deepEqual(clause('access:1|gauge:3'), ['!', ['in', ['get', 'id'], ['literal', ['access:1', 'gauge:3']]]]);
   assert.deepEqual(clause(''), ['!', ['in', ['get', 'id'], ['literal', []]]], 'no stacks hides nothing');
 
-  // Applied to every layer a stacked member could draw on, and not to hazards.
+  // Applied to every layer a stacked member could draw on, hazards included.
   const pinLayerBody = mapText.slice(mapText.indexOf('const pinLayer = ('), mapText.indexOf('const contextGaugeLayer = () =>'));
-  assert.match(pinLayerBody, /const solo = id === 'hazards' \? unselected\(\) : unselected\(notStacked\);/);
+  assert.match(pinLayerBody, /const solo = unselected\(notStacked\);/);
   const access = mapText.slice(mapText.indexOf('const accessLayer = () =>'), mapText.indexOf('</Mapbox.ShapeSource>', mapText.indexOf('const accessLayer = () =>')));
   assert.equal((access.match(/filter=\{unselected\(notStacked\)\}/g) ?? []).length, 4, 'every access layer hides stacked members');
   assert.doesNotMatch(access, /filter=\{unselected\(\)\}/);
@@ -439,19 +441,22 @@ test('stacked members are hidden by a layer filter, so a camera stop re-uploads 
   assert.equal((reference.match(/notStacked\]\)\}/g) ?? []).length, 2, 'the reference dot and label hide stacked members');
 
   const stacksAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-stacks"');
-  const hazardsAt = mapText.indexOf("pinLayer('hazards'", stacksAt);
-  assert.ok(stacksAt > 0 && hazardsAt > stacksAt, 'hazards draw over stacks');
+  const hazardsAt = mapText.indexOf("{pinLayer('hazards'");
+  assert.ok(hazardsAt > 0 && stacksAt > hazardsAt, 'stacks draw over hazards: a triangle must never hide a count');
 });
 
 // ── Draw order and the selection, from the second device pass ───────────────
 
-test('hazards are the last pin source: over the route endpoints and the selection', () => {
+test('hazards are a place layer: under the stacks, the route endpoints and the selection', () => {
+  const hazardsAt = mapText.indexOf("{pinLayer('hazards'");
+  const damsAt = mapText.indexOf("{pinLayer('dams'");
+  const stacksAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-stacks"');
   const endpointsAt = mapText.indexOf('<Mapbox.ShapeSource id="plan-endpoints"');
   const selectedAt = mapText.indexOf('<Mapbox.ShapeSource id="pins-selected"');
-  const hazardsAt = mapText.indexOf("{pinLayer('hazards'");
-  assert.ok(endpointsAt > 0 && selectedAt > endpointsAt, 'the selection draws over the route endpoints');
-  assert.ok(hazardsAt > selectedAt, 'a put-in badge or a selection must never cover a hazard triangle');
-  assert.equal(mapText.indexOf('<Mapbox.ShapeSource', hazardsAt), -1, 'nothing pin-like draws after hazards');
+  assert.ok(damsAt > 0 && hazardsAt > damsAt, 'a hazard still paints over the dam or put-in it shares a landing with');
+  assert.ok(stacksAt > hazardsAt, 'a numbered stack draws over hazards');
+  assert.ok(endpointsAt > stacksAt && selectedAt > endpointsAt, 'the selection draws over the route endpoints');
+  assert.equal(mapText.indexOf('<Mapbox.ShapeSource', selectedAt + 1), -1, 'nothing pin-like draws after the selection');
 });
 
 test('pin sources are mounted for the life of the map, never behind layerOn', () => {
@@ -464,7 +469,7 @@ test('pin sources are mounted for the life of the map, never behind layerOn', ()
 });
 
 test('the selected place has its own source, and every layer leaves it out', () => {
-  const selected = mapText.slice(mapText.indexOf('<Mapbox.ShapeSource id="pins-selected"'), mapText.indexOf("{pinLayer('hazards'"));
+  const selected = mapText.slice(mapText.indexOf('<Mapbox.ShapeSource id="pins-selected"'), mapText.indexOf('</Mapbox.MapView>'));
   assert.match(selected, /iconSize: SELECTED_SCALE/);
   assert.match(selected, /id=\{pinHitLayerId\('pins-selected-label'\)\}[\s\S]*?textAllowOverlap: true/, 'the selected name is always drawn');
   // No layer styles its own selection any more: it is filtered out instead.

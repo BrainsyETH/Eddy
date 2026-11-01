@@ -93,3 +93,21 @@ test('catalogue artwork survives before detailed data and later adopts detailed 
   assert.equal(merged[0].role, 'put-in');
   assert.equal(plannerMarkers(places, [], [], { ...route, riverSlug: 'other' })[0].role, undefined);
 });
+
+test('hazards join the planner places, so they group into the same numbered markers', async () => {
+  const { plannerMarkers } = await import('./planner-markers');
+  const places = plannerMapPlaces(dataset(river([point()])));
+  const route = { riverSlug: 'current', putIn: null, takeOut: null };
+  const hazard = {
+    id: 'dam-1', riverId: 'current', name: 'Low-water bridge', type: 'low_water_dam' as const, riverMile: 12,
+    description: null, severity: 'danger' as const, portageRequired: true, portageSide: 'left' as const,
+    seasonalNotes: null, coordinates: { lng: -91.5, lat: 37.3 },
+  };
+  const markers = plannerMarkers(places, [], [], route, [hazard, { ...hazard, id: 'nowhere', coordinates: { lng: NaN, lat: 37 } }]);
+  assert.deepEqual(markers.map(marker => marker.key), ['access:akers', 'hazard:dam-1'], 'one layer, one cluster tree; unplaceable hazards are skipped');
+  const placed = markers[1];
+  assert.equal(placed.kind, 'hazard');
+  assert.equal(placed.symbol, 'hazard');
+  assert.equal(placed.role, undefined, 'a hazard is never a route endpoint');
+  assert.equal(plannerMarkers(places, [], [], route).length, 1, 'hazards are optional');
+});

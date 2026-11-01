@@ -39,7 +39,7 @@ import { useHazards } from '@/hooks/useHazards';
 import { useWeather, useForecastByCoords } from '@/hooks/useWeather';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import { useConditionNetwork } from '@/hooks/useStatewideConditions';
-import type { AccessPoint, ConditionCode, FeedbackContext, RiverListItem } from '@/types/api';
+import type { AccessPoint, ConditionCode, FeedbackContext, Hazard, RiverListItem } from '@/types/api';
 import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import { trackEvent } from '@/lib/analytics';
 import OutfittersNearby from '@/components/plan/OutfittersNearby';
@@ -48,6 +48,7 @@ import { usePlannerMapCatalog } from '@/hooks/usePlannerMapCatalog';
 import PlannerMapSearch from '@/components/plan/PlannerMapSearch';
 import PlannerPlaceCard from '@/components/plan/PlannerPlaceCard';
 import PlannerPoiCard from '@/components/plan/PlannerPoiCard';
+import PlannerHazardCard from '@/components/plan/PlannerHazardCard';
 import NationalGaugeViewport from '@/components/map/NationalGaugeViewport';
 import ReferenceGaugeCard from '@/components/gauge/ReferenceGaugeCard';
 import { useNationalGauges } from '@/hooks/useNationalGauges';
@@ -82,7 +83,6 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 });
 const RouteLayer = dynamic(() => import('@/components/map/RouteLayer'), { ssr: false });
 const RiverPhotoMarkers = dynamic(() => import('@/components/map/RiverPhotoMarkers'), { ssr: false });
-const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 const FlowParticlesLayer = dynamic(() => import('@/components/map/FlowParticlesLayer'), { ssr: false });
 
 // Last-resort frame if the server could not compute the service area.
@@ -307,11 +307,16 @@ export default function PlanPageClient({
   const [expandedEndpointId, setExpandedEndpointId] = useState<string | null>(null);
   const [selectedReferenceGauge, setSelectedReferenceGauge] = useState<MapGaugeLite | null>(null);
   const [selectedGauge, setSelectedGauge] = useState<GaugeStation | null>(null);
+  const [selectedHazard, setSelectedHazard] = useState<Hazard | null>(null);
   const [placeGroup, setPlaceGroup] = useState<{ places: PlannerMarker[]; anchor: PlannerMapPlace } | null>(null);
   const [fullDetails, setFullDetails] = useState(false);
   const resetOtherInspection = useCallback(() => {
-    setSelectedGauge(null); setSelectedReferenceGauge(null); setPlaceGroup(null); setFullDetails(false);
+    setSelectedGauge(null); setSelectedReferenceGauge(null); setSelectedHazard(null); setPlaceGroup(null); setFullDetails(false);
   }, []);
+  // A hazard from another river (or one since removed) stops being inspected.
+  useEffect(() => {
+    if (selectedHazard && !hazards?.some(hazard => hazard.id === selectedHazard.id)) setSelectedHazard(null);
+  }, [selectedHazard, hazards]);
   useEffect(() => {
     if (selectedReferenceGauge && !nationalGauges.gauges.some(gauge => gauge.siteId === selectedReferenceGauge.siteId)) {
       setSelectedReferenceGauge(null);
@@ -495,6 +500,7 @@ export default function PlanPageClient({
         const selector = trigger.dataset.accessPointId ? `[data-access-point-id="${CSS.escape(trigger.dataset.accessPointId)}"]`
           : trigger.dataset.poiId ? `[data-poi-id="${CSS.escape(trigger.dataset.poiId)}"]`
           : trigger.dataset.gaugeId ? `[data-gauge-id="${CSS.escape(trigger.dataset.gaugeId)}"]`
+          : trigger.dataset.hazardId ? `[data-hazard-id="${CSS.escape(trigger.dataset.hazardId)}"]`
           : `[data-planner-marker="${CSS.escape(trigger.dataset.plannerMarker)}"]`;
         (document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>('.planner-search input, [data-planner-search-trigger]'))?.focus({ preventScroll: true });
       } else document.querySelector<HTMLElement>('.planner-search input, [data-planner-search-trigger]')?.focus({ preventScroll: true });
@@ -503,7 +509,7 @@ export default function PlanPageClient({
   const closePlace = useCallback(() => dismissPlace(true), [dismissPlace]);
   // Dismiss on an actual outside click, not a drag or a move between marker and card.
   useEffect(() => {
-    if (!selectedPlace && !selectedPoi && !selectedGauge && !selectedReferenceGauge && !placeGroup && !expandedEndpointId) return;
+    if (!selectedPlace && !selectedPoi && !selectedGauge && !selectedReferenceGauge && !selectedHazard && !placeGroup && !expandedEndpointId) return;
     let down: { x: number; y: number } | null = null;
     const pointerDown = (event: PointerEvent) => { down = { x: event.clientX, y: event.clientY }; };
     const click = (event: MouseEvent) => {
@@ -517,7 +523,7 @@ export default function PlanPageClient({
     document.addEventListener('pointerdown', pointerDown, true);
     document.addEventListener('click', click);
     return () => { document.removeEventListener('pointerdown', pointerDown, true); document.removeEventListener('click', click); };
-  }, [selectedPlace, selectedPoi, selectedGauge, selectedReferenceGauge, placeGroup, expandedEndpointId, dismissPlace]);
+  }, [selectedPlace, selectedPoi, selectedGauge, selectedReferenceGauge, selectedHazard, placeGroup, expandedEndpointId, dismissPlace]);
   const previewPoint = !previewAccess.isPlaceholderData
     ? previewAccess.data?.find(point => point.id === selectedPlace?.id) : undefined;
 
@@ -923,7 +929,8 @@ export default function PlanPageClient({
       previewReturnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
     setSelectedPlace(null); setSelectedPoi(null); resetOtherInspection(); setExpandedEndpointId(null);
-    if (marker.kind === 'referenceGauge') setSelectedReferenceGauge(marker.gauge);
+    if (marker.kind === 'hazard') setSelectedHazard(marker.hazard);
+    else if (marker.kind === 'referenceGauge') setSelectedReferenceGauge(marker.gauge);
     else setSelectedGauge(marker.gauge);
     setFocusPlace({ id: marker.id, name: marker.name, slug: '', riverId: '', riverSlug: '', riverName: '', coordinates: marker.coordinates });
     setFocusMode('reveal'); setFocusRequest(value => value + 1);
@@ -964,19 +971,23 @@ export default function PlanPageClient({
   const currentGauge = selectedGauge && (allGaugeStations?.find(gauge => gauge.id === selectedGauge.id) ?? selectedGauge);
   const inspectedCard = placeGroup ? <PlannerPlaceChoices places={placeGroup.places.map(place => place.kind === 'referenceGauge' ? { ...place, name: nationalGauges.names.get(place.gauge.siteId) ?? place.name } : place)} onSelect={handleMarkerSelect} onClose={closePlace} />
     : selectedReferenceGauge ? <ReferenceGaugeCard gauge={selectedReferenceGauge} onClose={closePlace} />
+    : selectedHazard ? <PlannerHazardCard hazard={selectedHazard} onClose={closePlace} />
     : currentGauge ? <PlannerGaugeCard gauge={currentGauge} onClose={closePlace} />
     : selectedPoi ? <PlannerPoiCard poi={selectedPoi} onClose={closePlace} /> : placeCard;
   const panelInspection = !!inspectedCard && !useCallout;
-  const highlightedPlace = selectedPlace ?? placeGroup?.anchor ?? ((selectedPoi || selectedGauge || selectedReferenceGauge) ? focusPlace : localPlaces.find(place => place.id === expandedEndpointId) ?? null);
+  const highlightedPlace = selectedPlace ?? placeGroup?.anchor ?? ((selectedPoi || selectedGauge || selectedReferenceGauge || selectedHazard) ? focusPlace : localPlaces.find(place => place.id === expandedEndpointId) ?? null);
   const selectedMarkerKey = selectedPlace ? `access:${selectedPlace.id}` : selectedPoi ? `poi:${selectedPoi.id}`
-    : selectedReferenceGauge ? `reference:${selectedReferenceGauge.siteId}` : selectedGauge ? `gauge:${selectedGauge.id}` : expandedEndpointId ? `access:${expandedEndpointId}` : null;
+    : selectedReferenceGauge ? `reference:${selectedReferenceGauge.siteId}` : selectedHazard ? `hazard:${selectedHazard.id}` : selectedGauge ? `gauge:${selectedGauge.id}` : expandedEndpointId ? `access:${expandedEndpointId}` : null;
   const referenceMarkers = useMemo(() => referenceGaugeMarkers(nationalGauges.gauges), [nationalGauges.gauges]);
   const markers = useMemo(() => plannerMarkers([
     ...(isDesktop ? catalog.places.filter(place => !(activeRiver && !accessPlaceholder && visibleAccessPoints && place.riverSlug === activeRiver.slug)) : []), ...localPlaces,
     ...(selectedPlace ? [{ ...selectedPlace, ...(previewPoint ? { type: previewPoint.type, types: previewPoint.types } : {}) }] : []),
   ], isDesktop ? visibleDesktopPois : filteredPois, showGauges ? allGaugeStations ?? [] : [],
-  { riverSlug, putIn: selectedPutIn, takeOut: selectedTakeOut }),
-  [ isDesktop, catalog.places, activeRiver, accessPlaceholder, visibleAccessPoints, localPlaces, selectedPlace, previewPoint, visibleDesktopPois, filteredPois, showGauges, allGaugeStations, riverSlug, selectedPutIn, selectedTakeOut]);
+  { riverSlug, putIn: selectedPutIn, takeOut: selectedTakeOut },
+  // Hazards are never gated behind a layer toggle, but they group and stack
+  // like every other place rather than drawing over the numbered markers.
+  hazards ?? []),
+  [ isDesktop, catalog.places, activeRiver, accessPlaceholder, visibleAccessPoints, localPlaces, selectedPlace, previewPoint, visibleDesktopPois, filteredPois, showGauges, allGaugeStations, riverSlug, selectedPutIn, selectedTakeOut, hazards]);
   const markerLayer = <>
     <NationalGaugeViewport onChange={nationalGauges.onViewportChange} />
     <PlannerMarkerLayer layer="reference" places={referenceMarkers} selectedKey={selectedReferenceGauge ? selectedMarkerKey : null}
@@ -1093,8 +1104,6 @@ export default function PlanPageClient({
             )}
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
-            {/* Safety-critical: hazards render always, never gated behind toggles */}
-            <HazardMarkers hazards={hazards ?? []} />
             {/* Animated downstream current. Honors the legend-chip filter;
                 when the network is hidden, flow stays on the hero river. */}
             {flowOn && (
@@ -1244,8 +1253,6 @@ export default function PlanPageClient({
             )}
             {/* Selected float route line between put-in and take-out */}
             <RouteLayer routeGeometry={putInPoint && takeOutPoint ? plan?.route ?? null : null} />
-            {/* Safety-critical: hazards render always, never gated behind toggles */}
-            <HazardMarkers hazards={hazards ?? []} />
             {/* Animated downstream current. Honors the legend-chip filter;
                 when the network is hidden, flow stays on the hero river. */}
             {flowOn && (

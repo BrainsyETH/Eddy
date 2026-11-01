@@ -15,8 +15,7 @@
 //   - tapping it below zoom 13 eases in to the zoom where it splits (capped at
 //     15), when that is more than half a level away;
 //   - otherwise it opens "N places here" and the reader chooses.
-// Hazards never join a group, on either platform: a hazard must never
-// disappear into a count.
+// Hazards join a group like any other place, on both platforms.
 //
 // ── A pure .ts module, on purpose ───────────────────────────────────────────
 // The Expo app has no test runner; the web suite imports this file directly.

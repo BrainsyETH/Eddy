@@ -453,16 +453,15 @@ export const LAYER_SECTIONS: readonly { key: LayerSectionKey; label: string }[] 
  * the ~285 places did not — the statewide view was a wall of tents with the
  * rivers underneath it. Every one of them is on the rungs now; see the
  * statewide index in RiverMap, which owns the COUNTS band for every Eddy pin
- * layer — places, services, rated gauges and dams in one count — so switching
- * a layer on can no longer take pins OUT of a cluster, and no layer's lone dot
- * sits beside another layer's count. Hazards and the USGS reference tier keep
- * their own treatment.
+ * layer — places, services, rated gauges, dams and hazards in one count — so
+ * switching a layer on can no longer take pins OUT of a cluster, and no layer's
+ * lone dot sits beside another layer's count. Only the USGS reference tier keeps
+ * its own treatment.
  *
- * A layer may sit out a rung, and one does. Hazards never cluster — a hazard
- * must not disappear into a count — and take their mark at ZOOM.cluster rather
- * than waiting for PLACES, so they resolve as soon as the bubbles break. That is
- * a safety rule, and it is the only one. Lakes & dams once kept their labels at
- * every zoom and drew below the floor as "landmarks", and rated gauges were
+ * No layer sits out a rung. Hazards once did — never clustered, never stacked,
+ * a triangle a rung early and drawn over everything — and on a device that read
+ * as hazards outranking the map, triangles covering the numbered stacks. Lakes
+ * & dams once kept their labels at every zoom and drew below the floor as "landmarks", and rated gauges were
  * named a rung early and drew below the floor too; on a device each read as one
  * layer shouting over a map where nothing else was named, so they climb the
  * ladder with everything else. The selected place is not a layer: it is drawn
