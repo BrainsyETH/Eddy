@@ -6,7 +6,7 @@ import type { GaugeStation } from '@/hooks/useGaugeStations';
 import { plannerPlaceSymbol, plannerPoiSymbol } from './planner-place';
 import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 import { computeCondition } from './conditions';
-import type { ConditionCode } from '@/types/api';
+import type { ConditionCode, Hazard } from '@/types/api';
 
 export type PlannerMarker = {
   key: string;
@@ -20,6 +20,7 @@ export type PlannerMarker = {
   | { kind: 'poi'; poi: PointOfInterest }
   | { kind: 'gauge'; gauge: GaugeStation; condition: ConditionCode }
   | { kind: 'referenceGauge'; gauge: MapGaugeLite }
+  | { kind: 'hazard'; hazard: Hazard }
 );
 
 export function plannerGaugeCondition(gauge: GaugeStation): ConditionCode {
@@ -27,9 +28,14 @@ export function plannerGaugeCondition(gauge: GaugeStation): ConditionCode {
   return threshold ? computeCondition(gauge.gaugeHeightFt, threshold, gauge.dischargeCfs).code : 'unknown';
 }
 
-/** One record per physical place; detailed access data replaces catalogue data. */
+/**
+ * One record per physical place; detailed access data replaces catalogue data.
+ * Hazards are places like any other here: they group into the same numbered
+ * markers and sit at the same height, rather than drawing over everything.
+ */
 export function plannerMarkers(places: PlannerMapPlace[], pois: PointOfInterest[], gauges: GaugeStation[],
-  route: { riverSlug: string | null; putIn: string | null; takeOut: string | null }): PlannerMarker[] {
+  route: { riverSlug: string | null; putIn: string | null; takeOut: string | null },
+  hazards: Hazard[] = []): PlannerMarker[] {
   const access = new Map(places.map(place => [place.id, place]));
   return [
     ...Array.from(access.values(), (place): PlannerMarker => ({
@@ -41,6 +47,9 @@ export function plannerMarkers(places: PlannerMapPlace[], pois: PointOfInterest[
       coordinates: { lng: poi.longitude, lat: poi.latitude }, symbol: plannerPoiSymbol(poi.type), poi })),
     ...gauges.map((gauge): PlannerMarker => ({ kind: 'gauge', key: `gauge:${gauge.id}`, id: gauge.id,
       name: gauge.name, coordinates: gauge.coordinates, symbol: 'gauge', gauge, condition: plannerGaugeCondition(gauge) })),
+    ...hazards.filter(hazard => Number.isFinite(hazard.coordinates?.lng) && Number.isFinite(hazard.coordinates?.lat))
+      .map((hazard): PlannerMarker => ({ kind: 'hazard', key: `hazard:${hazard.id}`, id: hazard.id, name: hazard.name,
+        coordinates: hazard.coordinates, symbol: 'hazard', hazard })),
   ];
 }
 
