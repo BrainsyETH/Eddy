@@ -1,0 +1,1797 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.95222300033406,
+     36.001689999783494
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 115,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 251",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 45,
+    "land": "Buffalo National River (NPS)",
+    "between": "Mt. Hersey → Woolum",
+    "gap_km": "13.7",
+    "notes": "",
+    "search": "\"Co Rd 251\" Buffalo National River access",
+    "lat": "36.001690",
+    "lon": "-92.952223",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.001690,-92.952223",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12784060&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.62054699969043,
+     36.032863999887425
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 109,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 52",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 64,
+    "land": "Buffalo National River (NPS)",
+    "between": "South Maumee → Spring Creek",
+    "gap_km": "7.4",
+    "notes": "",
+    "search": "\"Co Rd 52\" Buffalo National River access",
+    "lat": "36.032864",
+    "lon": "-92.620547",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.032864,-92.620547",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11981008&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.83131000024682,
+     35.96308100024445
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 108,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 229",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 67,
+    "land": "Buffalo National River (NPS)",
+    "between": "Woolum → Baker Ford",
+    "gap_km": "17.5",
+    "notes": "",
+    "search": "\"Co Rd 229\" Buffalo National River access",
+    "lat": "35.963081",
+    "lon": "-92.831310",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.963081,-92.831310",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=13280599&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.17655699990631,
+     36.05426899990117
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 106,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 79",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 73,
+    "land": "Buffalo National River (NPS)",
+    "between": "Erbie → Ozark",
+    "gap_km": "8.8",
+    "notes": "",
+    "search": "\"Co Rd 79\" Buffalo National River access",
+    "lat": "36.054269",
+    "lon": "-93.176557",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.054269,-93.176557",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9650146&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.82355399998265,
+     35.96235699974601
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 105,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 252",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 75,
+    "land": "Buffalo National River (NPS)",
+    "between": "Woolum → Baker Ford",
+    "gap_km": "17.5",
+    "notes": "",
+    "search": "\"Co Rd 252\" Buffalo National River access",
+    "lat": "35.962357",
+    "lon": "-92.823554",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.962357,-92.823554",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9840055&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.68273200027451,
+     36.004330999777004
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 102,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 429",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 85,
+    "land": "Buffalo National River (NPS)",
+    "between": "Gilbert → North Maumee",
+    "gap_km": "18.3",
+    "notes": "",
+    "search": "\"Co Rd 429\" Buffalo National River access",
+    "lat": "36.004331",
+    "lon": "-92.682732",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.004331,-92.682732",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=4485880&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.7304160002836,
+     35.988348999886476
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 98,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 426",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 95,
+    "land": "Buffalo National River (NPS)",
+    "between": "Shine Eye → Gilbert",
+    "gap_km": "4.9",
+    "notes": "",
+    "search": "\"Co Rd 426\" Buffalo National River access",
+    "lat": "35.988349",
+    "lon": "-92.730416",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.988349,-92.730416",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9072555&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.56172700012574,
+     36.077651000057266
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 97,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 648",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 100,
+    "land": "Buffalo National River (NPS)",
+    "between": "Buffalo Point → Rush",
+    "gap_km": "11.9",
+    "notes": "",
+    "search": "\"Co Rd 648\" Buffalo National River access",
+    "lat": "36.077651",
+    "lon": "-92.561727",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.077651,-92.561727",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1333106&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.63917200044479,
+     36.0122469997373
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 97,
+    "river": "buffalo",
+    "place": "Little Rocky Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 433",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 100,
+    "land": "Buffalo National River (NPS)",
+    "between": "Gilbert → North Maumee",
+    "gap_km": "18.3",
+    "notes": "",
+    "search": "\"Little Rocky Creek\" Buffalo National River access",
+    "lat": "36.012247",
+    "lon": "-92.639172",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.012247,-92.639172",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9245375&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.31529700033158,
+     36.05553700005444
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 89,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 133",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 124,
+    "land": "Buffalo National River (NPS)",
+    "between": "Steel Creek → Kyles Landing",
+    "gap_km": "12.6",
+    "notes": "",
+    "search": "\"Co Rd 133\" Buffalo National River access",
+    "lat": "36.055537",
+    "lon": "-93.315297",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.055537,-93.315297",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12106882&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.14392799959273,
+     36.05601699977632
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 89,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy 7",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 124,
+    "land": "Buffalo National River (NPS)",
+    "between": "Ozark → Pruitt",
+    "gap_km": "3.2",
+    "notes": "",
+    "search": "\"State Hwy 7\" Buffalo National River access",
+    "lat": "36.056017",
+    "lon": "-93.143928",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.056017,-93.143928",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=91982&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.68413800023808,
+     36.01270300027903
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 85,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 422",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 136,
+    "land": "Buffalo National River (NPS)",
+    "between": "Gilbert → North Maumee",
+    "gap_km": "18.3",
+    "notes": "",
+    "search": "\"Co Rd 422\" Buffalo National River access",
+    "lat": "36.012703",
+    "lon": "-92.684138",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.012703,-92.684138",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2557473&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.857287000136,
+     35.96110400032314
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 85,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 232",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 136,
+    "land": "Buffalo National River (NPS)",
+    "between": "Woolum → Baker Ford",
+    "gap_km": "17.5",
+    "notes": "",
+    "search": "\"Co Rd 232\" Buffalo National River access",
+    "lat": "35.961104",
+    "lon": "-92.857287",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.961104,-92.857287",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12212414&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.20888800029404,
+     36.07880400003486
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 80,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 57",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 151,
+    "land": "Buffalo National River (NPS)",
+    "between": "Erbie → Ozark",
+    "gap_km": "8.8",
+    "notes": "",
+    "search": "\"Co Rd 57\" Buffalo National River access",
+    "lat": "36.078804",
+    "lon": "-93.208888",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.078804,-93.208888",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=782500&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.99537899993275,
+     35.9959070002139
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 78,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 241",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 157,
+    "land": "Buffalo National River (NPS)",
+    "between": "Carver → Mt. Hersey",
+    "gap_km": "10.9",
+    "notes": "",
+    "search": "\"Co Rd 241\" Buffalo National River access",
+    "lat": "35.995907",
+    "lon": "-92.995379",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.995907,-92.995379",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7671484&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.61950099957696,
+     36.02395999979791
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 74,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 52",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 168,
+    "land": "Buffalo National River (NPS)",
+    "between": "Gilbert → North Maumee",
+    "gap_km": "18.3",
+    "notes": "",
+    "search": "\"Co Rd 52\" Buffalo National River access",
+    "lat": "36.023960",
+    "lon": "-92.619501",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.023960,-92.619501",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3561881&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.4555280002109,
+     35.82502699989247
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 74,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 414",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 169,
+    "land": "Buffalo, Arkansas Wild and Scenic River (USFS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "",
+    "search": "\"Co Rd 414\" Buffalo National River access",
+    "lat": "35.825027",
+    "lon": "-93.455528",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.825027,-93.455528",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10211669&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.18434199958448,
+     36.05564299982128
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 73,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 79",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 172,
+    "land": "Buffalo National River (NPS)",
+    "between": "Erbie → Ozark",
+    "gap_km": "8.8",
+    "notes": "",
+    "search": "\"Co Rd 79\" Buffalo National River access",
+    "lat": "36.055643",
+    "lon": "-93.184342",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.055643,-93.184342",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9650146&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.12863199987278,
+     36.06656200030455
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 70,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 213",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 180,
+    "land": "Buffalo National River (NPS)",
+    "between": "Pruitt → Hasty",
+    "gap_km": "11.0",
+    "notes": "",
+    "search": "\"Co Rd 213\" Buffalo National River access",
+    "lat": "36.066562",
+    "lon": "-93.128632",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.066562,-93.128632",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8753514&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.56395099969883,
+     36.08225800025131
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 68,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "State Hwy 268",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 186,
+    "land": "Buffalo National River (NPS)",
+    "between": "Buffalo Point → Rush",
+    "gap_km": "11.9",
+    "notes": "",
+    "search": "\"State Hwy 268\" Buffalo National River access",
+    "lat": "36.082258",
+    "lon": "-92.563951",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.082258,-92.563951",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/6/query?objectIds=88948&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.22527100013534,
+     36.07708799991241
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 67,
+    "river": "buffalo",
+    "place": "Cove Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 57",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 190,
+    "land": "Buffalo National River (NPS)",
+    "between": "Kyles Landing → Erbie",
+    "gap_km": "8.9",
+    "notes": "",
+    "search": "\"Cove Creek\" Buffalo National River access",
+    "lat": "36.077088",
+    "lon": "-93.225271",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.077088,-93.225271",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=782500&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.19599799972205,
+     36.05906500013248
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 67,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Co Rd 79",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 188,
+    "land": "Buffalo National River (NPS)",
+    "between": "Erbie → Ozark",
+    "gap_km": "8.8",
+    "notes": "",
+    "search": "\"Co Rd 79\" Buffalo National River access",
+    "lat": "36.059065",
+    "lon": "-93.195998",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.059065,-93.195998",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=9650146&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.78998499986082,
+     35.97755399971851
+    ]
+   },
+   "properties": {
+    "tier": "A",
+    "score": 65,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 241",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 196,
+    "land": "Buffalo National River (NPS)",
+    "between": "Baker Ford → Tyler Bend",
+    "gap_km": "6.9",
+    "notes": "",
+    "search": "\"Co Rd 241\" Buffalo National River access",
+    "lat": "35.977554",
+    "lon": "-92.789985",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.977554,-92.789985",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7707316&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.46611999979336,
+     35.82205500020176
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 106,
+    "river": "buffalo",
+    "place": "Reeves Fork mouth",
+    "kind": "road loops to river",
+    "road": "FS Rd 1463",
+    "road_source": "Census roads",
+    "road_kind": "forest",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 43,
+    "land": "Buffalo, Arkansas Wild and Scenic River (USFS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road",
+    "search": "\"Reeves Fork\" Buffalo National River access",
+    "lat": "35.822055",
+    "lon": "-93.466120",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.822055,-93.466120",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10298698&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.1200150003414,
+     36.05115200018483
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 101,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Gaddy's Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 58,
+    "land": "Buffalo National River (NPS)",
+    "between": "Pruitt → Hasty",
+    "gap_km": "11.0",
+    "notes": "local road of unknown status: may be private",
+    "search": "\"Gaddy's Rd\" Buffalo National River access",
+    "lat": "36.051152",
+    "lon": "-93.120015",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.051152,-93.120015",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8144339&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.51386900003938,
+     36.1321529998468
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 98,
+    "river": "buffalo",
+    "place": "Cedar Creek mouth",
+    "kind": "road end",
+    "road": "Mc 6064",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 66,
+    "land": "Buffalo National River (NPS)",
+    "between": "Rush → (river end)",
+    "gap_km": "37.6",
+    "notes": "local road of unknown status: may be private",
+    "search": "\"Cedar Creek\" Buffalo National River access",
+    "lat": "36.132153",
+    "lon": "-92.513869",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.132153,-92.513869",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10550281&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.09121700030424,
+     36.00595200018365
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 94,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 32,
+    "land": "Buffalo National River (NPS)",
+    "between": "Pruitt → Hasty",
+    "gap_km": "11.0",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "36.005952",
+    "lon": "-93.091217",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.005952,-93.091217",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=8723369&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.39951600037543,
+     35.95011200022398
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 92,
+    "river": "buffalo",
+    "place": "Smith Creek mouth",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 39,
+    "land": "Buffalo National River (NPS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"Smith Creek\" Buffalo National River access",
+    "lat": "35.950112",
+    "lon": "-93.399516",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.950112,-93.399516",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7664554&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.97813599975082,
+     35.9969709998596
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 92,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 38,
+    "land": "Buffalo National River (NPS)",
+    "between": "Carver → Mt. Hersey",
+    "gap_km": "10.9",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.996971",
+    "lon": "-92.978136",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.996971,-92.978136",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12878127&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.10233399959323,
+     36.02534000007618
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 89,
+    "river": "buffalo",
+    "place": "Wells Creek mouth",
+    "kind": "road loops to river",
+    "road": "Co Rd 99",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 62,
+    "land": "Buffalo National River (NPS)",
+    "between": "Pruitt → Hasty",
+    "gap_km": "11.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Wells Creek\" Buffalo National River access",
+    "lat": "36.025340",
+    "lon": "-93.102334",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.025340,-93.102334",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14077219&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.95719699991001,
+     35.98460600020285
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 87,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 55,
+    "land": "Buffalo National River (NPS)",
+    "between": "Mt. Hersey → Woolum",
+    "gap_km": "13.7",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.984606",
+    "lon": "-92.957197",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.984606,-92.957197",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7657359&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.68361699983117,
+     36.007037999933374
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 86,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Sand Hole Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 101,
+    "land": "Buffalo National River (NPS)",
+    "between": "Gilbert → North Maumee",
+    "gap_km": "18.3",
+    "notes": "local road of unknown status: may be private",
+    "search": "\"Sand Hole Rd\" Buffalo National River access",
+    "lat": "36.007038",
+    "lon": "-92.683617",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.007038,-92.683617",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15024252&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.84658199967734,
+     35.96745700027682
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 85,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 61,
+    "land": "Buffalo National River (NPS)",
+    "between": "Woolum → Baker Ford",
+    "gap_km": "17.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.967457",
+    "lon": "-92.846582",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.967457,-92.846582",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14874532&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.45964999984217,
+     35.8208869999364
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 84,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "FS Rd 1463",
+    "road_source": "Census roads",
+    "road_kind": "forest",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 108,
+    "land": "Buffalo, Arkansas Wild and Scenic River (USFS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road",
+    "search": "\"FS Rd 1463\" Buffalo National River access",
+    "lat": "35.820887",
+    "lon": "-93.459650",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.820887,-93.459650",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10298698&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.42214400003702,
+     35.91251700024016
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 80,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 76,
+    "land": "Buffalo National River (NPS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.912517",
+    "lon": "-93.422144",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.912517,-93.422144",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=572622&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.26863699979631,
+     36.06036199989121
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 26,
+    "land": "not shown public",
+    "between": "Kyles Landing → Erbie",
+    "gap_km": "8.9",
+    "notes": "unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "36.060362",
+    "lon": "-93.268637",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.060362,-93.268637",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11586579&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.94764899989289,
+     35.987125000109316
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 76,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 87,
+    "land": "Buffalo National River (NPS)",
+    "between": "Mt. Hersey → Woolum",
+    "gap_km": "13.7",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.987125",
+    "lon": "-92.947649",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.987125,-92.947649",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11654159&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.59537099969232,
+     36.02172999979922
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 73,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 95,
+    "land": "Buffalo National River (NPS)",
+    "between": "South Maumee → Spring Creek",
+    "gap_km": "7.4",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "36.021730",
+    "lon": "-92.595371",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.021730,-92.595371",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3682557&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.97565600008471,
+     36.001097999979784
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 71,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 103,
+    "land": "Buffalo National River (NPS)",
+    "between": "Carver → Mt. Hersey",
+    "gap_km": "10.9",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "36.001098",
+    "lon": "-92.975656",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.001098,-92.975656",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=12878127&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.590885000013,
+     36.02170400013077
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 70,
+    "river": "buffalo",
+    "place": "Spring Creek mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 106,
+    "land": "Buffalo National River (NPS)",
+    "between": "South Maumee → Spring Creek",
+    "gap_km": "7.4",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"Spring Creek\" Buffalo National River access",
+    "lat": "36.021704",
+    "lon": "-92.590885",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.021704,-92.590885",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11642413&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.93519000021443,
+     35.9892109998864
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 69,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 108,
+    "land": "Buffalo National River (NPS)",
+    "between": "Mt. Hersey → Woolum",
+    "gap_km": "13.7",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.989211",
+    "lon": "-92.935190",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.989211,-92.935190",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=5064172&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.8425860004428,
+     35.972598000179545
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 67,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Margaret White Bluff Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 159,
+    "land": "Buffalo National River (NPS)",
+    "between": "Woolum → Baker Ford",
+    "gap_km": "17.5",
+    "notes": "local road of unknown status: may be private",
+    "search": "\"Margaret White Bluff Rd\" Buffalo National River access",
+    "lat": "35.972598",
+    "lon": "-92.842586",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.972598,-92.842586",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=3752164&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.41286600029623,
+     36.163651000060575
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 65,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 104,
+    "land": "Buffalo National River (NPS)",
+    "between": "Rush → (river end)",
+    "gap_km": "37.6",
+    "notes": "4WD trail; unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "36.163651",
+    "lon": "-92.412866",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.163651,-92.412866",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2246233&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.10455999971445,
+     36.027812000142184
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 50,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "Co Rd 99",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 181,
+    "land": "Buffalo National River (NPS)",
+    "between": "Pruitt → Hasty",
+    "gap_km": "11.0",
+    "notes": "land at the end or bank not shown public: check legality",
+    "search": "\"Co Rd 99\" Buffalo National River access",
+    "lat": "36.027812",
+    "lon": "-93.104560",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.027812,-93.104560",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=14077219&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.42441399958044,
+     36.175919999989
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 49,
+    "river": "buffalo",
+    "place": "White River mouth",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 92,
+    "land": "Ozark National Forest (USFS)",
+    "between": "Rush → (river end)",
+    "gap_km": "37.6",
+    "notes": "National Forest road not on the Motor Vehicle Use Map: closed to vehicles unless it is a county or recreation-site road; 4WD trail; unnamed road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"White River\" Buffalo National River access",
+    "lat": "36.175920",
+    "lon": "-92.424414",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.175920,-92.424414",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2246233&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.26383099955154,
+     36.05899100026701
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 44,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "Camp Orr Rd",
+    "road_source": "Census roads",
+    "road_kind": "local",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 168,
+    "land": "Buffalo National River (NPS)",
+    "between": "Kyles Landing → Erbie",
+    "gap_km": "8.9",
+    "notes": "local road of unknown status: may be private; land at the end or bank not shown public: check legality",
+    "search": "\"Camp Orr Rd\" Buffalo National River access",
+    "lat": "36.058991",
+    "lon": "-93.263831",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.058991,-93.263831",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=7350829&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.95269000031429,
+     35.99289699993767
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 42,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road end",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 189,
+    "land": "Buffalo National River (NPS)",
+    "between": "Mt. Hersey → Woolum",
+    "gap_km": "13.7",
+    "notes": "unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.992897",
+    "lon": "-92.952690",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.992897,-92.952690",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=1705357&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -92.41878800007633,
+     36.164966000041105
+    ]
+   },
+   "properties": {
+    "tier": "B",
+    "score": 38,
+    "river": "buffalo",
+    "place": "",
+    "kind": "road loops to river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "yes",
+    "usfs_maint_level": "",
+    "to_water_m": 186,
+    "land": "Buffalo National River (NPS)",
+    "between": "Rush → (river end)",
+    "gap_km": "37.6",
+    "notes": "4WD trail; unnamed road of unknown status: may be private",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "36.164966",
+    "lon": "-92.418788",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.164966,-92.418788",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=2246233&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.42428200029471,
+     35.91842074118505
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Buffalo National River (NPS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.918421",
+    "lon": "-93.424282",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.918421,-93.424282",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=572622&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.42342572445585,
+     35.92335654891028
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Buffalo National River (NPS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.923357",
+    "lon": "-93.423426",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.923357,-93.423426",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=572622&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.42162290391514,
+     35.92783388974595
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Buffalo National River (NPS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.927834",
+    "lon": "-93.421623",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.927834,-93.421623",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=572622&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.41747423032642,
+     35.93229416112417
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.932294",
+    "lon": "-93.417474",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.932294,-93.417474",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=572622&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.41685470099854,
+     35.93583886109424
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "not shown public",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"unnamed road\" Buffalo National River access",
+    "lat": "35.935839",
+    "lon": "-93.416855",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.935839,-93.416855",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=572622&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.46226307727626,
+     35.82287597456662
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "Reeves Fork mouth",
+    "kind": "crosses river",
+    "road": "Co Rd 414",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Buffalo, Arkansas Wild and Scenic River (USFS)",
+    "between": "(river start) → Boxley",
+    "gap_km": "24.5",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Reeves Fork\" Buffalo National River access",
+    "lat": "35.822876",
+    "lon": "-93.462263",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.822876,-93.462263",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=10211669&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.3695558344197,
+     36.00337697079382
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "Running Creek mouth",
+    "kind": "crosses river",
+    "road": "Co Rd 164",
+    "road_source": "Census roads",
+    "road_kind": "public",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Buffalo National River (NPS)",
+    "between": "Boxley → Ponca",
+    "gap_km": "9.6",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Running Creek\" Buffalo National River access",
+    "lat": "36.003377",
+    "lon": "-93.369556",
+    "map": "https://www.google.com/maps/search/?api=1&query=36.003377,-93.369556",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=11448931&outFields=*&outSR=4326&f=pjson"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -93.39706192196282,
+     35.97184490731714
+    ]
+   },
+   "properties": {
+    "tier": "C",
+    "score": 40,
+    "river": "buffalo",
+    "place": "Arrington Creek mouth",
+    "kind": "crosses river",
+    "road": "unnamed road",
+    "road_source": "Census roads",
+    "road_kind": "unnamed",
+    "four_wd": "",
+    "usfs_maint_level": "",
+    "to_water_m": 0,
+    "land": "Buffalo National River (NPS)",
+    "between": "Boxley → Ponca",
+    "gap_km": "9.6",
+    "notes": "bridge or ford: check bank access and parking",
+    "search": "\"Arrington Creek\" Buffalo National River access",
+    "lat": "35.971845",
+    "lon": "-93.397062",
+    "map": "https://www.google.com/maps/search/?api=1&query=35.971845,-93.397062",
+    "road_record": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8/query?objectIds=15770211&outFields=*&outSR=4326&f=pjson"
+   }
+  }
+ ]
+}

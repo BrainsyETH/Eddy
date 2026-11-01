@@ -41,7 +41,7 @@
     "lat": 35.6784,
     "lon": -93.7425,
     "is_public": false,
-    "ownership": "Private",
+    "ownership": "private",
     "managing_agency": "Private",
     "official_site_url": "https://byrdsadventurecenter.com/",
     "facilities": "private outfitter, camping, canoe/kayak rental, river access (7037 Cass Oark Rd)",
@@ -76,7 +76,7 @@
     "lat": 35.6696,
     "lon": -93.8284,
     "is_public": false,
-    "ownership": "Private",
+    "ownership": "private",
     "managing_agency": "Private",
     "official_site_url": "https://www.turnerbend.com/",
     "facilities": "outfitter, store, canoe/kayak/raft rental, camping, cabins, river landing (Hwy 23 at Cass)",
@@ -94,7 +94,7 @@
     "lon": -93.9107,
     "is_public": true,
     "ownership": null,
-    "managing_agency": null,
+    "managing_agency": "USFS",
     "official_site_url": null,
     "facilities": "primitive river take-out (rock steps on river right); reached via Shores Lake Rd; near Ozark NF boundary",
     "confidence": "medium",
@@ -120,6 +120,75 @@
       "https://www.openstreetmap.org/",
       "https://waterdata.usgs.gov/monitoring-location/USGS-07252000/",
       "https://www.turnerbend.com/MulberryRiver.html"
+    ]
+  },
+  {
+    "name": "County Road 88 Access",
+    "slug": "county-road-88",
+    "expected_mile": 26.61,
+    "lat": 35.68266,
+    "lon": -93.72192,
+    "description": "Access on the Mulberry's Wild and Scenic stretch between Indian Creek and Byrd's, reached on County Road 88 from the bank opposite Highway 215.",
+    "road_access": "County Road 88, on the opposite bank from Highway 215.",
+    "parking_info": "No developed parking.",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "facilities": "No facilities.",
+    "confidence": "medium (owner-placed pin, approved on imagery 2026-11-01)",
+    "source_urls": [
+      "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+    ]
+  },
+  {
+    "name": "County Road 5440 Access",
+    "slug": "county-road-5440",
+    "expected_mile": 12.85,
+    "lat": 35.68115,
+    "lon": -93.54077,
+    "description": "Access on the upper Mulberry in the Ozark National Forest, above Wolf Pen. The upper river runs best in spring and after rain.",
+    "road_access": "County Road 5440.",
+    "parking_info": "No developed parking.",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "facilities": "No facilities.",
+    "confidence": "medium (owner-placed pin, approved on imagery 2026-11-01)",
+    "source_urls": [
+      "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
+    ]
+  },
+  {
+    "name": "Ozark Overland Trail Access",
+    "slug": "ozark-overland-trail-access",
+    "expected_mile": 11.46,
+    "lat": 35.68581,
+    "lon": -93.52688,
+    "description": "Primitive access on the upper Mulberry in the Ozark National Forest, off road 12425A on the Ozark Overland Adventure Trail, above Wolf Pen. The upper river runs best in spring and after rain.",
+    "road_access": "Road 12425A off the Ozark Overland Adventure Trail. A 4x4 is required.",
+    "parking_info": "Limited parking.",
+    "kind": "access",
+    "roles": [
+      "access"
+    ],
+    "is_float_endpoint": true,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "facilities": "No facilities.",
+    "confidence": "medium (owner-placed pin, approved on imagery 2026-11-01)",
+    "source_urls": [
+      "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/8"
     ]
   }
 ]
