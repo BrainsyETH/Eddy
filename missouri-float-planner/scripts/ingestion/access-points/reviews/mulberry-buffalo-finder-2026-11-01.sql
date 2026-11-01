@@ -15,7 +15,7 @@
 -- geometry miles (41.5, 79.62) are replaced by interpolation between Erbie
 -- (22.3) / Ozark (27.8) and Woolum (56.3) / Baker Ford (67.2). The Mulberry
 -- geometry miles already follow the river's ratio.
--- Held: Co Rd 251 (owner pin 90 m from Mt. Hersey).
+-- Co Rd 251: the owner confirmed it is Mt. Hersey itself, not a separate spot; not added.
 DO $$
 DECLARE n int;
 BEGIN

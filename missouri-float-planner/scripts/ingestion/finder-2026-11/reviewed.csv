@@ -56,7 +56,7 @@ mulberry,35.685610,-93.543170,access,county-road-5440,Co Rd 5440; owner pin 35.6
 mulberry,35.681020,-93.525060,access,ozark-overland-trail-access,Co Rd 195 loop; owner pin 35.68581 -93.52688 off 12425A on the Ozark Overland Adventure Trail (4x4)
 mulberry,35.676547,-93.705093,not_added,,Co Rd 88 at Clear Creek mouth; owner added only the listed spots
 mulberry,35.681280,-93.572760,not_added,,Co Rd 5241; owner added only the listed spots
-buffalo,36.001690,-92.952223,pending,,"Co Rd 251; owner pin 36.00859 -92.95228 is 90 m from Mt. Hersey: confirm it is not Mt. Hersey (unknown availability, 4x4)"
+buffalo,36.001690,-92.952223,no_access,mt-hersey,Co Rd 251; the owner pin 36.00859 -92.95228 is Mt. Hersey itself (not a separate spot); ignored
 buffalo,36.032864,-92.620547,not_added,,Co Rd 52; owner added only the listed spots
 buffalo,35.963081,-92.831310,not_added,,Co Rd 229; owner added only the listed spots
 buffalo,36.054269,-93.176557,access,county-road-79,Co Rd 79; owner pin 36.05501 -93.17776
