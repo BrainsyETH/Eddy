@@ -13,7 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FloatShareState } from '@shared/float-share';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
-import { applyFloodStageOverride, computeConditionFromDbRow } from '@/lib/conditions';
+import { gradeReading } from '@/lib/conditions';
 import { FloatShareReadError } from './names';
 
 /** The share's calendar day is the paddler's own; readings are UTC. This margin covers any US zone. */
@@ -56,13 +56,12 @@ export async function verifyFloatShareCondition(db: SupabaseClient, state: Float
     .lt('reading_timestamp', new Date(day + 86_400_000 + DAY_MARGIN_MS).toISOString())
     .limit(500);
   if (readError) throw new FloatShareReadError('Could not read the gauge history');
-  const flood = link.flood_stage_ft == null ? null : Number(link.flood_stage_ft);
   return (readings ?? []).some((reading) => {
     if (classifyQualifiers(reading.qualifiers).suspect) return false;
     const heightFt = reading.gauge_height_ft == null ? null : Number(reading.gauge_height_ft);
     const dischargeCfs = reading.discharge_cfs == null ? null : Number(reading.discharge_cfs);
     if (heightFt == null && dischargeCfs == null) return false;
-    const code = applyFloodStageOverride(computeConditionFromDbRow(heightFt, link, dischargeCfs).code, heightFt, flood);
+    const code = gradeReading(link, heightFt, dischargeCfs).code;
     return code === condition.code && cfsMatches(condition.cfs, dischargeCfs);
   });
 }

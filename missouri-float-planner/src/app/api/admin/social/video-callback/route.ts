@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from '@/lib/social/publish-outcome';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -155,32 +156,19 @@ export async function POST(request: NextRequest) {
         videoUrl,
         coverUrl: post.image_url || undefined,
         mediaType: 'video',
+        onProviderAttempt: providerAttemptRecorder(supabase, postId),
       });
 
-      await supabase
-        .from('social_posts')
-        .update({
-          status: result.success ? (result.delivery ?? 'published') : 'failed',
-          platform_post_id: result.platformPostId || null,
-          published_at: result.success && result.delivery !== 'inbox' ? new Date().toISOString() : null,
-          error_message: result.success ? null : result.error,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', postId);
+      // Ambiguous failures land as `unknown`, never auto-retried (publish-outcome.ts).
+      await writeOutcome(supabase, postId, outcomeFields(result));
 
       console.log(`${LOG_PREFIX} ${result.success ? 'Published' : 'Failed'} ${platform}: ${postId}`);
       results.push({ postId, platform, success: result.success, error: result.error });
     } catch (err) {
+      // A throw from inside publishPost does not prove the platform refused it.
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase
-        .from('social_posts')
-        .update({
-          status: 'failed',
-          error_message: msg,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', postId);
-      results.push({ postId, platform, success: false, error: msg });
+      await writeOutcome(supabase, postId, thrownFields(err));
+      results.push({ postId, platform, success: false, error: `outcome unknown — ${msg}` });
     }
   }
 

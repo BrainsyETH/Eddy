@@ -3,6 +3,44 @@
 
 const META_GRAPH_URL = 'https://graph.facebook.com/v24.0';
 
+/** Every Graph request is bounded. They used to have no timeout at all. */
+const REQUEST_TIMEOUT_MS = 30_000;
+const POLL_TIMEOUT_MS = 10_000;
+const timeout = (ms = REQUEST_TIMEOUT_MS) => AbortSignal.timeout(ms);
+
+type MetaPublishResult = { success: boolean; postId?: string; error?: string; ambiguous?: boolean };
+
+/**
+ * The ONE request that makes a post public. A failure before it is definitive
+ * — nothing was published. A failure OF it is not: a timeout, a dropped
+ * connection or a 5xx can arrive after Meta created the post, so those come
+ * back `ambiguous` and the caller records the post as unknown rather than
+ * failed (which would be auto-retried into a duplicate).
+ */
+async function finalPublish(url: string, init: RequestInit, label: string): Promise<MetaPublishResult> {
+  let response: Response;
+  try {
+    response = await fetch(url, { ...init, signal: timeout() });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'request failed';
+    console.error(`[MetaClient] ${label}: no response — outcome unknown:`, msg);
+    return { success: false, ambiguous: true, error: `${label}: no response (${msg})` };
+  }
+  let data: { id?: string } & Partial<MetaApiError> = {};
+  try {
+    data = await response.json();
+  } catch {
+    // An OK status with an unreadable body still means Meta accepted it.
+    if (response.ok) return { success: true };
+  }
+  if (!response.ok) {
+    const errorMsg = data.error?.message || `HTTP ${response.status}`;
+    console.error(`[MetaClient] ${label} failed:`, errorMsg);
+    return { success: false, error: errorMsg, ambiguous: response.status >= 500 };
+  }
+  return { success: true, postId: data.id };
+}
+
 interface MetaApiError {
   error: {
     message: string;
@@ -36,7 +74,7 @@ export function hasInstagramCredentials(): boolean {
 export async function publishToFacebook(params: {
   caption: string;
   imageUrl: string;
-}): Promise<{ success: boolean; postId?: string; error?: string }> {
+}): Promise<MetaPublishResult> {
   const { accessToken, pageId } = getCredentials();
 
   if (!accessToken || !pageId) {
@@ -57,6 +95,7 @@ export async function publishToFacebook(params: {
     const photoResponse = await fetch(`${META_GRAPH_URL}/${pageId}/photos`, {
       method: 'POST',
       body: photoBody,
+      signal: timeout(),
     });
 
     const photoData = await photoResponse.json();
@@ -89,21 +128,7 @@ export async function publishToFacebook(params: {
       access_token: accessToken,
     });
 
-    const feedResponse = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
-      method: 'POST',
-      body: feedBody,
-    });
-
-    const feedData = await feedResponse.json();
-
-    if (!feedResponse.ok) {
-      const apiError = feedData as MetaApiError;
-      const errorMsg = apiError.error?.message || `HTTP ${feedResponse.status}`;
-      console.error('[MetaClient] Facebook feed post failed:', errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    return { success: true, postId: feedData.id };
+    return await finalPublish(`${META_GRAPH_URL}/${pageId}/feed`, { method: 'POST', body: feedBody }, 'Facebook feed post');
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Facebook publish error:', msg);
@@ -120,7 +145,7 @@ export async function publishToFacebook(params: {
 export async function publishLinkToFacebook(params: {
   message: string;
   link: string;
-}): Promise<{ success: boolean; postId?: string; error?: string }> {
+}): Promise<MetaPublishResult> {
   const { accessToken, pageId } = getCredentials();
 
   if (!accessToken || !pageId) {
@@ -134,21 +159,7 @@ export async function publishLinkToFacebook(params: {
       access_token: accessToken,
     });
 
-    const feedResponse = await fetch(`${META_GRAPH_URL}/${pageId}/feed`, {
-      method: 'POST',
-      body: feedBody,
-    });
-
-    const feedData = await feedResponse.json();
-
-    if (!feedResponse.ok) {
-      const apiError = feedData as MetaApiError;
-      const errorMsg = apiError.error?.message || `HTTP ${feedResponse.status}`;
-      console.error('[MetaClient] Facebook link post failed:', errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    return { success: true, postId: feedData.id };
+    return await finalPublish(`${META_GRAPH_URL}/${pageId}/feed`, { method: 'POST', body: feedBody }, 'Facebook link post');
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Facebook link publish error:', msg);
@@ -160,7 +171,8 @@ export async function publishLinkToFacebook(params: {
 export async function publishToInstagram(params: {
   caption: string;
   imageUrl: string;
-}): Promise<{ success: boolean; postId?: string; error?: string }> {
+  onContainer?: (containerId: string) => void | Promise<void>;
+}): Promise<MetaPublishResult> {
   const { accessToken, instagramAccountId } = getCredentials();
 
   if (!accessToken || !instagramAccountId) {
@@ -175,7 +187,7 @@ export async function publishToInstagram(params: {
     // a cold serverless function and timeout. A full GET ensures the image is
     // generated, cached at the edge, and ready for Meta to download instantly.
     try {
-      const preflight = await fetch(params.imageUrl);
+      const preflight = await fetch(params.imageUrl, { signal: timeout() });
       const contentType = preflight.headers.get('content-type') || 'unknown';
       const contentLength = preflight.headers.get('content-length') || 'unknown';
       console.log(`[MetaClient] Image preflight: status=${preflight.status}, content-type=${contentType}, size=${contentLength}`);
@@ -210,6 +222,7 @@ export async function publishToInstagram(params: {
       {
         method: 'POST',
         body: containerBody,
+        signal: timeout(),
       }
     );
 
@@ -226,6 +239,7 @@ export async function publishToInstagram(params: {
     if (!containerId) {
       return { success: false, error: 'No container ID returned from Instagram' };
     }
+    await params.onContainer?.(containerId);
 
     // Step 2: Wait for container to be ready (poll status)
     const ready = await waitForContainer(containerId, accessToken);
@@ -234,28 +248,15 @@ export async function publishToInstagram(params: {
     }
 
     // Step 3: Publish the container
-    const publishResponse = await fetch(
+    return await finalPublish(
       `${META_GRAPH_URL}/${instagramAccountId}/media_publish`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          creation_id: containerId,
-          access_token: accessToken,
-        }),
-      }
+        body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
+      },
+      'Instagram publish',
     );
-
-    const publishData = await publishResponse.json();
-
-    if (!publishResponse.ok) {
-      const apiError = publishData as MetaApiError;
-      const errorMsg = apiError.error?.message || `HTTP ${publishResponse.status}`;
-      console.error('[MetaClient] Instagram publish failed:', errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    return { success: true, postId: publishData.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Instagram publish error:', msg);
@@ -273,7 +274,8 @@ async function waitForContainer(
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const response = await fetch(
-        `${META_GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`
+        `${META_GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`,
+        { signal: timeout(POLL_TIMEOUT_MS) },
       );
       const data = await response.json();
 
@@ -300,7 +302,8 @@ export async function publishVideoToInstagram(params: {
   caption: string;
   videoUrl: string;
   coverUrl?: string;
-}): Promise<{ success: boolean; postId?: string; error?: string }> {
+  onContainer?: (containerId: string) => void | Promise<void>;
+}): Promise<MetaPublishResult> {
   const { accessToken, instagramAccountId } = getCredentials();
 
   if (!accessToken || !instagramAccountId) {
@@ -325,7 +328,7 @@ export async function publishVideoToInstagram(params: {
 
     const containerResponse = await fetch(
       `${META_GRAPH_URL}/${instagramAccountId}/media`,
-      { method: 'POST', body: containerBody }
+      { method: 'POST', body: containerBody, signal: timeout() }
     );
 
     const containerData = await containerResponse.json();
@@ -341,6 +344,7 @@ export async function publishVideoToInstagram(params: {
     if (!containerId) {
       return { success: false, error: 'No container ID returned from Instagram' };
     }
+    await params.onContainer?.(containerId);
 
     // Step 2: Wait for video processing (longer timeout than images)
     const ready = await waitForContainer(containerId, accessToken, 30, 5000);
@@ -349,28 +353,15 @@ export async function publishVideoToInstagram(params: {
     }
 
     // Step 3: Publish the container
-    const publishResponse = await fetch(
+    return await finalPublish(
       `${META_GRAPH_URL}/${instagramAccountId}/media_publish`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          creation_id: containerId,
-          access_token: accessToken,
-        }),
-      }
+        body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
+      },
+      'Instagram video publish',
     );
-
-    const publishData = await publishResponse.json();
-
-    if (!publishResponse.ok) {
-      const apiError = publishData as MetaApiError;
-      const errorMsg = apiError.error?.message || `HTTP ${publishResponse.status}`;
-      console.error('[MetaClient] Instagram video publish failed:', errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    return { success: true, postId: publishData.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Instagram video publish error:', msg);
@@ -382,7 +373,7 @@ export async function publishVideoToInstagram(params: {
 export async function publishVideoToFacebook(params: {
   caption: string;
   videoUrl: string;
-}): Promise<{ success: boolean; postId?: string; error?: string }> {
+}): Promise<MetaPublishResult> {
   const { accessToken, pageId } = getCredentials();
 
   if (!accessToken || !pageId) {
@@ -398,21 +389,7 @@ export async function publishVideoToFacebook(params: {
       access_token: accessToken,
     });
 
-    const response = await fetch(`${META_GRAPH_URL}/${pageId}/videos`, {
-      method: 'POST',
-      body: videoBody,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const apiError = data as MetaApiError;
-      const errorMsg = apiError.error?.message || `HTTP ${response.status}`;
-      console.error('[MetaClient] Facebook video upload failed:', errorMsg);
-      return { success: false, error: errorMsg };
-    }
-
-    return { success: true, postId: data.id };
+    return await finalPublish(`${META_GRAPH_URL}/${pageId}/videos`, { method: 'POST', body: videoBody }, 'Facebook video upload');
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[MetaClient] Facebook video publish error:', msg);
@@ -430,7 +407,8 @@ export async function validateToken(): Promise<{ valid: boolean; error?: string 
 
   try {
     const response = await fetch(
-      `${META_GRAPH_URL}/debug_token?input_token=${accessToken}&access_token=${accessToken}`
+      `${META_GRAPH_URL}/debug_token?input_token=${accessToken}&access_token=${accessToken}`,
+      { signal: timeout(POLL_TIMEOUT_MS) },
     );
     const data = await response.json();
 
@@ -454,5 +432,39 @@ export async function validateToken(): Promise<{ valid: boolean; error?: string 
       valid: false,
       error: err instanceof Error ? err.message : 'Token validation failed',
     };
+  }
+}
+
+/**
+ * Where an Instagram container stands, for settling a post whose publish
+ * outcome is unknown. PUBLISHED settles it; ERROR, EXPIRED and FINISHED (ready
+ * but never published) mean this attempt did not publish.
+ */
+export async function getInstagramContainerStatus(
+  containerId: string,
+): Promise<'published' | 'not_published' | 'in_progress' | 'unknown'> {
+  const { accessToken } = getCredentials();
+  if (!accessToken) return 'unknown';
+  try {
+    const response = await fetch(
+      `${META_GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`,
+      { signal: timeout(POLL_TIMEOUT_MS) },
+    );
+    if (!response.ok) return 'unknown';
+    const data = (await response.json()) as { status_code?: string };
+    switch (data.status_code) {
+      case 'PUBLISHED':
+        return 'published';
+      case 'ERROR':
+      case 'EXPIRED':
+      case 'FINISHED':
+        return 'not_published';
+      case 'IN_PROGRESS':
+        return 'in_progress';
+      default:
+        return 'unknown';
+    }
+  } catch {
+    return 'unknown';
   }
 }

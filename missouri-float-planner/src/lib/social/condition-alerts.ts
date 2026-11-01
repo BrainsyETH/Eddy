@@ -23,6 +23,7 @@ import { warningCopy, FOLLOW_CTA, formatRise, resolveTrend, type TrendDir } from
 import { getOrCreateConfig } from './config-helpers';
 import { loadFtThresholds } from './gauge-thresholds';
 import { computeCondition } from '@/lib/conditions';
+import { MAY_HAVE_PUBLISHED, outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from './publish-outcome';
 import { triggerVideoRender } from './video-renderer';
 import type { SocialPlatform } from './types';
 
@@ -119,7 +120,7 @@ async function hasRecentPost(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', cutoff)
-    .in('status', ['pending', 'publishing', 'rendering', 'published']);
+    .in('status', ['pending', 'rendering', ...MAY_HAVE_PUBLISHED]);
   if (riverSlug) q = q.eq('river_slug', riverSlug);
   if (newCondition) q = q.eq('metadata->>new_condition', newCondition);
   const { data } = await q.limit(1);
@@ -425,30 +426,20 @@ async function publishAsImage(p: PublishParams): Promise<{ published: number; sk
     }
 
     try {
-      const result = await adapter.publishPost({ caption, imageUrl });
+      const result = await adapter.publishPost({ caption, imageUrl, onProviderAttempt: providerAttemptRecorder(supabase, record.id) });
+      // An ambiguous failure is `unknown`, never `failed` (publish-outcome.ts).
+      await writeOutcome(supabase, record.id, outcomeFields(result));
       if (result.success) {
-        await supabase.from('social_posts').update({
-          status: 'published',
-          platform_post_id: result.platformPostId || null,
-          published_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }).eq('id', record.id);
         published++;
         console.log(`${LOG_PREFIX} Published ${platform} ${kind}: ${riverSlug} ${oldCondition}→${newCondition}`);
       } else {
-        await supabase.from('social_posts').update({
-          status: 'failed',
-          error_message: result.error || 'Unknown error',
-          updated_at: new Date().toISOString(),
-        }).eq('id', record.id);
         console.error(`${LOG_PREFIX} Failed ${platform} ${kind}: ${result.error}`);
       }
     } catch (err) {
+      // A throw does not prove the platform refused the post.
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase.from('social_posts').update({
-        status: 'failed', error_message: msg, updated_at: new Date().toISOString(),
-      }).eq('id', record.id);
-      console.error(`${LOG_PREFIX} Error publishing ${platform} ${kind}:`, msg);
+      await writeOutcome(supabase, record.id, thrownFields(err));
+      console.error(`${LOG_PREFIX} Error publishing ${platform} ${kind} (outcome unknown):`, msg);
     }
   }
 
@@ -585,7 +576,7 @@ async function countRecentWarningRivers(supabase: any, windowHours: number): Pro
     .select('river_slug')
     .eq('post_type', 'condition_change')
     .gte('created_at', cutoff)
-    .in('status', ['pending', 'publishing', 'rendering', 'published']);
+    .in('status', ['pending', 'rendering', ...MAY_HAVE_PUBLISHED]);
   if (!data) return 0;
   return new Set(data.map((r: { river_slug: string | null }) => r.river_slug).filter(Boolean)).size;
 }
@@ -725,27 +716,18 @@ export async function publishStormDigest(
     }
 
     try {
-      const result = await adapter.publishPost({ caption, imageUrl });
+      const result = await adapter.publishPost({ caption, imageUrl, onProviderAttempt: providerAttemptRecorder(supabase, record.id) });
+      // An ambiguous failure is `unknown`, never `failed` (publish-outcome.ts).
+      await writeOutcome(supabase, record.id, outcomeFields(result));
       if (result.success) {
-        await supabase.from('social_posts').update({
-          status: 'published',
-          platform_post_id: result.platformPostId || null,
-          published_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }).eq('id', record.id);
         published++;
         console.log(`${LOG_PREFIX} Published ${platform} storm digest (${changes.length} rivers)`);
-      } else {
-        await supabase.from('social_posts').update({
-          status: 'failed', error_message: result.error || 'Unknown error', updated_at: new Date().toISOString(),
-        }).eq('id', record.id);
       }
     } catch (err) {
+      // A throw does not prove the platform refused the post.
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase.from('social_posts').update({
-        status: 'failed', error_message: msg, updated_at: new Date().toISOString(),
-      }).eq('id', record.id);
-      console.error(`${LOG_PREFIX} Error publishing ${platform} storm digest:`, msg);
+      await writeOutcome(supabase, record.id, thrownFields(err));
+      console.error(`${LOG_PREFIX} Error publishing ${platform} storm digest (outcome unknown):`, msg);
     }
   }
 

@@ -31,7 +31,7 @@
       "maxDuration": 300
     },
     "src/app/api/cron/post-social/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/cron/sync-availability/route.ts": {
       "maxDuration": 300
@@ -86,7 +86,7 @@
     },
     {
       "path": "/api/cron/update-gauges?highFrequency=1",
-      "schedule": "*/15 * * * *"
+      "schedule": "15,30,45 * * * *"
     },
     {
       "path": "/api/cron/sync-gauge-latest",

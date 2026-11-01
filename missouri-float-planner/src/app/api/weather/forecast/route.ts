@@ -1,69 +1,33 @@
 // src/app/api/weather/forecast/route.ts
-// Weather forecast API route - fetches 5-day forecast for given coordinates
+// GET /api/weather/forecast?lat&lon — five-day forecast for a point.
+//
+// Shares its validation, cache-first order and fail-closed rate limit with
+// /api/weather through lib/weather/request.ts.
 
-import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchForecast, fetchWeather } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
+import { BoundedTtlCache, coordinateWeatherHandler } from '@/lib/weather/request';
 
-// Simple in-memory cache
-const forecastCache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
-
-async function _GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const lat = searchParams.get('lat');
-  const lon = searchParams.get('lon');
-
-  if (!lat || !lon) {
-    return NextResponse.json(
-      { error: 'Missing lat or lon parameter' },
-      { status: 400 }
-    );
-  }
-
-  const apiKey = process.env.OPENWEATHER_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'Weather service not configured' },
-      { status: 503 }
-    );
-  }
-
-  const roundedLat = Math.round(parseFloat(lat) * 100) / 100;
-  const roundedLon = Math.round(parseFloat(lon) * 100) / 100;
-  const cacheKey = `forecast-${roundedLat},${roundedLon}`;
-
-  const cached = forecastCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return NextResponse.json(cached.data, { headers: cdnCacheHeaders(1800, 3600) });
-  }
-
-  try {
+const handler = coordinateWeatherHandler({
+  name: 'weather-forecast',
+  cache: new BoundedTtlCache<unknown>(60 * 60 * 1000),
+  cacheKeyPrefix: 'forecast-',
+  cdnHeaders: cdnCacheHeaders(1800, 3600),
+  load: async (lat, lon, apiKey) => {
     const [forecast, current] = await Promise.all([
-      fetchForecast(roundedLat, roundedLon, apiKey),
-      fetchWeather(roundedLat, roundedLon, apiKey).catch(() => null),
+      fetchForecast(lat, lon, apiKey),
+      fetchWeather(lat, lon, apiKey).catch(() => null),
     ]);
-
-    // Current observation and the provider’s actual three-hour forecast periods.
-    const responseData = {
+    // Current observation and the provider's actual three-hour forecast periods.
+    return {
       city: forecast.city,
       days: forecast.days,
       periods: forecast.periods,
       localDate: forecast.localDate,
       current: current ? { ...current, fetchedAt: new Date().toISOString() } : null,
     };
+  },
+});
 
-    forecastCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
-
-    return NextResponse.json(responseData, { headers: cdnCacheHeaders(1800, 3600) });
-  } catch (error) {
-    console.error('Forecast fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch forecast data' },
-      { status: 500 }
-    );
-  }
-}
-
-export const GET = withX402Route(_GET, '/api/weather/forecast');
+export const GET = withX402Route(handler, '/api/weather/forecast');

@@ -326,6 +326,10 @@ export default function AdminReportsPage() {
       }
       const data = await res.json();
       setSuccessMessage(`${data.updated ?? ids.length} report${(data.updated ?? ids.length) !== 1 ? 's' : ''} ${newStatus}`);
+      if (Array.isArray(data.notVerified) && data.notVerified.length > 0) {
+        // Their photos could not be published, so they were left unverified.
+        setError(`${data.notVerified.length} report${data.notVerified.length !== 1 ? 's' : ''} left unverified: the photo could not be published. Try again.`);
+      }
       setTimeout(() => setSuccessMessage(null), 3000);
       setSelectedIds(new Set());
       await fetchReports();

@@ -161,6 +161,42 @@ test('a recent floatable never suppresses a safety warning', () => {
   assert.equal(result.messages.length, 1);
 });
 
+test('a FAILED send does not start the cooldown', () => {
+  // The regression. The ledger records failures with the same sent_at default,
+  // and reading them as sends let a failed push suppress its own retry: the
+  // retry planned nothing, planDrain read "nothing planned" as finished, and the
+  // alert was gone without even reaching givenUp.
+  const result = plan({
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'floatable', sent_at: '2026-07-25T11:55:00.000Z', status: 'error' },
+    ],
+  });
+  assert.equal(result.messages.length, 1);
+  assert.equal(result.skipped.cooldown, undefined);
+});
+
+test('a SENT row still starts the cooldown when status is present', () => {
+  const result = plan({
+    recentDeliveries: [
+      { user_id: USER, river_id: RIVER, kind: 'floatable', sent_at: '2026-07-25T11:55:00.000Z', status: 'sent' },
+    ],
+  });
+  assert.equal(result.messages.length, 0);
+  assert.equal(result.skipped.cooldown, 1);
+});
+
+test('a retry plans only the recipients this event has not reached yet', () => {
+  // Per-recipient completion depends on this: the retry of a partly delivered
+  // river event must reach the people it missed and nobody it already told.
+  const result = plan({
+    subscriptions: [sub({ id: 'sub-a', user_id: 'a' }), sub({ id: 'sub-b', user_id: 'b' })],
+    tokens: [token({ id: 'tok-a', user_id: 'a' }), token({ id: 'tok-b', user_id: 'b' })],
+    alreadyReached: new Set(['evt-floatable|a']),
+  });
+  assert.deepEqual(result.messages.map((m) => m.userId), ['b']);
+  assert.equal(result.skipped.already_reached, 1);
+});
+
 test('two events of the same kind in one pass only notify once', () => {
   const result = plan({
     events: [event('floatable', { id: 'a' }), event('floatable', { id: 'b' })],

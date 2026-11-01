@@ -6,7 +6,7 @@ import { conditionAvailability, unknownConditionLabel, type ConditionAvailabilit
 import { STALE_READING_HOURS } from '@shared/reading-staleness';
 import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
 import { fetchGaugeReadings, fetchDailyStatistics, classifyQualifiers } from '@/lib/usgs/gauges';
-import { applyFloodStageOverride, computeConditionFromDbRow, getConditionShortLabel } from '@/lib/conditions';
+import { getConditionShortLabel, gradeReading } from '@/lib/conditions';
 import { floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatFloatTimeRangeCompact, type SpeedCurve } from './floatTime';
 import { calculateTripDuration } from './trip-duration';
 import { toNum } from '@/lib/utils/num';
@@ -214,6 +214,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             level_high,
             level_dangerous,
             threshold_unit,
+            flood_stage_ft,
             gauge_stations!inner (usgs_site_id)
           `)
           .eq('river_id', riverId)
@@ -227,11 +228,9 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         }
         if (gaugeThresholds && usgsReading && (usgsReading.gaugeHeightFt != null || usgsReading.dischargeCfs != null)) {
           // Thread threshold_unit + discharge so stage/CFS are never conflated (F7).
-          const computed = computeConditionFromDbRow(
-            usgsReading.gaugeHeightFt,
-            gaugeThresholds,
-            usgsReading.dischargeCfs
-          );
+          // gradeReading applies the flood stage, which this path used to skip:
+          // a river above flood stage read "High" here and "Dangerous" on its page.
+          const computed = gradeReading(gaugeThresholds, usgsReading.gaugeHeightFt, usgsReading.dischargeCfs);
 
           const readingAgeHours = usgsReading.readingTimestamp
             ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
@@ -268,6 +267,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             level_high,
             level_dangerous,
             threshold_unit,
+            flood_stage_ft,
             gauge_stations (
               id,
               name,
@@ -292,11 +292,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             const usgsReading = usgsReadings.find(r => r.siteId === usgsSiteId);
 
             if (usgsReading && (usgsReading.gaugeHeightFt != null || usgsReading.dischargeCfs != null)) {
-              const computed = computeConditionFromDbRow(
-                usgsReading.gaugeHeightFt,
-                primaryGauge,
-                usgsReading.dischargeCfs
-              );
+              const computed = gradeReading(primaryGauge, usgsReading.gaugeHeightFt, usgsReading.dischargeCfs);
 
               const readingAgeHours = usgsReading.readingTimestamp
                 ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
@@ -388,13 +384,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
           if (ageHours > STALE_READING_HOURS) spanCheckComplete = false;
           if (ageHours > 12) { spanCheckComplete = false; continue; } // never escalate off stale data
 
-          const spanCondition = computeConditionFromDbRow(
-            toNum(reading.gauge_height_ft),
-            row,
-            toNum(reading.discharge_cfs)
-          );
-
-          spanCondition.code = applyFloodStageOverride(spanCondition.code, toNum(reading.gauge_height_ft), toNum(row.flood_stage_ft));
+          const spanCondition = gradeReading(row, reading.gauge_height_ft, reading.discharge_cfs);
           spanCondition.label = getConditionShortLabel(spanCondition.code);
           if (spanCondition.code === 'unknown') spanCheckComplete = false;
 

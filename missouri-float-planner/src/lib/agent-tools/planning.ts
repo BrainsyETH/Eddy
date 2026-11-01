@@ -10,8 +10,7 @@ import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
 import { getDriveTime } from '@/lib/mapbox/directions';
 import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
 import {
-  applyFloodStageOverride,
-  computeConditionFromDbRow,
+  gradeReading,
   getConditionShortLabel,
 } from '@/lib/conditions';
 import {
@@ -218,15 +217,7 @@ export function createPlanning(
         );
     }
     const anchorRating = anchorLink
-      ? applyFloodStageOverride(
-          computeConditionFromDbRow(
-            numeric(anchor?.gauge_height_ft),
-            anchorLink,
-            numeric(anchor?.discharge_cfs),
-          ).code,
-          numeric(anchor?.gauge_height_ft),
-          numeric(anchorLink.flood_stage_ft),
-        )
+      ? gradeReading(anchorLink, anchor?.gauge_height_ft, anchor?.discharge_cfs).code
       : 'unknown';
     const anchorCalibrated = anchorRating !== 'unknown';
     if (!anchorCalibrated)

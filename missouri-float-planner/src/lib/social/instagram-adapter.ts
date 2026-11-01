@@ -23,11 +23,13 @@ export class InstagramAdapter implements PlatformAdapter {
         caption: params.caption,
         videoUrl: params.videoUrl,
         coverUrl: params.coverUrl,
+        onContainer: params.onProviderAttempt,
       });
       return {
         success: result.success,
         platformPostId: result.postId,
         error: result.error,
+        ambiguous: result.ambiguous,
       };
     }
 
@@ -39,12 +41,14 @@ export class InstagramAdapter implements PlatformAdapter {
     const result = await publishToInstagram({
       caption: params.caption,
       imageUrl: params.imageUrl,
+      onContainer: params.onProviderAttempt,
     });
 
     return {
       success: result.success,
       platformPostId: result.postId,
       error: result.error,
+      ambiguous: result.ambiguous,
     };
   }
 

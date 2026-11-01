@@ -102,10 +102,10 @@ export async function PUT(
       }
       updates.status = body.status;
 
-      // When verifying, set verified_at timestamp
-      if (body.status === 'verified') {
-        updates.verified_at = new Date().toISOString();
-      }
+      // verified_at tracks the CURRENT verification: set on verify, cleared on
+      // any other status (the bulk route already did this; verified → rejected
+      // used to keep its verified_at here).
+      updates.verified_at = body.status === 'verified' ? new Date().toISOString() : null;
     }
 
     if (body.description !== undefined) updates.description = body.description;
@@ -132,6 +132,22 @@ export async function PUT(
       mediaBefore = snapshot ?? null;
     }
 
+    // VERIFY publishes the photo FIRST and flips status only once it is live.
+    // The other order could leave a verified report with image_url = null —
+    // the state the comment above says crashes the planner map — while the
+    // moderator was told it succeeded. A pending report with a published
+    // image_url is invisible to the public (reads are verified-only) and a
+    // later reject takes the object down.
+    if (mediaBefore && updates.status === 'verified') {
+      const media = await applyMediaTransitions(supabase, 'verified', [mediaBefore]);
+      if (media.failed > 0) {
+        return NextResponse.json(
+          { error: 'The photo could not be published, so the report was left unverified. Try again.' },
+          { status: 502 }
+        );
+      }
+    }
+
     const { error } = await supabase
       .from('community_reports')
       .update(updates)
@@ -145,8 +161,9 @@ export async function PUT(
       );
     }
 
-    // Publish the quarantined image on verify (or take it down on reject).
-    if (mediaBefore && updates.status !== undefined) {
+    // Take the image down on reject (after the status write, so it stops being
+    // shown first). Verify was handled above.
+    if (mediaBefore && updates.status !== undefined && updates.status !== 'verified') {
       await applyMediaTransitions(supabase, updates.status, [mediaBefore]);
     }
 

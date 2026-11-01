@@ -131,6 +131,12 @@ export interface PublishParams {
   videoUrl?: string;
   coverUrl?: string;
   mediaType?: MediaType;
+  /**
+   * Called with the platform's id for this attempt as soon as it exists (an
+   * Instagram container id, before the wait-and-publish steps), so an attempt
+   * that dies later can be checked with the platform. See publish-outcome.ts.
+   */
+  onProviderAttempt?: (attemptId: string) => void | Promise<void>;
 }
 
 export interface PublishResult {
@@ -138,6 +144,12 @@ export interface PublishResult {
   success: boolean;
   platformPostId?: string;
   error?: string;
+  /**
+   * The failure happened where the platform may already have published: the
+   * final publish request timed out, threw, or got a 5xx. Recorded as
+   * `unknown`, never auto-retried. Absent means a definitive failure.
+   */
+  ambiguous?: boolean;
 }
 
 // ─── ClipEngine types ───

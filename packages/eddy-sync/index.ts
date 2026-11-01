@@ -68,6 +68,13 @@ export interface LocalStar {
   updatedAt: string;
   /** false is a tombstone: deliberately unstarred, not merely unknown. */
   starred: boolean;
+  /**
+   * true once a successful sync has seen the SERVER hold this star, and only
+   * until the user edits the entry here (every edit builds a fresh entry
+   * without it). It is what tells "never reached the server" apart from
+   * "removed on another device" when the server has no row — see mergeStars.
+   */
+  confirmed?: boolean;
 }
 
 /**
@@ -174,15 +181,26 @@ export function mergeStars(local: LocalStar[], server: ServerStar[], kind: StarK
       // so a later unstar elsewhere can still be compared meaningfully.
       updatedAt: mine?.starred ? mine.updatedAt : row.starredAt,
       starred: true,
+      confirmed: true,
     });
   }
 
   for (const entry of byKey.values()) {
     if (seen.has(starKey(entry.kind, entry.entityId))) continue;
 
+    if (entry.starred && entry.confirmed) {
+      // The server HAD this star at an earlier sync, nothing here has changed
+      // it since, and now the row is gone: another device unstarred it. The
+      // server keeps no tombstones, so this is the only evidence there will
+      // be. Pushing it back — what this branch used to do for every absent
+      // star — resurrected the star the user removed on the other device.
+      // Dropped, not tombstoned: both sides now agree it is not starred.
+      continue;
+    }
+
     if (entry.starred) {
-      // Starred here, absent there — either it never synced or it was starred
-      // while offline. Push it.
+      // Starred here and never confirmed by the server — it never synced, or
+      // it was (re)starred here after the last sync. Push it.
       toStar.push(entry.entityId);
       merged.push(entry);
     }
@@ -193,6 +211,30 @@ export function mergeStars(local: LocalStar[], server: ServerStar[], kind: StarK
   }
 
   return { merged, toStar, toUnstar };
+}
+
+/**
+ * Marks stars this device just UPLOADED as confirmed by the server.
+ *
+ * mergeStars only confirms a star it sees in a server read, so a star created
+ * here and POSTed successfully stayed unconfirmed — and when another device
+ * later removed it, this device read the missing row as "never uploaded" and
+ * created it again. Call with the ids whose POST succeeded, on the plan this
+ * pass built.
+ *
+ * Only still-starred entries of `kind` are touched. A local edit made while
+ * the pass was on the wire is protected by the caller, which discards the whole
+ * pass when the local set moved (useStarredRivers' mutation generation check),
+ * so a confirmation can never land on an entry the user changed since.
+ */
+export function confirmUploaded(merged: LocalStar[], kind: StarKind, uploadedIds: readonly string[]): LocalStar[] {
+  if (uploadedIds.length === 0) return merged;
+  const uploaded = new Set(uploadedIds);
+  return merged.map((entry) =>
+    entry.kind === kind && entry.starred && !entry.confirmed && uploaded.has(entry.entityId)
+      ? { ...entry, confirmed: true }
+      : entry,
+  );
 }
 
 /** The starred subset, newest first — what the UI lists. Both kinds, one clock. */
@@ -328,6 +370,9 @@ export function migrateStars(raw: unknown): LocalStar[] {
       updatedAt: record.updatedAt ?? record.starredAt ?? new Date(0).toISOString(),
       // Only v1 lacks the field entirely, and in v1 presence meant starred.
       starred: typeof record.starred === 'boolean' ? record.starred : true,
+      // Absent on stores written before it existed: such entries are pushed
+      // once, as before, and confirmed by the sync that sees them.
+      ...(record.confirmed === true ? { confirmed: true } : {}),
     });
   }
   return out;

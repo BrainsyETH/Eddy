@@ -2,6 +2,7 @@
 // Determines scheduled social posts. Eddy’s Read is one Thursday comparison;
 // Float Pick and other format schedules retain their existing behavior.
 
+import { MAY_HAVE_PUBLISHED } from './publish-outcome';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   formatDailyDigestCaption,
@@ -395,7 +396,9 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox']);
+    // `unknown` blocks too: it may have published, and treating it as absent
+    // would let the scheduler post the same thing again the same day.
+    .in('status', ['pending', 'rendering', ...MAY_HAVE_PUBLISHED]);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);

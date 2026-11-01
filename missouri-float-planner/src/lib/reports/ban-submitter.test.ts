@@ -138,7 +138,7 @@ test('a takedown keeps the reference to any file it failed to delete', async () 
   const result = await applyMediaTransitions(client, 'rejected', [
     { id: REPORT, image_path: PATH, image_url: PUBLIC_URL },
   ]);
-  assert.deepEqual(result, { published: 0, removed: 0, failed: 1 });
+  assert.deepEqual(result, { published: 0, removed: 0, failed: 1, failedIds: [REPORT] });
   assert.deepEqual(removed, [`images-quarantine/${PATH}`]);
   assert.deepEqual(updates, [{ id: REPORT, values: { image_path: null } }], 'image_url kept for the retry');
 });
@@ -148,6 +148,6 @@ test('a complete takedown clears both references', async () => {
   const result = await applyMediaTransitions(client, 'rejected', [
     { id: REPORT, image_path: PATH, image_url: PUBLIC_URL },
   ]);
-  assert.deepEqual(result, { published: 0, removed: 1, failed: 0 });
+  assert.deepEqual(result, { published: 0, removed: 1, failed: 0, failedIds: [] });
   assert.deepEqual(updates, [{ id: REPORT, values: { image_path: null, image_url: null } }]);
 });

@@ -21,11 +21,12 @@
 // though the phone stayed silent.
 
 import { planDrain, spentOneShots } from './drain';
+import { checkedWrite, readAllIn, recordOutcomes, DeliveryReadError, IN_CHUNK } from './delivery-io';
 import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
 import { buildGaugeNotification, type GaugeEventKind } from './gauge-threshold';
 import { suppressedByQuietHours } from './quiet-hours';
 import { disableTokens, recordTokenFailures } from './token-health';
-import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage } from '@/lib/push/expo';
+import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage, type ExpoTicket } from '@/lib/push/expo';
 import type { AlertComparator, AlertMetric, AlertSubscriptionKind, NotificationPreferences } from '@/types/api';
 import { logger } from '@/lib/logger';
 
@@ -51,6 +52,20 @@ export interface GaugeDeliveryStats {
   gated: number;
   retried: number;
   givenUp: number;
+  /** Drained events by why they drained (push_outcome). */
+  outcomes?: Partial<Record<'sent' | 'skipped' | 'expired' | 'given_up', number>>;
+  /**
+   * Set when the pass aborted on a read it could not do without. Nothing was
+   * sent or drained, and the caller reports the run as failed.
+   */
+  error?: string;
+}
+
+export interface GaugeDeliveryOptions {
+  /** Injected for tests; defaults to Expo. */
+  send?: (messages: ExpoMessage[]) => Promise<ExpoTicket[]>;
+  /** Pause between Expo batches. Injected so tests do not wait. */
+  pauseMs?: number;
 }
 
 const EMPTY: GaugeDeliveryStats = {
@@ -152,7 +167,10 @@ export async function deliverGaugeAlerts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   now: Date = new Date(),
+  options: GaugeDeliveryOptions = {},
 ): Promise<GaugeDeliveryStats> {
+  const send = options.send ?? ((messages: ExpoMessage[]) => sendExpoPush(messages));
+  const pauseMs = options.pauseMs ?? 300;
   try {
     const cutoff = new Date(now.getTime() - MAX_EVENT_AGE_HOURS * 60 * 60 * 1000).toISOString();
 
@@ -172,7 +190,7 @@ export async function deliverGaugeAlerts(
 
     if (error) {
       logger.error('[deliver-push:gauge] could not read outbox', error);
-      return EMPTY;
+      return { ...EMPTY, error: 'could not read outbox' };
     }
 
     const rows = pending ?? [];
@@ -180,7 +198,10 @@ export async function deliverGaugeAlerts(
 
     const expired = rows.filter((r: { detected_at: string }) => r.detected_at < cutoff);
     if (expired.length > 0) {
-      await markDelivered(supabase, expired.map((r: { id: string }) => r.id));
+      const ids: string[] = expired.map((r: { id: string }) => r.id);
+      if (await markDelivered(supabase, ids, now)) {
+        await recordOutcomes(supabase, 'gauge_alert_events', new Map(ids.map((id) => [id, 'expired' as const])));
+      }
     }
 
     const fresh = rows.filter((r: { detected_at: string }) => r.detected_at >= cutoff);
@@ -190,17 +211,50 @@ export async function deliverGaugeAlerts(
 
     const userIds = [...new Set(fresh.map((r: { user_id: string }) => r.user_id))] as string[];
 
-    const [{ data: tokensData }, { data: prefsData }] = await Promise.all([
-      supabase
-        .from('device_tokens')
-        .select('id, user_id, expo_push_token')
-        .in('user_id', userIds)
-        .is('disabled_at', null),
-      supabase
-        .from('notification_preferences')
-        .select('user_id, quiet_hours_enabled, quiet_start_minute, quiet_end_minute, timezone, safety_overrides_quiet')
-        .in('user_id', userIds),
+    // Each of these throws on failure (see delivery-io.ts). "No tokens" plans
+    // nothing and drains the event; "no preferences" ignores quiet hours; "no
+    // prior deliveries" re-sends. None of those may be what a failed read means.
+    const eventIds: string[] = fresh.map((r: { id: string }) => r.id);
+    const [tokensData, prefsData, reachedRows] = await Promise.all([
+      readAllIn<{ id: string; user_id: string; expo_push_token: string }>('device tokens', userIds, (chunk, from, to) =>
+        supabase
+          .from('device_tokens')
+          .select('id, user_id, expo_push_token')
+          .in('user_id', chunk)
+          .is('disabled_at', null)
+          .order('id')
+          .range(from, to),
+      ),
+      readAllIn<{
+        user_id: string;
+        quiet_hours_enabled: boolean;
+        quiet_start_minute: number | null;
+        quiet_end_minute: number | null;
+        timezone: string | null;
+        safety_overrides_quiet: boolean;
+      }>('notification preferences', userIds, (chunk, from, to) =>
+        supabase
+          .from('notification_preferences')
+          .select('user_id, quiet_hours_enabled, quiet_start_minute, quiet_end_minute, timezone, safety_overrides_quiet')
+          .in('user_id', chunk)
+          .order('user_id')
+          .range(from, to),
+      ),
+      // Events an earlier pass already delivered but could not stamp drained.
+      // Their one recipient was reached; sending again would be a duplicate.
+      readAllIn<{ event_id: string }>('prior deliveries', eventIds, (chunk, from, to) =>
+        supabase
+          .from('alert_push_deliveries')
+          .select('event_id')
+          .in('event_id', chunk)
+          .eq('status', 'sent')
+          .order('event_id')
+          .order('device_token_id')
+          .range(from, to),
+      ),
     ]);
+    const previouslyReached = new Map<string, number>();
+    for (const row of reachedRows) previouslyReached.set(row.event_id, 1);
 
     const tokensByUser = new Map<string, Array<{ id: string; expo_push_token: string }>>();
     for (const token of tokensData ?? []) {
@@ -232,6 +286,7 @@ export async function deliverGaugeAlerts(
     const pausedParents = await loadPausedParents(supabase, fresh);
 
     for (const row of fresh) {
+      if (previouslyReached.has(row.id)) continue;
       const kind = row.kind as GaugeEventKind;
       const prefs = prefsByUser.get(row.user_id) ?? null;
 
@@ -329,7 +384,8 @@ export async function deliverGaugeAlerts(
     let sent = 0;
     let failed = 0;
     const failuresByToken = new Map<string, number>();
-    const successByEvent = new Map<string, number>();
+    // Per event, the recipient reached. Gauge events have exactly one.
+    const reachedRecipients = new Map<string, Set<string>>();
     // Per RULE, not per event. A one-shot is spent by a push reaching a device,
     // and one rule can produce several messages (one per device token) spread
     // across non-adjacent batches by the interleave — so the tally has to be
@@ -337,18 +393,19 @@ export async function deliverGaugeAlerts(
     // before the update below.
     const successBySubscription = new Map<string, number>();
 
-    for (const [index, batch] of chunkMessages(planned.map((m) => m.message)).entries()) {
+    const batches = chunkMessages(planned.map((m) => m.message));
+    for (const [index, batch] of batches.entries()) {
       const offset = index * 100;
       // Never throws — a whole-request failure comes back as one error ticket
       // per message, index-aligned, so the tally below is always complete.
-      const tickets = await sendExpoPush(batch);
+      const tickets = await send(batch);
 
       const ledgerRows = tickets.map((ticket, i) => {
         const message = planned[offset + i];
         const errorKind = classifyTicketError(ticket);
         if (ticket.status === 'ok') {
           sent++;
-          successByEvent.set(message.eventId, (successByEvent.get(message.eventId) ?? 0) + 1);
+          reachedRecipients.set(message.eventId, new Set([message.userId]));
           successBySubscription.set(
             message.subscriptionId,
             (successBySubscription.get(message.subscriptionId) ?? 0) + 1,
@@ -375,9 +432,10 @@ export async function deliverGaugeAlerts(
         };
       });
 
-      await supabase
-        .from('alert_push_deliveries')
-        .upsert(ledgerRows, { onConflict: 'event_id,device_token_id' });
+      await checkedWrite(
+        'gauge delivery ledger write',
+        supabase.from('alert_push_deliveries').upsert(ledgerRows, { onConflict: 'event_id,device_token_id' }),
+      );
 
       const dead = tickets
         .map((t, i) =>
@@ -388,7 +446,7 @@ export async function deliverGaugeAlerts(
         .filter((id): id is string => !!id);
       await disableTokens(supabase, dead);
 
-      if (index < planned.length / 100 - 1) await sleep(300);
+      if (index < batches.length - 1 && pauseMs > 0) await sleep(pauseMs);
     }
 
     await recordTokenFailures(supabase, failuresByToken);
@@ -416,37 +474,46 @@ export async function deliverGaugeAlerts(
     // to true, or re-arming would leave a rule that is armed and paused. See the
     // rearm blocks in the two PATCH routes.
     const spent = spentOneShots([...successBySubscription.keys()], successBySubscription);
-    if (spent.length > 0) {
-      await supabase
-        .from('gauge_alert_subscriptions')
-        .update({ one_shot_fired_at: now.toISOString(), enabled: false })
-        .in('id', spent)
-        .eq('one_shot', true)
-        .is('one_shot_fired_at', null);
+    for (let i = 0; i < spent.length; i += IN_CHUNK) {
+      await checkedWrite(
+        'gauge one-shot spend',
+        supabase
+          .from('gauge_alert_subscriptions')
+          .update({ one_shot_fired_at: now.toISOString(), enabled: false })
+          .in('id', spent.slice(i, i + IN_CHUNK))
+          .eq('one_shot', true)
+          .is('one_shot_fired_at', null),
+      );
     }
 
     // An event with nothing planned — quiet hours, or no active device — is
     // drained rather than retried. Retrying it would refill the outbox every
     // five minutes with notifications nobody can receive.
-    const plannedByEvent = new Map<string, number>();
-    for (const message of planned) {
-      plannedByEvent.set(message.eventId, (plannedByEvent.get(message.eventId) ?? 0) + 1);
-    }
+    const plannedRecipients = new Map<string, Set<string>>();
+    for (const message of planned) plannedRecipients.set(message.eventId, new Set([message.userId]));
 
-    const { delivered, retryByNextAttempt, givenUp } = planDrain({
+    const { delivered, outcomes, retryByNextAttempt, givenUp } = planDrain({
       events: fresh.map((r: { id: string; push_attempts: number | null }) => ({
         id: r.id,
         attempts: r.push_attempts ?? 0,
       })),
-      plannedByEvent,
-      successByEvent,
+      plannedRecipients,
+      reachedRecipients,
+      previouslyReached,
       maxAttempts: MAX_ATTEMPTS,
     });
 
     for (const [attempts, ids] of retryByNextAttempt) {
-      await supabase.from('gauge_alert_events').update({ push_attempts: attempts }).in('id', ids);
+      await checkedWrite(
+        'gauge retry attempt write',
+        supabase.from('gauge_alert_events').update({ push_attempts: attempts }).in('id', ids),
+      );
     }
-    await markDelivered(supabase, delivered);
+    if (await markDelivered(supabase, delivered, now)) {
+      await recordOutcomes(supabase, 'gauge_alert_events', outcomes);
+    }
+    const outcomeCounts: NonNullable<GaugeDeliveryStats['outcomes']> = {};
+    for (const outcome of outcomes.values()) outcomeCounts[outcome] = (outcomeCounts[outcome] ?? 0) + 1;
 
     if (givenUp > 0) {
       logger.error(
@@ -465,18 +532,34 @@ export async function deliverGaugeAlerts(
       gated,
       retried: fresh.length - delivered.length,
       givenUp,
+      outcomes: outcomeCounts,
     };
   } catch (error) {
     logger.error('[deliver-push:gauge] pass failed', error);
-    return EMPTY;
+    return {
+      ...EMPTY,
+      error: error instanceof DeliveryReadError ? error.message : 'pass failed',
+    };
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function markDelivered(supabase: any, eventIds: string[]): Promise<void> {
-  if (eventIds.length === 0) return;
-  await supabase
-    .from('gauge_alert_events')
-    .update({ push_delivered_at: new Date().toISOString() })
-    .in('id', eventIds);
+/** Stamp events drained; false (logged) on failure, leaving them for the next pass. */
+async function markDelivered(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  eventIds: string[],
+  now: Date,
+): Promise<boolean> {
+  let ok = true;
+  for (let i = 0; i < eventIds.length; i += IN_CHUNK) {
+    ok =
+      (await checkedWrite(
+        'gauge drain write',
+        supabase
+          .from('gauge_alert_events')
+          .update({ push_delivered_at: now.toISOString() })
+          .in('id', eventIds.slice(i, i + IN_CHUNK)),
+      )) && ok;
+  }
+  return ok;
 }

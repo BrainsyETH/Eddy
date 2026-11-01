@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CompletedFloat } from '@shared/float-archive';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
-import { applyFloodStageOverride, computeConditionFromDbRow } from '@/lib/conditions';
+import { gradeReading } from '@/lib/conditions';
 
 // The same columns computeConditionFromDbRow reads, plus the flood stage that
 // outranks them: the anchor gauge's ladder, so a float with no condition
@@ -48,8 +48,7 @@ export async function waterAtStart(db: SupabaseClient, trip: CompletedFloat): Pr
     const station = Array.isArray(link.gauge_stations) ? link.gauge_stations[0] : link.gauge_stations;
     const heightFt = reading.gauge_height_ft == null ? null : Number(reading.gauge_height_ft);
     const dischargeCfs = reading.discharge_cfs == null ? null : Number(reading.discharge_cfs);
-    const flood = link.flood_stage_ft == null ? null : Number(link.flood_stage_ft);
-    const code = applyFloodStageOverride(computeConditionFromDbRow(heightFt, link, dischargeCfs).code, heightFt, flood);
+    const code = gradeReading(link, heightFt, dischargeCfs).code;
     return {
       gaugeName: station?.name ?? 'Upstream gauge',
       gaugeStationId: link.gauge_station_id,

@@ -238,24 +238,41 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Could not update reports' }, { status: 500 });
     }
 
-    const now = new Date().toISOString();
-    const { error } = await supabase
-      .from('community_reports')
-      .update({
-        status,
-        verified_at: status === 'verified' ? now : null,
-        updated_at: now,
-      })
-      .in('id', ids);
+    // Verify publishes photos FIRST and verifies only the reports whose photo
+    // is live (or that had none); a report whose publish failed stays as it
+    // was rather than becoming verified with image_url = null. Reject keeps
+    // the old order: stop showing it, then take the object down.
+    const verifying = status === 'verified';
+    const prePublish = verifying ? await applyMediaTransitions(supabase, 'verified', mediaRows || []) : null;
+    const notVerified = new Set(prePublish?.failedIds ?? []);
+    const toUpdate = ids.filter((id: string) => !notVerified.has(id));
 
-    if (error) {
-      console.error('Error bulk-updating community reports:', error);
-      return NextResponse.json({ error: 'Could not update reports' }, { status: 500 });
+    const now = new Date().toISOString();
+    if (toUpdate.length > 0) {
+      const { error } = await supabase
+        .from('community_reports')
+        .update({
+          status,
+          verified_at: verifying ? now : null,
+          updated_at: now,
+        })
+        .in('id', toUpdate);
+
+      if (error) {
+        console.error('Error bulk-updating community reports:', error);
+        return NextResponse.json({ error: 'Could not update reports' }, { status: 500 });
+      }
     }
 
-    const media = await applyMediaTransitions(supabase, status, mediaRows || []);
+    const media = prePublish ?? await applyMediaTransitions(supabase, status, mediaRows || []);
 
-    return NextResponse.json({ updated: ids.length, ...media });
+    return NextResponse.json({
+      updated: toUpdate.length,
+      published: media.published,
+      removed: media.removed,
+      failed: media.failed,
+      ...(notVerified.size > 0 ? { notVerified: [...notVerified] } : {}),
+    }, { status: notVerified.size > 0 ? 207 : 200 });
   } catch (error) {
     console.error('Error in admin reports bulk endpoint:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -14,7 +14,8 @@ import {
   type ClipSource,
 } from './clip-credit';
 import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
-import type { SocialPlatform, HookStyle } from './types';
+import type { SocialPlatform, HookStyle, PlatformAdapter } from './types';
+import { MAY_HAVE_PUBLISHED, outcomeFields, providerAttemptRecorder, thrownFields, writeOutcome } from './publish-outcome';
 
 // The template lives with the credit rule now (clip-credit.ts); re-exported so
 // the poster keeps its public surface.
@@ -112,7 +113,21 @@ async function composeClipCaption(
 // Publish one approved clip to the given platforms. Records social_posts rows
 // and appends them to clip.used_in_posts. Caller ensures the clip is approved.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function publishClip(supabase: any, clip: ClipRow, platforms: SocialPlatform[]): Promise<ClipPostResult> {
+export interface PublishClipOptions {
+  /** Injected for tests; defaults to the configured platform adapters. */
+  adapterFor?: (platform: SocialPlatform) => PlatformAdapter | null;
+  /** Injected for tests; defaults to the resolved social_caption model. */
+  captionModel?: ResolvedModel;
+}
+
+export async function publishClip(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  clip: ClipRow,
+  platforms: SocialPlatform[],
+  options: PublishClipOptions = {},
+): Promise<ClipPostResult> {
+  const adapterFor = options.adapterFor ?? getAdapter;
   // Tier 2 clips have no river_slug → riverName stays null and composeClipCaption
   // produces the generic (no-river) caption.
   let riverName: string | null = null;
@@ -123,7 +138,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
   const sceneDescription = clip.brand_check_result?.scene_description?.trim() || null;
   // One caption serves every platform below, so the model is resolved once here
   // rather than inside the per-platform loop.
-  const { social_caption: captionModel } = await resolveModels();
+  const captionModel = options.captionModel ?? (await resolveModels()).social_caption;
   const { body, hashtags } = await composeClipCaption(riverName, clip, sceneDescription, captionModel);
   const caption = assembleClipCaption(body, hashtags);
 
@@ -131,7 +146,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
   const postedRowIds: string[] = [];
 
   for (const platform of platforms) {
-    const adapter = getAdapter(platform);
+    const adapter = adapterFor(platform);
     if (!adapter) {
       results.push({ platform, success: false, error: `No credentials for ${platform}` });
       continue;
@@ -143,13 +158,16 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     // minutes — if a prior run committed the Reel to Meta but was killed before
     // recording used_in_posts, this stops the next run from double-posting it.
     // A 'failed' row is intentionally NOT matched, so a genuine failure can retry.
+    // An 'unknown' row IS: the reaper turns a stuck publishing row into unknown,
+    // and the Reel may well be live — matching only publishing/published let the
+    // next run post it a second time.
     if (clip.clip_url) {
       const { data: existing } = await supabase
         .from('social_posts')
         .select('id, status')
         .eq('platform', platform)
         .eq('video_url', clip.clip_url)
-        .in('status', ['publishing', 'published'])
+        .in('status', [...MAY_HAVE_PUBLISHED])
         .limit(1);
       if (existing && existing.length > 0) {
         results.push({
@@ -191,33 +209,26 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     }
 
     try {
-      const result = await adapter.publishPost({ caption, videoUrl: clip.clip_url || undefined, coverUrl, mediaType: 'video' });
+      const result = await adapter.publishPost({
+        caption,
+        videoUrl: clip.clip_url || undefined,
+        coverUrl,
+        mediaType: 'video',
+        onProviderAttempt: providerAttemptRecorder(supabase, record.id),
+      });
+      // An ambiguous failure is `unknown`, never `failed` (publish-outcome.ts).
+      await writeOutcome(supabase, record.id, outcomeFields(result));
       if (result.success) {
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'published',
-            platform_post_id: result.platformPostId || null,
-            published_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', record.id);
         results.push({ platform, success: true, postId: result.platformPostId });
         postedRowIds.push(record.id);
       } else {
-        await supabase
-          .from('social_posts')
-          .update({ status: 'failed', error_message: result.error || 'Unknown error', updated_at: new Date().toISOString() })
-          .eq('id', record.id);
         results.push({ platform, success: false, error: result.error });
       }
     } catch (err) {
+      // A throw does not prove the platform refused the Reel.
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase
-        .from('social_posts')
-        .update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() })
-        .eq('id', record.id);
-      results.push({ platform, success: false, error: msg });
+      await writeOutcome(supabase, record.id, thrownFields(err));
+      results.push({ platform, success: false, error: `outcome unknown — ${msg}` });
     }
   }
 

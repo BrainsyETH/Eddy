@@ -27,6 +27,7 @@ export class FacebookAdapter implements PlatformAdapter {
         success: result.success,
         platformPostId: result.postId,
         error: result.error,
+        ambiguous: result.ambiguous,
       };
     }
 
@@ -40,6 +41,7 @@ export class FacebookAdapter implements PlatformAdapter {
       success: result.success,
       platformPostId: result.postId,
       error: result.error,
+      ambiguous: result.ambiguous,
     };
   }
 

@@ -107,6 +107,64 @@ export interface DbThresholdRow {
 }
 
 /**
+ * A river_gauges row as the database returns it. numeric columns can arrive as
+ * strings over PostgREST, so every field is accepted loosely and coerced here.
+ */
+export interface GaugeLinkRow {
+  level_too_low: unknown;
+  level_low: unknown;
+  level_optimal_min: unknown;
+  level_optimal_max: unknown;
+  level_high: unknown;
+  level_dangerous: unknown;
+  threshold_unit?: string | null;
+  /** NWS flood stage. Optional so a row selected without it still grades. */
+  flood_stage_ft?: unknown;
+}
+
+const asNumber = (value: unknown): number | null => {
+  if (value == null) return null;
+  const n = typeof value === 'number' ? value : parseFloat(String(value));
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Grade one reading against one river_gauges row — THE server-side way to turn
+ * a stored ladder plus a reading into a condition.
+ *
+ * Twelve call sites used to do this by hand, three ways: computeCondition with
+ * hand-built thresholds, computeConditionFromDbRow, and that wrapped in
+ * applyFloodStageOverride. They disagreed exactly where it matters: the embed,
+ * the route estimate, the access-point card and llms-full.txt never applied the
+ * flood stage, so a river above flood stage but under its editorial dangerous
+ * band read "High" there and "Dangerous" on the river screen. Here the flood
+ * stage rides into the ladder (which applies it), units are threaded, and
+ * every numeric is coerced, for every caller.
+ *
+ * Callers still own WHICH reading and WHETHER it is usable (fresh, not suspect)
+ * — those rules differ by surface on purpose. A ratchet test
+ * (condition-grading-sites.test.ts) keeps new code from grading by hand again.
+ */
+export function gradeReading(
+  row: GaugeLinkRow,
+  gaugeHeightFt: unknown,
+  dischargeCfs?: unknown,
+  options?: ComputeConditionOptions,
+): ConditionResult {
+  const thresholds: ConditionThresholds = {
+    levelTooLow: asNumber(row.level_too_low),
+    levelLow: asNumber(row.level_low),
+    levelOptimalMin: asNumber(row.level_optimal_min),
+    levelOptimalMax: asNumber(row.level_optimal_max),
+    levelHigh: asNumber(row.level_high),
+    levelDangerous: asNumber(row.level_dangerous),
+    floodStageFt: asNumber(row.flood_stage_ft),
+    thresholdUnit: row.threshold_unit === 'cfs' ? 'cfs' : 'ft',
+  };
+  return computeCondition(asNumber(gaugeHeightFt), thresholds, asNumber(dischargeCfs), options);
+}
+
+/**
  * Compute condition from a raw river_gauges DB row plus a live reading.
  *
  * SINGLE SOURCE OF TRUTH for the app-side (non-RPC) fallback path — shared by

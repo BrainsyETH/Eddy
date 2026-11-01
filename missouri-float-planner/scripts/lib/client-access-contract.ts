@@ -1,5 +1,5 @@
 /** Read-only catalog gate. Function privileges include inherited PUBLIC grants.
- * These four existing RPCs intentionally form part of the public API; adding
+ * These three existing RPCs intentionally form part of the public API; adding
  * another requires review here, rather than inheriting Supabase's defaults.
  */
 export const CLIENT_ACCESS_SQL = `
@@ -14,8 +14,7 @@ WITH exposed_definers AS (
   FROM exposed_definers WHERE signature NOT IN (
     'is_admin()',
     'get_float_plan_by_code(text, boolean)',
-    'float_plan_code_available(text)',
-    'increment_plan_view_count(text)'
+    'float_plan_code_available(text)'
   )
   UNION ALL
   SELECT 'Client report write privileges remain: ' || role_name
@@ -45,6 +44,18 @@ WITH exposed_definers AS (
   WHERE p.oid IS NULL OR NOT p.prosecdef
      OR NOT coalesce(path = ANY(p.proconfig), false)
      OR NOT has_function_privilege('service_role', p.oid, 'EXECUTE')
+  UNION ALL
+  -- Schema-wide: a public table a client role can touch must have RLS on.
+  -- Five tables (clip_library, admin_activity_log, cron_runs, float_segments,
+  -- river_mile_markers) were created by migrations that never enabled RLS and
+  -- were only protected because it was switched on in production by hand. A
+  -- migration replay, a branch database, or the next table to repeat that
+  -- omission would expose Supabase's default anon/authenticated grants.
+  SELECT 'Client-accessible table without RLS: ' || c.relname
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity
+    AND (has_table_privilege('anon', c.oid, 'SELECT, INSERT, UPDATE, DELETE')
+      OR has_table_privilege('authenticated', c.oid, 'SELECT, INSERT, UPDATE, DELETE'))
   UNION ALL
   SELECT 'Client can create objects in trusted schema: ' || schema_name || ' / ' || role_name
   FROM (VALUES ('public'), ('extensions')) AS schemas(schema_name)

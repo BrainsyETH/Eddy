@@ -62,6 +62,16 @@ export interface RecentDelivery {
   river_id: string | null;
   kind: string;
   sent_at: string;
+  /**
+   * The ledger row's status. Only a `sent` row is a prior send.
+   *
+   * The ledger records failures too, stamped with the same `sent_at` default,
+   * and the cooldown used to read them as sends: a failed push suppressed its
+   * own retry for four hours, the retry pass planned nothing, and planDrain
+   * read "nothing planned" as finished. The query filters on status as well;
+   * this is the second guard, so the policy cannot be undone by a select.
+   */
+  status?: string;
 }
 
 export interface PlannedMessage {
@@ -80,7 +90,8 @@ export type SkipReason =
   | 'one_shot_spent'
   | 'quiet_hours'
   | 'cooldown'
-  | 'no_active_token';
+  | 'no_active_token'
+  | 'already_reached';
 
 export interface FanoutPlan {
   messages: PlannedMessage[];
@@ -214,6 +225,13 @@ export interface PlanInput {
   tokens: FanoutToken[];
   recentDeliveries?: RecentDelivery[];
   /**
+   * `${eventId}|${userId}` for every recipient an earlier pass already reached
+   * with THIS event, read from the delivery ledger. A retry plans only the
+   * recipients still missing, which is what lets planDrain complete an event
+   * per recipient without pushing anyone twice.
+   */
+  alreadyReached?: ReadonlySet<string>;
+  /**
    * Quiet-hours settings per user id, for the subscribers in this pass.
    *
    * Optional, and a MISSING user means no window rather than a closed one —
@@ -251,6 +269,7 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
   // Most recent send per (user, river, kind).
   const lastSent = new Map<string, number>();
   for (const d of input.recentDeliveries ?? []) {
+    if (d.status !== undefined && d.status !== 'sent') continue;
     const key = `${d.user_id}|${d.river_id}|${d.kind}`;
     const at = new Date(d.sent_at).getTime();
     if (!lastSent.has(key) || at > (lastSent.get(key) ?? 0)) lastSent.set(key, at);
@@ -277,6 +296,13 @@ export function planDeliveries(input: PlanInput): FanoutPlan {
     const notification = buildNotification(event);
 
     for (const sub of candidates) {
+      // Reached by an earlier pass of this same event: the retry is for the
+      // others. First, so it is never mistaken for a cooldown skip.
+      if (input.alreadyReached?.has(`${event.id}|${sub.user_id}`)) {
+        bump('already_reached');
+        continue;
+      }
+
       // A spent one-shot stays spent until the user re-arms it.
       if (sub.one_shot && sub.fired_at) {
         bump('one_shot_spent');
