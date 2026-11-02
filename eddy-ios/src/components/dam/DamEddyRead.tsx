@@ -15,10 +15,14 @@
 // request is all it takes to keep the two in step.
 //
 // ── Every state is drawn ───────────────────────────────────────────────────
-// Unknown account: a neutral blurred preview, never a sales offer (the rules
-// in readPremiumAccess.ts). Member, Read withheld since the public check (the
-// schedule changed and the next hourly run has not rewritten it): a plain
-// "being updated" line, never an indefinite placeholder. Failed request: retry.
+// Non-member: the same locked presentation as the river and gauge Read
+// (PremiumLock.tsx) — frosted prose, then ONE lock row. No padlock in the
+// header and no second link: one lock per Read. Unknown account, or a member's
+// Read in flight: the loading skeleton, never a sales offer (the rules in
+// readPremiumAccess.ts) and never the frost, which means "locked". Member, Read
+// withheld since the public check (the schedule changed and the next hourly run
+// has not rewritten it): a plain "being updated" line, never an indefinite
+// placeholder. Failed request: retry.
 //
 // The measured pattern strip and the posted schedule on this screen stay free;
 // they are the whole of the data the Read interprets.
@@ -34,7 +38,7 @@ import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
 import { ControlIcon } from '@/components/ControlIcon';
-import { BlurredReadPreview } from '@/components/EddyReadCard';
+import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
 
 type Read = NonNullable<DamReadResponse['read']>;
 type Premium =
@@ -44,6 +48,14 @@ type Premium =
 
 /** The one-line pitch on the locked card. */
 export const DAM_READ_LOCKED_COPY = 'Today’s generation schedule, recent patterns, and how closely the schedule has held.';
+
+/**
+ * What the frost covers on a locked card. LENGTH, not content: the public
+ * response carries no Read text, and nobody can read this — it gives the blur
+ * a paragraph's shape instead of collapsing to a gap.
+ */
+const LOCKED_DAM_READ_SHAPE =
+  'Generation is scheduled through the afternoon, close to the last few days. The posted schedule has mostly held this week, so expect the water to rise on time.';
 
 export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, revision = 0 }: {
   damId: string;
@@ -106,10 +118,7 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <View style={styles.header}>
-        <Text style={[styles.kicker, { color: colors.textMuted }]}>EDDY&apos;S READ</Text>
-        {!premiumUserId ? <ControlIcon name="lock-closed" size={14} color={colors.textMuted} /> : null}
-      </View>
+      <Text style={[styles.kicker, { color: colors.textMuted }]}>EDDY&apos;S READ</Text>
 
       {current?.state === 'ready' ? (
         <View style={styles.read}>
@@ -148,21 +157,17 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
           <Text style={[styles.action, { color: colors.interactive }]}>Retry</Text>
         </Pressable>
       ) : canUnlock ? (
-        <Pressable
-          onPress={onUnlock}
-          accessibilityRole="button"
-          accessibilityLabel={`Unlock Eddy's Read for ${damName} with Premium`}
-          accessibilityHint="Opens Premium subscription options"
-          style={({ pressed }) => [styles.locked, { opacity: pressed ? 0.75 : 1 }]}
-        >
+        <View>
           <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
-          <BlurredReadPreview lines={4} />
-          <Text style={[styles.action, { color: colors.interactive }]}>Unlock with Premium</Text>
-        </Pressable>
+          <View style={styles.lockedProse}>
+            <BlurredProse text={LOCKED_DAM_READ_SHAPE} color={colors.textMuted} style={styles.body} lines={3} />
+          </View>
+          <PremiumLockRow onPress={onUnlock} />
+        </View>
       ) : (
         // A member's Read in flight, or an account not yet settled: reserve the
         // space without either the Read or an offer.
-        <BlurredReadPreview lines={4} />
+        <ReadSkeleton label={`Loading Eddy's Read for ${damName}`} />
       )}
 
       {age ? <Text style={[styles.age, { color: colors.textMuted }]}>{age}</Text> : null}
@@ -190,7 +195,6 @@ function FactRows({ rows }: { rows: DamReadRow[] }) {
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   kicker: { fontFamily: fonts.heading, fontSize: 12, letterSpacing: 0.7 },
   read: { gap: 12 },
   headline: { ...textStyles.cardTitle },
@@ -204,7 +208,7 @@ const styles = StyleSheet.create({
   rowDetail: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, textAlign: 'right' },
   body: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
   caveat: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  locked: { gap: 10, minHeight: 44 },
+  lockedProse: { marginTop: 10 },
   retry: { gap: 4, minHeight: 44, justifyContent: 'center' },
   action: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
   age: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16 },
