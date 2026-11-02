@@ -97,8 +97,10 @@ Measured on that history (backtest in
    "Eddy's read" slot, so a tailwater's dam tab shows no free Eddy prose, the
    exception in decision 7 applied to the river page. On iOS the dam Read sits
    inside Eddy's take under its one lock row, with decision 7's access rules.
-   The same change moved the dam's schedule into the live report card on both
-   platforms: it leads the card on that tab, and closes it on every other.
+   The same change moved the dam into the live report card on both platforms,
+   drawn as the dam cards draw it (the directory card's readings and hourly
+   bars on web, the Favorites card's body on iOS): it leads the card on that
+   tab, with Tomorrow's bars, and closes it on every other with Today's.
 
 ## Not decided here
 
