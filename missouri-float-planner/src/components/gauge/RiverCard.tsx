@@ -3,9 +3,9 @@
 // src/components/gauge/RiverCard.tsx
 // Dashboard card for one river, read through ONE primary gauge.
 //
-// Reading order: river → the reading and WHERE it was taken → Eddy's practical
-// read (condition, trend, advice) → the 14-day chart at that gauge → river
-// facts → the report. The reading is a single station's, so the card says
+// Reading order: river and WHERE its reading was taken → the reading with
+// Eddy's practical read (condition, trend, advice) → the 14-day chart at that
+// gauge → river facts → the report. The reading is a single station's, so the card says
 // which station beside the number, and the river's other gauges are a link
 // into the report rather than a count that implies a river-wide figure.
 
@@ -28,6 +28,7 @@ import { conditionSnapshotMatches } from '@/lib/condition-snapshot';
 import { shortenGaugeName } from '@/lib/gauge/format-name';
 import { gaugeFreshness } from '@shared/gauge-freshness';
 import { relativeAgeShort } from '@shared/dam-schedule-copy';
+import { conditionChip } from '@shared/condition-system';
 
 interface RiverCardProps {
   riverGroup: RiverGroup;
@@ -159,49 +160,62 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
   const href = canonicalHref ?? (riverSlug ? `/rivers/${riverSlug}` : '#');
   const gaugeCount = allGauges.length;
 
+  // The condition's own hues, from the canonical system: `solid` for the edge
+  // stripe, `ink` (accessible on light surfaces) for the reading itself.
+  const chip = conditionChip(condition.code);
+
   return (
-    <Card as="article" variant="framed" className="flex min-w-0 flex-col">
-      {/* Header: the river, and the one reading with the place it was taken. */}
+    // The 4px condition stripe down the leading edge is the iOS app's river
+    // card treatment, so a river reads as the same object on web and in the app.
+    <Card as="article" variant="framed" className="flex min-w-0">
+      <div aria-hidden="true" className="w-1 shrink-0" style={{ backgroundColor: chip.solid }} />
+      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Header: the river, and where its one reading was taken. A plain title
+          row, not a teal band — as on iOS, teal is kept for links and data, so
+          the loudest thing on the card is the condition, not its chrome. */}
       <Link
         href={href}
         prefetch={false}
-        className="flex items-start justify-between gap-3 bg-primary-800 px-4 py-3.5 text-white transition-colors hover:bg-primary-900 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-200 sm:px-5"
+        className="flex items-start gap-2 px-4 pb-2.5 pt-3.5 transition-colors hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-600 sm:px-5"
       >
-        <div className="flex min-w-0 flex-1 items-start gap-2">
-          <Droplets className="mt-1 size-4 shrink-0 text-primary-200" aria-hidden="true" />
+        <Droplets className="mt-1 size-4 shrink-0 text-neutral-500" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
           {/* Wraps rather than truncates: a phone shows the whole name. */}
-          <h2 className="font-heading text-xl font-bold leading-6 text-white">{riverName}</h2>
-        </div>
-        <div className="shrink-0 text-right" data-river-reading>
-          {primaryValue !== null ? (
-            <p className={`whitespace-nowrap leading-8 ${oldReading ? 'opacity-80' : ''}`}>
-              <span className="font-mono text-[26px] font-medium tabular-nums tracking-tight sm:text-[28px]">
-                {isCfsPrimary ? primaryValue.toLocaleString() : primaryValue.toFixed(2)}
-              </span>{' '}
-              <span className="text-[13px] text-primary-100">{primaryUnitLabel}</span>
-            </p>
-          ) : (
-            <p className="text-sm text-primary-100">No reading</p>
-          )}
-          <p className="text-[13px] font-semibold leading-[18px] text-white" title={primaryGauge.name}>At {gaugePlace}</p>
-          {clock && (oldReading ? (
-            <p className="mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-px text-xs font-medium leading-[18px] text-amber-900">
-              <Clock className="size-3 shrink-0" aria-hidden="true" />
-              <span><span className="sr-only">Outdated reading: </span>{clock}{age ? ` · ${age}` : ''}</span>
-            </p>
-          ) : (
-            <p className="text-xs leading-4 text-primary-200">Reading {clock}</p>
-          ))}
+          <h2 className="font-heading text-xl font-bold leading-6 text-neutral-900">{riverName}</h2>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] leading-[18px] text-neutral-600">
+            <span className="font-semibold text-neutral-700" title={primaryGauge.name}>At {gaugePlace}</span>
+            {clock && (oldReading ? (
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-px text-xs font-medium leading-[18px] text-amber-900">
+                <Clock className="size-3 shrink-0" aria-hidden="true" />
+                <span><span className="sr-only">Outdated reading: </span>{clock}{age ? ` · ${age}` : ''}</span>
+              </span>
+            ) : (
+              <span className="whitespace-nowrap">· Reading {clock}</span>
+            ))}
+          </p>
         </div>
       </Link>
 
-      {/* Eddy's practical read: one badge, the trend, the advice. */}
-      <section aria-label="Conditions" className="flex gap-3 border-b border-neutral-200 bg-secondary-100 px-4 pb-1.5 pt-3 sm:px-5">
+      {/* Eddy's practical read: the reading in its condition's ink, the badge,
+          the trend, the advice — one inset panel, as iOS draws raised content. */}
+      <section aria-label="Conditions" className="mx-3 flex gap-3 rounded-xl bg-secondary-50 px-3 pb-1.5 pt-3 sm:mx-4 sm:px-4">
         <div className="relative size-12 shrink-0">
           <Image src={getEddyImageForCondition(condition.code)} alt="" fill className="object-contain" sizes="48px" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span data-river-reading className={oldReading ? 'opacity-80' : undefined}>
+              {primaryValue !== null ? (
+                <span className="whitespace-nowrap leading-8">
+                  <span className="font-mono text-[26px] font-medium tabular-nums tracking-tight sm:text-[28px]" style={{ color: chip.color }}>
+                    {isCfsPrimary ? primaryValue.toLocaleString() : primaryValue.toFixed(2)}
+                  </span>{' '}
+                  <span className="text-[13px] text-neutral-600">{primaryUnitLabel}</span>
+                </span>
+              ) : (
+                <span className="text-sm text-neutral-600">No reading</span>
+              )}
+            </span>
             <ConditionBadge code={condition.code} size="sm" />
             {trend && <TrendLabel trend={trend} />}
           </div>
@@ -241,7 +255,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
       {/* The chart is the primary gauge's, and says so. It stays a static
           preview that opens the report: a scrub here would compete with page
           scroll, and detailed inspection belongs to the report's chart. */}
-      <section aria-label={`Flow at ${gaugePlace}`} className="px-4 pt-0.5 sm:px-5">
+      <section aria-label={`Flow at ${gaugePlace}`} className="px-4 pt-1.5 sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <p className="min-w-0 text-[13px] text-neutral-700"><span className="font-semibold">{gaugePlace} gauge</span> · 14 days</p>
           {gaugeCount > 1 && (
@@ -287,6 +301,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
             </Link>
           </div>
         </div>
+      </div>
       </div>
     </Card>
   );
