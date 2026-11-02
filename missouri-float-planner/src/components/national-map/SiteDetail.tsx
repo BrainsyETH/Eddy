@@ -16,6 +16,8 @@ import { FLOOD_STATUS_TEXT, isFlooding } from '@/lib/national-map/flood-status';
 import {
   classifyFlood,
   classifyFlow,
+  EXTREME_HIGH,
+  EXTREME_LOW,
   floodStyle,
   flowStyle,
   readingState,
@@ -109,6 +111,17 @@ function Sparkline({ points, unit }: { points: HistoryPoint[]; unit: string }) {
       </figcaption>
     </figure>
   );
+}
+
+/**
+ * Past the outermost published threshold (p95 / p05) the percentile orders
+ * readings but has no measured position, so it is shown as a bound.
+ */
+function seasonalPercentileText(p: number | null): string {
+  if (p === null) return 'none';
+  if (p >= EXTREME_HIGH) return `≥ P${EXTREME_HIGH} (published)`;
+  if (p <= EXTREME_LOW) return `≤ P${EXTREME_LOW} (published)`;
+  return `P${Math.round(p)}`;
 }
 
 export default function SiteDetail({
@@ -255,7 +268,7 @@ export default function SiteDetail({
               <>
                 <dt>Seasonal percentile</dt>
                 <dd className={styles.mono}>
-                  {r?.flowPercentile != null ? `P${Math.round(r.flowPercentile)}` : 'none'}
+                  {seasonalPercentileText(r?.flowPercentile ?? null)}
                 </dd>
                 <dt>USGS flags</dt>
                 <dd>{r?.suspect ? 'suspect qualifier' : 'none'}</dd>

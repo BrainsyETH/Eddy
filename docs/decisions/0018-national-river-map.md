@@ -45,7 +45,20 @@ persistent text. Three facts shaped the build:
    run only while the selected view's own data is current; Flooding depends
    on the NOAA capture, Flow on USGS readings. Until the first frame is
    recorded, the frame route serves a live, unstored capture.
-8. **Separate contracts.** New endpoints (`/api/river-map/frame`,
+8. **The wall is its own presentation.** Fullscreen keeps the same classes,
+   colours and shapes but its own hierarchy: unknown and unavailable data
+   leave the wall (Explore keeps them), routine readings become texture, and
+   flood events carry the emphasis. Its signature, "Follow the river", walks
+   the geometry's downstream links from a headwater to an outlet; it is
+   geometry, never measurement, and runs under the same liveness rule as other
+   motion. A regional wall plays only what it can see (visible gauges, the
+   visible stretch of river); a view is carried across layouts as a place,
+   never a layout point. "Exceptional" flow means at or beyond the outermost
+   PUBLISHED percentile (p95 / p05) — the percentile calculation never claims
+   a finer position, and thresholds never move to suit a composition.
+   Alternative Flow colours stay opt-in until a real-display review; the
+   canonical bands (`shared/flow-band.ts`) remain the default.
+9. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.
 
@@ -58,6 +71,8 @@ persistent text. Three facts shaped the build:
   (3DHP/NHDPlus HR) is a later change to the geometry build, not to the renderer.
 - Frame fields can only grow under a version bump; recorded history decodes by
   version, and flood wire codes are never renumbered.
+- Geometry assets are versioned by file name (`base.v2.json`); a field change
+  bumps the version so a cached body never meets a newer decoder.
 
 Details, data rules, coverage and verification gates:
 [`missouri-float-planner/docs/national-river-map.md`](../../missouri-float-planner/docs/national-river-map.md).

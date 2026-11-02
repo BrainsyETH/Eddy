@@ -23,10 +23,12 @@ import {
   classifyFlow,
   classifySites,
   curateHighlights,
+  HIGHLIGHT_SEPARATION,
   LIVE_REASON_TEXT,
   viewLiveState,
   summarizeFlood,
   summarizeFlow,
+  type Site,
 } from '@/lib/national-map/marks';
 import {
   DEFAULT_PREFS,
@@ -37,11 +39,13 @@ import {
   type MapPrefs,
 } from '@/lib/national-map/prefs';
 import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
-import { PALETTES, type MapTheme } from '@/lib/national-map/theme';
+import { PALETTES, wallPalette, withFlowColors, type MapTheme } from '@/lib/national-map/theme';
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
-import MapStage, { type StageEvent, type StageHandle } from './MapStage';
+import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys, type Journey } from '@/lib/national-map/journeys';
+import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
+import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
   Chooser,
@@ -117,7 +121,14 @@ export default function NationalRiverMap() {
   const narrow = useMedia('(max-width: 640px)');
   const finePointer = useMedia('(hover: hover) and (pointer: fine)');
   const theme: MapTheme = prefs.appearance === 'system' ? (systemDark ? 'dark' : 'light') : prefs.appearance;
-  const palette = PALETTES[theme];
+  // Fullscreen is the wall: its own brightness tiers and mark hierarchy
+  // (theme.ts wallPalette, marks.ts wallStyle). Explore keeps everything.
+  const [presentation, setPresentation] = useState<Presentation>('explore');
+  const fullscreen = presentation === 'fullscreen';
+  const palette = useMemo(
+    () => withFlowColors(fullscreen ? wallPalette(theme) : PALETTES[theme], theme, prefs.flowColors),
+    [fullscreen, theme, prefs.flowColors],
+  );
   const motion = prefs.motion && !reducedMotion;
 
   // ── Data ────────────────────────────────────────────────────────────────
@@ -127,7 +138,7 @@ export default function NationalRiverMap() {
   const sites = useMemo(() => (catalog || frame ? buildSites(catalog ?? [], frame) : []), [catalog, frame]);
   const noaaOk = frame?.sources.noaaOk ?? false;
   const view = prefs.view;
-  const classified = useMemo(() => classifySites(sites, view, now, noaaOk), [sites, view, now, noaaOk]);
+  const classified = useMemo(() => classifySites(sites, view, now, noaaOk, fullscreen), [sites, view, now, noaaOk, fullscreen]);
   // No catalog means no USGS sites at all: say nothing about flow rather
   // than report zero gauges (the freshness line explains the outage).
   const flowSummary = useMemo(() => (frame && catalog && sites.length ? summarizeFlow(sites, now) : null), [frame, catalog, sites, now]);
@@ -184,13 +195,11 @@ export default function NationalRiverMap() {
   const [hover, setHover] = useState<{ index: number; x: number; y: number } | null>(null);
 
   // ── Presentation ────────────────────────────────────────────────────────
-  const [presentation, setPresentation] = useState<Presentation>('explore');
   const [native, setNative] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [cursorHidden, setCursorHidden] = useState(false);
   const trayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fullscreen = presentation === 'fullscreen';
 
   // How the viewer last interacted. A clicked button keeps focus, so "focus is
   // in the tray" cannot mean "someone is using it": only KEYBOARD focus holds
@@ -217,52 +226,70 @@ export default function NationalRiverMap() {
     armTray();
   }, [armTray]);
 
+  // The Explore view to return to when fullscreen ends.
+  const preFullscreen = useRef<StageView | null>(null);
+  // True between requestFullscreen() and its outcome: a fullscreenchange in
+  // that window (some browsers fire one before the element is set) must not
+  // end the presentation.
+  const entering = useRef(false);
+
   const enterFullscreen = useCallback(() => {
     setSelectedKey(null);
     setChooser(null);
     setHover(null);
     setTrayOpen(false);
-    const wasNational = stage.current?.isNational() ?? true;
+    const before = stage.current?.view() ?? null;
+    preFullscreen.current = before;
     setPresentation('fullscreen');
+    // The wall shows the whole country unless the reader had zoomed into a
+    // region on purpose; then that region stays centred.
+    if (!before || before.national || before.zoom < 1.6) stage.current?.fitNational();
     const el = rootRef.current;
     // Must run inside the click: browsers only grant fullscreen to a user gesture.
     if (el?.requestFullscreen) {
+      entering.current = true;
       el.requestFullscreen({ navigationUI: 'hide' })
         .then(() => setNative(true))
-        .catch(() => setNative(false));
+        .catch(() => setNative(false))
+        .finally(() => {
+          entering.current = false;
+        });
     } else {
       setNative(false);
     }
-    requestAnimationFrame(() => {
-      if (wasNational) stage.current?.fitNational();
-      // Focus lands on the map, whose fullscreen label says how to reach the tray.
-      stage.current?.focus();
-    });
+    // Focus lands on the map, whose fullscreen label says how to reach the tray.
+    requestAnimationFrame(() => stage.current?.focus());
   }, []);
 
-  const exitFullscreen = useCallback(() => {
+  const leaveFullscreen = useCallback(() => {
     setPresentation('explore');
     setTrayOpen(false);
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    setNative(false);
+    // Back to the view the reader had, at the new size (centre + zoom).
+    const before = preFullscreen.current;
+    preFullscreen.current = null;
+    if (before) stage.current?.restoreView(before);
+    else stage.current?.fitNational();
     // Back to the control that entered fullscreen, never to <body>.
     requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
   }, []);
 
+  const exitFullscreen = useCallback(() => {
+    leaveFullscreen();
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }, [leaveFullscreen]);
+
   // Leaving native fullscreen any way (Escape, browser UI) leaves the presentation.
+  const presentationRef = useRef(presentation);
+  presentationRef.current = presentation;
   useEffect(() => {
     const onChange = () => {
-      if (!document.fullscreenElement) {
-        setNative(false);
-        setPresentation((p) => {
-          if (p === 'fullscreen') requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
-          return p === 'fullscreen' ? 'explore' : p;
-        });
-        setTrayOpen(false);
-      }
+      if (entering.current || document.fullscreenElement) return;
+      if (presentationRef.current === 'fullscreen') leaveFullscreen();
     };
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
+  }, [leaveFullscreen]);
 
   // Keyboard in fullscreen: Escape exits (the fallback has no browser Escape);
   // any other key reveals the tray and moves focus into it.
@@ -459,19 +486,59 @@ export default function NationalRiverMap() {
     () => highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
     [highlights, indexByKey],
   );
-  // The fullscreen spotlight: emphasis moves between highlights while the
-  // whole country stays still. Map only and Display with details alike —
-  // it needs no words. With motion off it rests on the first highlight.
-  const spotlightSet = useMemo(() => highlights.slice(0, 6), [highlights]);
+  // The fullscreen sequence. Emphasis moves while the whole country stays
+  // still, and needs no words (Map only and Display with details alike):
+  //   * the spotlight rests on one curated highlight for SPOTLIGHT_MS;
+  //   * with motion on and the view live, it alternates with "Follow the
+  //     river" — a highlight travelling a real network to its outlet
+  //     (journeys.ts), the wall's signature. The spotlight steps aside while
+  //     a journey runs, so only one thing moves with intent at a time.
+  // With motion off the spotlight rests on the first highlight and no
+  // journey runs.
+  //
+  // A regional wall (fullscreen kept a deliberate zoom) draws its sequence
+  // from what it can SEE: spotlights from visible gauges, spaced for the
+  // zoom, and journeys clipped to the stretch of river on screen. The
+  // national wall keeps the national sequence.
+  const [stageRegion, setStageRegion] = useState<Region | null>(null);
+  const region = fullscreen ? stageRegion : null;
+  const spotlightSet = useMemo(() => {
+    if (!region) return highlights.slice(0, 6);
+    if (!dataLive) return [];
+    const visible = sites.filter((s) => inRegion(region, s.component, s.x, s.y));
+    // Spacing scales with the view: the national rule over the lower 48's width.
+    const l48 = data.geometry?.components.l48;
+    const nationalSpan = l48 ? l48.maxX - l48.minX : 774;
+    const separation = (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan;
+    return curateHighlights(visible, view, now, noaaOk, 6, separation);
+  }, [region, highlights, dataLive, sites, view, now, noaaOk, data.geometry]);
   const spotlightKeys = spotlightSet.map((s) => s.key).join('|');
-  const [spotStep, setSpotStep] = useState(0);
-  useEffect(() => setSpotStep(0), [spotlightKeys, view]);
+  const journeys = useMemo(() => {
+    if (!data.geometry) return [];
+    return region ? visibleJourneys(data.geometry.rivers, region) : pickJourneys(data.geometry.rivers);
+  }, [data.geometry, region]);
+  const journeysOn = fullscreen && motion && dataLive && journeys.length > 0;
+  const [step, setStep] = useState(0);
+  const journeyKey = journeys.map((j) => `${j.steps[0]?.line}:${Math.round(j.start)}`).join('|');
+  useEffect(() => setStep(0), [spotlightKeys, journeyKey, view, fullscreen]);
+  // Even steps are journeys (when on), odd steps spotlights; with no
+  // highlights every step is a journey.
+  const act: { kind: 'journey'; journey: Journey } | { kind: 'spot'; site: Site } | null = !fullscreen
+    ? null
+    : journeysOn && (step % 2 === 0 || spotlightSet.length === 0)
+      ? { kind: 'journey', journey: journeys[(spotlightSet.length ? step / 2 : step) % journeys.length] }
+      : spotlightSet.length
+        ? { kind: 'spot', site: spotlightSet[(journeysOn ? (step - 1) / 2 : step) % spotlightSet.length] }
+        : null;
+  const actMs = act?.kind === 'journey' ? journeyTiming(act.journey).totalMs : SPOTLIGHT_MS;
+  const advances = fullscreen && motion && (journeysOn || spotlightSet.length > 1);
   useEffect(() => {
-    if (!fullscreen || !motion || spotlightSet.length < 2) return;
-    const t = setInterval(() => setSpotStep((v) => v + 1), SPOTLIGHT_MS);
-    return () => clearInterval(t);
-  }, [fullscreen, motion, spotlightSet.length]);
-  const spotlight = fullscreen && spotlightSet.length ? spotlightSet[spotStep % spotlightSet.length] : null;
+    if (!advances) return;
+    const t = setTimeout(() => setStep((v) => v + 1), actMs);
+    return () => clearTimeout(t);
+  }, [advances, actMs, step]);
+  const journey = act?.kind === 'journey' ? act.journey : null;
+  const spotlight = act?.kind === 'spot' ? act.site : null;
   const spotlightIndex = spotlight ? indexByKey.get(spotlight.key) ?? null : null;
 
   // Explore leaves room for its panel: beside the map in the side layout
@@ -573,6 +640,8 @@ export default function NationalRiverMap() {
     <div
       className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
       data-live={dataLive ? 'true' : 'false'}
+      data-act={act?.kind ?? 'none'}
+      data-region={region ? 'regional' : 'national'}
     >
       <MapStage
         ref={stage}
@@ -590,6 +659,9 @@ export default function NationalRiverMap() {
         featuredIndex={spotlightIndex}
         initialCenter={shared?.center ?? null}
         interactive={!fullscreen}
+        wall={fullscreen}
+        journey={journey}
+        onRegion={setStageRegion}
         ariaLabel={ariaLabel}
         onTap={onTap}
         onHover={onHover}
@@ -659,6 +731,8 @@ export default function NationalRiverMap() {
               reducedMotion={reducedMotion}
               displayDetails={prefs.displayDetails}
               onDisplayDetails={(d) => setPrefs({ displayDetails: d })}
+              flowColors={prefs.flowColors}
+              onFlowColors={(c) => setPrefs({ flowColors: c })}
               horizontal={!side}
               fullscreenRef={fullscreenButton}
             />
@@ -738,6 +812,7 @@ export default function NationalRiverMap() {
                 capturedAt={frame?.capturedAt ?? null}
                 now={now}
                 featured={spotlight}
+                caption={journey ? journeyCaption(journey) : null}
                 liveStatus={liveStatus}
                 palette={palette}
                 narrow={narrow}

@@ -32,7 +32,34 @@ export interface MapPalette {
   riverAlpha: number[];
   /** The moving highlight of a downstream trace. */
   trace: string;
+  /**
+   * Alpha of a soft, wide underglow on the trunk rivers (orders 6–7); 0 = none.
+   * Wall only: it makes the network the brightest non-event layer on a TV.
+   */
+  riverGlow: number;
+  /** Knockout disc behind event marks (MarkStyle.halo): the land colour. */
+  halo: string;
+  /**
+   * "Follow the river" (journeys.ts): the travelling highlight's bright core
+   * and its soft underglow. Presentation, not data — never a flow colour,
+   * never coral.
+   */
+  journeyCore: string;
+  journeyGlow: string;
+  /**
+   * Opacity of the underglow. Dark: a soft halo. Light: a near-opaque white
+   * casing — ink on ink would vanish among the wall's dark rivers, so the
+   * route reads like a selected road instead.
+   */
+  journeyGlowAlpha: number;
   flow: Record<FlowBand, string>;
+  /**
+   * The rarest high readings (marks.ts EXTREME_HIGH). In the Eddy set this is
+   * Much higher's own colour (size is the cue); the vivid prototype gives
+   * them its most saturated cyan, and the legend then lists them as their
+   * own row.
+   */
+  flowExtremeHigh: string;
   /** Live reading, no seasonal comparison: a ring, never a band fill. */
   noComparison: string;
   /** Stale or suspect: neutral hollow mark. */
@@ -81,6 +108,12 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#2D7889', // primary-500
     riverAlpha: [0, 0.22, 0.28, 0.34, 0.45, 0.62, 0.78, 0.92],
     trace: 'rgba(250, 248, 244, 0.95)',
+    flowExtremeHigh: FLOW.much_higher,
+    riverGlow: 0,
+    halo: '#F2EAD8',
+    journeyCore: '#0E4A57', // between primary-700 and -800: ink on parchment
+    journeyGlow: '#FFFFFF',
+    journeyGlowAlpha: 0.95,
     flow: FLOW,
     // Hollow marks use neutral-500, never the stone of "much lower"
     // (#A49C8E): "unusually dry" and "no comparison" differ in colour as well
@@ -121,6 +154,12 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#72B5C4', // primary-300
     riverAlpha: [0, 0.16, 0.2, 0.26, 0.36, 0.5, 0.66, 0.82],
     trace: 'rgba(242, 234, 216, 0.9)',
+    flowExtremeHigh: FLOW.much_higher,
+    riverGlow: 0,
+    halo: '#0F2D35',
+    journeyCore: '#F2FBFD',
+    journeyGlow: '#8FD3E0',
+    journeyGlowAlpha: 0.28,
     flow: FLOW,
     // Thin neutral-500 rings: dim enough never to read as a lit band, still
     // 3.6:1 against deep-teal land.
@@ -138,7 +177,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     // are. Chosen in the 2026-11-02 review; sign-off belongs to the
     // dark-contrast gate in docs/national-river-map.md.
     flowKeyline: 'rgba(242, 234, 216, 0.55)',
-    backed: ['flow.higher', 'flow.much_higher'],
+    backed: ['flow.higher', 'flow.much_higher', 'flowExtremeHigh'],
     backing: '#E8DFD0', // secondary-200
     backedFillAlpha: 0.72,
     flood: {
@@ -157,3 +196,66 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
   },
 };
 
+
+// ── Wall (fullscreen) variant ───────────────────────────────────────────────
+// Three brightness tiers, so land, water and events separate across a room:
+// land drops back (state lines nearly disappear), the river network becomes
+// the brightest non-event layer, and only events carry saturated colour at
+// full strength. Mark colours are NOT changed here — the legend stays true.
+const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
+  light: {
+    land: '#F4EEE1',
+    coast: '#CDB896',
+    stateLine: '#E6DAC6',
+    lake: '#D3E6EA',
+    river: '#1F6574', // primary-600: the network reads as ink on parchment
+    riverAlpha: [0, 0.3, 0.38, 0.46, 0.58, 0.74, 0.88, 0.97],
+    riverGlow: 0.1,
+    halo: '#F4EEE1',
+  },
+  dark: {
+    background: '#071A20',
+    land: '#0B252C',
+    coast: '#1F4A55',
+    stateLine: '#143843',
+    lake: '#071A20',
+    river: '#8FD3E0', // brighter than primary-300 so water outranks land
+    riverAlpha: [0, 0.22, 0.28, 0.36, 0.48, 0.64, 0.82, 0.96],
+    riverGlow: 0.14,
+    // A soft cyan, not white: near-white is reserved for the featured
+    // journey's head and core, so the eye has one brightest thing to follow.
+    trace: 'rgba(168, 230, 240, 0.85)',
+    halo: '#0B252C',
+  },
+};
+
+export function wallPalette(theme: MapTheme): MapPalette {
+  return { ...PALETTES[theme], ...WALL_OVERRIDES[theme] };
+}
+
+// ── Vivid Flow colours (opt-in prototype) ───────────────────────────────────
+// A broader, diverging Flow ramp for wall displays: warm copper / sand for
+// unusually low, a subdued teal for normal (the quiet middle), and saturated
+// cyans for high — the rarest highs (≥ published p95) the most saturated.
+// Not white: near-white belongs to the featured journey alone. Same five bands, same
+// thresholds, same order — only the colours differ, and the legend draws
+// from the same palette. Dark mode needs no backing chip: every band is
+// visible on deep-teal land by itself. Light mode inverts the intensity
+// (on parchment, "brighter" means deeper), so its rarest highs are deep ink.
+// Flooding never changes: NWS categories keep NWS colours in every set.
+const VIVID_FLOW: Record<MapTheme, { flow: Record<FlowBand, string>; extremeHigh: string }> = {
+  dark: {
+    flow: { much_lower: '#E07A3F', lower: '#C9A77C', normal: '#2F6F7C', higher: '#2A9FB3', much_higher: '#1FC8E3' },
+    extremeHigh: '#00E5FF',
+  },
+  light: {
+    flow: { much_lower: '#B4541F', lower: '#C9975B', normal: '#8DB3BA', higher: '#1A93A8', much_higher: '#0B6577' },
+    extremeHigh: '#063A45',
+  },
+};
+
+export function withFlowColors(p: MapPalette, theme: MapTheme, colors: 'eddy' | 'vivid'): MapPalette {
+  if (colors === 'eddy') return p;
+  const v = VIVID_FLOW[theme];
+  return { ...p, flow: v.flow, flowExtremeHigh: v.extremeHigh, backed: p.backed.filter((k) => !k.startsWith('flow')) };
+}
