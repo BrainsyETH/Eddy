@@ -175,7 +175,9 @@ test('dam cards render only today on the Central calendar across midnight, DST a
     assert.equal((html.match(/role="img"/g) ?? []).length, 1, 'exactly one visible timeline');
     const section = scheduleSection(html, 'Today');
     assert.match(section, /aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is 50%/);
-    assert.match(section, /Checked /, 'Today keeps its own check age');
+    assert.match(html, /data-schedule-check="(current|stale)"[^>]*>Schedule last checked /, 'one freshness line, as a Central clock time');
+    assert.equal((html.match(/data-schedule-check=/g) ?? []).length, 1, 'matching retrievals do not repeat as separate alerts');
+    assert.match(section, /Today’s generation <span[^>]*>· /, 'heading, day and date share one row');
     assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
     assert.doesNotMatch(html, /aria-label="Tomorrow’s generation schedule"/);
     assert.doesNotMatch(html, /<details|role="tab"/);
@@ -200,8 +202,20 @@ test('dam cards distinguish missing Today from idle schedules and retain Today�
   assert.doesNotMatch(idle, /aria-label="Tomorrow’s generation schedule"/);
   assert.doesNotMatch(idle, /schedule is unavailable|hasn’t been posted/);
   const stale = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [{ ...scheduleDay('2026-10-27', 200), retrievedAt: '2026-10-27T10:00:00Z' }, scheduleDay('2026-10-28', 400)] }], renderedAt });
-  assert.match(scheduleSection(stale, 'Today'), /May have changed/);
-  assert.match(stale, /It may have been revised since/);
+  // Today's file is stale; Tomorrow's (which the next-change line relies on) is
+  // not. Each keeps its own timestamp rather than one folded line.
+  assert.match(stale, /data-schedule-check="stale"[^>]*>Today’s schedule last checked at 5:00 AM CDT\. It may have been revised since\./);
+  assert.match(stale, /data-schedule-check="current"[^>]*>Tomorrow’s schedule last checked at 11:50 AM CDT\./);
+  assert.match(stale, /data-schedule-check="stale" class="[^"]*amber/, 'outdated freshness is amber, not coral');
+  assert.doesNotMatch(stale, /data-schedule-check="[^"]*" class="[^"]*accent/);
+  // Minimum flow, no generation and a missing schedule each lead in words.
+  const minimumFlow = { ...scheduleDay('2026-10-27', 7), hours: scheduleDay('2026-10-27', 7).hours.map(h => ({ ...h, minimumFlow: true })) };
+  const bullShoals = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [minimumFlow] }], renderedAt });
+  const todayText = (html: string) => scheduleSection(html, 'Today').replace(/<[^>]*>/g, ' ');
+  assert.ok(todayText(bullShoals).indexOf('Only minimum flow scheduled') < todayText(bullShoals).indexOf('midnight'), 'minimum flow leads, above the chart');
+  assert.match(todayText(idle), /No generation scheduled/);
+  assert.doesNotMatch(todayText(idle), /minimum flow|unavailable/);
+  assert.doesNotMatch(todayText(bullShoals), /No generation scheduled|unavailable/);
   const noTurbines = renderConditions({ rivers: [], dams: [{ ...scheduledDam, hasTurbines: false, schedule: [] }], renderedAt });
   assert.doesNotMatch(noTurbines, /Today’s generation schedule|Tomorrow’s generation schedule/);
 });
@@ -232,6 +246,7 @@ test('only full generation schedules show posted Tomorrow, including zero and pa
       assert.match(scheduleSection(idle, 'Tomorrow'), /No generation scheduled at any hour/);
       assert.match(scheduleSection(partial, 'Tomorrow'), /role="img"/);
       assert.match(scheduleSection(partial, 'Tomorrow'), /border-dashed/, 'missing hours remain gaps in a posted partial day');
+      assert.match(scheduleSection(partial, 'Tomorrow'), /Tomorrow’s generation <span[^>]*>· /);
     }
   }
 });

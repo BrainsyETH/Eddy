@@ -756,9 +756,24 @@ export function scheduledClauseProvenance(
   const outlook = scheduleOutlook(schedule, ref, now);
   if (!outlook?.stale) return null;
 
-  const retrievedAt = oldestRetrievedAt(schedule);
-  if (!retrievedAt) return null;
-  const checkedAt = new Date(retrievedAt);
+  const phrase = scheduleCheckedPhrase(oldestRetrievedAt(schedule), now);
+  return phrase ? `Schedule last checked ${phrase}.` : null;
+}
+
+/**
+ * When Eddy retrieved a schedule, as a clock time at the dam: "at 6:25 PM CST",
+ * or "Oct 31 at 6:25 PM CDT" when the check fell on an earlier Central day.
+ *
+ * A clock time rather than an age for the same reason the change sentence uses
+ * one: the render can sit in a cache, and "at 6:25 PM" stays true while
+ * "12 minutes ago" quietly stops being.
+ */
+export function scheduleCheckedPhrase(
+  iso: string | null | undefined,
+  now = Date.now()
+): string | null {
+  if (!iso) return null;
+  const checkedAt = new Date(iso);
   if (!Number.isFinite(checkedAt.getTime())) return null;
 
   // Format at the dam, not the viewer's device; Intl chooses CST or CDT for
@@ -773,7 +788,47 @@ export function scheduledClauseProvenance(
     timeZone, month: 'short', day: 'numeric',
     year: checkedDay.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric',
   });
-  return `Schedule last checked${date ? ` ${date}` : ''} at ${time}.`;
+  return date ? `${date} at ${time}` : `at ${time}`;
+}
+
+export interface ScheduleCheckLine {
+  text: string;
+  /** Past SCHEDULE_STALE_AFTER_MINUTES; the caller gives it a caution treatment. */
+  stale: boolean;
+}
+
+/**
+ * The freshness line(s) for the schedule days a surface shows or relies on.
+ *
+ * ONE line when every day was retrieved at the same displayed minute — the
+ * usual case, since the days are fetched together — because two identical
+ * timestamps read as two separate alerts. Separate, labelled lines only when
+ * the days really were checked at different times: each day is its own SWPA
+ * file with its own cache age, and folding a fresh Today and a stale Tomorrow
+ * into one line would either hide the stale day or slander the fresh one.
+ *
+ * `subject` names the day in the split form ("Today’s schedule").
+ */
+export function scheduleCheckLines(
+  days: Array<{ subject: string; retrievedAt: string | null }>,
+  now = Date.now()
+): ScheduleCheckLine[] {
+  if (days.length === 0) return [];
+  const checks = days.map((day) => ({
+    subject: day.subject,
+    phrase: scheduleCheckedPhrase(day.retrievedAt, now),
+    stale: scheduleIsStale(day.retrievedAt, now),
+  }));
+  const line = (subject: string, phrase: string | null, stale: boolean): ScheduleCheckLine => ({
+    text: phrase
+      ? `${subject} last checked ${phrase}.${stale ? ' It may have been revised since.' : ''}`
+      : `${subject} check time unavailable.`,
+    stale,
+  });
+  if (checks.every((check) => check.phrase === checks[0].phrase)) {
+    return [line('Schedule', checks[0].phrase, checks.some((check) => check.stale))];
+  }
+  return checks.map((check) => line(check.subject, check.phrase, check.stale));
 }
 
 // ── Turbine flow against total release ─────────────────────────────────────

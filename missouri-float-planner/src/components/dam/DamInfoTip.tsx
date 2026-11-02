@@ -3,7 +3,11 @@
 import { useId, useRef, type ReactNode } from 'react';
 import { Info, X } from 'lucide-react';
 
-/** Native dialog supplies focus containment, Escape and focus restoration. */
+/**
+ * Native dialog supplies focus containment, Escape and focus restoration.
+ * The glyph stays small so it reads as a footnote, not a control competing
+ * with the readings; the button around it keeps the 44px target.
+ */
 export default function DamInfoTip({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -16,7 +20,7 @@ export default function DamInfoTip({ title, children }: { title: string; childre
         onClick={() => dialog.current?.showModal()}
         className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
       >
-        <Info className="size-5" aria-hidden="true" />
+        <Info className="size-4" aria-hidden="true" />
       </button>
       <dialog
         ref={dialog}

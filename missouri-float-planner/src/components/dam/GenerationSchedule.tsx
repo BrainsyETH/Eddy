@@ -1,23 +1,33 @@
-import { ChevronDown, Clock } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { DamScheduleDay } from '@/lib/data/dams';
 import DamTimeline from '@/components/dam/DamTimeline';
 import {
   centralDayKey,
   nextDayKey,
-  relativeAge,
   scheduleDayLabel,
   scheduledHoursSummary,
-  retrievalSentence,
-  scheduleIsStale,
 } from '@shared/dam-schedule-copy';
 import {
+  scheduleCheckLines,
+  scheduleOutlook,
   scheduledChangeSummary,
-  scheduledClauseProvenance,
   type GenerationReference,
 } from '@shared/dam-generation';
 
-/** One schedule presentation for home, directory cards and full dam reports. */
+const DAY_SUBJECT = ['Today’s schedule', 'Tomorrow’s schedule'];
+
+/**
+ * One schedule presentation for home, directory cards and full dam reports.
+ *
+ * Reading order: today's plan in words → its chart → the next change → when
+ * Eddy last checked. This section is the PLAN half of a dam card; measured
+ * readings sit above it with their own labels and ages, and nothing here
+ * borrows their voice.
+ *
+ * Three states stay distinct in the headline: a posted day with no generation,
+ * a posted day carrying only minimum flow, and no posted day at all.
+ */
 export default function GenerationSchedule({ schedule, reference, now, compact = false, info }: {
   schedule: DamScheduleDay[];
   reference?: GenerationReference | null;
@@ -27,69 +37,115 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
 }) {
   const today = centralDayKey(now);
   const tomorrow = nextDayKey(today);
+  const posted = (date: string) => schedule.find(day => day.scheduleDate === date && day.hours.length > 0);
+  const todayDay = posted(today);
   // Summary cards show Today only. Full reports also show a posted Tomorrow.
-  // Today keeps its unavailable state when that day's missing.
-  const upcoming = (compact ? [today] : [today, tomorrow]).map(date => ({
-    date,
-    label: date === today ? 'Today' : 'Tomorrow',
-    day: schedule.find(day => day.scheduleDate === date && day.hours.length > 0),
-  })).filter(({ date, day }) => date === today || day);
+  const tomorrowDay = compact ? undefined : posted(tomorrow);
   const laterDays = compact ? [] : schedule
     .filter(day => day.scheduleDate > tomorrow && day.hours.length > 0)
     .toSorted((a, b) => a.scheduleDate.localeCompare(b.scheduleDate));
+
   const nextChange = scheduledChangeSummary(schedule, reference, now);
-  const provenance = scheduledClauseProvenance(schedule, reference, now);
+  const outlook = scheduleOutlook(schedule, reference, now);
+
+  // Freshness covers every day this section draws OR states a change from: a
+  // compact card shows only Today but can announce Tomorrow's 6 AM start, and
+  // that sentence is only as current as Tomorrow's file.
+  const reach = Math.max(outlook?.move?.dayOffset ?? 0, outlook?.resumesAt?.dayOffset ?? 0, tomorrowDay ? 1 : 0);
+  const reliedOn: Array<{ subject: string; retrievedAt: string | null }> = [];
+  for (let offset = 0, date = today; offset <= reach; offset += 1, date = nextDayKey(date)) {
+    const day = posted(date);
+    if (day) reliedOn.push({ subject: DAY_SUBJECT[offset] ?? `${scheduleDayLabel(date)} schedule`, retrievedAt: day.retrievedAt });
+  }
+  const checks = scheduleCheckLines(reliedOn, now);
+
   const Heading = compact ? 'h4' : 'h2';
   const DayHeading = compact ? 'h5' : 'h3';
+
+  const changeLine = nextChange && (
+    <div className={compact ? 'mt-3 text-sm' : 'mt-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3'}>
+      <p className={compact ? 'text-neutral-700' : ''}>
+        <span className={compact ? 'font-semibold text-primary-800' : 'block text-xs font-bold uppercase tracking-wider text-neutral-600'}>
+          {outlook?.move ? 'Next change' : 'Upcoming'}
+        </span>
+        {compact && <span aria-hidden="true"> · </span>}
+        <span className={compact ? '' : 'mt-1 block text-lg font-semibold leading-snug text-primary-900 sm:text-xl'}>{nextChange}</span>
+      </p>
+    </div>
+  );
+
   return (
     <section aria-label="Generation schedule" className="min-w-0">
-      <div className="flex items-center justify-between gap-2">
-        <Heading className={`flex items-center gap-2 font-heading font-bold text-primary-800 ${compact ? 'text-sm' : 'pr-8 text-xl'}`}>
-          <Clock className="size-4 shrink-0 text-primary-700" aria-hidden="true" /> Generation schedule
-        </Heading>
-        {info}
-      </div>
-      {nextChange && (
-        <div className={compact ? 'mt-1 text-sm' : 'my-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3'}>
-          {!compact && <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-600">Next scheduled change</h3>}
-          <p className={`font-semibold text-primary-900 ${compact ? '' : 'mt-1 text-xl leading-snug tracking-tight sm:text-2xl'}`}>
-            {nextChange}
+      <section aria-label="Today’s generation schedule">
+        <div className={`flex min-h-11 items-center justify-between gap-2 ${compact ? '-mr-2.5' : 'pr-10'}`}>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+            <Heading className={`font-heading font-bold text-primary-800 ${compact ? 'text-sm' : 'text-lg'}`}>
+              Today’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
+            </Heading>
+            <span className="text-[11px] leading-4 text-neutral-500">Central time</span>
+          </div>
+          {info}
+        </div>
+        {todayDay ? <>
+          <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
+            {scheduledHoursSummary(todayDay.hours)}
           </p>
-          {provenance && <p className="mt-1 text-xs text-accent-700">{provenance}</p>}
+          <div className={compact ? 'mt-2' : 'mt-3'}>
+            <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact} />
+          </div>
+        </> : <p className="mt-1 rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+          Today’s generation schedule is unavailable.
+        </p>}
+      </section>
+
+      {changeLine}
+
+      {checks.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {checks.map(check => (
+            <p
+              key={check.text}
+              data-schedule-check={check.stale ? 'stale' : 'current'}
+              className={check.stale
+                ? 'rounded border-l-2 border-amber-500 bg-amber-50 px-2 py-1 text-xs leading-4 text-amber-900'
+                : 'text-xs leading-4 text-neutral-600'}
+            >
+              {check.text}
+            </p>
+          ))}
         </div>
       )}
-      <div className="mt-2 divide-y divide-neutral-200">
-        {upcoming.map(({ date, label, day }) => (
-          <section key={date} aria-label={`${label}’s generation schedule`} className="py-2">
-            <DayHeading className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 text-sm font-bold text-primary-800">
-              {label}<span className="text-xs font-normal text-neutral-500">{scheduleDayLabel(date)}</span>
-            </DayHeading>
-            {day ? <>
-              <DamTimeline day={day} reference={reference} now={now} plainLanguage compact={compact} />
-              <p className={`mt-1 text-[11px] leading-4 ${scheduleIsStale(day.retrievedAt, now) ? 'font-medium text-accent-700' : 'text-neutral-500'}`}>
-                {relativeAge(day.retrievedAt, now) ? `Checked ${relativeAge(day.retrievedAt, now)}` : 'Schedule check time unavailable'}
-                {scheduleIsStale(day.retrievedAt, now) && ' · May have changed'}
-              </p>
-            </> : <p className="rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
-              Today’s generation schedule is unavailable.
-            </p>}
-          </section>
-        ))}
-        {laterDays.map(day => (
-            <details key={day.scheduleDate} className="group py-2">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded py-2 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-primary-600 [&::-webkit-details-marker]:hidden">
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold text-primary-800">{scheduleDayLabel(day.scheduleDate)}</span>
-                  <span className="sr-only">{scheduledHoursSummary(day.hours)}</span>
-                </span>
-                <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
-              </summary>
-              <DamTimeline day={day} reference={reference} now={now} plainLanguage />
-              <p className={`mt-1 text-xs ${scheduleIsStale(day.retrievedAt, now) ? 'text-accent-700' : 'text-neutral-500'}`}>{retrievalSentence(day.retrievedAt, now, 'Schedule')}</p>
-            </details>
-        ))}
-      </div>
-      {!compact && <p className="mt-3 border-t border-neutral-200 pt-3 text-xs text-neutral-500">Central time · Schedule may change</p>}
+
+      {(tomorrowDay || laterDays.length > 0) && (
+        <div className="mt-4 divide-y divide-neutral-200 border-t border-neutral-200">
+          {tomorrowDay && (
+            <section aria-label="Tomorrow’s generation schedule" className="py-3">
+              <DayHeading className="text-sm font-bold text-primary-800">
+                Tomorrow’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(tomorrow)}</span>
+              </DayHeading>
+              <p className="mb-2 mt-0.5 text-sm font-semibold text-primary-900">{scheduledHoursSummary(tomorrowDay.hours)}</p>
+              <DamTimeline day={tomorrowDay} reference={reference} now={now} plainLanguage />
+            </section>
+          )}
+          {laterDays.map(day => {
+            const [check] = scheduleCheckLines([{ subject: 'Schedule', retrievedAt: day.retrievedAt }], now);
+            return (
+              <details key={day.scheduleDate} className="group py-2">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded py-2 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-primary-600 [&::-webkit-details-marker]:hidden">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-primary-800">{scheduleDayLabel(day.scheduleDate)}</span>
+                    <span className="block text-xs text-neutral-600">{scheduledHoursSummary(day.hours)}</span>
+                  </span>
+                  <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+                </summary>
+                <DamTimeline day={day} reference={reference} now={now} plainLanguage />
+                {check && <p className={`mt-1 text-xs ${check.stale ? 'text-amber-900' : 'text-neutral-600'}`}>{check.text}</p>}
+              </details>
+            );
+          })}
+        </div>
+      )}
+      {!compact && <p className="mt-3 border-t border-neutral-200 pt-3 text-xs text-neutral-500">Schedules can change without notice.</p>}
     </section>
   );
 }

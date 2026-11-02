@@ -23,7 +23,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import type { DamScheduleDay, ScheduledHour } from '@/lib/data/dams';
-import { hourEndingLabel, scheduleHoursElapsed, scheduledHoursSummary } from '@shared/dam-schedule-copy';
+import { hourEndingLabel, scheduleHoursElapsed } from '@shared/dam-schedule-copy';
 import {
   scheduledBar,
   schedulePeak,
@@ -83,7 +83,10 @@ export default function DamTimeline({
   now: number;
   /** Detail pages put a concise readout below the chart, close to its axis. */
   plainLanguage?: boolean;
-  /** Directory cards use a shorter plot while retaining a full touch target. */
+  /**
+   * Directory cards use a shorter plot — still the 44px touch floor — and drop
+   * the half-capacity hairline, which has no room for a label at that size.
+   */
   compact?: boolean;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
@@ -100,13 +103,11 @@ export default function DamTimeline({
   const hoveredHour = hovered === null ? null : hours[hovered];
   const peak = plainLanguage ? schedulePeak(day, reference) : null;
   const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
-  const defaultReadout = plainLanguage
-    ? peakWindow
-      ? `Peak window: ${peakWindow}`
-      : scheduledHoursSummary(day.hours)
-    : 'Select an hour for details';
+  // The schedule section states the day's summary in words above the chart, so
+  // the readout never repeats it: it names the peak, or invites inspection.
+  const defaultReadout = plainLanguage && peakWindow ? `Peak window: ${peakWindow}` : 'Select an hour for details';
   const readout = (
-    <p aria-live="polite" className={`${plainLanguage ? (compact ? 'mt-1 min-h-4' : 'mt-2 min-h-10') : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-600'}`}>
+    <p aria-live="polite" className={`${plainLanguage ? (compact ? 'mt-1 min-h-4' : 'mt-2 min-h-8') : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-600'}`}>
       {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
     </p>
   );
@@ -129,7 +130,7 @@ export default function DamTimeline({
         role="img"
         aria-label={summary}
         tabIndex={0}
-        className={`relative flex ${compact ? 'h-14' : 'h-20'} items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
+        className={`relative flex ${compact ? 'h-11' : 'h-20'} items-end rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500`}
         onPointerDown={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerMove={(e) => setHovered(hourFromPointer(e.clientX))}
         onPointerLeave={(e) => { if (e.pointerType !== 'touch') setHovered(null); }}
@@ -178,20 +179,26 @@ export default function DamTimeline({
           );
         })}
 
-        {/* Half-capacity hairline, so a bar's height reads against something. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-1/2 h-px bg-neutral-200" />
+        {/* Half-capacity hairline, so a bar's height reads against something.
+            Labelled where it is drawn; a compact card has no room to say what
+            an unlabelled line means, so it draws none. The capacity scale
+            itself is kept either way: a small release must look small. */}
+        {!compact && <>
+          <div className="pointer-events-none absolute inset-x-0 bottom-1/2 h-px bg-neutral-200" />
+          <span aria-hidden="true" className="pointer-events-none absolute bottom-1/2 left-0 z-20 mb-px rounded-sm bg-white/85 px-0.5 text-[10px] leading-3 text-neutral-500">Half capacity</span>
+        </>}
 
         {elapsed !== null && <>
           <div
             data-schedule-now
-            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-500"
+            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-600"
             style={{ left: `${(elapsed / HOURS) * 100}%` }}
           />
-          <span aria-hidden="true" className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[9px] font-semibold text-accent-800" style={{ left: `clamp(14px, ${(elapsed / HOURS) * 100}%, calc(100% - 14px))` }}>Now</span>
+          <span aria-hidden="true" className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[10px] font-semibold leading-3 text-accent-800" style={{ left: `clamp(14px, ${(elapsed / HOURS) * 100}%, calc(100% - 14px))` }}>Now</span>
         </>}
       </div>
 
-      <div className="mt-1 flex justify-between text-[10px] text-neutral-400">
+      <div aria-hidden="true" className="mt-1 flex justify-between text-[11px] leading-4 tabular-nums text-neutral-600">
         <span>midnight</span>
         <span>6 AM</span>
         <span>noon</span>
