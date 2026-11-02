@@ -942,9 +942,15 @@ export interface RiverDamContext {
   /** The gauge on this river that the release drives. */
   tailwaterGaugeSiteId: string;
   /**
-   * The Corps' own forward release curve. SWL publishes a DAILY series ~12
-   * days out; MVS publishes hourly. Either way it is a forecast, not an
-   * observation, and the UI must not draw it as one.
+   * The Corps' own forward release curve — read ONLY for a dam with no
+   * powerhouse, and empty for every hydro dam (their forward view is the SWPA
+   * schedule on `dam`). SWL publishes a DAILY series ~12 days out; MVS
+   * publishes hourly. Either way it is a forecast, not an observation, and the
+   * UI must not draw it as one.
+   *
+   * `at` is the source's PERIOD-ENDING stamp, passed through unchanged: a
+   * daily point stamped at local midnight covers the day BEFORE it. Read it
+   * through dailyForecastDays(), never by formatting `at` directly.
    */
   forecast: ReleaseForecastPoint[];
   /** True when the forecast series is a daily average rather than hourly. */
@@ -963,7 +969,11 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   const entry = Object.values(USACE_DAMS).find((d) => d.tailwater?.riverSlug === riverSlug);
   if (!entry) return null;
 
-  const series = entry.series.releaseForecast;
+  // Only a dam WITHOUT a powerhouse reads the daily-average forecast. A hydro
+  // dam's forward view is SWPA's hourly schedule, already on the summary; its
+  // daily average describes no hour of a peaking day and contradicted that
+  // schedule beside it. See src/lib/river-dam-panel.ts.
+  const series = hasPowerhouse(entry) ? undefined : entry.series.releaseForecast;
   const forecastWindowNow = bucketedNow().getTime();
 
   const [dam, forecastResult] = await Promise.all([

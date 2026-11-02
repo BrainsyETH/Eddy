@@ -12,7 +12,7 @@ import { getDamAppPromotion } from '@/lib/dam-app-promotion';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ArrowUpRight, Phone, Smartphone } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Phone, Smartphone } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import Button from '@/components/ui/Button';
 import DamDetail from '@/components/dam/DamDetail';
@@ -99,7 +99,7 @@ export default async function DamPage({ params }: { params: Promise<{ damId: str
           <DamDetail key={dam.id} dam={dam} renderedAt={renderedAt} availability={availability} />
         </div>
         <div id="dam-resources" className="dam-resource-links mt-5 flex scroll-mt-24 flex-wrap gap-3 border-t border-neutral-200 pt-5">
-          {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></Button>}
+          {riverHref && river && <Button href={riverHref} variant="primary" size="sm" className="min-h-11">View {river.name} below the dam <ArrowRight className="size-4 shrink-0" aria-hidden="true" /></Button>}
           {/* Without a posted schedule the generation card already offers the
               release line, so the number is not repeated down here. */}
           {dam.infoPhone && dam.schedule.length > 0 && <Button href={`tel:${dam.infoPhone.replace(/\D/g, '')}`} variant="outline" size="sm" className="min-h-11"><Phone className="size-4 shrink-0" aria-hidden="true" /> Release Line: {dam.infoPhone}</Button>}
