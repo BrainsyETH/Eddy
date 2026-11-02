@@ -14,6 +14,7 @@ import { ArrowRight } from 'lucide-react';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { CONDITION_COLORS } from '@/constants';
+import ConditionBadge from '@/components/ui/ConditionBadge';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { formatRiverLevel } from '@/lib/river-groups';
 
@@ -114,7 +115,7 @@ export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
             height={24}
             className="w-6 h-6 rounded-full flex-shrink-0"
           />
-          <span className="text-sm font-bold text-neutral-900" style={{ fontFamily: 'var(--font-display)' }}>
+          <span className="font-heading text-xs font-bold uppercase tracking-[0.1em] text-accent-700">
             Eddy’s Read
           </span>
         </div>
@@ -141,14 +142,14 @@ export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
                 {level}
               </span>
             )}
-            <span className="text-xs font-semibold" style={{ color }}>{river.condition.label}</span>
+            <ConditionBadge code={river.condition.code} label={river.condition.label} showDot={false} />
           </div>
         </div>
-        <p className="text-sm text-neutral-600 leading-relaxed line-clamp-3">&ldquo;{quote}&rdquo;</p>
+        <p className="text-[15px] text-neutral-800 leading-relaxed line-clamp-3">&ldquo;{quote}&rdquo;</p>
       </div>
 
       {/* Footer: progress dots + per-river CTA */}
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-secondary-100">
         <div className="flex gap-1.5">
           {slides.map((s, i) => (
             <button
@@ -158,7 +159,7 @@ export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
               aria-label={`Show ${s.riverName}`}
               className="p-1 -m-1"
             >
-              <span className={`block w-1.5 h-1.5 rounded-full transition-colors ${i === index ? 'bg-accent-500' : 'bg-neutral-300'}`} />
+              <span className={`block h-1.5 rounded-full transition-all duration-normal ${i === index ? 'w-4 bg-accent-500' : 'w-1.5 bg-neutral-300'}`} />
             </button>
           ))}
         </div>
@@ -166,7 +167,7 @@ export default function EddyHeroBubble({ excludeRiverSlugs = [] }: {
           href={href}
           data-ga-event="bubble_river"
           data-ga-label={river.riverSlug ?? river.riverName}
-          className="inline-flex items-center gap-1 text-xs font-bold text-accent-600 hover:text-accent-700 transition-colors no-underline"
+          className="inline-flex items-center gap-1 text-xs font-bold text-accent-700 hover:text-accent-800 transition-colors duration-fast no-underline"
         >
           See {river.riverName} <ArrowRight className="w-3.5 h-3.5" />
         </Link>
@@ -187,7 +188,7 @@ function BubbleShell({
 }) {
   return (
     <div
-      className="relative bg-white rounded-2xl p-5 text-left shadow-[0_18px_44px_rgba(8,24,21,0.30)] min-h-[210px]"
+      className="relative bg-white border border-secondary-200 rounded-[20px] p-5 text-left shadow-[0_4px_14px_rgba(45,42,36,0.10)] min-h-[210px]"
       onMouseEnter={onPause ? () => onPause(true) : undefined}
       onMouseLeave={onPause ? () => onPause(false) : undefined}
     >
@@ -211,10 +212,10 @@ function BubbleShell({
         children
       )}
       {/* Tail pointing down toward the otter: centered on mobile; on desktop the
-          tip sits over Eddy's center. Eddy is flush-right at w-52 (md) / w-60 (lg),
-          so its center is 104px / 120px from the column edge; the bubble is inset
-          right-12 (48px) and the tail is 20px wide, giving right = center-58px. */}
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-[46px] lg:right-[62px] w-5 h-5 bg-white rotate-45 shadow-[6px_6px_14px_rgba(8,24,21,0.10)]" />
+          tip sits over Eddy's center. Eddy is md:w-[156px] with md:mr-3 in a
+          column flush with the bubble, so its center is 12 + 78 = 90px from the
+          bubble's right edge; the tail is 20px wide, giving right = 80px. */}
+      <div className="absolute -bottom-[11px] left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-[80px] w-5 h-5 bg-white border-r border-b border-secondary-200 rotate-45" />
     </div>
   );
 }
