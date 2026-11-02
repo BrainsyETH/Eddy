@@ -58,6 +58,8 @@ export const CHANGE_THRESHOLDS: Record<ChangeWindow, { ratio: number; fastRatio:
 export const CHANGE_FLOOR_CFS = 1;
 /** A ratio beyond this inside one window is a sensor event until a person says otherwise. */
 export const IMPLAUSIBLE_RATIO = 30;
+/** A stage move this large (ft) is a datum change or a bad value, not water: "unverified". */
+export const IMPLAUSIBLE_STAGE_FT = 25;
 /** The earlier reading must have been at most this old when its frame was captured. */
 export const PRIOR_FRESH_MS = 2 * 3_600_000;
 
@@ -126,7 +128,7 @@ export function classifyChange(site: Site, ctx: ChangeContext, clock: number, no
     const h1 = r1.gaugeHeightFt;
     const d = h1 - h0;
     const base = { h0, h1, magnitude: Math.abs(d) / 2 };
-    if (Math.abs(d) >= 25) return { cls: 'unverified', ...base };
+    if (Math.abs(d) >= IMPLAUSIBLE_STAGE_FT) return { cls: 'unverified', ...base };
     if (d >= t.fastStageFt) return { cls: 'rising_fast', ...base };
     if (d >= t.stageFt) return { cls: 'rising', ...base };
     if (d <= -t.fastStageFt) return { cls: 'falling_fast', ...base };

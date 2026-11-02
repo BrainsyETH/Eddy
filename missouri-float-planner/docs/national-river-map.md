@@ -333,9 +333,21 @@ sharply ≥ 2×; 24 h rising ≥ 1.5×, sharply ≥ 3×; falling at the inverse;
 percentiles by river size and the share of gauges each threshold would mark.
 Aim: on an ordinary day most gauges read "about the same" and "sharply" stays
 rare. Run it on a quiet day and a wet one before moving a number, and record
-the runs here. Regulated releases, snowmelt and ice are not modelled yet.
+the runs here. Stage-only gauges (no discharge) get their own table in feet.
+Regulated releases are not separated — there is no national list of gauges
+below dams — and snowmelt and ice are not modelled yet.
 
-**Calibration runs:** none recorded yet.
+**Calibration runs** (no threshold moved until a quiet and a wet day agree):
+
+| Run (frame, UTC) | Window | Day | Discharge gauges: ▲▲ / ▲ / ≈ / ▼ / ▼▼ | Stage-only: ▲▲ / ▲ / ≈ / ▼ / ▼▼ |
+| --- | --- | --- | --- | --- |
+| 2026-11-02 22:27 | 6 h | ordinary (62 NWS points in flood at 21:57) | 1.5 / 3.7 / 89.9 / 3.6 / 1.1 % of 7,651 | 3.0 / 3.5 / 87.6 / 3.7 / 2.2 % of 1,671 |
+
+Notes from the first run: every size group stays 88–91 % "about the same";
+gauges with no drainage area on record are noisier (82.9 %), and stage-only
+gauges have wide tails (p1 −2.4 ft, p99 +3.1 ft in 6 h) — probably tidal and
+reservoir gauges, to check before the feet thresholds move. The 24 h window
+opens once recorded history reaches it (recording began 2026-11-02 12:42 UTC).
 
 ## The wall (fullscreen)
 

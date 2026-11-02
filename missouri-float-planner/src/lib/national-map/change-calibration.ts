@@ -1,7 +1,12 @@
 // src/lib/national-map/change-calibration.ts
 // Evidence for the Change view's flow thresholds (change.ts CHANGE_THRESHOLDS):
 // the distribution of frame-to-frame discharge ratios across the network, by
-// river size, and the share of gauges each provisional threshold would mark.
+// river size, and the share of gauges each provisional threshold would mark —
+// plus stage-only gauges (no discharge), which the view compares by the change
+// in gauge height and which need their own evidence for the feet thresholds.
+//
+// Not separated yet: regulated releases. There is no national list of gauges
+// below dams; until there is, a release shows up inside its size group.
 //
 // Calibration rule (docs/national-river-map.md, Change): a threshold should
 // mark the unusual, not the everyday — on an ordinary day most gauges must
@@ -10,7 +15,7 @@
 //
 // Pure: scripts/calibrate-change-thresholds.ts loads the frames.
 
-import { CHANGE_FLOOR_CFS, CHANGE_THRESHOLDS, IMPLAUSIBLE_RATIO, PRIOR_FRESH_MS, type ChangeWindow } from './change';
+import { CHANGE_FLOOR_CFS, CHANGE_THRESHOLDS, IMPLAUSIBLE_RATIO, IMPLAUSIBLE_STAGE_FT, PRIOR_FRESH_MS, type ChangeWindow } from './change';
 import type { DecodedFrame } from './frame';
 
 export type SizeBucket = 'small (<100 sq mi)' | 'medium (100–1,000)' | 'large (1,000–10,000)' | 'very large (>10,000)' | 'unknown size';
@@ -34,6 +39,52 @@ export function frameRatios(now: DecodedFrame, then: DecodedFrame): Map<string, 
     out.set(siteId, (Math.max(r1.dischargeCfs, 0) + CHANGE_FLOOR_CFS) / (Math.max(r0.dischargeCfs, 0) + CHANGE_FLOOR_CFS));
   }
   return out;
+}
+
+/**
+ * Gauge-height change (ft) for gauges the view compares by STAGE: no discharge
+ * in one frame or the other, gauge height in both, trustworthy in both.
+ */
+export function frameStageDeltas(now: DecodedFrame, then: DecodedFrame): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [siteId, r1] of now.gauges) {
+    const r0 = then.gauges.get(siteId);
+    if (!r0 || r1.suspect || r0.suspect) continue;
+    if (r1.dischargeCfs !== null && r0.dischargeCfs !== null) continue; // compared by ratio
+    if (r1.gaugeHeightFt === null || r0.gaugeHeightFt === null) continue;
+    if (r1.observedAt === null || r0.observedAt === null) continue;
+    if (now.capturedAt - r1.observedAt > PRIOR_FRESH_MS || then.capturedAt - r0.observedAt > PRIOR_FRESH_MS) continue;
+    out.set(siteId, r1.gaugeHeightFt - r0.gaugeHeightFt);
+  }
+  return out;
+}
+
+export function stageStats(deltas: number[], window: ChangeWindow): RatioStats {
+  const sorted = [...deltas].sort((a, b) => a - b);
+  const t = CHANGE_THRESHOLDS[window];
+  const n = sorted.length || 1;
+  const count = (f: (d: number) => boolean) => sorted.filter(f).length / n;
+  const ok = (d: number) => Math.abs(d) < IMPLAUSIBLE_STAGE_FT;
+  return {
+    n: sorted.length,
+    p: {
+      1: quantile(sorted, 0.01),
+      5: quantile(sorted, 0.05),
+      10: quantile(sorted, 0.1),
+      50: quantile(sorted, 0.5),
+      90: quantile(sorted, 0.9),
+      95: quantile(sorted, 0.95),
+      99: quantile(sorted, 0.99),
+    },
+    share: {
+      risingFast: count((d) => ok(d) && d >= t.fastStageFt),
+      rising: count((d) => ok(d) && d >= t.stageFt && d < t.fastStageFt),
+      steady: count((d) => d < t.stageFt && d > -t.stageFt),
+      falling: count((d) => ok(d) && d <= -t.stageFt && d > -t.fastStageFt),
+      fallingFast: count((d) => ok(d) && d <= -t.fastStageFt),
+      implausible: count((d) => !ok(d)),
+    },
+  };
 }
 
 export interface RatioStats {
@@ -113,5 +164,25 @@ export function calibrationMarkdown(
       `| ${g} | ${s.n} | ${x(s.p[1])} | ${x(s.p[5])} | ${x(s.p[10])} | ${x(s.p[50])} | ${x(s.p[90])} | ${x(s.p[95])} | ${x(s.p[99])} | ${pct(s.share.risingFast)} | ${pct(s.share.rising)} | ${pct(s.share.steady)} | ${pct(s.share.falling)} | ${pct(s.share.fallingFast)} | ${pct(s.share.implausible)} |`,
     );
   }
+
+  // Stage-only gauges: compared in feet, so their own table.
+  const stage = frameStageDeltas(now, then);
+  const ft = (v: number) => (Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(2)} ft` : '—');
+  lines.push(
+    '',
+    `Stage-only gauges (no discharge; compared in feet): rising ≥ ${t.stageFt} ft (sharply ≥ ${t.fastStageFt} ft), falling at the negative; unverified ≥ ${IMPLAUSIBLE_STAGE_FT} ft.`,
+    '',
+  );
+  if (!stage.size) {
+    lines.push('No stage-only gauges comparable in both frames.');
+  } else {
+    const s = stageStats([...stage.values()], window);
+    lines.push(
+      '| Group | n | p1 | p5 | p10 | p50 | p90 | p95 | p99 | ▲▲ | ▲ | ≈ | ▼ | ▼▼ | unverified |',
+      '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+      `| stage-only | ${s.n} | ${ft(s.p[1])} | ${ft(s.p[5])} | ${ft(s.p[10])} | ${ft(s.p[50])} | ${ft(s.p[90])} | ${ft(s.p[95])} | ${ft(s.p[99])} | ${pct(s.share.risingFast)} | ${pct(s.share.rising)} | ${pct(s.share.steady)} | ${pct(s.share.falling)} | ${pct(s.share.fallingFast)} | ${pct(s.share.implausible)} |`,
+    );
+  }
+  lines.push('', 'Regulated releases are not separated (no national list of gauges below dams); they fall inside their size group.');
   return lines.join('\n');
 }

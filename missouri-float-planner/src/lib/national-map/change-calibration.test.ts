@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildFrame, decodeFrame, type LatestInput } from './frame';
-import { calibrationMarkdown, frameRatios, ratioStats, sizeBucket } from './change-calibration';
+import { calibrationMarkdown, frameRatios, frameStageDeltas, ratioStats, sizeBucket, stageStats } from './change-calibration';
 
 const NOW = Date.parse('2026-11-03T12:00:00Z');
 const H = 3_600_000;
@@ -38,4 +38,28 @@ test('river size buckets and the report table', () => {
   const md = calibrationMarkdown('24h', now, then, new Map([['07000001', 500]]));
   assert.match(md, /\| all gauges \| 1 \|/);
   assert.match(md, /\| medium \(100–1,000\) \| 1 \|/);
+});
+
+test('stage-only gauges are compared in feet, in their own table', () => {
+  const then = frame(NOW - 6 * H, [
+    reading('07000001', NOW - 6 * H, 100),
+    reading('07000002', NOW - 6 * H, null, { gaugeHeightFt: 4 }),
+    reading('07000003', NOW - 6 * H, null, { gaugeHeightFt: 4 }),
+    reading('07000004', NOW - 6 * H, null, { gaugeHeightFt: 4, suspect: true }),
+  ]);
+  const now = frame(NOW, [
+    reading('07000001', NOW, 110),
+    reading('07000002', NOW, null, { gaugeHeightFt: 5.5 }),
+    reading('07000003', NOW, null, { gaugeHeightFt: 3.9 }),
+    reading('07000004', NOW, null, { gaugeHeightFt: 9 }),
+  ]);
+  const d = frameStageDeltas(now, then);
+  assert.deepEqual([...d.keys()].sort(), ['07000002', '07000003'], 'discharge gauges and flagged readings are not stage comparisons');
+  assert.equal(d.get('07000002'), 1.5);
+  const s = stageStats([...d.values()], '6h');
+  assert.equal(s.share.risingFast, 0.5, '+1.5 ft in 6 h is sharply rising (≥ 1 ft)');
+  assert.equal(s.share.steady, 0.5);
+  const md = calibrationMarkdown('6h', now, then, new Map());
+  assert.match(md, /\| stage-only \| 2 \| /);
+  assert.match(md, /Regulated releases are not separated/);
 });
