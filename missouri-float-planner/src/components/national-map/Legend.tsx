@@ -99,7 +99,7 @@ export function FlowLegend({ palette, summary }: { palette: MapPalette; summary:
             <Row
               style={flowExtremeHighStyle()}
               palette={palette}
-              label={`Of those, at or above the ${EXTREME_HIGH}th percentile`}
+              label={`Of those, at or above the ${EXTREME_HIGH}th-percentile flow for the date`}
               count={summary?.extremeHigh ?? null}
             />
           )}

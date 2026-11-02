@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { CatalogStation } from './catalog';
 import { buildFrame, decodeFrame, type LatestInput, type NwsInput } from './frame';
 import { FLOW_BAND_SYSTEM } from '@shared/flow-band';
+import { calculateDischargePercentile } from '../usgs/gauges';
 import { PALETTES, wallPalette, withFlowColors } from './theme';
 import {
   buildSites,
@@ -11,9 +12,11 @@ import {
   classifySites,
   curateHighlights,
   EXTREME_HIGH,
+  EXTREME_LOW,
   floodStyle,
   flowStyle,
   HIGHLIGHT_SEPARATION,
+  isExtreme,
   wallStyle,
   type FloodClass,
   type FlowClass,
@@ -236,4 +239,17 @@ test('the vivid Flow colours are opt-in, keep the bands, and never touch floodin
     assert.deepEqual(vivid.flood, wallPalette(theme).flood, 'NWS categories keep NWS colours');
     assert.ok(!vivid.backed.some((k) => k.startsWith('flow')), 'vivid flow bands need no backing chip');
   }
+});
+
+test('an extreme mark means the published p95 / p05 was reached, nothing finer', () => {
+  const day = { siteId: 'x', month: 7, day: 25, p05: 15, p10: 20, p25: 30, p50: 50, p75: 80, p90: 100, p95: 1000, mean: 60, yearsOfRecord: 50 };
+  const site = (q: number) =>
+    world([reading('00000001', { flowPercentile: calculateDischargePercentile(q, day) })], [])[0];
+  // The reported case: 170 cfs once scored 97 against p90 alone.
+  assert.equal(isExtreme(site(170)), false, 'between p90 and p95 is "much higher", not extreme');
+  assert.equal(isExtreme(site(1000)), true, 'at the published p95');
+  assert.equal(isExtreme(site(16)), false);
+  assert.equal(isExtreme(site(15)), true, 'at the published p05');
+  assert.equal(EXTREME_HIGH, 95);
+  assert.equal(EXTREME_LOW, 5);
 });

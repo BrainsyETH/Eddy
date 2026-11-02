@@ -171,12 +171,30 @@ export function calculateDischargePercentile(
   if (stats.p10 === null || stats.p50 === null || upper === null) {
     return null;
   }
+  const p05 = stats.p05 ?? null;
+  const p95 = stats.p95 ?? null;
 
-  // Interpolate between known percentiles
-  if (dischargeCfs <= stats.p10) {
-    // Below 10th percentile - estimate 0-10 range
-    return Math.max(0, Math.round((dischargeCfs / stats.p10) * 10));
+  // ── The tails: never claim more than a published threshold supports ──────
+  // A reading beyond the outermost published percentile has no measured
+  // position, so the number may say "beyond p95" but never where beyond it,
+  // and must never contradict a threshold that IS published. (Extrapolating
+  // against p90 alone once scored 170 cfs as the 97th percentile on a day
+  // whose published p95 was 1,000 cfs.) Band cuts (10 / 90) are unaffected:
+  // every branch below keeps a value on the same side of them.
+  if (dischargeCfs < stats.p10) {
+    if (p05 !== null && p05 < stats.p10) {
+      // Between p05 and p10, interpolate; below p05, proportional toward zero
+      // flow (a physical floor), so only "below the 5th percentile" is claimed.
+      if (dischargeCfs === p05) return 5;
+      // Rounding must not land a reading above p05 on the 5th-percentile tier.
+      if (dischargeCfs > p05) return Math.max(6, Math.round(5 + ((dischargeCfs - p05) / (stats.p10 - p05)) * 5));
+      return Math.max(0, Math.min(5, Math.round((dischargeCfs / p05) * 5)));
+    }
+    // No p05: below p10 is all that is known. Stay above 5 so "at or below
+    // the 5th percentile" is only ever said when p05 says it.
+    return Math.max(6, Math.round((dischargeCfs / stats.p10) * 10));
   }
+  if (dischargeCfs === stats.p10) return 10;
   if (stats.p25 !== null && dischargeCfs <= stats.p25) {
     // Between p10 and p25
     return Math.round(10 + ((dischargeCfs - stats.p10) / (stats.p25 - stats.p10)) * 15);
@@ -195,11 +213,32 @@ export function calculateDischargePercentile(
     if (span <= 0) return upper.percentile;
     return Math.round(75 + ((dischargeCfs - stats.p75) / span) * (upper.percentile - 75));
   }
-  // Above the upper anchor
-  return Math.min(
-    100,
-    Math.round(upper.percentile + ((dischargeCfs - upper.value) / upper.value) * (100 - upper.percentile))
-  );
+  // Above the upper anchor.
+  if (upper.percentile === 90) {
+    if (p95 !== null && p95 > upper.value) {
+      if (dischargeCfs === p95) return 95;
+      // Rounding must not lift a reading below p95 onto the 95th-percentile tier.
+      if (dischargeCfs < p95) return Math.min(94, Math.round(90 + ((dischargeCfs - upper.value) / (p95 - upper.value)) * 5));
+      return beyond(95, dischargeCfs, p95);
+    }
+    // No p95: above p90 is all that is known. Stay below 95.
+    return Math.min(94, beyond(90, dischargeCfs, upper.value));
+  }
+  // p95 itself is the anchor (legacy service): beyond it is supported. The
+  // p80 fallback knows nothing about p95, so it stays below 95 as well.
+  return upper.percentile >= 95
+    ? beyond(upper.percentile, dischargeCfs, upper.value)
+    : Math.min(94, beyond(upper.percentile, dischargeCfs, upper.value));
+}
+
+/**
+ * Past the outermost published percentile: ordered (a bigger exceedance
+ * scores higher, so "most unusual" lists still sort) but compressed into the
+ * remaining range — the value says "beyond `percentile`", not a position.
+ */
+function beyond(percentile: number, dischargeCfs: number, anchor: number): number {
+  const excess = anchor > 0 ? (dischargeCfs - anchor) / anchor : 1;
+  return Math.min(100, Math.max(percentile, Math.round(percentile + excess * (100 - percentile))));
 }
 
 // The percentile-verdict system that used to live here (FlowRating,

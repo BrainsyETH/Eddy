@@ -32,6 +32,7 @@ import {
   buildLayout,
   invertComponent,
   layoutKindFor,
+  locate,
   projectComponent,
   componentOf,
   type Bounds,
@@ -67,7 +68,13 @@ export interface StageHandle {
   focus: () => void;
 }
 
+/**
+ * A view as a PLACE: the component and its projected (landscape-frame)
+ * coordinates at the centre, plus zoom × national fit. Never a layout point —
+ * layouts move the insets (see projection.ts locate).
+ */
 export interface StageView {
+  component: MapComponent;
   x: number;
   y: number;
   zoom: number;
@@ -144,6 +151,7 @@ export default function MapStage(props: Props) {
   const camRef = useRef<Camera | null>(null);
   const userMoved = useRef(false);
   const initialApplied = useRef(false);
+  const sharedApplied = useRef(false);
   const lastFrameVersion = useRef(frameVersion);
 
   // ── Renderer lifecycle ──────────────────────────────────────────────────
@@ -235,6 +243,17 @@ export default function MapStage(props: Props) {
     [],
   );
 
+  /** The camera that puts a view's place at the centre of the unobstructed area. */
+  const cameraFor = useCallback(
+    (v: StageView, f: Camera): Camera => {
+      const scale = f.scale * v.zoom;
+      const [px, py] = layout ? applyAffine(layout.affine[v.component], v.x, v.y) : [v.x, v.y];
+      const c = vp ? centreOf(vp, insets) : { x: 0, y: 0 };
+      return { scale, tx: c.x - px * scale, ty: c.y - py * scale };
+    },
+    [layout, vp, insets, centreOf],
+  );
+
   /** `live`: one step of a pointer / wheel / key gesture (see renderer). */
   const commit = useCallback(
     (cam: Camera, moved: boolean, live = false) => {
@@ -245,7 +264,8 @@ export default function MapStage(props: Props) {
       if (moved) userMoved.current = true;
       const c = centreOf(vp, insets);
       const [lx, ly] = toLayout(next, c.x, c.y);
-      lastView.current = { x: lx, y: ly, zoom: zoomFactor(next, f), national: !userMoved.current };
+      const at = locate(layout, lx, ly);
+      lastView.current = { component: at.component, x: at.x, y: at.y, zoom: zoomFactor(next, f), national: !userMoved.current };
       renderer.current?.setCamera(next, f.scale, live);
       if (zoomFactor(next, f) >= 2.2) onNeedDetail();
       onCameraChange();
@@ -267,19 +287,24 @@ export default function MapStage(props: Props) {
   useEffect(() => {
     const f = fit();
     if (!f || !vp) return;
+    // A shared view (?at=) applies whenever it arrives, as long as the reader
+    // has not moved the map yet: it is read from the URL in an effect, and
+    // the first fit can land a render earlier (geometry and size ready first),
+    // which once dropped share links back to the national view.
+    if (initialCenter && !sharedApplied.current && !userMoved.current) {
+      sharedApplied.current = true;
+      initialApplied.current = true;
+      const pt = laidOutPoint(initialCenter.lng, initialCenter.lat);
+      if (pt) {
+        const scale = f.scale * initialCenter.zoom;
+        const c = centreOf(vp, insets);
+        userMoved.current = true;
+        commit({ scale, tx: c.x - pt[0] * scale, ty: c.y - pt[1] * scale }, false);
+        return;
+      }
+    }
     if (!initialApplied.current) {
       initialApplied.current = true;
-      if (initialCenter) {
-        const pt = laidOutPoint(initialCenter.lng, initialCenter.lat);
-        if (pt) {
-          const scale = f.scale * initialCenter.zoom;
-          const cx = insets.left + (vp.width - insets.left - insets.right) / 2;
-          const cy = insets.top + (vp.height - insets.top - insets.bottom) / 2;
-          userMoved.current = true;
-          commit({ scale, tx: cx - pt[0] * scale, ty: cy - pt[1] * scale }, false);
-          return;
-        }
-      }
       commit(f, false);
       return;
     }
@@ -288,12 +313,11 @@ export default function MapStage(props: Props) {
       commit(f, false);
       return;
     }
-    // Keep the same layout point at the centre, at the same relative zoom.
-    const scale = f.scale * v.zoom;
-    const c = centreOf(vp, insets);
-    commit({ scale, tx: c.x - v.x * scale, ty: c.y - v.y * scale }, false);
+    // Keep the same PLACE at the centre (through this layout's affine for its
+    // component), at the same relative zoom.
+    commit(cameraFor(v, f), false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fit]);
+  }, [fit, initialCenter]);
 
   // ── Marks ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -384,17 +408,8 @@ export default function MapStage(props: Props) {
         const cam = camRef.current;
         if (!f || !cam || !vp || !layout) return null;
         const [lx, ly] = toLayout(cam, vp.width / 2, vp.height / 2);
-        // Undo the layout affine of whichever component's box holds the point.
-        let comp: MapComponent = 'l48';
-        for (const c of ['ak', 'hi'] as MapComponent[]) {
-          const a = layout.affine[c];
-          const b = geometry!.components[c];
-          const [x0, y0] = applyAffine(a, b.minX, b.minY);
-          const [x1, y1] = applyAffine(a, b.maxX, b.maxY);
-          if (lx >= x0 && lx <= x1 && ly >= y0 && ly <= y1) comp = c;
-        }
-        const a = layout.affine[comp];
-        const [lng, lat] = invertComponent(comp, (lx - a.dx) / a.s, (ly - a.dy) / a.s);
+        const at = locate(layout, lx, ly);
+        const [lng, lat] = invertComponent(at.component, at.x, at.y);
         return { lng, lat, zoom: zoomFactor(cam, f) };
       },
       isNational: () => !userMoved.current,
@@ -408,9 +423,7 @@ export default function MapStage(props: Props) {
           commit(f, false);
           return;
         }
-        const scale = f.scale * v.zoom;
-        const c = centreOf(vp, insets);
-        commit({ scale, tx: c.x - v.x * scale, ty: c.y - v.y * scale }, false);
+        commit(cameraFor(v, f), false);
       },
       ensureVisible: (i, cover) => {
         const cam = camRef.current;
@@ -437,7 +450,7 @@ export default function MapStage(props: Props) {
         return { x: positions.xs[i] * cam.scale + cam.tx, y: positions.ys[i] * cam.scale + cam.ty };
       },
     }),
-    [fit, commit, frameLaidBox, positions, geometry, layout, vp, insets, centreOf],
+    [fit, commit, frameLaidBox, positions, geometry, layout, vp, insets, cameraFor],
   );
 
   // The keyboard reticle: the centre of the unobstructed map area.

@@ -169,6 +169,25 @@ export interface Layout {
   affine: Record<MapComponent, Affine>;
   /** The composed frame every camera fit targets. */
   bounds: Bounds;
+  /** Each component's laid-out bounds (where an inset sits in this layout). */
+  parts: Record<MapComponent, Bounds>;
+}
+
+/**
+ * Which component a laid-out point belongs to, and where it is in the
+ * landscape (projected) frame. This — not the layout point — is what names a
+ * PLACE: the wall moves and enlarges the insets, so the same layout point is
+ * a different place in another layout (a centred Anchorage view once landed
+ * near Fairbanks). Insets are tested first; the lower 48 is the default.
+ */
+export function locate(layout: Layout, lx: number, ly: number): { component: MapComponent; x: number; y: number } {
+  let component: MapComponent = 'l48';
+  for (const c of ['ak', 'hi'] as MapComponent[]) {
+    const b = layout.parts[c];
+    if (lx >= b.minX && lx <= b.maxX && ly >= b.minY && ly <= b.maxY) component = c;
+  }
+  const a = layout.affine[component];
+  return { component, x: (lx - a.dx) / a.s, y: (ly - a.dy) / a.s };
 }
 
 const IDENTITY: Affine = { s: 1, dx: 0, dy: 0 };
@@ -232,11 +251,12 @@ export function buildLayout(kind: LayoutKind, componentBounds: Record<MapCompone
       dy: akBottom - (hi.maxY - hi.minY) * WALL_HI_SCALE - hi.minY * WALL_HI_SCALE,
     };
     const affine = { l48: IDENTITY, ak: akA, hi: hiA };
-    return { kind, affine, bounds: union([l48, affineBounds(akA, ak), affineBounds(hiA, hi)]) };
+    const parts = { l48, ak: affineBounds(akA, ak), hi: affineBounds(hiA, hi) };
+    return { kind, affine, bounds: union(Object.values(parts)), parts };
   }
   if (kind === 'landscape') {
     const affine = { l48: IDENTITY, ak: IDENTITY, hi: IDENTITY };
-    return { kind, affine, bounds: union(Object.values(componentBounds)) };
+    return { kind, affine, bounds: union(Object.values(componentBounds)), parts: { ...componentBounds } };
   }
   const l48 = componentBounds.l48;
   const ak = componentBounds.ak;
@@ -258,9 +278,6 @@ export function buildLayout(kind: LayoutKind, componentBounds: Record<MapCompone
     dy: akBottom - hiH - hi.minY * s,
   };
   const affine = { l48: IDENTITY, ak: akA, hi: hiA };
-  return {
-    kind,
-    affine,
-    bounds: union([l48, affineBounds(akA, ak), affineBounds(hiA, hi)]),
-  };
+  const parts = { l48, ak: affineBounds(akA, ak), hi: affineBounds(hiA, hi) };
+  return { kind, affine, bounds: union(Object.values(parts)), parts };
 }

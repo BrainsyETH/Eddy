@@ -186,14 +186,19 @@ export interface MarkStyle {
 }
 
 /**
- * The rarest readings — at or beyond the 97th / 3rd percentile — are drawn
- * larger and above the other bands, so a handful of truly exceptional gauges
- * interrupt the field across a room. In the Eddy colours size is the only
- * cue (flowExtremeHigh is Much higher's colour); the vivid prototype also
- * gives the rarest highs pale ice (theme.ts).
+ * The rarest readings are drawn larger and above the other bands, so a
+ * handful of exceptional gauges interrupt the field across a room.
+ *
+ * The cut is the outermost PUBLISHED threshold, not a finer percentile: USGS
+ * daily statistics publish p05 and p95 and nothing beyond, and
+ * calculateDischargePercentile (src/lib/usgs/gauges.ts) returns ≥ 95 only for
+ * a reading at or above the published p95 (≤ 5 only at or below p05). So an
+ * extreme mark claims exactly "at or above the 95th-percentile flow for this
+ * date" — never a position past it. In the Eddy colours size is the only cue;
+ * the vivid prototype also gives the rarest highs their own colour (theme.ts).
  */
-export const EXTREME_HIGH = 97;
-export const EXTREME_LOW = 3;
+export const EXTREME_HIGH = 95;
+export const EXTREME_LOW = 5;
 
 const FLOW_EXTREME: Record<'much_higher' | 'much_lower', MarkStyle> = {
   much_higher: { shape: 'dot', radius: 2.9, color: 'flowExtremeHigh', keyline: true, salience: 6, ring: false, minZoom: 0 },

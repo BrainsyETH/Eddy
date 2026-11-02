@@ -292,6 +292,31 @@ async function main() {
     assert.deepEqual(errors, []);
     await page.close();
 
+    // ── 4b. A zoomed Alaska view keeps its place in fullscreen ───────────
+    // The wall layout moves and enlarges the insets; the centre must stay
+    // the same PLACE (it once drifted from Anchorage toward Fairbanks).
+    const ak = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await intercept(ak, 5 * 60_000);
+    await ak.goto(`${target}?at=-149.9,61.2,4`, { waitUntil: 'domcontentloaded' });
+    await ak.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    // The shared view must survive load (it once lost a race with the first
+    // fit and reopened on the national view) and is re-written by the camera.
+    // The camera rewrites the link (commas encoded) once it has applied it.
+    await ak.waitForFunction(() => location.search.includes('%2C'), null, { timeout: 60_000 });
+    const shared = new URL(ak.url()).searchParams.get('at')?.split(',').map(Number) ?? [];
+    assert.ok(shared[0] < -140 && shared[1] > 55, `the shared Alaska view survived load (got ${shared.join(',')})`);
+    await ak.waitForTimeout(500);
+    await ak.getByRole('button', { name: 'Fullscreen map' }).click();
+    await ak.locator('[data-presentation="map-only"]').waitFor();
+    await ak.waitForTimeout(1200); // the share link updates 400 ms after the camera settles
+    const at = new URL(ak.url()).searchParams.get('at')?.split(',').map(Number) ?? [];
+    assert.ok(
+      at.length === 3 && Math.abs(at[0] - -149.9) < 0.3 && Math.abs(at[1] - 61.2) < 0.3,
+      `fullscreen keeps Anchorage centred (got ${at.join(',')})`,
+    );
+    await ak.close();
+    console.log('PASS a shared Alaska view survives load and keeps its place entering the wall layout');
+
     // ── 5. A fully stale snapshot stops data-driven motion ──────────────
     const stale = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await intercept(stale, 2 * 86_400_000);

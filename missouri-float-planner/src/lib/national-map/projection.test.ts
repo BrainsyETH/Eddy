@@ -5,6 +5,7 @@ import {
   componentOf,
   invertComponent,
   layoutKindFor,
+  locate,
   project,
   projectComponent,
   type Bounds,
@@ -110,4 +111,28 @@ test('landscape is geoAlbersUsa’s own composition', () => {
   const layout = buildLayout('landscape', COMPONENT_BOUNDS);
   for (const c of ['l48', 'ak', 'hi'] as MapComponent[]) assert.deepEqual(layout.affine[c], { s: 1, dx: 0, dy: 0 });
   assert.equal(layout.bounds.minX, 31);
+});
+
+test('a view is carried across layouts as a place, not a layout point', () => {
+  // Reported: a centred Anchorage view, carried by layout coordinates into the
+  // wall layout (where Alaska moves and enlarges), landed near 64.9°N 145.8°W.
+  const land = buildLayout('landscape', COMPONENT_BOUNDS);
+  const wall = buildLayout('wall', COMPONENT_BOUNDS);
+  for (const [name, lng, lat] of [['Anchorage', -149.9, 61.2], ['Honolulu', -157.86, 21.3], ['St. Louis', -90.2, 38.63]] as const) {
+    const comp = componentOf(lng, lat);
+    const [fx, fy] = projectComponent(comp, lng, lat);
+    const a = land.affine[comp];
+    const [lx, ly] = [fx * a.s + a.dx, fy * a.s + a.dy];
+    // The old carry: same layout point in the new layout.
+    const wrong = locate(wall, lx, ly);
+    const [wlng, wlat] = invertComponent(wrong.component, wrong.x, wrong.y);
+    if (comp !== 'l48') assert.ok(Math.hypot(wlng - lng, wlat - lat) > 1, `${name}: the layout point is a different place in the wall`);
+    // The carry now: locate the place, then lay it out with the new affine.
+    const here = locate(land, lx, ly);
+    assert.equal(here.component, comp);
+    const b = wall.affine[here.component];
+    const back = locate(wall, here.x * b.s + b.dx, here.y * b.s + b.dy);
+    const [glng, glat] = invertComponent(back.component, back.x, back.y);
+    assert.ok(Math.abs(glng - lng) < 1e-6 && Math.abs(glat - lat) < 1e-6, `${name} stays ${lng},${lat} (got ${glng},${glat})`);
+  }
 });
