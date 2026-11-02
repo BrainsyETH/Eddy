@@ -281,3 +281,54 @@ export function buildLayout(kind: LayoutKind, componentBounds: Record<MapCompone
   const parts = { l48, ak: affineBounds(akA, ak), hi: affineBounds(hiA, hi) };
   return { kind, affine, bounds: union(Object.values(parts)), parts };
 }
+
+// ── Visible region ──────────────────────────────────────────────────────────
+// What a regional (zoomed) display can see, per component, in the projected
+// landscape frame — the coordinates sites and river lines are stored in, so
+// a region test needs no layout. Components the view does not reach get an
+// empty box.
+
+export type Region = Record<MapComponent, Bounds>;
+
+const EMPTY: Bounds = { minX: 1, minY: 1, maxX: 0, maxY: 0 };
+
+/** The region a layout-space box shows, inset by `margin` (fraction of its size). */
+export function regionOf(layout: Layout, box: Bounds, margin = 0.06): Region {
+  const mx = (box.maxX - box.minX) * margin;
+  const my = (box.maxY - box.minY) * margin;
+  const inner = { minX: box.minX + mx, minY: box.minY + my, maxX: box.maxX - mx, maxY: box.maxY - my };
+  const out = {} as Region;
+  for (const c of ['l48', 'ak', 'hi'] as MapComponent[]) {
+    const part = layout.parts[c];
+    const clip = {
+      minX: Math.max(inner.minX, part.minX),
+      minY: Math.max(inner.minY, part.minY),
+      maxX: Math.min(inner.maxX, part.maxX),
+      maxY: Math.min(inner.maxY, part.maxY),
+    };
+    if (clip.minX >= clip.maxX || clip.minY >= clip.maxY) {
+      out[c] = EMPTY;
+      continue;
+    }
+    const a = layout.affine[c];
+    out[c] = {
+      minX: (clip.minX - a.dx) / a.s,
+      minY: (clip.minY - a.dy) / a.s,
+      maxX: (clip.maxX - a.dx) / a.s,
+      maxY: (clip.maxY - a.dy) / a.s,
+    };
+  }
+  return out;
+}
+
+export function inRegion(region: Region, component: MapComponent, x: number, y: number): boolean {
+  const b = region[component];
+  return x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY;
+}
+
+/** The largest visible extent among components, in frame px (for scaling spacing rules). */
+export function regionSpan(region: Region): number {
+  let span = 0;
+  for (const b of Object.values(region)) if (b.maxX > b.minX) span = Math.max(span, b.maxX - b.minX, b.maxY - b.minY);
+  return span;
+}

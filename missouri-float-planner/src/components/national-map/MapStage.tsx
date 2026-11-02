@@ -33,6 +33,8 @@ import {
   invertComponent,
   layoutKindFor,
   locate,
+  regionOf,
+  type Region,
   projectComponent,
   componentOf,
   type Bounds,
@@ -111,6 +113,12 @@ interface Props {
   wall: boolean;
   /** The "Follow the river" journey to run now, or null. */
   journey: Journey | null;
+  /**
+   * Wall only: what the display can see, or null at the national view. The
+   * parent picks spotlights and journeys from it, so a regional display never
+   * spends its sequence on something off screen.
+   */
+  onRegion?: (region: Region | null) => void;
   ariaLabel: string;
   onTap: (event: StageEvent | null) => void;
   onHover: (event: StageEvent | null) => void;
@@ -139,6 +147,7 @@ export default function MapStage(props: Props) {
     interactive,
     wall,
     journey,
+    onRegion,
     ariaLabel,
     onTap,
     onHover,
@@ -235,6 +244,7 @@ export default function MapStage(props: Props) {
    * is what pushed the country off-centre after fullscreen.
    */
   const lastView = useRef<StageView | null>(null);
+  const lastRegion = useRef<string>('');
   const centreOf = useCallback(
     (v: Viewport, ins: Insets) => ({
       x: ins.left + (v.width - ins.left - ins.right) / 2,
@@ -266,11 +276,21 @@ export default function MapStage(props: Props) {
       const [lx, ly] = toLayout(next, c.x, c.y);
       const at = locate(layout, lx, ly);
       lastView.current = { component: at.component, x: at.x, y: at.y, zoom: zoomFactor(next, f), national: !userMoved.current };
+      if (wall && onRegion) {
+        const [x0, y0] = toLayout(next, insets.left, insets.top);
+        const [x1, y1] = toLayout(next, vp.width - insets.right, vp.height - insets.bottom);
+        const region = userMoved.current ? regionOf(layout, { minX: x0, minY: y0, maxX: x1, maxY: y1 }) : null;
+        const key = JSON.stringify(region);
+        if (key !== lastRegion.current) {
+          lastRegion.current = key;
+          onRegion(region);
+        }
+      }
       renderer.current?.setCamera(next, f.scale, live);
       if (zoomFactor(next, f) >= 2.2) onNeedDetail();
       onCameraChange();
     },
-    [fit, layout, vp, insets, centreOf, onCameraChange, onNeedDetail],
+    [fit, layout, vp, insets, centreOf, onCameraChange, onNeedDetail, wall, onRegion],
   );
 
   const laidOutPoint = useCallback(

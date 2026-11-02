@@ -460,7 +460,7 @@ export function MapControls({
               stretch
               aria-label="Flow colours"
             />
-            <p className={`text-xs ${styles.muted}`}>Vivid is a prototype for wall displays: copper for low, teal for normal, cyan to ice for high.</p>
+            <p className={`text-xs ${styles.muted}`}>Vivid is a prototype for wall displays: copper for low, teal for normal, saturated cyan for high.</p>
           </div>
         </div>
       )}

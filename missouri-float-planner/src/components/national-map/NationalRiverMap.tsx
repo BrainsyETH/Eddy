@@ -23,6 +23,7 @@ import {
   classifyFlow,
   classifySites,
   curateHighlights,
+  HIGHLIGHT_SEPARATION,
   LIVE_REASON_TEXT,
   viewLiveState,
   summarizeFlood,
@@ -42,7 +43,8 @@ import { PALETTES, wallPalette, withFlowColors, type MapTheme } from '@/lib/nati
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
-import { journeyCaption, journeyTiming, pickJourneys, type Journey } from '@/lib/national-map/journeys';
+import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys, type Journey } from '@/lib/national-map/journeys';
+import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
@@ -493,12 +495,32 @@ export default function NationalRiverMap() {
   //     a journey runs, so only one thing moves with intent at a time.
   // With motion off the spotlight rests on the first highlight and no
   // journey runs.
-  const spotlightSet = useMemo(() => highlights.slice(0, 6), [highlights]);
+  //
+  // A regional wall (fullscreen kept a deliberate zoom) draws its sequence
+  // from what it can SEE: spotlights from visible gauges, spaced for the
+  // zoom, and journeys clipped to the stretch of river on screen. The
+  // national wall keeps the national sequence.
+  const [stageRegion, setStageRegion] = useState<Region | null>(null);
+  const region = fullscreen ? stageRegion : null;
+  const spotlightSet = useMemo(() => {
+    if (!region) return highlights.slice(0, 6);
+    if (!dataLive) return [];
+    const visible = sites.filter((s) => inRegion(region, s.component, s.x, s.y));
+    // Spacing scales with the view: the national rule over the lower 48's width.
+    const l48 = data.geometry?.components.l48;
+    const nationalSpan = l48 ? l48.maxX - l48.minX : 774;
+    const separation = (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan;
+    return curateHighlights(visible, view, now, noaaOk, 6, separation);
+  }, [region, highlights, dataLive, sites, view, now, noaaOk, data.geometry]);
   const spotlightKeys = spotlightSet.map((s) => s.key).join('|');
-  const journeys = useMemo(() => (data.geometry ? pickJourneys(data.geometry.rivers) : []), [data.geometry]);
+  const journeys = useMemo(() => {
+    if (!data.geometry) return [];
+    return region ? visibleJourneys(data.geometry.rivers, region) : pickJourneys(data.geometry.rivers);
+  }, [data.geometry, region]);
   const journeysOn = fullscreen && motion && dataLive && journeys.length > 0;
   const [step, setStep] = useState(0);
-  useEffect(() => setStep(0), [spotlightKeys, view, fullscreen]);
+  const journeyKey = journeys.map((j) => `${j.steps[0]?.line}:${Math.round(j.start)}`).join('|');
+  useEffect(() => setStep(0), [spotlightKeys, journeyKey, view, fullscreen]);
   // Even steps are journeys (when on), odd steps spotlights; with no
   // highlights every step is a journey.
   const act: { kind: 'journey'; journey: Journey } | { kind: 'spot'; site: Site } | null = !fullscreen
@@ -619,6 +641,7 @@ export default function NationalRiverMap() {
       className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
       data-live={dataLive ? 'true' : 'false'}
       data-act={act?.kind ?? 'none'}
+      data-region={region ? 'regional' : 'national'}
     >
       <MapStage
         ref={stage}
@@ -638,6 +661,7 @@ export default function NationalRiverMap() {
         interactive={!fullscreen}
         wall={fullscreen}
         journey={journey}
+        onRegion={setStageRegion}
         ariaLabel={ariaLabel}
         onTap={onTap}
         onHover={onHover}

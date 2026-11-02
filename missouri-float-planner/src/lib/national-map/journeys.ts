@@ -11,7 +11,7 @@
 // Pure, no DOM: picked once per geometry load, drawn by the renderer.
 
 import type { DecodedLine } from './geometry';
-import { COMPONENT_SCALE } from './projection';
+import { COMPONENT_SCALE, inRegion, regionSpan, type MapComponent, type Region } from './projection';
 
 export interface JourneyStep {
   /** Index into the decoded `rivers`. */
@@ -30,8 +30,15 @@ export interface JourneyTributary {
 export interface Journey {
   steps: JourneyStep[];
   tributaries: JourneyTributary[];
-  /** Total travelled length, landscape-frame px. */
+  /** Total route length, landscape-frame px. */
   length: number;
+  /**
+   * The stretch the head travels, as distances along the route. The national
+   * wall runs the whole route (0 → length); a regional display runs only the
+   * stretch inside its view (see visibleJourneys).
+   */
+  start: number;
+  end: number;
   /** River names in travel order, consecutive repeats removed. */
   names: string[];
   /** The last line: where the journey reaches its outlet. */
@@ -68,7 +75,106 @@ export function traceDownstream(rivers: DecodedLine[], start: number, maxSteps =
     t0 = line.downAt;
     cur = line.down;
   }
-  return { steps, tributaries, length: travelled, names, outlet: from };
+  return { steps, tributaries, length: travelled, start: 0, end: travelled, names, outlet: from };
+}
+
+/**
+ * The part of a decoded line between fractions t0 and t1 of its length, as
+ * [x, y, distanceFromT0] triples in frame units. Shared with the renderer.
+ */
+export function sliceLine(line: DecodedLine, t0: number, t1: number): number[] {
+  const out: number[] = [];
+  const a = t0 * line.length;
+  const b = t1 * line.length;
+  let run = 0;
+  const xy = line.xy;
+  for (let i = 0; i + 3 < xy.length; i += 2) {
+    const seg = Math.hypot(xy[i + 2] - xy[i], xy[i + 3] - xy[i + 1]);
+    const s0 = run;
+    const s1 = run + seg;
+    run = s1;
+    if (s1 < a || s0 > b || seg === 0) continue;
+    const u0 = Math.max(0, (a - s0) / seg);
+    const u1 = Math.min(1, (b - s0) / seg);
+    if (!out.length) out.push(xy[i] + (xy[i + 2] - xy[i]) * u0, xy[i + 1] + (xy[i + 3] - xy[i + 1]) * u0, s0 + seg * u0 - a);
+    out.push(xy[i] + (xy[i + 2] - xy[i]) * u1, xy[i + 1] + (xy[i + 3] - xy[i + 1]) * u1, s0 + seg * u1 - a);
+  }
+  return out;
+}
+
+/** Every vertex of a journey's route: frame position, distance along it, and its step. */
+export function routePoints(j: Journey, rivers: DecodedLine[]): Array<{ x: number; y: number; d: number; step: number; component: MapComponent }> {
+  const out: Array<{ x: number; y: number; d: number; step: number; component: MapComponent }> = [];
+  let base = 0;
+  j.steps.forEach((step, k) => {
+    const line = rivers[step.line];
+    const part = sliceLine(line, step.t0, step.t1);
+    for (let i = 0; i + 2 < part.length; i += 3) out.push({ x: part[i], y: part[i + 1], d: base + part[i + 2], step: k, component: line.component });
+    base += (step.t1 - step.t0) * line.length;
+  });
+  return out;
+}
+
+/**
+ * Journeys for a REGIONAL display: every walk from a headwater, clipped to
+ * its longest stretch inside the view. The head enters where the river
+ * enters the screen and stops where it leaves, so nothing is spent on
+ * travel nobody can see. Stretches shorter than `minShare` of the view are
+ * dropped; overlapping ones only count where most of the stretch is new.
+ */
+export function visibleJourneys(
+  rivers: DecodedLine[],
+  region: Region,
+  { count = 6, minShare = 0.35, newShare = 0.5 }: { count?: number; minShare?: number; newShare?: number } = {},
+): Journey[] {
+  const span = regionSpan(region);
+  if (span <= 0) return [];
+  const hasUpstream = new Set(rivers.filter((l) => l.down >= 0).map((l) => l.down));
+  const clipped: Array<{ j: Journey; lines: number[] }> = [];
+  rivers.forEach((_, i) => {
+    if (hasUpstream.has(i)) return;
+    const full = traceDownstream(rivers, i);
+    const pts = routePoints(full, rivers);
+    // Longest contiguous run of vertices inside the region.
+    let best: [number, number] | null = null;
+    let runStart = -1;
+    for (let k = 0; k <= pts.length; k++) {
+      const inside = k < pts.length && inRegion(region, pts[k].component, pts[k].x, pts[k].y);
+      if (inside && runStart < 0) runStart = k;
+      if (!inside && runStart >= 0) {
+        const a = pts[runStart].d;
+        const b = pts[k - 1].d;
+        if (!best || b - a > best[1] - best[0]) best = [a, b];
+        runStart = -1;
+      }
+    }
+    if (!best || best[1] - best[0] < span * minShare) return;
+    const [start, end] = best;
+    const steps = new Set(pts.filter((p) => p.d >= start && p.d <= end).map((p) => p.step));
+    const names: string[] = [];
+    for (const k of [...steps].sort((a, b) => a - b)) {
+      const n = rivers[full.steps[k].line].name;
+      if (n && names[names.length - 1] !== n) names.push(n);
+    }
+    if (!names.length) return;
+    clipped.push({
+      j: { ...full, start, end, names, tributaries: full.tributaries.filter((t) => t.at >= start && t.at <= end) },
+      lines: [...steps].map((k) => full.steps[k].line),
+    });
+  });
+  clipped.sort((a, b) => b.j.end - b.j.start - (a.j.end - a.j.start));
+  // The same visible stretch reached from different headwaters is one
+  // journey: keep a stretch only where most of its lines are not shown yet.
+  const used = new Set<number>();
+  const out: Journey[] = [];
+  for (const { j, lines } of clipped) {
+    if (out.length >= count) break;
+    const fresh = lines.filter((l) => !used.has(l)).length;
+    if (fresh < lines.length * newShare) continue;
+    out.push(j);
+    for (const l of lines) used.add(l);
+  }
+  return out;
 }
 
 /**
@@ -124,12 +230,16 @@ export const JOURNEY_HOLD_MS = 3500;
 export const JOURNEY_FADE_MS = 1500;
 
 export function journeyTiming(j: Journey): { travelMs: number; totalMs: number } {
-  const travelMs = Math.round(Math.max(7000, Math.min(17000, 3000 + j.length * 16)));
+  // Pace follows the stretch as drawn on screen: a regional stretch is short
+  // in frame units but fills the view, so it is timed by its share of the
+  // national scale only through the bounds below.
+  const travelMs = Math.round(Math.max(7000, Math.min(17000, 3000 + (j.end - j.start) * 16)));
   return { travelMs, totalMs: travelMs + JOURNEY_HOLD_MS + JOURNEY_FADE_MS };
 }
 
 /**
- * Where the head is after `elapsed` ms: distance along the journey (frame px).
+ * Where the head is after `elapsed` ms: distance along the route (frame px),
+ * from `start` to `end`.
  * Eased in and out, so the highlight leaves the headwater gently and settles
  * at the outlet rather than stopping dead.
  */
@@ -137,5 +247,5 @@ export function journeyHead(j: Journey, elapsed: number): number {
   const { travelMs } = journeyTiming(j);
   const u = Math.max(0, Math.min(1, elapsed / travelMs));
   const eased = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
-  return eased * j.length;
+  return j.start + eased * (j.end - j.start);
 }

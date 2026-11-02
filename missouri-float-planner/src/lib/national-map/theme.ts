@@ -56,7 +56,8 @@ export interface MapPalette {
   /**
    * The rarest high readings (marks.ts EXTREME_HIGH). In the Eddy set this is
    * Much higher's own colour (size is the cue); the vivid prototype gives
-   * them pale ice, and the legend then lists them as their own row.
+   * them its most saturated cyan, and the legend then lists them as their
+   * own row.
    */
   flowExtremeHigh: string;
   /** Live reading, no seasonal comparison: a ring, never a band fill. */
@@ -221,7 +222,9 @@ const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
     river: '#8FD3E0', // brighter than primary-300 so water outranks land
     riverAlpha: [0, 0.22, 0.28, 0.36, 0.48, 0.64, 0.82, 0.96],
     riverGlow: 0.14,
-    trace: 'rgba(250, 248, 244, 0.95)',
+    // A soft cyan, not white: near-white is reserved for the featured
+    // journey's head and core, so the eye has one brightest thing to follow.
+    trace: 'rgba(168, 230, 240, 0.85)',
     halo: '#0B252C',
   },
 };
@@ -232,8 +235,9 @@ export function wallPalette(theme: MapTheme): MapPalette {
 
 // ── Vivid Flow colours (opt-in prototype) ───────────────────────────────────
 // A broader, diverging Flow ramp for wall displays: warm copper / sand for
-// unusually low, a subdued teal for normal (the quiet middle), bright cyan
-// for high and pale ice for the rarest highs. Same five bands, same
+// unusually low, a subdued teal for normal (the quiet middle), and saturated
+// cyans for high — the rarest highs (≥ published p95) the most saturated.
+// Not white: near-white belongs to the featured journey alone. Same five bands, same
 // thresholds, same order — only the colours differ, and the legend draws
 // from the same palette. Dark mode needs no backing chip: every band is
 // visible on deep-teal land by itself. Light mode inverts the intensity
@@ -241,8 +245,8 @@ export function wallPalette(theme: MapTheme): MapPalette {
 // Flooding never changes: NWS categories keep NWS colours in every set.
 const VIVID_FLOW: Record<MapTheme, { flow: Record<FlowBand, string>; extremeHigh: string }> = {
   dark: {
-    flow: { much_lower: '#E07A3F', lower: '#C9A77C', normal: '#2F6F7C', higher: '#2EC4D6', much_higher: '#7FE7F2' },
-    extremeHigh: '#E8FBFF',
+    flow: { much_lower: '#E07A3F', lower: '#C9A77C', normal: '#2F6F7C', higher: '#2A9FB3', much_higher: '#1FC8E3' },
+    extremeHigh: '#00E5FF',
   },
   light: {
     flow: { much_lower: '#B4541F', lower: '#C9975B', normal: '#8DB3BA', higher: '#1A93A8', much_higher: '#0B6577' },

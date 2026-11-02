@@ -317,6 +317,26 @@ async function main() {
     await ak.close();
     console.log('PASS a shared Alaska view survives load and keeps its place entering the wall layout');
 
+    // ── 4c. A regional wall plays what it can see ───────────────────────
+    // At 6× around the Meramec most national journeys never enter the view;
+    // the regional wall picks a visible stretch of river instead.
+    const reg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await intercept(reg, 5 * 60_000);
+    await reg.goto(`${target}?at=-90.59,38.51,6`, { waitUntil: 'domcontentloaded' });
+    await reg.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await reg.waitForFunction(() => location.search.includes('%2C'), null, { timeout: 60_000 });
+    await reg.getByRole('button', { name: 'Fullscreen map' }).click();
+    await reg.locator('[data-region="regional"]').waitFor({ timeout: 10_000 });
+    assert.equal(await reg.locator('[data-act]').getAttribute('data-act'), 'journey', 'a visible river journey runs at regional zoom');
+    await reg.keyboard.press('Escape');
+    await reg.getByRole('button', { name: 'Show the whole country' }).click();
+    await reg.getByRole('button', { name: 'Fullscreen map' }).click();
+    await reg.locator('[data-presentation="map-only"]').waitFor();
+    await reg.waitForTimeout(600);
+    assert.equal(await reg.locator('[data-region]').getAttribute('data-region'), 'national', 'the national view runs the national sequence');
+    await reg.close();
+    console.log('PASS a regional wall runs visible journeys; the national wall the national sequence');
+
     // ── 5. A fully stale snapshot stops data-driven motion ──────────────
     const stale = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await intercept(stale, 2 * 86_400_000);

@@ -21,7 +21,7 @@
 
 import type { Camera, Viewport } from '@/lib/national-map/camera';
 import type { DecodedGeometry, DecodedLine, DecodedPolygon } from '@/lib/national-map/geometry';
-import { journeyHead, journeyTiming, JOURNEY_HOLD_MS, JOURNEY_FADE_MS, type Journey } from '@/lib/national-map/journeys';
+import { journeyHead, journeyTiming, sliceLine, JOURNEY_HOLD_MS, JOURNEY_FADE_MS, type Journey } from '@/lib/national-map/journeys';
 import type { MarkShape, MarkStyle } from '@/lib/national-map/marks';
 import { applyAffine, type Layout } from '@/lib/national-map/projection';
 import type { MapPalette } from '@/lib/national-map/theme';
@@ -167,28 +167,13 @@ interface LaidJourney {
   tributaries: Array<{ path: Path2D; x: number; y: number; passMs: number }>;
 }
 
-/**
- * The part of a decoded line between fractions t0 and t1 of its length, as
- * [x, y, distanceFromT0] triples in frame units.
- */
-function sliceLine(line: DecodedLine, t0: number, t1: number): number[] {
-  const out: number[] = [];
-  const a = t0 * line.length;
-  const b = t1 * line.length;
-  let run = 0;
-  const xy = line.xy;
-  for (let i = 0; i + 3 < xy.length; i += 2) {
-    const seg = Math.hypot(xy[i + 2] - xy[i], xy[i + 3] - xy[i + 1]);
-    const s0 = run;
-    const s1 = run + seg;
-    run = s1;
-    if (s1 < a || s0 > b || seg === 0) continue;
-    const u0 = Math.max(0, (a - s0) / seg);
-    const u1 = Math.min(1, (b - s0) / seg);
-    if (!out.length) out.push(xy[i] + (xy[i + 2] - xy[i]) * u0, xy[i + 1] + (xy[i + 3] - xy[i + 1]) * u0, s0 + seg * u0 - a);
-    out.push(xy[i] + (xy[i + 2] - xy[i]) * u1, xy[i + 1] + (xy[i + 3] - xy[i + 1]) * u1, s0 + seg * u1 - a);
-  }
-  return out;
+/** 0 → 1 as a journey begins, 1 while it travels and holds, back to 0 as it fades. */
+function journeyFocus(j: Journey, elapsed: number): number {
+  const { travelMs, totalMs } = journeyTiming(j);
+  if (elapsed <= 0 || elapsed >= totalMs) return 0;
+  if (elapsed < 900) return elapsed / 900;
+  const fadeStart = travelMs + JOURNEY_HOLD_MS;
+  return elapsed > fadeStart ? Math.max(0, 1 - (elapsed - fadeStart) / JOURNEY_FADE_MS) : 1;
 }
 
 /** Elapsed ms at which the head reaches `at` (journeyHead is monotonic). */
@@ -665,6 +650,19 @@ export class NationalRenderer {
     const z = this.zoom();
     const { scale, tx, ty } = this.camera;
 
+    // While a journey runs it commands the screen: a veil on this layer (above
+    // land and rivers, below the marks, so flood events keep full strength)
+    // and quieter background traces, easing in with the journey and out as it
+    // fades. More motion helps only when the eye knows what to follow.
+    const focus = this.laidJourney ? journeyFocus(this.laidJourney.journey, t - this.journeyStart) : 0;
+    if (focus > 0) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = p.background;
+      g.globalAlpha = 0.42 * focus;
+      g.fillRect(0, 0, this.fx.width, this.fx.height);
+      g.globalAlpha = 1;
+    }
+
     // Downstream traces: sparse light dashes travelling the digitized
     // direction of major channels. Direction only — never a measured velocity.
     const s = scale * this.dpr;
@@ -681,7 +679,7 @@ export class NationalRenderer {
       g.lineWidth = c.width * sf * zf * px;
       g.setLineDash([c.dash * sf * px, c.gap * sf * px]);
       g.lineDashOffset = -((t / 1000) * c.speed * sf) * px;
-      g.globalAlpha = this.wall ? Math.min(1, c.alpha * 1.15) : c.alpha;
+      g.globalAlpha = (this.wall ? Math.min(1, c.alpha * 1.15) : c.alpha) * (1 - 0.7 * focus);
       g.stroke(this.paths[c.key]);
     }
     g.setLineDash([]);
@@ -783,21 +781,34 @@ export class NationalRenderer {
       g.stroke();
     }
 
-    // The lit route, from the source to the head.
+    // The lit route, from where this journey starts (the source, or where
+    // the river enters a regional view) to the head.
     const route = new Path2D();
-    let hx = xy[0] * scale + tx;
-    let hy = xy[1] * scale + ty;
-    route.moveTo(hx, hy);
     const trail = new Path2D();
-    const trailFrom = head - 60 / Math.max(scale, 1e-6) * sf;
+    const trailFrom = head - (60 / Math.max(scale, 1e-6)) * sf;
+    let started = false;
     let trailStarted = false;
+    let hx = 0;
+    let hy = 0;
     for (let i = 1; i < dist.length; i++) {
       const d0 = dist[i - 1];
       const d1 = dist[i];
+      if (d1 <= j.start) continue;
       if (d0 >= head) break;
+      const x0 = xy[(i - 1) * 2];
+      const y0 = xy[(i - 1) * 2 + 1];
+      const x1 = xy[i * 2];
+      const y1 = xy[i * 2 + 1];
+      if (!started) {
+        const u0 = d1 > d0 ? Math.max(0, (j.start - d0) / (d1 - d0)) : 0;
+        hx = (x0 + (x1 - x0) * u0) * scale + tx;
+        hy = (y0 + (y1 - y0) * u0) * scale + ty;
+        route.moveTo(hx, hy);
+        started = true;
+      }
       const u = d1 > head && d1 > d0 ? (head - d0) / (d1 - d0) : 1;
-      const x = (xy[(i - 1) * 2] + (xy[i * 2] - xy[(i - 1) * 2]) * u) * scale + tx;
-      const y = (xy[(i - 1) * 2 + 1] + (xy[i * 2 + 1] - xy[(i - 1) * 2 + 1]) * u) * scale + ty;
+      const x = (x0 + (x1 - x0) * u) * scale + tx;
+      const y = (y0 + (y1 - y0) * u) * scale + ty;
       route.lineTo(x, y);
       if (d1 >= trailFrom) {
         if (!trailStarted) {
@@ -809,6 +820,7 @@ export class NationalRenderer {
       hx = x;
       hy = y;
     }
+    if (!started) return;
     const casing = p.journeyGlowAlpha > 0.5;
     g.strokeStyle = p.journeyGlow;
     g.globalAlpha = p.journeyGlowAlpha * fade;
