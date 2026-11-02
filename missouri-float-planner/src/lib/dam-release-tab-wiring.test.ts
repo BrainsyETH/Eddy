@@ -39,6 +39,22 @@ test('the dam panel is inside the reading card, not a section of its own', () =>
   assert.match(ios, /position="footer"/);
 });
 
+test('the river card draws the dam the way the dam cards do', () => {
+  // Not a third visual: the directory/homepage card's parts on web, the
+  // Favorites card's body on iOS. Tomorrow's bars only where the dam leads.
+  const web = read('src/components/dam/RiverDamPanel.tsx');
+  assert.match(web, /from '\.\/DamCardParts'/);
+  assert.match(web, /<DamReadings /);
+  assert.match(web, /<GenerationSchedule/);
+  assert.match(web, /withTomorrow=\{lead\}/);
+  assert.match(read('src/components/dam/DamListCard.tsx'), /from '\.\/DamCardParts'/, 'the list card draws the same parts');
+
+  const ios = read('../eddy-ios/src/components/dam/RiverDamPanel.tsx');
+  assert.match(ios, /<DamGlance /);
+  assert.match(ios, /withTomorrow=\{position === 'lead'\}/);
+  assert.match(read('../eddy-ios/src/components/dam/DamFavoriteCard.tsx'), /<DamGlance dam=\{dam\} onPress=\{onPress\} \/>/, 'Favorites draws the same body, Today only');
+});
+
 test("the dam tab's Read is the dam's, with Weather kept and Bottom line dropped", () => {
   const footer = read(WEB_FOOTER);
   assert.match(footer, /<DamReadTeaser/);

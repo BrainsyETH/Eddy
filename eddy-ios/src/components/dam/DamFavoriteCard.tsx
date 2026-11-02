@@ -11,21 +11,132 @@ import { fonts, type as t } from '@/theme/typography';
 
 const TICKS = ['12a', '6a', '12p', '6p', '12a'];
 
+type FavoriteDisplay = ReturnType<typeof damFavoriteDisplay>;
+type ChartDay = NonNullable<FavoriteDisplay['schedule']>;
+
+/** One day's 24 bars on `scale` MW, with the now marker on `nowHour` (null: none). */
+function DayChart({ day, scale, nowHour }: { day: ChartDay; scale: number; nowHour: number | null }) {
+  const { colors } = useTheme();
+  return <>
+    <View style={styles.bars}>
+      {day.hours.map(hour => {
+        const selected = hour.hourEnding === nowHour;
+        const mw = hour.megawatts;
+        // Minimum flow is drawn like the dam screen's DayBars draws
+        // it: a low baseline, not a generation bar.
+        const generating = packetHourGenerating(hour);
+        // A missing hour is unknown, not zero generation: preserve
+        // the widget's hollow gap instead of an idle baseline bar.
+        return (
+          <View key={hour.hourEnding} style={styles.slot}>
+            {selected ? <View style={[styles.nowMarker, { borderTopColor: colors.accent }]} /> : null}
+            <View style={[styles.bar, mw === null ? {
+              height: 44, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textSubtle,
+            } : {
+              height: generating ? Math.max(5, 44 * mw / Math.max(scale, 1)) : 3,
+              backgroundColor: generating ? colors.interactive : colors.textSubtle,
+            }]} />
+          </View>
+        );
+      })}
+    </View>
+    <View style={styles.axis}>
+      {TICKS.map((label, index) => <Text key={index} style={[t.xs, { color: colors.textSubtle }]}>{label}</Text>)}
+    </View>
+  </>;
+}
+
+/**
+ * The body of the Favorites dam card: observed turbine flow and its status,
+ * today's posted bars with the now marker, and "At the dam" with the
+ * observation's age. Shared with a tailwater river's reading card
+ * (RiverDamPanel), so a reader learns one drawing of a dam.
+ *
+ * `withTomorrow` adds Tomorrow's bars under Today's, both on ONE scale — two
+ * days each scaled to their own peak would draw a two-hour peak and an
+ * all-day run the same height. Only the river card on the dam's own release
+ * asks for it; the Favorites card stays Today.
+ */
+export function DamGlance({ dam, onPress, withTomorrow = false }: {
+  dam: DamSnapshot;
+  onPress: () => void;
+  withTomorrow?: boolean;
+}) {
+  const { colors } = useTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 375 || fontScale >= 1.3;
+  const now = useObservationClock();
+  const display = useMemo(() => damFavoriteDisplay(dam, now), [dam, now]);
+  const { moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge } = display;
+  const tomorrow = withTomorrow ? display.tomorrow : null;
+  const scale = tomorrow ? Math.max(peak, display.tomorrowPeak) : peak;
+  const value = moment.turbineCfs === null ? '—' : Math.round(moment.turbineCfs).toLocaleString();
+  const statusColor = moment.current ? colors.interactive : colors.textSubtle;
+
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button"
+      accessibilityLabel={[
+        `Observed turbine flow: ${moment.turbineCfs === null ? 'unavailable' : `${value} cubic feet per second`}`,
+        moment.status, observedAge ? `Observed ${observedAge}` : null, 'At the dam', display.scheduleDescription,
+        tomorrow ? display.tomorrowDescription : null,
+      ].filter(Boolean).join('. ')}
+      accessibilityHint="Opens dam details and the full schedule"
+      style={({ pressed }) => [styles.details, { opacity: pressed ? 0.65 : 1 }]}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={[styles.content, stacked && styles.contentStacked]}>
+          <View style={[styles.reading, stacked && styles.readingStacked]}>
+            <Text style={[t.xs, { color: colors.textMuted }]}>Turbine flow</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.value, { color: moment.current ? colors.text : colors.textSubtle }]}>{value}</Text>
+              <Text style={[styles.unit, { color: colors.textMuted }]}>CFS</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <ControlIcon name={!moment.current ? 'help-circle-outline'
+                : moment.generationKind === 'generating' ? 'flash'
+                : moment.minimumFlow ? 'water-outline' : 'flash-off-outline'} size={14} color={statusColor} />
+              <Text style={[styles.status, { color: statusColor }]}>{status}</Text>
+            </View>
+          </View>
+          <View style={[styles.schedule, stacked && styles.scheduleStacked]}>
+            <View style={styles.scheduleHeader}>
+              <Text style={[styles.scheduleTitle, { color: colors.text }]}>{tomorrow ? 'Today · CT' : 'Schedule · CT'}</Text>
+              {scheduleCaption ? (
+                <Text style={[t.xs, { color: colors.textMuted }]}>{scheduleCaption}</Text>
+              ) : null}
+            </View>
+            {schedule ? <DayChart day={schedule} scale={scale} nowHour={moment.scheduleHour} /> : <View style={styles.noSchedule}>
+              <ControlIcon name="calendar-outline" size={20} color={colors.textSubtle} />
+              <Text style={[styles.notice, { color: colors.textMuted }]}>{scheduleNotice}</Text>
+            </View>}
+            {tomorrow ? <View style={styles.tomorrow}>
+              <View style={styles.scheduleHeader}>
+                <Text style={[styles.scheduleTitle, { color: colors.text }]}>Tomorrow · CT</Text>
+                {display.tomorrowCaption ? (
+                  <Text style={[t.xs, { color: colors.textMuted }]}>{display.tomorrowCaption}</Text>
+                ) : null}
+              </View>
+              <DayChart day={tomorrow} scale={scale} nowHour={null} />
+            </View> : null}
+          </View>
+        </View>
+        <View style={styles.footer}>
+          <Text style={[t.xs, { color: colors.textSubtle }]}>At the dam</Text>
+          <Text style={[t.xs, { color: colors.textSubtle }]}>
+            {observedAge ? `Observed ${observedAge}` : 'Observation unavailable'}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
   dam: DamSnapshot;
   onPress: () => void;
   onToggleStar: () => void;
 }) {
   const { colors, elevation } = useTheme();
-  const { width, fontScale } = useWindowDimensions();
-  const stacked = width < 375 || fontScale >= 1.3;
-  const now = useObservationClock();
-  const display = useMemo(() => damFavoriteDisplay(dam, now), [dam, now]);
-  const { moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge } = display;
-  const value = moment.turbineCfs === null ? '—' : Math.round(moment.turbineCfs).toLocaleString();
   const metadata = [dam.lakeName, dam.state].filter(Boolean).join(' · ');
-  const statusColor = moment.current ? colors.interactive : colors.textSubtle;
-
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
       <View style={styles.header}>
@@ -44,77 +155,7 @@ function DamFavoriteCardComponent({ dam, onPress, onToggleStar }: {
           <ControlIcon name="star" size={21} color={colors.warm} />
         </Pressable>
       </View>
-
-      <Pressable onPress={onPress} accessibilityRole="button"
-        accessibilityLabel={[
-          `Observed turbine flow: ${moment.turbineCfs === null ? 'unavailable' : `${value} cubic feet per second`}`,
-          moment.status, observedAge ? `Observed ${observedAge}` : null, 'At the dam', display.scheduleDescription,
-        ].filter(Boolean).join('. ')}
-        accessibilityHint="Opens dam details and the full schedule"
-        style={({ pressed }) => [styles.details, { opacity: pressed ? 0.65 : 1 }]}>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <View style={[styles.content, stacked && styles.contentStacked]}>
-            <View style={[styles.reading, stacked && styles.readingStacked]}>
-              <Text style={[t.xs, { color: colors.textMuted }]}>Turbine flow</Text>
-              <View style={styles.valueRow}>
-                <Text style={[styles.value, { color: moment.current ? colors.text : colors.textSubtle }]}>{value}</Text>
-                <Text style={[styles.unit, { color: colors.textMuted }]}>CFS</Text>
-              </View>
-              <View style={styles.statusRow}>
-                <ControlIcon name={!moment.current ? 'help-circle-outline'
-                  : moment.generationKind === 'generating' ? 'flash'
-                  : moment.minimumFlow ? 'water-outline' : 'flash-off-outline'} size={14} color={statusColor} />
-                <Text style={[styles.status, { color: statusColor }]}>{status}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.schedule, stacked && styles.scheduleStacked]}>
-              <View style={styles.scheduleHeader}>
-                <Text style={[styles.scheduleTitle, { color: colors.text }]}>Schedule · CT</Text>
-                {scheduleCaption ? (
-                  <Text style={[t.xs, { color: colors.textMuted }]}>{scheduleCaption}</Text>
-                ) : null}
-              </View>
-              {schedule ? <>
-                <View style={styles.bars}>
-                  {schedule.hours.map(hour => {
-                    const selected = hour.hourEnding === moment.scheduleHour;
-                    const mw = hour.megawatts;
-                    // Minimum flow is drawn like the dam screen's DayBars draws
-                    // it: a low baseline, not a generation bar.
-                    const generating = packetHourGenerating(hour);
-                    // A missing hour is unknown, not zero generation: preserve
-                    // the widget's hollow gap instead of an idle baseline bar.
-                    return (
-                      <View key={hour.hourEnding} style={styles.slot}>
-                        {selected ? <View style={[styles.nowMarker, { borderTopColor: colors.accent }]} /> : null}
-                        <View style={[styles.bar, mw === null ? {
-                          height: 44, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textSubtle,
-                        } : {
-                          height: generating ? Math.max(5, 44 * mw / Math.max(peak, 1)) : 3,
-                          backgroundColor: generating ? colors.interactive : colors.textSubtle,
-                        }]} />
-                      </View>
-                    );
-                  })}
-                </View>
-                <View style={styles.axis}>
-                  {TICKS.map((label, index) => <Text key={index} style={[t.xs, { color: colors.textSubtle }]}>{label}</Text>)}
-                </View>
-              </> : <View style={styles.noSchedule}>
-                <ControlIcon name="calendar-outline" size={20} color={colors.textSubtle} />
-                <Text style={[styles.notice, { color: colors.textMuted }]}>{scheduleNotice}</Text>
-              </View>}
-            </View>
-          </View>
-          <View style={styles.footer}>
-            <Text style={[t.xs, { color: colors.textSubtle }]}>At the dam</Text>
-            <Text style={[t.xs, { color: colors.textSubtle }]}>
-              {observedAge ? `Observed ${observedAge}` : 'Observation unavailable'}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
+      <DamGlance dam={dam} onPress={onPress} />
     </View>
   );
 }
@@ -151,4 +192,5 @@ const styles = StyleSheet.create({
   noSchedule: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 6 },
   notice: { ...t.sm, flexShrink: 1 },
   footer: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
+  tomorrow: { marginTop: 10, gap: 3 },
 });

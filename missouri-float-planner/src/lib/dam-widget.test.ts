@@ -176,6 +176,35 @@ test('dam favorites age observations without hiding today\'s schedule or borrowi
   assert.equal(damFavoriteDisplay(dam, now).scheduleNotice, 'Not posted');
 });
 
+test('dam favorites find tomorrow by its Central day, never by packet position', () => {
+  // The river reading card draws Tomorrow beside Today on a dam's own release.
+  const dam = fixture();
+  assert.equal(damFavoriteDisplay(dam, now).tomorrow, null, 'nothing posted for tomorrow, nothing drawn');
+  assert.equal(damFavoriteDisplay(dam, now).tomorrowDescription, null);
+
+  // A day ahead of tomorrow sits second in the packet: it is not tomorrow.
+  dam.schedule.push({ ...dam.schedule[0], scheduleDate: '2026-10-19' });
+  assert.equal(damFavoriteDisplay(dam, now).tomorrow, null);
+
+  // Tomorrow: minimum flow all day, then a two-hour 300 MW peak.
+  dam.schedule.splice(1, 0, {
+    ...dam.schedule[0],
+    scheduleDate: '2026-10-18',
+    hours: Array.from({ length: 24 }, (_, i) => ({
+      hourEnding: i + 1, megawatts: i === 17 || i === 18 ? 300 : 7, cfs: null, isRamp: false,
+      ...(i === 17 || i === 18 ? {} : { minimumFlow: true }),
+    })),
+  });
+  const display = damFavoriteDisplay(dam, now);
+  assert.equal(display.schedule?.date, '2026-10-17', 'today is still today');
+  assert.equal(display.tomorrow?.date, '2026-10-18');
+  assert.equal(display.tomorrowPeak, 300, 'minimum-flow hours never set the scale');
+  assert.equal(display.tomorrowCaption, '300 MW');
+  assert.match(display.tomorrowDescription ?? '', /Tomorrow's posted schedule, Central time/);
+  assert.match(display.tomorrowDescription ?? '', /minimum flow/);
+  assert.doesNotMatch(display.tomorrowDescription ?? '', /current hour/, 'no hour of tomorrow is now');
+});
+
 test('dam favorites keep today\'s posted hours despite stale or unknown retrieval metadata', () => {
   for (const retrievedAt of [null, 'invalid', new Date(now - 3 * 3600_000).toISOString(), new Date(now + 3600_000).toISOString()]) {
     const dam = fixture();
