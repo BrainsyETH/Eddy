@@ -39,6 +39,19 @@ export interface MapPalette {
   riverGlow: number;
   /** Knockout disc behind event marks (MarkStyle.halo): the land colour. */
   halo: string;
+  /**
+   * "Follow the river" (journeys.ts): the travelling highlight's bright core
+   * and its soft underglow. Presentation, not data — never a flow colour,
+   * never coral.
+   */
+  journeyCore: string;
+  journeyGlow: string;
+  /**
+   * Opacity of the underglow. Dark: a soft halo. Light: a near-opaque white
+   * casing — ink on ink would vanish among the wall's dark rivers, so the
+   * route reads like a selected road instead.
+   */
+  journeyGlowAlpha: number;
   flow: Record<FlowBand, string>;
   /** Live reading, no seasonal comparison: a ring, never a band fill. */
   noComparison: string;
@@ -90,6 +103,9 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     trace: 'rgba(250, 248, 244, 0.95)',
     riverGlow: 0,
     halo: '#F2EAD8',
+    journeyCore: '#0E4A57', // between primary-700 and -800: ink on parchment
+    journeyGlow: '#FFFFFF',
+    journeyGlowAlpha: 0.95,
     flow: FLOW,
     // Hollow marks use neutral-500, never the stone of "much lower"
     // (#A49C8E): "unusually dry" and "no comparison" differ in colour as well
@@ -132,6 +148,9 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     trace: 'rgba(242, 234, 216, 0.9)',
     riverGlow: 0,
     halo: '#0F2D35',
+    journeyCore: '#F2FBFD',
+    journeyGlow: '#8FD3E0',
+    journeyGlowAlpha: 0.28,
     flow: FLOW,
     // Thin neutral-500 rings: dim enough never to read as a lit band, still
     // 3.6:1 against deep-teal land.

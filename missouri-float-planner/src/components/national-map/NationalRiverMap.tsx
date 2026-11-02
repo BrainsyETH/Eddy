@@ -27,6 +27,7 @@ import {
   viewLiveState,
   summarizeFlood,
   summarizeFlow,
+  type Site,
 } from '@/lib/national-map/marks';
 import {
   DEFAULT_PREFS,
@@ -41,6 +42,7 @@ import { PALETTES, wallPalette, type MapTheme } from '@/lib/national-map/theme';
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
+import { journeyCaption, journeyTiming, pickJourneys, type Journey } from '@/lib/national-map/journeys';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
@@ -479,19 +481,39 @@ export default function NationalRiverMap() {
     () => highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
     [highlights, indexByKey],
   );
-  // The fullscreen spotlight: emphasis moves between highlights while the
-  // whole country stays still. Map only and Display with details alike —
-  // it needs no words. With motion off it rests on the first highlight.
+  // The fullscreen sequence. Emphasis moves while the whole country stays
+  // still, and needs no words (Map only and Display with details alike):
+  //   * the spotlight rests on one curated highlight for SPOTLIGHT_MS;
+  //   * with motion on and the view live, it alternates with "Follow the
+  //     river" — a highlight travelling a real network to its outlet
+  //     (journeys.ts), the wall's signature. The spotlight steps aside while
+  //     a journey runs, so only one thing moves with intent at a time.
+  // With motion off the spotlight rests on the first highlight and no
+  // journey runs.
   const spotlightSet = useMemo(() => highlights.slice(0, 6), [highlights]);
   const spotlightKeys = spotlightSet.map((s) => s.key).join('|');
-  const [spotStep, setSpotStep] = useState(0);
-  useEffect(() => setSpotStep(0), [spotlightKeys, view]);
+  const journeys = useMemo(() => (data.geometry ? pickJourneys(data.geometry.rivers) : []), [data.geometry]);
+  const journeysOn = fullscreen && motion && dataLive && journeys.length > 0;
+  const [step, setStep] = useState(0);
+  useEffect(() => setStep(0), [spotlightKeys, view, fullscreen]);
+  // Even steps are journeys (when on), odd steps spotlights; with no
+  // highlights every step is a journey.
+  const act: { kind: 'journey'; journey: Journey } | { kind: 'spot'; site: Site } | null = !fullscreen
+    ? null
+    : journeysOn && (step % 2 === 0 || spotlightSet.length === 0)
+      ? { kind: 'journey', journey: journeys[(spotlightSet.length ? step / 2 : step) % journeys.length] }
+      : spotlightSet.length
+        ? { kind: 'spot', site: spotlightSet[(journeysOn ? (step - 1) / 2 : step) % spotlightSet.length] }
+        : null;
+  const actMs = act?.kind === 'journey' ? journeyTiming(act.journey).totalMs : SPOTLIGHT_MS;
+  const advances = fullscreen && motion && (journeysOn || spotlightSet.length > 1);
   useEffect(() => {
-    if (!fullscreen || !motion || spotlightSet.length < 2) return;
-    const t = setInterval(() => setSpotStep((v) => v + 1), SPOTLIGHT_MS);
-    return () => clearInterval(t);
-  }, [fullscreen, motion, spotlightSet.length]);
-  const spotlight = fullscreen && spotlightSet.length ? spotlightSet[spotStep % spotlightSet.length] : null;
+    if (!advances) return;
+    const t = setTimeout(() => setStep((v) => v + 1), actMs);
+    return () => clearTimeout(t);
+  }, [advances, actMs, step]);
+  const journey = act?.kind === 'journey' ? act.journey : null;
+  const spotlight = act?.kind === 'spot' ? act.site : null;
   const spotlightIndex = spotlight ? indexByKey.get(spotlight.key) ?? null : null;
 
   // Explore leaves room for its panel: beside the map in the side layout
@@ -593,6 +615,7 @@ export default function NationalRiverMap() {
     <div
       className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
       data-live={dataLive ? 'true' : 'false'}
+      data-act={act?.kind ?? 'none'}
     >
       <MapStage
         ref={stage}
@@ -611,6 +634,7 @@ export default function NationalRiverMap() {
         initialCenter={shared?.center ?? null}
         interactive={!fullscreen}
         wall={fullscreen}
+        journey={journey}
         ariaLabel={ariaLabel}
         onTap={onTap}
         onHover={onHover}
@@ -759,6 +783,7 @@ export default function NationalRiverMap() {
                 capturedAt={frame?.capturedAt ?? null}
                 now={now}
                 featured={spotlight}
+                caption={journey ? journeyCaption(journey) : null}
                 liveStatus={liveStatus}
                 palette={palette}
                 narrow={narrow}

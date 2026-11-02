@@ -43,6 +43,13 @@ const COMPONENTS: Record<MapComponent, ConicParams> = {
   hi: { rotate: 157, center: [-3, 19.9], parallels: [8, 18], scale: 1, offset: [-0.205, 0.212] },
 };
 
+/** Each inset's scale relative to the lower 48 (Alaska is drawn at 0.35). */
+export const COMPONENT_SCALE: Record<MapComponent, number> = {
+  l48: COMPONENTS.l48.scale,
+  ak: COMPONENTS.ak.scale,
+  hi: COMPONENTS.hi.scale,
+};
+
 /**
  * geoAlbersUsa's default scale and translate. The landscape frame is therefore
  * the familiar ~960×500 composition; the renderer fits it to any viewport.

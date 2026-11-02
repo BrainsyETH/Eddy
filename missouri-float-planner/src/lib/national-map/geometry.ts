@@ -12,7 +12,9 @@
 
 import type { Bounds, MapComponent } from './projection';
 
-export const GEOMETRY_VERSION = 1;
+// v2: base lines carry `d` (downstream link). A field change renames the
+// asset files, so a cached v1 body can never meet a v2 decoder.
+export const GEOMETRY_VERSION = 2;
 
 export interface GeoPolygon {
   /** State code, for states. */
@@ -28,6 +30,12 @@ export interface GeoLine {
   o: number;
   /** Index into `names`, or -1. */
   n: number;
+  /**
+   * Base lines only: [index of the base line this one flows into, fraction
+   * along that line where it joins (0 = its start)]. Absent at an outlet
+   * (coast, border, lake, or the network's edge at this scale).
+   */
+  d?: [number, number];
   /** Delta-encoded vertices, digitized downstream. */
   p: number[];
 }
@@ -51,6 +59,10 @@ export interface DecodedLine {
   xy: Float32Array;
   /** Cumulative length at the last vertex, frame px (for downstream traces). */
   length: number;
+  /** Index (in `rivers`) of the line this one flows into, or -1 at an outlet. */
+  down: number;
+  /** Where along `down` it joins, 0–1. */
+  downAt: number;
 }
 
 export interface DecodedPolygon {
@@ -105,17 +117,25 @@ export function decodeGeometry(body: unknown): DecodedGeometry {
     source: g.source ?? {},
     states: (g.states ?? []).map(poly).filter((p): p is DecodedPolygon => p !== null),
     lakes: (g.lakes ?? []).map(poly).filter((p): p is DecodedPolygon => p !== null),
-    rivers: (g.rivers ?? [])
-      .filter((l) => COMPONENTS.has(l.k) && Array.isArray(l.p) && l.p.length >= 4)
-      .map((l) => {
-        const xy = decodeDelta(l.p, quant);
-        return {
-          component: l.k,
-          order: l.o,
-          name: l.n >= 0 ? names[l.n] ?? null : null,
-          xy,
-          length: lineLength(xy),
-        };
-      }),
+    rivers: decodeRivers(g.rivers ?? [], quant, names),
   };
+}
+
+function decodeRivers(raw: GeoLine[], quant: number, names: string[]): DecodedLine[] {
+  // Links name RAW indices; a dropped line must not shift every link after it.
+  const kept = raw.map((l, i) => [l, i] as const).filter(([l]) => COMPONENTS.has(l.k) && Array.isArray(l.p) && l.p.length >= 4);
+  const at = new Map(kept.map(([, raw], i) => [raw, i]));
+  return kept.map(([l]) => {
+    const xy = decodeDelta(l.p, quant);
+    const down = Array.isArray(l.d) ? (at.get(l.d[0]) ?? -1) : -1;
+    return {
+      component: l.k,
+      order: l.o,
+      name: l.n >= 0 ? names[l.n] ?? null : null,
+      xy,
+      length: lineLength(xy),
+      down,
+      downAt: down >= 0 ? Math.max(0, Math.min(1, Number(l.d![1]) || 0)) : 0,
+    };
+  });
 }

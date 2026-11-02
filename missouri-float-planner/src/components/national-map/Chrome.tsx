@@ -553,6 +553,7 @@ export function DisplayDetails({
   capturedAt,
   now,
   featured,
+  caption,
   liveStatus,
   palette,
   narrow,
@@ -565,6 +566,8 @@ export function DisplayDetails({
   now: number;
   /** The spotlit highlight (the parent rotates it), or null. */
   featured: Site | null;
+  /** While a "Follow the river" journey runs: its one caption (river names). */
+  caption: string | null;
   /** Why the view is not live, or null — replaces the status line when set. */
   liveStatus: string | null;
   palette: MapPalette;
@@ -603,7 +606,11 @@ export function DisplayDetails({
       {capturedAt !== null && <span className={styles.nowrap}> · {formatTime(capturedAt)}</span>}
     </p>
   );
-  const card =
+  const card = caption ? (
+    <div key={caption} className={`${styles.panel} ${styles.fade} ${styles.displayCard} p-[0.75em]`}>
+      <p className={`font-bold leading-snug ${styles.breakAnywhere}`}>{caption}</p>
+    </div>
+  ) :
     featured && line ? (
       <div className={`${styles.panel} ${styles.fade} ${styles.displayCard} p-[0.75em]`}>
         <p className={`font-bold leading-snug ${styles.breakAnywhere}`}>{featured.name}</p>

@@ -256,6 +256,9 @@ async function main() {
     const [l, t, r, b] = wallBox;
     assert.ok(Math.abs((l + r) / 2 - 0.5) < 0.02 && Math.abs((t + b) / 2 - 0.5) < 0.02, `fullscreen centres the country (got ${wallBox.map((v) => v.toFixed(3))})`);
     assert.ok(r - l > 0.9 || b - t > 0.9, `fullscreen fills the frame (got ${wallBox.map((v) => v.toFixed(3))})`);
+    // The wall opens on "Follow the river" (motion on, data live), and the
+    // journey adds no words to map-only (asserted just below).
+    assert.equal(await page.locator('[data-act]').getAttribute('data-act'), 'journey', 'fullscreen opens with a river journey');
     assert.deepEqual(await visibleText(page), [], 'map-only shows no words at all');
     assert.equal(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), false, 'no persistent controls');
     await page.screenshot({ path: `${OUT_DIR}/national-map-only.png` });
@@ -357,11 +360,13 @@ async function main() {
     await noaa.waitForTimeout(800);
     assert.deepEqual(await visibleText(noaa), [], 'still text-free while unavailable');
     assert.equal(await layerInk(noaa, 1), 0, 'and still motionless');
+    assert.notEqual(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'no river journey while the view is not live');
     await noaa.mouse.click(640, 400);
     await noaa.getByText('NWS flood status is unavailable right now').waitFor();
     await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
     await noaa.waitForTimeout(1200);
     assert.ok((await layerInk(noaa, 1)) > 0, 'Flow, which does not depend on NWS, keeps its motion');
+    assert.equal(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'and Flow runs the journey');
     console.log('PASS NOAA outage: Flooding still and subdued, tray says why; Flow unaffected');
     await noaa.close();
 

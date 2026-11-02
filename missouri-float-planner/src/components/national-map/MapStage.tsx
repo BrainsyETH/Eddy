@@ -25,6 +25,7 @@ import {
   type Viewport,
 } from '@/lib/national-map/camera';
 import type { DecodedGeometry } from '@/lib/national-map/geometry';
+import type { Journey } from '@/lib/national-map/journeys';
 import type { ClassifiedSite, Site } from '@/lib/national-map/marks';
 import {
   applyAffine,
@@ -101,6 +102,8 @@ interface Props {
   interactive: boolean;
   /** Wall display (fullscreen): enlarged insets, bolder rivers, the river journey. */
   wall: boolean;
+  /** The "Follow the river" journey to run now, or null. */
+  journey: Journey | null;
   ariaLabel: string;
   onTap: (event: StageEvent | null) => void;
   onHover: (event: StageEvent | null) => void;
@@ -128,6 +131,7 @@ export default function MapStage(props: Props) {
     initialCenter,
     interactive,
     wall,
+    journey,
     ariaLabel,
     onTap,
     onHover,
@@ -174,6 +178,7 @@ export default function MapStage(props: Props) {
   useEffect(() => renderer.current?.setGeometry(geometry, detail), [geometry, detail]);
   useEffect(() => renderer.current?.setLabels(labels), [labels]);
   useEffect(() => renderer.current?.setWall(wall), [wall]);
+  useEffect(() => renderer.current?.setJourney(journey), [journey]);
   useEffect(() => renderer.current?.setMotion(motion, dataLive), [motion, dataLive]);
 
   // ── Layout (landscape / portrait) ───────────────────────────────────────
