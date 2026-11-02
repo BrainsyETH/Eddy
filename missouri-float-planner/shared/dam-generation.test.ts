@@ -24,6 +24,8 @@ import {
   scheduleDayVoiceOver,
   scheduledBar,
   scheduledClauseProvenance,
+  scheduleCheckedPhrase,
+  scheduleCheckLines,
   scheduleOutlook,
   speaksForNow,
   patternRowVoiceOver,
@@ -811,6 +813,34 @@ test('schedule check times use the dam timezone, including winter, earlier dates
     const schedule = [{ ...day(date, { 13: 300 }), retrievedAt }];
     assert.equal(scheduledClauseProvenance(schedule, BULL_SHOALS, Date.parse(now)), expected);
   }
+});
+
+test('schedule check lines collapse matching days into one neutral line and split only on a real difference', () => {
+  const now = Date.parse('2026-11-02T00:40:00Z'); // 6:40 PM CST, Nov 1
+  const at625 = '2026-11-02T00:25:00Z';
+  assert.deepEqual(
+    scheduleCheckLines([{ subject: 'Today’s schedule', retrievedAt: at625 }, { subject: 'Tomorrow’s schedule', retrievedAt: at625 }], now),
+    [{ text: 'Schedule last checked at 6:25 PM CST', stale: false }],
+  );
+  // Same displayed minute, different seconds: still one check as far as a reader can tell.
+  assert.equal(scheduleCheckLines([
+    { subject: 'Today’s schedule', retrievedAt: at625 },
+    { subject: 'Tomorrow’s schedule', retrievedAt: '2026-11-02T00:25:40Z' },
+  ], now).length, 1);
+
+  const split = scheduleCheckLines([
+    { subject: 'Today’s schedule', retrievedAt: at625 },
+    { subject: 'Tomorrow’s schedule', retrievedAt: '2026-11-01T20:10:00Z' },
+  ], now);
+  assert.deepEqual(split, [
+    { text: 'Today’s schedule last checked at 6:25 PM CST', stale: false },
+    { text: 'Tomorrow’s schedule last checked at 2:10 PM CST', stale: true },
+  ]);
+
+  assert.deepEqual(scheduleCheckLines([{ subject: 'Today’s schedule', retrievedAt: null }], now),
+    [{ text: 'Schedule check time unavailable', stale: false }]);
+  assert.deepEqual(scheduleCheckLines([], now), []);
+  assert.equal(scheduleCheckedPhrase('2026-10-31T23:25:00Z', now), 'Oct 31 at 6:25 PM CDT');
 });
 
 test('a stale schedule is marked on the pattern rows it draws', () => {

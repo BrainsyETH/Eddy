@@ -16,6 +16,8 @@ import {
   nextScheduleChangeSentence,
   oldestRetrievedAt,
   scheduledHoursSummary,
+  scheduleDayHeadline,
+  relativeAgeShort,
   scheduledGeneration,
   scheduleDayHasMinimumFlow,
   SCHEDULE_CHANGE_NOTE,
@@ -676,4 +678,29 @@ test('minimum-flow hours are a break in generation, and are named as minimum flo
   const state = scheduleStateNow([{ scheduleDate: '2026-07-28', hours }], NOON_CENTRAL);
   assert.equal(state?.generating, false);
   assert.equal(state?.change?.hourEnding, 16);
+});
+
+test('the card headline counts hours without a denominator and keeps minimum flow, idle and all-day distinct', () => {
+  const day = (mw: (h: number) => number, minimumFlow?: (h: number) => boolean) =>
+    Array.from({ length: 24 }, (_, i) => ({ megawatts: mw(i + 1), minimumFlow: minimumFlow?.(i + 1) }));
+  assert.equal(scheduleDayHeadline(day(h => (h >= 8 ? 200 : 0))), 'Generation scheduled for 17 hours');
+  assert.equal(scheduleDayHeadline(day(h => (h === 15 ? 200 : 0))), 'Generation scheduled for 1 hour');
+  assert.equal(scheduleDayHeadline(day(() => 200)), 'Generation scheduled all day');
+  assert.equal(scheduleDayHeadline(day(() => 7, () => true)), 'Only minimum flow scheduled');
+  assert.equal(scheduleDayHeadline(day(() => 0)), 'No generation scheduled');
+  // Minimum-flow hours never count as generation.
+  assert.equal(scheduleDayHeadline(day(h => (h >= 15 ? 200 : 7), h => h < 15)), 'Generation scheduled for 10 hours');
+});
+
+test('short reading ages use relativeAge thresholds in fewer letters', () => {
+  const now = Date.parse('2026-11-01T18:00:00Z');
+  const ago = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
+  assert.equal(relativeAgeShort(ago(0.5), now), 'just now');
+  assert.equal(relativeAgeShort(ago(18), now), '18 min ago');
+  assert.equal(relativeAgeShort(ago(90), now), '1 hr ago');
+  assert.equal(relativeAgeShort(ago(300), now), '5 hr ago');
+  assert.equal(relativeAgeShort(ago(30 * 60), now), 'yesterday');
+  assert.equal(relativeAgeShort(ago(72 * 60), now), '3 days ago');
+  assert.equal(relativeAgeShort(null, now), null);
+  assert.equal(relativeAgeShort('invalid', now), null);
 });
