@@ -178,7 +178,7 @@ test('dam cards render only today on the Central calendar across midnight, DST a
     assert.equal((html.match(/role="img"/g) ?? []).length, 1, 'exactly one visible timeline');
     const section = scheduleSection(html, 'Today');
     assert.match(section, /aria-label="Generation scheduled for 24 of 24 hours[^"]*Peak scheduled load is 50%/);
-    assert.match(html, /data-schedule-check="(current|stale)"[^>]*>(?:<svg[\s\S]*?Outdated: <\/span>)?Schedule last checked /, 'one freshness line, as a Central clock time');
+    assert.match(html, /data-schedule-check="(current|stale)"[^>]*>(?:<svg[\s\S]*?Outdated: <\/span>)?Schedule checked /, 'one freshness line, as a Central clock time');
     assert.equal((html.match(/data-schedule-check=/g) ?? []).length, 1, 'matching retrievals do not repeat as separate alerts');
     assert.match(section, /Today’s generation <span[^>]*>· /, 'heading, day and date share one row');
     assert.equal((section.match(/data-schedule-now/g) ?? []).length, 1);
@@ -205,10 +205,11 @@ test('dam cards distinguish missing Today from idle schedules and retain Today�
   assert.doesNotMatch(idle, /aria-label="Tomorrow’s generation schedule"/);
   assert.doesNotMatch(idle, /schedule is unavailable|hasn’t been posted/);
   const stale = renderConditions({ rivers: [], dams: [{ ...scheduledDam, schedule: [{ ...scheduleDay('2026-10-27', 200), retrievedAt: '2026-10-27T10:00:00Z' }, scheduleDay('2026-10-28', 400)] }], renderedAt });
-  // Today's file is stale; Tomorrow's (which the next-change line relies on) is
-  // not. Each keeps its own timestamp rather than one folded line.
-  assert.match(stale, /data-schedule-check="stale"[\s\S]*?Outdated: <\/span>Today’s schedule last checked at 5:00 AM CDT</);
-  assert.match(stale, /data-schedule-check="current"[^>]*>Tomorrow’s schedule last checked at 11:50 AM CDT</);
+  // Today's file is stale; Tomorrow's (which the change line relies on) is not.
+  // One line, at the older time, flagged outdated, in the footer corner.
+  assert.match(stale, /data-schedule-check="stale"[\s\S]*?Outdated: <\/span>Schedule checked 5:00 AM CDT</);
+  assert.equal((stale.match(/data-schedule-check=/g) ?? []).length, 1, 'never a second timestamp');
+  assert.match(stale, /Full report[\s\S]*?data-schedule-check="stale"/, 'the check sits after Full report, in the footer');
   assert.match(stale, /data-schedule-check="stale" class="[^"]*amber/, 'outdated freshness is amber, not coral');
   assert.doesNotMatch(stale, /data-schedule-check="[^"]*" class="[^"]*accent/);
   // Minimum flow, no generation and a missing schedule each lead in words.
@@ -291,7 +292,7 @@ test('guide bylines never interpret operational update timestamps as editorial d
   assert.doesNotMatch(renderToStaticMarkup(createElement(ArticleByline, { publishedAt: null })), /<time/);
 });
 
-test('dam card readings share one short age only when both were observed in the same minute', () => {
+test('dam card readings show one age line: shared only when both were observed in the same minute', () => {
   const now = Date.parse('2026-11-02T00:40:00Z');
   const reading = (value: number, minutesAgo: number) => ({ value, unit: 'cfs', at: new Date(now - minutesAgo * 60_000).toISOString(), staleness: 'fresh' as const });
   const render = (tempMinutesAgo: number) => renderToStaticMarkup(createElement(DamListCard, {
@@ -301,7 +302,6 @@ test('dam card readings share one short age only when both were observed in the 
   assert.equal((shared.match(/min ago/g) ?? []).length, 1);
   assert.match(shared, /Measured 18 min ago/);
   const separate = render(75);
-  assert.match(separate, /18 min ago/);
-  assert.match(separate, /1 hr ago/);
+  assert.match(separate, /Release 18 min ago · Temp 1 hr ago/, 'still one line, but each reading keeps its own age');
   assert.doesNotMatch(separate, /Measured/);
 });
