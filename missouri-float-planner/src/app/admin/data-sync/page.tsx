@@ -58,6 +58,8 @@ interface RiverHealth {
   coordsPerMile: number | null;
   gaugeCount: number;
   gaugesOnRiver: number;
+  /** Reviewed proxy gauges found on the river they are borrowed from. */
+  reviewedProxyGauges?: number;
   accessPointCount: number;
   poiCount: number;
   issues: string[];
@@ -279,17 +281,20 @@ export default function DataSyncPage() {
                             <td className="px-3 py-2 text-neutral-300">{r.coordinateCount}</td>
                             <td className="px-3 py-2">
                               <span className={
+                                // Red only below the rule's own threshold
+                                // (MIN_COORDS_PER_MILE in trust/checks/river-geometry.ts);
+                                // the old 10/5 bands painted the whole catalog yellow or red.
                                 r.coordsPerMile === null ? 'text-neutral-500'
-                                : r.coordsPerMile >= 10 ? 'text-green-400'
-                                : r.coordsPerMile >= 5 ? 'text-yellow-400'
-                                : 'text-red-400'
+                                : r.coordsPerMile < 2 ? 'text-red-400'
+                                : 'text-neutral-300'
                               }>
                                 {r.coordsPerMile ?? '—'}
                               </span>
                             </td>
                             <td className="px-3 py-2">
-                              <span className={r.gaugesOnRiver > 0 ? 'text-green-400' : r.gaugeCount > 0 ? 'text-yellow-400' : 'text-neutral-500'}>
+                              <span className={r.gaugesOnRiver + (r.reviewedProxyGauges ?? 0) > 0 ? 'text-green-400' : r.gaugeCount > 0 ? 'text-yellow-400' : 'text-neutral-500'}>
                                 {r.gaugesOnRiver}/{r.gaugeCount}
+                                {r.reviewedProxyGauges ? ` (+${r.reviewedProxyGauges} proxy)` : ''}
                               </span>
                             </td>
                             <td className="px-3 py-2 text-neutral-300">{r.accessPointCount}</td>

@@ -207,7 +207,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Link the service to the river it serves.',
     where: '/admin/services',
     method:
-      'Without a service_rivers row the business appears in no per-river directory and on no map layer fetched per river — it is in the table and nowhere else. The finding names the nearest river as a starting candidate, not an answer.',
+      'Without a service_rivers row the business appears in no per-river directory and on no map layer fetched per river — it is in the table and nowhere else. The finding names the nearest river as a starting candidate, not an answer. If the service genuinely serves no river Eddy carries (a state-park campground on other water), add it to REVIEWED_STANDALONE_SERVICES in src/lib/trust/checks/service-geo-consistency.ts instead of inventing a link; the exemption lapses by itself if a catalog river comes within 10 mi.',
   },
 
   // ── float-endpoint eligibility ───────────────────────────────────────
@@ -247,7 +247,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Set is_float_endpoint = true if this really is a launch.',
     where: '/admin/access-points',
     method:
-      'Eligibility is opt-in (20260823190713 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead.',
+      'Eligibility is opt-in (20260823190713 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead. A walk-in or bank fishing access carries `access` with no launch, and the vocabulary has no better word for it: add it to REVIEWED_WALK_IN_ACCESSES in src/lib/trust/checks/float-endpoint-eligibility.ts rather than flipping the flag.',
   },
 
   // ── geometry and mileage ─────────────────────────────────────────────
@@ -297,7 +297,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Check this is a placeholder line rather than the catalog-wide import tolerance.',
     where: 'select st_npoints(geom) from rivers where slug = ...',
     method:
-      'The threshold is 3/mile, not the 5 it used to be, because 5 fired on 22 of 24 rivers — the import thins every line with Douglas-Peucker at 0.0005 deg and the whole catalog lands at 3-5 pts/mile, which is one fact filed 22 times. Below 3 is a different thing: a line nobody traced. If a re-import is ever on the table anyway, note that quartering the vertex count costs under 6% of channel length, so density is not where mileage accuracy is won. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is a ~400 m chord cutting the inside of a meander, not a point jumping to a vertex.',
+      'The threshold is 2/mile, down from 5 and then 3, because every line is thinned with Douglas-Peucker at 0.0005 deg and density at a fixed tolerance tracks how much a channel curves, not how well it was traced: the catalog lands at 2.4-5 pts/mile (the broad White tailwater lowest, with chords no longer than the Gasconade\'s). Check the longest gap between vertices before anything else — a traced line has none much over 2 km; a placeholder has gaps of miles. If a re-import is ever on the table anyway, note that quartering the vertex count costs under 6% of channel length, so density is not where mileage accuracy is won. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is a ~400 m chord cutting the inside of a meander, not a point jumping to a vertex.',
   },
   length_miles_disagrees_geometry: {
     kind: 'investigate',
@@ -356,7 +356,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Either the gauges belong to another river or the line stops short of them.',
     where: '/admin/geography',
     method:
-      'A proxy gauge on a neighbouring river is a legitimate reason for this to fire and is not a defect — Courtois borrows Huzzah\'s gauge about five miles off its own line.',
+      'A proxy gauge on a neighbouring river is not a defect. If that is what this is, add the link to REVIEWED_PROXY_GAUGES in src/lib/trust/checks/river-geometry.ts, naming the river the gauge actually sits on — the rule then stays quiet only while the gauge is still found on that host river. Courtois borrowing Huzzah\'s gauge is the existing entry.',
   },
   bbox_outside_state: {
     kind: 'investigate',

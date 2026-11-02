@@ -74,6 +74,12 @@ export interface RiverGeometryMetrics {
   geometryStartsAtHeadwaters: boolean | null;
   gaugeCount: number;
   gaugesOnRiver: number;
+  /**
+   * Linked gauges that are off this river's line by design — a reviewed entry
+   * in REVIEWED_PROXY_GAUGES — AND were confirmed this run to sit on the river
+   * they are borrowed from. See isConfirmedProxyGauge().
+   */
+  reviewedProxyGauges: number;
   /** Which state's bounds to judge the bounding box against. */
   state: string | null;
 }
@@ -127,17 +133,29 @@ const MIN_COORDINATE_COUNT = 10;
  * returned as a range that refuses to estimate at all for dangerous water — so
  * it cannot reach a go/no-go answer.
  *
- * Three still catches what the rule is for: a placeholder line with a handful of
- * vertices strung across a river. Below that, coordinate_count_very_low catches
- * the truly degenerate ones on the absolute count.
- *
  * Re-importing all 24 rivers at a finer tolerance was the alternative and is the
  * worse trade: it re-runs the machinery that leaves length_miles untouched on
  * its UPDATE path, and whose longest-connected-component walk is the likeliest
  * explanation for War Eagle Creek's 68-mile line. Chasing 3% through that risks
  * considerably more than 3%.
+ *
+ * Two, lowered again from three (2026-11-02), for the same reason one level
+ * down. Points per mile at a fixed Douglas-Peucker tolerance measures how much
+ * the channel CURVES, not how carefully it was traced: a broad, gently bending
+ * river needs fewer vertices to stay within 50 m. The White below Bull Shoals
+ * came out of build-tailwater-geometry.ts at the shared SIMPLIFY_TOLERANCE_DEG
+ * with 218 vertices over 89.5 miles — 2.44 pts/mile — yet its longest chord is
+ * 2,128 m, the same as the Gasconade's 2,112 m at 3.14, and its stored mileage
+ * sits within 1% of the line. Nothing about it is a placeholder.
+ *
+ * The quarter-count measurement above already showed ~1.4 pts/mile costing
+ * under 6% of length, so two is still on the safe side of where mileage starts
+ * to suffer, and still far above what the rule exists to catch: a placeholder
+ * strung across a river with a vertex every few miles. Below that,
+ * coordinate_count_very_low catches the truly degenerate ones on the absolute
+ * count.
  */
-const MIN_COORDS_PER_MILE = 3;
+const MIN_COORDS_PER_MILE = 2;
 
 /**
  * How far `length_miles` may sit from the measured line before it is a finding.
@@ -154,6 +172,61 @@ const MIN_COORDS_PER_MILE = 3;
  * that "percent off" means nothing without saying off WHAT.
  */
 const MAX_LENGTH_DISAGREEMENT = 0.1;
+
+/**
+ * A gauge deliberately linked to a river it does not sit on.
+ *
+ * no_gauges_near_geometry exists for the misassociation class — a gauge wired
+ * to the wrong river, or a line that stops short of it — and a borrowed gauge
+ * is indistinguishable from that in the data: distance_from_section_miles is
+ * set on plenty of on-river links too, and `role` is reserved for tailwater
+ * semantics (river_gauges_tailwater_rating_provenance keys off it). So the
+ * judgement lives here, reviewed, one entry per link.
+ *
+ * An entry does not switch the rule off for its river. The gauge still has to
+ * be found within 1 km of `hostRiver`'s line on every run, so a gauge that
+ * moves, or a host geometry that breaks, fires the finding again.
+ */
+export interface ReviewedProxyGauge {
+  /** The river borrowing the gauge. */
+  river: string;
+  /** gauge_stations.site_id_external */
+  siteId: string;
+  /** The river the gauge actually sits on. */
+  hostRiver: string;
+  reviewedOn: string;
+  reason: string;
+}
+
+export const REVIEWED_PROXY_GAUGES: readonly ReviewedProxyGauge[] = [
+  {
+    river: 'courtois',
+    siteId: '07014000',
+    hostRiver: 'huzzah',
+    reviewedOn: '2026-11-02',
+    reason:
+      'Courtois Creek has no USGS gauge of its own. Huzzah Creek near Steelville sits 24 m from ' +
+      "Huzzah's line and about 3 km from Courtois's, just above the confluence, and is the gauge " +
+      'outfitters read for both. Carried as an open finding through releases 1.2-1.5 with no action ' +
+      'because there was none to take.',
+  },
+];
+
+/**
+ * Pure. True when this link is a reviewed proxy and the gauge was found on the
+ * river it is meant to be borrowed from — not merely near something.
+ */
+export function isConfirmedProxyGauge(
+  riverSlug: string,
+  siteId: string | null | undefined,
+  nearestRiverSlug: string | null | undefined,
+  reviewed: readonly ReviewedProxyGauge[] = REVIEWED_PROXY_GAUGES,
+): boolean {
+  if (!siteId || !nearestRiverSlug) return false;
+  return reviewed.some(
+    (p) => p.river === riverSlug && p.siteId === siteId && p.hostRiver === nearestRiverSlug,
+  );
+}
 
 /**
  * Pure. Everything above this line is fetched; everything below is judgement.
@@ -228,7 +301,8 @@ export function deriveRiverGeometryIssues(m: RiverGeometryMetrics): RiverGeometr
   // Gauges exist and none of them are near the line. Either the gauges are
   // wired to the wrong river or the geometry stops short of them; both are the
   // misassociation class docs/gauge-alerting-misalignment-audit.md is about.
-  if (m.gaugeCount > 0 && m.gaugesOnRiver === 0) {
+  // A reviewed proxy that was found on its host river is neither.
+  if (m.gaugeCount > 0 && m.gaugesOnRiver === 0 && m.reviewedProxyGauges === 0) {
     issues.push({
       ruleKey: 'no_gauges_near_geometry',
       message: 'No gauge stations are within 1km of river geometry — geometry may be incomplete',
@@ -284,8 +358,8 @@ export function boundingBoxOf(coords: number[][]): BoundingBox | null {
  * The length of the stored line, walked vertex to vertex.
  *
  * Spherical rather than spheroidal, so it lands within about a tenth of a
- * percent of PostGIS's `ST_Length(geom::geography)` — irrelevant against a
- * threshold of 5 points per mile or a 10% drift, and it keeps the whole
+ * percent of PostGIS's `ST_Length(geom::geography)` — irrelevant against the
+ * points-per-mile threshold or a 10% drift, and it keeps the whole
  * calculation pure and testable on the coordinates the check already holds.
  * Measuring it in SQL would mean a second round-trip per river on a check that
  * already takes 54 seconds, or widening an RPC that other callers read.
@@ -345,6 +419,8 @@ export interface RiverHealthRow {
   boundingBox: BoundingBox | null;
   gaugeCount: number;
   gaugesOnRiver: number;
+  /** Additive to the response shape data-sync reads. */
+  reviewedProxyGauges: number;
   accessPointCount: number;
   poiCount: number;
   issues: RiverGeometryIssue[];
@@ -379,6 +455,12 @@ export async function collectRiverHealth(
   if (error || !rivers) {
     throw new Error(`Failed to fetch rivers: ${error?.message ?? 'no rows'}`);
   }
+
+  // find_nearest_river answers with an id; the reviewed proxies name slugs.
+  // Only active rivers can be returned, and those are always in this list.
+  const slugById = new Map<string, string>(
+    rivers.map((r: { id: string; slug: string }) => [r.id, r.slug]),
+  );
 
   const rows: RiverHealthRow[] = [];
   let truncated = false;
@@ -443,8 +525,12 @@ export async function collectRiverHealth(
     );
 
     let gaugesOnRiver = 0;
+    let reviewedProxyGauges = 0;
     const gaugeStations = await mustRows<{ gauge_stations: unknown }>(
-      supabase.from('river_gauges').select('gauge_stations!inner(location)').eq('river_id', river.id),
+      supabase
+        .from('river_gauges')
+        .select('gauge_stations!inner(location, site_id_external)')
+        .eq('river_id', river.id),
       `could not load gauge stations for ${river.slug}`,
     );
 
@@ -464,8 +550,17 @@ export async function collectRiverHealth(
         }),
         `find_nearest_river failed near ${river.slug}`,
       );
-      if (nearResult && nearResult.length > 0 && nearResult[0].river_id === river.id) {
+      const nearestId = nearResult && nearResult.length > 0 ? nearResult[0].river_id : null;
+      if (nearestId === river.id) {
         gaugesOnRiver++;
+      } else if (
+        isConfirmedProxyGauge(
+          river.slug,
+          station.site_id_external,
+          nearestId ? slugById.get(nearestId) : null,
+        )
+      ) {
+        reviewedProxyGauges++;
       }
     }
 
@@ -504,6 +599,7 @@ export async function collectRiverHealth(
       boundingBox,
       gaugeCount,
       gaugesOnRiver,
+      reviewedProxyGauges,
       accessPointCount: apCount,
       poiCount,
       issues: deriveRiverGeometryIssues({
@@ -518,6 +614,7 @@ export async function collectRiverHealth(
         geometryStartsAtHeadwaters: river.geometry_starts_at_headwaters,
         gaugeCount,
         gaugesOnRiver,
+        reviewedProxyGauges,
         state: river.state ?? null,
       }),
     });
@@ -555,6 +652,7 @@ export const riverGeometryCheck: TrustCheck = {
             coordsPerMile: row.coordsPerMile,
             gaugeCount: row.gaugeCount,
             gaugesOnRiver: row.gaugesOnRiver,
+            reviewedProxyGauges: row.reviewedProxyGauges,
             boundingBox: row.boundingBox,
           },
         });

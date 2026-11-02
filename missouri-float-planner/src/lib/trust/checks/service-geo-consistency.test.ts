@@ -13,6 +13,7 @@ import {
   deriveServiceGeoFindings,
   FAR_FROM_RIVER_MILES,
   NEARER_OTHER_RIVER_MARGIN_MILES,
+  REVIEWED_STANDALONE_SERVICES,
   type ServiceGeoRow,
 } from './service-geo-consistency';
 
@@ -296,4 +297,48 @@ test('numeric strings from PostgREST are read as numbers', () => {
 
 test('an empty directory produces no findings and no crash', () => {
   assert.deepEqual(deriveServiceGeoFindings([]), []);
+});
+
+/* ── Reviewed standalone services ──────────────────────────────────────────
+   State-park campgrounds added for the camping catalog on water Eddy does not
+   carry. A link would be false; the exemption lapses if a catalog river comes
+   within the geocoder's own bound. */
+
+const roaring = REVIEWED_STANDALONE_SERVICES.find((s) => s.name.startsWith('Roaring River'))!;
+const unlinked = (miles: number | null) =>
+  row({
+    service_id: roaring.serviceId,
+    service_name: roaring.name,
+    linked_river_count: 0,
+    linked_river_names: [],
+    nearest_linked_name: null,
+    nearest_linked_miles: null,
+    nearest_any_name: miles === null ? null : 'Kings River',
+    nearest_any_miles: miles,
+    nearest_any_is_linked: false,
+  });
+
+test('a reviewed standalone service far from every catalog river is not asked for a link', () => {
+  assert.deepEqual(rulesOf([unlinked(12.3)]), []);
+  assert.deepEqual(rulesOf([unlinked(null)]), []);
+});
+
+test('the standalone exemption lapses once a catalog river is within reach', () => {
+  // Eddy adds the river it sits on: now a link is the right answer.
+  assert.deepEqual(rulesOf([unlinked(FAR_FROM_RIVER_MILES - 1)]), ['service_no_river_link']);
+});
+
+test('the standalone list does not cover unreviewed services', () => {
+  assert.deepEqual(
+    rulesOf([{ ...unlinked(12.3), service_id: '00000000-0000-4000-8000-000000000099' }]),
+    ['service_no_river_link'],
+  );
+});
+
+test('every reviewed standalone service is dated and explained', () => {
+  for (const s of REVIEWED_STANDALONE_SERVICES) {
+    assert.match(s.serviceId, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    assert.match(s.reviewedOn, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(s.reason.length > 30, `${s.name} needs a real reason`);
+  }
 });
