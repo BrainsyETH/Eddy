@@ -211,13 +211,13 @@
       "source": "https://www.floatmissouri.com/plan/missouri-rivers/big-sugar-creek/"
     },
     {
-      "name": "Powell bridges",
+      "name": "Powell Bridge (historic, pedestrian) and Cowan Ridge Rd bridge",
       "type": "bridge",
       "lat": null,
       "lon": null,
-      "ownership": "Unverified",
-      "notes": "HELD: guide mile 5.5 — 'Road is close to the creek and several bridges make this a good put-in area.' Hwy E bridge at guide mile 6.0. No legal launch or parking source. The USGS gauge sits near the historic Powell bridge.",
-      "source": "https://www.floatmissouri.com/plan/missouri-rivers/big-sugar-creek/"
+      "ownership": "Historic bridge: Powell Historic Preservation Society (since April 2014, per Wikipedia text; infobox conflicts). Replacement vehicle bridge: public road. Banks unverified.",
+      "notes": "HELD: guide mile 5.5 — 'Road is close to the creek and several bridges make this a good put-in area.' The 1915 Powell Bridge (NRHP 11000215, listed 2011-04-20) is pedestrian-only since a two-lane bridge was built beside it (2014/2015, sources conflict). NRHP point 36.6160766, -94.1820064 is 29 m from the mainstem at Eddy mile 25.26, beside USGS 07188653. Hwy E (MoDOT Route E) bridge at guide mile 6.0. No source grants launching or parking at either bridge; ask the Preservation Society and McDonald County. Coordinates are identification only, not a launch pin.",
+      "source": "https://www.floatmissouri.com/plan/missouri-rivers/big-sugar-creek/ ; https://en.wikipedia.org/wiki/Powell_Bridge ; https://www.modot.org/mcdonald-county-route-ebig-sugar-creek-bridge-replacement-completed"
     },
     {
       "name": "Roller Bridge (Hwy 90 & KK)",
@@ -254,8 +254,28 @@
       "lon": null,
       "ownership": "Private",
       "managingAgency": "Private",
-      "notes": "HELD: family-run campground/outfitter at 1354 Big Sugar Creek Rd, Pineville, on Big Sugar between Deep Ford and Pineville (inferred from address and trip logs). moherp logs trips ending at 'Sugar Island'; the operator reportedly also runs 'Big Rock Park' ~4 mi upstream. The operator site (sugarislandcanoe.com, listed by MCFA) could not be reached, so there are no verified published launch terms.",
-      "source": "https://missouricanoe.org/places/category/big-sugar-creek ; https://rivers.moherp.org/river/?9"
+      "notes": "HELD: family-run campground/outfitter at 1354 Big Sugar Creek Rd, Pineville ('one mile east of Pineville', NWA Democrat-Gazette 2017; 417-223-4410). The Census address point (36.601591, -94.370363, interpolated along the road) is ~200 m from the mainstem at Eddy mile ~42.5, about 2 mi below Deep Ford (40.45) and 1.5 mi above the confluence; a trip report describes Deep Ford → Sugar Island as under 3 mi. Because it is on Big Sugar, Deep Ford → Sugar Island would be a single-river planner pair if the operator publishes landing terms. The operator site could not be reached, so there are no verified launch terms or landing coordinates.",
+      "source": "https://missouricanoe.org/places/category/big-sugar-creek ; https://rivers.moherp.org/river/?9 ; https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800 ; https://geocoding.geo.census.gov/geocoder/locations/onelineaddress (address point only)"
+    },
+    {
+      "name": "Creekside Campground",
+      "type": "campground",
+      "lat": null,
+      "lon": null,
+      "ownership": "Private",
+      "managingAgency": "Private",
+      "notes": "HELD: private campground at 274 Creekside Rd, Powell, MO 65730 (417-435-2274; email creeksidecampground1@yahoo.com, per NWA Democrat-Gazette 2017; Yellow Pages and Apple Maps carry the same address). The Census address point (36.624158, -94.185152, interpolated along the road) is ~100 m from the mainstem at Eddy mile ~25.9, about 0.6 mi below Powell Bridge. No published creek access, launch, rental or shuttle terms were found; its listed website (kccreeksidehaven.com) returned an empty page. Ask whether it allows launching/landing for non-guests and on what terms. A launch here would serve Powell-to-Cyclone trips.",
+      "source": "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588 ; https://maps.apple.com/place?place-id=IABB92F072F3E6455"
+    },
+    {
+      "name": "Big Rock Park",
+      "type": "campground",
+      "lat": null,
+      "lon": null,
+      "ownership": "Private (reportedly operated by Sugar Island Camp)",
+      "managingAgency": "Private",
+      "notes": "HELD: known only from Sugar Island's listing, which says the operator also runs 'Big Rock Park, located just 4 miles east of Sugar Island' for 'additional camping and day-use opportunities'. Four road miles east would put it roughly between Cyclone and Deep Ford, but no address, coordinate, creek frontage or launch terms were found. Not to be confused with any other 'Big Rock' campground. Confirm with Sugar Island (417-223-4410).",
+      "source": "https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y (operator text as surfaced by search; the page did not render for direct reading)"
     },
     {
       "name": "Big Sugar Creek State Park",
@@ -308,7 +328,10 @@
       "https://www.arkansasonline.com/news/2015/sep/03/so-clear-so-fine-20150903/",
       "https://www.nwaonline.com/news/2018/jul/03/stream-s-beauty-dazzles-paddlers-on-big/",
       "https://en.wikipedia.org/wiki/Big_Sugar_Creek (47 mi; GNIS ref 748853)",
-      "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query (GNIS_ID 00748853; 86152947 at Deep Ford, reach 11070208000057; 86154253 8-m artificial path at confluence; 86152799/86152893 near Powell gauge)"
+      "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query (GNIS_ID 00748853; 86152947 at Deep Ford, reach 11070208000057; 86154253 8-m artificial path at confluence; 86152799/86152893 near Powell gauge)",
+      "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
+      "https://en.wikipedia.org/wiki/Powell_Bridge",
+      "https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588"
     ],
     "openQuestions": [
       "CORRIDOR: The only fully public pair (Deep Ford → City of Pineville Elk River Access) ends on the Elk. Owner decision: build/validate cross-confluence routing, publish Big Sugar as an inventory/readings river with Deep Ford listed but no planner pair (Cowskin-style), or wait for a legal upstream put-in.",
@@ -318,7 +341,8 @@
       "CALIBRATION: moherp OBSERVED Low ≥50 / Good ≥80 cfs rests on 7 trips (2005–2020), none in July–September, and a Good trip at 48 cfs (Deep Ford→Elk, 2014) sits below the 80 cfs Good floor. Is the lower reach floatable at lower Powell readings?",
       "HAZARDS: exact position, passage and portage side of Crag O' Lea low-water bridge (≈0.5 mi below Deep Ford) and the condition of the guide-mile 23.9 channel split. Any other low-water crossings between Deep Ford and Pineville? Overpass/OSM structure query could not complete.",
       "HYDROLOGY: sources disagree on character — MCFA calls it 'spring-fed', but Powell drops to ~5–11 cfs in autumn and crests above 30,000 cfs. Is there a losing reach (MoDNR losing-stream designation) between Powell and Pineville? Not researched.",
-      "MILES: floatmissouri guide miles (0 = Roller Bridge) are not Eddy miles (0 = NHD headwaters). Do not copy guide miles into riverMile fields."
+      "MILES: floatmissouri guide miles (0 = Roller Bridge) are not Eddy miles (0 = NHD headwaters). Do not copy guide miles into riverMile fields.",
+      "PRIVATE LANDINGS (added 2026-11-02 after owner asked): Creekside Campground (Powell, Eddy mile ~25.9), Sugar Island (Eddy mile ~42.5) and Big Rock Park (location unknown) are on or near Big Sugar. Do they allow launching/landing, for guests only or anyone, and at what fee? A published Sugar Island landing would give a single-river Deep Ford → Sugar Island pair (~2 mi) that the current planner can route."
     ],
     "toVerify": [
       "USGS 07188653 Big Sugar Creek near Powell, MO — confirm on https://waterdata.usgs.gov/monitoring-location/USGS-07188653/ : lat 36.6158611, lon -94.1822222, drainage 141 sq mi, params 00060 + 00065, discharge record from 2000-05-25; fresh at activation.",
