@@ -23,9 +23,12 @@
  * regional geometry is a later, region-by-region job (see the plan).
  *
  * ── Output ─────────────────────────────────────────────────────────────────
- *   base.v1.json    states, lakes, and rivers of Strahler ≥ 5 (Hawaii ≥ 2,
+ *   base.v2.json    states, lakes, and rivers of Strahler ≥ 5 (Hawaii ≥ 2,
  *                   whose streams are short) — the first-screen network.
- *   detail.v1.json  Strahler 3–4 (Hawaii 1), fetched when the camera zooms in.
+ *                   Each base line carries `d`: the base line it flows into
+ *                   and how far along it (From/To node topology), so the
+ *                   wall's "Follow the river" can walk a real network.
+ *   detail.v2.json  Strahler 3–4 (Hawaii 1), fetched when the camera zooms in.
  * Coordinates are integers in 1/QUANT frame pixels, delta-encoded per line.
  *
  * Usage:
@@ -365,13 +368,28 @@ function buildRivers(
   }
   const isBase = (s: Segment) => (s.comp === 'hi' ? s.order >= 2 : s.order >= 5);
   const base: GeoLine[] = [];
+  // Topology for base lines: where each segment starts along its line, and
+  // the node each line ends at. Resolved to `d` once the lines are sorted.
+  const baseEnd = new Map<GeoLine, number>();
+  // A node can start several lines (a distributary such as Old River leaves
+  // the Mississippi): every candidate is kept and chosen below.
+  const nodeAt = new Map<number, Array<{ line: GeoLine; along: number; total: number; name: string }>>();
+  const lineName = new Map<GeoLine, string>();
   const detail: GeoLine[] = [];
   const counts: Record<string, number> = {};
   for (const c of chain(segs)) {
     const first = c[0];
     const projected: Array<[number, number]> = [];
+    const starts: Array<[number, number]> = []; // [node, length along the line where it starts]
+    let run = 0;
     for (const s of c) {
-      for (const [lng, lat] of s.coords) projected.push(projectComponent(first.comp, lng, lat));
+      starts.push([s.from, run]);
+      for (const [lng, lat] of s.coords) {
+        const pt = projectComponent(first.comp, lng, lat);
+        const prev = projected[projected.length - 1];
+        if (prev) run += Math.hypot(pt[0] - prev[0], pt[1] - prev[1]);
+        projected.push(pt);
+      }
     }
     const inBase = isBase(first);
     const simple = simplify(projected, inBase ? TOL_BASE : TOL_DETAIL);
@@ -387,12 +405,63 @@ function buildRivers(
     }
     const line: GeoLine = { k: first.comp, o: first.order, n, p: encode(simple, inBase ? QUANT_BASE : QUANT_DETAIL) };
     (inBase ? base : detail).push(line);
+    if (inBase) {
+      baseEnd.set(line, c[c.length - 1].to);
+      lineName.set(line, named);
+      for (const [node, along] of starts) (nodeAt.get(node) ?? nodeAt.set(node, []).get(node)!).push({ line, along, total: run, name: named });
+    }
     const key = `${first.comp}:${first.order}`;
     counts[key] = (counts[key] ?? 0) + 1;
   }
   // Draw order: small first, so major rivers paint over their tributaries.
   base.sort((a, b) => a.o - b.o);
   detail.sort((a, b) => a.o - b.o);
+  // Downstream links, by final index. A tributary's last node is where some
+  // segment of the line it joins begins; the fraction is how far along.
+  //
+  // At 1:1M a few main stems are interrupted by segments the map does not
+  // draw: the Missouri passes Garrison Dam as a "Canal", and the Yukon and
+  // Tanana carry mis-coded Strahler orders for one braid. So when a line's
+  // end node starts no base line, walk the RAW network (every feature, every
+  // order) a few hops downstream until one does.
+  const outs = new Map<number, Array<{ to: number; order: number; name: string }>>();
+  for (const r of recs) {
+    const from = Number(r.From_node);
+    if (!Number.isFinite(from)) continue;
+    (outs.get(from) ?? outs.set(from, []).get(from)!).push({ to: Number(r.To_node), order: Number(r.Strahler), name: String(r.Name ?? '') });
+  }
+  const indexOf = new Map(base.map((l, i) => [l, i]));
+  let linked = 0;
+  let bridged = 0;
+  for (const line of base) {
+    const name = lineName.get(line) ?? '';
+    // Prefer the river continuing under the same name, then the larger
+    // channel, then the longer line: the main stem, not the distributary.
+    const pick = (node: number) =>
+      (nodeAt.get(node) ?? [])
+        .filter((c) => c.line !== line && c.line.k === line.k)
+        .sort((a, b) => Number(!!name && b.name === name) - Number(!!name && a.name === name) || b.line.o - a.line.o || b.total - a.total)[0];
+    let node = baseEnd.get(line)!;
+    let at = pick(node);
+    for (let hop = 0; !at && hop < 12; hop++) {
+      const next = (outs.get(node) ?? []).sort(
+        (a, b) => Number(!!name && b.name === name) - Number(!!name && a.name === name) || b.order - a.order,
+      )[0];
+      if (!next) break;
+      node = next.to;
+      at = pick(node);
+      if (at) bridged++;
+    }
+    if (!at) {
+      if (process.env.DEBUG_LINKS && line.o >= 6) console.log('unlinked', line.k, line.o, name, baseEnd.get(line));
+      continue;
+    }
+    const frac = at.total > 0 ? Math.round((at.along / at.total) * 1000) / 1000 : 0;
+    line.d = [indexOf.get(at.line)!, frac];
+    linked++;
+  }
+  counts.linked = linked;
+  counts.bridged = bridged;
   return { base, detail, counts };
 }
 

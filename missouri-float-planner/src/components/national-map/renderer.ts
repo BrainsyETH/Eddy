@@ -21,6 +21,7 @@
 
 import type { Camera, Viewport } from '@/lib/national-map/camera';
 import type { DecodedGeometry, DecodedLine, DecodedPolygon } from '@/lib/national-map/geometry';
+import { journeyHead, journeyTiming, sliceLine, JOURNEY_HOLD_MS, JOURNEY_FADE_MS, type Journey } from '@/lib/national-map/journeys';
 import type { MarkShape, MarkStyle } from '@/lib/national-map/marks';
 import { applyAffine, type Layout } from '@/lib/national-map/projection';
 import type { MapPalette } from '@/lib/national-map/theme';
@@ -156,6 +157,70 @@ interface Sprite {
   half: number;
 }
 
+/** A journey laid out for drawing: the route as one polyline in layout space. */
+interface LaidJourney {
+  journey: Journey;
+  /** Interleaved x,y in layout space. */
+  xy: Float32Array;
+  /** Distance along the journey at each vertex, in the journey's own (frame) units. */
+  dist: Float32Array;
+  tributaries: Array<{ path: Path2D; x: number; y: number; passMs: number }>;
+}
+
+/** 0 → 1 as a journey begins, 1 while it travels and holds, back to 0 as it fades. */
+function journeyFocus(j: Journey, elapsed: number): number {
+  const { travelMs, totalMs } = journeyTiming(j);
+  if (elapsed <= 0 || elapsed >= totalMs) return 0;
+  if (elapsed < 900) return elapsed / 900;
+  const fadeStart = travelMs + JOURNEY_HOLD_MS;
+  return elapsed > fadeStart ? Math.max(0, 1 - (elapsed - fadeStart) / JOURNEY_FADE_MS) : 1;
+}
+
+/** Elapsed ms at which the head reaches `at` (journeyHead is monotonic). */
+function passTime(j: Journey, at: number): number {
+  let lo = 0;
+  let hi = journeyTiming(j).travelMs;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2;
+    if (journeyHead(j, mid) < at) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
+function layJourney(j: Journey, rivers: DecodedLine[], layout: Layout): LaidJourney | null {
+  const xy: number[] = [];
+  const dist: number[] = [];
+  let base = 0;
+  for (const step of j.steps) {
+    const line = rivers[step.line];
+    if (!line) return null;
+    const a = layout.affine[line.component];
+    const part = sliceLine(line, step.t0, step.t1);
+    for (let i = 0; i + 2 < part.length; i += 3) {
+      const [x, y] = applyAffine(a, part[i], part[i + 1]);
+      xy.push(x, y);
+      dist.push(base + part[i + 2]);
+    }
+    base += (step.t1 - step.t0) * line.length;
+  }
+  if (xy.length < 4) return null;
+  const tributaries = j.tributaries.flatMap((t) => {
+    const line = rivers[t.line];
+    if (!line) return [];
+    const a = layout.affine[line.component];
+    const path = new Path2D();
+    for (let i = 0; i + 1 < line.xy.length; i += 2) {
+      const [x, y] = applyAffine(a, line.xy[i], line.xy[i + 1]);
+      if (i === 0) path.moveTo(x, y);
+      else path.lineTo(x, y);
+    }
+    const [x, y] = applyAffine(a, line.xy[line.xy.length - 2], line.xy[line.xy.length - 1]);
+    return [{ path, x, y, passMs: passTime(j, t.at) }];
+  });
+  return { journey: j, xy: new Float32Array(xy), dist: new Float32Array(dist), tributaries };
+}
+
 export class NationalRenderer {
   private readonly base: HTMLCanvasElement;
   private readonly fx: HTMLCanvasElement;
@@ -183,6 +248,11 @@ export class NationalRenderer {
   private featuredPrev: { x: number; y: number } | null = null;
   private featuredSince = 0;
   private showLabels = true;
+  /** Fullscreen wall: every trace class at the national fit, stronger event rings. */
+  private wall = false;
+  private journey: Journey | null = null;
+  private journeyStart = 0;
+  private laidJourney: LaidJourney | null = null;
   private motion = true;
   /** False while every observation is stale: geography stays, motion stops. */
   private dataLive = false;
@@ -267,6 +337,7 @@ export class NationalRenderer {
 
   private rebuildPaths() {
     this.paths = this.geometry && this.layout ? buildPaths(this.geometry, this.detail, this.layout) : null;
+    this.layJourney();
     this.dirtyBase = true;
     this.request();
   }
@@ -341,6 +412,26 @@ export class NationalRenderer {
     if (show === this.showLabels) return;
     this.showLabels = show;
     this.dirtyBase = true;
+    this.request();
+  }
+
+  /** Start a "Follow the river" journey now (null ends it). */
+  setJourney(journey: Journey | null) {
+    if (journey === this.journey) return;
+    this.journey = journey;
+    this.journeyStart = performance.now();
+    this.layJourney();
+  }
+
+  private layJourney() {
+    this.laidJourney =
+      this.journey && this.geometry && this.layout ? layJourney(this.journey, this.geometry.rivers, this.layout) : null;
+  }
+
+  setWall(wall: boolean) {
+    if (wall === this.wall) return;
+    this.wall = wall;
+    this.dirtyBase = this.dirtyMarks = true;
     this.request();
   }
 
@@ -446,6 +537,15 @@ export class NationalRenderer {
         g.stroke(path);
       }
     }
+    if (p.riverGlow > 0) {
+      // Wall: a soft underglow on the trunk rivers lifts the network above land.
+      for (const [order, path] of paths.rivers) {
+        if (order < 6) continue;
+        g.globalAlpha = p.riverGlow;
+        g.lineWidth = widthFor(order) * zoomBoost * 4 * px;
+        g.stroke(path);
+      }
+    }
     for (const [order, path] of [...paths.rivers.entries()].sort((a, b) => a[0] - b[0])) {
       g.globalAlpha = p.riverAlpha[Math.min(order, 7)];
       g.lineWidth = widthFor(order) * zoomBoost * px;
@@ -491,17 +591,23 @@ export class NationalRenderer {
     const r = Math.max(0.6, Math.round(radius * 4) / 4);
     const color = resolveColor(this.palette, style.color);
     const backed = this.palette.backed.includes(style.color);
-    const key = `${style.shape}|${color}|${style.keyline ? 1 : 0}|${backed ? 1 : 0}|${r}|${this.dpr}`;
+    const halo = style.halo ? this.palette.halo : null;
+    const key = `${style.shape}|${color}|${style.keyline ? 1 : 0}|${backed ? 1 : 0}|${halo}|${r}|${this.dpr}`;
     const hit = this.sprites.get(key);
     if (hit) return hit;
     const keyline = style.color.startsWith('flood') ? this.palette.floodKeyline : this.palette.flowKeyline;
-    const pad = 2.5;
+    const pad = style.halo ? 4 : 2.5;
     const half = Math.ceil((r + pad) * this.dpr);
     const c = document.createElement('canvas');
     c.width = c.height = half * 2;
     const g = c.getContext('2d')!;
     g.translate(half, half);
     g.scale(this.dpr, this.dpr);
+    if (halo) {
+      shapePath(g, style.shape, r + 2.2);
+      g.fillStyle = halo;
+      g.fill();
+    }
     drawMarkShape(g, style, r, color, keyline, backed ? this.palette.backing : null, this.palette.backedFillAlpha);
     const sprite = { canvas: c, half };
     this.sprites.set(key, sprite);
@@ -521,8 +627,10 @@ export class NationalRenderer {
       const sy = m.y * scale + ty;
       if (sx < -10 || sy < -10 || sx > w + 10 || sy > h + 10) continue;
       const sp = this.sprite(m.style, m.style.radius * k);
+      g.globalAlpha = m.style.alpha ?? 1;
       g.drawImage(sp.canvas, Math.round(sx * this.dpr) - sp.half, Math.round(sy * this.dpr) - sp.half);
     }
+    g.globalAlpha = 1;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const ring = (pt: { x: number; y: number }, r: number, width: number) => {
       g.beginPath();
@@ -542,6 +650,19 @@ export class NationalRenderer {
     const z = this.zoom();
     const { scale, tx, ty } = this.camera;
 
+    // While a journey runs it commands the screen: a veil on this layer (above
+    // land and rivers, below the marks, so flood events keep full strength)
+    // and quieter background traces, easing in with the journey and out as it
+    // fades. More motion helps only when the eye knows what to follow.
+    const focus = this.laidJourney ? journeyFocus(this.laidJourney.journey, t - this.journeyStart) : 0;
+    if (focus > 0) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = p.background;
+      g.globalAlpha = 0.42 * focus;
+      g.fillRect(0, 0, this.fx.width, this.fx.height);
+      g.globalAlpha = 1;
+    }
+
     // Downstream traces: sparse light dashes travelling the digitized
     // direction of major channels. Direction only — never a measured velocity.
     const s = scale * this.dpr;
@@ -552,11 +673,13 @@ export class NationalRenderer {
     g.strokeStyle = p.trace;
     g.lineCap = 'round';
     for (const c of TRACE_CLASSES) {
-      if (z < c.minZoom) continue;
+      // The wall runs every class at the national fit: the moving network is
+      // the background texture there, not the routine gauges.
+      if (z < c.minZoom && !this.wall) continue;
       g.lineWidth = c.width * sf * zf * px;
       g.setLineDash([c.dash * sf * px, c.gap * sf * px]);
       g.lineDashOffset = -((t / 1000) * c.speed * sf) * px;
-      g.globalAlpha = c.alpha;
+      g.globalAlpha = (this.wall ? Math.min(1, c.alpha * 1.15) : c.alpha) * (1 - 0.7 * focus);
       g.stroke(this.paths[c.key]);
     }
     g.setLineDash([]);
@@ -568,17 +691,25 @@ export class NationalRenderer {
     for (const m of this.ringMarks) {
       const sx = m.x * scale + tx;
       const sy = m.y * scale + ty;
-      if (sx < -30 || sy < -30 || sx > this.vp.width + 30 || sy > this.vp.height + 30) continue;
-      const phase = ((t / RING_PERIOD_MS + m.phase) % 1 + 1) % 1;
+      if (sx < -60 || sy < -60 || sx > this.vp.width + 60 || sy > this.vp.height + 60) continue;
       const r0 = m.style.radius * k;
-      g.beginPath();
-      g.arc(sx, sy, r0 + phase * 11 * Math.min(1.6, k), 0, Math.PI * 2);
       g.strokeStyle = resolveColor(p, m.style.color);
-      g.globalAlpha = (1 - phase) * 0.55;
-      g.lineWidth = 1.2;
-      g.stroke();
+      // Wall: wider, brighter pulses; major flooding carries two, half a
+      // period apart, so the most severe events are never between beats.
+      const reach = (this.wall ? 24 : 11) * Math.min(1.6, k);
+      const pulses = this.wall && m.style.salience >= 9 ? 2 : 1;
+      for (let n = 0; n < pulses; n++) {
+        const phase = ((t / RING_PERIOD_MS + m.phase + n / pulses) % 1 + 1) % 1;
+        g.beginPath();
+        g.arc(sx, sy, r0 + phase * reach, 0, Math.PI * 2);
+        g.globalAlpha = (1 - phase) * (this.wall ? 0.75 : 0.55);
+        g.lineWidth = this.wall ? 2 * Math.min(1.6, Math.max(1, k * 0.7)) : 1.2;
+        g.stroke();
+      }
     }
     g.globalAlpha = 1;
+
+    if (this.laidJourney) this.drawJourney(g, this.laidJourney, t - this.journeyStart);
 
     // The spotlight: a slow breathing ring on the current highlight. When it
     // moves, a wide ring sweeps in to the new place while the old one fades —
@@ -606,6 +737,127 @@ export class NationalRenderer {
       g.globalAlpha = 1;
     }
   }
+
+  /**
+   * "Follow the river": the route lights from the headwater as a bright head
+   * travels it; each tributary flashes as the head passes its mouth; at the
+   * outlet the lit route holds, then fades. Drawn in screen space from the
+   * laid-out route so widths stay constant through zoom.
+   */
+  private drawJourney(g: CanvasRenderingContext2D, laid: LaidJourney, elapsed: number) {
+    const j = laid.journey;
+    const { travelMs, totalMs } = journeyTiming(j);
+    if (elapsed < 0 || elapsed >= totalMs) return;
+    const p = this.palette;
+    const { scale, tx, ty } = this.camera;
+    const sf = this.screenScale();
+    const fade = elapsed <= travelMs + JOURNEY_HOLD_MS ? 1 : Math.max(0, 1 - (elapsed - travelMs - JOURNEY_HOLD_MS) / JOURNEY_FADE_MS);
+    const head = journeyHead(j, elapsed);
+    const { xy, dist } = laid;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+
+    // Tributaries: a flash that runs down into the main stem as the head passes.
+    for (const t of laid.tributaries) {
+      const age = elapsed - t.passMs;
+      if (age < 0 || age > 2200) continue;
+      const k = 1 - age / 2200;
+      g.setTransform(scale * this.dpr, 0, 0, scale * this.dpr, tx * this.dpr, ty * this.dpr);
+      g.strokeStyle = p.journeyGlow;
+      g.globalAlpha = Math.max(0.5, p.journeyGlowAlpha) * k * fade;
+      g.lineWidth = (4 * sf) / scale;
+      g.stroke(t.path);
+      g.strokeStyle = p.journeyCore;
+      g.globalAlpha = 0.85 * k * fade;
+      g.lineWidth = (1.4 * sf) / scale;
+      g.stroke(t.path);
+      g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      g.beginPath();
+      g.arc(t.x * scale + tx, t.y * scale + ty, (3 + (age / 2200) * 14) * sf, 0, Math.PI * 2);
+      g.strokeStyle = p.journeyCore;
+      g.globalAlpha = 0.7 * k * fade;
+      g.lineWidth = 1.5 * sf;
+      g.stroke();
+    }
+
+    // The lit route, from where this journey starts (the source, or where
+    // the river enters a regional view) to the head.
+    const route = new Path2D();
+    const trail = new Path2D();
+    const trailFrom = head - (60 / Math.max(scale, 1e-6)) * sf;
+    let started = false;
+    let trailStarted = false;
+    let hx = 0;
+    let hy = 0;
+    for (let i = 1; i < dist.length; i++) {
+      const d0 = dist[i - 1];
+      const d1 = dist[i];
+      if (d1 <= j.start) continue;
+      if (d0 >= head) break;
+      const x0 = xy[(i - 1) * 2];
+      const y0 = xy[(i - 1) * 2 + 1];
+      const x1 = xy[i * 2];
+      const y1 = xy[i * 2 + 1];
+      if (!started) {
+        const u0 = d1 > d0 ? Math.max(0, (j.start - d0) / (d1 - d0)) : 0;
+        hx = (x0 + (x1 - x0) * u0) * scale + tx;
+        hy = (y0 + (y1 - y0) * u0) * scale + ty;
+        route.moveTo(hx, hy);
+        started = true;
+      }
+      const u = d1 > head && d1 > d0 ? (head - d0) / (d1 - d0) : 1;
+      const x = (x0 + (x1 - x0) * u) * scale + tx;
+      const y = (y0 + (y1 - y0) * u) * scale + ty;
+      route.lineTo(x, y);
+      if (d1 >= trailFrom) {
+        if (!trailStarted) {
+          trail.moveTo(hx, hy);
+          trailStarted = true;
+        }
+        trail.lineTo(x, y);
+      }
+      hx = x;
+      hy = y;
+    }
+    if (!started) return;
+    const casing = p.journeyGlowAlpha > 0.5;
+    g.strokeStyle = p.journeyGlow;
+    g.globalAlpha = p.journeyGlowAlpha * fade;
+    g.lineWidth = (casing ? 6.5 : 7) * sf;
+    g.stroke(route);
+    g.strokeStyle = p.journeyCore;
+    g.globalAlpha = 0.95 * fade;
+    g.lineWidth = (casing ? 3 : 2.2) * sf;
+    g.stroke(route);
+    if (elapsed < travelMs) {
+      // The head: a short bright comet and a glowing point.
+      g.globalAlpha = 1;
+      g.lineWidth = 3.4 * sf;
+      g.stroke(trail);
+      g.beginPath();
+      g.arc(hx, hy, 9 * sf, 0, Math.PI * 2);
+      g.fillStyle = p.journeyGlow;
+      g.globalAlpha = 0.35;
+      g.fill();
+      g.beginPath();
+      g.arc(hx, hy, 3.6 * sf, 0, Math.PI * 2);
+      g.fillStyle = p.journeyCore;
+      g.globalAlpha = 1;
+      g.fill();
+    } else {
+      // Arrived: the outlet breathes while the route holds.
+      const since = elapsed - travelMs;
+      const r = (6 + ((since % 1600) / 1600) * 18) * sf;
+      g.beginPath();
+      g.arc(hx, hy, r, 0, Math.PI * 2);
+      g.strokeStyle = p.journeyCore;
+      g.globalAlpha = (1 - (since % 1600) / 1600) * 0.8 * fade;
+      g.lineWidth = 2 * sf;
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
 }
 
 /**
@@ -624,6 +876,20 @@ function drawMarkShape(
   backing: string | null,
   backedFillAlpha = 1,
 ) {
+  if (style.shape === 'cross') {
+    // Unavailable data: a small ×, never a fill and never a ring.
+    const a = r * 0.85;
+    g.beginPath();
+    g.moveTo(-a, -a);
+    g.lineTo(a, a);
+    g.moveTo(a, -a);
+    g.lineTo(-a, a);
+    g.strokeStyle = color;
+    g.lineWidth = Math.max(0.7, r * 0.42);
+    g.lineCap = 'round';
+    g.stroke();
+    return;
+  }
   if (style.shape === 'ring') {
     const w = Math.max(0.75, r * 0.4);
     shapePath(g, style.shape, r);

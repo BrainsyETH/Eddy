@@ -5,6 +5,7 @@ import {
   componentOf,
   invertComponent,
   layoutKindFor,
+  locate,
   project,
   projectComponent,
   type Bounds,
@@ -84,8 +85,54 @@ test('portrait moves the insets under the lower 48 without overlap or stretching
   assert.ok(layout.bounds.maxY - layout.bounds.minY > (l48.maxY - l48.minY) * 1.1);
 });
 
+test('wall enlarges Alaska and Hawaii into the Pacific corner, clear of the border', () => {
+  const layout = buildLayout('wall', COMPONENT_BOUNDS);
+  const ak = placed(COMPONENT_BOUNDS.ak, layout.affine.ak);
+  const hi = placed(COMPONENT_BOUNDS.hi, layout.affine.hi);
+  assert.deepEqual(layout.affine.l48, { s: 1, dx: 0, dy: 0 }, 'the lower 48 never moves');
+  assert.ok(layout.affine.ak.s > 1.2 && layout.affine.hi.s > 1.2, 'both insets read larger than geoAlbersUsa’s');
+  assert.ok(!overlaps(ak, hi));
+  // No lower-48 border point may fall inside an inset box.
+  const border: Array<[string, number, number]> = [
+    ['San Diego', -117.16, 32.7], ['Yuma', -114.6, 32.7], ['Nogales', -110.9, 31.3], ['El Paso', -106.5, 31.8],
+    ['Big Bend', -103.2, 29.2], ['Del Rio', -100.9, 29.4], ['Laredo', -99.5, 27.5], ['Brownsville', -97.5, 25.9],
+  ];
+  const inside = (b: Bounds, [x, y]: [number, number]) => x > b.minX && x < b.maxX && y > b.minY && y < b.maxY;
+  for (const [name, lng, lat] of border) {
+    const p = project(lng, lat);
+    assert.ok(!inside(ak, p) && !inside(hi, p), `${name} stays clear of the insets`);
+  }
+  // Still a wide composition: a 16:9 wall fills by height, not by a sliver.
+  const aspect = (layout.bounds.maxX - layout.bounds.minX) / (layout.bounds.maxY - layout.bounds.minY);
+  assert.ok(aspect > 1.5 && aspect < 1.9, `wall aspect ${aspect.toFixed(2)}`);
+});
+
 test('landscape is geoAlbersUsa’s own composition', () => {
   const layout = buildLayout('landscape', COMPONENT_BOUNDS);
   for (const c of ['l48', 'ak', 'hi'] as MapComponent[]) assert.deepEqual(layout.affine[c], { s: 1, dx: 0, dy: 0 });
   assert.equal(layout.bounds.minX, 31);
+});
+
+test('a view is carried across layouts as a place, not a layout point', () => {
+  // Reported: a centred Anchorage view, carried by layout coordinates into the
+  // wall layout (where Alaska moves and enlarges), landed near 64.9°N 145.8°W.
+  const land = buildLayout('landscape', COMPONENT_BOUNDS);
+  const wall = buildLayout('wall', COMPONENT_BOUNDS);
+  for (const [name, lng, lat] of [['Anchorage', -149.9, 61.2], ['Honolulu', -157.86, 21.3], ['St. Louis', -90.2, 38.63]] as const) {
+    const comp = componentOf(lng, lat);
+    const [fx, fy] = projectComponent(comp, lng, lat);
+    const a = land.affine[comp];
+    const [lx, ly] = [fx * a.s + a.dx, fy * a.s + a.dy];
+    // The old carry: same layout point in the new layout.
+    const wrong = locate(wall, lx, ly);
+    const [wlng, wlat] = invertComponent(wrong.component, wrong.x, wrong.y);
+    if (comp !== 'l48') assert.ok(Math.hypot(wlng - lng, wlat - lat) > 1, `${name}: the layout point is a different place in the wall`);
+    // The carry now: locate the place, then lay it out with the new affine.
+    const here = locate(land, lx, ly);
+    assert.equal(here.component, comp);
+    const b = wall.affine[here.component];
+    const back = locate(wall, here.x * b.s + b.dx, here.y * b.s + b.dy);
+    const [glng, glat] = invertComponent(back.component, back.x, back.y);
+    assert.ok(Math.abs(glng - lng) < 1e-6 && Math.abs(glat - lat) < 1e-6, `${name} stays ${lng},${lat} (got ${glng},${glat})`);
+  }
 });

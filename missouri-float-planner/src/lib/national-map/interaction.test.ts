@@ -40,8 +40,11 @@ test('preferences are scoped to this page and never restore fullscreen or a tour
   assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs('{bad'), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs(JSON.stringify({ view: 'flooding', appearance: 'dark', motion: false, displayDetails: true, fullscreen: true, tour: true })), {
-    view: 'flooding', appearance: 'dark', motion: false, displayDetails: true,
+    view: 'flooding', appearance: 'dark', motion: false, displayDetails: true, flowColors: 'eddy',
   });
+  assert.equal(DEFAULT_PREFS.flowColors, 'eddy', 'the vivid Flow colours are opt-in');
+  assert.equal(parsePrefs(JSON.stringify({ flowColors: 'vivid' })).flowColors, 'vivid');
+  assert.equal(parsePrefs(JSON.stringify({ flowColors: 'neon' })).flowColors, 'eddy');
   assert.equal(parsePrefs(JSON.stringify({ view: 'change' })).view, 'flow', 'unknown views fall back to Flow');
   assert.equal(DEFAULT_PREFS.appearance, 'system');
   assert.equal(DEFAULT_PREFS.view, 'flow');

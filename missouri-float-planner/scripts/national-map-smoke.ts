@@ -108,6 +108,32 @@ function layerInk(page: Page, nth: number) {
   }, nth);
 }
 
+/**
+ * Where the geography landed: the base layer's non-background bounding box as
+ * fractions of the canvas [left, top, right, bottom].
+ */
+function geographyBox(page: Page) {
+  return page.evaluate(() => {
+    const c = document.querySelector<HTMLCanvasElement>('[aria-roledescription="map"] canvas')!;
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    // The corner is open water / page background; geography is whatever differs.
+    const bg = [d[0], d[1], d[2], d[3]];
+    let minX = c.width, minY = c.height, maxX = -1, maxY = -1;
+    for (let y = 0; y < c.height; y += 2) {
+      for (let x = 0; x < c.width; x += 2) {
+        const i = (y * c.width + x) * 4;
+        if (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) + Math.abs(d[i + 3] - bg[3]) > 24) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    return [minX / c.width, minY / c.height, maxX / c.width, maxY / c.height];
+  });
+}
+
 /** Text a person could actually see inside the map root. */
 function visibleText(page: Page) {
   return page.evaluate(() => {
@@ -214,9 +240,25 @@ async function main() {
     await page.getByRole('button', { name: 'Map settings' }).click();
 
     // ── 3. Map only: no text, no controls; a tap reveals the tray ───────
+    // Framing regression: a small off-centre zoom, then fullscreen, used to
+    // leave the country small and low in the wall frame; exit kept the shift.
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Show the whole country' }).click();
+    await page.waitForTimeout(400);
+    await page.mouse.move(1150, 300);
+    await page.mouse.wheel(0, -150);
+    await page.waitForTimeout(600);
+    const explorBox = await geographyBox(page);
     await page.getByRole('button', { name: 'Fullscreen map' }).click();
     await page.locator('[data-presentation="map-only"]').waitFor();
     await page.waitForTimeout(600);
+    const wallBox = await geographyBox(page);
+    const [l, t, r, b] = wallBox;
+    assert.ok(Math.abs((l + r) / 2 - 0.5) < 0.02 && Math.abs((t + b) / 2 - 0.5) < 0.02, `fullscreen centres the country (got ${wallBox.map((v) => v.toFixed(3))})`);
+    assert.ok(r - l > 0.9 || b - t > 0.9, `fullscreen fills the frame (got ${wallBox.map((v) => v.toFixed(3))})`);
+    // The wall opens on "Follow the river" (motion on, data live), and the
+    // journey adds no words to map-only (asserted just below).
+    assert.equal(await page.locator('[data-act]').getAttribute('data-act'), 'journey', 'fullscreen opens with a river journey');
     assert.deepEqual(await visibleText(page), [], 'map-only shows no words at all');
     assert.equal(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), false, 'no persistent controls');
     await page.screenshot({ path: `${OUT_DIR}/national-map-only.png` });
@@ -238,7 +280,10 @@ async function main() {
     await page.locator('[data-presentation="explore"]').waitFor();
     await page.waitForTimeout(300);
     assert.match(await focused(), /Fullscreen map/, 'leaving fullscreen returns focus to the Fullscreen button');
-    console.log('PASS map-only is text-free, the tray reveals and hides, Escape exits to the trigger');
+    await page.waitForTimeout(500);
+    const backBox = await geographyBox(page);
+    assert.ok(backBox.every((v, i) => Math.abs(v - explorBox[i]) < 0.01), `leaving fullscreen restores the Explore framing (${explorBox} → ${backBox})`);
+    console.log('PASS map-only is text-free and centred, the tray reveals and hides, Escape exits to the trigger and the prior view');
 
     // ── 4. Preferences stay on this page ────────────────────────────────
     const keys = await page.evaluate(() => Object.keys(localStorage));
@@ -246,6 +291,51 @@ async function main() {
     assert.ok(!keys.includes('eddy-web-gauge-layers-v1'), 'the planner’s layer choices are untouched');
     assert.deepEqual(errors, []);
     await page.close();
+
+    // ── 4b. A zoomed Alaska view keeps its place in fullscreen ───────────
+    // The wall layout moves and enlarges the insets; the centre must stay
+    // the same PLACE (it once drifted from Anchorage toward Fairbanks).
+    const ak = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await intercept(ak, 5 * 60_000);
+    await ak.goto(`${target}?at=-149.9,61.2,4`, { waitUntil: 'domcontentloaded' });
+    await ak.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    // The shared view must survive load (it once lost a race with the first
+    // fit and reopened on the national view) and is re-written by the camera.
+    // The camera rewrites the link (commas encoded) once it has applied it.
+    await ak.waitForFunction(() => location.search.includes('%2C'), null, { timeout: 60_000 });
+    const shared = new URL(ak.url()).searchParams.get('at')?.split(',').map(Number) ?? [];
+    assert.ok(shared[0] < -140 && shared[1] > 55, `the shared Alaska view survived load (got ${shared.join(',')})`);
+    await ak.waitForTimeout(500);
+    await ak.getByRole('button', { name: 'Fullscreen map' }).click();
+    await ak.locator('[data-presentation="map-only"]').waitFor();
+    await ak.waitForTimeout(1200); // the share link updates 400 ms after the camera settles
+    const at = new URL(ak.url()).searchParams.get('at')?.split(',').map(Number) ?? [];
+    assert.ok(
+      at.length === 3 && Math.abs(at[0] - -149.9) < 0.3 && Math.abs(at[1] - 61.2) < 0.3,
+      `fullscreen keeps Anchorage centred (got ${at.join(',')})`,
+    );
+    await ak.close();
+    console.log('PASS a shared Alaska view survives load and keeps its place entering the wall layout');
+
+    // ── 4c. A regional wall plays what it can see ───────────────────────
+    // At 6× around the Meramec most national journeys never enter the view;
+    // the regional wall picks a visible stretch of river instead.
+    const reg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await intercept(reg, 5 * 60_000);
+    await reg.goto(`${target}?at=-90.59,38.51,6`, { waitUntil: 'domcontentloaded' });
+    await reg.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await reg.waitForFunction(() => location.search.includes('%2C'), null, { timeout: 60_000 });
+    await reg.getByRole('button', { name: 'Fullscreen map' }).click();
+    await reg.locator('[data-region="regional"]').waitFor({ timeout: 10_000 });
+    assert.equal(await reg.locator('[data-act]').getAttribute('data-act'), 'journey', 'a visible river journey runs at regional zoom');
+    await reg.keyboard.press('Escape');
+    await reg.getByRole('button', { name: 'Show the whole country' }).click();
+    await reg.getByRole('button', { name: 'Fullscreen map' }).click();
+    await reg.locator('[data-presentation="map-only"]').waitFor();
+    await reg.waitForTimeout(600);
+    assert.equal(await reg.locator('[data-region]').getAttribute('data-region'), 'national', 'the national view runs the national sequence');
+    await reg.close();
+    console.log('PASS a regional wall runs visible journeys; the national wall the national sequence');
 
     // ── 5. A fully stale snapshot stops data-driven motion ──────────────
     const stale = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -315,11 +405,13 @@ async function main() {
     await noaa.waitForTimeout(800);
     assert.deepEqual(await visibleText(noaa), [], 'still text-free while unavailable');
     assert.equal(await layerInk(noaa, 1), 0, 'and still motionless');
+    assert.notEqual(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'no river journey while the view is not live');
     await noaa.mouse.click(640, 400);
     await noaa.getByText('NWS flood status is unavailable right now').waitFor();
     await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
     await noaa.waitForTimeout(1200);
     assert.ok((await layerInk(noaa, 1)) > 0, 'Flow, which does not depend on NWS, keeps its motion');
+    assert.equal(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'and Flow runs the journey');
     console.log('PASS NOAA outage: Flooding still and subdued, tray says why; Flow unaffected');
     await noaa.close();
 

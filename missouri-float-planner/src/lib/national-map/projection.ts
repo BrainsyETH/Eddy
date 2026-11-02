@@ -43,6 +43,13 @@ const COMPONENTS: Record<MapComponent, ConicParams> = {
   hi: { rotate: 157, center: [-3, 19.9], parallels: [8, 18], scale: 1, offset: [-0.205, 0.212] },
 };
 
+/** Each inset's scale relative to the lower 48 (Alaska is drawn at 0.35). */
+export const COMPONENT_SCALE: Record<MapComponent, number> = {
+  l48: COMPONENTS.l48.scale,
+  ak: COMPONENTS.ak.scale,
+  hi: COMPONENTS.hi.scale,
+};
+
 /**
  * geoAlbersUsa's default scale and translate. The landscape frame is therefore
  * the familiar ~960×500 composition; the renderer fits it to any viewport.
@@ -155,13 +162,32 @@ export interface Affine {
   dy: number;
 }
 
-export type LayoutKind = 'landscape' | 'portrait';
+export type LayoutKind = 'landscape' | 'portrait' | 'wall';
 
 export interface Layout {
   kind: LayoutKind;
   affine: Record<MapComponent, Affine>;
   /** The composed frame every camera fit targets. */
   bounds: Bounds;
+  /** Each component's laid-out bounds (where an inset sits in this layout). */
+  parts: Record<MapComponent, Bounds>;
+}
+
+/**
+ * Which component a laid-out point belongs to, and where it is in the
+ * landscape (projected) frame. This — not the layout point — is what names a
+ * PLACE: the wall moves and enlarges the insets, so the same layout point is
+ * a different place in another layout (a centred Anchorage view once landed
+ * near Fairbanks). Insets are tested first; the lower 48 is the default.
+ */
+export function locate(layout: Layout, lx: number, ly: number): { component: MapComponent; x: number; y: number } {
+  let component: MapComponent = 'l48';
+  for (const c of ['ak', 'hi'] as MapComponent[]) {
+    const b = layout.parts[c];
+    if (lx >= b.minX && lx <= b.maxX && ly >= b.minY && ly <= b.maxY) component = c;
+  }
+  const a = layout.affine[component];
+  return { component, x: (lx - a.dx) / a.s, y: (ly - a.dy) / a.s };
 }
 
 const IDENTITY: Affine = { s: 1, dx: 0, dy: 0 };
@@ -200,10 +226,37 @@ export function layoutKindFor(width: number, height: number): LayoutKind {
  * scaled together so the pair spans the lower 48's width. Their relative size
  * stays geoAlbersUsa's — only position and a shared scale change.
  */
+/** Wall display: Alaska and Hawaii enlarged so they read across a room. */
+export const WALL_AK_SCALE = 1.3;
+export const WALL_HI_SCALE = 1.25;
+
 export function buildLayout(kind: LayoutKind, componentBounds: Record<MapComponent, Bounds>): Layout {
+  if (kind === 'wall') {
+    // The landscape composition, with the insets enlarged and set into the
+    // Pacific / Gulf corner below the Southwest — still separate, still in
+    // proper geometry, now large enough to be seen on a TV. Offsets are
+    // relative to the lower 48's bounds so a geometry rebuild keeps them.
+    const l48 = componentBounds.l48;
+    const ak = componentBounds.ak;
+    const hi = componentBounds.hi;
+    const w = l48.maxX - l48.minX;
+    const akRight = l48.minX + w * 0.21;
+    const akTop = l48.maxY - (l48.maxY - l48.minY) * 0.215;
+    const akA: Affine = { s: WALL_AK_SCALE, dx: akRight - ak.maxX * WALL_AK_SCALE, dy: akTop - ak.minY * WALL_AK_SCALE };
+    const akBottom = akTop + (ak.maxY - ak.minY) * WALL_AK_SCALE;
+    const hiLeft = akRight + w * 0.017;
+    const hiA: Affine = {
+      s: WALL_HI_SCALE,
+      dx: hiLeft - hi.minX * WALL_HI_SCALE,
+      dy: akBottom - (hi.maxY - hi.minY) * WALL_HI_SCALE - hi.minY * WALL_HI_SCALE,
+    };
+    const affine = { l48: IDENTITY, ak: akA, hi: hiA };
+    const parts = { l48, ak: affineBounds(akA, ak), hi: affineBounds(hiA, hi) };
+    return { kind, affine, bounds: union(Object.values(parts)), parts };
+  }
   if (kind === 'landscape') {
     const affine = { l48: IDENTITY, ak: IDENTITY, hi: IDENTITY };
-    return { kind, affine, bounds: union(Object.values(componentBounds)) };
+    return { kind, affine, bounds: union(Object.values(componentBounds)), parts: { ...componentBounds } };
   }
   const l48 = componentBounds.l48;
   const ak = componentBounds.ak;
@@ -225,9 +278,57 @@ export function buildLayout(kind: LayoutKind, componentBounds: Record<MapCompone
     dy: akBottom - hiH - hi.minY * s,
   };
   const affine = { l48: IDENTITY, ak: akA, hi: hiA };
-  return {
-    kind,
-    affine,
-    bounds: union([l48, affineBounds(akA, ak), affineBounds(hiA, hi)]),
-  };
+  const parts = { l48, ak: affineBounds(akA, ak), hi: affineBounds(hiA, hi) };
+  return { kind, affine, bounds: union(Object.values(parts)), parts };
+}
+
+// ── Visible region ──────────────────────────────────────────────────────────
+// What a regional (zoomed) display can see, per component, in the projected
+// landscape frame — the coordinates sites and river lines are stored in, so
+// a region test needs no layout. Components the view does not reach get an
+// empty box.
+
+export type Region = Record<MapComponent, Bounds>;
+
+const EMPTY: Bounds = { minX: 1, minY: 1, maxX: 0, maxY: 0 };
+
+/** The region a layout-space box shows, inset by `margin` (fraction of its size). */
+export function regionOf(layout: Layout, box: Bounds, margin = 0.06): Region {
+  const mx = (box.maxX - box.minX) * margin;
+  const my = (box.maxY - box.minY) * margin;
+  const inner = { minX: box.minX + mx, minY: box.minY + my, maxX: box.maxX - mx, maxY: box.maxY - my };
+  const out = {} as Region;
+  for (const c of ['l48', 'ak', 'hi'] as MapComponent[]) {
+    const part = layout.parts[c];
+    const clip = {
+      minX: Math.max(inner.minX, part.minX),
+      minY: Math.max(inner.minY, part.minY),
+      maxX: Math.min(inner.maxX, part.maxX),
+      maxY: Math.min(inner.maxY, part.maxY),
+    };
+    if (clip.minX >= clip.maxX || clip.minY >= clip.maxY) {
+      out[c] = EMPTY;
+      continue;
+    }
+    const a = layout.affine[c];
+    out[c] = {
+      minX: (clip.minX - a.dx) / a.s,
+      minY: (clip.minY - a.dy) / a.s,
+      maxX: (clip.maxX - a.dx) / a.s,
+      maxY: (clip.maxY - a.dy) / a.s,
+    };
+  }
+  return out;
+}
+
+export function inRegion(region: Region, component: MapComponent, x: number, y: number): boolean {
+  const b = region[component];
+  return x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY;
+}
+
+/** The largest visible extent among components, in frame px (for scaling spacing rules). */
+export function regionSpan(region: Region): number {
+  let span = 0;
+  for (const b of Object.values(region)) if (b.maxX > b.minX) span = Math.max(span, b.maxX - b.minX, b.maxY - b.minY);
+  return span;
 }
