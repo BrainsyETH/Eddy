@@ -36,15 +36,9 @@ interface Props {
   children?: ReactNode;
   /** Optional local actions beside the observation age, such as refresh. */
   footerActions?: ReactNode;
-  /**
-   * Replaces the header and scale — the dam panel on a tailwater's own unrated
-   * release, where the schedule is the answer and "Not rated" beside a bare
-   * number is not. The children, the age and the ⓘ sheet stay.
-   */
-  lead?: ReactNode;
 }
 
-export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children, footerActions, lead }: Props) {
+export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children, footerActions }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [infoOpen, setInfoOpen] = useState(false);
   const close = () => setInfoOpen(false);
@@ -69,37 +63,33 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
     <>
       {stationLabel ? <Text style={[styles.station, { color: colors.textMuted }]}>{stationLabel}</Text> : null}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-        {lead ?? (
-          <>
-            <View style={styles.header}>
-              {verdict ? <Otter mood={otterForCondition(code ?? 'unknown')} size={52} /> : null}
-              <View style={styles.headerCopy}>
-                {verdict ? (
-                  <Text accessibilityRole="header" style={[styles.verdict, { color: verdict.lastKnown ? colors.textMuted : conditionText(code ?? 'unknown', isDark) }]}>
-                    {verdict.code === 'unknown' ? statusLabel : readingSummaryVerdict(verdict.code, verdict.lastKnown)}
-                  </Text>
-                ) : resolving ? (
-                  <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.resolving, { backgroundColor: colors.cardRaised }]} />
-                ) : null}
-                {!verdict && !resolving && thresholds && !hasLadder(thresholds) ? <Text style={[styles.station, { color: colors.textMuted }]}>Not rated</Text> : null}
-                <View style={styles.readingRow}>
-                  <Text style={[reading ? styles.reading : styles.noReading, { color: reading ? colors.text : colors.textMuted }]}>
-                    {reading ? formatReading(reading.value, reading.unit) : 'No reading available'}
-                  </Text>
-                  {trend ? (
-                    <View style={styles.trend}>
-                      <Ionicons name={TREND_ICON[trend.direction]} size={13} color={colors.textMuted} />
-                      {trend.label ? <Text style={[styles.trendText, { color: colors.textMuted }]}>{trend.label}</Text> : null}
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-            {hasScale && thresholds && reading ? (
-              <ReadingScale thresholds={thresholds} value={verdict?.code === 'unknown' ? null : reading.value} unit={reading.unit} summary muted={mutedScale} />
+        <View style={styles.header}>
+          {verdict ? <Otter mood={otterForCondition(code ?? 'unknown')} size={52} /> : null}
+          <View style={styles.headerCopy}>
+            {verdict ? (
+              <Text accessibilityRole="header" style={[styles.verdict, { color: verdict.lastKnown ? colors.textMuted : conditionText(code ?? 'unknown', isDark) }]}>
+                {verdict.code === 'unknown' ? statusLabel : readingSummaryVerdict(verdict.code, verdict.lastKnown)}
+              </Text>
+            ) : resolving ? (
+              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.resolving, { backgroundColor: colors.cardRaised }]} />
             ) : null}
-          </>
-        )}
+            {!verdict && !resolving && thresholds && !hasLadder(thresholds) ? <Text style={[styles.station, { color: colors.textMuted }]}>Not rated</Text> : null}
+            <View style={styles.readingRow}>
+              <Text style={[reading ? styles.reading : styles.noReading, { color: reading ? colors.text : colors.textMuted }]}>
+                {reading ? formatReading(reading.value, reading.unit) : 'No reading available'}
+              </Text>
+              {trend ? (
+                <View style={styles.trend}>
+                  <Ionicons name={TREND_ICON[trend.direction]} size={13} color={colors.textMuted} />
+                  {trend.label ? <Text style={[styles.trendText, { color: colors.textMuted }]}>{trend.label}</Text> : null}
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </View>
+        {hasScale && thresholds && reading ? (
+          <ReadingScale thresholds={thresholds} value={verdict?.code === 'unknown' ? null : reading.value} unit={reading.unit} summary muted={mutedScale} />
+        ) : null}
         {context ? <Text style={[styles.context, { color: colors.textMuted, borderTopColor: colors.border }]}>{context}</Text> : null}
         {children}
         <View style={styles.footer}>

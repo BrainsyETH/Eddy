@@ -10,8 +10,8 @@
 // rather than in a row under it. Two positions (the river screen picks, per
 // shared/dam-release-tab.ts):
 //
-//   lead    on the dam's own unrated release, in place of "Not rated" and a
-//           bare number. A release has no float ladder, and one cannot be
+//   lead    on the dam's own unrated release, as the WHOLE card, in place of
+//           the reading card's "Not rated", bare number and age row. A release has no float ladder, and one cannot be
 //           borrowed (shared/tailwater-status.ts); the dam is the answer. It
 //           draws Tomorrow's bars too: anglers plan the night before, and SWPA
 //           posts the afternoon before.
@@ -60,7 +60,7 @@ export function RiverDamPanel({ dam, position, now }: {
   /** The screen's observation clock, so the caveat lines age with the reading. */
   now: number;
 }) {
-  const { colors } = useTheme();
+  const { colors, elevation } = useTheme();
   const router = useRouter();
 
   if (!damHasPanel(dam)) return null;
@@ -71,7 +71,11 @@ export function RiverDamPanel({ dam, position, now }: {
   const supporting = buildTailwaterStatus(dam, now)?.supporting ?? [];
 
   return (
-    <View style={position === 'footer' ? [styles.footer, { borderTopColor: colors.border }] : styles.lead}>
+    <View style={position === 'footer'
+      ? [styles.footer, { borderTopColor: colors.border }]
+      // The reading card's own frame, so the card does not change shape
+      // between a gauge tab and the dam's tab.
+      : [styles.lead, { backgroundColor: colors.card }, elevation(2)]}>
       <Pressable
         onPress={open}
         accessibilityRole="button"
@@ -97,7 +101,7 @@ export function RiverDamPanel({ dam, position, now }: {
 // Layout only — every colour is applied inline from the theme. The card around
 // this already pads 16, so nothing here carries a horizontal margin.
 const styles = StyleSheet.create({
-  lead: { marginBottom: 4 },
+  lead: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14, borderRadius: 16, marginBottom: 10 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 4 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 44 },
   title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1 },

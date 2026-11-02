@@ -855,6 +855,29 @@ export const OTHER_RELEASE_FLOOR_CFS = 50;
 export const OTHER_RELEASE_FRACTION_OF_FULL = 0.02;
 
 /**
+ * Whether total release would only repeat the turbine figure: both are spot
+ * readings, taken within OBSERVATION_ALIGNMENT_MINUTES of each other, and
+ * equal to the cfs. Bull Shoals routinely reports the same value for both
+ * (683 and 683), and a hero that prints the number twice, three lines apart,
+ * makes the reader look for a difference that is not there.
+ *
+ * Says nothing about WHY they match — all through the turbines, or two names
+ * for one series (see ReleaseComparison). The UI says only that total release
+ * reads the same, with no interpretation.
+ */
+export function releaseRepeatsTurbineFlow(
+  generationFlow: DamMetricValue | null | undefined,
+  release: DamMetricValue | null | undefined,
+): boolean {
+  if (!generationFlow || !release || generationFlow.dailyMean || release.dailyMean) return false;
+  const genAt = Date.parse(generationFlow.at);
+  const relAt = Date.parse(release.at);
+  if (!Number.isFinite(genAt) || !Number.isFinite(relAt)) return false;
+  if (Math.abs(genAt - relAt) > OBSERVATION_ALIGNMENT_MINUTES * 60_000) return false;
+  return Math.round(generationFlow.value) === Math.round(release.value);
+}
+
+/**
  * Whether the difference between total release and turbine flow can be stated.
  *
  * ── Why this is a gate and not a subtraction ───────────────────────────────

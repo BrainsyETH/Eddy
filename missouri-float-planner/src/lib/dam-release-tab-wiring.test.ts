@@ -31,11 +31,12 @@ test('the dam panel is inside the reading card, not a section of its own', () =>
   assert.doesNotMatch(read(WEB_NAV), /id: 'dam'/, 'no nav tab scrolling to a section that is gone');
 
   const detail = read(WEB_DETAIL);
-  assert.match(detail, /lead=\{damLeads \? damLead : undefined\}/);
-  assert.match(detail, /footer=\{damLeads \? undefined : damFooter\}/);
+  // On the dam tab the dam block IS the card: nothing of the gauge card follows it.
+  assert.match(detail, /\{damLeads \? \(\s*<div className="card-framed bg-white"[^>]*>\s*\{damLead\}\s*<\/div>\s*\) : \(\s*<CurrentReadingCard/);
+  assert.match(detail, /footer=\{damFooter\}/);
 
   const ios = read(IOS_RIVER);
-  assert.match(ios, /lead=\{damLeads \? <RiverDamPanel/);
+  assert.match(ios, /\{damLeads \? \(\s*<RiverDamPanel dam=\{dam\} position="lead"/, 'on the dam tab the dam block is the whole card');
   assert.match(ios, /position="footer"/);
 });
 

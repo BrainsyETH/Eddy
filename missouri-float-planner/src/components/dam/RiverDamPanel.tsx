@@ -10,8 +10,9 @@
 // it is in the card now, in one of two positions (RiverGaugeDetail picks, per
 // shared/dam-release-tab.ts):
 //
-//   lead    on the dam's own unrated release, in place of an "Unknown" verdict
-//           and "Not rated by Eddy". The release has no float ladder
+//   lead    on the dam's own unrated release, as the WHOLE card, in place of an
+//           "Unknown" verdict, "Not rated by Eddy" and the gauge card's rows
+//           and age line, which only restated it. The release has no float ladder
 //           (shared/tailwater-status.ts says why one cannot be borrowed), so the
 //           dam is the answer: it opens the card, and draws Tomorrow's bars too,
 //           because anglers plan the night before and SWPA posts the afternoon
@@ -114,7 +115,9 @@ export default function RiverDamPanel({
           </ul>
         )}
 
-        <div className={`flex justify-end ${lead ? 'pt-2' : 'pb-3 pt-2'}`}>
+        {/* The last line of the card in both positions: on the dam tab the
+            dam block is the whole card, and nothing follows the check. */}
+        <div className="flex justify-end pb-3 pt-2">
           {scheduleCheck && <ScheduleCheck check={scheduleCheck} />}
         </div>
       </div>

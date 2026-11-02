@@ -130,9 +130,10 @@ decision 9, and `shared/dam-release-tab.ts` describe the rule. Check each on
 the White (Bull Shoals release, Norfork release, Norfork and Calico Rock USGS
 tabs) and on the Black.
 
-- [ ] **Bull Shoals release tab:** the reading card opens with the Favorites
-      dam card's body (turbine flow, Today's and Tomorrow's bars on one scale,
-      the now marker), with no "Not rated" line; the Eddy's take
+- [ ] **Bull Shoals release tab:** the card is the Favorites dam card's body
+      alone (turbine flow, Today's and Tomorrow's bars on one scale, the now
+      marker, "At the dam"), with no "Not rated" line and no age row or ⓘ
+      under it; the Eddy's take
       card shows the dam's Read (member), or its frosted shape under one lock
       row (non-member), with Weather and no Bottom line.
 - [ ] **Norfork release tab on the White:** Eddy's take carries Norfork Dam's

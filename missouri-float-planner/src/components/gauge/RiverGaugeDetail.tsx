@@ -490,51 +490,58 @@ export default function RiverGaugeDetail({
             reference material. */}
         <div className="space-y-6">
         <div>
-          <CurrentReadingCard
-            key={`reading-${activeSiteId}`}
-            siteId={activeGauge.usgsSiteId}
-            gaugeHeightFt={activeGauge.gaugeHeightFt}
-            dischargeCfs={activeGauge.dischargeCfs}
-            thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
-            conditionCode={condition.code}
-            // The dam's readings band carries water temperature when the dam
-            // leads the card; printing it twice invites comparing them.
-            waterTempF={damLeads ? null : gaugeDetail?.waterTemperature?.valueF ?? null}
-            waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
-            dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
-            dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}
-            waterQualitySourceName={
-              gaugeDetail?.dissolvedOxygen?.measuredAtName ??
-              gaugeDetail?.waterTemperature?.measuredAtName ??
-              null
-            }
-            readingAgeHours={activeGauge.readingAgeHours}
-            zones={ladderZones}
-            lead={damLeads ? damLead : undefined}
-            footer={damLeads ? undefined : damFooter}
-          >
-            {/* Safety and forecast only — the card above already shows the
-                level, trend and verdict. */}
-            <GaugeSummary
-              hideCurrentReading
-              bare
+          {/* On the dam's own unrated release the dam IS the card: its
+              readings, schedule and schedule check, and nothing after. The
+              gauge card's water quality, Lately/Safety/Forecast rows and
+              "Updated" line restated the dam block's temperature and age in a
+              second voice, and doubled the card's height. */}
+          {damLeads ? (
+            <div className="card-framed bg-white" role="group" aria-labelledby="river-dam-heading">
+              {damLead}
+            </div>
+          ) : (
+            <CurrentReadingCard
+              key={`reading-${activeSiteId}`}
               siteId={activeGauge.usgsSiteId}
-              days={7}
-              tier={tier}
-              provider={gaugeDetail?.provider ?? 'usgs'}
               gaugeHeightFt={activeGauge.gaugeHeightFt}
               dischargeCfs={activeGauge.dischargeCfs}
-              primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
-              readingAgeHours={activeGauge.readingAgeHours}
-              readingSuspect={gaugeDetail?.readingSuspect ?? false}
-              qualifierNote={gaugeDetail?.qualifierNote ?? null}
+              thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
               conditionCode={condition.code}
-              flowPercentile={gaugeDetail?.flowPercentile ?? null}
-              floodStages={gaugeDetail?.floodStages ?? null}
-              waterTemperature={gaugeDetail?.waterTemperature ?? null}
-              hideRatingNote={damLeads}
-            />
-          </CurrentReadingCard>
+              waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+              waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
+              dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
+              dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}
+              waterQualitySourceName={
+                gaugeDetail?.dissolvedOxygen?.measuredAtName ??
+                gaugeDetail?.waterTemperature?.measuredAtName ??
+                null
+              }
+              readingAgeHours={activeGauge.readingAgeHours}
+              zones={ladderZones}
+              footer={damFooter}
+            >
+              {/* Safety and forecast only — the card above already shows the
+                  level, trend and verdict. */}
+              <GaugeSummary
+                hideCurrentReading
+                bare
+                siteId={activeGauge.usgsSiteId}
+                days={7}
+                tier={tier}
+                provider={gaugeDetail?.provider ?? 'usgs'}
+                gaugeHeightFt={activeGauge.gaugeHeightFt}
+                dischargeCfs={activeGauge.dischargeCfs}
+                primaryUnit={activeThreshold?.thresholdUnit || 'ft'}
+                readingAgeHours={activeGauge.readingAgeHours}
+                readingSuspect={gaugeDetail?.readingSuspect ?? false}
+                qualifierNote={gaugeDetail?.qualifierNote ?? null}
+                conditionCode={condition.code}
+                flowPercentile={gaugeDetail?.flowPercentile ?? null}
+                floodStages={gaugeDetail?.floodStages ?? null}
+                waterTemperature={gaugeDetail?.waterTemperature ?? null}
+              />
+            </CurrentReadingCard>
+          )}
 
         </div>
 

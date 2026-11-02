@@ -63,12 +63,9 @@ interface CurrentReadingCardProps {
   /** Footer rows under the reading — the river page passes its safety and forecast lines. */
   children?: React.ReactNode;
   /**
-   * Replaces the verdict header (otter, condition, number, ladder) — the dam
-   * panel on a tailwater's own unrated release, where the dam is the answer
-   * and "Unknown" is not. Water quality, the footer rows and the age stay.
+   * The last block inside the frame — the dam panel, on every tab but the
+   * dam's own release (where the dam panel is the whole card instead).
    */
-  lead?: React.ReactNode;
-  /** The last block inside the frame — the dam panel on every other tab. */
   footer?: React.ReactNode;
 }
 
@@ -88,7 +85,6 @@ export default function CurrentReadingCard({
   className = '',
   embedded = false,
   children,
-  lead,
   footer,
 }: CurrentReadingCardProps) {
   const { data: history } = useGaugeHistory(siteId, 14);
@@ -135,84 +131,79 @@ export default function CurrentReadingCard({
     <div
       className={`${embedded ? '' : 'card-framed'} bg-white ${className}`}
       role="group"
-      aria-label={lead ? undefined : 'Current gauge reading'}
-      aria-labelledby={lead ? 'river-dam-heading' : undefined}
+      aria-label="Current gauge reading"
     >
-      {lead ?? (
-        <>
-        {/* One concise spoken summary instead of letting screen readers re-read
-            the card on every background poll. */}
-        <p className="sr-only" aria-live="polite">
-          {conditionLabel ? `${conditionLabel}. ` : ''}
-          {gaugeHeightFt !== null ? `Stage ${formatFt(gaugeHeightFt)} feet. ` : ''}
-          {dischargeCfs !== null ? `Flow ${formatCfs(dischargeCfs)} cubic feet per second. ` : ''}
-          {activeZone ? `${activeZone.label} range is ${formatZoneRange(activeZone, thresholdUnit)}. ` : ''}
-          {trend ? `${trend.label}.` : ''}
-        </p>
+      {/* One concise spoken summary instead of letting screen readers re-read
+          the card on every background poll. */}
+      <p className="sr-only" aria-live="polite">
+        {conditionLabel ? `${conditionLabel}. ` : ''}
+        {gaugeHeightFt !== null ? `Stage ${formatFt(gaugeHeightFt)} feet. ` : ''}
+        {dischargeCfs !== null ? `Flow ${formatCfs(dischargeCfs)} cubic feet per second. ` : ''}
+        {activeZone ? `${activeZone.label} range is ${formatZoneRange(activeZone, thresholdUnit)}. ` : ''}
+        {trend ? `${trend.label}.` : ''}
+      </p>
 
-        <div className={embedded ? '' : 'px-4 pt-4 sm:px-5'} aria-hidden="true">
-          <div className="flex items-center gap-3">
-            {conditionCode && (
-              <Image
-                src={getEddyImageForCondition(conditionCode)}
-                alt=""
-                width={52}
-                height={52}
-                className="h-[52px] w-[52px] flex-shrink-0 object-contain"
-              />
+      <div className={embedded ? '' : 'px-4 pt-4 sm:px-5'} aria-hidden="true">
+        <div className="flex items-center gap-3">
+          {conditionCode && (
+            <Image
+              src={getEddyImageForCondition(conditionCode)}
+              alt=""
+              width={52}
+              height={52}
+              className="h-[52px] w-[52px] flex-shrink-0 object-contain"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            {conditionLabel && (
+              <p className="text-lg font-semibold leading-tight" style={{ color: ink }}>{conditionLabel}</p>
             )}
-            <div className="min-w-0 flex-1">
-              {conditionLabel && (
-                <p className="text-lg font-semibold leading-tight" style={{ color: ink }}>{conditionLabel}</p>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-2xl font-bold tabular-nums text-neutral-900">{primaryText ?? 'No reading'}</span>
+              {secondaryText && <span className="font-mono text-sm tabular-nums text-neutral-500">{secondaryText}</span>}
+              {trend && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600">
+                  <TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {trend.label}
+                  {trendDelta && <span className="font-mono tabular-nums text-neutral-500">{trendDelta}</span>}
+                </span>
               )}
-              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="font-mono text-2xl font-bold tabular-nums text-neutral-900">{primaryText ?? 'No reading'}</span>
-                {secondaryText && <span className="font-mono text-sm tabular-nums text-neutral-500">{secondaryText}</span>}
-                {trend && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600">
-                    <TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    {trend.label}
-                    {trendDelta && <span className="font-mono tabular-nums text-neutral-500">{trendDelta}</span>}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
+        </div>
 
-          {/* Where this reading sits on the river's ladder. The full ladder with
-              what each band means is the levels table below. */}
-          {ladder.length > 0 && (
-            <div className="mt-4">
-              <div className="relative">
-                <div className="flex h-2.5 overflow-hidden rounded-full">
-                  {ladder.map((zone) => (
-                    <div
-                      key={zone.key}
-                      className="flex-1"
-                      style={{
-                        backgroundColor: zone.color,
-                        opacity: activeZone && zone.key !== activeZone.key ? 0.35 : 1,
-                      }}
-                    />
-                  ))}
-                </div>
-                {markerPercent !== null && (
+        {/* Where this reading sits on the river's ladder. The full ladder with
+            what each band means is the levels table below. */}
+        {ladder.length > 0 && (
+          <div className="mt-4">
+            <div className="relative">
+              <div className="flex h-2.5 overflow-hidden rounded-full">
+                {ladder.map((zone) => (
                   <div
-                    className="absolute top-1/2 h-[18px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-900 shadow-[0_0_0_2px_#ffffff]"
-                    style={{ left: `${markerPercent}%` }}
+                    key={zone.key}
+                    className="flex-1"
+                    style={{
+                      backgroundColor: zone.color,
+                      opacity: activeZone && zone.key !== activeZone.key ? 0.35 : 1,
+                    }}
                   />
-                )}
+                ))}
               </div>
-              {activeZone && (
-                <p className="mt-1.5 text-xs text-neutral-500">
-                  {activeZone.label}: {formatZoneRange(activeZone, thresholdUnit)}
-                </p>
+              {markerPercent !== null && (
+                <div
+                  className="absolute top-1/2 h-[18px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-900 shadow-[0_0_0_2px_#ffffff]"
+                  style={{ left: `${markerPercent}%` }}
+                />
               )}
             </div>
-          )}
-        </div>
-        </>
-      )}
+            {activeZone && (
+              <p className="mt-1.5 text-xs text-neutral-500">
+                {activeZone.label}: {formatZoneRange(activeZone, thresholdUnit)}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Water quality, when this gauge or a monitor below it publishes it —
           always with its age and, off this gauge, the station it came from. */}
