@@ -1,0 +1,142 @@
+/* The national River Map's surfaces.
+ *
+ * Scoped tokens on the map root: the light appearance uses the site's own
+ * surfaces; the dark appearance uses deep river teal (the plan's direction),
+ * remapping the semantic tokens Button / Segmented already read, so the shared
+ * controls follow the map's appearance without forks. */
+
+.root {
+  --nm-surface: var(--color-surface);
+  --nm-surface-2: var(--color-secondary-50);
+  --nm-ink: var(--color-neutral-900);
+  --nm-ink-2: var(--color-neutral-600);
+  --nm-edge: var(--color-primary-700);
+  --nm-shadow: 3px 3px 0 var(--color-primary-700);
+  --nm-hairline: var(--color-neutral-200);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #FAF8F4;
+  color: var(--nm-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.root[data-theme='dark'] {
+  --color-surface: #0F2D35;
+  --color-surface-hover: #163F4A;
+  --color-surface-pressed: #0A2128;
+  --color-border: #1D525F;
+  --color-border-strong: #256574;
+  --color-text-primary: #F2EAD8;
+  --color-text-secondary: #C2BAAC;
+  --color-text-muted: #A49C8E;
+  --color-text-link: #72B5C4;
+  --color-primary-50: #163F4A;
+  /* Text-on-surface teals (btn-secondary ink, icon hover) lift for deep teal. */
+  --color-primary-700: #A3D1DB;
+  --color-primary-600: #72B5C4;
+  --nm-surface: #0F2D35;
+  --nm-surface-2: #12343D;
+  --nm-ink: #F2EAD8;
+  --nm-ink-2: #C2BAAC;
+  --nm-edge: #4A9AAD;
+  --nm-shadow: 3px 3px 0 #061418;
+  --nm-hairline: #1D525F;
+  background: #0A2128;
+}
+
+/* In-browser fullscreen fallback (no Fullscreen API, e.g. iPhone Safari):
+   the same map-only layout, covering the site chrome. */
+.fallbackFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  height: 100dvh;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  outline: none;
+}
+
+.stage:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--color-primary-300);
+}
+
+.hideCursor,
+.hideCursor * {
+  cursor: none !important;
+}
+
+/* OLED care for unattended displays: the whole composition drifts a few pixels
+   over many minutes. Imperceptible, and off when motion is off. */
+.drift {
+  animation: nm-drift 720s ease-in-out infinite alternate;
+}
+
+@keyframes nm-drift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(3px, -2px); }
+  50% { transform: translate(-2px, 3px); }
+  75% { transform: translate(-3px, -1px); }
+  100% { transform: translate(2px, 2px); }
+}
+
+.panel {
+  background: var(--nm-surface);
+  color: var(--nm-ink);
+  border: 2px solid var(--nm-edge);
+  border-radius: 8px;
+  box-shadow: var(--nm-shadow);
+}
+
+.muted {
+  color: var(--nm-ink-2);
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.hairline {
+  border-top: 1px solid var(--nm-hairline);
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+  font-size: 0.8125rem;
+}
+
+.tray {
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+
+.trayHidden {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+
+.sheet {
+  max-height: min(62dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.fade {
+  transition: opacity var(--duration-slower) var(--ease-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift { animation: none; }
+  .tray, .fade { transition: none; }
+}
