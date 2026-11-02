@@ -127,7 +127,8 @@
         "illinois-upper"
       ],
       "knownBias": "Most upstream OK gauge, near Watts PAA (GRDA RM 3.1). It is just below the Lake Frances dam remnant and WOKA, and above the Flint Creek confluence (RM 16.2), so it reads lower than the river below Flint Creek. GRDA does not use it as a regulatory reference. Eagle Bluff Resort uses it as a 12–18 h lead indicator for its stretch. NWS LID WTTO2; NWPS action and minor flood both 13 ft. Stage at a given flow was the most stable of the three gauges across 2008–2023 (about ±0.5 ft). Discharge since 1955 (daily) and 1990 (IV); gage height IV since 2007.",
-      "measurementUnit": "ft"
+      "measurementUnit": "ft",
+      "positionRiverMile": 50.42
     },
     {
       "provider": "usgs",
@@ -144,7 +145,8 @@
         "illinois-upper"
       ],
       "knownBias": "At Chewey Bridge (GRDA RM 23.6), below Flint Creek. It is the GRDA regulatory reference gauge above RM 40 (OAC 300:40-3-3); Diamondhead and War Eagle outfitters cite it too. NWS LID CWYO2; NWPS action 9 ft, flood 12 ft. CAUTION: the stage–flow relation has swung by about 2 ft between years (summer median at ~250 cfs: 4.81 ft in 2011, 2.41 ft in 2014, 4.20 ft in 2017, 2.28 ft in 2023). This is my analysis of USGS IV pairs; the cause (datum change, relocation or control shift) is unverified. A fixed-ft threshold here has not meant the same flow every year. On 2026-11-02 its provisional discharge (247 cfs) read below Watts (318 cfs) despite 195 sq mi more drainage. IV since June 2010; daily discharge since Oct 2000.",
-      "measurementUnit": "ft"
+      "measurementUnit": "ft",
+      "positionRiverMile": 70.97
     },
     {
       "provider": "usgs",
@@ -160,7 +162,8 @@
         "illinois-upper"
       ],
       "knownBias": "Stage only, with no discharge; IV since May 2018. No NWPS forecast point was found (the MODO2 lookup failed). Probably the 'Moody Bridge' gauge War Eagle Resort cites and Eagle Bluff's 'Combs Bridge' gauge, near Edmondson PAA/New Combs Bridge (GRDA RM 36.2–36.5). That placement is inferred from those outfitter pages and the coordinates and is unverified. Not a GRDA regulatory reference.",
-      "measurementUnit": "ft"
+      "measurementUnit": "ft",
+      "positionRiverMile": 83.37
     },
     {
       "provider": "usgs",
@@ -177,7 +180,8 @@
         "illinois-lower"
       ],
       "knownBias": "Above the Barren Fork confluence (RM 62.5). Barren Fork's 312 sq mi (Eldon gauge 07197000) is not included, so it does not represent the river below RM 62.5. GRDA regulatory reference below RM 40 (OAC 300:40-3-3); American Whitewater's reference for the Watts–Horseshoe Bend reach. Eagle Bluff calls it 'of little help' for the upper river. NWS LID TALO2; NWPS action 9 ft, flood 11 ft. Longest record: discharge daily since 1935. CAUTION: the summer stage at ~400 cfs was 3.20 ft in 2008, then 4.8–5.5 ft from 2011 to 2023. A 2010 watershed blog quoted '2.60 ft / 225 cfs', and today 225 cfs reads about 4.6 ft. This suggests a datum change or channel aggradation between 2008 and 2011 (my analysis of USGS IV; unverified). The 1993-origin GRDA ft limits may predate that shift.",
-      "measurementUnit": "ft"
+      "measurementUnit": "ft",
+      "positionRiverMile": 101.96
     }
   ],
   "sections": [
@@ -646,7 +650,8 @@
       "https://www.peytonsplace.com/ ; https://www.peytonsplace.com/FloatTripsRates.html",
       "https://wareagleresort.com/floating ; https://wareagleresort.com/river-conditions",
       "https://nominatim.openstreetmap.org (GNIS-import access-area nodes; state/county reverse checks)",
-      "https://www.kuaf.com/ozarks-at-large-stories/2020-11-04/new-whitewater-park-under-construction-on-illinois-river"
+      "https://www.kuaf.com/ozarks-at-large-stories/2020-11-04/new-whitewater-park-under-construction-on-illinois-river",
+      "scripts/ingestion/dossiers/verified-identifiers-illinois-river.md (independent identifier and geometry check, 2026-11-02; gauge positionRiverMile measured on the TNM 11110103 dissolve, headwaters = 0)"
     ],
     "openQuestions": [
       "RATING: GRDA's binding Appendix A gives a trusted high/dangerous ladder in ft at polled gauges (Chewey 6.0/9.5; Tahlequah 6.5/9.5), corroborated by the IRA 1993 guidelines and Diamondhead (which says 9 ft = no floating at Chewey). No trusted low end exists. A high/dangerous-only ladder makes classifyReading return 'too_low' below `high`, so normal summer water would read Too Low. Owner decision: ship unrated now (recommended), or obtain a gauge-stated low/optimal anchor from GRDA or an outfitter and ship rated.",
