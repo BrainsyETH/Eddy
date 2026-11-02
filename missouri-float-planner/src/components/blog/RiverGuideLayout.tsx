@@ -18,6 +18,7 @@ import GuideTOC, { type TocItem } from './GuideTOC';
 import GuideProgressBar from './GuideProgressBar';
 import FaqAccordion from './FaqAccordion';
 import DirectoryCards from './DirectoryCards';
+import GuideJumpNav from './GuideJumpNav';
 import GuideTldr from './GuideTldr';
 import SegmentHeader from './SegmentHeader';
 import RegulationsCard from './RegulationsCard';
@@ -414,6 +415,9 @@ export default async function RiverGuideLayout({ post }: Props) {
           ))}
         </div>
       </section>
+
+      {/* Below lg the left-rail TOC is hidden; this strip replaces it. */}
+      <GuideJumpNav items={toc} />
 
       {/* TL;DR — surfaced just under the hero so readers see scope at a glance */}
       {g.tldr && (
@@ -928,6 +932,10 @@ function ResponsiveStyles() {
       }
       .eddy-guide-root [data-guide-toc] {
         display: none !important;
+      }
+      /* Clear the header and the sticky jump nav on a #hash landing. */
+      .eddy-guide-root [id] {
+        scroll-margin-top: 128px !important;
       }
       .eddy-guide-root [data-guide-mile-strip] {
         grid-template-columns: repeat(3, 1fr) !important;
