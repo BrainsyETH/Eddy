@@ -46,11 +46,13 @@ export function scheduleSectionCheck(
   reference: GenerationReference | null | undefined,
   now: number,
   compact: boolean,
+  /** A compact section that also draws Tomorrow (GenerationSchedule's `withTomorrow`). */
+  withTomorrow = !compact,
 ): ScheduleCheckLine | null {
   const today = centralDayKey(now);
   const outlook = scheduleOutlook(schedule, reference, now);
   const posted = (date: string) => schedule.find(day => day.scheduleDate === date && day.hours.length > 0);
-  const showsTomorrow = !compact && Boolean(posted(nextDayKey(today)));
+  const showsTomorrow = withTomorrow && Boolean(posted(nextDayKey(today)));
   const reach = Math.max(outlook?.move?.dayOffset ?? 0, outlook?.resumesAt?.dayOffset ?? 0, showsTomorrow ? 1 : 0);
   const retrievedAts: Array<string | null> = [];
   for (let offset = 0, date = today; offset <= reach; offset += 1, date = nextDayKey(date)) {
@@ -78,19 +80,27 @@ export function scheduleSectionCheck(
  * Three states stay distinct in the headline: a posted day with no generation,
  * a posted day carrying only minimum flow, and no posted day at all.
  */
-export default function GenerationSchedule({ schedule, reference, now, compact = false, info }: {
+export default function GenerationSchedule({ schedule, reference, now, compact = false, withTomorrow = !compact, info }: {
   schedule: DamScheduleDay[];
   reference?: GenerationReference | null;
   now: number;
   compact?: boolean;
+  /**
+   * Draw a posted Tomorrow too. Full reports always do; a compact card does
+   * when Tomorrow is part of its answer — a tailwater river's reading card on
+   * the dam's own release, where anglers plan the night before and SWPA posts
+   * the afternoon before. Later days stay on the full report.
+   */
+  withTomorrow?: boolean;
   info?: ReactNode;
 }) {
   const today = centralDayKey(now);
   const tomorrow = nextDayKey(today);
   const posted = (date: string) => schedule.find(day => day.scheduleDate === date && day.hours.length > 0);
   const todayDay = posted(today);
-  // Summary cards show Today only. Full reports also show a posted Tomorrow.
-  const tomorrowDay = compact ? undefined : posted(tomorrow);
+  // Summary cards show Today, and Tomorrow when asked. Full reports also show
+  // a posted Tomorrow.
+  const tomorrowDay = withTomorrow ? posted(tomorrow) : undefined;
   const laterDays = compact ? [] : schedule
     .filter(day => day.scheduleDate > tomorrow && day.hours.length > 0)
     .toSorted((a, b) => a.scheduleDate.localeCompare(b.scheduleDate));
@@ -145,14 +155,14 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
       {changeLine}
 
       {(tomorrowDay || laterDays.length > 0) && (
-        <div className="mt-4 divide-y divide-neutral-200 border-t border-neutral-200">
+        <div className={`${compact ? 'mt-3' : 'mt-4'} divide-y divide-neutral-200 border-t border-neutral-200`}>
           {tomorrowDay && (
             <section aria-label="Tomorrow’s generation schedule" className="py-3">
               <DayHeading className="text-sm font-bold text-primary-800">
                 Tomorrow’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(tomorrow)}</span>
               </DayHeading>
               <p className="mb-2 mt-0.5 text-sm font-semibold text-primary-900">{scheduleDayHeadline(tomorrowDay.hours)}</p>
-              <DamTimeline day={tomorrowDay} reference={reference} now={now} plainLanguage />
+              <DamTimeline day={tomorrowDay} reference={reference} now={now} plainLanguage compact={compact} />
             </section>
           )}
           {laterDays.map(day => (

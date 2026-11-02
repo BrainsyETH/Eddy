@@ -130,8 +130,9 @@ decision 9, and `shared/dam-release-tab.ts` describe the rule. Check each on
 the White (Bull Shoals release, Norfork release, Norfork and Calico Rock USGS
 tabs) and on the Black.
 
-- [ ] **Bull Shoals release tab:** the reading card opens with Bull Shoals
-      Dam, NOW and the next two days, with no "Not rated" line; the Eddy's take
+- [ ] **Bull Shoals release tab:** the reading card opens with the Favorites
+      dam card's body (turbine flow, Today's and Tomorrow's bars on one scale,
+      the now marker), with no "Not rated" line; the Eddy's take
       card shows the dam's Read (member), or its frosted shape under one lock
       row (non-member), with Weather and no Bottom line.
 - [ ] **Norfork release tab on the White:** Eddy's take carries Norfork Dam's
@@ -143,8 +144,10 @@ tabs) and on the Black.
       this reach" row are unchanged.
 - [ ] **Unsettled account** (cold open on one bar): the dam tab shows a
       skeleton in Eddy's Read, never an offer and never the Read.
-- [ ] **Large Dynamic Type and VoiceOver:** the three schedule columns stay
-      legible and each is read as "label: value, detail".
+- [ ] **Large Dynamic Type and VoiceOver:** the dam body stacks as it does on
+      Favorites, and VoiceOver reads the flow, status and both days' schedules.
+- [ ] **Favorites dam card** is unchanged (Today only) after DamGlance moved
+      out of it.
 
 ### October 13 freshness update candidate
 

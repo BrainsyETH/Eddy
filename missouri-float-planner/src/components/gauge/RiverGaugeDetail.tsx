@@ -497,7 +497,9 @@ export default function RiverGaugeDetail({
             dischargeCfs={activeGauge.dischargeCfs}
             thresholdUnit={activeThreshold?.thresholdUnit || 'ft'}
             conditionCode={condition.code}
-            waterTempF={gaugeDetail?.waterTemperature?.valueF ?? null}
+            // The dam's readings band carries water temperature when the dam
+            // leads the card; printing it twice invites comparing them.
+            waterTempF={damLeads ? null : gaugeDetail?.waterTemperature?.valueF ?? null}
             waterTempAgeHours={ageHoursOf(gaugeDetail?.waterTemperature?.observedAt)}
             dissolvedOxygenMgL={gaugeDetail?.dissolvedOxygen?.valueMgL ?? null}
             dissolvedOxygenAgeHours={ageHoursOf(gaugeDetail?.dissolvedOxygen?.observedAt)}

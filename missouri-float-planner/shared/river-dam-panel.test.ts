@@ -1,37 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { DamScheduleDay, ScheduledHour } from './dam-types';
-import type { GenerationReference } from './dam-generation';
-import { coveredDayKey, dailyForecastDays, scheduleDaySummaries } from './river-dam-panel';
+import { coveredDayKey, dailyForecastDays } from './river-dam-panel';
 
 // Sunday 2026-11-01, 7:30 PM CST — when the bad panel was screenshotted.
 const SUNDAY_EVENING = Date.parse('2026-11-02T01:30:00Z');
-
-const BSD: GenerationReference = {
-  units: 8,
-  fullGenerationCfs: 26_400,
-  schedulingCapacityMw: 391,
-  source: 'SWPA',
-};
-
-function day(scheduleDate: string, mw: (hourEnding: number) => number): DamScheduleDay {
-  const hours: ScheduledHour[] = [];
-  let previous = mw(1);
-  for (let h = 1; h <= 24; h += 1) {
-    const megawatts = mw(h);
-    // Bull Shoals schedules ~7 MW all day for its minimum flow.
-    const minimumFlow = megawatts > 0 && megawatts <= 10;
-    hours.push({
-      hourEnding: h,
-      megawatts,
-      cfs: megawatts > 0 ? Math.round(((megawatts / 391) * 26_400) / 100) * 100 : null,
-      isRamp: megawatts !== previous,
-      minimumFlow,
-    });
-    previous = megawatts;
-  }
-  return { scheduleDate, hours, idle: [], retrievedAt: null };
-}
 
 test('CWMS daily points are read as the day BEFORE their stamp', () => {
   // Stamped Monday 00:00 CST: Sunday's average. The old panel labelled it Mon.
@@ -72,24 +44,4 @@ test('an hourly forecast collapses to each day\'s peak', () => {
     SUNDAY_EVENING
   );
   assert.deepEqual(days.map((d) => [d.key, d.cfs]), [['2026-11-02', 9000]]);
-});
-
-test('the schedule columns say what SWPA posted: peak and window, or min flow', () => {
-  // SWPA, Monday 2026-11-02: minimum flow, a 100 MW block at hours 17-18.
-  const monday = day('2026-11-02', (h) => (h === 17 || h === 18 ? 100 : 7));
-  const sunday = day('2026-11-01', () => 7);
-  const stale = day('2026-10-27', () => 150);
-
-  const tiles = scheduleDaySummaries([monday, stale, sunday], BSD, SUNDAY_EVENING);
-  assert.deepEqual(
-    tiles.map((t) => [t.dayName, t.dateLabel, t.generates, t.value, t.detail]),
-    [
-      ['Today', 'Nov 1', false, 'Min flow', 'All day'],
-      ['Mon', 'Nov 2', true, '~6,800 cfs', '4–6 PM'],
-    ]
-  );
-});
-
-test('no schedule days means no tiles, never a guess', () => {
-  assert.deepEqual(scheduleDaySummaries([], BSD, SUNDAY_EVENING), []);
 });

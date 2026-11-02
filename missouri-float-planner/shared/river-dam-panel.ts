@@ -1,11 +1,13 @@
 // missouri-float-planner/shared/river-dam-panel.ts
-// What the dam panel in a tailwater river's live report says about the days
-// ahead, on web and iOS. Pure, so every boundary below is testable with no network.
+// The look ahead for a tailwater river's dam panel when the dam has NO posted
+// schedule: the Corps' release forecast, one figure per covered day. Pure, so
+// every boundary below is testable with no network.
 //
 // ── Two sources, and which one a dam gets ──────────────────────────────────
-// A HYDROPOWER dam gets SWPA's hourly schedule — the same one the dam page
-// draws. It never gets the Corps' `Flow-Res Out.Ave.~1Day.1Day.Forecast`, and
-// that is the reason this file exists. The panel used to show that series as
+// A HYDROPOWER dam gets SWPA's hourly schedule, drawn exactly as the dam cards
+// draw it (GenerationSchedule on web, DamGlance on iOS). It never gets the
+// Corps' `Flow-Res Out.Ave.~1Day.1Day.Forecast`, and that is the reason this
+// file exists. The panel used to show that series as
 // "The Corps' release schedule" under Bull Shoals, and it was wrong three ways
 // at once (2026-11-01):
 //
@@ -25,33 +27,9 @@
 // description of it. It keeps the forecast, labelled as a daily average and on
 // the day it actually covers.
 
-import type { DamScheduleDay } from './dam-types';
-import type { GenerationReference } from './dam-generation';
-import { schedulePeak, schedulePeakWindowLabel } from './dam-generation';
-import {
-  centralDayKey,
-  scheduleDayLabel,
-  scheduledGeneration,
-  scheduledHoursSummary,
-} from './dam-schedule-copy';
+import { centralDayKey, scheduleDayLabel } from './dam-schedule-copy';
 
 const HOUR_MS = 3_600_000;
-
-/** One day of the posted generation schedule, already worded for a column. */
-export interface ScheduleDaySummary {
-  /** Central calendar day, YYYY-MM-DD. */
-  key: string;
-  /** "Today", or the weekday ("Mon"). */
-  dayName: string;
-  /** "Nov 2". */
-  dateLabel: string;
-  /** True when anything above minimum flow is scheduled. */
-  generates: boolean;
-  /** The figure: "~6,800 cfs" at the peak, "100 MW" off a ramp hour, or "Min flow". */
-  value: string;
-  /** When the peak runs ("4–7 PM"), or "All day" for a day without generation. */
-  detail: string;
-}
 
 /** "Today" or "Wed", and "Nov 2", for a Central day key. */
 export function dayNames(key: string, now: number): { dayName: string; dateLabel: string } {
@@ -63,48 +41,6 @@ export function dayNames(key: string, now: number): { dayName: string; dateLabel
   // TODAY / MON / TUE the river page's outlook card uses.
   const dayName = key === today ? 'Today' : weekday;
   return { dayName, dateLabel: dateLabel ?? key };
-}
-
-/**
- * The posted schedule from today forward, one summary per day.
- *
- * Past days are dropped — a schedule for yesterday beside a reading from today
- * invites the reader to treat one as a correction of the other. Sorted by date
- * rather than trusted in array order, because a day whose file failed to parse
- * is dropped independently of its neighbours.
- */
-export function scheduleDaySummaries(
-  schedule: DamScheduleDay[],
-  reference: GenerationReference | null | undefined,
-  now: number
-): ScheduleDaySummary[] {
-  const today = centralDayKey(now);
-  return [...schedule]
-    .filter((day) => day.scheduleDate >= today && day.hours.length > 0)
-    .sort((a, b) => a.scheduleDate.localeCompare(b.scheduleDate))
-    .map((day) => {
-      const { dayName, dateLabel } = dayNames(day.scheduleDate, now);
-      const generates = day.hours.some(scheduledGeneration);
-      const peak = generates ? schedulePeak(day, reference) : null;
-      if (!peak) {
-        const minimumFlow = day.hours.some((h) => h.minimumFlow === true);
-        return { key: day.scheduleDate, dayName, dateLabel, generates: false, value: minimumFlow ? 'Min flow' : 'Off', detail: 'All day' };
-      }
-      // The magnitude only from a steady hour, megawatts otherwise — the same
-      // rule schedulePeakValue applies on the dam page.
-      const value =
-        peak.cfs !== null
-          ? `~${Math.round(peak.cfs).toLocaleString()} cfs`
-          : `${Math.round(peak.megawatts).toLocaleString()} MW`;
-      return {
-        key: day.scheduleDate,
-        dayName,
-        dateLabel,
-        generates: true,
-        value,
-        detail: schedulePeakWindowLabel(peak) ?? scheduledHoursSummary(day.hours, { compact: true }),
-      };
-    });
 }
 
 /** One day of the Corps' daily-average release forecast. */
