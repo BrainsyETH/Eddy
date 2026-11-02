@@ -74,20 +74,21 @@
   {
     "name": "Ables Sugar Island Camp",
     "kind": "gravel_bar",
-    "expected_mile": 42.5,
-    "lat": null,
-    "lon": null,
+    "expected_mile": 42.56,
+    "lat": 36.600641,
+    "lon": -94.368689,
     "is_public": false,
     "ownership": "Ables Sugar Island Camp (private)",
     "managing_agency": "Private",
     "official_site_url": null,
     "facilities": "Private campground put-in with canoe and kayak rental, per directory listings. Check in with the operator for launch and parking arrangements.",
-    "description": "HELD for a pin: private campground put-in beside a large gravel bar at 1354 Big Sugar Creek Rd, Pineville, about 2 mi below Deep Ford (Eddy mile ~42.5). The owner confirmed on 2026-11-02 that it is a private put-in. Only a Census address point (~200 m from the creek) locates it; set the launch pin on the gravel bar from imagery or by the owner before import.",
-    "confidence": "medium for use (owner-confirmed private put-in 2026-11-02); no coordinate yet",
+    "description": "Private campground put-in at 1354 Big Sugar Creek Rd, Pineville, about 2 mi below Deep Ford. The owner confirmed on 2026-11-02 that it is a private put-in. The pin is on the water's edge of the large gravel bar directly below the campground, placed from USGS orthoimagery to match the owner's Google Maps view; confirm it in review.",
+    "confidence": "medium (owner-confirmed private put-in 2026-11-02; launch pin placed from USGS imagery, to be confirmed in review)",
     "source_urls": [
       "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
       "https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y",
-      "https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800"
+      "https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800",
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
     ],
     "is_float_endpoint": true,
     "roles": [
