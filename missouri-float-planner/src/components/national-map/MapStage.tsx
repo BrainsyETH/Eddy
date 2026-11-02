@@ -26,7 +26,7 @@ import {
 } from '@/lib/national-map/camera';
 import type { DecodedGeometry } from '@/lib/national-map/geometry';
 import type { Journey } from '@/lib/national-map/journeys';
-import type { ClassifiedSite, Site } from '@/lib/national-map/marks';
+import type { ClassifiedSite, MarkStyle, Site } from '@/lib/national-map/marks';
 import {
   applyAffine,
   buildLayout,
@@ -113,6 +113,8 @@ interface Props {
   wall: boolean;
   /** The "Follow the river" journey to run now, or null. */
   journey: Journey | null;
+  /** Wall only: the marks whose event rings animate (null: every eligible mark). */
+  pulses: Set<number> | null;
   /**
    * Wall only: what the display can see, or null at the national view. The
    * parent picks spotlights and journeys from it, so a regional display never
@@ -147,6 +149,7 @@ export default function MapStage(props: Props) {
     interactive,
     wall,
     journey,
+    pulses,
     onRegion,
     ariaLabel,
     onTap,
@@ -341,16 +344,18 @@ export default function MapStage(props: Props) {
 
   // ── Marks ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    const still = new Map<MarkStyle, MarkStyle>();
+    const quiet = (st: MarkStyle) => still.get(st) ?? still.set(st, { ...st, ring: false }).get(st)!;
     const marks: RenderMark[] = classified.map((c) => ({
       x: positions.xs[c.index],
       y: positions.ys[c.index],
-      style: c.style,
+      style: pulses && c.style.ring && !pulses.has(c.index) ? quiet(c.style) : c.style,
       phase: ((c.index * 2654435761) >>> 0) / 4294967296,
     }));
     const fade = frameVersion !== lastFrameVersion.current;
     lastFrameVersion.current = frameVersion;
     renderer.current?.setMarks(marks, fade);
-  }, [classified, positions, frameVersion]);
+  }, [classified, positions, frameVersion, pulses]);
 
   useEffect(() => {
     const pt = (i: number | null) => (i === null || i >= positions.xs.length ? null : { x: positions.xs[i], y: positions.ys[i] });

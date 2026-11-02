@@ -17,6 +17,7 @@ import {
   flowStyle,
   HIGHLIGHT_SEPARATION,
   isExtreme,
+  pickPulses,
   wallStyle,
   type FloodClass,
   type FlowClass,
@@ -252,4 +253,19 @@ test('an extreme mark means the published p95 / p05 was reached, nothing finer',
   assert.equal(isExtreme(site(15)), true, 'at the published p05');
   assert.equal(EXTREME_HIGH, 95);
   assert.equal(EXTREME_LOW, 5);
+});
+
+test('the wall pulses a few distinct floods, not every gauge in a cluster', () => {
+  // Eight flooding gauges packed in one basin, two far away.
+  const latest = Array.from({ length: 10 }, (_, i) => reading(String(40000000 + i)));
+  const catalog = latest.map((r, i) => (i < 8 ? station(r.siteId, -112 + i * 0.02, 34) : station(r.siteId, [-81, -97][i - 8], [28, 47][i - 8])));
+  const nws = latest.map((r, i) => point(`F${i}XX1`, { observed: i < 8 ? 'major' : 'minor', lng: -100, lat: 40 }));
+  const frame = decodeFrame(buildFrame({ capturedAt: new Date(NOW), latest, nws, lidToSite: new Map(nws.map((p, i) => [p.lid, latest[i].siteId])), noaaOk: true }));
+  const sites = buildSites(catalog, frame);
+  const classified = classifySites(sites, 'flooding', NOW, true, true);
+  const pulses = pickPulses(sites, classified, 6);
+  const cluster = [...pulses].filter((i) => Number(sites[i].siteId) < 40000008);
+  assert.equal(cluster.length, 1, 'one pulse speaks for the cluster');
+  assert.equal(pulses.size, 3, 'and each distant flood gets its own');
+  assert.equal(classified.filter((c) => c.cls === 'major').length, 8, 'every severity symbol is still drawn');
 });

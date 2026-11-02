@@ -510,12 +510,12 @@ export class NationalRenderer {
     g.lineJoin = 'round';
     g.lineCap = 'round';
     g.strokeStyle = p.coast;
-    g.lineWidth = 1.6 * px;
+    g.lineWidth = (this.wall ? 2.2 : 1.6) * px;
     g.stroke(paths.land);
     g.fillStyle = p.land;
     g.fill(paths.land);
     g.strokeStyle = p.stateLine;
-    g.lineWidth = 0.7 * px;
+    g.lineWidth = (this.wall ? 0.9 : 0.7) * px;
     g.stroke(paths.land);
     g.fillStyle = p.lake;
     g.fill(paths.lakes, 'evenodd');

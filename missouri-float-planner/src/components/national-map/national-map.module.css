@@ -13,6 +13,8 @@
   --nm-edge: var(--color-primary-700);
   --nm-shadow: 3px 3px 0 var(--color-primary-700);
   --nm-hairline: var(--color-neutral-200);
+  /* Wall legend / story panel: warm parchment (light). */
+  --nm-wall-panel: rgba(246, 240, 226, 0.94);
   /* Focus rings inside the map: primary-700 on parchment / white (7–8:1). */
   --nm-focus: var(--color-primary-700);
   --nm-input-border: var(--color-neutral-500);
@@ -59,6 +61,8 @@
   --nm-edge: #4A9AAD;
   --nm-shadow: 3px 3px 0 #061418;
   --nm-hairline: #1D525F;
+  /* Dark: the deep-teal Eddy panel — parchment would glare on a dark wall. */
+  --nm-wall-panel: rgba(12, 37, 44, 0.92);
   background: #0A2128;
 }
 
@@ -274,4 +278,96 @@
 .subdued {
   opacity: 0.68;
   transition: opacity var(--duration-slower) var(--ease-default);
+}
+
+/* ── Wall legend (fullscreen default) ──────────────────────────────────────
+   Sized for reading across a room: type follows the screen's short side
+   (16–17 px at 1080p, ~30 px on a 4K wall). Side panel in the open left
+   margin of the wall composition; a bottom strip on narrow / portrait. */
+.wallLegend {
+  position: absolute;
+  z-index: 30;
+  font-size: clamp(13px, 1.62vmin, 32px);
+  line-height: 1.25;
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  padding: 0.85em 1em 0.75em;
+  pointer-events: none;
+}
+.wallLegendSide {
+  left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
+  top: max(clamp(10px, 3vmin, 64px), env(safe-area-inset-top));
+  width: 15em;
+}
+.wallLegendStrip {
+  left: 0.75em;
+  right: 0.75em;
+  bottom: max(0.75em, env(safe-area-inset-bottom));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 1.4em;
+  row-gap: 0.35em;
+  padding: 0.6em 0.9em;
+}
+.wallLegendStrip .wallLegendList {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.1em;
+  row-gap: 0.2em;
+  margin: 0;
+}
+.wallLegendStrip .wallLegendApart {
+  border-top: 0;
+  padding-top: 0;
+  border-left: 1px solid var(--nm-hairline);
+  padding-left: 1.1em;
+}
+.wallLegendTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12em;
+  letter-spacing: 0.005em;
+  margin: 0 0 0.45em;
+}
+.wallLegendStrip .wallLegendTitle {
+  margin: 0;
+}
+.wallLegendList {
+  display: grid;
+  row-gap: 0.32em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wallLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+}
+.wallLegendApart {
+  margin-top: 0.55em;
+  padding-top: 0.55em;
+  border-top: 1px solid var(--nm-hairline);
+}
+.wallLegendFine {
+  font-size: 0.86em;
+  color: var(--nm-ink-2);
+}
+.wallLegendPair {
+  display: inline-flex;
+}
+.wallLegendNote {
+  margin: 0;
+  font-size: 0.9em;
+}
+.wallLegendSource {
+  margin: 0.6em 0 0;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
+}
+.wallLegendStrip .wallLegendSource {
+  margin: 0;
 }

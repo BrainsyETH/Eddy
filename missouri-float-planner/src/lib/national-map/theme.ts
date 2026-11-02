@@ -111,7 +111,9 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#F2EAD8',
-    journeyCore: '#0E4A57', // between primary-700 and -800: ink on parchment
+    // Warm neutral ink (Eddy's ink), not a teal: movement must never read as
+    // a flow measurement, whose highs are teals and cyans.
+    journeyCore: '#2D2A24',
     journeyGlow: '#FFFFFF',
     journeyGlowAlpha: 0.95,
     flow: FLOW,
@@ -157,8 +159,10 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#0F2D35',
-    journeyCore: '#F2FBFD',
-    journeyGlow: '#8FD3E0',
+    // Neutral white, not cyan: the brightest moving thing must stay distinct
+    // from the brightest high-flow gauges (saturated cyans).
+    journeyCore: '#FFFFFF',
+    journeyGlow: '#F4F1EA',
     journeyGlowAlpha: 0.28,
     flow: FLOW,
     // Thin neutral-500 rings: dim enough never to read as a lit band, still
@@ -204,9 +208,12 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
 // full strength. Mark colours are NOT changed here — the legend stays true.
 const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
   light: {
+    // Structure on parchment: the coast and state lines must hold the
+    // country's shape across a room (they nearly vanished at the earlier
+    // values) while the routine gauges stay quiet.
     land: '#F4EEE1',
-    coast: '#CDB896',
-    stateLine: '#E6DAC6',
+    coast: '#9E8461',
+    stateLine: '#CDBB9C',
     lake: '#D3E6EA',
     river: '#1F6574', // primary-600: the network reads as ink on parchment
     riverAlpha: [0, 0.3, 0.38, 0.46, 0.58, 0.74, 0.88, 0.97],

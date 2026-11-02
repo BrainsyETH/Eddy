@@ -6,20 +6,26 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Segmented from '@/components/ui/Segmented';
 import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
 import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type Site } from '@/lib/national-map/marks';
-import type { Appearance, FlowColors } from '@/lib/national-map/prefs';
+import type { Appearance, FlowColors, WallText } from '@/lib/national-map/prefs';
 import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
 import type { MapPalette } from '@/lib/national-map/theme';
 import { FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
 import styles from './national-map.module.css';
 
 const nf = new Intl.NumberFormat('en-US');
+
+const WALL_TEXT_OPTIONS = [
+  { value: 'legend' as const, label: 'Legend' },
+  { value: 'story' as const, label: 'Story' },
+  { value: 'none' as const, label: 'Map only' },
+];
 
 export const VIEW_OPTIONS = [
   { value: 'flow' as const, label: 'Flow' },
@@ -347,8 +353,8 @@ export function MapControls({
   motion,
   onMotion,
   reducedMotion,
-  displayDetails,
-  onDisplayDetails,
+  wallText,
+  onWallText,
   flowColors,
   onFlowColors,
   horizontal = false,
@@ -364,8 +370,8 @@ export function MapControls({
   motion: boolean;
   onMotion: (m: boolean) => void;
   reducedMotion: boolean;
-  displayDetails: boolean;
-  onDisplayDetails: (d: boolean) => void;
+  wallText: WallText;
+  onWallText: (t: WallText) => void;
   flowColors: FlowColors;
   onFlowColors: (c: FlowColors) => void;
   fullscreenRef?: React.Ref<HTMLButtonElement>;
@@ -441,13 +447,13 @@ export function MapControls({
             </span>
             <input type="checkbox" checked={motion && !reducedMotion} disabled={reducedMotion} onChange={(e) => onMotion(e.target.checked)} className="h-5 w-5" />
           </label>
-          <label className="flex min-h-11 items-center justify-between gap-2 text-sm">
-            <span>
-              Details in fullscreen
-              <span className={`block text-xs ${styles.muted}`}>A quiet status line and one rotating gauge or river</span>
-            </span>
-            <input type="checkbox" checked={displayDetails} onChange={(e) => onDisplayDetails(e.target.checked)} className="h-5 w-5" />
-          </label>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold">Fullscreen shows</p>
+            <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} stretch aria-label="Fullscreen shows" />
+            <p className={`text-xs ${styles.muted}`}>
+              Legend: a key to the marks. Story: the key and one featured event. Map only: no text at all.
+            </p>
+          </div>
           <div className="space-y-1">
             <p className="text-xs font-semibold">Flow colours</p>
             <Segmented
@@ -474,8 +480,8 @@ export function FullscreenTray({
   open,
   view,
   onView,
-  displayDetails,
-  onDisplayDetails,
+  wallText,
+  onWallText,
   motion,
   onMotion,
   reducedMotion,
@@ -488,8 +494,8 @@ export function FullscreenTray({
   open: boolean;
   view: MapView;
   onView: (v: MapView) => void;
-  displayDetails: boolean;
-  onDisplayDetails: (d: boolean) => void;
+  wallText: WallText;
+  onWallText: (t: WallText) => void;
   motion: boolean;
   onMotion: (m: boolean) => void;
   reducedMotion: boolean;
@@ -524,17 +530,7 @@ export function FullscreenTray({
       )}
       <div className="flex flex-nowrap items-center gap-2">
       <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} size={narrow ? 'sm' : 'md'} aria-label="Map view" />
-      {/* Fixed names with aria-pressed: the state is the pressed state, not a
-          label that rewrites itself ("Hide details, pressed"). */}
-      {narrow ? (
-        <Button variant="icon" aria-label="Details" title="Details" aria-pressed={displayDetails} onClick={() => onDisplayDetails(!displayDetails)}>
-          <SlidersHorizontal size={18} aria-hidden />
-        </Button>
-      ) : (
-        <Button variant="outline" aria-pressed={displayDetails} onClick={() => onDisplayDetails(!displayDetails)}>
-          Details
-        </Button>
-      )}
+      <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} size={narrow ? 'sm' : 'md'} aria-label="Fullscreen shows" />
       <Button
         variant="icon"
         aria-label="Pause motion"

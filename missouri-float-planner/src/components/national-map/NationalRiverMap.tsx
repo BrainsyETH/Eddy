@@ -24,6 +24,7 @@ import {
   classifySites,
   curateHighlights,
   HIGHLIGHT_SEPARATION,
+  pickPulses,
   LIVE_REASON_TEXT,
   viewLiveState,
   summarizeFlood,
@@ -45,6 +46,7 @@ import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
 import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys, type Journey } from '@/lib/national-map/journeys';
 import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
+import { WallLegend } from './WallLegend';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
@@ -119,12 +121,36 @@ export default function NationalRiverMap() {
   const side = useMedia('(min-width: 768px) and (min-aspect-ratio: 1/1)');
   const short = useMedia('(max-height: 600px)');
   const narrow = useMedia('(max-width: 640px)');
+  // The wall legend sits in the composition's left margin on wide screens;
+  // narrower than ~1.45:1 there is no margin, so it becomes a bottom strip.
+  const legendStrip = useMedia('(max-aspect-ratio: 29/20)') || narrow;
   const finePointer = useMedia('(hover: hover) and (pointer: fine)');
   const theme: MapTheme = prefs.appearance === 'system' ? (systemDark ? 'dark' : 'light') : prefs.appearance;
   // Fullscreen is the wall: its own brightness tiers and mark hierarchy
   // (theme.ts wallPalette, marks.ts wallStyle). Explore keeps everything.
   const [presentation, setPresentation] = useState<Presentation>('explore');
   const fullscreen = presentation === 'fullscreen';
+  const wallText = prefs.wallText;
+  // Measured boxes of the wall legend (strip height) and story column (width),
+  // so the fit keeps geography out from under them.
+  const legendRef = useRef<HTMLDivElement>(null);
+  const storyRef = useRef<HTMLDivElement>(null);
+  const [legendHeight, setLegendHeight] = useState(0);
+  const [storyWidth, setStoryWidth] = useState(0);
+  useEffect(() => {
+    if (!fullscreen) return;
+    const measure = () => {
+      const l = legendRef.current?.firstElementChild?.getBoundingClientRect();
+      const st = storyRef.current?.firstElementChild?.getBoundingClientRect();
+      setLegendHeight(l ? Math.round(l.height) : 0);
+      setStoryWidth(st ? Math.round(st.right + 8) : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    // The boxes are absolutely positioned: observe them, not their wrappers.
+    for (const el of [legendRef.current?.firstElementChild, storyRef.current?.firstElementChild]) if (el) ro.observe(el);
+    return () => ro.disconnect();
+  }, [fullscreen, wallText, legendStrip]);
   const palette = useMemo(
     () => withFlowColors(fullscreen ? wallPalette(theme) : PALETTES[theme], theme, prefs.flowColors),
     [fullscreen, theme, prefs.flowColors],
@@ -513,6 +539,17 @@ export default function NationalRiverMap() {
     return curateHighlights(visible, view, now, noaaOk, 6, separation);
   }, [region, highlights, dataLive, sites, view, now, noaaOk, data.geometry]);
   const spotlightKeys = spotlightSet.map((s) => s.key).join('|');
+  // On the wall only a few geographically distinct floods pulse; every
+  // severity symbol stays drawn. Spacing follows the view (national or
+  // regional), like the highlights.
+  const pulses = useMemo(() => {
+    if (!fullscreen) return null;
+    const l48 = data.geometry?.components.l48;
+    const nationalSpan = l48 ? l48.maxX - l48.minX : 774;
+    const separation = region ? (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan : HIGHLIGHT_SEPARATION;
+    const shown = region ? classified.filter((c) => inRegion(region, sites[c.index].component, sites[c.index].x, sites[c.index].y)) : classified;
+    return pickPulses(sites, shown, 6, separation);
+  }, [fullscreen, region, classified, sites, data.geometry]);
   const journeys = useMemo(() => {
     if (!data.geometry) return [];
     return region ? visibleJourneys(data.geometry.rivers, region) : pickJourneys(data.geometry.rivers);
@@ -566,12 +603,16 @@ export default function NationalRiverMap() {
   }, [side, fullscreen]);
   const insets = useMemo(() => {
     if (fullscreen) {
-      // Display with details keeps the composition clear of its card.
-      return { top: 0, right: 0, bottom: prefs.displayDetails ? (narrow ? 190 : 96) : 0, left: 0 };
+      // The side legend sits in the composition's open left margin (the
+      // Pacific above Alaska), so it reserves nothing; a bottom strip does.
+      // Story mode keeps its column clear of the map.
+      const bottom = wallText !== 'none' && legendStrip ? legendHeight + 12 : 0;
+      const left = wallText === 'story' && !legendStrip ? storyWidth : 0;
+      return { top: 0, right: 0, bottom, left };
     }
     if (side) return { top: 0, right: 64, bottom: 0, left: panelRight + 16 };
     return { top: panelBottom + 18, right: 0, bottom: 60, left: 0 };
-  }, [fullscreen, side, panelBottom, panelRight, prefs.displayDetails, narrow]);
+  }, [fullscreen, side, panelBottom, panelRight, wallText, legendStrip, legendHeight, storyWidth]);
   const insetsTop = insets.top;
 
   // Phones: keep the selected gauge clear of the bottom sheet (measured).
@@ -661,6 +702,7 @@ export default function NationalRiverMap() {
         interactive={!fullscreen}
         wall={fullscreen}
         journey={journey}
+        pulses={pulses}
         onRegion={setStageRegion}
         ariaLabel={ariaLabel}
         onTap={onTap}
@@ -675,7 +717,7 @@ export default function NationalRiverMap() {
     <div
       ref={rootRef}
       data-theme={theme}
-      data-presentation={fullscreen ? (prefs.displayDetails ? 'display' : 'map-only') : 'explore'}
+      data-presentation={fullscreen ? (wallText === 'none' ? 'map-only' : wallText === 'story' ? 'story' : 'legend') : 'explore'}
       data-fallback={fallback ? 'true' : undefined}
       className={`${styles.root} ${fallback ? styles.fallbackFullscreen : ''} ${fullscreen && cursorHidden && !trayOpen ? styles.hideCursor : ''}`}
       style={{ background: palette.background }}
@@ -729,8 +771,8 @@ export default function NationalRiverMap() {
               motion={prefs.motion}
               onMotion={(m) => setPrefs({ motion: m })}
               reducedMotion={reducedMotion}
-              displayDetails={prefs.displayDetails}
-              onDisplayDetails={(d) => setPrefs({ displayDetails: d })}
+              wallText={wallText}
+              onWallText={(t) => setPrefs({ wallText: t })}
               flowColors={prefs.flowColors}
               onFlowColors={(c) => setPrefs({ flowColors: c })}
               horizontal={!side}
@@ -800,7 +842,23 @@ export default function NationalRiverMap() {
 
       {fullscreen && (
         <>
-          {prefs.displayDetails && (
+          {wallText !== 'none' && (
+            // The key stays up while the controls come and go; only the
+            // bottom strip yields to the tray, which shares its edge.
+            <div ref={legendRef} style={{ visibility: trayOpen && legendStrip ? 'hidden' : 'visible' }}>
+              <WallLegend
+                view={view}
+                palette={palette}
+                noaaOk={noaaOk}
+                capturedAt={frame?.capturedAt ?? null}
+                liveStatus={liveStatus}
+                pulses={motion && dataLive && view === 'flooding'}
+                journey={journeysOn}
+                strip={legendStrip}
+              />
+            </div>
+          )}
+          {wallText === 'story' && (
             // Hidden (not unmounted) while the tray is open, so the two never
             // overlap and the rotation keeps its place.
             <div style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
@@ -830,9 +888,9 @@ export default function NationalRiverMap() {
                 setPrefs({ view: v });
                 armTray();
               }}
-              displayDetails={prefs.displayDetails}
-              onDisplayDetails={(d) => {
-                setPrefs({ displayDetails: d });
+              wallText={wallText}
+              onWallText={(t) => {
+                setPrefs({ wallText: t });
                 armTray();
               }}
               motion={prefs.motion}

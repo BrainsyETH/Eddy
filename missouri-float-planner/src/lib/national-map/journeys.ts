@@ -226,7 +226,8 @@ export function journeyCaption(j: Journey): string {
 }
 
 /** Travel scales with route length, inside bounds a room can follow. */
-export const JOURNEY_HOLD_MS = 3500;
+/** The completed route holds long enough to read the connection, then hands off. */
+export const JOURNEY_HOLD_MS = 4500;
 export const JOURNEY_FADE_MS = 1500;
 
 export function journeyTiming(j: Journey): { travelMs: number; totalMs: number } {

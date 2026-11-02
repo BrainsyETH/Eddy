@@ -39,9 +39,12 @@ test('preferences are scoped to this page and never restore fullscreen or a tour
   assert.ok(!PREFS_KEY.includes('gauge-layers') && !PREFS_KEY.includes('plan'), 'never the planner’s keys');
   assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs('{bad'), DEFAULT_PREFS);
-  assert.deepEqual(parsePrefs(JSON.stringify({ view: 'flooding', appearance: 'dark', motion: false, displayDetails: true, fullscreen: true, tour: true })), {
-    view: 'flooding', appearance: 'dark', motion: false, displayDetails: true, flowColors: 'eddy',
+  assert.deepEqual(parsePrefs(JSON.stringify({ view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', fullscreen: true, tour: true })), {
+    view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', flowColors: 'eddy',
   });
+  assert.equal(DEFAULT_PREFS.wallText, 'legend', 'fullscreen keeps a legend by default');
+  assert.equal(parsePrefs(JSON.stringify({ displayDetails: true })).wallText, 'story', 'the old details choice carries over');
+  assert.equal(parsePrefs(JSON.stringify({ displayDetails: false })).wallText, 'legend');
   assert.equal(DEFAULT_PREFS.flowColors, 'eddy', 'the vivid Flow colours are opt-in');
   assert.equal(parsePrefs(JSON.stringify({ flowColors: 'vivid' })).flowColors, 'vivid');
   assert.equal(parsePrefs(JSON.stringify({ flowColors: 'neon' })).flowColors, 'eddy');
