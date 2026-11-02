@@ -18,6 +18,7 @@ import GuideTOC, { type TocItem } from './GuideTOC';
 import GuideProgressBar from './GuideProgressBar';
 import FaqAccordion from './FaqAccordion';
 import DirectoryCards from './DirectoryCards';
+import GuideJumpNav from './GuideJumpNav';
 import GuideTldr from './GuideTldr';
 import SegmentHeader from './SegmentHeader';
 import RegulationsCard from './RegulationsCard';
@@ -415,6 +416,9 @@ export default async function RiverGuideLayout({ post }: Props) {
         </div>
       </section>
 
+      {/* Below lg the left-rail TOC is hidden; this strip replaces it. */}
+      <GuideJumpNav items={toc} />
+
       {/* TL;DR — surfaced just under the hero so readers see scope at a glance */}
       {g.tldr && (
         <section
@@ -604,7 +608,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             Outfitters, campgrounds &amp; lodging
           </SectionTitle>
           <p style={{ fontSize: 15, color: 'var(--color-neutral-600)', marginBottom: 18, lineHeight: 1.55 }}>
-            Every active service that operates on the {riverName}. Tap a phone number to call; tap Reserve to book.
+            Every active service that operates on the {riverName}. Call or reserve straight from the list.
           </p>
           <DirectoryCards riverSlug={slug} />
 
@@ -929,6 +933,10 @@ function ResponsiveStyles() {
       .eddy-guide-root [data-guide-toc] {
         display: none !important;
       }
+      /* Clear the header and the sticky jump nav on a #hash landing. */
+      .eddy-guide-root [id] {
+        scroll-margin-top: 128px !important;
+      }
       .eddy-guide-root [data-guide-mile-strip] {
         grid-template-columns: repeat(3, 1fr) !important;
       }
@@ -958,9 +966,6 @@ function ResponsiveStyles() {
       .eddy-guide-root [data-guide-section-stats] > div:nth-child(4) {
         padding-top: 8px;
       }
-      .eddy-guide-root [data-guide-directory-grid] {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
     }
     @media (max-width: 767px) {
       .eddy-guide-root [data-guide-section-grid] {
@@ -981,9 +986,6 @@ function ResponsiveStyles() {
       }
       .eddy-guide-root [data-guide-title] {
         font-size: 36px !important;
-      }
-      .eddy-guide-root [data-guide-directory-grid] {
-        grid-template-columns: 1fr !important;
       }
       .eddy-guide-root [data-guide-tldr] {
         grid-template-columns: 1fr !important;

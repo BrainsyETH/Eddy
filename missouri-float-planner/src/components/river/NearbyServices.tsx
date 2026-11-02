@@ -11,7 +11,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import AvailabilityChip from '@/components/ui/AvailabilityChip';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
 import { EDDY_IMAGES } from '@/constants';
-import { OFFERING_LABELS } from '@/lib/services/offerings';
+import OfferingSummary from './OfferingSummary';
 import { serviceEligible, serviceTiers, type ServiceTier } from '@/lib/service-tiers';
 import type { NearbyServiceDirectory, NearbyServiceDirectoryType } from '@/types/api';
 
@@ -65,15 +65,7 @@ function OutfitterCard({ service }: { service: NearbyServiceDirectory }) {
         <p className="text-sm text-neutral-600 mt-1.5 line-clamp-2">{service.description}</p>
       )}
 
-      {service.servicesOffered && service.servicesOffered.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2.5">
-          {service.servicesOffered.map((offering) => (
-            <span key={offering} className="px-1.5 py-0.5 rounded bg-neutral-200 text-neutral-600 text-[11px] font-medium">
-              {OFFERING_LABELS[offering] || offering}
-            </span>
-          ))}
-        </div>
-      )}
+      <OfferingSummary offerings={service.servicesOffered} className="mt-2.5" />
 
       <div className="flex items-center gap-4 mt-2.5 flex-wrap">
         {service.phone && (
