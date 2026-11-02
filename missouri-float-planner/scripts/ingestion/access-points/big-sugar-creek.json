@@ -1,41 +1,53 @@
 [
   {
     "name": "Creekside Campground",
-    "kind": "campground",
+    "kind": "gravel_bar",
     "expected_mile": 25.9,
     "lat": null,
     "lon": null,
     "is_public": false,
-    "ownership": "Private",
+    "ownership": "Creekside Campground (private)",
     "managing_agency": "Private",
     "official_site_url": null,
-    "facilities": "Private campground. Creek access, launching, rentals and shuttles are unverified.",
-    "description": "HELD: private campground at 274 Creekside Rd, Powell, about 0.6 mi below Powell Bridge. Only a Census address point (interpolated along the road) places it, about 100 m from the creek at Eddy mile ~25.9. No published creek-access or launch terms; its listed website returned an empty page. Needs a campground coordinate and the operator's terms before import.",
-    "confidence": "unverified",
+    "facilities": "Private campground put-in. Check in with the operator for launch and parking arrangements.",
+    "description": "HELD for a pin: private campground put-in at 274 Creekside Rd, Powell, about 0.6 mi below Powell Bridge (Eddy mile ~25.9). The owner confirmed on 2026-11-02 that it is a private put-in. Only a Census address point (interpolated along the road, ~100 m from the creek) locates it; the launch needs a pin set from imagery or by the owner before import.",
+    "confidence": "medium for use (owner-confirmed private put-in 2026-11-02); no coordinate yet",
     "source_urls": [
       "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
       "https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588",
       "https://maps.apple.com/place?place-id=IABB92F072F3E6455"
     ],
-    "is_float_endpoint": false
+    "is_float_endpoint": true,
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "fee_notes": "Private put-in. Arrange access with the operator; fees and terms are not published.",
+    "road_access": "274 Creekside Rd, Powell, MO 65730"
   },
   {
     "name": "Big Rock Camp Grounds",
-    "kind": "campground",
+    "kind": "gravel_bar",
     "expected_mile": 38.97,
     "lat": 36.6209375,
     "lon": -94.3270625,
     "is_public": false,
-    "ownership": "Private (operated by Sugar Island Camp, per that operator's listing)",
+    "ownership": "Big Rock Camp Grounds / Big Rock Park (private; operated by Sugar Island Camp, per that operator's listing)",
     "managing_agency": "Private",
     "official_site_url": null,
-    "facilities": "Private campground with day use, per the operator's listing. Launch and landing terms are unpublished.",
-    "description": "Private campground on Big Sugar Creek Road, also called Big Rock Park, run by the operator of Sugar Island Camp. The owner confirmed this Google Maps pin on 2026-11-02 (plus code 8687JMCF+95). It sits 81 m from the creek at Eddy mile 38.97, about 1.5 mi above MDC Deep Ford Access. This row marks the campground, not a launch: no published terms let non-guests put in or take out here.",
-    "confidence": "medium",
+    "facilities": "Private campground with a track down to a gravel bar on the creek. Check in with the operator for launch and parking arrangements.",
+    "description": "Private campground put-in on Big Sugar Creek Road, also called Big Rock Park, about 1.5 mi above MDC Deep Ford Access. The owner confirmed on 2026-11-02 that it is a private put-in, and set its location to the Google Maps pin (plus code 8687JMCF+95), 81 m from the creek. Place the launch on the gravel bar southwest of the pin during review.",
+    "confidence": "medium (owner-confirmed private put-in 2026-11-02; pin from the owner's Google Maps reference)",
     "source_urls": [
       "https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y"
     ],
-    "is_float_endpoint": false
+    "is_float_endpoint": true,
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "fee_notes": "Private put-in. Arrange access with the operator; fees and terms are not published.",
+    "parking_info": "Check in with the operator."
   },
   {
     "name": "Deep Ford Access",
@@ -61,22 +73,28 @@
   },
   {
     "name": "Ables Sugar Island Camp",
-    "kind": "campground",
+    "kind": "gravel_bar",
     "expected_mile": 42.5,
     "lat": null,
     "lon": null,
     "is_public": false,
-    "ownership": "Private",
+    "ownership": "Ables Sugar Island Camp (private)",
     "managing_agency": "Private",
     "official_site_url": null,
-    "facilities": "Private campground with canoe and kayak rental, per directory listings.",
-    "description": "HELD: family-run campground and canoe rental at 1354 Big Sugar Creek Rd, Pineville, beside a large gravel bar about 2 mi below Deep Ford. Only a Census address point (Eddy mile ~42.5) places it. A published landing for private boats would make Deep Ford to Sugar Island a single-river trip; confirm the terms and the landing spot with the operator (417-223-4410).",
-    "confidence": "unverified",
+    "facilities": "Private campground put-in with canoe and kayak rental, per directory listings. Check in with the operator for launch and parking arrangements.",
+    "description": "HELD for a pin: private campground put-in beside a large gravel bar at 1354 Big Sugar Creek Rd, Pineville, about 2 mi below Deep Ford (Eddy mile ~42.5). The owner confirmed on 2026-11-02 that it is a private put-in. Only a Census address point (~200 m from the creek) locates it; set the launch pin on the gravel bar from imagery or by the owner before import.",
+    "confidence": "medium for use (owner-confirmed private put-in 2026-11-02); no coordinate yet",
     "source_urls": [
       "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
       "https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y",
       "https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800"
     ],
-    "is_float_endpoint": false
+    "is_float_endpoint": true,
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "fee_notes": "Private put-in. Arrange access with the operator; fees and terms are not published.",
+    "road_access": "1354 Big Sugar Creek Rd, Pineville, MO 64856"
   }
 ]

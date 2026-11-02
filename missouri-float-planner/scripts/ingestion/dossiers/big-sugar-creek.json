@@ -1,5 +1,5 @@
 {
-  "_status": "RESEARCH DRAFT 2026-11-02: recommend an UNRATED (readings-only, cfs at Powell 07188653) release whose only fully public pair is MDC Deep Ford Access → City of Pineville Elk River Access (~4 mi, crosses the Big Sugar/Little Sugar confluence onto the Elk); upstream put-ins (Cyclone, Powell) are held for lack of legal-access evidence. Not signed off; not ingestable.",
+  "_status": "RESEARCH DRAFT 2026-11-02: recommend an UNRATED (readings-only, cfs at Powell 07188653) release with a proposed single-river corridor Creekside Campground → Ables Sugar Island Camp (owner-confirmed private put-ins plus MDC Deep Ford); road-crossing put-ins held. Not signed off; readiness pending.",
   "name": "Big Sugar Creek",
   "slug": "big-sugar-creek",
   "primaryGaugeSiteId": "07188653",
@@ -50,30 +50,27 @@
       ],
       "drainageAreaSqMi": 141,
       "servesSections": [
-        "big-sugar-lower"
+        "big-sugar-main"
       ],
       "knownBias": "At Powell (floatmissouri guide mile ~5.5), roughly 9 guide miles above Cyclone and ~15 guide miles above Deep Ford; Mikes Creek, Kings Valley, Little Cedar Hollow and other small tributaries enter between the gauge and the recommended corridor. moherp logged a 'Good' Deep Ford→Elk trip at only 48 cfs here (2014-11-10), so the lower reach may float at lower Powell readings than the upper reach. Do not transfer Powell numbers to the Elk or Little Sugar.",
-      "measurementUnit": "cfs"
+      "measurementUnit": "cfs",
+      "positionRiverMile": 25.26
     }
   ],
   "sections": [
     {
-      "slug": "big-sugar-lower",
-      "name": "Lower Big Sugar Creek: Deep Ford Access to Pineville (Elk River)",
-      "description": "Recommended initial corridor: MDC Deep Ford Access (guide mile 20.4) down Big Sugar to the Little Sugar confluence (guide mile 24.3), then ~0.26 mi on the Elk to the City of Pineville Elk River Access. moherp logs this as a 4.1-mile trip. It is the only pair with agency-verified public access at both ends, and it crosses rivers: the take-out sits on Eddy's Elk river record (Elk mile 0.26), so planner routing across the confluence must be built and validated before the pair is offered. Upstream reaches (Powell and Cyclone to Deep Ford) are documented in the access list but held until legal launch evidence exists.",
+      "slug": "big-sugar-main",
+      "name": "Big Sugar Creek: Creekside Campground to Ables Sugar Island Camp",
+      "description": "Proposed corridor, revised 2026-11-02 after the owner confirmed three private put-ins on the creek: Creekside Campground below Powell (Eddy mile ~25.9), Big Rock Camp Grounds (38.97), MDC Deep Ford Access (40.45, public) and Ables Sugar Island Camp (~42.5). Every pair stays on Big Sugar, so the planner can route it without crossing onto the Elk. Private put-ins require arrangement with the operator. Cyclone and the other road crossings stay held; Deep Ford → City of Pineville Elk River Access is excluded until cross-river routing exists.",
       "putIn": {
-        "name": "Deep Ford Access",
-        "lat": 36.616707,
-        "lon": -94.352531
+        "name": "Creekside Campground"
       },
       "takeOut": {
-        "name": "City of Pineville Elk River Access",
-        "lat": 36.58884,
-        "lon": -94.38682
+        "name": "Ables Sugar Island Camp"
       },
-      "publishedLengthMiles": 4.1,
-      "riverMileStart": null,
-      "riverMileEnd": null,
+      "publishedLengthMiles": null,
+      "riverMileStart": 25.9,
+      "riverMileEnd": 42.5,
       "representativeGauge": {
         "siteId": "07188653",
         "rationale": "Only USGS streamgage on Big Sugar Creek with live discharge (00060, since 2000) and stage (00065). moherp rates trips on this reach against it. Measured discharge in cfs is published without a recreational rating; no thresholds are recommended for the initial release.",
@@ -81,6 +78,11 @@
       },
       "thresholds": [],
       "publishedFloatTimes": [
+        {
+          "reachLabel": "Deep Ford → Sugar Island — trip report, 'prob less than 3 miles', no duration",
+          "distanceMiles": 3.0,
+          "source": "https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800 (search snippet; page blocked from this environment)"
+        },
         {
           "reachLabel": "Deep Ford → Elk River (Pineville) — trip log distance only, no duration published",
           "distanceMiles": 4.1,
@@ -175,7 +177,7 @@
       "lon": -94.352531,
       "ownership": "Missouri Department of Conservation",
       "managingAgency": "MDC",
-      "section": "big-sugar-lower",
+      "section": "big-sugar-main",
       "feeRequired": false,
       "riverMile": null,
       "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/deep-ford-access",
@@ -196,9 +198,8 @@
       "lon": -94.38682,
       "ownership": "City",
       "managingAgency": "Municipal",
-      "section": "big-sugar-lower",
       "officialSiteUrl": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
-      "notes": "PUBLIC — already an approved Elk River access (Eddy Elk mile 0.26), ~0.26 mi below the Big Sugar/Little Sugar confluence. A take-out for Big Sugar only if planner routing across the confluence is built; do not duplicate the row under big-sugar-creek.",
+      "notes": "EXCLUDED from the Big Sugar corridor: public, but on the Elk (Elk mile 0.26). Offer Deep Ford → Pineville only if cross-river routing is built. PUBLIC — already an approved Elk River access (Eddy Elk mile 0.26), ~0.26 mi below the Big Sugar/Little Sugar confluence. A take-out for Big Sugar only if planner routing across the confluence is built; do not duplicate the row under big-sugar-creek.",
       "source": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access ; scripts/ingestion/dossiers/elk.json ; scripts/ingestion/access-points/elk.json"
     },
     {
@@ -249,37 +250,40 @@
     },
     {
       "name": "Sugar Island Camp & Canoe",
-      "type": "campground",
+      "type": "gravel_bar",
       "lat": null,
       "lon": null,
       "ownership": "Private",
       "managingAgency": "Private",
-      "notes": "HELD: family-run campground/outfitter at 1354 Big Sugar Creek Rd, Pineville ('one mile east of Pineville', NWA Democrat-Gazette 2017; 417-223-4410). The Census address point (36.601591, -94.370363, interpolated along the road) is ~200 m from the mainstem at Eddy mile ~42.5, about 2 mi below Deep Ford (40.45) and 1.5 mi above the confluence; a trip report describes Deep Ford → Sugar Island as under 3 mi. Because it is on Big Sugar, Deep Ford → Sugar Island would be a single-river planner pair if the operator publishes landing terms. The operator site could not be reached, so there are no verified launch terms or landing coordinates. Owner-supplied Google Maps view (2026-11-02) shows 'Ables Sugar Island Camp' beside a large gravel bar on Big Sugar, off Big Sugar Creek Rd, consistent with the Census point; the Hipcamp listing uses the same 'Ables Sugar Island Camp' name.",
-      "source": "https://missouricanoe.org/places/category/big-sugar-creek ; https://rivers.moherp.org/river/?9 ; https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800 ; https://geocoding.geo.census.gov/geocoder/locations/onelineaddress (address point only)"
+      "notes": "PRIVATE PUT-IN (owner-confirmed 2026-11-02); pin still needed: family-run campground/outfitter at 1354 Big Sugar Creek Rd, Pineville ('one mile east of Pineville', NWA Democrat-Gazette 2017; 417-223-4410). The Census address point (36.601591, -94.370363, interpolated along the road) is ~200 m from the mainstem at Eddy mile ~42.5, about 2 mi below Deep Ford (40.45) and 1.5 mi above the confluence; a trip report describes Deep Ford → Sugar Island as under 3 mi. Because it is on Big Sugar, Deep Ford → Sugar Island would be a single-river planner pair if the operator publishes landing terms. The operator site could not be reached, so there are no verified launch terms or landing coordinates. Owner-supplied Google Maps view (2026-11-02) shows 'Ables Sugar Island Camp' beside a large gravel bar on Big Sugar, off Big Sugar Creek Rd, consistent with the Census point; the Hipcamp listing uses the same 'Ables Sugar Island Camp' name.",
+      "source": "https://missouricanoe.org/places/category/big-sugar-creek ; https://rivers.moherp.org/river/?9 ; https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800 ; https://geocoding.geo.census.gov/geocoder/locations/onelineaddress (address point only)",
+      "section": "big-sugar-main"
     },
     {
       "name": "Creekside Campground",
-      "type": "campground",
+      "type": "gravel_bar",
       "lat": null,
       "lon": null,
       "ownership": "Private",
       "managingAgency": "Private",
-      "notes": "HELD: private campground at 274 Creekside Rd, Powell, MO 65730 (417-435-2274; email creeksidecampground1@yahoo.com, per NWA Democrat-Gazette 2017; Yellow Pages and Apple Maps carry the same address). The Census address point (36.624158, -94.185152, interpolated along the road) is ~100 m from the mainstem at Eddy mile ~25.9, about 0.6 mi below Powell Bridge. No published creek access, launch, rental or shuttle terms were found; its listed website (kccreeksidehaven.com) returned an empty page. Ask whether it allows launching/landing for non-guests and on what terms. A launch here would serve Powell-to-Cyclone trips.",
-      "source": "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588 ; https://maps.apple.com/place?place-id=IABB92F072F3E6455"
+      "notes": "PRIVATE PUT-IN (owner-confirmed 2026-11-02); pin still needed: private campground at 274 Creekside Rd, Powell, MO 65730 (417-435-2274; email creeksidecampground1@yahoo.com, per NWA Democrat-Gazette 2017; Yellow Pages and Apple Maps carry the same address). The Census address point (36.624158, -94.185152, interpolated along the road) is ~100 m from the mainstem at Eddy mile ~25.9, about 0.6 mi below Powell Bridge. No published creek access, launch, rental or shuttle terms were found; its listed website (kccreeksidehaven.com) returned an empty page. Ask whether it allows launching/landing for non-guests and on what terms. A launch here would serve Powell-to-Cyclone trips.",
+      "source": "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588 ; https://maps.apple.com/place?place-id=IABB92F072F3E6455",
+      "section": "big-sugar-main"
     },
     {
       "name": "Big Rock Camp Grounds (Big Rock Park)",
-      "type": "campground",
+      "type": "gravel_bar",
       "lat": 36.6209375,
       "lon": -94.3270625,
       "ownership": "Private (operated by Sugar Island Camp, per that operator's listing)",
       "managingAgency": "Private",
       "riverMile": 38.97,
-      "notes": "HELD (location verified, launch terms not). Owner confirmed 2026-11-02 that Big Rock Park is the Google Maps 'Big Rock Camp Grounds' pin on Big Sugar Creek Rd (plus code JMCF+95 Pineville = 8687JMCF+95; listed phone 630-444-1200; unclaimed listing with no website; 4.5 stars from 111 reviews). Imagery shows a track from the road down to a gravel bar on river left. The pin is 81 m from the mainstem at Eddy mile 38.97: about 1.5 mi above Deep Ford (40.45) and 3.5 mi above Sugar Island (~42.5), all on Big Sugar. Sugar Island's listing says the same operator runs it ('just 4 miles east of Sugar Island'), so Big Rock → Sugar Island is a plausible single-operator, single-river trip. No published launch, landing, day-use or fee terms; confirm with the operator before any planner use. The coordinate marks the campground, not a surveyed launch spot.",
+      "notes": "PRIVATE PUT-IN (owner-confirmed 2026-11-02). Owner confirmed 2026-11-02 that Big Rock Park is the Google Maps 'Big Rock Camp Grounds' pin on Big Sugar Creek Rd (plus code JMCF+95 Pineville = 8687JMCF+95; listed phone 630-444-1200; unclaimed listing with no website; 4.5 stars from 111 reviews). Imagery shows a track from the road down to a gravel bar on river left. The pin is 81 m from the mainstem at Eddy mile 38.97: about 1.5 mi above Deep Ford (40.45) and 3.5 mi above Sugar Island (~42.5), all on Big Sugar. Sugar Island's listing says the same operator runs it ('just 4 miles east of Sugar Island'), so Big Rock → Sugar Island is a plausible single-operator, single-river trip. No published launch, landing, day-use or fee terms; confirm with the operator before any planner use. The coordinate marks the campground, not a surveyed launch spot.",
       "source": "Owner local knowledge 2026-11-02 (Google Maps 'Big Rock Camp Grounds', plus code JMCF+95 Pineville, Missouri) ; https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y",
       "coordinateSource": "Google Maps plus code 8687JMCF+95 (cell centre, ±~7 m), confirmed by the owner 2026-11-02",
       "coordinateConfidence": "medium",
-      "coordinateNote": "Campground pin beside Big Sugar Creek Rd; the gravel-bar launch is southwest of it toward the channel. Place the launch pin from imagery during access-point review."
+      "coordinateNote": "Campground pin beside Big Sugar Creek Rd; the gravel-bar launch is southwest of it toward the channel. Place the launch pin from imagery during access-point review.",
+      "section": "big-sugar-main"
     },
     {
       "name": "Big Sugar Creek State Park",
@@ -346,7 +350,7 @@
       "HAZARDS: exact position, passage and portage side of Crag O' Lea low-water bridge (≈0.5 mi below Deep Ford) and the condition of the guide-mile 23.9 channel split. Any other low-water crossings between Deep Ford and Pineville? Overpass/OSM structure query could not complete.",
       "HYDROLOGY: sources disagree on character — MCFA calls it 'spring-fed', but Powell drops to ~5–11 cfs in autumn and crests above 30,000 cfs. Is there a losing reach (MoDNR losing-stream designation) between Powell and Pineville? Not researched.",
       "MILES: floatmissouri guide miles (0 = Roller Bridge) are not Eddy miles (0 = NHD headwaters). Do not copy guide miles into riverMile fields.",
-      "PRIVATE LANDINGS (owner-located 2026-11-02): Creekside Campground (Eddy mile ~25.9), Big Rock Camp Grounds (38.97), MDC Deep Ford (40.45) and Ables Sugar Island Camp (~42.5) are all on Big Sugar. Big Rock and Sugar Island share an operator. If that operator publishes launch/landing terms for private boats, Big Rock → Deep Ford (~1.5 mi), Deep Ford → Sugar Island (~2 mi) and Big Rock → Sugar Island (~3.5 mi) are single-river pairs the current planner can route, without the cross-river Pineville take-out. Ask Sugar Island (417-223-4410): guests only or anyone, fee, and which landing spot to use."
+      "PRIVATE PUT-INS (owner-confirmed 2026-11-02): Creekside, Big Rock and Sugar Island. Still needed: launch pins for Creekside and Sugar Island (address points only), and the operators' fees/terms for display."
     ],
     "toVerify": [
       "USGS 07188653 Big Sugar Creek near Powell, MO — confirm on https://waterdata.usgs.gov/monitoring-location/USGS-07188653/ : lat 36.6158611, lon -94.1822222, drainage 141 sq mi, params 00060 + 00065, discharge record from 2000-05-25; fresh at activation.",
@@ -365,14 +369,14 @@
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Evidence supports one fully public pair: MDC Deep Ford Access (guide mile 20.4) → City of Pineville Elk River Access (Elk mile 0.26), about 4.1 mi (moherp trip log), crossing the Big Sugar/Little Sugar confluence. The wider floated reach is Powell/Cyclone → Pineville (floatmissouri.com; 2015 Arkansas Democrat-Gazette), spring to early summer. Remaining: owner choice between cross-confluence planning, a listing-only release, or waiting for a legal upstream put-in; exclude Roller Bridge (high water only) and Big Sugar Creek State Park (no launch)."
+      "notes": "Revised 2026-11-02. Owner local knowledge: Creekside Campground, Big Rock Camp Grounds and Ables Sugar Island Camp are private put-ins on Big Sugar. With MDC Deep Ford (public) the proposed corridor is Creekside (Eddy ~25.9) → Sugar Island (~42.5), all on one river. Remaining: owner sign-off of this corridor; pins for Creekside and Sugar Island; decide whether Deep Ford → City of Pineville Elk River Access is offered later via cross-river routing. Exclude Roller Bridge (high water only), the road crossings (no permission source) and Big Sugar Creek State Park (no launch)."
     },
     "legalAccess": {
       "status": "pending",
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Verified public: Deep Ford Access (MDC page: gravel canoe/kayak launch, parking, camping prohibited, 4 AM–10 PM, launching 24 h) and City of Pineville Elk River Access (MDC cooperative page; already approved on the Elk). Held: Cyclone, Powell, Hwy E, Crag O' Lea and Roller bridges — road crossings with no permission source; a 2018 comment reports private property and restricted parking at Cyclone. Operators: Big Elk publishes a $40/boat Big Sugar shuttle but names no put-in; Sugar Island's site was unreachable. Big Sugar Creek State Park publishes no creek access."
+      "notes": "Public: MDC Deep Ford Access (gravel canoe/kayak launch, parking, no camping, 4 AM–10 PM). Private put-ins, owner-confirmed 2026-11-02: Creekside Campground, Big Rock Camp Grounds (Big Rock Park) and Ables Sugar Island Camp — access by arrangement with each operator; fees and terms unpublished. Held: Cyclone, Powell, Hwy E, Crag O' Lea and Roller crossings (no permission source; a 2018 comment reports private property at Cyclone). City of Pineville Elk River Access is public but on the Elk."
     },
     "gauge": {
       "status": "pending",
@@ -401,7 +405,7 @@
       "evidence": [],
       "reviewedBy": null,
       "reviewedAt": null,
-      "notes": "Not started: no big-sugar-creek geometry exists. NHD GNIS 00748853 is mostly artificial-path segments in HUC 11070208 (~29.9 mi named flowline within the -94.40..-93.90 envelope). The Deep Ford → Pineville pair requires connected routing from Big Sugar onto the Elk (Elk index starts at the confluence; Pineville access at Elk mile 0.26) and a decision on the 23.9 channel split. Validate import endpoints and length against floatmissouri's 24.3 guide miles (Roller → confluence) and Wikipedia's 47 mi total."
+      "notes": "Geometry staged, not applied: TNM HU8 11070208 whole-stem dissolve, 44.1 mi, ends 0 m from the Elk's stored start (import-nhd-rivers-from-tnm.ts, mode insert). Measured Eddy miles: Powell gauge 25.26, Creekside ~25.9 (address point), Big Rock 38.97, Deep Ford 40.45, Sugar Island ~42.5 (address point), confluence 44.06. All proposed pairs are single-river. Remaining: apply geometry, import pins, and validate get_float_segment for each pair; decide the 23.9 channel split only if Pineville is ever offered."
     }
   },
   "conditionRatingMode": "unrated"
