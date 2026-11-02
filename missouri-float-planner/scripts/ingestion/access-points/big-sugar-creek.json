@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Creekside Campground",
+    "kind": "campground",
+    "expected_mile": 25.9,
+    "lat": null,
+    "lon": null,
+    "is_public": false,
+    "ownership": "Private",
+    "managing_agency": "Private",
+    "official_site_url": null,
+    "facilities": "Private campground. Creek access, launching, rentals and shuttles are unverified.",
+    "description": "HELD: private campground at 274 Creekside Rd, Powell, about 0.6 mi below Powell Bridge. Only a Census address point (interpolated along the road) places it, about 100 m from the creek at Eddy mile ~25.9. No published creek-access or launch terms; its listed website returned an empty page. Needs a campground coordinate and the operator's terms before import.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
+      "https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588",
+      "https://maps.apple.com/place?place-id=IABB92F072F3E6455"
+    ],
+    "is_float_endpoint": false
+  },
+  {
+    "name": "Big Rock Camp Grounds",
+    "kind": "campground",
+    "expected_mile": 38.97,
+    "lat": 36.6209375,
+    "lon": -94.3270625,
+    "is_public": false,
+    "ownership": "Private (operated by Sugar Island Camp, per that operator's listing)",
+    "managing_agency": "Private",
+    "official_site_url": null,
+    "facilities": "Private campground with day use, per the operator's listing. Launch and landing terms are unpublished.",
+    "description": "Private campground on Big Sugar Creek Road, also called Big Rock Park, run by the operator of Sugar Island Camp. The owner confirmed this Google Maps pin on 2026-11-02 (plus code 8687JMCF+95). It sits 81 m from the creek at Eddy mile 38.97, about 1.5 mi above MDC Deep Ford Access. This row marks the campground, not a launch: no published terms let non-guests put in or take out here.",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y"
+    ],
+    "is_float_endpoint": false
+  },
+  {
+    "name": "Deep Ford Access",
+    "kind": "boat_ramp",
+    "expected_mile": 40.45,
+    "lat": 36.616707,
+    "lon": -94.352531,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/deep-ford-access",
+    "facilities": "Parking lot and a gravel launch ramp suitable for canoes or kayaks. No trailers. Camping is prohibited. Open 4 AM to 10 PM.",
+    "description": "MDC access on Big Sugar Creek with a gravel canoe and kayak launch, about 3.6 river miles above the Little Sugar confluence at Pineville. Crag O' Lea low-water bridge is about 0.5 mi downstream.",
+    "confidence": "high",
+    "source_urls": [
+      "https://mdc.mo.gov/discover-nature/places/deep-ford-access",
+      "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/8512map.pdf",
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17"
+    ],
+    "is_float_endpoint": true,
+    "road_access": "In Pineville, take Big Sugar Creek Road east from the elementary school for 3.5 miles.",
+    "parking_info": "Parking lot beside the launch; no trailers."
+  },
+  {
+    "name": "Ables Sugar Island Camp",
+    "kind": "campground",
+    "expected_mile": 42.5,
+    "lat": null,
+    "lon": null,
+    "is_public": false,
+    "ownership": "Private",
+    "managing_agency": "Private",
+    "official_site_url": null,
+    "facilities": "Private campground with canoe and kayak rental, per directory listings.",
+    "description": "HELD: family-run campground and canoe rental at 1354 Big Sugar Creek Rd, Pineville, beside a large gravel bar about 2 mi below Deep Ford. Only a Census address point (Eddy mile ~42.5) places it. A published landing for private boats would make Deep Ford to Sugar Island a single-river trip; confirm the terms and the landing spot with the operator (417-223-4410).",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
+      "https://www.hipcamp.com/en-US/land/missouri-ables-sugar-island-camp-lz9hl09y",
+      "https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800"
+    ],
+    "is_float_endpoint": false
+  }
+]
