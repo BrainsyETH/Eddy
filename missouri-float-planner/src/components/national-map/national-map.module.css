@@ -267,3 +267,11 @@
   .drift { animation: none; }
   .tray, .fade { transition: none; }
 }
+
+/* The selected view is not live (no frame, stale snapshot, failed refresh,
+   NWS flood status unavailable): geography stays, everything goes quiet.
+   The text-free display says "not current" this way, with no words. */
+.subdued {
+  opacity: 0.68;
+  transition: opacity var(--duration-slower) var(--ease-default);
+}

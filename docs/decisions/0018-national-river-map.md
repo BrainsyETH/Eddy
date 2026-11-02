@@ -41,7 +41,11 @@ persistent text. Three facts shaped the build:
    calibration. Appearance defaults to the system setting.
 6. **Routes.** The national map takes `/river-map`; the Ozarks observatory
    moves to `/river-map/ozarks` with its float verdicts and deep links.
-7. **Separate contracts.** New endpoints (`/api/river-map/frame`,
+7. **Motion means current, per view.** Data-driven motion and the spotlight
+   run only while the selected view's own data is current; Flooding depends
+   on the NOAA capture, Flow on USGS readings. Until the first frame is
+   recorded, the frame route serves a live, unstored capture.
+8. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.
 

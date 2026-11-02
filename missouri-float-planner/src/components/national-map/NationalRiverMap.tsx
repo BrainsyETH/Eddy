@@ -22,11 +22,11 @@ import {
   classifyFlood,
   classifyFlow,
   classifySites,
-  notableFlood,
-  notableFlow,
+  curateHighlights,
+  LIVE_REASON_TEXT,
+  viewLiveState,
   summarizeFlood,
   summarizeFlow,
-  type Site,
 } from '@/lib/national-map/marks';
 import {
   DEFAULT_PREFS,
@@ -58,8 +58,8 @@ import styles from './national-map.module.css';
 
 const TRAY_IDLE_MS = 8000;
 const CURSOR_IDLE_MS = 3000;
-/** A snapshot older than this stops data-driven motion until a refresh succeeds. */
-const LIVE_SNAPSHOT_MS = 2 * 3_600_000;
+/** The fullscreen spotlight moves to the next highlight this often. */
+const SPOTLIGHT_MS = 20_000;
 
 type Presentation = 'explore' | 'fullscreen';
 
@@ -134,9 +134,19 @@ export default function NationalRiverMap() {
   const floodSummary = useMemo(() => (frame && sites.length ? summarizeFlood(sites, now, noaaOk) : null), [frame, sites, now, noaaOk]);
   const searchIndex = useMemo(() => (catalog && sites.length ? buildSearchIndex(sites) : null), [catalog, sites]);
   const frameVersion = frame?.capturedAt ?? 0;
-  // Data-driven motion only while the snapshot is recent and something is live.
-  const dataLive =
-    !!frame && now - frame.capturedAt < LIVE_SNAPSHOT_MS && (flowSummary?.live ?? 0) > 0 && data.status.lastError === null;
+  // Data-driven motion only while THE VIEW ON SCREEN is current: fresh USGS
+  // readings say nothing about a Flooding view whose NOAA capture failed.
+  const liveReason = viewLiveState({
+    view,
+    capturedAt: frame?.capturedAt ?? null,
+    clock: now,
+    refreshFailed: data.status.lastError !== null,
+    noaaOk,
+    flowLive: flowSummary?.live ?? 0,
+    floodAssessed: floodSummary?.assessed ?? 0,
+  });
+  const dataLive = liveReason === 'live';
+  const liveStatus = liveReason === 'live' ? null : LIVE_REASON_TEXT[liveReason];
 
   // ── Selection (by key, so a refresh keeps it) ───────────────────────────
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -172,8 +182,6 @@ export default function NationalRiverMap() {
   const selected = selectedIndex !== null ? sites[selectedIndex] : null;
   const [chooser, setChooser] = useState<{ indices: number[]; x: number; y: number } | null>(null);
   const [hover, setHover] = useState<{ index: number; x: number; y: number } | null>(null);
-  const [featuredKey, setFeaturedKey] = useState<string | null>(null);
-  const featuredIndex = featuredKey !== null ? indexByKey.get(featuredKey) ?? null : null;
 
   // ── Presentation ────────────────────────────────────────────────────────
   const [presentation, setPresentation] = useState<Presentation>('explore');
@@ -184,14 +192,21 @@ export default function NationalRiverMap() {
   const cursorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullscreen = presentation === 'fullscreen';
 
+  // How the viewer last interacted. A clicked button keeps focus, so "focus is
+  // in the tray" cannot mean "someone is using it": only KEYBOARD focus holds
+  // the tray open. Choose Flooding with the mouse, walk away, and the display
+  // returns to clean.
+  const keyboardModality = useRef(false);
   const armTray = useCallback(() => {
     if (trayTimer.current) clearTimeout(trayTimer.current);
     const tick = () => {
-      // Stay open while a control inside has focus; check again later.
-      if (trayRef.current?.contains(document.activeElement)) {
+      const focusInTray = !!trayRef.current?.contains(document.activeElement);
+      if (focusInTray && keyboardModality.current) {
         trayTimer.current = setTimeout(tick, TRAY_IDLE_MS);
         return;
       }
+      // Hand focus back to the map before the tray goes inert.
+      if (focusInTray) stage.current?.focus();
       setTrayOpen(false);
     };
     trayTimer.current = setTimeout(tick, TRAY_IDLE_MS);
@@ -228,7 +243,6 @@ export default function NationalRiverMap() {
   const exitFullscreen = useCallback(() => {
     setPresentation('explore');
     setTrayOpen(false);
-    setFeaturedKey(null);
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     // Back to the control that entered fullscreen, never to <body>.
     requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
@@ -254,7 +268,12 @@ export default function NationalRiverMap() {
   // any other key reveals the tray and moves focus into it.
   useEffect(() => {
     if (!fullscreen) return;
+    const onPointer = () => {
+      keyboardModality.current = false;
+    };
+    window.addEventListener('pointerdown', onPointer, true);
     const onKey = (e: KeyboardEvent) => {
+      keyboardModality.current = true;
       if (e.key === 'Escape') {
         exitFullscreen();
         return;
@@ -270,7 +289,10 @@ export default function NationalRiverMap() {
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onPointer, true);
+    };
   }, [fullscreen, exitFullscreen, revealTray, armTray]);
 
   // Cursor hides after inactivity in fullscreen (independent of the tray:
@@ -426,16 +448,31 @@ export default function NationalRiverMap() {
   }, [fullscreen, chooser, selectedKey, hover, restoreFocus, closeDetail]);
 
 
-  const notableAll = useMemo(
-    () => (view === 'flooding' ? notableFlood(sites, now, noaaOk) : notableFlow(sites, now)),
-    [view, sites, now, noaaOk],
+  // A few meaningful events spread across the country (curateHighlights).
+  // Nothing is highlighted while the view is not live — emphasis is a claim
+  // that something is happening now.
+  const highlights = useMemo(
+    () => (dataLive ? curateHighlights(sites, view, now, noaaOk, 8) : []),
+    [dataLive, sites, view, now, noaaOk],
   );
-  const notable = fullscreen && prefs.displayDetails ? notableAll : [];
   const notableListed = useMemo(
-    () => notableAll.slice(0, 8).map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
-    [notableAll, indexByKey],
+    () => highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
+    [highlights, indexByKey],
   );
-  const onFeature = useCallback((s: Site | null) => setFeaturedKey(s?.key ?? null), []);
+  // The fullscreen spotlight: emphasis moves between highlights while the
+  // whole country stays still. Map only and Display with details alike —
+  // it needs no words. With motion off it rests on the first highlight.
+  const spotlightSet = useMemo(() => highlights.slice(0, 6), [highlights]);
+  const spotlightKeys = spotlightSet.map((s) => s.key).join('|');
+  const [spotStep, setSpotStep] = useState(0);
+  useEffect(() => setSpotStep(0), [spotlightKeys, view]);
+  useEffect(() => {
+    if (!fullscreen || !motion || spotlightSet.length < 2) return;
+    const t = setInterval(() => setSpotStep((v) => v + 1), SPOTLIGHT_MS);
+    return () => clearInterval(t);
+  }, [fullscreen, motion, spotlightSet.length]);
+  const spotlight = fullscreen && spotlightSet.length ? spotlightSet[spotStep % spotlightSet.length] : null;
+  const spotlightIndex = spotlight ? indexByKey.get(spotlight.key) ?? null : null;
 
   // Explore leaves room for its panel: beside the map in the side layout
   // (measured width), above it otherwise (measured height of the always-visible
@@ -533,7 +570,10 @@ export default function NationalRiverMap() {
   const fatal = data.geometryError;
 
   const stageEl = (
-    <div className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''}`}>
+    <div
+      className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
+      data-live={dataLive ? 'true' : 'false'}
+    >
       <MapStage
         ref={stage}
         geometry={data.geometry}
@@ -547,7 +587,7 @@ export default function NationalRiverMap() {
         labels={!fullscreen}
         insets={insets}
         selectedIndex={fullscreen ? null : selectedIndex}
-        featuredIndex={fullscreen && prefs.displayDetails ? featuredIndex : null}
+        featuredIndex={spotlightIndex}
         initialCenter={shared?.center ?? null}
         interactive={!fullscreen}
         ariaLabel={ariaLabel}
@@ -697,8 +737,8 @@ export default function NationalRiverMap() {
                 noaaOk={noaaOk}
                 capturedAt={frame?.capturedAt ?? null}
                 now={now}
-                notable={notable}
-                onFeature={onFeature}
+                featured={spotlight}
+                liveStatus={liveStatus}
                 palette={palette}
                 narrow={narrow}
               />
@@ -730,6 +770,7 @@ export default function NationalRiverMap() {
               onActivity={armTray}
               trayRef={trayRef}
               narrow={narrow}
+              status={liveStatus}
             />
           </div>
         </>

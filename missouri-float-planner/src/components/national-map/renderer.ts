@@ -36,7 +36,20 @@ export interface RenderMark {
 
 const FX_FPS = 30;
 const RING_PERIOD_MS = 5000;
-const TRACE_SPEED_PX_S = 9;
+/**
+ * Downstream traces by river class, in CSS px at the national fit on a
+ * 760 px screen; everything scales with the screen so a wall display gets
+ * highlights it can see across a room. Trunk rivers carry the longest,
+ * brightest, quickest highlights — the hierarchy is part of the motion.
+ * Direction only: none of these speeds is a measured velocity.
+ */
+const TRACE_CLASSES = [
+  { key: 'tracesRegional', minZoom: 2, width: 1.0, dash: 3.5, gap: 52, speed: 8, alpha: 0.7 },
+  { key: 'tracesMajor', minZoom: 0, width: 1.35, dash: 5, gap: 58, speed: 11, alpha: 0.82 },
+  { key: 'tracesTrunk', minZoom: 0, width: 1.8, dash: 8, gap: 68, speed: 15, alpha: 0.95 },
+] as const;
+/** The spotlight's arrival sweep and the old spot's fade. */
+const SPOT_ARRIVE_MS = 1100;
 /** Event rings go to the most severe sites only; a widespread flood is not a field of pulses. */
 const MAX_RINGS = 60;
 
@@ -52,8 +65,9 @@ interface LaidPaths {
   /** Base rivers by Strahler order. */
   rivers: Map<number, Path2D>;
   detail: Map<number, Path2D>;
-  /** Major channels that carry downstream traces. */
-  traces: Path2D;
+  /** Channels that carry downstream traces, by class (see TRACE_CLASSES). */
+  tracesTrunk: Path2D;
+  tracesMajor: Path2D;
   tracesRegional: Path2D;
   labels: Array<{ code: string; x: number; y: number }>;
 }
@@ -114,15 +128,19 @@ function buildPaths(base: DecodedGeometry, detail: DecodedGeometry | null, layou
   const lakes = new Path2D();
   for (const lake of base.lakes) for (const ring of lake.rings) ringPath(lakes, ring, layout, lake);
   const rivers = new Map<number, Path2D>();
-  const traces = new Path2D();
+  const tracesTrunk = new Path2D();
+  const tracesMajor = new Path2D();
   const tracesRegional = new Path2D();
   for (const line of base.rivers) {
     const p = rivers.get(line.order) ?? new Path2D();
     linePath(p, line, layout);
     rivers.set(line.order, p);
     // Hawaii's streams are short and steep; traces there would be noise.
-    if (line.component !== 'hi' && line.order >= 6) linePath(traces, line, layout);
-    if (line.component !== 'hi' && line.order >= 5) linePath(tracesRegional, line, layout);
+    if (line.component !== 'hi') {
+      if (line.order >= 7) linePath(tracesTrunk, line, layout);
+      else if (line.order === 6) linePath(tracesMajor, line, layout);
+      else if (line.order === 5) linePath(tracesRegional, line, layout);
+    }
   }
   const detailPaths = new Map<number, Path2D>();
   for (const line of detail?.rivers ?? []) {
@@ -130,7 +148,7 @@ function buildPaths(base: DecodedGeometry, detail: DecodedGeometry | null, layou
     linePath(p, line, layout);
     detailPaths.set(line.order, p);
   }
-  return { land, lakes, rivers, detail: detailPaths, traces, tracesRegional, labels };
+  return { land, lakes, rivers, detail: detailPaths, tracesTrunk, tracesMajor, tracesRegional, labels };
 }
 
 interface Sprite {
@@ -161,6 +179,9 @@ export class NationalRenderer {
   private ringMarks: RenderMark[] = [];
   private selected: { x: number; y: number } | null = null;
   private featured: { x: number; y: number } | null = null;
+  /** Where the spotlight was, and when it moved — for the arrival sweep. */
+  private featuredPrev: { x: number; y: number } | null = null;
+  private featuredSince = 0;
   private showLabels = true;
   private motion = true;
   /** False while every observation is stale: geography stays, motion stops. */
@@ -306,6 +327,11 @@ export class NationalRenderer {
 
   setHighlights(selected: { x: number; y: number } | null, featured: { x: number; y: number } | null) {
     this.selected = selected;
+    const moved = featured?.x !== this.featured?.x || featured?.y !== this.featured?.y;
+    if (moved) {
+      this.featuredPrev = this.featured;
+      this.featuredSince = performance.now();
+    }
     this.featured = featured;
     this.dirtyMarks = true;
     this.request();
@@ -321,6 +347,9 @@ export class NationalRenderer {
   setMotion(motion: boolean, dataLive: boolean) {
     this.motion = motion;
     this.dataLive = dataLive;
+    // The spotlight is animated on the fx layer when motion runs and drawn
+    // statically on the marks layer otherwise.
+    this.dirtyMarks = true;
     this.syncFxLoop();
     this.request();
   }
@@ -401,7 +430,12 @@ export class NationalRenderer {
     g.fill(paths.lakes, 'evenodd');
 
     // Rivers: tributaries fade in with zoom; the hierarchy is the texture.
-    const widthFor = (order: number) => (order >= 7 ? 1.9 : order >= 6 ? 1.35 : order >= 5 ? 0.9 : order >= 4 ? 0.7 : 0.55);
+    // The trunk rivers are the composition: on big screens they widen with
+    // the screen while tributaries stay hairlines, so the hierarchy reads
+    // from across a room.
+    const big = Math.max(1, Math.min(2, this.screenScale()));
+    const widthFor = (order: number) =>
+      order >= 7 ? 2.3 * big : order >= 6 ? 1.5 * big : order >= 5 ? 0.95 * Math.sqrt(big) : order >= 4 ? 0.7 : 0.55;
     const zoomBoost = Math.min(1.8, 1 + Math.log2(Math.max(1, z)) * 0.25);
     g.strokeStyle = p.river;
     if (z >= 2.2) {
@@ -437,6 +471,11 @@ export class NationalRenderer {
         g.fillText(l.code, sx, sy);
       }
     }
+  }
+
+  /** Room-distance factor: phones 0.6, a 760 px screen 1, a TV up to 2.2. */
+  private screenScale(): number {
+    return Math.max(0.6, Math.min(2.2, Math.min(this.vp.width, this.vp.height) / 760));
   }
 
   /** Mark radius multiplier: grows with zoom, and with the screen for room-distance viewing. */
@@ -492,7 +531,7 @@ export class NationalRenderer {
       g.lineWidth = width;
       g.stroke();
     };
-    if (this.featured) ring(this.featured, 9 * Math.min(1.6, k), 1.5);
+    if (this.featured && !(this.motion && this.dataLive)) ring(this.featured, 9 * Math.min(1.6, k), 1.5);
     if (this.selected) ring(this.selected, 8 * Math.min(1.6, k), 2);
   }
 
@@ -508,13 +547,18 @@ export class NationalRenderer {
     const s = scale * this.dpr;
     g.setTransform(s, 0, 0, s, tx * this.dpr, ty * this.dpr);
     const px = 1 / scale;
+    const sf = this.screenScale();
+    const zf = Math.min(1.8, 1 + Math.log2(Math.max(1, z)) * 0.25);
     g.strokeStyle = p.trace;
     g.lineCap = 'round';
-    g.lineWidth = 1.1 * px * Math.min(1.8, 1 + Math.log2(Math.max(1, z)) * 0.25);
-    g.setLineDash([2.5 * px, 46 * px]);
-    g.lineDashOffset = -((t / 1000) * TRACE_SPEED_PX_S) * px;
-    g.globalAlpha = 0.85;
-    g.stroke(z >= 2 ? this.paths.tracesRegional : this.paths.traces);
+    for (const c of TRACE_CLASSES) {
+      if (z < c.minZoom) continue;
+      g.lineWidth = c.width * sf * zf * px;
+      g.setLineDash([c.dash * sf * px, c.gap * sf * px]);
+      g.lineDashOffset = -((t / 1000) * c.speed * sf) * px;
+      g.globalAlpha = c.alpha;
+      g.stroke(this.paths[c.key]);
+    }
     g.setLineDash([]);
     g.globalAlpha = 1;
 
@@ -535,6 +579,32 @@ export class NationalRenderer {
       g.stroke();
     }
     g.globalAlpha = 1;
+
+    // The spotlight: a slow breathing ring on the current highlight. When it
+    // moves, a wide ring sweeps in to the new place while the old one fades —
+    // emphasis travels; the camera never does.
+    if (this.featured) {
+      const since = t - this.featuredSince;
+      const arrive = Math.max(0, Math.min(1, since / SPOT_ARRIVE_MS));
+      const ease = 1 - (1 - arrive) ** 3;
+      const base = 11 * Math.min(1.8, k);
+      const fx = this.featured.x * scale + tx;
+      const fy = this.featured.y * scale + ty;
+      const breathe = Math.sin(t / 1300) * 1.6 * Math.min(1.8, k);
+      g.strokeStyle = p.selection;
+      g.lineWidth = 2 * Math.min(1.6, Math.max(1, k * 0.8));
+      g.globalAlpha = 0.85 * ease;
+      g.beginPath();
+      g.arc(fx, fy, base + breathe + (1 - ease) * base * 4, 0, Math.PI * 2);
+      g.stroke();
+      if (this.featuredPrev && arrive < 1) {
+        g.globalAlpha = 0.85 * (1 - ease);
+        g.beginPath();
+        g.arc(this.featuredPrev.x * scale + tx, this.featuredPrev.y * scale + ty, base * (1 + ease * 0.6), 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
   }
 }
 

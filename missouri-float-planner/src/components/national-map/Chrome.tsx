@@ -465,6 +465,7 @@ export function FullscreenTray({
   onActivity,
   trayRef,
   narrow,
+  status,
 }: {
   open: boolean;
   view: MapView;
@@ -480,13 +481,15 @@ export function FullscreenTray({
   trayRef: React.RefObject<HTMLDivElement | null>;
   /** Phone width: icon-only Details so the row never wraps. */
   narrow: boolean;
+  /** Why the selected view is not live, or null. Shown only once the tray is open. */
+  status: string | null;
 }) {
   const reducedId = useId();
   const paused = !motion || reducedMotion;
   return (
     <div
       ref={trayRef}
-      className={`${styles.panel} ${styles.tray} ${open ? '' : styles.trayHidden} pointer-events-auto flex flex-nowrap items-center gap-2 p-2`}
+      className={`${styles.panel} ${styles.tray} ${open ? '' : styles.trayHidden} pointer-events-auto flex max-w-full flex-col gap-1.5 p-2`}
       role="group"
       aria-label="Fullscreen controls"
       aria-hidden={!open}
@@ -496,6 +499,12 @@ export function FullscreenTray({
       onKeyDown={onActivity}
       onFocus={onActivity}
     >
+      {status && (
+        <p className="px-1 text-sm font-semibold" role="status">
+          {status}
+        </p>
+      )}
+      <div className="flex flex-nowrap items-center gap-2">
       <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} size={narrow ? 'sm' : 'md'} aria-label="Map view" />
       {/* Fixed names with aria-pressed: the state is the pressed state, not a
           label that rewrites itself ("Hide details, pressed"). */}
@@ -529,13 +538,12 @@ export function FullscreenTray({
       <Button variant="icon" aria-label="Exit fullscreen" title="Exit fullscreen" onClick={onExit}>
         <X size={18} aria-hidden />
       </Button>
+      </div>
     </div>
   );
 }
 
 // ── Display with details ────────────────────────────────────────────────────
-
-const ROTATE_MS = 30_000;
 
 export function DisplayDetails({
   view,
@@ -544,8 +552,8 @@ export function DisplayDetails({
   noaaOk,
   capturedAt,
   now,
-  notable,
-  onFeature,
+  featured,
+  liveStatus,
   palette,
   narrow,
 }: {
@@ -555,28 +563,17 @@ export function DisplayDetails({
   noaaOk: boolean;
   capturedAt: number | null;
   now: number;
-  notable: Site[];
-  onFeature: (site: Site | null) => void;
+  /** The spotlit highlight (the parent rotates it), or null. */
+  featured: Site | null;
+  /** Why the view is not live, or null — replaces the status line when set. */
+  liveStatus: string | null;
   palette: MapPalette;
   /** Phone width: stack the status line above the card instead of side by side. */
   narrow: boolean;
 }) {
-  const [i, setI] = useState(0);
-  const keys = notable.map((s) => s.key).join('|');
-  useEffect(() => setI(0), [keys]);
-  useEffect(() => {
-    if (notable.length < 2) return;
-    const t = setInterval(() => setI((v) => (v + 1) % notable.length), ROTATE_MS);
-    return () => clearInterval(t);
-  }, [notable.length]);
-  const featured = notable.length ? notable[i % notable.length] : null;
-  useEffect(() => {
-    onFeature(featured);
-  }, [featured, onFeature]);
-  useEffect(() => () => onFeature(null), [onFeature]);
-
-  const status =
-    view === 'flow'
+  const status = liveStatus
+    ? liveStatus
+    : view === 'flow'
       ? flow
         ? `Flow compared with usual · ${nf.format(flow.live)} gauges current`
         : 'Flow compared with usual'

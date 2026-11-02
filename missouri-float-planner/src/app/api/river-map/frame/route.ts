@@ -7,17 +7,27 @@
 // With `at`: the newest frame captured at or before that instant (the replay and 24-hour-comparison read; the oldest
 // frame retained is ~8 days back — see src/lib/national-map/frame.ts).
 //
-// The body is served exactly as the recorder stored it. No frame at all is a
-// 503, never an empty 200: an empty country and "we have nothing yet" must not
-// look alike to a client that keeps the last good frame on screen.
+// The body is served exactly as the recorder stored it.
+//
+// FIRST DEPLOY: until the recorder has stored its first frame (within ~15
+// minutes of deploy), the newest-frame read builds one live with the same
+// capture code (src/lib/national-map/capture.ts), serves it with a short CDN
+// lifetime and does NOT store it — a GET never writes. So the map shows real
+// readings from the first request instead of an empty country. If that live
+// capture fails too, the answer is a 503, never an empty 200: an empty
+// country and "we have nothing yet" must not look alike to a client that
+// keeps the last good frame on screen.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
+import { captureFrame } from '@/lib/national-map/capture';
 
 export const dynamic = 'force-dynamic';
+// The first-deploy bootstrap reads the database and NOAA (~15–25 s measured).
+export const maxDuration = 60;
 
 async function _GET(request: NextRequest) {
   const limited = await rateLimit(`river-map-frame:${getClientIp(request)}`, 60, 60 * 1000);
@@ -60,7 +70,12 @@ async function _GET(request: NextRequest) {
     if (error) throw new Error(error.message);
     const row = data?.[0] as { captured_at: string; body: unknown } | undefined;
     if (!row) {
-      return NextResponse.json({ error: 'No national frame recorded yet' }, { status: 503 });
+      if (at) return NextResponse.json({ error: 'No national frame recorded at or before that time' }, { status: 404 });
+      // Nothing recorded yet: serve a live capture, unstored, briefly cached.
+      const { frame } = await captureFrame(supabase);
+      return NextResponse.json(frame, {
+        headers: { ...cdnCacheHeaders(120, 300), 'X-Frame-Source': 'live-bootstrap' },
+      });
     }
     // Newest: frames land every 15 minutes, so 5 minutes at the CDN costs at
     // most a third of a capture. An `at` more than an hour back resolves to a

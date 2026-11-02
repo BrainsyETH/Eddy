@@ -7,7 +7,10 @@ import {
   classifyFlood,
   classifyFlow,
   classifySites,
-  notableFlood,
+  curateHighlights,
+  EXTREME_HIGH,
+  HIGHLIGHT_SEPARATION,
+  viewLiveState,
   summarizeFlood,
   summarizeFlow,
   type Site,
@@ -93,7 +96,7 @@ test('flooding: action is not flooding, an undefined threshold is not "no floodi
     { major: summary.major, minor: summary.minor, action: summary.action, noThreshold: summary.noThreshold, notCurrent: summary.notCurrent, assessed: summary.assessed },
     { major: 1, minor: 0, action: 1, noThreshold: 1, notCurrent: 2, assessed: 2 },
   );
-  assert.deepEqual(notableFlood(sites, NOW, true).map((s) => s.key), ['usgs:00000001']);
+  assert.deepEqual(curateHighlights(sites, 'flooding', NOW, true).map((s) => s.key), ['usgs:00000001']);
 });
 
 test('a NOAA outage hides flood categories instead of reporting none', () => {
@@ -117,4 +120,52 @@ test('flow summary denominators count only current, comparable gauges', () => {
   );
   const s = summarizeFlow(sites, NOW);
   assert.deepEqual({ stations: s.stations, live: s.live, compared: s.compared, stale: s.stale }, { stations: 3, live: 2, compared: 1, stale: 1 });
+});
+
+test('highlights are spread across the country, not one basin told six times', () => {
+  // Ten much-higher gauges packed into one spot, plus three far-apart ones.
+  const latest: LatestInput[] = [];
+  for (let i = 0; i < 10; i++) latest.push(reading(String(20000000 + i), { flowPercentile: 99 }));
+  latest.push(reading('30000001', { flowPercentile: 96 }));
+  latest.push(reading('30000002', { flowPercentile: 4 }));
+  latest.push(reading('30000003', { flowPercentile: 92 }));
+  const catalog = latest.map((r, i) =>
+    i < 10 ? station(r.siteId, -90 + i * 0.01, 38) : station(r.siteId, [-120, -75, -105][i - 10], [45, 42, 33][i - 10]),
+  );
+  const frame = decodeFrame(buildFrame({ capturedAt: new Date(NOW), latest, nws: [], lidToSite: new Map(), noaaOk: true }));
+  const sites = buildSites(catalog, frame);
+  const picks = curateHighlights(sites, 'flow', NOW, true, 6);
+  const clustered = picks.filter((s) => s.siteId!.startsWith('2'));
+  assert.equal(clustered.length, 1, 'one representative from the packed cluster');
+  assert.ok(picks.some((s) => (s.reading?.flowPercentile ?? 50) < 50), 'the dry end is represented');
+  for (let i = 0; i < picks.length; i++) {
+    for (let j = i + 1; j < picks.length; j++) {
+      const [a, b] = [picks[i], picks[j]];
+      if (a.component === b.component) assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= HIGHLIGHT_SEPARATION);
+    }
+  }
+});
+
+test('liveness is judged for the view on screen', () => {
+  const base = { capturedAt: NOW - 10 * 60_000, clock: NOW, refreshFailed: false, noaaOk: true, flowLive: 900, floodAssessed: 700 };
+  assert.equal(viewLiveState({ ...base, view: 'flow' }), 'live');
+  assert.equal(viewLiveState({ ...base, view: 'flooding' }), 'live');
+  // The reported case: fresh USGS readings, failed NOAA capture.
+  assert.equal(viewLiveState({ ...base, view: 'flooding', noaaOk: false }), 'flood_unavailable');
+  assert.equal(viewLiveState({ ...base, view: 'flow', noaaOk: false }), 'live', 'Flow does not depend on NOAA');
+  assert.equal(viewLiveState({ ...base, view: 'flooding', floodAssessed: 0 }), 'flood_not_current');
+  assert.equal(viewLiveState({ ...base, view: 'flow', flowLive: 0 }), 'no_current_readings');
+  assert.equal(viewLiveState({ ...base, view: 'flow', capturedAt: NOW - 3 * H }), 'snapshot_old');
+  assert.equal(viewLiveState({ ...base, view: 'flow', refreshFailed: true }), 'refresh_failed');
+  assert.equal(viewLiveState({ ...base, view: 'flow', capturedAt: null }), 'no_frame');
+});
+
+test('the rarest readings are drawn larger than the rest of their band', () => {
+  const sites = world([reading('00000001', { flowPercentile: EXTREME_HIGH }), reading('00000002', { flowPercentile: 92 })], []);
+  const out = classifySites(sites, 'flow', NOW, true);
+  const extreme = out.find((c) => sites[c.index].siteId === '00000001')!;
+  const plain = out.find((c) => sites[c.index].siteId === '00000002')!;
+  assert.equal(extreme.cls, plain.cls, 'same band, same colour');
+  assert.ok(extreme.style.radius > plain.style.radius);
+  assert.ok(extreme.style.salience > plain.style.salience, 'drawn above the band');
 });

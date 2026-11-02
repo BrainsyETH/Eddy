@@ -176,12 +176,30 @@ export interface MarkStyle {
   minZoom: number;
 }
 
+/**
+ * The rarest readings — at or beyond the 97th / 3rd percentile — are drawn
+ * larger and above the other bands, so a handful of truly exceptional gauges
+ * interrupt the field across a room. Same canonical colours; size is the cue.
+ */
+export const EXTREME_HIGH = 97;
+export const EXTREME_LOW = 3;
+
+const FLOW_EXTREME: Record<'much_higher' | 'much_lower', MarkStyle> = {
+  much_higher: { shape: 'dot', radius: 2.9, color: 'flow.much_higher', keyline: true, salience: 6, ring: false, minZoom: 0 },
+  much_lower: { shape: 'dot', radius: 2.9, color: 'flow.much_lower', keyline: true, salience: 6, ring: false, minZoom: 0 },
+};
+
+export function isExtreme(site: Site): boolean {
+  const p = site.reading?.flowPercentile;
+  return p !== null && p !== undefined && (p >= EXTREME_HIGH || p <= EXTREME_LOW);
+}
+
 const FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
   normal: { shape: 'dot', radius: 1.05, color: 'flow.normal', keyline: true, salience: 3, ring: false, minZoom: 0 },
   lower: { shape: 'dot', radius: 1.45, color: 'flow.lower', keyline: true, salience: 4, ring: false, minZoom: 0 },
   higher: { shape: 'dot', radius: 1.45, color: 'flow.higher', keyline: true, salience: 4, ring: false, minZoom: 0 },
-  much_lower: { shape: 'dot', radius: 1.9, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0 },
-  much_higher: { shape: 'dot', radius: 1.9, color: 'flow.much_higher', keyline: true, salience: 5, ring: false, minZoom: 0 },
+  much_lower: { shape: 'dot', radius: 2.1, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0 },
+  much_higher: { shape: 'dot', radius: 2.1, color: 'flow.much_higher', keyline: true, salience: 5, ring: false, minZoom: 0 },
   no_comparison: { shape: 'ring', radius: 1.05, color: 'noComparison', keyline: false, salience: 2, ring: false, minZoom: 0 },
   stale: { shape: 'ring', radius: 0.95, color: 'stale', keyline: false, salience: 1, ring: false, minZoom: 0 },
   dormant: { shape: 'ring', radius: 0.9, color: 'stale', keyline: false, salience: 0, ring: false, minZoom: 3 },
@@ -223,7 +241,12 @@ export function classifySites(sites: Site[], view: MapView, clock: number, noaaO
   const out: ClassifiedSite[] = [];
   sites.forEach((site, index) => {
     const cls = view === 'flow' ? classifyFlow(site, clock) : classifyFlood(site, clock, noaaOk);
-    const style = view === 'flow' ? flowStyle(cls as FlowClass) : floodStyle(cls as FloodClass);
+    const style =
+      view === 'flow'
+        ? (cls === 'much_higher' || cls === 'much_lower') && isExtreme(site)
+          ? FLOW_EXTREME[cls]
+          : flowStyle(cls as FlowClass)
+        : floodStyle(cls as FloodClass);
     if (style) out.push({ index, cls, style });
   });
   return out.sort((a, b) => a.style.salience - b.style.salience);
@@ -301,24 +324,100 @@ export function summarizeFlood(sites: Site[], clock: number, noaaOk: boolean): F
   return s;
 }
 
-/** Sites flooding now, most severe first — the Display-with-details rotation in Flooding. */
-export function notableFlood(sites: Site[], clock: number, noaaOk: boolean, limit = 12): Site[] {
-  return sites
-    .filter((s) => {
-      const c = classifyFlood(s, clock, noaaOk);
-      return c === 'major' || c === 'moderate' || c === 'minor';
-    })
-    .sort((a, b) => floodSeverity(b.nws!.observed) - floodSeverity(a.nws!.observed) || a.name.localeCompare(b.name))
-    .slice(0, limit);
+// ── Highlights: a few meaningful events, spread across the country ─────────
+// The wall display moves its emphasis between these. Ranking by extremity
+// alone repeatedly picked neighbouring gauges telling one story (a single
+// basin's flood, one state's dry spell), so selection is greedy by score with
+// a minimum separation in the composite frame — different places, different
+// stories — and, in Flow, both ends of the scale when both exist.
+
+/** Minimum distance between highlights, in landscape-frame px (~8% of the lower 48's width). */
+export const HIGHLIGHT_SEPARATION = 70;
+
+function highlightScore(site: Site, view: MapView, clock: number, noaaOk: boolean): number {
+  if (view === 'flooding') {
+    const c = classifyFlood(site, clock, noaaOk);
+    if (c !== 'major' && c !== 'moderate' && c !== 'minor') return -1;
+    return floodSeverity(site.nws!.observed) * 1000 + (site.reading?.flowPercentile ?? 50);
+  }
+  const c = classifyFlow(site, clock);
+  if (c !== 'much_higher' && c !== 'much_lower') return -1;
+  return Math.abs((site.reading?.flowPercentile ?? 50) - 50);
 }
 
-/** The most unusual live comparisons, both ends — the rotation in Flow. */
-export function notableFlow(sites: Site[], clock: number, limit = 12): Site[] {
-  const extremes = sites.filter((s) => {
-    const c = classifyFlow(s, clock);
-    return c === 'much_higher' || c === 'much_lower';
-  });
-  const dist = (s: Site) => Math.abs((s.reading?.flowPercentile ?? 50) - 50);
-  return extremes.sort((a, b) => dist(b) - dist(a) || a.name.localeCompare(b.name)).slice(0, limit);
+export function curateHighlights(
+  sites: Site[],
+  view: MapView,
+  clock: number,
+  noaaOk: boolean,
+  limit = 6,
+  separation = HIGHLIGHT_SEPARATION,
+): Site[] {
+  const scored = sites
+    .map((site) => ({ site, score: highlightScore(site, view, clock, noaaOk) }))
+    .filter((c) => c.score >= 0)
+    .sort((a, b) => b.score - a.score || a.site.key.localeCompare(b.site.key));
+  const picked: Site[] = [];
+  const far = (s: Site) => picked.every((p) => p.component !== s.component || Math.hypot(p.x - s.x, p.y - s.y) >= separation);
+  // Flow: lead with the strongest wet and the strongest dry event, so a quiet
+  // day still shows contrast rather than six variations of one end.
+  if (view === 'flow') {
+    for (const wet of [true, false]) {
+      const best = scored.find((c) => ((c.site.reading?.flowPercentile ?? 50) >= 50) === wet);
+      if (best && picked.length < limit) picked.push(best.site);
+    }
+  }
+  for (const c of scored) {
+    if (picked.length >= limit) break;
+    if (!picked.includes(c.site) && far(c.site)) picked.push(c.site);
+  }
+  return picked;
 }
+
+// ── Liveness per view ───────────────────────────────────────────────────────
+// Motion means "this is current". It must be judged for the view on screen:
+// fresh USGS readings say nothing about a Flooding view whose NOAA capture
+// failed, and the text-free display has no words to say so — it has to look
+// unavailable (static, subdued) instead.
+
+export type LiveReason =
+  | 'live'
+  | 'no_frame'
+  | 'snapshot_old'
+  | 'refresh_failed'
+  | 'no_current_readings'
+  | 'flood_unavailable'
+  | 'flood_not_current';
+
+export const LIVE_SNAPSHOT_MS = 2 * 3_600_000;
+
+export function viewLiveState(args: {
+  view: MapView;
+  capturedAt: number | null;
+  clock: number;
+  refreshFailed: boolean;
+  noaaOk: boolean;
+  flowLive: number;
+  floodAssessed: number;
+}): LiveReason {
+  if (args.capturedAt === null) return 'no_frame';
+  if (args.clock - args.capturedAt >= LIVE_SNAPSHOT_MS) return 'snapshot_old';
+  if (args.refreshFailed) return 'refresh_failed';
+  if (args.view === 'flooding') {
+    if (!args.noaaOk) return 'flood_unavailable';
+    if (args.floodAssessed === 0) return 'flood_not_current';
+    return 'live';
+  }
+  return args.flowLive > 0 ? 'live' : 'no_current_readings';
+}
+
+/** Short, plain status for the fullscreen tray and the details line when not live. */
+export const LIVE_REASON_TEXT: Record<Exclude<LiveReason, 'live'>, string> = {
+  no_frame: 'Live readings have not loaded yet',
+  snapshot_old: 'Readings are older than expected',
+  refresh_failed: 'Refresh failed — showing the last snapshot',
+  no_current_readings: 'No gauges are reporting current readings',
+  flood_unavailable: 'NWS flood status is unavailable right now',
+  flood_not_current: 'NWS flood observations are not current',
+};
 

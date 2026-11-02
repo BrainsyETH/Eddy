@@ -47,7 +47,7 @@ function fixtureStations() {
   return { v: 1, generatedAt: new Date(NOW).toISOString(), rows };
 }
 
-function fixtureFrame(ageMs: number) {
+function fixtureFrame(ageMs: number, noaaOk = true) {
   const stations = fixtureStations().rows;
   const latest: LatestInput[] = stations.map(([siteId], i) => ({
     siteId,
@@ -58,7 +58,7 @@ function fixtureFrame(ageMs: number) {
     flowPercentile: (i * 37) % 100,
     fetchedAt: new Date(NOW - ageMs).toISOString(),
   }));
-  const nws: NwsInput[] = [
+  const nws: NwsInput[] = !noaaOk ? [] : [
     { lid: 'EURM7', lng: -90.59, lat: 38.51, observed: 'major', observedAt: Math.floor((NOW - ageMs - 30 * 60_000) / 1000), observedValue: 28.1, units: 'ft', forecast: 'moderate', forecastValidAt: null, forecastIssuedAt: null, name: '' },
     { lid: 'ABCD1', lng: -97, lat: 35, observed: 'not_defined', observedAt: null, observedValue: null, units: 'ft', forecast: 'unknown', forecastValidAt: null, forecastIssuedAt: null, name: 'Undefined Creek' },
   ];
@@ -67,12 +67,12 @@ function fixtureFrame(ageMs: number) {
     latest,
     nws,
     lidToSite: new Map([['EURM7', '07019000']]),
-    noaaOk: true,
+    noaaOk,
   });
 }
 
-async function intercept(page: Page, frameAgeMs: number, stationsStatus = 200) {
-  const frame = JSON.stringify(fixtureFrame(frameAgeMs));
+async function intercept(page: Page, frameAgeMs: number, stationsStatus = 200, noaaOk = true) {
+  const frame = JSON.stringify(fixtureFrame(frameAgeMs, noaaOk));
   const stations = JSON.stringify(fixtureStations());
   await page.route('**/api/river-map/stations', (r) =>
     stationsStatus === 200
@@ -224,9 +224,16 @@ async function main() {
     await page.getByRole('group', { name: 'Fullscreen controls' }).waitFor();
     assert.ok(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), 'a tap reveals the tray');
     assert.equal(await page.getByRole('region', { name: /^Details for/ }).count(), 0, 'the first tap never opens a gauge');
+    // Use the tray with the mouse (the clicked button keeps focus), then walk
+    // away: the display must return to clean. Only keyboard focus holds it.
+    await page.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flooding', exact: true }).click();
     await page.mouse.move(100, 100);
-    await page.waitForTimeout(TRAY_IDLE_MS + 1200);
-    assert.deepEqual(await visibleText(page), [], 'the tray hides again; pointer drift does not hold it open');
+    await page.waitForTimeout(TRAY_IDLE_MS + 1500);
+    assert.deepEqual(await visibleText(page), [], 'after a mouse choice the tray hides again; pointer drift does not hold it open');
+    await page.mouse.click(720, 450);
+    await page.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
+    await page.mouse.move(100, 100);
+    await page.waitForTimeout(TRAY_IDLE_MS + 1500);
     await page.keyboard.press('Escape');
     await page.locator('[data-presentation="explore"]').waitFor();
     await page.waitForTimeout(300);
@@ -253,24 +260,68 @@ async function main() {
     await stale.close();
 
     // ── 6. iPhone-style fallback fullscreen covers the site header ───────
+    // iPhone Safari has no element Fullscreen API. Remove it from EVERY
+    // prototype that can carry it (deleting only Element.prototype's copy left
+    // a native path alive in CI's browser build, so the fallback never ran),
+    // and wait for the page to be interactive before tapping.
     const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     await phone.addInitScript(() => {
-      delete (Element.prototype as { requestFullscreen?: unknown }).requestFullscreen;
+      for (const proto of [Element.prototype, HTMLElement.prototype, HTMLDivElement.prototype]) {
+        for (const name of ['requestFullscreen', 'webkitRequestFullscreen', 'webkitRequestFullScreen']) {
+          Object.defineProperty(proto, name, { value: undefined, configurable: true, writable: true });
+        }
+      }
     });
     await intercept(phone, 5 * 60_000);
     await phone.goto(target, { waitUntil: 'domcontentloaded' });
     await phone.getByRole('heading', { name: 'Live River Map' }).waitFor({ timeout: 120_000 });
+    await phone.getByRole('combobox').waitFor({ state: 'visible' });
+    await phone.waitForFunction(() => !(document.querySelector('input[role="combobox"]') as HTMLInputElement | null)?.disabled, null, { timeout: 60_000 });
     await phone.getByRole('button', { name: 'Fullscreen map' }).tap();
-    await phone.locator('[data-fallback="true"]').waitFor();
+    try {
+      await phone.locator('[data-presentation="map-only"][data-fallback="true"]').waitFor({ timeout: 30_000 });
+    } catch (err) {
+      const state = await phone.evaluate(() => ({
+        presentation: document.querySelector('[data-presentation]')?.getAttribute('data-presentation'),
+        fallback: document.querySelector('[data-presentation]')?.getAttribute('data-fallback'),
+        nativeFullscreen: !!document.fullscreenElement,
+        api: typeof (document.documentElement as { requestFullscreen?: unknown }).requestFullscreen,
+      }));
+      await phone.screenshot({ path: `${OUT_DIR}/national-phone-fallback-FAILED.png` });
+      console.error('Fallback state at failure:', state);
+      throw err;
+    }
     await phone.waitForTimeout(600);
     const top = await phone.evaluate(() => {
       const el = document.elementFromPoint(195, 20);
       return !!el?.closest('[data-presentation]');
     });
     assert.ok(top, 'the fallback fullscreen sits above the site header');
+    assert.deepEqual(await visibleText(phone), [], 'the phone fallback shows no words either');
     await phone.screenshot({ path: `${OUT_DIR}/national-phone-fallback.png` });
     console.log('PASS iPhone-style fallback fullscreen covers the header');
     await phone.close();
+
+    // ── 6b. NOAA down, USGS fresh: Flooding goes still; Flow keeps moving ─
+    const noaa = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await intercept(noaa, 5 * 60_000, 200, false);
+    await noaa.goto(`${target}?view=flooding`, { waitUntil: 'domcontentloaded' });
+    await noaa.getByText(/not a report of no flooding/).waitFor({ timeout: 120_000 });
+    await noaa.waitForTimeout(1200);
+    assert.equal(await layerInk(noaa, 1), 0, 'no motion in Flooding while NWS status is unavailable');
+    assert.equal(await noaa.locator('[data-live="false"]').count(), 1, 'the map is presented as not live');
+    await noaa.getByRole('button', { name: 'Fullscreen map' }).click();
+    await noaa.locator('[data-presentation="map-only"]').waitFor();
+    await noaa.waitForTimeout(800);
+    assert.deepEqual(await visibleText(noaa), [], 'still text-free while unavailable');
+    assert.equal(await layerInk(noaa, 1), 0, 'and still motionless');
+    await noaa.mouse.click(640, 400);
+    await noaa.getByText('NWS flood status is unavailable right now').waitFor();
+    await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
+    await noaa.waitForTimeout(1200);
+    assert.ok((await layerInk(noaa, 1)) > 0, 'Flow, which does not depend on NWS, keeps its motion');
+    console.log('PASS NOAA outage: Flooding still and subdued, tray says why; Flow unaffected');
+    await noaa.close();
 
     // ── 7. Station catalog down: say so, still draw NWS points ──────────
     const down = await browser.newPage({ viewport: { width: 1280, height: 800 } });

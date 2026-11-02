@@ -182,6 +182,37 @@ the animated layer is capped at 30 fps and stops when hidden, paused, or stale.
 Real GPUs should do better than these software-rendered numbers; they are not
 device results.
 
+## Liveness, motion and highlights
+
+- **Liveness is judged for the view on screen** (`viewLiveState`, marks.ts).
+  Flooding needs a current NOAA capture with assessed points; Flow needs
+  current USGS readings; both need a recent snapshot and a successful refresh.
+  When the view is not live the map goes static and subdued (no traces,
+  rings or spotlight), the fullscreen tray states why once it is opened, and
+  Display with details replaces its status line with the reason. Fresh USGS
+  data never makes a Flooding view look alive.
+- **Motion vocabulary for the wall.** Downstream traces are drawn per river
+  class (trunk / major / regional) with lengths, widths and speeds that scale
+  with the screen, so they read across a room; trunk rivers widen on big
+  screens. Flood event rings mark current official flooding. The rarest
+  readings (≥ 97th or ≤ 3rd percentile) are drawn larger and above their band.
+  Directions only — no speed is a measured velocity.
+- **Highlights and the spotlight.** `curateHighlights` picks a few meaningful
+  events spread across the country (greedy by score with a minimum separation,
+  and both the wettest and driest event in Flow). In every fullscreen mode a
+  spotlight ring rests on one of them and moves to the next every 20 s while
+  the camera stays still; it needs no words. Explore lists the same picks.
+- **The tray** stays open only while it has *keyboard* focus; a clicked button
+  keeps focus, so pointer use no longer pins it open.
+
+## First deploy
+
+Until the recorder stores its first frame (≤ 15 minutes after deploy),
+`/api/river-map/frame` builds a frame live with the shared capture code
+(`capture.ts`), serves it with a 2-minute CDN lifetime and the header
+`X-Frame-Source: live-bootstrap`, and stores nothing. The map has real
+readings from the first request.
+
 ## Design-skill review (2026-11-02)
 
 Nine third-party skills (vetted as instruction-only first) were run read-only
@@ -227,4 +258,5 @@ Unticked until evidence is recorded here:
 - [ ] TV / ultrawide composition checked on a real display at room distance.
 - [ ] Dark-mode flow encoding (sand chip, 72% composite for Higher / Much higher) signed off on a real display.
 - [ ] First production frames recorded after deploy; frame row size measured in Postgres.
-- [ ] Change view (24 h): needs ≥ 26 h of frames, then the Phase 1 threshold calibration.
+- [ ] Real-display review on a quiet day and on a widespread-flood day: does something catch the eye within ten seconds, and is there something worth following for a minute?
+- [ ] Change view (24 h) — the next product priority: needs ≥ 26 h of recorded frames, then the Phase 1 threshold calibration (river types, regulated releases, snowmelt, ice, sensor spikes).

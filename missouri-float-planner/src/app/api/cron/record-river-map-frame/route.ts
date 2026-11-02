@@ -20,13 +20,8 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
-import { buildFrame, captureHour, retentionCutoffs, type NwsInput } from '@/lib/national-map/frame';
-import { fetchNoaaFloodStatus } from '@/lib/national-map/noaa-flood';
-import {
-  crosswalk,
-  loadLatestForStations,
-  loadNationalStations,
-} from '@/lib/national-map/station-source';
+import { captureFrame } from '@/lib/national-map/capture';
+import { captureHour, retentionCutoffs } from '@/lib/national-map/frame';
 
 export const dynamic = 'force-dynamic';
 // ~15 PostgREST pages for stations, ~15 for latest, ~14 NOAA pages, one ~1 MB
@@ -52,38 +47,9 @@ async function run(request: NextRequest) {
   const startedAt = Date.now();
   try {
     const capturedAt = new Date();
-    const stations = await loadNationalStations(supabase);
-    const latest = await loadLatestForStations(supabase, stations);
-    // Same outage rule as NOAA: production holds ~14,000 latest rows. A read
-    // that returns a few hundred is a broken read, and recording it would
-    // make the next 24-hour comparison claim most of the country vanished.
-    if (latest.length < 1000) {
-      throw new Error(`gauge_latest returned only ${latest.length} in-scope rows`);
-    }
-
-    let nws: NwsInput[] = [];
-    let noaaOk = false;
-    let observedIngestAt: string | null = null;
-    let forecastIngestAt: string | null = null;
-    try {
-      const noaa = await fetchNoaaFloodStatus();
-      nws = noaa.points;
-      observedIngestAt = noaa.observedIngestAt;
-      forecastIngestAt = noaa.forecastIngestAt;
-      noaaOk = true;
-    } catch (err) {
-      logger.error('[record-river-map-frame] NOAA read failed', { err });
-    }
-
-    const frame = buildFrame({
-      capturedAt,
-      latest,
-      nws,
-      lidToSite: crosswalk(stations),
-      noaaOk,
-      noaaObservedIngestAt: observedIngestAt,
-      noaaForecastIngestAt: forecastIngestAt,
-    });
+    // Shared with the frame route's first-deploy bootstrap (capture.ts):
+    // throws on an implausible USGS read; records a NOAA failure as noaaOk=false.
+    const { frame, stations, noaaOk } = await captureFrame(supabase, capturedAt);
 
     // First capture in its UTC hour keeps the hourly flag.
     const hourStart = captureHour(capturedAt);
@@ -130,7 +96,7 @@ async function run(request: NextRequest) {
       ok: true,
       capturedAt: frame.capturedAt,
       durationMs: Date.now() - startedAt,
-      stations: stations.length,
+      stations,
       gauges: frame.g.length,
       nws: frame.n.length,
       nwsMatched: frame.n.filter((r) => r[10] !== null).length,
