@@ -61,7 +61,7 @@
   max-width: 620px;
   margin: 0;
   color: #f07052;
-  font-size: clamp(4rem, 7.5vw, 7rem);
+  font-size: clamp(3.6rem, 6.4vw, 6rem);
   line-height: 0.91;
   text-shadow: 5px 5px 0 #2d2a24;
 }
@@ -279,6 +279,45 @@
   transform: rotate(7deg) translateY(22px);
 }
 
+.gallery {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 88px 0 0;
+}
+
+.galleryStrip {
+  margin: 40px 0 0;
+  padding: 6px 4px 26px;
+  list-style: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 250px;
+  gap: 24px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-color: #c2baac transparent;
+}
+
+.galleryStrip:focus-visible {
+  outline: 3px solid #1d525f;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.galleryItem {
+  scroll-snap-align: start;
+}
+
+.galleryItem img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 3px solid #2d2a24;
+  border-radius: 20px;
+  box-shadow: 7px 8px 0 #c2baac;
+}
+
 .features {
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
@@ -292,6 +331,7 @@
 .sectionHeading h2,
 .bottomCta h2 {
   margin: 0;
+  text-wrap: balance;
   font-size: clamp(2.4rem, 5vw, 4.2rem);
   line-height: 1.02;
 }
@@ -313,20 +353,16 @@
 }
 
 .featureIcon {
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   border: 3px solid #2d2a24;
-  border-radius: 15px;
-  background: #d4eaef;
-  color: #1d525f;
+  border-radius: 16px;
+  /* Eddy's marks are fixed-colour art (see EddyIcon), so the well is the
+     page's sand rather than a tint that would fight their palette. */
+  background: #f4efe7;
   display: grid;
   place-items: center;
   box-shadow: 4px 4px 0 #2d2a24;
-}
-
-.featureIcon svg {
-  width: 25px;
-  height: 25px;
 }
 
 .featureCard h3 {
@@ -421,13 +457,16 @@
 
 @media (max-width: 620px) {
   .heroInner,
+  .gallery,
   .features,
   .bottomCta {
     width: min(100% - 28px, 1180px);
   }
 
   .heroInner { padding-top: 50px; }
-  .copy h1 { font-size: clamp(3.7rem, 19vw, 5.2rem); }
+  .copy h1 { font-size: clamp(3.1rem, 15vw, 4.4rem); }
+  .gallery { padding-top: 66px; }
+  .galleryStrip { grid-auto-columns: 62vw; margin-top: 30px; }
   .lede { font-size: 1.02rem; }
 
   .actions {
