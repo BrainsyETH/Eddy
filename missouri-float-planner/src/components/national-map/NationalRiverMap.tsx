@@ -57,7 +57,8 @@ import {
   type ChangeWindow,
   type SiteChange,
 } from '@/lib/national-map/change';
-import { usePriorFrame, useFrameHistory } from './usePriorFrame';
+import { usePriorFrame, useFrameHistory, useFloodTrend } from './usePriorFrame';
+import { TrendStrip } from './TrendStrip';
 import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
 import { WallLegend } from './WallLegend';
 import { WallStory } from './WallStory';
@@ -186,6 +187,8 @@ export default function NationalRiverMap() {
   // Only windows the recorded history reaches are offered; until one is, the
   // view says when comparisons begin and draws no change marks.
   const frameHistory = useFrameHistory(view === 'change', frame?.capturedAt ?? null);
+  // The national flooding trend: Explore's Flooding legend, and the wall's Story column.
+  const floodTrend = useFloodTrend(view === 'flooding' && (!fullscreen || wallText === 'story'), frame?.capturedAt ?? null);
   const windows = useMemo(() => (frameHistory ? availableWindows(frameHistory.oldest, frameHistory.newest) : []), [frameHistory]);
   const changeWindow: ChangeWindow | null = windows.includes(prefs.changeWindow) ? prefs.changeWindow : (windows[0] ?? null);
   const changePrior = usePriorFrame(view === 'change' && changeWindow !== null, frame, catalog, changeWindow ? WINDOW_MS[changeWindow] : 0, WINDOW_MIN_SHARE);
@@ -453,12 +456,22 @@ export default function NationalRiverMap() {
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncUrl = useCallback(() => {
     if (urlTimer.current) clearTimeout(urlTimer.current);
-    urlTimer.current = setTimeout(() => {
+    // Next.js patches history.replaceState and throws ("Router action
+    // dispatched before initialization") if it runs before the App Router
+    // has initialized — a slow cold start can get here first. The link is a
+    // convenience: try again shortly instead of surfacing an uncaught error.
+    const write = (attempt: number) => {
       const center = stage.current?.isNational() ? null : stage.current?.center() ?? null;
       const q = sharedViewQuery(view, center);
       const next = `${window.location.pathname}${q}`;
-      if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, '', next);
-    }, 400);
+      if (next === `${window.location.pathname}${window.location.search}`) return;
+      try {
+        window.history.replaceState(window.history.state, '', next);
+      } catch {
+        if (attempt < 10) urlTimer.current = setTimeout(() => write(attempt + 1), 500);
+      }
+    };
+    urlTimer.current = setTimeout(() => write(0), 400);
   }, [view]);
   useEffect(() => {
     syncUrl();
@@ -846,6 +859,7 @@ export default function NationalRiverMap() {
               clock={now}
               onPickSite={openSite}
               infoColors={infoColors}
+              floodTrend={view === 'flooding' ? <TrendStrip points={floodTrend} palette={palette} wall={false} /> : undefined}
               changePanel={
                 view === 'change' ? (
                   <ChangePanel
@@ -978,14 +992,15 @@ export default function NationalRiverMap() {
                 strip={legendStrip}
                 changeWindow={changeCtx ? changeWindow : null}
               />
+              {wallText === 'story' && !legendStrip && view === 'flooding' && <TrendStrip points={floodTrend} palette={palette} wall />}
               {wallText === 'story' && !legendStrip && (
-                <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} />
+                <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} palette={palette} />
               )}
             </div>
           )}
           {wallText === 'story' && legendStrip && (
             <div className={styles.wallStoryTop} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
-              <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} />
+              <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} palette={palette} />
             </div>
           )}
           <div

@@ -12,8 +12,23 @@ import type { NationalStation } from './station-source';
 
 export const CATALOG_VERSION = 1;
 
-/** [siteId, lng, lat, stateCode | '', curated (0|1), name, waterbody | ''] */
-export type CatalogRow = [string, number, number, string, 0 | 1, string, string];
+/**
+ * [siteId, lng, lat, stateCode | '', curated (0|1), name, waterbody | '',
+ *  stages?] — `stages` is [action, flood, moderate, major] in feet (NWS stage
+ * datum; any may be null), present only when NWS publishes at least one.
+ * Optional and trailing, so older clients read the row unchanged.
+ */
+export type CatalogRow =
+  | [string, number, number, string, 0 | 1, string, string]
+  | [string, number, number, string, 0 | 1, string, string, [number | null, number | null, number | null, number | null]];
+
+/** NWS flood-category stages for a gauge (ft, NWS stage datum). */
+export interface FloodStages {
+  action: number | null;
+  flood: number | null;
+  moderate: number | null;
+  major: number | null;
+}
 
 export interface StationCatalog {
   v: typeof CATALOG_VERSION;
@@ -27,15 +42,18 @@ export function buildCatalog(stations: NationalStation[], now = new Date()): Sta
   return {
     v: CATALOG_VERSION,
     generatedAt: now.toISOString(),
-    rows: stations.map((s) => [
-      s.siteId,
-      r4(s.lng),
-      r4(s.lat),
-      s.stateCode ?? '',
-      s.curated ? 1 : 0,
-      s.name,
-      s.waterbody ?? '',
-    ]),
+    rows: stations.map((s): CatalogRow => {
+      const base: [string, number, number, string, 0 | 1, string, string] = [
+        s.siteId,
+        r4(s.lng),
+        r4(s.lat),
+        s.stateCode ?? '',
+        s.curated ? 1 : 0,
+        s.name,
+        s.waterbody ?? '',
+      ];
+      return s.stages ? [...base, s.stages] : base;
+    }),
   };
 }
 
@@ -47,6 +65,15 @@ export interface CatalogStation {
   curated: boolean;
   name: string;
   waterbody: string | null;
+  /** Absent or null: NWS publishes no flood stages for this gauge. */
+  stages?: FloodStages | null;
+}
+
+function decodeStages(v: unknown): FloodStages | null {
+  if (!Array.isArray(v) || v.length !== 4) return null;
+  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+  const s = { action: n(v[0]), flood: n(v[1]), moderate: n(v[2]), major: n(v[3]) };
+  return s.action === null && s.flood === null && s.moderate === null && s.major === null ? null : s;
 }
 
 export function decodeCatalog(body: unknown): CatalogStation[] {
@@ -70,6 +97,7 @@ export function decodeCatalog(body: unknown): CatalogStation[] {
       curated: r[4] === 1,
       name: typeof r[5] === 'string' && r[5] ? r[5] : `USGS ${r[0]}`,
       waterbody: typeof r[6] === 'string' && r[6] ? r[6] : null,
+      stages: decodeStages(r[7]),
     });
   }
   return out;

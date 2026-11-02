@@ -26,6 +26,8 @@ export interface NationalStation {
   curated: boolean;
   lng: number;
   lat: number;
+  /** NWS action / flood / moderate / major stages (ft, NWS stage datum), when published. */
+  stages?: [number | null, number | null, number | null, number | null] | null;
 }
 
 interface PointRow {
@@ -42,7 +44,16 @@ interface MetaRow {
   state_code: string | null;
   waterbody_name: string | null;
   nws_lid: string | null;
+  nwps_action_stage_ft?: number | string | null;
+  nwps_flood_stage_ft?: number | string | null;
+  nwps_moderate_stage_ft?: number | string | null;
+  nwps_major_stage_ft?: number | string | null;
 }
+
+const stage = (v: number | string | null | undefined): number | null => {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) ? n : null;
+};
 
 // Loose on purpose: the typed client's generic parameters differ between the
 // admin client and test fakes, and nothing here depends on generated types.
@@ -73,6 +84,15 @@ export function joinStations(points: PointRow[], meta: MetaRow[]): NationalStati
       curated: p.curated,
       lng: p.lng,
       lat: p.lat,
+      stages: (() => {
+        const s: [number | null, number | null, number | null, number | null] = [
+          stage(m.nwps_action_stage_ft),
+          stage(m.nwps_flood_stage_ft),
+          stage(m.nwps_moderate_stage_ft),
+          stage(m.nwps_major_stage_ft),
+        ];
+        return s.some((v) => v !== null) ? s : null;
+      })(),
     });
   }
   return out;
@@ -95,7 +115,7 @@ export async function loadNationalStations(supabase: Client): Promise<NationalSt
       async (after) => {
         let q = supabase
           .from('gauge_stations')
-          .select('id, name, state_code, waterbody_name, nws_lid')
+          .select('id, name, state_code, waterbody_name, nws_lid, nwps_action_stage_ft, nwps_flood_stage_ft, nwps_moderate_stage_ft, nwps_major_stage_ft')
           .eq('provider', 'usgs')
           .eq('active', true)
           .order('id')

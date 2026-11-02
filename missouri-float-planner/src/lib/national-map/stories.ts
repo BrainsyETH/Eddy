@@ -17,6 +17,7 @@
 //
 // Pure, no DOM.
 
+import type { FloodStages } from './catalog';
 import { changeSentence, type ChangeClass, type ChangeWindow, type SiteChange } from './change';
 import {
   classifyFlood,
@@ -281,4 +282,28 @@ export function storyObservation(story: Story, view: MapView): string {
   }
   if (story.nearby > 0) parts.push(`${story.nearby} nearby gauge${story.nearby === 1 ? '' : 's'} too`);
   return parts.filter(Boolean).join(' · ');
+}
+
+// ── NWS flood stages on the story chart ─────────────────────────────────────
+
+/** How closely NWS stage and USGS gauge height must agree to share one chart. */
+export const STAGE_DATUM_TOLERANCE_FT = 0.5;
+
+/**
+ * NWS's flood-category stages, but only when they can be drawn honestly on
+ * the USGS gauge-height chart: the gauge's current NWS stage and USGS height
+ * must agree within STAGE_DATUM_TOLERANCE_FT, in feet, observed within two
+ * hours of each other. Some gauges report NWS stage on a different datum
+ * (2026-11-02: 134 of 6,613 matched pairs differed by more than 2 ft, while
+ * 6,367 agreed within 0.5 ft); for those, NWS's flood lines would be drawn at
+ * the wrong height, so none are drawn.
+ */
+export function chartStages(site: Site): FloodStages | null {
+  const stages = site.stages ?? null;
+  const r = site.reading;
+  const n = site.nws;
+  if (!stages || !r || !n || r.gaugeHeightFt === null || n.observedValue === null) return null;
+  if ((n.units ?? 'ft').toLowerCase() !== 'ft') return null;
+  if (r.observedAt === null || n.observedAt === null || Math.abs(r.observedAt - n.observedAt) > 2 * 3_600_000) return null;
+  return Math.abs(n.observedValue - r.gaugeHeightFt) <= STAGE_DATUM_TOLERANCE_FT ? stages : null;
 }

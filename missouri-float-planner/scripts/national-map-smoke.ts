@@ -80,7 +80,20 @@ async function intercept(page: Page, frameAgeMs: number, stationsStatus = 200, n
       ? r.fulfill({ contentType: 'application/json', body: stations })
       : r.fulfill({ status: stationsStatus, body: 'unavailable' }),
   );
-  await page.route('**/api/river-map/frame**', (r) => r.fulfill({ contentType: 'application/json', body: frame }));
+  // The flooding trend (`?trend=1`): three hourly points, the middle one a
+  // NOAA gap, ending in the fixture's one major flood (or a gap when NOAA is
+  // down, as the recorded frame would be).
+  const H = 3_600_000;
+  const trend = JSON.stringify({
+    points: [
+      { t: NOW - frameAgeMs - 2 * H, ok: true, major: 0, moderate: 0, minor: 0, action: 1 },
+      { t: NOW - frameAgeMs - H, ok: false, major: 0, moderate: 0, minor: 0, action: 0 },
+      { t: NOW - frameAgeMs, ok: noaaOk, major: noaaOk ? 1 : 0, moderate: 0, minor: 0, action: 0 },
+    ],
+  });
+  await page.route('**/api/river-map/frame**', (r) =>
+    r.fulfill({ contentType: 'application/json', body: r.request().url().includes('trend=1') ? trend : frame }),
+  );
   await page.route('**/api/gauges/*/history**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ readings: [] }) }));
 }
 
@@ -133,6 +146,11 @@ function geographyBox(page: Page) {
     }
     return [minX / c.width, minY / c.height, maxX / c.width, maxY / c.height];
   });
+}
+
+/** Motion on screen: the effects layer (canvas 1) plus the river trails (canvas 4). */
+async function motionInk(page: Page) {
+  return (await layerInk(page, 1)) + (await layerInk(page, 4));
 }
 
 /** Text a person could actually see inside the map root. */
@@ -196,7 +214,7 @@ async function main() {
     await page.waitForTimeout(1500);
     assert.ok((await layerInk(page, 0)) > 0, 'geography drew');
     assert.ok((await layerInk(page, 2)) + (await layerInk(page, 3)) > 0, 'gauge marks drew');
-    assert.ok((await layerInk(page, 1)) > 0, 'live data animates the fx layer');
+    assert.ok((await motionInk(page)) > 0, 'live data animates the river trails / effects');
     await page.screenshot({ path: `${OUT_DIR}/national-explore.png` });
     console.log('PASS explore draws geography, marks and motion');
 
@@ -346,8 +364,14 @@ async function main() {
     assert.match(cardText, /Meramec River near Eureka, MO/, `the featured event names its river and place (${cardText})`);
     assert.match(cardText, /Major flooding/, 'with one observation');
     assert.ok(await st.getByRole('region', { name: /legend$/ }).isVisible(), 'the legend stays alongside the story');
+    // The national trend: counted hour by hour, a NOAA gap drawn as a gap.
+    const trendCard = st.getByRole('region', { name: 'Flooding trend' });
+    await trendCard.waitFor({ timeout: 15_000 });
+    assert.match(await trendCard.innerText(), /Gauges in flood[\s\S]*1 now[\s\S]*Gaps: hours NOAA could not be read/, 'the trend ends at the current count');
+    const trendLabel = (await trendCard.getByRole('img').getAttribute('aria-label')) ?? '';
+    assert.match(trendLabel, /0 at .*, 1 at .*; 1 hour without a NOAA reading/, `the trend names its ends and its gap (${trendLabel})`);
     await st.close();
-    console.log('PASS Story mode features one event beside the legend');
+    console.log('PASS Story mode features one event beside the legend and the national flooding trend');
 
     // ── 4b''. Change: what moved since a recorded frame a window back ───
     // History reaches 26 h back (meta), the 24 h baseline has the Meramec
@@ -413,7 +437,7 @@ async function main() {
     await stale.goto(target, { waitUntil: 'domcontentloaded' });
     await stale.getByText(/older than expected; marks age/).waitFor({ timeout: 120_000 });
     await stale.waitForTimeout(1500);
-    assert.equal(await layerInk(stale, 1), 0, 'no traces or rings over stale data');
+    assert.equal(await motionInk(stale), 0, 'no trails or rings over stale data');
     assert.ok((await layerInk(stale, 0)) > 0, 'geography stays');
     await stale.screenshot({ path: `${OUT_DIR}/national-stale.png` });
     console.log('PASS stale snapshot: static geography, neutral marks, no motion');
@@ -470,19 +494,19 @@ async function main() {
     await noaa.goto(`${target}?view=flooding`, { waitUntil: 'domcontentloaded' });
     await noaa.getByText(/not a report of no flooding/).waitFor({ timeout: 120_000 });
     await noaa.waitForTimeout(1200);
-    assert.equal(await layerInk(noaa, 1), 0, 'no motion in Flooding while NWS status is unavailable');
+    assert.equal(await motionInk(noaa), 0, 'no motion in Flooding while NWS status is unavailable');
     assert.equal(await noaa.locator('[data-live="false"]').count(), 1, 'the map is presented as not live');
     await noaa.getByRole('button', { name: 'Fullscreen map' }).click();
     await noaa.locator('[data-presentation="legend"]').waitFor();
     await noaa.waitForTimeout(800);
     assert.ok((await visibleText(noaa)).join(' ').includes('not a report of no flooding'), 'the legend says flood status is unavailable, not "no flooding"');
-    assert.equal(await layerInk(noaa, 1), 0, 'and still motionless');
+    assert.equal(await motionInk(noaa), 0, 'and still motionless');
     assert.notEqual(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'no river journey while the view is not live');
     await noaa.mouse.click(640, 400);
     await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByText('NWS flood status is unavailable right now').waitFor();
     await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
     await noaa.waitForTimeout(1200);
-    assert.ok((await layerInk(noaa, 1)) > 0, 'Flow, which does not depend on NWS, keeps its motion');
+    assert.ok((await motionInk(noaa)) > 0, 'Flow, which does not depend on NWS, keeps its motion');
     assert.equal(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'and Flow runs the journey');
     console.log('PASS NOAA outage: Flooding still and subdued, tray says why; Flow unaffected');
     await noaa.close();

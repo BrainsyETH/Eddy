@@ -64,7 +64,12 @@ persistent text. Three facts shaped the build:
    keeps a legend by default (a guest must be able to read the marks without
    controls); Story adds one featured event chosen by change, not by rank
    alone, and says only what the observations support; Map only remains for
-   a fully text-free display.
+   a fully text-free display. NWS flood-stage lines are drawn on a USGS
+   gauge-height chart only where the two datums agree (NWS observed stage
+   within 0.5 ft of the USGS gauge height, observed within 2 h); a threshold
+   on another datum is not drawn. The moving river network shows direction
+   only, at a presentation pace — never a measured velocity, and no reading is
+   spread along a river.
 9. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.
