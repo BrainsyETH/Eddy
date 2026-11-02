@@ -11,6 +11,7 @@
 
 import { EXTREME_HIGH, EXTREME_LOW, wallStyle, type FloodClass, type FlowClass, type MapView } from '@/lib/national-map/marks';
 import type { MapPalette } from '@/lib/national-map/theme';
+import { CHANGE_LEGEND, changeStyle, type ChangeWindow } from '@/lib/national-map/change';
 import { formatTime, MarkSymbol } from './Legend';
 import styles from './national-map.module.css';
 
@@ -42,6 +43,7 @@ export function WallLegend({
   pulses,
   journey,
   strip,
+  changeWindow = null,
 }: {
   view: MapView;
   palette: MapPalette;
@@ -55,6 +57,8 @@ export function WallLegend({
   journey: boolean;
   /** Narrow / portrait screens: a bottom strip instead of a side panel. */
   strip: boolean;
+  /** Change view: the window compared, or null while history is still building. */
+  changeWindow?: ChangeWindow | null;
 }) {
   const symbol = (r: Row) => {
     const style = wallStyle(view, r.cls, r.extreme);
@@ -67,14 +71,40 @@ export function WallLegend({
     </li>
   );
   const flooding = view === 'flooding';
-  const title = flooding ? 'Flooding · Observed' : 'Flow · Versus usual';
+  const change = view === 'change';
+  const title = flooding
+    ? 'Flooding · Observed'
+    : change
+      ? `Change · ${changeWindow === '6h' ? 'Last 6 h' : 'Last 24 h'}`
+      : 'Flow · Versus usual';
+  const changeRow = (cls: string) => {
+    const item = CHANGE_LEGEND.find((c) => c.cls === cls)!;
+    const style = changeStyle(item.sample, true);
+    return (
+      <li key={cls} className={styles.wallLegendRow}>
+        {style && <MarkSymbol style={style} palette={palette} css={{ width: '1.5em', height: '1.5em' }} />}
+        <span>{item.label}</span>
+      </li>
+    );
+  };
   return (
     <section
       className={`${styles.wallLegend} ${strip ? styles.wallLegendStrip : ""}`}
       aria-label={`${title} legend`}
     >
       <h2 className={styles.wallLegendTitle}>{title}</h2>
-      {flooding && !noaaOk ? (
+      {change ? (
+        changeWindow ? (
+          <>
+            <ul className={styles.wallLegendList}>{['flood_up', 'flood_down'].map(changeRow)}</ul>
+            <ul className={`${styles.wallLegendList} ${styles.wallLegendApart}`} aria-label="Flow">
+              {['rising_fast', 'rising', 'steady', 'falling', 'falling_fast'].map(changeRow)}
+            </ul>
+          </>
+        ) : (
+          <p className={styles.wallLegendNote}>Change history is still being recorded; comparisons begin once a full window exists.</p>
+        )
+      ) : flooding && !noaaOk ? (
         <p className={styles.wallLegendNote}>NWS flood status is unavailable for this snapshot — not a report of no flooding.</p>
       ) : flooding ? (
         <>
@@ -98,13 +128,13 @@ export function WallLegend({
       )}
       {(pulses || journey) && (
         <ul className={`${styles.wallLegendList} ${styles.wallLegendApart} ${styles.wallLegendFine}`} aria-label="Motion">
-          {pulses && flooding && (
+          {pulses && (flooding || change) && (
             <li className={styles.wallLegendRow}>
               <svg viewBox="0 0 14 14" aria-hidden="true" style={{ width: '1.5em', height: '1.5em' }} className="shrink-0">
                 <circle cx="7" cy="7" r="2.6" fill={palette.flood.minor} />
                 <circle cx="7" cy="7" r="5.6" fill="none" stroke={palette.flood.minor} strokeWidth="1.1" opacity="0.6" />
               </svg>
-              <span>Pulsing ring: a current flood</span>
+              <span>{change ? 'Pulsing ring: flooding began or worsened' : 'Pulsing ring: a current flood'}</span>
             </li>
           )}
           {journey && (
@@ -121,7 +151,7 @@ export function WallLegend({
       <p className={styles.wallLegendSource}>
         {liveStatus ?? (capturedAt !== null ? `Updated ${formatTime(capturedAt)}` : 'Waiting for data')}
         {' · '}
-        {flooding ? 'NOAA/NWS, USGS' : 'USGS'}
+        {flooding || change ? 'NOAA/NWS, USGS' : 'USGS'}
       </p>
     </section>
   );

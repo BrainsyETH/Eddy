@@ -17,6 +17,7 @@
 //
 // Pure, no DOM.
 
+import { changeSentence, type ChangeClass, type ChangeWindow, type SiteChange } from './change';
 import {
   classifyFlood,
   classifyFlow,
@@ -79,8 +80,10 @@ export function changeFor(site: Site, prior: Site | undefined, view: MapView, cl
 
 export interface Story {
   site: Site;
-  cls: FlowClass | FloodClass;
+  cls: FlowClass | FloodClass | ChangeClass;
   change: Change | null;
+  /** Change view: the measured change over the window, and that window. */
+  windowChange?: { change: SiteChange; window: ChangeWindow };
   /** Other gauges nearby describing the same development. */
   nearby: number;
   score: number;
@@ -221,11 +224,55 @@ export function storyHeadline(story: Story, series: SeriesDevelopment): string |
 }
 
 /**
+ * Change view stories: the biggest trustworthy changes over the window —
+ * flood crossings first, then by size — with the same recency, clustering and
+ * variety rules as the other views.
+ */
+export function rankChangeStories({
+  entries,
+  window,
+  recent,
+  separation = HIGHLIGHT_SEPARATION,
+}: {
+  entries: Array<{ site: Site; change: SiteChange }>;
+  window: ChangeWindow;
+  recent: string[];
+  separation?: number;
+}): Story[] {
+  const WORTH: Partial<Record<ChangeClass, number>> = { flood_up: 4, flood_down: 3, rising_fast: 2, falling_fast: 1.5, rising: 0.8, falling: 0.5 };
+  const raw: Story[] = [];
+  for (const { site, change } of entries) {
+    const worth = WORTH[change.cls];
+    if (worth === undefined) continue;
+    let score = worth + Math.min(2, change.magnitude);
+    if (site.kind === 'usgs' && !/^USGS \d/.test(site.name)) score += 0.6;
+    const seen = recent.lastIndexOf(site.key);
+    if (seen >= 0) score -= seen >= recent.length - 4 ? 5 : 2;
+    raw.push({ site, cls: change.cls, change: null, nearby: 0, score, windowChange: { change, window } });
+  }
+  raw.sort((a, b) => b.score - a.score || a.site.key.localeCompare(b.site.key));
+  const leaders: Story[] = [];
+  for (const s of raw) {
+    const leader = leaders.find(
+      (l) => l.site.component === s.site.component && l.cls === s.cls && Math.hypot(l.site.x - s.site.x, l.site.y - s.site.y) < separation * 0.4,
+    );
+    if (leader) leader.nearby++;
+    else leaders.push(s);
+  }
+  for (const l of leaders) l.score += Math.min(1, 0.25 * l.nearby);
+  return leaders.sort((a, b) => b.score - a.score || a.site.key.localeCompare(b.site.key));
+}
+
+/**
  * The one short observation under the name: the category or band, a measured
  * change between frames when there is one, and how many nearby gauges show
  * the same development.
  */
 export function storyObservation(story: Story, view: MapView): string {
+  if (story.windowChange) {
+    const sentence = changeSentence(story.windowChange.change, story.windowChange.window);
+    return story.nearby > 0 ? `${sentence} ${story.nearby} nearby gauge${story.nearby === 1 ? '' : 's'} too.` : sentence;
+  }
   const label = (view === 'flooding' ? FLOOD_LABEL[story.cls as FloodClass] : FLOW_LABEL[story.cls as FlowClass]) ?? '';
   const parts = [label];
   const c = story.change;

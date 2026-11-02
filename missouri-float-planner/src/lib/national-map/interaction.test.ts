@@ -40,7 +40,7 @@ test('preferences are scoped to this page and never restore fullscreen or a tour
   assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs('{bad'), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs(JSON.stringify({ view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', fullscreen: true, tour: true })), {
-    view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', flowColors: 'eddy',
+    view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', flowColors: 'eddy', changeWindow: '24h',
   });
   assert.equal(DEFAULT_PREFS.wallText, 'legend', 'fullscreen keeps a legend by default');
   assert.equal(parsePrefs(JSON.stringify({ displayDetails: true })).wallText, 'story', 'the old details choice carries over');
@@ -48,7 +48,10 @@ test('preferences are scoped to this page and never restore fullscreen or a tour
   assert.equal(DEFAULT_PREFS.flowColors, 'eddy', 'the vivid Flow colours are opt-in');
   assert.equal(parsePrefs(JSON.stringify({ flowColors: 'vivid' })).flowColors, 'vivid');
   assert.equal(parsePrefs(JSON.stringify({ flowColors: 'neon' })).flowColors, 'eddy');
-  assert.equal(parsePrefs(JSON.stringify({ view: 'change' })).view, 'flow', 'unknown views fall back to Flow');
+  assert.equal(parsePrefs(JSON.stringify({ view: 'trend' })).view, 'flow', 'unknown views fall back to Flow');
+  assert.equal(parsePrefs(JSON.stringify({ view: 'change' })).view, 'change');
+  assert.equal(DEFAULT_PREFS.changeWindow, '24h');
+  assert.equal(parsePrefs(JSON.stringify({ changeWindow: '6h' })).changeWindow, '6h');
   assert.equal(DEFAULT_PREFS.appearance, 'system');
   assert.equal(DEFAULT_PREFS.view, 'flow');
 });

@@ -22,6 +22,7 @@ import {
   flowStyle,
   readingState,
   type MapView,
+  type MarkStyle,
   type Site,
 } from '@/lib/national-map/marks';
 import type { MapPalette } from '@/lib/national-map/theme';
@@ -134,7 +135,10 @@ export default function SiteDetail({
   onClose,
   palette,
   autoFocus,
+  change,
 }: {
+  /** Change view: this gauge's measured change over the window, or null while history builds. */
+  change?: { style: MarkStyle | null; text: string } | null;
   site: Site;
   view: MapView;
   clock: number;
@@ -149,7 +153,12 @@ export default function SiteDetail({
   useEffect(() => {
     if (autoFocus) heading.current?.focus({ preventScroll: true });
   }, [autoFocus, site.key]);
-  const markStyle = view === 'flow' ? flowStyle(classifyFlow(site, clock)) : floodStyle(classifyFlood(site, clock, noaaOk));
+  const markStyle =
+    view === 'change'
+      ? (change?.style ?? null)
+      : view === 'flow'
+        ? flowStyle(classifyFlow(site, clock))
+        : floodStyle(classifyFlood(site, clock, noaaOk));
   const r = site.reading;
   const nws = site.nws;
   const chartUnit: 'cfs' | 'ft' = r?.dischargeCfs !== null && r?.dischargeCfs !== undefined ? 'cfs' : 'ft';
@@ -178,7 +187,12 @@ export default function SiteDetail({
 
       {/* Condition for the active view first, the other view's status second. */}
       <div className="space-y-1.5 text-sm">
-        {view === 'flow' ? (
+        {view === 'change' ? (
+          <p className="flex items-start gap-2 font-semibold">
+            {markStyle && <MarkSymbol style={markStyle} palette={palette} />}
+            <span>{change ? change.text : 'Change history is still being recorded for this window.'}</span>
+          </p>
+        ) : view === 'flow' ? (
           <p className="flex items-start gap-2 font-semibold">
             {markStyle && <MarkSymbol style={markStyle} palette={palette} />}
             <span>{flowSentence(site, clock)}</span>
@@ -197,8 +211,8 @@ export default function SiteDetail({
             </span>
           </p>
         )}
-        {view === 'flooding' && site.kind === 'usgs' && <p className={styles.muted}>{flowSentence(site, clock)}</p>}
-        {view === 'flow' && nws && noaaOk && isFlooding(nws.observed) && floodCls !== 'not_current' && (
+        {view !== 'flow' && site.kind === 'usgs' && <p className={styles.muted}>{flowSentence(site, clock)}</p>}
+        {view !== 'flooding' && nws && noaaOk && isFlooding(nws.observed) && floodCls !== 'not_current' && (
           <p className={styles.muted}>NWS: {FLOOD_STATUS_TEXT[nws.observed].label.toLowerCase()} observed.</p>
         )}
       </div>

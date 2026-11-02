@@ -24,6 +24,8 @@ export type FlowColors = 'eddy' | 'vivid';
  * text-free map.
  */
 export type WallText = 'legend' | 'story' | 'none';
+/** The Change view's comparison window (offered only once history reaches back that far). */
+export type ChangeWindowPref = '6h' | '24h';
 
 export interface MapPrefs {
   view: MapView;
@@ -31,6 +33,7 @@ export interface MapPrefs {
   motion: boolean;
   wallText: WallText;
   flowColors: FlowColors;
+  changeWindow: ChangeWindowPref;
 }
 
 export const DEFAULT_PREFS: MapPrefs = {
@@ -39,9 +42,10 @@ export const DEFAULT_PREFS: MapPrefs = {
   motion: true,
   wallText: 'legend',
   flowColors: 'eddy',
+  changeWindow: '24h',
 };
 
-const VIEWS = new Set<MapView>(['flow', 'flooding']);
+const VIEWS = new Set<MapView>(['flow', 'flooding', 'change']);
 const APPEARANCES = new Set<Appearance>(['system', 'light', 'dark']);
 const WALL_TEXTS = new Set<WallText>(['legend', 'story', 'none']);
 
@@ -60,6 +64,7 @@ export function parsePrefs(raw: string | null): MapPrefs {
           ? 'story'
           : DEFAULT_PREFS.wallText,
       flowColors: v.flowColors === 'vivid' ? 'vivid' : 'eddy',
+      changeWindow: v.changeWindow === '6h' ? '6h' : '24h',
     };
   } catch {
     return DEFAULT_PREFS;
