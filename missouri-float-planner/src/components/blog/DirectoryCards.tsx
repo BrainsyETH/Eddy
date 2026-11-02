@@ -8,8 +8,20 @@
 // (offerings), a short description, the NPS/USFS "authorized" trust badge,
 // campground site counts + nightly fee, and a prominent Reserve button. NPS
 // campgrounds (linked via access points) are merged in with their photos.
+//
+// Length. The Current lists 40-odd services; as full cards stacked one per
+// row on a phone that was a dozen screens of scrolling between the float
+// sections and the gauge. So each category shows its first PREVIEW_COUNT
+// listings (curated display_order) and folds the rest into a native
+// <details> — no client JS, and every listing stays in the HTML for search
+// and find-in-page. Below md, a listing is a compact row (name, town, actions)
+// inside one framed list; from md up it is the full card in a grid. One DOM,
+// two layouts, switched by Tailwind breakpoints.
 
 import Image from 'next/image';
+import { ChevronDown } from 'lucide-react';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { orderedOfferings, offeringLabel } from '@/lib/services/offerings';
 import { npsHeroImage, npsFeeLabel, npsSiteLabel } from '@/lib/services/npsCampground';
@@ -50,7 +62,7 @@ interface NpsCampgroundRow {
 }
 
 // Normalized card shape so service rows and NPS campgrounds render identically.
-interface DirectoryItem {
+export interface DirectoryItem {
   key: string;
   name: string;
   type: ServiceType;
@@ -70,13 +82,26 @@ interface DirectoryItem {
   displayOrder: number;
 }
 
+// `accent` colours the category eyebrow. Full class strings so Tailwind's
+// content scan sees them.
 const CATEGORIES: { type: ServiceType; label: string; accent: string }[] = [
-  { type: 'outfitter', label: 'Outfitters', accent: 'var(--color-primary-700)' },
-  { type: 'campground', label: 'Campgrounds', accent: 'var(--color-support-700)' },
-  { type: 'cabin_lodge', label: 'Cabins & lodges', accent: 'var(--color-accent-600)' },
+  { type: 'outfitter', label: 'Outfitters', accent: 'text-primary-700' },
+  { type: 'campground', label: 'Campgrounds', accent: 'text-support-700' },
+  { type: 'cabin_lodge', label: 'Cabins & lodges', accent: 'text-accent-600' },
 ];
 
 const MAX_CHIPS = 5;
+
+/** Listings shown before the "Show all" fold. Three fills one row of the
+ *  desktop grid. */
+const PREVIEW_COUNT = 3;
+
+/** Split a category into what shows and what folds. A fold that would hide a
+ *  single listing costs a tap to save one row, so short lists show in full. */
+function splitPreview<T>(list: T[]): { shown: T[]; folded: T[] } {
+  if (list.length <= PREVIEW_COUNT + 1) return { shown: list, folded: [] };
+  return { shown: list.slice(0, PREVIEW_COUNT), folded: list.slice(PREVIEW_COUNT) };
+}
 
 interface Props {
   riverSlug: string;
@@ -97,189 +122,134 @@ function mapUrl(name: string, city: string | null, state: string | null): string
   )}`;
 }
 
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        color: 'var(--color-neutral-700)',
-        background: 'var(--color-neutral-100)',
-        border: '1px solid var(--color-neutral-200)',
-        borderRadius: 4,
-        padding: '2px 7px',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {children}
-    </span>
-  );
-}
+// Action buttons keep the design system's 44px touch target on phones; from
+// md up they drop back to the compact sm box.
+const ACTION_TOUCH = 'min-h-11 md:min-h-0';
 
-function ServiceCard({ item, accent }: { item: DirectoryItem; accent: string }) {
+// A listing is a divided row inside the category frame below md, and a
+// framed card of its own from md up.
+const ITEM_CLASS = [
+  'border-t border-dashed border-neutral-300 first:border-t-0',
+  'md:flex md:flex-col md:overflow-hidden md:rounded-lg md:border-2 md:border-solid md:border-primary-700 md:bg-white md:shadow-sm md:first:border-t-2',
+].join(' ');
+
+const LIST_CLASS = 'm-0 list-none p-0 md:grid md:grid-cols-2 md:gap-3 lg:grid-cols-3';
+
+function DirectoryListing({ item }: { item: DirectoryItem }) {
   const phoneHref = digitsOnly(item.phone);
   const chips = orderedOfferings(item.offerings).slice(0, MAX_CHIPS);
   const extra = Math.max(0, item.offerings.length - chips.length);
   const meta = [item.sitesLabel, item.feeLabel].filter(Boolean).join(' · ');
+  const place = [item.city, item.state].filter(Boolean).join(', ');
 
   return (
-    <article
-      style={{
-        background: '#fff',
-        border: '2px solid var(--color-primary-700)',
-        borderRadius: 8,
-        boxShadow: '2px 2px 0 var(--color-neutral-300)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {item.imageUrl && (
-        <div
-          style={{
-            position: 'relative',
-            height: 120,
-            background: 'var(--color-secondary-100)',
-            borderBottom: '2px solid var(--color-primary-700)',
-          }}
-        >
-          <Image
-            src={item.imageUrl}
-            alt={item.imageAlt || item.name}
-            fill
-            loading="lazy"
-            sizes="(max-width: 767px) 100vw, 320px"
-            style={{ objectFit: 'cover' }}
-          />
-        </div>
-      )}
-
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-neutral-900)', lineHeight: 1.25 }}>
-              {item.name}
-            </div>
-            {item.authorized && (
-              <span
-                title={`${item.authorized}-authorized concessioner`}
-                style={{
-                  flexShrink: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                  padding: '2px 6px',
-                  background: 'var(--color-support-100)',
-                  color: 'var(--color-support-700)',
-                  border: '1px solid var(--color-support-300)',
-                  borderRadius: 4,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                ✓ {item.authorized}
-              </span>
-            )}
+    <li className={ITEM_CLASS}>
+      <article className="flex h-full flex-col">
+        {/* Photos are a desktop affordance. Hidden below md, and lazy, so a
+            phone never fetches them. */}
+        {item.imageUrl && (
+          <div className="relative hidden h-[120px] border-b-2 border-primary-700 bg-secondary-100 md:block">
+            <Image
+              src={item.imageUrl}
+              alt={item.imageAlt || item.name}
+              fill
+              loading="lazy"
+              sizes="320px"
+              style={{ objectFit: 'cover' }}
+            />
           </div>
-          {(item.city || item.state) && (
-            <div style={{ fontSize: 12, color: 'var(--color-neutral-500)', marginTop: 2 }}>
-              {[item.city, item.state].filter(Boolean).join(', ')}
-              {item.status === 'seasonal' && (
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: '.08em',
-                    textTransform: 'uppercase',
-                    padding: '1px 6px',
-                    background: 'var(--color-secondary-100)',
-                    color: 'var(--color-secondary-800)',
-                    borderRadius: 4,
-                  }}
+        )}
+
+        <div className="flex flex-1 flex-col gap-2 px-4 py-3.5">
+          <div>
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="m-0 text-[15px] font-bold leading-tight text-neutral-900">{item.name}</h4>
+              {item.authorized && (
+                <Badge
+                  tone="support"
+                  className="shrink-0 whitespace-nowrap"
+                  title={`${item.authorized}-authorized concessioner`}
                 >
-                  Seasonal
-                </span>
+                  ✓ {item.authorized}
+                </Badge>
               )}
             </div>
+            {(place || item.status === 'seasonal') && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600">
+                {place && <span>{place}</span>}
+                {item.status === 'seasonal' && <Badge tone="secondary">Seasonal</Badge>}
+              </div>
+            )}
+          </div>
+
+          {item.description && (
+            <p className="m-0 hidden text-[13px] leading-snug text-neutral-600 md:line-clamp-2">
+              {item.description}
+            </p>
           )}
-        </div>
 
-        {item.description && (
-          <div
-            style={{
-              fontSize: 12.5,
-              color: 'var(--color-neutral-600)',
-              lineHeight: 1.45,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {item.description}
-          </div>
-        )}
+          {chips.length > 0 && (
+            <div className="hidden flex-wrap gap-1.5 md:flex">
+              {chips.map((o) => (
+                <Badge key={o} tone="neutral">{offeringLabel(o)}</Badge>
+              ))}
+              {extra > 0 && <Badge tone="neutral">+{extra}</Badge>}
+            </div>
+          )}
 
-        {chips.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {chips.map((o) => (
-              <Chip key={o}>{offeringLabel(o)}</Chip>
-            ))}
-            {extra > 0 && <Chip>+{extra}</Chip>}
-          </div>
-        )}
+          {meta && <div className="font-mono text-xs font-semibold text-neutral-700">{meta}</div>}
 
-        {meta && (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--color-neutral-700)' }}>
-            {meta}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 4 }}>
-          {item.reservationUrl && (
-            <a
-              href={item.reservationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Reserve at ${item.name}`}
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: '#fff',
-                background: 'var(--color-support-600)',
-                border: '1.5px solid var(--color-neutral-900)',
-                borderRadius: 6,
-                padding: '5px 12px',
-                textDecoration: 'none',
-                boxShadow: '1.5px 1.5px 0 var(--color-neutral-900)',
-              }}
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+            {item.reservationUrl && (
+              <Button
+                href={item.reservationUrl}
+                external
+                size="sm"
+                className={ACTION_TOUCH}
+                aria-label={`Reserve at ${item.name}`}
+              >
+                Reserve →
+              </Button>
+            )}
+            {phoneHref && (
+              <Button
+                href={`tel:${phoneHref}`}
+                variant="outline"
+                size="sm"
+                className={ACTION_TOUCH}
+                aria-label={`Call ${item.name} at ${item.phone}`}
+              >
+                {/* A phone dials from "Call"; a desktop reader needs the number. */}
+                <span className="md:hidden">Call</span>
+                <span className="hidden md:inline">{item.phone}</span>
+              </Button>
+            )}
+            {item.website && (
+              <Button
+                href={item.website}
+                external
+                variant="outline"
+                size="sm"
+                className={ACTION_TOUCH}
+                aria-label={`${item.name} website`}
+              >
+                Website
+              </Button>
+            )}
+            <Button
+              href={mapUrl(item.name, item.city, item.state)}
+              external
+              variant="outline"
+              size="sm"
+              className={ACTION_TOUCH}
+              aria-label={`Map to ${item.name}`}
             >
-              Reserve →
-            </a>
-          )}
-          {phoneHref && (
-            <a href={`tel:${phoneHref}`} style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}>
-              {item.phone}
-            </a>
-          )}
-          {item.website && (
-            <a href={item.website} target="_blank" rel="noopener noreferrer" aria-label={`${item.name} website`} style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}>
-              Website
-            </a>
-          )}
-          <a
-            href={mapUrl(item.name, item.city, item.state)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Map to ${item.name}`}
-            style={{ fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none' }}
-          >
-            Map
-          </a>
+              Map
+            </Button>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+    </li>
   );
 }
 
@@ -392,8 +362,13 @@ export default async function DirectoryCards({ riverSlug }: Props) {
       });
   }
 
-  const all = [...serviceItems, ...npsItems];
+  return <DirectoryView items={[...serviceItems, ...npsItems]} />;
+}
 
+/** The directory's markup, given its listings: grouped by category, sorted by
+ *  curated display_order, each category folded after PREVIEW_COUNT. Split from
+ *  the fetch so it renders without a database. */
+export function DirectoryView({ items: all }: { items: DirectoryItem[] }) {
   const grouped = new Map<ServiceType, DirectoryItem[]>();
   for (const item of all) {
     const arr = grouped.get(item.type) ?? [];
@@ -407,33 +382,53 @@ export default async function DirectoryCards({ riverSlug }: Props) {
   if (all.length === 0) return null;
 
   return (
-    <div data-guide-directory style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+    <div className="flex flex-col gap-8">
       {CATEGORIES.map((cat) => {
         const list = grouped.get(cat.type) ?? [];
         if (list.length === 0) return null;
+        const { shown, folded } = splitPreview(list);
+        const headingId = `directory-${cat.type}`;
         return (
-          <section key={cat.type}>
-            <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div
-                className="eyebrow"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
-                  color: cat.accent,
-                }}
+          <section key={cat.type} aria-labelledby={headingId}>
+            <header className="mb-3 flex items-baseline justify-between">
+              <h3
+                id={headingId}
+                className={`eyebrow m-0 text-[11px] font-bold uppercase tracking-[.12em] ${cat.accent}`}
               >
                 {cat.label}
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--color-neutral-500)' }}>
-                {list.length}
-              </div>
+              </h3>
+              <span className="font-mono text-xs font-semibold text-neutral-500">{list.length}</span>
             </header>
-            <div data-guide-directory-grid style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              {list.map((item) => (
-                <ServiceCard key={item.key} item={item} accent={cat.accent} />
-              ))}
+
+            {/* Below md this is one framed list; from md up the frame dissolves
+                and each listing carries its own card frame. */}
+            <div className="overflow-hidden rounded-lg border-2 border-primary-700 bg-white shadow-sm md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
+              <ul className={LIST_CLASS}>
+                {shown.map((item) => (
+                  <DirectoryListing key={item.key} item={item} />
+                ))}
+              </ul>
+
+              {folded.length > 0 && (
+                <details className="group">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 border-t border-neutral-200 bg-secondary-50 px-4 py-3 text-sm font-semibold text-primary-700 transition-colors duration-fast hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 md:mt-3 md:rounded-lg md:border-2 md:border-primary-700 md:bg-white md:shadow-sm [&::-webkit-details-marker]:hidden">
+                    <span className="group-open:hidden">
+                      Show all {list.length} {cat.label.toLowerCase()}
+                    </span>
+                    <span className="hidden group-open:inline">Show fewer</span>
+                    <ChevronDown
+                      size={16}
+                      aria-hidden
+                      className="transition-transform duration-normal group-open:rotate-180"
+                    />
+                  </summary>
+                  <ul className={`${LIST_CLASS} border-t border-dashed border-neutral-300 md:mt-3 md:border-t-0`}>
+                    {folded.map((item) => (
+                      <DirectoryListing key={item.key} item={item} />
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
           </section>
         );
