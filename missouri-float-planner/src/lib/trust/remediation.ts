@@ -207,7 +207,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Link the service to the river it serves.',
     where: '/admin/services',
     method:
-      'Without a service_rivers row the business appears in no per-river directory and on no map layer fetched per river — it is in the table and nowhere else. The finding names the nearest river as a starting candidate, not an answer.',
+      'Without a service_rivers row the business appears in no per-river directory and on no map layer fetched per river — it is in the table and nowhere else. The finding names the nearest river as a starting candidate, not an answer. If the service genuinely serves no river Eddy carries (a state-park campground on other water), add it to REVIEWED_STANDALONE_SERVICES in src/lib/trust/checks/service-geo-consistency.ts instead of inventing a link; the exemption lapses by itself if a catalog river comes within 10 mi.',
   },
 
   // ── float-endpoint eligibility ───────────────────────────────────────
@@ -247,7 +247,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Set is_float_endpoint = true if this really is a launch.',
     where: '/admin/access-points',
     method:
-      'Eligibility is opt-in (20260823190713 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead.',
+      'Eligibility is opt-in (20260823190713 added the column DEFAULT false), so a row added or approved without setting it lands here. Confirm the roles are honest first — the rule fires on access, boat_ramp, gravel_bar and bridge — then flip the flag. If the roles are the thing that is wrong, fix those instead. A walk-in or bank fishing access carries `access` with no launch, and the vocabulary has no better word for it: add it to REVIEWED_WALK_IN_ACCESSES in src/lib/trust/checks/float-endpoint-eligibility.ts rather than flipping the flag.',
   },
 
   // ── geometry and mileage ─────────────────────────────────────────────

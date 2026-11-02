@@ -122,6 +122,71 @@ export interface EndpointEligibilityRow {
 const UNREACHABLE_BY_VEHICLE =
   /^\s*(?:no road access|no vehicle access|river access only)(?!\s+\w)/i;
 
+/**
+ * Points that carry the `access` role but are not launches: walk-in and bank
+ * fishing accesses, reviewed one by one.
+ *
+ * `access` is a launch role (launch-roles.ts) and the roles vocabulary has no
+ * non-launch word for "you can reach the water on foot here", so these filed
+ * `launch_not_selectable` every day while being correctly out of the planner —
+ * five of them on the trout tailwaters, each with its own description saying
+ * so. A new role would be the cleaner fix but reaches the map's role marks and
+ * the iOS app; until then the judgement is recorded here.
+ *
+ * An entry is not a mute. It strips the launch role for THIS check only, so the
+ * point is judged as a non-launch: if somebody later offers it as a put-in, it
+ * files `non_launch_offered_as_endpoint` instead of passing silently. Remove
+ * the entry if a point turns out to take boats after all.
+ *
+ * Keyed on the uuid, as findings are — access-point slugs have drifted between
+ * environments (20260815000000).
+ */
+export interface ReviewedNonLaunchAccess {
+  id: string;
+  name: string;
+  river: string;
+  reviewedOn: string;
+  reason: string;
+}
+
+export const REVIEWED_WALK_IN_ACCESSES: readonly ReviewedNonLaunchAccess[] = [
+  {
+    id: 'e41a11c4-a904-4026-8ecd-e0ee0e0e5344',
+    name: 'Armstrong Hole Walk-In Access',
+    river: 'white',
+    reviewedOn: '2026-11-02',
+    reason: 'Description: "Walk-in fishing only; no boat access." Cotter Access is 0.55 mi upstream.',
+  },
+  {
+    id: '8172624e-45b8-4546-98ff-301c89b9b320',
+    name: 'Roundhouse Shoals Walk-In Access',
+    river: 'white',
+    reviewedOn: '2026-11-02',
+    reason: 'Walk-in fishing access and parking on Cotter Road; no ramp. Rim Shoals is the next launch down.',
+  },
+  {
+    id: '5caefde8-f9fa-4da5-9c4f-385583621cf7',
+    name: 'Bronie Yurkonis Walk-In Access (The Narrows)',
+    river: 'white',
+    reviewedOn: '2026-11-02',
+    reason: 'Baxter County walk-in access; description: "There is no boat ramp." Wildcat Shoals is 1.6 mi down.',
+  },
+  {
+    id: '1daa6131-dd01-4dec-bb66-f64a82936ac1',
+    name: 'Bill Ackerman River Ridge Access',
+    river: 'norfork-tailwater',
+    reviewedOn: '2026-11-02',
+    reason: 'AGFC walk-in, handicapped-accessible fishing access. The Norfork floats from the Dam-Quarry ramp to Norfork Access.',
+  },
+  {
+    id: '8d46b4d6-a718-4555-99ea-ff2db9f013a8',
+    name: 'Shepherd of the Hills Hatchery Bank Access',
+    river: 'taneycomo',
+    reviewedOn: '2026-11-02',
+    reason: 'MDC bank-fishing trails and stairs to the shoreline. The hatchery boat ramp is its own launch row, 0.65 mi down.',
+  },
+];
+
 export function isVehicleUnreachable(
   roadAccess: string | null | undefined,
   parkingInfo?: string | null | undefined,
@@ -134,8 +199,10 @@ export function isVehicleUnreachable(
 /** Pure. Rows in, findings out — no database, so the rule is testable alone. */
 export function deriveEndpointEligibilityFindings(
   rows: readonly EndpointEligibilityRow[],
+  reviewedNonLaunch: readonly ReviewedNonLaunchAccess[] = REVIEWED_WALK_IN_ACCESSES,
 ): RawFinding[] {
   const findings: RawFinding[] = [];
+  const nonLaunchIds = new Set(reviewedNonLaunch.map((r) => r.id));
 
   for (const row of rows) {
     if (row.approved !== true) continue;
@@ -147,7 +214,10 @@ export function deriveEndpointEligibilityFindings(
     const entityKey = row.id;
     const where = row.river_slug ? ` on the ${row.river_slug}` : '';
     const roles = (row.types ?? []).filter((t): t is string => typeof t === 'string' && t.length > 0);
-    const launchRoles = roles.filter(isLaunchRole);
+    // A reviewed walk-in carries `access` without being a launch; see
+    // REVIEWED_WALK_IN_ACCESSES.
+    const reviewedWalkIn = nonLaunchIds.has(row.id);
+    const launchRoles = reviewedWalkIn ? [] : roles.filter(isLaunchRole);
 
     // First, and regardless of roles: you cannot shuttle to a place with no
     // road. This both raises its own finding and — by returning here — keeps
@@ -227,10 +297,12 @@ export function deriveEndpointEligibilityFindings(
         entityKey,
         ruleKey: 'non_launch_offered_as_endpoint',
         title: `"${row.name}"${where} is offered as a put-in but claims no launch`,
-        detail: `Every role on this point (${roles.join(
-          ', ',
-        )}) is a place-to-be rather than a place-to-launch, yet it may be chosen as a put-in or take-out. Either the roles are incomplete — a campground whose boat ramp was never recorded — or is_float_endpoint should be false. Check the ground before the boundary line: Montauk State Park was reclassified as a non-launch on a park-boundary reading in 2026-08 and is in fact the Current's first put-in.`,
-        evidence: { accessPointId: row.id, slug: row.slug, type: row.type, roles },
+        detail: reviewedWalkIn
+          ? `This point is on the reviewed walk-in list (REVIEWED_WALK_IN_ACCESSES in src/lib/trust/checks/float-endpoint-eligibility.ts) as a fishing access with no boat launch, yet it may be chosen as a put-in or take-out. Either set is_float_endpoint = false, or — if boats really can launch here — remove its entry from that list.`
+          : `Every role on this point (${roles.join(
+              ', ',
+            )}) is a place-to-be rather than a place-to-launch, yet it may be chosen as a put-in or take-out. Either the roles are incomplete — a campground whose boat ramp was never recorded — or is_float_endpoint should be false. Check the ground before the boundary line: Montauk State Park was reclassified as a non-launch on a park-boundary reading in 2026-08 and is in fact the Current's first put-in.`,
+        evidence: { accessPointId: row.id, slug: row.slug, type: row.type, roles, reviewedWalkIn },
       });
     }
   }

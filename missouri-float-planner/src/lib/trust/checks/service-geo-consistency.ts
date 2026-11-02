@@ -85,6 +85,46 @@ export const FAR_FROM_RIVER_MILES = 10;
  */
 export const NEARER_OTHER_RIVER_MARGIN_MILES = 2;
 
+/**
+ * Services added deliberately with no river link, reviewed one by one.
+ *
+ * service_no_river_link assumes every pinned service serves some river in the
+ * catalog. Most do; a few state-park campgrounds were added for the camping
+ * catalog on water Eddy does not carry (services-camping-gap-2026-09-26.md
+ * files them as "standalone"), and the rule asked daily for a link that would
+ * be false.
+ *
+ * The exemption expires on its own: it holds only while no catalog river is
+ * within FAR_FROM_RIVER_MILES of the pin — the same bound the geocoder writes
+ * under. Add the river they actually sit on and the finding returns, which is
+ * the moment a link becomes the right answer.
+ *
+ * Keyed on the uuid, as findings are: this table renames.
+ */
+export interface ReviewedStandaloneService {
+  serviceId: string;
+  name: string;
+  reviewedOn: string;
+  reason: string;
+}
+
+export const REVIEWED_STANDALONE_SERVICES: readonly ReviewedStandaloneService[] = [
+  {
+    serviceId: '12babb05-ee2d-4a7c-97eb-8d56c8d92a19',
+    name: 'Roaring River State Park Campgrounds',
+    reviewedOn: '2026-11-02',
+    reason:
+      'On Roaring River, which Eddy does not carry; the nearest catalog river is the Kings at 12.3 mi, which it does not serve.',
+  },
+  {
+    serviceId: 'e98555c4-6575-4f35-bfcc-cc8c492764ca',
+    name: "Devil's Den State Park Campground",
+    reviewedOn: '2026-11-02',
+    reason:
+      'On Lee Creek / Lake Devil, which Eddy does not carry; the nearest catalog river is the Mulberry at 18.6 mi.',
+  },
+];
+
 function toMiles(value: number | string | null): number | null {
   if (value === null || value === undefined) return null;
   const n = typeof value === 'number' ? value : Number(value);
@@ -98,8 +138,12 @@ function place(row: ServiceGeoRow): string {
 }
 
 /** Pure. Turns one row per service into zero or more findings. */
-export function deriveServiceGeoFindings(rows: ServiceGeoRow[]): RawFinding[] {
+export function deriveServiceGeoFindings(
+  rows: ServiceGeoRow[],
+  standalone: readonly ReviewedStandaloneService[] = REVIEWED_STANDALONE_SERVICES,
+): RawFinding[] {
   const findings: RawFinding[] = [];
+  const standaloneIds = new Set(standalone.map((s) => s.serviceId));
 
   for (const row of rows) {
     // The service uuid, never the name.
@@ -116,6 +160,13 @@ export function deriveServiceGeoFindings(rows: ServiceGeoRow[]): RawFinding[] {
     const nearestAnyMiles = toMiles(row.nearest_any_miles);
 
     if (row.linked_river_count === 0) {
+      // Reviewed as standalone, and still nowhere near a catalog river.
+      if (
+        standaloneIds.has(row.service_id) &&
+        (nearestAnyMiles === null || nearestAnyMiles > FAR_FROM_RIVER_MILES)
+      ) {
+        continue;
+      }
       // Returned by the SQL rather than filtered out on purpose: a service with
       // a pin and no link is invisible to /api/rivers/[slug]/services, so
       // dropping it from scope would let a clean sweep be reported over a

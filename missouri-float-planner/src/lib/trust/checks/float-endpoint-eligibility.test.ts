@@ -19,6 +19,7 @@ import test from 'node:test';
 import {
   deriveEndpointEligibilityFindings,
   isVehicleUnreachable,
+  REVIEWED_WALK_IN_ACCESSES,
   type EndpointEligibilityRow,
 } from './float-endpoint-eligibility';
 
@@ -389,4 +390,44 @@ test('findings are ordered deterministically', () => {
   const reverse = deriveEndpointEligibilityFindings([...rows].reverse()).map((f) => f.title);
   assert.deepEqual(forward, reverse);
   assert.deepEqual(forward, ['"Alpha Park" on the current is offered as a put-in but claims no launch', '"Zebra Access" on the current is a launch nobody can choose']);
+});
+
+// ── reviewed walk-in accesses ─────────────────────────────────────────────
+//
+// Five trout-tailwater fishing accesses carry `access` (a launch role) with no
+// boat launch, and filed launch_not_selectable daily while correctly out of the
+// planner. The list strips the launch role for this check only.
+
+const armstrong = REVIEWED_WALK_IN_ACCESSES.find((r) => r.name.startsWith('Armstrong Hole'))!;
+
+test('a reviewed walk-in kept out of the planner raises nothing', () => {
+  const walkIn = row({ id: armstrong.id, name: armstrong.name, river_slug: 'white', is_float_endpoint: false });
+  assert.deepEqual(deriveEndpointEligibilityFindings([walkIn]), []);
+});
+
+test('a reviewed walk-in offered as a put-in is reported, not silently passed', () => {
+  const walkIn = row({ id: armstrong.id, name: armstrong.name, river_slug: 'white', is_float_endpoint: true });
+  const [finding] = deriveEndpointEligibilityFindings([walkIn]);
+  assert.equal(finding.ruleKey, 'non_launch_offered_as_endpoint');
+  assert.match(finding.detail, /REVIEWED_WALK_IN_ACCESSES/);
+});
+
+test('the walk-in list covers its own rows, not every access-only point', () => {
+  // The same shape under another id is still a launch nobody can choose.
+  const other = row({ is_float_endpoint: false });
+  assert.deepEqual(
+    deriveEndpointEligibilityFindings([other]).map((f) => f.ruleKey),
+    ['launch_not_selectable'],
+  );
+});
+
+test('every reviewed walk-in is dated, explained and uniquely keyed', () => {
+  const ids = new Set<string>();
+  for (const r of REVIEWED_WALK_IN_ACCESSES) {
+    assert.match(r.id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    assert.match(r.reviewedOn, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(r.reason.length > 30, `${r.name} needs a real reason`);
+    assert.equal(ids.has(r.id), false, `${r.name} is listed twice`);
+    ids.add(r.id);
+  }
 });
