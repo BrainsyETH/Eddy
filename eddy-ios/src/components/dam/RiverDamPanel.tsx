@@ -1,36 +1,41 @@
 // eddy-ios/src/components/dam/RiverDamPanel.tsx
-// The dam section on a river screen — for a TAILWATER only, meaning a reach
-// whose level is the release rather than the weather.
+// The dam's part of a tailwater river's reading card: the dam's name and the
+// schedule's source, NOW and the next two days side by side, and at most two
+// lines of what the water below the dam may be doing. The iOS half of the web
+// component of the same name — same shared derivations (shared/river-dam-panel,
+// shared/tailwater-status), so the two platforms cannot describe one dam
+// differently.
 //
-// ── Why this exists on a river screen at all ───────────────────────────────
-// Because on a regulated reach the dam IS the forecast. A rain-fed Ozark river
-// is a guess two days out; what the Corps will release tomorrow is knowable
-// today. Leaving that on a separate dam screen would mean the controlling fact
-// about the river is findable only by someone who already thought to look for a
-// dam.
+// ── Inside the reading card ────────────────────────────────────────────────
+// On a tailwater the posted schedule is what decides the day, so it lives in
+// the card rather than in a row under it. Two positions (the river screen
+// picks, per shared/dam-release-tab.ts):
 //
-// Returns null when no dam controls this river, which is every river but the
-// Black today. Absent is the ordinary case, not a failure.
+//   lead    on the dam's own unrated release, in place of "Not rated" and a
+//           bare number. A release has no float ladder, and one cannot be
+//           borrowed (shared/tailwater-status.ts); the dam is the answer.
+//   footer  under the reading on every other tab: a rated gauge keeps its
+//           verdict, a downstream gauge its own reading.
 //
-// ── No round trip ──────────────────────────────────────────────────────────
-// There is no /api/rivers/[slug]/dam route, and this does not need one. The dam
-// list is short — ~20 items — and the river screen already holds it; `tailwater`
-// on the snapshot names the reach, so the lookup is a filter rather than a fetch.
+// Nothing here borrows a condition colour: a second coloured badge in the card
+// reads as a second rating.
+//
+// Hydropower dams only. A flood-control project (Clearwater) has no posted
+// schedule, and the dam list carries no release forecast, so it keeps the
+// TailwaterStatusRow handoff instead.
 //
 // ── What it must never do ──────────────────────────────────────────────────
-// Imply the release is a promise. The Corps changes schedules for power demand,
-// transmission constraints, outages and inflow, and this sits next to a number
-// somebody may wade into.
+// Imply the release is a promise, or say when water reaches an access. Times
+// are at the dam (ADR 0017), and the Corps changes schedules without notice.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
-import {
-  centralDayKey,
-  relativeAge,
-  readingStaleness,
-} from '@eddy/conditions/dam-schedule-copy';
+import { readingStaleness, relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import { generationNow } from '@eddy/conditions/dam-generation';
+import { scheduleDaySummaries } from '@eddy/conditions/river-dam-panel';
+import { buildTailwaterStatus } from '@eddy/conditions/tailwater-status';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -46,99 +51,134 @@ export function damForRiver(dams: DamSnapshot[], slug: string): DamSnapshot | nu
   return dams.find((d) => d.tailwater?.riverSlug === slug) ?? null;
 }
 
-export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
-  const { colors, elevation } = useTheme();
+interface Column {
+  key: string;
+  label: string;
+  generating: boolean;
+  value: string;
+  detail: string;
+}
+
+function cfs(n: number): string {
+  return `${Math.round(n).toLocaleString()} cfs`;
+}
+
+/** Whether this dam gets the panel; otherwise the screen keeps the status row. */
+export function damHasPanel(dam: DamSnapshot | null): dam is DamSnapshot {
+  return Boolean(dam?.hasTurbines);
+}
+
+export function RiverDamPanel({ dam, position, now }: {
+  dam: DamSnapshot | null;
+  position: 'lead' | 'footer';
+  /** The screen's observation clock, so "Now" ages with the reading beside it. */
+  now: number;
+}) {
+  const { colors } = useTheme();
   const router = useRouter();
 
-  if (!dam) return null;
+  if (!damHasPanel(dam)) return null;
 
+  const columns: Column[] = [];
   const release = dam.metrics.release;
-  // By date, not by position: the payload carries two days now, and a day whose
-  // file fails to parse is dropped independently of the other — so `[0]` can be
-  // TOMORROW, and this panel would print tomorrow's idle windows as the ones a
-  // wading angler has today. See the same read in DamRow.
-  const todayKey = centralDayKey();
-  const today = dam.schedule.find((entry) => entry.scheduleDate === todayKey) ?? null;
+  if (release) {
+    const state = generationNow(dam, now);
+    const current = readingStaleness(release.at, now) === 'fresh';
+    columns.push({
+      key: 'now',
+      // A reading past two hours does not get to say "now"; it says its age.
+      label: current ? 'Now' : (relativeAge(release.at, now) ?? 'Last reading'),
+      generating: state.kind === 'generating',
+      value: cfs(release.value),
+      detail: state.kind === 'generating'
+        ? 'Generating'
+        : state.kind === 'not-generating'
+          ? state.minimumFlow ? 'Min flow' : 'Not generating'
+          : release.dailyMean ? 'Daily avg' : 'Release',
+    });
+  }
+  for (const d of scheduleDaySummaries(dam.schedule, dam.generationReference, now).slice(0, 2)) {
+    columns.push({ key: d.key, label: d.dayName, generating: d.generates, value: d.value, detail: d.detail });
+  }
+  if (columns.length === 0) return null;
 
-  // Nothing to say without either half. Better an absent section than a section
-  // explaining its own emptiness.
-  if (!release && !today) return null;
-
-  // Null is "the timestamp could not be read", which is not a lag and must not
-  // be announced as one — `!== 'fresh'` swept it in, so a malformed `at` printed
-  // "reading is lagging" beside an age that relativeAge had already dropped for
-  // the same reason. Say nothing about liveness rather than guess at it.
-  const releaseLag = release ? readingStaleness(release.at) : null;
-  const releaseIsLagging = releaseLag === 'lagging' || releaseLag === 'stale';
+  const supporting = buildTailwaterStatus(dam, now)?.supporting ?? [];
+  const subtitle = dam.schedule.length > 0 ? 'SWPA generation schedule' : 'Schedule not posted yet';
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+    <View style={[position === 'footer' ? [styles.footer, { borderTopColor: colors.border }] : styles.lead]}>
       <View style={styles.header}>
-        <ControlIcon name="water-outline" size={16} color={colors.interactive} />
-        <Text style={[styles.title, { color: colors.text }]}>{dam.name}</Text>
-      </View>
-
-      {release ? (
-        <View style={styles.releaseBlock}>
-          <Text style={[styles.release, { color: colors.text }]}>
-            {Math.round(release.value).toLocaleString()}{' '}
-            <Text style={[styles.releaseUnit, { color: colors.textMuted }]}>cfs</Text>
-          </Text>
-          <Text style={[styles.releaseSub, { color: colors.textMuted }]}>
-            {[
-              // A daily mean is labelled. The St. Louis district publishes
-              // release that way, about a day behind, and showing it as
-              // "releasing now" would be a correctness bug.
-              release.dailyMean ? 'daily average release' : 'releasing now',
-              relativeAge(release.at),
-              // From the timestamp, not the wire's `staleness` — that band is
-              // stamped at snapshot assembly and frozen, so a payload held on
-              // this device keeps claiming freshness as it ages, contradicting
-              // the age printed beside it. See readingStaleness in shared/.
-              releaseIsLagging ? 'reading is lagging' : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
+        <View style={styles.headerCopy}>
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{dam.name}</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle.toUpperCase()}</Text>
         </View>
-      ) : null}
-
-      {/* No idle-window sentence here. The dam detail screen draws today's
-          schedule as bars; a written list of every off window was harder to
-          read than the chart it restated, and the link below goes there. */}
-
-      <Text
-        style={[styles.link, { color: colors.interactive }]}
-        onPress={() => router.push(`/dam/${dam.id}`)}
-        accessibilityRole="link"
-      >
-        Lake &amp; dam detail →
-      </Text>
-
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <Text style={[styles.footerText, { color: colors.textSubtle }]}>
-          This reach runs at whatever {dam.name} releases, so it follows the dam
-          rather than the rain. Schedules can change without notice — never wade
-          or anchor below a dam without checking the horn and posted warnings.
-          {dam.sources.length > 0 ? ` Source: ${dam.sources.join(' · ')}.` : ''}
-        </Text>
+        <Pressable
+          // navigate, not push: the dam screen links back to this river, and
+          // push let the pair stack full screens indefinitely.
+          onPress={() => router.navigate(`/dam/${dam.id}`)}
+          accessibilityRole="button"
+          accessibilityLabel={`Full schedule for ${dam.name}`}
+          hitSlop={8}
+          style={({ pressed }) => [styles.link, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Text style={[styles.linkText, { color: colors.interactive }]}>Full schedule</Text>
+          <ControlIcon name="chevron-forward" size={13} color={colors.interactive} />
+        </Pressable>
       </View>
+
+      <View style={[styles.columns, { borderColor: colors.border }]}>
+        {columns.map((c, index) => (
+          <View
+            key={c.key}
+            accessible
+            accessibilityLabel={`${c.label}: ${c.value}, ${c.detail}`}
+            style={[styles.column, index > 0 ? { borderLeftWidth: 1, borderLeftColor: colors.border } : null]}
+          >
+            <Text style={[styles.columnLabel, { color: colors.textSubtle }]}>{c.label.toUpperCase()}</Text>
+            <ControlIcon
+              name={c.generating ? 'flash-outline' : 'water-outline'}
+              size={22}
+              color={c.generating ? colors.accent : colors.interactive}
+              style={styles.columnIcon}
+            />
+            <Text style={[styles.columnValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{c.value}</Text>
+            <Text
+              style={[styles.columnDetail, { color: c.generating ? colors.accent : colors.textMuted, fontFamily: c.generating ? fonts.semibold : fonts.body }]}
+              numberOfLines={2}
+            >
+              {c.detail}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {supporting.map((line) => (
+        <Text key={line} style={[styles.supporting, { color: colors.textMuted }]}>{line}</Text>
+      ))}
+      <Text style={[styles.note, { color: colors.textSubtle }]}>
+        Schedules are posted for the dam and can change without notice.
+      </Text>
     </View>
   );
 }
 
+// Layout only — every colour is applied inline from the theme. The card around
+// this already pads 16, so nothing here carries a horizontal margin.
 const styles = StyleSheet.create({
-  // No marginHorizontal: this panel appears only on the river screen, whose
-  // ScrollView already pads 16, so carrying its own margin inset it to 32 while
-  // every card beside it sat at 16. Radius matches that screen's cards too.
-  card: { marginBottom: 14, borderRadius: 16, padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { ...t.lg, fontFamily: fonts.display, flexShrink: 1 },
-  releaseBlock: { marginTop: 8 },
-  release: { ...t['2xl'], fontFamily: fonts.heading },
-  releaseUnit: { ...t.base, fontFamily: fonts.medium },
-  releaseSub: { ...t.sm },
-  link: { ...t.sm, fontFamily: fonts.semibold, marginTop: 12 },
-  footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
-  footerText: { ...t.xs },
+  lead: { marginBottom: 4 },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 12 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  title: { ...t.base, fontFamily: fonts.heading },
+  subtitle: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.6, marginTop: 1 },
+  link: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44, paddingLeft: 8 },
+  linkText: { ...t.xs, fontFamily: fonts.semibold },
+  columns: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, marginTop: 6 },
+  column: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4 },
+  columnLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
+  columnIcon: { marginVertical: 4 },
+  columnValue: { ...t.sm, fontFamily: fonts.monoMedium },
+  columnDetail: { ...t.xs, textAlign: 'center', marginTop: 2 },
+  supporting: { ...t.sm, fontFamily: fonts.body, marginTop: 8 },
+  note: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
 });

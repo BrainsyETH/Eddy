@@ -26,7 +26,6 @@ import HubSectionNav from './HubSectionNav';
 import RiverAlertsPanel from '@/components/river/RiverAlertsPanel';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
-import TailwaterStatusRow from '@/components/dam/TailwaterStatusRow';
 import { pageRiverAlerts } from '@/lib/data/public-pages';
 import RiverHazards from '@/components/river/RiverHazards';
 import RiverReaches from '@/components/river/RiverReaches';
@@ -366,7 +365,6 @@ export default async function RiverGuidePage({ params }: Props) {
         <HubSectionNav
           planUrl={planUrl}
           hasGuide={!!guidePost}
-          hasDam={!!riverDam}
           hasAlerts={alertsUnavailable || riverAlerts.length > 0}
           riverSlug={slug}
         />
@@ -395,17 +393,23 @@ export default async function RiverGuidePage({ params }: Props) {
             <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
               Live report
             </h2>
-            {/* The dam row goes THROUGH the report, not after it: it belongs
-                under the "Right now" summary, and this component renders the
-                whole report below that. Server-rendered here, so the snapshot
-                never reaches the browser bundle. */}
+            {/* The dam goes THROUGH the report, inside the reading card: it
+                leads the card on the dam's own unrated release and closes it
+                on every other tab (RiverGaugeDetail picks). Server-rendered
+                here, so the snapshot never reaches the browser bundle. There
+                is no separate Dam release section any more. */}
             <RiverGaugeDetail
               riverSlug={slug}
-              damSlot={riverDam ? <TailwaterStatusRow dam={riverDam.dam} /> : null}
+              damLead={riverDam ? <RiverDamPanel context={riverDam} position="lead" /> : null}
+              damFooter={riverDam ? <RiverDamPanel context={riverDam} position="footer" /> : null}
+              heldDamId={riverDam?.dam.id ?? null}
+              // The whole river follows the dam only when the dam's tailwater
+              // is the river itself; the Black's Clearwater controls one reach.
+              damControlled={Boolean(riverDam && !riverDam.dam.tailwater?.sectionSlug)}
               reachesSlot={riverReaches ? (
                 // Only where the river's halves differ. When a dam controls
-                // one of these reaches, the chip names it as THE one the Dam
-                // release panel is about.
+                // one of these reaches, the chip names it as THE one the dam
+                // panel in the card is about.
                 <section id="reaches" className="scroll-mt-28" aria-labelledby="reaches-heading">
                   <h3 id="reaches-heading" className="mb-2 text-base font-bold text-neutral-900">Reaches</h3>
                   <RiverReaches
@@ -417,16 +421,6 @@ export default async function RiverGuidePage({ params }: Props) {
               ) : null}
             />
           </section>
-
-          {/* ===== Dam control — tailwater reaches only ===== */}
-          {riverDam && (
-            <section id="dam" className="scroll-mt-28 pt-10">
-              <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
-                Dam release
-              </h2>
-              <RiverDamPanel context={riverDam} />
-            </section>
-          )}
 
           {/* ===== Plan CTA band — phones only =====
               From sm up the sticky section bar carries "Plan a float" the whole

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Eye, Sparkles } from 'lucide-react';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
+import { DamReadTeaser } from '@/components/dam/DamEddyRead';
 import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 
 interface EddyOutlookFooterProps {
@@ -13,6 +14,14 @@ interface EddyOutlookFooterProps {
   readIsGenerated: boolean;
   generatedAt?: string | null;
   gaugeName?: string | null;
+  /**
+   * Set on a dam's own unrated release (shared/dam-release-tab.ts): the Read
+   * slot is the dam's Read, and Bottom line is dropped. On that tab the river
+   * Read can only say no assessment is available and the bottom line only that
+   * there is not enough data, while the dam has a Read of its schedule.
+   * Weather stays: storms, wind and cold still decide a float day.
+   */
+  damRead?: { damId: string; scheduleAbove: boolean } | null;
 }
 
 export default function EddyOutlookFooter({
@@ -21,6 +30,7 @@ export default function EddyOutlookFooter({
   readIsGenerated,
   generatedAt,
   gaugeName,
+  damRead = null,
 }: EddyOutlookFooterProps) {
   const updatedLabel = generatedAt ? formatAgeFromTimestamp(generatedAt) : null;
 
@@ -43,7 +53,9 @@ export default function EddyOutlookFooter({
             <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Eddy&apos;s read</h4>
           </div>
-          {readLoading ? (
+          {damRead ? (
+            <DamReadTeaser key={damRead.damId} damId={damRead.damId} scheduleAbove={damRead.scheduleAbove} />
+          ) : readLoading ? (
             <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s read…</p>
           ) : (
             <>
@@ -64,7 +76,7 @@ export default function EddyOutlookFooter({
 
         {/* Weather and Bottom line are one or two sentences each, so they
             still pair on a wide viewport. */}
-        <div className="grid grid-cols-1 divide-y-2 divide-primary-100 lg:grid-cols-2 lg:divide-x-2 lg:divide-y-0">
+        <div className={`grid grid-cols-1 divide-y-2 divide-primary-100 ${damRead ? '' : 'lg:grid-cols-2 lg:divide-x-2 lg:divide-y-0'}`}>
           <article className="min-w-0 px-4 py-4 sm:px-5">
             <div className="mb-2 flex items-center gap-2 text-primary-800">
               <Eye className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
@@ -73,6 +85,7 @@ export default function EddyOutlookFooter({
             <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
           </article>
 
+          {!damRead && (
           <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">
             <div className="mb-2 flex items-center gap-2 text-accent-800">
               {/* The AI mark, not the mascot's head. Every word in this section
@@ -84,6 +97,7 @@ export default function EddyOutlookFooter({
             </div>
             <p className="font-display text-base font-semibold leading-relaxed text-neutral-900" aria-live="polite">{sections.bottomLine}</p>
           </article>
+          )}
         </div>
       </div>
 
