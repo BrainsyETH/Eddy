@@ -173,22 +173,6 @@
   }
 }
 
-/* Room-distance type for Display with details: grows with the screen the
-   way the marks do, from desk to TV. */
-.displayText {
-  font-size: clamp(0.875rem, 1.25vmin, 1.75rem);
-  font-variant-numeric: tabular-nums;
-  text-shadow:
-    0 0 3px var(--nm-surface),
-    0 0 3px var(--nm-surface),
-    0 0 6px var(--nm-surface);
-}
-
-.displayCard {
-  font-size: clamp(0.875rem, 1.25vmin, 1.75rem);
-  width: min(22em, calc(100vw - 2rem));
-}
-
 .nowrap {
   white-space: nowrap;
 }
@@ -284,9 +268,8 @@
    Sized for reading across a room: type follows the screen's short side
    (16–17 px at 1080p, ~30 px on a 4K wall). Side panel in the open left
    margin of the wall composition; a bottom strip on narrow / portrait. */
-.wallLegend {
-  position: absolute;
-  z-index: 30;
+.wallLegend,
+.wallStory {
   font-size: clamp(13px, 1.62vmin, 32px);
   line-height: 1.25;
   color: var(--nm-ink);
@@ -296,12 +279,22 @@
   padding: 0.85em 1em 0.75em;
   pointer-events: none;
 }
-.wallLegendSide {
+/* The left column (wide screens): the legend, and in Story mode the
+   featured event under it. Positioned as one so they never collide. */
+.wallColumn {
+  position: absolute;
+  z-index: 30;
   left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
   top: max(clamp(10px, 3vmin, 64px), env(safe-area-inset-top));
-  width: 15em;
+  width: calc(15 * clamp(13px, 1.62vmin, 32px));
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vmin, 24px);
+  pointer-events: none;
 }
 .wallLegendStrip {
+  position: absolute;
+  z-index: 30;
   left: 0.75em;
   right: 0.75em;
   bottom: max(0.75em, env(safe-area-inset-bottom));
@@ -370,4 +363,65 @@
 }
 .wallLegendStrip .wallLegendSource {
   margin: 0;
+}
+
+/* ── Story (featured event) ────────────────────────────────────────────── */
+.wallStory {
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  padding: 0.85em 1em 0.75em;
+}
+.wallStoryTop {
+  position: absolute;
+  z-index: 30;
+  left: 0.75em;
+  right: 0.75em;
+  top: max(0.75em, env(safe-area-inset-top));
+  pointer-events: none;
+}
+.wallStoryKicker {
+  display: inline-block;
+  margin: 0 0 0.4em;
+  padding: 0.12em 0.55em;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--nm-surface);
+  background: var(--nm-edge);
+}
+.wallStoryTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.12em;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.wallStoryPlace {
+  margin: 0.1em 0 0;
+  font-size: 0.86em;
+  color: var(--nm-ink-2);
+}
+.wallStoryObservation {
+  margin: 0.45em 0 0;
+}
+.wallStoryChart {
+  margin: 0.55em 0 0;
+}
+.wallStoryChart svg {
+  display: block;
+  width: 100%;
+  height: 4.4em;
+}
+.wallStoryChart figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  color: var(--nm-ink-2);
+}
+.wallStoryFine {
+  margin: 0.45em 0 0;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
 }

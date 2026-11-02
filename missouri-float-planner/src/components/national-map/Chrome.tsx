@@ -11,7 +11,6 @@ import Button from '@/components/ui/Button';
 import Segmented from '@/components/ui/Segmented';
 import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
 import { EddyIcon } from '@/components/ui/EddyIcon';
-import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
 import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type Site } from '@/lib/national-map/marks';
 import type { Appearance, FlowColors, WallText } from '@/lib/national-map/prefs';
 import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
@@ -558,108 +557,6 @@ export function FullscreenTray({
 }
 
 // ── Display with details ────────────────────────────────────────────────────
-
-export function DisplayDetails({
-  view,
-  flow,
-  flood,
-  noaaOk,
-  capturedAt,
-  now,
-  featured,
-  caption,
-  liveStatus,
-  palette,
-  narrow,
-}: {
-  view: MapView;
-  flow: FlowSummary | null;
-  flood: FloodSummary | null;
-  noaaOk: boolean;
-  capturedAt: number | null;
-  now: number;
-  /** The spotlit highlight (the parent rotates it), or null. */
-  featured: Site | null;
-  /** While a "Follow the river" journey runs: its one caption (river names). */
-  caption: string | null;
-  /** Why the view is not live, or null — replaces the status line when set. */
-  liveStatus: string | null;
-  palette: MapPalette;
-  /** Phone width: stack the status line above the card instead of side by side. */
-  narrow: boolean;
-}) {
-  const status = liveStatus
-    ? liveStatus
-    : view === 'flow'
-      ? flow
-        ? `Flow compared with usual · ${nf.format(flow.live)} gauges current`
-        : 'Flow compared with usual'
-      : !noaaOk
-        ? 'NWS flood status unavailable'
-        : flood
-          ? `${nf.format(flood.major + flood.moderate + flood.minor)} gauges above flood stage · ${nf.format(flood.action)} at action stage`
-          : 'Official flood status';
-
-  let line: string | null = null;
-  if (featured) {
-    if (view === 'flooding' && featured.nws) line = FLOOD_STATUS_TEXT[featured.nws.observed].label;
-    else if (featured.reading?.flowPercentile != null) line = featured.reading.flowPercentile >= 50 ? 'Much higher than usual' : 'Much lower than usual';
-  }
-  const style = featured
-    ? view === 'flooding'
-      ? floodStyle(classifyFlood(featured, now, noaaOk))
-      : flowStyle(classifyFlow(featured, now))
-    : null;
-  const observedAt = featured ? (view === 'flooding' ? featured.nws?.observedAt ?? null : featured.reading?.observedAt ?? null) : null;
-
-  const statusLine = (
-    <p className={`${styles.displayText} ${narrow ? '' : 'max-w-[60vw]'}`} style={{ color: 'var(--nm-ink-2)' }}>
-      <span className="font-semibold" style={{ color: 'var(--nm-ink)' }}>
-        {status}
-      </span>
-      {capturedAt !== null && <span className={styles.nowrap}> · {formatTime(capturedAt)}</span>}
-    </p>
-  );
-  const card = caption ? (
-    <div key={caption} className={`${styles.panel} ${styles.fade} ${styles.displayCard} p-[0.75em]`}>
-      <p className={`font-bold leading-snug ${styles.breakAnywhere}`}>{caption}</p>
-    </div>
-  ) :
-    featured && line ? (
-      <div className={`${styles.panel} ${styles.fade} ${styles.displayCard} p-[0.75em]`}>
-        <p className={`font-bold leading-snug ${styles.breakAnywhere}`}>{featured.name}</p>
-        <p className="flex items-center gap-2">
-          {style && <MarkSymbol style={style} palette={palette} />}
-          {line}
-        </p>
-        <p className={`${styles.mono} ${styles.muted}`} style={{ fontSize: '0.8em' }}>
-          {featured.reading?.dischargeCfs != null && <span className={styles.nowrap}>{nf.format(featured.reading.dischargeCfs)} cfs · </span>}
-          <span className={styles.nowrap}>{formatTime(observedAt)}</span> · <span className={styles.nowrap}>{formatAge(observedAt, now)}</span>
-        </p>
-      </div>
-    ) : null;
-
-  if (narrow) {
-    return (
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col gap-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {statusLine}
-        {card}
-      </div>
-    );
-  }
-  return (
-    <>
-      <div className="pointer-events-none absolute bottom-4 left-4" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
-        {statusLine}
-      </div>
-      {card && (
-        <div className="pointer-events-none absolute bottom-4 right-4" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
-          {card}
-        </div>
-      )}
-    </>
-  );
-}
 
 // ── Overlap chooser and hover tip ───────────────────────────────────────────
 

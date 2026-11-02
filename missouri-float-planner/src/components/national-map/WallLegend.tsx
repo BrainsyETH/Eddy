@@ -70,7 +70,7 @@ export function WallLegend({
   const title = flooding ? 'Flooding · Observed' : 'Flow · Versus usual';
   return (
     <section
-      className={`${styles.wallLegend} ${strip ? styles.wallLegendStrip : styles.wallLegendSide}`}
+      className={`${styles.wallLegend} ${strip ? styles.wallLegendStrip : ""}`}
       aria-label={`${title} legend`}
     >
       <h2 className={styles.wallLegendTitle}>{title}</h2>

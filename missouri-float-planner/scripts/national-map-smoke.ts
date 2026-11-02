@@ -323,6 +323,27 @@ async function main() {
     await ak.close();
     console.log('PASS a shared Alaska view survives load and keeps its place entering the wall layout');
 
+    // ── 4b'. Story mode tells one featured event ───────────────────────
+    // Motion off: no journey, so the first turn is a story. The fixture
+    // floods the Meramec (major), so it is the featured event; the map marks
+    // it with the spotlight.
+    const st = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await st.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
+    await intercept(st, 5 * 60_000);
+    await st.goto(target, { waitUntil: 'domcontentloaded' });
+    await st.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await st.getByRole('button', { name: 'Fullscreen map' }).click();
+    await st.locator('[data-presentation="story"]').waitFor({ timeout: 15_000 });
+    await st.locator('[data-act="spot"]').waitFor({ timeout: 15_000 });
+    const card = st.getByRole('region', { name: 'Featured event' });
+    await card.waitFor();
+    const cardText = await card.innerText();
+    assert.match(cardText, /Meramec River near Eureka, MO/, `the featured event names its river and place (${cardText})`);
+    assert.match(cardText, /Major flooding/, 'with one observation');
+    assert.ok(await st.getByRole('region', { name: /legend$/ }).isVisible(), 'the legend stays alongside the story');
+    await st.close();
+    console.log('PASS Story mode features one event beside the legend');
+
     // ── 4c. A regional wall plays what it can see ───────────────────────
     // At 6× around the Meramec most national journeys never enter the view;
     // the regional wall picks a visible stretch of river instead.
