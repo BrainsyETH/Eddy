@@ -102,6 +102,9 @@
      at 2.5:1. Light: hover 5.4:1, pressed 4.9:1 against text-secondary. */
   --color-surface-hover: var(--color-neutral-50);
   --color-surface-pressed: var(--color-neutral-100);
+  /* The drop-down chevron on a styled <select> (neutral-600 stroke). A
+     background image cannot read currentColor, so the dark theme swaps it. */
+  --select-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B6459' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.75' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
 
   /* State Colors */
   --color-success: var(--color-support-500);
@@ -162,6 +165,8 @@
      text); pressed goes darker, not lighter — neutral-800 would be 4.1:1. */
   --color-surface-hover: var(--color-neutral-850);
   --color-surface-pressed: var(--color-neutral-950);
+  /* neutral-400 stroke, matching text-secondary on the dark surface. */
+  --select-chevron: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23A49C8E' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.75' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
 }
 
 /* Base styles */
@@ -721,6 +726,30 @@ h1, h2, h3, h4, h5, h6 {
   padding-inline: 0.25rem;
 }
 
+/* A segmented control in a row of form fields takes the .input box (border
+   weight, radius, height), so a row mixing selects and segments lines up. */
+.segmented--field {
+  border-width: var(--border-base);
+  border-radius: 6px;
+}
+
+.segmented--field .segmented__option {
+  min-height: 48px;
+}
+
+/* The phone Filters sheet (find-float/FloatFilters.tsx) rises from the bottom. */
+@keyframes filter-sheet-in {
+  from { transform: translateY(100%); }
+}
+
+.filter-sheet[open] {
+  animation: filter-sheet-in var(--duration-normal, 250ms) var(--ease-out-expo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-sheet[open] { animation: none; }
+}
+
 /* ===== CARDS ===== */
 
 .card {
@@ -969,6 +998,49 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 0 3px var(--color-primary-100);
 }
 
+/* Room for one or two 44px icon buttons inside the field's right edge. A
+   utility (pr-12) cannot do this: .input is declared after the utilities, so
+   its padding shorthand wins. */
+.input--trailing-1 {
+  padding-right: 3.25rem;
+}
+
+.input--trailing-2 {
+  padding-right: 6.25rem;
+}
+
+/* A smaller field for a secondary choice beside or under a main one; still a
+   44px tap target. */
+.input--compact {
+  width: auto;
+  max-width: 100%;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+
+select.input--compact {
+  padding-left: 0.75rem;
+  padding-right: 2.25rem;
+  background-position: right 0.625rem center;
+  background-size: 1rem;
+}
+
+/* A <select> styled as an input. The native arrow sits flush against the
+   border and ignores padding, so draw our own chevron with the same inset
+   as the text and reserve room for it. */
+select.input {
+  appearance: none;
+  padding-right: 2.75rem;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 1.25rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
 .input--error {
   border-color: var(--color-error);
 }
@@ -993,7 +1065,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1rem;
   color: var(--color-text-primary);
   background-color: var(--color-surface);
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236B6459' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1.25rem;

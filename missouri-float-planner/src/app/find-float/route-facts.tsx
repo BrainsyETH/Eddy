@@ -183,7 +183,7 @@ export function RouteDetails({ option: o, cautionsId, photoCaption }: { option: 
           <span> · {outfitterServiceLabel(outfitter.offers)}</span>
           {outfitter.phone && <> · <a className="text-[var(--color-text-link)]" href={`tel:${outfitter.phone.replace(/[^+\d]/g, '')}`}
             onClick={() => trackEvent('outfitter_tap', { river: o.riverSlug, name: outfitter.name, action: 'call', surface: 'find_float' })}>{outfitter.phone}</a></>}
-          <br /><span className="text-xs">{FLOAT_OUTFITTER_MATCH_LABELS[outfitter.match]}</span>
+          {FLOAT_OUTFITTER_MATCH_LABELS[outfitter.match] && <><br /><span className="text-xs">{FLOAT_OUTFITTER_MATCH_LABELS[outfitter.match]}</span></>}
         </li>)}
       </ul>
       <p className="text-xs">Directory listings, not live availability. Call ahead.</p>

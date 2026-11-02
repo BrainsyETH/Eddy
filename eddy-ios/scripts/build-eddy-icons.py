@@ -168,6 +168,11 @@ WEB_ICONS = (
     # layers sheet and draws the same row marks: the river network row and the
     # gauge rows (eddy-other-usgs-gauge, above).
     "eddy-river",
+    # Find a float's filter rows, which reuse the marks above where the catalog
+    # has the idea and draw these three (see GENERATED_SYMBOLS).
+    "eddy-no-fees",
+    "eddy-beginner",
+    "eddy-no-portages",
     # The float share image (api/share/float/image) draws the same mood
     # sticker the recap shows, so the server needs every one of them.
     *MOODS,
@@ -185,7 +190,18 @@ GENERATED_SYMBOLS = (
     "eddy-dam",
     "eddy-gravel-bar",
     "eddy-float-tools",
+    # Find a float's filter rows (find-float/FloatFilters.tsx), for the three
+    # filters the concept catalog had no mark for.
+    "eddy-no-fees",
+    "eddy-beginner",
+    "eddy-no-portages",
 )
+
+# Generated marks only the website draws. Every other generated symbol is
+# bundled into the app, so these are kept out of eddy-ios/assets: the app's
+# Filters sheet is a list of switches with no marks, and an unused PNG is still
+# bundle weight on every install. Move a name out of here the day the app draws it.
+WEB_ONLY_GENERATED = frozenset({"eddy-no-fees", "eddy-beginner", "eddy-no-portages"})
 
 # How far a pixel may sit from the corner it is being compared against and still
 # count as background. The card is nearly flat (250,249,250 to 252,251,251 across
@@ -458,6 +474,119 @@ def draw_float_tools() -> Image.Image:
     return finish_generated(canvas)
 
 
+def slashed(canvas: Image.Image, s: int) -> Image.Image:
+    """Lay the catalog's "no" bar across a mark: coral with a teal edge.
+
+    One treatment for every negated filter ("No fees", "No portages"), so the
+    pair reads as a family. The mark under it is cut back around the bar, as a
+    road sign's slash is, or at 20px the bar merges into the drawing.
+    """
+    n = SIZE * s
+    # Rising left to right, not the usual falling bar: a falling bar runs along
+    # the spine of the coin's "$" and hid it entirely.
+    a, b = (44 * s, n - 44 * s), (n - 44 * s, 44 * s)
+    gap = Image.new("L", (n, n), 0)
+    ImageDraw.Draw(gap).line((a, b), fill=255, width=60 * s)
+    cut = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    cut.paste(canvas, (0, 0), ImageChops.subtract(canvas.getchannel("A"), gap))
+    draw = ImageDraw.Draw(cut)
+    draw.line((a, b), fill="#073F4C", width=40 * s)
+    draw.line((a, b), fill="#F26649", width=20 * s)
+    for x, y in (a, b):
+        draw.ellipse((x - 20 * s, y - 20 * s, x + 20 * s, y + 20 * s), fill="#073F4C")
+        draw.ellipse((x - 10 * s, y - 10 * s, x + 10 * s, y + 10 * s), fill="#F26649")
+    return cut
+
+
+def draw_no_fees() -> Image.Image:
+    """Draw the "No fees" filter mark: a sand coin with a dollar sign, slashed.
+
+    The dollar sign is geometry, not a font glyph, so the drawing does not
+    change with whichever fonts the machine running this script has.
+    """
+    canvas, draw, s = generated_canvas()
+    teal = "#073F4C"
+    sand = "#F4C16E"
+    light = "#FAF8F2"
+
+    def box(cx: float, cy: float, r: float) -> tuple[float, float, float, float]:
+        return ((cx - r) * s, (cy - r) * s, (cx + r) * s, (cy + r) * s)
+
+    draw.ellipse(box(150, 150, 128), fill=teal)
+    draw.ellipse(box(150, 150, 106), fill=sand)
+    # The coin's glint, the sticker set's small pale highlight.
+    draw.arc(box(150, 150, 90), 200, 250, fill=light, width=9 * s)
+
+    # "$": two opposed arcs for the S (Pillow's angles run clockwise from
+    # three o'clock) and one bar through it. Bold enough to survive the slash.
+    draw.arc(box(150, 117, 33), 90, 335, fill=teal, width=20 * s)
+    draw.arc(box(150, 183, 33), 270, 515, fill=teal, width=20 * s)
+    draw.line([(150 * s, 62 * s), (150 * s, 238 * s)], fill=teal, width=18 * s)
+    return finish_generated(slashed(canvas, s))
+
+
+def draw_beginner() -> Image.Image:
+    """Draw the "Beginner friendly" filter mark: a life ring on calm water.
+
+    A ring buoy is the paddler's sign for "easy and looked after" without
+    drawing a person; the low, even wave says flat water, not a rapid.
+    """
+    canvas, draw, s = generated_canvas()
+    teal = "#073F4C"
+    coral = "#F26649"
+    blue = "#2099C8"
+    light = "#FAF8F2"
+    cx, cy, outer, inner = 150, 128, 112, 50
+
+    def box(r: float) -> tuple[float, float, float, float]:
+        return ((cx - r) * s, (cy - r) * s, (cx + r) * s, (cy + r) * s)
+
+    draw.ellipse(box(outer), fill=teal)
+    draw.ellipse(box(outer - 18), fill=light)
+    # Four coral quarters at the diagonals, the classic ring-buoy banding.
+    for start in (20, 110, 200, 290):
+        draw.pieslice(box(outer - 18), start, start + 50, fill=coral)
+    draw.ellipse(box(inner + 18), fill=teal)
+    draw.ellipse(box(inner), fill=(0, 0, 0, 0))
+
+    # Calm water across the bottom of the ring, drawn over it so it floats.
+    wave = [(14, 236), (60, 220), (106, 236), (152, 220), (198, 236), (244, 220), (290, 236)]
+    draw.line([(x * s, y * s) for x, y in wave], fill=teal, width=36 * s, joint="curve")
+    draw.line([(x * s, y * s) for x, y in wave], fill=blue, width=18 * s, joint="curve")
+    return finish_generated(canvas)
+
+
+def draw_no_portages() -> Image.Image:
+    """Draw the "No portages" filter mark: a canoe on dry land, slashed.
+
+    A portage is the boat leaving the water, so the canoe sits on a sand path
+    instead of the blue water the catalog's river marks use. An overturned,
+    carried canoe was tried first and read as a beach umbrella at 20px.
+    """
+    canvas, draw, s = generated_canvas()
+    teal = "#073F4C"
+    coral = "#F26649"
+    sand = "#F4C16E"
+    light = "#FAF8F2"
+
+    # The canoe, upright and out of the water: a long hull with upturned tips.
+    hull = [(12, 104), (50, 116), (150, 120), (250, 116), (288, 104),
+            (272, 134), (234, 170), (150, 182), (66, 170), (28, 134)]
+    draw.polygon([(x * s, y * s) for x, y in hull], fill=teal)
+    inner = [(42, 122), (64, 130), (150, 133), (236, 130), (258, 122),
+             (248, 138), (222, 158), (150, 168), (78, 158), (52, 138)]
+    draw.polygon([(x * s, y * s) for x, y in inner], fill=coral)
+    # Two thwarts and the pale gunwale glint keep it a canoe, not a leaf.
+    for x in (110, 190):
+        draw.line([(x * s, 124 * s), (x * s, 166 * s)], fill=teal, width=10 * s)
+    draw.line([(70 * s, 145 * s), (100 * s, 149 * s)], fill=light, width=6 * s)
+
+    # Resting on a path: land, in the catalog's sand, edged like everything else.
+    draw.rounded_rectangle((24 * s, 196 * s, 276 * s, 244 * s), radius=24 * s, fill=teal)
+    draw.rounded_rectangle((38 * s, 207 * s, 262 * s, 233 * s), radius=13 * s, fill=sand)
+    return finish_generated(slashed(canvas, s))
+
+
 def generate(name: str) -> Image.Image:
     if name == "eddy-bridge":
         return draw_bridge()
@@ -467,6 +596,12 @@ def generate(name: str) -> Image.Image:
         return draw_gravel_bar()
     if name == "eddy-float-tools":
         return draw_float_tools()
+    if name == "eddy-no-fees":
+        return draw_no_fees()
+    if name == "eddy-beginner":
+        return draw_beginner()
+    if name == "eddy-no-portages":
+        return draw_no_portages()
     raise SystemExit(f"unknown generated symbol: {name}")
 
 
@@ -514,15 +649,16 @@ def main() -> None:
 
     for name in GENERATED_SYMBOLS:
         art = generate(name)
-        target = OUT / f"{name}.png"
-        written = [write_if_changed(art, target)]
+        targets = [] if name in WEB_ONLY_GENERATED else [OUT / f"{name}.png"]
         if name in WEB_ICONS:
-            written.append(write_if_changed(art, WEB_OUT / f"{name}.png"))
-        size = target.stat().st_size // 1024
+            targets.append(WEB_OUT / f"{name}.png")
+        written = [write_if_changed(art, target) for target in targets]
+        where = "+".join("ios" if t.parent == OUT else "web" for t in targets)
+        size = targets[0].stat().st_size // 1024
         state = "written" if any(written) else "unchanged"
-        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  ios  {state}")
+        print(f"{name + '.png':28} {art.size[0]}x{art.size[1]:<5} {size:>4} KB  {where}  {state}")
 
-    bundled_names = ICONS + GENERATED_SYMBOLS
+    bundled_names = ICONS + tuple(n for n in GENERATED_SYMBOLS if n not in WEB_ONLY_GENERATED)
     bundled = sum((OUT / f"{n}.png").stat().st_size for n in bundled_names)
     print(f"\nbundled into the app: {len(bundled_names)} files, {bundled // 1024} KB")
 
