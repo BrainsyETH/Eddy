@@ -1,0 +1,724 @@
+{
+  "_status": "RESEARCH DRAFT 2026-11-02: Illinois River (OK), Watts Public Access Area to Murrell Home Rd above the Barren Fork confluence, under GRDA Scenic Rivers management. Recommend UNRATED (readings-only) for now: GRDA's binding gauge-height rules (OAC 300:40 App. A) set only the high end, and the Chewey and Tahlequah stage records have shifted by up to ~2 ft at the same flow. Every access coordinate is HELD. Not signed off.",
+  "name": "Illinois River",
+  "slug": "illinois-river",
+  "primaryGaugeSiteId": "07196090",
+  "state": "OK",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks / Northeast Oklahoma (Tahlequah)",
+  "nhdFeatureId": "64287778",
+  "difficultyRating": "Class I–II",
+  "description": "Oklahoma's best-known float river. It runs about 60 miles from the Arkansas line near Watts through Adair, Delaware and Cherokee counties, past the outfitter strip on OK-10 north of Tahlequah, to Lake Tenkiller. Gravel-bottomed, with bluffs, riffles and pools. Rain-driven rises travel down from Arkansas, and summer weekends are very busy. From the state line to the Barren Fork confluence it is a designated Oklahoma Scenic River managed by the Grand River Dam Authority (GRDA), with float permits, alcohol and container rules, and licensed commercial outfitters.",
+  "riverType": "rain_flashy",
+  "managingAuthority": "Grand River Dam Authority (GRDA) Scenic Rivers Operations, Tahlequah (82 O.S. §896.1 et seq.; OAC 300:40), from the Arkansas state line (GRDA river mile 0) to the Barren Fork confluence (RM 62.5). GRDA licenses commercial float operators, sells private float permits, runs the GRDA public access areas and polices the river. Some access areas sit on Oklahoma Department of Wildlife Conservation (ODWC) land under a GRDA agreement. The US Army Corps of Engineers (Tulsa District, Tenkiller project) owns and manages Murrell Home, Boy Scout Hole and Welling Bridge accesses. Private outfitters control their own landings.",
+  "regulations": [
+    {
+      "text": "Every privately owned vessel (kayak, canoe, raft, tube) needs a GRDA Private Float Permit: $1 per vessel per day or $10 per vessel per year. Permits are sold online, at the Scenic Rivers office and through QR codes at access signage. Landowners immediately adjacent to a scenic river are exempt for private use.",
+      "authority": "Grand River Dam Authority (82 O.S. §896.16; §896.2)",
+      "sourceUrl": "https://grda.com/illinois-river/",
+      "effectiveDate": "2017-01-01"
+    },
+    {
+      "text": "Everyone in a vessel must have an appropriately sized, US Coast Guard-approved life jacket in good condition. Children 12 and under must wear it at all times while floating.",
+      "authority": "Grand River Dam Authority — OAC 300:40-3-1",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Distilled spirits (and Jell-O shots) are prohibited on the Scenic Rivers and in public access areas at all times. People 21 and older may have and drink wine, beer and light beer in original non-glass packaging while floating, and in the Stunkard, Peavine, Edmondson, Round Hollow, No Head and Echota access areas. Open containers and any drinking are prohibited at Todd, the US-62 Bridge Access, the US-412 Bridge Access (Flint Creek), the Lake Frances Dam Public Access Site, the US-59 Illinois River Bridge Crossing Access Area and Carnes Ford. Note: the 2025 GRDA guide's alcohol list omits Stunkard and Echota.",
+      "authority": "Grand River Dam Authority — OAC 300:40-3-2; 300:40-2-3(h)",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Glass, Styrofoam and Jell-O-shot containers are prohibited on the Scenic Rivers and gravel bars. Prescription medicine and the contents of cleanup trash bags are exempt.",
+      "authority": "Grand River Dam Authority — OAC 300:40-4-3; 82 O.S. §896.8",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Any ice chest in a vessel must seal or lock so its contents cannot spill. No ice chest larger than 52 quarts may be used on the Scenic Rivers. Outfitters may set stricter house limits (Eagle Bluff states 32 qt).",
+      "authority": "Grand River Dam Authority — OAC 300:40-4-5",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Do not tie or connect two or more vessels together except during rescue. Drink coolers must be tied within arm's reach of the vessel's occupant.",
+      "authority": "Grand River Dam Authority — OAC 300:40-4-6",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Jet skis, airboats and hovercraft are prohibited on a Scenic River. Motors are limited to 10 hp, or 25 hp for gigging during the ODWC gigging season (Dec 1–Mar 31 per the 2025 GRDA guide) and for outfitter rescues. No vehicles may drive on scenic streambeds for recreation. Do not park on gravel bars, streambeds or in the river.",
+      "authority": "Grand River Dam Authority — OAC 300:40-4-2, 300:40-4-7; 2025 Illinois River Guide",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Camping is allowed only in designated campsites inside GRDA public access areas, for a fee ($14 per night per site in the 2025 guide). Each site allows one adult tent, one child tent and two vehicles. Check-in is 3 pm and check-out 1 pm, with a 7-consecutive-day limit. Quiet hours are 10 pm–7 am, pets must be leashed, fires go only in designated rings, and fireworks are banned. Day use is allowed only during posted open hours.",
+      "authority": "Grand River Dam Authority — OAC 300:40-2-1 to 300:40-2-3; 2025 Illinois River Guide",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "GRDA may close the Scenic Rivers, or sections of them, to private and commercial use in an emergency. Commercial operations are prohibited at flood stage, or while the river is rising toward flood stage. River level is read on the USGS gage at Chewey Bridge above river mile 40 and the USGS gage at Tahlequah below it. Commercial operators must follow the Appendix A vessel limits by gauge height and warn clients above 6 ft (Chewey) or 6 ft 6 in (Tahlequah).",
+      "authority": "Grand River Dam Authority — OAC 300:40-3-3 and Appendix A",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    },
+    {
+      "text": "Landowners next to a scenic river keep the same property rights as anywhere else in the state. Unauthorized use of private property is trespass. Commercial operators must post 'No trespassing' warnings at launch points.",
+      "authority": "Oklahoma Legislature — 82 O.S. §896.9; GRDA OAC 300:40-1-4(h)(5)",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2023/06/Statutes-re-Scenic-Rivers.pdf"
+    },
+    {
+      "text": "Commercial vessels may float only in the commercial float area they are licensed for: CFA One, state line (RM 0) to Round Hollow (RM 27.7); CFA Two, Chewey Bridge (RM 23.6) to No Head Hollow (RM 41.5); CFA Three, Combs Bridge (RM 36.1) to the Barren Fork confluence. Commercial vessel licenses are capped at 3,900. The 2025 GRDA guide marks WOKA and Todd 'Commercial Use Prohibited'.",
+      "authority": "Grand River Dam Authority — OAC 300:40-1-5(g)-(h)",
+      "sourceUrl": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "effectiveDate": "2023-09-11"
+    }
+  ],
+  "permits": [
+    {
+      "value": "GRDA Private Float Permit is required for every privately owned vessel: $1/day (dated wristband) or $10/year (decal on the vessel's front right side). Rental vessels from licensed outfitters carry commercial licenses.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "confidence": "high",
+      "corroboratingSources": [
+        "https://grda.com/illinois-river/",
+        "https://grda.com/wp-content/uploads/2023/06/Statutes-re-Scenic-Rivers.pdf",
+        "https://www.agfc.com/things-to-do/water-trails/upper-illinois-river-water-trail/"
+      ]
+    },
+    {
+      "value": "Camping fee is required for designated campsites in GRDA public access areas ($14/night per the 2025 guide; 50% discount for 62+, disabled or service groups under OAC 300:40-2-1).",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "confidence": "high",
+      "corroboratingSources": [
+        "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf"
+      ]
+    }
+  ],
+  "accessLaw": {
+    "value": "Oklahoma: the bed of a non-navigable stream belongs to the adjoining landowners to the middle of the stream (60 O.S. §338 as applied in Curry v. Hill, 460 P.2d 933 (Okla. 1969)). The Scenic Rivers Act keeps landowners' rights beside a scenic river the same as elsewhere and makes unauthorized use of private property trespass (82 O.S. §896.9). Curry treated a stream navigable in fact for fishing and pleasure (the Kiamichi) as 'in the nature of a street or highway', on which people who reach the water without trespassing may boat. No decision applying that to the Illinois was found. The State does license and permit floating on the Illinois (82 O.S. §896.16; OAC 300:40), so floating the channel is officially sanctioned. Treat banks and gravel bars as private except inside public access areas. Launch and land only at GRDA public access areas, USACE accesses, or an outfitter landing under its published terms. This dossier does not infer launch or camping permission from a road crossing or gravel bar.",
+    "source": "https://static.case.law/p2d/460/cases/0933-01.json ; https://grda.com/wp-content/uploads/2023/06/Statutes-re-Scenic-Rivers.pdf",
+    "confidence": "medium",
+    "corroboratingSources": [
+      "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf"
+    ],
+    "note": "Researched once for Oklahoma; reusable for Barren Fork and Flint Creek, which are designated under the same Act (82 O.S. §896.5). The text of 60 O.S. §338 and §60 was not read directly (OSCN blocked automated access with a Turnstile challenge). Okla. AG Op. 78-170 (riparian owners may not fence across definite streams) is known only from secondary summaries (counselstack returned 429). Both are listed in toVerify."
+  },
+  "seasonalClosures": [],
+  "gauges": [
+    {
+      "provider": "usgs",
+      "siteId": "07195500",
+      "name": "Illinois River near Watts, OK",
+      "lat": 36.13008185,
+      "lon": -94.5721645,
+      "paramsAvailable": [
+        "00060",
+        "00065",
+        "00010"
+      ],
+      "drainageAreaSqMi": 630,
+      "servesSections": [
+        "illinois-upper"
+      ],
+      "knownBias": "Most upstream OK gauge, near Watts PAA (GRDA RM 3.1). It is just below the Lake Frances dam remnant and WOKA, and above the Flint Creek confluence (RM 16.2), so it reads lower than the river below Flint Creek. GRDA does not use it as a regulatory reference. Eagle Bluff Resort uses it as a 12–18 h lead indicator for its stretch. NWS LID WTTO2; NWPS action and minor flood both 13 ft. Stage at a given flow was the most stable of the three gauges across 2008–2023 (about ±0.5 ft). Discharge since 1955 (daily) and 1990 (IV); gage height IV since 2007.",
+      "measurementUnit": "ft"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07196090",
+      "name": "Illinois River at Chewey, OK",
+      "lat": 36.1042527,
+      "lon": -94.7827283,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 825,
+      "servesSections": [
+        "illinois-upper"
+      ],
+      "knownBias": "At Chewey Bridge (GRDA RM 23.6), below Flint Creek. It is the GRDA regulatory reference gauge above RM 40 (OAC 300:40-3-3); Diamondhead and War Eagle outfitters cite it too. NWS LID CWYO2; NWPS action 9 ft, flood 12 ft. CAUTION: the stage–flow relation has swung by about 2 ft between years (summer median at ~250 cfs: 4.81 ft in 2011, 2.41 ft in 2014, 4.20 ft in 2017, 2.28 ft in 2023). This is my analysis of USGS IV pairs; the cause (datum change, relocation or control shift) is unverified. A fixed-ft threshold here has not meant the same flow every year. On 2026-11-02 its provisional discharge (247 cfs) read below Watts (318 cfs) despite 195 sq mi more drainage. IV since June 2010; daily discharge since Oct 2000.",
+      "measurementUnit": "ft"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07196320",
+      "name": "Illinois River near Moodys, OK",
+      "lat": 36.03175654,
+      "lon": -94.9107885,
+      "paramsAvailable": [
+        "00065"
+      ],
+      "drainageAreaSqMi": 895,
+      "servesSections": [
+        "illinois-upper"
+      ],
+      "knownBias": "Stage only, with no discharge; IV since May 2018. No NWPS forecast point was found (the MODO2 lookup failed). Probably the 'Moody Bridge' gauge War Eagle Resort cites and Eagle Bluff's 'Combs Bridge' gauge, near Edmondson PAA/New Combs Bridge (GRDA RM 36.2–36.5). That placement is inferred from those outfitter pages and the coordinates and is unverified. Not a GRDA regulatory reference.",
+      "measurementUnit": "ft"
+    },
+    {
+      "provider": "usgs",
+      "siteId": "07196500",
+      "name": "Illinois River near Tahlequah, OK",
+      "lat": 35.9255472,
+      "lon": -94.9217028,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 950,
+      "servesSections": [
+        "illinois-lower"
+      ],
+      "knownBias": "Above the Barren Fork confluence (RM 62.5). Barren Fork's 312 sq mi (Eldon gauge 07197000) is not included, so it does not represent the river below RM 62.5. GRDA regulatory reference below RM 40 (OAC 300:40-3-3); American Whitewater's reference for the Watts–Horseshoe Bend reach. Eagle Bluff calls it 'of little help' for the upper river. NWS LID TALO2; NWPS action 9 ft, flood 11 ft. Longest record: discharge daily since 1935. CAUTION: the summer stage at ~400 cfs was 3.20 ft in 2008, then 4.8–5.5 ft from 2011 to 2023. A 2010 watershed blog quoted '2.60 ft / 225 cfs', and today 225 cfs reads about 4.6 ft. This suggests a datum change or channel aggradation between 2008 and 2011 (my analysis of USGS IV; unverified). The 1993-origin GRDA ft limits may predate that shift.",
+      "measurementUnit": "ft"
+    }
+  ],
+  "sections": [
+    {
+      "slug": "illinois-upper",
+      "name": "Upper Illinois (Watts PAA to No Head Hollow)",
+      "description": "GRDA river miles 3.1–41.5. Watts Public Access Area below the Lake Frances dam remnant, past Carnes Ford's low-water slab and the Flint Creek confluence, to Chewey Bridge, then the main outfitter float zone along OK-10 (Round Hollow, Stunkard, Peavine, Edmondson/Combs Bridge) to No Head Hollow. GRDA regulates this reach on the Chewey gauge (above RM 40). The 1.5 mi from RM 40 to 41.5 falls under Tahlequah in the rule.",
+      "putIn": {
+        "name": "Watts Public Access Area (US-59 bridge)"
+      },
+      "takeOut": {
+        "name": "No Head Hollow Public Access Area"
+      },
+      "publishedLengthMiles": 38.4,
+      "riverMileStart": null,
+      "riverMileEnd": null,
+      "representativeGauge": {
+        "siteId": "07196090",
+        "rationale": "GRDA's binding rules (OAC 300:40-3-3) set Chewey as the river-level reference upstream of RM 40, and the IRA 1993 guidelines and Diamondhead Resort agree. Under the unrated recommendation it is a measurement link only, in ft (the unit GRDA and the outfitters use). Owner may choose cfs instead.",
+        "knownBias": "About 20 mi below Watts PAA and below Flint Creek (116 sq mi), so the Watts–Chewey miles carry less water than Chewey shows; the Watts gauge 07195500 is the closer reading there. The stage record has shifted about 2 ft at the same flow between years (see gauges[].knownBias)."
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [
+        {
+          "reachLabel": "Peyton's Place short trip (put-in and take-out not stated; resort at GRDA RM 36.8)",
+          "distanceMiles": 6,
+          "hoursLow": 2,
+          "hoursHigh": 4,
+          "vessel": "raft",
+          "source": "https://www.peytonsplace.com/FloatTripsRates.html"
+        },
+        {
+          "reachLabel": "Peyton's Place short trip (put-in and take-out not stated)",
+          "distanceMiles": 6,
+          "hoursLow": 2,
+          "hoursHigh": 3,
+          "vessel": "kayak/canoe",
+          "source": "https://www.peytonsplace.com/FloatTripsRates.html"
+        },
+        {
+          "reachLabel": "Peyton's Place long trip (launch at Peavine or Round Hollow; take-out not stated; intro text says ~10 mi)",
+          "distanceMiles": 11,
+          "hoursLow": 3,
+          "hoursHigh": 6,
+          "vessel": "raft",
+          "source": "https://www.peytonsplace.com/FloatTripsRates.html"
+        },
+        {
+          "reachLabel": "Peyton's Place long trip (launch at Peavine or Round Hollow; take-out not stated)",
+          "distanceMiles": 11,
+          "hoursLow": 3,
+          "hoursHigh": 5,
+          "vessel": "kayak/canoe",
+          "source": "https://www.peytonsplace.com/FloatTripsRates.html"
+        },
+        {
+          "reachLabel": "Diamondhead short trip: Edmondson Access (Combs Bridge) to take-out not stated (resort at GRDA RM 40.0, ~3.8 mi by GRDA mileage, inference)",
+          "hoursLow": 2,
+          "hoursHigh": 3,
+          "vessel": "raft/kayak",
+          "source": "https://diamondheadresorts.com/float_the_illinois_river_with_diamondhead_resort_in_tahlequah/"
+        },
+        {
+          "reachLabel": "Diamondhead long trip: Peavine Hollow to take-out not stated (resort at GRDA RM 40.0, ~7.6 mi by GRDA mileage, inference)",
+          "hoursLow": 4,
+          "hoursHigh": 6,
+          "vessel": "raft/kayak",
+          "source": "https://diamondheadresorts.com/float_the_illinois_river_with_diamondhead_resort_in_tahlequah/"
+        },
+        {
+          "reachLabel": "War Eagle Resort short trip (put-in and take-out not stated; resort at GRDA RM 39.8)",
+          "hoursTypical": 4,
+          "vessel": "raft/kayak",
+          "source": "https://wareagleresort.com/floating"
+        },
+        {
+          "reachLabel": "War Eagle Resort long trip (put-in and take-out not stated)",
+          "hoursTypical": 6,
+          "vessel": "raft/kayak",
+          "source": "https://wareagleresort.com/floating"
+        }
+      ],
+      "characteristics": {
+        "isSpringFed": null,
+        "hydroType": "rain_flashy",
+        "primaryHazards": [
+          "flash_flood",
+          "strainer",
+          "low_water_dam",
+          "low_water_crossing",
+          "crowding"
+        ],
+        "lowWaterMeaning": "No trusted low-water cutoff found. Outfitters advertise floats all season (late-summer Chewey flows are typically about 200–300 cfs). Eagle Bluff's 'ideal 3.5–5.5 ft' names no gauge. Expect shallow riffles and dragging at low water; no gauge floor is signed off.",
+        "risingWaterHazards": "Rain-driven rises travel down from Arkansas. Eagle Bluff says water at the Watts gauge reaches its beach (~RM 36) in 12–18 h, and water at Chewey in 6–12 h. GRDA limits commercial floating by Chewey stage (rafts only for children ≤10 at 5'6\"; rafts only for everyone at 6'; no children ≤10 at 7'; no commercial floating at 9'6\") and prohibits it at flood stage or while rising toward it. NWPS flood stage at Chewey is 12 ft.",
+        "rainLagNote": "Outfitter-reported travel times (Eagle Bluff Resort): Watts → ~RM 36 in 12–18 h; Chewey → ~RM 36 in 6–12 h."
+      },
+      "hazards": [
+        {
+          "value": "Lake Frances dam remnant at GRDA RM 2.7, just below WOKA Whitewater Park (RM 2.6) and 0.4 mi above Watts PAA (RM 3.1). GRDA built WOKA in a side channel at the old Lake Frances spillway partly to 'mitigate hydraulic conditions and dangerous currents' with a stair-step structure. The dam structure that supplies Siloam Springs' water was retained and reinforced. Whether a floater on the main channel passes the remnant safely at all levels is NOT verified. Start planner trips at Watts PAA, below the remnant.",
+          "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+          "confidence": "medium",
+          "corroboratingSources": [
+            "https://grda.com/?p=600194",
+            "https://www.kuaf.com/ozarks-at-large-stories/2020-11-04/new-whitewater-park-under-construction-on-illinois-river"
+          ]
+        },
+        {
+          "value": "WOKA Whitewater Park (RM 2.6): a 1,200-ft man-made side channel with eight drops. AGFC rates it Class II+ and suggests carrying boats around. Helmets, life jackets and secure footwear are required in the course. It is a fee park, not a casual float launch.",
+          "source": "https://www.agfc.com/things-to-do/water-trails/upper-illinois-river-water-trail/",
+          "confidence": "high",
+          "corroboratingSources": [
+            "https://grda.com/?p=600194",
+            "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+          ]
+        },
+        {
+          "value": "Carnes Ford (RM 10.4) is marked 'LOW WATER SLAB' on the GRDA map and 'Dangerous during high water'. A slab crossing is a strainer and hydraulic hazard when water runs over it.",
+          "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+          "confidence": "high"
+        },
+        {
+          "value": "Strainers (downed trees, branches): GRDA's 'Float Safe' guidance tells floaters to avoid them and to portage around low-water dams. Outfitters must notify GRDA of navigational hazards (OAC 300:40-1-4(h)(8)), which shows hazards change after high water.",
+          "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+          "confidence": "medium",
+          "corroboratingSources": [
+            "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf"
+          ]
+        },
+        {
+          "value": "High water and missing life jackets are deadly. American Whitewater's accident report for 2020-05-30 (Watts–Barren Fork reach): a private one-raft trip struck a mid-stream obstruction and a 24-year-old drowned. No one aboard wore a life jacket. AW lists 6,000 cfs (gauge unstated); USGS daily means that day were Tahlequah 3,730 cfs and Chewey 2,710 cfs. The death occurred below GRDA's 9'6\" no-commercial-floating level.",
+          "source": "https://www.americanwhitewater.org/accident/may-30-2020-illinois-river-watts-to-barren-fork-creek/",
+          "confidence": "medium",
+          "corroboratingSources": [
+            "https://waterservices.usgs.gov/nwis/dv/?format=json&sites=07196090,07196500&parameterCd=00060&startDT=2020-05-28&endDT=2020-05-31"
+          ]
+        },
+        {
+          "value": "Crowding and party floating: summer weekends near Tahlequah are very busy. GRDA treats drunk and disorderly conduct as a public nuisance and grounds for arrest, bans distilled spirits, and polices access areas. Tying rafts together is illegal.",
+          "source": "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf",
+          "confidence": "high",
+          "corroboratingSources": [
+            "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main"
+          ]
+        }
+      ],
+      "localKnowledge": [
+        "Most outfitters sit on OK-10 between Round Hollow (RM 27.7) and Diamondhead (RM 40.0): Hanging Rock, Arrowhead, Eagle Bluff, Peyton's Place, War Eagle, Illinois River Outfitters, Diamondhead (GRDA 2025 guide).",
+        "Above Chewey Bridge the river is quieter. Outfitters there include Highwater Camp (RM 11.8), Fidler's Bend (RM 16.3) and Upper Illinois River Floats (RM 24.1).",
+        "Eagle Bluff reads Watts as the 12–18 h warning and Chewey as the 6–12 h warning for its beach; it calls the Tahlequah gauge little help upstream.",
+        "Outfitters run same-day trips. Diamondhead is first-come, launches 8 am–2 pm, and allows no overnight floats; Eagle Bluff boats must be in by 6 pm (7 pm Saturday)."
+      ]
+    },
+    {
+      "slug": "illinois-lower",
+      "name": "Lower Illinois (No Head Hollow to Murrell Home Rd)",
+      "description": "GRDA river miles 41.5–62.0. No Head Hollow past Todd and Echota Bend to the US-62 bridge east of Tahlequah, then the USACE Murrell Home Rd access just above the Barren Fork confluence (RM 62.5). The confluence ends the Scenic River designation and the GRDA rules. Below it (Horseshoe Bend RM 65.6, Carter's Landing RM 68.5, Lake Tenkiller headwaters) the Tahlequah gauge omits Barren Fork's 312 sq mi. That stretch is excluded.",
+      "putIn": {
+        "name": "No Head Hollow Public Access Area"
+      },
+      "takeOut": {
+        "name": "Murrell Home Rd Public Access (USACE)"
+      },
+      "publishedLengthMiles": 20.5,
+      "riverMileStart": null,
+      "riverMileEnd": null,
+      "representativeGauge": {
+        "siteId": "07196500",
+        "rationale": "GRDA's binding rules (OAC 300:40-3-3) set the Tahlequah gauge as the reference below RM 40, and the IRA 1993 guidelines agree. American Whitewater also uses it. Measurement link only under the unrated recommendation.",
+        "knownBias": "Above the Barren Fork confluence, so it does not represent anything below RM 62.5. Stage at a given flow rose ~1.5–2 ft between 2008 and 2011 (see gauges[].knownBias)."
+      },
+      "thresholds": [],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": null,
+        "hydroType": "rain_flashy",
+        "primaryHazards": [
+          "flash_flood",
+          "strainer",
+          "crowding"
+        ],
+        "lowWaterMeaning": "No trusted low-water cutoff found for the Tahlequah gauge. A 2010 watershed blog advised shorter trips at seasonal lows, which is not a cutoff.",
+        "risingWaterHazards": "Rises from the upper river arrive here last. GRDA limits commercial floating by Tahlequah stage (rafts only for children ≤10 at 6'; rafts only for everyone at 6'6\"; no children ≤10 at 7'6\"; no commercial floating at 9'6\") and prohibits it at flood stage or while rising toward it. NWPS flood stage at Tahlequah is 11 ft. GRDA marks Murrell Home Rd access 'dangerous during high water'."
+      },
+      "hazards": [
+        {
+          "value": "Echota Bend (near the Echota PAA, RM 53.2) is a 90-degree bend with eddy lines and heavy summer raft and canoe traffic. AW recommends going early or late in the day.",
+          "source": "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+          "confidence": "medium"
+        },
+        {
+          "value": "GRDA flags Murrell Home Rd Public Access (USACE, RM 62.0) and Welling Bridge as 'Dangerous during high water'. Welling Bridge's location relative to the mainstem was not confirmed.",
+          "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+          "confidence": "medium"
+        },
+        {
+          "value": "Strainers and flash rises apply here as on the upper reach. Do not float during or right after heavy rain upstream in Arkansas or Adair County.",
+          "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+          "confidence": "medium",
+          "corroboratingSources": [
+            "https://www.eaglebluffresort.com/floating-information/current-illinois-river-levels"
+          ]
+        }
+      ],
+      "localKnowledge": [
+        "Falcon Floats, All American Floats and Riverbend Floats cluster at RM 53.4–55.0 near the US-62 bridge (GRDA 2025 guide). The allamericanfloats.com domain showed a 'for sale' placeholder on 2026-11-02, so verify that business is operating.",
+        "The Todd and US-62 accesses are alcohol-free (OAC 300:40-2-3(h)). The 2025 GRDA guide marks Todd 'Commercial Use Prohibited'.",
+        "Jet skis and jet boats are unlawful above the Barren Fork confluence (2025 GRDA guide)."
+      ]
+    }
+  ],
+  "accessPoints": [
+    {
+      "name": "WOKA Whitewater Park",
+      "type": "park",
+      "lat": null,
+      "lon": null,
+      "ownership": "Grand River Dam Authority (built with City of Siloam Springs; Walton Family Foundation funding)",
+      "section": "illinois-upper",
+      "riverMile": 2.6,
+      "managingAgency": null,
+      "officialSiteUrl": "https://visitwoka.com",
+      "feeRequired": null,
+      "notes": "EXCLUDED as a default planner endpoint. It is a whitewater course at the old Lake Frances spillway, just above the dam remnant (RM 2.7). The 2025 GRDA guide marks it Commercial Use Prohibited and No Alcohol. AGFC's Upper Illinois River Water Trail ends here (7.4 mi from Siloam Springs Kayak Park). The site is in Adair County, OK; AGFC's feature table codes it to county 04.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf ; https://grda.com/?p=600194 ; https://www.agfc.com/things-to-do/water-trails/upper-illinois-river-water-trail/",
+      "coordinateSource": "none accepted",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD. Two AGFC sources disagree by ~490 m: AGFC Public Use Facilities layer objectid 25308 (36.130578, -94.562524; 'Ownership belongs to GRDA') vs the AGFC water-trail page link (36°08'02\"N 94°33'58\"W = 36.133889, -94.566111). No GRDA coordinate was found. Nominatim reverse geocoding places both in Adair County, OK."
+    },
+    {
+      "name": "Watts Public Access Area (US-59 bridge)",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified; the 2021 coverage lists Watts among the ODWC-agreement sites)",
+      "section": "illinois-upper",
+      "riverMile": 3.1,
+      "managingAgency": null,
+      "notes": "Recommended upstream endpoint, below the Lake Frances dam remnant. No alcohol (2025 guide; OAC 300:40-2-3(h) 'US 59 Illinois River Bridge Crossing Access Area'). AW lists it as the Highway 59 Bridge put-in, river right. The rule also names a separate 'Lake Frances Dam Public Access Site'; confirm with GRDA whether that is WOKA, this area, or a third site. Commercial-use status at Watts is unresolved (see openQuestions).",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf ; https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no GRDA or agency coordinate found, and the Overpass OSM query failed (proxy reset/timeout). The USGS Watts gauge (36.13008, -94.57216) is nearby but is not the launch and must not be substituted."
+    },
+    {
+      "name": "Carnes Ford Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+      "section": "illinois-upper",
+      "riverMile": 10.4,
+      "managingAgency": null,
+      "notes": "Low-water slab crossing, marked 'Dangerous during high water' by GRDA. No alcohol (OAC 300:40-2-3(h)).",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no authoritative coordinate found."
+    },
+    {
+      "name": "Chewey Bridge",
+      "type": "bridge",
+      "lat": null,
+      "lon": null,
+      "ownership": "Unverified (county road bridge)",
+      "section": "illinois-upper",
+      "riverMile": 23.6,
+      "managingAgency": null,
+      "notes": "HELD as an endpoint: the GRDA guide shows Chewey Bridge as a landmark, not a green public access area. AW lists a river-left access, but public launch rights and parking are unverified. A road crossing alone is not evidence of launch permission. The USGS Chewey gauge (07196090) is here.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf ; https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: endpoint status unverified, and a gauge or bridge coordinate is not a launch."
+    },
+    {
+      "name": "Round Hollow Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified; ODWC-agreement site per 2021 coverage)",
+      "section": "illinois-upper",
+      "riverMile": 27.7,
+      "managingAgency": null,
+      "notes": "Alcohol allowed (beer/wine, 21+, non-glass). Peyton's Place uses it as a long-trip launch. End of Commercial Float Area One.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none accepted",
+      "coordinateConfidence": "low",
+      "coordinateNote": "HELD. Placement lead only: OSM node 357403692 'Round Hollow Public Access Area' (36.0923095, -94.8307856), a 2009-era GNIS-import park point. It is not an independent second source and not a surveyed launch."
+    },
+    {
+      "name": "Stunkard Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+      "section": "illinois-upper",
+      "riverMile": 28.0,
+      "managingAgency": null,
+      "notes": "0.3 mi below Round Hollow. OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no coordinate found."
+    },
+    {
+      "name": "Peavine Hollow Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+      "section": "illinois-upper",
+      "riverMile": 32.4,
+      "managingAgency": null,
+      "notes": "Alcohol allowed (beer/wine, 21+, non-glass). Diamondhead's long-trip launch and a Peyton's Place long-trip launch.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none accepted",
+      "coordinateConfidence": "low",
+      "coordinateNote": "HELD. Placement lead only: OSM node 357401613 'Peavine Hollow Public Access Area' (36.0642556, -94.8843986), a GNIS-import park point."
+    },
+    {
+      "name": "Edmondson Public Access Area (Combs Bridge)",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+      "section": "illinois-upper",
+      "riverMile": 36.2,
+      "managingAgency": null,
+      "notes": "Alcohol allowed. Diamondhead's short-trip launch ('Edmunson Access (Combs Bridge)'). The GRDA guide puts New Combs Bridge at RM 36.5; OAC 300:40-1-5 puts Comb's Bridge at RM 36.1.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf ; https://diamondheadresorts.com/float_the_illinois_river_with_diamondhead_resort_in_tahlequah/",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no coordinate found."
+    },
+    {
+      "name": "No Head Hollow Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified; ODWC-agreement site per 2021 coverage)",
+      "section": "illinois-lower",
+      "riverMile": 41.5,
+      "managingAgency": null,
+      "notes": "Alcohol allowed. Boundary between the upper and lower sections and end of Commercial Float Area Two.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none accepted",
+      "coordinateConfidence": "low",
+      "coordinateNote": "HELD. Placement lead only: OSM node 357399759 'No Head Hollow Public Use Area' (35.9656461, -94.9113438), a GNIS-import park point."
+    },
+    {
+      "name": "Todd Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+      "section": "illinois-lower",
+      "riverMile": 47.0,
+      "managingAgency": null,
+      "notes": "No alcohol (OAC 300:40-2-3(h)); Commercial Use Prohibited (2025 guide).",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no coordinate found."
+    },
+    {
+      "name": "Echota Public Access Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified; ODWC-agreement site per 2021 coverage)",
+      "section": "illinois-lower",
+      "riverMile": 53.2,
+      "managingAgency": null,
+      "notes": "OAC 300:40-3-2 allows beer and wine here; the 2025 guide's alcohol list omits it. Echota Bend is busy in summer.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none accepted",
+      "coordinateConfidence": "low",
+      "coordinateNote": "HELD. Placement lead only: OSM node 357391240 'Echota Public Use Area' (35.9437019, -94.9141214), a GNIS-import park point."
+    },
+    {
+      "name": "US Highway 62 Bridge Access",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "GRDA Scenic Rivers public access area (land ownership unverified)",
+      "section": "illinois-lower",
+      "riverMile": 55.1,
+      "managingAgency": null,
+      "notes": "No alcohol (OAC 300:40-2-3(h)). Common take-out near the Tahlequah outfitter cluster.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no coordinate found. The USGS Tahlequah gauge is nearby but is not the launch."
+    },
+    {
+      "name": "Murrell Home Rd Public Access",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "US Army Corps of Engineers (per the 2025 GRDA guide: 'US Army Corps of Engineers own/manage Murrell Home, Boy Scout Hole and Welling Bridge Access areas', 918-487-5252)",
+      "section": "illinois-lower",
+      "riverMile": 62.0,
+      "managingAgency": "COE",
+      "notes": "Last public access above the Barren Fork confluence and the end of the scenic designation. GRDA marks it 'Dangerous during high water'. Proposed downstream end, pending a USACE page confirming launch and parking.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "coordinateSource": "none",
+      "coordinateConfidence": "none",
+      "coordinateNote": "HELD: no USACE coordinate found."
+    },
+    {
+      "name": "Horseshoe Bend Public Use Area",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "Unverified (likely USACE Tenkiller project)",
+      "riverMile": 65.6,
+      "managingAgency": null,
+      "notes": "EXCLUDED: below the Barren Fork confluence, where the Tahlequah gauge omits Barren Fork. AW's take-out for its Watts–Tenkiller reach. Keep for a possible later lower extension.",
+      "source": "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf ; https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "coordinateSource": "none accepted",
+      "coordinateConfidence": "low",
+      "coordinateNote": "HELD. Lead only: OSM node 357395037 'Horseshoe Bend Public Use Area' (35.8212025, -94.9035638), a GNIS-import point."
+    }
+  ],
+  "weatherPoint": {
+    "city": "Tahlequah",
+    "lat": 35.91537,
+    "lon": -94.969956
+  },
+  "alertSearchTerms": [
+    "illinois river",
+    "adair county",
+    "cherokee county",
+    "delaware county",
+    "tahlequah",
+    "watts",
+    "chewey",
+    "park hill",
+    "lake tenkiller"
+  ],
+  "research": {
+    "date": "2026-11-02",
+    "sourcesConsulted": [
+      "https://waterservices.usgs.gov/nwis/site/?format=rdb&sites=07195500,07196090,07196500,07196320&siteOutput=expanded&siteStatus=all",
+      "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items/USGS-07196090?f=json (and -07195500, -07196500, -07196320)",
+      "https://waterservices.usgs.gov/nwis/site/?format=rdb&sites=<id>&seriesCatalogOutput=true (period of record per parameter)",
+      "https://waterservices.usgs.gov/nwis/iv/?format=json&sites=07195500,07196090,07196500,07196320,07197000&parameterCd=00060,00065 (fresh readings 2026-11-01 22:30–23:30 CST)",
+      "https://nwis.waterservices.usgs.gov/nwis/iv/ (2023-11-01..2026-11-01 and summer 2008/2011/2014/2017/2020/2023 stage–discharge pairs; analysis is mine)",
+      "https://nwis.waterdata.usgs.gov/nwis/peak?site_no=<id>&format=rdb (annual peaks, stage+flow)",
+      "https://api.water.noaa.gov/nwps/v1/gauges/WTTO2 ; CWYO2 ; TALO2 ; ELDO2 (flood categories)",
+      "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query (GNIS_NAME='Illinois River', REACHCODE LIKE '11110103%': 546 flowlines, single GNIS_ID 01094043)",
+      "https://grda.com/illinois-river/",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
+      "https://grda.com/wp-content/uploads/2024/06/Title-300-Chapter-40-SRO2023wAppendix.pdf (OAC 300:40, eff. 2023-09-11, incl. Appendix A)",
+      "https://grda.com/wp-content/uploads/2023/06/Statutes-re-Scenic-Rivers.pdf (82 O.S. §896.1–896.16 as compiled by GRDA from OSCN)",
+      "https://grda.com/wp-content/uploads/2023/06/Floating-Guidelines-from-IRA-1.pdf (Illinois River Association guidelines, 1993-04-19)",
+      "https://grda.com/?p=600194 (GRDA WOKA announcement, 2020-10-29)",
+      "https://static.case.law/p2d/460/cases/0933-01.json (Curry v. Hill, 460 P.2d 933, Okla. 1969-09-16)",
+      "https://www.tahlequahdailypress.com/news/grda-solution-will-be-found-for-river-access-flap/article_ae5358b3-0f1b-5739-8de5-4cf53f54478f.html (2021-12-23)",
+      "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
+      "https://www.americanwhitewater.org/accident/may-30-2020-illinois-river-watts-to-barren-fork-creek/",
+      "https://www.agfc.com/things-to-do/water-trails/upper-illinois-river-water-trail/",
+      "scripts/ingestion/agency-gis/2026-10-29/agfc-features.json (AGFC Public Use Facilities snapshot: WOKA objectid 25308; Siloam Springs Kayak Park 18410; Chamber Springs 1271)",
+      "https://diamondheadresorts.com/diamondhead_resort_illinois_river_floating_conditions_is_it_safe_to_float/",
+      "https://diamondheadresorts.com/float_the_illinois_river_with_diamondhead_resort_in_tahlequah/",
+      "https://www.eaglebluffresort.com/faq ; /floating-information/current-illinois-river-levels ; /floating-information/floating-restrictions-and-guidelines ; /price-list/floating",
+      "https://www.peytonsplace.com/ ; https://www.peytonsplace.com/FloatTripsRates.html",
+      "https://wareagleresort.com/floating ; https://wareagleresort.com/river-conditions",
+      "https://nominatim.openstreetmap.org (GNIS-import access-area nodes; state/county reverse checks)",
+      "https://www.kuaf.com/ozarks-at-large-stories/2020-11-04/new-whitewater-park-under-construction-on-illinois-river"
+    ],
+    "openQuestions": [
+      "RATING: GRDA's binding Appendix A gives a trusted high/dangerous ladder in ft at polled gauges (Chewey 6.0/9.5; Tahlequah 6.5/9.5), corroborated by the IRA 1993 guidelines and Diamondhead (which says 9 ft = no floating at Chewey). No trusted low end exists. A high/dangerous-only ladder makes classifyReading return 'too_low' below `high`, so normal summer water would read Too Low. Owner decision: ship unrated now (recommended), or obtain a gauge-stated low/optimal anchor from GRDA or an outfitter and ship rated.",
+      "DATUM DRIFT: at the same flow, summer stage at Chewey swung ~2 ft between years (2011 vs 2014 vs 2017 vs 2023), and Tahlequah rose ~1.5–2 ft between 2008 and 2011. Does GRDA enforce Appendix A against today's displayed USGS gage height regardless? Has GRDA re-examined the 1993-origin numbers since? The Chewey USGS station (IV from 2010; daily from 2000) did not exist in 1993, so the IRA's 'Chewey' reading must have been a different gauge.",
+      "Is Diamondhead's '9 ft: No Floating' at Chewey a house rule stricter than GRDA's 9'6\", or a stale copy? Diamondhead appears to have borrowed the NWPS 'action stage' label.",
+      "Commercial use at the ODWC-agreement access areas (Watts, Round Hollow, Stunkard, Peavine Hollow, No Head Hollow, Echota): the 2021 agreement was extended to Feb 2025. Its current status is unknown. The 2025 guide marks only WOKA and Todd 'Commercial Use Prohibited'.",
+      "Lake Frances dam remnant (RM 2.7): what is the navigable route on the main channel below WOKA, and is the stair-step mitigation complete? Until answered, planner trips should start at Watts PAA.",
+      "Is OAC 300:40-2-3(h)'s 'Lake Frances Dam Public Access Site' the same place as WOKA, Watts PAA or a third site? The rule says 'seven' alcohol-free areas but names six.",
+      "Is Chewey Bridge a lawful public launch (AW lists a river-left access; GRDA does not show a PAA)?",
+      "Murrell Home Rd and Welling Bridge (USACE): confirm launch, parking, fees and exact location with USACE Tulsa District (918-487-5252).",
+      "Does any outfitter publish landing terms for private boats (a shuttle or landing fee)? None were captured, so no private landings are proposed.",
+      "Exact access coordinates: GRDA publishes no coordinates. The placement pass needs GRDA, ODWC or USACE GIS or a site visit; OSM/GNIS points are leads only.",
+      "Weather point: Tahlequah is the hub, but rises originate upstream around Watts and Siloam Springs (AR). Consider a mid-corridor point near Peavine/Combs Bridge.",
+      "Cherokee Nation jurisdiction: the corridor lies within the Cherokee Nation. No tribal river-use permit or rule for floaters was found; confirm none applies."
+    ],
+    "toVerify": [
+      "07195500 — USGS Illinois River near Watts, OK: name, 36.13008185/-94.5721645, 630 sq mi, 00060/00065 (and 00010), HUC 111101030607, Adair County. Confirmed via NWIS site service + OGC monitoring-locations API 2026-11-02; waterdata.usgs.gov page returned 403 to automated fetch.",
+      "07196090 — USGS Illinois River at Chewey, OK: 36.1042527/-94.7827283, 825 sq mi, 00060/00065, IV since 2010-06-07. Same confirmation path. Verify station history and datum changes, since stage at a given flow swings ~2 ft between years.",
+      "07196320 — USGS Illinois River near Moodys, OK: 36.03175654/-94.9107885, 895 sq mi, 00065 only, IV since 2018-05-22. Confirm its location relative to Combs Bridge / Edmondson PAA.",
+      "07196500 — USGS Illinois River near Tahlequah, OK: 35.9255472/-94.9217028, 950 sq mi, 00060/00065, daily discharge since 1935. Verify any gauge datum change around 2008–2011 (station manuscript / annual water data report; wdr.water.usgs.gov paths returned 404).",
+      "NWS LIDs WTTO2 (flood 13 ft), CWYO2 (action 9, flood 12), TALO2 (action 9, flood 11) — confirmed via api.water.noaa.gov/nwps 2026-11-02; flows are -9999 (stage only).",
+      "NHD: GNIS_ID 01094043 'Illinois River'; representative Permanent_Identifier 64287778 (flowline at the Chewey gauge, reachcode 11110103000196). Other gauge-adjacent flowlines: Watts 64286510, Moodys 64290058, Tahlequah 64293504. The GNIS feature spans AR headwaters to the Arkansas River.",
+      "60 O.S. §338 and §60 text on OSCN (blocked by Turnstile during research); Okla. AG Op. 78-170 (counselstack returned 429).",
+      "OAC 300:40: confirm no amendment after the 2023-09-11 version (GRDA links the 2024-06 upload).",
+      "Every access-point coordinate (all HELD) against GRDA, ODWC or USACE sources.",
+      "Production catalog has no OK river and no 'illinois-river' slug (taken from the brief; not re-queried, since this pass makes no database calls). Note the possible future slug collision with the Illinois River in Illinois if Eddy ever adds IL."
+    ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Evidence supports a Watts PAA (GRDA RM 3.1) → Murrell Home Rd (RM 62.0) corridor in two GRDA-defined sections split at No Head Hollow (RM 41.5). WOKA and the Lake Frances dam remnant (RM 2.6–2.7) and everything below the Barren Fork confluence (RM 62.5) are excluded. Remaining: owner choice of endpoints (US-62 at RM 55.1 vs Murrell Home as the lower end), Eddy-scale river miles after NHD geometry import, and confirmation of the dam-remnant passage."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The 2025 GRDA guide and OAC 300:40 establish GRDA public access areas at Watts, Carnes Ford, Round Hollow, Stunkard, Peavine, Edmondson, No Head Hollow, Todd, Echota and US-62, plus the USACE Murrell Home access. Oklahoma access law is recorded at medium confidence. Remaining: current commercial-use status at the ODWC-agreement sites, Chewey Bridge launch status, USACE confirmation, and every coordinate (all held)."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Four USGS gauges confirmed via the NWIS site service and OGC API, with fresh provisional readings 2026-11-01 ~23:00 CST. The proposed primary is Chewey 07196090 (GRDA reference above RM 40) in ft, with Tahlequah 07196500 for the lower section. Remaining: the separate verified-identifiers pass, the datum-history check at Chewey and Tahlequah, and a freshness re-check at activation."
+    },
+    "conditions": {
+      "ratingMode": "unrated",
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Recommend unrated (readings-only). The trusted GRDA/IRA ft ladder gives only high and dangerous, and a ladder without a low end mislabels normal water as Too Low. Stage at a given flow has also drifted ~2 ft at both regulatory gauges. NWPS flood-stage overrides still apply. The GRDA ladder is retained in the research notes for a future rated release. Owner decision required."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Mapped or sourced: the Lake Frances dam remnant (RM 2.7), the WOKA course (RM 2.6), the Carnes Ford low-water slab (RM 10.4), the Murrell Home high-water danger, Echota Bend crowding, strainers, flash rises, and a 2020 high-water fatality with no PFDs worn. Remaining: positions on Eddy's mile scale, dam-remnant passage, and any other low-water crossings. Never hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Not started. Needs NHD import for HUC 11110103 (GNIS 01094043; trim to the state line → Barren Fork confluence), placed and approved access points, and a check of computed distances against GRDA mileage (e.g. Round Hollow → No Head Hollow 13.8 mi; Watts → US-62 52.0 mi)."
+    }
+  },
+  "conditionRatingMode": "unrated"
+}
