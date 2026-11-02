@@ -194,40 +194,41 @@ export default function FindFloatClient({ initialRiver }: { initialRiver: string
         <Card variant="framed" as="section" aria-labelledby="route-finder-heading" className="min-w-0" style={{ overflow: 'visible' }}>
           <form className="space-y-5 p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void search(); }}>
             <h2 id="route-finder-heading" style={{ fontFamily: 'var(--font-display)' }} className="text-2xl font-semibold">Find a float</h2>
-            <div className={`grid items-end gap-4 ${input.near && !input.river ? 'sm:grid-cols-[minmax(0,1fr)_180px]' : ''}`}>
+            <div className={`grid items-start gap-4 ${input.near && !input.river ? 'sm:grid-cols-[minmax(0,1fr)_200px]' : ''}`}>
               <DestinationSearch key={destinationVersion} rivers={rivers} selected={destinationName} locating={busy === 'location'} riversFailed={riversFailed}
                 usingLocation={state.source === 'current' && Boolean(input.near)}
                 onChoose={chooseDestination} onClear={() => update({ river: undefined, near: undefined }, '', undefined)} onLocate={locate} />
               {input.near && !input.river && <label className="block min-w-0 text-sm font-semibold">Search radius
-                <select className="input mt-2" value={input.radiusMiles} onChange={e => update({ radiusMiles: Number(e.target.value) })}>
+                <select className="input mt-2 font-normal" value={input.radiusMiles} onChange={e => update({ radiusMiles: Number(e.target.value) })}>
                   {FLOAT_RADIUS_MILES.map(mi => <option key={mi} value={mi}>Within {mi} miles</option>)}
                 </select>
               </label>}
             </div>
-            <div className="grid items-end gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,1.3fr)]">
+            <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,1.3fr)]">
               <fieldset className="min-w-0">
                 <legend className="mb-2 text-sm font-semibold">Trip length</legend>
-                <Segmented size="md" stretch aria-label="Trip length" value={days}
+                <Segmented size="md" stretch className="segmented--field" aria-label="Trip length" value={days}
                   onChange={value => update({ days: value })}
                   options={FLOAT_TRIP_DAYS.map(value => ({ value, label: floatTripLabel(value) }))} />
               </fieldset>
               <div className="min-w-0">
                 <label htmlFor="float-duration" className="mb-2 block text-sm font-semibold">Time on the river</label>
-                <select id="float-duration" className="input" value={input.targetHours} onChange={e => update({ targetHours: Number(e.target.value) })}>
+                <select id="float-duration" className="input font-normal" value={input.targetHours} onChange={e => update({ targetHours: Number(e.target.value) })}>
                   {HOURS.map(h => <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}{days > 1 ? ' a day' : ''}</option>)}
                 </select>
               </div>
               <fieldset className="min-w-0 md:col-span-2 lg:col-span-1">
                 <legend className="mb-2 text-sm font-semibold">Vessel</legend>
-                <Segmented size="md" stretch aria-label="Vessel"
+                <Segmented size="md" stretch className="segmented--field" aria-label="Vessel"
                   value={input.vesselType} onChange={vesselType => update({ vesselType })}
                   options={FLOAT_BOATS.map(boat => ({ value: boat, label: <span className="flex items-center justify-center gap-2"><VesselIcon vessel={boat} size={20} />{floatBoatLabel(boat)}</span> }))} />
               </fieldset>
             </div>
-            <div className="border-t border-[var(--color-border)] pt-4">
+            <div className="border-t border-[var(--color-border)] pt-5">
               <FloatFilters input={input} onChange={update}>
                 {error && <p role="alert" className="text-sm text-[var(--color-error)]">{error}</p>}
-                <Button type="submit" className="w-full sm:w-auto" disabled={!canSearch || busy !== null}>
+                {!canSearch && !error && <p className="text-sm text-[var(--color-text-secondary)]">Choose a river, town, or your location.</p>}
+                <Button type="submit" className="w-full sm:w-auto sm:min-w-44" disabled={!canSearch || busy !== null}>
                   {busy === 'search' ? 'Finding floats…' : result ? 'Search again' : 'Find floats'}<ArrowRight size={18} aria-hidden="true" />
                 </Button>
               </FloatFilters>

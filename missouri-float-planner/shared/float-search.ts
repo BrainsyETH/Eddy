@@ -217,10 +217,14 @@ export interface FloatOutfitter {
   phone: string | null;
   match: FloatOutfitterMatch;
 }
-export const FLOAT_OUTFITTER_MATCH_LABELS: Record<FloatOutfitterMatch, string> = {
+/**
+ * The note under an outfitter that says more than being listed does. Every
+ * outfitter shown serves the river, so `river` has no note: printing
+ * "Serves this river" under each row restated the section heading.
+ */
+export const FLOAT_OUTFITTER_MATCH_LABELS: Partial<Record<FloatOutfitterMatch, string>> = {
   run: 'Lists this float',
   stretch: 'Lists a run covering this float',
-  river: 'Serves this river',
 };
 export type FloatStopKind = 'access' | 'campground' | 'spring' | 'cave' | 'sight' | 'hazard' | 'portage';
 export interface FloatStop {

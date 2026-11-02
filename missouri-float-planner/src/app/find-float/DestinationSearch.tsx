@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { MapPin, Navigation, Waves, X } from 'lucide-react';
+import { Loader2, MapPin, Navigation, Waves, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import type { RiverListItem } from '@/types/api';
 import type { FloatSearchPlace } from '@shared/float-search';
 
 export type SearchDestination = { name: string; river?: string; near?: FloatSearchPlace['near']; source?: 'current' | 'town' | 'access' };
-type Option = SearchDestination & { key: string };
+type Option = SearchDestination & { key: string; locate?: boolean };
 
 export default function DestinationSearch({ rivers, selected, locating, usingLocation, riversFailed, onChoose, onClear, onLocate }: {
   rivers: RiverListItem[];
@@ -35,7 +35,9 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
     key: p.id, name: p.riverName ? `${p.name} · ${p.riverName}` : p.name, river: p.river, near: p.near, source: 'access',
   }));
   const townOptions: Option[] = places.filter(p => p.kind !== 'access').map(p => ({ key: `town:${p.id}`, name: p.name, near: p.near, source: 'town' }));
-  const options = [...riverOptions, ...accessOptions, ...townOptions];
+  // Before anything is typed, the first suggestion is your own location.
+  const locateOptions: Option[] = term ? [] : [{ key: 'locate', name: usingLocation ? 'Refresh my location' : 'Use my location', locate: true }];
+  const options = [...locateOptions, ...riverOptions, ...accessOptions, ...townOptions];
   const activeIndex = options.findIndex(option => option.key === activeKey);
   const activeId = open && activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined;
 
@@ -67,6 +69,7 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
   }, [open, term]);
 
   function choose(option: Option) {
+    if (option.locate) { close(); onLocate(); return; }
     setQuery(null);
     setActiveKey(null);
     setPlaces([]);
@@ -81,10 +84,10 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
   function close() { setOpen(false); setActiveKey(null); setQuery(null); }
 
   function renderOption(option: Option, index: number) {
-    const Icon = option.source === 'town' ? MapPin : Waves;
+    const Icon = option.locate ? Navigation : option.source === 'town' ? MapPin : Waves;
     return <Button key={option.key} id={`${id}-option-${index}`} role="option" tabIndex={-1}
       aria-selected={activeKey === option.key} variant="ghost"
-      className={`w-full justify-start text-left ${activeKey === option.key ? 'bg-[var(--color-surface-hover)] outline outline-2 -outline-offset-2 outline-primary-500' : ''}`}
+      className={`w-full !justify-start text-left ${activeKey === option.key ? 'bg-[var(--color-surface-hover)] outline outline-2 -outline-offset-2 outline-primary-500' : ''}`}
       onMouseDown={e => e.preventDefault()} onClick={() => choose(option)}>
       <Icon size={16} className="shrink-0" aria-hidden="true" />{option.name}
     </Button>;
@@ -95,14 +98,12 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
     {items.map((option, index) => renderOption(option, index + offset))}
   </div>;
 
+  const clearable = Boolean(selected && query === null);
+  const trailingButton = 'flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500 disabled:cursor-wait';
+
   return (
     <div className="min-w-0" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) close(); }}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-1">
-        <label htmlFor="float-destination" className="text-sm font-semibold">Where</label>
-        <Button variant="ghost" size="sm" className="min-h-11" disabled={locating} onClick={() => { close(); onLocate(); }}>
-          <Navigation size={14} aria-hidden="true" />{locating ? 'Locating…' : usingLocation ? 'Refresh location' : 'Use my location'}
-        </Button>
-      </div>
+      <label htmlFor="float-destination" className="mb-2 block text-sm font-semibold">Where</label>
       <div className="relative">
         <input
           ref={inputRef}
@@ -112,7 +113,7 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
           aria-autocomplete="list"
           aria-expanded={open}
           aria-activedescendant={activeId}
-          className="input pr-11"
+          className={`input ${clearable ? 'pr-24' : 'pr-12'}`}
           placeholder="River, access, or town"
           autoComplete="off"
           maxLength={120}
@@ -146,14 +147,25 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
             }
           }}
         />
-        {selected && query === null && <button type="button" aria-label="Clear destination"
-          className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
-          onClick={() => { onClear(); inputRef.current?.focus(); }}><X size={18} aria-hidden="true" /></button>}
+        <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+          {clearable && <><button type="button" aria-label="Clear destination" title="Clear"
+            className={trailingButton}
+            onClick={() => { onClear(); inputRef.current?.focus(); }}><X size={18} aria-hidden="true" /></button>
+          <span aria-hidden="true" className="h-6 w-px bg-[var(--color-border)]" /></>}
+          <button type="button" disabled={locating}
+            aria-label={locating ? 'Finding your location' : usingLocation ? 'Refresh my location' : 'Use my location'}
+            title={usingLocation ? 'Refresh my location' : 'Use my location'}
+            className={`${trailingButton} ${usingLocation ? 'text-[var(--color-text-link)]' : ''}`}
+            onClick={() => { close(); onLocate(); }}>
+            {locating ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Navigation size={18} aria-hidden="true" />}
+          </button>
+        </div>
         {open && <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2 shadow-soft-lg">
           <div id={listId} role="listbox" aria-label="Destinations">
-            {group('Rivers', riverOptions, 0, true)}
-            {group('Accesses', accessOptions, riverOptions.length, !riverOptions.length)}
-            {group('Towns', townOptions, riverOptions.length + accessOptions.length, !riverOptions.length && !accessOptions.length)}
+            {locateOptions.map((option, index) => renderOption(option, index))}
+            {group('Rivers', riverOptions, locateOptions.length, !locateOptions.length)}
+            {group('Accesses', accessOptions, locateOptions.length + riverOptions.length, !locateOptions.length && !riverOptions.length)}
+            {group('Towns', townOptions, locateOptions.length + riverOptions.length + accessOptions.length, !locateOptions.length && !riverOptions.length && !accessOptions.length)}
           </div>
           <p role="status" className="sr-only">{options.length} {options.length === 1 ? 'suggestion' : 'suggestions'} available.</p>
           {riverMatches.length === 0 && term.length < 2 && <p className="p-2 text-sm text-[var(--color-text-secondary)]">{riversFailed ? 'River list unavailable. Try a town.' : 'No matching rivers.'}</p>}
