@@ -1,237 +1,160 @@
 // src/components/dam/RiverDamPanel.tsx
-// The dam section on a river hub — for a TAILWATER only, meaning a reach whose
-// level is the release rather than the weather.
+// The dam section on a tailwater river page, as one compact widget: a header
+// row, then NOW and the next two days side by side.
 //
-// Server component, fed by fetchRiverDam() inside the page's existing
-// Promise.all, so it stays inside the hub's ISR window and there is no
-// client-side flash. Returns null when the river has no dam above it.
+// Built on the river page's own outlook card (WillItHold): same white panel,
+// primary-100 rules and column dividers, uppercase day labels, mono figures.
+// One row of columns, no prose — the sentences live on the dam page, which the
+// header links to (an ordinary in-site link, hence the chevron).
 //
-// ── What the days ahead come from ───────────────────────────────────────────
-// A hydropower dam shows SWPA's posted generation schedule — the same schedule
-// the dam page charts hour by hour — as one tile per day: the peak and when it
-// runs, or that only minimum flow is scheduled. A flood-control dam, which has
-// no schedule, shows the Corps' daily-average release forecast. Why the hydro
-// case never shows that forecast, and why its days were labelled a day late,
-// is written up in src/lib/river-dam-panel.ts.
+// The days come from SWPA's posted schedule for a hydropower dam, and from the
+// Corps' daily-average forecast only for a dam with no powerhouse. Why, and why
+// those forecast days are shifted back one, is in src/lib/river-dam-panel.ts.
 //
-// Tiles, not a chart: they answer "which day, and when" directly, the repo
-// ships no charting library by choice, and the hourly chart is one tap away on
-// the dam page.
-//
-// ── The dam page link ──────────────────────────────────────────────────────
-// It is an ordinary in-site link to /dams/[id], the page that carries the
-// hourly chart, lake level and history. It wore an external-link icon, which
-// read as "leaves Eddy" or "opens something new"; a chevron says "more of this".
-//
-// What it must never do is imply the release is a promise. The Corps changes
-// schedules for power demand, transmission constraints, outages and inflow,
-// and this panel sits next to a number someone may wade into.
+// Server component, fed by fetchRiverDam() inside the page's Promise.all.
 
-import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Waves } from 'lucide-react';
+import { ChevronRight, Waves, Zap } from 'lucide-react';
 import type { RiverDamContext } from '@/lib/data/dams';
-import {
-  nextScheduleChangeSentence,
-  readingStaleness,
-  relativeAge,
-  SCHEDULE_CHANGE_NOTE,
-} from '@shared/dam-schedule-copy';
-import { generationNow, generationStatusLabel } from '@shared/dam-generation';
-import { reachAnchorId } from '@/components/river/RiverReaches';
+import { readingStaleness, relativeAge } from '@shared/dam-schedule-copy';
+import { generationNow } from '@shared/dam-generation';
 import { dailyForecastDays, scheduleDaySummaries } from '@/lib/river-dam-panel';
 
-function cfs(n: number): string {
-  return Math.round(n).toLocaleString();
+interface Column {
+  key: string;
+  label: string;
+  /** Generating columns take the accent; everything else is the brand teal. */
+  generating: boolean;
+  value: string;
+  detail: string;
+  /** Detail is the ALERT (generation hours) rather than a plain note. */
+  emphasis: boolean;
 }
 
-function DayTile({
-  dayName,
-  dateLabel,
-  children,
-}: {
-  dayName: string;
-  dateLabel: string;
-  children: ReactNode;
-}) {
-  return (
-    <li className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
-      <div className="text-xs font-semibold text-neutral-600">
-        {/* Each half nowrap, so a narrow tile breaks BETWEEN them, never "Nov / 1". */}
-        <span className="whitespace-nowrap">{dayName}</span>{' '}
-        <span className="whitespace-nowrap font-normal text-neutral-400">· {dateLabel}</span>
-      </div>
-      {children}
-    </li>
-  );
+function cfs(n: number): string {
+  return `${Math.round(n).toLocaleString()} cfs`;
 }
 
 export default function RiverDamPanel({
   context,
-  /**
-   * The controlled reach's slug, CONFIRMED to exist on this page — see the
-   * page's controlledReach. Not read off the registry here: this renders a hash
-   * link, and a hash to an id nothing emitted looks live and scrolls nowhere.
-   */
-  controlledReachSlug,
   now = Date.now(),
 }: {
   context: RiverDamContext | null;
-  controlledReachSlug?: string | null;
   now?: number;
 }) {
   if (!context) return null;
 
   const { dam, forecast } = context;
   const release = dam.metrics.release;
+  const columns: Column[] = [];
 
-  const scheduleDays = dam.hasTurbines
-    ? scheduleDaySummaries(dam.schedule, dam.generationReference, now)
-    : [];
-  const forecastDays = dam.hasTurbines ? [] : dailyForecastDays(forecast, now);
+  if (release) {
+    const state = generationNow(dam, now);
+    const lag = readingStaleness(release.at, now);
+    const current = lag === 'fresh';
+    const status =
+      state.kind === 'generating'
+        ? 'Generating'
+        : state.kind === 'not-generating'
+          ? state.minimumFlow
+            ? 'Min flow'
+            : 'Not generating'
+          : release.dailyMean
+            ? 'Daily avg'
+            : 'Release';
+    columns.push({
+      key: 'now',
+      // A reading past two hours does not get to say "now"; it says its age.
+      label: current ? 'Now' : (relativeAge(release.at, now) ?? 'Last reading'),
+      generating: state.kind === 'generating',
+      value: cfs(release.value),
+      detail: status,
+      emphasis: state.kind === 'generating',
+    });
+  }
 
-  // Nothing to say without a current release or a forward view. Better an
-  // absent section than a section explaining its own emptiness.
-  if (!release && scheduleDays.length === 0 && forecastDays.length === 0) return null;
+  if (dam.hasTurbines) {
+    for (const d of scheduleDaySummaries(dam.schedule, dam.generationReference, now).slice(0, 2)) {
+      columns.push({
+        key: d.key,
+        label: d.dayName,
+        generating: d.generates,
+        value: d.value,
+        detail: d.detail,
+        emphasis: d.generates,
+      });
+    }
+  } else {
+    for (const d of dailyForecastDays(forecast, now, 2)) {
+      columns.push({
+        key: d.key,
+        label: d.dayName,
+        generating: false,
+        value: cfs(d.cfs),
+        detail: context.forecastIsDaily ? 'Daily avg' : 'Peak',
+        emphasis: false,
+      });
+    }
+  }
 
-  // Null is "the timestamp could not be read", which is not a lag. `!== 'fresh'`
-  // swept it in and asserted a staleness it had no basis for.
-  const releaseLag = release ? readingStaleness(release.at, now) : null;
-  const releaseIsLagging = releaseLag === 'lagging' || releaseLag === 'stale';
+  if (columns.length === 0) return null;
 
-  // What the powerhouse is doing, in the same words the dam page's hero uses
-  // ("Minimum flow", "Generating now"). Null for a dam with no powerhouse,
-  // which falls back to describing the release itself.
-  const generation = generationNow(dam, now);
-  const powerhouse = generation.kind === 'unavailable' ? null : generationStatusLabel(generation);
-  const releaseWords = powerhouse
-    ? powerhouse
-    : release?.dailyMean
-        ? 'Daily average release'
-        : 'Total release';
-
-  const nextChange = dam.hasTurbines ? nextScheduleChangeSentence(dam.schedule, now) : null;
+  const scheduled = dam.hasTurbines && dam.schedule.length > 0;
+  const subtitle = dam.hasTurbines
+    ? scheduled
+      ? 'SWPA generation schedule'
+      : 'Schedule not posted yet'
+    : 'Corps release forecast';
 
   return (
-    <div className="card-panel p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Waves className="h-4 w-4 text-primary-700" aria-hidden />
-          <h3
-            className="text-lg font-bold text-neutral-900"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
+    <section
+      className="overflow-hidden rounded-xl border border-neutral-200 bg-white"
+      aria-labelledby="river-dam-heading"
+    >
+      <div className="flex items-start justify-between gap-2 border-b-2 border-primary-100 px-4 py-3 sm:px-5">
+        <div className="min-w-0">
+          <h3 id="river-dam-heading" className="font-heading text-sm font-bold text-neutral-900">
             {dam.name}
           </h3>
+          <p className="font-sans text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+            {subtitle}
+          </p>
         </div>
         <Link
           href={`/dams/${dam.id}`}
-          className="inline-flex min-h-11 items-center gap-0.5 text-sm font-medium text-primary-700 hover:text-primary-800"
+          className="inline-flex shrink-0 items-center gap-0.5 py-1 text-[11px] font-semibold text-primary-700 hover:text-primary-800"
         >
-          {dam.hasTurbines ? 'Hourly schedule' : 'Dam page'}
-          <ChevronRight className="h-4 w-4" aria-hidden />
+          {dam.hasTurbines ? 'Full schedule' : 'Dam page'}
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       </div>
 
-      {release && (
-        <div className="mt-2">
-          <div className="text-3xl font-bold tabular-nums text-neutral-900">
-            {cfs(release.value)} <span className="text-lg font-medium text-neutral-500">cfs</span>
-          </div>
-          <div className="text-sm text-neutral-600">
-            {/* The age is from the timestamp, not the wire's `staleness` — that
-                band is stamped at snapshot assembly and frozen. See
-                readingStaleness in shared/. */}
-            {[releaseWords, relativeAge(release.at, now), releaseIsLagging ? 'reading is lagging' : null]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
-        </div>
-      )}
-
-      {dam.hasTurbines && (
-        <div className="mt-4">
-          <p className="text-xs font-medium text-neutral-500">Generation schedule (SWPA)</p>
-          {scheduleDays.length > 0 ? (
-            <>
-              <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-                {scheduleDays.map((d) => (
-                  <DayTile key={d.key} dayName={d.dayName} dateLabel={d.dateLabel}>
-                    <div
-                      className={`mt-1 text-sm font-bold tabular-nums ${
-                        d.generates ? 'text-neutral-900' : 'text-neutral-600'
-                      }`}
-                    >
-                      {d.headline}
-                    </div>
-                    {d.detail && <div className="mt-0.5 text-xs text-neutral-500">{d.detail}</div>}
-                  </DayTile>
-                ))}
-              </ul>
-              {nextChange && (
-                <p className="mt-3 text-sm font-medium text-neutral-800">
-                  {nextChange}
-                  <span className="block text-xs font-normal text-neutral-500">{SCHEDULE_CHANGE_NOTE}</span>
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="mt-1 text-sm text-neutral-600">
-              No posted schedule Eddy can confirm right now. SWPA posts the next
-              day&rsquo;s schedule each afternoon.
-              {dam.infoPhone && (
-                <>
-                  {' '}
-                  Recorded release line:{' '}
-                  <a
-                    href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}
-                    className="font-medium text-primary-700 underline hover:text-primary-800"
-                  >
-                    {dam.infoPhone}
-                  </a>
-                  .
-                </>
-              )}
-            </p>
-          )}
-        </div>
-      )}
-
-      {forecastDays.length > 0 && (
-        <div className="mt-4">
-          <p className="text-xs font-medium text-neutral-500">
-            Corps release forecast · {context.forecastIsDaily ? 'daily average' : 'daily peak'}
-          </p>
-          <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            {forecastDays.map((d) => (
-              <DayTile key={d.key} dayName={d.dayName} dateLabel={d.dateLabel}>
-                <div className="mt-1 text-sm font-bold tabular-nums text-neutral-900">
-                  {cfs(d.cfs)} <span className="text-xs font-medium text-neutral-500">cfs</span>
-                </div>
-              </DayTile>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Which reach, by name, when the river carries more than one. Same-page
-          hash, so this needs no route change — the panel is already ON the
-          river page. */}
-      {controlledReachSlug && (
-        <a
-          href={`#${reachAnchorId(controlledReachSlug)}`}
-          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:text-primary-800"
-        >
-          See the reach it controls
-        </a>
-      )}
-
-      <p className="mt-4 border-t border-neutral-200 pt-3 text-xs text-neutral-500">
-        This reach runs at whatever {dam.name} releases, so it follows the dam
-        rather than the rain. Schedules can change without notice — never wade
-        or anchor below a dam without checking the horn and posted warnings.
-        {dam.sources.length > 0 && ` Source: ${dam.sources.join(' · ')}.`}
-      </p>
-    </div>
+      <div
+        className="grid divide-x-2 divide-primary-100"
+        style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}
+      >
+        {columns.map((c) => {
+          const Icon = c.generating ? Zap : Waves;
+          return (
+            <div key={c.key} className="flex min-w-0 flex-col items-center px-2 py-3 text-center sm:px-3">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">{c.label}</span>
+              <Icon
+                className={`my-1 h-6 w-6 ${c.generating ? 'text-accent-600' : 'text-primary-700'}`}
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              <span className="font-mono text-xs font-bold tabular-nums text-neutral-900">{c.value}</span>
+              <span
+                className={`mt-1 text-[10px] uppercase tracking-wide ${
+                  c.emphasis ? 'font-bold text-accent-700' : 'text-neutral-500'
+                }`}
+              >
+                {c.detail}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

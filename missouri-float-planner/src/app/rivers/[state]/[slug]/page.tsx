@@ -187,10 +187,8 @@ export default async function RiverGuidePage({ params }: Props) {
    * renamed section, a deleted one, a typo, or a reaches query that simply
    * failed all leave a slug pointing at nothing.
    *
-   * Resolving it HERE means the highlight and the panel's anchor link cannot
-   * disagree: both are fed this one verified value. The highlight already
-   * failed closed on its own, but a hash link does not — it renders, it looks
-   * live, and it scrolls nowhere.
+   * Resolving it HERE means the reach highlight is fed one verified value
+   * rather than a registry constant that may point at nothing.
    */
   const controlledReach =
     riverReaches?.find(
@@ -426,7 +424,7 @@ export default async function RiverGuidePage({ params }: Props) {
               <h2 className="mb-4 font-display text-xl font-bold text-neutral-900 md:text-2xl">
                 Dam release
               </h2>
-              <RiverDamPanel context={riverDam} controlledReachSlug={controlledReach?.sectionSlug ?? null} />
+              <RiverDamPanel context={riverDam} />
             </section>
           )}
 

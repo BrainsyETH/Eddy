@@ -55,7 +55,7 @@ test('daily forecast boxes land on the day they cover, from today on', () => {
     days.map((d) => [d.key, d.dayName, d.dateLabel, d.cfs]),
     [
       ['2026-11-01', 'Today', 'Nov 1', 1500],
-      ['2026-11-02', 'Tomorrow', 'Nov 2', 2300],
+      ['2026-11-02', 'Mon', 'Nov 2', 2300],
       ['2026-11-03', 'Tue', 'Nov 3', 2300],
     ]
   );
@@ -74,7 +74,7 @@ test('an hourly forecast collapses to each day\'s peak', () => {
   assert.deepEqual(days.map((d) => [d.key, d.cfs]), [['2026-11-02', 9000]]);
 });
 
-test('the schedule tiles say what SWPA posted, peak and window first', () => {
+test('the schedule columns say what SWPA posted: peak and window, or min flow', () => {
   // SWPA, Monday 2026-11-02: minimum flow, a 100 MW block at hours 17-18.
   const monday = day('2026-11-02', (h) => (h === 17 || h === 18 ? 100 : 7));
   const sunday = day('2026-11-01', () => 7);
@@ -82,10 +82,10 @@ test('the schedule tiles say what SWPA posted, peak and window first', () => {
 
   const tiles = scheduleDaySummaries([monday, stale, sunday], BSD, SUNDAY_EVENING);
   assert.deepEqual(
-    tiles.map((t) => [t.dayName, t.dateLabel, t.generates, t.headline, t.detail]),
+    tiles.map((t) => [t.dayName, t.dateLabel, t.generates, t.value, t.detail]),
     [
-      ['Today', 'Nov 1', false, 'Only minimum flow scheduled', null],
-      ['Tomorrow', 'Nov 2', true, 'Peak ~6,800 cfs · 4–6 PM', 'Scheduled to generate 2 of 24 hours'],
+      ['Today', 'Nov 1', false, 'Min flow', 'All day'],
+      ['Mon', 'Nov 2', true, '~6,800 cfs', '4–6 PM'],
     ]
   );
 });

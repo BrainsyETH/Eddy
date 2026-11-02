@@ -27,10 +27,9 @@
 
 import type { DamScheduleDay } from '@shared/dam-types';
 import type { GenerationReference } from '@shared/dam-generation';
-import { schedulePeak, schedulePeakValue } from '@shared/dam-generation';
+import { schedulePeak, schedulePeakWindowLabel } from '@shared/dam-generation';
 import {
   centralDayKey,
-  nextDayKey,
   scheduleDayLabel,
   scheduledGeneration,
   scheduledHoursSummary,
@@ -38,29 +37,31 @@ import {
 
 const HOUR_MS = 3_600_000;
 
-/** One day of the posted generation schedule, already worded. */
+/** One day of the posted generation schedule, already worded for a column. */
 export interface ScheduleDaySummary {
   /** Central calendar day, YYYY-MM-DD. */
   key: string;
-  /** "Today", "Tomorrow", or the weekday. */
+  /** "Today", or the weekday ("Mon"). */
   dayName: string;
   /** "Nov 2". */
   dateLabel: string;
   /** True when anything above minimum flow is scheduled. */
   generates: boolean;
-  /** The line to read first: the peak and when, or that nothing runs. */
-  headline: string;
-  /** How much of the day the units are scheduled, when they run at all. */
-  detail: string | null;
+  /** The figure: "~6,800 cfs" at the peak, "100 MW" off a ramp hour, or "Min flow". */
+  value: string;
+  /** When the peak runs ("4–7 PM"), or "All day" for a day without generation. */
+  detail: string;
 }
 
-/** "Today" / "Tomorrow" / "Wed", and "Nov 2", for a Central day key. */
+/** "Today" or "Wed", and "Nov 2", for a Central day key. */
 export function dayNames(key: string, now: number): { dayName: string; dateLabel: string } {
   const today = centralDayKey(now);
   // scheduleDayLabel formats the KEY in UTC so the viewer's zone cannot shift
   // it: "Mon, Nov 2".
   const [weekday, dateLabel] = scheduleDayLabel(key).split(', ');
-  const dayName = key === today ? 'Today' : key === nextDayKey(today) ? 'Tomorrow' : weekday;
+  // The weekday rather than "Tomorrow": these are narrow columns, the same
+  // TODAY / MON / TUE the river page's outlook card uses.
+  const dayName = key === today ? 'Today' : weekday;
   return { dayName, dateLabel: dateLabel ?? key };
 }
 
@@ -85,15 +86,23 @@ export function scheduleDaySummaries(
       const { dayName, dateLabel } = dayNames(day.scheduleDate, now);
       const generates = day.hours.some(scheduledGeneration);
       const peak = generates ? schedulePeak(day, reference) : null;
+      if (!peak) {
+        const minimumFlow = day.hours.some((h) => h.minimumFlow === true);
+        return { key: day.scheduleDate, dayName, dateLabel, generates: false, value: minimumFlow ? 'Min flow' : 'Off', detail: 'All day' };
+      }
+      // The magnitude only from a steady hour, megawatts otherwise — the same
+      // rule schedulePeakValue applies on the dam page.
+      const value =
+        peak.cfs !== null
+          ? `~${Math.round(peak.cfs).toLocaleString()} cfs`
+          : `${Math.round(peak.megawatts).toLocaleString()} MW`;
       return {
         key: day.scheduleDate,
         dayName,
         dateLabel,
-        generates,
-        // "Peak ~6,800 cfs · 4–6 PM" — the magnitude only from a steady hour,
-        // megawatts otherwise; schedulePeakValue decides, not this file.
-        headline: peak ? `Peak ${schedulePeakValue(peak)}` : scheduledHoursSummary(day.hours),
-        detail: peak ? scheduledHoursSummary(day.hours) : null,
+        generates: true,
+        value,
+        detail: schedulePeakWindowLabel(peak) ?? scheduledHoursSummary(day.hours, { compact: true }),
       };
     });
 }
