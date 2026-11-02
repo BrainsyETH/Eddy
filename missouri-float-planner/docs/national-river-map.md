@@ -23,7 +23,8 @@ sync-gauge-latest (:05/:20/:35/:50)      NOAA riv_gauges layers 0 + 15
                        │ one frame per capture
                national_map_frames ── retention: every capture 26 h, hourly 8 days
                        │
-  /api/river-map/frame (CDN 5 min; ?since= → 204; ?at= → historical)
+  /api/river-map/frame (CDN 5 min; ?since= → 204; ?at= → historical;
+                        ?meta=1 → history span; ?trend=1 → 24 h flooding trend)
   /api/river-map/stations (CDN 6 h)        public/river-map/geometry/*.json
                        └───────────── browser ─────────────┘
 ```
@@ -33,6 +34,8 @@ sync-gauge-latest (:05/:20/:35/:50)      NOAA riv_gauges layers 0 + 15
 | Composite projection (geoAlbersUsa parameters, geographic inset routing, portrait layout) | `src/lib/national-map/projection.ts` |
 | Change: classification against the frame a window back, provisional thresholds; calibration evidence | `src/lib/national-map/change.ts`, `change-calibration.ts`, `scripts/calibrate-change-thresholds.ts` |
 | Frame format, builder, decoder, retention | `src/lib/national-map/frame.ts` |
+| National 24 h flooding trend (counted from recorded frames) | `src/lib/national-map/trend.ts`, `src/components/national-map/TrendStrip.tsx` |
+| River trails (particles bound to the river lines) | `src/components/national-map/trails.ts` |
 | NWS flood vocabulary (quoted, never computed) | `src/lib/national-map/flood-status.ts`, `noaa-flood.ts` |
 | What each mark means per view (freshness, comparison, flood rules), Explore and wall styles | `src/lib/national-map/marks.ts` |
 | Palettes: light / dark, the wall variant, the opt-in vivid Flow colours | `src/lib/national-map/theme.ts` |
@@ -71,7 +74,7 @@ gauge — a flow band is a hydrological comparison, not a recommendation.
   goes neutral by itself. Data-driven motion runs only while the newest frame is
   under 2 hours old, the last refresh succeeded, and something is current.
 - **Geometry is context.** River lines come from the USGS 1:1M national
-  streams (digitized downstream); traces show direction only, never velocity.
+  streams (digitized downstream); trails show direction only, never velocity.
   No reading is spread along a river.
 
 ## Presentations
@@ -81,7 +84,7 @@ gauge — a flow band is a hydrological comparison, not a recommendation.
 | Header, panel, search, controls | yes | none | none | none |
 | Labels, tooltips, cursor | state labels at regional zoom; hover tip | none; cursor hides after 3 s | same | same |
 | Marks | every class | the wall hierarchy (below) | same | same |
-| Text | everything | the wall legend: the view's symbols and one update / source line | the legend, plus one featured event with its 24-hour water level | none |
+| Text | everything | the wall legend: the view's symbols and one update / source line | the legend, plus one featured event with its 24-hour water level (and, in Flooding, the national 24 h trend) | none |
 | Reveal controls | — | tap, click or any key → tray for ~8 s (Legend · Story · Map only) | same | same |
 
 The wall legend is a compact panel in the composition's open left margin (the
@@ -210,17 +213,23 @@ device results.
 - **Liveness is judged for the view on screen** (`viewLiveState`, marks.ts).
   Flooding needs a current NOAA capture with assessed points; Flow needs
   current USGS readings; both need a recent snapshot and a successful refresh.
-  When the view is not live the map goes static and subdued (no traces,
+  When the view is not live the map goes static and subdued (no trails,
   rings or spotlight), the fullscreen tray states why once it is opened, and
   the wall legend's source line gives the reason. Fresh USGS
   data never makes a Flooding view look alive.
-- **Motion vocabulary for the wall.** Downstream traces are drawn per river
-  class (trunk / major / regional) with lengths, widths and speeds that scale
-  with the screen, so they read across a room; trunk rivers widen on big
-  screens. Flood event rings mark current official flooding. The rarest
+- **Motion vocabulary: river trails.** The moving network is drawn the way
+  Earth Nullschool draws wind — short-lived particles leaving fading trails —
+  but bound to the river lines (`trails.ts`), never to the space between
+  them. Particles travel each line in its digitized downstream direction at a
+  constant on-screen pace per class (trunk fastest, regional slowest); density
+  follows river size, capped at 3,200 particles. Their own canvas fades a
+  little each frame and is cleared on any camera move, so a pan never smears.
+  Explore adds the regional class from 2× zoom; the wall runs every class at
+  the national fit. While a journey runs the trails drop to 30 %. Flood event rings mark current official flooding. The rarest
   readings — at or above the published 95th-percentile flow for the date, or
   at or below the published 5th — are drawn larger and above their band.
-  Directions only — no speed is a measured velocity.
+  Directions only — no speed is a measured velocity, and no reading is
+  spread along a river.
 - **Percentile tails claim only published thresholds.** USGS daily statistics
   publish p05 … p95 and nothing beyond. `calculateDischargePercentile`
   returns ≥ 95 only for a reading at or above the published p95 (≤ 5 only at
@@ -246,6 +255,29 @@ device results.
   passed" from the series (minimum sizes), "Now in … flooding" / "Rose to …"
   / "Back below flood stage" from NWS categories in both frames. No older
   frame recorded yet: no change is claimed.
+- **NWS flood stages on the story chart.** When the featured gauge's NWS
+  forecast point defines them (`gauge_stations.nwps_*_stage_ft`), the 24-hour
+  chart draws action / flood / moderate / major as dashed lines in NWS colours
+  — only for thresholds near the series, and only when the datums agree
+  (`chartStages`, stories.ts): NWS's own observed stage and the USGS gauge
+  height, both in feet and observed within 2 h of each other, differ by
+  ≤ 0.5 ft. Otherwise no line is drawn: a threshold on another datum would
+  place flood stage feet away from the truth. Evidence, 2026-11-02 production:
+  of 6,613 paired points, 6,367 agree within 0.5 ft and 134 differ by more
+  than 2 ft.
+- **The national flooding trend** (`trend.ts`, `TrendStrip.tsx`). How many NWS
+  forecast points were in minor, moderate or major flood, hour by hour, over
+  the last 24 h of recorded frames — stacked bars in NWS colours, newest at the
+  right. The recorder stores each frame's count as `fc` ([major, moderate,
+  minor, action]) using the map's rules (observed category, not current if
+  observed more than 6 h before that capture; action stage is not flooding).
+  The frame route's `?trend=1` picks the newest capture in each hour and reads
+  only `fc` and `sources` — the NWS rows are ~1.1 MB of each frame; reading
+  two small keys costs ~45 ms a frame (production, 2026-11-02). A capture whose
+  NOAA read failed is a gap, never a zero; frames recorded before `fc` existed
+  are left out, so the strip fills in over the first day after deploy. Shown in Explore's Flooding legend and in Story mode's
+  column in Flooding; with fewer than two recorded hours it says the trend is
+  building.
 - **One focal point at a time.** Only a few geographically distinct floods
   pulse (`pickPulses`); every severity symbol stays drawn. The sequence
   alternates a river journey (which holds at its outlet so the connection
@@ -260,9 +292,9 @@ device results.
   only routes that are mostly new, comparing lengths at true scale so Alaska's
   Yukon competes. It is geometry, never measurement: the pace is presentation,
   and the caption names rivers only. While it runs, a veil on the effects
-  layer and quieter traces let the route command the screen; flood marks and
+  layer and quieter trails let the route command the screen; flood marks and
   rings sit above the veil at full strength. Near-white is reserved for the
-  journey (wall traces are a soft cyan). The stage exposes `data-act`
+  journey (wall trails are a soft cyan). The stage exposes `data-act`
   (`journey` / `spot` / `none`) and `data-region` for the smoke.
 - **Regional walls play what they can see.** When fullscreen keeps a regional
   zoom, the stage reports its visible region (per inset, projected
@@ -319,7 +351,7 @@ so thresholds and the legend still hold (`wallStyle`, `wallPalette`):
   stays countable, and pulse wider (major carries two pulses). Action stage is
   a slim ring that never pulses — deliberately below minor flooding.
 - **Three brightness tiers**: land drops back (state lines nearly vanish),
-  water is brightest of the non-events (trunk underglow, every trace class
+  water is brightest of the non-events (trunk underglow, every trail class
   running at the national fit), events carry full saturation.
 - **Vivid Flow colours** (Settings → Flow colours, opt-in prototype): copper /
   sand for unusually low, subdued teal for normal, saturated cyans for high —

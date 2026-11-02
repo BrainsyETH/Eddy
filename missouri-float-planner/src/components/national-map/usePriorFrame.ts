@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import type { CatalogStation } from '@/lib/national-map/catalog';
 import { decodeFrame, type DecodedFrame } from '@/lib/national-map/frame';
 import { buildSites, type Site } from '@/lib/national-map/marks';
+import type { TrendPoint } from '@/lib/national-map/trend';
 
 export interface PriorFrame {
   capturedAt: number;
@@ -69,4 +70,34 @@ export function useFrameHistory(enabled: boolean, capturedAt: number | null): { 
     return () => controller.abort();
   }, [enabled, key]);
   return state && state.key === key ? state.meta : null;
+}
+
+/**
+ * The national flooding trend (the frame route's `?trend=1`): one point per
+ * hour over the last 24 h of recorded frames, refreshed with each new frame.
+ * Null while loading or when the route cannot answer — never an empty trend.
+ */
+export function useFloodTrend(enabled: boolean, capturedAt: number | null): TrendPoint[] | null {
+  const [state, setState] = useState<{ key: string; points: TrendPoint[] | null } | null>(null);
+  const key = enabled ? String(capturedAt ?? '') : '';
+  useEffect(() => {
+    if (!enabled) return;
+    const controller = new AbortController();
+    fetch('/api/river-map/frame?trend=1', { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { points?: unknown } | null) => setState({ key, points: parseTrend(body?.points) }))
+      .catch(() => {
+        if (!controller.signal.aborted) setState({ key, points: null });
+      });
+    return () => controller.abort();
+  }, [enabled, key]);
+  return state && state.key === key ? state.points : null;
+}
+
+function parseTrend(v: unknown): TrendPoint[] | null {
+  if (!Array.isArray(v)) return null;
+  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+  return v
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && Number.isFinite((p as { t?: unknown }).t))
+    .map((p) => ({ t: p.t as number, ok: p.ok === true, major: n(p.major), moderate: n(p.moderate), minor: n(p.minor), action: n(p.action) }));
 }

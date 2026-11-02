@@ -27,6 +27,7 @@
 // Pure: the recorder cron, the frame route and the browser decoder share it.
 
 import { FLOOD_CODE, floodStatusFromCode, type FloodStatus } from './flood-status';
+import { floodTrendPoint } from './trend';
 
 /** Bump on any tuple change. Recorded frames keep their version; decoders branch on it. */
 export const FRAME_VERSION = 1;
@@ -83,6 +84,13 @@ export interface NationalFrame {
   v: typeof FRAME_VERSION;
   capturedAt: string;
   sources: FrameSources;
+  /**
+   * NWS points in [major, moderate, minor, action] at capture, counted with the
+   * map's rules (trend.ts). Absent when NOAA could not be read, and on frames
+   * recorded before it existed. Stored so the 24 h trend reads four numbers
+   * per frame instead of the ~1.1 MB `n` array.
+   */
+  fc?: [number, number, number, number];
   g: FrameGaugeRow[];
   n: FrameNwsRow[];
 }
@@ -182,6 +190,7 @@ export function buildFrame(args: {
     ]);
   }
 
+  const counts = floodTrendPoint(args.capturedAt.getTime(), args.noaaOk, n);
   return {
     v: FRAME_VERSION,
     capturedAt: args.capturedAt.toISOString(),
@@ -191,6 +200,7 @@ export function buildFrame(args: {
       noaaForecastIngestAt: args.noaaForecastIngestAt ?? null,
       noaaOk: args.noaaOk,
     },
+    ...(counts.ok ? { fc: [counts.major, counts.moderate, counts.minor, counts.action] as [number, number, number, number] } : {}),
     g,
     n,
   };

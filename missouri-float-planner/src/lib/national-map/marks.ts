@@ -14,7 +14,7 @@
 
 import { flowBand, type FlowBand } from '@shared/flow-band';
 import { gaugeFreshness } from '@shared/gauge-freshness';
-import type { CatalogStation } from './catalog';
+import type { CatalogStation, FloodStages } from './catalog';
 import type { DecodedFrame, DecodedGaugeReading, DecodedNwsPoint } from './frame';
 import { floodSeverity, type FloodStatus } from './flood-status';
 import { componentOf, projectComponent, type MapComponent } from './projection';
@@ -39,6 +39,8 @@ export interface Site {
   y: number;
   reading: DecodedGaugeReading | null;
   nws: DecodedNwsPoint | null;
+  /** NWS flood-category stages from the catalog (NWS stage datum), when published. */
+  stages?: FloodStages | null;
 }
 
 /** USGS stations from the catalog, plus NWS points no USGS station claims. */
@@ -66,6 +68,7 @@ export function buildSites(catalog: CatalogStation[], frame: DecodedFrame | null
       y,
       reading: frame?.gauges.get(s.siteId) ?? null,
       nws,
+      stages: s.stages,
     });
   }
   for (const p of frame?.nws ?? []) {

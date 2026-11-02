@@ -71,7 +71,13 @@ test('the catalog round-trips and rejects what it cannot read', () => {
     new Date('2026-11-02T00:00:00Z'),
   );
   const decoded = decodeCatalog(JSON.parse(JSON.stringify(body)));
-  assert.deepEqual(decoded[0], { siteId: '07019000', lng: -90.1235, lat: 38.5, stateCode: 'MO', curated: true, name: 'Meramec', waterbody: null });
+  assert.deepEqual(decoded[0], { siteId: '07019000', lng: -90.1235, lat: 38.5, stateCode: 'MO', curated: true, name: 'Meramec', waterbody: null, stages: null });
+  // NWS flood stages ride along as an optional 8th element; a missing stage stays null.
+  const staged = decodeCatalog(JSON.parse(JSON.stringify(buildCatalog(
+    [{ stationId: 'a', siteId: '07019000', name: 'Meramec', stateCode: 'MO', waterbody: null, nwsLid: 'EURM7', curated: true, lng: -90.5, lat: 38.5, stages: [11, 18, 25, null] }],
+    new Date('2026-11-02T00:00:00Z'),
+  ))));
+  assert.deepEqual(staged[0].stages, { action: 11, flood: 18, moderate: 25, major: null });
   assert.throws(() => decodeCatalog({ v: 9, rows: [] }));
 });
 

@@ -13,6 +13,12 @@
 // bytes, so the Change view can say which comparison windows the recorded
 // history supports (and when the next one opens) without fetching a frame.
 //
+// With `trend=1`: { points } — the national flooding trend, one point per
+// hour over the last 24 h of recorded frames, from the flood count each frame
+// stores at capture (`body->fc`; the NWS rows themselves are ~1.1 MB a frame).
+// Counting rules: src/lib/national-map/trend.ts. A capture whose NOAA read
+// failed is a gap; a frame recorded before `fc` existed is left out.
+//
 // FIRST DEPLOY: until the recorder has stored its first frame (within ~15
 // minutes of deploy), the newest-frame read builds one live with the same
 // capture code (src/lib/national-map/capture.ts), serves it with a short CDN
@@ -28,6 +34,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { captureFrame } from '@/lib/national-map/capture';
+import { hourlyPicks, trendPointFromFrame, type TrendPoint } from '@/lib/national-map/trend';
 
 export const dynamic = 'force-dynamic';
 // The first-deploy bootstrap reads the database and NOAA (~15–25 s measured).
@@ -65,6 +72,42 @@ async function _GET(request: NextRequest) {
     } catch (err) {
       console.error('[river-map/frame] meta failed:', err);
       return NextResponse.json({ error: 'Frame history temporarily unavailable' }, { status: 503 });
+    }
+  }
+
+  if (request.nextUrl.searchParams.get('trend') === '1') {
+    try {
+      const supabase = createAdminClient();
+      const since = new Date(Date.now() - 25 * 3_600_000).toISOString();
+      const { data: times, error: timesError } = await supabase
+        .from('national_map_frames')
+        .select('captured_at')
+        .gte('captured_at', since)
+        .order('captured_at', { ascending: true });
+      if (timesError) throw new Error(timesError.message);
+      const byMs = new Map<number, string>();
+      for (const r of (times ?? []) as Array<{ captured_at: string }>) {
+        const t = Date.parse(r.captured_at);
+        if (Number.isFinite(t)) byMs.set(t, r.captured_at);
+      }
+      const picked = hourlyPicks([...byMs.keys()]).map((t) => byMs.get(t)!);
+      let points: TrendPoint[] = [];
+      if (picked.length) {
+        // ~45 ms a frame in production (2026-11-02): each body is detoasted to read two small keys.
+        const { data, error } = await supabase
+          .from('national_map_frames')
+          .select('captured_at, fc:body->fc, sources:body->sources')
+          .in('captured_at', picked);
+        if (error) throw new Error(error.message);
+        points = ((data ?? []) as Array<{ captured_at: string; fc: unknown; sources: { noaaOk?: unknown } | null }>)
+          .map((r) => trendPointFromFrame(Date.parse(r.captured_at), r.sources?.noaaOk === true, r.fc))
+          .filter((p): p is TrendPoint => p !== null)
+          .sort((a, b) => a.t - b.t);
+      }
+      return NextResponse.json({ points }, { headers: cdnCacheHeaders(600, 1800) });
+    } catch (err) {
+      console.error('[river-map/frame] trend failed:', err);
+      return NextResponse.json({ error: 'Flooding trend temporarily unavailable' }, { status: 503 });
     }
   }
 

@@ -3,7 +3,7 @@ import test from 'node:test';
 import type { CatalogStation } from './catalog';
 import { buildFrame, decodeFrame, type LatestInput, type NwsInput } from './frame';
 import { buildSites, type Site } from './marks';
-import { rankStories, seriesDevelopment, storyHeadline, storyObservation, type SeriesPoint } from './stories';
+import { chartStages, rankStories, seriesDevelopment, storyHeadline, storyObservation, type SeriesPoint } from './stories';
 
 const NOW = Date.parse('2026-11-02T12:00:00Z');
 const H = 3_600_000;
@@ -80,4 +80,14 @@ test('"Still rising" and "Crest passed" need the series to support them', () => 
   assert.equal(seriesDevelopment(series([4, 5, 6.5, 8, 9.2, 9.0, 8.6, 8.1, 7.6]), 'ft'), 'crest_passed');
   assert.equal(seriesDevelopment(series([5, 5.02, 4.98, 5.01, 5.03, 4.99, 5.0, 5.02, 5.01]), 'ft'), null, 'noise is not a story');
   assert.equal(seriesDevelopment(series([4, 5, 6, 7], 3), 'ft'), null, 'too short a record says nothing');
+});
+
+test('NWS flood stages join the USGS chart only when both measure on the same datum', () => {
+  const stages = { action: 15, flood: 18, moderate: 22, major: 26 };
+  const [same] = capture(NOW, [['10000009', -95, 36, 'minor', 3.2]]); // NWS value 3 ft, USGS 3.2 ft
+  assert.deepEqual(chartStages({ ...same, stages }), stages);
+  const [offset] = capture(NOW, [['10000010', -95, 36, 'minor', 103]]); // a different datum
+  assert.equal(chartStages({ ...offset, stages }), null, 'lines would sit at the wrong height');
+  assert.equal(chartStages({ ...same, stages: null }), null);
+  assert.equal(chartStages({ ...same, nws: null, stages }), null);
 });

@@ -177,6 +177,7 @@ export function ExplorePanel({
   onPickSite,
   infoColors,
   changePanel,
+  floodTrend,
 }: {
   view: MapView;
   onView: (v: MapView) => void;
@@ -199,6 +200,8 @@ export function ExplorePanel({
   infoColors: InfoTipColors;
   /** The Change view's legend block (window choice, marks, method), built by the parent. */
   changePanel?: ReactNode;
+  /** The Flooding view's 24 h national trend, built by the parent. */
+  floodTrend?: ReactNode;
 }) {
   const [legendOpen, setLegendOpen] = useState(!compact && !short);
   useEffect(() => setLegendOpen(!compact && !short), [compact, short]);
@@ -283,6 +286,7 @@ export function ExplorePanel({
                   />
                 </p>
               )}
+              {floodTrend}
             </>
           )}
           {notable.length > 0 && (

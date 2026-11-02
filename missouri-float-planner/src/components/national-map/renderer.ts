@@ -3,7 +3,9 @@
 // Layers, bottom to top:
 //   base   land, lakes, state lines, rivers, state labels — redrawn on camera,
 //          theme or geometry change; never per animation frame.
-//   fx     downstream traces and flood event rings — the only per-frame layer,
+//   trails the moving river network (trails.ts): particles with fading
+//          trails, drawn on the fx clock; cleared on any camera move.
+//   fx     flood event rings, the journey, the spotlight — per-frame,
 //          capped at 30 fps and stopped when motion is off or the page hidden.
 //   marks  gauge marks (two canvases, cross-faded when a NEW FRAME arrives so
 //          updated values change smoothly instead of flashing; camera moves
@@ -25,6 +27,7 @@ import { journeyHead, journeyTiming, sliceLine, JOURNEY_HOLD_MS, JOURNEY_FADE_MS
 import type { MarkShape, MarkStyle } from '@/lib/national-map/marks';
 import { applyAffine, type Layout } from '@/lib/national-map/projection';
 import type { MapPalette } from '@/lib/national-map/theme';
+import { RiverTrails } from './trails';
 
 export interface RenderMark {
   /** Laid-out position. */
@@ -37,18 +40,6 @@ export interface RenderMark {
 
 const FX_FPS = 30;
 const RING_PERIOD_MS = 5000;
-/**
- * Downstream traces by river class, in CSS px at the national fit on a
- * 760 px screen; everything scales with the screen so a wall display gets
- * highlights it can see across a room. Trunk rivers carry the longest,
- * brightest, quickest highlights — the hierarchy is part of the motion.
- * Direction only: none of these speeds is a measured velocity.
- */
-const TRACE_CLASSES = [
-  { key: 'tracesRegional', minZoom: 2, width: 1.0, dash: 3.5, gap: 52, speed: 8, alpha: 0.7 },
-  { key: 'tracesMajor', minZoom: 0, width: 1.35, dash: 5, gap: 58, speed: 11, alpha: 0.82 },
-  { key: 'tracesTrunk', minZoom: 0, width: 1.8, dash: 8, gap: 68, speed: 15, alpha: 0.95 },
-] as const;
 /** The spotlight's arrival sweep and the old spot's fade. */
 const SPOT_ARRIVE_MS = 1100;
 /** Event rings go to the most severe sites only; a widespread flood is not a field of pulses. */
@@ -66,10 +57,6 @@ interface LaidPaths {
   /** Base rivers by Strahler order. */
   rivers: Map<number, Path2D>;
   detail: Map<number, Path2D>;
-  /** Channels that carry downstream traces, by class (see TRACE_CLASSES). */
-  tracesTrunk: Path2D;
-  tracesMajor: Path2D;
-  tracesRegional: Path2D;
   labels: Array<{ code: string; x: number; y: number }>;
 }
 
@@ -129,19 +116,10 @@ function buildPaths(base: DecodedGeometry, detail: DecodedGeometry | null, layou
   const lakes = new Path2D();
   for (const lake of base.lakes) for (const ring of lake.rings) ringPath(lakes, ring, layout, lake);
   const rivers = new Map<number, Path2D>();
-  const tracesTrunk = new Path2D();
-  const tracesMajor = new Path2D();
-  const tracesRegional = new Path2D();
   for (const line of base.rivers) {
     const p = rivers.get(line.order) ?? new Path2D();
     linePath(p, line, layout);
     rivers.set(line.order, p);
-    // Hawaii's streams are short and steep; traces there would be noise.
-    if (line.component !== 'hi') {
-      if (line.order >= 7) linePath(tracesTrunk, line, layout);
-      else if (line.order === 6) linePath(tracesMajor, line, layout);
-      else if (line.order === 5) linePath(tracesRegional, line, layout);
-    }
   }
   const detailPaths = new Map<number, Path2D>();
   for (const line of detail?.rivers ?? []) {
@@ -149,7 +127,7 @@ function buildPaths(base: DecodedGeometry, detail: DecodedGeometry | null, layou
     linePath(p, line, layout);
     detailPaths.set(line.order, p);
   }
-  return { land, lakes, rivers, detail: detailPaths, tracesTrunk, tracesMajor, tracesRegional, labels };
+  return { land, lakes, rivers, detail: detailPaths, labels };
 }
 
 interface Sprite {
@@ -224,6 +202,8 @@ function layJourney(j: Journey, rivers: DecodedLine[], layout: Layout): LaidJour
 export class NationalRenderer {
   private readonly base: HTMLCanvasElement;
   private readonly fx: HTMLCanvasElement;
+  private readonly trailsCanvas: HTMLCanvasElement;
+  private readonly trails: RiverTrails;
   private readonly marksA: HTMLCanvasElement;
   private readonly marksB: HTMLCanvasElement;
   private front: HTMLCanvasElement;
@@ -283,10 +263,15 @@ export class NationalRenderer {
       return c;
     };
     this.base = make(0);
-    this.fx = make(1);
-    this.marksA = make(2);
-    this.marksB = make(3);
+    this.fx = make(2);
+    this.marksA = make(3);
+    this.marksB = make(4);
     this.marksB.style.opacity = '0';
+    // River trails sit between the geography and the effects layer (so a
+    // journey's focus veil dims them too). Appended last: the base / fx /
+    // marks canvases keep their DOM order.
+    this.trailsCanvas = make(1);
+    this.trails = new RiverTrails(this.trailsCanvas);
     this.front = this.marksA;
     for (const c of [this.marksA, this.marksB]) {
       c.style.transition = 'opacity var(--duration-slower) var(--ease-default)';
@@ -302,13 +287,13 @@ export class NationalRenderer {
     if (this.settleTimer) clearTimeout(this.settleTimer);
     cancelAnimationFrame(this.frameHandle);
     cancelAnimationFrame(this.fxHandle);
-    for (const c of [this.base, this.fx, this.marksA, this.marksB]) c.remove();
+    for (const c of [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas]) c.remove();
   }
 
   resize(vp: Viewport) {
     this.vp = vp;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    for (const c of [this.base, this.fx, this.marksA, this.marksB]) {
+    for (const c of [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas]) {
       c.width = Math.max(1, Math.round(vp.width * this.dpr));
       c.height = Math.max(1, Math.round(vp.height * this.dpr));
     }
@@ -337,6 +322,7 @@ export class NationalRenderer {
 
   private rebuildPaths() {
     this.paths = this.geometry && this.layout ? buildPaths(this.geometry, this.detail, this.layout) : null;
+    this.trails.setNetwork(this.geometry?.rivers ?? null, this.layout);
     this.layJourney();
     this.dirtyBase = true;
     this.request();
@@ -645,7 +631,11 @@ export class NationalRenderer {
 
   private drawFx(t: number) {
     const g = this.ctx(this.fx, false);
-    if (!this.paths || !this.motion || !this.dataLive) return;
+    if (!this.paths || !this.motion || !this.dataLive) {
+      // Still means still: no trails either.
+      this.trails.clear();
+      return;
+    }
     const p = this.palette;
     const z = this.zoom();
     const { scale, tx, ty } = this.camera;
@@ -663,27 +653,19 @@ export class NationalRenderer {
       g.globalAlpha = 1;
     }
 
-    // Downstream traces: sparse light dashes travelling the digitized
-    // direction of major channels. Direction only — never a measured velocity.
-    const s = scale * this.dpr;
-    g.setTransform(s, 0, 0, s, tx * this.dpr, ty * this.dpr);
-    const px = 1 / scale;
-    const sf = this.screenScale();
-    const zf = Math.min(1.8, 1 + Math.log2(Math.max(1, z)) * 0.25);
-    g.strokeStyle = p.trace;
-    g.lineCap = 'round';
-    for (const c of TRACE_CLASSES) {
-      // The wall runs every class at the national fit: the moving network is
-      // the background texture there, not the routine gauges.
-      if (z < c.minZoom && !this.wall) continue;
-      g.lineWidth = c.width * sf * zf * px;
-      g.setLineDash([c.dash * sf * px, c.gap * sf * px]);
-      g.lineDashOffset = -((t / 1000) * c.speed * sf) * px;
-      g.globalAlpha = (this.wall ? Math.min(1, c.alpha * 1.15) : c.alpha) * (1 - 0.7 * focus);
-      g.stroke(this.paths[c.key]);
-    }
-    g.setLineDash([]);
-    g.globalAlpha = 1;
+    // The moving network: particle trails along each river's digitized
+    // downstream direction (trails.ts). Direction only — never a velocity.
+    this.trails.step(t, {
+      scale,
+      tx,
+      ty,
+      dpr: this.dpr,
+      screen: this.screenScale(),
+      zoom: z,
+      wall: this.wall,
+      focus,
+      color: p.trace,
+    });
 
     // Event rings: slow, low-amplitude expansion on current flood gauges only.
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
