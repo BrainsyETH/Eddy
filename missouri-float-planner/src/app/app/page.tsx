@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, BellRing, FileText, MapPin, Signal, Tent, Waves } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
 import AppLink from '@/components/AppLink';
@@ -65,27 +66,27 @@ const features = [
   // it leads the screenshot set, so the page says plainly that it is Premium
   // and that everything else here is free.
   {
-    icon: FileText,
+    icon: 'ai',
     title: 'A daily read on every river',
     copy: 'With Eddy Premium, a written report every morning on what the water is doing and what the weather will do to it. Everything else here is free.',
   },
   {
-    icon: Waves,
+    icon: 'gauge',
     title: 'Conditions you can use',
     copy: 'Live gauge readings become a clear Eddy rating, with recent history and dam generation schedules alongside.',
   },
   {
-    icon: MapPin,
+    icon: 'river',
     title: 'Plan the whole float',
     copy: 'Pick a put-in and take-out for mileage, estimated float time, and the shuttle, then follow the route in River Mode.',
   },
   {
-    icon: Tent,
+    icon: 'campground',
     title: 'Access and camping',
     copy: 'Put-ins, take-outs, and places to explore, plus which campgrounds along your river have openings.',
   },
   {
-    icon: BellRing,
+    icon: 'today',
     title: 'Your rivers, at a glance',
     copy: 'Home Screen widgets keep your favorite water in view, and alerts tell you when it reaches the conditions you want.',
   },
@@ -94,11 +95,11 @@ const features = [
   // thing here that is easy to overpromise, so it says exactly what survives
   // losing signal and what does not.
   {
-    icon: Signal,
+    icon: 'accessPoint',
     title: 'Works where the bars run out',
     copy: 'Access points, hazards, and the river\u2019s course stay on your phone, so a put-in with no signal still tells you where you are and what is downstream.',
   },
-] as const;
+] as const satisfies readonly { icon: EddyIconName; title: string; copy: string }[];
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { campaign, dam } = appLandingContext(await searchParams);
@@ -231,13 +232,13 @@ export default async function AppLandingPage({ searchParams }: Props) {
       <section className={styles.features} aria-labelledby="app-features-title">
         <div className={styles.sectionHeading}>
           <p className={styles.eyebrow}>WHAT EDDY DOES</p>
-          <h2 id="app-features-title">One river guide from couch to take-out.</h2>
+          <h2 id="app-features-title">Built for the whole float day.</h2>
         </div>
 
         <div className={styles.featureGrid}>
-          {features.map(({ icon: Icon, title, copy }) => (
+          {features.map(({ icon, title, copy }) => (
             <article className={styles.featureCard} key={title}>
-              <span className={styles.featureIcon}><Icon aria-hidden="true" /></span>
+              <span className={styles.featureIcon}><EddyIcon name={icon} size={34} /></span>
               <h3>{title}</h3>
               <p>{copy}</p>
             </article>

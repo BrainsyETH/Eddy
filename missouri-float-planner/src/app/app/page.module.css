@@ -331,6 +331,7 @@
 .sectionHeading h2,
 .bottomCta h2 {
   margin: 0;
+  text-wrap: balance;
   font-size: clamp(2.4rem, 5vw, 4.2rem);
   line-height: 1.02;
 }
@@ -352,20 +353,16 @@
 }
 
 .featureIcon {
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   border: 3px solid #2d2a24;
-  border-radius: 15px;
-  background: #d4eaef;
-  color: #1d525f;
+  border-radius: 16px;
+  /* Eddy's marks are fixed-colour art (see EddyIcon), so the well is the
+     page's sand rather than a tint that would fight their palette. */
+  background: #f4efe7;
   display: grid;
   place-items: center;
   box-shadow: 4px 4px 0 #2d2a24;
-}
-
-.featureIcon svg {
-  width: 25px;
-  height: 25px;
 }
 
 .featureCard h3 {
