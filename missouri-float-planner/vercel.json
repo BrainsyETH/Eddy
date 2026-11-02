@@ -21,6 +21,9 @@
     "src/app/api/cron/sync-gauge-latest/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/cron/record-river-map-frame/route.ts": {
+      "maxDuration": 120
+    },
     "src/app/api/cron/sync-dam-history/route.ts": {
       "maxDuration": 300
     },
@@ -94,6 +97,10 @@
     {
       "path": "/api/cron/sync-gauge-latest",
       "schedule": "5,20,35,50 * * * *"
+    },
+    {
+      "path": "/api/cron/record-river-map-frame",
+      "schedule": "12,27,42,57 * * * *"
     },
     {
       "path": "/api/cron/sync-dam-history",

@@ -22,5 +22,6 @@ successor), `historical` (context only), `open` (recorded but not yet decided).
 | [0014](0014-float-recording-is-native.md) | Float recording is native: Core Location sessions, an on-phone journal, minimum iOS 18 | active |
 | [0016](0016-ios-dark-mode-uses-neutral-charcoal.md) | Native dark appearance uses neutral charcoal surfaces and readable neutral text | active |
 | [0017](0017-dam-read-states-a-recent-pattern.md) | A dam's Eddy's Read states its recent generation pattern, under the posted schedule, as Premium | active |
+| [0018](0018-national-river-map.md) | The national Live River Map: recorded frames, an own composite-projection renderer, quoted NWS flood status | active |
 
 - [0015: Station links, fixed chart views, and share images](0015-gauge-and-chart-sharing.md)

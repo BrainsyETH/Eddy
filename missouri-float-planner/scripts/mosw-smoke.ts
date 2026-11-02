@@ -1,4 +1,4 @@
-// Playwright smoke for /river-map — run manually with:
+// Playwright smoke for /river-map/ozarks (the curated Ozarks observatory) — run manually with:
 //
 //   npx tsx scripts/mosw-smoke.ts [--url http://localhost:3000]
 //
@@ -286,7 +286,7 @@ async function main() {
   server?.stdout?.on('data', data => process.stdout.write(data));
   server?.stderr?.on('data', data => process.stderr.write(data));
   mkdirSync(OUT_DIR, { recursive: true });
-  const target = `${baseUrl}/river-map`;
+  const target = `${baseUrl}/river-map/ozarks`;
   await waitForServer(target);
   // First hit compiles the route; do a throwaway warm-up so the timing run
   // measures the app, not the dev compiler.

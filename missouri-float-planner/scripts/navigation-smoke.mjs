@@ -123,7 +123,7 @@ try {
   server.stdout.on('data', data => { serverLog += data; });
   server.stderr.on('data', data => { serverLog += data; });
   console.log('Starting navigation smoke server');
-  const url = `${origin}/${productionMapOnly ? 'river-map' : 'navigation-layout-check'}`;
+  const url = `${origin}/${productionMapOnly ? 'river-map/ozarks' : 'navigation-layout-check'}`;
   let ready = false;
   const startupDeadline = Date.now() + 240_000;
   while (Date.now() < startupDeadline) {
@@ -278,10 +278,13 @@ try {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         await page.getByRole('link', { name: /^Open the live river map$/i }).click();
         await page.waitForURL('**/river-map');
-        await page.evaluate(() => history.replaceState(null, '', '/river-map?river=current'));
+        // /river-map is the national map; the curated Ozarks observatory, which
+        // owns ?river= deep links, lives one level down.
+        await page.goto(`${origin}/river-map/ozarks`, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(() => history.replaceState(null, '', '/river-map/ozarks?river=current'));
         await page.getByRole('dialog', { name: 'Current River', exact: true }).waitFor({ timeout: 45000 });
         assert.equal(new URL(page.url()).searchParams.get('river'), 'current');
-        await page.evaluate(() => history.pushState(null, '', '/river-map?river=meramec'));
+        await page.evaluate(() => history.pushState(null, '', '/river-map/ozarks?river=meramec'));
         await page.getByRole('dialog', { name: 'Meramec River', exact: true }).waitFor();
         await page.goBack();
         await page.getByRole('dialog', { name: 'Current River', exact: true }).waitFor();
@@ -316,7 +319,7 @@ try {
     }
     if (width === 390) {
       stressMap = true;
-      await page.goto(`${origin}/river-map`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${origin}/river-map/ozarks`, { waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: '60/60 rivers floatable', exact: true }).click();
       const tile = page.locator('button[title^="Show only Flowing"], button[title^="Clear Flowing"]');
       await tile.waitFor();

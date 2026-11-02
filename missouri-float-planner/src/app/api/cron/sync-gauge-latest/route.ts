@@ -41,10 +41,11 @@ export const dynamic = 'force-dynamic';
 // which is what actually applies it on deploy.
 export const maxDuration = 300;
 
-// SCHEDULED AT :20, not :00 (vercel.json). update-gauges runs hourly at :00 and
-// again every 15 minutes, and both take the same cron lock table; putting the
-// heavy national pass on a different minute keeps them from queueing behind
-// each other every hour.
+// SCHEDULED AT :05/:20/:35/:50, never :00 (vercel.json) — every 15 minutes,
+// confirmed in production's fetched_at stamps on 2026-11-02. update-gauges runs
+// at :00/:15/:30/:45 and both take the same cron lock table; offsetting the
+// heavy national pass keeps them from queueing behind each other.
+// /api/cron/record-river-map-frame captures each pass seven minutes later.
 
 const JOB = 'sync_gauge_latest';
 const UPSERT_CHUNK = 1000;
@@ -109,7 +110,7 @@ async function runSync(request: NextRequest) {
   const supabase = createAdminClient();
 
   // 280s stale window: just under maxDuration, so a lambda killed mid-pass
-  // frees the lock for the next hourly run rather than wedging the job.
+  // frees the lock for the next 15-minute run rather than wedging the job.
   const locked = await tryCronLock(supabase, JOB, 280);
   if (!locked) {
     return NextResponse.json({ skipped: 'another run holds the lock' });

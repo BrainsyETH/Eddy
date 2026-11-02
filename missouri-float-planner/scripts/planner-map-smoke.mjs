@@ -242,7 +242,7 @@ try {
     await new Promise(r => setTimeout(r, 500));
   }
   assert(ready, log.slice(-5000));
-  assert((await fetch(`${origin}/river-map`)).ok, 'Prewarm the second map before browser hydration');
+  assert((await fetch(`${origin}/river-map/ozarks`)).ok, 'Prewarm the second map before browser hydration');
   browser = await chromium.launch({
     headless: true,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH,

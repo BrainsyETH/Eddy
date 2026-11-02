@@ -19,7 +19,7 @@ export function navigationRiver(pathname: string, search = ''): string | null {
     }
     return riverSlug(parts[1]); // Legacy /rivers/current redirects remain usable.
   }
-  if (['/plan', '/find-float', '/river-map'].includes(pathname)) {
+  if (['/plan', '/find-float', '/river-map/ozarks'].includes(pathname)) {
     return riverSlug(new URLSearchParams(search).get('river'));
   }
   return null;

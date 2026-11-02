@@ -1,5 +1,6 @@
 # .github/workflows/mosw-smoke.yml
-# Fixture-backed Playwright smoke for the /river-map observatory. All
+# Fixture-backed Playwright smoke for the /river-map/ozarks observatory and the
+# national Live River Map at /river-map (scripts/national-map-smoke.ts). All
 # /api/usgs/* routes are intercepted with synthetic data, so this needs no
 # Supabase/USGS secrets — it asserts UI behavior: time-to-first-particle,
 # reduced-motion never starts the flow layer, the honest dock stamp,
@@ -15,6 +16,12 @@ on:
       - 'missouri-float-planner/src/components/mo-surface-water/**'
       - 'missouri-float-planner/src/lib/usgs/**'
       - 'missouri-float-planner/src/app/river-map/**'
+      # The national Live River Map (/river-map) and its data contract.
+      - 'missouri-float-planner/src/components/national-map/**'
+      - 'missouri-float-planner/src/lib/national-map/**'
+      - 'missouri-float-planner/src/app/api/river-map/**'
+      - 'missouri-float-planner/public/river-map/**'
+      - 'missouri-float-planner/scripts/national-map-smoke.ts'
       - 'missouri-float-planner/src/app/api/usgs/**'
       - 'missouri-float-planner/shared/condition-system.ts'
       # The reading card and threshold table render INSIDE the surface-water
@@ -74,6 +81,12 @@ jobs:
 
       - name: Run smoke
         run: node --import tsx scripts/mosw-smoke.ts
+
+      - name: National Live River Map
+        if: success() || failure()
+        run: node --import tsx scripts/national-map-smoke.ts
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: National gauges on both maps
         if: success() || failure()
