@@ -119,7 +119,7 @@ export function FloatResults({ snapshot, stale, sort, onSort, onPlan, recoveryOp
           </p>
         </div>
         {routes.length > 1 && <label className="flex items-center gap-2 text-sm font-semibold">Sort
-          <select className="input w-auto py-2 font-normal" value={sort} onChange={e => onSort(e.target.value as FloatSort)}>
+          <select className="input input--compact font-normal" value={sort} onChange={e => onSort(e.target.value as FloatSort)}>
             {sorts.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>}

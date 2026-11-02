@@ -737,6 +737,19 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 48px;
 }
 
+/* The phone Filters sheet (find-float/FloatFilters.tsx) rises from the bottom. */
+@keyframes filter-sheet-in {
+  from { transform: translateY(100%); }
+}
+
+.filter-sheet[open] {
+  animation: filter-sheet-in var(--duration-normal, 250ms) var(--ease-out-expo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-sheet[open] { animation: none; }
+}
+
 /* ===== CARDS ===== */
 
 .card {
@@ -983,6 +996,35 @@ h1, h2, h3, h4, h5, h6 {
   outline: none;
   border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+/* Room for one or two 44px icon buttons inside the field's right edge. A
+   utility (pr-12) cannot do this: .input is declared after the utilities, so
+   its padding shorthand wins. */
+.input--trailing-1 {
+  padding-right: 3.25rem;
+}
+
+.input--trailing-2 {
+  padding-right: 6.25rem;
+}
+
+/* A smaller field for a secondary choice beside or under a main one; still a
+   44px tap target. */
+.input--compact {
+  width: auto;
+  max-width: 100%;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+
+select.input--compact {
+  padding-left: 0.75rem;
+  padding-right: 2.25rem;
+  background-position: right 0.625rem center;
+  background-size: 1rem;
 }
 
 /* A <select> styled as an input. The native arrow sits flush against the

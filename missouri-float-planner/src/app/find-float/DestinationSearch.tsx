@@ -25,6 +25,10 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
   const [places, setPlaces] = useState<FloatSearchPlace[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  // The suggestion list's height: whatever is visible below the field, which
+  // on a phone means above the keyboard.
+  const [listHeight, setListHeight] = useState<number>();
   const id = useId();
   const listId = `${id}-destinations`;
   const term = query?.trim() ?? '';
@@ -42,8 +46,44 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
   const activeId = open && activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined;
 
   useEffect(() => {
-    if (activeId) document.getElementById(activeId)?.scrollIntoView({ block: 'nearest' });
+    // Scroll only the list: scrollIntoView would also move the page, and can
+    // carry the field out of view above a phone keyboard.
+    const list = listRef.current;
+    const option = activeId ? document.getElementById(activeId) : null;
+    if (!list || !option) return;
+    const box = list.getBoundingClientRect(), row = option.getBoundingClientRect();
+    if (row.top < box.top) list.scrollTop -= box.top - row.top;
+    else if (row.bottom > box.bottom) list.scrollTop += row.bottom - box.bottom;
   }, [activeId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const viewport = window.visualViewport;
+    const fit = () => {
+      const field = inputRef.current?.getBoundingClientRect();
+      if (!field) return;
+      // Layout-viewport coordinates: the visible area ends at the visual viewport's bottom.
+      const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+      setListHeight(Math.max(132, Math.min(320, Math.floor(visibleBottom - field.bottom - 16))));
+    };
+    fit();
+    // On a phone, bring the field toward the top so the list has room above the
+    // keyboard. Wait for the keyboard to open, which resizes the visual viewport.
+    const lift = window.matchMedia('(max-width: 639px)').matches ? window.setTimeout(() => {
+      const field = inputRef.current?.getBoundingClientRect();
+      const visible = viewport?.height ?? window.innerHeight;
+      if (field && field.bottom > visible * 0.4) inputRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 250) : undefined;
+    viewport?.addEventListener('resize', fit);
+    viewport?.addEventListener('scroll', fit);
+    window.addEventListener('scroll', fit, { passive: true });
+    return () => {
+      window.clearTimeout(lift);
+      viewport?.removeEventListener('resize', fit);
+      viewport?.removeEventListener('scroll', fit);
+      window.removeEventListener('scroll', fit);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || term.length < 2) return;
@@ -113,7 +153,7 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
           aria-autocomplete="list"
           aria-expanded={open}
           aria-activedescendant={activeId}
-          className={`input ${clearable ? 'pr-24' : 'pr-12'}`}
+          className={`input scroll-mt-20 ${clearable ? 'input--trailing-2' : 'input--trailing-1'}`}
           placeholder="River, access, or town"
           autoComplete="off"
           maxLength={120}
@@ -160,7 +200,7 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
             {locating ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <Navigation size={18} aria-hidden="true" />}
           </button>
         </div>
-        {open && <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2 shadow-soft-lg">
+        {open && <div ref={listRef} style={{ maxHeight: listHeight }} className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-2 shadow-soft-lg">
           <div id={listId} role="listbox" aria-label="Destinations">
             {locateOptions.map((option, index) => renderOption(option, index))}
             {group('Rivers', riverOptions, locateOptions.length, !locateOptions.length)}
