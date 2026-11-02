@@ -65,19 +65,22 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
   const temperature = dam.metrics.tailwaterTempF;
   const measured = readingAgeLine(flow, temperature, now);
   const scheduleCheck = dam.hasTurbines ? scheduleSectionCheck(dam.schedule, dam.generationReference, now, true) : null;
+  const place = [dam.lakeName, dam.state].filter(Boolean).join(' · ');
 
   return (
     <Card as="article" variant="framed" className="flex h-full min-w-0 flex-col">
-      <div className="border-b border-neutral-200">
-        <Link href={href} prefetch={false} className="flex min-h-11 items-center justify-between gap-3 bg-primary-800 px-4 py-3.5 transition-colors hover:bg-primary-900 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-200 sm:px-5">
+      <div>
+        {/* A plain title row rather than a teal band, matching the river card
+            and the iOS app: teal is kept for links and data. */}
+        <Link href={href} prefetch={false} className="flex min-h-11 items-center justify-between gap-3 px-4 pb-2.5 pt-3.5 transition-colors hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-600 sm:px-5">
           <div className="min-w-0">
-            <h3 className="font-heading text-xl font-bold leading-6 text-white">{dam.name}</h3>
-            {dam.lakeName && <p className="mt-0.5 text-sm text-primary-100">{dam.lakeName}</p>}
+            <h3 className="font-heading text-xl font-bold leading-6 text-neutral-900">{dam.name}</h3>
+            {place && <p className="mt-0.5 text-[13px] leading-[18px] text-neutral-600">{place}</p>}
           </div>
-          <ChevronRight className="size-5 shrink-0 text-primary-200" aria-hidden="true" />
+          <ChevronRight className="size-5 shrink-0 text-neutral-500" aria-hidden="true" />
         </Link>
 
-        <div className="bg-secondary-100 px-4 py-3 sm:px-5">
+        <div className="mx-3 rounded-xl bg-secondary-50 px-3 py-3 sm:mx-4 sm:px-4">
           <dl className="grid grid-cols-2 gap-x-3 gap-y-3">
             <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" />
             <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" />

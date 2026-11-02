@@ -158,7 +158,7 @@ export default function ConditionsExplorer({ rivers: initialRivers, dams: initia
         ? <><DamListCard dam={destination.dam} now={now} href={destination.href} />
           {distance != null && <p className="mt-2 text-xs text-neutral-500">{Math.max(1, Math.round(distance))} mi away</p>}</>
         : destination.group
-          ? <RiverCard riverGroup={destination.group} meta={destination.meta} href={destination.href} distanceMiles={distance} />
+          ? <RiverCard riverGroup={destination.group} href={destination.href} distanceMiles={distance} />
           : <RiverReportFallback river={destination.river} loading={riversLoading} />}
     </div>;
   };

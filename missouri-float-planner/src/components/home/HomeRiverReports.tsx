@@ -136,7 +136,7 @@ export default function HomeRiverReports({ rivers, dams: initialDams, renderedAt
           {destination.kind === 'dams'
             ? <DamListCard dam={destination.dam} now={now} href={destination.href} />
             : destination.group
-              ? <RiverCard riverGroup={destination.group} meta={destination.meta} href={destination.href} />
+              ? <RiverCard riverGroup={destination.group} href={destination.href} />
               : <RiverReportFallback river={destination.river} loading={isLoading} />}
         </div>)}
       </div>
