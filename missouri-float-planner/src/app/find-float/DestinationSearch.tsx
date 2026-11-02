@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { Loader2, MapPin, Navigation, Waves, X } from 'lucide-react';
+import { Loader2, MapPin, Navigation, X } from 'lucide-react';
+import { EddyIcon } from '@/components/ui/EddyIcon';
 import Button from '@/components/ui/Button';
 import type { RiverListItem } from '@/types/api';
 import type { FloatSearchPlace } from '@shared/float-search';
@@ -124,12 +125,16 @@ export default function DestinationSearch({ rivers, selected, locating, usingLoc
   function close() { setOpen(false); setActiveKey(null); setQuery(null); }
 
   function renderOption(option: Option, index: number) {
-    const Icon = option.locate ? Navigation : option.source === 'town' ? MapPin : Waves;
+    // Rivers and accesses get Eddy's marks; a town and your own location are
+    // not river things and keep plain glyphs, which also tells the groups apart.
+    const mark = option.locate ? <Navigation size={16} className="shrink-0" aria-hidden="true" />
+      : option.source === 'town' ? <MapPin size={16} className="shrink-0" aria-hidden="true" />
+      : <EddyIcon name={option.source === 'access' ? 'boatRamp' : 'river'} size={20} className="shrink-0" />;
     return <Button key={option.key} id={`${id}-option-${index}`} role="option" tabIndex={-1}
       aria-selected={activeKey === option.key} variant="ghost"
       className={`w-full !justify-start text-left ${activeKey === option.key ? 'bg-[var(--color-surface-hover)] outline outline-2 -outline-offset-2 outline-primary-500' : ''}`}
       onMouseDown={e => e.preventDefault()} onClick={() => choose(option)}>
-      <Icon size={16} className="shrink-0" aria-hidden="true" />{option.name}
+      {mark}{option.name}
     </Button>;
   }
 

@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, CircleDollarSign, Footprints, LifeBuoy, SlidersHorizontal, X } from 'lucide-react';
+import { EddyIcon } from '@/components/ui/EddyIcon';
+import { LayerRow } from '@/components/ui/LayerRow';
 import {
   FLOAT_FILTER_GROUPS, FLOAT_PUBLIC_ONLY_LABEL, floatFilterCount, floatFilterSelections,
   type FloatFilterKey, type FloatSearchInput,
@@ -10,20 +12,30 @@ import {
 // Below Tailwind's `sm`, filters open in a bottom sheet instead of inline.
 const PHONE = '(max-width: 639px)';
 
-function Check({ on, label, onChange }: { on: boolean; label: string; onChange: () => void }) {
-  return <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)]">
-    <input type="checkbox" checked={on} onChange={onChange} className="h-5 w-5 shrink-0 cursor-pointer accent-primary-500" />
-    <span className={on ? 'font-semibold' : ''}>{label}</span>
-  </label>;
-}
+// Each row's mark: Eddy's own drawing where the catalog has one for the idea,
+// otherwise a Lucide glyph, which LayerRow tints per state. Typed by filter
+// key, so a new filter cannot ship without a mark.
+const glyph = 'h-4 w-4';
+const MARKS: Record<FloatFilterKey | 'publicOnly', ReactNode> = {
+  publicOnly: <EddyIcon name="boatRamp" size={20} />,
+  restrooms: <EddyIcon name="facilities" size={20} />,
+  camping: <EddyIcon name="campground" size={20} />,
+  noFees: <CircleDollarSign className={glyph} />,
+  smoothRoads: <EddyIcon name="road" size={20} />,
+  beginner: <LifeBuoy className={glyph} />,
+  springFed: <EddyIcon name="spring" size={18} />,
+  noPortages: <Footprints className={glyph} />,
+  goodConditions: <EddyIcon name="gaugeStation" size={20} />,
+  shuttle: <EddyIcon name="outfitter" size={20} />,
+};
 
 function Groups({ input, onChange }: { input: FloatSearchInput; onChange: (patch: Partial<FloatSearchInput>) => void }) {
   const toggle = (key: FloatFilterKey) => onChange({ filters: { ...input.filters, [key]: !input.filters?.[key] } });
   return <>
     {FLOAT_FILTER_GROUPS.map(group => <fieldset key={group.title} className="min-w-0">
-      <legend className="mb-1 px-2 text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">{group.title}</legend>
-      {group.title === 'Access' && <Check on={input.publicOnly} label={FLOAT_PUBLIC_ONLY_LABEL} onChange={() => onChange({ publicOnly: !input.publicOnly })} />}
-      {group.filters.map(filter => <Check key={filter.key} on={Boolean(input.filters?.[filter.key])} label={filter.label} onChange={() => toggle(filter.key)} />)}
+      <legend className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-[color:var(--color-text-muted)]">{group.title}</legend>
+      {group.title === 'Access' && <LayerRow mark={MARKS.publicOnly} label={FLOAT_PUBLIC_ONLY_LABEL} on={input.publicOnly} onClick={() => onChange({ publicOnly: !input.publicOnly })} />}
+      {group.filters.map(filter => <LayerRow key={filter.key} mark={MARKS[filter.key]} label={filter.label} on={Boolean(input.filters?.[filter.key])} onClick={() => toggle(filter.key)} />)}
     </fieldset>)}
   </>;
 }
@@ -100,7 +112,7 @@ export default function FloatFilters({ input, onChange, children }: {
       {!open && selections.length > 0 && <p className="min-w-0 text-sm text-[var(--color-text-secondary)]">{selections.join(' · ')}</p>}
       {open && reset}
     </div>
-    <div id={panel} hidden={!open} className={`${open ? 'grid' : 'hidden'} gap-x-6 gap-y-4 rounded-lg border border-[var(--color-border)] p-3 sm:col-span-2 md:grid-cols-3`}>
+    <div id={panel} hidden={!open} className={`${open ? 'grid' : 'hidden'} gap-x-6 gap-y-4 rounded-lg border-2 border-primary-700 bg-[var(--color-surface)] px-3 py-2.5 shadow-md sm:col-span-2 md:grid-cols-3`}>
       {open && <Groups input={input} onChange={onChange} />}
     </div>
     <div className={`flex flex-wrap items-center justify-end gap-3 ${open ? 'sm:col-span-2' : 'sm:col-start-2 sm:row-start-1'}`}>{children}</div>
@@ -117,7 +129,7 @@ export default function FloatFilters({ input, onChange, children }: {
               className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"><X size={20} aria-hidden="true" /></button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-2 py-3">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-3">
           <Groups input={input} onChange={onChange} />
         </div>
         <div className="flex flex-col gap-2 border-t border-[var(--color-border)] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">{children}</div>
