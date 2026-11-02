@@ -297,7 +297,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Check this is a placeholder line rather than the catalog-wide import tolerance.',
     where: 'select st_npoints(geom) from rivers where slug = ...',
     method:
-      'The threshold is 3/mile, not the 5 it used to be, because 5 fired on 22 of 24 rivers — the import thins every line with Douglas-Peucker at 0.0005 deg and the whole catalog lands at 3-5 pts/mile, which is one fact filed 22 times. Below 3 is a different thing: a line nobody traced. If a re-import is ever on the table anyway, note that quartering the vertex count costs under 6% of channel length, so density is not where mileage accuracy is won. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is a ~400 m chord cutting the inside of a meander, not a point jumping to a vertex.',
+      'The threshold is 2/mile, down from 5 and then 3, because every line is thinned with Douglas-Peucker at 0.0005 deg and density at a fixed tolerance tracks how much a channel curves, not how well it was traced: the catalog lands at 2.4-5 pts/mile (the broad White tailwater lowest, with chords no longer than the Gasconade\'s). Check the longest gap between vertices before anything else — a traced line has none much over 2 km; a placeholder has gaps of miles. If a re-import is ever on the table anyway, note that quartering the vertex count costs under 6% of channel length, so density is not where mileage accuracy is won. ST_LineLocatePoint does not round to vertices — it interpolates along the nearest segment — so the risk is a ~400 m chord cutting the inside of a meander, not a point jumping to a vertex.',
   },
   length_miles_disagrees_geometry: {
     kind: 'investigate',
@@ -356,7 +356,7 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     action: 'Either the gauges belong to another river or the line stops short of them.',
     where: '/admin/geography',
     method:
-      'A proxy gauge on a neighbouring river is a legitimate reason for this to fire and is not a defect — Courtois borrows Huzzah\'s gauge about five miles off its own line.',
+      'A proxy gauge on a neighbouring river is not a defect. If that is what this is, add the link to REVIEWED_PROXY_GAUGES in src/lib/trust/checks/river-geometry.ts, naming the river the gauge actually sits on — the rule then stays quiet only while the gauge is still found on that host river. Courtois borrowing Huzzah\'s gauge is the existing entry.',
   },
   bbox_outside_state: {
     kind: 'investigate',

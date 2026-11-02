@@ -5,7 +5,9 @@ import {
   coordsPerMileOf,
   deriveRiverGeometryIssues,
   geometryLengthMiles,
+  isConfirmedProxyGauge,
   isOutsideStateBounds,
+  REVIEWED_PROXY_GAUGES,
   type RiverGeometryMetrics,
 } from './river-geometry';
 
@@ -22,6 +24,7 @@ function metrics(overrides: Partial<RiverGeometryMetrics> = {}): RiverGeometryMe
     geometryStartsAtHeadwaters: true,
     gaugeCount: 3,
     gaugesOnRiver: 2,
+    reviewedProxyGauges: 0,
     state: 'MO',
     ...overrides,
   };
@@ -60,7 +63,7 @@ test('a real but sparse geometry reports the point count', () => {
 
 test('low coordinate density is reported separately from a low point count', () => {
   // A long river can carry hundreds of points and still be under-sampled.
-  const found = keys({ coordinateCount: 200, coordsPerMile: 2.1 });
+  const found = keys({ coordinateCount: 200, coordsPerMile: 1.6 });
   assert.deepEqual(found, ['coordinate_density_low']);
 });
 
@@ -84,6 +87,36 @@ test('gauges linked but none near the line is reported', () => {
   // The misassociation class: either the gauges belong to another river or the
   // geometry stops short of them.
   assert.deepEqual(keys({ gaugeCount: 3, gaugesOnRiver: 0 }), ['no_gauges_near_geometry']);
+});
+
+// ── reviewed proxy gauges ────────────────────────────────────────
+//
+// Courtois Creek borrows Huzzah's gauge, ~3 km off its own line. It sat as an
+// open high finding through four releases because the data cannot tell a
+// borrowed gauge from a mis-wired one; the review is recorded in code instead.
+
+test('a confirmed proxy gauge silences the near-geometry rule', () => {
+  assert.deepEqual(keys({ gaugeCount: 1, gaugesOnRiver: 0, reviewedProxyGauges: 1 }), []);
+});
+
+test('a proxy only counts when found on the river it is borrowed from', () => {
+  assert.equal(isConfirmedProxyGauge('courtois', '07014000', 'huzzah'), true);
+  // Found near nothing: the host geometry broke or the gauge moved.
+  assert.equal(isConfirmedProxyGauge('courtois', '07014000', null), false);
+  // Found on some other river: that is the misassociation the rule is for.
+  assert.equal(isConfirmedProxyGauge('courtois', '07014000', 'meramec'), false);
+  // The entry covers one link, not the river and not the gauge.
+  assert.equal(isConfirmedProxyGauge('courtois', '07019000', 'huzzah'), false);
+  assert.equal(isConfirmedProxyGauge('meramec', '07014000', 'huzzah'), false);
+  assert.equal(isConfirmedProxyGauge('courtois', undefined, 'huzzah'), false);
+});
+
+test('every reviewed proxy is dated, explained, and borrowed from another river', () => {
+  for (const p of REVIEWED_PROXY_GAUGES) {
+    assert.match(p.reviewedOn, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(p.reason.length > 40, `${p.river}/${p.siteId} needs a real reason`);
+    assert.notEqual(p.river, p.hostRiver, 'a gauge on its own river is not a proxy');
+  }
 });
 
 test('a river with no gauges at all reports that instead', () => {
@@ -174,11 +207,11 @@ test('the interpolated sentences still read the way the admin page expects', () 
   // /api/admin/river-health renders issue.message directly and
   // src/app/admin/data-sync/page.tsx displays the list, so these strings are a
   // UI contract, not internal text.
-  const issues = deriveRiverGeometryIssues(metrics({ coordinateCount: 4, coordsPerMile: 2.1 }));
+  const issues = deriveRiverGeometryIssues(metrics({ coordinateCount: 4, coordsPerMile: 1.6 }));
   const messages = issues.map((i) => i.message);
   assert.equal(messages.includes('Very low coordinate density (4 points)'), true);
   assert.equal(
-    messages.includes('Low coordinate density: 2.1 pts/mile of channel (under 3)'),
+    messages.includes('Low coordinate density: 1.6 pts/mile of channel (under 2)'),
     true,
   );
 });
@@ -244,20 +277,28 @@ test('a stale length_miles cannot flatter a sparse geometry', () => {
 test('the whole catalog does not fire on one import tolerance', () => {
   // Every active river fell between 3.1 and 5.1 pts/mile on 2026-08-05, because
   // they all came out of one Douglas-Peucker pass. At a threshold of 5 that was
-  // 22 findings describing one fact. Gasconade is the sparsest at 3.14.
+  // 22 findings describing one fact. Gasconade was the sparsest NHD-imported
+  // line at 3.14.
   assert.equal(keys({ coordsPerMile: 3.14 }).includes('coordinate_density_low'), false);
   assert.equal(keys({ coordsPerMile: 5.1 }).includes('coordinate_density_low'), false);
+  // The White below Bull Shoals, 2026-11-02: 218 vertices over 89.5 miles of a
+  // broad tailwater, longest chord no longer than the Gasconade's. Same
+  // tolerance, fewer bends — not a placeholder.
+  assert.equal(
+    keys({ coordsPerMile: coordsPerMileOf(218, 89.49) }).includes('coordinate_density_low'),
+    false,
+  );
   // A placeholder line is still caught, which is what the rule is for.
-  assert.equal(keys({ coordsPerMile: 2.4 }).includes('coordinate_density_low'), true);
+  assert.equal(keys({ coordsPerMile: 1.2 }).includes('coordinate_density_low'), true);
 });
 
 test('the density sentence states the threshold it actually enforces', () => {
   // It read "(recommend 10+)" while the rule fired below 5, so it asked for a
   // number the check does not enforce and nothing in between ever appeared.
-  const [issue] = deriveRiverGeometryIssues(metrics({ coordsPerMile: 2.4 })).filter(
+  const [issue] = deriveRiverGeometryIssues(metrics({ coordsPerMile: 1.2 })).filter(
     (i) => i.ruleKey === 'coordinate_density_low',
   );
-  assert.match(issue.message, /under 3/);
+  assert.match(issue.message, /under 2/);
   assert.doesNotMatch(issue.message, /10\+/);
 });
 
