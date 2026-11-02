@@ -11,11 +11,12 @@ import Button from '@/components/ui/Button';
 import Segmented from '@/components/ui/Segmented';
 import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
 import { EddyIcon } from '@/components/ui/EddyIcon';
-import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type Site } from '@/lib/national-map/marks';
+import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type MarkStyle, type Site } from '@/lib/national-map/marks';
 import type { Appearance, FlowColors, WallText } from '@/lib/national-map/prefs';
 import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
 import type { MapPalette } from '@/lib/national-map/theme';
-import { FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
+import { ChangeLegend, FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
+import { thresholdNote, WINDOW_MIN_SHARE, WINDOW_MS, type ChangeSummary, type ChangeWindow } from '@/lib/national-map/change';
 import styles from './national-map.module.css';
 
 const nf = new Intl.NumberFormat('en-US');
@@ -29,12 +30,84 @@ const WALL_TEXT_OPTIONS = [
 export const VIEW_OPTIONS = [
   { value: 'flow' as const, label: 'Flow' },
   { value: 'flooding' as const, label: 'Flooding' },
+  { value: 'change' as const, label: 'Change' },
 ];
 
 export const VIEW_QUESTION: Record<MapView, string> = {
   flow: 'Where are rivers running higher or lower than usual for this time of year?',
   flooding: 'Where have observations reached official NWS flood stages?',
+  change: 'Where have rivers risen or fallen recently, and where has flooding begun or ended?',
 };
+
+// ── Change panel (Explore) ──────────────────────────────────────────────────
+
+const WINDOW_LABEL: Record<ChangeWindow, string> = { '6h': 'Last 6 h', '24h': 'Last 24 h' };
+
+/**
+ * The Change view's legend block: which window is compared (only windows the
+ * recorded history supports are offered), the marks with counts, and the
+ * method — flow thresholds are provisional until calibrated. Before history
+ * reaches any window it says when comparisons begin instead of drawing.
+ */
+export function ChangePanel({
+  windows,
+  window,
+  onWindow,
+  summary,
+  palette,
+  oldest,
+  infoColors,
+}: {
+  windows: ChangeWindow[];
+  window: ChangeWindow | null;
+  onWindow: (w: ChangeWindow) => void;
+  summary: ChangeSummary | null;
+  palette: MapPalette;
+  /** Oldest recorded frame (epoch ms), when known. */
+  oldest: number | null;
+  infoColors: InfoTipColors;
+}) {
+  if (!window) {
+    const opens = oldest !== null ? oldest + WINDOW_MS['6h'] * WINDOW_MIN_SHARE : null;
+    return (
+      <p className="text-sm leading-snug">
+        Change compares each gauge with a recorded snapshot from the start of the window.{' '}
+        {opens !== null
+          ? `Recording began ${formatTime(oldest)}; 6-hour comparisons start about ${formatTime(opens)}, 24-hour comparisons a day after recording began.`
+          : 'Snapshot history is not available yet.'}
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {windows.length > 1 && (
+        <Segmented
+          options={windows.map((w) => ({ value: w, label: WINDOW_LABEL[w] }))}
+          value={window}
+          onChange={onWindow}
+          size="sm"
+          stretch
+          aria-label="Compare over"
+        />
+      )}
+      <ChangeLegend palette={palette} summary={summary} windowLabel={WINDOW_LABEL[window]} />
+      {summary && (
+        <p className={`flex items-start gap-1 text-xs ${styles.muted}`}>
+          <span>
+            {nf.format(summary.compared)} gauges compared over the {WINDOW_LABEL[window].toLowerCase()}. Not whether a river is safe or good to float.
+          </span>
+          <InfoTip
+            title="How change is measured"
+            body={`Each gauge now against the recorded snapshot ${window === '24h' ? '24' : '6'} hours ago. Flood crossings are NWS's own categories in both, coloured by the highest category involved. ${thresholdNote(window)} A reading flagged by USGS, an earlier reading that was not current, or a jump too large to trust is never shown as a change.`}
+            ariaLabel="How change is measured"
+            colors={infoColors}
+            quiet
+          />
+        </p>
+      )}
+    </div>
+  );
+}
 
 // ── Freshness line ──────────────────────────────────────────────────────────
 
@@ -103,6 +176,7 @@ export function ExplorePanel({
   clock,
   onPickSite,
   infoColors,
+  changePanel,
 }: {
   view: MapView;
   onView: (v: MapView) => void;
@@ -118,10 +192,13 @@ export function ExplorePanel({
   /** Wraps the always-visible rows, so the map can fit below them on phones. */
   measureRef?: React.Ref<HTMLDivElement>;
   panelRef?: React.Ref<HTMLDivElement>;
-  notable: Array<{ index: number; site: Site }>;
+  /** The list under the legend; `style` overrides the view's own mark (Change). */
+  notable: Array<{ index: number; site: Site; style?: MarkStyle | null; detail?: string }>;
   clock: number;
   onPickSite: (index: number) => void;
   infoColors: InfoTipColors;
+  /** The Change view's legend block (window choice, marks, method), built by the parent. */
+  changePanel?: ReactNode;
 }) {
   const [legendOpen, setLegendOpen] = useState(!compact && !short);
   useEffect(() => setLegendOpen(!compact && !short), [compact, short]);
@@ -165,7 +242,9 @@ export function ExplorePanel({
         </button>
         <div id={legendId} hidden={!legendOpen} className="space-y-2">
           {compact && <p className="text-sm leading-snug">{VIEW_QUESTION[view]}</p>}
-          {view === 'flow' ? (
+          {view === 'change' ? (
+            changePanel
+          ) : view === 'flow' ? (
             <>
               <FlowLegend palette={palette} summary={flow} />
               {flow && (
@@ -208,10 +287,15 @@ export function ExplorePanel({
           )}
           {notable.length > 0 && (
             <div className="pt-1">
-              <p className="text-xs font-semibold">{view === 'flooding' ? 'Flooding now' : 'Most unusual now'}</p>
+              <p className="text-xs font-semibold">{view === 'flooding' ? 'Flooding now' : view === 'change' ? 'Biggest changes' : 'Most unusual now'}</p>
               <ul className="mt-1 space-y-0.5">
-                {notable.map(({ index, site }) => {
-                  const style = view === 'flooding' ? floodStyle(classifyFlood(site, clock, noaaOk)) : flowStyle(classifyFlow(site, clock));
+                {notable.map(({ index, site, style: given, detail }) => {
+                  const style =
+                    given !== undefined
+                      ? given
+                      : view === 'flooding'
+                        ? floodStyle(classifyFlood(site, clock, noaaOk))
+                        : flowStyle(classifyFlow(site, clock));
                   return (
                     <li key={site.key}>
                       <button
@@ -220,7 +304,10 @@ export function ExplorePanel({
                         onClick={() => onPickSite(index)}
                       >
                         {style && <MarkSymbol style={style} palette={palette} />}
-                        <span className="min-w-0 flex-1">{site.name}</span>
+                        <span className="min-w-0 flex-1">
+                          {site.name}
+                          {detail && <span className={`block text-xs ${styles.muted}`}>{detail}</span>}
+                        </span>
                       </button>
                     </li>
                   );

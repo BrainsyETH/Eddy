@@ -18,8 +18,9 @@ import type { CatalogStation } from './catalog';
 import type { DecodedFrame, DecodedGaugeReading, DecodedNwsPoint } from './frame';
 import { floodSeverity, type FloodStatus } from './flood-status';
 import { componentOf, projectComponent, type MapComponent } from './projection';
+import type { ChangeClass } from './change';
 
-export type MapView = 'flow' | 'flooding';
+export type MapView = 'flow' | 'flooding' | 'change';
 
 export interface Site {
   key: string;
@@ -164,7 +165,7 @@ export function classifyFlood(site: Site, clock: number, noaaOk: boolean): Flood
  * a small ×, so "we have no current reading" never looks like "live reading,
  * no seasonal comparison" (a ring).
  */
-export type MarkShape = 'dot' | 'ring' | 'diamond' | 'triangle' | 'cross';
+export type MarkShape = 'dot' | 'ring' | 'diamond' | 'triangle' | 'down' | 'cross';
 
 export interface MarkStyle {
   shape: MarkShape;
@@ -299,7 +300,7 @@ export function floodStyle(c: FloodClass): MarkStyle | null {
 
 export interface ClassifiedSite {
   index: number;
-  cls: FlowClass | FloodClass;
+  cls: FlowClass | FloodClass | ChangeClass;
   style: MarkStyle;
 }
 
@@ -467,7 +468,8 @@ export type LiveReason =
   | 'refresh_failed'
   | 'no_current_readings'
   | 'flood_unavailable'
-  | 'flood_not_current';
+  | 'flood_not_current'
+  | 'change_building';
 
 export const LIVE_SNAPSHOT_MS = 2 * 3_600_000;
 
@@ -479,6 +481,8 @@ export function viewLiveState(args: {
   noaaOk: boolean;
   flowLive: number;
   floodAssessed: number;
+  /** Change view: a recorded frame from the start of the window is in hand. */
+  changeReady?: boolean;
 }): LiveReason {
   if (args.capturedAt === null) return 'no_frame';
   if (args.clock - args.capturedAt >= LIVE_SNAPSHOT_MS) return 'snapshot_old';
@@ -488,7 +492,11 @@ export function viewLiveState(args: {
     if (args.floodAssessed === 0) return 'flood_not_current';
     return 'live';
   }
-  return args.flowLive > 0 ? 'live' : 'no_current_readings';
+  if (args.flowLive === 0) return 'no_current_readings';
+  // Change compares with a recorded frame one window back; until history
+  // reaches that far (or while it loads) there is nothing honest to animate.
+  if (args.view === 'change' && !args.changeReady) return 'change_building';
+  return 'live';
 }
 
 /** Short, plain status for the fullscreen tray and the details line when not live. */
@@ -499,6 +507,7 @@ export const LIVE_REASON_TEXT: Record<Exclude<LiveReason, 'live'>, string> = {
   no_current_readings: 'No gauges are reporting current readings',
   flood_unavailable: 'NWS flood status is unavailable right now',
   flood_not_current: 'NWS flood observations are not current',
+  change_building: 'Change history is still being recorded',
 };
 
 

@@ -40,6 +40,12 @@ export interface MapPalette {
   /** Knockout disc behind event marks (MarkStyle.halo): the land colour. */
   halo: string;
   /**
+   * Change view direction tones: more water in teals, less in sand → copper,
+   * steady quiet. Own keys (not the flow bands) because Change is a
+   * direction, not a seasonal comparison, and dark mode needs no backing chip.
+   */
+  change: { upFast: string; up: string; steady: string; down: string; downFast: string };
+  /**
    * "Follow the river" (journeys.ts): the travelling highlight's bright core
    * and its soft underglow. Presentation, not data — never a flow colour,
    * never coral.
@@ -111,6 +117,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#F2EAD8',
+    change: { upFast: '#163F4A', up: '#2D7889', steady: '#8DB3BA', down: '#B89A72', downFast: '#9A5B2E' },
     // Warm neutral ink (Eddy's ink), not a teal: movement must never read as
     // a flow measurement, whose highs are teals and cyans.
     journeyCore: '#2D2A24',
@@ -159,6 +166,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#0F2D35',
+    change: { upFast: '#A3E3EE', up: '#4FB3C6', steady: '#2F6F7C', down: '#C9B79C', downFast: '#E0975A' },
     // Neutral white, not cyan: the brightest moving thing must stay distinct
     // from the brightest high-flow gauges (saturated cyans).
     journeyCore: '#FFFFFF',

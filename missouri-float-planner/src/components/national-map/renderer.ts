@@ -938,6 +938,12 @@ function shapePath(g: CanvasRenderingContext2D, shape: MarkShape, r: number) {
       g.lineTo(-r * 1.1, r * 0.8);
       g.closePath();
       break;
+    case 'down':
+      g.moveTo(0, r * 1.2);
+      g.lineTo(r * 1.1, -r * 0.8);
+      g.lineTo(-r * 1.1, -r * 0.8);
+      g.closePath();
+      break;
     default:
       g.arc(0, 0, r, 0, Math.PI * 2);
   }

@@ -169,6 +169,10 @@ test('liveness is judged for the view on screen', () => {
   assert.equal(viewLiveState({ ...base, view: 'flow', capturedAt: NOW - 3 * H }), 'snapshot_old');
   assert.equal(viewLiveState({ ...base, view: 'flow', refreshFailed: true }), 'refresh_failed');
   assert.equal(viewLiveState({ ...base, view: 'flow', capturedAt: null }), 'no_frame');
+  // Change needs a recorded frame from the start of its window.
+  assert.equal(viewLiveState({ ...base, view: 'change' }), 'change_building');
+  assert.equal(viewLiveState({ ...base, view: 'change', changeReady: true }), 'live');
+  assert.equal(viewLiveState({ ...base, view: 'change', changeReady: true, flowLive: 0 }), 'no_current_readings');
 });
 
 test('the rarest readings are drawn larger than the rest of their band', () => {

@@ -6,6 +6,7 @@
 // disagree about a shape or a color.
 
 import { Fragment } from 'react';
+import { CHANGE_LEGEND, changeStyle, type ChangeSummary } from '@/lib/national-map/change';
 import type { MapPalette } from '@/lib/national-map/theme';
 import {
   EXTREME_HIGH,
@@ -51,7 +52,9 @@ export function MarkSymbol({
       ? `M${m} ${m - rr * 1.15}L${m + rr * 1.15} ${m}L${m} ${m + rr * 1.15}L${m - rr * 1.15} ${m}Z`
       : style.shape === 'triangle'
         ? `M${m} ${m - rr * 1.2}L${m + rr * 1.1} ${m + rr * 0.8}L${m - rr * 1.1} ${m + rr * 0.8}Z`
-        : `M${m - rr} ${m}a${rr} ${rr} 0 1 0 ${rr * 2} 0a${rr} ${rr} 0 1 0 ${-rr * 2} 0`;
+        : style.shape === 'down'
+          ? `M${m} ${m + rr * 1.2}L${m + rr * 1.1} ${m - rr * 0.8}L${m - rr * 1.1} ${m - rr * 0.8}Z`
+          : `M${m - rr} ${m}a${rr} ${rr} 0 1 0 ${rr * 2} 0a${rr} ${rr} 0 1 0 ${-rr * 2} 0`;
   const ring = style.shape === 'ring';
   if (style.shape === 'cross') {
     const a = r * 0.85;
@@ -169,4 +172,28 @@ export function formatAge(ms: number | null, now: number): string {
   const h = Math.round(m / 60);
   if (h < 48) return `${h} hr ago`;
   return `${Math.round(h / 24)} days ago`;
+}
+
+/**
+ * The Change view's legend: the window being compared, what each mark means
+ * with its count, and how much of the network could be compared at all.
+ */
+export function ChangeLegend({
+  palette,
+  summary,
+  windowLabel,
+}: {
+  palette: MapPalette;
+  summary: ChangeSummary | null;
+  windowLabel: string;
+}) {
+  return (
+    <ul className="space-y-0.5" aria-label={`Change legend, ${windowLabel}`}>
+      {CHANGE_LEGEND.map(({ cls, label, sample }) => (
+        <Row key={cls} style={changeStyle(sample)} palette={palette} label={label} count={summary ? summary.counts[cls] : null} />
+      ))}
+      <Row style={changeStyle({ cls: 'no_compare', magnitude: 0 })} palette={palette} label="No comparison for this window" count={summary ? summary.counts.no_compare : null} />
+      <Row style={changeStyle({ cls: 'unverified', magnitude: 0 })} palette={palette} label="Jump too large to trust (unverified)" count={summary ? summary.counts.unverified : null} />
+    </ul>
+  );
 }

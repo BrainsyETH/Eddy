@@ -9,6 +9,10 @@
 //
 // The body is served exactly as the recorder stored it.
 //
+// With `meta=1`: { oldest, newest, count } of the recorded frames — a few
+// bytes, so the Change view can say which comparison windows the recorded
+// history supports (and when the next one opens) without fetching a frame.
+//
 // FIRST DEPLOY: until the recorder has stored its first frame (within ~15
 // minutes of deploy), the newest-frame read builds one live with the same
 // capture code (src/lib/national-map/capture.ts), serves it with a short CDN
@@ -41,6 +45,27 @@ async function _GET(request: NextRequest) {
       return NextResponse.json({ error: `Invalid 'at': ${atParam}` }, { status: 400 });
     }
     at = new Date(t);
+  }
+
+  if (request.nextUrl.searchParams.get('meta') === '1') {
+    try {
+      const supabase = createAdminClient();
+      const [oldest, newest, total] = await Promise.all([
+        supabase.from('national_map_frames').select('captured_at').order('captured_at', { ascending: true }).limit(1),
+        supabase.from('national_map_frames').select('captured_at').order('captured_at', { ascending: false }).limit(1),
+        supabase.from('national_map_frames').select('captured_at', { count: 'exact', head: true }),
+      ]);
+      const err = oldest.error ?? newest.error ?? total.error;
+      if (err) throw new Error(err.message);
+      const at = (rows: Array<{ captured_at: string }> | null) => (rows?.[0] ? rows[0].captured_at : null);
+      return NextResponse.json(
+        { oldest: at(oldest.data), newest: at(newest.data), count: total.count ?? 0 },
+        { headers: cdnCacheHeaders(300, 600) },
+      );
+    } catch (err) {
+      console.error('[river-map/frame] meta failed:', err);
+      return NextResponse.json({ error: 'Frame history temporarily unavailable' }, { status: 503 });
+    }
   }
 
   const sinceParam = request.nextUrl.searchParams.get('since');

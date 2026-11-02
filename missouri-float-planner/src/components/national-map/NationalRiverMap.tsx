@@ -29,7 +29,6 @@ import {
   viewLiveState,
   summarizeFlood,
   summarizeFlow,
-  type Site,
 } from '@/lib/national-map/marks';
 import {
   DEFAULT_PREFS,
@@ -45,8 +44,20 @@ import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
 import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys } from '@/lib/national-map/journeys';
-import { decodeFrame } from '@/lib/national-map/frame';
-import { rankStories, type Story } from '@/lib/national-map/stories';
+import { rankChangeStories, rankStories, type Story } from '@/lib/national-map/stories';
+import {
+  availableWindows,
+  biggestChanges,
+  changeSentence,
+  changeStyle,
+  classifyChangeSites,
+  summarizeChange,
+  WINDOW_MIN_SHARE,
+  WINDOW_MS,
+  type ChangeWindow,
+  type SiteChange,
+} from '@/lib/national-map/change';
+import { usePriorFrame, useFrameHistory } from './usePriorFrame';
 import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
 import { WallLegend } from './WallLegend';
 import { WallStory } from './WallStory';
@@ -56,6 +67,7 @@ import {
   Chooser,
   ExplorePanel,
   FreshnessLine,
+  ChangePanel,
   FullscreenTray,
   HoverTip,
   MapControls,
@@ -169,7 +181,31 @@ export default function NationalRiverMap() {
   const sites = useMemo(() => (catalog || frame ? buildSites(catalog ?? [], frame) : []), [catalog, frame]);
   const noaaOk = frame?.sources.noaaOk ?? false;
   const view = prefs.view;
-  const classified = useMemo(() => classifySites(sites, view, now, noaaOk, fullscreen), [sites, view, now, noaaOk, fullscreen]);
+
+  // ── Change: the comparison window and the recorded frame that far back ──
+  // Only windows the recorded history reaches are offered; until one is, the
+  // view says when comparisons begin and draws no change marks.
+  const frameHistory = useFrameHistory(view === 'change', frame?.capturedAt ?? null);
+  const windows = useMemo(() => (frameHistory ? availableWindows(frameHistory.oldest, frameHistory.newest) : []), [frameHistory]);
+  const changeWindow: ChangeWindow | null = windows.includes(prefs.changeWindow) ? prefs.changeWindow : (windows[0] ?? null);
+  const changePrior = usePriorFrame(view === 'change' && changeWindow !== null, frame, catalog, changeWindow ? WINDOW_MS[changeWindow] : 0, WINDOW_MIN_SHARE);
+  const changeCtx = useMemo(
+    () =>
+      changePrior && changeWindow
+        ? { prior: changePrior.sites, priorCapturedAt: changePrior.capturedAt, priorNoaaOk: changePrior.noaaOk, window: changeWindow }
+        : null,
+    [changePrior, changeWindow],
+  );
+  const changeResult = useMemo(
+    () => (view === 'change' && changeCtx ? classifyChangeSites(sites, changeCtx, now, noaaOk, fullscreen) : null),
+    [view, changeCtx, sites, now, noaaOk, fullscreen],
+  );
+  const changeSummary = useMemo(() => (changeResult ? summarizeChange(changeResult.changes) : null), [changeResult]);
+
+  const classified = useMemo(
+    () => (view === 'change' ? (changeResult?.classified ?? []) : classifySites(sites, view, now, noaaOk, fullscreen)),
+    [view, changeResult, sites, now, noaaOk, fullscreen],
+  );
   // No catalog means no USGS sites at all: say nothing about flow rather
   // than report zero gauges (the freshness line explains the outage).
   const flowSummary = useMemo(() => (frame && catalog && sites.length ? summarizeFlow(sites, now) : null), [frame, catalog, sites, now]);
@@ -186,6 +222,7 @@ export default function NationalRiverMap() {
     noaaOk,
     flowLive: flowSummary?.live ?? 0,
     floodAssessed: floodSummary?.assessed ?? 0,
+    changeReady: changeCtx !== null,
   });
   const dataLive = liveReason === 'live';
   const liveStatus = liveReason === 'live' ? null : LIVE_REASON_TEXT[liveReason];
@@ -513,10 +550,20 @@ export default function NationalRiverMap() {
     () => (dataLive ? curateHighlights(sites, view, now, noaaOk, 8) : []),
     [dataLive, sites, view, now, noaaOk],
   );
-  const notableListed = useMemo(
-    () => highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
-    [highlights, indexByKey],
-  );
+  const notableListed = useMemo(() => {
+    // Change: the biggest trustworthy changes, each with its own sentence.
+    if (view === 'change') {
+      if (!changeResult || !changeWindow) return [];
+      const items = changeResult.changes.map((change, index) => ({ index, site: sites[index], change }));
+      return biggestChanges(items, 8).map(({ index, site, change }) => ({
+        index,
+        site,
+        style: changeStyle(change),
+        detail: changeSentence(change, changeWindow),
+      }));
+    }
+    return highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0);
+  }, [view, changeResult, changeWindow, sites, highlights, indexByKey]);
   // The fullscreen sequence: one focal point at a time, the camera still.
   //   * "Follow the river" (motion on, view live): a highlight travels a real
   //     network to its outlet, holds so the connection reads, then hands off;
@@ -536,36 +583,36 @@ export default function NationalRiverMap() {
   const nationalSpan = data.geometry ? data.geometry.components.l48.maxX - data.geometry.components.l48.minX : 774;
   const separation = region ? (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan : HIGHLIGHT_SEPARATION;
 
-  // What changed: a recorded frame about PRIOR_MS older (fullscreen only).
-  // No such frame yet (first hours after deploy), or one too close in time,
+  // What changed (stories in Flow / Flooding): a recorded frame about
+  // PRIOR_MS older, fullscreen only. None yet, or one too close in time,
   // means no change claims — never a guess.
-  const [prior, setPrior] = useState<{ sites: Map<string, Site>; capturedAt: number } | null>(null);
-  useEffect(() => {
-    if (!fullscreen || !frame || !catalog) return;
-    const controller = new AbortController();
-    const at = new Date(frame.capturedAt - PRIOR_MS).toISOString();
-    fetch(`/api/river-map/frame?at=${encodeURIComponent(at)}`, { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        if (!body) return setPrior(null);
-        const older = decodeFrame(body);
-        if (frame.capturedAt - older.capturedAt < PRIOR_MS / 2) return setPrior(null);
-        setPrior({ capturedAt: older.capturedAt, sites: new Map(buildSites(catalog, older).map((x) => [x.key, x])) });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setPrior(null);
-      });
-    return () => controller.abort();
-  }, [fullscreen, frame, catalog]);
+  const prior = usePriorFrame(fullscreen && view !== 'change', frame, catalog, PRIOR_MS, 0.5);
 
   const storySites = useMemo(
     () => (region ? sites.filter((x) => inRegion(region, x.component, x.x, x.y)) : sites),
     [region, sites],
   );
-  const storyPool = useMemo(
-    () => (fullscreen && dataLive ? rankStories({ sites: storySites, prior, view, clock: now, noaaOk, recent: [], separation }) : []),
-    [fullscreen, dataLive, storySites, prior, view, now, noaaOk, separation],
+  // Change view: stories are the biggest trustworthy changes over the window.
+  const changeBySite = useMemo(() => {
+    const m = new Map<string, SiteChange>();
+    changeResult?.changes.forEach((c, i) => m.set(sites[i].key, c));
+    return m;
+  }, [changeResult, sites]);
+  const rankFor = useCallback(
+    (recentKeys: string[]): Story[] => {
+      if (view === 'change') {
+        if (!changeWindow) return [];
+        const entries = storySites.flatMap((site) => {
+          const change = changeBySite.get(site.key);
+          return change ? [{ site, change }] : [];
+        });
+        return rankChangeStories({ entries, window: changeWindow, recent: recentKeys, separation });
+      }
+      return rankStories({ sites: storySites, prior, view, clock: now, noaaOk, recent: recentKeys, separation });
+    },
+    [view, changeWindow, storySites, changeBySite, prior, now, noaaOk, separation],
   );
+  const storyPool = useMemo(() => (fullscreen && dataLive ? rankFor([]) : []), [fullscreen, dataLive, rankFor]);
   // On the wall only a few geographically distinct floods pulse; every
   // severity symbol stays drawn. Spacing follows the view, like the stories.
   const pulses = useMemo(() => {
@@ -598,10 +645,10 @@ export default function NationalRiverMap() {
     const turn = `${view}:${step}`;
     if (pickedFor.current === turn) return;
     pickedFor.current = turn;
-    const pick = rankStories({ sites: storySites, prior, view, clock: now, noaaOk, recent, separation })[0] ?? null;
+    const pick = rankFor(recent)[0] ?? null;
     setFeatured(pick);
     if (pick) setRecent((r) => [...r, pick.site.key].slice(-8));
-  }, [storyStep, step, view, storySites, prior, now, noaaOk, recent, separation]);
+  }, [storyStep, step, view, rankFor, recent]);
   const actMs = journey ? journeyTiming(journey).totalMs : SPOTLIGHT_MS;
   const advances = fullscreen && motion && (journeysOn || storyPool.length > 1);
   useEffect(() => {
@@ -667,8 +714,18 @@ export default function NationalRiverMap() {
   }, [side, selectedIndex, insetsTop]);
 
   const hoverSite = hover !== null ? sites[hover.index] : null;
+  const selectedChange = (() => {
+    if (view !== 'change' || selectedIndex === null || !changeResult || !changeWindow) return null;
+    const c = changeResult.changes[selectedIndex];
+    return c ? { style: changeStyle(c), text: changeSentence(c, changeWindow) } : null;
+  })();
+  const hoverChange = hover !== null && changeResult && changeWindow ? changeResult.changes[hover.index] : null;
   const hoverText = hoverSite
-    ? view === 'flow'
+    ? view === 'change'
+      ? hoverChange
+        ? changeSentence(hoverChange, changeWindow!)
+        : ''
+      : view === 'flow'
       ? (() => {
           const c = classifyFlow(hoverSite, now);
           if (c === 'stale' || c === 'dormant') return 'Not current';
@@ -687,7 +744,15 @@ export default function NationalRiverMap() {
   const exploreKeys = ' Arrow keys pan, plus and minus zoom, Enter lists the gauges at the centre ring; or use search.';
   const ariaLabel = fullscreen
     ? 'Live River Map, fullscreen. Press Tab for controls, Escape to exit.'
-    : view === 'flow'
+    : view === 'change'
+      ? `Map of how US rivers changed over the ${changeWindow === '6h' ? 'last 6 hours' : 'last 24 hours'}.${
+          changeSummary
+            ? ` ${changeSummary.counts.flood_up} rose in flood category, ${changeSummary.counts.flood_down} fell; ${
+                changeSummary.counts.rising_fast + changeSummary.counts.rising
+              } rising, ${changeSummary.counts.falling_fast + changeSummary.counts.falling} falling.`
+            : ' Change history is still being recorded.'
+        }${exploreKeys}`
+      : view === 'flow'
       ? `Map of US river gauges compared with usual flow for this time of year.${
           flowSummary ? ` ${flowSummary.bands.much_higher} much higher, ${flowSummary.bands.much_lower} much lower than usual.` : ''
         }${exploreKeys}`
@@ -781,6 +846,19 @@ export default function NationalRiverMap() {
               clock={now}
               onPickSite={openSite}
               infoColors={infoColors}
+              changePanel={
+                view === 'change' ? (
+                  <ChangePanel
+                    windows={windows}
+                    window={changeWindow}
+                    onWindow={(w) => setPrefs({ changeWindow: w })}
+                    summary={changeSummary}
+                    palette={palette}
+                    oldest={frameHistory?.oldest ?? null}
+                    infoColors={infoColors}
+                  />
+                ) : undefined
+              }
             />
           </div>
 
@@ -864,6 +942,7 @@ export default function NationalRiverMap() {
                 onClose={closeDetail}
                 palette={palette}
                 autoFocus={detailFocus}
+                change={selectedChange}
               />
             </div>
           )}
@@ -894,9 +973,10 @@ export default function NationalRiverMap() {
                 noaaOk={noaaOk}
                 capturedAt={frame?.capturedAt ?? null}
                 liveStatus={liveStatus}
-                pulses={motion && dataLive && view === 'flooding'}
+                pulses={motion && dataLive && view !== 'flow'}
                 journey={journeysOn}
                 strip={legendStrip}
+                changeWindow={changeCtx ? changeWindow : null}
               />
               {wallText === 'story' && !legendStrip && (
                 <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} />

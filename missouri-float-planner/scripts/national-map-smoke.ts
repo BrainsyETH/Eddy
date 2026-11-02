@@ -47,11 +47,12 @@ function fixtureStations() {
   return { v: 1, generatedAt: new Date(NOW).toISOString(), rows };
 }
 
-function fixtureFrame(ageMs: number, noaaOk = true) {
+/** `earlier`: the Change view's baseline — discharges scaled by gauge, the Meramec not yet flooding. */
+function fixtureFrame(ageMs: number, noaaOk = true, earlier = false) {
   const stations = fixtureStations().rows;
   const latest: LatestInput[] = stations.map(([siteId], i) => ({
     siteId,
-    dischargeCfs: 100 + i,
+    dischargeCfs: earlier ? Math.round((100 + i) * [0.25, 0.6, 1, 1, 1, 1.8, 4][i % 7]) : 100 + i,
     gaugeHeightFt: 2 + (i % 5) / 10,
     readingTimestamp: new Date(NOW - ageMs - 20 * 60_000).toISOString(),
     suspect: false,
@@ -59,7 +60,7 @@ function fixtureFrame(ageMs: number, noaaOk = true) {
     fetchedAt: new Date(NOW - ageMs).toISOString(),
   }));
   const nws: NwsInput[] = !noaaOk ? [] : [
-    { lid: 'EURM7', lng: -90.59, lat: 38.51, observed: 'major', observedAt: Math.floor((NOW - ageMs - 30 * 60_000) / 1000), observedValue: 28.1, units: 'ft', forecast: 'moderate', forecastValidAt: null, forecastIssuedAt: null, name: '' },
+    { lid: 'EURM7', lng: -90.59, lat: 38.51, observed: earlier ? 'no_flooding' : 'major', observedAt: Math.floor((NOW - ageMs - 30 * 60_000) / 1000), observedValue: 28.1, units: 'ft', forecast: 'moderate', forecastValidAt: null, forecastIssuedAt: null, name: '' },
     { lid: 'ABCD1', lng: -97, lat: 35, observed: 'not_defined', observedAt: null, observedValue: null, units: 'ft', forecast: 'unknown', forecastValidAt: null, forecastIssuedAt: null, name: 'Undefined Creek' },
   ];
   return buildFrame({
@@ -187,7 +188,11 @@ async function main() {
     await intercept(page, 5 * 60_000);
     await page.goto(target, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: 'Live River Map' }).waitFor({ timeout: 120_000 });
-    await page.getByText(/^Snapshot /).waitFor({ timeout: 60_000 });
+    // The first visit to a fresh dev server compiles the client bundle before
+    // anything hydrates (the heading above is server-rendered), so the first
+    // data-driven line gets the same cold-start budget as the heading. On a
+    // CI runner that compile alone has run past 60 s.
+    await page.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
     await page.waitForTimeout(1500);
     assert.ok((await layerInk(page, 0)) > 0, 'geography drew');
     assert.ok((await layerInk(page, 2)) + (await layerInk(page, 3)) > 0, 'gauge marks drew');
@@ -343,6 +348,44 @@ async function main() {
     assert.ok(await st.getByRole('region', { name: /legend$/ }).isVisible(), 'the legend stays alongside the story');
     await st.close();
     console.log('PASS Story mode features one event beside the legend');
+
+    // ── 4b''. Change: what moved since a recorded frame a window back ───
+    // History reaches 26 h back (meta), the 24 h baseline has the Meramec
+    // below flood stage and discharges scaled; then a young history (2 h)
+    // offers no window and says when comparisons begin.
+    for (const young of [false, true]) {
+      const ch = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await ch.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'change', changeWindow: '24h' })));
+      await intercept(ch, 5 * 60_000);
+      const current = JSON.stringify(fixtureFrame(5 * 60_000));
+      const baseline = JSON.stringify(fixtureFrame(24 * 3_600_000 + 5 * 60_000, true, true));
+      const meta = JSON.stringify({
+        oldest: new Date(NOW - (young ? 2 : 26) * 3_600_000).toISOString(),
+        newest: new Date(NOW - 5 * 60_000).toISOString(),
+        count: young ? 8 : 104,
+      });
+      await ch.route('**/api/river-map/frame**', (r) => {
+        const u = r.request().url();
+        if (u.includes('meta=1')) return r.fulfill({ contentType: 'application/json', body: meta });
+        if (u.includes('at=')) return r.fulfill(young ? { status: 404, body: '{}' } : { contentType: 'application/json', body: baseline });
+        return r.fulfill({ contentType: 'application/json', body: current });
+      });
+      await ch.goto(target, { waitUntil: 'domcontentloaded' });
+      await ch.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+      if (young) {
+        await ch.getByText(/6-hour comparisons start about/).waitFor({ timeout: 20_000 });
+        assert.equal(await ch.locator('[data-live]').getAttribute('data-live'), 'false', 'no change motion before history reaches a window');
+      } else {
+        await ch.getByRole('list', { name: /^Change legend/ }).waitFor({ timeout: 20_000 });
+        await ch.getByText('Biggest changes').waitFor();
+        const list = await ch.locator('text=Biggest changes').locator('..').innerText();
+        assert.match(list, /Meramec River near Eureka, MO[\s\S]*Rose from below flood stage to major flooding in the last 24 h/, 'the crossing leads the biggest changes');
+        assert.equal(await ch.locator('[data-live]').getAttribute('data-live'), 'true');
+        await ch.screenshot({ path: `${OUT_DIR}/national-change.png` });
+      }
+      await ch.close();
+    }
+    console.log('PASS Change compares against the recorded frame a window back, and waits honestly for history');
 
     // ── 4c. A regional wall plays what it can see ───────────────────────
     // At 6× around the Meramec most national journeys never enter the view;
