@@ -1220,6 +1220,21 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== HERO ===== */
 
+/* Faint topographic rings on the home hero's Sandbar Tan stock, the "Field
+   Notebook" frame from the App Store set. Decorative; sits under the content. */
+.hero-contours {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse 46% 60% at 8% 12%, transparent 56%, var(--color-secondary-300) 57% 57.6%, transparent 58.4%),
+    radial-gradient(ellipse 54% 70% at 8% 12%, transparent 56%, var(--color-secondary-300) 57% 57.5%, transparent 58.3%),
+    radial-gradient(ellipse 62% 80% at 8% 12%, transparent 56%, var(--color-secondary-300) 57% 57.4%, transparent 58.2%),
+    radial-gradient(ellipse 40% 55% at 96% 92%, transparent 56%, var(--color-secondary-300) 57% 57.6%, transparent 58.4%),
+    radial-gradient(ellipse 50% 68% at 96% 92%, transparent 56%, var(--color-secondary-300) 57% 57.5%, transparent 58.3%);
+}
+
 .hero {
   position: relative;
   padding: 5rem 1.5rem;

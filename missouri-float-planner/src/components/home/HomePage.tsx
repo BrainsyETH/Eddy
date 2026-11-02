@@ -49,29 +49,35 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
   const leadReport = featuredReports[0] ? [featuredReports[0].slug] : [];
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-white">
-      {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0F2D35 0%, #163F4A 40%, #1A4F5C 100%)' }}>
-        {/* Topographic wave pattern */}
-        <div className="absolute inset-0 opacity-[0.07] pointer-events-none">
+    <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
+      {/* ─── Hero ───
+          The App Store "Field Notebook" frame: Sandbar Tan stock, faint contour
+          lines, and a dark teal headline with coral reserved for
+          Eddy. The filled action is teal, as in the iOS app, because the
+          condition ladder starts directly below (ADR 0007). */}
+      <section className="relative overflow-hidden border-b border-secondary-200 bg-secondary-100">
+        <div className="hero-contours" aria-hidden="true" />
+        {/* Water lines along the bottom edge */}
+        <div className="absolute inset-0 opacity-[0.07] pointer-events-none text-primary-500" aria-hidden="true">
           <svg className="absolute bottom-0 w-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-            <path fill="white" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
+            <path fill="currentColor" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,218.7C672,235,768,245,864,234.7C960,224,1056,192,1152,181.3C1248,171,1344,181,1392,186.7L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
           </svg>
           <svg className="absolute bottom-8 w-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-            <path fill="white" d="M0,256L60,240C120,224,240,192,360,186.7C480,181,600,203,720,208C840,213,960,203,1080,186.7C1200,171,1320,149,1380,138.7L1440,128L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z" />
+            <path fill="currentColor" d="M0,256L60,240C120,224,240,192,360,186.7C480,181,600,203,720,208C840,213,960,203,1080,186.7C1200,171,1320,149,1380,138.7L1440,128L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z" />
           </svg>
         </div>
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center">
             <div className="max-w-xl mx-auto md:mx-0 text-center md:text-left">
-              <h1
-                className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.05] mb-4"
-                style={{ fontFamily: 'var(--font-display)', color: '#F07052' }}
-              >
-                Float with Eddy
+              <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.05] tracking-[-0.035em] text-primary-800 mb-4">
+                Float with{' '}
+                <span className="relative whitespace-nowrap text-accent-600">
+                  Eddy
+                  <span aria-hidden="true" className="absolute inset-x-[2%] -bottom-[0.06em] -z-10 h-[0.11em] rounded-full bg-accent-300" />
+                </span>
               </h1>
-              <p className="text-base md:text-lg text-white/80 max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed">
+              <p className="text-base md:text-lg text-neutral-700 max-w-lg mx-auto md:mx-0 mb-8 leading-relaxed">
                 River conditions and float plans for the Ozarks.
               </p>
 
@@ -80,7 +86,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                   href="/rivers"
                   data-ga-event="cta_river_reports"
                   data-ga-label="hero"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-colors no-underline bg-accent-500 hover:bg-accent-600"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white no-underline bg-primary-700 hover:bg-primary-800 transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                 >
                   Check Conditions
                 </Link>
@@ -88,7 +94,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
                   href="/plan"
                   data-ga-event="cta_plan_float"
                   data-ga-label="hero"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-lg text-sm font-semibold text-neutral-900 hover:bg-neutral-50 transition-all no-underline"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-900 shadow-soft-sm no-underline hover:bg-secondary-50 transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                 >
                   <BuildRouteIcon size={22} />
                   Plan a float
@@ -98,14 +104,19 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
 
             {/* Eddy mascot + live quote bubble */}
             <div className="relative flex flex-col items-center gap-3 md:gap-2">
-              {/* Otter — below the bubble so the caret points down at Eddy */}
-              <div className="order-2 flex justify-center md:self-end md:mr-3">
+              {/* Otter on a coral sun — below the bubble so the caret points
+                  down at Eddy. The sun echoes the iOS Today tab's mark. */}
+              <div className="order-2 relative mt-3 flex justify-center md:self-end md:mr-3">
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-[58%] h-[116px] w-[116px] md:h-[132px] md:w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-200/80 ring-[10px] ring-accent-100/70"
+                />
                 <Image
                   src={EDDY_CANOE}
                   alt="Eddy the Otter"
                   width={320}
                   height={320}
-                  className="w-28 sm:w-32 h-auto animate-float drop-shadow-[0_8px_32px_rgba(240,112,82,0.25)]"
+                  className="relative w-[136px] md:w-[156px] h-auto animate-float"
                   priority
                 />
               </div>
