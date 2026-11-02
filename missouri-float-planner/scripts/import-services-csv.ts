@@ -60,7 +60,7 @@ import { nameScore } from './ingestion/geocode-services-dryrun';
 import { MANAGING_AGENCIES, isKnownAgency } from './service-quality';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────
-// Mirror of ServiceOffering in src/types/api.ts and the labels in
+// Mirror of ServiceOffering in src/types/api.ts and the summary nouns in
 // src/lib/services/offerings.ts. Kept inline so this maintenance script does
 // not depend on path-aliased src modules at runtime.
 export const VALID_OFFERINGS = new Set<string>([

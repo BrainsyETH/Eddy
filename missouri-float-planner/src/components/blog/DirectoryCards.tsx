@@ -24,7 +24,7 @@ import { ChevronDown } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { offeringSummary } from '@/lib/services/offerings';
+import OfferingSummary from '@/components/river/OfferingSummary';
 import { npsHeroImage, npsFeeLabel, npsSiteLabel } from '@/lib/services/npsCampground';
 
 type ServiceType = 'outfitter' | 'campground' | 'cabin_lodge';
@@ -136,7 +136,6 @@ const LIST_CLASS = 'm-0 list-none p-0 md:grid md:grid-cols-2 md:gap-3 lg:grid-co
 
 function DirectoryListing({ item }: { item: DirectoryItem }) {
   const phoneHref = digitsOnly(item.phone);
-  const offerings = offeringSummary(item.offerings);
   const meta = [item.sitesLabel, item.feeLabel].filter(Boolean).join(' · ');
   const place = [item.city, item.state].filter(Boolean).join(', ');
 
@@ -189,16 +188,7 @@ function DirectoryListing({ item }: { item: DirectoryItem }) {
           {/* What they offer, grouped into at most three short lines rather
               than a pill per offering — pills are kept for the trust and
               seasonal badges, so those still stand out. */}
-          {offerings.length > 0 && (
-            <dl className="m-0 grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-0.5">
-              {offerings.map((line) => (
-                <div key={line.group} className="contents">
-                  <dt className="text-[10px] font-bold uppercase tracking-[.1em] text-neutral-500">{line.group}</dt>
-                  <dd className="m-0 text-[13px] leading-snug text-neutral-700">{line.text}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
+          <OfferingSummary offerings={item.offerings} />
 
           {meta && <div className="font-mono text-xs font-semibold text-neutral-700">{meta}</div>}
 
