@@ -216,7 +216,7 @@ async function _GET(
 
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id, name')
+      .select('id, name, controlling_dam_id')
       .eq('slug', slug)
       .maybeSingle();
 
@@ -551,6 +551,9 @@ async function _GET(
       // Whichever report this outlook is about. Only one of the two can be
       // non-null — they are set on opposite sides of `usingPrimary`.
       generatedEddyRead: update?.eddy_read ?? gaugeUpdate?.eddy_read ?? null,
+      // A dam_tailwater river always names its dam; a river with a dam on one
+      // reach (the Black) does not, and keeps the rain sentence.
+      damControlled: river.controlling_dam_id != null,
     });
 
     return NextResponse.json<RiverOutlookApiResponse>(

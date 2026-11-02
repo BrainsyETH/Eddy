@@ -83,6 +83,23 @@ Measured on that history (backtest in
    (`src/lib/eddy/dam-read-dams.ts`). Adding a dam is a list edit, but its
    history should be checked against the backtest first.
 
+9. **On a tailwater river, the dam Read replaces the river Read on the dam's
+   own unrated release tab** (2026-11-02). The river Read there can only say
+   that no assessment is available (no ladder, no condition), and its bottom
+   line only that there is not enough data, while the dam has a Read of the
+   schedule that actually moves the water. The rule is per tab
+   (`shared/dam-release-tab.ts`): a USACE release gauge with no ladder takes
+   the Read of the dam whose id is its site id. A downstream USGS tab keeps its
+   own reading and river Read, because every time in the dam Read is at the
+   dam; a rated release (Clearwater on the Black) keeps its verdict and river
+   Read. Weather stays and is written for a dam-controlled river; Bottom line
+   is dropped. On the web this puts the locked teaser in the river page's
+   "Eddy's read" slot, so a tailwater's dam tab shows no free Eddy prose, the
+   exception in decision 7 applied to the river page. On iOS the dam Read sits
+   inside Eddy's take under its one lock row, with decision 7's access rules.
+   The same change moved the dam's schedule into the live report card on both
+   platforms: it leads the card on that tab, and closes it on every other.
+
 ## Not decided here
 
 - How long it takes a release to reach each access point downstream. Until

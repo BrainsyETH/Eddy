@@ -239,6 +239,15 @@ test('Watch for prioritizes forecast rain without inventing a river response', (
   // rather than about the water: a precipitation percentage is not a promise
   // about a gauge, and this section may never turn one into the other.
   assert.doesNotMatch(sections.watchFor, /will rise|will come up|expect the river/i);
+
+  // A tailwater follows the dam, not the sky: the same rain day must not say
+  // rain upstream is what would change it.
+  const tailwater = buildEddyTakeSections({ outlook, currentCondition: 'unknown', damControlled: true });
+  assert.match(tailwater.watchFor, /rain is likely tomorrow/i, 'the rain itself is still reported');
+  assert.doesNotMatch(tailwater.watchFor, /rain upstream/i);
+  assert.match(tailwater.watchFor, /follows what the dam releases/i);
+  assert.match(tailwater.watchFor, /posted schedule/i);
+  assert.doesNotMatch(tailwater.watchFor, /will rise|will come up|expect the river/i);
 });
 
 test('Weather names the days the way a person would, not the way the strip does', () => {

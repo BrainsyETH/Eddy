@@ -10,6 +10,7 @@ import { ExternalLink } from 'lucide-react';
 
 import { applyFloodStageOverride, computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { hasLadder } from '@shared/condition-ladder';
+import { damReleaseTab } from '@shared/dam-release-tab';
 import { stationTier } from '@shared/station-tier';
 import { CFS_EXPLAINER } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
@@ -47,27 +48,29 @@ import { createPortal } from 'react-dom';
 interface RiverGaugeDetailProps {
   riverSlug: string;
   /**
-   * A slot rendered directly under the "Right now" summary — today the dam
-   * operations row on a tailwater.
+   * The river's dam panel (RiverDamPanel), server-rendered by the page in its
+   * two positions; this component picks one per tab. Both absent on every
+   * river without a dam.
    *
-   * ── Why a slot and not a prop of data ──────────────────────────────────────
-   * The row is a SERVER component fed by the dam snapshot the page already
+   * ── Why slots and not a prop of data ──────────────────────────────────────
+   * The panel is a SERVER component fed by the dam snapshot the page already
    * fetched. This file is 'use client', so taking the snapshot as data would
    * mean importing @/lib/data/dams into the browser bundle for one river in
-   * every twenty. A pre-rendered node costs nothing and keeps the fetch on the
+   * every twenty. Pre-rendered nodes cost nothing and keep the fetch on the
    * server where it already was.
    *
-   * ── Why it is here rather than after this component ───────────────────────
-   * It was placed after <RiverGaugeDetail /> on the page, on the assumption
-   * that this rendered the condition and little else. It renders the whole
-   * report — chart, weather, reading, outlook, Eddy Says, thresholds and the
-   * photo gallery — so "directly under the verdict" put the row a thousand
-   * pixels below the verdict and one section above the dam panel it was meant
-   * to be distinct from. Under the summary is where it was always supposed to be.
-   *
-   * Optional, because every other consumer of this component has no dam.
+   * ── Inside the reading card ───────────────────────────────────────────────
+   * It used to be a "Dam release" section after this whole report, plus a
+   * status row under the reading. On a tailwater the schedule is what decides
+   * the day, so it is part of the card now: `damLead` opens it on the dam's
+   * own unrated release tab, `damFooter` closes it everywhere else.
    */
-  damSlot?: React.ReactNode;
+  damLead?: React.ReactNode;
+  damFooter?: React.ReactNode;
+  /** The dam those slots describe — the river's controlling dam. */
+  heldDamId?: string | null;
+  /** The whole river runs at a dam's release (a dam_tailwater river). */
+  damControlled?: boolean;
   /**
    * The river's reaches, server-rendered by the page. They sit under the
    * reading as they do in the app, because "which half of the river" changes
@@ -76,7 +79,14 @@ interface RiverGaugeDetailProps {
   reachesSlot?: React.ReactNode;
 }
 
-export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: RiverGaugeDetailProps) {
+export default function RiverGaugeDetail({
+  riverSlug,
+  damLead,
+  damFooter,
+  heldDamId = null,
+  damControlled = false,
+  reachesSlot,
+}: RiverGaugeDetailProps) {
   const { riverGroup, isLoading } = useRiverGroup(riverSlug);
   const prefetchHistory = useGaugeHistoryPrefetch();
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
@@ -298,6 +308,26 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
     };
   }, [activeGauge, activeThreshold]);
 
+  // A dam's own release with no ladder: the dam leads the card and its Read
+  // replaces the river Read. Per TAB, not per river — a downstream USGS gauge
+  // keeps its own reading and Read. See shared/dam-release-tab.ts.
+  const ratedHere = useMemo(() => Boolean(activeThreshold && hasLadder({
+    levelTooLow: activeThreshold.levelTooLow,
+    levelLow: activeThreshold.levelLow,
+    levelOptimalMin: activeThreshold.levelOptimalMin,
+    levelOptimalMax: activeThreshold.levelOptimalMax,
+    levelHigh: activeThreshold.levelHigh,
+    levelDangerous: activeThreshold.levelDangerous,
+    thresholdUnit: activeThreshold.thresholdUnit,
+  })), [activeThreshold]);
+  const damTab = damReleaseTab({
+    siteId: activeGauge?.usgsSiteId,
+    provider: activeGauge?.provider ?? gaugeDetail?.provider,
+    rated: ratedHere,
+    heldDamId,
+  });
+  const damLeads = Boolean(damTab?.leadsCard && damLead);
+
   // Where this gauge's number actually comes from. USGS and NWS both publish a
   // monitoring page keyed on the site id; USACE dam releases have no public
   // per-dam page we've verified, so they get no link rather than a guessed one.
@@ -326,8 +356,9 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
       outlook,
       currentCondition: condition.code,
       generatedEddyRead: activeEddyUpdate?.summaryText,
+      damControlled,
     }),
-    [condition.code, outlook, activeEddyUpdate?.summaryText],
+    [condition.code, outlook, activeEddyUpdate?.summaryText, damControlled],
   );
 
   const eddySourceGaugeName = activeGauge?.name ?? null;
@@ -353,7 +384,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
   // (alt thresholds are a bonus — threshold lines just won't draw in the alt unit if missing)
   const canToggleUnit = activeGauge?.gaugeHeightFt != null && activeGauge?.dischargeCfs != null;
 
-  // ── Why damSlot renders in EVERY branch ───────────────────────────────────
+  // ── Why the dam panel renders in EVERY branch ─────────────────────────────
   //
   // It rendered only in the main return, and that made the tailwater row
   // invisible on all three rivers it was written for.
@@ -397,7 +428,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
             the page does not jump when the gauge query settles. */}
         <Skeleton className="h-4 w-40" />
         <Skeleton rounded="xl" className="h-44" />
-        {damSlot}
+        {damLead ? <div className="card-framed bg-white pb-4">{damLead}</div> : null}
         {reachesSlot}
         <Skeleton rounded="xl" className="h-72" />
       </section>
@@ -412,7 +443,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
             Live gauge data isn&apos;t available for this river right now.
           </p>
         </Card>
-        {damSlot}
+        {damLead ? <div className="card-framed bg-white pb-4">{damLead}</div> : null}
         {reachesSlot}
       </section>
     );
@@ -477,6 +508,8 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
             }
             readingAgeHours={activeGauge.readingAgeHours}
             zones={ladderZones}
+            lead={damLeads ? damLead : undefined}
+            footer={damLeads ? undefined : damFooter}
           >
             {/* Safety and forecast only — the card above already shows the
                 level, trend and verdict. */}
@@ -497,14 +530,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
               flowPercentile={gaugeDetail?.flowPercentile ?? null}
               floodStages={gaugeDetail?.floodStages ?? null}
               waterTemperature={gaugeDetail?.waterTemperature ?? null}
+              hideRatingNote={damLeads}
             />
           </CurrentReadingCard>
 
-          {/* Dam operations, under the reading they qualify. Subordinate on
-              purpose: the condition above is a verdict about FLOATING, and on
-              a tailwater that is a different question from what the
-              powerhouse is doing. Absent on every river without a dam. */}
-          {damSlot}
         </div>
 
         {reachesSlot}
@@ -549,6 +578,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot, reachesSlot }: Ri
             readIsGenerated={Boolean(activeEddyUpdate?.summaryText)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
+            damRead={damTab ? { damId: damTab.damId, scheduleAbove: damLeads } : null}
           />
         </section>
 

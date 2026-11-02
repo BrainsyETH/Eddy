@@ -93,38 +93,20 @@
 //
 // On the web these are three columns; on a phone they stack.
 
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WeatherIcon } from '@/components/WeatherIcon';
 import { weatherDestination } from '@/lib/weatherDestination';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
-import { PREMIUM_LOCK_TITLE } from '@/lib/premiumCopy';
+import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
+import { LOCKED_DAM_READ_SHAPE } from '@/components/dam/DamEddyRead';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-
-/**
- * How hard to frost the paid text.
- *
- * Chosen to leave nothing readable at 14pt, which is the size every blurred
- * line here is set in. Erring HIGH is the safe direction — under-blurring hands
- * over the thing being sold, and over-blurring costs nothing but a slightly
- * heavier looking card.
- */
-const BLUR_INTENSITY = 34;
-
-/**
- * The text under the blur is also dimmed.
- *
- * Belt and braces. `intensity` is a hint to a native effect, not a guaranteed
- * radius, and it composites differently against a light card than a dark one.
- * Dropping the ink's contrast first means the blur has less to fail at.
- */
-const BLURRED_TEXT_OPACITY = 0.5;
 
 /**
  * One line of `sectionText`, and the gap above it, from the type scale.
@@ -136,18 +118,6 @@ const BLURRED_TEXT_OPACITY = 0.5;
  */
 const SECTION_LINE_HEIGHT = t.sm.lineHeight;
 const SECTION_TEXT_MARGIN_TOP = 5;
-
-/**
- * How soft the corners of a frosted block are.
- *
- * Small on purpose. The wrap clips the PROSE to this shape as well as the frost
- * — see the styles below for why it has to — so the radius is also how much of
- * the paragraph's corners get cut. At 8 against a 20pt line the arc clears the
- * glyph ink: the first line's ink starts a few points down from the box on its
- * leading, and the last line of a locked section is short enough that the
- * bottom corners are whitespace. Going much past this starts shaving letters.
- */
-const BLUR_RADIUS = 8;
 
 /**
  * What to smear when the server sent no text at all for a section.
@@ -167,80 +137,6 @@ const LOCKED_READ_SHAPE =
 const LOCKED_WEATHER_SHAPE =
   'Scattered storms are possible in the afternoon, with the heavier cells staying north of the valley.';
 const LOCKED_BOTTOM_LINE_SHAPE = 'Good day to be on this river.';
-
-/**
- * Eddy's writing, behind frosted glass.
- *
- * A string renders and a BlurView covers it. For an entitled read that is the
- * real text; for a locked read it is LOCKED_READ_SHAPE because the server did
- * not send `fullRead`. The derived Weather and Bottom line sections still use
- * their real payload text beneath the presentation gate. UIVisualEffectView
- * blurs what is BEHIND it, so every branch needs a string to render.
- *
- * `sharpLines` leaves the first N lines legible and starts the blur beneath
- * them, by offsetting the overlay rather than by splitting the string. Splitting
- * on a sentence boundary would give away a variable amount — Eddy's first
- * sentence is sometimes the whole answer — where an offset gives away exactly
- * one line of a report that runs to several.
- *
- * Hidden from assistive technology outright. A screen reader that read this
- * aloud would be handing over the paid text in the one presentation where it is
- * deliberately unreadable, and a blurred paragraph is not information to anyone
- * navigating by voice — the CTA below carries the whole offer in its own label.
- */
-function BlurredProse({
-  text,
-  color,
-  style,
-  lines,
-  sharpLines = 0,
-  scheme,
-}: {
-  text: string;
-  color: string;
-  style: object;
-  lines: number;
-  sharpLines?: number;
-  scheme: 'light' | 'dark';
-}) {
-  return (
-    <View
-      style={styles.blurWrap}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <Text
-        style={[style, { color, opacity: BLURRED_TEXT_OPACITY }]}
-        numberOfLines={lines}
-        selectable={false}
-      >
-        {text}
-      </Text>
-      {/* Tinted to the scheme rather than left on 'default'. The system tint
-          adapts to the ambient appearance, not to the card it is sitting on,
-          and this card is `colors.card` in both — so 'default' frosts LIGHT
-          over a dark card and the blurred block glows brighter than the sharp
-          text above it. */}
-      <BlurView
-        intensity={BLUR_INTENSITY}
-        tint={scheme === 'dark' ? 'dark' : 'light'}
-        style={[
-          styles.blurOverlay,
-          {
-            // The text's own top margin has to be cleared before counting
-            // lines, or the blur starts a few points high and clips the
-            // descenders off the one line that is supposed to be readable.
-            top:
-              sharpLines > 0
-                ? SECTION_TEXT_MARGIN_TOP + sharpLines * SECTION_LINE_HEIGHT
-                : 0,
-          },
-        ]}
-        pointerEvents="none"
-      />
-    </View>
-  );
-}
 
 function dayLabel(date: string, index: number): string {
   if (index === 0) return 'Today';
@@ -278,6 +174,17 @@ interface EddyTakeProps {
   onUpgrade?: () => void;
   /** Retries a Premium read that failed without an entitlement decision. */
   onRetry?: () => void;
+  /**
+   * On a dam's own unrated release (shared/dam-release-tab.ts): the dam's Read,
+   * drawn in the EDDY'S READ section in place of the river Read, with BOTTOM
+   * LINE dropped. There the river Read can only say no assessment is available
+   * and the bottom line only that there is not enough data. Rendered only when
+   * unlocked; locked, the section frosts LOCKED_DAM_READ_SHAPE under the card's
+   * one lock row. The screen derives `entitled` from the dam Read's own access
+   * rules on that tab, so 'error' (a failed RIVER Premium read) does not apply.
+   * `content` is null whenever there is no verified member to fetch it for.
+   */
+  damRead?: { content: ReactNode | null } | null;
 }
 
 export function EddyTake({
@@ -285,6 +192,7 @@ export function EddyTake({
   entitled = null,
   onUpgrade,
   onRetry,
+  damRead,
 }: EddyTakeProps) {
   const { colors, elevation, isDark } = useTheme();
   const { sections, days } = outlook;
@@ -298,7 +206,7 @@ export function EddyTake({
   const read = outlook.fullRead || sections?.eddyRead || '';
   const locked = entitled === false;
   const resolving = entitled === 'pending';
-  const failed = entitled === 'error';
+  const failed = entitled === 'error' && !damRead;
 
   return (
     <View style={styles.wrapper}>
@@ -480,17 +388,7 @@ export function EddyTake({
               retracting it leaks the paid thing; showing the lock and
               retracting it accuses a subscriber of not paying. */}
           {resolving ? (
-            <View accessibilityLabel="Loading Eddy's take">
-              {[0.92, 1, 0.84, 0.66].map((width, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.skeletonLine,
-                    { backgroundColor: colors.cardRaised, width: `${width * 100}%` },
-                  ]}
-                />
-              ))}
-            </View>
+            <ReadSkeleton label="Loading Eddy's take" />
           ) : failed ? (
             <View style={[styles.loadError, { backgroundColor: colors.cardRaised }]}>
               <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
@@ -521,7 +419,16 @@ export function EddyTake({
                     EDDY&apos;S READ
                   </Text>
                 </View>
-                {locked ? (
+                {damRead ? (
+                  locked ? (
+                    <BlurredProse
+                      text={LOCKED_DAM_READ_SHAPE}
+                      color={colors.textMuted}
+                      style={styles.sectionText}
+                      lines={4}
+                    />
+                  ) : damRead.content ?? <ReadSkeleton label="Loading Eddy's Read for this dam" />
+                ) : locked ? (
                   // Clamped to four lines, the first of them readable. The full
                   // read runs to several paragraphs on a good day, and a locked
                   // card the height of an unlocked one is a wall again — four
@@ -535,8 +442,7 @@ export function EddyTake({
                     color={colors.textMuted}
                     style={styles.sectionText}
                     lines={4}
-                    sharpLines={read ? 1 : 0}
-                    scheme={colors.scheme}
+                    blurTop={read ? SECTION_TEXT_MARGIN_TOP + SECTION_LINE_HEIGHT : 0}
                   />
                 ) : read ? (
                   <Text style={[styles.sectionText, { color: colors.textBody }]}>{read}</Text>
@@ -558,7 +464,6 @@ export function EddyTake({
                     color={colors.textMuted}
                     style={styles.sectionText}
                     lines={2}
-                    scheme={colors.scheme}
                   />
                 ) : (
                   <Text style={[styles.sectionText, { color: colors.textBody }]}>
@@ -567,6 +472,7 @@ export function EddyTake({
                 )}
               </View>
 
+              {damRead ? null : (
               <View style={[styles.section, { borderTopColor: colors.border }]}>
                 {/* No coloured edge, and no indent. The rule and the 12pt inset
                     that came with it pushed BOTTOM LINE a centimetre to the
@@ -592,7 +498,6 @@ export function EddyTake({
                       color={colors.text}
                       style={styles.bottomLineText}
                       lines={2}
-                      scheme={colors.scheme}
                     />
                   ) : (
                     <Text style={[styles.bottomLineText, { color: colors.text }]}>
@@ -601,6 +506,7 @@ export function EddyTake({
                   )}
                 </View>
               </View>
+              )}
 
               {/* ── The offer, under the thing being offered ────────────
                   Last rather than first. Read top to bottom the card now says
@@ -612,7 +518,8 @@ export function EddyTake({
                   Every word comes from premiumCopy, which is where the app's
                   three subscription surfaces are kept from disagreeing. This
                   row wrote its own for months and was the reason that module
-                  had to exist; see its header.
+                  had to exist; see its header. The row itself lives in
+                  PremiumLock.tsx so the dam card draws the same one.
 
                   It reads as a CARD now rather than a grey strip: an accent
                   hairline, the otter that closes the bottom line above it
@@ -621,32 +528,7 @@ export function EddyTake({
                   the same neutral fill as every disabled row in the app, which
                   is a strange thing for the one control on the screen that is
                   asking for money. */}
-              {locked ? (
-                <Pressable
-                  onPress={onUpgrade}
-                  disabled={!onUpgrade}
-                  style={({ pressed }) => [
-                    styles.lock,
-                    {
-                      backgroundColor: colors.cardRaised,
-                      borderColor: colors.accent,
-                      opacity: pressed ? 0.75 : 1,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={PREMIUM_LOCK_TITLE}
-                >
-                  <View style={styles.lockHead}>
-                    <View style={[styles.lockMark, { backgroundColor: colors.accentFill }]}>
-                      <Ionicons name="lock-closed" size={13} color={colors.onAccent} />
-                    </View>
-                    <Text style={[styles.lockTitle, { color: colors.text }]}>
-                      {PREMIUM_LOCK_TITLE}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.accent} />
-                  </View>
-                </Pressable>
-              ) : null}
+              {locked ? <PremiumLockRow onPress={onUpgrade} /> : null}
 
               {/* Attribution is a fact about which station this describes, and
                   facts about the water are free — so it survives the lock. */}
@@ -691,60 +573,13 @@ const styles = StyleSheet.create({
   bottomLineOtter: { marginLeft: -2 },
   bottomLineText: { ...t.base, fontFamily: fonts.semibold, marginTop: 4 },
   section: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
-  // Sized to the read it stands in for, so the card does not resize when the
-  // real answer lands — a skeleton that changes the layout is just a slower
-  // version of the flash it was added to prevent.
-  skeletonLine: { height: 11, borderRadius: 5, marginTop: 9 },
   loadError: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12 },
   loadErrorCopy: { flex: 1, minWidth: 0 },
   loadErrorTitle: { ...t.sm, fontFamily: fonts.semibold },
   loadErrorBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   loadErrorAction: { ...t.sm, fontFamily: fonts.semibold },
-  lock: {
-    padding: 13,
-    borderRadius: 14,
-    // A hairline in the accent rather than a fill in it: the row sits inside a
-    // card that is already a panel, and a solid accent block here would outweigh
-    // the bottom line directly above it — which is the thing being sold.
-    borderWidth: StyleSheet.hairlineWidth,
-    // Wider than it was: it now follows a blurred section rather than opening
-    // the card, and needs to read as a separate thing from the frost above it.
-    marginTop: 16,
-  },
-  lockHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  // A filled circle, so the lock is a mark rather than a loose glyph leaning on
-  // the text beside it.
-  lockMark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Fredoka, matching the headline on Today and the river's own name. This is
-  // Eddy making an offer, and the display face is where the brand lives.
-  lockTitle: { ...t.base, fontFamily: fonts.display, flex: 1, minWidth: 0 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: SECTION_TEXT_MARGIN_TOP },
-  // The blur is absolutely positioned over the prose, so the wrapper is what
-  // gives it a box to fill. Overflow hidden keeps the frost inside the section
-  // rather than bleeding over the rule below it.
-  //
-  // ── THE RADIUS IS ON BOTH, and that is not belt-and-braces ────────────────
-  // Rounding the overlay ALONE would carve four corners out of the frost and
-  // leave the prose under them sharp — dimmed to BLURRED_TEXT_OPACITY, but
-  // legible, which is the one thing this component exists to prevent. The wrap's
-  // `overflow: 'hidden'` is what clips the text to the same shape, so the
-  // corners lose the paragraph rather than uncovering it. Change one, change
-  // both.
-  blurWrap: { position: 'relative', overflow: 'hidden', borderRadius: BLUR_RADIUS },
-  blurOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: BLUR_RADIUS,
-  },
   attribution: { ...t.xs, fontFamily: fonts.body, marginTop: 12, textAlign: 'right' },
 });

@@ -103,7 +103,10 @@ import {
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
-import { damForRiver } from '@/components/dam/RiverDamPanel';
+import { damForRiver, damHasPanel, RiverDamPanel } from '@/components/dam/RiverDamPanel';
+import { DamReadInTake } from '@/components/dam/DamEddyRead';
+import { damReleaseTab } from '@eddy/conditions/dam-release-tab';
+import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
 import { getSharedDams } from '@/hooks/useDams';
 import { useObservationClock } from '@/hooks/useObservationClock';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
@@ -405,7 +408,7 @@ export default function RiverDetailScreen() {
     });
   };
   const scrollToRead = () => scrollToAnchor('read', readAnchor);
-  const { getAccessToken } = useSession();
+  const { getAccessToken, session, ready: sessionReady } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
 
@@ -414,6 +417,7 @@ export default function RiverDetailScreen() {
   // measured fact about the water stays free.
   const {
     entitlement,
+    profile: accountProfile,
     loaded: accountLoaded,
     error: accountError,
     refresh: refreshAccount,
@@ -1321,6 +1325,28 @@ export default function RiverDetailScreen() {
     : outlook;
   const takeEntitlement = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
 
+  // ── A dam's own unrated release ─────────────────────────────────────────
+  // The card leads with the dam and Eddy's Read is the dam's (shared/
+  // dam-release-tab.ts): the river Read on such a tab can only say that no
+  // assessment is available. Per TAB — a downstream gauge keeps its own
+  // reading and Read, and the dam Read's times are at the dam (ADR 0017).
+  const damTab = damReleaseTab({
+    siteId: shownSiteId,
+    provider: chartProvider,
+    rated: Boolean(scaleThresholds && hasLadder(scaleThresholds)),
+    heldDamId: dam?.id ?? null,
+  });
+  const damLeads = Boolean(damTab?.leadsCard && damHasPanel(dam));
+  // The dam Read's access rules, the dam screen's and the Today rail's
+  // (readPremiumAccess.ts): Premium prose only for a verified member of THIS
+  // session, an offer only to a settled non-member, a skeleton otherwise —
+  // never the river card's fail-open, which would have nothing to show.
+  const readAccess = { sessionReady, userId: session?.user.id ?? null,
+    loaded: accountLoaded, error: accountError, profileId: accountProfile?.id ?? null,
+    isActive: entitlement?.isActive ?? false };
+  const damReadUserId = premiumReadUserId(readAccess);
+  const damTakeEntitlement = damReadUserId ? true : canOfferReadPremium(readAccess) ? false : 'pending' as const;
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
       <Stack.Screen options={{ title: river.name }} />
@@ -1384,6 +1410,7 @@ export default function RiverDetailScreen() {
           key={shownSiteId ?? slug}
           reading={reading}
           readingTimestamp={shownReadingTimestamp}
+          lead={damLeads ? <RiverDamPanel dam={dam} position="lead" now={now} /> : undefined}
           verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
             ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
           trend={summaryLastKnown ? null : shownTrend}
@@ -1405,6 +1432,8 @@ export default function RiverDetailScreen() {
               <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
             </View>
           ) : null}
+          {/* The dam closes the card on every tab it does not lead. */}
+          {!damLeads ? <RiverDamPanel dam={dam} position="footer" now={now} /> : null}
         </ReadingSummaryCard>
 
         {/* The river's own stretches, each with the gauge that actually reads
@@ -1415,7 +1444,10 @@ export default function RiverDetailScreen() {
             outfitters — the controlling fact about a regulated river, filed
             under trivia. Renders nothing for a flood-control project with no
             turbines, which is every dam but three. */}
-        <TailwaterStatusRow dam={dam} />
+        {/* Only for a dam the card cannot hold — a flood-control project with
+            no posted schedule (Clearwater). Every hydropower dam is in the
+            card above, which says everything this row did. */}
+        {!damHasPanel(dam) ? <TailwaterStatusRow dam={dam} /> : null}
 
         <RiverReaches reaches={reaches} highlightSlug={section} damName={dam?.name ?? null} />
 
@@ -1474,9 +1506,14 @@ export default function RiverDetailScreen() {
           <EddyTake
             outlook={displayedOutlook}
             ratedUnit={reading?.unit ?? null}
-            entitled={takeEntitlement}
+            entitled={damTab ? damTakeEntitlement : takeEntitlement}
             onUpgrade={() => setPaywallOpen(true)}
             onRetry={() => setPremiumRetry((value) => value + 1)}
+            damRead={damTab ? {
+              content: damReadUserId
+                ? <DamReadInTake key={damTab.damId} damId={damTab.damId} premiumUserId={damReadUserId} revision={premiumRetry} />
+                : null,
+            } : null}
           />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.

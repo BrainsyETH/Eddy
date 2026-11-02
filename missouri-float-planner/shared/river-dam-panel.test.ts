@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { DamScheduleDay, ScheduledHour } from '@shared/dam-types';
-import type { GenerationReference } from '@shared/dam-generation';
+import type { DamScheduleDay, ScheduledHour } from './dam-types';
+import type { GenerationReference } from './dam-generation';
 import { coveredDayKey, dailyForecastDays, scheduleDaySummaries } from './river-dam-panel';
 
 // Sunday 2026-11-01, 7:30 PM CST — when the bad panel was screenshotted.
