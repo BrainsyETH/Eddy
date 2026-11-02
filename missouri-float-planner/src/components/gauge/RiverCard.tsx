@@ -5,17 +5,16 @@
 //
 // Reading order: river and WHERE its reading was taken → the reading with
 // Eddy's practical read (condition, trend, advice) → the 14-day chart at that
-// gauge → river facts → the report. The reading is a single station's, so the card says
+// gauge → the report. The reading is a single station's, so the card says
 // which station beside the number, and the river's other gauges are a link
 // into the report rather than a count that implies a river-wide figure.
 
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Droplets, ArrowRight, ChevronDown, ChevronUp, ChevronRight, Camera, Clock } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, ChevronRight, Camera, Clock } from 'lucide-react';
 
 import type { RiverGroup } from '@/lib/river-groups';
-import { type RiverFilterMeta, DIFFICULTY_TIER_LABELS, riverTypeLabel } from '@/lib/rivers/filters';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getEddyImageForCondition } from '@/constants';
 import ConditionBadge from '@/components/ui/ConditionBadge';
@@ -32,8 +31,6 @@ import { conditionChip } from '@shared/condition-system';
 
 interface RiverCardProps {
   riverGroup: RiverGroup;
-  /** Optional per-river metadata (state, type, difficulty, length) for the info line. */
-  meta?: RiverFilterMeta;
   /** Straight-line distance from the visitor, when the "Nearest me" sort is active. */
   distanceMiles?: number | null;
   /** Prefer the directory's canonical path over the legacy slug redirect. */
@@ -58,20 +55,12 @@ function readingClock(timestamp: string | null | undefined, now: number | null):
   return time;
 }
 
-export default function RiverCard({ riverGroup, meta, distanceMiles, href: canonicalHref }: RiverCardProps) {
+export default function RiverCard({ riverGroup, distanceMiles, href: canonicalHref }: RiverCardProps) {
   const { riverName, riverSlug, condition, primaryGauge, primaryThreshold, allGauges } = riverGroup;
 
-  // River facts, quieter than conditions and placed near the footer. Length is
-  // labelled as the RIVER's length so it cannot read as a suggested float.
-  const metaBits: string[] = [];
-  if (distanceMiles != null && Number.isFinite(distanceMiles)) {
-    metaBits.push(`${Math.max(1, Math.round(distanceMiles))} mi away`);
-  }
-  if (meta?.state) metaBits.push(meta.state);
-  if (meta?.lengthMiles != null && Number.isFinite(meta.lengthMiles)) metaBits.push(`River length ${Math.round(meta.lengthMiles)} mi`);
-  const typeLabel = riverTypeLabel(meta?.riverType);
-  if (typeLabel) metaBits.push(typeLabel);
-  if (meta?.difficultyTier) metaBits.push(DIFFICULTY_TIER_LABELS[meta.difficultyTier]);
+  const distance = distanceMiles != null && Number.isFinite(distanceMiles)
+    ? `${Math.max(1, Math.round(distanceMiles))} mi away`
+    : null;
 
   const [showFull, setShowFull] = useState(false);
 
@@ -176,34 +165,36 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
       <Link
         href={href}
         prefetch={false}
-        className="flex items-start gap-2 px-4 pb-2.5 pt-3.5 transition-colors hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-600 sm:px-5"
+        className="block px-4 pb-2.5 pt-3.5 transition-colors hover:bg-secondary-50 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-600 sm:px-5"
       >
-        <Droplets className="mt-1 size-4 shrink-0 text-neutral-500" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          {/* Wraps rather than truncates: a phone shows the whole name. */}
-          <h2 className="font-heading text-xl font-bold leading-6 text-neutral-900">{riverName}</h2>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] leading-[18px] text-neutral-600">
-            <span className="font-semibold text-neutral-700" title={primaryGauge.name}>At {gaugePlace}</span>
-            {clock && (oldReading ? (
-              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-px text-xs font-medium leading-[18px] text-amber-900">
-                <Clock className="size-3 shrink-0" aria-hidden="true" />
-                <span><span className="sr-only">Outdated reading: </span>{clock}{age ? ` · ${age}` : ''}</span>
-              </span>
-            ) : (
-              <span className="whitespace-nowrap">· Reading {clock}</span>
-            ))}
-          </p>
-        </div>
+        {/* No leading icon: the name and its subtitle sit flush with the
+            card's content edge rather than indented behind a glyph column. */}
+        {/* Wraps rather than truncates: a phone shows the whole name. */}
+        <h2 className="font-heading text-xl font-bold leading-6 text-neutral-900">{riverName}</h2>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] leading-[18px] text-neutral-600">
+          <span className="font-semibold text-neutral-700" title={primaryGauge.name}>At {gaugePlace}</span>
+          {clock && (oldReading ? (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-px text-xs font-medium leading-[18px] text-amber-900">
+              <Clock className="size-3 shrink-0" aria-hidden="true" />
+              <span><span className="sr-only">Outdated reading: </span>{clock}{age ? ` · ${age}` : ''}</span>
+            </span>
+          ) : (
+            <span className="whitespace-nowrap">· Reading {clock}</span>
+          ))}
+        </p>
       </Link>
 
       {/* Eddy's practical read: the reading in its condition's ink, the badge,
-          the trend, the advice — one inset panel, as iOS draws raised content. */}
-      <section aria-label="Conditions" className="mx-3 flex gap-3 rounded-xl bg-secondary-50 px-3 pb-1.5 pt-3 sm:mx-4 sm:px-4">
-        <div className="relative size-12 shrink-0">
-          <Image src={getEddyImageForCondition(condition.code)} alt="" fill className="object-contain" sizes="48px" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          the trend, the advice — one inset panel, as iOS draws raised content.
+          The otter shares only the top row with the reading, so the advice
+          below runs the panel's full width instead of leaving a blank column
+          under the otter. */}
+      <section aria-label="Conditions" className="mx-3 rounded-xl bg-secondary-50 px-3 pb-1.5 pt-3 sm:mx-4 sm:px-4">
+        <div className="flex items-center gap-3">
+          <div className="relative size-12 shrink-0">
+            <Image src={getEddyImageForCondition(condition.code)} alt="" fill className="object-contain" sizes="48px" />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
             <span data-river-reading className={oldReading ? 'opacity-80' : undefined}>
               {primaryValue !== null ? (
                 <span className="whitespace-nowrap leading-8">
@@ -219,10 +210,12 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
             <ConditionBadge code={condition.code} size="sm" />
             {trend && <TrendLabel trend={trend} />}
           </div>
+        </div>
+        <div>
           {eddyLoading && !eddyUpdate ? (
-            <p className="mt-1.5 text-[15px] leading-6 text-neutral-500">Loading Eddy’s read…</p>
+            <p className="mt-2 text-[15px] leading-6 text-neutral-500">Loading Eddy’s read…</p>
           ) : (
-            <p ref={quoteRef} className={`mt-1.5 text-[15px] font-medium leading-6 text-neutral-900 ${showFull ? '' : 'line-clamp-2'}`}>
+            <p ref={quoteRef} className={`mt-2 text-[15px] font-medium leading-6 text-neutral-900 ${showFull ? '' : 'line-clamp-2'}`}>
               <span className="sr-only">Eddy says: </span>{displayText}
             </p>
           )}
@@ -279,7 +272,10 @@ export default function RiverCard({ riverGroup, meta, distanceMiles, href: canon
       </section>
 
       <div className="flex flex-1 flex-col px-4 pb-1 sm:px-5">
-        {metaBits.length > 0 && <p className="text-[13px] leading-[18px] text-neutral-600">{metaBits.join(' · ')}</p>}
+        {/* Only the distance, and only under the "Nearest me" sort, where it is
+            the reason this card is where it is. Static river facts (state,
+            length, type, difficulty) belong to the report, not the dashboard. */}
+        {distance && <p className="text-[13px] leading-[18px] text-neutral-600">{distance}</p>}
 
         <div className="mt-auto pt-2">
           <div className="flex items-center justify-between gap-3 border-t border-neutral-200">

@@ -117,9 +117,16 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
         <div className={`flex min-h-11 items-center justify-between gap-2 ${compact ? '-mr-2.5' : 'pr-10'}`}>
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             <Heading className={`font-heading font-bold text-primary-800 ${compact ? 'text-sm' : 'text-lg'}`}>
-              Today’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
+              Today’s generation <span className="font-normal text-neutral-600">
+                · {scheduleDayLabel(today)}
+                {/* A card is too narrow for "Central time" to share the
+                    heading's line, and on its own row it read as a second
+                    heading. Abbreviated there as the iOS card does ("Schedule
+                    · CT"); spoken in full. */}
+                {compact && <> · <span aria-hidden="true">CT</span><span className="sr-only">Central time</span></>}
+              </span>
             </Heading>
-            <span className="text-xs leading-4 text-neutral-600">Central time</span>
+            {!compact && <span className="text-xs leading-4 text-neutral-600">Central time</span>}
           </div>
           {info}
         </div>
