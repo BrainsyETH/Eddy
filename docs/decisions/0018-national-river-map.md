@@ -51,8 +51,13 @@ persistent text. Three facts shaped the build:
    flood events carry the emphasis. Its signature, "Follow the river", walks
    the geometry's downstream links from a headwater to an outlet; it is
    geometry, never measurement, and runs under the same liveness rule as other
-   motion. Alternative Flow colours stay opt-in until a real-display review;
-   the canonical bands (`shared/flow-band.ts`) remain the default.
+   motion. A regional wall plays only what it can see (visible gauges, the
+   visible stretch of river); a view is carried across layouts as a place,
+   never a layout point. "Exceptional" flow means at or beyond the outermost
+   PUBLISHED percentile (p95 / p05) — the percentile calculation never claims
+   a finer position, and thresholds never move to suit a composition.
+   Alternative Flow colours stay opt-in until a real-display review; the
+   canonical bands (`shared/flow-band.ts`) remain the default.
 9. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.

@@ -1,6 +1,6 @@
 # National Live River Map (`/river-map`)
 
-> **Status: implemented** (on this branch; not yet merged). Device
+> **Status: implemented.** Device
 > verification and the long-session soak are **unconfirmed** — see
 > [Open gates](#open-gates). Decisions: [ADR 0018](../../docs/decisions/0018-national-river-map.md).
 
@@ -86,7 +86,11 @@ layout over the page where not — iPhone Safari). Escape exits. Fullscreen fits
 the whole country in the wall layout (Alaska and Hawaii enlarged into the
 Pacific corner, clear of the border) unless the reader had zoomed into a region
 (≥ 1.6×), which then stays centred; leaving restores the Explore view. Resizes
-keep the centre and zoom. A wake lock is requested while presenting, and
+and layout changes keep the centre as a PLACE (component + projected
+coordinates, `locate` in projection.ts) and the zoom — the wall moves and
+enlarges the insets, so a layout point would name a different place. A
+shared view (`?at=`) applies whenever it arrives, unless the reader has
+already moved the map. A wake lock is requested while presenting, and
 the composition drifts a few pixels over 12 minutes (OLED care; off with motion
 off). The camera never moves on its own.
 
@@ -202,8 +206,20 @@ device results.
   class (trunk / major / regional) with lengths, widths and speeds that scale
   with the screen, so they read across a room; trunk rivers widen on big
   screens. Flood event rings mark current official flooding. The rarest
-  readings (≥ 97th or ≤ 3rd percentile) are drawn larger and above their band.
+  readings — at or above the published 95th-percentile flow for the date, or
+  at or below the published 5th — are drawn larger and above their band.
   Directions only — no speed is a measured velocity.
+- **Percentile tails claim only published thresholds.** USGS daily statistics
+  publish p05 … p95 and nothing beyond. `calculateDischargePercentile`
+  returns ≥ 95 only for a reading at or above the published p95 (≤ 5 only at
+  or below p05); without p95 / p05 a tail reading stays inside 90–94 / 6–9,
+  and rounding never lifts a reading onto a tier. It once extrapolated
+  against p90 alone (p90 = 100, p95 = 1,000: 170 cfs scored 97). No band
+  changes: the cuts are 10 and 90. The detail panel shows ≥ P95 / ≤ P5.
+  Data check, 2026-11-02 production (current readings, day 307): of 334
+  much-higher gauges in AZ / UT / NM / CO / NV, **272 are at or above the
+  published p95** — the Southwest's widespread high flow is real; nationally
+  25 gauges the old formula scored ≥ 97 were below p95.
 - **Highlights and the spotlight.** `curateHighlights` picks a few meaningful
   events spread across the country (greedy by score with a minimum separation,
   and both the wettest and driest event in Flow). In every fullscreen mode a
@@ -217,8 +233,17 @@ device results.
   `base.v2.json`); `pickJourneys` takes the longest walk to each outlet, then
   only routes that are mostly new, comparing lengths at true scale so Alaska's
   Yukon competes. It is geometry, never measurement: the pace is presentation,
-  and the caption names rivers only. The stage exposes `data-act`
-  (`journey` / `spot` / `none`) for the smoke.
+  and the caption names rivers only. While it runs, a veil on the effects
+  layer and quieter traces let the route command the screen; flood marks and
+  rings sit above the veil at full strength. Near-white is reserved for the
+  journey (wall traces are a soft cyan). The stage exposes `data-act`
+  (`journey` / `spot` / `none`) and `data-region` for the smoke.
+- **Regional walls play what they can see.** When fullscreen keeps a regional
+  zoom, the stage reports its visible region (per inset, projected
+  coordinates); spotlights come from visible gauges, spaced for the zoom, and
+  journeys are clipped to the longest stretch of river inside the view
+  (`visibleJourneys`) — the head enters where the river enters the screen.
+  The national view keeps the national sequence.
 
 ## The wall (fullscreen)
 
@@ -237,9 +262,10 @@ so thresholds and the legend still hold (`wallStyle`, `wallPalette`):
   water is brightest of the non-events (trunk underglow, every trace class
   running at the national fit), events carry full saturation.
 - **Vivid Flow colours** (Settings → Flow colours, opt-in prototype): copper /
-  sand for unusually low, subdued teal for normal, bright cyan for high, pale
-  ice for the rarest highs (≥ 97th percentile), with light-theme variants that
-  deepen instead of brighten. Same bands and thresholds; the legend adds a
+  sand for unusually low, subdued teal for normal, saturated cyans for high —
+  most saturated for the rarest highs (≥ published p95) — with light-theme
+  variants that deepen instead of brighten. Not white: that belongs to the
+  journey. Same bands and thresholds; the legend adds a
   row for the rarest highs only when they have their own colour. Flooding
   keeps NWS colours in every set.
 - **The tray** stays open only while it has *keyboard* focus; a clicked button
@@ -300,5 +326,5 @@ Unticked until evidence is recorded here:
 - [ ] First production frames recorded after deploy; frame row size measured in Postgres.
 - [ ] Real-display review on a quiet day and on a widespread-flood day: does something catch the eye within ten seconds, and is there something worth following for a minute?
 - [ ] "Follow the river" reviewed on a real display in both themes (pace, light-theme casing, tributary flashes), and the eight picked routes checked by someone who knows the rivers.
-- [ ] Vivid Flow colours: keep as an option, make default for fullscreen only, or drop — decided after a real-display comparison (in recorded data the rarest-high ice can dominate a wet region).
-- [ ] Change view (24 h) — the next product priority: needs ≥ 26 h of recorded frames, then the Phase 1 threshold calibration (river types, regulated releases, snowmelt, ice, sensor spikes).
+- [ ] Vivid Flow colours as the eventual **wall default** (the review's recommendation: the main contrast gain should not hide behind Settings) — after a real-display comparison against Eddy colours. The data side is checked (above): a wet region looking exceptional is the data, and thresholds do not move for composition.
+- [ ] Change view (24 h) — the **next data feature**: newly rising rivers, flood-category crossings and recoveries give a returning viewer something new, where the journeys give geography. Needs ≥ 26 h of recorded frames, then the Phase 1 threshold calibration (river types, regulated releases, snowmelt, ice, sensor spikes).
