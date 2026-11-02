@@ -9,29 +9,62 @@ import {
   scheduleDayLabel,
 } from '@shared/dam-schedule-copy';
 import {
-  scheduleCheckLines,
+  scheduleCheckLine,
   scheduleOutlook,
   scheduledChangeSummary,
   type GenerationReference,
   type ScheduleCheckLine,
 } from '@shared/dam-generation';
 
-const DAY_SUBJECT = ['Today’s schedule', 'Tomorrow’s schedule'];
-
 /**
- * When Eddy last checked, as a plain clock time. Current reads as quiet text;
- * outdated gets a restrained amber box with a clock mark, so the change is
- * carried by shape and an accessible word, not by colour alone.
+ * When Eddy last checked, as one quiet line for a corner. Outdated turns it
+ * amber and adds a clock mark plus an accessible word, so the change is not
+ * carried by colour alone. No box: it has to fit beside "Full report" on a
+ * phone.
  */
-function CheckLine({ check }: { check: ScheduleCheckLine }) {
+export function ScheduleCheck({ check }: { check: ScheduleCheckLine }) {
   return check.stale ? (
-    <p data-schedule-check="stale" className="flex items-start gap-1.5 rounded border-l-2 border-amber-500 bg-amber-50 px-2 py-1 text-[13px] leading-5 text-amber-900">
-      <Clock className="mt-[3px] size-3.5 shrink-0" aria-hidden="true" />
+    <p data-schedule-check="stale" className="inline-flex items-center gap-1 text-xs font-medium leading-4 text-amber-800">
+      <Clock className="size-3 shrink-0" aria-hidden="true" />
       <span><span className="sr-only">Outdated: </span>{check.text}</span>
     </p>
   ) : (
-    <p data-schedule-check="current" className="text-[13px] leading-5 text-neutral-600">{check.text}</p>
+    <p data-schedule-check="current" className="text-xs leading-4 text-neutral-600">{check.text}</p>
   );
+}
+
+/**
+ * The single freshness line for what a schedule section shows or states.
+ *
+ * It covers every day the section draws OR announces a change from: a compact
+ * card shows only Today but can say "Generation starts at 6 AM tomorrow", and
+ * that sentence is only as current as Tomorrow's file. Exported so a card can
+ * place the line in its own footer.
+ */
+export function scheduleSectionCheck(
+  schedule: DamScheduleDay[],
+  reference: GenerationReference | null | undefined,
+  now: number,
+  compact: boolean,
+): ScheduleCheckLine | null {
+  const today = centralDayKey(now);
+  const outlook = scheduleOutlook(schedule, reference, now);
+  const posted = (date: string) => schedule.find(day => day.scheduleDate === date && day.hours.length > 0);
+  const showsTomorrow = !compact && Boolean(posted(nextDayKey(today)));
+  const reach = Math.max(outlook?.move?.dayOffset ?? 0, outlook?.resumesAt?.dayOffset ?? 0, showsTomorrow ? 1 : 0);
+  const retrievedAts: Array<string | null> = [];
+  for (let offset = 0, date = today; offset <= reach; offset += 1, date = nextDayKey(date)) {
+    const day = posted(date);
+    if (day) retrievedAts.push(day.retrievedAt);
+  }
+  // The full report also shows later posted days, so its one line covers them
+  // too rather than each disclosure repeating a timestamp.
+  if (!compact) {
+    for (const day of schedule) {
+      if (day.scheduleDate > nextDayKey(today) && day.hours.length > 0) retrievedAts.push(day.retrievedAt);
+    }
+  }
+  return scheduleCheckLine(retrievedAts, now);
 }
 
 /**
@@ -63,18 +96,9 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
     .toSorted((a, b) => a.scheduleDate.localeCompare(b.scheduleDate));
 
   const nextChange = scheduledChangeSummary(schedule, reference, now);
-  const outlook = scheduleOutlook(schedule, reference, now);
-
-  // Freshness covers every day this section draws OR states a change from: a
-  // compact card shows only Today but can announce Tomorrow's 6 AM start, and
-  // that sentence is only as current as Tomorrow's file.
-  const reach = Math.max(outlook?.move?.dayOffset ?? 0, outlook?.resumesAt?.dayOffset ?? 0, tomorrowDay ? 1 : 0);
-  const reliedOn: Array<{ subject: string; retrievedAt: string | null }> = [];
-  for (let offset = 0, date = today; offset <= reach; offset += 1, date = nextDayKey(date)) {
-    const day = posted(date);
-    if (day) reliedOn.push({ subject: DAY_SUBJECT[offset] ?? `${scheduleDayLabel(date)} schedule`, retrievedAt: day.retrievedAt });
-  }
-  const checks = scheduleCheckLines(reliedOn, now);
+  // A compact card places this line in its own footer corner; the full report
+  // closes the section with it.
+  const check = compact ? null : scheduleSectionCheck(schedule, reference, now, compact);
 
   const Heading = compact ? 'h4' : 'h2';
   const DayHeading = compact ? 'h5' : 'h3';
@@ -113,12 +137,6 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
 
       {changeLine}
 
-      {checks.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {checks.map(check => <CheckLine key={check.text} check={check} />)}
-        </div>
-      )}
-
       {(tomorrowDay || laterDays.length > 0) && (
         <div className="mt-4 divide-y divide-neutral-200 border-t border-neutral-200">
           {tomorrowDay && (
@@ -130,9 +148,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
               <DamTimeline day={tomorrowDay} reference={reference} now={now} plainLanguage />
             </section>
           )}
-          {laterDays.map(day => {
-            const [check] = scheduleCheckLines([{ subject: 'Schedule', retrievedAt: day.retrievedAt }], now);
-            return (
+          {laterDays.map(day => (
               <details key={day.scheduleDate} className="group py-2">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded py-2 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-primary-600 [&::-webkit-details-marker]:hidden">
                   <span className="min-w-0">
@@ -142,12 +158,11 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
                   <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
                 </summary>
                 <DamTimeline day={day} reference={reference} now={now} plainLanguage />
-                {check && <div className="mt-1"><CheckLine check={check} /></div>}
               </details>
-            );
-          })}
+          ))}
         </div>
       )}
+      {check && <div className="mt-3 flex justify-end border-t border-neutral-200 pt-3"><ScheduleCheck check={check} /></div>}
     </section>
   );
 }

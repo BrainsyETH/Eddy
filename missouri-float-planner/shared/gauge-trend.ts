@@ -2,7 +2,7 @@
 // Plain-language context for a raw gauge reading. A bare number ("1.8 ft")
 // doesn't tell a paddler whether the river is getting better or worse, or
 // whether today is unusual — this turns it into an actionable signal:
-//   "Rising fast · 6h"   and   "Below typical · 22nd percentile (14-day)".
+//   "Rising fast · 6h"   and   "Below recent levels · 22nd percentile (14-day)".
 // Shared by RiverCard, the gauge detail reading card, and anywhere else a
 // reading is shown. Returns null whenever there isn't enough data to say
 // something honestly (we never invent a trend from one point).
@@ -48,9 +48,9 @@ export interface GaugePercentile {
   windowDays: number;
   /** e.g. "22nd percentile". */
   label: string;
-  /** 1-2 word summary, e.g. "below typical". */
+  /** Short summary, e.g. "below recent levels". */
   short: string;
-  /** Full sentence fragment, e.g. "below typical for the last 14 days". */
+  /** The comparison it rests on, e.g. "Compared with the past 14 days". */
   descriptor: string;
 }
 
@@ -166,18 +166,20 @@ export function computePercentile(
   const atOrBelow = values.filter((v) => v <= currentValue).length;
   const percentile = Math.min(99, Math.max(1, Math.round((atOrBelow / values.length) * 100)));
 
+  // "Recent levels", never "typical": this compares against the fetched
+  // window only, and "typical" reads as a seasonal norm Eddy has not computed.
   let short: string;
-  if (percentile <= 15) short = 'near the low end';
-  else if (percentile < 40) short = 'below typical';
-  else if (percentile <= 60) short = 'about typical';
-  else if (percentile < 85) short = 'above typical';
-  else short = 'near the high end';
+  if (percentile <= 15) short = 'well below recent levels';
+  else if (percentile < 40) short = 'below recent levels';
+  else if (percentile <= 60) short = 'near recent levels';
+  else if (percentile < 85) short = 'above recent levels';
+  else short = 'well above recent levels';
 
   return {
     percentile,
     windowDays,
     label: `${ordinal(percentile)} percentile`,
     short,
-    descriptor: `${short} for the last ${windowDays} days`,
+    descriptor: `Compared with the past ${windowDays} days`,
   };
 }

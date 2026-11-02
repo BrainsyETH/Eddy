@@ -1,64 +1,48 @@
 'use client';
 
 // src/components/gauge/GaugeTrendContext.tsx
-// One-line plain-language context under a gauge reading: which way the river is
-// moving right now, and how today compares to the recent window. Pulls history
-// from React Query (already prefetched on the dashboard, so this is usually a
-// cache hit) and renders nothing when there isn't enough data to be honest.
+// Plain-language context for a gauge reading: which way the river is moving
+// right now, and how today compares to the recent window. Pulls history from
+// React Query (already prefetched on the dashboard, so this is usually a cache
+// hit) and yields nothing when there isn't enough data to be honest.
+//
+// Split into a hook and a trend label so a card can give them different
+// weight: the trend is the prominent signal, the 14-day comparison a quieter
+// line with its window available in an explanation.
 
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, MoveRight } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { computeTrend, computePercentile, type GaugeUnit } from '@shared/gauge-trend';
+import { computeTrend, computePercentile, type GaugeTrend, type GaugeUnit } from '@shared/gauge-trend';
 
-interface GaugeTrendContextProps {
-  siteId: string | null | undefined;
-  currentValue: number | null;
-  unit: GaugeUnit;
-  days?: number;
-  className?: string;
-}
-
-export default function GaugeTrendContext({
-  siteId,
-  currentValue,
-  unit,
+export function useGaugeTrendContext(
+  siteId: string | null | undefined,
+  currentValue: number | null,
+  unit: GaugeUnit,
   days = 14,
-  className = '',
-}: GaugeTrendContextProps) {
+) {
   const { data: history } = useGaugeHistory(siteId ?? null, days);
   const readings = history?.readings;
+  return {
+    trend: computeTrend(readings, unit),
+    recent: computePercentile(readings, currentValue, unit, days),
+  };
+}
 
-  const trend = computeTrend(readings, unit);
-  const pct = computePercentile(readings, currentValue, unit, days);
-
-  if (!trend && !pct) return null;
-
-  const TrendIcon =
-    trend?.direction === 'rising' ? TrendingUp : trend?.direction === 'falling' ? TrendingDown : Minus;
-  // Rising water is the cautionary direction (orange); falling reads calm (teal).
-  const trendTone =
-    trend?.direction === 'rising'
-      ? 'text-orange-600'
-      : trend?.direction === 'falling'
+/** "Falling slowly", with its direction mark. Rising is the cautionary tone. */
+export function TrendLabel({ trend, className = '' }: { trend: GaugeTrend; className?: string }) {
+  // A level arrow, not a minus: a bare dash before "Holding steady" read as
+  // punctuation.
+  const Icon = trend.direction === 'rising' ? TrendingUp : trend.direction === 'falling' ? TrendingDown : MoveRight;
+  const tone =
+    trend.direction === 'rising'
+      ? 'text-orange-700'
+      : trend.direction === 'falling'
         ? 'text-primary-600'
-        : 'text-neutral-500';
-
+        : 'text-neutral-700';
   return (
-    <div className={`flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-neutral-600 ${className}`}>
-      {trend && (
-        <span className={`inline-flex items-center gap-1 font-semibold ${trendTone}`}>
-          <TrendIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-          {trend.label}
-        </span>
-      )}
-      {trend && pct && <span className="text-neutral-300" aria-hidden="true">·</span>}
-      {pct && (
-        <span className="first-letter:uppercase" title={pct.descriptor}>
-          {/* The percentile itself stays in the tooltip: "above typical" is
-              the sentence; "61st percentile" is the method behind it. */}
-          {pct.short}
-        </span>
-      )}
-    </div>
+    <span className={`inline-flex items-center gap-1 text-sm font-semibold ${tone} ${className}`}>
+      <Icon className="size-4 shrink-0" aria-hidden="true" />
+      {trend.label}
+    </span>
   );
 }

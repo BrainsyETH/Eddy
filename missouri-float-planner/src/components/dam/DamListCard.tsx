@@ -2,23 +2,22 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { DamMetricValue, DamSnapshot } from '@/lib/data/dams';
 import { relativeAgeShort, readingStaleness } from '@shared/dam-schedule-copy';
-import GenerationSchedule from './GenerationSchedule';
+import GenerationSchedule, { ScheduleCheck, scheduleSectionCheck } from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 
 /**
- * A MEASURED reading, with its own age ("18 min ago") unless the card shows
- * one shared age for both readings — see sharedObservation.
+ * A MEASURED reading. Its age lives in the band's one corner line — see
+ * readingAgeLine — so each value stays a clean label/number pair.
  *
  * The icon sits inside the <dt> (a <dl> group may hold only dt/dd) and is
  * pulled into a left gutter, so it aligns beside the whole label/value group.
  */
-function Reading({ label, value, unit, metric, now, icon, showAge }: {
+function Reading({ label, value, unit, metric, now, icon }: {
   label: string; value: string | null; unit: string; metric?: DamMetricValue; now: number;
-  icon: EddyIconName; showAge: boolean;
+  icon: EddyIconName;
 }) {
-  const age = showAge && metric ? relativeAgeShort(metric.at, now) : null;
   return (
     <div className="relative min-w-0 pl-9">
       <dt className="text-[13px] font-medium leading-4 text-neutral-700">
@@ -31,20 +30,27 @@ function Reading({ label, value, unit, metric, now, icon, showAge }: {
           <span className="text-[13px] text-neutral-500">{unit}</span>
         </>}
       </dd>
-      {age && <dd className="mt-0.5 text-xs leading-4 text-neutral-600">{age}</dd>}
     </div>
   );
 }
 
 /**
- * Both readings observed in the same minute, so one age describes both.
- * Anything else keeps an age per reading: two readings an hour apart under one
- * timestamp would date one of them wrongly.
+ * ONE age line for the readings band: "Measured 53 min ago" when both were
+ * observed in the same minute (or only one exists), otherwise
+ * "Release 18 min ago · Temp 1 hr ago". Still one line, but never one age for
+ * two observations an hour apart, which would date one of them wrongly.
  */
-function sharedObservation(a?: DamMetricValue, b?: DamMetricValue): string | null {
-  if (!a || !b) return null;
+function readingAgeLine(release: DamMetricValue | undefined, temperature: DamMetricValue | undefined, now: number): string | null {
+  const releaseAge = release ? relativeAgeShort(release.at, now) : null;
+  const temperatureAge = temperature ? relativeAgeShort(temperature.at, now) : null;
+  if (!releaseAge || !temperatureAge) {
+    const only = releaseAge ?? temperatureAge;
+    return only ? `Measured ${only}` : null;
+  }
   const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000);
-  return Number.isFinite(minute(a.at)) && minute(a.at) === minute(b.at) ? a.at : null;
+  return minute(release!.at) === minute(temperature!.at)
+    ? `Measured ${releaseAge}`
+    : `Release ${releaseAge} · Temp ${temperatureAge}`;
 }
 
 /**
@@ -57,8 +63,8 @@ function sharedObservation(a?: DamMetricValue, b?: DamMetricValue): string | nul
 export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now: number; href: string }) {
   const flow = dam.metrics.release;
   const temperature = dam.metrics.tailwaterTempF;
-  const sharedAt = sharedObservation(flow, temperature);
-  const sharedAge = sharedAt ? relativeAgeShort(sharedAt, now) : null;
+  const measured = readingAgeLine(flow, temperature, now);
+  const scheduleCheck = dam.hasTurbines ? scheduleSectionCheck(dam.schedule, dam.generationReference, now, true) : null;
 
   return (
     <Card as="article" variant="framed" className="flex h-full min-w-0 flex-col">
@@ -73,10 +79,10 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
 
         <div className="bg-secondary-100 px-4 py-3 sm:px-5">
           <dl className="grid grid-cols-2 gap-x-3 gap-y-3">
-            <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" showAge={!sharedAge} />
-            <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" showAge={!sharedAge} />
+            <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" />
+            <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" />
           </dl>
-          {sharedAge && <p className="mt-1.5 text-xs leading-4 text-neutral-600">Measured {sharedAge}</p>}
+          {measured && <p data-reading-age className="mt-1.5 text-right text-xs leading-4 text-neutral-600">{measured}</p>}
         </div>
       </div>
 
@@ -86,15 +92,16 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
             <DamInfoTip title={`${dam.name} schedule`}>
               <p>All times are Central time at the dam. Schedules may change without notice.</p>
               <p>Teal bars show today’s scheduled generation on the project’s full capacity scale, so a small release draws small. The coral line marks now. Select an hour for its details.</p>
-              <p>Release and water temperature are measurements, each with its own age. The schedule is a plan, checked separately.</p>
+              <p>Release and water temperature are measurements; their age is shown under them. The schedule is a plan, and the time Eddy last checked it is shown at the bottom of the card.</p>
             </DamInfoTip>
           } />
         )}
         <div className="mt-auto pt-3">
-          <div className="border-t border-neutral-200">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-neutral-200">
             <Link href={href} prefetch={false} className="inline-flex min-h-11 items-center gap-1 rounded text-sm font-medium text-primary-700 underline-offset-4 hover:text-primary-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600">
               Full report<span className="sr-only"> for {dam.name}</span><ChevronRight className="size-4" aria-hidden="true" />
             </Link>
+            {scheduleCheck && <div className="ml-auto py-1"><ScheduleCheck check={scheduleCheck} /></div>}
           </div>
         </div>
       </div>

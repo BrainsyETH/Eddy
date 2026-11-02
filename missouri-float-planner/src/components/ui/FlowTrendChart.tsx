@@ -58,6 +58,7 @@ import {
   type ChartReadingLike,
 } from '@shared/chart-model';
 import { chartView, chartReferences } from '@shared/chart-view';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { chartStamp } from '@shared/chart-calendar';
 import type { ChartScaleMode } from '@shared/chart-share';
 import {
@@ -90,12 +91,15 @@ export interface ChartThresholdLines {
 
 type ThresholdLevelKey = Exclude<keyof ChartThresholdLines, 'unit'>;
 
-const THRESHOLD_LINE_CONFIG: { key: ThresholdLevelKey; label: string; color: string; dash?: string }[] = [
-  { key: 'levelLow', label: 'Good', color: '#65a30d', dash: '3,3' },
-  { key: 'levelOptimalMin', label: 'Flowing', color: '#059669', dash: '2,2' },
-  { key: 'levelOptimalMax', label: 'Flowing', color: '#059669', dash: '2,2' },
-  { key: 'levelHigh', label: 'High', color: '#f97316', dash: '3,3' },
-  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
+// `color` draws the rule; `ink` writes its label. The rule colours are too
+// light for 11px text (lime-600 on white is ~3:1), so labels use the condition
+// system's own ink for the same condition.
+const THRESHOLD_LINE_CONFIG: { key: ThresholdLevelKey; label: string; color: string; ink: string; dash?: string }[] = [
+  { key: 'levelLow', label: 'Good', color: '#65a30d', ink: CONDITION_SYSTEM.good.ink, dash: '3,3' },
+  { key: 'levelOptimalMin', label: 'Flowing', color: '#059669', ink: CONDITION_SYSTEM.flowing.ink, dash: '2,2' },
+  { key: 'levelOptimalMax', label: 'Flowing', color: '#059669', ink: CONDITION_SYSTEM.flowing.ink, dash: '2,2' },
+  { key: 'levelHigh', label: 'High', color: '#f97316', ink: CONDITION_SYSTEM.high.ink, dash: '3,3' },
+  { key: 'levelDangerous', label: 'Flood', color: '#ef4444', ink: CONDITION_SYSTEM.dangerous.ink, dash: '4,2' },
 ];
 
 /**
@@ -208,6 +212,12 @@ interface FlowTrendChartProps {
   displayUnit?: 'ft' | 'cfs';
   chartClassName?: string;
   /**
+   * Print "Current: N" in the chart header. A river card already shows the
+   * reading once, prominently, and a second rounded copy ("51" beside "50.5")
+   * reads as disagreement — so the card turns this off.
+   */
+  showCurrent?: boolean;
+  /**
    * Draw the day-of-year typical range behind the series.
    *
    * OFF BY DEFAULT, and deliberately not inferred from the chart's height. It
@@ -282,6 +292,7 @@ export default function FlowTrendChart({
   latestValue,
   displayUnit = 'cfs',
   chartClassName,
+  showCurrent = true,
   showTypical = false,
   showMedian = showTypical,
   scaleMode = 'loaded',
@@ -412,7 +423,7 @@ export default function FlowTrendChart({
     // of text, not one — and it is measured in pixels where the plot's height
     // is known, because the same 12% is 23px on the detail chart and 15px on
     // the card, which is less than the label.
-    const LABEL_HEIGHT_PX = 24;
+    const LABEL_HEIGHT_PX = 28;
     const MIN_LABEL_GAP = plotHeightPx ? Math.max(12, (LABEL_HEIGHT_PX / plotHeightPx) * 100) : 12;
     type ThresholdLabel = (typeof thresholdLineData)[number] & {
       /** A band's name centred between its two rules, not a rule's own label —
@@ -483,12 +494,14 @@ export default function FlowTrendChart({
       yTicks: showGridlines
         ? niceValueTicks(domain.min, domain.max, 4, 5, isFt ? {} : { minStep: 1 })
         : niceValueTicks(domain.min, domain.max, 3, 4, isFt ? {} : { minStep: 1 }),
-      xTicks: timeTicks(domain.t0, domain.t1, days <= 2 ? 4 : 5),
+      // A card preview (non-interactive) is phone-narrow: four readable dates
+      // rather than five shrunken ones.
+      xTicks: timeTicks(domain.t0, domain.t1, days <= 2 || !interactive ? 4 : 5),
       thresholdLineData,
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx, lastYear, showMedian, scaleMode]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx, lastYear, showMedian, scaleMode, interactive]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -815,7 +828,7 @@ export default function FlowTrendChart({
               leads: it is the entry a reader most needs attributed. */}
           {hasForecast && (
             <span
-              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              className="flex items-center gap-1 text-xs font-medium"
               style={{ color: FORECAST_COLOR }}
             >
               <span
@@ -828,7 +841,7 @@ export default function FlowTrendChart({
           )}
           {showsLastYear && (
             <span
-              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              className="flex items-center gap-1 text-xs font-medium"
               style={{ color: LAST_YEAR_COLOR }}
             >
               <span aria-hidden className="inline-block w-3.5" style={{ borderTop: `2px dashed ${LAST_YEAR_COLOR}` }} />
@@ -837,7 +850,7 @@ export default function FlowTrendChart({
           )}
           {(chartData.typicalArea || chartData.typicalPath) && (
             <span
-              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              className="flex items-center gap-1 text-xs font-medium"
               style={{ color: TYPICAL_COLOR }}
             >
               <span
@@ -850,7 +863,7 @@ export default function FlowTrendChart({
               {showTypical ? 'Typical range' : 'Median'}
             </span>
           )}
-          {currentDisplay != null && (
+          {showCurrent && currentDisplay != null && (
             <span className="text-xs text-primary-600 font-medium">
               Current: {formatVal(currentDisplay)} {unitLabel}
             </span>
@@ -865,7 +878,7 @@ export default function FlowTrendChart({
           {chartData.yTicks.map((tick) => (
             <span
               key={`ytick-${tick.value}`}
-              className="absolute right-1.5 text-[10px] text-neutral-400 tabular-nums leading-none"
+              className="absolute right-1.5 text-xs text-neutral-600 tabular-nums leading-none"
               style={{ top: `${(1 - tick.position) * 100}%`, transform: 'translateY(-50%)' }}
             >
               {formatVal(tick.value)}
@@ -1202,7 +1215,7 @@ export default function FlowTrendChart({
             return (
               <div
                 key={`stage-label-${line.key}`}
-                className="absolute left-1 pointer-events-none text-[9px] font-medium leading-none whitespace-nowrap"
+                className="absolute left-1 pointer-events-none text-[11px] font-medium leading-none whitespace-nowrap"
                 style={{
                   top: `${line.y}%`,
                   color: floodStageColor(),
@@ -1230,7 +1243,7 @@ export default function FlowTrendChart({
           {hasForecast && nowX !== null && nowLabelText && (
             <div
               aria-hidden
-              className="absolute pointer-events-none text-[9px] font-medium leading-none text-slate-500"
+              className="absolute pointer-events-none text-[11px] font-medium leading-none text-neutral-600"
               style={{
                 left: `${nowX}%`,
                 top: nowLabelDropped ? 14 : 2,
@@ -1277,12 +1290,12 @@ export default function FlowTrendChart({
 
         {/* Threshold labels (right column, outside chart) */}
         {chartData.thresholdLabels.length > 0 && (
-          <div className={`relative flex-shrink-0 w-12 pl-1.5 ${chartClassName ?? 'h-32'}`}>
+          <div className={`relative flex-shrink-0 w-16 pl-1.5 ${chartClassName ?? 'h-32'}`}>
             {chartData.thresholdLabels.map((t) => (
               <div
                 key={`label-${t.key}`}
-                className="absolute text-[9px] font-semibold leading-tight whitespace-nowrap"
-                style={{ top: `${t.y}%`, color: t.color, transform: 'translateY(-50%)' }}
+                className="absolute text-[11px] font-semibold leading-tight whitespace-nowrap"
+                style={{ top: `${t.y}%`, color: t.ink, transform: 'translateY(-50%)' }}
               >
                 <div>{t.label}</div>
                 {/* "High starts at 1,400" is the number people open this chart
@@ -1291,8 +1304,11 @@ export default function FlowTrendChart({
                     The tooltip's formatter, not the axis's: "1.4k" here beside
                     "1,400" in the tooltip two lines away was two spellings of
                     one number, and the column is wide enough for the real one. */}
+                {/* "from": the rule is where that condition BEGINS, in the
+                    condition system's own words — "Good 127" read as a
+                    reading of 127 that is good. */}
                 {!t.banded && (
-                  <div className="font-normal opacity-70 tabular-nums">{formatTooltipVal(t.value)}</div>
+                  <div className="font-normal tabular-nums">from {formatTooltipVal(t.value)}</div>
                 )}
               </div>
             ))}
@@ -1302,11 +1318,11 @@ export default function FlowTrendChart({
 
       {/* X-axis labels, positioned by TIME so they sit under the point they
           describe — including when a forecast extends the window past now. */}
-      <div className={`relative h-4 mt-1 ml-10 ${chartData.thresholdLabels.length > 0 ? 'mr-12' : ''}`}>
+      <div className={`relative h-4 mt-1 ml-10 ${chartData.thresholdLabels.length > 0 ? 'mr-16' : ''}`}>
         {chartData.xTicks.map((tick, index) => (
           <span
             key={`xtick-${index}`}
-            className="absolute top-0 text-[10px] text-neutral-400 whitespace-nowrap"
+            className="absolute top-0 text-xs text-neutral-600 whitespace-nowrap"
             style={{
               left: `${tick.position * 100}%`,
               transform:
@@ -1331,7 +1347,7 @@ export default function FlowTrendChart({
           The endpoint has carried `forecastIssuedAt` and `sourceUrl` since the
           forecast landed, and nothing rendered either of them. */}
       {showProvenance && provenanceBits.length > 0 && (
-        <p className="mt-1.5 ml-10 text-[10px] text-neutral-400 leading-snug">
+        <p className="mt-1.5 ml-10 text-xs text-neutral-600 leading-snug">
           {provenanceBits.map((bit, index) => (
             <span key={`prov-${index}`}>
               {index > 0 && ' · '}

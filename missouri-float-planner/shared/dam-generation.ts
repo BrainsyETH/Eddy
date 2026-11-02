@@ -802,37 +802,32 @@ export interface ScheduleCheckLine {
 }
 
 /**
- * The freshness line(s) for the schedule days a surface shows or relies on.
+ * The ONE freshness line for the schedule days a surface shows or relies on:
+ * "Schedule checked 7:31 PM CST".
  *
- * ONE line when every day was retrieved at the same displayed minute — the
- * usual case, since the days are fetched together — because two identical
- * timestamps read as two separate alerts. Separate, labelled lines only when
- * the days really were checked at different times: each day is its own SWPA
- * file with its own cache age, and folding a fresh Today and a stale Tomorrow
- * into one line would either hide the stale day or slander the fresh one.
- *
- * `subject` names the day in the split form ("Today’s schedule").
+ * One line even when the days were retrieved at different times. Two
+ * timestamps in a card corner read as two alerts, and the plan a card states
+ * (today's chart plus a change that may fall tomorrow) is only as fresh as
+ * the OLDEST day it rests on — the same rule oldestRetrievedAt applies to a
+ * schedule block. So the oldest time is shown, and the line is stale when that
+ * day is. A day with no retrieval time makes the whole line unknown rather
+ * than letting a newer day vouch for it.
  */
-export function scheduleCheckLines(
-  days: Array<{ subject: string; retrievedAt: string | null }>,
+export function scheduleCheckLine(
+  retrievedAts: Array<string | null>,
   now = Date.now()
-): ScheduleCheckLine[] {
-  if (days.length === 0) return [];
-  const checks = days.map((day) => ({
-    subject: day.subject,
-    phrase: scheduleCheckedPhrase(day.retrievedAt, now),
-    stale: scheduleIsStale(day.retrievedAt, now),
-  }));
-  const line = (subject: string, phrase: string | null, stale: boolean): ScheduleCheckLine => ({
-    text: phrase
-      ? `${subject} last checked ${phrase}`
-      : `${subject} check time unavailable`,
-    stale,
-  });
-  if (checks.every((check) => check.phrase === checks[0].phrase)) {
-    return [line('Schedule', checks[0].phrase, checks.some((check) => check.stale))];
+): ScheduleCheckLine | null {
+  if (retrievedAts.length === 0) return null;
+  if (retrievedAts.some((iso) => !iso || !Number.isFinite(Date.parse(iso)))) {
+    return { text: 'Schedule check time unavailable', stale: false };
   }
-  return checks.map((check) => line(check.subject, check.phrase, check.stale));
+  const oldest = oldestRetrievedAt(retrievedAts.map((retrievedAt) => ({ retrievedAt })));
+  const phrase = scheduleCheckedPhrase(oldest, now);
+  if (!oldest || !phrase) return { text: 'Schedule check time unavailable', stale: false };
+  return {
+    text: `Schedule checked ${phrase.replace(/^at /, '')}`,
+    stale: scheduleIsStale(oldest, now),
+  };
 }
 
 // ── Turbine flow against total release ─────────────────────────────────────
