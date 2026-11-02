@@ -161,7 +161,7 @@
       "servesSections": [
         "illinois-upper"
       ],
-      "knownBias": "Stage only, with no discharge; IV since May 2018. No NWPS forecast point was found (the MODO2 lookup failed). Probably the 'Moody Bridge' gauge War Eagle Resort cites and Eagle Bluff's 'Combs Bridge' gauge, near Edmondson PAA/New Combs Bridge (GRDA RM 36.2–36.5). That placement is inferred from those outfitter pages and the coordinates and is unverified. Not a GRDA regulatory reference.",
+      "knownBias": "Stage only, with no discharge; IV since May 2018. No NWPS forecast point was found (the MODO2 lookup failed). Probably the 'Moody Bridge' gauge War Eagle Resort cites and Eagle Bluff's 'Combs Bridge' gauge, near Edmondson PAA/New Combs Bridge (GRDA RM 36.2–36.5). That placement is inferred from those outfitter pages and the coordinates and is unverified. Not a GRDA regulatory reference. Has a USGS HIVIS camera (camId OK_Illinois_River_near_Moodys, daylight frames every 15 min, public JPEGs; see verified-identifiers-illinois-river.md). The frame is visual context for the upper section, not a measurement.",
       "measurementUnit": "ft",
       "positionRiverMile": 83.37
     },
@@ -651,7 +651,8 @@
       "https://wareagleresort.com/floating ; https://wareagleresort.com/river-conditions",
       "https://nominatim.openstreetmap.org (GNIS-import access-area nodes; state/county reverse checks)",
       "https://www.kuaf.com/ozarks-at-large-stories/2020-11-04/new-whitewater-park-under-construction-on-illinois-river",
-      "scripts/ingestion/dossiers/verified-identifiers-illinois-river.md (independent identifier and geometry check, 2026-11-02; gauge positionRiverMile measured on the TNM 11110103 dissolve, headwaters = 0)"
+      "scripts/ingestion/dossiers/verified-identifiers-illinois-river.md (independent identifier and geometry check, 2026-11-02; gauge positionRiverMile measured on the TNM 11110103 dissolve, headwaters = 0)",
+      "https://apps.usgs.gov/hivis/camera/OK_Illinois_River_near_Moodys (NIMS camera API record, checked 2026-11-02)"
     ],
     "openQuestions": [
       "RATING: GRDA's binding Appendix A gives a trusted high/dangerous ladder in ft at polled gauges (Chewey 6.0/9.5; Tahlequah 6.5/9.5), corroborated by the IRA 1993 guidelines and Diamondhead (which says 9 ft = no floating at Chewey). No trusted low end exists. A high/dangerous-only ladder makes classifyReading return 'too_low' below `high`, so normal summer water would read Too Low. Owner decision: ship unrated now (recommended), or obtain a gauge-stated low/optimal anchor from GRDA or an outfitter and ship rated.",

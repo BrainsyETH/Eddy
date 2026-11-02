@@ -103,3 +103,26 @@ No access point has an authoritative coordinate; all remain null and held as
 the dossier records. GRDA, USACE and ODWC coordinates are still needed. The
 production reference catalog has no `illinois-river` slug (queried
 2026-11-02).
+
+## USGS HIVIS camera at Moodys
+
+Checked 2026-11-02 against the NIMS camera API that backs
+[HIVIS](https://apps.usgs.gov/hivis/camera/OK_Illinois_River_near_Moodys)
+(`https://api.waterdata.usgs.gov/nims/v0/cameras?camId=OK_Illinois_River_near_Moodys`,
+which answers without an API key):
+
+- camId **OK_Illinois_River_near_Moodys**, `nwisId` **07196320**, the same
+  coordinates as the Moodys gauge (36.03175654, -94.9107885), US/Central.
+- Created 2022-11-07; enabled and not hidden. Ingest is daylight-only, every
+  15 minutes. Newest frame at retrieval: 2026-11-01 23:45 UTC.
+- Images are public JPEGs on `usgs-nims-images.s3.amazonaws.com`, in three
+  sizes: `overlay/` (full size with the station caption, ~280 KB), `720/`
+  (~40–50 KB) and `thumbnail/` (~7 KB). Files are named
+  `<camId>___<YYYY-MM-DDTHH-MM-SS>Z.jpg`, and `<camId>_newest.jpg` aliases the
+  latest frame in each size. A daily timelapse is generated (`TL_enabled`).
+- The view looks downstream from the gauge at Eddy mile 83.4, between Peavine
+  Hollow and No Head Hollow, in the proposed upper section.
+
+Of 1,403 enabled NIMS cameras, the only other one in MO/AR/OK on Ozark float
+water is **OK_Flint_Creek_near_Kansas** (gauge 07196000), on another Oklahoma
+Scenic River. No camera covers a river Eddy already lists.
