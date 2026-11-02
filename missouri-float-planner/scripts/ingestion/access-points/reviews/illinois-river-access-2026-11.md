@@ -1,6 +1,7 @@
 # Illinois River (OK) access points: Phase 8 review packet, 2026-11-02
 
-Data file: [`../illinois-river.json`](../illinois-river.json), 14 rows.
+Data file: [`../illinois-river.json`](../illinois-river.json), 15 rows (14
+public sites plus one private launch candidate, Highwater Camp).
 Nothing has been imported or written to any database. This packet records the
 evidence and the checks a reviewer should make before running
 `import-dossier-access-points.ts illinois-river --write`. Run `--approve` only
@@ -8,8 +9,9 @@ after those checks.
 
 **Summary:**
 - **7 rows carry coordinates:** 6 launches plus the Chewey Bridge landmark.
-- **7 are held** (`lat/lon: null`). One of them, Horseshoe Bend, has a verified
-  coordinate; it is held only because it lies below the stored river line.
+- **8 are held** (`lat/lon: null`), including the private Highwater Camp
+  launch. One of them, Horseshoe Bend, has a verified coordinate; it is held
+  only because it lies below the stored river line.
 
 ## How positions were measured
 
@@ -84,7 +86,8 @@ Todd and US-62. River-mile order is monotonic.
 | Site | Expected mile | Best leads (measured mile, off line) | Why held / what is missing |
 |---|---|---|---|
 | WOKA Whitewater Park | 49.8 | AGFC layer objectid 25308, 36.130578, -94.562524 (49.84, 38 m); AGFC water-trail page 36.133889, -94.566111 (49.95, 435 m); AW put-in 36.13201, -94.56405 (49.93, 200 m) | Three sources are 210–489 m apart. The official site gives only an address (474986 Twin Falls Rd). Excluded as an endpoint anyway. |
-| Carnes Ford PAA | 57.6 | AW 36.14117, -94.666928 (57.77, 18 m); OSM ford node 8968644307, 30 m from AW | Both sources are non-agency. They agree closely, so a GRDA or ODWC coordinate, or an imagery check of the slab crossing, should promote it. |
+| Carnes Ford PAA | 57.6 | AW 36.14117, -94.666928 (57.77, 18 m); OSM ford node 8968644307, 30 m from AW | Both sources are non-agency. They agree closely, so a GRDA or ODWC coordinate, or an imagery check of the slab crossing, should promote it. Highwater Camp's maps page says the low-water crossing "is still washed out"; confirm current road access with GRDA. |
+| Highwater Camp River Access (private) | 59.0 (GRDA mile 11.8 in the 2025 guide) | Operator's Google Maps link: business place pin 36.1536671, -94.6814357 (59.04, 135 m), on private service road OSM way 14649285 | The launch is "directly on the gravel bar at HWC" (RAP page), but no source fixes the bar. The place pin is a business marker, not the launch. Needs an imagery-verified pin on the gravel-bar entry, or one from the operator. Modeled like the Elk private launches: `is_public: false`, `Private`, `fee_required: true` (the $10/vehicle/day RAP plus a GRDA float permit per boat; campers exempt from the RAP; May 1–Nov 15; 5 passes a day). |
 | Stunkard PAA | 75.2 | AW 36.088687, -94.837319 (75.97, 106 m) | Single non-agency source. It sits 0.56 mi below GRDA's Round Hollow pin; GRDA's mileage says 0.3 mi. |
 | Edmondson PAA (Combs Bridge) | 83.4 | AW 36.031363, -94.912292, river left (83.44, 105 m); NBI 308360 Combs Bridge (N4545, built 2015) 36.032222, -94.911111 (83.39, 10 m) | No agency coordinate for the access. GRDA's mileage puts Edmondson 0.3 mi above "New Combs Bridge"; AW puts it 143 m from the bridge. |
 | Echota PAA | 100.4 | GNIS node 357391240, 35.9437019, -94.9141214 (100.21, 98 m); AW "Echota Bend" 35.942703, -94.911419 (100.11, 71 m) | No agency coordinate, and the two leads are 267 m apart. |
@@ -126,6 +129,7 @@ point and the USACE SWT ramp feature are 890 m apart.
 | No Head Hollow | Confirm the lot beside OK-10 and the river-right access; the pin is 99 m from the line, within the 250 m snap limit. |
 | Todd | Confirm the river-left access at the end of North Oakdale Drive and that the road is public to the gate. |
 | US-62 | Identify which bank holds the GRDA access lot. AW's point (35.926302, -94.924289) is east of the bridge. Move the pin off the deck onto the lot. |
+| Highwater Camp (held) | Find the HWC gravel bar near the end of the private road from 599th Road, around 36.153, -94.682 (river right, about Eddy 59.0). Pin the vehicle entry onto the bar, not the place marker. Confirm with the operator (JDart@Highwatercamp.com) before giving the row coordinates. |
 | Chewey Bridge | No action; landmark only. Do not promote it to an endpoint without evidence of public launch rights. |
 
 For each held row, a single GRDA or USACE coordinate, or the reviewer's own

@@ -60,13 +60,42 @@
     "managing_agency": null,
     "official_site_url": "https://grda.com/illinois-river/",
     "facilities": "Low-water slab crossing, marked 'Dangerous during high water' by GRDA. No alcohol.",
-    "description": "HELD: no agency coordinate. Two non-agency sources agree within 30 m: American Whitewater 'Carnes Ford River Access' (36.14117, -94.666928; river right) and OSM ford node 8968644307 (36.1410581, -94.6672303). Both measure at Eddy mile 57.77, 11-18 m from the line. A GRDA or ODWC coordinate would make this pin-grade. Expected mile converted from GRDA mile 10.4 (+47.2).",
+    "description": "HELD: no agency coordinate. Two non-agency sources agree within 30 m: American Whitewater 'Carnes Ford River Access' (36.14117, -94.666928; river right) and OSM ford node 8968644307 (36.1410581, -94.6672303). Both measure at Eddy mile 57.77, 11-18 m from the line. A GRDA or ODWC coordinate would make this pin-grade. Road note: Highwater Camp's maps page (undated, read 2026-11-02) says the Carnes Ford low-water crossing 'is still washed out and you cannot drive across the river at that location'. Confirm current road access to the access area with GRDA. Expected mile converted from GRDA mile 10.4 (+47.2).",
     "confidence": "unverified",
     "source_urls": [
       "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf",
       "https://www.americanwhitewater.org/content/River/view/river-detail/4460/main",
-      "https://www.openstreetmap.org/node/8968644307"
+      "https://www.openstreetmap.org/node/8968644307",
+      "https://www.highwatercamp.com/maps"
     ]
+  },
+  {
+    "name": "Highwater Camp River Access",
+    "kind": "gravel_bar",
+    "roles": ["gravel_bar", "campground"],
+    "is_float_endpoint": true,
+    "expected_mile": 59.0,
+    "lat": null,
+    "lon": null,
+    "is_public": false,
+    "ownership": "Highwater Camp (HWC), private campground",
+    "managing_agency": "Private",
+    "official_site_url": "https://www.highwatercamp.com/river/access/pass",
+    "facilities": "Private campground on a gravel bar. River Access Pass holders may drive onto the gravel bar to drop off or pick up people, gear and boats, and leave one vehicle in the parking area. No boat rentals or shuttles.",
+    "description": "HELD: the launch location is not corroborated. HWC's River Access Pass page puts launch and takeout 'directly on the gravel bar at HWC'. The operator's Google Maps link resolves to a business place pin (36.1536671, -94.6814357) on a private service road (OSM way 14649285), 135 m from the line at Eddy mile 59.04. That is a place marker, not a surveyed gravel-bar launch, and neither AW nor OSM marks the bar. The 2025 GRDA guide lists Highwater Camp at GRDA mile 11.8, consistent with that position. Expected mile converted from GRDA mile 11.8 (+47.2). Pin the gravel-bar entry on imagery, or get it from the operator, before giving this row coordinates.",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://www.highwatercamp.com/river/access/pass",
+      "https://www.highwatercamp.com/maps",
+      "https://www.highwatercamp.com",
+      "https://maps.app.goo.gl/nMr8QVQ444T8SsMD6",
+      "https://grda.com/wp-content/uploads/2025/06/Illinois-River-Guide-and-Map-2025-final.pdf"
+    ],
+    "fee_required": true,
+    "fee_notes": "Non-campers need a River Access Pass (RAP), reserved in advance: $10 per vehicle per day, up to 8 people, limited to 5 passes a day, valid 7 a.m.-8:30 p.m., May 1-Nov 15. It covers launch, takeout and one parked vehicle; not for commercial use. Overnight parking for multi-day trips is $5/night (max 3 nights) with an emailed itinerary. Campers do not need a RAP. Every private watercraft also needs a GRDA day or annual float permit; HWC does not sell them.",
+    "road_access": "468501 E. 599th Road, Watts, OK 74964. Approach from the north side of the river via the 4700 road, then 599th Road. The operator warns against routes using the 4693, 4685 or 0592 roads, and the Carnes Ford low-water crossing is washed out.",
+    "directions_override": "468501 E. 599th Road, Watts, OK 74964",
+    "parking_info": "One vehicle per River Access Pass in the HWC parking area. Do not walk or drive through camping areas."
   },
   {
     "name": "Chewey Bridge",
