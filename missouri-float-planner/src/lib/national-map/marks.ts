@@ -501,3 +501,26 @@ export const LIVE_REASON_TEXT: Record<Exclude<LiveReason, 'live'>, string> = {
   flood_not_current: 'NWS flood observations are not current',
 };
 
+
+// ── Wall pulses ─────────────────────────────────────────────────────────────
+/**
+ * Which ring-eligible marks pulse on the wall: the most severe first, each at
+ * least `separation` frame px from every pulse already chosen in its
+ * component, up to `limit`. Every severity symbol stays drawn; only the
+ * motion is rationed, so a cluster reads as one event instead of a tangle of
+ * overlapping rings.
+ */
+export function pickPulses(sites: Site[], classified: ClassifiedSite[], limit = 6, separation = HIGHLIGHT_SEPARATION): Set<number> {
+  const ringed = classified.filter((c) => c.style.ring).sort((a, b) => b.style.salience - a.style.salience || a.index - b.index);
+  const picked: number[] = [];
+  for (const c of ringed) {
+    if (picked.length >= limit) break;
+    const s = sites[c.index];
+    const near = picked.some((i) => {
+      const o = sites[i];
+      return o.component === s.component && Math.hypot(o.x - s.x, o.y - s.y) < separation;
+    });
+    if (!near) picked.push(c.index);
+  }
+  return new Set(picked);
+}

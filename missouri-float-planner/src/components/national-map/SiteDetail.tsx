@@ -42,12 +42,13 @@ function flowSentence(site: Site, clock: number): string {
   return flowBandSentence(c as Parameters<typeof flowBandSentence>[0]) ?? 'No comparison available.';
 }
 
-interface HistoryPoint {
+export interface HistoryPoint {
   t: number;
   v: number;
 }
 
-function useHistory(siteId: string | null, unit: 'cfs' | 'ft') {
+/** A gauge's recent readings (live USGS when the database has none). Shared with the wall story. */
+export function useHistory(siteId: string | null, unit: 'cfs' | 'ft', days = 7) {
   const [state, setState] = useState<{ id: string | null; points: HistoryPoint[] | null; error: boolean }>({
     id: null,
     points: null,
@@ -56,7 +57,7 @@ function useHistory(siteId: string | null, unit: 'cfs' | 'ft') {
   useEffect(() => {
     if (!siteId) return;
     const controller = new AbortController();
-    fetch(`/api/gauges/${encodeURIComponent(siteId)}/history?days=7`, { signal: controller.signal })
+    fetch(`/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((body: { readings?: Array<{ timestamp: string; dischargeCfs: number | null; gaugeHeightFt: number | null }> }) => {
         const points: HistoryPoint[] = [];
@@ -71,7 +72,7 @@ function useHistory(siteId: string | null, unit: 'cfs' | 'ft') {
         if (!controller.signal.aborted) setState({ id: siteId, points: null, error: true });
       });
     return () => controller.abort();
-  }, [siteId, unit]);
+  }, [siteId, unit, days]);
   return state.id === siteId ? state : { id: siteId, points: null, error: false };
 }
 

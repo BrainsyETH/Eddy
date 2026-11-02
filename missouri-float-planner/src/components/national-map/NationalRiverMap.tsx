@@ -24,6 +24,7 @@ import {
   classifySites,
   curateHighlights,
   HIGHLIGHT_SEPARATION,
+  pickPulses,
   LIVE_REASON_TEXT,
   viewLiveState,
   summarizeFlood,
@@ -43,13 +44,16 @@ import { PALETTES, wallPalette, withFlowColors, type MapTheme } from '@/lib/nati
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
-import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys, type Journey } from '@/lib/national-map/journeys';
+import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys } from '@/lib/national-map/journeys';
+import { decodeFrame } from '@/lib/national-map/frame';
+import { rankStories, type Story } from '@/lib/national-map/stories';
 import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
+import { WallLegend } from './WallLegend';
+import { WallStory } from './WallStory';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
   Chooser,
-  DisplayDetails,
   ExplorePanel,
   FreshnessLine,
   FullscreenTray,
@@ -64,6 +68,8 @@ const TRAY_IDLE_MS = 8000;
 const CURSOR_IDLE_MS = 3000;
 /** The fullscreen spotlight moves to the next highlight this often. */
 const SPOTLIGHT_MS = 20_000;
+/** "What changed" compares with a recorded frame this much older. */
+const PRIOR_MS = 6 * 3_600_000;
 
 type Presentation = 'explore' | 'fullscreen';
 
@@ -119,12 +125,37 @@ export default function NationalRiverMap() {
   const side = useMedia('(min-width: 768px) and (min-aspect-ratio: 1/1)');
   const short = useMedia('(max-height: 600px)');
   const narrow = useMedia('(max-width: 640px)');
+  // The wall legend sits in the composition's left margin on wide screens;
+  // narrower than ~1.45:1 there is no margin, so it becomes a bottom strip.
+  const legendStrip = useMedia('(max-aspect-ratio: 29/20)') || narrow;
   const finePointer = useMedia('(hover: hover) and (pointer: fine)');
   const theme: MapTheme = prefs.appearance === 'system' ? (systemDark ? 'dark' : 'light') : prefs.appearance;
   // Fullscreen is the wall: its own brightness tiers and mark hierarchy
   // (theme.ts wallPalette, marks.ts wallStyle). Explore keeps everything.
   const [presentation, setPresentation] = useState<Presentation>('explore');
   const fullscreen = presentation === 'fullscreen';
+  const wallText = prefs.wallText;
+  // Measured boxes of the wall legend (strip height) and story column (width),
+  // so the fit keeps geography out from under them.
+  const legendRef = useRef<HTMLDivElement>(null);
+  const [legendHeight, setLegendHeight] = useState(0);
+  const [storyWidth, setStoryWidth] = useState(0);
+  useEffect(() => {
+    if (!fullscreen) return;
+    // Strip: the legend section's height. Column: its right edge (the
+    // wrapper is the absolutely positioned column itself).
+    const target = () => (legendStrip ? legendRef.current?.firstElementChild : legendRef.current) ?? null;
+    const measure = () => {
+      const box = target()?.getBoundingClientRect();
+      setLegendHeight(legendStrip && box ? Math.round(box.height) : 0);
+      setStoryWidth(!legendStrip && box ? Math.round(box.right + 8) : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    const el = target();
+    if (el) ro.observe(el);
+    return () => ro.disconnect();
+  }, [fullscreen, wallText, legendStrip]);
   const palette = useMemo(
     () => withFlowColors(fullscreen ? wallPalette(theme) : PALETTES[theme], theme, prefs.flowColors),
     [fullscreen, theme, prefs.flowColors],
@@ -486,33 +517,62 @@ export default function NationalRiverMap() {
     () => highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
     [highlights, indexByKey],
   );
-  // The fullscreen sequence. Emphasis moves while the whole country stays
-  // still, and needs no words (Map only and Display with details alike):
-  //   * the spotlight rests on one curated highlight for SPOTLIGHT_MS;
-  //   * with motion on and the view live, it alternates with "Follow the
-  //     river" — a highlight travelling a real network to its outlet
-  //     (journeys.ts), the wall's signature. The spotlight steps aside while
-  //     a journey runs, so only one thing moves with intent at a time.
-  // With motion off the spotlight rests on the first highlight and no
-  // journey runs.
+  // The fullscreen sequence: one focal point at a time, the camera still.
+  //   * "Follow the river" (motion on, view live): a highlight travels a real
+  //     network to its outlet, holds so the connection reads, then hands off;
+  //   * a featured story: the current development most worth attention
+  //     (stories.ts — severity, change since a recorded frame ~6 h older,
+  //     freshness, variety, not just shown), marked by the spotlight ring and,
+  //     in Story mode, told in the card with its 24-hour water level.
+  // They alternate: discover a river → notice what is happening → another
+  // place. With motion off the first story rests and no journey runs.
   //
   // A regional wall (fullscreen kept a deliberate zoom) draws its sequence
-  // from what it can SEE: spotlights from visible gauges, spaced for the
-  // zoom, and journeys clipped to the stretch of river on screen. The
-  // national wall keeps the national sequence.
+  // from what it can SEE: stories from visible gauges, spaced for the zoom,
+  // and journeys clipped to the stretch of river on screen. The national wall
+  // keeps the national sequence.
   const [stageRegion, setStageRegion] = useState<Region | null>(null);
   const region = fullscreen ? stageRegion : null;
-  const spotlightSet = useMemo(() => {
-    if (!region) return highlights.slice(0, 6);
-    if (!dataLive) return [];
-    const visible = sites.filter((s) => inRegion(region, s.component, s.x, s.y));
-    // Spacing scales with the view: the national rule over the lower 48's width.
-    const l48 = data.geometry?.components.l48;
-    const nationalSpan = l48 ? l48.maxX - l48.minX : 774;
-    const separation = (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan;
-    return curateHighlights(visible, view, now, noaaOk, 6, separation);
-  }, [region, highlights, dataLive, sites, view, now, noaaOk, data.geometry]);
-  const spotlightKeys = spotlightSet.map((s) => s.key).join('|');
+  const nationalSpan = data.geometry ? data.geometry.components.l48.maxX - data.geometry.components.l48.minX : 774;
+  const separation = region ? (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan : HIGHLIGHT_SEPARATION;
+
+  // What changed: a recorded frame about PRIOR_MS older (fullscreen only).
+  // No such frame yet (first hours after deploy), or one too close in time,
+  // means no change claims — never a guess.
+  const [prior, setPrior] = useState<{ sites: Map<string, Site>; capturedAt: number } | null>(null);
+  useEffect(() => {
+    if (!fullscreen || !frame || !catalog) return;
+    const controller = new AbortController();
+    const at = new Date(frame.capturedAt - PRIOR_MS).toISOString();
+    fetch(`/api/river-map/frame?at=${encodeURIComponent(at)}`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (!body) return setPrior(null);
+        const older = decodeFrame(body);
+        if (frame.capturedAt - older.capturedAt < PRIOR_MS / 2) return setPrior(null);
+        setPrior({ capturedAt: older.capturedAt, sites: new Map(buildSites(catalog, older).map((x) => [x.key, x])) });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPrior(null);
+      });
+    return () => controller.abort();
+  }, [fullscreen, frame, catalog]);
+
+  const storySites = useMemo(
+    () => (region ? sites.filter((x) => inRegion(region, x.component, x.x, x.y)) : sites),
+    [region, sites],
+  );
+  const storyPool = useMemo(
+    () => (fullscreen && dataLive ? rankStories({ sites: storySites, prior, view, clock: now, noaaOk, recent: [], separation }) : []),
+    [fullscreen, dataLive, storySites, prior, view, now, noaaOk, separation],
+  );
+  // On the wall only a few geographically distinct floods pulse; every
+  // severity symbol stays drawn. Spacing follows the view, like the stories.
+  const pulses = useMemo(() => {
+    if (!fullscreen) return null;
+    const shown = region ? classified.filter((c) => inRegion(region, sites[c.index].component, sites[c.index].x, sites[c.index].y)) : classified;
+    return pickPulses(sites, shown, 6, separation);
+  }, [fullscreen, region, classified, sites, separation]);
   const journeys = useMemo(() => {
     if (!data.geometry) return [];
     return region ? visibleJourneys(data.geometry.rivers, region) : pickJourneys(data.geometry.rivers);
@@ -520,26 +580,39 @@ export default function NationalRiverMap() {
   const journeysOn = fullscreen && motion && dataLive && journeys.length > 0;
   const [step, setStep] = useState(0);
   const journeyKey = journeys.map((j) => `${j.steps[0]?.line}:${Math.round(j.start)}`).join('|');
-  useEffect(() => setStep(0), [spotlightKeys, journeyKey, view, fullscreen]);
-  // Even steps are journeys (when on), odd steps spotlights; with no
-  // highlights every step is a journey.
-  const act: { kind: 'journey'; journey: Journey } | { kind: 'spot'; site: Site } | null = !fullscreen
-    ? null
-    : journeysOn && (step % 2 === 0 || spotlightSet.length === 0)
-      ? { kind: 'journey', journey: journeys[(spotlightSet.length ? step / 2 : step) % journeys.length] }
-      : spotlightSet.length
-        ? { kind: 'spot', site: spotlightSet[(journeysOn ? (step - 1) / 2 : step) % spotlightSet.length] }
-        : null;
-  const actMs = act?.kind === 'journey' ? journeyTiming(act.journey).totalMs : SPOTLIGHT_MS;
-  const advances = fullscreen && motion && (journeysOn || spotlightSet.length > 1);
+  useEffect(() => setStep(0), [journeyKey, view, fullscreen]);
+  // Even steps are journeys (when on), odd steps stories; with no story every
+  // step is a journey.
+  const hasStories = storyPool.length > 0;
+  const journeyStep = journeysOn && (step % 2 === 0 || !hasStories);
+  const journey = journeyStep ? journeys[Math.floor(hasStories ? step / 2 : step) % journeys.length] : null;
+  const storyStep = fullscreen && !journeyStep && hasStories;
+  // A story is chosen when its turn starts and kept for the turn; what was
+  // just shown steps back next time (rankStories' recency rule).
+  const [featured, setFeatured] = useState<Story | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  const pickedFor = useRef<string>('');
+  useEffect(() => setRecent([]), [view, fullscreen]);
+  useEffect(() => {
+    if (!storyStep) return;
+    const turn = `${view}:${step}`;
+    if (pickedFor.current === turn) return;
+    pickedFor.current = turn;
+    const pick = rankStories({ sites: storySites, prior, view, clock: now, noaaOk, recent, separation })[0] ?? null;
+    setFeatured(pick);
+    if (pick) setRecent((r) => [...r, pick.site.key].slice(-8));
+  }, [storyStep, step, view, storySites, prior, now, noaaOk, recent, separation]);
+  const actMs = journey ? journeyTiming(journey).totalMs : SPOTLIGHT_MS;
+  const advances = fullscreen && motion && (journeysOn || storyPool.length > 1);
   useEffect(() => {
     if (!advances) return;
     const t = setTimeout(() => setStep((v) => v + 1), actMs);
     return () => clearTimeout(t);
   }, [advances, actMs, step]);
-  const journey = act?.kind === 'journey' ? act.journey : null;
-  const spotlight = act?.kind === 'spot' ? act.site : null;
+  const story = storyStep ? featured : null;
+  const spotlight = story?.site ?? null;
   const spotlightIndex = spotlight ? indexByKey.get(spotlight.key) ?? null : null;
+  const act = journey ? 'journey' : spotlight ? 'spot' : 'none';
 
   // Explore leaves room for its panel: beside the map in the side layout
   // (measured width), above it otherwise (measured height of the always-visible
@@ -566,12 +639,16 @@ export default function NationalRiverMap() {
   }, [side, fullscreen]);
   const insets = useMemo(() => {
     if (fullscreen) {
-      // Display with details keeps the composition clear of its card.
-      return { top: 0, right: 0, bottom: prefs.displayDetails ? (narrow ? 190 : 96) : 0, left: 0 };
+      // The side legend sits in the composition's open left margin (the
+      // Pacific above Alaska), so it reserves nothing; a bottom strip does.
+      // Story mode keeps its column clear of the map.
+      const bottom = wallText !== 'none' && legendStrip ? legendHeight + 12 : 0;
+      const left = wallText === 'story' && !legendStrip ? storyWidth : 0;
+      return { top: 0, right: 0, bottom, left };
     }
     if (side) return { top: 0, right: 64, bottom: 0, left: panelRight + 16 };
     return { top: panelBottom + 18, right: 0, bottom: 60, left: 0 };
-  }, [fullscreen, side, panelBottom, panelRight, prefs.displayDetails, narrow]);
+  }, [fullscreen, side, panelBottom, panelRight, wallText, legendStrip, legendHeight, storyWidth]);
   const insetsTop = insets.top;
 
   // Phones: keep the selected gauge clear of the bottom sheet (measured).
@@ -640,7 +717,7 @@ export default function NationalRiverMap() {
     <div
       className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
       data-live={dataLive ? 'true' : 'false'}
-      data-act={act?.kind ?? 'none'}
+      data-act={act}
       data-region={region ? 'regional' : 'national'}
     >
       <MapStage
@@ -661,6 +738,7 @@ export default function NationalRiverMap() {
         interactive={!fullscreen}
         wall={fullscreen}
         journey={journey}
+        pulses={pulses}
         onRegion={setStageRegion}
         ariaLabel={ariaLabel}
         onTap={onTap}
@@ -675,7 +753,7 @@ export default function NationalRiverMap() {
     <div
       ref={rootRef}
       data-theme={theme}
-      data-presentation={fullscreen ? (prefs.displayDetails ? 'display' : 'map-only') : 'explore'}
+      data-presentation={fullscreen ? (wallText === 'none' ? 'map-only' : wallText === 'story' ? 'story' : 'legend') : 'explore'}
       data-fallback={fallback ? 'true' : undefined}
       className={`${styles.root} ${fallback ? styles.fallbackFullscreen : ''} ${fullscreen && cursorHidden && !trayOpen ? styles.hideCursor : ''}`}
       style={{ background: palette.background }}
@@ -729,8 +807,8 @@ export default function NationalRiverMap() {
               motion={prefs.motion}
               onMotion={(m) => setPrefs({ motion: m })}
               reducedMotion={reducedMotion}
-              displayDetails={prefs.displayDetails}
-              onDisplayDetails={(d) => setPrefs({ displayDetails: d })}
+              wallText={wallText}
+              onWallText={(t) => setPrefs({ wallText: t })}
               flowColors={prefs.flowColors}
               onFlowColors={(c) => setPrefs({ flowColors: c })}
               horizontal={!side}
@@ -800,23 +878,34 @@ export default function NationalRiverMap() {
 
       {fullscreen && (
         <>
-          {prefs.displayDetails && (
-            // Hidden (not unmounted) while the tray is open, so the two never
-            // overlap and the rotation keeps its place.
-            <div style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
-              <DisplayDetails
+          {wallText !== 'none' && (
+            // The key stays up while the controls come and go. Wide screens:
+            // one left column (legend, and in Story mode the featured event).
+            // Narrow: a bottom strip, which yields to the tray sharing its
+            // edge, and the story along the top.
+            <div
+              ref={legendRef}
+              className={legendStrip ? undefined : styles.wallColumn}
+              style={{ visibility: trayOpen && legendStrip ? 'hidden' : 'visible' }}
+            >
+              <WallLegend
                 view={view}
-                flow={flowSummary}
-                flood={floodSummary}
+                palette={palette}
                 noaaOk={noaaOk}
                 capturedAt={frame?.capturedAt ?? null}
-                now={now}
-                featured={spotlight}
-                caption={journey ? journeyCaption(journey) : null}
                 liveStatus={liveStatus}
-                palette={palette}
-                narrow={narrow}
+                pulses={motion && dataLive && view === 'flooding'}
+                journey={journeysOn}
+                strip={legendStrip}
               />
+              {wallText === 'story' && !legendStrip && (
+                <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} />
+              )}
+            </div>
+          )}
+          {wallText === 'story' && legendStrip && (
+            <div className={styles.wallStoryTop} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
+              <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} />
             </div>
           )}
           <div
@@ -830,9 +919,9 @@ export default function NationalRiverMap() {
                 setPrefs({ view: v });
                 armTray();
               }}
-              displayDetails={prefs.displayDetails}
-              onDisplayDetails={(d) => {
-                setPrefs({ displayDetails: d });
+              wallText={wallText}
+              onWallText={(t) => {
+                setPrefs({ wallText: t });
                 armTray();
               }}
               motion={prefs.motion}

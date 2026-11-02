@@ -57,7 +57,11 @@ persistent text. Three facts shaped the build:
    PUBLISHED percentile (p95 / p05) — the percentile calculation never claims
    a finer position, and thresholds never move to suit a composition.
    Alternative Flow colours stay opt-in until a real-display review; the
-   canonical bands (`shared/flow-band.ts`) remain the default.
+   canonical bands (`shared/flow-band.ts`) remain the default. Fullscreen
+   keeps a legend by default (a guest must be able to read the marks without
+   controls); Story adds one featured event chosen by change, not by rank
+   alone, and says only what the observations support; Map only remains for
+   a fully text-free display.
 9. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.

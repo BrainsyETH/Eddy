@@ -250,28 +250,34 @@ async function main() {
     await page.waitForTimeout(600);
     const explorBox = await geographyBox(page);
     await page.getByRole('button', { name: 'Fullscreen map' }).click();
-    await page.locator('[data-presentation="map-only"]').waitFor();
+    await page.locator('[data-presentation="legend"]').waitFor();
     await page.waitForTimeout(600);
     const wallBox = await geographyBox(page);
     const [l, t, r, b] = wallBox;
     assert.ok(Math.abs((l + r) / 2 - 0.5) < 0.02 && Math.abs((t + b) / 2 - 0.5) < 0.02, `fullscreen centres the country (got ${wallBox.map((v) => v.toFixed(3))})`);
     assert.ok(r - l > 0.9 || b - t > 0.9, `fullscreen fills the frame (got ${wallBox.map((v) => v.toFixed(3))})`);
-    // The wall opens on "Follow the river" (motion on, data live), and the
-    // journey adds no words to map-only (asserted just below).
+    // The wall opens on "Follow the river" (motion on, data live) with a
+    // persistent legend: a guest can read the marks without any controls.
     assert.equal(await page.locator('[data-act]').getAttribute('data-act'), 'journey', 'fullscreen opens with a river journey');
-    assert.deepEqual(await visibleText(page), [], 'map-only shows no words at all');
+    const legendText = (await visibleText(page)).join(' | ');
+    for (const words of ['Flooding · Observed', 'Major flooding', 'Moderate flooding', 'Minor flooding', 'Action stage', 'Below flood stage']) {
+      assert.ok(legendText.includes(words), `the wall legend explains "${words}" (got ${legendText})`);
+    }
     assert.equal(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), false, 'no persistent controls');
-    await page.screenshot({ path: `${OUT_DIR}/national-map-only.png` });
+    await page.screenshot({ path: `${OUT_DIR}/national-wall-legend.png` });
     await page.mouse.click(720, 450);
     await page.getByRole('group', { name: 'Fullscreen controls' }).waitFor();
     assert.ok(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), 'a tap reveals the tray');
     assert.equal(await page.getByRole('region', { name: /^Details for/ }).count(), 0, 'the first tap never opens a gauge');
-    // Use the tray with the mouse (the clicked button keeps focus), then walk
-    // away: the display must return to clean. Only keyboard focus holds it.
-    await page.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flooding', exact: true }).click();
+    // Choose Map only with the mouse (the clicked button keeps focus), then
+    // walk away: the display must return to no words at all. Only keyboard
+    // focus holds the tray open.
+    await page.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Map only', exact: true }).click();
+    await page.locator('[data-presentation="map-only"]').waitFor();
     await page.mouse.move(100, 100);
     await page.waitForTimeout(TRAY_IDLE_MS + 1500);
-    assert.deepEqual(await visibleText(page), [], 'after a mouse choice the tray hides again; pointer drift does not hold it open');
+    assert.deepEqual(await visibleText(page), [], 'Map only shows no words; the tray hides again after a mouse choice');
+    await page.screenshot({ path: `${OUT_DIR}/national-map-only.png` });
     await page.mouse.click(720, 450);
     await page.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
     await page.mouse.move(100, 100);
@@ -283,7 +289,7 @@ async function main() {
     await page.waitForTimeout(500);
     const backBox = await geographyBox(page);
     assert.ok(backBox.every((v, i) => Math.abs(v - explorBox[i]) < 0.01), `leaving fullscreen restores the Explore framing (${explorBox} → ${backBox})`);
-    console.log('PASS map-only is text-free and centred, the tray reveals and hides, Escape exits to the trigger and the prior view');
+    console.log('PASS the wall is centred with a persistent legend; Map only is text-free; the tray reveals and hides; Escape exits to the trigger and the prior view');
 
     // ── 4. Preferences stay on this page ────────────────────────────────
     const keys = await page.evaluate(() => Object.keys(localStorage));
@@ -307,7 +313,7 @@ async function main() {
     assert.ok(shared[0] < -140 && shared[1] > 55, `the shared Alaska view survived load (got ${shared.join(',')})`);
     await ak.waitForTimeout(500);
     await ak.getByRole('button', { name: 'Fullscreen map' }).click();
-    await ak.locator('[data-presentation="map-only"]').waitFor();
+    await ak.locator('[data-presentation="legend"]').waitFor();
     await ak.waitForTimeout(1200); // the share link updates 400 ms after the camera settles
     const at = new URL(ak.url()).searchParams.get('at')?.split(',').map(Number) ?? [];
     assert.ok(
@@ -316,6 +322,27 @@ async function main() {
     );
     await ak.close();
     console.log('PASS a shared Alaska view survives load and keeps its place entering the wall layout');
+
+    // ── 4b'. Story mode tells one featured event ───────────────────────
+    // Motion off: no journey, so the first turn is a story. The fixture
+    // floods the Meramec (major), so it is the featured event; the map marks
+    // it with the spotlight.
+    const st = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await st.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
+    await intercept(st, 5 * 60_000);
+    await st.goto(target, { waitUntil: 'domcontentloaded' });
+    await st.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await st.getByRole('button', { name: 'Fullscreen map' }).click();
+    await st.locator('[data-presentation="story"]').waitFor({ timeout: 15_000 });
+    await st.locator('[data-act="spot"]').waitFor({ timeout: 15_000 });
+    const card = st.getByRole('region', { name: 'Featured event' });
+    await card.waitFor();
+    const cardText = await card.innerText();
+    assert.match(cardText, /Meramec River near Eureka, MO/, `the featured event names its river and place (${cardText})`);
+    assert.match(cardText, /Major flooding/, 'with one observation');
+    assert.ok(await st.getByRole('region', { name: /legend$/ }).isVisible(), 'the legend stays alongside the story');
+    await st.close();
+    console.log('PASS Story mode features one event beside the legend');
 
     // ── 4c. A regional wall plays what it can see ───────────────────────
     // At 6× around the Meramec most national journeys never enter the view;
@@ -331,7 +358,7 @@ async function main() {
     await reg.keyboard.press('Escape');
     await reg.getByRole('button', { name: 'Show the whole country' }).click();
     await reg.getByRole('button', { name: 'Fullscreen map' }).click();
-    await reg.locator('[data-presentation="map-only"]').waitFor();
+    await reg.locator('[data-presentation="legend"]').waitFor();
     await reg.waitForTimeout(600);
     assert.equal(await reg.locator('[data-region]').getAttribute('data-region'), 'national', 'the national view runs the national sequence');
     await reg.close();
@@ -369,7 +396,7 @@ async function main() {
     await phone.waitForFunction(() => !(document.querySelector('input[role="combobox"]') as HTMLInputElement | null)?.disabled, null, { timeout: 60_000 });
     await phone.getByRole('button', { name: 'Fullscreen map' }).tap();
     try {
-      await phone.locator('[data-presentation="map-only"][data-fallback="true"]').waitFor({ timeout: 30_000 });
+      await phone.locator('[data-presentation="legend"][data-fallback="true"]').waitFor({ timeout: 30_000 });
     } catch (err) {
       const state = await phone.evaluate(() => ({
         presentation: document.querySelector('[data-presentation]')?.getAttribute('data-presentation'),
@@ -387,7 +414,9 @@ async function main() {
       return !!el?.closest('[data-presentation]');
     });
     assert.ok(top, 'the fallback fullscreen sits above the site header');
-    assert.deepEqual(await visibleText(phone), [], 'the phone fallback shows no words either');
+    // A phone has no side margin: the legend is a strip along the bottom.
+    const strip = await phone.locator('section[aria-label$="legend"]').boundingBox();
+    assert.ok(strip && strip.y + strip.height <= 844 && strip.y > 844 / 2 && strip.width > 300, `the phone legend is a bottom strip (${JSON.stringify(strip)})`);
     await phone.screenshot({ path: `${OUT_DIR}/national-phone-fallback.png` });
     console.log('PASS iPhone-style fallback fullscreen covers the header');
     await phone.close();
@@ -401,13 +430,13 @@ async function main() {
     assert.equal(await layerInk(noaa, 1), 0, 'no motion in Flooding while NWS status is unavailable');
     assert.equal(await noaa.locator('[data-live="false"]').count(), 1, 'the map is presented as not live');
     await noaa.getByRole('button', { name: 'Fullscreen map' }).click();
-    await noaa.locator('[data-presentation="map-only"]').waitFor();
+    await noaa.locator('[data-presentation="legend"]').waitFor();
     await noaa.waitForTimeout(800);
-    assert.deepEqual(await visibleText(noaa), [], 'still text-free while unavailable');
+    assert.ok((await visibleText(noaa)).join(' ').includes('not a report of no flooding'), 'the legend says flood status is unavailable, not "no flooding"');
     assert.equal(await layerInk(noaa, 1), 0, 'and still motionless');
     assert.notEqual(await noaa.locator('[data-act]').getAttribute('data-act'), 'journey', 'no river journey while the view is not live');
     await noaa.mouse.click(640, 400);
-    await noaa.getByText('NWS flood status is unavailable right now').waitFor();
+    await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByText('NWS flood status is unavailable right now').waitFor();
     await noaa.getByRole('group', { name: 'Fullscreen controls' }).getByRole('button', { name: 'Flow', exact: true }).click();
     await noaa.waitForTimeout(1200);
     assert.ok((await layerInk(noaa, 1)) > 0, 'Flow, which does not depend on NWS, keeps its motion');

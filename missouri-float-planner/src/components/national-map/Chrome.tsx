@@ -6,20 +6,25 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Segmented from '@/components/ui/Segmented';
 import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
 import { EddyIcon } from '@/components/ui/EddyIcon';
-import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
 import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type Site } from '@/lib/national-map/marks';
-import type { Appearance, FlowColors } from '@/lib/national-map/prefs';
+import type { Appearance, FlowColors, WallText } from '@/lib/national-map/prefs';
 import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
 import type { MapPalette } from '@/lib/national-map/theme';
 import { FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
 import styles from './national-map.module.css';
 
 const nf = new Intl.NumberFormat('en-US');
+
+const WALL_TEXT_OPTIONS = [
+  { value: 'legend' as const, label: 'Legend' },
+  { value: 'story' as const, label: 'Story' },
+  { value: 'none' as const, label: 'Map only' },
+];
 
 export const VIEW_OPTIONS = [
   { value: 'flow' as const, label: 'Flow' },
@@ -347,8 +352,8 @@ export function MapControls({
   motion,
   onMotion,
   reducedMotion,
-  displayDetails,
-  onDisplayDetails,
+  wallText,
+  onWallText,
   flowColors,
   onFlowColors,
   horizontal = false,
@@ -364,8 +369,8 @@ export function MapControls({
   motion: boolean;
   onMotion: (m: boolean) => void;
   reducedMotion: boolean;
-  displayDetails: boolean;
-  onDisplayDetails: (d: boolean) => void;
+  wallText: WallText;
+  onWallText: (t: WallText) => void;
   flowColors: FlowColors;
   onFlowColors: (c: FlowColors) => void;
   fullscreenRef?: React.Ref<HTMLButtonElement>;
@@ -441,13 +446,13 @@ export function MapControls({
             </span>
             <input type="checkbox" checked={motion && !reducedMotion} disabled={reducedMotion} onChange={(e) => onMotion(e.target.checked)} className="h-5 w-5" />
           </label>
-          <label className="flex min-h-11 items-center justify-between gap-2 text-sm">
-            <span>
-              Details in fullscreen
-              <span className={`block text-xs ${styles.muted}`}>A quiet status line and one rotating gauge or river</span>
-            </span>
-            <input type="checkbox" checked={displayDetails} onChange={(e) => onDisplayDetails(e.target.checked)} className="h-5 w-5" />
-          </label>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold">Fullscreen shows</p>
+            <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} stretch aria-label="Fullscreen shows" />
+            <p className={`text-xs ${styles.muted}`}>
+              Legend: a key to the marks. Story: the key and one featured event. Map only: no text at all.
+            </p>
+          </div>
           <div className="space-y-1">
             <p className="text-xs font-semibold">Flow colours</p>
             <Segmented
@@ -474,8 +479,8 @@ export function FullscreenTray({
   open,
   view,
   onView,
-  displayDetails,
-  onDisplayDetails,
+  wallText,
+  onWallText,
   motion,
   onMotion,
   reducedMotion,
@@ -488,8 +493,8 @@ export function FullscreenTray({
   open: boolean;
   view: MapView;
   onView: (v: MapView) => void;
-  displayDetails: boolean;
-  onDisplayDetails: (d: boolean) => void;
+  wallText: WallText;
+  onWallText: (t: WallText) => void;
   motion: boolean;
   onMotion: (m: boolean) => void;
   reducedMotion: boolean;
@@ -524,17 +529,7 @@ export function FullscreenTray({
       )}
       <div className="flex flex-nowrap items-center gap-2">
       <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} size={narrow ? 'sm' : 'md'} aria-label="Map view" />
-      {/* Fixed names with aria-pressed: the state is the pressed state, not a
-          label that rewrites itself ("Hide details, pressed"). */}
-      {narrow ? (
-        <Button variant="icon" aria-label="Details" title="Details" aria-pressed={displayDetails} onClick={() => onDisplayDetails(!displayDetails)}>
-          <SlidersHorizontal size={18} aria-hidden />
-        </Button>
-      ) : (
-        <Button variant="outline" aria-pressed={displayDetails} onClick={() => onDisplayDetails(!displayDetails)}>
-          Details
-        </Button>
-      )}
+      <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} size={narrow ? 'sm' : 'md'} aria-label="Fullscreen shows" />
       <Button
         variant="icon"
         aria-label="Pause motion"
@@ -562,108 +557,6 @@ export function FullscreenTray({
 }
 
 // ── Display with details ────────────────────────────────────────────────────
-
-export function DisplayDetails({
-  view,
-  flow,
-  flood,
-  noaaOk,
-  capturedAt,
-  now,
-  featured,
-  caption,
-  liveStatus,
-  palette,
-  narrow,
-}: {
-  view: MapView;
-  flow: FlowSummary | null;
-  flood: FloodSummary | null;
-  noaaOk: boolean;
-  capturedAt: number | null;
-  now: number;
-  /** The spotlit highlight (the parent rotates it), or null. */
-  featured: Site | null;
-  /** While a "Follow the river" journey runs: its one caption (river names). */
-  caption: string | null;
-  /** Why the view is not live, or null — replaces the status line when set. */
-  liveStatus: string | null;
-  palette: MapPalette;
-  /** Phone width: stack the status line above the card instead of side by side. */
-  narrow: boolean;
-}) {
-  const status = liveStatus
-    ? liveStatus
-    : view === 'flow'
-      ? flow
-        ? `Flow compared with usual · ${nf.format(flow.live)} gauges current`
-        : 'Flow compared with usual'
-      : !noaaOk
-        ? 'NWS flood status unavailable'
-        : flood
-          ? `${nf.format(flood.major + flood.moderate + flood.minor)} gauges above flood stage · ${nf.format(flood.action)} at action stage`
-          : 'Official flood status';
-
-  let line: string | null = null;
-  if (featured) {
-    if (view === 'flooding' && featured.nws) line = FLOOD_STATUS_TEXT[featured.nws.observed].label;
-    else if (featured.reading?.flowPercentile != null) line = featured.reading.flowPercentile >= 50 ? 'Much higher than usual' : 'Much lower than usual';
-  }
-  const style = featured
-    ? view === 'flooding'
-      ? floodStyle(classifyFlood(featured, now, noaaOk))
-      : flowStyle(classifyFlow(featured, now))
-    : null;
-  const observedAt = featured ? (view === 'flooding' ? featured.nws?.observedAt ?? null : featured.reading?.observedAt ?? null) : null;
-
-  const statusLine = (
-    <p className={`${styles.displayText} ${narrow ? '' : 'max-w-[60vw]'}`} style={{ color: 'var(--nm-ink-2)' }}>
-      <span className="font-semibold" style={{ color: 'var(--nm-ink)' }}>
-        {status}
-      </span>
-      {capturedAt !== null && <span className={styles.nowrap}> · {formatTime(capturedAt)}</span>}
-    </p>
-  );
-  const card = caption ? (
-    <div key={caption} className={`${styles.panel} ${styles.fade} ${styles.displayCard} p-[0.75em]`}>
-      <p className={`font-bold leading-snug ${styles.breakAnywhere}`}>{caption}</p>
-    </div>
-  ) :
-    featured && line ? (
-      <div className={`${styles.panel} ${styles.fade} ${styles.displayCard} p-[0.75em]`}>
-        <p className={`font-bold leading-snug ${styles.breakAnywhere}`}>{featured.name}</p>
-        <p className="flex items-center gap-2">
-          {style && <MarkSymbol style={style} palette={palette} />}
-          {line}
-        </p>
-        <p className={`${styles.mono} ${styles.muted}`} style={{ fontSize: '0.8em' }}>
-          {featured.reading?.dischargeCfs != null && <span className={styles.nowrap}>{nf.format(featured.reading.dischargeCfs)} cfs · </span>}
-          <span className={styles.nowrap}>{formatTime(observedAt)}</span> · <span className={styles.nowrap}>{formatAge(observedAt, now)}</span>
-        </p>
-      </div>
-    ) : null;
-
-  if (narrow) {
-    return (
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col gap-2" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {statusLine}
-        {card}
-      </div>
-    );
-  }
-  return (
-    <>
-      <div className="pointer-events-none absolute bottom-4 left-4" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
-        {statusLine}
-      </div>
-      {card && (
-        <div className="pointer-events-none absolute bottom-4 right-4" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
-          {card}
-        </div>
-      )}
-    </>
-  );
-}
 
 // ── Overlap chooser and hover tip ───────────────────────────────────────────
 

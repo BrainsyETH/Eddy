@@ -5,8 +5,9 @@
 > [Open gates](#open-gates). Decisions: [ADR 0018](../../docs/decisions/0018-national-river-map.md).
 
 A national river dashboard: every USGS gauge in the 50 states and DC, opened on
-the whole country, explorable down to a gauge, and presentable as a text-free
-fullscreen display that can run for hours. Two data views ship first — **Flow**
+the whole country, explorable down to a gauge, and presentable as a
+fullscreen wall display that can run for hours — with a persistent legend by
+default, a featured story on request, or no text at all. Two data views ship first — **Flow**
 (compared with usual for the time of year) and **Flooding** (official NWS
 categories). **Change** is deferred from the first release by product decision;
 the frames it needs are already being recorded.
@@ -73,13 +74,21 @@ gauge — a flow band is a hydrological comparison, not a recommendation.
 
 ## Presentations
 
-| | Explore | Map only (default fullscreen) | Display with details |
-| --- | --- | --- | --- |
-| Header, panel, legend, search, controls | yes | none | none |
-| Labels, tooltips, cursor | state labels at regional zoom; hover tip | none; cursor hides after 3 s | none |
-| Marks | every class | the wall hierarchy (below) | the wall hierarchy |
-| Text | everything | none | one status line and one caption: the spotlit gauge, or the river being followed |
-| Reveal controls | — | tap, click or any key → tray for ~8 s | same |
+| | Explore | Legend (default fullscreen) | Story | Map only |
+| --- | --- | --- | --- | --- |
+| Header, panel, search, controls | yes | none | none | none |
+| Labels, tooltips, cursor | state labels at regional zoom; hover tip | none; cursor hides after 3 s | same | same |
+| Marks | every class | the wall hierarchy (below) | same | same |
+| Text | everything | the wall legend: the view's symbols and one update / source line | the legend, plus one featured event with its 24-hour water level | none |
+| Reveal controls | — | tap, click or any key → tray for ~8 s (Legend · Story · Map only) | same | same |
+
+The wall legend is a compact panel in the composition's open left margin (the
+Pacific above Alaska), sized for room distance; narrower than ~1.45:1 it
+becomes a bottom strip and the map refits above it. Flooding · Observed lists
+major / moderate / minor, then — set apart — action stage (NWS's preparation
+stage, not flooding) and below flood stage; Flow · Versus usual lists the
+active palette's bands. Its symbols come from the same `wallStyle` table the
+canvas draws with.
 
 One explicit action enters fullscreen (Fullscreen API where available, the same
 layout over the page where not — iPhone Safari). Escape exits. Fullscreen fits
@@ -95,8 +104,9 @@ the composition drifts a few pixels over 12 minutes (OLED care; off with motion
 off). The camera never moves on its own.
 
 Preferences (`eddy-river-map-prefs-v1`): view, appearance (default **system**),
-motion, details-in-fullscreen, Flow colours (default **Eddy**; Vivid is an
-opt-in prototype). Never fullscreen, a tour, location or replay.
+motion, what fullscreen shows (`wallText`: **legend** by default, story, or
+none — a stored `displayDetails: true` from before reads as story), Flow
+colours (default **Eddy**; Vivid is an opt-in prototype). Never fullscreen, a tour, location or replay.
 Share links carry `?view=` and `?at=lng,lat,zoom` only.
 
 ## Phase 1 coverage snapshot (production, 2026-11-02 ~04:40 UTC)
@@ -200,7 +210,7 @@ device results.
   current USGS readings; both need a recent snapshot and a successful refresh.
   When the view is not live the map goes static and subdued (no traces,
   rings or spotlight), the fullscreen tray states why once it is opened, and
-  Display with details replaces its status line with the reason. Fresh USGS
+  the wall legend's source line gives the reason. Fresh USGS
   data never makes a Flooding view look alive.
 - **Motion vocabulary for the wall.** Downstream traces are drawn per river
   class (trunk / major / regional) with lengths, widths and speeds that scale
@@ -220,11 +230,25 @@ device results.
   much-higher gauges in AZ / UT / NM / CO / NV, **272 are at or above the
   published p95** — the Southwest's widespread high flow is real; nationally
   25 gauges the old formula scored ≥ 97 were below p95.
-- **Highlights and the spotlight.** `curateHighlights` picks a few meaningful
-  events spread across the country (greedy by score with a minimum separation,
-  and both the wettest and driest event in Flow). In every fullscreen mode a
-  spotlight ring rests on one of them for 20 s while the camera stays still;
-  it needs no words. Explore lists the same picks.
+- **Highlights in Explore.** `curateHighlights` picks a few meaningful events
+  spread across the country for the "Flooding now / Most unusual now" list.
+- **Featured stories on the wall** (`stories.ts`). Each story turn (20 s)
+  picks the development most worth attention: severity, change since a
+  recorded frame ~6 h older (new flooding, a category crossing, back below
+  flood stage, a stage or flow shift), freshness, variety (away from the last
+  pick) and recency (just shown steps back), so a new crossing wins and an
+  unchanged extreme gauge cannot win every turn. Nearby gauges with the same
+  development fold into one story. The spotlight ring marks it on the map; in
+  Story mode a card tells it: river and place, one observation, the 24-hour
+  water level. Headlines only when supported — "Still rising" / "Crest
+  passed" from the series (minimum sizes), "Now in … flooding" / "Rose to …"
+  / "Back below flood stage" from NWS categories in both frames. No older
+  frame recorded yet: no change is claimed.
+- **One focal point at a time.** Only a few geographically distinct floods
+  pulse (`pickPulses`); every severity symbol stays drawn. The sequence
+  alternates a river journey (which holds at its outlet so the connection
+  reads) with a current story: discover a river → notice what is happening →
+  another place. The camera never moves.
 - **Follow the river.** With motion on and the view live, the wall alternates
   the spotlight with a journey: a highlight travels a real river network from
   a headwater line to its outlet, each tributary flashes as the head passes its
@@ -325,6 +349,7 @@ Unticked until evidence is recorded here:
 - [ ] Dark-mode flow encoding (sand chip, 72% composite for Higher / Much higher) signed off on a real display.
 - [ ] First production frames recorded after deploy; frame row size measured in Postgres.
 - [ ] Real-display review on a quiet day and on a widespread-flood day: does something catch the eye within ten seconds, and is there something worth following for a minute?
+- [ ] Wall legend read from across a room (size, the side panel vs. the Pacific coast at 16:10, the bottom strip on a portrait display) and Story mode's picks reviewed over a few hours of live data: do crossings and recoveries surface, does the same gauge stop repeating, are the headlines right against the hydrographs?
 - [ ] "Follow the river" reviewed on a real display in both themes (pace, light-theme casing, tributary flashes), and the eight picked routes checked by someone who knows the rivers.
 - [ ] Vivid Flow colours as the eventual **wall default** (the review's recommendation: the main contrast gain should not hide behind Settings) — after a real-display comparison against Eddy colours. The data side is checked (above): a wet region looking exceptional is the data, and thresholds do not move for composition.
 - [ ] Change view (24 h) — the **next data feature**: newly rising rivers, flood-category crossings and recoveries give a returning viewer something new, where the journeys give geography. Needs ≥ 26 h of recorded frames, then the Phase 1 threshold calibration (river types, regulated releases, snowmelt, ice, sensor spikes).

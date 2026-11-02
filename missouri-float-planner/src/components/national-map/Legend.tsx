@@ -26,7 +26,18 @@ function resolve(p: MapPalette, key: string): string {
   return typeof v === 'string' ? v : '#888';
 }
 
-export function MarkSymbol({ style, palette, size = 14 }: { style: MarkStyle; palette: MapPalette; size?: number }) {
+export function MarkSymbol({
+  style,
+  palette,
+  size = 14,
+  css,
+}: {
+  style: MarkStyle;
+  palette: MapPalette;
+  size?: number;
+  /** Optional CSS box (e.g. em-sized for the wall legend); the drawing scales with it. */
+  css?: React.CSSProperties;
+}) {
   // Mirrors drawMarkShape in renderer.ts: backing disc for fills this theme's
   // land would swallow, an outer keyline under rings that need one, a small
   // × for unavailable data.
@@ -45,13 +56,13 @@ export function MarkSymbol({ style, palette, size = 14 }: { style: MarkStyle; pa
   if (style.shape === 'cross') {
     const a = r * 0.85;
     return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0" style={css}>
         <path d={`M${m - a} ${m - a}L${m + a} ${m + a}M${m + a} ${m - a}L${m - a} ${m + a}`} stroke={c} strokeWidth={1.8} strokeLinecap="round" fill="none" />
       </svg>
     );
   }
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0" style={{ opacity: Math.max(0.75, style.alpha ?? 1), ...css }}>
       {backed && <path d={path(r + 0.9)} fill={palette.backing} />}
       {ring && style.keyline && <path d={path(r)} fill="none" stroke={keyline} strokeWidth={3} />}
       <path
