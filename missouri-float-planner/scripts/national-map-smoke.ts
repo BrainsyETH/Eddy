@@ -188,7 +188,11 @@ async function main() {
     await intercept(page, 5 * 60_000);
     await page.goto(target, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: 'Live River Map' }).waitFor({ timeout: 120_000 });
-    await page.getByText(/^Snapshot /).waitFor({ timeout: 60_000 });
+    // The first visit to a fresh dev server compiles the client bundle before
+    // anything hydrates (the heading above is server-rendered), so the first
+    // data-driven line gets the same cold-start budget as the heading. On a
+    // CI runner that compile alone has run past 60 s.
+    await page.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
     await page.waitForTimeout(1500);
     assert.ok((await layerInk(page, 0)) > 0, 'geography drew');
     assert.ok((await layerInk(page, 2)) + (await layerInk(page, 3)) > 0, 'gauge marks drew');
