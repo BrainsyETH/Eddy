@@ -122,6 +122,30 @@ review are in the 1.5 report; these are the gates it adds.
       and Today; reviewer notes say River Mode is on (`floatMode: true` read
       2026-10-29) and that backup and contributions need Apple sign-in.
 
+### Tailwater dam card and dam Read gates — November 2, 2026
+
+JavaScript only (no native dependency, plugin or `app.json` change), so it can
+ship in the 1.6 binary or as an update to one on the same runtime. ADR 0017,
+decision 9, and `shared/dam-release-tab.ts` describe the rule. Check each on
+the White (Bull Shoals release, Norfork release, Norfork and Calico Rock USGS
+tabs) and on the Black.
+
+- [ ] **Bull Shoals release tab:** the reading card opens with Bull Shoals
+      Dam, NOW and the next two days, with no "Not rated" line; the Eddy's take
+      card shows the dam's Read (member), or its frosted shape under one lock
+      row (non-member), with Weather and no Bottom line.
+- [ ] **Norfork release tab on the White:** Eddy's take carries Norfork Dam's
+      Read, not Bull Shoals'; the card keeps the reading and closes with the
+      Bull Shoals panel.
+- [ ] **Calico Rock and Norfork USGS tabs:** the river Read and Bottom line,
+      as before, with the Bull Shoals panel closing the card.
+- [ ] **The Black:** Clearwater's rated card, river Read and the "controls
+      this reach" row are unchanged.
+- [ ] **Unsettled account** (cold open on one bar): the dam tab shows a
+      skeleton in Eddy's Read, never an offer and never the Read.
+- [ ] **Large Dynamic Type and VoiceOver:** the three schedule columns stay
+      legible and each is read as "label: value, detail".
+
 ### October 13 freshness update candidate
 
 The observation-age, Today gauge refresh, and dam-row fixes change JavaScript

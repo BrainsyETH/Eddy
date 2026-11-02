@@ -91,6 +91,11 @@ interface GaugeSummaryProps {
   hideCurrentReading?: boolean;
   /** No frame of its own: the rows sit inside the reading card's footer. */
   bare?: boolean;
+  /**
+   * Drop "Not rated by Eddy." where the card already leads with what the
+   * reading IS — a dam's own release, whose answer is the schedule.
+   */
+  hideRatingNote?: boolean;
   className?: string;
 }
 
@@ -120,6 +125,7 @@ export default function GaugeSummary({
   waterTemperature,
   hideCurrentReading = false,
   bare = false,
+  hideRatingNote = false,
   className = '',
 }: GaugeSummaryProps) {
   // The chart's own request — shared with it through the query cache, and
@@ -314,7 +320,7 @@ export default function GaugeSummary({
       </div>
       )}
 
-      {tier === 'reference' && (
+      {tier === 'reference' && !hideRatingNote && (
         <p className="text-xs text-neutral-500 -mt-1">
           {providerLabel ? `${providerLabel} · ` : ''}
           Not rated by Eddy.

@@ -972,7 +972,7 @@ export async function fetchRiverDam(riverSlug: string): Promise<RiverDamContext 
   // Only a dam WITHOUT a powerhouse reads the daily-average forecast. A hydro
   // dam's forward view is SWPA's hourly schedule, already on the summary; its
   // daily average describes no hour of a peaking day and contradicted that
-  // schedule beside it. See src/lib/river-dam-panel.ts.
+  // schedule beside it. See shared/river-dam-panel.ts.
   const series = hasPowerhouse(entry) ? undefined : entry.series.releaseForecast;
   const forecastWindowNow = bucketedNow().getTime();
 

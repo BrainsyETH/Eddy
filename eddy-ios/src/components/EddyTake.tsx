@@ -93,6 +93,7 @@
 //
 // On the web these are three columns; on a phone they stack.
 
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WeatherIcon } from '@/components/WeatherIcon';
@@ -103,6 +104,7 @@ import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
 import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
+import { LOCKED_DAM_READ_SHAPE } from '@/components/dam/DamEddyRead';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -172,6 +174,17 @@ interface EddyTakeProps {
   onUpgrade?: () => void;
   /** Retries a Premium read that failed without an entitlement decision. */
   onRetry?: () => void;
+  /**
+   * On a dam's own unrated release (shared/dam-release-tab.ts): the dam's Read,
+   * drawn in the EDDY'S READ section in place of the river Read, with BOTTOM
+   * LINE dropped. There the river Read can only say no assessment is available
+   * and the bottom line only that there is not enough data. Rendered only when
+   * unlocked; locked, the section frosts LOCKED_DAM_READ_SHAPE under the card's
+   * one lock row. The screen derives `entitled` from the dam Read's own access
+   * rules on that tab, so 'error' (a failed RIVER Premium read) does not apply.
+   * `content` is null whenever there is no verified member to fetch it for.
+   */
+  damRead?: { content: ReactNode | null } | null;
 }
 
 export function EddyTake({
@@ -179,6 +192,7 @@ export function EddyTake({
   entitled = null,
   onUpgrade,
   onRetry,
+  damRead,
 }: EddyTakeProps) {
   const { colors, elevation, isDark } = useTheme();
   const { sections, days } = outlook;
@@ -192,7 +206,7 @@ export function EddyTake({
   const read = outlook.fullRead || sections?.eddyRead || '';
   const locked = entitled === false;
   const resolving = entitled === 'pending';
-  const failed = entitled === 'error';
+  const failed = entitled === 'error' && !damRead;
 
   return (
     <View style={styles.wrapper}>
@@ -405,7 +419,16 @@ export function EddyTake({
                     EDDY&apos;S READ
                   </Text>
                 </View>
-                {locked ? (
+                {damRead ? (
+                  locked ? (
+                    <BlurredProse
+                      text={LOCKED_DAM_READ_SHAPE}
+                      color={colors.textMuted}
+                      style={styles.sectionText}
+                      lines={4}
+                    />
+                  ) : damRead.content ?? <ReadSkeleton label="Loading Eddy's Read for this dam" />
+                ) : locked ? (
                   // Clamped to four lines, the first of them readable. The full
                   // read runs to several paragraphs on a good day, and a locked
                   // card the height of an unlocked one is a wall again — four
@@ -449,6 +472,7 @@ export function EddyTake({
                 )}
               </View>
 
+              {damRead ? null : (
               <View style={[styles.section, { borderTopColor: colors.border }]}>
                 {/* No coloured edge, and no indent. The rule and the 12pt inset
                     that came with it pushed BOTTOM LINE a centimetre to the
@@ -482,6 +506,7 @@ export function EddyTake({
                   )}
                 </View>
               </View>
+              )}
 
               {/* ── The offer, under the thing being offered ────────────
                   Last rather than first. Read top to bottom the card now says

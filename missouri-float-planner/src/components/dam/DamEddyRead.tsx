@@ -11,6 +11,11 @@
 //
 // Renders nothing until the public response says a Read is available, so a dam
 // with no Read, or one withheld because the schedule changed, draws no card.
+//
+// DamReadTeaser is the same teaser without a card, for the "Eddy's read" slot
+// of a tailwater river's Eddy's take on the dam's own release tab
+// (shared/dam-release-tab.ts), where the river Read could only say that no
+// assessment is available.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -20,17 +25,32 @@ import { EddyIcon } from '@/components/ui/EddyIcon';
 import { relativeAge } from '@shared/dam-schedule-copy';
 import type { DamReadResponse } from '@shared/dam-types';
 
-export default function DamEddyRead({ damId, damName, now }: { damId: string; damName: string; now: number }) {
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+const DAM_READ_PITCH = 'Today’s generation schedule, recent patterns, and how closely the schedule has held.';
+
+type ReadState = { damId: string; generatedAt: string | null } | null;
+
+/** When this dam's Read was written, or null; `loading` until the public check answers. */
+function useDamReadWrittenAt(damId: string): { loading: boolean; generatedAt: string | null } {
+  const [state, setState] = useState<ReadState>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     fetch(`/api/dam-update/${encodeURIComponent(damId)}`, { signal: controller.signal })
       .then((res) => (res.ok ? (res.json() as Promise<DamReadResponse>) : null))
-      .then((data) => setGeneratedAt(data?.available ? data.generatedAt : null))
-      .catch(() => setGeneratedAt(null));
+      .then((data) => setState({ damId, generatedAt: data?.available ? data.generatedAt : null }))
+      .catch(() => {
+        if (!controller.signal.aborted) setState({ damId, generatedAt: null });
+      });
     return () => controller.abort();
   }, [damId]);
+
+  // Keyed by dam, so switching tabs never shows the last dam's age.
+  const current = state?.damId === damId ? state : null;
+  return { loading: current === null, generatedAt: current?.generatedAt ?? null };
+}
+
+export default function DamEddyRead({ damId, damName, now }: { damId: string; damName: string; now: number }) {
+  const { generatedAt } = useDamReadWrittenAt(damId);
 
   if (!generatedAt) return null;
   const age = relativeAge(generatedAt, now);
@@ -45,8 +65,7 @@ export default function DamEddyRead({ damId, damName, now }: { damId: string; da
         <Lock className="h-4 w-4 text-neutral-500" aria-label="Premium" />
       </div>
       <p className="mt-2 text-sm leading-relaxed text-neutral-700">
-        Today&apos;s generation schedule, recent patterns, and how closely the schedule has held. Written each day in the
-        Eddy app with Premium.
+        {DAM_READ_PITCH} Written each day in the Eddy app with Premium.
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2">
         <span className="text-xs text-neutral-500">{age ? `Written ${age}` : null}</span>
@@ -55,5 +74,40 @@ export default function DamEddyRead({ damId, damName, now }: { damId: string; da
         </Link>
       </div>
     </Card>
+  );
+}
+
+/**
+ * The dam's Read, as the body of the river page's "Eddy's read" slot. The
+ * footer of that panel already links to the app, so this carries no link.
+ */
+export function DamReadTeaser({ damId, scheduleAbove }: {
+  damId: string;
+  /** The card above leads with THIS dam's schedule (not another dam's on the same river). */
+  scheduleAbove: boolean;
+}) {
+  const { loading, generatedAt } = useDamReadWrittenAt(damId);
+
+  if (loading) return <p className="text-sm italic text-neutral-500">Loading Eddy&apos;s read…</p>;
+  if (!generatedAt) {
+    // Not "unavailable for this river": the dam may simply have no Read yet
+    // today, or the schedule changed and the next hourly run has not rewritten it.
+    return (
+      <p className="text-sm font-medium leading-relaxed text-neutral-700">
+        Eddy&apos;s Read of this dam&apos;s schedule isn&apos;t ready right now.
+        {scheduleAbove ? ' The release and posted schedule above are current.' : null}
+      </p>
+    );
+  }
+
+  const age = relativeAge(generatedAt, Date.now());
+  return (
+    <div data-dam-read-teaser>
+      <p className="flex items-start gap-2 text-sm font-medium leading-relaxed text-neutral-700 lg:text-base">
+        <Lock className="mt-1 h-4 w-4 shrink-0 text-neutral-500" aria-label="Premium" />
+        <span>{DAM_READ_PITCH} Written each day for this dam in the Eddy app with Premium.</span>
+      </p>
+      {age ? <p className="mt-2 text-[11px] text-neutral-500">Written {age}</p> : null}
+    </div>
   );
 }

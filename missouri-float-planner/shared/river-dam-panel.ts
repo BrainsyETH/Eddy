@@ -1,6 +1,6 @@
-// src/lib/river-dam-panel.ts
-// What the "Dam release" section on a tailwater river page says about the days
-// ahead. Pure, so every boundary below is testable with no network.
+// missouri-float-planner/shared/river-dam-panel.ts
+// What the dam panel in a tailwater river's live report says about the days
+// ahead, on web and iOS. Pure, so every boundary below is testable with no network.
 //
 // ── Two sources, and which one a dam gets ──────────────────────────────────
 // A HYDROPOWER dam gets SWPA's hourly schedule — the same one the dam page
@@ -25,15 +25,15 @@
 // description of it. It keeps the forecast, labelled as a daily average and on
 // the day it actually covers.
 
-import type { DamScheduleDay } from '@shared/dam-types';
-import type { GenerationReference } from '@shared/dam-generation';
-import { schedulePeak, schedulePeakWindowLabel } from '@shared/dam-generation';
+import type { DamScheduleDay } from './dam-types';
+import type { GenerationReference } from './dam-generation';
+import { schedulePeak, schedulePeakWindowLabel } from './dam-generation';
 import {
   centralDayKey,
   scheduleDayLabel,
   scheduledGeneration,
   scheduledHoursSummary,
-} from '@shared/dam-schedule-copy';
+} from './dam-schedule-copy';
 
 const HOUR_MS = 3_600_000;
 
