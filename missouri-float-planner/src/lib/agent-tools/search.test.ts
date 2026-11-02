@@ -306,6 +306,15 @@ test('both apps submit the same normalized search body and identity', async () =
   assert.equal(floatFilterCount({ publicOnly: true }), 0);
 });
 
+test('the web filter badge counts restrictions, including the default public-only one', async () => {
+  const { floatFilterSelections, floatFilterCount } = await import('@shared/float-search');
+  assert.deepEqual(floatFilterSelections({ publicOnly: true }), ['Public access only']);
+  assert.equal(floatFilterCount({ publicOnly: true }), 0, 'the default is not a change, so Reset has nothing to do');
+  assert.deepEqual(floatFilterSelections({ publicOnly: true, filters: { shuttle: true, camping: true, restrooms: false } }),
+    ['Public access only', 'Camping', 'Outfitter shuttle'], 'labels follow the Filters order; false is not selected');
+  assert.deepEqual(floatFilterSelections({ publicOnly: false }), []);
+});
+
 test('sorting reorders a section without changing membership; drive sort needs drive times', async () => {
   const { sortFloatOptions, floatSortsFor, driveLabel } = await import('@shared/float-search');
   const rows = [{ id: 'a', minutes: 300, driveMinutes: 50 }, { id: 'b', minutes: 200, driveMinutes: null }, { id: 'c', minutes: 400, driveMinutes: 20 }];

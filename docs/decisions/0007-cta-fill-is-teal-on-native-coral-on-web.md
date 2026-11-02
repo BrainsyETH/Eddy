@@ -44,3 +44,13 @@ Reopening it means deciding which platform moves. Repainting the app's CTAs
 coral reintroduces the condition collision and is refused; repainting the site's
 CTAs teal is arguable but is a visual migration across every marketing surface,
 plus the ad canvases in DESIGN.md §10 that are built on the §8 accent gradient.
+
+## Amendment — the home hero is teal (2026-11)
+
+The homepage hero's filled action ("Check Conditions") is Primary-700 teal, not
+coral. That hero is the one web surface where this record's adjacency argument
+applies: Eddy's Read sits inside it with a condition chip, and the River and Dam
+Conditions ladder begins directly below. The restyle also brings the hero and
+site header in line with the iOS app's light chrome. `.btn-primary` stays coral,
+and so does every other web CTA; this is not the site-wide migration the last
+paragraph describes.

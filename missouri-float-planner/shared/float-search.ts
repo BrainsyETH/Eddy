@@ -53,6 +53,19 @@ export function activeFloatFilters(filters?: FloatSearchFilters): FloatSearchFil
   const on = FLOAT_FILTER_KEYS.filter(key => filters?.[key] === true);
   return on.length ? Object.fromEntries(on.map(key => [key, true])) : undefined;
 }
+export const FLOAT_PUBLIC_ONLY_LABEL = 'Public access only';
+/**
+ * The restrictions a search applies, as labels in the Filters order, for a
+ * badge or a one-line summary. Unlike floatFilterCount (changes from the
+ * defaults, which decides whether Reset means anything), "Public access only"
+ * counts here: it is on by default, but it is still a restriction.
+ */
+export function floatFilterSelections(input: Pick<FloatSearchInput, 'filters' | 'publicOnly'>) {
+  return [
+    ...(input.publicOnly ? [FLOAT_PUBLIC_ONLY_LABEL] : []),
+    ...FLOAT_FILTER_GROUPS.flatMap(group => group.filters).filter(filter => input.filters?.[filter.key] === true).map(filter => filter.label),
+  ];
+}
 /** Changes from the defaults: each enabled filter, plus including private accesses. */
 export function floatFilterCount(input: Pick<FloatSearchInput, 'filters' | 'publicOnly'>) {
   return Object.keys(activeFloatFilters(input.filters) ?? {}).length + (input.publicOnly ? 0 : 1);
@@ -217,10 +230,14 @@ export interface FloatOutfitter {
   phone: string | null;
   match: FloatOutfitterMatch;
 }
-export const FLOAT_OUTFITTER_MATCH_LABELS: Record<FloatOutfitterMatch, string> = {
+/**
+ * The note under an outfitter that says more than being listed does. Every
+ * outfitter shown serves the river, so `river` has no note: printing
+ * "Serves this river" under each row restated the section heading.
+ */
+export const FLOAT_OUTFITTER_MATCH_LABELS: Partial<Record<FloatOutfitterMatch, string>> = {
   run: 'Lists this float',
   stretch: 'Lists a run covering this float',
-  river: 'Serves this river',
 };
 export type FloatStopKind = 'access' | 'campground' | 'spring' | 'cave' | 'sight' | 'hazard' | 'portage';
 export interface FloatStop {
