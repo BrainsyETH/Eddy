@@ -4,27 +4,20 @@
 // Separate from /api/dams/[damId] because that route is CDN-cached for every
 // caller and this one varies by entitlement. A public caller gets whether a
 // Read exists and when it was written; a bearer token that verifies as
-// entitled gets the headline, the rows and the prose. See DamReadResponse.
+// entitled gets the whole Read. See DamReadResponse.
 //
 // A stored Read is served only while it is still about today and was written
-// against the schedule posted now (dam-update-policy.ts, servable). The rows
-// and headline are RE-RENDERED here from the stored facts with the posted
-// schedule re-read from the current snapshot, so a window that has ended since
-// the Read was written is not still announced as upcoming.
+// against the schedule posted now (dam-update-policy.ts, servable). The whole
+// Read is RE-RENDERED here from the stored facts, with the posted schedule and
+// the day type re-read at serve time, so a window that has ended since the Read
+// was written is not still announced as upcoming.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { optionalEntitlement } from '@/lib/entitlement';
 import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
-import {
-  AT_THE_DAM_CAVEAT,
-  damHasRead,
-  damReadHeadline,
-  damReadRows,
-  withCurrentSchedule,
-  type DamReadFacts,
-} from '@/lib/eddy/dam-read-facts';
+import { damHasRead, renderDamRead, withCurrentSchedule, type DamReadFacts } from '@/lib/eddy/dam-read-facts';
 import { scheduleHashOf } from '@/lib/eddy/generate-dam-update';
 import { servable, tierDamRead } from '@/lib/eddy/dam-update-policy';
 import type { DamReadResponse } from '@shared/dam-types';
@@ -53,7 +46,7 @@ export async function GET(
     const [{ data, error }, snapshot] = await Promise.all([
       supabase
         .from('dam_updates')
-        .select('quote_text, facts, sources_used, schedule_hash, generated_at, expires_at')
+        .select('facts, sources_used, schedule_hash, generated_at, expires_at')
         .eq('dam_id', damId)
         .order('generated_at', { ascending: false })
         .limit(1)
@@ -75,10 +68,7 @@ export async function GET(
     const stored = data.facts as DamReadFacts;
     const facts = snapshot ? withCurrentSchedule(stored, snapshot.schedule, now) : stored;
     const read = tierDamRead(entitled, {
-      headline: damReadHeadline(facts),
-      rows: damReadRows(facts),
-      prose: data.quote_text,
-      caveat: AT_THE_DAM_CAVEAT,
+      ...renderDamRead(facts),
       sourcesUsed: Array.isArray(data.sources_used) ? data.sources_used : [],
     });
     return NextResponse.json<DamReadResponse>({ available: true, generatedAt: data.generated_at, read }, { headers });

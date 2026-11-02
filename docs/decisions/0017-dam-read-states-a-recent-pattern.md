@@ -44,31 +44,42 @@ Measured on that history (backtest in
    first row are today's posted schedule, re-read from the current snapshot
    each time the Read is served. All times are at the dam, in Central time;
    nothing estimates when water reaches a downstream access.
-3. **Code states every fact; the model only interprets.** `damReadRows` in
-   `dam-read-facts.ts` renders the posted schedule, the usual and earliest
-   starts, how often mornings were off before noon, the typical run and when
-   it ended, the typical daily peak in units, how the posted schedule held
-   (naming the days it missed), and each water reading with its own station.
-   The model (the `gauge_update` workload) writes two or three sentences of
-   interpretation, and `damProseProblems` rejects any digit, number word,
-   clock word, schedule or "today" claim, live-state claim, promise or
-   measurement in them, falling back to deterministic text. This replaced a
-   first version in which the model wrote the facts and a checker looked for
-   their times; review showed that checker passed a wrong schedule, a borrowed
-   time and invented counts.
-4. **Rewritten when due, served only while true.** `/api/cron/generate-dam-updates`
+3. **Code writes the whole Read, in Eddy's voice.** No model. Two earlier
+   versions let one write part of it and checked the text afterwards; review
+   broke both checks (a wrong schedule and invented counts passed the first;
+   "mornings have stayed quiet" beside fourteen mornings of generation passed
+   the second, which never saw the facts). `dam-read-facts.ts` now computes
+   conclusions from the facts and writes them, so nothing can say what the
+   numbers do not. The voice is `src/lib/eddy/voice.ts` applied to a dam:
+   "generation" and "generators' worth" as the rest of the dam page says them,
+   surprises first and plainly ("Heads up"), counts kept beside what they count.
+   A test fails the build on "units", "first start", "came on", "accuracy",
+   the company "we", promises and absolutes in any rendered Read.
+4. **Reading order:** a headline with today's posted generation and how it
+   compares with recent days of the same kind; two or three sentences, recent
+   surprises (early starts, generation with nothing posted) before the
+   pattern; the two or three facts behind them (tomorrow's posted generation,
+   the earliest start lately, the schedule track record); and "Recent pattern
+   details" collapsed underneath. Water temperature and the schedule itself
+   stay on the free dam page and are not repeated in the Read.
+5. **Definitions:** a typical generating day is total hours and number of
+   runs, not the first run; runs carrying past midnight are counted, never
+   dropped from the end time; the track record scores only days where
+   something was posted or ran, with quiet days posted quiet counted apart;
+   a usual start is always stated with how many days generated at all.
+6. **Rewritten when due, served only while true.** `/api/cron/generate-dam-updates`
    runs hourly at :47 and rewrites a dam's Read when none exists for today,
    when the posted schedule changes, or when the last one is 6 hours old. A
    stored Read is served only on its own Central day and only if the posted
    schedule still matches the one it was written against.
-5. **The whole Read is Premium.** A public caller of `/api/dam-update/[damId]`
+7. **The whole Read is Premium.** A public caller of `/api/dam-update/[damId]`
    learns only that a Read exists and when it was written. The measured pattern
    strip, the posted schedule and the water readings on the dam page stay free;
    what Premium buys is Eddy's reading of them. This is a deliberate exception
    to the river and gauge Reads, whose one-line summary is public. It sits
    inside the rule in `eddy-ios/src/lib/premiumCopy.ts` because the data stays
    free and only the interpretation is paid.
-6. **Pilot dams:** Table Rock, Bull Shoals, Norfork, Beaver and Greers Ferry
+8. **Pilot dams:** Table Rock, Bull Shoals, Norfork, Beaver and Greers Ferry
    (`src/lib/eddy/dam-read-dams.ts`). Adding a dam is a list edit, but its
    history should be checked against the backtest first.
 

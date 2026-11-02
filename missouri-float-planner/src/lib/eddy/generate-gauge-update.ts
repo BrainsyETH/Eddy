@@ -88,8 +88,8 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
     // would reach the Haiku prompt with no site id; more importantly, the
     // prompt is written to interpret a river gauge, and a dam release is an
     // operator's decision rather than something the watershed is doing.
-    // Dams have their own Read with a prompt written for them; see
-    // generate-dam-update.ts and ADR 0017.
+    // Dams have their own Read, written in code from the turbine record;
+    // see generate-dam-update.ts and ADR 0017.
     .eq('gauge_stations.provider', 'usgs');
 
   if (error || !data) {

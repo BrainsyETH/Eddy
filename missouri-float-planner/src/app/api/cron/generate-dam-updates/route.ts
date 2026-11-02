@@ -12,8 +12,6 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
-import { resolveModels } from '@/lib/ai/resolve-models';
-import { usageColumns } from '@/lib/eddy/generate-update';
 import { DAM_READ_DAM_IDS } from '@/lib/eddy/dam-read-facts';
 import { currentDamSnapshot, generateDamUpdate, scheduleHashOf } from '@/lib/eddy/generate-dam-update';
 import {
@@ -45,14 +43,10 @@ async function runGeneration(request: NextRequest) {
   const now = Date.now();
   const written: string[] = [];
   const skipped: string[] = [];
-  const fallbacks: string[] = [];
   const errors: string[] = [];
 
   try {
-    // Resolved once, before any generation, so a pass cannot span two models.
-    // Dams use the gauge-update model: the same short, fact-bound job.
-    const model = (await resolveModels()).gauge_update;
-    // ?force=1 rewrites every dam, for a manual run after a prompt change.
+    // ?force=1 rewrites every dam, for a manual run after a wording change.
     const force = request.nextUrl.searchParams.get('force') === '1';
 
     for (const damId of DAM_READ_DAM_IDS) {
@@ -78,7 +72,7 @@ async function runGeneration(request: NextRequest) {
           continue;
         }
 
-        const update = await generateDamUpdate(damId, model, now);
+        const update = await generateDamUpdate(damId, now);
         if (!update) {
           skipped.push(damId);
           continue;
@@ -86,22 +80,21 @@ async function runGeneration(request: NextRequest) {
 
         const { error } = await supabase.from('dam_updates').insert({
           dam_id: update.damId,
-          // The headline as written, kept for the record; the route re-renders
-          // it and the rows from `facts` against the schedule posted when served.
+          // The headline and story as written, kept for the record. The route
+          // re-renders the whole Read from `facts` against the schedule posted
+          // when it is served. Written in code, so no model or token columns.
           summary_text: update.headline,
           eddy_read: null,
-          quote_text: update.prose,
+          quote_text: update.story,
           facts: update.facts,
           schedule_hash: update.scheduleHash,
-          used_fallback: update.usedFallback,
+          used_fallback: false,
           sources_used: update.sourcesUsed,
-          ...usageColumns(update.usage),
           generated_at: new Date(now).toISOString(),
           expires_at: damReadExpiresAt(now),
         });
         if (error) throw new Error(`insert: ${error.message}`);
         written.push(damId);
-        if (update.usedFallback) fallbacks.push(damId);
       } catch (err) {
         errors.push(`${damId}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -119,9 +112,6 @@ async function runGeneration(request: NextRequest) {
     message: 'Dam Read generation complete',
     written,
     skipped,
-    // A dam that keeps landing here is a prompt the model is failing; the Read
-    // served is the deterministic one, which is correct but plainer.
-    fallbacks,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length === DAM_READ_DAM_IDS.length ? 500 : 200 });
 }

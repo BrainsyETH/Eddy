@@ -4,8 +4,8 @@
 // Two requests, kept apart the way the gauge screen keeps them: the public one
 // says whether a Read exists today and when it was written, which is all a
 // non-subscriber's locked card needs; the Premium one, sent only for an
-// entitlement verified for THIS session's user, carries the headline, the rows
-// and Eddy's interpretation.
+// entitlement verified for THIS session's user, carries the Read itself:
+// headline, story, the facts behind it, and the recent pattern details.
 //
 // ── Refreshed with the screen ──────────────────────────────────────────────
 // Both requests run on every focus, not only on mount: the dam screen
@@ -26,7 +26,7 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import type { DamReadResponse } from '@eddy/types';
+import type { DamReadResponse, DamReadRow } from '@eddy/types';
 import { ApiError, fetchDamRead } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
 import { writtenAge } from '@/lib/eddySays';
@@ -62,6 +62,7 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [premium, setPremium] = useState<Premium | null>(null);
   const [retry, setRetry] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   // The user is part of the key: Premium prose never crosses accounts.
   const key = `${premiumUserId}:${damId}`;
 
@@ -112,19 +113,29 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
 
       {current?.state === 'ready' ? (
         <View style={styles.read}>
+          {/* Reading order (ADR 0017): today, then what it means, then the
+              evidence, then the full breakdown for anyone who wants it. */}
           <Text style={[styles.headline, { color: colors.text }]}>{current.read.headline}</Text>
-          <View style={styles.rows}>
-            {current.read.rows.map((row) => (
-              <View key={row.key} style={styles.row} accessible accessibilityLabel={`${row.label}: ${row.value}${row.detail ? `. ${row.detail}` : ''}`}>
-                <View style={styles.rowLine}>
-                  <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{row.label}</Text>
-                  <Text style={[styles.rowValue, { color: colors.text }]}>{row.value}</Text>
-                </View>
-                {row.detail ? <Text style={[styles.rowDetail, { color: colors.textSubtle }]}>{row.detail}</Text> : null}
-              </View>
-            ))}
-          </View>
-          <Text style={[styles.body, { color: colors.text }]}>{current.read.prose}</Text>
+          {current.read.mayBeOutdated ? (
+            <Text style={[styles.caveat, { color: colors.textMuted }]}>Eddy&apos;s copy of today&apos;s schedule may be out of date.</Text>
+          ) : null}
+          <Text style={[styles.body, { color: colors.text }]}>{current.read.story.join(' ')}</Text>
+          {current.read.keyRows.length ? <FactRows rows={current.read.keyRows} /> : null}
+          {current.read.detailRows.length ? (
+            <View style={styles.details}>
+              <Pressable
+                onPress={() => setDetailsOpen((open) => !open)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: detailsOpen }}
+                hitSlop={8}
+                style={styles.detailsToggle}
+              >
+                <Text style={[styles.action, { color: colors.interactive }]}>Recent pattern details</Text>
+                <ControlIcon name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
+              </Pressable>
+              {detailsOpen ? <FactRows rows={current.read.detailRows} /> : null}
+            </View>
+          ) : null}
           <Text style={[styles.caveat, { color: colors.textMuted }]}>{current.read.caveat}</Text>
         </View>
       ) : current?.state === 'unavailable' ? (
@@ -159,6 +170,24 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
   );
 }
 
+/** Label on the left, value on the right, qualifier underneath. */
+function FactRows({ rows }: { rows: DamReadRow[] }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.rows}>
+      {rows.map((row) => (
+        <View key={row.key} style={styles.row} accessible accessibilityLabel={`${row.label}: ${row.value}${row.detail ? `. ${row.detail}` : ''}`}>
+          <View style={styles.rowLine}>
+            <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{row.label}</Text>
+            <Text style={[styles.rowValue, { color: colors.text }]}>{row.value}</Text>
+          </View>
+          {row.detail ? <Text style={[styles.rowDetail, { color: colors.textSubtle }]}>{row.detail}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -166,6 +195,8 @@ const styles = StyleSheet.create({
   read: { gap: 12 },
   headline: { ...textStyles.cardTitle },
   rows: { gap: 8 },
+  details: { gap: 8 },
+  detailsToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
   row: { gap: 1 },
   rowLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
   rowLabel: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, flexShrink: 1 },

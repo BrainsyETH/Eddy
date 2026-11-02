@@ -432,9 +432,8 @@ export interface DamsResponse {
 }
 
 /**
- * One fact in a dam's Eddy's Read, rendered by code rather than written by a
- * model: the posted schedule, the recent pattern, how the schedule held, the
- * water readings. A row is the only place a clock time or a number appears.
+ * One supporting fact in a dam's Eddy's Read: a label, a value and an optional
+ * qualifier, all written by code from the measured record.
  */
 export interface DamReadRow {
   /** Stable id, e.g. 'posted-today', 'earliest', 'release'. */
@@ -461,14 +460,18 @@ export interface DamReadResponse {
   available: boolean;
   generatedAt: string | null;
   read: {
-    /** One sentence about today, rendered from the current posted schedule. */
+    /** Today's posted generation and how it compares with recent days. */
     headline: string;
-    /** The facts, rendered by code. Posted rows reflect the schedule now. */
-    rows: DamReadRow[];
-    /** Eddy's interpretation: no times, numbers or schedule claims. */
-    prose: string;
-    /** The at-the-dam caveat, rendered under the rows. */
+    /** Two or three sentences: recent surprises first, then the pattern. */
+    story: string[];
+    /** The two or three facts that back the story. */
+    keyRows: DamReadRow[];
+    /** "Recent pattern details", collapsed by default. */
+    detailRows: DamReadRow[];
+    /** The at-the-dam caveat, rendered under the Read. */
     caveat: string;
+    /** Eddy's copy of today's schedule is old enough that it may have been revised. */
+    mayBeOutdated: boolean;
     sourcesUsed: string[];
   } | null;
 }

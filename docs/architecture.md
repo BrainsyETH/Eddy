@@ -120,7 +120,7 @@ collected.
 | Water & dams | 6 | 15 min → hourly | Gauge readings hourly at :00 plus a high-frequency pass at :15/:30/:45, latest-value sync, dam generation history, **assembled dam snapshots**, percentile snapshots |
 | Land & availability | 11 | daily / weekly | Campsite availability from Recreation.gov and Missouri State Parks; NPS and USFS public-lands sync |
 | Alerts & push | 3 | 5–15 min | Evaluate gauge thresholds against subscriber rules, drain the delivery queue to Expo push, reconcile receipts 4×/hour |
-| Eddy updates | 4 | hourly → daily | Anthropic writes the river and gauge prose, gated by a knowledge base and a prose gate before it can publish; the dam Read (hourly at :47, rewritten only when due) is checked against facts computed in code, see ADR 0017 |
+| Eddy updates | 4 | hourly → daily | Anthropic writes the river and gauge prose, gated by a knowledge base and a prose gate before it can publish; the dam Read (hourly at :47, rewritten only when due) is written in code from the measured record, with no model; see ADR 0017 |
 | Social & media | 9 | 30 min → weekly | Post scheduler, preflight, clip brand-check by vision, clip posting, weekday guide, insight fetch, weekly review |
 | Integrity & housekeeping | 3 | 15 min → daily | The trust tick — registered data checks, severity scoring, decay and remediation against a ledger; telemetry rollup; Apple token revocation queue |
 
