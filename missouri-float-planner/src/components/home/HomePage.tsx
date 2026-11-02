@@ -52,8 +52,8 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
     <div className="min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50">
       {/* ─── Hero ───
           The App Store "Field Notebook" frame: Sandbar Tan stock, faint contour
-          lines, and a dark teal headline with coral reserved for
-          Eddy. The filled action is teal, as in the iOS app, because the
+          lines, and a dark teal Fredoka 600 headline (the iOS page-title face)
+          with coral reserved for Eddy. The filled action is teal, as in the iOS app, because the
           condition ladder starts directly below (ADR 0007). */}
       <section className="relative overflow-hidden border-b border-secondary-200 bg-secondary-100">
         <div className="hero-contours" aria-hidden="true" />
@@ -70,7 +70,7 @@ export default function HomePage({ riverGuides, featuredReports, featuredDams, r
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center">
             <div className="max-w-xl mx-auto md:mx-0 text-center md:text-left">
-              <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.05] tracking-[-0.035em] text-primary-800 mb-4">
+              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold leading-[1.02] text-primary-800 mb-4">
                 Float with{' '}
                 <span className="relative whitespace-nowrap text-accent-600">
                   Eddy
