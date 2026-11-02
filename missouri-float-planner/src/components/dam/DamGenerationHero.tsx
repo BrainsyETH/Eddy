@@ -17,6 +17,7 @@ import {
   generationVoiceOver,
   generatorRack,
   releaseComparison,
+  releaseRepeatsTurbineFlow,
   speaksForNow,
   spillwayRelease,
   spillwayReleaseLabel,
@@ -92,7 +93,12 @@ export default function DamGenerationHero({ dam, now }: { dam: DamSnapshot; now:
         </p>
       )}
 
-      {dam.metrics.release && (
+      {/* Total release that reads the same as the turbines, at the same time,
+          is said in one line rather than repeated as a second big figure. */}
+      {/* Only when the turbine figure is actually on screen above. */}
+      {dam.metrics.release && state.kind !== 'unavailable' && releaseRepeatsTurbineFlow(dam.metrics.generationFlow, dam.metrics.release) ? (
+        <p className="mt-2 text-xs text-neutral-600">Total release at the dam reads the same.</p>
+      ) : dam.metrics.release && (
         <div className="mt-6 border-t border-secondary-300 pt-5">
           {/* The age is not optional. Turbine flow above carries one, and two
               adjacent measurements with different ages look synchronised when

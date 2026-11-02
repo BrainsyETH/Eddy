@@ -99,8 +99,9 @@ Measured on that history (backtest in
    inside Eddy's take under its one lock row, with decision 7's access rules.
    The same change moved the dam into the live report card on both platforms,
    drawn as the dam cards draw it (the directory card's readings and hourly
-   bars on web, the Favorites card's body on iOS): it leads the card on that
-   tab, with Tomorrow's bars, and closes it on every other with Today's.
+   bars on web, the Favorites card's body on iOS): it is the whole card on
+   that tab, with Tomorrow's bars and nothing of the gauge card after it, and
+   closes the reading card on every other tab with Today's.
 
 ## Not decided here
 

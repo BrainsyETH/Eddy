@@ -1406,35 +1406,42 @@ export default function RiverDetailScreen() {
         />
 
         {/* Verdict first, seasonal context second; full provenance is in ⓘ. */}
-        <ReadingSummaryCard
-          key={shownSiteId ?? slug}
-          reading={reading}
-          readingTimestamp={shownReadingTimestamp}
-          lead={damLeads ? <RiverDamPanel dam={dam} position="lead" now={now} /> : undefined}
-          verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
-            ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
-          trend={summaryLastKnown ? null : shownTrend}
-          thresholds={scaleThresholds}
-          context={percentileText}
-          stationName={shownGaugeName}
-          stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
-          age={readingAgeHours === null ? 'Observation time unavailable' : band === 'expired' ? 'Reading is out of date' : readingAge(readingAgeHours)}
-          ageWarning={summaryLastKnown}
-          offline={cachedReading}
-          details={[
-            { label: 'Observed', value: observedStamp(shownReadingTimestamp) },
-            { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
-          ]}
-        >
-          {caveat ? (
-            <View style={[styles.caveat, { backgroundColor: conditionBg('unknown', isDark) }]}>
-              <ControlIcon name="alert-circle-outline" size={15} color={colors.textMuted} />
-              <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
-            </View>
-          ) : null}
-          {/* The dam closes the card on every tab it does not lead. */}
-          {!damLeads ? <RiverDamPanel dam={dam} position="footer" now={now} /> : null}
-        </ReadingSummaryCard>
+        {/* On the dam's own unrated release the dam IS the card — its body and
+            nothing after it. The reading card's age row restated the glance's
+            "Observed …" line, and "Not rated" beside a bare number said less
+            than the schedule does. */}
+        {damLeads ? (
+          <RiverDamPanel dam={dam} position="lead" now={now} />
+        ) : (
+          <ReadingSummaryCard
+            key={shownSiteId ?? slug}
+            reading={reading}
+            readingTimestamp={shownReadingTimestamp}
+            verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
+              ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
+            trend={summaryLastKnown ? null : shownTrend}
+            thresholds={scaleThresholds}
+            context={percentileText}
+            stationName={shownGaugeName}
+            stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
+            age={readingAgeHours === null ? 'Observation time unavailable' : band === 'expired' ? 'Reading is out of date' : readingAge(readingAgeHours)}
+            ageWarning={summaryLastKnown}
+            offline={cachedReading}
+            details={[
+              { label: 'Observed', value: observedStamp(shownReadingTimestamp) },
+              { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
+            ]}
+          >
+            {caveat ? (
+              <View style={[styles.caveat, { backgroundColor: conditionBg('unknown', isDark) }]}>
+                <ControlIcon name="alert-circle-outline" size={15} color={colors.textMuted} />
+                <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
+              </View>
+            ) : null}
+            {/* The dam closes the card on every tab it does not lead. */}
+            <RiverDamPanel dam={dam} position="footer" now={now} />
+          </ReadingSummaryCard>
+        )}
 
         {/* The river's own stretches, each with the gauge that actually reads
             it. Directly under the status card because a reach IS the river —

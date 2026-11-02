@@ -21,6 +21,7 @@ import {
   OBSERVATION_ALIGNMENT_MINUTES,
   OTHER_RELEASE_FLOOR_CFS,
   releaseComparison,
+  releaseRepeatsTurbineFlow,
   scheduleDayVoiceOver,
   scheduledBar,
   scheduledClauseProvenance,
@@ -1396,4 +1397,18 @@ test('a spillway release is read from its own series, not inferred from total fl
     spillwayRelease(dam({ metrics: { release: reading(18_000, 20), generationFlow: reading(9_000, 20) } }), NOON_CENTRAL),
     null
   );
+});
+
+test('total release that only repeats the turbine figure is said once', () => {
+  // Bull Shoals, 2026-11-02: 683 through the turbines, 683 total, same hour.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 60)), true);
+  assert.equal(releaseRepeatsTurbineFlow(reading(682.6, 60), reading(683.2, 61)), true, 'same rounded cfs, aligned');
+  // A real difference is a fact the reader needs: both figures stay.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(1_250, 60)), false);
+  // Misaligned readings agreeing is a coincidence, not one measurement.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 120)), false);
+  // A daily mean is a different kind of number, even when it matches.
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), reading(683, 60, { dailyMean: true })), false);
+  assert.equal(releaseRepeatsTurbineFlow(null, reading(683, 60)), false);
+  assert.equal(releaseRepeatsTurbineFlow(reading(683, 60), undefined), false);
 });
