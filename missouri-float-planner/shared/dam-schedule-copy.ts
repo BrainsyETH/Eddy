@@ -385,6 +385,26 @@ export function scheduledHoursSummary(
 }
 
 /**
+ * A posted day's headline, for a card whose chart already shows WHEN.
+ *
+ * "Generation scheduled for 17 hours" rather than scheduledHoursSummary's
+ * "Scheduled to generate 17 of 24 hours": the chart beside it carries the
+ * day's shape, so the denominator only slows the sentence down. Minimum flow,
+ * no generation and an all-day run stay distinct for the same reason they do
+ * there — a minimum-flow day still releases water, and an idle one may not.
+ */
+export function scheduleDayHeadline(
+  hours: Array<{ megawatts: number; minimumFlow?: boolean }>
+): string {
+  const running = hours.filter(scheduledGeneration).length;
+  if (running === 0) {
+    return hours.some((h) => h.minimumFlow === true) ? 'Only minimum flow scheduled' : 'No generation scheduled';
+  }
+  if (running === hours.length && hours.length === 24) return 'Generation scheduled all day';
+  return `Generation scheduled for ${running} ${running === 1 ? 'hour' : 'hours'}`;
+}
+
+/**
  * The one forward-looking line a tailwater angler wants: when generation changes.
  *
  * ── Why the subject is GENERATION and not WATER ────────────────────────────
@@ -484,6 +504,26 @@ export function relativeAge(iso: string | null | undefined, now = Date.now()): s
   const hours = minutes / 60;
   if (hours < 2) return 'an hour ago';
   if (hours < 24) return `${Math.round(hours)} hours ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/**
+ * relativeAge in the short form a reading caption has room for: "18 min ago".
+ *
+ * Same thresholds as relativeAge, so the two forms never disagree about how
+ * old a reading is — only about how many letters it takes to say so.
+ */
+export function relativeAgeShort(iso: string | null | undefined, now = Date.now()): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const minutes = (now - ms) / 60_000;
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  const hours = minutes / 60;
+  if (hours < 2) return '1 hr ago';
+  if (hours < 24) return `${Math.round(hours)} hr ago`;
   const days = Math.round(hours / 24);
   return days === 1 ? 'yesterday' : `${days} days ago`;
 }

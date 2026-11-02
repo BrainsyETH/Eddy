@@ -1,39 +1,50 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { DamMetricValue, DamSnapshot } from '@/lib/data/dams';
-import { relativeAge, readingStaleness } from '@shared/dam-schedule-copy';
+import { relativeAgeShort, readingStaleness } from '@shared/dam-schedule-copy';
 import GenerationSchedule from './GenerationSchedule';
 import DamInfoTip from './DamInfoTip';
 import Card from '@/components/ui/Card';
 import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 
 /**
- * A MEASURED reading. Its age says "Measured …" so it can never be mistaken
- * for the schedule's retrieval time below, which describes a plan.
+ * A MEASURED reading, with its own age ("18 min ago") unless the card shows
+ * one shared age for both readings — see sharedObservation.
  *
  * The icon sits inside the <dt> (a <dl> group may hold only dt/dd) and is
  * pulled into a left gutter, so it aligns beside the whole label/value group.
  */
-function Reading({ label, value, unit, metric, now, icon }: {
+function Reading({ label, value, unit, metric, now, icon, showAge }: {
   label: string; value: string | null; unit: string; metric?: DamMetricValue; now: number;
-  icon: EddyIconName;
+  icon: EddyIconName; showAge: boolean;
 }) {
-  const age = metric ? relativeAge(metric.at, now) : null;
+  const age = showAge && metric ? relativeAgeShort(metric.at, now) : null;
   return (
     <div className="relative min-w-0 pl-9">
-      <dt className="text-xs font-medium leading-4 text-neutral-600">
+      <dt className="text-[13px] font-medium leading-4 text-neutral-700">
         <EddyIcon name={icon} size={28} className="absolute left-0 top-0.5" />
         {label}
       </dt>
       <dd className={`mt-1 flex flex-wrap items-baseline gap-x-1 text-primary-900 ${metric && readingStaleness(metric.at, now) !== 'fresh' ? 'opacity-60' : ''}`}>
         {value === null ? <span className="text-sm">Unavailable</span> : <>
           <span className="font-mono text-2xl font-medium leading-7 tabular-nums tracking-tight sm:text-[26px]">{value}</span>{' '}
-          <span className="text-xs text-neutral-500">{unit}</span>
+          <span className="text-[13px] text-neutral-500">{unit}</span>
         </>}
       </dd>
-      {age && <dd className="mt-0.5 text-[11px] leading-4 text-neutral-600">Measured {age}</dd>}
+      {age && <dd className="mt-0.5 text-xs leading-4 text-neutral-600">{age}</dd>}
     </div>
   );
+}
+
+/**
+ * Both readings observed in the same minute, so one age describes both.
+ * Anything else keeps an age per reading: two readings an hour apart under one
+ * timestamp would date one of them wrongly.
+ */
+function sharedObservation(a?: DamMetricValue, b?: DamMetricValue): string | null {
+  if (!a || !b) return null;
+  const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000);
+  return Number.isFinite(minute(a.at)) && minute(a.at) === minute(b.at) ? a.at : null;
 }
 
 /**
@@ -46,6 +57,8 @@ function Reading({ label, value, unit, metric, now, icon }: {
 export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now: number; href: string }) {
   const flow = dam.metrics.release;
   const temperature = dam.metrics.tailwaterTempF;
+  const sharedAt = sharedObservation(flow, temperature);
+  const sharedAge = sharedAt ? relativeAgeShort(sharedAt, now) : null;
 
   return (
     <Card as="article" variant="framed" className="flex h-full min-w-0 flex-col">
@@ -58,10 +71,13 @@ export default function DamListCard({ dam, now, href }: { dam: DamSnapshot; now:
           <ChevronRight className="size-5 shrink-0 text-primary-200" aria-hidden="true" />
         </Link>
 
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-3 bg-secondary-100 px-4 py-3 sm:px-5">
-          <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" />
-          <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" />
-        </dl>
+        <div className="bg-secondary-100 px-4 py-3 sm:px-5">
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-3">
+            <Reading label={`Release${flow?.dailyMean ? ' (daily avg)' : ''}`} value={flow ? Math.round(flow.value).toLocaleString() : null} unit="cfs" metric={flow} now={now} icon="release" showAge={!sharedAge} />
+            <Reading label="Water temp" value={temperature ? temperature.value.toFixed(1) : null} unit="°F" metric={temperature} now={now} icon="waterTemperature" showAge={!sharedAge} />
+          </dl>
+          {sharedAge && <p className="mt-1.5 text-xs leading-4 text-neutral-600">Measured {sharedAge}</p>}
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col px-4 pb-1 pt-1.5 sm:px-5">

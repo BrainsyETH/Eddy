@@ -35,6 +35,18 @@ import {
 const HOURS = 24;
 
 /**
+ * Axis ticks at their true positions. A compact card drops the closing
+ * midnight rather than shrinking every label to fit five.
+ */
+const TICKS: Array<{ label: string; at: number }> = [
+  { label: 'midnight', at: 0 },
+  { label: '6 AM', at: 0.25 },
+  { label: 'noon', at: 0.5 },
+  { label: '6 PM', at: 0.75 },
+  { label: 'midnight', at: 1 },
+];
+
+/**
  * Fill intensity, in three steps of one hue.
  *
  * Redundant with height on purpose: magnitude is encoded twice so the strip
@@ -104,10 +116,12 @@ export default function DamTimeline({
   const peak = plainLanguage ? schedulePeak(day, reference) : null;
   const peakWindow = peak ? schedulePeakWindowLabel(peak) : null;
   // The schedule section states the day's summary in words above the chart, so
-  // the readout never repeats it: it names the peak, or invites inspection.
-  const defaultReadout = plainLanguage && peakWindow ? `Peak window: ${peakWindow}` : 'Select an hour for details';
+  // the readout never repeats it. At rest it names the peak or stays empty — no
+  // standing instruction; the row's height is reserved so inspecting an hour
+  // does not shift the card.
+  const defaultReadout = plainLanguage && peakWindow ? `Peak window: ${peakWindow}` : null;
   const readout = (
-    <p aria-live="polite" className={`${plainLanguage ? (compact ? 'mt-1 min-h-4' : 'mt-2 min-h-8') : 'mb-1 min-h-[1.25rem]'} text-xs tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-600'}`}>
+    <p aria-live="polite" className={`${plainLanguage ? 'mt-1' : 'mb-1'} min-h-5 text-[13px] leading-5 tabular-nums ${plainLanguage && peak && !hoveredHour ? 'font-medium text-primary-800' : 'text-neutral-700'}`}>
       {hoveredHour ? hourReadout(hoveredHour, reference, plainLanguage) : defaultReadout}
     </p>
   );
@@ -185,7 +199,7 @@ export default function DamTimeline({
             itself is kept either way: a small release must look small. */}
         {!compact && <>
           <div className="pointer-events-none absolute inset-x-0 bottom-1/2 h-px bg-neutral-200" />
-          <span aria-hidden="true" className="pointer-events-none absolute bottom-1/2 left-0 z-20 mb-px rounded-sm bg-white/85 px-0.5 text-[10px] leading-3 text-neutral-500">Half capacity</span>
+          <span aria-hidden="true" className="pointer-events-none absolute bottom-1/2 left-0 z-20 mb-px rounded-sm bg-white/85 px-0.5 text-[11px] leading-3 text-neutral-600">Half capacity</span>
         </>}
 
         {elapsed !== null && <>
@@ -194,16 +208,20 @@ export default function DamTimeline({
             className="pointer-events-none absolute inset-y-0 z-20 w-0.5 bg-accent-600"
             style={{ left: `${(elapsed / HOURS) * 100}%` }}
           />
-          <span aria-hidden="true" className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[10px] font-semibold leading-3 text-accent-800" style={{ left: `clamp(14px, ${(elapsed / HOURS) * 100}%, calc(100% - 14px))` }}>Now</span>
+          <span aria-hidden="true" className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-sm bg-white px-1 text-[11px] font-semibold leading-3 text-accent-800" style={{ left: `clamp(15px, ${(elapsed / HOURS) * 100}%, calc(100% - 15px))` }}>Now</span>
         </>}
       </div>
 
-      <div aria-hidden="true" className="mt-1 flex justify-between text-[11px] leading-4 tabular-nums text-neutral-600">
-        <span>midnight</span>
-        <span>6 AM</span>
-        <span>noon</span>
-        <span>6 PM</span>
-        <span>midnight</span>
+      <div aria-hidden="true" className="relative mt-1 h-4 text-xs leading-4 tabular-nums text-neutral-600">
+        {TICKS.filter((tick) => !compact || tick.at < 1).map((tick) => (
+          <span
+            key={tick.at}
+            className={`absolute top-0 whitespace-nowrap ${tick.at === 0 ? '' : tick.at === 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
+            style={{ left: `${tick.at * 100}%` }}
+          >
+            {tick.label}
+          </span>
+        ))}
       </div>
       {plainLanguage && readout}
     </div>

@@ -793,7 +793,11 @@ export function scheduleCheckedPhrase(
 
 export interface ScheduleCheckLine {
   text: string;
-  /** Past SCHEDULE_STALE_AFTER_MINUTES; the caller gives it a caution treatment. */
+  /**
+   * Past SCHEDULE_STALE_AFTER_MINUTES. The text carries no caveat sentence —
+   * the clock time is the fact — so the caller MUST give a stale line a
+   * treatment that is not colour alone, and an accessible "outdated" cue.
+   */
   stale: boolean;
 }
 
@@ -821,8 +825,8 @@ export function scheduleCheckLines(
   }));
   const line = (subject: string, phrase: string | null, stale: boolean): ScheduleCheckLine => ({
     text: phrase
-      ? `${subject} last checked ${phrase}.${stale ? ' It may have been revised since.' : ''}`
-      : `${subject} check time unavailable.`,
+      ? `${subject} last checked ${phrase}`
+      : `${subject} check time unavailable`,
     stale,
   });
   if (checks.every((check) => check.phrase === checks[0].phrase)) {

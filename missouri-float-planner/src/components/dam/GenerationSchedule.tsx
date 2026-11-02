@@ -1,21 +1,38 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { DamScheduleDay } from '@/lib/data/dams';
 import DamTimeline from '@/components/dam/DamTimeline';
 import {
   centralDayKey,
   nextDayKey,
+  scheduleDayHeadline,
   scheduleDayLabel,
-  scheduledHoursSummary,
 } from '@shared/dam-schedule-copy';
 import {
   scheduleCheckLines,
   scheduleOutlook,
   scheduledChangeSummary,
   type GenerationReference,
+  type ScheduleCheckLine,
 } from '@shared/dam-generation';
 
 const DAY_SUBJECT = ['Today’s schedule', 'Tomorrow’s schedule'];
+
+/**
+ * When Eddy last checked, as a plain clock time. Current reads as quiet text;
+ * outdated gets a restrained amber box with a clock mark, so the change is
+ * carried by shape and an accessible word, not by colour alone.
+ */
+function CheckLine({ check }: { check: ScheduleCheckLine }) {
+  return check.stale ? (
+    <p data-schedule-check="stale" className="flex items-start gap-1.5 rounded border-l-2 border-amber-500 bg-amber-50 px-2 py-1 text-[13px] leading-5 text-amber-900">
+      <Clock className="mt-[3px] size-3.5 shrink-0" aria-hidden="true" />
+      <span><span className="sr-only">Outdated: </span>{check.text}</span>
+    </p>
+  ) : (
+    <p data-schedule-check="current" className="text-[13px] leading-5 text-neutral-600">{check.text}</p>
+  );
+}
 
 /**
  * One schedule presentation for home, directory cards and full dam reports.
@@ -62,16 +79,12 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
   const Heading = compact ? 'h4' : 'h2';
   const DayHeading = compact ? 'h5' : 'h3';
 
+  // The sentence names its own subject and time ("Generation starts at 6 AM
+  // tomorrow."), so it needs no label above it.
   const changeLine = nextChange && (
-    <div className={compact ? 'mt-3 text-sm' : 'mt-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3'}>
-      <p className={compact ? 'text-neutral-700' : ''}>
-        <span className={compact ? 'font-semibold text-primary-800' : 'block text-xs font-bold uppercase tracking-wider text-neutral-600'}>
-          {outlook?.move ? 'Next change' : 'Upcoming'}
-        </span>
-        {compact && <span aria-hidden="true"> · </span>}
-        <span className={compact ? '' : 'mt-1 block text-lg font-semibold leading-snug text-primary-900 sm:text-xl'}>{nextChange}</span>
-      </p>
-    </div>
+    compact
+      ? <p className="mt-1.5 text-sm font-medium leading-5 text-primary-900">{nextChange}</p>
+      : <p className="mt-4 rounded-r-lg border-l-4 border-accent-500 bg-secondary-50 px-4 py-3 text-lg font-semibold leading-snug text-primary-900 sm:text-xl">{nextChange}</p>
   );
 
   return (
@@ -82,13 +95,13 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
             <Heading className={`font-heading font-bold text-primary-800 ${compact ? 'text-sm' : 'text-lg'}`}>
               Today’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(today)}</span>
             </Heading>
-            <span className="text-[11px] leading-4 text-neutral-500">Central time</span>
+            <span className="text-xs leading-4 text-neutral-600">Central time</span>
           </div>
           {info}
         </div>
         {todayDay ? <>
           <p className={`font-semibold leading-snug text-primary-900 ${compact ? 'text-base' : 'text-xl sm:text-2xl'}`}>
-            {scheduledHoursSummary(todayDay.hours)}
+            {scheduleDayHeadline(todayDay.hours)}
           </p>
           <div className={compact ? 'mt-2' : 'mt-3'}>
             <DamTimeline day={todayDay} reference={reference} now={now} plainLanguage compact={compact} />
@@ -102,17 +115,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
 
       {checks.length > 0 && (
         <div className="mt-2 space-y-1">
-          {checks.map(check => (
-            <p
-              key={check.text}
-              data-schedule-check={check.stale ? 'stale' : 'current'}
-              className={check.stale
-                ? 'rounded border-l-2 border-amber-500 bg-amber-50 px-2 py-1 text-xs leading-4 text-amber-900'
-                : 'text-xs leading-4 text-neutral-600'}
-            >
-              {check.text}
-            </p>
-          ))}
+          {checks.map(check => <CheckLine key={check.text} check={check} />)}
         </div>
       )}
 
@@ -123,7 +126,7 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
               <DayHeading className="text-sm font-bold text-primary-800">
                 Tomorrow’s generation <span className="font-normal text-neutral-600">· {scheduleDayLabel(tomorrow)}</span>
               </DayHeading>
-              <p className="mb-2 mt-0.5 text-sm font-semibold text-primary-900">{scheduledHoursSummary(tomorrowDay.hours)}</p>
+              <p className="mb-2 mt-0.5 text-sm font-semibold text-primary-900">{scheduleDayHeadline(tomorrowDay.hours)}</p>
               <DamTimeline day={tomorrowDay} reference={reference} now={now} plainLanguage />
             </section>
           )}
@@ -134,18 +137,17 @@ export default function GenerationSchedule({ schedule, reference, now, compact =
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded py-2 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-primary-600 [&::-webkit-details-marker]:hidden">
                   <span className="min-w-0">
                     <span className="block text-sm font-bold text-primary-800">{scheduleDayLabel(day.scheduleDate)}</span>
-                    <span className="block text-xs text-neutral-600">{scheduledHoursSummary(day.hours)}</span>
+                    <span className="block text-[13px] text-neutral-600">{scheduleDayHeadline(day.hours)}</span>
                   </span>
                   <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
                 </summary>
                 <DamTimeline day={day} reference={reference} now={now} plainLanguage />
-                {check && <p className={`mt-1 text-xs ${check.stale ? 'text-amber-900' : 'text-neutral-600'}`}>{check.text}</p>}
+                {check && <div className="mt-1"><CheckLine check={check} /></div>}
               </details>
             );
           })}
         </div>
       )}
-      {!compact && <p className="mt-3 border-t border-neutral-200 pt-3 text-xs text-neutral-500">Schedules can change without notice.</p>}
     </section>
   );
 }

@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveAppStoreConfig, appStoreUrl, appLandingUrl, appLandingContext, campaignToken, smartBannerContent, DEFAULT_APP_STORE_URL } from './app-discovery';
-import { damWidgetHeadline, getDamAppPromotion } from './dam-app-promotion';
+import { DAM_APP_PROMOTIONS, damWidgetHeadline, getDamAppPromotion } from './dam-app-promotion';
 import { appDevice } from './app-device';
 import { appQrImage } from './app-qr';
-import { getUsaceDam } from './flow-providers/usace-registry';
+import { getUsaceDam, hasPowerhouse } from './flow-providers/usace-registry';
 import DamAppCTA from '../components/dam/DamAppCTA';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import { readAppCampaign } from '../components/AppLink';
@@ -126,7 +126,7 @@ test('dam context does not replace partner attribution or accept arbitrary desti
 
 test('promotion copy follows the supplied catalog name without a second name registry', () => {
   const html = renderToStaticMarkup(createElement(DamAppCTA, { damId: 'swl-bull-shoals-dam', damName: 'Renamed Dam' }));
-  assert.match(html, /Renamed on your Home Screen\./);
+  assert.match(html, /Renamed generation on your Home Screen\./);
   assert.ok(!html.includes('Bull Shoals'));
 });
 
@@ -148,4 +148,11 @@ test('QR handoff retains the dam and partner campaign on Eddy’s own app page',
   assert.match(decodeURIComponent(src), /^data:image\/svg\+xml,<svg /);
   const rejected = await appQrImage('a,b', 'https://example.com');
   assert.equal(rejected.href, 'https://eddy.guide/app');
+});
+
+test('every promoted dam has a powerhouse, so the widget line can promise generation', () => {
+  for (const id of Object.keys(DAM_APP_PROMOTIONS)) {
+    const dam = getUsaceDam(id);
+    assert.ok(dam && hasPowerhouse(dam), `${id} is promoted as "generation on your Home Screen" but has no powerhouse`);
+  }
 });

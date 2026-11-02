@@ -820,7 +820,7 @@ test('schedule check lines collapse matching days into one neutral line and spli
   const at625 = '2026-11-02T00:25:00Z';
   assert.deepEqual(
     scheduleCheckLines([{ subject: 'Today’s schedule', retrievedAt: at625 }, { subject: 'Tomorrow’s schedule', retrievedAt: at625 }], now),
-    [{ text: 'Schedule last checked at 6:25 PM CST.', stale: false }],
+    [{ text: 'Schedule last checked at 6:25 PM CST', stale: false }],
   );
   // Same displayed minute, different seconds: still one check as far as a reader can tell.
   assert.equal(scheduleCheckLines([
@@ -833,12 +833,12 @@ test('schedule check lines collapse matching days into one neutral line and spli
     { subject: 'Tomorrow’s schedule', retrievedAt: '2026-11-01T20:10:00Z' },
   ], now);
   assert.deepEqual(split, [
-    { text: 'Today’s schedule last checked at 6:25 PM CST.', stale: false },
-    { text: 'Tomorrow’s schedule last checked at 2:10 PM CST. It may have been revised since.', stale: true },
+    { text: 'Today’s schedule last checked at 6:25 PM CST', stale: false },
+    { text: 'Tomorrow’s schedule last checked at 2:10 PM CST', stale: true },
   ]);
 
   assert.deepEqual(scheduleCheckLines([{ subject: 'Today’s schedule', retrievedAt: null }], now),
-    [{ text: 'Schedule check time unavailable.', stale: false }]);
+    [{ text: 'Schedule check time unavailable', stale: false }]);
   assert.deepEqual(scheduleCheckLines([], now), []);
   assert.equal(scheduleCheckedPhrase('2026-10-31T23:25:00Z', now), 'Oct 31 at 6:25 PM CDT');
 });
