@@ -23,11 +23,13 @@ test('map and planner URL selections propagate, while search discovery respects 
   assert.deepEqual(siteNavigation('/', '', true).map(link => link.label), ['Map', 'Conditions', 'Floats', 'Guides']);
   assert.deepEqual(siteNavigation('/', '', false).map(link => link.label), ['Map', 'Conditions', 'Guides']);
   assert.deepEqual(floatNavigation('/plan').map(link => link.label), ['Plan a float', 'Find a float']);
-  for (const path of ['/river-map', '/find-float', '/plan']) {
+  for (const path of ['/river-map/ozarks', '/find-float', '/plan']) {
     assert.equal(navigationRiver(path, 'river=buffalo'), 'buffalo');
     assert.equal(navigationRiver(path, 'river=meramec'), 'meramec');
     assert.equal(navigationRiver(path), null);
   }
+  // The national map has no river selection; ?river= belongs to the Ozarks map.
+  assert.equal(navigationRiver('/river-map', 'river=buffalo'), null);
   const disabled = siteNavigation('/rivers/missouri/current', '', false);
   assert.equal(disabled.find(link => link.label === 'Map')?.href, '/plan?river=current');
   assert.equal(disabled.some(link => link.label === 'Floats'), false);

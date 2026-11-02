@@ -21,7 +21,8 @@ The active river catalog is available at ${BASE_URL}/api/rivers. Examples includ
 - ${BASE_URL}/rivers/{state}/{slug}/access/{accessSlug} — Access point details (coordinates, amenities, parking, facilities)
 - ${BASE_URL}/app — Eddy for iPhone and App Store download
 - ${BASE_URL}/dams — Lake levels, dam releases and generation schedules
-- ${BASE_URL}/river-map — Live statewide map: every curated river painted by its USGS gauges, with 30-day trends, gauge detail, forecast-aware flood warnings, and a drag-to-replay timeline
+- ${BASE_URL}/river-map — Live national river map: USGS streamflow across all 50 states compared with usual for the time of year, official NWS flood status, gauge search and detail, and a text-free fullscreen display
+- ${BASE_URL}/river-map/ozarks — Curated Ozarks rivers painted by their USGS gauges with Eddy's float conditions, 30-day trends, forecast-aware flood warnings, and a drag-to-replay timeline
 - ${BASE_URL}/blog — Float trip guides, safety tips, gear reviews, and river profiles
 - ${BASE_URL}/about — How Eddy works, FAQ about river conditions and float planning
 

@@ -404,7 +404,7 @@ export default function PlanFilters({
               USGS · {stamp ? `as of ${stamp}` : 'live readings'}
             </span>
             <Link
-              href="/river-map"
+              href="/river-map/ozarks"
               className="whitespace-nowrap text-[10px] font-bold text-primary-600 hover:text-primary-700"
             >
               Statewide map →

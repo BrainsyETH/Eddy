@@ -22,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/plan`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${BASE_URL}/rivers`, changeFrequency: 'daily', priority: 0.8 },
     { url: `${BASE_URL}/river-map`, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${BASE_URL}/river-map/ozarks`, changeFrequency: 'daily', priority: 0.6 },
     { url: `${BASE_URL}/dams`, changeFrequency: 'daily', priority: 0.7 },
     // Dam detail pages come from a static registry, so they're listed here
     // rather than in the DB-driven expansion below — the sitemap still builds

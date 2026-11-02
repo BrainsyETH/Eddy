@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
@@ -13,6 +14,9 @@ export default function ConditionsLayout(props: ConditionsExplorerProps) {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-accent-400 md:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>Conditions</h1>
           <p className="mt-2 max-w-2xl text-sm text-white/80">{summary}</p>
+          <Link href="/river-map" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-100 underline underline-offset-4 hover:text-white">
+            Live River Map — every USGS gauge in all 50 states →
+          </Link>
         </div>
       </div>
     </header>

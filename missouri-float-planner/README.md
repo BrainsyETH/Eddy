@@ -72,8 +72,8 @@ fixture routes afterward. It does not require production credentials.
 Screenshots go to `/tmp/eddy-navigation`
 (override with `NAV_SMOKE_OUTPUT`).
 
-For map performance, first build `/river-map` with
-`npm run build -- --webpack --debug-build-paths=app/river-map/page.tsx`, then run
+For map performance, first build `/river-map/ozarks` with
+`npm run build -- --webpack --debug-build-paths=app/river-map/ozarks/page.tsx`, then run
 `NAV_SMOKE_PRODUCTION_MAP=1 npm run test:navigation`. This starts the optimized
 build and enforces a 250ms click-to-painted-state budget under the same throttle.
 Development timings are diagnostic only. Production mode uses API fixtures but
@@ -253,9 +253,27 @@ available through its info button.
 continuity, retained endpoints, default filters, camera framing, control/panel
 spacing, attribution, keyboard search, and desktop/mobile layouts.
 
+## National Live River Map
+
+`/river-map` is the national map: every USGS gauge in the 50 states and DC,
+coloured by flow compared with usual (the shared flow bands) or by official NWS
+flood category, with search, gauge detail, and a text-free fullscreen display.
+It reads recorded national frames (`/api/river-map/frame`, written every 15
+minutes by `/api/cron/record-river-map-frame`) and a station catalog
+(`/api/river-map/stations`), and draws pre-projected USGS hydrography from
+`public/river-map/geometry/`. Its preferences are its own and never touch the
+planner's gauge layers. Design, data rules, coverage and open verification
+gates: [`docs/national-river-map.md`](docs/national-river-map.md); decisions:
+[ADR 0018](../docs/decisions/0018-national-river-map.md).
+`node --import tsx scripts/national-map-smoke.ts` runs its fixture-backed
+browser checks (River Map Smoke runs it in CI).
+
+The curated Ozarks observatory that used to live at `/river-map` is now
+`/river-map/ozarks`; Eddy's float verdicts stay there, scoped to rated rivers.
+
 ## Nationwide gauges on both web maps
 
-The planner (`/plan`) and Live River Map (`/river-map`) share one **River
+The planner (`/plan`) and the Ozarks River Map (`/river-map/ozarks`) share one **River
 gauges** layer row (`GaugeMapFilters`). Its switch turns gauges on or off;
 under it, **Eddy-rated** and **Other gauges** chips split the same USGS
 network, both enabled by default, as in the app's layers sheet. Explicit
@@ -286,7 +304,7 @@ The planner uses separate MapLibre sources and cluster trees for reference
 gauges and places; access points and POIs draw above the reference layer, whose
 stations are small plain dots with a 10px river-priority hit area. On
 phones, Eddy-rated gauges now cover all rated rivers, matching desktop, rather
-than only the selected river. The SVG Live River Map keeps
+than only the selected river. The SVG Ozarks River Map keeps
 its Ozarks home view and river overlays while allowing nationwide pan/zoom with
 state outlines. Its world-anchored clusters use discrete zoom steps and one
 screen of overscan, keeping centroids stable and filling the view during pans.
