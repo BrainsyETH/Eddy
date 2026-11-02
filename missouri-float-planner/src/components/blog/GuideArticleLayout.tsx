@@ -16,6 +16,7 @@ import type {
 } from '@/types/blog';
 import SectionTitle from './SectionTitle';
 import GuideTOC, { type TocItem } from './GuideTOC';
+import GuideJumpNav from './GuideJumpNav';
 import GuideProgressBar from './GuideProgressBar';
 import FaqAccordion from './FaqAccordion';
 import PreLaunchCard from './PreLaunchCard';
@@ -599,6 +600,9 @@ export default function GuideArticleLayout({ post }: Props) {
         )}
       </section>
 
+      {/* Below lg the left-rail TOC is hidden; this strip replaces it. */}
+      <GuideJumpNav items={toc} />
+
       {/* TL;DR */}
       {g.tldr && g.tldr.length > 0 && (
         <section id="tldr" style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px', scrollMarginTop: 80 }}>
@@ -798,6 +802,8 @@ function ResponsiveStyles() {
         padding: 24px 20px 60px !important;
       }
       .eddy-guide-article-root [data-guide-toc] { display: none !important; }
+      /* Clear the header and the sticky jump nav on a #hash landing. */
+      .eddy-guide-article-root [id] { scroll-margin-top: 128px !important; }
       .eddy-guide-article-root [data-article-mile-strip] { grid-template-columns: repeat(2, 1fr) !important; row-gap: 14px; }
       .eddy-guide-article-root [data-article-tldr] { grid-template-columns: repeat(2, 1fr) !important; }
       .eddy-guide-article-root [data-article-tldr] > div { border-right: none !important; border-bottom: 1px dashed var(--color-neutral-300) !important; }

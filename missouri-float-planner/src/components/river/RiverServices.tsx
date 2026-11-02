@@ -18,10 +18,10 @@ import { Phone, Globe, ExternalLink } from 'lucide-react';
 import AvailabilityChip from '@/components/ui/AvailabilityChip';
 import { EddyIcon, type EddyIconName } from '@/components/ui/EddyIcon';
 import { useNearbyServices } from '@/hooks/useNearbyServices';
-import { OFFERING_LABELS } from '@/lib/services/offerings';
 import { serviceEligible, serviceTiers } from '@/lib/service-tiers';
 import type { NearbyServiceDirectory } from '@/types/api';
 import { formatPhone } from './NearbyServices';
+import OfferingSummary from './OfferingSummary';
 
 const INITIAL_ROWS = 4;
 
@@ -31,11 +31,6 @@ function websiteHost(url: string): string {
 
 function ServiceRow({ service, camping }: { service: NearbyServiceDirectory; camping: boolean }) {
   const authority = service.npsAuthorized ? 'NPS' : service.usfsAuthorized ? 'USFS' : null;
-  const offerings = (service.servicesOffered ?? [])
-    .map((o) => OFFERING_LABELS[o])
-    .filter(Boolean)
-    .slice(0, 4)
-    .join(' · ');
   return (
     <li className="border-b border-neutral-100 px-4 py-3 last:border-b-0 sm:px-5">
       {/* Stacked on phones so the name gets the full width; side by side from sm. */}
@@ -45,11 +40,14 @@ function ServiceRow({ service, camping }: { service: NearbyServiceDirectory; cam
           <p className="text-xs text-neutral-500">
             {[service.city, authority].filter(Boolean).join(' · ')}
           </p>
-          {camping && service.availability ? (
+          {camping && service.availability && (
             <div className="mt-1.5"><AvailabilityChip availability={service.availability} name={service.name} /></div>
-          ) : !camping && offerings ? (
-            <p className="mt-1 text-xs text-neutral-600">{offerings}</p>
-          ) : null}
+          )}
+          {/* Every offering, grouped, in both lists. The old line here named
+              only an outfitter's first four offerings and nothing for a
+              campground, so "tent or RV?" and "is there a shuttle?" went
+              unanswered whenever they fell past the fourth. */}
+          <OfferingSummary offerings={service.servicesOffered} className="mt-1.5" />
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium sm:flex-shrink-0 sm:justify-end">
           {camping && service.reservationUrl && (

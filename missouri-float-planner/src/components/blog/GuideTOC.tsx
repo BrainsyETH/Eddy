@@ -6,7 +6,7 @@
 // data-guide-toc attribute (RiverGuideLayout sets the responsive grid).
 
 import Link from 'next/link';
-import { useScrollSpy } from './useScrollSpy';
+import { scrollToSection, useScrollSpy } from './useScrollSpy';
 
 export interface TocItem {
   id: string;
@@ -25,13 +25,7 @@ export default function GuideTOC({ items, riverSlug, riverName }: Props) {
 
   const onJump = (id: string) => (e: React.MouseEvent) => {
     e.preventDefault();
-    const el = document.getElementById(id);
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 80;
-    window.scrollTo({ top, behavior: 'smooth' });
-    // Move keyboard focus along with the visual jump
-    el.setAttribute('tabindex', '-1');
-    el.focus({ preventScroll: true });
+    scrollToSection(id, 80);
   };
 
   return (
