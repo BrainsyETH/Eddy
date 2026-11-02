@@ -183,6 +183,8 @@ export class NationalRenderer {
   private featuredPrev: { x: number; y: number } | null = null;
   private featuredSince = 0;
   private showLabels = true;
+  /** Fullscreen wall: every trace class at the national fit, stronger event rings. */
+  private wall = false;
   private motion = true;
   /** False while every observation is stale: geography stays, motion stops. */
   private dataLive = false;
@@ -344,6 +346,13 @@ export class NationalRenderer {
     this.request();
   }
 
+  setWall(wall: boolean) {
+    if (wall === this.wall) return;
+    this.wall = wall;
+    this.dirtyBase = this.dirtyMarks = true;
+    this.request();
+  }
+
   setMotion(motion: boolean, dataLive: boolean) {
     this.motion = motion;
     this.dataLive = dataLive;
@@ -446,6 +455,15 @@ export class NationalRenderer {
         g.stroke(path);
       }
     }
+    if (p.riverGlow > 0) {
+      // Wall: a soft underglow on the trunk rivers lifts the network above land.
+      for (const [order, path] of paths.rivers) {
+        if (order < 6) continue;
+        g.globalAlpha = p.riverGlow;
+        g.lineWidth = widthFor(order) * zoomBoost * 4 * px;
+        g.stroke(path);
+      }
+    }
     for (const [order, path] of [...paths.rivers.entries()].sort((a, b) => a[0] - b[0])) {
       g.globalAlpha = p.riverAlpha[Math.min(order, 7)];
       g.lineWidth = widthFor(order) * zoomBoost * px;
@@ -491,17 +509,23 @@ export class NationalRenderer {
     const r = Math.max(0.6, Math.round(radius * 4) / 4);
     const color = resolveColor(this.palette, style.color);
     const backed = this.palette.backed.includes(style.color);
-    const key = `${style.shape}|${color}|${style.keyline ? 1 : 0}|${backed ? 1 : 0}|${r}|${this.dpr}`;
+    const halo = style.halo ? this.palette.halo : null;
+    const key = `${style.shape}|${color}|${style.keyline ? 1 : 0}|${backed ? 1 : 0}|${halo}|${r}|${this.dpr}`;
     const hit = this.sprites.get(key);
     if (hit) return hit;
     const keyline = style.color.startsWith('flood') ? this.palette.floodKeyline : this.palette.flowKeyline;
-    const pad = 2.5;
+    const pad = style.halo ? 4 : 2.5;
     const half = Math.ceil((r + pad) * this.dpr);
     const c = document.createElement('canvas');
     c.width = c.height = half * 2;
     const g = c.getContext('2d')!;
     g.translate(half, half);
     g.scale(this.dpr, this.dpr);
+    if (halo) {
+      shapePath(g, style.shape, r + 2.2);
+      g.fillStyle = halo;
+      g.fill();
+    }
     drawMarkShape(g, style, r, color, keyline, backed ? this.palette.backing : null, this.palette.backedFillAlpha);
     const sprite = { canvas: c, half };
     this.sprites.set(key, sprite);
@@ -521,8 +545,10 @@ export class NationalRenderer {
       const sy = m.y * scale + ty;
       if (sx < -10 || sy < -10 || sx > w + 10 || sy > h + 10) continue;
       const sp = this.sprite(m.style, m.style.radius * k);
+      g.globalAlpha = m.style.alpha ?? 1;
       g.drawImage(sp.canvas, Math.round(sx * this.dpr) - sp.half, Math.round(sy * this.dpr) - sp.half);
     }
+    g.globalAlpha = 1;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const ring = (pt: { x: number; y: number }, r: number, width: number) => {
       g.beginPath();
@@ -552,11 +578,13 @@ export class NationalRenderer {
     g.strokeStyle = p.trace;
     g.lineCap = 'round';
     for (const c of TRACE_CLASSES) {
-      if (z < c.minZoom) continue;
+      // The wall runs every class at the national fit: the moving network is
+      // the background texture there, not the routine gauges.
+      if (z < c.minZoom && !this.wall) continue;
       g.lineWidth = c.width * sf * zf * px;
       g.setLineDash([c.dash * sf * px, c.gap * sf * px]);
       g.lineDashOffset = -((t / 1000) * c.speed * sf) * px;
-      g.globalAlpha = c.alpha;
+      g.globalAlpha = this.wall ? Math.min(1, c.alpha * 1.15) : c.alpha;
       g.stroke(this.paths[c.key]);
     }
     g.setLineDash([]);
@@ -568,15 +596,21 @@ export class NationalRenderer {
     for (const m of this.ringMarks) {
       const sx = m.x * scale + tx;
       const sy = m.y * scale + ty;
-      if (sx < -30 || sy < -30 || sx > this.vp.width + 30 || sy > this.vp.height + 30) continue;
-      const phase = ((t / RING_PERIOD_MS + m.phase) % 1 + 1) % 1;
+      if (sx < -60 || sy < -60 || sx > this.vp.width + 60 || sy > this.vp.height + 60) continue;
       const r0 = m.style.radius * k;
-      g.beginPath();
-      g.arc(sx, sy, r0 + phase * 11 * Math.min(1.6, k), 0, Math.PI * 2);
       g.strokeStyle = resolveColor(p, m.style.color);
-      g.globalAlpha = (1 - phase) * 0.55;
-      g.lineWidth = 1.2;
-      g.stroke();
+      // Wall: wider, brighter pulses; major flooding carries two, half a
+      // period apart, so the most severe events are never between beats.
+      const reach = (this.wall ? 24 : 11) * Math.min(1.6, k);
+      const pulses = this.wall && m.style.salience >= 9 ? 2 : 1;
+      for (let n = 0; n < pulses; n++) {
+        const phase = ((t / RING_PERIOD_MS + m.phase + n / pulses) % 1 + 1) % 1;
+        g.beginPath();
+        g.arc(sx, sy, r0 + phase * reach, 0, Math.PI * 2);
+        g.globalAlpha = (1 - phase) * (this.wall ? 0.75 : 0.55);
+        g.lineWidth = this.wall ? 2 * Math.min(1.6, Math.max(1, k * 0.7)) : 1.2;
+        g.stroke();
+      }
     }
     g.globalAlpha = 1;
 
@@ -624,6 +658,20 @@ function drawMarkShape(
   backing: string | null,
   backedFillAlpha = 1,
 ) {
+  if (style.shape === 'cross') {
+    // Unavailable data: a small ×, never a fill and never a ring.
+    const a = r * 0.85;
+    g.beginPath();
+    g.moveTo(-a, -a);
+    g.lineTo(a, a);
+    g.moveTo(a, -a);
+    g.lineTo(-a, a);
+    g.strokeStyle = color;
+    g.lineWidth = Math.max(0.7, r * 0.42);
+    g.lineCap = 'round';
+    g.stroke();
+    return;
+  }
   if (style.shape === 'ring') {
     const w = Math.max(0.75, r * 0.4);
     shapePath(g, style.shape, r);

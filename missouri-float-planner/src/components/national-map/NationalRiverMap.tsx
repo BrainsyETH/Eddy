@@ -37,7 +37,7 @@ import {
   type MapPrefs,
 } from '@/lib/national-map/prefs';
 import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
-import { PALETTES, type MapTheme } from '@/lib/national-map/theme';
+import { PALETTES, wallPalette, type MapTheme } from '@/lib/national-map/theme';
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
@@ -117,7 +117,11 @@ export default function NationalRiverMap() {
   const narrow = useMedia('(max-width: 640px)');
   const finePointer = useMedia('(hover: hover) and (pointer: fine)');
   const theme: MapTheme = prefs.appearance === 'system' ? (systemDark ? 'dark' : 'light') : prefs.appearance;
-  const palette = PALETTES[theme];
+  // Fullscreen is the wall: its own brightness tiers and mark hierarchy
+  // (theme.ts wallPalette, marks.ts wallStyle). Explore keeps everything.
+  const [presentation, setPresentation] = useState<Presentation>('explore');
+  const fullscreen = presentation === 'fullscreen';
+  const palette = useMemo(() => (fullscreen ? wallPalette(theme) : PALETTES[theme]), [fullscreen, theme]);
   const motion = prefs.motion && !reducedMotion;
 
   // ── Data ────────────────────────────────────────────────────────────────
@@ -127,7 +131,7 @@ export default function NationalRiverMap() {
   const sites = useMemo(() => (catalog || frame ? buildSites(catalog ?? [], frame) : []), [catalog, frame]);
   const noaaOk = frame?.sources.noaaOk ?? false;
   const view = prefs.view;
-  const classified = useMemo(() => classifySites(sites, view, now, noaaOk), [sites, view, now, noaaOk]);
+  const classified = useMemo(() => classifySites(sites, view, now, noaaOk, fullscreen), [sites, view, now, noaaOk, fullscreen]);
   // No catalog means no USGS sites at all: say nothing about flow rather
   // than report zero gauges (the freshness line explains the outage).
   const flowSummary = useMemo(() => (frame && catalog && sites.length ? summarizeFlow(sites, now) : null), [frame, catalog, sites, now]);
@@ -184,13 +188,11 @@ export default function NationalRiverMap() {
   const [hover, setHover] = useState<{ index: number; x: number; y: number } | null>(null);
 
   // ── Presentation ────────────────────────────────────────────────────────
-  const [presentation, setPresentation] = useState<Presentation>('explore');
   const [native, setNative] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [cursorHidden, setCursorHidden] = useState(false);
   const trayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fullscreen = presentation === 'fullscreen';
 
   // How the viewer last interacted. A clicked button keeps focus, so "focus is
   // in the tray" cannot mean "someone is using it": only KEYBOARD focus holds

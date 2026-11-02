@@ -32,6 +32,13 @@ export interface MapPalette {
   riverAlpha: number[];
   /** The moving highlight of a downstream trace. */
   trace: string;
+  /**
+   * Alpha of a soft, wide underglow on the trunk rivers (orders 6–7); 0 = none.
+   * Wall only: it makes the network the brightest non-event layer on a TV.
+   */
+  riverGlow: number;
+  /** Knockout disc behind event marks (MarkStyle.halo): the land colour. */
+  halo: string;
   flow: Record<FlowBand, string>;
   /** Live reading, no seasonal comparison: a ring, never a band fill. */
   noComparison: string;
@@ -81,6 +88,8 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#2D7889', // primary-500
     riverAlpha: [0, 0.22, 0.28, 0.34, 0.45, 0.62, 0.78, 0.92],
     trace: 'rgba(250, 248, 244, 0.95)',
+    riverGlow: 0,
+    halo: '#F2EAD8',
     flow: FLOW,
     // Hollow marks use neutral-500, never the stone of "much lower"
     // (#A49C8E): "unusually dry" and "no comparison" differ in colour as well
@@ -121,6 +130,8 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#72B5C4', // primary-300
     riverAlpha: [0, 0.16, 0.2, 0.26, 0.36, 0.5, 0.66, 0.82],
     trace: 'rgba(242, 234, 216, 0.9)',
+    riverGlow: 0,
+    halo: '#0F2D35',
     flow: FLOW,
     // Thin neutral-500 rings: dim enough never to read as a lit band, still
     // 3.6:1 against deep-teal land.
@@ -157,3 +168,37 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
   },
 };
 
+
+// ── Wall (fullscreen) variant ───────────────────────────────────────────────
+// Three brightness tiers, so land, water and events separate across a room:
+// land drops back (state lines nearly disappear), the river network becomes
+// the brightest non-event layer, and only events carry saturated colour at
+// full strength. Mark colours are NOT changed here — the legend stays true.
+const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
+  light: {
+    land: '#F4EEE1',
+    coast: '#CDB896',
+    stateLine: '#E6DAC6',
+    lake: '#D3E6EA',
+    river: '#1F6574', // primary-600: the network reads as ink on parchment
+    riverAlpha: [0, 0.3, 0.38, 0.46, 0.58, 0.74, 0.88, 0.97],
+    riverGlow: 0.1,
+    halo: '#F4EEE1',
+  },
+  dark: {
+    background: '#071A20',
+    land: '#0B252C',
+    coast: '#1F4A55',
+    stateLine: '#143843',
+    lake: '#071A20',
+    river: '#8FD3E0', // brighter than primary-300 so water outranks land
+    riverAlpha: [0, 0.22, 0.28, 0.36, 0.48, 0.64, 0.82, 0.96],
+    riverGlow: 0.14,
+    trace: 'rgba(250, 248, 244, 0.95)',
+    halo: '#0B252C',
+  },
+};
+
+export function wallPalette(theme: MapTheme): MapPalette {
+  return { ...PALETTES[theme], ...WALL_OVERRIDES[theme] };
+}

@@ -159,7 +159,12 @@ export function classifyFlood(site: Site, clock: number, noaaOk: boolean): Flood
 
 // ── Draw style ──────────────────────────────────────────────────────────────
 
-export type MarkShape = 'dot' | 'ring' | 'diamond' | 'triangle';
+/**
+ * `cross` is unavailable data (USGS not current or flagged; NWS not current):
+ * a small ×, so "we have no current reading" never looks like "live reading,
+ * no seasonal comparison" (a ring).
+ */
+export type MarkShape = 'dot' | 'ring' | 'diamond' | 'triangle' | 'cross';
 
 export interface MarkStyle {
   shape: MarkShape;
@@ -174,6 +179,10 @@ export interface MarkStyle {
   ring: boolean;
   /** Drawn only once zoomed past the national fit by this factor. */
   minZoom: number;
+  /** Opacity of the whole mark (default 1). Wall mode quiets routine gauges with it. */
+  alpha?: number;
+  /** A knockout disc in the background colour, so neighbouring events stay separate. */
+  halo?: boolean;
 }
 
 /**
@@ -201,8 +210,8 @@ const FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
   much_lower: { shape: 'dot', radius: 2.1, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0 },
   much_higher: { shape: 'dot', radius: 2.1, color: 'flow.much_higher', keyline: true, salience: 5, ring: false, minZoom: 0 },
   no_comparison: { shape: 'ring', radius: 1.05, color: 'noComparison', keyline: false, salience: 2, ring: false, minZoom: 0 },
-  stale: { shape: 'ring', radius: 0.95, color: 'stale', keyline: false, salience: 1, ring: false, minZoom: 0 },
-  dormant: { shape: 'ring', radius: 0.9, color: 'stale', keyline: false, salience: 0, ring: false, minZoom: 3 },
+  stale: { shape: 'cross', radius: 1.05, color: 'stale', keyline: false, salience: 1, ring: false, minZoom: 0 },
+  dormant: { shape: 'cross', radius: 1, color: 'stale', keyline: false, salience: 0, ring: false, minZoom: 3 },
   hidden: null,
 };
 
@@ -213,10 +222,60 @@ const FLOOD_STYLE: Record<FloodClass, MarkStyle | null> = {
   action: { shape: 'ring', radius: 2.6, color: 'flood.action', keyline: true, salience: 6, ring: false, minZoom: 0 },
   below: { shape: 'dot', radius: 0.85, color: 'flood.below', keyline: false, salience: 3, ring: false, minZoom: 0 },
   no_threshold: { shape: 'ring', radius: 0.95, color: 'flood.noThreshold', keyline: false, salience: 2, ring: false, minZoom: 0 },
-  not_current: { shape: 'ring', radius: 0.95, color: 'flood.notCurrent', keyline: false, salience: 1, ring: false, minZoom: 0 },
+  not_current: { shape: 'cross', radius: 1.05, color: 'flood.notCurrent', keyline: false, salience: 1, ring: false, minZoom: 0 },
   no_nws: { shape: 'dot', radius: 0.75, color: 'flood.noThreshold', keyline: false, salience: 0, ring: false, minZoom: 0 },
   hidden: null,
 };
+
+// ── Wall (fullscreen) styles ────────────────────────────────────────────────
+// Same classes, same colours, same shapes — so the legend still reads — but a
+// different hierarchy for a screen seen across a room:
+//   * Unavailable and unknown data leave the wall entirely (no comparison,
+//     not current, no threshold, no NWS point). Explore keeps all of them.
+//   * Routine readings (normal, below flood stage) become small, translucent
+//     texture under the river network instead of a carpet over it.
+//   * Events grow, sit on a knockout halo so a cluster stays countable, and
+//     carry the expanding rings. Action stage — not flooding — becomes a slim
+//     ring with no keyline, deliberately below minor flooding.
+// Thresholds are untouched: classification is identical, only drawing differs.
+
+const WALL_FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
+  normal: { shape: 'dot', radius: 0.8, color: 'flow.normal', keyline: false, salience: 3, ring: false, minZoom: 0, alpha: 0.5 },
+  lower: { shape: 'dot', radius: 1.25, color: 'flow.lower', keyline: false, salience: 4, ring: false, minZoom: 0, alpha: 0.85 },
+  higher: { shape: 'dot', radius: 1.25, color: 'flow.higher', keyline: false, salience: 4, ring: false, minZoom: 0, alpha: 0.85 },
+  much_lower: { shape: 'dot', radius: 2.2, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0 },
+  much_higher: { shape: 'dot', radius: 2.2, color: 'flow.much_higher', keyline: true, salience: 5, ring: false, minZoom: 0 },
+  no_comparison: null,
+  stale: null,
+  dormant: null,
+  hidden: null,
+};
+
+const WALL_FLOW_EXTREME: Record<'much_higher' | 'much_lower', MarkStyle> = {
+  much_higher: { shape: 'dot', radius: 3.4, color: 'flow.much_higher', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
+  much_lower: { shape: 'dot', radius: 3.4, color: 'flow.much_lower', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
+};
+
+const WALL_FLOOD_STYLE: Record<FloodClass, MarkStyle | null> = {
+  major: { shape: 'triangle', radius: 6.2, color: 'flood.major', keyline: true, salience: 9, ring: true, minZoom: 0, halo: true },
+  moderate: { shape: 'diamond', radius: 5.2, color: 'flood.moderate', keyline: true, salience: 8, ring: true, minZoom: 0, halo: true },
+  minor: { shape: 'dot', radius: 4.3, color: 'flood.minor', keyline: true, salience: 7, ring: true, minZoom: 0, halo: true },
+  action: { shape: 'ring', radius: 2.1, color: 'flood.action', keyline: false, salience: 6, ring: false, minZoom: 0, alpha: 0.8 },
+  below: { shape: 'dot', radius: 0.75, color: 'flood.below', keyline: false, salience: 3, ring: false, minZoom: 0, alpha: 0.45 },
+  no_threshold: null,
+  not_current: null,
+  no_nws: null,
+  hidden: null,
+};
+
+/** The wall's style for a class (null: not drawn on the wall). */
+export function wallStyle(view: MapView, c: FlowClass | FloodClass, extreme = false): MarkStyle | null {
+  if (view === 'flow') {
+    if (extreme && (c === 'much_higher' || c === 'much_lower')) return WALL_FLOW_EXTREME[c];
+    return WALL_FLOW_STYLE[c as FlowClass];
+  }
+  return WALL_FLOOD_STYLE[c as FloodClass];
+}
 
 export function flowStyle(c: FlowClass): MarkStyle | null {
   return FLOW_STYLE[c];
@@ -236,15 +295,20 @@ export interface ClassifiedSite {
  * Every drawable site for a view, sorted so the most salient draw last. Sorting
  * (not clustering) is how a major flood gauge survives a dense neighborhood:
  * nothing is averaged away, and nothing is drawn over it.
+ *
+ * `wall` (fullscreen) draws the same classes with the wall hierarchy and
+ * leaves unknown / unavailable data out (see WALL_FLOW_STYLE).
  */
-export function classifySites(sites: Site[], view: MapView, clock: number, noaaOk: boolean): ClassifiedSite[] {
+export function classifySites(sites: Site[], view: MapView, clock: number, noaaOk: boolean, wall = false): ClassifiedSite[] {
   const out: ClassifiedSite[] = [];
   sites.forEach((site, index) => {
     const cls = view === 'flow' ? classifyFlow(site, clock) : classifyFlood(site, clock, noaaOk);
-    const style =
-      view === 'flow'
-        ? (cls === 'much_higher' || cls === 'much_lower') && isExtreme(site)
-          ? FLOW_EXTREME[cls]
+    const extreme = view === 'flow' && (cls === 'much_higher' || cls === 'much_lower') && isExtreme(site);
+    const style = wall
+      ? wallStyle(view, cls, extreme)
+      : view === 'flow'
+        ? extreme
+          ? FLOW_EXTREME[cls as 'much_higher' | 'much_lower']
           : flowStyle(cls as FlowClass)
         : floodStyle(cls as FloodClass);
     if (style) out.push({ index, cls, style });

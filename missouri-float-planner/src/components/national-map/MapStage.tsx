@@ -173,6 +173,7 @@ export default function MapStage(props: Props) {
   useEffect(() => renderer.current?.setPalette(palette), [palette]);
   useEffect(() => renderer.current?.setGeometry(geometry, detail), [geometry, detail]);
   useEffect(() => renderer.current?.setLabels(labels), [labels]);
+  useEffect(() => renderer.current?.setWall(wall), [wall]);
   useEffect(() => renderer.current?.setMotion(motion, dataLive), [motion, dataLive]);
 
   // ── Layout (landscape / portrait) ───────────────────────────────────────

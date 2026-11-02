@@ -9,7 +9,12 @@ import {
   classifySites,
   curateHighlights,
   EXTREME_HIGH,
+  floodStyle,
+  flowStyle,
   HIGHLIGHT_SEPARATION,
+  wallStyle,
+  type FloodClass,
+  type FlowClass,
   viewLiveState,
   summarizeFlood,
   summarizeFlow,
@@ -168,4 +173,50 @@ test('the rarest readings are drawn larger than the rest of their band', () => {
   assert.equal(extreme.cls, plain.cls, 'same band, same colour');
   assert.ok(extreme.style.radius > plain.style.radius);
   assert.ok(extreme.style.salience > plain.style.salience, 'drawn above the band');
+});
+
+test('the wall drops unknown and unavailable data; Explore keeps all of it', () => {
+  const sites = world(
+    [
+      reading('00000001'),
+      reading('00000002', { readingTimestamp: iso(8 * H) }),
+      reading('00000003', { flowPercentile: null }),
+      reading('00000004', { flowPercentile: 99 }),
+    ],
+    [point('AAAA1', { observed: 'major' }), point('BBBB1', { observed: 'not_defined' }), point('CCCC1', { observed: 'out_of_service' })],
+    [['AAAA1', '00000001']],
+  );
+  const flowExplore = classifySites(sites, 'flow', NOW, true).map((c) => c.cls).sort();
+  const flowWall = classifySites(sites, 'flow', NOW, true, true).map((c) => c.cls).sort();
+  assert.deepEqual(flowExplore, ['much_higher', 'no_comparison', 'normal', 'stale']);
+  assert.deepEqual(flowWall, ['much_higher', 'normal']);
+  const floodWall = classifySites(sites, 'flooding', NOW, true, true).map((c) => c.cls);
+  assert.ok(!floodWall.some((c) => c === 'no_threshold' || c === 'not_current' || c === 'no_nws'));
+  assert.ok(floodWall.includes('major'));
+});
+
+test('wall styles change hierarchy, never meaning', () => {
+  const flow: FlowClass[] = ['much_higher', 'higher', 'normal', 'lower', 'much_lower'];
+  for (const c of flow) {
+    const w = wallStyle('flow', c)!;
+    assert.equal(w.color, flowStyle(c)!.color, `${c}: same colour as the legend`);
+    assert.equal(w.shape, flowStyle(c)!.shape, `${c}: same shape as the legend`);
+  }
+  const flood: FloodClass[] = ['major', 'moderate', 'minor', 'action', 'below'];
+  for (const c of flood) {
+    const w = wallStyle('flooding', c)!;
+    assert.equal(w.color, floodStyle(c)!.color);
+    assert.equal(w.shape, floodStyle(c)!.shape);
+  }
+  // Flooding is bigger on the wall; routine is quieter; action is below minor.
+  for (const c of ['major', 'moderate', 'minor'] as FloodClass[]) assert.ok(wallStyle('flooding', c)!.radius > floodStyle(c)!.radius);
+  assert.ok((wallStyle('flooding', 'below')!.alpha ?? 1) < 1 && (wallStyle('flow', 'normal')!.alpha ?? 1) < 1);
+  assert.ok(wallStyle('flooding', 'action')!.radius < wallStyle('flooding', 'minor')!.radius / 1.5);
+  assert.equal(wallStyle('flooding', 'action')!.ring, false, 'action stage never pulses');
+});
+
+test('unavailable data is drawn as a cross, distinct from "no comparison"', () => {
+  assert.equal(flowStyle('stale')!.shape, 'cross');
+  assert.equal(floodStyle('not_current')!.shape, 'cross');
+  assert.equal(flowStyle('no_comparison')!.shape, 'ring');
 });

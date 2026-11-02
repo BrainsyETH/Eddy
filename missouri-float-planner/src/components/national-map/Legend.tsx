@@ -25,7 +25,8 @@ function resolve(p: MapPalette, key: string): string {
 
 export function MarkSymbol({ style, palette, size = 14 }: { style: MarkStyle; palette: MapPalette; size?: number }) {
   // Mirrors drawMarkShape in renderer.ts: backing disc for fills this theme's
-  // land would swallow, an outer keyline under rings that need one.
+  // land would swallow, an outer keyline under rings that need one, a small
+  // × for unavailable data.
   const c = resolve(palette, style.color);
   const keyline = style.color.startsWith('flood') ? palette.floodKeyline : palette.flowKeyline;
   const backed = palette.backed.includes(style.color);
@@ -38,6 +39,14 @@ export function MarkSymbol({ style, palette, size = 14 }: { style: MarkStyle; pa
         ? `M${m} ${m - rr * 1.2}L${m + rr * 1.1} ${m + rr * 0.8}L${m - rr * 1.1} ${m + rr * 0.8}Z`
         : `M${m - rr} ${m}a${rr} ${rr} 0 1 0 ${rr * 2} 0a${rr} ${rr} 0 1 0 ${-rr * 2} 0`;
   const ring = style.shape === 'ring';
+  if (style.shape === 'cross') {
+    const a = r * 0.85;
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
+        <path d={`M${m - a} ${m - a}L${m + a} ${m + a}M${m + a} ${m - a}L${m - a} ${m + a}`} stroke={c} strokeWidth={1.8} strokeLinecap="round" fill="none" />
+      </svg>
+    );
+  }
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
       {backed && <path d={path(r + 0.9)} fill={palette.backing} />}
