@@ -56,6 +56,10 @@
     "schedule": "35 * * * *"
   },
   {
+    "path": "/api/cron/generate-dam-updates",
+    "schedule": "47 * * * *"
+  },
+  {
     "path": "/api/cron/sync-nps",
     "schedule": "0 8 * * 0"
   },

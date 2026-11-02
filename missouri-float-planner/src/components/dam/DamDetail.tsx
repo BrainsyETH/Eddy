@@ -5,6 +5,8 @@ import GenerationCard, { type ScheduleAvailability } from './GenerationCard';
 import DamPatternStrip from './DamPatternStrip';
 import DamStateCard from './DamStateCard';
 import GenerationForecast from './GenerationForecast';
+import DamEddyRead from './DamEddyRead';
+import { damHasRead } from '@/lib/eddy/dam-read-dams';
 import { useDamPageClock } from './useDamPageClock';
 
 /** The server snapshot renders immediately; clocks and RSC refreshes enhance it. */
@@ -21,6 +23,7 @@ export default function DamDetail({ dam, renderedAt, availability }: {
   return (
     <div className="space-y-6" data-dam-detail={dam.id}>
       <GenerationCard dam={dam} now={now} availability={availability} />
+      {damHasRead(dam.id) && <DamEddyRead damId={dam.id} damName={dam.name} now={now} />}
       {dam.generationForecast && <GenerationForecast forecast={dam.generationForecast} renderedAt={now} />}
       <div className="dam-support-layout">
         {hasMeasurements && <DamStateCard dam={dam} secondary now={now} />}

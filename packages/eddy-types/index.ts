@@ -2853,6 +2853,8 @@ export type {
   DamGenerationForecast,
   DamMetricValue,
   DamPatternDay,
+  DamReadResponse,
+  DamReadRow,
   DamScheduleDay,
   DamSnapshot,
   DamStaleness,

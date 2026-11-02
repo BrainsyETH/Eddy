@@ -430,3 +430,48 @@ export interface DamSnapshot {
 export interface DamsResponse {
   dams: DamSnapshot[];
 }
+
+/**
+ * One supporting fact in a dam's Eddy's Read: a label, a value and an optional
+ * qualifier, all written by code from the measured record.
+ */
+export interface DamReadRow {
+  /** Stable id, e.g. 'posted-today', 'earliest', 'release'. */
+  key: string;
+  label: string;
+  value: string;
+  /** Qualifier or source, e.g. "Corps tailwater sensor, as of 3 PM". */
+  detail?: string;
+}
+
+/**
+ * GET /api/dam-update/[damId] — Eddy's Read for a dam.
+ *
+ * ALL of it is Premium. A public caller learns only whether a Read exists and
+ * when it was written, which is what the locked card draws; an entitled caller
+ * (bearer token) gets `read`. The measured pattern strip and the posted
+ * schedule on the dam page stay free. ADR 0017.
+ *
+ * `available: false` covers every reason a Read is not served: the dam has no
+ * Read, none was written today, or the posted schedule changed since it was
+ * written and the next hourly run has not rewritten it yet.
+ */
+export interface DamReadResponse {
+  available: boolean;
+  generatedAt: string | null;
+  read: {
+    /** Today's posted generation and how it compares with recent days. */
+    headline: string;
+    /** Two or three sentences: recent surprises first, then the pattern. */
+    story: string[];
+    /** The two or three facts that back the story. */
+    keyRows: DamReadRow[];
+    /** "Recent pattern details", collapsed by default. */
+    detailRows: DamReadRow[];
+    /** The at-the-dam caveat, rendered under the Read. */
+    caveat: string;
+    /** Eddy's copy of today's schedule is old enough that it may have been revised. */
+    mayBeOutdated: boolean;
+    sourcesUsed: string[];
+  } | null;
+}

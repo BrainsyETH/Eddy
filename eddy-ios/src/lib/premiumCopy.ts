@@ -17,9 +17,10 @@
 // ── The rule this file enforces ─────────────────────────────────────────────
 //
 // NAME ONLY WHAT IS ACTUALLY GATED. Grep the app for entitlement checks and
-// there is exactly one: EddyTake — and since Aug 2026 it gates the whole card,
-// the written read, the weather paragraph and the bottom line together. That is
-// the list. It is not a stylistic preference — a subscription page that advertises
+// there are exactly two: EddyTake — and since Aug 2026 it gates the whole card,
+// the written read, the weather paragraph and the bottom line together — and,
+// since Nov 2026, DamEddyRead, the written Read on the White River tailwater
+// dam screens (ADR 0017). That is the list. It is not a stylistic preference — a subscription page that advertises
 // something the reader already has is both a lie and a bad trade, and this
 // paywall has made that mistake twice:
 //
@@ -51,10 +52,10 @@ export interface PremiumBenefit {
 }
 
 /**
- * The one thing a subscription buys, plus the thanks.
+ * What a subscription buys, plus the thanks.
  *
  * The whole of Eddy's take, in the two halves a reader would name separately,
- * plus the thanks. The shortness is the point: a list padded out with things
+ * the dam Read on the tailwaters, and the thanks. The shortness is the point: a list padded out with things
  * that are free reads as generous and is the opposite.
  */
 export const PREMIUM_BENEFITS: PremiumBenefit[] = [
@@ -67,6 +68,14 @@ export const PREMIUM_BENEFITS: PremiumBenefit[] = [
     symbol: 'weather',
     title: 'What the forecast means for the water',
     body: 'Rain, heat and the river trend, read together.',
+  },
+  {
+    // The dam Read (ADR 0017): the whole of it is gated, on the dam screen's
+    // DamEddyRead. The measured pattern strip and the posted schedule it reads
+    // are free and are not named here, for the reason the header gives.
+    symbol: 'dam',
+    title: 'A read on the White River tailwaters',
+    body: 'When the dams have usually started generating lately, and how well the posted schedule has held.',
   },
   {
     symbol: 'heart',
