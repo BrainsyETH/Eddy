@@ -58,6 +58,14 @@ const ICONS = {
   spring: { file: 'eddy-water-droplet', size: 18, alt: 'Springs' },
   ai: { file: 'eddy-ai-assistant', size: 18, alt: 'Eddy' },
 
+  // Find a float's filter rows (find-float/FloatFilters.tsx). Mascot-free
+  // marks drawn by GENERATED_SYMBOLS in eddy-ios/scripts/build-eddy-icons.py;
+  // web-only until the app's Filters sheet draws marks. The two "no" marks
+  // share one slash so they read as a pair.
+  noFees: { file: 'eddy-no-fees', size: 20, alt: 'No fees' },
+  beginner: { file: 'eddy-beginner', size: 20, alt: 'Beginner friendly' },
+  noPortages: { file: 'eddy-no-portages', size: 20, alt: 'No portages' },
+
   // The access-point section marks. These three were already on that page, as
   // hardcoded Vercel blob URLs in DETAIL_ICONS — art with no copy in this
   // repository, which the app therefore could not bundle and which nothing

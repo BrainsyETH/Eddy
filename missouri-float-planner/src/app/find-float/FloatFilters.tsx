@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, CircleDollarSign, Footprints, LifeBuoy, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { LayerRow } from '@/components/ui/LayerRow';
 import {
@@ -12,19 +12,17 @@ import {
 // Below Tailwind's `sm`, filters open in a bottom sheet instead of inline.
 const PHONE = '(max-width: 639px)';
 
-// Each row's mark: Eddy's own drawing where the catalog has one for the idea,
-// otherwise a Lucide glyph, which LayerRow tints per state. Typed by filter
-// key, so a new filter cannot ship without a mark.
-const glyph = 'h-4 w-4';
+// Each row's mark is Eddy's own drawing. Typed by filter key, so a new filter
+// cannot ship without one (a Lucide glyph is LayerRow's fallback until it is drawn).
 const MARKS: Record<FloatFilterKey | 'publicOnly', ReactNode> = {
   publicOnly: <EddyIcon name="boatRamp" size={20} />,
   restrooms: <EddyIcon name="facilities" size={20} />,
   camping: <EddyIcon name="campground" size={20} />,
-  noFees: <CircleDollarSign className={glyph} />,
+  noFees: <EddyIcon name="noFees" size={20} />,
   smoothRoads: <EddyIcon name="road" size={20} />,
-  beginner: <LifeBuoy className={glyph} />,
+  beginner: <EddyIcon name="beginner" size={20} />,
   springFed: <EddyIcon name="spring" size={18} />,
-  noPortages: <Footprints className={glyph} />,
+  noPortages: <EddyIcon name="noPortages" size={20} />,
   goodConditions: <EddyIcon name="gaugeStation" size={20} />,
   shuttle: <EddyIcon name="outfitter" size={20} />,
 };
