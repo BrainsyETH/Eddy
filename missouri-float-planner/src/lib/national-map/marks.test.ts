@@ -273,3 +273,13 @@ test('the wall pulses a few distinct floods, not every gauge in a cluster', () =
   assert.equal(pulses.size, 3, 'and each distant flood gets its own');
   assert.equal(classified.filter((c) => c.cls === 'major').length, 8, 'every severity symbol is still drawn');
 });
+
+test('wall glow follows severity and stays off routine and context marks', () => {
+  const glow = (view: 'flow' | 'flooding', c: Parameters<typeof wallStyle>[1], extreme = false) => wallStyle(view, c, extreme)?.glow ?? 0;
+  assert.ok(glow('flooding', 'major') > glow('flooding', 'moderate'));
+  assert.ok(glow('flooding', 'moderate') > glow('flooding', 'minor'));
+  assert.ok(glow('flow', 'much_higher', true) > glow('flow', 'much_higher'), 'an exceptional reading outshines a merely much-higher one');
+  for (const [view, c] of [['flooding', 'action'], ['flooding', 'below'], ['flow', 'normal'], ['flow', 'higher'], ['flow', 'lower']] as const) {
+    assert.equal(glow(view, c), 0, `${view} ${c} does not glow`);
+  }
+});

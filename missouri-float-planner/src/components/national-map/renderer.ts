@@ -203,6 +203,10 @@ export class NationalRenderer {
   private readonly base: HTMLCanvasElement;
   private readonly fx: HTMLCanvasElement;
   private readonly trailsCanvas: HTMLCanvasElement;
+  /** Bounded glow behind unusual marks, one per marks buffer (follows its cross-fade). */
+  private readonly glowA: HTMLCanvasElement;
+  private readonly glowB: HTMLCanvasElement;
+  private readonly glowSprites = new Map<string, Sprite>();
   private readonly trails: RiverTrails;
   private readonly marksA: HTMLCanvasElement;
   private readonly marksB: HTMLCanvasElement;
@@ -272,8 +276,19 @@ export class NationalRenderer {
     // marks canvases keep their DOM order.
     this.trailsCanvas = make(1);
     this.trails = new RiverTrails(this.trailsCanvas);
+    // Glow: an opaque black canvas shown with `screen` blending, so black adds
+    // nothing and each glow lightens what is beneath. Drawn with 'lighten'
+    // (per-pixel max), so overlapping glows never add up. Above the effects
+    // layer (a journey's veil does not dim an event), below the marks.
+    this.glowA = make(2);
+    this.glowB = make(2);
+    for (const c of [this.glowA, this.glowB]) {
+      c.style.mixBlendMode = 'screen';
+      c.style.display = 'none';
+    }
+    this.glowB.style.opacity = '0';
     this.front = this.marksA;
-    for (const c of [this.marksA, this.marksB]) {
+    for (const c of [this.marksA, this.marksB, this.glowA, this.glowB]) {
       c.style.transition = 'opacity var(--duration-slower) var(--ease-default)';
     }
     const family = getComputedStyle(document.body).fontFamily || 'system-ui, sans-serif';
@@ -287,24 +302,30 @@ export class NationalRenderer {
     if (this.settleTimer) clearTimeout(this.settleTimer);
     cancelAnimationFrame(this.frameHandle);
     cancelAnimationFrame(this.fxHandle);
-    for (const c of [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas]) c.remove();
+    for (const c of this.canvases()) c.remove();
   }
 
   resize(vp: Viewport) {
     this.vp = vp;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    for (const c of [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas]) {
+    for (const c of this.canvases()) {
       c.width = Math.max(1, Math.round(vp.width * this.dpr));
       c.height = Math.max(1, Math.round(vp.height * this.dpr));
     }
     this.sprites.clear();
+    this.glowSprites.clear();
     this.dirtyBase = this.dirtyMarks = true;
     this.request();
+  }
+
+  private canvases(): HTMLCanvasElement[] {
+    return [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas, this.glowA, this.glowB];
   }
 
   setPalette(p: MapPalette) {
     this.palette = p;
     this.sprites.clear();
+    this.glowSprites.clear();
     this.dirtyBase = this.dirtyMarks = true;
     this.request();
   }
@@ -322,7 +343,7 @@ export class NationalRenderer {
 
   private rebuildPaths() {
     this.paths = this.geometry && this.layout ? buildPaths(this.geometry, this.detail, this.layout) : null;
-    this.trails.setNetwork(this.geometry?.rivers ?? null, this.layout);
+    this.trails.setNetwork(this.geometry?.rivers ?? null, this.detail?.rivers ?? null, this.layout);
     this.layJourney();
     this.dirtyBase = true;
     this.request();
@@ -340,7 +361,7 @@ export class NationalRenderer {
       const dx = cam.tx - this.drawn.tx * k;
       const dy = cam.ty - this.drawn.ty * k;
       const t = `matrix(${k}, 0, 0, ${k}, ${dx}, ${dy})`;
-      for (const c of [this.base, this.marksA, this.marksB]) {
+      for (const c of [this.base, this.marksA, this.marksB, this.glowA, this.glowB]) {
         c.style.transformOrigin = '0 0';
         c.style.transform = t;
       }
@@ -362,7 +383,7 @@ export class NationalRenderer {
       clearTimeout(this.settleTimer);
       this.settleTimer = null;
     }
-    for (const c of [this.base, this.marksA, this.marksB]) c.style.transform = '';
+    for (const c of [this.base, this.marksA, this.marksB, this.glowA, this.glowB]) c.style.transform = '';
   }
 
   /** New marks. `fade` cross-fades (a new frame); otherwise draw in place (view change). */
@@ -375,6 +396,8 @@ export class NationalRenderer {
       this.drawMarks(back);
       back.style.opacity = '1';
       this.front.style.opacity = '0';
+      this.glowFor(back).style.opacity = '1';
+      this.glowFor(this.front).style.opacity = '0';
       this.front = back;
     } else {
       this.dirtyMarks = true;
@@ -600,7 +623,69 @@ export class NationalRenderer {
     return sprite;
   }
 
+  private glowFor(marks: HTMLCanvasElement): HTMLCanvasElement {
+    return marks === this.marksA ? this.glowA : this.glowB;
+  }
+
+  /** A glow in the mark's own colour: brightest at the centre, gone a short way out. */
+  private glowSprite(color: string, r: number, strength: number): Sprite {
+    const reach = Math.round((r * 1.25 + 3) * 4) / 4; // short, bounded halo (CSS px)
+    const peak = Math.round(Math.min(1, strength * this.palette.markGlow) * 20) / 20;
+    const key = `${color}|${reach}|${peak}|${this.dpr}`;
+    const hit = this.glowSprites.get(key);
+    if (hit) return hit;
+    const half = Math.ceil((r + reach) * this.dpr);
+    const c = document.createElement('canvas');
+    c.width = c.height = half * 2;
+    const g = c.getContext('2d')!;
+    g.translate(half, half);
+    g.scale(this.dpr, this.dpr);
+    const grad = g.createRadialGradient(0, 0, 0, 0, 0, r + reach);
+    grad.addColorStop(0, color);
+    grad.addColorStop(r / (r + reach), color);
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    g.globalAlpha = peak;
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(0, 0, r + reach, 0, Math.PI * 2);
+    g.fill();
+    const sprite = { canvas: c, half };
+    this.glowSprites.set(key, sprite);
+    return sprite;
+  }
+
+  /**
+   * The glow layer for a marks buffer. Opaque black plus 'lighten': each
+   * pixel keeps the BRIGHTEST glow over it, so ten moderately unusual gauges
+   * in a cluster light no brighter than one of them, and an exceptional gauge
+   * still outshines the cluster.
+   */
+  private drawGlow(target: HTMLCanvasElement) {
+    const on = this.palette.markGlow > 0 && this.marks.some((m) => m.style.glow);
+    target.style.display = on ? '' : 'none';
+    if (!on) return;
+    const g = target.getContext('2d')!;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, target.width, target.height);
+    g.globalCompositeOperation = 'lighten';
+    const z = this.zoom();
+    const k = this.markScale();
+    const { scale, tx, ty } = this.camera;
+    for (const m of this.marks) {
+      if (!m.style.glow || z < m.style.minZoom) continue;
+      const sx = m.x * scale + tx;
+      const sy = m.y * scale + ty;
+      if (sx < -40 || sy < -40 || sx > this.vp.width + 40 || sy > this.vp.height + 40) continue;
+      const sp = this.glowSprite(resolveColor(this.palette, m.style.color), m.style.radius * k, m.style.glow);
+      g.drawImage(sp.canvas, Math.round(sx * this.dpr) - sp.half, Math.round(sy * this.dpr) - sp.half);
+    }
+    g.globalCompositeOperation = 'source-over';
+  }
+
   private drawMarks(target: HTMLCanvasElement) {
+    this.drawGlow(this.glowFor(target));
     const g = this.ctx(target, false);
     const z = this.zoom();
     const k = this.markScale();
@@ -665,6 +750,9 @@ export class NationalRenderer {
       wall: this.wall,
       focus,
       color: p.trace,
+      streamColor: p.traceStream,
+      width: this.vp.width,
+      height: this.vp.height,
     });
 
     // Event rings: slow, low-amplitude expansion on current flood gauges only.
