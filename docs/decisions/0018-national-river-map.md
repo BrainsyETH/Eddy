@@ -37,8 +37,11 @@ persistent text. Three facts shaped the build:
    from flooding.
 4. **Scope.** The 50 states and DC. Puerto Rico and the territories are
    excluded at the map boundary (ingestion keeps them).
-5. **First release.** Flow and Flooding; Change waits for recorded frames and
-   calibration. Appearance defaults to the system setting.
+5. **Views.** Flow and Flooding first; Change follows on recorded frames. A
+   Change window is offered only once recorded history reaches it; flood
+   crossings quote NWS categories in both frames, and flow-change thresholds
+   stay labelled provisional until calibrated on recorded history (a quiet
+   day and a wet one). Appearance defaults to the system setting.
 6. **Routes.** The national map takes `/river-map`; the Ozarks observatory
    moves to `/river-map/ozarks` with its float verdicts and deep links.
 7. **Motion means current, per view.** Data-driven motion and the spotlight

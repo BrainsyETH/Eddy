@@ -134,6 +134,7 @@ when running the write phases.
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `audit-national-coverage.ts` | direct | none — per-state coverage report for the national River Map (inventory, fresh readings, seasonal comparisons, NWS matches, seam and antimeridian gaps); `--out <file>` writes the report locally | read-only |
+| `calibrate-change-thresholds.ts` | direct | none — distribution of 6 h / 24 h discharge ratios between recorded national frames, by river size, against the Change view's provisional thresholds; `--out <file>` writes the report locally | read-only (`getScriptClient({ write: false })`) |
 | `build-national-map-geometry.ts` | direct | none — rebuilds `public/river-map/geometry/*.json` from USGS 1:1M hydrography and Census state boundaries ([ADR 0018](decisions/0018-national-river-map.md)) | writes nothing to Supabase, ever |
 | `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |
 | `import-services-csv.ts` | `npm run db:import-services <csv>` | `nearby_services` + `service_rivers` upsert | dry-default, `--import` |

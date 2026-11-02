@@ -7,10 +7,11 @@
 A national river dashboard: every USGS gauge in the 50 states and DC, opened on
 the whole country, explorable down to a gauge, and presentable as a
 fullscreen wall display that can run for hours — with a persistent legend by
-default, a featured story on request, or no text at all. Two data views ship first — **Flow**
-(compared with usual for the time of year) and **Flooding** (official NWS
-categories). **Change** is deferred from the first release by product decision;
-the frames it needs are already being recorded.
+default, a featured story on request, or no text at all. Three views: **Flow**
+(compared with usual for the time of year), **Flooding** (official NWS
+categories) and **Change** (what moved over the last 6 or 24 hours, against
+the recorded frame that far back — see [Change](#change); its flow thresholds
+are provisional until calibrated).
 
 ## How it fits together
 
@@ -30,6 +31,7 @@ sync-gauge-latest (:05/:20/:35/:50)      NOAA riv_gauges layers 0 + 15
 | Piece | Where |
 | --- | --- |
 | Composite projection (geoAlbersUsa parameters, geographic inset routing, portrait layout) | `src/lib/national-map/projection.ts` |
+| Change: classification against the frame a window back, provisional thresholds; calibration evidence | `src/lib/national-map/change.ts`, `change-calibration.ts`, `scripts/calibrate-change-thresholds.ts` |
 | Frame format, builder, decoder, retention | `src/lib/national-map/frame.ts` |
 | NWS flood vocabulary (quoted, never computed) | `src/lib/national-map/flood-status.ts`, `noaa-flood.ts` |
 | What each mark means per view (freshness, comparison, flood rules), Explore and wall styles | `src/lib/national-map/marks.ts` |
@@ -269,6 +271,40 @@ device results.
   (`visibleJourneys`) — the head enters where the river enters the screen.
   The national view keeps the national sequence.
 
+## Change
+
+What moved at each gauge over a window, against the recorded frame that far
+back (`change.ts`). Two kinds of change, never mixed:
+
+- **Flood crossings** — NWS's own observed category in both frames: rose into
+  or within flooding (▲) or fell within or out of it (▼), coloured by the
+  highest category involved. Moves within action stage and below are not
+  crossings. Quoted, so no threshold of ours is involved.
+- **Flow change** — discharge now against then as a ratio, with a 1-cfs floor
+  (stage in feet for stage-only gauges): rising / rising sharply / about the
+  same / falling / falling sharply, in Change's own direction tones (teals for
+  more water, sand → copper for less).
+
+Never a "change": a reading flagged by USGS, an earlier reading that was not
+current when its frame was captured (> 2 h old), or a jump of 30× or more
+("unverified" in Explore, absent on the wall).
+
+**Windows.** 6 h and 24 h are offered only once recorded history reaches that
+far back (≥ 90% of the window; the frame route's `?meta=1` gives the oldest and
+newest frame times). Until then the view draws no change marks, says when
+comparisons begin, and reports "Change history is still being recorded".
+
+**Thresholds are provisional** (the method note says so): 6 h rising ≥ 1.25×,
+sharply ≥ 2×; 24 h rising ≥ 1.5×, sharply ≥ 3×; falling at the inverse; stage
+0.3 / 1 ft (6 h) and 0.5 / 2 ft (24 h). Calibrate with
+`scripts/calibrate-change-thresholds.ts` (read-only): it reports discharge-ratio
+percentiles by river size and the share of gauges each threshold would mark.
+Aim: on an ordinary day most gauges read "about the same" and "sharply" stays
+rare. Run it on a quiet day and a wet one before moving a number, and record
+the runs here. Regulated releases, snowmelt and ice are not modelled yet.
+
+**Calibration runs:** none recorded yet.
+
 ## The wall (fullscreen)
 
 Fullscreen draws its own hierarchy from the same classes, colours and shapes,
@@ -352,4 +388,5 @@ Unticked until evidence is recorded here:
 - [ ] Wall legend read from across a room (size, the side panel vs. the Pacific coast at 16:10, the bottom strip on a portrait display) and Story mode's picks reviewed over a few hours of live data: do crossings and recoveries surface, does the same gauge stop repeating, are the headlines right against the hydrographs?
 - [ ] "Follow the river" reviewed on a real display in both themes (pace, light-theme casing, tributary flashes), and the eight picked routes checked by someone who knows the rivers.
 - [ ] Vivid Flow colours as the eventual **wall default** (the review's recommendation: the main contrast gain should not hide behind Settings) — after a real-display comparison against Eddy colours. The data side is checked (above): a wet region looking exceptional is the data, and thresholds do not move for composition.
-- [ ] Change view (24 h) — the **next data feature**: newly rising rivers, flood-category crossings and recoveries give a returning viewer something new, where the journeys give geography. Needs ≥ 26 h of recorded frames, then the Phase 1 threshold calibration (river types, regulated releases, snowmelt, ice, sensor spikes).
+- [ ] Change flow thresholds calibrated: `calibrate-change-thresholds.ts` run on a quiet day and a wet one with ≥ 24 h of frames, results recorded under [Change](#change), thresholds adjusted or confirmed, and "provisional" removed from the method note. Regulated releases (dam tailwaters), snowmelt and ice reviewed against the runs.
+- [ ] Change reviewed on live data once 24 h comparisons exist (recording began 2026-11-02 12:42 UTC): do the crossings match NWS hydrographs, and do the biggest changes read as real events?
