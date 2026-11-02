@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, BellRing, MapPin, Signal, Waves } from 'lucide-react';
+import { ArrowRight, BellRing, FileText, MapPin, Signal, Tent, Waves } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
 import AppLink from '@/components/AppLink';
@@ -13,49 +13,81 @@ import AppQrPrompt from '@/components/AppQrPrompt';
 
 type Props = { searchParams: Promise<{ ct?: string | string[]; dam?: string | string[] }> };
 
+const pageTitle = 'Eddy River Guide for iPhone — Know the River Before You Go';
+const pageDescription =
+  'Live river conditions, gauge trends, float plans, river access, campground availability, dam schedules, widgets, and alerts for Ozarks float rivers.';
+
 const pageMetadata: Metadata = {
-  title: 'Eddy for iPhone — Find Floatable Water',
-  description:
-    'Get live river conditions, float plans, access-point details, gauge trends, and alerts with Eddy for iPhone.',
+  title: pageTitle,
+  description: pageDescription,
   alternates: { canonical: '/app' },
   openGraph: {
     type: 'website',
     url: '/app',
     siteName: 'Eddy',
-    title: 'Eddy for iPhone — Find Floatable Water',
-    description: 'Know what’s running well before you make the drive.',
+    title: pageTitle,
+    description: pageDescription,
     images: [
       {
         url: '/og/eddy-app-store.png',
         width: 1200,
         height: 630,
-        alt: 'Eddy for iPhone — find floatable water with live river conditions',
+        alt: 'Eddy River Guide for iPhone — know the river before you go',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Eddy for iPhone — Find Floatable Water',
-    description: 'Know what’s running well before you make the drive.',
+    title: pageTitle,
+    description: pageDescription,
     images: ['/og/eddy-app-store.png'],
   },
 };
 
+// The App Store screenshot set, in the order the listing shows it. Source of
+// truth is App Store Connect; these are its 1206 × 2622 exports as WebP.
+const screenshots = [
+  { src: '/app-store/01-daily-river-report.webp', alt: 'Daily river report: Eddy’s Read and today’s river conditions' },
+  { src: '/app-store/02-plan-put-in-to-take-out.webp', alt: 'Plan put-in to take-out: a Current River float from Cedar Grove to Akers Ferry' },
+  { src: '/app-store/03-estimate-your-day.webp', alt: 'Estimate your day on the river: follow your route in River Mode' },
+  { src: '/app-store/04-camp-along-the-way.webp', alt: 'Camp along the way: campground availability on saved rivers' },
+  { src: '/app-store/05-find-your-river-access.webp', alt: 'Find your river access: put-ins, take-outs, and places to explore on the map' },
+  { src: '/app-store/06-read-the-rivers-trend.webp', alt: 'Read the river’s trend: gauge level and recent history' },
+  { src: '/app-store/07-know-the-dam-schedule.webp', alt: 'Know the dam schedule: Bull Shoals generation, releases, and tailwater' },
+  { src: '/app-store/08-your-rivers-at-a-glance.webp', alt: 'Your rivers at a glance: Home Screen widgets and river alerts' },
+] as const;
+
+const SCREENSHOT_WIDTH = 1206;
+const SCREENSHOT_HEIGHT = 2622;
+
 const features = [
+  // Eddy's Read is the one thing a subscription buys (premium-copy.test.ts);
+  // it leads the screenshot set, so the page says plainly that it is Premium
+  // and that everything else here is free.
+  {
+    icon: FileText,
+    title: 'A daily read on every river',
+    copy: 'With Eddy Premium, a written report every morning on what the water is doing and what the weather will do to it. Everything else here is free.',
+  },
   {
     icon: Waves,
     title: 'Conditions you can use',
-    copy: 'Live readings become a clear Eddy rating, so you can decide whether the river is worth the drive.',
+    copy: 'Live gauge readings become a clear Eddy rating, with recent history and dam generation schedules alongside.',
   },
   {
     icon: MapPin,
     title: 'Plan the whole float',
-    copy: 'Compare put-ins, take-outs, mileage, estimated float time, access details, and shuttle routes.',
+    copy: 'Pick a put-in and take-out for mileage, estimated float time, and the shuttle, then follow the route in River Mode.',
+  },
+  {
+    icon: Tent,
+    title: 'Access and camping',
+    copy: 'Put-ins, take-outs, and places to explore, plus which campgrounds along your river have openings.',
   },
   {
     icon: BellRing,
-    title: 'Let the river tell you',
-    copy: 'Create alerts for the conditions you care about and keep your favorite water one tap away.',
+    title: 'Your rivers, at a glance',
+    copy: 'Home Screen widgets keep your favorite water in view, and alerts tell you when it reaches the conditions you want.',
   },
   // The landing page had no answer to "does this work where I am going", which
   // is the question an Ozark float raises before any other. It is also the one
@@ -83,11 +115,11 @@ export default async function AppLandingPage({ searchParams }: Props) {
         <div className={styles.contours} aria-hidden="true" />
         <div className={styles.heroInner}>
           <div className={styles.copy}>
-            {!dam && <p className={styles.eyebrow}>EDDY FOR IPHONE</p>}
-            <h1 className={dam ? styles.damHeading : undefined}>{dam ? damWidgetHeadline(dam.name) : 'Find floatable water.'}</h1>
+            {!dam && <p className={styles.eyebrow}>EDDY RIVER GUIDE FOR IPHONE</p>}
+            <h1 className={dam ? styles.damHeading : undefined}>{dam ? damWidgetHeadline(dam.name) : 'Know the river before you go.'}</h1>
             <p className={styles.lede}>
               {dam ? 'Today’s generation schedule, at a glance.' :
-                'Live river conditions, complete float plans, access-point details, gauge trends, and alerts—built for the water you actually paddle.'}
+                'Live conditions, gauge trends, float plans from put-in to take-out, river access, camping, and dam schedules—built for the Ozarks water you actually paddle.'}
             </p>
 
             <div className={styles.actions}>
@@ -147,26 +179,26 @@ export default async function AppLandingPage({ searchParams }: Props) {
           </figure> : <div className={styles.preview} aria-label="Eddy iPhone app preview">
             <Image
               className={`${styles.phoneShot} ${styles.phoneShotBackLeft}`}
-              src="/app-store/03-plan-put-in-to-take-out.png"
-              alt="Plan a float from put-in to take-out in Eddy"
-              width={1320}
-              height={2868}
+              src={screenshots[1].src}
+              alt={screenshots[1].alt}
+              width={SCREENSHOT_WIDTH}
+              height={SCREENSHOT_HEIGHT}
               sizes="(min-width: 900px) 260px, 34vw"
             />
             <Image
               className={`${styles.phoneShot} ${styles.phoneShotBackRight}`}
-              src="/app-store/06-watch-the-water-for-you.png"
-              alt="Configure a river-condition alert in Eddy"
-              width={1320}
-              height={2868}
+              src={screenshots[7].src}
+              alt={screenshots[7].alt}
+              width={SCREENSHOT_WIDTH}
+              height={SCREENSHOT_HEIGHT}
               sizes="(min-width: 900px) 260px, 34vw"
             />
             <Image
               className={`${styles.phoneShot} ${styles.phoneShotFront}`}
-              src="/app-store/01-find-floatable-water.png"
-              alt="Search live river conditions in Eddy"
-              width={1320}
-              height={2868}
+              src={screenshots[0].src}
+              alt={screenshots[0].alt}
+              width={SCREENSHOT_WIDTH}
+              height={SCREENSHOT_HEIGHT}
               sizes="(min-width: 900px) 320px, 54vw"
               priority
             />
@@ -174,9 +206,31 @@ export default async function AppLandingPage({ searchParams }: Props) {
         </div>
       </section>
 
+      <section className={styles.gallery} aria-labelledby="app-gallery-title">
+        <div className={styles.sectionHeading}>
+          <p className={styles.eyebrow}>INSIDE THE APP</p>
+          <h2 id="app-gallery-title">Everything for the float, in one place.</h2>
+        </div>
+
+        {/* Focusable so keyboard users can scroll the strip. */}
+        <ul className={styles.galleryStrip} tabIndex={0} aria-label="Eddy app screenshots">
+          {screenshots.map(({ src, alt }) => (
+            <li className={styles.galleryItem} key={src}>
+              <Image
+                src={src}
+                alt={alt}
+                width={SCREENSHOT_WIDTH}
+                height={SCREENSHOT_HEIGHT}
+                sizes="(min-width: 620px) 250px, 62vw"
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className={styles.features} aria-labelledby="app-features-title">
         <div className={styles.sectionHeading}>
-          <p className={styles.eyebrow}>KNOW BEFORE YOU GO</p>
+          <p className={styles.eyebrow}>WHAT EDDY DOES</p>
           <h2 id="app-features-title">One river guide from couch to take-out.</h2>
         </div>
 

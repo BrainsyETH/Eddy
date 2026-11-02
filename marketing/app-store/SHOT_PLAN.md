@@ -1,5 +1,13 @@
 # Eddy iOS App Store screenshot set
 
+> **Superseded on the live listing.** Version 1.6.0 (October 31, 2026) ships an
+> eight-image set made outside this repo: Daily River report, Plan put-in to
+> take-out, Estimate your day, Camp along the way, Find your river access, Read
+> the river's trend, Know the dam schedule, and Your rivers at a glance. Their
+> 1206 × 2622 App Store exports are what `/app` shows, as WebP in
+> `missouri-float-planner/public/app-store/`. The plan below records the earlier
+> six-image set in `exports/iphone-6.9-native/`.
+
 Target: iPhone 6.9-inch portrait, 1320 × 2868 px, PNG, no alpha.
 
 The approved Field Notebook frame is the common visual system for every image:
