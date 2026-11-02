@@ -131,3 +131,25 @@ Mapping them onto Eddy's `too_low`/`low`/`optimal_min` fields is a sign-off deci
 - Hipcamp: JavaScript-only.
 - The MDC Wildlife Code page fetched was a proposed amendment. Whether a smallmouth special
   management area covers Big Sugar is **unverified** and is not claimed.
+
+## Addendum 2026-11-02: private landings on Big Sugar itself
+
+The owner located Big Rock Park as the Google Maps "Big Rock Camp Grounds" pin
+(plus code `8687JMCF+95`, 36.62094, -94.32706). Measured on the TNM mainstem
+(headwaters = 0):
+
+| Place | Eddy mile | Distance from channel | Status |
+|---|---|---|---|
+| Powell Bridge / USGS 07188653 | 25.26 | 29 m / 2 m | Held: no launch source |
+| Creekside Campground (274 Creekside Rd, Powell) | ~25.9 | ~100 m (address point) | Held: private, no published terms |
+| Big Rock Camp Grounds (Big Rock Park) | 38.97 | 81 m | Held: private, location owner-confirmed |
+| MDC Deep Ford Access | 40.45 | 58 m | Public, verified |
+| Ables Sugar Island Camp | ~42.5 | ~200 m (address point) | Held: private, no published terms |
+| Big Sugar/Little Sugar confluence | 44.06 | — | Elk begins |
+
+Big Rock and Sugar Island share an operator. Published landing terms from that
+operator would give single-river pairs the current planner can route:
+Big Rock → Deep Ford (~1.5 mi), Deep Ford → Sugar Island (~2 mi) and
+Big Rock → Sugar Island (~3.5 mi). That would remove the dependence on the
+cross-river Pineville take-out. Address-point positions are approximate;
+launch pins still need imagery placement and review.
