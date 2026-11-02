@@ -13,7 +13,7 @@ import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
 import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, type FlowSummary, type MapView, type Site } from '@/lib/national-map/marks';
-import type { Appearance } from '@/lib/national-map/prefs';
+import type { Appearance, FlowColors } from '@/lib/national-map/prefs';
 import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
 import type { MapPalette } from '@/lib/national-map/theme';
 import { FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
@@ -349,6 +349,8 @@ export function MapControls({
   reducedMotion,
   displayDetails,
   onDisplayDetails,
+  flowColors,
+  onFlowColors,
   horizontal = false,
   fullscreenRef,
 }: {
@@ -364,6 +366,8 @@ export function MapControls({
   reducedMotion: boolean;
   displayDetails: boolean;
   onDisplayDetails: (d: boolean) => void;
+  flowColors: FlowColors;
+  onFlowColors: (c: FlowColors) => void;
   fullscreenRef?: React.Ref<HTMLButtonElement>;
 }) {
   const [settings, setSettings] = useState(false);
@@ -440,10 +444,24 @@ export function MapControls({
           <label className="flex min-h-11 items-center justify-between gap-2 text-sm">
             <span>
               Details in fullscreen
-              <span className={`block text-xs ${styles.muted}`}>A quiet status line and one rotating gauge</span>
+              <span className={`block text-xs ${styles.muted}`}>A quiet status line and one rotating gauge or river</span>
             </span>
             <input type="checkbox" checked={displayDetails} onChange={(e) => onDisplayDetails(e.target.checked)} className="h-5 w-5" />
           </label>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold">Flow colours</p>
+            <Segmented
+              options={[
+                { value: 'eddy' as const, label: 'Eddy' },
+                { value: 'vivid' as const, label: 'Vivid' },
+              ]}
+              value={flowColors}
+              onChange={onFlowColors}
+              stretch
+              aria-label="Flow colours"
+            />
+            <p className={`text-xs ${styles.muted}`}>Vivid is a prototype for wall displays: copper for low, teal for normal, cyan to ice for high.</p>
+          </div>
         </div>
       )}
     </div>

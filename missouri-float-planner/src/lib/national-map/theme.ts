@@ -53,6 +53,12 @@ export interface MapPalette {
    */
   journeyGlowAlpha: number;
   flow: Record<FlowBand, string>;
+  /**
+   * The rarest high readings (marks.ts EXTREME_HIGH). In the Eddy set this is
+   * Much higher's own colour (size is the cue); the vivid prototype gives
+   * them pale ice, and the legend then lists them as their own row.
+   */
+  flowExtremeHigh: string;
   /** Live reading, no seasonal comparison: a ring, never a band fill. */
   noComparison: string;
   /** Stale or suspect: neutral hollow mark. */
@@ -101,6 +107,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#2D7889', // primary-500
     riverAlpha: [0, 0.22, 0.28, 0.34, 0.45, 0.62, 0.78, 0.92],
     trace: 'rgba(250, 248, 244, 0.95)',
+    flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#F2EAD8',
     journeyCore: '#0E4A57', // between primary-700 and -800: ink on parchment
@@ -146,6 +153,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#72B5C4', // primary-300
     riverAlpha: [0, 0.16, 0.2, 0.26, 0.36, 0.5, 0.66, 0.82],
     trace: 'rgba(242, 234, 216, 0.9)',
+    flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#0F2D35',
     journeyCore: '#F2FBFD',
@@ -168,7 +176,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     // are. Chosen in the 2026-11-02 review; sign-off belongs to the
     // dark-contrast gate in docs/national-river-map.md.
     flowKeyline: 'rgba(242, 234, 216, 0.55)',
-    backed: ['flow.higher', 'flow.much_higher'],
+    backed: ['flow.higher', 'flow.much_higher', 'flowExtremeHigh'],
     backing: '#E8DFD0', // secondary-200
     backedFillAlpha: 0.72,
     flood: {
@@ -220,4 +228,30 @@ const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
 
 export function wallPalette(theme: MapTheme): MapPalette {
   return { ...PALETTES[theme], ...WALL_OVERRIDES[theme] };
+}
+
+// ── Vivid Flow colours (opt-in prototype) ───────────────────────────────────
+// A broader, diverging Flow ramp for wall displays: warm copper / sand for
+// unusually low, a subdued teal for normal (the quiet middle), bright cyan
+// for high and pale ice for the rarest highs. Same five bands, same
+// thresholds, same order — only the colours differ, and the legend draws
+// from the same palette. Dark mode needs no backing chip: every band is
+// visible on deep-teal land by itself. Light mode inverts the intensity
+// (on parchment, "brighter" means deeper), so its rarest highs are deep ink.
+// Flooding never changes: NWS categories keep NWS colours in every set.
+const VIVID_FLOW: Record<MapTheme, { flow: Record<FlowBand, string>; extremeHigh: string }> = {
+  dark: {
+    flow: { much_lower: '#E07A3F', lower: '#C9A77C', normal: '#2F6F7C', higher: '#2EC4D6', much_higher: '#7FE7F2' },
+    extremeHigh: '#E8FBFF',
+  },
+  light: {
+    flow: { much_lower: '#B4541F', lower: '#C9975B', normal: '#8DB3BA', higher: '#1A93A8', much_higher: '#0B6577' },
+    extremeHigh: '#063A45',
+  },
+};
+
+export function withFlowColors(p: MapPalette, theme: MapTheme, colors: 'eddy' | 'vivid'): MapPalette {
+  if (colors === 'eddy') return p;
+  const v = VIVID_FLOW[theme];
+  return { ...p, flow: v.flow, flowExtremeHigh: v.extremeHigh, backed: p.backed.filter((k) => !k.startsWith('flow')) };
 }

@@ -5,9 +5,12 @@
 // drawn from the same style table the canvas uses, so legend and map cannot
 // disagree about a shape or a color.
 
+import { Fragment } from 'react';
 import type { MapPalette } from '@/lib/national-map/theme';
 import {
+  EXTREME_HIGH,
   floodStyle,
+  flowExtremeHighStyle,
   flowStyle,
   type FloodClass,
   type FloodSummary,
@@ -88,7 +91,19 @@ export function FlowLegend({ palette, summary }: { palette: MapPalette; summary:
   return (
     <ul className="space-y-0.5" aria-label="Flow legend">
       {rows.map(([cls, label, count]) => (
-        <Row key={cls} style={flowStyle(cls)} palette={palette} label={label} count={count} />
+        <Fragment key={cls}>
+          <Row style={flowStyle(cls)} palette={palette} label={label} count={count} />
+          {/* The vivid colours give the rarest highs their own colour, so
+              they get their own row (a subset of Much higher). */}
+          {cls === 'much_higher' && palette.flowExtremeHigh !== palette.flow.much_higher && (
+            <Row
+              style={flowExtremeHighStyle()}
+              palette={palette}
+              label={`Of those, at or above the ${EXTREME_HIGH}th percentile`}
+              count={summary?.extremeHigh ?? null}
+            />
+          )}
+        </Fragment>
       ))}
     </ul>
   );

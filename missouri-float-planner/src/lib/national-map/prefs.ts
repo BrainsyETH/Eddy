@@ -6,7 +6,8 @@
 // wall display switching views or hiding details here must never change what
 // /plan or the iOS app shows. Nothing here reads or writes those keys.
 //
-// Stored: view, appearance, motion, and whether fullscreen shows details.
+// Stored: view, appearance, motion, whether fullscreen shows details, and
+// the Flow colour set (the vivid prototype is opt-in; see theme.ts).
 // Never stored or restored: fullscreen itself, a tour, location, replay — the
 // first-run experience is always the live national view.
 
@@ -15,12 +16,14 @@ import type { MapView } from './marks';
 export const PREFS_KEY = 'eddy-river-map-prefs-v1';
 
 export type Appearance = 'system' | 'light' | 'dark';
+export type FlowColors = 'eddy' | 'vivid';
 
 export interface MapPrefs {
   view: MapView;
   appearance: Appearance;
   motion: boolean;
   displayDetails: boolean;
+  flowColors: FlowColors;
 }
 
 export const DEFAULT_PREFS: MapPrefs = {
@@ -28,6 +31,7 @@ export const DEFAULT_PREFS: MapPrefs = {
   appearance: 'system',
   motion: true,
   displayDetails: false,
+  flowColors: 'eddy',
 };
 
 const VIEWS = new Set<MapView>(['flow', 'flooding']);
@@ -42,6 +46,7 @@ export function parsePrefs(raw: string | null): MapPrefs {
       appearance: APPEARANCES.has(v.appearance as Appearance) ? (v.appearance as Appearance) : DEFAULT_PREFS.appearance,
       motion: typeof v.motion === 'boolean' ? v.motion : DEFAULT_PREFS.motion,
       displayDetails: typeof v.displayDetails === 'boolean' ? v.displayDetails : DEFAULT_PREFS.displayDetails,
+      flowColors: v.flowColors === 'vivid' ? 'vivid' : 'eddy',
     };
   } catch {
     return DEFAULT_PREFS;

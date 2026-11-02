@@ -38,7 +38,7 @@ import {
   type MapPrefs,
 } from '@/lib/national-map/prefs';
 import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
-import { PALETTES, wallPalette, type MapTheme } from '@/lib/national-map/theme';
+import { PALETTES, wallPalette, withFlowColors, type MapTheme } from '@/lib/national-map/theme';
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
@@ -123,7 +123,10 @@ export default function NationalRiverMap() {
   // (theme.ts wallPalette, marks.ts wallStyle). Explore keeps everything.
   const [presentation, setPresentation] = useState<Presentation>('explore');
   const fullscreen = presentation === 'fullscreen';
-  const palette = useMemo(() => (fullscreen ? wallPalette(theme) : PALETTES[theme]), [fullscreen, theme]);
+  const palette = useMemo(
+    () => withFlowColors(fullscreen ? wallPalette(theme) : PALETTES[theme], theme, prefs.flowColors),
+    [fullscreen, theme, prefs.flowColors],
+  );
   const motion = prefs.motion && !reducedMotion;
 
   // ── Data ────────────────────────────────────────────────────────────────
@@ -704,6 +707,8 @@ export default function NationalRiverMap() {
               reducedMotion={reducedMotion}
               displayDetails={prefs.displayDetails}
               onDisplayDetails={(d) => setPrefs({ displayDetails: d })}
+              flowColors={prefs.flowColors}
+              onFlowColors={(c) => setPrefs({ flowColors: c })}
               horizontal={!side}
               fullscreenRef={fullscreenButton}
             />

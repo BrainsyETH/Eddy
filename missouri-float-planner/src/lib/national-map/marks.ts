@@ -188,13 +188,15 @@ export interface MarkStyle {
 /**
  * The rarest readings — at or beyond the 97th / 3rd percentile — are drawn
  * larger and above the other bands, so a handful of truly exceptional gauges
- * interrupt the field across a room. Same canonical colours; size is the cue.
+ * interrupt the field across a room. In the Eddy colours size is the only
+ * cue (flowExtremeHigh is Much higher's colour); the vivid prototype also
+ * gives the rarest highs pale ice (theme.ts).
  */
 export const EXTREME_HIGH = 97;
 export const EXTREME_LOW = 3;
 
 const FLOW_EXTREME: Record<'much_higher' | 'much_lower', MarkStyle> = {
-  much_higher: { shape: 'dot', radius: 2.9, color: 'flow.much_higher', keyline: true, salience: 6, ring: false, minZoom: 0 },
+  much_higher: { shape: 'dot', radius: 2.9, color: 'flowExtremeHigh', keyline: true, salience: 6, ring: false, minZoom: 0 },
   much_lower: { shape: 'dot', radius: 2.9, color: 'flow.much_lower', keyline: true, salience: 6, ring: false, minZoom: 0 },
 };
 
@@ -252,7 +254,7 @@ const WALL_FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
 };
 
 const WALL_FLOW_EXTREME: Record<'much_higher' | 'much_lower', MarkStyle> = {
-  much_higher: { shape: 'dot', radius: 3.4, color: 'flow.much_higher', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
+  much_higher: { shape: 'dot', radius: 3.4, color: 'flowExtremeHigh', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
   much_lower: { shape: 'dot', radius: 3.4, color: 'flow.much_lower', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
 };
 
@@ -275,6 +277,11 @@ export function wallStyle(view: MapView, c: FlowClass | FloodClass, extreme = fa
     return WALL_FLOW_STYLE[c as FlowClass];
   }
   return WALL_FLOOD_STYLE[c as FloodClass];
+}
+
+/** The rarest-high mark (Explore), for the legend. */
+export function flowExtremeHighStyle(): MarkStyle {
+  return FLOW_EXTREME.much_higher;
 }
 
 export function flowStyle(c: FlowClass): MarkStyle | null {
@@ -326,6 +333,8 @@ export interface FlowSummary {
   noComparison: number;
   stale: number;
   dormant: number;
+  /** Of `bands.much_higher`: the rarest highs (≥ EXTREME_HIGH), drawn larger. */
+  extremeHigh: number;
 }
 
 export function summarizeFlow(sites: Site[], clock: number): FlowSummary {
@@ -337,6 +346,7 @@ export function summarizeFlow(sites: Site[], clock: number): FlowSummary {
     noComparison: 0,
     stale: 0,
     dormant: 0,
+    extremeHigh: 0,
   };
   for (const site of sites) {
     if (site.kind !== 'usgs') continue;
@@ -351,6 +361,7 @@ export function summarizeFlow(sites: Site[], clock: number): FlowSummary {
       s.live++;
       s.compared++;
       s.bands[c]++;
+      if (c === 'much_higher' && isExtreme(site)) s.extremeHigh++;
     }
   }
   return s;

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { CatalogStation } from './catalog';
 import { buildFrame, decodeFrame, type LatestInput, type NwsInput } from './frame';
+import { FLOW_BAND_SYSTEM } from '@shared/flow-band';
+import { PALETTES, wallPalette, withFlowColors } from './theme';
 import {
   buildSites,
   classifyFlood,
@@ -219,4 +221,19 @@ test('unavailable data is drawn as a cross, distinct from "no comparison"', () =
   assert.equal(flowStyle('stale')!.shape, 'cross');
   assert.equal(floodStyle('not_current')!.shape, 'cross');
   assert.equal(flowStyle('no_comparison')!.shape, 'ring');
+});
+
+test('the vivid Flow colours are opt-in, keep the bands, and never touch flooding', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    const eddy = PALETTES[theme];
+    // The default set is the canonical flow-band system, unchanged.
+    for (const b of Object.keys(FLOW_BAND_SYSTEM) as Array<keyof typeof FLOW_BAND_SYSTEM>) assert.equal(eddy.flow[b], FLOW_BAND_SYSTEM[b].solid);
+    assert.equal(eddy.flowExtremeHigh, eddy.flow.much_higher, 'Eddy colours: size alone marks the rarest highs');
+    assert.equal(withFlowColors(eddy, theme, 'eddy'), eddy);
+    const vivid = withFlowColors(wallPalette(theme), theme, 'vivid');
+    assert.deepEqual(Object.keys(vivid.flow).sort(), Object.keys(eddy.flow).sort(), 'same five bands');
+    assert.notEqual(vivid.flowExtremeHigh, vivid.flow.much_higher, 'the rarest highs get their own colour');
+    assert.deepEqual(vivid.flood, wallPalette(theme).flood, 'NWS categories keep NWS colours');
+    assert.ok(!vivid.backed.some((k) => k.startsWith('flow')), 'vivid flow bands need no backing chip');
+  }
 });
