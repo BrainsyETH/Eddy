@@ -18,6 +18,7 @@ import {
   TREND_FAST_PCT,
   TREND_STEADY_PCT,
   classifyTrend,
+  computePercentile,
   computeTrend,
   trendLabel,
 } from './gauge-trend';
@@ -140,4 +141,17 @@ test('KNOWN TRAP: past a 12h gap the latest reading becomes its own comparison',
 test('windowHours floors at 1 so a sub-hourly pair never reports a zero window', () => {
   const trend = computeTrend([cfs(0.25, 900), cfs(0, 1000)], 'cfs', 0.25);
   assert.equal(trend?.windowHours, 1);
+});
+
+test('the 14-day comparison says "recent levels", never "typical", and names its window', () => {
+  // 20 readings, 10..200 cfs, so the current value sets the percentile directly.
+  const history = Array.from({ length: 20 }, (_, i) => cfs(i * 12, (i + 1) * 10));
+  const at = (value: number) => computePercentile(history, value, 'cfs', 14);
+  assert.equal(at(20)?.short, 'well below recent levels');
+  assert.equal(at(60)?.short, 'below recent levels');
+  assert.equal(at(100)?.short, 'near recent levels');
+  assert.equal(at(150)?.short, 'above recent levels');
+  assert.equal(at(190)?.short, 'well above recent levels');
+  assert.equal(at(60)?.descriptor, 'Compared with the past 14 days');
+  for (const value of [20, 60, 100, 150, 190]) assert.doesNotMatch(at(value)?.short ?? '', /typical/);
 });

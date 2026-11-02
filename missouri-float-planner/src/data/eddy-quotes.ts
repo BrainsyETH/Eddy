@@ -203,22 +203,19 @@ export interface StaticEddyTextInput {
  * (RiverGaugeDetail) render from this single builder so the quote reads
  * identically across surfaces. Deliberately omits the gauge name — the report
  * page already shows it in the meta row, and the card has no room for it.
+ *
+ * Also omits the READING. The card shows it once, in its header, to the
+ * gauge's own precision; restating it here rounded ("Reading 51 cfs." under
+ * "50.5 cfs") read as two numbers that disagree. The advice leads instead.
  */
 export function buildStaticEddyText({
   conditionCode,
-  gaugeHeightFt,
-  dischargeCfs,
   optimalMin,
   optimalMax,
   thresholdUnit,
   riverNote,
 }: StaticEddyTextInput): string {
   const parts: string[] = [];
-  if (thresholdUnit === 'cfs' && dischargeCfs != null) {
-    parts.push(`Reading ${Math.round(dischargeCfs).toLocaleString()} cfs.`);
-  } else if (gaugeHeightFt != null) {
-    parts.push(`Reading ${gaugeHeightFt.toFixed(1)} ft.`);
-  }
   parts.push(CONDITION_CARD_BLURBS[conditionCode] || CONDITION_CARD_BLURBS.unknown);
   if (optimalMin != null && optimalMax != null) {
     const unit = thresholdUnit === 'cfs' ? 'cfs' : 'ft';

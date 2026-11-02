@@ -138,8 +138,15 @@ test('All keeps the river chart and Eddy report alongside the dam schedule and e
     }));
   });
   const textContent = html.replace(/<[^>]*>/g, '');
-  for (const text of ['Eddy says', 'Full River Report', 'Current River at Van Buren', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation scheduled all day', 'Generation increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
+  for (const text of ['Eddy says', 'Full river report', 'At Van Buren', 'Van Buren gauge', 'Release', '10,500 cfs', 'Water temp', '52.0 °F', 'Measured 10 min ago', 'Generation scheduled all day', 'Generation increases at 2 PM.', 'Peak window: 2 PM–midnight', 'Full report']) assert.ok(textContent.includes(text), text);
   // Trimmed: no label over the change sentence, no standing instruction, no repeated caveats.
+  // River card: the reading is shown once (no chart "Current:" copy), the
+  // comparison never says "typical", actions are sentence case.
+  assert.ok(textContent.includes('Add photo'));
+  for (const text of ['Current:', 'typical', 'Full River Report', 'Add Photo']) assert.ok(!textContent.includes(text), text);
+  const riverCard = html.match(/<article[^>]*>(?:(?!<\/article>)[\s\S])*?At Van Buren[\s\S]*?<\/article>/)?.[0] ?? '';
+  assert.ok(riverCard, 'the river card renders');
+  assert.equal((riverCard.match(/class="inline-flex items-center font-bold rounded-full border /g) ?? []).length, 1, 'one condition badge, not two');
   for (const text of ['Next change', 'Select an hour for details', 'It may have been revised', 'Schedules can change', 'Scheduled to generate']) assert.ok(!textContent.includes(text), text);
   assert.match(html, /aria-label="Today’s generation schedule"/);
   assert.doesNotMatch(html, /Generating now|of full generation|Below-dam elevation/);
