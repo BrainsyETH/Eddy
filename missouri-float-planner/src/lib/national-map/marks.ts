@@ -177,7 +177,7 @@ export interface MarkStyle {
 }
 
 const FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
-  normal: { shape: 'dot', radius: 1.05, color: 'flow.normal', keyline: false, salience: 3, ring: false, minZoom: 0 },
+  normal: { shape: 'dot', radius: 1.05, color: 'flow.normal', keyline: true, salience: 3, ring: false, minZoom: 0 },
   lower: { shape: 'dot', radius: 1.45, color: 'flow.lower', keyline: true, salience: 4, ring: false, minZoom: 0 },
   higher: { shape: 'dot', radius: 1.45, color: 'flow.higher', keyline: true, salience: 4, ring: false, minZoom: 0 },
   much_lower: { shape: 'dot', radius: 1.9, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0 },
@@ -192,8 +192,8 @@ const FLOOD_STYLE: Record<FloodClass, MarkStyle | null> = {
   major: { shape: 'triangle', radius: 4.4, color: 'flood.major', keyline: true, salience: 9, ring: true, minZoom: 0 },
   moderate: { shape: 'diamond', radius: 3.7, color: 'flood.moderate', keyline: true, salience: 8, ring: true, minZoom: 0 },
   minor: { shape: 'dot', radius: 3.1, color: 'flood.minor', keyline: true, salience: 7, ring: true, minZoom: 0 },
-  action: { shape: 'ring', radius: 2.6, color: 'flood.action', keyline: false, salience: 6, ring: false, minZoom: 0 },
-  below: { shape: 'dot', radius: 1.0, color: 'flood.below', keyline: false, salience: 3, ring: false, minZoom: 0 },
+  action: { shape: 'ring', radius: 2.6, color: 'flood.action', keyline: true, salience: 6, ring: false, minZoom: 0 },
+  below: { shape: 'dot', radius: 0.85, color: 'flood.below', keyline: false, salience: 3, ring: false, minZoom: 0 },
   no_threshold: { shape: 'ring', radius: 0.95, color: 'flood.noThreshold', keyline: false, salience: 2, ring: false, minZoom: 0 },
   not_current: { shape: 'ring', radius: 0.95, color: 'flood.notCurrent', keyline: false, salience: 1, ring: false, minZoom: 0 },
   no_nws: { shape: 'dot', radius: 0.75, color: 'flood.noThreshold', keyline: false, salience: 0, ring: false, minZoom: 0 },

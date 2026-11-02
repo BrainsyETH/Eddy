@@ -182,6 +182,42 @@ the animated layer is capped at 30 fps and stops when hidden, paused, or stale.
 Real GPUs should do better than these software-rendered numbers; they are not
 device results.
 
+## Design-skill review (2026-11-02)
+
+Nine third-party skills (vetted as instruction-only first) were run read-only
+against the map: Jakub Krehel's better-accessibility / better-typography /
+better-colors, Emil Kowalski's break-ui and mobile-native, web-design-engineer's
+critique guide, Meng To's two anti-slop audits, and Owl-Listener's visual
+critiques (its large-text rule corrected to WCAG's 24 px / 18.66 px bold).
+Every fix below was verified in the browser; the new checks live in
+`scripts/national-map-smoke.ts`.
+
+- **Dark-mode flow encoding.** Higher / Much higher (#256574, #163F4A) vanish
+  on deep-teal land and, with only a keyline, read as hollow rings — the
+  "no comparison" shape. A backing disc alone did not fix it (any fill as dark
+  as the land reads hollow at 2–5 px). They now sit on a sand chip with the
+  canonical fill composited at 72%: centres stay darker than Normal and in
+  order, and read as filled. Light mode is unchanged except keylines (below).
+- **3:1 for meaningful marks (light).** Keylines at 0.7 alpha on every flow
+  band (hairline on the smallest), an outer keyline under the action ring,
+  hollow marks in neutral-500 (no longer the stone of "much lower"). The two
+  pure-context marks — "below flood stage" and "USGS gauge, no NWS point" —
+  stay quiet by decision.
+- **Fixed:** iPhone fallback fullscreen sat under the site header; dark hover
+  ink matched its fill; map focus ring painted under the canvases; portrait
+  tablets hid the West under the panel; panels clipped at 200% text and on
+  landscape phones; a failed catalog showed an empty country; the chooser
+  dropped all but 12 coincident gauges and could scroll the map off its frame;
+  phone sheets hid the selected gauge; 14 px search zoomed iOS; focus fell to
+  `<body>` after fullscreen/details/chooser; settings came before its trigger.
+- **Added:** Enter on the focused map lists the gauges under a centre reticle;
+  a "Flooding now / Most unusual now" list in the legend; room-distance type
+  for Display with details; methodology behind an ⓘ.
+- **Left site-wide on purpose** (each needs its own review because it changes
+  every page): `viewport-fit=cover` for safe areas (the map already pads with
+  `env()`), hover styles gated to fine pointers, and the shared Segmented focus
+  colour (overridden inside the map only).
+
 ## Open gates
 
 Unticked until evidence is recorded here:
@@ -189,6 +225,6 @@ Unticked until evidence is recorded here:
 - [ ] Fullscreen and fallback verified on desktop Chrome/Safari/Firefox, iPad, iPhone.
 - [ ] 8-hour visible run and 24-hour soak (midnight, DST, sleep/resume, reconnect) with flat memory and no request growth.
 - [ ] TV / ultrawide composition checked on a real display at room distance.
-- [ ] Dark-mode contrast study of the flow bands signed off (keylines are in place).
+- [ ] Dark-mode flow encoding (sand chip, 72% composite for Higher / Much higher) signed off on a real display.
 - [ ] First production frames recorded after deploy; frame row size measured in Postgres.
 - [ ] Change view (24 h): needs ≥ 26 h of frames, then the Phase 1 threshold calibration.

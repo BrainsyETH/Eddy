@@ -12,7 +12,12 @@
 //   * Escape leaves fullscreen;
 //   * a fully stale frame stops data-driven motion (the fx layer stays empty);
 //   * search finds a station and opens its details;
-//   * preferences never touch the planner's gauge-layer keys.
+//   * preferences never touch the planner's gauge-layer keys;
+//   * keyboard: Enter at the map's reticle lists the gauges there (all of
+//     them), focus enters and leaves details/fullscreen/settings predictably;
+//   * iPhone-style fallback fullscreen (no Fullscreen API) covers the header;
+//   * a failed station catalog says so and still draws NWS points.
+// Added after the 2026-11-02 design-skill review (docs/national-river-map.md).
 
 import { chromium, type Page } from 'playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -66,10 +71,14 @@ function fixtureFrame(ageMs: number) {
   });
 }
 
-async function intercept(page: Page, frameAgeMs: number) {
+async function intercept(page: Page, frameAgeMs: number, stationsStatus = 200) {
   const frame = JSON.stringify(fixtureFrame(frameAgeMs));
   const stations = JSON.stringify(fixtureStations());
-  await page.route('**/api/river-map/stations', (r) => r.fulfill({ contentType: 'application/json', body: stations }));
+  await page.route('**/api/river-map/stations', (r) =>
+    stationsStatus === 200
+      ? r.fulfill({ contentType: 'application/json', body: stations })
+      : r.fulfill({ status: stationsStatus, body: 'unavailable' }),
+  );
   await page.route('**/api/river-map/frame**', (r) => r.fulfill({ contentType: 'application/json', body: frame }));
   await page.route('**/api/gauges/*/history**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ readings: [] }) }));
 }
@@ -161,13 +170,48 @@ async function main() {
     console.log('PASS explore draws geography, marks and motion');
 
     // ── 2. Search opens a station's details ─────────────────────────────
-    await page.getByRole('combobox').fill('07019000');
+    const searchBox = page.getByRole('combobox');
+    await searchBox.fill('07019000');
     await page.keyboard.press('Enter');
     await page.getByRole('region', { name: 'Details for Meramec River near Eureka, MO' }).waitFor();
+    const focused = () => page.evaluate(() => {
+      const a = document.activeElement as HTMLElement | null;
+      return a ? `${a.tagName}|${a.getAttribute('aria-label') ?? ''}|${a.textContent?.slice(0, 40) ?? ''}` : 'none';
+    });
+    assert.match(await focused(), /^H2\|/, 'opening details from search moves focus to its heading');
     await page.getByRole('button', { name: 'Flooding', exact: true }).click();
     await page.getByText('At or above the NWS major flood stage').waitFor();
+    await page.getByRole('heading', { name: 'Meramec River near Eureka, MO' }).focus();
+    await page.keyboard.press('Escape');
+    await page.getByRole('region', { name: /^Details for/ }).waitFor({ state: 'detached' });
+    assert.match(await focused(), /^INPUT\|/, 'closing details returns focus to search');
+    console.log('PASS search → details → Escape, focus in and back, NWS status on the USGS gauge');
+
+    // Keyboard exploration: Enter at the reticle lists the gauges there.
+    // Search centres the station under the reticle; close, then Enter on the map.
+    await searchBox.fill('07019000');
+    await page.keyboard.press('Enter');
+    await page.getByRole('region', { name: /^Details for/ }).waitFor();
     await page.getByRole('button', { name: 'Close details' }).click();
-    console.log('PASS search → details, and the USGS gauge carries its NWS status');
+    await page.locator('[aria-roledescription="map"]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() =>
+      !!document.querySelector('[role="dialog"][aria-label^="Choose a gauge"]') || !!document.querySelector('[aria-label^="Details for"]'),
+    );
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    console.log('PASS Enter on the focused map lists gauges at the reticle');
+
+    // Settings: Tab moves from the trigger into the panel; Escape returns.
+    await page.getByRole('button', { name: 'Map settings' }).click();
+    await page.keyboard.press('Tab');
+    assert.ok(
+      await page.evaluate(() => !!document.activeElement?.closest('[role="group"][aria-label="Map settings"]')),
+      'Tab from the settings trigger enters the settings panel',
+    );
+    await page.keyboard.press('Escape');
+    assert.match(await focused(), /Map settings/, 'Escape closes settings and refocuses its trigger');
+    await page.getByRole('button', { name: 'Map settings' }).click();
 
     // ── 3. Map only: no text, no controls; a tap reveals the tray ───────
     await page.getByRole('button', { name: 'Fullscreen map' }).click();
@@ -177,7 +221,7 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), false, 'no persistent controls');
     await page.screenshot({ path: `${OUT_DIR}/national-map-only.png` });
     await page.mouse.click(720, 450);
-    await page.getByRole('toolbar', { name: 'Fullscreen controls' }).waitFor();
+    await page.getByRole('group', { name: 'Fullscreen controls' }).waitFor();
     assert.ok(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), 'a tap reveals the tray');
     assert.equal(await page.getByRole('region', { name: /^Details for/ }).count(), 0, 'the first tap never opens a gauge');
     await page.mouse.move(100, 100);
@@ -185,7 +229,9 @@ async function main() {
     assert.deepEqual(await visibleText(page), [], 'the tray hides again; pointer drift does not hold it open');
     await page.keyboard.press('Escape');
     await page.locator('[data-presentation="explore"]').waitFor();
-    console.log('PASS map-only is text-free, the tray reveals and hides, Escape exits');
+    await page.waitForTimeout(300);
+    assert.match(await focused(), /Fullscreen map/, 'leaving fullscreen returns focus to the Fullscreen button');
+    console.log('PASS map-only is text-free, the tray reveals and hides, Escape exits to the trigger');
 
     // ── 4. Preferences stay on this page ────────────────────────────────
     const keys = await page.evaluate(() => Object.keys(localStorage));
@@ -198,13 +244,43 @@ async function main() {
     const stale = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await intercept(stale, 2 * 86_400_000);
     await stale.goto(target, { waitUntil: 'domcontentloaded' });
-    await stale.getByText(/older than expected/).waitFor({ timeout: 120_000 });
+    await stale.getByText(/older than expected; marks age/).waitFor({ timeout: 120_000 });
     await stale.waitForTimeout(1500);
     assert.equal(await layerInk(stale, 1), 0, 'no traces or rings over stale data');
     assert.ok((await layerInk(stale, 0)) > 0, 'geography stays');
     await stale.screenshot({ path: `${OUT_DIR}/national-stale.png` });
     console.log('PASS stale snapshot: static geography, neutral marks, no motion');
     await stale.close();
+
+    // ── 6. iPhone-style fallback fullscreen covers the site header ───────
+    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await phone.addInitScript(() => {
+      delete (Element.prototype as { requestFullscreen?: unknown }).requestFullscreen;
+    });
+    await intercept(phone, 5 * 60_000);
+    await phone.goto(target, { waitUntil: 'domcontentloaded' });
+    await phone.getByRole('heading', { name: 'Live River Map' }).waitFor({ timeout: 120_000 });
+    await phone.getByRole('button', { name: 'Fullscreen map' }).tap();
+    await phone.locator('[data-fallback="true"]').waitFor();
+    await phone.waitForTimeout(600);
+    const top = await phone.evaluate(() => {
+      const el = document.elementFromPoint(195, 20);
+      return !!el?.closest('[data-presentation]');
+    });
+    assert.ok(top, 'the fallback fullscreen sits above the site header');
+    await phone.screenshot({ path: `${OUT_DIR}/national-phone-fallback.png` });
+    console.log('PASS iPhone-style fallback fullscreen covers the header');
+    await phone.close();
+
+    // ── 7. Station catalog down: say so, still draw NWS points ──────────
+    const down = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await intercept(down, 5 * 60_000, 503);
+    await down.goto(`${target}?view=flooding`, { waitUntil: 'domcontentloaded' });
+    await down.getByText(/Station list unavailable/).waitFor({ timeout: 120_000 });
+    await down.waitForTimeout(1000);
+    assert.ok((await layerInk(down, 2)) + (await layerInk(down, 3)) > 0, 'NWS points still draw without the catalog');
+    console.log('PASS catalog outage is reported and NWS points still draw');
+    await down.close();
   } finally {
     await browser.close();
     if (server?.pid) {

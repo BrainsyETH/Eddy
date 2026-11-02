@@ -55,12 +55,19 @@ export interface StageHandle {
   isNational: () => boolean;
   /** Screen position of a site (for anchoring a chooser). */
   screenOf: (index: number) => { x: number; y: number } | null;
+  /** Pan the least distance that keeps a site clear of covered edges (a sheet, a panel). */
+  ensureVisible: (index: number, cover: { top: number; bottom: number }) => void;
+  /** Zoom about a screen point (the chooser's "zoom in here"). */
+  zoomAtPoint: (x: number, y: number, factor: number) => void;
+  focus: () => void;
 }
 
 export interface StageEvent {
   indices: number[];
   x: number;
   y: number;
+  /** From Enter/Space at the reticle rather than a pointer. */
+  keyboard?: boolean;
 }
 
 interface Props {
@@ -348,6 +355,25 @@ export default function MapStage(props: Props) {
         return { lng, lat, zoom: zoomFactor(cam, f) };
       },
       isNational: () => !userMoved.current,
+      ensureVisible: (i, cover) => {
+        const cam = camRef.current;
+        if (!cam || !vp || i >= positions.xs.length) return;
+        const sy = positions.ys[i] * cam.scale + cam.ty;
+        const top = cover.top + 32;
+        const bottom = vp.height - cover.bottom - 32;
+        if (bottom <= top) return;
+        let dy = 0;
+        if (sy > bottom) dy = bottom - sy;
+        else if (sy < top) dy = top - sy;
+        if (dy) commit(pan(cam, 0, dy), true);
+      },
+      zoomAtPoint: (x, y, factor) => {
+        const f = fit();
+        const cam = camRef.current;
+        if (!f || !cam) return;
+        commit(zoomAt(cam, f, factor, x, y), true);
+      },
+      focus: () => hostRef.current?.focus({ preventScroll: true }),
       screenOf: (i) => {
         const cam = camRef.current;
         if (!cam || i >= positions.xs.length) return null;
@@ -356,6 +382,14 @@ export default function MapStage(props: Props) {
     }),
     [fit, commit, frameLaidBox, positions, geometry, layout, vp, insets],
   );
+
+  // The keyboard reticle: the centre of the unobstructed map area.
+  const reticle = vp
+    ? {
+        x: insets.left + (vp.width - insets.left - insets.right) / 2,
+        y: insets.top + (vp.height - insets.top - insets.bottom) / 2,
+      }
+    : null;
 
   // ── Hit testing ─────────────────────────────────────────────────────────
   const hit = useCallback(
@@ -480,6 +514,12 @@ export default function MapStage(props: Props) {
     const step = 60;
     let next: Camera | null = null;
     switch (e.key) {
+      case 'Enter':
+      case ' ':
+        // Keyboard exploration: list the gauges under the reticle.
+        if (reticle) onTap({ indices: hit(reticle.x, reticle.y, 22), x: reticle.x, y: reticle.y, keyboard: true });
+        e.preventDefault();
+        return;
       case '+':
       case '=':
         next = zoomAt(cam, f, 1.5, vp.width / 2, vp.height / 2);
@@ -520,6 +560,11 @@ export default function MapStage(props: Props) {
       aria-roledescription="map"
       aria-label={ariaLabel}
       tabIndex={0}
+      style={
+        reticle
+          ? ({ '--nm-reticle-x': `${reticle.x}px`, '--nm-reticle-y': `${reticle.y}px` } as React.CSSProperties)
+          : undefined
+      }
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

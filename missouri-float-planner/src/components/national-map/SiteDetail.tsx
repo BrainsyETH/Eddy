@@ -7,14 +7,23 @@
 // recreation verdict (an unrated gauge never borrows the float ladder's words);
 // flood status quotes NWS; forecast is labeled as forecast with its own times.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { flowBandSentence } from '@shared/flow-band';
 import Button from '@/components/ui/Button';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import { FLOOD_STATUS_TEXT, isFlooding } from '@/lib/national-map/flood-status';
-import { classifyFlood, classifyFlow, readingState, type MapView, type Site } from '@/lib/national-map/marks';
-import { formatAge, formatTime } from './Legend';
+import {
+  classifyFlood,
+  classifyFlow,
+  floodStyle,
+  flowStyle,
+  readingState,
+  type MapView,
+  type Site,
+} from '@/lib/national-map/marks';
+import type { MapPalette } from '@/lib/national-map/theme';
+import { formatAge, formatTime, MarkSymbol } from './Legend';
 import styles from './national-map.module.css';
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -109,6 +118,8 @@ export default function SiteDetail({
   noaaOk,
   capturedAt,
   onClose,
+  palette,
+  autoFocus,
 }: {
   site: Site;
   view: MapView;
@@ -116,7 +127,15 @@ export default function SiteDetail({
   noaaOk: boolean;
   capturedAt: number | null;
   onClose: () => void;
+  palette: MapPalette;
+  /** Move focus to the heading (opened from search, the chooser or the keyboard). */
+  autoFocus: boolean;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (autoFocus) heading.current?.focus({ preventScroll: true });
+  }, [autoFocus, site.key]);
+  const markStyle = view === 'flow' ? flowStyle(classifyFlow(site, clock)) : floodStyle(classifyFlood(site, clock, noaaOk));
   const r = site.reading;
   const nws = site.nws;
   const chartUnit: 'cfs' | 'ft' = r?.dischargeCfs !== null && r?.dischargeCfs !== undefined ? 'cfs' : 'ft';
@@ -129,7 +148,9 @@ export default function SiteDetail({
       <header className="flex items-start gap-2">
         <EddyIcon name="gaugeStation" size={28} className="mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold leading-snug">{site.name}</h2>
+          <h2 ref={heading} tabIndex={-1} className={`text-base font-bold leading-snug outline-none ${styles.breakAnywhere}`}>
+            {site.name}
+          </h2>
           <p className={`text-xs ${styles.muted}`}>
             {[site.stateCode, site.kind === 'usgs' ? `USGS ${site.siteId}` : null, site.lid ? `NWS ${site.lid}` : null]
               .filter(Boolean)
@@ -137,16 +158,21 @@ export default function SiteDetail({
           </p>
         </div>
         <Button variant="ghost" aria-label="Close details" onClick={onClose} className="min-h-11 min-w-11 !p-2">
-          <X size={18} />
+          <X size={18} aria-hidden />
         </Button>
       </header>
 
       {/* Condition for the active view first, the other view's status second. */}
       <div className="space-y-1.5 text-sm">
         {view === 'flow' ? (
-          <p className="font-semibold">{flowSentence(site, clock)}</p>
+          <p className="flex items-start gap-2 font-semibold">
+            {markStyle && <MarkSymbol style={markStyle} palette={palette} />}
+            <span>{flowSentence(site, clock)}</span>
+          </p>
         ) : (
-          <p className="font-semibold">
+          <p className="flex items-start gap-2 font-semibold">
+            {markStyle && <MarkSymbol style={markStyle} palette={palette} />}
+            <span>
             {!noaaOk
               ? 'NWS flood status is unavailable for this snapshot.'
               : nws
@@ -154,6 +180,7 @@ export default function SiteDetail({
                   ? 'The NWS observation here is not current.'
                   : FLOOD_STATUS_TEXT[nws.observed].sentence
                 : 'No NWS flood forecast point at this gauge.'}
+            </span>
           </p>
         )}
         {view === 'flooding' && site.kind === 'usgs' && <p className={styles.muted}>{flowSentence(site, clock)}</p>}

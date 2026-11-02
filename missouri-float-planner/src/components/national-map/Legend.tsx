@@ -24,28 +24,31 @@ function resolve(p: MapPalette, key: string): string {
 }
 
 export function MarkSymbol({ style, palette, size = 14 }: { style: MarkStyle; palette: MapPalette; size?: number }) {
+  // Mirrors drawMarkShape in renderer.ts: backing disc for fills this theme's
+  // land would swallow, an outer keyline under rings that need one.
   const c = resolve(palette, style.color);
   const keyline = style.color.startsWith('flood') ? palette.floodKeyline : palette.flowKeyline;
-  const r = Math.min(5.5, 2.4 + style.radius * 0.9);
+  const backed = palette.backed.includes(style.color);
+  const r = Math.min(4.6, 2.2 + style.radius * 0.8);
   const m = size / 2;
-  let shape;
-  if (style.shape === 'diamond') {
-    shape = <path d={`M${m} ${m - r * 1.15}L${m + r * 1.15} ${m}L${m} ${m + r * 1.15}L${m - r * 1.15} ${m}Z`} />;
-  } else if (style.shape === 'triangle') {
-    shape = <path d={`M${m} ${m - r * 1.2}L${m + r * 1.1} ${m + r * 0.8}L${m - r * 1.1} ${m + r * 0.8}Z`} />;
-  } else {
-    shape = <circle cx={m} cy={m} r={r} />;
-  }
+  const path = (rr: number) =>
+    style.shape === 'diamond'
+      ? `M${m} ${m - rr * 1.15}L${m + rr * 1.15} ${m}L${m} ${m + rr * 1.15}L${m - rr * 1.15} ${m}Z`
+      : style.shape === 'triangle'
+        ? `M${m} ${m - rr * 1.2}L${m + rr * 1.1} ${m + rr * 0.8}L${m - rr * 1.1} ${m + rr * 0.8}Z`
+        : `M${m - rr} ${m}a${rr} ${rr} 0 1 0 ${rr * 2} 0a${rr} ${rr} 0 1 0 ${-rr * 2} 0`;
   const ring = style.shape === 'ring';
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
-      <g
+      {backed && <path d={path(r + 0.9)} fill={palette.backing} />}
+      {ring && style.keyline && <path d={path(r)} fill="none" stroke={keyline} strokeWidth={3} />}
+      <path
+        d={path(r)}
         fill={ring ? 'none' : c}
-        stroke={ring ? c : style.keyline ? keyline : 'none'}
+        fillOpacity={backed ? palette.backedFillAlpha : 1}
+        stroke={ring ? c : style.keyline && !backed ? keyline : 'none'}
         strokeWidth={ring ? 1.8 : 1}
-      >
-        {shape}
-      </g>
+      />
     </svg>
   );
 }

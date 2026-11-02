@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { publicPageMetadata, SHARE_IMAGES } from '@/lib/seo';
 import NationalRiverMap from '@/components/national-map/NationalRiverMap';
+import styles from '@/components/national-map/national-map.module.css';
 
 export const metadata: Metadata = publicPageMetadata(
   'Live River Map',
@@ -16,7 +17,7 @@ export default function RiverMapPage() {
   // Height tracks the VISIBLE viewport (dvh), so the mobile sheet stays clear
   // of the area under the iOS URL bar.
   return (
-    <div className="fixed inset-x-0 top-14" style={{ height: 'calc(100dvh - 3.5rem)' }}>
+    <div className={`fixed inset-x-0 top-14 ${styles.pageFrame}`} style={{ height: 'calc(100dvh - 3.5rem)' }}>
       <NationalRiverMap />
     </div>
   );

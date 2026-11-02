@@ -40,6 +40,7 @@ import { FLOOD_STATUS_TEXT } from '@/lib/national-map/flood-status';
 import { PALETTES, type MapTheme } from '@/lib/national-map/theme';
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
+import type { InfoTipColors } from '@/components/ui/InfoTip';
 import MapStage, { type StageEvent, type StageHandle } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
@@ -108,21 +109,30 @@ export default function NationalRiverMap() {
 
   const systemDark = useMedia('(prefers-color-scheme: dark)');
   const reducedMotion = useMedia('(prefers-reduced-motion: reduce)');
-  const desktop = useMedia('(min-width: 768px)');
-  const wide = useMedia('(min-width: 1100px)');
+  // Side layout (panel beside the map) needs width AND a landscape screen;
+  // portrait tablets get the phone's stacked layout so the panel never sits
+  // on the West. Short screens (landscape phones) start with the legend shut.
+  const side = useMedia('(min-width: 768px) and (min-aspect-ratio: 1/1)');
+  const short = useMedia('(max-height: 600px)');
+  const narrow = useMedia('(max-width: 640px)');
+  const finePointer = useMedia('(hover: hover) and (pointer: fine)');
   const theme: MapTheme = prefs.appearance === 'system' ? (systemDark ? 'dark' : 'light') : prefs.appearance;
   const palette = PALETTES[theme];
   const motion = prefs.motion && !reducedMotion;
 
   // ── Data ────────────────────────────────────────────────────────────────
   const { frame, catalog, now } = data;
-  const sites = useMemo(() => (catalog ? buildSites(catalog, frame) : []), [catalog, frame]);
+  // Without the catalog there are no USGS positions — but NWS points carry
+  // their own, so a failed catalog still draws them instead of an empty country.
+  const sites = useMemo(() => (catalog || frame ? buildSites(catalog ?? [], frame) : []), [catalog, frame]);
   const noaaOk = frame?.sources.noaaOk ?? false;
   const view = prefs.view;
   const classified = useMemo(() => classifySites(sites, view, now, noaaOk), [sites, view, now, noaaOk]);
-  const flowSummary = useMemo(() => (frame && sites.length ? summarizeFlow(sites, now) : null), [frame, sites, now]);
+  // No catalog means no USGS sites at all: say nothing about flow rather
+  // than report zero gauges (the freshness line explains the outage).
+  const flowSummary = useMemo(() => (frame && catalog && sites.length ? summarizeFlow(sites, now) : null), [frame, catalog, sites, now]);
   const floodSummary = useMemo(() => (frame && sites.length ? summarizeFlood(sites, now, noaaOk) : null), [frame, sites, now, noaaOk]);
-  const searchIndex = useMemo(() => (sites.length ? buildSearchIndex(sites) : null), [sites]);
+  const searchIndex = useMemo(() => (catalog && sites.length ? buildSearchIndex(sites) : null), [catalog, sites]);
   const frameVersion = frame?.capturedAt ?? 0;
   // Data-driven motion only while the snapshot is recent and something is live.
   const dataLive =
@@ -130,6 +140,33 @@ export default function NationalRiverMap() {
 
   // ── Selection (by key, so a refresh keeps it) ───────────────────────────
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  /** Opened from search / chooser / keyboard / list: focus moves into the detail. */
+  const [detailFocus, setDetailFocus] = useState(false);
+  /** Where focus returns when the detail or chooser closes. */
+  const focusOrigin = useRef<HTMLElement | null>(null);
+  const fullscreenButton = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [rootSize, setRootSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setRootSize({ width: e.contentRect.width, height: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const restoreFocus = useCallback(() => {
+    const origin = focusOrigin.current;
+    focusOrigin.current = null;
+    requestAnimationFrame(() => {
+      if (origin && origin.isConnected && !origin.closest('[inert]')) origin.focus({ preventScroll: true });
+      else stage.current?.focus();
+    });
+  }, []);
+  const closeDetail = useCallback(() => {
+    setSelectedKey(null);
+    setDetailFocus(false);
+    restoreFocus();
+  }, [restoreFocus]);
   const indexByKey = useMemo(() => new Map(sites.map((s, i) => [s.key, i])), [sites]);
   const selectedIndex = selectedKey !== null ? indexByKey.get(selectedKey) ?? null : null;
   const selected = selectedIndex !== null ? sites[selectedIndex] : null;
@@ -181,7 +218,11 @@ export default function NationalRiverMap() {
     } else {
       setNative(false);
     }
-    if (wasNational) requestAnimationFrame(() => stage.current?.fitNational());
+    requestAnimationFrame(() => {
+      if (wasNational) stage.current?.fitNational();
+      // Focus lands on the map, whose fullscreen label says how to reach the tray.
+      stage.current?.focus();
+    });
   }, []);
 
   const exitFullscreen = useCallback(() => {
@@ -189,6 +230,8 @@ export default function NationalRiverMap() {
     setTrayOpen(false);
     setFeaturedKey(null);
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    // Back to the control that entered fullscreen, never to <body>.
+    requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
   }, []);
 
   // Leaving native fullscreen any way (Escape, browser UI) leaves the presentation.
@@ -196,7 +239,10 @@ export default function NationalRiverMap() {
     const onChange = () => {
       if (!document.fullscreenElement) {
         setNative(false);
-        setPresentation((p) => (p === 'fullscreen' ? 'explore' : p));
+        setPresentation((p) => {
+          if (p === 'fullscreen') requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
+          return p === 'fullscreen' ? 'explore' : p;
+        });
         setTrayOpen(false);
       }
     };
@@ -280,6 +326,12 @@ export default function NationalRiverMap() {
     [],
   );
 
+  // The in-page fallback (no Fullscreen API — iPhone Safari) must cover the
+  // site header. The page wrapper is a fixed-position stacking context below
+  // the header's z-50, which traps any z-index set on the map itself; the
+  // wrapper lifts itself while a child carries data-fallback (styles.pageFrame).
+  const fallback = fullscreen && !native;
+
   // ── Share link (replaceState, debounced; never pushes history) ──────────
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncUrl = useCallback(() => {
@@ -296,6 +348,7 @@ export default function NationalRiverMap() {
   }, [syncUrl]);
 
   // ── Map events ──────────────────────────────────────────────────────────
+  const [announce, setAnnounce] = useState('');
   const onTap = useCallback(
     (e: StageEvent | null) => {
       if (fullscreen) {
@@ -309,11 +362,19 @@ export default function NationalRiverMap() {
         setSelectedKey(null);
         return;
       }
+      if (e.keyboard) focusOrigin.current = document.activeElement as HTMLElement | null;
+      if (e.indices.length === 0) {
+        if (e.keyboard) setAnnounce('No gauges at the centre of the map. Pan or zoom, then press Enter again.');
+        return;
+      }
       if (e.indices.length > 1) {
-        setChooser({ indices: e.indices.slice(0, 12), x: e.x, y: e.y });
+        // Every gauge here — nothing is dropped from the list.
+        focusOrigin.current = document.activeElement as HTMLElement | null;
+        setChooser({ indices: e.indices, x: e.x, y: e.y });
         return;
       }
       setChooser(null);
+      setDetailFocus(!!e.keyboard);
       setSelectedKey(sites[e.indices[0]]?.key ?? null);
     },
     [fullscreen, revealTray, sites],
@@ -325,60 +386,104 @@ export default function NationalRiverMap() {
 
   const loadDetail = data.loadDetail;
 
+  /** Open a site's details from a list (search, notable list): frame it, focus the detail. */
+  const openSite = useCallback(
+    (index: number) => {
+      focusOrigin.current = document.activeElement as HTMLElement | null;
+      setChooser(null);
+      // On phones the sheet covers the lower half; centre the station above it
+      // (the sheet's measured height corrects this once it renders).
+      stage.current?.focusSite(index, side ? 0 : Math.round(rootSize.height * 0.5));
+      setDetailFocus(true);
+      setSelectedKey(sites[index]?.key ?? null);
+    },
+    [sites, side, rootSize.height],
+  );
+
   const onPick = useCallback(
     (r: SearchResult) => {
       setChooser(null);
       if (r.kind === 'state') stage.current?.frameState(r.code);
       else if (r.kind === 'river') stage.current?.frameSites(r.siteIndices);
-      else {
-        // On phones the detail sheet covers the lower part of the map; center
-        // the station in what stays visible above it.
-        const cover = desktop ? 0 : Math.min(560, window.innerHeight * 0.62);
-        stage.current?.focusSite(r.index, cover);
-        setSelectedKey(sites[r.index]?.key ?? null);
-      }
+      else openSite(r.index);
     },
-    [sites, desktop],
+    [openSite],
   );
 
-  // Escape in Explore peels the chooser, then the selection.
+  // Escape in Explore peels the hover tip, the chooser, then the selection.
   useEffect(() => {
     if (fullscreen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (chooser) setChooser(null);
-      else if (selectedKey) setSelectedKey(null);
+      if (hover) setHover(null);
+      if (chooser) {
+        setChooser(null);
+        restoreFocus();
+      } else if (selectedKey) closeDetail();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [fullscreen, chooser, selectedKey]);
+  }, [fullscreen, chooser, selectedKey, hover, restoreFocus, closeDetail]);
 
-  const notable = useMemo(
-    () => (fullscreen && prefs.displayDetails ? (view === 'flooding' ? notableFlood(sites, now, noaaOk) : notableFlow(sites, now)) : []),
-    [fullscreen, prefs.displayDetails, view, sites, now, noaaOk],
+
+  const notableAll = useMemo(
+    () => (view === 'flooding' ? notableFlood(sites, now, noaaOk) : notableFlow(sites, now)),
+    [view, sites, now, noaaOk],
+  );
+  const notable = fullscreen && prefs.displayDetails ? notableAll : [];
+  const notableListed = useMemo(
+    () => notableAll.slice(0, 8).map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0),
+    [notableAll, indexByKey],
   );
   const onFeature = useCallback((s: Site | null) => setFeaturedKey(s?.key ?? null), []);
 
-  // Explore leaves room for its panel: beside the map on wide screens, above
-  // it on phones (measured, so the full-US overview fits below the panel).
+  // Explore leaves room for its panel: beside the map in the side layout
+  // (measured width), above it otherwise (measured height of the always-visible
+  // rows, so the full-US overview fits below and an open legend overlays).
   const panelMeasure = useRef<HTMLDivElement>(null);
+  const panelBox = useRef<HTMLDivElement>(null);
   const [panelBottom, setPanelBottom] = useState(0);
+  const [panelRight, setPanelRight] = useState(340);
   useEffect(() => {
-    const el = panelMeasure.current;
+    const top = panelMeasure.current;
+    const box = panelBox.current;
     const root = rootRef.current;
-    if (!el || !root || desktop || fullscreen) return;
-    const measure = () => setPanelBottom(Math.round(el.getBoundingClientRect().bottom - root.getBoundingClientRect().top));
+    if (!top || !box || !root || fullscreen) return;
+    const measure = () => {
+      const r = root.getBoundingClientRect();
+      setPanelBottom(Math.round(top.getBoundingClientRect().bottom - r.top));
+      setPanelRight(Math.round(box.getBoundingClientRect().right - r.left));
+    };
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    ro.observe(top);
+    ro.observe(box);
     return () => ro.disconnect();
-  }, [desktop, fullscreen]);
+  }, [side, fullscreen]);
   const insets = useMemo(() => {
-    if (fullscreen) return { top: 0, right: 0, bottom: 0, left: 0 };
-    if (wide) return { top: 0, right: 64, bottom: 0, left: 340 };
-    if (desktop) return { top: 0, right: 64, bottom: 0, left: 0 };
+    if (fullscreen) {
+      // Display with details keeps the composition clear of its card.
+      return { top: 0, right: 0, bottom: prefs.displayDetails ? (narrow ? 190 : 96) : 0, left: 0 };
+    }
+    if (side) return { top: 0, right: 64, bottom: 0, left: panelRight + 16 };
     return { top: panelBottom + 18, right: 0, bottom: 60, left: 0 };
-  }, [fullscreen, wide, desktop, panelBottom]);
+  }, [fullscreen, side, panelBottom, panelRight, prefs.displayDetails, narrow]);
+  const insetsTop = insets.top;
+
+  // Phones: keep the selected gauge clear of the bottom sheet (measured).
+  useEffect(() => {
+    if (side || selectedIndex === null) return;
+    const el = sheetRef.current;
+    if (!el) return;
+    const check = () => stage.current?.ensureVisible(selectedIndex, { top: insetsTop, bottom: el.offsetHeight + 8 });
+    const raf = requestAnimationFrame(check);
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [side, selectedIndex, insetsTop]);
 
   const hoverSite = hover !== null ? sites[hover.index] : null;
   const hoverText = hoverSite
@@ -398,20 +503,28 @@ export default function NationalRiverMap() {
         })()
     : '';
 
-  const ariaLabel =
-    view === 'flow'
+  const exploreKeys = ' Arrow keys pan, plus and minus zoom, Enter lists the gauges at the centre ring; or use search.';
+  const ariaLabel = fullscreen
+    ? 'Live River Map, fullscreen. Press Tab for controls, Escape to exit.'
+    : view === 'flow'
       ? `Map of US river gauges compared with usual flow for this time of year.${
           flowSummary ? ` ${flowSummary.bands.much_higher} much higher, ${flowSummary.bands.much_lower} much lower than usual.` : ''
-        } Use search to find a gauge; arrow keys pan, plus and minus zoom.`
+        }${exploreKeys}`
       : `Map of official NWS flood status at US river gauges.${
           floodSummary && noaaOk ? ` ${floodSummary.major} major, ${floodSummary.moderate} moderate, ${floodSummary.minor} minor.` : ''
-        } Use search to find a gauge; arrow keys pan, plus and minus zoom.`;
+        }${exploreKeys}`;
+
+  const infoColors: InfoTipColors =
+    theme === 'dark'
+      ? { trigger: '#C2BAAC', triggerBorder: '#4A9AAD', popBg: '#0F2D35', popBorder: '#4A9AAD', title: '#F2EAD8', body: '#C2BAAC', focus: '#A3D1DB' }
+      : { trigger: '#6B6459', triggerBorder: '#857D70', popBg: '#FFFFFF', popBorder: '#1D525F', title: '#2D2A24', body: '#524D43', focus: '#1D525F' };
 
   const freshness = (
     <FreshnessLine
       capturedAt={frame?.capturedAt ?? null}
       lastSuccessAt={data.status.lastSuccessAt}
       lastError={data.status.lastError}
+      catalogError={data.catalogError}
       now={now}
     />
   );
@@ -419,52 +532,48 @@ export default function NationalRiverMap() {
   const loading = !data.geometry && !data.geometryError;
   const fatal = data.geometryError;
 
+  const stageEl = (
+    <div className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''}`}>
+      <MapStage
+        ref={stage}
+        geometry={data.geometry}
+        detail={data.detail}
+        sites={sites}
+        classified={classified}
+        frameVersion={frameVersion}
+        palette={palette}
+        motion={motion}
+        dataLive={dataLive}
+        labels={!fullscreen}
+        insets={insets}
+        selectedIndex={fullscreen ? null : selectedIndex}
+        featuredIndex={fullscreen && prefs.displayDetails ? featuredIndex : null}
+        initialCenter={shared?.center ?? null}
+        interactive={!fullscreen}
+        ariaLabel={ariaLabel}
+        onTap={onTap}
+        onHover={onHover}
+        onCameraChange={syncUrl}
+        onNeedDetail={loadDetail}
+      />
+    </div>
+  );
+
   return (
     <div
       ref={rootRef}
       data-theme={theme}
       data-presentation={fullscreen ? (prefs.displayDetails ? 'display' : 'map-only') : 'explore'}
-      className={`${styles.root} ${fullscreen && !native ? styles.fallbackFullscreen : ''} ${fullscreen && cursorHidden && !trayOpen ? styles.hideCursor : ''}`}
+      data-fallback={fallback ? 'true' : undefined}
+      className={`${styles.root} ${fallback ? styles.fallbackFullscreen : ''} ${fullscreen && cursorHidden && !trayOpen ? styles.hideCursor : ''}`}
       style={{ background: palette.background }}
     >
-      <div className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''}`}>
-        <MapStage
-          ref={stage}
-          geometry={data.geometry}
-          detail={data.detail}
-          sites={sites}
-          classified={classified}
-          frameVersion={frameVersion}
-          palette={palette}
-          motion={motion}
-          dataLive={dataLive}
-          labels={!fullscreen}
-          insets={insets}
-          selectedIndex={fullscreen ? null : selectedIndex}
-          featuredIndex={fullscreen && prefs.displayDetails ? featuredIndex : null}
-          initialCenter={shared?.center ?? null}
-          interactive={!fullscreen}
-          ariaLabel={ariaLabel}
-          onTap={onTap}
-          onHover={onHover}
-          onCameraChange={syncUrl}
-          onNeedDetail={loadDetail}
-        />
-      </div>
-
-      {/* Explore: everything below is absent in fullscreen. */}
+      {/* Explore chrome comes first in the DOM so the heading and search are
+          the first stops for keyboard and screen-reader users; the map stage
+          follows (it paints beneath them: they carry z-index, it does not). */}
       {!fullscreen && (
         <>
-          {(loading || fatal) && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className={`${styles.panel} flex items-center gap-3 p-4`} role="status">
-                <EddyIcon name="checkingGauge" size={40} />
-                <p className="text-sm">{fatal ? 'The map could not load. Check your connection and reload.' : 'Loading the national map…'}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="pointer-events-none absolute left-2 right-2 top-2 z-20 md:left-4 md:right-auto md:top-4">
+          <div className="pointer-events-none absolute left-2 right-2 top-2 bottom-2 z-20 flex flex-col items-stretch md:items-start md:left-4 md:right-auto md:top-4 md:bottom-4">
             <ExplorePanel
               view={view}
               onView={(v) => setPrefs({ view: v })}
@@ -473,13 +582,31 @@ export default function NationalRiverMap() {
               flood={floodSummary}
               noaaOk={noaaOk || !frame}
               freshness={freshness}
-              searchBox={<SearchBox index={searchIndex} onPick={onPick} />}
-              compact={!desktop}
+              searchBox={<SearchBox index={searchIndex} unavailable={!!data.catalogError} onPick={onPick} />}
+              compact={!side}
+              short={short}
               measureRef={panelMeasure}
+              panelRef={panelBox}
+              notable={notableListed}
+              clock={now}
+              onPickSite={openSite}
+              infoColors={infoColors}
             />
           </div>
 
-          <div className={`pointer-events-none absolute right-2 z-20 md:right-4 ${selected && !desktop ? 'hidden' : ''}`} style={{ bottom: desktop ? 16 : 12 }}>
+          {(loading || fatal) && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <div className={`${styles.panel} flex items-center gap-3 p-4`} role="status">
+                <EddyIcon name="checkingGauge" size={40} />
+                <p className="text-sm">{fatal ? 'The map could not load. Check your connection and reload.' : 'Loading the national map…'}</p>
+              </div>
+            </div>
+          )}
+
+          <div
+            className={`pointer-events-none absolute right-2 z-20 md:right-4 ${selected && !side ? 'hidden' : ''}`}
+            style={{ bottom: side ? 16 : 12 }}
+          >
             <MapControls
               onZoomIn={() => stage.current?.zoomBy(1.6)}
               onZoomOut={() => stage.current?.zoomBy(1 / 1.6)}
@@ -492,7 +619,8 @@ export default function NationalRiverMap() {
               reducedMotion={reducedMotion}
               displayDetails={prefs.displayDetails}
               onDisplayDetails={(d) => setPrefs({ displayDetails: d })}
-              horizontal={!desktop}
+              horizontal={!side}
+              fullscreenRef={fullscreenButton}
             />
           </div>
 
@@ -501,54 +629,85 @@ export default function NationalRiverMap() {
               sites={chooser.indices.map((index) => ({ index, site: sites[index] })).filter((c) => c.site)}
               x={chooser.x}
               y={chooser.y}
+              bounds={rootSize}
               onPick={(i) => {
                 setChooser(null);
+                setDetailFocus(true);
                 setSelectedKey(sites[i]?.key ?? null);
               }}
-              onClose={() => setChooser(null)}
+              onClose={() => {
+                setChooser(null);
+                restoreFocus();
+              }}
+              onZoomIn={() => {
+                const c = chooser;
+                setChooser(null);
+                stage.current?.zoomAtPoint(c.x, c.y, 4);
+                restoreFocus();
+              }}
             />
           )}
 
-          {hoverSite && desktop && !chooser && hover && <HoverTip site={hoverSite} x={hover.x} y={hover.y} text={hoverText} />}
+          {hoverSite && finePointer && !chooser && hover && (
+            <HoverTip site={hoverSite} x={hover.x} y={hover.y} text={hoverText} boundsWidth={rootSize.width} />
+          )}
 
           {selected && (
             <div
+              ref={sheetRef}
               className={
-                desktop
-                  ? `${styles.panel} absolute bottom-4 right-20 top-4 z-30 w-[340px] overflow-y-auto`
+                side
+                  ? `${styles.panel} absolute right-20 top-4 z-30 max-h-[calc(100%-2rem)] w-[min(21.25rem,calc(100%-7rem))] overflow-y-auto`
                   : `${styles.panel} ${styles.sheet} absolute inset-x-2 bottom-2 z-30`
               }
+              style={side ? undefined : { maxHeight: Math.max(220, Math.round(rootSize.height * 0.5)), marginBottom: 'env(safe-area-inset-bottom)' }}
             >
-              {!desktop && <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full" style={{ background: 'var(--nm-hairline)' }} />}
+              {!side && <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full" style={{ background: 'var(--nm-hairline)' }} />}
               <SiteDetail
                 site={selected}
                 view={view}
                 clock={now}
                 noaaOk={noaaOk}
                 capturedAt={frame?.capturedAt ?? null}
-                onClose={() => setSelectedKey(null)}
+                onClose={closeDetail}
+                palette={palette}
+                autoFocus={detailFocus}
               />
             </div>
           )}
 
+          <p className="sr-only" role="status">
+            {announce}
+          </p>
         </>
       )}
+
+      {stageEl}
 
       {fullscreen && (
         <>
           {prefs.displayDetails && (
-            <DisplayDetails
-              view={view}
-              flow={flowSummary}
-              flood={floodSummary}
-              noaaOk={noaaOk}
-              capturedAt={frame?.capturedAt ?? null}
-              now={now}
-              notable={notable}
-              onFeature={onFeature}
-            />
+            // Hidden (not unmounted) while the tray is open, so the two never
+            // overlap and the rotation keeps its place.
+            <div style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
+              <DisplayDetails
+                view={view}
+                flow={flowSummary}
+                flood={floodSummary}
+                noaaOk={noaaOk}
+                capturedAt={frame?.capturedAt ?? null}
+                now={now}
+                notable={notable}
+                onFeature={onFeature}
+                palette={palette}
+                narrow={narrow}
+              />
+            </div>
           )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-40 flex justify-center px-4">
+          <div
+            className="pointer-events-none absolute inset-x-0 z-40 flex justify-center px-3"
+            style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
+          >
             <FullscreenTray
               open={trayOpen}
               view={view}
@@ -570,6 +729,7 @@ export default function NationalRiverMap() {
               onExit={exitFullscreen}
               onActivity={armTray}
               trayRef={trayRef}
+              narrow={narrow}
             />
           </div>
         </>

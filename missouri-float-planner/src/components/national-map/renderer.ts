@@ -201,7 +201,9 @@ export class NationalRenderer {
       c.style.transition = 'opacity var(--duration-slower) var(--ease-default)';
     }
     const family = getComputedStyle(document.body).fontFamily || 'system-ui, sans-serif';
-    this.labelFont = `600 11px ${family}`;
+    // Follow the reader's text size (browser text zoom changes the root font).
+    const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    this.labelFont = `600 ${Math.round(11 * (rootPx / 16))}px ${family}`;
   }
 
   destroy() {
@@ -440,38 +442,28 @@ export class NationalRenderer {
   /** Mark radius multiplier: grows with zoom, and with the screen for room-distance viewing. */
   private markScale(): number {
     const z = this.zoom();
-    const screen = Math.max(1, Math.min(2.2, Math.min(this.vp.width, this.vp.height) / 760));
+    // Phones get smaller marks than desktop (floor 0.6): at desktop size the
+    // dense eastern network merged into one carpet on a 390 px screen.
+    const screen = Math.max(0.6, Math.min(2.2, Math.min(this.vp.width, this.vp.height) / 760));
     return screen * Math.min(2.6, 1 + Math.log2(Math.max(1, z)) * 0.5);
   }
 
   private sprite(style: MarkStyle, radius: number): Sprite {
     const r = Math.max(0.6, Math.round(radius * 4) / 4);
     const color = resolveColor(this.palette, style.color);
-    const key = `${style.shape}|${color}|${style.keyline ? 1 : 0}|${r}|${this.dpr}`;
+    const backed = this.palette.backed.includes(style.color);
+    const key = `${style.shape}|${color}|${style.keyline ? 1 : 0}|${backed ? 1 : 0}|${r}|${this.dpr}`;
     const hit = this.sprites.get(key);
     if (hit) return hit;
     const keyline = style.color.startsWith('flood') ? this.palette.floodKeyline : this.palette.flowKeyline;
-    const pad = 2;
+    const pad = 2.5;
     const half = Math.ceil((r + pad) * this.dpr);
     const c = document.createElement('canvas');
     c.width = c.height = half * 2;
     const g = c.getContext('2d')!;
     g.translate(half, half);
     g.scale(this.dpr, this.dpr);
-    shapePath(g, style.shape, r);
-    if (style.shape === 'ring') {
-      g.strokeStyle = color;
-      g.lineWidth = Math.max(0.75, r * 0.4);
-      g.stroke();
-    } else {
-      g.fillStyle = color;
-      g.fill();
-      if (style.keyline) {
-        g.strokeStyle = keyline;
-        g.lineWidth = r < 2 ? 0.6 : 0.85;
-        g.stroke();
-      }
-    }
+    drawMarkShape(g, style, r, color, keyline, backed ? this.palette.backing : null, this.palette.backedFillAlpha);
     const sprite = { canvas: c, half };
     this.sprites.set(key, sprite);
     return sprite;
@@ -543,6 +535,54 @@ export class NationalRenderer {
       g.stroke();
     }
     g.globalAlpha = 1;
+  }
+}
+
+/**
+ * One mark, centred at the origin. Shared by the canvas sprites and nothing
+ * else on purpose — the legend's SVG symbols mirror these rules in Legend.tsx.
+ *   * backed: a neutral disc behind a fill that is invisible on this theme's
+ *     land; the fill keeps its canonical colour and reads against the disc.
+ *   * ring + keyline: an outer keyline under the ring (action stage on parchment).
+ */
+function drawMarkShape(
+  g: CanvasRenderingContext2D,
+  style: MarkStyle,
+  r: number,
+  color: string,
+  keyline: string,
+  backing: string | null,
+  backedFillAlpha = 1,
+) {
+  if (style.shape === 'ring') {
+    const w = Math.max(0.75, r * 0.4);
+    shapePath(g, style.shape, r);
+    if (style.keyline) {
+      g.strokeStyle = keyline;
+      g.lineWidth = w + 1.2;
+      g.stroke();
+    }
+    g.strokeStyle = color;
+    g.lineWidth = w;
+    g.stroke();
+    return;
+  }
+  if (backing) {
+    shapePath(g, style.shape, r + 0.7);
+    g.fillStyle = backing;
+    g.fill();
+  }
+  shapePath(g, style.shape, r);
+  g.fillStyle = color;
+  if (backing) g.globalAlpha = backedFillAlpha;
+  g.fill();
+  g.globalAlpha = 1;
+  if (style.keyline && !backing) {
+    g.strokeStyle = keyline;
+    // Hairline on the smallest marks: enough edge for 3:1, not so much that
+    // a field of quiet Normal dots turns grey.
+    g.lineWidth = r < 1.2 ? 0.4 : r < 2 ? 0.6 : 0.85;
+    g.stroke();
   }
 }
 

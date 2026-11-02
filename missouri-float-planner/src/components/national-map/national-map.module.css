@@ -13,10 +13,17 @@
   --nm-edge: var(--color-primary-700);
   --nm-shadow: 3px 3px 0 var(--color-primary-700);
   --nm-hairline: var(--color-neutral-200);
+  /* Focus rings inside the map: primary-700 on parchment / white (7–8:1). */
+  --nm-focus: var(--color-primary-700);
+  --nm-input-border: var(--color-neutral-500);
+  --nm-input-ring: var(--color-primary-100);
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* clip, not just hidden: a focused child must never scroll the root (a
+     chooser near the bottom edge used to lift the whole map off its frame). */
+  overflow: clip;
   background: #FAF8F4;
   color: var(--nm-ink);
   font-family: var(--font-body), system-ui, sans-serif;
@@ -33,9 +40,18 @@
   --color-text-muted: #A49C8E;
   --color-text-link: #72B5C4;
   --color-primary-50: #163F4A;
-  /* Text-on-surface teals (btn-secondary ink, icon hover) lift for deep teal. */
+  /* Text-on-surface teals (btn-secondary ink and hover ink, icon hover) lift
+     for deep teal. primary-800 is the secondary button's HOVER ink: left at
+     #163F4A it matched the hover fill and the label vanished (1.0:1). */
   --color-primary-700: #A3D1DB;
   --color-primary-600: #72B5C4;
+  --color-primary-800: #D4EAEF;
+  /* Ghost-button hover surfaces (the detail panel's close X: 4.95:1). */
+  --color-neutral-100: #163F4A;
+  --color-neutral-200: #1D525F;
+  --nm-focus: #A3D1DB;
+  --nm-input-border: #4A9AAD;
+  --nm-input-ring: #163F4A;
   --nm-surface: #0F2D35;
   --nm-surface-2: #12343D;
   --nm-ink: #F2EAD8;
@@ -44,6 +60,14 @@
   --nm-shadow: 3px 3px 0 #061418;
   --nm-hairline: #1D525F;
   background: #0A2128;
+}
+
+/* The route's page wrapper (src/app/river-map/page.tsx). It is a fixed
+   stacking context under the site header's z-50; while the in-page
+   fullscreen fallback is showing it lifts above the header, so Map only
+   stays text-free on iPhone Safari. */
+.pageFrame:has(> [data-fallback='true']) {
+  z-index: 80;
 }
 
 /* In-browser fullscreen fallback (no Fullscreen API, e.g. iPhone Safari):
@@ -62,8 +86,111 @@
   outline: none;
 }
 
-.stage:focus-visible {
-  box-shadow: inset 0 0 0 3px var(--color-primary-300);
+/* The focus ring and centre reticle are pseudo-elements ABOVE the canvases
+   (z 0–3); a box-shadow on the stage itself painted underneath them. The
+   reticle marks where Enter lists gauges. */
+.stage:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 3px var(--nm-edge);
+}
+
+.stage:focus-visible::before {
+  content: '';
+  position: absolute;
+  left: var(--nm-reticle-x, 50%);
+  top: var(--nm-reticle-y, 50%);
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  z-index: 4;
+  pointer-events: none;
+  border: 2px solid var(--nm-edge);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--nm-surface);
+}
+
+/* Focus inside the map: one high-contrast colour (the site's primary-300/400
+   rings measured 2.2–2.7:1 against parchment and pressed options). */
+.root :focus-visible {
+  outline-color: var(--nm-focus);
+}
+
+.root :global(.segmented__option:focus-visible) {
+  outline-color: var(--nm-focus);
+}
+
+.root :global(.segmented__option[aria-pressed='true']:focus-visible) {
+  outline-color: #fff;
+}
+
+/* Programmatic focus targets (a detail's heading) take focus to move the
+   reading position, not to be operated: no ring. */
+.root [tabindex='-1']:focus-visible {
+  outline: none;
+}
+
+/* No double-tap zoom on map controls (rapid +/− taps on iOS). */
+.root button {
+  touch-action: manipulation;
+}
+
+.searchField {
+  border: 2px solid var(--nm-input-border);
+  background: var(--nm-surface);
+}
+
+.searchField:focus-within {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px var(--nm-input-ring);
+}
+
+.searchInput {
+  color: var(--nm-ink);
+  /* 16 px on touch screens: smaller makes iOS zoom the page on focus. */
+  font-size: 1rem;
+}
+
+.searchInput::placeholder {
+  color: var(--nm-ink-2);
+  opacity: 1;
+}
+
+.searchInput:focus-visible {
+  outline: none;
+}
+
+@media (pointer: fine) and (min-width: 768px) {
+  .searchInput {
+    font-size: 0.875rem;
+  }
+}
+
+/* Room-distance type for Display with details: grows with the screen the
+   way the marks do, from desk to TV. */
+.displayText {
+  font-size: clamp(0.875rem, 1.25vmin, 1.75rem);
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 3px var(--nm-surface),
+    0 0 3px var(--nm-surface),
+    0 0 6px var(--nm-surface);
+}
+
+.displayCard {
+  font-size: clamp(0.875rem, 1.25vmin, 1.75rem);
+  width: min(22em, calc(100vw - 2rem));
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.breakAnywhere {
+  overflow-wrap: anywhere;
 }
 
 .hideCursor,
@@ -111,7 +238,7 @@
   align-items: center;
   gap: 0.5rem;
   min-height: 1.5rem;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .tray {

@@ -109,9 +109,15 @@ export function useNationalMapData(): NationalMapData {
     const signal = controller.signal;
     let attempt = 0;
     let retry: ReturnType<typeof setTimeout> | null = null;
+    let loaded = false;
+    let pending = false;
     const load = () => {
+      if (loaded || pending || signal.aborted) return;
+      pending = true;
+      if (retry) clearTimeout(retry);
       getJson('/api/river-map/stations', timeoutSignal(signal, REQUEST_TIMEOUT_MS))
         .then((body) => {
+          loaded = true;
           setCatalog(decodeCatalog(body));
           setCatalogError(null);
         })
@@ -119,11 +125,17 @@ export function useNationalMapData(): NationalMapData {
           if (signal.aborted) return;
           setCatalogError(e instanceof Error ? e.message : String(e));
           retry = setTimeout(load, RETRY_STEPS_MS[Math.min(attempt++, RETRY_STEPS_MS.length - 1)]);
+        })
+        .finally(() => {
+          pending = false;
         });
     };
     load();
+    // A returning connection retries now, not after the backoff (up to 5 min).
+    window.addEventListener('online', load);
     return () => {
       controller.abort();
+      window.removeEventListener('online', load);
       if (retry) clearTimeout(retry);
     };
   }, []);
