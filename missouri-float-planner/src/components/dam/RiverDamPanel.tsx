@@ -3,53 +3,67 @@
 // level is the release rather than the weather.
 //
 // Server component, fed by fetchRiverDam() inside the page's existing
-// Promise.all, so it stays inside the hub's `revalidate = 300` and there is no
-// client-side flash. Returns null when the river has no dam above it, which is
-// every river but the Black today.
+// Promise.all, so it stays inside the hub's ISR window and there is no
+// client-side flash. Returns null when the river has no dam above it.
 //
-// The forecast is DAY BOXES, not a chart. Three reasons, in order: it answers
-// "for how long" more directly than a line does; the repo ships no charting
-// library by choice; and it ports to the iOS app as flexbox, where there is
-// neither a chart library nor react-native-svg.
+// ── What the days ahead come from ───────────────────────────────────────────
+// A hydropower dam shows SWPA's posted generation schedule — the same schedule
+// the dam page charts hour by hour — as one tile per day: the peak and when it
+// runs, or that only minimum flow is scheduled. A flood-control dam, which has
+// no schedule, shows the Corps' daily-average release forecast. Why the hydro
+// case never shows that forecast, and why its days were labelled a day late,
+// is written up in src/lib/river-dam-panel.ts.
+//
+// Tiles, not a chart: they answer "which day, and when" directly, the repo
+// ships no charting library by choice, and the hourly chart is one tap away on
+// the dam page.
+//
+// ── The dam page link ──────────────────────────────────────────────────────
+// It is an ordinary in-site link to /dams/[id], the page that carries the
+// hourly chart, lake level and history. It wore an external-link icon, which
+// read as "leaves Eddy" or "opens something new"; a chevron says "more of this".
 //
 // What it must never do is imply the release is a promise. The Corps changes
 // schedules for power demand, transmission constraints, outages and inflow,
 // and this panel sits next to a number someone may wade into.
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Waves, ExternalLink } from 'lucide-react';
+import { ChevronRight, Waves } from 'lucide-react';
 import type { RiverDamContext } from '@/lib/data/dams';
-import { readingStaleness } from '@shared/dam-schedule-copy';
+import {
+  nextScheduleChangeSentence,
+  readingStaleness,
+  relativeAge,
+  SCHEDULE_CHANGE_NOTE,
+} from '@shared/dam-schedule-copy';
+import { generationNow, generationStatusLabel } from '@shared/dam-generation';
 import { reachAnchorId } from '@/components/river/RiverReaches';
+import { dailyForecastDays, scheduleDaySummaries } from '@/lib/river-dam-panel';
 
 function cfs(n: number): string {
   return Math.round(n).toLocaleString();
 }
 
-function dayLabel(iso: string): { weekday: string; date: string } {
-  const d = new Date(iso);
-  return {
-    weekday: d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'America/Chicago' }),
-    date: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/Chicago' }),
-  };
-}
-
-/**
- * Collapse the forecast to at most one point per calendar day.
- *
- * SWL publishes daily already; MVS publishes hourly out ~11 days, and 264
- * boxes would be noise. Taking the day's peak rather than its mean is
- * deliberate — on a regulated river the high-water hour is the one that
- * decides whether you can be out there.
- */
-function toDailyPeaks(points: RiverDamContext['forecast']) {
-  const byDay = new Map<string, { at: string; cfs: number }>();
-  for (const p of points) {
-    const key = new Date(p.at).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-    const existing = byDay.get(key);
-    if (!existing || p.cfs > existing.cfs) byDay.set(key, p);
-  }
-  return Array.from(byDay.values()).slice(0, 7);
+function DayTile({
+  dayName,
+  dateLabel,
+  children,
+}: {
+  dayName: string;
+  dateLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <li className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+      <div className="text-xs font-semibold text-neutral-600">
+        {/* Each half nowrap, so a narrow tile breaks BETWEEN them, never "Nov / 1". */}
+        <span className="whitespace-nowrap">{dayName}</span>{' '}
+        <span className="whitespace-nowrap font-normal text-neutral-400">· {dateLabel}</span>
+      </div>
+      {children}
+    </li>
+  );
 }
 
 export default function RiverDamPanel({
@@ -60,35 +74,49 @@ export default function RiverDamPanel({
    * link, and a hash to an id nothing emitted looks live and scrolls nowhere.
    */
   controlledReachSlug,
+  now = Date.now(),
 }: {
   context: RiverDamContext | null;
   controlledReachSlug?: string | null;
+  now?: number;
 }) {
   if (!context) return null;
 
-  const { dam, forecast, forecastIsDaily } = context;
+  const { dam, forecast } = context;
   const release = dam.metrics.release;
-  const days = toDailyPeaks(forecast);
 
-  // Nothing to say without a current release. Better an absent section than a
-  // section explaining its own emptiness.
-  if (!release && days.length === 0) return null;
+  const scheduleDays = dam.hasTurbines
+    ? scheduleDaySummaries(dam.schedule, dam.generationReference, now)
+    : [];
+  const forecastDays = dam.hasTurbines ? [] : dailyForecastDays(forecast, now);
+
+  // Nothing to say without a current release or a forward view. Better an
+  // absent section than a section explaining its own emptiness.
+  if (!release && scheduleDays.length === 0 && forecastDays.length === 0) return null;
 
   // Null is "the timestamp could not be read", which is not a lag. `!== 'fresh'`
   // swept it in and asserted a staleness it had no basis for.
-  const releaseLag = release ? readingStaleness(release.at) : null;
+  const releaseLag = release ? readingStaleness(release.at, now) : null;
   const releaseIsLagging = releaseLag === 'lagging' || releaseLag === 'stale';
 
-  const current = release?.value ?? null;
-  const last = days.length > 0 ? days[days.length - 1].cfs : null;
-  const bigSwing =
-    current !== null && last !== null && Math.abs(last - current) / current >= 0.25;
+  // What the powerhouse is doing, in the same words the dam page's hero uses
+  // ("Minimum flow", "Generating now"). Null for a dam with no powerhouse,
+  // which falls back to describing the release itself.
+  const generation = generationNow(dam, now);
+  const powerhouse = generation.kind === 'unavailable' ? null : generationStatusLabel(generation);
+  const releaseWords = powerhouse
+    ? powerhouse
+    : release?.dailyMean
+        ? 'Daily average release'
+        : 'Total release';
+
+  const nextChange = dam.hasTurbines ? nextScheduleChangeSentence(dam.schedule, now) : null;
 
   return (
     <div className="card-panel p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Waves className="h-4 w-4 text-primary-700" />
+          <Waves className="h-4 w-4 text-primary-700" aria-hidden />
           <h3
             className="text-lg font-bold text-neutral-900"
             style={{ fontFamily: 'var(--font-display)' }}
@@ -98,66 +126,97 @@ export default function RiverDamPanel({
         </div>
         <Link
           href={`/dams/${dam.id}`}
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:text-primary-800"
+          className="inline-flex min-h-11 items-center gap-0.5 text-sm font-medium text-primary-700 hover:text-primary-800"
         >
-          Lake &amp; dam detail
-          <ExternalLink className="h-3 w-3" />
+          {dam.hasTurbines ? 'Hourly schedule' : 'Dam page'}
+          <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
       </div>
 
       {release && (
-        <div className="mt-3">
+        <div className="mt-2">
           <div className="text-3xl font-bold tabular-nums text-neutral-900">
             {cfs(release.value)} <span className="text-lg font-medium text-neutral-500">cfs</span>
           </div>
           <div className="text-sm text-neutral-600">
-            {release.dailyMean ? 'daily average release' : 'releasing now'}
-            {/* From the timestamp, not the wire's `staleness` — that band is
-                stamped at snapshot assembly and frozen, so a held payload keeps
-                claiming freshness as it ages. See readingStaleness in shared/. */}
-            {releaseIsLagging && ' · reading is lagging'}
+            {/* The age is from the timestamp, not the wire's `staleness` — that
+                band is stamped at snapshot assembly and frozen. See
+                readingStaleness in shared/. */}
+            {[releaseWords, relativeAge(release.at, now), releaseIsLagging ? 'reading is lagging' : null]
+              .filter(Boolean)
+              .join(' · ')}
           </div>
         </div>
       )}
 
-      {days.length > 0 && (
+      {dam.hasTurbines && (
         <div className="mt-4">
-          <p className="text-xs font-medium text-neutral-500">
-            The Corps&rsquo; release schedule
-            {forecastIsDaily ? '' : ' (daily peak)'}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {days.map((d) => {
-              const { weekday, date } = dayLabel(d.at);
-              return (
-                <div
-                  key={d.at}
-                  className="min-w-[68px] flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-center"
-                >
-                  <div className="text-[11px] font-medium text-neutral-500">{weekday}</div>
-                  <div className="text-[10px] text-neutral-400">{date}</div>
-                  <div className="mt-0.5 text-sm font-bold tabular-nums text-neutral-900">
-                    {cfs(d.cfs)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {bigSwing && last !== null && current !== null && (
-            <p className="mt-2 text-sm font-medium text-accent-700">
-              {last < current ? 'Dropping' : 'Rising'} to about {cfs(last)} cfs by{' '}
-              {dayLabel(days[days.length - 1].at).weekday}.
+          <p className="text-xs font-medium text-neutral-500">Generation schedule (SWPA)</p>
+          {scheduleDays.length > 0 ? (
+            <>
+              <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                {scheduleDays.map((d) => (
+                  <DayTile key={d.key} dayName={d.dayName} dateLabel={d.dateLabel}>
+                    <div
+                      className={`mt-1 text-sm font-bold tabular-nums ${
+                        d.generates ? 'text-neutral-900' : 'text-neutral-600'
+                      }`}
+                    >
+                      {d.headline}
+                    </div>
+                    {d.detail && <div className="mt-0.5 text-xs text-neutral-500">{d.detail}</div>}
+                  </DayTile>
+                ))}
+              </ul>
+              {nextChange && (
+                <p className="mt-3 text-sm font-medium text-neutral-800">
+                  {nextChange}
+                  <span className="block text-xs font-normal text-neutral-500">{SCHEDULE_CHANGE_NOTE}</span>
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-neutral-600">
+              No posted schedule Eddy can confirm right now. SWPA posts the next
+              day&rsquo;s schedule each afternoon.
+              {dam.infoPhone && (
+                <>
+                  {' '}
+                  Recorded release line:{' '}
+                  <a
+                    href={`tel:${dam.infoPhone.replace(/\D/g, '')}`}
+                    className="font-medium text-primary-700 underline hover:text-primary-800"
+                  >
+                    {dam.infoPhone}
+                  </a>
+                  .
+                </>
+              )}
             </p>
           )}
         </div>
       )}
 
+      {forecastDays.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium text-neutral-500">
+            Corps release forecast · {context.forecastIsDaily ? 'daily average' : 'daily peak'}
+          </p>
+          <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {forecastDays.map((d) => (
+              <DayTile key={d.key} dayName={d.dayName} dateLabel={d.dateLabel}>
+                <div className="mt-1 text-sm font-bold tabular-nums text-neutral-900">
+                  {cfs(d.cfs)} <span className="text-xs font-medium text-neutral-500">cfs</span>
+                </div>
+              </DayTile>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Which reach, by name, when the river carries more than one. Same-page
-          hash, so this needs no route change and no knowledge of the river's
-          state segment — the panel is already ON the river page. That is why
-          the web dam PAGE has no equivalent link: /rivers/[state]/[slug] needs a
-          state this dam layer cannot resolve without a database read it
-          deliberately does not do. */}
+          hash, so this needs no route change — the panel is already ON the
+          river page. */}
       {controlledReachSlug && (
         <a
           href={`#${reachAnchorId(controlledReachSlug)}`}
