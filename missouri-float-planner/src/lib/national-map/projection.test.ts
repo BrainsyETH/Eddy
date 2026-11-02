@@ -84,6 +84,28 @@ test('portrait moves the insets under the lower 48 without overlap or stretching
   assert.ok(layout.bounds.maxY - layout.bounds.minY > (l48.maxY - l48.minY) * 1.1);
 });
 
+test('wall enlarges Alaska and Hawaii into the Pacific corner, clear of the border', () => {
+  const layout = buildLayout('wall', COMPONENT_BOUNDS);
+  const ak = placed(COMPONENT_BOUNDS.ak, layout.affine.ak);
+  const hi = placed(COMPONENT_BOUNDS.hi, layout.affine.hi);
+  assert.deepEqual(layout.affine.l48, { s: 1, dx: 0, dy: 0 }, 'the lower 48 never moves');
+  assert.ok(layout.affine.ak.s > 1.2 && layout.affine.hi.s > 1.2, 'both insets read larger than geoAlbersUsa’s');
+  assert.ok(!overlaps(ak, hi));
+  // No lower-48 border point may fall inside an inset box.
+  const border: Array<[string, number, number]> = [
+    ['San Diego', -117.16, 32.7], ['Yuma', -114.6, 32.7], ['Nogales', -110.9, 31.3], ['El Paso', -106.5, 31.8],
+    ['Big Bend', -103.2, 29.2], ['Del Rio', -100.9, 29.4], ['Laredo', -99.5, 27.5], ['Brownsville', -97.5, 25.9],
+  ];
+  const inside = (b: Bounds, [x, y]: [number, number]) => x > b.minX && x < b.maxX && y > b.minY && y < b.maxY;
+  for (const [name, lng, lat] of border) {
+    const p = project(lng, lat);
+    assert.ok(!inside(ak, p) && !inside(hi, p), `${name} stays clear of the insets`);
+  }
+  // Still a wide composition: a 16:9 wall fills by height, not by a sliver.
+  const aspect = (layout.bounds.maxX - layout.bounds.minX) / (layout.bounds.maxY - layout.bounds.minY);
+  assert.ok(aspect > 1.5 && aspect < 1.9, `wall aspect ${aspect.toFixed(2)}`);
+});
+
 test('landscape is geoAlbersUsa’s own composition', () => {
   const layout = buildLayout('landscape', COMPONENT_BOUNDS);
   for (const c of ['l48', 'ak', 'hi'] as MapComponent[]) assert.deepEqual(layout.affine[c], { s: 1, dx: 0, dy: 0 });

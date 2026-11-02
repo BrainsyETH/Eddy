@@ -52,6 +52,10 @@ export interface StageHandle {
   zoomBy: (factor: number) => void;
   /** Center (lng/lat) and zoom × national fit, for share links. */
   center: () => { lng: number; lat: number; zoom: number } | null;
+  /** The current view (centre in layout space, zoom × fit) — to restore later. */
+  view: () => StageView | null;
+  /** Restore a view captured by view(); survives a resize that is still to come. */
+  restoreView: (v: StageView) => void;
   isNational: () => boolean;
   /** Screen position of a site (for anchoring a chooser). */
   screenOf: (index: number) => { x: number; y: number } | null;
@@ -60,6 +64,13 @@ export interface StageHandle {
   /** Zoom about a screen point (the chooser's "zoom in here"). */
   zoomAtPoint: (x: number, y: number, factor: number) => void;
   focus: () => void;
+}
+
+export interface StageView {
+  x: number;
+  y: number;
+  zoom: number;
+  national: boolean;
 }
 
 export interface StageEvent {
@@ -88,6 +99,8 @@ interface Props {
   initialCenter: { lng: number; lat: number; zoom: number } | null;
   /** In map-only, a tap belongs to the parent (it reveals the tray). */
   interactive: boolean;
+  /** Wall display (fullscreen): enlarged insets, bolder rivers, the river journey. */
+  wall: boolean;
   ariaLabel: string;
   onTap: (event: StageEvent | null) => void;
   onHover: (event: StageEvent | null) => void;
@@ -114,6 +127,7 @@ export default function MapStage(props: Props) {
     featuredIndex,
     initialCenter,
     interactive,
+    wall,
     ariaLabel,
     onTap,
     onHover,
@@ -164,8 +178,9 @@ export default function MapStage(props: Props) {
   // ── Layout (landscape / portrait) ───────────────────────────────────────
   const layout: Layout | null = useMemo(() => {
     if (!geometry || !vp) return null;
-    return buildLayout(layoutKindFor(vp.width, vp.height), geometry.components);
-  }, [geometry, vp]);
+    const kind = layoutKindFor(vp.width, vp.height);
+    return buildLayout(wall && kind === 'landscape' ? 'wall' : kind, geometry.components);
+  }, [geometry, vp, wall]);
 
   useEffect(() => {
     if (layout) renderer.current?.setLayout(layout);
@@ -194,8 +209,25 @@ export default function MapStage(props: Props) {
   // ── Camera ──────────────────────────────────────────────────────────────
   const fit = useCallback((): Camera | null => {
     if (!layout || !vp) return null;
-    return fitBounds(layout.bounds, vp, insets, Math.min(32, Math.max(12, vp.width * 0.02)));
-  }, [layout, vp, insets]);
+    // The wall fills the screen: a slimmer margin than Explore's.
+    const pad = wall ? Math.max(8, Math.min(vp.width, vp.height) * 0.025) : Math.min(32, Math.max(12, vp.width * 0.02));
+    return fitBounds(layout.bounds, vp, insets, pad);
+  }, [layout, vp, insets, wall]);
+
+  /**
+   * The view as the reader sees it: the layout point at the centre of the
+   * unobstructed area, and the zoom relative to the national fit. Resizes and
+   * presentation changes re-apply THIS — keeping the old screen offset instead
+   * is what pushed the country off-centre after fullscreen.
+   */
+  const lastView = useRef<StageView | null>(null);
+  const centreOf = useCallback(
+    (v: Viewport, ins: Insets) => ({
+      x: ins.left + (v.width - ins.left - ins.right) / 2,
+      y: ins.top + (v.height - ins.top - ins.bottom) / 2,
+    }),
+    [],
+  );
 
   /** `live`: one step of a pointer / wheel / key gesture (see renderer). */
   const commit = useCallback(
@@ -205,11 +237,14 @@ export default function MapStage(props: Props) {
       const next = clampToBounds(cam, layout.bounds, vp);
       camRef.current = next;
       if (moved) userMoved.current = true;
+      const c = centreOf(vp, insets);
+      const [lx, ly] = toLayout(next, c.x, c.y);
+      lastView.current = { x: lx, y: ly, zoom: zoomFactor(next, f), national: !userMoved.current };
       renderer.current?.setCamera(next, f.scale, live);
       if (zoomFactor(next, f) >= 2.2) onNeedDetail();
       onCameraChange();
     },
-    [fit, layout, vp, onCameraChange, onNeedDetail],
+    [fit, layout, vp, insets, centreOf, onCameraChange, onNeedDetail],
   );
 
   const laidOutPoint = useCallback(
@@ -242,13 +277,15 @@ export default function MapStage(props: Props) {
       commit(f, false);
       return;
     }
-    const prev = camRef.current;
-    if (!userMoved.current || !prev) {
+    const v = lastView.current;
+    if (!userMoved.current || !v || v.national) {
       commit(f, false);
       return;
     }
-    // Keep the same layout point centered at the same relative zoom.
-    commit(prev, false);
+    // Keep the same layout point at the centre, at the same relative zoom.
+    const scale = f.scale * v.zoom;
+    const c = centreOf(vp, insets);
+    commit({ scale, tx: c.x - v.x * scale, ty: c.y - v.y * scale }, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fit]);
 
@@ -355,6 +392,20 @@ export default function MapStage(props: Props) {
         return { lng, lat, zoom: zoomFactor(cam, f) };
       },
       isNational: () => !userMoved.current,
+      view: () => lastView.current,
+      restoreView: (v) => {
+        lastView.current = v;
+        userMoved.current = !v.national;
+        const f = fit();
+        if (!f || !vp) return;
+        if (v.national) {
+          commit(f, false);
+          return;
+        }
+        const scale = f.scale * v.zoom;
+        const c = centreOf(vp, insets);
+        commit({ scale, tx: c.x - v.x * scale, ty: c.y - v.y * scale }, false);
+      },
       ensureVisible: (i, cover) => {
         const cam = camRef.current;
         if (!cam || !vp || i >= positions.xs.length) return;
@@ -380,7 +431,7 @@ export default function MapStage(props: Props) {
         return { x: positions.xs[i] * cam.scale + cam.tx, y: positions.ys[i] * cam.scale + cam.ty };
       },
     }),
-    [fit, commit, frameLaidBox, positions, geometry, layout, vp, insets],
+    [fit, commit, frameLaidBox, positions, geometry, layout, vp, insets, centreOf],
   );
 
   // The keyboard reticle: the centre of the unobstructed map area.

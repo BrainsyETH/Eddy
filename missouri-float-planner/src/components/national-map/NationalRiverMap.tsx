@@ -41,7 +41,7 @@ import { PALETTES, type MapTheme } from '@/lib/national-map/theme';
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
-import MapStage, { type StageEvent, type StageHandle } from './MapStage';
+import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
   Chooser,
@@ -217,52 +217,70 @@ export default function NationalRiverMap() {
     armTray();
   }, [armTray]);
 
+  // The Explore view to return to when fullscreen ends.
+  const preFullscreen = useRef<StageView | null>(null);
+  // True between requestFullscreen() and its outcome: a fullscreenchange in
+  // that window (some browsers fire one before the element is set) must not
+  // end the presentation.
+  const entering = useRef(false);
+
   const enterFullscreen = useCallback(() => {
     setSelectedKey(null);
     setChooser(null);
     setHover(null);
     setTrayOpen(false);
-    const wasNational = stage.current?.isNational() ?? true;
+    const before = stage.current?.view() ?? null;
+    preFullscreen.current = before;
     setPresentation('fullscreen');
+    // The wall shows the whole country unless the reader had zoomed into a
+    // region on purpose; then that region stays centred.
+    if (!before || before.national || before.zoom < 1.6) stage.current?.fitNational();
     const el = rootRef.current;
     // Must run inside the click: browsers only grant fullscreen to a user gesture.
     if (el?.requestFullscreen) {
+      entering.current = true;
       el.requestFullscreen({ navigationUI: 'hide' })
         .then(() => setNative(true))
-        .catch(() => setNative(false));
+        .catch(() => setNative(false))
+        .finally(() => {
+          entering.current = false;
+        });
     } else {
       setNative(false);
     }
-    requestAnimationFrame(() => {
-      if (wasNational) stage.current?.fitNational();
-      // Focus lands on the map, whose fullscreen label says how to reach the tray.
-      stage.current?.focus();
-    });
+    // Focus lands on the map, whose fullscreen label says how to reach the tray.
+    requestAnimationFrame(() => stage.current?.focus());
   }, []);
 
-  const exitFullscreen = useCallback(() => {
+  const leaveFullscreen = useCallback(() => {
     setPresentation('explore');
     setTrayOpen(false);
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    setNative(false);
+    // Back to the view the reader had, at the new size (centre + zoom).
+    const before = preFullscreen.current;
+    preFullscreen.current = null;
+    if (before) stage.current?.restoreView(before);
+    else stage.current?.fitNational();
     // Back to the control that entered fullscreen, never to <body>.
     requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
   }, []);
 
+  const exitFullscreen = useCallback(() => {
+    leaveFullscreen();
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }, [leaveFullscreen]);
+
   // Leaving native fullscreen any way (Escape, browser UI) leaves the presentation.
+  const presentationRef = useRef(presentation);
+  presentationRef.current = presentation;
   useEffect(() => {
     const onChange = () => {
-      if (!document.fullscreenElement) {
-        setNative(false);
-        setPresentation((p) => {
-          if (p === 'fullscreen') requestAnimationFrame(() => requestAnimationFrame(() => fullscreenButton.current?.focus({ preventScroll: true })));
-          return p === 'fullscreen' ? 'explore' : p;
-        });
-        setTrayOpen(false);
-      }
+      if (entering.current || document.fullscreenElement) return;
+      if (presentationRef.current === 'fullscreen') leaveFullscreen();
     };
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
+  }, [leaveFullscreen]);
 
   // Keyboard in fullscreen: Escape exits (the fallback has no browser Escape);
   // any other key reveals the tray and moves focus into it.
@@ -590,6 +608,7 @@ export default function NationalRiverMap() {
         featuredIndex={spotlightIndex}
         initialCenter={shared?.center ?? null}
         interactive={!fullscreen}
+        wall={fullscreen}
         ariaLabel={ariaLabel}
         onTap={onTap}
         onHover={onHover}

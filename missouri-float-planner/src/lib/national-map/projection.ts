@@ -155,7 +155,7 @@ export interface Affine {
   dy: number;
 }
 
-export type LayoutKind = 'landscape' | 'portrait';
+export type LayoutKind = 'landscape' | 'portrait' | 'wall';
 
 export interface Layout {
   kind: LayoutKind;
@@ -200,7 +200,33 @@ export function layoutKindFor(width: number, height: number): LayoutKind {
  * scaled together so the pair spans the lower 48's width. Their relative size
  * stays geoAlbersUsa's — only position and a shared scale change.
  */
+/** Wall display: Alaska and Hawaii enlarged so they read across a room. */
+export const WALL_AK_SCALE = 1.3;
+export const WALL_HI_SCALE = 1.25;
+
 export function buildLayout(kind: LayoutKind, componentBounds: Record<MapComponent, Bounds>): Layout {
+  if (kind === 'wall') {
+    // The landscape composition, with the insets enlarged and set into the
+    // Pacific / Gulf corner below the Southwest — still separate, still in
+    // proper geometry, now large enough to be seen on a TV. Offsets are
+    // relative to the lower 48's bounds so a geometry rebuild keeps them.
+    const l48 = componentBounds.l48;
+    const ak = componentBounds.ak;
+    const hi = componentBounds.hi;
+    const w = l48.maxX - l48.minX;
+    const akRight = l48.minX + w * 0.21;
+    const akTop = l48.maxY - (l48.maxY - l48.minY) * 0.215;
+    const akA: Affine = { s: WALL_AK_SCALE, dx: akRight - ak.maxX * WALL_AK_SCALE, dy: akTop - ak.minY * WALL_AK_SCALE };
+    const akBottom = akTop + (ak.maxY - ak.minY) * WALL_AK_SCALE;
+    const hiLeft = akRight + w * 0.017;
+    const hiA: Affine = {
+      s: WALL_HI_SCALE,
+      dx: hiLeft - hi.minX * WALL_HI_SCALE,
+      dy: akBottom - (hi.maxY - hi.minY) * WALL_HI_SCALE - hi.minY * WALL_HI_SCALE,
+    };
+    const affine = { l48: IDENTITY, ak: akA, hi: hiA };
+    return { kind, affine, bounds: union([l48, affineBounds(akA, ak), affineBounds(hiA, hi)]) };
+  }
   if (kind === 'landscape') {
     const affine = { l48: IDENTITY, ak: IDENTITY, hi: IDENTITY };
     return { kind, affine, bounds: union(Object.values(componentBounds)) };

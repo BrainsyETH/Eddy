@@ -108,6 +108,32 @@ function layerInk(page: Page, nth: number) {
   }, nth);
 }
 
+/**
+ * Where the geography landed: the base layer's non-background bounding box as
+ * fractions of the canvas [left, top, right, bottom].
+ */
+function geographyBox(page: Page) {
+  return page.evaluate(() => {
+    const c = document.querySelector<HTMLCanvasElement>('[aria-roledescription="map"] canvas')!;
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    // The corner is open water / page background; geography is whatever differs.
+    const bg = [d[0], d[1], d[2], d[3]];
+    let minX = c.width, minY = c.height, maxX = -1, maxY = -1;
+    for (let y = 0; y < c.height; y += 2) {
+      for (let x = 0; x < c.width; x += 2) {
+        const i = (y * c.width + x) * 4;
+        if (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) + Math.abs(d[i + 3] - bg[3]) > 24) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    return [minX / c.width, minY / c.height, maxX / c.width, maxY / c.height];
+  });
+}
+
 /** Text a person could actually see inside the map root. */
 function visibleText(page: Page) {
   return page.evaluate(() => {
@@ -214,9 +240,22 @@ async function main() {
     await page.getByRole('button', { name: 'Map settings' }).click();
 
     // ── 3. Map only: no text, no controls; a tap reveals the tray ───────
+    // Framing regression: a small off-centre zoom, then fullscreen, used to
+    // leave the country small and low in the wall frame; exit kept the shift.
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Show the whole country' }).click();
+    await page.waitForTimeout(400);
+    await page.mouse.move(1150, 300);
+    await page.mouse.wheel(0, -150);
+    await page.waitForTimeout(600);
+    const explorBox = await geographyBox(page);
     await page.getByRole('button', { name: 'Fullscreen map' }).click();
     await page.locator('[data-presentation="map-only"]').waitFor();
     await page.waitForTimeout(600);
+    const wallBox = await geographyBox(page);
+    const [l, t, r, b] = wallBox;
+    assert.ok(Math.abs((l + r) / 2 - 0.5) < 0.02 && Math.abs((t + b) / 2 - 0.5) < 0.02, `fullscreen centres the country (got ${wallBox.map((v) => v.toFixed(3))})`);
+    assert.ok(r - l > 0.9 || b - t > 0.9, `fullscreen fills the frame (got ${wallBox.map((v) => v.toFixed(3))})`);
     assert.deepEqual(await visibleText(page), [], 'map-only shows no words at all');
     assert.equal(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), false, 'no persistent controls');
     await page.screenshot({ path: `${OUT_DIR}/national-map-only.png` });
@@ -238,7 +277,10 @@ async function main() {
     await page.locator('[data-presentation="explore"]').waitFor();
     await page.waitForTimeout(300);
     assert.match(await focused(), /Fullscreen map/, 'leaving fullscreen returns focus to the Fullscreen button');
-    console.log('PASS map-only is text-free, the tray reveals and hides, Escape exits to the trigger');
+    await page.waitForTimeout(500);
+    const backBox = await geographyBox(page);
+    assert.ok(backBox.every((v, i) => Math.abs(v - explorBox[i]) < 0.01), `leaving fullscreen restores the Explore framing (${explorBox} → ${backBox})`);
+    console.log('PASS map-only is text-free and centred, the tray reveals and hides, Escape exits to the trigger and the prior view');
 
     // ── 4. Preferences stay on this page ────────────────────────────────
     const keys = await page.evaluate(() => Object.keys(localStorage));
