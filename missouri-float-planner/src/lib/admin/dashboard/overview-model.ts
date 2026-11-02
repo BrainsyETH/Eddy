@@ -91,6 +91,7 @@ export function friendlyJob(id: string): string {
   const labels: Record<string, string> = {
     'update-gauges': 'Refresh river gauges',
     'sync-gauge-latest': 'Refresh gauge observations',
+    'record-river-map-frame': 'Record national map frames',
     'sync-dam-history': 'Record dam history',
     'sync-dam-snapshots': 'Refresh dam conditions',
     'snapshot-percentiles': 'Update flow comparisons',

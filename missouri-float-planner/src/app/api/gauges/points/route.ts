@@ -75,8 +75,8 @@ async function _GET(request: NextRequest) {
     const supabase = createAdminClient();
     const [stations, latest] = await Promise.all([loadStations(supabase), loadLatest(supabase)]);
     const body = buildGaugePoints(stations, latest);
-    // The national readings refresh hourly, so fifteen minutes of CDN
-    // freshness costs nothing a reader could notice.
+    // The national readings refresh every 15 minutes (sync-gauge-latest), so
+    // fifteen minutes of CDN freshness costs at most one pass.
     return NextResponse.json(body, { headers: cdnCacheHeaders(900, 3600) });
   } catch (err) {
     // A failed index is not an empty country; the phone keeps what it has.

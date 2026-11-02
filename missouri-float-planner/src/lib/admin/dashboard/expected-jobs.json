@@ -48,6 +48,10 @@
     "schedule": "5,20,35,50 * * * *"
   },
   {
+    "path": "/api/cron/record-river-map-frame",
+    "schedule": "12,27,42,57 * * * *"
+  },
+  {
     "path": "/api/cron/sync-dam-history",
     "schedule": "25 * * * *"
   },

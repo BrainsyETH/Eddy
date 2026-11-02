@@ -2324,6 +2324,39 @@ export type Database = {
         }
         Relationships: []
       }
+      national_map_frames: {
+        Row: {
+          body: Json
+          captured_at: string
+          created_at: string
+          gauge_count: number
+          hourly: boolean
+          noaa_ok: boolean
+          nws_count: number
+          version: number
+        }
+        Insert: {
+          body: Json
+          captured_at: string
+          created_at?: string
+          gauge_count: number
+          hourly?: boolean
+          noaa_ok: boolean
+          nws_count: number
+          version: number
+        }
+        Update: {
+          body?: Json
+          captured_at?: string
+          created_at?: string
+          gauge_count?: number
+          hourly?: boolean
+          noaa_ok?: boolean
+          nws_count?: number
+          version?: number
+        }
+        Relationships: []
+      }
       nearby_services: {
         Row: {
           address_line1: string | null
