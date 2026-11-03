@@ -43,8 +43,28 @@ import { PALETTES, wallPalette, withFlowColors, type MapTheme } from '@/lib/nati
 import { flowBandSentence } from '@shared/flow-band';
 import { EddyIcon } from '@/components/ui/EddyIcon';
 import type { InfoTipColors } from '@/components/ui/InfoTip';
-import { journeyCaption, journeyTiming, pickJourneys, visibleJourneys } from '@/lib/national-map/journeys';
-import { rankChangeStories, rankStories, type Story } from '@/lib/national-map/stories';
+import {
+  clipFromStart,
+  clippedJourneys,
+  journeyCaption,
+  journeyFromSite,
+  journeyTiming,
+  pickJourneys,
+  visibleJourneys,
+  type Journey,
+  type RoutePoint,
+} from '@/lib/national-map/journeys';
+import { calmSummary, rankChangeStories, rankStories, type Story } from '@/lib/national-map/stories';
+import {
+  extentSpan,
+  inPolygons,
+  lineRegions,
+  parsePlace,
+  placeExtent,
+  placeMembers,
+  placePolygons,
+} from '@/lib/national-map/places';
+import { buildLocator } from '@/lib/national-map/locator';
 import {
   availableWindows,
   biggestChanges,
@@ -72,6 +92,7 @@ import {
   FullscreenTray,
   HoverTip,
   MapControls,
+  RegionSelect,
   SearchBox,
 } from './Chrome';
 import { useNationalMapData } from './useNationalMapData';
@@ -107,6 +128,11 @@ export default function NationalRiverMap() {
   // ── Preferences (scoped to this page) and share links ───────────────────
   const [prefs, setPrefsState] = useState<MapPrefs>(DEFAULT_PREFS);
   const [shared, setShared] = useState<ReturnType<typeof parseSharedView> | null>(null);
+  // The place the map is scoped to (?region=MO / ?region=huc05), or the
+  // whole country. Carried by the share link, not stored: a bookmark keeps
+  // it, a fresh visit to /river-map shows the country.
+  const [placeKey, setPlaceKey] = useState<string | null>(null);
+  const place = useMemo(() => parsePlace(placeKey), [placeKey]);
   useEffect(() => {
     let stored = DEFAULT_PREFS;
     try {
@@ -116,6 +142,7 @@ export default function NationalRiverMap() {
     }
     const fromUrl = parseSharedView(window.location.search);
     setShared(fromUrl);
+    setPlaceKey(fromUrl.region);
     setPrefsState(fromUrl.view ? { ...stored, view: fromUrl.view } : stored);
   }, []);
   const setPrefs = useCallback((patch: Partial<MapPrefs>) => {
@@ -188,7 +215,7 @@ export default function NationalRiverMap() {
   // view says when comparisons begin and draws no change marks.
   const frameHistory = useFrameHistory(view === 'change', frame?.capturedAt ?? null);
   // The national flooding trend: Explore's Flooding legend, and the wall's Story column.
-  const floodTrend = useFloodTrend(view === 'flooding' && (!fullscreen || wallText === 'story'), frame?.capturedAt ?? null);
+  const floodTrend = useFloodTrend(view === 'flooding' && (!fullscreen || wallText === 'story'), frame?.capturedAt ?? null, place?.key ?? null);
   const windows = useMemo(() => (frameHistory ? availableWindows(frameHistory.oldest, frameHistory.newest) : []), [frameHistory]);
   const changeWindow: ChangeWindow | null = windows.includes(prefs.changeWindow) ? prefs.changeWindow : (windows[0] ?? null);
   const changePrior = usePriorFrame(view === 'change' && changeWindow !== null, frame, catalog, changeWindow ? WINDOW_MS[changeWindow] : 0, WINDOW_MIN_SHARE);
@@ -214,6 +241,55 @@ export default function NationalRiverMap() {
   const flowSummary = useMemo(() => (frame && catalog && sites.length ? summarizeFlow(sites, now) : null), [frame, catalog, sites, now]);
   const floodSummary = useMemo(() => (frame && sites.length ? summarizeFlood(sites, now, noaaOk) : null), [frame, sites, now, noaaOk]);
   const searchIndex = useMemo(() => (catalog && sites.length ? buildSearchIndex(sites) : null), [catalog, sites]);
+
+  // ── Place scope ─────────────────────────────────────────────────────────
+  // Liveness stays national (the data's freshness is national); what is
+  // counted, featured, pulsed and followed is the place's.
+  const members = useMemo(() => (place ? placeMembers(sites, place) : null), [place, sites]);
+  const placeSites = useMemo(() => (members ? sites.filter((_, i) => members[i]) : sites), [members, sites]);
+  const shownFlow = useMemo(
+    () => (members ? (frame && catalog && placeSites.length ? summarizeFlow(placeSites, now) : null) : flowSummary),
+    [members, frame, catalog, placeSites, now, flowSummary],
+  );
+  const shownFlood = useMemo(
+    () => (members ? (frame && placeSites.length ? summarizeFlood(placeSites, now, noaaOk) : null) : floodSummary),
+    [members, frame, placeSites, now, noaaOk, floodSummary],
+  );
+  const extent = useMemo(
+    () => (place && data.geometry && members ? placeExtent(data.geometry, sites, members, place) : null),
+    [place, data.geometry, sites, members],
+  );
+  const placePolys = useMemo(() => (place && data.geometry ? placePolygons(data.geometry, place) : null), [place, data.geometry]);
+  // A water-resources region keeps its trails and journeys on its own rivers
+  // (each line assigned by its nearest gauges).
+  const baseLineRegions = useMemo(
+    () => (place?.kind === 'basin' && data.geometry ? lineRegions(data.geometry.rivers, sites) : null),
+    [place, data.geometry, sites],
+  );
+  const detailLineRegions = useMemo(
+    () => (place?.kind === 'basin' && data.detail ? lineRegions(data.detail.rivers, sites) : null),
+    [place, data.detail, sites],
+  );
+  const trailKeep = useMemo(() => {
+    if (place?.kind !== 'basin') return null;
+    const mask = (r: Array<string | null> | null) => (r ? Uint8Array.from(r, (h) => (h === place.id ? 1 : 0)) : null);
+    return { base: mask(baseLineRegions), detail: mask(detailLineRegions) ?? new Uint8Array(0) };
+  }, [place, baseLineRegions, detailLineRegions]);
+  /** Is a route point inside the place? (journeys) */
+  const insidePlace = useMemo((): ((p: RoutePoint) => boolean) | null => {
+    if (!place) return null;
+    if (place.kind === 'state') return placePolys ? (p) => inPolygons(placePolys, p.component, p.x, p.y) : null;
+    return baseLineRegions ? (p) => baseLineRegions[p.line] === place.id : null;
+  }, [place, placePolys, baseLineRegions]);
+  const outside = useMemo(
+    () => (members ? { mask: Uint8Array.from(members, (m) => (m ? 0 : 1)), alpha: place?.kind === 'basin' ? 0.3 : 1 } : null),
+    [members, place],
+  );
+  const locator = useMemo(() => (data.geometry ? buildLocator(data.geometry) : null), [data.geometry]);
+  const shownChange = useMemo(
+    () => (changeResult ? (members ? summarizeChange(changeResult.changes.filter((_, i) => members[i])) : changeSummary) : null),
+    [changeResult, members, changeSummary],
+  );
   const frameVersion = frame?.capturedAt ?? 0;
   // Data-driven motion only while THE VIEW ON SCREEN is current: fresh USGS
   // readings say nothing about a Flooding view whose NOAA capture failed.
@@ -456,13 +532,21 @@ export default function NationalRiverMap() {
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncUrl = useCallback(() => {
     if (urlTimer.current) clearTimeout(urlTimer.current);
-    // Next.js patches history.replaceState and throws ("Router action
-    // dispatched before initialization") if it runs before the App Router
-    // has initialized — a slow cold start can get here first. The link is a
-    // convenience: try again shortly instead of surfacing an uncaught error.
+    // Next.js patches history.replaceState. Until its App Router has
+    // initialized, history.state is null and the patch dispatches into a
+    // router that does not exist yet: "Router action dispatched before
+    // initialization", reported globally by React's startTransition — not
+    // thrown, so a try/catch never sees it. Once initialized, Next's own
+    // entry carries `__NA` and a replace with that state passes straight
+    // through. So wait for it; a slow cold start can get here first.
     const write = (attempt: number) => {
+      const state = window.history.state as { __NA?: unknown } | null;
+      if (!state || !state.__NA) {
+        if (attempt < 40) urlTimer.current = setTimeout(() => write(attempt + 1), 250);
+        return;
+      }
       const center = stage.current?.isNational() ? null : stage.current?.center() ?? null;
-      const q = sharedViewQuery(view, center);
+      const q = sharedViewQuery(view, center, place?.key ?? null);
       const next = `${window.location.pathname}${q}`;
       if (next === `${window.location.pathname}${window.location.search}`) return;
       try {
@@ -472,7 +556,7 @@ export default function NationalRiverMap() {
       }
     };
     urlTimer.current = setTimeout(() => write(0), 400);
-  }, [view]);
+  }, [view, place]);
   useEffect(() => {
     syncUrl();
   }, [syncUrl]);
@@ -567,14 +651,16 @@ export default function NationalRiverMap() {
   // Nothing is highlighted while the view is not live — emphasis is a claim
   // that something is happening now.
   const highlights = useMemo(
-    () => (dataLive ? curateHighlights(sites, view, now, noaaOk, 8) : []),
-    [dataLive, sites, view, now, noaaOk],
+    () => (dataLive ? curateHighlights(placeSites, view, now, noaaOk, 8) : []),
+    [dataLive, placeSites, view, now, noaaOk],
   );
   const notableListed = useMemo(() => {
     // Change: the biggest trustworthy changes, each with its own sentence.
     if (view === 'change') {
       if (!changeResult || !changeWindow) return [];
-      const items = changeResult.changes.map((change, index) => ({ index, site: sites[index], change }));
+      const items = changeResult.changes
+        .map((change, index) => ({ index, site: sites[index], change }))
+        .filter(({ index }) => !members || members[index]);
       return biggestChanges(items, 8).map(({ index, site, change }) => ({
         index,
         site,
@@ -583,7 +669,7 @@ export default function NationalRiverMap() {
       }));
     }
     return highlights.map((site) => ({ index: indexByKey.get(site.key) ?? -1, site })).filter((n) => n.index >= 0);
-  }, [view, changeResult, changeWindow, sites, highlights, indexByKey]);
+  }, [view, changeResult, changeWindow, sites, highlights, indexByKey, members]);
   // The fullscreen sequence: one focal point at a time, the camera still.
   //   * "Follow the river" (motion on, view live): a highlight travels a real
   //     network to its outlet, holds so the connection reads, then hands off;
@@ -599,9 +685,16 @@ export default function NationalRiverMap() {
   // and journeys clipped to the stretch of river on screen. The national wall
   // keeps the national sequence.
   const [stageRegion, setStageRegion] = useState<Region | null>(null);
-  const region = fullscreen ? stageRegion : null;
+  // A scoped place takes over: its own gauges, outline and rivers. Otherwise
+  // a deliberately zoomed wall plays what it can see.
+  const region = fullscreen && !place ? stageRegion : null;
   const nationalSpan = data.geometry ? data.geometry.components.l48.maxX - data.geometry.components.l48.minX : 774;
-  const separation = region ? (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan : HIGHLIGHT_SEPARATION;
+  const placeSpan = extent ? extentSpan(extent) : 0;
+  const separation = place && placeSpan > 0
+    ? (HIGHLIGHT_SEPARATION * placeSpan) / nationalSpan
+    : region
+      ? (HIGHLIGHT_SEPARATION * regionSpan(region)) / nationalSpan
+      : HIGHLIGHT_SEPARATION;
 
   // What changed (stories in Flow / Flooding): a recorded frame about
   // PRIOR_MS older, fullscreen only. None yet, or one too close in time,
@@ -609,8 +702,8 @@ export default function NationalRiverMap() {
   const prior = usePriorFrame(fullscreen && view !== 'change', frame, catalog, PRIOR_MS, 0.5);
 
   const storySites = useMemo(
-    () => (region ? sites.filter((x) => inRegion(region, x.component, x.x, x.y)) : sites),
-    [region, sites],
+    () => (place ? placeSites : region ? sites.filter((x) => inRegion(region, x.component, x.x, x.y)) : sites),
+    [place, placeSites, region, sites],
   );
   // Change view: stories are the biggest trustworthy changes over the window.
   const changeBySite = useMemo(() => {
@@ -637,38 +730,82 @@ export default function NationalRiverMap() {
   // severity symbol stays drawn. Spacing follows the view, like the stories.
   const pulses = useMemo(() => {
     if (!fullscreen) return null;
-    const shown = region ? classified.filter((c) => inRegion(region, sites[c.index].component, sites[c.index].x, sites[c.index].y)) : classified;
+    const shown = members
+      ? classified.filter((c) => members[c.index])
+      : region
+        ? classified.filter((c) => inRegion(region, sites[c.index].component, sites[c.index].x, sites[c.index].y))
+        : classified;
     return pickPulses(sites, shown, 6, separation);
-  }, [fullscreen, region, classified, sites, separation]);
+  }, [fullscreen, members, region, classified, sites, separation]);
+  const rivers = data.geometry?.rivers ?? null;
   const journeys = useMemo(() => {
-    if (!data.geometry) return [];
-    return region ? visibleJourneys(data.geometry.rivers, region) : pickJourneys(data.geometry.rivers);
-  }, [data.geometry, region]);
+    if (!rivers) return [];
+    if (place) return insidePlace && placeSpan > 0 ? clippedJourneys(rivers, insidePlace, placeSpan, { count: 6, minShare: 0.25 }) : [];
+    return region ? visibleJourneys(rivers, region) : pickJourneys(rivers);
+  }, [rivers, place, insidePlace, placeSpan, region]);
   const journeysOn = fullscreen && motion && dataLive && journeys.length > 0;
   const [step, setStep] = useState(0);
   const journeyKey = journeys.map((j) => `${j.steps[0]?.line}:${Math.round(j.start)}`).join('|');
-  useEffect(() => setStep(0), [journeyKey, view, fullscreen]);
-  // Even steps are journeys (when on), odd steps stories; with no story every
-  // step is a journey.
+  useEffect(() => setStep(0), [journeyKey, view, fullscreen, placeKey]);
+  // Story mode opens on its featured event — the card is the point of that
+  // mode; the legend and map-only displays open on a river journey. Then they
+  // alternate. With no story every step is a journey.
   const hasStories = storyPool.length > 0;
-  const journeyStep = journeysOn && (step % 2 === 0 || !hasStories);
-  const journey = journeyStep ? journeys[Math.floor(hasStories ? step / 2 : step) % journeys.length] : null;
+  const storyFirst = wallText === 'story';
+  const journeyStep = journeysOn && (!hasStories || step % 2 === (storyFirst ? 1 : 0));
   const storyStep = fullscreen && !journeyStep && hasStories;
   // A story is chosen when its turn starts and kept for the turn; what was
   // just shown steps back next time (rankStories' recency rule).
-  const [featured, setFeatured] = useState<Story | null>(null);
+  const [featured, setFeatured] = useState<{ story: Story | null; turn: number } | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const pickedFor = useRef<string>('');
-  useEffect(() => setRecent([]), [view, fullscreen]);
+  const storyTurns = useRef(0);
+  const lastStory = useRef<Story | null>(null);
+  useEffect(() => {
+    setRecent([]);
+    storyTurns.current = 0;
+    lastStory.current = null;
+  }, [view, fullscreen, placeKey]);
   useEffect(() => {
     if (!storyStep) return;
-    const turn = `${view}:${step}`;
+    const turn = `${view}:${placeKey ?? ''}:${step}`;
     if (pickedFor.current === turn) return;
     pickedFor.current = turn;
     const pick = rankFor(recent)[0] ?? null;
-    setFeatured(pick);
+    setFeatured({ story: pick, turn: storyTurns.current++ });
+    lastStory.current = pick;
     if (pick) setRecent((r) => [...r, pick.site.key].slice(-8));
-  }, [storyStep, step, view, rankFor, recent]);
+  }, [storyStep, step, view, placeKey, rankFor, recent]);
+  // A journey is chosen when its turn starts. Right after a story, it follows
+  // THAT gauge's water downstream when the gauge stands on a river of the
+  // national network ("where does this water go"); otherwise it is the next
+  // route in a rotation that starts at a different route each hour and
+  // carries on across view changes — the wall no longer opens on the same
+  // river every time.
+  const [turnJourney, setTurnJourney] = useState<{ turn: string; journey: Journey; from: Story['site'] | null } | null>(null);
+  const journeyPickedFor = useRef<string>('');
+  const journeyCursor = useRef<number | null>(null);
+  const journeyTurn = `${view}:${placeKey ?? ''}:${step}`;
+  useEffect(() => {
+    if (!journeyStep || !rivers || !journeys.length) return;
+    if (journeyPickedFor.current === journeyTurn) return;
+    journeyPickedFor.current = journeyTurn;
+    const from = lastStory.current?.site ?? null;
+    lastStory.current = null;
+    let linked = from ? journeyFromSite(rivers, from) : null;
+    if (linked && insidePlace) linked = clipFromStart(linked, rivers, insidePlace);
+    else if (linked && region) linked = clipFromStart(linked, rivers, (p) => inRegion(region, p.component, p.x, p.y));
+    if (linked && from) {
+      setTurnJourney({ turn: journeyTurn, journey: linked, from });
+      return;
+    }
+    if (journeyCursor.current === null) journeyCursor.current = Math.floor(Date.now() / 3_600_000);
+    const next = journeys[journeyCursor.current % journeys.length];
+    journeyCursor.current++;
+    setTurnJourney({ turn: journeyTurn, journey: next, from: null });
+  }, [journeyStep, journeyTurn, journeys, rivers, insidePlace, region]);
+  const journey = journeyStep && turnJourney?.turn === journeyTurn ? turnJourney.journey : null;
+  const journeyFrom = journey ? turnJourney?.from ?? null : null;
   const actMs = journey ? journeyTiming(journey).totalMs : SPOTLIGHT_MS;
   const advances = fullscreen && motion && (journeysOn || storyPool.length > 1);
   useEffect(() => {
@@ -676,9 +813,21 @@ export default function NationalRiverMap() {
     const t = setTimeout(() => setStep((v) => v + 1), actMs);
     return () => clearTimeout(t);
   }, [advances, actMs, step]);
-  const story = storyStep ? featured : null;
+  const story = storyStep ? (featured?.story ?? null) : null;
+  const sequence = story && featured ? { count: Math.min(6, storyPool.length), index: featured.turn % Math.min(6, storyPool.length) } : null;
   const spotlight = story?.site ?? null;
   const spotlightIndex = spotlight ? indexByKey.get(spotlight.key) ?? null : null;
+  // Story mode's card: the journey, the featured event, or — when nothing in
+  // view deserves a story — a calm card that says so with the counts.
+  const calm =
+    fullscreen && wallText === 'story' && dataLive && !hasStories
+      ? calmSummary(view, { flow: shownFlow, flood: noaaOk ? shownFlood : null, change: shownChange, window: changeWindow, place: place?.name ?? null })
+      : null;
+  const storyJourney =
+    journey && !calm
+      ? { kicker: journeyFrom ? `Downstream from ${journeyFrom.name}` : 'Following the river', caption: journeyCaption(journey) }
+      : null;
+  const regionStates = place?.kind === 'state' ? [place.id] : null;
   const act = journey ? 'journey' : spotlight ? 'spot' : 'none';
 
   // Explore leaves room for its panel: beside the map in the side layout
@@ -762,22 +911,23 @@ export default function NationalRiverMap() {
     : '';
 
   const exploreKeys = ' Arrow keys pan, plus and minus zoom, Enter lists the gauges at the centre ring; or use search.';
+  const placePrefix = place ? `${place.name}. ` : '';
   const ariaLabel = fullscreen
-    ? 'Live River Map, fullscreen. Press Tab for controls, Escape to exit.'
+    ? `Live River Map${place ? `, ${place.name}` : ''}, fullscreen. Press Tab for controls, Escape to exit.`
     : view === 'change'
-      ? `Map of how US rivers changed over the ${changeWindow === '6h' ? 'last 6 hours' : 'last 24 hours'}.${
-          changeSummary
-            ? ` ${changeSummary.counts.flood_up} rose in flood category, ${changeSummary.counts.flood_down} fell; ${
-                changeSummary.counts.rising_fast + changeSummary.counts.rising
-              } rising, ${changeSummary.counts.falling_fast + changeSummary.counts.falling} falling.`
+      ? `${placePrefix}Map of how US rivers changed over the ${changeWindow === '6h' ? 'last 6 hours' : 'last 24 hours'}.${
+          shownChange
+            ? ` ${shownChange.counts.flood_up} rose in flood category, ${shownChange.counts.flood_down} fell; ${
+                shownChange.counts.rising_fast + shownChange.counts.rising
+              } rising, ${shownChange.counts.falling_fast + shownChange.counts.falling} falling.`
             : ' Change history is still being recorded.'
         }${exploreKeys}`
       : view === 'flow'
-      ? `Map of US river gauges compared with usual flow for this time of year.${
-          flowSummary ? ` ${flowSummary.bands.much_higher} much higher, ${flowSummary.bands.much_lower} much lower than usual.` : ''
+      ? `${placePrefix}Map of US river gauges compared with usual flow for this time of year.${
+          shownFlow ? ` ${shownFlow.bands.much_higher} much higher, ${shownFlow.bands.much_lower} much lower than usual.` : ''
         }${exploreKeys}`
-      : `Map of official NWS flood status at US river gauges.${
-          floodSummary && noaaOk ? ` ${floodSummary.major} major, ${floodSummary.moderate} moderate, ${floodSummary.minor} minor.` : ''
+      : `${placePrefix}Map of official NWS flood status at US river gauges.${
+          shownFlood && noaaOk ? ` ${shownFlood.major} major, ${shownFlood.moderate} moderate, ${shownFlood.minor} minor.` : ''
         }${exploreKeys}`;
 
   const infoColors: InfoTipColors =
@@ -803,7 +953,8 @@ export default function NationalRiverMap() {
       className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
       data-live={dataLive ? 'true' : 'false'}
       data-act={act}
-      data-region={region ? 'regional' : 'national'}
+      data-region={place ? 'place' : region ? 'regional' : 'national'}
+      data-place={place?.key ?? 'national'}
     >
       <MapStage
         ref={stage}
@@ -830,6 +981,11 @@ export default function NationalRiverMap() {
         onHover={onHover}
         onCameraChange={syncUrl}
         onNeedDetail={loadDetail}
+        home={extent}
+        outside={outside}
+        placePolys={placePolys}
+        trailKeep={trailKeep}
+        riverLabels={fullscreen && !!place}
       />
     </div>
   );
@@ -853,8 +1009,8 @@ export default function NationalRiverMap() {
               view={view}
               onView={(v) => setPrefs({ view: v })}
               palette={palette}
-              flow={flowSummary}
-              flood={floodSummary}
+              flow={shownFlow}
+              flood={shownFlood}
               noaaOk={noaaOk || !frame}
               freshness={freshness}
               searchBox={<SearchBox index={searchIndex} unavailable={!!data.catalogError} onPick={onPick} />}
@@ -867,13 +1023,14 @@ export default function NationalRiverMap() {
               onPickSite={openSite}
               infoColors={infoColors}
               floodTrend={view === 'flooding' ? <TrendStrip points={floodTrend} palette={palette} wall={false} /> : undefined}
+              regionSelect={<RegionSelect place={place} onPlace={setPlaceKey} />}
               changePanel={
                 view === 'change' ? (
                   <ChangePanel
                     windows={windows}
                     window={changeWindow}
                     onWindow={(w) => setPrefs({ changeWindow: w })}
-                    summary={changeSummary}
+                    summary={shownChange}
                     palette={palette}
                     oldest={frameHistory?.oldest ?? null}
                     infoColors={infoColors}
@@ -900,6 +1057,7 @@ export default function NationalRiverMap() {
               onZoomIn={() => stage.current?.zoomBy(1.6)}
               onZoomOut={() => stage.current?.zoomBy(1 / 1.6)}
               onReset={() => stage.current?.fitNational()}
+              resetLabel={place ? `Show all of ${place.name}` : 'Show the whole country'}
               onFullscreen={enterFullscreen}
               appearance={prefs.appearance}
               onAppearance={(a) => setPrefs({ appearance: a })}
@@ -998,16 +1156,37 @@ export default function NationalRiverMap() {
                 journey={journeysOn}
                 strip={legendStrip}
                 changeWindow={changeCtx ? changeWindow : null}
+                place={place?.name ?? null}
               />
               {wallText === 'story' && !legendStrip && view === 'flooding' && <TrendStrip points={floodTrend} palette={palette} wall />}
               {wallText === 'story' && !legendStrip && (
-                <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} palette={palette} />
+                <WallStory
+                  story={story}
+                  journey={storyJourney}
+                  calm={calm}
+                  view={view}
+                  now={now}
+                  palette={palette}
+                  locator={locator}
+                  regionStates={regionStates}
+                  sequence={sequence}
+                />
               )}
             </div>
           )}
           {wallText === 'story' && legendStrip && (
             <div className={styles.wallStoryTop} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
-              <WallStory story={story} journeyCaption={journey ? journeyCaption(journey) : null} view={view} now={now} palette={palette} />
+              <WallStory
+                  story={story}
+                  journey={storyJourney}
+                  calm={calm}
+                  view={view}
+                  now={now}
+                  palette={palette}
+                  locator={locator}
+                  regionStates={regionStates}
+                  sequence={sequence}
+                />
             </div>
           )}
           <div
@@ -1037,6 +1216,16 @@ export default function NationalRiverMap() {
               trayRef={trayRef}
               narrow={narrow}
               status={liveStatus}
+              regionSelect={
+                <RegionSelect
+                  compact
+                  place={place}
+                  onPlace={(k) => {
+                    setPlaceKey(k);
+                    armTray();
+                  }}
+                />
+              }
             />
           </div>
         </>

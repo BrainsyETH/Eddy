@@ -45,8 +45,12 @@ export interface Journey {
   outlet: number;
 }
 
-/** Walk downstream from `start` until an outlet (or a loop, defensively). */
-export function traceDownstream(rivers: DecodedLine[], start: number, maxSteps = 400): Journey {
+/**
+ * Walk downstream from `start` until an outlet (or a loop, defensively).
+ * `startT0` begins part-way along the first line (0–1) — a gauge's position,
+ * for "where does this water go".
+ */
+export function traceDownstream(rivers: DecodedLine[], start: number, maxSteps = 400, startT0 = 0): Journey {
   const upstreamOf = new Map<number, number[]>();
   rivers.forEach((l, i) => {
     if (l.down >= 0) (upstreamOf.get(l.down) ?? upstreamOf.set(l.down, []).get(l.down)!).push(i);
@@ -56,7 +60,7 @@ export function traceDownstream(rivers: DecodedLine[], start: number, maxSteps =
   const names: string[] = [];
   const seen = new Set<number>();
   let cur = start;
-  let t0 = 0;
+  let t0 = Math.max(0, Math.min(1, startT0));
   let from = -1;
   let travelled = 0;
   while (cur >= 0 && cur < rivers.length && !seen.has(cur) && steps.length < maxSteps) {
@@ -125,9 +129,34 @@ export function routePoints(j: Journey, rivers: DecodedLine[]): Array<{ x: numbe
 export function visibleJourneys(
   rivers: DecodedLine[],
   region: Region,
+  opts: { count?: number; minShare?: number; newShare?: number } = {},
+): Journey[] {
+  return clippedJourneys(rivers, (p) => inRegion(region, p.component, p.x, p.y), regionSpan(region), opts);
+}
+
+/** A route vertex, for the "inside" tests below. */
+export interface RoutePoint {
+  x: number;
+  y: number;
+  d: number;
+  step: number;
+  component: MapComponent;
+  /** The river line the vertex is on. */
+  line: number;
+}
+
+/**
+ * Journeys inside an arbitrary place — a view, a state outline, a
+ * water-resources region's rivers: every walk from a headwater, clipped to
+ * its longest stretch where `inside` holds. `span` is the place's size in
+ * frame px (stretches shorter than `minShare` of it are dropped).
+ */
+export function clippedJourneys(
+  rivers: DecodedLine[],
+  inside: (p: RoutePoint) => boolean,
+  span: number,
   { count = 6, minShare = 0.35, newShare = 0.5 }: { count?: number; minShare?: number; newShare?: number } = {},
 ): Journey[] {
-  const span = regionSpan(region);
   if (span <= 0) return [];
   const hasUpstream = new Set(rivers.filter((l) => l.down >= 0).map((l) => l.down));
   const clipped: Array<{ j: Journey; lines: number[] }> = [];
@@ -135,13 +164,13 @@ export function visibleJourneys(
     if (hasUpstream.has(i)) return;
     const full = traceDownstream(rivers, i);
     const pts = routePoints(full, rivers);
-    // Longest contiguous run of vertices inside the region.
+    // Longest contiguous run of vertices inside the place.
     let best: [number, number] | null = null;
     let runStart = -1;
     for (let k = 0; k <= pts.length; k++) {
-      const inside = k < pts.length && inRegion(region, pts[k].component, pts[k].x, pts[k].y);
-      if (inside && runStart < 0) runStart = k;
-      if (!inside && runStart >= 0) {
+      const isIn = k < pts.length && inside({ ...pts[k], line: full.steps[pts[k].step].line });
+      if (isIn && runStart < 0) runStart = k;
+      if (!isIn && runStart >= 0) {
         const a = pts[runStart].d;
         const b = pts[k - 1].d;
         if (!best || b - a > best[1] - best[0]) best = [a, b];
@@ -249,4 +278,73 @@ export function journeyHead(j: Journey, elapsed: number): number {
   const u = Math.max(0, Math.min(1, elapsed / travelMs));
   const eased = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
   return j.start + eased * (j.end - j.start);
+}
+
+/**
+ * "Where does this water go": from a featured gauge, downstream along the
+ * river it stands on, to the outlet. Only when the gauge is plainly ON a
+ * river of the national network — within `near` frame px, or within `named`
+ * px of a line whose name the gauge's own name or river carries. A gauge on
+ * a creek the network does not hold gets no journey (null), never one on a
+ * neighbouring river.
+ */
+export function journeyFromSite(
+  rivers: DecodedLine[],
+  site: { component: MapComponent; x: number; y: number; name: string; waterbody: string | null },
+  { near = 1.2, named = 4, minLength = 25 }: { near?: number; named?: number; minLength?: number } = {},
+): Journey | null {
+  const label = `${site.name} ${site.waterbody ?? ''}`.toLowerCase();
+  let best: { line: number; t: number; d: number } | null = null;
+  rivers.forEach((l, li) => {
+    if (l.component !== site.component || l.length <= 0) return;
+    const nameOk = !!l.name && label.includes(l.name.replace(/ River$/, '').toLowerCase());
+    const limit = nameOk ? named : near;
+    let run = 0;
+    for (let i = 0; i + 3 < l.xy.length; i += 2) {
+      const ax = l.xy[i];
+      const ay = l.xy[i + 1];
+      const bx = l.xy[i + 2];
+      const by = l.xy[i + 3];
+      const seg = Math.hypot(bx - ax, by - ay);
+      const u = seg > 0 ? Math.max(0, Math.min(1, ((site.x - ax) * (bx - ax) + (site.y - ay) * (by - ay)) / (seg * seg))) : 0;
+      const d = Math.hypot(ax + (bx - ax) * u - site.x, ay + (by - ay) * u - site.y);
+      if (d <= limit && (!best || d < best.d)) best = { line: li, t: (run + seg * u) / l.length, d };
+      run += seg;
+    }
+  });
+  if (!best) return null;
+  const { line, t } = best;
+  const j = traceDownstream(rivers, line, 400, t);
+  return j.length >= minLength && j.names.length ? j : null;
+}
+
+/**
+ * The stretch of a journey from its start while `inside` holds — a regional
+ * display follows the water only as far as the region goes. Null when that
+ * is shorter than `minLength` frame px.
+ */
+export function clipFromStart(j: Journey, rivers: DecodedLine[], inside: (p: RoutePoint) => boolean, minLength = 6): Journey | null {
+  const pts = routePoints(j, rivers);
+  let end = j.start;
+  // Steps actually walked while inside: a junction vertex belongs to both
+  // lines, so steps are collected on the walk, not by distance afterwards.
+  const steps = new Set<number>();
+  let prev: RoutePoint | null = null;
+  for (const p of pts) {
+    if (p.d < j.start) continue;
+    const pt = { ...p, line: j.steps[p.step].line };
+    if (!inside(pt)) break;
+    // A step counts once it is travelled along, not merely touched at its first vertex.
+    if (prev && prev.step === p.step) steps.add(p.step);
+    else if (!prev) steps.add(p.step);
+    end = p.d;
+    prev = pt;
+  }
+  if (end - j.start < minLength) return null;
+  const names: string[] = [];
+  for (const k of [...steps].sort((a, b) => a - b)) {
+    const n = rivers[j.steps[k].line].name;
+    if (n && names[names.length - 1] !== n) names.push(n);
+  }
+  return { ...j, end, names: names.length ? names : j.names, tributaries: j.tributaries.filter((t) => t.at >= j.start && t.at <= end) };
 }

@@ -44,6 +44,7 @@ export function WallLegend({
   journey,
   strip,
   changeWindow = null,
+  place = null,
 }: {
   view: MapView;
   palette: MapPalette;
@@ -59,6 +60,8 @@ export function WallLegend({
   strip: boolean;
   /** Change view: the window compared, or null while history is still building. */
   changeWindow?: ChangeWindow | null;
+  /** The place on show ("Missouri"), or null for the whole country. */
+  place?: string | null;
 }) {
   const symbol = (r: Row) => {
     const style = wallStyle(view, r.cls, r.extreme);
@@ -92,6 +95,7 @@ export function WallLegend({
       className={`${styles.wallLegend} ${strip ? styles.wallLegendStrip : ""}`}
       aria-label={`${title} legend`}
     >
+      {place && <p className={styles.wallLegendPlace}>{place}</p>}
       <h2 className={styles.wallLegendTitle}>{title}</h2>
       {change ? (
         changeWindow ? (
@@ -143,7 +147,7 @@ export function WallLegend({
                 <path d="M1 10 C4 3, 8 12, 13 4" fill="none" stroke={palette.journeyGlow} strokeWidth="3.4" strokeLinecap="round" opacity={palette.journeyGlowAlpha} />
                 <path d="M1 10 C4 3, 8 12, 13 4" fill="none" stroke={palette.journeyCore} strokeWidth="1.4" strokeLinecap="round" />
               </svg>
-              <span>Bright line: a river followed to its outlet</span>
+              <span>Bright line: a river followed downstream</span>
             </li>
           )}
         </ul>

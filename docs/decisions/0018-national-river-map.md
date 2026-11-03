@@ -72,8 +72,18 @@ persistent text. Three facts shaped the build:
    spread along a river; on unmeasured tributaries and streams a trail claims
    only the mapped direction. Emphasis effects never sum: a glow behind an
    unusual reading is bounded and overlapping glows take the brightest, so
-   gauge density cannot read as event intensity.
-9. **Separate contracts.** New endpoints (`/api/river-map/frame`,
+   gauge density cannot read as event intensity. Story mode leads with the map's own mark
+   and category; when nothing in view deserves a story it says so with the
+   counts rather than force one. A journey follows a featured gauge's water
+   only when the gauge stands on that river of the national network — never
+   a neighbouring river's.
+9. **Places.** The map can be scoped to a state or a USGS water-resources
+   region (HUC2), with one membership rule for the map, the stories, the
+   counts and the recorder: a USGS gauge belongs to its own state and HUC; an
+   NWS point no gauge claims, to NOAA's state for it and to no region. A
+   place is a scope and a home camera, not a separate map: classes, colours,
+   thresholds and liveness are the national ones.
+10. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.
 

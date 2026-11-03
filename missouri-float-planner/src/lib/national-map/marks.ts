@@ -41,6 +41,8 @@ export interface Site {
   nws: DecodedNwsPoint | null;
   /** NWS flood-category stages from the catalog (NWS stage datum), when published. */
   stages?: FloodStages | null;
+  /** USGS water-resources region ('05' Ohio) from the gauge's HUC; null for NWS-only points. */
+  huc2?: string | null;
 }
 
 /** USGS stations from the catalog, plus NWS points no USGS station claims. */
@@ -69,6 +71,7 @@ export function buildSites(catalog: CatalogStation[], frame: DecodedFrame | null
       reading: frame?.gauges.get(s.siteId) ?? null,
       nws,
       stages: s.stages,
+      huc2: s.huc2 ?? null,
     });
   }
   for (const p of frame?.nws ?? []) {
@@ -83,7 +86,9 @@ export function buildSites(catalog: CatalogStation[], frame: DecodedFrame | null
       siteId: p.usgsSiteId,
       lid: p.lid,
       name: p.name || p.lid,
-      stateCode: null,
+      // NOAA's own state: the region a point no USGS gauge claims belongs to
+      // (the recorder counts it the same way).
+      stateCode: p.state,
       waterbody: null,
       curated: false,
       lng: p.lng,

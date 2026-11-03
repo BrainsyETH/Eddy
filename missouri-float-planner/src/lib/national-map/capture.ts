@@ -54,6 +54,7 @@ export async function captureFrame(supabase: Client, capturedAt = new Date()): P
     latest,
     nws,
     lidToSite: crosswalk(stations),
+    siteRegions: new Map(stations.map((s) => [s.siteId, { state: s.stateCode, huc2: s.huc2 ?? null }])),
     noaaOk,
     noaaObservedIngestAt: observedIngestAt,
     noaaForecastIngestAt: forecastIngestAt,

@@ -15,6 +15,10 @@
   --nm-hairline: var(--color-neutral-200);
   /* Wall legend / story panel: warm parchment (light). */
   --nm-wall-panel: rgba(246, 240, 226, 0.94);
+  /* Story locator: land, the gauge's state, outlines. */
+  --nm-locator-land: rgba(45, 42, 36, 0.12);
+  --nm-locator-here: rgba(31, 101, 116, 0.45);
+  --nm-locator-line: rgba(45, 42, 36, 0.35);
   /* Focus rings inside the map: primary-700 on parchment / white (7–8:1). */
   --nm-focus: var(--color-primary-700);
   --nm-input-border: var(--color-neutral-500);
@@ -63,6 +67,9 @@
   --nm-hairline: #1D525F;
   /* Dark: the deep-teal Eddy panel — parchment would glare on a dark wall. */
   --nm-wall-panel: rgba(12, 37, 44, 0.92);
+  --nm-locator-land: rgba(242, 234, 216, 0.14);
+  --nm-locator-here: rgba(143, 211, 224, 0.5);
+  --nm-locator-line: rgba(242, 234, 216, 0.3);
   background: #0A2128;
 }
 
@@ -175,6 +182,25 @@
 
 .nowrap {
   white-space: nowrap;
+}
+
+/* The place picker: the search field's surface and border. */
+.regionSelect {
+  color: var(--nm-ink);
+  background: var(--nm-surface);
+  border: 1px solid var(--nm-input-border);
+  border-radius: 0.5rem;
+  padding: 0 0.6rem;
+  font-size: 1rem;
+}
+.regionSelect:focus-visible {
+  outline: 2px solid var(--nm-focus);
+  outline-offset: 1px;
+}
+@media (pointer: fine) and (min-width: 768px) {
+  .regionSelect {
+    font-size: 0.875rem;
+  }
 }
 
 .breakAnywhere {
@@ -373,6 +399,12 @@
   border-radius: 0.75em;
   padding: 0.85em 1em 0.75em;
 }
+.wallLegendPlace {
+  margin: 0 0 0.15em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15em;
+}
 .wallStoryTop {
   position: absolute;
   z-index: 30;
@@ -381,15 +413,69 @@
   top: max(0.75em, env(safe-area-inset-top));
   pointer-events: none;
 }
-.wallStoryKicker {
-  display: inline-block;
-  margin: 0 0 0.4em;
-  padding: 0.12em 0.55em;
+.wallStoryLeadKicker {
+  margin: 0 0 0.15em;
+  font-size: 0.84em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nm-ink-2);
+}
+/* The lead: the map's own mark and the category, at title size. */
+.wallStoryStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0 0 0.35em;
+  font-family: var(--font-display);
+  font-size: 1.32em;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.wallStoryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+.wallStoryLocator {
+  flex-shrink: 0;
+  width: 4.8em;
+  height: 3.1em;
+}
+.wallStoryStanding {
+  margin: 0.45em 0 0;
+}
+.wallStoryStanding strong {
+  font-size: 1.15em;
+}
+.wallStoryFoot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+.wallStoryDots {
+  display: inline-flex;
+  gap: 0.32em;
+}
+.wallStoryDots span {
+  width: 0.45em;
+  height: 0.45em;
   border-radius: 999px;
-  font-size: 0.82em;
-  font-weight: 600;
-  color: var(--nm-surface);
-  background: var(--nm-edge);
+  background: var(--nm-ink-2);
+  opacity: 0.35;
+}
+.wallStoryDots span[data-on] {
+  background: var(--nm-ink);
+  opacity: 1;
+}
+.wallStoryBands {
+  display: flex;
+  height: 0.7em;
+  margin: 0.6em 0 0;
+  border-radius: 0.2em;
+  overflow: hidden;
 }
 .wallStoryTitle {
   font-family: var(--font-display);
@@ -412,7 +498,7 @@
 .wallStoryChart svg {
   display: block;
   width: 100%;
-  height: 4.4em;
+  height: auto;
 }
 .wallStoryChart figcaption {
   display: flex;

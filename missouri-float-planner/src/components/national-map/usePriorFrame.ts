@@ -73,24 +73,25 @@ export function useFrameHistory(enabled: boolean, capturedAt: number | null): { 
 }
 
 /**
- * The national flooding trend (the frame route's `?trend=1`): one point per
- * hour over the last 24 h of recorded frames, refreshed with each new frame.
+ * The flooding trend (the frame route's `?trend=1`, nationally or for a
+ * region): one point per hour over the last 24 h of recorded frames,
+ * refreshed with each new frame.
  * Null while loading or when the route cannot answer — never an empty trend.
  */
-export function useFloodTrend(enabled: boolean, capturedAt: number | null): TrendPoint[] | null {
+export function useFloodTrend(enabled: boolean, capturedAt: number | null, region: string | null = null): TrendPoint[] | null {
   const [state, setState] = useState<{ key: string; points: TrendPoint[] | null } | null>(null);
-  const key = enabled ? String(capturedAt ?? '') : '';
+  const key = enabled ? `${capturedAt ?? ''}|${region ?? ''}` : '';
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    fetch('/api/river-map/frame?trend=1', { signal: controller.signal })
+    fetch(`/api/river-map/frame?trend=1${region ? `&region=${encodeURIComponent(region)}` : ''}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((body: { points?: unknown } | null) => setState({ key, points: parseTrend(body?.points) }))
       .catch(() => {
         if (!controller.signal.aborted) setState({ key, points: null });
       });
     return () => controller.abort();
-  }, [enabled, key]);
+  }, [enabled, key, region]);
   return state && state.key === key ? state.points : null;
 }
 

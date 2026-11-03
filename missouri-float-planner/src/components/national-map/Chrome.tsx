@@ -15,6 +15,7 @@ import { floodStyle, flowStyle, classifyFlood, classifyFlow, type FloodSummary, 
 import type { Appearance, FlowColors, WallText } from '@/lib/national-map/prefs';
 import { search, type SearchIndex, type SearchResult } from '@/lib/national-map/search';
 import type { MapPalette } from '@/lib/national-map/theme';
+import { placeOptions, type Place } from '@/lib/national-map/places';
 import { ChangeLegend, FloodLegend, FlowLegend, formatAge, formatTime, MarkSymbol } from './Legend';
 import { thresholdNote, WINDOW_MIN_SHARE, WINDOW_MS, type ChangeSummary, type ChangeWindow } from '@/lib/national-map/change';
 import styles from './national-map.module.css';
@@ -178,6 +179,7 @@ export function ExplorePanel({
   infoColors,
   changePanel,
   floodTrend,
+  regionSelect,
 }: {
   view: MapView;
   onView: (v: MapView) => void;
@@ -202,6 +204,8 @@ export function ExplorePanel({
   changePanel?: ReactNode;
   /** The Flooding view's 24 h national trend, built by the parent. */
   floodTrend?: ReactNode;
+  /** The place picker (whole country, a state, a water-resources region). */
+  regionSelect?: ReactNode;
 }) {
   const [legendOpen, setLegendOpen] = useState(!compact && !short);
   useEffect(() => setLegendOpen(!compact && !short), [compact, short]);
@@ -229,6 +233,7 @@ export function ExplorePanel({
             <p className="text-sm leading-snug">{VIEW_QUESTION[view]}</p>
           </>
         )}
+        {regionSelect}
         {searchBox}
         {compact && freshness}
       </div>
@@ -448,9 +453,12 @@ export function MapControls({
   flowColors,
   onFlowColors,
   horizontal = false,
+  resetLabel = 'Show the whole country',
   fullscreenRef,
 }: {
   horizontal?: boolean;
+  /** The reset button's name: the whole country, or all of the place on show. */
+  resetLabel?: string;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
@@ -485,7 +493,7 @@ export function MapControls({
         <Button variant="icon" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
           <Minus size={18} aria-hidden />
         </Button>
-        <Button variant="icon" aria-label="Show the whole country" title="Show the whole country" onClick={onReset}>
+        <Button variant="icon" aria-label={resetLabel} title={resetLabel} onClick={onReset}>
           <MapIcon size={18} aria-hidden />
         </Button>
         <Button ref={fullscreenRef} variant="icon" aria-label="Fullscreen map" title="Fullscreen map" onClick={onFullscreen}>
@@ -580,6 +588,7 @@ export function FullscreenTray({
   trayRef,
   narrow,
   status,
+  regionSelect,
 }: {
   open: boolean;
   view: MapView;
@@ -597,6 +606,8 @@ export function FullscreenTray({
   narrow: boolean;
   /** Why the selected view is not live, or null. Shown only once the tray is open. */
   status: string | null;
+  /** The place picker, on its own row. */
+  regionSelect?: ReactNode;
 }) {
   const reducedId = useId();
   const paused = !motion || reducedMotion;
@@ -618,6 +629,7 @@ export function FullscreenTray({
           {status}
         </p>
       )}
+      {regionSelect}
       <div className="flex flex-nowrap items-center gap-2">
       <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} size={narrow ? 'sm' : 'md'} aria-label="Map view" />
       <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} size={narrow ? 'sm' : 'md'} aria-label="Fullscreen shows" />
@@ -730,6 +742,48 @@ export function HoverTip({ site, x, y, text, boundsWidth }: { site: Site; x: num
     >
       <p className={`text-xs font-bold leading-snug ${styles.breakAnywhere}`}>{site.name}</p>
       <p className="text-xs">{text}</p>
+    </div>
+  );
+}
+
+// ── Place picker ────────────────────────────────────────────────────────────
+
+const PLACES = placeOptions();
+
+/**
+ * Whole country, a state, or a USGS water-resources region. A native select:
+ * one keyboard stop, the platform's own list on phones, and screen readers
+ * announce the groups.
+ */
+export function RegionSelect({ place, onPlace, compact = false }: { place: Place | null; onPlace: (key: string | null) => void; compact?: boolean }) {
+  const id = useId();
+  return (
+    <div className={compact ? 'flex items-center gap-2 px-1' : 'flex flex-col gap-1'}>
+      <label htmlFor={id} className={compact ? 'text-sm font-semibold' : 'text-xs font-semibold'}>
+        {compact ? 'Showing' : 'Area'}
+      </label>
+      <select
+        id={id}
+        value={place?.key ?? ''}
+        onChange={(e) => onPlace(e.target.value || null)}
+        className={`${styles.regionSelect} min-h-11 w-full`}
+      >
+        <option value="">Whole country</option>
+        <optgroup label="States">
+          {PLACES.states.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Water-resources regions (USGS)">
+          {PLACES.basins.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.name}
+            </option>
+          ))}
+        </optgroup>
+      </select>
     </div>
   );
 }

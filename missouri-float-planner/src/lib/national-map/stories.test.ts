@@ -3,7 +3,7 @@ import test from 'node:test';
 import type { CatalogStation } from './catalog';
 import { buildFrame, decodeFrame, type LatestInput, type NwsInput } from './frame';
 import { buildSites, type Site } from './marks';
-import { chartStages, rankStories, seriesDevelopment, storyHeadline, storyObservation, type SeriesPoint } from './stories';
+import { calmSummary, chartStages, rankStories, seriesDevelopment, storyDetails, storyLead, storyStanding, type SeriesPoint } from './stories';
 
 const NOW = Date.parse('2026-11-02T12:00:00Z');
 const H = 3_600_000;
@@ -35,7 +35,8 @@ test('a new flood-category crossing outranks an unchanged, more severe gauge', (
   const now = capture(NOW, [['10000001', -110, 34, 'major', 20], ['10000002', -90, 38, 'minor', 6]]);
   const ranked = rankStories({ sites: now, prior: { sites: byKey(before), capturedAt: PRIOR }, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
   assert.equal(ranked[0].site.siteId, '10000002');
-  assert.equal(storyHeadline(ranked[0], null), 'Now in minor flooding');
+  assert.equal(storyLead(ranked[0], null, 'flooding').kicker, 'Now in');
+  assert.equal(storyLead(ranked[0], null, 'flooding').status, 'Minor flooding');
   assert.equal(ranked[1].site.siteId, '10000001', 'the unchanged major flood is still a story, just not first');
 });
 
@@ -53,24 +54,24 @@ test('nearby gauges describing the same development are one story', () => {
   const ranked = rankStories({ sites: capture(NOW, gauges), prior: null, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
   assert.equal(ranked.length, 2, 'five clustered gauges fold into one story, plus the distant one');
   assert.equal(ranked[0].nearby, 4);
-  assert.match(storyObservation(ranked[0], 'flooding'), /Major flooding · 4 nearby gauges too/);
+  assert.deepEqual(storyDetails(ranked[0]), ['4 nearby gauges too']);
 });
 
 test('back below flood stage comes only from the NWS categories in both frames', () => {
   const before = capture(PRIOR, [['10000003', -95, 36, 'moderate', 14]]);
   const now = capture(NOW, [['10000003', -95, 36, 'action', 9]]);
   const [s] = rankStories({ sites: now, prior: { sites: byKey(before), capturedAt: PRIOR }, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
-  assert.equal(storyHeadline(s, null), 'Back below flood stage');
+  assert.equal(storyLead(s, null, 'flooding').kicker, 'Back below flood stage');
   // Without a prior frame there is no claim of recovery.
   const [plain] = rankStories({ sites: now, prior: null, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
-  assert.equal(storyHeadline(plain, null), null);
+  assert.equal(storyLead(plain, null, 'flooding').kicker, null);
 });
 
 test('a measured stage change between frames is reported with its size and span', () => {
   const before = capture(PRIOR, [['10000004', -95, 36, 'minor', 10]]);
   const now = capture(NOW, [['10000004', -95, 36, 'minor', 11.3]]);
   const [s] = rankStories({ sites: now, prior: { sites: byKey(before), capturedAt: PRIOR }, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
-  assert.equal(storyObservation(s, 'flooding'), 'Minor flooding · up 1.3 ft in 6 h');
+  assert.deepEqual(storyDetails(s), ['Up 1.3 ft in 6 h']);
 });
 
 const series = (vals: number[], hours = 24): SeriesPoint[] => vals.map((v, i) => ({ t: NOW - hours * H + (i * hours * H) / (vals.length - 1), v }));
@@ -90,4 +91,41 @@ test('NWS flood stages join the USGS chart only when both measure on the same da
   assert.equal(chartStages({ ...offset, stages }), null, 'lines would sit at the wrong height');
   assert.equal(chartStages({ ...same, stages: null }), null);
   assert.equal(chartStages({ ...same, nws: null, stages }), null);
+});
+
+test('the card leads with the map\'s own mark and words; the development sits above it', () => {
+  const before = capture(PRIOR, [['10000011', -90, 38, 'no_flooding', 3]]);
+  const now = capture(NOW, [['10000011', -90, 38, 'moderate', 6]]);
+  const [s] = rankStories({ sites: now, prior: { sites: byKey(before), capturedAt: PRIOR }, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
+  const lead = storyLead(s, null, 'flooding');
+  assert.equal(lead.kicker, 'Now in');
+  assert.equal(lead.status, 'Moderate flooding');
+  assert.equal(lead.style?.shape, 'diamond', 'the moderate-flood mark, as on the map and legend');
+  assert.equal(lead.style?.color, 'flood.moderate');
+  assert.deepEqual(storyDetails(s), [], 'the status is not repeated below');
+  // A series development leads when there is no category change.
+  const [plain] = rankStories({ sites: now, prior: null, view: 'flooding', clock: NOW, noaaOk: true, recent: [] });
+  assert.equal(storyLead(plain, 'rising', 'flooding').kicker, 'Still rising');
+  assert.equal(storyLead(plain, null, 'flooding').kicker, null);
+});
+
+test('the reading stands against flood stage only where the datums agree and NWS agrees', () => {
+  const stages = { action: 2, flood: 2.5, moderate: 4, major: 6 };
+  const [g] = capture(NOW, [['10000012', -95, 36, 'minor', 3.2]]); // NWS 3 ft, USGS 3.2 ft: same datum
+  assert.deepEqual(storyStanding({ ...g, stages }, 'flooding', 'minor'), { value: '3.2 ft', relation: '0.7 ft above flood stage (2.5 ft)' });
+  // NWS says below flood stage while the stored threshold says above: say nothing about it.
+  assert.deepEqual(storyStanding({ ...g, stages }, 'flooding', 'below'), { value: '3.2 ft', relation: null });
+  assert.deepEqual(storyStanding({ ...g, stages: null }, 'flooding', 'minor'), { value: '3.2 ft', relation: null });
+});
+
+test('a calm place says so with its counts, never a forced event', () => {
+  const flood = { nwsPoints: 40, assessed: 30, major: 0, moderate: 0, minor: 0, action: 0, noThreshold: 5, notCurrent: 5 };
+  const calm = calmSummary('flooding', { flow: null, flood, change: null, window: null, place: 'Missouri' });
+  assert.equal(calm?.title, 'No flooding in Missouri');
+  assert.match(calm!.lines[0], /All 30 NWS forecast points/);
+  assert.equal(calmSummary('flooding', { flow: null, flood: { ...flood, minor: 1 }, change: null, window: null, place: null }), null, 'flooding is a story, not calm');
+  const flow = { stations: 100, live: 90, compared: 80, bands: { much_lower: 0, lower: 10, normal: 60, higher: 10, much_higher: 0 }, noComparison: 10, stale: 10, dormant: 0, extremeHigh: 0 };
+  const f = calmSummary('flow', { flow, flood: null, change: null, window: null, place: null });
+  assert.equal(f?.title, 'Rivers near usual for the date');
+  assert.equal(f?.bands?.find((b) => b.key === 'normal')?.share, 0.75);
 });

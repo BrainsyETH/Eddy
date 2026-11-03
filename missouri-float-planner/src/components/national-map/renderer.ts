@@ -58,6 +58,8 @@ interface LaidPaths {
   rivers: Map<number, Path2D>;
   detail: Map<number, Path2D>;
   labels: Array<{ code: string; x: number; y: number }>;
+  /** Named base rivers in layout space, for river labels at regional scale. */
+  named: Array<{ name: string; xy: Float32Array }>;
 }
 
 function ringPath(path: Path2D, ring: Float32Array, layout: Layout, poly: DecodedPolygon) {
@@ -121,13 +123,25 @@ function buildPaths(base: DecodedGeometry, detail: DecodedGeometry | null, layou
     linePath(p, line, layout);
     rivers.set(line.order, p);
   }
+  const named: LaidPaths['named'] = [];
+  for (const line of base.rivers) {
+    if (!line.name) continue;
+    const a = layout.affine[line.component];
+    const xy = new Float32Array(line.xy.length);
+    for (let i = 0; i + 1 < line.xy.length; i += 2) {
+      const [x, y] = applyAffine(a, line.xy[i], line.xy[i + 1]);
+      xy[i] = x;
+      xy[i + 1] = y;
+    }
+    named.push({ name: line.name, xy });
+  }
   const detailPaths = new Map<number, Path2D>();
   for (const line of detail?.rivers ?? []) {
     const p = detailPaths.get(line.order) ?? new Path2D();
     linePath(p, line, layout);
     detailPaths.set(line.order, p);
   }
-  return { land, lakes, rivers, detail: detailPaths, labels };
+  return { land, lakes, rivers, detail: detailPaths, labels, named };
 }
 
 interface Sprite {
@@ -207,6 +221,13 @@ export class NationalRenderer {
   private readonly glowA: HTMLCanvasElement;
   private readonly glowB: HTMLCanvasElement;
   private readonly glowSprites = new Map<string, Sprite>();
+  /** A scoped place: everything outside its outline is veiled (state mode). */
+  private readonly maskCanvas: HTMLCanvasElement;
+  private placePolys: DecodedPolygon[] | null = null;
+  /** Trails only on these river lines (a water-resources region), or every line. */
+  private trailKeep: { base: Uint8Array | null; detail: Uint8Array | null } | null = null;
+  /** River names at regional scale (Explore when zoomed in; a scoped wall). */
+  private riverLabels = false;
   private readonly trails: RiverTrails;
   private readonly marksA: HTMLCanvasElement;
   private readonly marksB: HTMLCanvasElement;
@@ -287,6 +308,9 @@ export class NationalRenderer {
       c.style.display = 'none';
     }
     this.glowB.style.opacity = '0';
+    // The place mask sits above everything drawn: outside a scoped state the
+    // geography, trails, glows and marks all recede together.
+    this.maskCanvas = make(6);
     this.front = this.marksA;
     for (const c of [this.marksA, this.marksB, this.glowA, this.glowB]) {
       c.style.transition = 'opacity var(--duration-slower) var(--ease-default)';
@@ -319,7 +343,7 @@ export class NationalRenderer {
   }
 
   private canvases(): HTMLCanvasElement[] {
-    return [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas, this.glowA, this.glowB];
+    return [this.base, this.fx, this.marksA, this.marksB, this.trailsCanvas, this.glowA, this.glowB, this.maskCanvas];
   }
 
   setPalette(p: MapPalette) {
@@ -343,7 +367,9 @@ export class NationalRenderer {
 
   private rebuildPaths() {
     this.paths = this.geometry && this.layout ? buildPaths(this.geometry, this.detail, this.layout) : null;
-    this.trails.setNetwork(this.geometry?.rivers ?? null, this.detail?.rivers ?? null, this.layout);
+    const keep = (lines: DecodedLine[] | undefined, mask: Uint8Array | null | undefined) =>
+      lines && mask ? lines.filter((_, i) => mask[i]) : (lines ?? null);
+    this.trails.setNetwork(keep(this.geometry?.rivers, this.trailKeep?.base), keep(this.detail?.rivers, this.trailKeep?.detail), this.layout);
     this.layJourney();
     this.dirtyBase = true;
     this.request();
@@ -361,7 +387,7 @@ export class NationalRenderer {
       const dx = cam.tx - this.drawn.tx * k;
       const dy = cam.ty - this.drawn.ty * k;
       const t = `matrix(${k}, 0, 0, ${k}, ${dx}, ${dy})`;
-      for (const c of [this.base, this.marksA, this.marksB, this.glowA, this.glowB]) {
+      for (const c of [this.base, this.marksA, this.marksB, this.glowA, this.glowB, this.maskCanvas]) {
         c.style.transformOrigin = '0 0';
         c.style.transform = t;
       }
@@ -383,7 +409,7 @@ export class NationalRenderer {
       clearTimeout(this.settleTimer);
       this.settleTimer = null;
     }
-    for (const c of [this.base, this.marksA, this.marksB, this.glowA, this.glowB]) c.style.transform = '';
+    for (const c of [this.base, this.marksA, this.marksB, this.glowA, this.glowB, this.maskCanvas]) c.style.transform = '';
   }
 
   /** New marks. `fade` cross-fades (a new frame); otherwise draw in place (view change). */
@@ -414,6 +440,26 @@ export class NationalRenderer {
     }
     this.featured = featured;
     this.dirtyMarks = true;
+    this.request();
+  }
+
+  /** Veil everything outside these outlines (a scoped state); null removes the veil. */
+  setPlaceMask(polys: DecodedPolygon[] | null) {
+    this.placePolys = polys && polys.length ? polys : null;
+    this.dirtyBase = true;
+    this.request();
+  }
+
+  /** Trails only on the kept lines (by index into base / detail rivers); null for every line. */
+  setTrailFilter(keep: { base: Uint8Array | null; detail: Uint8Array | null } | null) {
+    this.trailKeep = keep;
+    this.rebuildPaths();
+  }
+
+  setRiverLabels(show: boolean) {
+    if (show === this.riverLabels) return;
+    this.riverLabels = show;
+    this.dirtyBase = true;
     this.request();
   }
 
@@ -580,6 +626,81 @@ export class NationalRenderer {
         g.fillText(l.code, sx, sy);
       }
     }
+    if ((this.riverLabels || this.showLabels) && z >= 2.2) this.drawRiverLabels(g, paths);
+    this.drawMask();
+  }
+
+  /**
+   * River names at regional scale: one label per name, on the longest stretch
+   * of that river on screen, horizontal, never over another label.
+   */
+  private drawRiverLabels(g: CanvasRenderingContext2D, paths: LaidPaths) {
+    const p = this.palette;
+    const { scale, tx, ty } = this.camera;
+    const w = this.vp.width;
+    const h = this.vp.height;
+    const best = new Map<string, { len: number; x: number; y: number }>();
+    for (const l of paths.named) {
+      let len = 0;
+      const on: Array<[number, number]> = [];
+      for (let i = 0; i + 1 < l.xy.length; i += 2) {
+        const sx = l.xy[i] * scale + tx;
+        const sy = l.xy[i + 1] * scale + ty;
+        if (sx < 30 || sy < 20 || sx > w - 30 || sy > h - 20) continue;
+        if (on.length) len += Math.hypot(sx - on[on.length - 1][0], sy - on[on.length - 1][1]);
+        on.push([sx, sy]);
+      }
+      if (on.length < 3 || len < 80) continue;
+      const [x, y] = on[Math.floor(on.length / 2)];
+      const name = l.name.replace(/ River$/, '');
+      const prev = best.get(name);
+      if (!prev || len > prev.len) best.set(name, { len, x, y });
+    }
+    const size = Math.round(11.5 * Math.max(1, Math.min(1.8, this.screenScale())));
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.font = `italic 600 ${size}px ${this.labelFont.replace(/^600 \d+px /, '')}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineWidth = 3;
+    g.strokeStyle = p.labelHalo;
+    g.fillStyle = p.river;
+    const placed: Array<[number, number, number, number]> = [];
+    const sorted = [...best].sort((a, b) => b[1].len - a[1].len).slice(0, 14);
+    for (const [name, at] of sorted) {
+      const tw = g.measureText(name).width;
+      const box: [number, number, number, number] = [at.x - tw / 2 - 4, at.y - size - 4, at.x + tw / 2 + 4, at.y + 4];
+      if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+      placed.push(box);
+      g.strokeText(name, at.x, at.y - size * 0.6);
+      g.fillText(name, at.x, at.y - size * 0.6);
+    }
+  }
+
+  /** The place veil: background over everything outside the scoped state, and its outline. */
+  private drawMask() {
+    const c = this.maskCanvas;
+    const g = c.getContext('2d')!;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, c.width, c.height);
+    if (!this.placePolys || !this.layout) return;
+    const p = this.palette;
+    // Strong enough to read on the dark wall, where land and background are
+    // close; the place's own geography and marks stay untouched.
+    g.globalAlpha = 0.72;
+    g.fillStyle = p.background;
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalAlpha = 1;
+    const s = this.camera.scale * this.dpr;
+    g.setTransform(s, 0, 0, s, this.camera.tx * this.dpr, this.camera.ty * this.dpr);
+    const shape = new Path2D();
+    for (const poly of this.placePolys) for (const ring of poly.rings) ringPath(shape, ring, this.layout, poly);
+    g.globalCompositeOperation = 'destination-out';
+    g.fill(shape, 'evenodd');
+    g.globalCompositeOperation = 'source-over';
+    g.lineJoin = 'round';
+    g.strokeStyle = p.coast;
+    g.lineWidth = (this.wall ? 2.6 : 2) / this.camera.scale;
+    g.stroke(shape);
   }
 
   /** Room-distance factor: phones 0.6, a 760 px screen 1, a TV up to 2.2. */

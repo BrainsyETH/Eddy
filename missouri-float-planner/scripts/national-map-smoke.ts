@@ -219,7 +219,7 @@ async function main() {
     console.log('PASS explore draws geography, marks and motion');
 
     // ── 2. Search opens a station's details ─────────────────────────────
-    const searchBox = page.getByRole('combobox');
+    const searchBox = page.getByRole('combobox', { name: /search/i });
     await searchBox.fill('07019000');
     await page.keyboard.press('Enter');
     await page.getByRole('region', { name: 'Details for Meramec River near Eureka, MO' }).waitFor();
@@ -373,6 +373,45 @@ async function main() {
     await st.close();
     console.log('PASS Story mode features one event beside the legend and the national flooding trend');
 
+    // ── 4b'''. Story mode opens on its story; a place scopes the map ────
+    // Motion on: Story mode must open on the featured event (it once spent
+    // its first turn on the same long river every time), not a journey.
+    const sf = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await sf.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: true, wallText: 'story' })));
+    await intercept(sf, 5 * 60_000);
+    await sf.goto(target, { waitUntil: 'domcontentloaded' });
+    await sf.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await sf.getByRole('button', { name: 'Fullscreen map' }).click();
+    await sf.locator('[data-presentation="story"]').waitFor({ timeout: 15_000 });
+    await sf.locator('[data-act="spot"]').waitFor({ timeout: 15_000 });
+    const lead = await sf.getByRole('region', { name: 'Featured event' }).innerText();
+    assert.match(lead, /Major flooding[\s\S]*Meramec River near Eureka, MO/, `the card leads with the category, then the gauge (${lead})`);
+    await sf.close();
+
+    // A state from the share link: the map, legend, counts and card are Alaska's.
+    const pl = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pl.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
+    await intercept(pl, 5 * 60_000);
+    await pl.goto(`${target}?region=AK`, { waitUntil: 'domcontentloaded' });
+    await pl.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await pl.locator('[data-place="AK"]').waitFor({ timeout: 15_000 }).catch(async () => {
+      throw new Error(`no place applied: ${JSON.stringify(await pl.evaluate(() => [location.search, document.querySelector('[data-place]')?.getAttribute('data-place'), document.querySelector('select')?.value]))}`);
+    });
+    assert.equal(await pl.getByLabel('Area').inputValue(), 'AK', 'the picker shows the place');
+    assert.ok(await pl.getByRole('button', { name: 'Show all of Alaska' }).isVisible(), 'reset returns to the place');
+    const counts = (await visibleText(pl)).join(' ');
+    assert.ok(!/1 of \d+ NWS forecast points/.test(counts), `the Meramec flood is not counted in Alaska (${counts.slice(0, 200)})`);
+    // The picker changes the place and the share link.
+    await pl.getByLabel('Area').selectOption('HI');
+    await pl.locator('[data-place="HI"]').waitFor();
+    await pl.waitForFunction(() => location.search.includes('region=HI'), null, { timeout: 10_000 });
+    await pl.getByRole('button', { name: 'Fullscreen map' }).click();
+    await pl.locator('[data-presentation="story"]').waitFor({ timeout: 15_000 });
+    assert.ok((await visibleText(pl)).join(' ').includes('Hawaii'), 'the wall legend names the place');
+    await pl.screenshot({ path: `${OUT_DIR}/national-place-hawaii.png` });
+    await pl.close();
+    console.log('PASS Story mode opens on its story; a share link or the picker scopes the map to a place');
+
     // ── 4b''. Change: what moved since a recorded frame a window back ───
     // History reaches 26 h back (meta), the 24 h baseline has the Meramec
     // below flood stage and discharges scaled; then a young history (2 h)
@@ -459,7 +498,7 @@ async function main() {
     await intercept(phone, 5 * 60_000);
     await phone.goto(target, { waitUntil: 'domcontentloaded' });
     await phone.getByRole('heading', { name: 'Live River Map' }).waitFor({ timeout: 120_000 });
-    await phone.getByRole('combobox').waitFor({ state: 'visible' });
+    await phone.getByRole('combobox', { name: /search/i }).waitFor({ state: 'visible' });
     await phone.waitForFunction(() => !(document.querySelector('input[role="combobox"]') as HTMLInputElement | null)?.disabled, null, { timeout: 60_000 });
     await phone.getByRole('button', { name: 'Fullscreen map' }).tap();
     try {
