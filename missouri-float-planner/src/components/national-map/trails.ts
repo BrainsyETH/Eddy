@@ -3,12 +3,24 @@
 // the river lines themselves, never to the space between them.
 //
 // What the motion means (and does not):
-//   * DIRECTION ONLY. Particles travel each line in its digitized downstream
-//     direction at a constant on-screen pace per river class (trunk fastest,
-//     regional slowest). No speed is a measured velocity and no reading is
-//     spread along a river (ADR 0018) — this is the same claim the dashed
-//     traces made, drawn more legibly.
-//   * Density follows river size, so the big rivers carry the most light.
+//   * MAPPED DOWNSTREAM DIRECTION ONLY. Particles travel each line in its
+//     digitized downstream direction at a constant on-screen pace per class.
+//     No speed is a measured velocity, no reading is spread along a river, and
+//     a moving trail does not claim a stream is carrying water now (ADR 0018).
+//     Measurements stay on the gauges.
+//   * A hierarchy, so the network reads at a glance: trunk rivers carry the
+//     most light, then major rivers, then regional ones; tributaries (order 4)
+//     and selected small streams (order 3) are thinner, fainter and sparser.
+//
+// Budget. Particles go to channels ON SCREEN, at a steady density per screen
+// pixel of channel (so zooming in fills the view instead of thinning out), and
+// classes are served in priority order — the big rivers always get their
+// share first; streams take what is left of the cap.
+//
+// Small streams nationally: order 3 is ~1,600 lines in the lower 48 alone —
+// equal treatment would turn the East into a tangle — so at the national
+// scale only lines chosen by length and spacing run (one per grid cell,
+// longest first). Zoomed in, where those lines are drawn, all of them run.
 //
 // Mechanics: the trails canvas is never fully cleared while running; each
 // frame fades it a little (destination-out) and every particle strokes the
@@ -18,29 +30,78 @@
 import type { DecodedLine } from '@/lib/national-map/geometry';
 import { applyAffine, type Layout } from '@/lib/national-map/projection';
 
-/** Per river class: particles per frame-px of line, on-screen pace (CSS px/s at the 760 px reference), width, alpha. */
-export const TRAIL_CLASSES = [
-  { order: 5, density: 1 / 34, speed: 26, width: 0.9, alpha: 0.6, minZoom: 2 },
-  { order: 6, density: 1 / 26, speed: 36, width: 1.15, alpha: 0.75, minZoom: 0 },
-  { order: 7, density: 1 / 18, speed: 46, width: 1.5, alpha: 0.9, minZoom: 0 },
-] as const;
-/** A cap so a 4K wall never runs more than this many particles. */
-const MAX_PARTICLES = 3200;
-/** Share of the trail removed each frame: lower = longer trails. */
+type Source = 'base' | 'detail';
+
+export interface TrailClass {
+  key: string;
+  source: Source;
+  /** Which lines of the source belong to the class. */
+  has: (l: DecodedLine) => boolean;
+  /** Particles per frame px of channel at the national fit (zoomed in: per frame px × zoom, i.e. steady on screen). */
+  density: number;
+  /** On-screen pace, CSS px/s at the 760 px reference. */
+  speed: number;
+  width: number;
+  alpha: number;
+  /** Explore runs the class from this zoom; the wall runs it at the national fit. */
+  minZoom: number;
+  /** Below this zoom only the spacing-selected lines run (small streams). */
+  allFromZoom?: number;
+  /** Uses the stream ink (palette.traceStream) instead of the river trace. */
+  stream?: boolean;
+}
+
+/** In priority order: the cap is served top to bottom. */
+export const TRAIL_CLASSES: TrailClass[] = [
+  { key: 'trunk', source: 'base', has: (l) => l.component !== 'hi' && l.order >= 7, density: 1 / 18, speed: 46, width: 1.5, alpha: 0.9, minZoom: 0 },
+  { key: 'major', source: 'base', has: (l) => l.component !== 'hi' && l.order === 6, density: 1 / 26, speed: 36, width: 1.15, alpha: 0.75, minZoom: 0 },
+  { key: 'regional', source: 'base', has: (l) => l.component !== 'hi' && l.order === 5, density: 1 / 34, speed: 26, width: 0.9, alpha: 0.6, minZoom: 2 },
+  // Hawaii's streams are short (its base lines are orders 2–3): its own class,
+  // so the islands move with the rest of the country.
+  { key: 'hawaii', source: 'base', has: (l) => l.component === 'hi', density: 1 / 30, speed: 22, width: 0.85, alpha: 0.6, minZoom: 0 },
+  { key: 'tributary', source: 'detail', has: (l) => l.component !== 'hi' && l.order === 4, density: 1 / 46, speed: 21, width: 0.7, alpha: 0.5, minZoom: 0, stream: true },
+  {
+    key: 'stream', source: 'detail', has: (l) => l.component !== 'hi' && l.order === 3,
+    density: 1 / 60, speed: 17, width: 0.55, alpha: 0.42, minZoom: 0, allFromZoom: 2.2, stream: true,
+  },
+];
+
+/** The cap: a 4K wall never runs more than this many particles. */
+export const MAX_PARTICLES = 4200;
+/**
+ * Share of the trail removed each frame: lower = longer trails. (8-bit
+ * rounding leaves crossed pixels at alpha 1/255 — measured, 2026-11-02 —
+ * which is invisible, so no clean-up pass is needed.)
+ */
 const FADE = 0.09;
+/** Small-stream selection at the national scale: grid cell, frame px (~960 wide frame). */
+const STREAM_CELL = 22;
+/** …and the shortest small stream worth a trail there, frame px. */
+const STREAM_MIN_LENGTH = 9;
 
 interface Line {
   xy: Float32Array; // layout space
   cum: Float32Array; // cumulative length at each vertex
   length: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  /** Runs at the national scale (always true outside the small-stream class). */
+  selected: boolean;
 }
 
 interface ClassState {
   lines: Line[];
-  /** Prefix sums of line lengths, for length-weighted spawning. */
+  /** Lines eligible this view (visible, and selected where that applies). */
+  live: Int32Array;
+  liveCount: number;
+  /** Prefix sums of eligible line lengths, for length-weighted spawning. */
   prefix: Float64Array;
-  total: number;
+  liveLength: number;
+  /** Particles allocated to the class, and how many run this view. */
   count: number;
+  active: number;
   line: Int32Array;
   seg: Int32Array;
   s: Float32Array;
@@ -48,6 +109,40 @@ interface ClassState {
   px: Float32Array;
   py: Float32Array;
   fresh: Uint8Array;
+}
+
+/** Channel length (frame px × zoom, i.e. relative screen length) → particles wanted. */
+export function wantedParticles(length: number, density: number): number {
+  return Math.max(0, Math.round(length * density));
+}
+
+/** Serve classes in priority order until the cap runs out. */
+export function allocate(wants: number[], cap: number): number[] {
+  let left = cap;
+  return wants.map((w) => {
+    const n = Math.min(w, left);
+    left -= n;
+    return n;
+  });
+}
+
+/**
+ * Small streams at the national scale: longest first, at most one per grid
+ * cell (by the line's midpoint) and long enough to show movement.
+ */
+export function selectBySpacing(lines: Array<{ length: number; midX: number; midY: number }>, cell: number, minLength: number): boolean[] {
+  const order = lines.map((_, i) => i).sort((a, b) => lines[b].length - lines[a].length);
+  const taken = new Set<string>();
+  const out = new Array<boolean>(lines.length).fill(false);
+  for (const i of order) {
+    const l = lines[i];
+    if (l.length < minLength) continue;
+    const key = `${Math.floor(l.midX / cell)}:${Math.floor(l.midY / cell)}`;
+    if (taken.has(key)) continue;
+    taken.add(key);
+    out[i] = true;
+  }
+  return out;
 }
 
 export class RiverTrails {
@@ -58,50 +153,63 @@ export class RiverTrails {
 
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
-  /** Build the network from the base rivers (orders 5–7, not Hawaii) in layout space. */
-  setNetwork(rivers: DecodedLine[] | null, layout: Layout | null) {
+  /** Build the network from the base and (when loaded) detail rivers, in layout space. */
+  setNetwork(base: DecodedLine[] | null, detail: DecodedLine[] | null, layout: Layout | null) {
     this.classes = [];
     this.clear();
-    if (!rivers || !layout) return;
-    let budget = 0;
-    const perClass = TRAIL_CLASSES.map((c) => {
+    if (!base || !layout) return;
+    const sources: Record<Source, DecodedLine[]> = { base, detail: detail ?? [] };
+    const built = TRAIL_CLASSES.map((c) => {
       const lines: Line[] = [];
-      for (const r of rivers) {
-        if (r.component === 'hi') continue;
-        if (c.order === 7 ? r.order < 7 : r.order !== c.order) continue;
+      const mids: Array<{ length: number; midX: number; midY: number }> = [];
+      for (const r of sources[c.source]) {
+        if (!c.has(r)) continue;
         const a = layout.affine[r.component];
         const xy = new Float32Array(r.xy.length);
         const cum = new Float32Array(r.xy.length / 2);
         let run = 0;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (let i = 0; i + 1 < r.xy.length; i += 2) {
           const [x, y] = applyAffine(a, r.xy[i], r.xy[i + 1]);
           xy[i] = x;
           xy[i + 1] = y;
           if (i > 0) run += Math.hypot(x - xy[i - 2], y - xy[i - 1]);
           cum[i / 2] = run;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
         }
-        if (run > 0) lines.push({ xy, cum, length: run });
+        if (run <= 0) continue;
+        const mid = (xy.length >> 2) << 1;
+        lines.push({ xy, cum, length: run, minX, minY, maxX, maxY, selected: true });
+        mids.push({ length: run, midX: xy[mid], midY: xy[mid + 1] });
       }
-      const prefix = new Float64Array(lines.length);
-      let total = 0;
-      lines.forEach((l, i) => {
-        total += l.length;
-        prefix[i] = total;
-      });
-      const want = Math.round(total * c.density);
-      budget += want;
-      return { lines, prefix, total, want };
+      if (c.allFromZoom !== undefined) {
+        const keep = selectBySpacing(mids, STREAM_CELL, STREAM_MIN_LENGTH);
+        lines.forEach((l, i) => (l.selected = keep[i]));
+      }
+      // Allocation is sized for the national fit: everything on screen.
+      const nationalLength = lines.reduce((sum, l) => sum + (l.selected ? l.length : 0), 0);
+      return { lines, want: wantedParticles(nationalLength, c.density) };
     });
-    const scale = budget > MAX_PARTICLES ? MAX_PARTICLES / budget : 1;
-    this.classes = perClass.map(({ lines, prefix, total, want }) => {
-      const count = lines.length ? Math.max(1, Math.round(want * scale)) : 0;
-      const st: ClassState = {
-        lines, prefix, total, count,
+    // Zoomed in, a class may want more than the national fit did (all small
+    // streams run; density per screen px holds): allow up to 2× per class,
+    // still inside the cap, big rivers first.
+    const counts = allocate(built.map((b) => b.want * 2), MAX_PARTICLES);
+    this.classes = built.map(({ lines }, ci) => {
+      const count = lines.length ? counts[ci] : 0;
+      return {
+        lines,
+        live: new Int32Array(lines.length),
+        liveCount: 0,
+        prefix: new Float64Array(lines.length),
+        liveLength: 0,
+        count,
+        active: 0,
         line: new Int32Array(count), seg: new Int32Array(count), s: new Float32Array(count), life: new Float32Array(count),
         px: new Float32Array(count), py: new Float32Array(count), fresh: new Uint8Array(count),
       };
-      for (let i = 0; i < count; i++) this.spawn(st, i, true);
-      return st;
     });
   }
 
@@ -119,17 +227,21 @@ export class RiverTrails {
    */
   step(
     t: number,
-    o: { scale: number; tx: number; ty: number; dpr: number; screen: number; zoom: number; wall: boolean; focus: number; color: string },
+    o: {
+      scale: number; tx: number; ty: number; dpr: number; screen: number; zoom: number; wall: boolean; focus: number;
+      color: string; streamColor: string; width: number; height: number;
+    },
   ) {
     const g = this.canvas.getContext('2d');
     if (!g || !this.classes.length) return;
-    const cam = `${o.scale}|${o.tx}|${o.ty}|${this.canvas.width}`;
+    const cam = `${o.scale}|${o.tx}|${o.ty}|${this.canvas.width}|${this.canvas.height}`;
     if (cam !== this.lastCamera) {
-      // A new view: start clean so nothing streaks across the move.
+      // A new view: start clean so nothing streaks across the move, and send
+      // the particles to the channels now on screen.
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.clearRect(0, 0, this.canvas.width, this.canvas.height);
       this.lastCamera = cam;
-      for (const st of this.classes) st.fresh.fill(1);
+      this.retarget(o);
     }
     const dt = this.lastT ? Math.min(100, t - this.lastT) : 33;
     this.lastT = t;
@@ -141,20 +253,17 @@ export class RiverTrails {
     g.globalCompositeOperation = 'source-over';
     g.setTransform(o.dpr, 0, 0, o.dpr, 0, 0);
     g.lineCap = 'round';
-    g.strokeStyle = o.color;
     const zf = Math.min(1.8, 1 + Math.log2(Math.max(1, o.zoom)) * 0.25);
 
     TRAIL_CLASSES.forEach((c, ci) => {
       const st = this.classes[ci];
-      if (!st || !st.count) return;
-      // The wall runs every class at the national fit; Explore adds the
-      // regional class once zoomed in, as the dashed traces did.
-      if (o.zoom < c.minZoom && !o.wall) return;
+      if (!st || !st.active || !st.liveCount) return;
       const ds = (c.speed * o.screen * zf * dt) / 1000 / o.scale; // layout units this frame
+      g.strokeStyle = c.stream ? o.streamColor : o.color;
       g.lineWidth = c.width * o.screen * zf;
       g.globalAlpha = (o.wall ? Math.min(1, c.alpha * 1.15) : c.alpha) * (1 - 0.7 * o.focus);
       g.beginPath();
-      for (let i = 0; i < st.count; i++) {
+      for (let i = 0; i < st.active; i++) {
         st.life[i] -= dt;
         const line = st.lines[st.line[i]];
         const s = st.s[i] + ds;
@@ -184,23 +293,58 @@ export class RiverTrails {
     g.globalAlpha = 1;
   }
 
-  /** Put particle i somewhere new on its class's network, weighted by line length. */
+  /** Which lines each class runs in this view, and how many particles. */
+  private retarget(o: { scale: number; tx: number; ty: number; zoom: number; wall: boolean; width: number; height: number }) {
+    // The view in layout space, with a margin so trails enter from the edges.
+    const pad = 24;
+    const x0 = (-pad - o.tx) / o.scale;
+    const y0 = (-pad - o.ty) / o.scale;
+    const x1 = (o.width + pad - o.tx) / o.scale;
+    const y1 = (o.height + pad - o.ty) / o.scale;
+    TRAIL_CLASSES.forEach((c, ci) => {
+      const st = this.classes[ci];
+      if (!st) return;
+      st.liveCount = 0;
+      st.liveLength = 0;
+      // Explore keeps the regional class for zoomed-in views, as before; the
+      // wall runs every class at the national fit.
+      const on = o.wall || o.zoom >= c.minZoom;
+      const all = c.allFromZoom === undefined || o.zoom >= c.allFromZoom;
+      if (on) {
+        for (let li = 0; li < st.lines.length; li++) {
+          const l = st.lines[li];
+          if (!all && !l.selected) continue;
+          if (l.maxX < x0 || l.minX > x1 || l.maxY < y0 || l.minY > y1) continue;
+          st.liveLength += l.length;
+          st.prefix[st.liveCount] = st.liveLength;
+          st.live[st.liveCount++] = li;
+        }
+      }
+      // Steady density per screen px of visible channel, up to the allocation.
+      st.active = Math.min(st.count, wantedParticles(st.liveLength * Math.max(1, o.zoom), c.density));
+      for (let i = 0; i < st.active; i++) this.spawn(st, i, true);
+    });
+  }
+
+  /** Put particle i somewhere new on its class's eligible lines, weighted by length. */
   private spawn(st: ClassState, i: number, initial: boolean) {
-    const r = this.random() * st.total;
+    if (!st.liveCount) return;
+    const r = this.random() * st.liveLength;
     let lo = 0;
-    let hi = st.prefix.length - 1;
+    let hi = st.liveCount - 1;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
       if (st.prefix[mid] < r) lo = mid + 1;
       else hi = mid;
     }
-    const line = st.lines[lo];
-    // Start anywhere along the line (initially), or near its upstream half
+    const li = st.live[lo];
+    const line = st.lines[li];
+    // Start anywhere along the line (initially), or within its upper reaches
     // later so particles travel visibly before they expire.
     const s = this.random() * line.length * (initial ? 1 : 0.85);
     let seg = 0;
     while (seg < line.cum.length - 2 && line.cum[seg + 1] < s) seg++;
-    st.line[i] = lo;
+    st.line[i] = li;
     st.seg[i] = seg;
     st.s[i] = s;
     st.life[i] = 1800 + this.random() * 4200;

@@ -515,6 +515,13 @@ export default function NationalRiverMap() {
   }, []);
 
   const loadDetail = data.loadDetail;
+  // Tributary and small-stream trails need the detail network (~220 KB
+  // compressed). Fetch it once motion runs on a wall or a wide screen; phones
+  // still fetch it only on zooming in, where its lines are drawn.
+  const trailsRunning = motion && dataLive;
+  useEffect(() => {
+    if (trailsRunning && (fullscreen || side)) loadDetail();
+  }, [trailsRunning, fullscreen, side, loadDetail]);
 
   /** Open a site's details from a list (search, notable list): frame it, focus the detail. */
   const openSite = useCallback(

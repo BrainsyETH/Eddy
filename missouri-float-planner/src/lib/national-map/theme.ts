@@ -33,6 +33,11 @@ export interface MapPalette {
   /** The moving highlight of a downstream trace. */
   trace: string;
   /**
+   * Trails on tributaries and small streams, whose lines are not drawn at the
+   * national scale: water-coloured ink, so on parchment they still read.
+   */
+  traceStream: string;
+  /**
    * Alpha of a soft, wide underglow on the trunk rivers (orders 6–7); 0 = none.
    * Wall only: it makes the network the brightest non-event layer on a TV.
    */
@@ -72,6 +77,12 @@ export interface MapPalette {
   stale: string;
   /** Keyline drawn around filled flow marks. */
   flowKeyline: string;
+  /**
+   * Peak of the bounded glow behind unusual marks (MarkStyle.glow), 0 = none.
+   * Dark wall only: on parchment a glow muddies; the light wall gets darker
+   * ink and a clean outline instead.
+   */
+  markGlow: number;
   /**
    * Mark colours that cannot be seen against this theme's land (contrast under
    * 3:1) and are therefore drawn on a neutral backing disc. The fill keeps its
@@ -114,6 +125,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#2D7889', // primary-500
     riverAlpha: [0, 0.22, 0.28, 0.34, 0.45, 0.62, 0.78, 0.92],
     trace: 'rgba(250, 248, 244, 0.95)',
+    traceStream: '#2D7889',
     flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#F2EAD8',
@@ -135,6 +147,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     // keyline (4.9:1 at this alpha) keeps every filled mark above 3:1
     // without changing its colour.
     flowKeyline: 'rgba(45, 42, 36, 0.7)',
+    markGlow: 0,
     backed: [],
     backing: '#F2EAD8',
     backedFillAlpha: 1,
@@ -163,6 +176,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     river: '#72B5C4', // primary-300
     riverAlpha: [0, 0.16, 0.2, 0.26, 0.36, 0.5, 0.66, 0.82],
     trace: 'rgba(242, 234, 216, 0.9)',
+    traceStream: 'rgba(143, 211, 224, 0.9)',
     flowExtremeHigh: FLOW.much_higher,
     riverGlow: 0,
     halo: '#0F2D35',
@@ -189,6 +203,7 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     // are. Chosen in the 2026-11-02 review; sign-off belongs to the
     // dark-contrast gate in docs/national-river-map.md.
     flowKeyline: 'rgba(242, 234, 216, 0.55)',
+    markGlow: 0,
     backed: ['flow.higher', 'flow.much_higher', 'flowExtremeHigh'],
     backing: '#E8DFD0', // secondary-200
     backedFillAlpha: 0.72,
@@ -226,7 +241,12 @@ const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
     river: '#1F6574', // primary-600: the network reads as ink on parchment
     riverAlpha: [0, 0.3, 0.38, 0.46, 0.58, 0.74, 0.88, 0.97],
     riverGlow: 0.1,
+    traceStream: '#1F6574',
     halo: '#F4EEE1',
+    // Stronger ink: across a room the unusual marks need a firm edge on
+    // parchment (each also sits on a clean parchment outline, MarkStyle.halo).
+    flowKeyline: 'rgba(45, 42, 36, 0.92)',
+    floodKeyline: 'rgba(45, 42, 36, 0.92)',
   },
   dark: {
     background: '#071A20',
@@ -240,7 +260,9 @@ const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
     // A soft cyan, not white: near-white is reserved for the featured
     // journey's head and core, so the eye has one brightest thing to follow.
     trace: 'rgba(168, 230, 240, 0.85)',
+    traceStream: 'rgba(143, 211, 224, 0.85)',
     halo: '#0B252C',
+    markGlow: 0.55,
   },
 };
 

@@ -69,7 +69,10 @@ persistent text. Three facts shaped the build:
    within 0.5 ft of the USGS gauge height, observed within 2 h); a threshold
    on another datum is not drawn. The moving river network shows direction
    only, at a presentation pace — never a measured velocity, and no reading is
-   spread along a river.
+   spread along a river; on unmeasured tributaries and streams a trail claims
+   only the mapped direction. Emphasis effects never sum: a glow behind an
+   unusual reading is bounded and overlapping glows take the brightest, so
+   gauge density cannot read as event intensity.
 9. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.

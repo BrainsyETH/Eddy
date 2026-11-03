@@ -221,11 +221,25 @@ device results.
   Earth Nullschool draws wind — short-lived particles leaving fading trails —
   but bound to the river lines (`trails.ts`), never to the space between
   them. Particles travel each line in its digitized downstream direction at a
-  constant on-screen pace per class (trunk fastest, regional slowest); density
-  follows river size, capped at 3,200 particles. Their own canvas fades a
-  little each frame and is cleared on any camera move, so a pan never smears.
-  Explore adds the regional class from 2× zoom; the wall runs every class at
-  the national fit. While a journey runs the trails drop to 30 %. Flood event rings mark current official flooding. The rarest
+  constant on-screen pace per class (trunk fastest, small streams slowest).
+  Classes, in priority order: trunk (order ≥ 7), major (6), regional (5),
+  Hawaii (its base streams, orders 2–3), tributaries (order 4) and small
+  streams (order 3) — each thinner, fainter and slower than the one above;
+  tributaries and streams use water-coloured ink (`traceStream`), since their
+  lines are not drawn at the national scale. Particles go only to channels
+  on screen, at a steady density per screen pixel (zooming in fills the view),
+  and the 4,200-particle cap serves the big rivers first. Small streams
+  nationally run only on lines chosen by length and spacing (longest per
+  22 px cell, ≥ 9 px long); from 2.2× zoom, where their lines are drawn, all
+  of them. The detail network (~220 KB compressed) loads once motion runs on
+  the wall or a wide screen; phones still load it only on zooming in. The
+  trails canvas fades a little each frame and is cleared on any camera move,
+  so a pan never smears (8-bit rounding leaves crossed pixels at alpha
+  1/255, measured — invisible, so there is no clean-up pass). Explore adds
+  the regional class from 2× zoom; the wall runs every class at the
+  national fit. While a journey runs the trails drop to 30 %. A trail on a
+  stream says only which way it is mapped to flow — never that it is
+  carrying water now; measurements stay on the gauges. Flood event rings mark current official flooding. The rarest
   readings — at or above the published 95th-percentile flow for the date, or
   at or below the published 5th — are drawn larger and above their band.
   Directions only — no speed is a measured velocity, and no reading is
@@ -333,9 +347,21 @@ sharply ≥ 2×; 24 h rising ≥ 1.5×, sharply ≥ 3×; falling at the inverse;
 percentiles by river size and the share of gauges each threshold would mark.
 Aim: on an ordinary day most gauges read "about the same" and "sharply" stays
 rare. Run it on a quiet day and a wet one before moving a number, and record
-the runs here. Regulated releases, snowmelt and ice are not modelled yet.
+the runs here. Stage-only gauges (no discharge) get their own table in feet.
+Regulated releases are not separated — there is no national list of gauges
+below dams — and snowmelt and ice are not modelled yet.
 
-**Calibration runs:** none recorded yet.
+**Calibration runs** (no threshold moved until a quiet and a wet day agree):
+
+| Run (frame, UTC) | Window | Day | Discharge gauges: ▲▲ / ▲ / ≈ / ▼ / ▼▼ | Stage-only: ▲▲ / ▲ / ≈ / ▼ / ▼▼ |
+| --- | --- | --- | --- | --- |
+| 2026-11-02 22:27 | 6 h | ordinary (62 NWS points in flood at 21:57) | 1.5 / 3.7 / 89.9 / 3.6 / 1.1 % of 7,651 | 3.0 / 3.5 / 87.6 / 3.7 / 2.2 % of 1,671 |
+
+Notes from the first run: every size group stays 88–91 % "about the same";
+gauges with no drainage area on record are noisier (82.9 %), and stage-only
+gauges have wide tails (p1 −2.4 ft, p99 +3.1 ft in 6 h) — probably tidal and
+reservoir gauges, to check before the feet thresholds move. The 24 h window
+opens once recorded history reaches it (recording began 2026-11-02 12:42 UTC).
 
 ## The wall (fullscreen)
 
@@ -350,6 +376,17 @@ so thresholds and the legend still hold (`wallStyle`, `wallPalette`):
 - **Events are bold**: flooding marks grow, sit on a knockout halo so a cluster
   stays countable, and pulse wider (major carries two pulses). Action stage is
   a slim ring that never pulses — deliberately below minor flooding.
+- **Bounded glow (dark wall).** Unusual readings carry a short glow in their
+  own category colour behind a crisp core on its knockout halo: major 0.9,
+  moderate 0.75, minor 0.6; exceptional flow (≥ published p95 / ≤ p05) 0.8,
+  much higher / lower 0.45; nothing routine, action stage or below flood
+  stage glows. Glows are drawn into an opaque black layer with `lighten`
+  (per-pixel maximum) and shown with `screen` blending, so overlapping glows
+  never add up: ten moderately unusual gauges together are no brighter than
+  one, and an exceptional gauge still outshines the cluster. Peaks stay well
+  below the journey's near-white. The light wall gets no glow — on parchment
+  it muddies — but darker ink keylines (0.92) and a clean parchment outline
+  on much higher / lower, the extremes and floods.
 - **Three brightness tiers**: land drops back (state lines nearly vanish),
   water is brightest of the non-events (trunk underglow, every trail class
   running at the national fit), events carry full saturation.

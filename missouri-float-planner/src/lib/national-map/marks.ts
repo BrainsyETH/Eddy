@@ -187,6 +187,14 @@ export interface MarkStyle {
   alpha?: number;
   /** A knockout disc in the background colour, so neighbouring events stay separate. */
   halo?: boolean;
+  /**
+   * Wall glow strength (0–1) for unusual readings: a short halo in the mark's
+   * own colour, drawn only where the palette enables it (palette.markGlow,
+   * the dark wall). Overlapping glows take the brightest, never the sum, so a
+   * cluster of moderately unusual gauges cannot outshine one exceptional
+   * gauge — monitoring density must not read as event intensity.
+   */
+  glow?: number;
 }
 
 /**
@@ -254,8 +262,8 @@ const WALL_FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
   normal: { shape: 'dot', radius: 0.8, color: 'flow.normal', keyline: false, salience: 3, ring: false, minZoom: 0, alpha: 0.5 },
   lower: { shape: 'dot', radius: 1.25, color: 'flow.lower', keyline: false, salience: 4, ring: false, minZoom: 0, alpha: 0.85 },
   higher: { shape: 'dot', radius: 1.25, color: 'flow.higher', keyline: false, salience: 4, ring: false, minZoom: 0, alpha: 0.85 },
-  much_lower: { shape: 'dot', radius: 2.2, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0 },
-  much_higher: { shape: 'dot', radius: 2.2, color: 'flow.much_higher', keyline: true, salience: 5, ring: false, minZoom: 0 },
+  much_lower: { shape: 'dot', radius: 2.2, color: 'flow.much_lower', keyline: true, salience: 5, ring: false, minZoom: 0, halo: true, glow: 0.45 },
+  much_higher: { shape: 'dot', radius: 2.2, color: 'flow.much_higher', keyline: true, salience: 5, ring: false, minZoom: 0, halo: true, glow: 0.45 },
   no_comparison: null,
   stale: null,
   dormant: null,
@@ -263,14 +271,14 @@ const WALL_FLOW_STYLE: Record<FlowClass, MarkStyle | null> = {
 };
 
 const WALL_FLOW_EXTREME: Record<'much_higher' | 'much_lower', MarkStyle> = {
-  much_higher: { shape: 'dot', radius: 3.4, color: 'flowExtremeHigh', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
-  much_lower: { shape: 'dot', radius: 3.4, color: 'flow.much_lower', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true },
+  much_higher: { shape: 'dot', radius: 3.4, color: 'flowExtremeHigh', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true, glow: 0.8 },
+  much_lower: { shape: 'dot', radius: 3.4, color: 'flow.much_lower', keyline: true, salience: 6, ring: false, minZoom: 0, halo: true, glow: 0.8 },
 };
 
 const WALL_FLOOD_STYLE: Record<FloodClass, MarkStyle | null> = {
-  major: { shape: 'triangle', radius: 6.2, color: 'flood.major', keyline: true, salience: 9, ring: true, minZoom: 0, halo: true },
-  moderate: { shape: 'diamond', radius: 5.2, color: 'flood.moderate', keyline: true, salience: 8, ring: true, minZoom: 0, halo: true },
-  minor: { shape: 'dot', radius: 4.3, color: 'flood.minor', keyline: true, salience: 7, ring: true, minZoom: 0, halo: true },
+  major: { shape: 'triangle', radius: 6.2, color: 'flood.major', keyline: true, salience: 9, ring: true, minZoom: 0, halo: true, glow: 0.9 },
+  moderate: { shape: 'diamond', radius: 5.2, color: 'flood.moderate', keyline: true, salience: 8, ring: true, minZoom: 0, halo: true, glow: 0.75 },
+  minor: { shape: 'dot', radius: 4.3, color: 'flood.minor', keyline: true, salience: 7, ring: true, minZoom: 0, halo: true, glow: 0.6 },
   action: { shape: 'ring', radius: 2.1, color: 'flood.action', keyline: false, salience: 6, ring: false, minZoom: 0, alpha: 0.8 },
   below: { shape: 'dot', radius: 0.75, color: 'flood.below', keyline: false, salience: 3, ring: false, minZoom: 0, alpha: 0.45 },
   no_threshold: null,
