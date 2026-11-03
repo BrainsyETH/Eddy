@@ -28,6 +28,8 @@ import type { MarkShape, MarkStyle } from '@/lib/national-map/marks';
 import { applyAffine, type Layout } from '@/lib/national-map/projection';
 import type { MapPalette } from '@/lib/national-map/theme';
 import { RiverTrails } from './trails';
+import { CONDITION_SYSTEM } from '@shared/condition-system';
+import type { RatedSection } from '@/lib/national-map/rated';
 
 export interface RenderMark {
   /** Laid-out position. */
@@ -228,6 +230,9 @@ export class NationalRenderer {
   private trailKeep: { base: Uint8Array | null; detail: Uint8Array | null } | null = null;
   /** River names at regional scale (Explore when zoomed in; a scoped wall). */
   private riverLabels = false;
+  /** Eddy's rated rivers in sections coloured by float condition (state view), laid out. */
+  private rated: RatedSection[] | null = null;
+  private ratedLaid: Array<{ path: Path2D; color: string | null }> | null = null;
   private readonly trails: RiverTrails;
   private readonly marksA: HTMLCanvasElement;
   private readonly marksB: HTMLCanvasElement;
@@ -371,6 +376,7 @@ export class NationalRenderer {
       lines && mask ? lines.filter((_, i) => mask[i]) : (lines ?? null);
     this.trails.setNetwork(keep(this.geometry?.rivers, this.trailKeep?.base), keep(this.detail?.rivers, this.trailKeep?.detail), this.layout);
     this.layJourney();
+    this.layRated();
     this.dirtyBase = true;
     this.request();
   }
@@ -454,6 +460,50 @@ export class NationalRenderer {
   setTrailFilter(keep: { base: Uint8Array | null; detail: Uint8Array | null } | null) {
     this.trailKeep = keep;
     this.rebuildPaths();
+  }
+
+  /** Rated-river sections (state view); null removes them. */
+  setRatedSections(sections: RatedSection[] | null) {
+    this.rated = sections && sections.length ? sections : null;
+    this.layRated();
+    this.dirtyBase = true;
+    this.request();
+  }
+
+  private layRated() {
+    const layout = this.layout;
+    this.ratedLaid =
+      this.rated && layout
+        ? this.rated.map((sec) => {
+            const a = layout.affine[sec.component];
+            const path = new Path2D();
+            for (let i = 0; i + 1 < sec.xy.length; i += 2) {
+              const [x, y] = applyAffine(a, sec.xy[i], sec.xy[i + 1]);
+              if (i === 0) path.moveTo(x, y);
+              else path.lineTo(x, y);
+            }
+            // No current reading: the river is drawn plainly, never in a guessed colour.
+            return { path, color: sec.code === 'unknown' ? null : CONDITION_SYSTEM[sec.code].solid };
+          })
+        : null;
+    // Trails on rated rivers, tinted by each section's condition — only where
+    // the line's downstream direction is confirmed (trails claim direction).
+    this.trails.setRated(
+      this.rated && layout
+        ? this.rated
+            .filter((sec) => sec.downstream)
+            .map((sec) => {
+              const a = layout.affine[sec.component];
+              const xy = new Float32Array(sec.xy.length);
+              for (let i = 0; i + 1 < sec.xy.length; i += 2) {
+                const [x, y] = applyAffine(a, sec.xy[i], sec.xy[i + 1]);
+                xy[i] = x;
+                xy[i + 1] = y;
+              }
+              return { xy, color: sec.code === 'unknown' ? null : CONDITION_SYSTEM[sec.code].solid };
+            })
+        : null,
+    );
   }
 
   setRiverLabels(show: boolean) {
@@ -608,6 +658,38 @@ export class NationalRenderer {
     }
     g.globalAlpha = 1;
 
+    // Eddy's rated rivers (a state, Flow): drawn as the map draws water — a
+    // channel at major-river weight in each section's condition hue, lifted
+    // on the dark displays by a soft underglow (as the trunk rivers are) and
+    // held on parchment by a thin ink keyline. A section with no current
+    // reading is drawn as plain river. Trails run along them (trails.ts).
+    if (this.ratedLaid) {
+      const core = widthFor(6) * 1.25 * zoomBoost * px;
+      g.lineCap = 'round';
+      if (p.ratedGlow > 0) {
+        g.globalAlpha = p.ratedGlow;
+        g.lineWidth = core * 4.5;
+        for (const s of this.ratedLaid) {
+          if (!s.color) continue;
+          g.strokeStyle = s.color;
+          g.stroke(s.path);
+        }
+        g.globalAlpha = 1;
+      }
+      if (p.ratedKeyline) {
+        g.strokeStyle = p.ratedKeyline;
+        g.lineWidth = core + 1.6 * px;
+        for (const s of this.ratedLaid) if (s.color) g.stroke(s.path);
+      }
+      g.lineWidth = core;
+      for (const s of this.ratedLaid) {
+        g.globalAlpha = s.color ? 1 : p.riverAlpha[6];
+        g.strokeStyle = s.color ?? p.river;
+        g.stroke(s.path);
+      }
+      g.globalAlpha = 1;
+    }
+
     // State labels: Explore only, and only once zoomed to regional scale.
     if (this.showLabels && z >= 2.2) {
       g.setTransform(1, 0, 0, 1, 0, 0);
@@ -626,7 +708,7 @@ export class NationalRenderer {
         g.fillText(l.code, sx, sy);
       }
     }
-    if ((this.riverLabels || this.showLabels) && z >= 2.2) this.drawRiverLabels(g, paths);
+    if (this.riverLabels && z >= 2.2) this.drawRiverLabels(g, paths);
     this.drawMask();
   }
 
@@ -639,41 +721,92 @@ export class NationalRenderer {
     const { scale, tx, ty } = this.camera;
     const w = this.vp.width;
     const h = this.vp.height;
-    const best = new Map<string, { len: number; x: number; y: number }>();
-    for (const l of paths.named) {
+    const layout = this.layout;
+    /** The middle of a line's longest run on screen, and that run's length. */
+    const place = (xy: Float32Array, a: { s: number; dx: number; dy: number } | null) => {
+      let best: { len: number; x: number; y: number } | null = null;
+      let run: Array<[number, number]> = [];
       let len = 0;
-      const on: Array<[number, number]> = [];
-      for (let i = 0; i + 1 < l.xy.length; i += 2) {
-        const sx = l.xy[i] * scale + tx;
-        const sy = l.xy[i + 1] * scale + ty;
-        if (sx < 30 || sy < 20 || sx > w - 30 || sy > h - 20) continue;
-        if (on.length) len += Math.hypot(sx - on[on.length - 1][0], sy - on[on.length - 1][1]);
-        on.push([sx, sy]);
+      const flush = () => {
+        if (run.length >= 3 && (!best || len > best.len)) {
+          const [x, y] = run[Math.floor(run.length / 2)];
+          best = { len, x, y };
+        }
+        run = [];
+        len = 0;
+      };
+      for (let i = 0; i + 1 < xy.length; i += 2) {
+        const lx = a ? xy[i] * a.s + a.dx : xy[i];
+        const ly = a ? xy[i + 1] * a.s + a.dy : xy[i + 1];
+        const sx = lx * scale + tx;
+        const sy = ly * scale + ty;
+        if (sx < 30 || sy < 20 || sx > w - 30 || sy > h - 20) {
+          flush();
+          continue;
+        }
+        if (run.length) len += Math.hypot(sx - run[run.length - 1][0], sy - run[run.length - 1][1]);
+        run.push([sx, sy]);
       }
-      if (on.length < 3 || len < 80) continue;
-      const [x, y] = on[Math.floor(on.length / 2)];
-      const name = l.name.replace(/ River$/, '');
-      const prev = best.get(name);
-      if (!prev || len > prev.len) best.set(name, { len, x, y });
+      flush();
+      return best as { len: number; x: number; y: number } | null;
+    };
+    // "Gasconade River" → "Gasconade", but "Big River" and "Elk River" keep
+    // their noun; qualifiers such as "(Missouri)" are the dataset's, not the map's.
+    const short = (name: string) => {
+      const base = name.replace(/\s*\(.*\)\s*$/, '');
+      const bare = base.replace(/ (National )?River$/, '');
+      return bare.length >= 5 ? bare : base;
+    };
+    // Rated rivers first: they are what a state view is about.
+    const rated = new Map<string, { len: number; x: number; y: number }>();
+    if (this.rated && layout) {
+      for (const sec of this.rated) {
+        const at = place(sec.xy, layout.affine[sec.component]);
+        if (!at || at.len < 50) continue;
+        const name = short(sec.river);
+        const prev = rated.get(name);
+        if (!prev || at.len > prev.len) rated.set(name, at);
+      }
+    }
+    const others = new Map<string, { len: number; x: number; y: number }>();
+    for (const l of paths.named) {
+      const name = short(l.name);
+      if (rated.has(name)) continue;
+      const at = place(l.xy, null);
+      if (!at || at.len < 80) continue;
+      const prev = others.get(name);
+      if (!prev || at.len > prev.len) others.set(name, at);
     }
     const size = Math.round(11.5 * Math.max(1, Math.min(1.8, this.screenScale())));
+    const family = this.labelFont.replace(/^600 \d+px /, '');
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    g.font = `italic 600 ${size}px ${this.labelFont.replace(/^600 \d+px /, '')}`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.lineWidth = 3;
     g.strokeStyle = p.labelHalo;
-    g.fillStyle = p.river;
     const placed: Array<[number, number, number, number]> = [];
-    const sorted = [...best].sort((a, b) => b[1].len - a[1].len).slice(0, 14);
-    for (const [name, at] of sorted) {
-      const tw = g.measureText(name).width;
-      const box: [number, number, number, number] = [at.x - tw / 2 - 4, at.y - size - 4, at.x + tw / 2 + 4, at.y + 4];
-      if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
-      placed.push(box);
-      g.strokeText(name, at.x, at.y - size * 0.6);
-      g.fillText(name, at.x, at.y - size * 0.6);
-    }
+    const draw = (entries: Array<[string, { len: number; x: number; y: number }]>, limit: number) => {
+      let n = 0;
+      for (const [name, at] of entries.sort((a, b) => b[1].len - a[1].len)) {
+        if (n >= limit) break;
+        const tw = g.measureText(name).width;
+        const box: [number, number, number, number] = [at.x - tw / 2 - 4, at.y - size * 1.2 - 4, at.x + tw / 2 + 4, at.y + 2];
+        if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
+        placed.push(box);
+        g.strokeText(name, at.x, at.y - size * 0.6);
+        g.fillText(name, at.x, at.y - size * 0.6);
+        n++;
+      }
+    };
+    // Rated: neutral ink, a touch stronger; the rest: water-coloured, quieter.
+    g.font = `italic 600 ${size}px ${family}`;
+    g.fillStyle = p.label;
+    draw([...rated], 30);
+    g.globalAlpha = 0.85;
+    g.font = `italic 500 ${Math.round(size * 0.92)}px ${family}`;
+    g.fillStyle = p.river;
+    draw([...others], 12);
+    g.globalAlpha = 1;
   }
 
   /** The place veil: background over everything outside the scoped state, and its outline. */
@@ -743,6 +876,27 @@ export class NationalRenderer {
     this.sprites.set(key, sprite);
     return sprite;
   }
+
+  /**
+   * A condition hue as a trail: lifted toward white on the dark displays (it
+   * must read over the same hue's channel), deepened toward ink on parchment.
+   */
+  private readonly ratedTints = new Map<string, string>();
+  private readonly ratedTint = (hex: string): string => {
+    const dark = this.palette.ratedGlow > 0;
+    const key = `${dark ? 'd' : 'l'}${hex}`;
+    const hit = this.ratedTints.get(key);
+    if (hit) return hit;
+    const m = /^#([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const [tr, tg, tb, k] = dark ? [255, 255, 255, 0.5] : [45, 42, 36, 0.35];
+    const mix = (c: number, t: number) => Math.round(c + (t - c) * k);
+    const out = `rgb(${mix(r, tr)}, ${mix(g, tg)}, ${mix(b, tb)})`;
+    this.ratedTints.set(key, out);
+    return out;
+  };
 
   private glowFor(marks: HTMLCanvasElement): HTMLCanvasElement {
     return marks === this.marksA ? this.glowA : this.glowB;
@@ -874,6 +1028,7 @@ export class NationalRenderer {
       streamColor: p.traceStream,
       width: this.vp.width,
       height: this.vp.height,
+      ratedTint: this.ratedTint,
     });
 
     // Event rings: slow, low-amplitude expansion on current flood gauges only.

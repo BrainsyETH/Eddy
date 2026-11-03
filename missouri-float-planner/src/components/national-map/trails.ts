@@ -74,6 +74,14 @@ export const MAX_PARTICLES = 4200;
  * which is invisible, so no clean-up pass is needed.)
  */
 const FADE = 0.09;
+/**
+ * Rated rivers (a state view): denser and a touch wider than the major rivers'
+ * trails — they are what the view is about — with their own particle budget.
+ */
+const RATED_DENSITY = 1 / 9;
+const RATED_SPEED = 30;
+const RATED_WIDTH = 1.25;
+const RATED_MAX = 1400;
 /** Small-stream selection at the national scale: grid cell, frame px (~960 wide frame). */
 const STREAM_CELL = 22;
 /** …and the shortest small stream worth a trail there, frame px. */
@@ -147,6 +155,9 @@ export function selectBySpacing(lines: Array<{ length: number; midX: number; mid
 
 export class RiverTrails {
   private classes: ClassState[] = [];
+  /** Eddy's rated rivers (a state, Flow): one particle system, coloured per section. */
+  private rated: ClassState | null = null;
+  private ratedColors: Array<string | null> = [];
   private lastCamera = '';
   private lastT = 0;
   private seed = 1;
@@ -213,6 +224,50 @@ export class RiverTrails {
     });
   }
 
+  /**
+   * Trails on Eddy's rated rivers, layout-space lines each with its section's
+   * condition colour (null: no current reading — the plain trace). Only lines
+   * whose downstream direction is confirmed are passed in (rated.ts).
+   */
+  setRated(sections: Array<{ xy: Float32Array; color: string | null }> | null) {
+    this.rated = null;
+    this.ratedColors = [];
+    this.lastCamera = '';
+    if (!sections?.length) return;
+    const lines: Line[] = [];
+    for (const sec of sections) {
+      const n = sec.xy.length / 2;
+      if (n < 2) continue;
+      const cum = new Float32Array(n);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let i = 0; i < n; i++) {
+        const x = sec.xy[i * 2];
+        const y = sec.xy[i * 2 + 1];
+        if (i) cum[i] = cum[i - 1] + Math.hypot(x - sec.xy[i * 2 - 2], y - sec.xy[i * 2 - 1]);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      if (!(cum[n - 1] > 0)) continue;
+      lines.push({ xy: sec.xy, cum, length: cum[n - 1], minX, minY, maxX, maxY, selected: true });
+      this.ratedColors.push(sec.color);
+    }
+    if (!lines.length) return;
+    const count = RATED_MAX;
+    this.rated = {
+      lines,
+      live: new Int32Array(lines.length),
+      liveCount: 0,
+      prefix: new Float64Array(lines.length),
+      liveLength: 0,
+      count,
+      active: 0,
+      line: new Int32Array(count), seg: new Int32Array(count), s: new Float32Array(count), life: new Float32Array(count),
+      px: new Float32Array(count), py: new Float32Array(count), fresh: new Uint8Array(count),
+    };
+  }
+
   clear() {
     const g = this.canvas.getContext('2d');
     if (!g) return;
@@ -230,6 +285,8 @@ export class RiverTrails {
     o: {
       scale: number; tx: number; ty: number; dpr: number; screen: number; zoom: number; wall: boolean; focus: number;
       color: string; streamColor: string; width: number; height: number;
+      /** A condition hue as drawn in trails: lifted on dark, deepened on parchment. */
+      ratedTint?: (hex: string) => string;
     },
   ) {
     const g = this.canvas.getContext('2d');
@@ -290,6 +347,48 @@ export class RiverTrails {
       }
       g.stroke();
     });
+
+    // Rated rivers: the same particles, one path per condition colour.
+    const rt = this.rated;
+    if (rt && rt.active && rt.liveCount) {
+      const ds = (RATED_SPEED * o.screen * zf * dt) / 1000 / o.scale;
+      const paths = new Map<string, Path2D>();
+      for (let i = 0; i < rt.active; i++) {
+        rt.life[i] -= dt;
+        const li = rt.line[i];
+        const line = rt.lines[li];
+        const s = rt.s[i] + ds;
+        if (rt.life[i] <= 0 || s >= line.length) {
+          this.spawn(rt, i, false);
+          continue;
+        }
+        let seg = rt.seg[i];
+        while (seg < line.cum.length - 2 && line.cum[seg + 1] < s) seg++;
+        rt.s[i] = s;
+        rt.seg[i] = seg;
+        const s0 = line.cum[seg];
+        const s1 = line.cum[seg + 1];
+        const u = s1 > s0 ? (s - s0) / (s1 - s0) : 0;
+        const x = (line.xy[seg * 2] + (line.xy[seg * 2 + 2] - line.xy[seg * 2]) * u) * o.scale + o.tx;
+        const y = (line.xy[seg * 2 + 1] + (line.xy[seg * 2 + 3] - line.xy[seg * 2 + 1]) * u) * o.scale + o.ty;
+        if (!rt.fresh[i]) {
+          const hue = this.ratedColors[li];
+          const key = hue && o.ratedTint ? o.ratedTint(hue) : o.color;
+          const path = paths.get(key) ?? paths.set(key, new Path2D()).get(key)!;
+          path.moveTo(rt.px[i], rt.py[i]);
+          path.lineTo(x, y);
+        }
+        rt.fresh[i] = 0;
+        rt.px[i] = x;
+        rt.py[i] = y;
+      }
+      g.lineWidth = RATED_WIDTH * o.screen * zf;
+      g.globalAlpha = 0.95 * (1 - 0.7 * o.focus);
+      for (const [color, path] of paths) {
+        g.strokeStyle = color;
+        g.stroke(path);
+      }
+    }
     g.globalAlpha = 1;
   }
 
@@ -324,6 +423,20 @@ export class RiverTrails {
       st.active = Math.min(st.count, wantedParticles(st.liveLength * Math.max(1, o.zoom), c.density));
       for (let i = 0; i < st.active; i++) this.spawn(st, i, true);
     });
+    const rt = this.rated;
+    if (rt) {
+      rt.liveCount = 0;
+      rt.liveLength = 0;
+      for (let li = 0; li < rt.lines.length; li++) {
+        const l = rt.lines[li];
+        if (l.maxX < x0 || l.minX > x1 || l.maxY < y0 || l.minY > y1) continue;
+        rt.liveLength += l.length;
+        rt.prefix[rt.liveCount] = rt.liveLength;
+        rt.live[rt.liveCount++] = li;
+      }
+      rt.active = Math.min(rt.count, wantedParticles(rt.liveLength * Math.max(1, o.zoom), RATED_DENSITY));
+      for (let i = 0; i < rt.active; i++) this.spawn(rt, i, true);
+    }
   }
 
   /** Put particle i somewhere new on its class's eligible lines, weighted by length. */

@@ -286,6 +286,11 @@ async function main() {
     for (const words of ['Flooding · Observed', 'Major flooding', 'Moderate flooding', 'Minor flooding', 'Action stage', 'Below flood stage']) {
       assert.ok(legendText.includes(words), `the wall legend explains "${words}" (got ${legendText})`);
     }
+    // The Eddy badge: the app's QR code and the site address, bottom right.
+    assert.ok(legendText.includes('eddy.guide'), 'the wall carries the Eddy badge with the site address');
+    const badge = await page.getByRole('complementary', { name: 'Get the Eddy app' }).boundingBox();
+    assert.ok(badge && badge.x > 1440 * 0.75 && badge.y > 900 * 0.6, `the badge sits bottom right (${JSON.stringify(badge)})`);
+    assert.equal(await page.getByRole('img', { name: 'QR code: get the Eddy app' }).count(), 1);
     assert.equal(await page.getByRole('button', { name: 'Exit fullscreen' }).isVisible(), false, 'no persistent controls');
     await page.screenshot({ path: `${OUT_DIR}/national-wall-legend.png` });
     await page.mouse.click(720, 450);
@@ -401,16 +406,55 @@ async function main() {
     assert.ok(await pl.getByRole('button', { name: 'Show all of Alaska' }).isVisible(), 'reset returns to the place');
     const counts = (await visibleText(pl)).join(' ');
     assert.ok(!/1 of \d+ NWS forecast points/.test(counts), `the Meramec flood is not counted in Alaska (${counts.slice(0, 200)})`);
-    // The picker changes the place and the share link.
-    await pl.getByLabel('Area').selectOption('HI');
-    await pl.locator('[data-place="HI"]').waitFor();
-    await pl.waitForFunction(() => location.search.includes('region=HI'), null, { timeout: 10_000 });
-    await pl.getByRole('button', { name: 'Fullscreen map' }).click();
-    await pl.locator('[data-presentation="story"]').waitFor({ timeout: 15_000 });
-    assert.ok((await visibleText(pl)).join(' ').includes('Hawaii'), 'the wall legend names the place');
-    await pl.screenshot({ path: `${OUT_DIR}/national-place-hawaii.png` });
     await pl.close();
-    console.log('PASS Story mode opens on its story; a share link or the picker scopes the map to a place');
+
+    // Eddy's rated rivers in a state's Flow view: the legend explains them, and
+    // river names can be switched off (and stay off).
+    const rr = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await rr.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flow', motion: false })));
+    await intercept(rr, 5 * 60_000);
+    let ratedRequests = 0;
+    await rr.route('**/api/usgs/mo-dataset**', (r) => {
+      ratedRequests++;
+      return r.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          rivers: [{
+            id: 'meramec', slug: 'meramec', name: 'Meramec River',
+            geometry: { type: 'LineString', coordinates: [[-91.4, 38.0], [-91.0, 38.3], [-90.59, 38.51], [-90.35, 38.4]] },
+            gauges: [{ site_id: '07019000', lon: -90.59, lat: 38.51, is_primary: true, threshold_unit: 'ft', level_too_low: 1, level_low: 1.5, level_optimal_min: 2, level_optimal_max: 4, level_high: 6, level_dangerous: 9, flood_stage_ft: 15 }],
+          }],
+        }),
+      });
+    });
+    await rr.goto(`${target}?view=flow&region=MO`, { waitUntil: 'domcontentloaded' });
+    await rr.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await rr.getByText('Eddy float conditions · rated rivers').waitFor({ timeout: 15_000 });
+    assert.ok(ratedRequests > 0, 'the rated rivers load for a state');
+    await rr.getByRole('button', { name: 'Map settings' }).click();
+    const names = rr.getByRole('checkbox', { name: /River names/ });
+    assert.equal(await names.isChecked(), true, 'river names are on by default');
+    await names.uncheck();
+    const stored = await rr.evaluate(() => JSON.parse(localStorage.getItem('eddy-river-map-prefs-v1') ?? '{}').riverNames);
+    assert.equal(stored, false, 'the choice is kept');
+    await rr.close();
+
+    const pl2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pl2.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
+    await intercept(pl2, 5 * 60_000);
+    await pl2.goto(`${target}?region=AK`, { waitUntil: 'domcontentloaded' });
+    await pl2.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await pl2.locator('[data-place="AK"]').waitFor({ timeout: 15_000 });
+    // The picker changes the place and the share link.
+    await pl2.getByLabel('Area').selectOption('HI');
+    await pl2.locator('[data-place="HI"]').waitFor();
+    await pl2.waitForFunction(() => location.search.includes('region=HI'), null, { timeout: 10_000 });
+    await pl2.getByRole('button', { name: 'Fullscreen map' }).click();
+    await pl2.locator('[data-presentation="story"]').waitFor({ timeout: 15_000 });
+    assert.ok((await visibleText(pl2)).join(' ').includes('Hawaii'), 'the wall legend names the place');
+    await pl2.screenshot({ path: `${OUT_DIR}/national-place-hawaii.png` });
+    await pl2.close();
+    console.log('PASS Story mode opens on its story; a share link or the picker scopes the map to a place; rated rivers and river names in a state');
 
     // ── 4b''. Change: what moved since a recorded frame a window back ───
     // History reaches 26 h back (meta), the 24 h baseline has the Meramec

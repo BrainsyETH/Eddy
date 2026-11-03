@@ -84,6 +84,13 @@ export interface MapPalette {
    */
   markGlow: number;
   /**
+   * Eddy's rated rivers (a state, Flow): alpha of the soft underglow in each
+   * section's condition hue (0 = none; the dark displays), and the ink
+   * keyline under the channel on parchment (null = none).
+   */
+  ratedGlow: number;
+  ratedKeyline: string | null;
+  /**
    * Mark colours that cannot be seen against this theme's land (contrast under
    * 3:1) and are therefore drawn on a neutral backing disc. The fill keeps its
    * canonical colour — the backing is what makes it visible, not a new hue.
@@ -148,6 +155,8 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     // without changing its colour.
     flowKeyline: 'rgba(45, 42, 36, 0.7)',
     markGlow: 0,
+    ratedGlow: 0,
+    ratedKeyline: 'rgba(45, 42, 36, 0.55)',
     backed: [],
     backing: '#F2EAD8',
     backedFillAlpha: 1,
@@ -204,6 +213,8 @@ export const PALETTES: Record<MapTheme, MapPalette> = {
     // dark-contrast gate in docs/national-river-map.md.
     flowKeyline: 'rgba(242, 234, 216, 0.55)',
     markGlow: 0,
+    ratedGlow: 0.12,
+    ratedKeyline: null,
     backed: ['flow.higher', 'flow.much_higher', 'flowExtremeHigh'],
     backing: '#E8DFD0', // secondary-200
     backedFillAlpha: 0.72,
@@ -263,6 +274,7 @@ const WALL_OVERRIDES: Record<MapTheme, Partial<MapPalette>> = {
     traceStream: 'rgba(143, 211, 224, 0.85)',
     halo: '#0B252C',
     markGlow: 0.55,
+    ratedGlow: 0.2,
   },
 };
 

@@ -6,7 +6,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Map as MapIcon, Maximize, Minus, Pause, Play, Plus, Search, Settings, Type, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Segmented from '@/components/ui/Segmented';
 import InfoTip, { type InfoTipColors } from '@/components/ui/InfoTip';
@@ -180,6 +180,7 @@ export function ExplorePanel({
   changePanel,
   floodTrend,
   regionSelect,
+  ratedLegend,
 }: {
   view: MapView;
   onView: (v: MapView) => void;
@@ -206,6 +207,8 @@ export function ExplorePanel({
   floodTrend?: ReactNode;
   /** The place picker (whole country, a state, a water-resources region). */
   regionSelect?: ReactNode;
+  /** Eddy's rated-river conditions (state view, Flow), built by the parent. */
+  ratedLegend?: ReactNode;
 }) {
   const [legendOpen, setLegendOpen] = useState(!compact && !short);
   useEffect(() => setLegendOpen(!compact && !short), [compact, short]);
@@ -255,6 +258,7 @@ export function ExplorePanel({
           ) : view === 'flow' ? (
             <>
               <FlowLegend palette={palette} summary={flow} />
+              {ratedLegend}
               {flow && (
                 <p className={`flex items-start gap-1 text-xs ${styles.muted}`}>
                   <span>
@@ -452,6 +456,8 @@ export function MapControls({
   onWallText,
   flowColors,
   onFlowColors,
+  riverNames = true,
+  onRiverNames,
   horizontal = false,
   resetLabel = 'Show the whole country',
   fullscreenRef,
@@ -471,6 +477,9 @@ export function MapControls({
   wallText: WallText;
   onWallText: (t: WallText) => void;
   flowColors: FlowColors;
+  /** Subtle river names at regional scale (rated rivers first). */
+  riverNames?: boolean;
+  onRiverNames?: (on: boolean) => void;
   onFlowColors: (c: FlowColors) => void;
   fullscreenRef?: React.Ref<HTMLButtonElement>;
 }) {
@@ -545,6 +554,15 @@ export function MapControls({
             </span>
             <input type="checkbox" checked={motion && !reducedMotion} disabled={reducedMotion} onChange={(e) => onMotion(e.target.checked)} className="h-5 w-5" />
           </label>
+          {onRiverNames && (
+            <label className="flex min-h-11 items-center justify-between gap-2 text-sm">
+              <span>
+                River names
+                <span className={`block text-xs ${styles.muted}`}>When zoomed to a region or a state</span>
+              </span>
+              <input type="checkbox" checked={riverNames} onChange={(e) => onRiverNames(e.target.checked)} className="h-5 w-5" />
+            </label>
+          )}
           <div className="space-y-1">
             <p className="text-xs font-semibold">Fullscreen shows</p>
             <Segmented options={WALL_TEXT_OPTIONS} value={wallText} onChange={onWallText} stretch aria-label="Fullscreen shows" />
@@ -589,6 +607,8 @@ export function FullscreenTray({
   narrow,
   status,
   regionSelect,
+  riverNames,
+  onRiverNames,
 }: {
   open: boolean;
   view: MapView;
@@ -608,6 +628,9 @@ export function FullscreenTray({
   status: string | null;
   /** The place picker, on its own row. */
   regionSelect?: ReactNode;
+  /** River names on a scoped wall: shown only when there are names to toggle. */
+  riverNames?: boolean;
+  onRiverNames?: (on: boolean) => void;
 }) {
   const reducedId = useId();
   const paused = !motion || reducedMotion;
@@ -650,6 +673,17 @@ export function FullscreenTray({
         <span id={reducedId} className="sr-only">
           Motion is reduced by your system setting.
         </span>
+      )}
+      {onRiverNames && (
+        <Button
+          variant="icon"
+          aria-label="River names"
+          title={riverNames ? 'Hide river names' : 'Show river names'}
+          aria-pressed={!!riverNames}
+          onClick={() => onRiverNames(!riverNames)}
+        >
+          <Type size={18} aria-hidden />
+        </Button>
       )}
       <Button variant="icon" aria-label="Exit fullscreen" title="Exit fullscreen" onClick={onExit}>
         <X size={18} aria-hidden />

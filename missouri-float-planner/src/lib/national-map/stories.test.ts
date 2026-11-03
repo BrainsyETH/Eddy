@@ -128,4 +128,6 @@ test('a calm place says so with its counts, never a forced event', () => {
   const f = calmSummary('flow', { flow, flood: null, change: null, window: null, place: null });
   assert.equal(f?.title, 'Rivers near usual for the date');
   assert.equal(f?.bands?.find((b) => b.key === 'normal')?.share, 0.75);
+  const withRated = calmSummary('flow', { flow, flood: null, change: null, window: null, place: 'Missouri', rated: { flowing: 3, low: 2, unknown: 1 } });
+  assert.equal(withRated?.lines[1], "Eddy's rated gauges: 3 flowing, 2 low, 1 without a current reading.");
 });

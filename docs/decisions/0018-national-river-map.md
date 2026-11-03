@@ -82,7 +82,12 @@ persistent text. Three facts shaped the build:
    counts and the recorder: a USGS gauge belongs to its own state and HUC; an
    NWS point no gauge claims, to NOAA's state for it and to no region. A
    place is a scope and a home camera, not a separate map: classes, colours,
-   thresholds and liveness are the national ones.
+   thresholds and liveness are the national ones. One exception, by design: in a
+   state's Flow view, rivers Eddy RATES are drawn in sections coloured by
+   Eddy's float condition at each section's own rated gauge (boundaries
+   halfway between gauges) — Eddy's verdict where Eddy issues one, as the
+   planner does. It is the only colour spread along a river; unrated rivers
+   and the national geometry never carry a reading.
 10. **Separate contracts.** New endpoints (`/api/river-map/frame`,
    `/api/river-map/stations`) and their own preference key, so neither the iOS
    `/api/gauges/points` wire format nor the planner's layer choices move.

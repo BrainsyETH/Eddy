@@ -379,6 +379,7 @@ export interface CalmSummary {
   bands?: Array<{ key: 'much_lower' | 'lower' | 'normal' | 'higher' | 'much_higher'; share: number; count: number }>;
 }
 
+const RATED_WORD: Record<string, string> = { flowing: 'flowing', good: 'good', low: 'low', too_low: 'too low', high: 'high', dangerous: 'at flood' };
 const pct = (n: number, d: number) => `${Math.round((n / Math.max(1, d)) * 100)}%`;
 const nf0 = new Intl.NumberFormat('en-US');
 
@@ -389,7 +390,22 @@ const nf0 = new Intl.NumberFormat('en-US');
  */
 export function calmSummary(
   view: MapView,
-  { flow, flood, change, window, place }: { flow: FlowSummary | null; flood: FloodSummary | null; change: ChangeSummary | null; window: ChangeWindow | null; place: string | null },
+  {
+    flow,
+    flood,
+    change,
+    window,
+    place,
+    rated = null,
+  }: {
+    flow: FlowSummary | null;
+    flood: FloodSummary | null;
+    change: ChangeSummary | null;
+    window: ChangeWindow | null;
+    place: string | null;
+    /** Eddy's rated gauges in view by float condition (a state, Flow). */
+    rated?: Partial<Record<string, number>> | null;
+  },
 ): CalmSummary | null {
   const where = place ? ` in ${place}` : '';
   if (view === 'flooding') {
@@ -414,10 +430,17 @@ export function calmSummary(
         : low > high
           ? `Rivers mostly lower than usual${where}`
           : `Rivers mostly higher than usual${where}`;
+    const ratedLine = rated
+      ? (['flowing', 'good', 'low', 'too_low', 'high', 'dangerous', 'unknown'] as const)
+          .filter((c) => (rated[c] ?? 0) > 0)
+          .map((c) => `${rated[c]} ${c === 'unknown' ? 'without a current reading' : RATED_WORD[c]}`)
+          .join(', ')
+      : '';
     return {
       title,
       lines: [
         `${nf0.format(flow.compared)} gauges compared: ${pct(b.normal, flow.compared)} normal for the date, ${pct(high, flow.compared)} higher, ${pct(low, flow.compared)} lower. None far outside the usual range.`,
+        ...(ratedLine ? [`Eddy's rated gauges: ${ratedLine}.`] : []),
       ],
       bands: (['much_lower', 'lower', 'normal', 'higher', 'much_higher'] as const).map((key) => ({ key, count: b[key], share: b[key] / flow.compared })),
     };

@@ -40,8 +40,9 @@ test('preferences are scoped to this page and never restore fullscreen or a tour
   assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs('{bad'), DEFAULT_PREFS);
   assert.deepEqual(parsePrefs(JSON.stringify({ view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', fullscreen: true, tour: true })), {
-    view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', flowColors: 'eddy', changeWindow: '24h',
+    view: 'flooding', appearance: 'dark', motion: false, wallText: 'none', flowColors: 'eddy', changeWindow: '24h', riverNames: true,
   });
+  assert.equal(parsePrefs(JSON.stringify({ riverNames: false })).riverNames, false, 'river names can be turned off');
   assert.equal(DEFAULT_PREFS.wallText, 'legend', 'fullscreen keeps a legend by default');
   assert.equal(parsePrefs(JSON.stringify({ displayDetails: true })).wallText, 'story', 'the old details choice carries over');
   assert.equal(parsePrefs(JSON.stringify({ displayDetails: false })).wallText, 'legend');
