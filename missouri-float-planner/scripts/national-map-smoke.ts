@@ -470,6 +470,7 @@ async function main() {
     await head.waitFor();
     const headText = await head.innerText();
     assert.match(headText, /United States[\s\S]*1\s*in flood of \d+/, `the stats band counts the flooding (${headText})`);
+    assert.equal(await vt.locator('[class*="wallHeadNumIn"]').count(), 0, 'numbers do not animate on first paint — only when a value changes');
     const headBox = (await head.boundingBox())!;
     assert.ok(headBox.y < 1920 * 0.1, 'the stats band sits at the top');
     const eddyCard = (await vt.getByRole('complementary', { name: 'Get the Eddy app' }).boundingBox())!;

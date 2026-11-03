@@ -499,17 +499,40 @@ so thresholds and the legend still hold (`wallStyle`, `wallPalette`):
   keeps NWS colours in every set.
 - **Vertical format** (portrait walls: fullscreen, ≤ 4:5 and ≥ 700 px wide —
   a vertically mounted TV or kiosk; phones keep the bottom strip;
-  `data-format="vertical"`): a **stats band** on top (`WallStats.tsx` — the
-  place and view, then a few large counts from the same summaries as the
-  Explore legend: Flooding "in flood of N" with major / moderate / minor /
-  action; Flow "% normal for the date" with much higher / much lower and,
-  in a state, Eddy-rated gauges floatable; Change rising / sharply / flood
-  category rose); the **map** full width between, in the wall's compact
-  composition (Alaska and Hawaii in the Pacific corner, not stacked
-  full-width as on a portrait phone); and a **dock** below — the story (or
-  the legend) on the left; the legend, the flooding trend and the **Eddy
-  card in the bottom-right corner** on the right. Both are measured, and
-  the map's fit keeps clear of them. Map only stays text-free.
+  `data-format="vertical"`). Three parts: the **stats band** on top, the
+  **map** full width between (the wall's compact composition — Alaska and
+  Hawaii in the Pacific corner, not stacked full-width as on a portrait
+  phone), and a **dock** below — the story (or the legend) on the left; the
+  legend and the **Eddy card in the bottom-right corner** on the right.
+  Band and dock are measured; the map's fit keeps clear of them. Map only
+  stays text-free.
+
+  The **stats band** (`WallStats.tsx`) is a calm anchor that explains what
+  changed — the map supplies the movement, the band the meaning:
+  - **Flooding**: the count in flood (of those reporting) above its 24-hour
+    history — hourly bars stacked by severity, so a falling total cannot
+    hide a rise in major flooding; missing hours stay gaps; redrawn only
+    when new data arrives, never pulsed — then major / moderate / minor /
+    action, each with its own change.
+  - **Flow**: "% normal for the date" and the actual distribution, much
+    lower → much higher, as one broad strip whose segments ease to their
+    new widths when the distribution changes; much higher / much lower and,
+    in a state, Eddy-rated gauges floatable.
+  - **What changed** (`band.ts`), against the ~6 h-older recorded snapshot
+    the stories use: a chip per number ("+4 vs 6 h ago") and one sentence
+    that keeps real changes apart from reporting changes — "10 entered
+    flood · 11 left flood · 1 newly reporting" (a flat total can hide that
+    churn; "three more gauges reporting flooding" is not "three rivers newly
+    in flood"). No earlier snapshot, or a failed NOAA read either time: no
+    comparison.
+  - **Freshness**: snapshot time, age, and when the next is due.
+  - **Motion is brief and settles**: a number that changed crossfades once
+    when a new snapshot lands, in a fixed position (tabular figures,
+    reserved width); nothing loops and nothing moves on first paint. Off
+    with the Motion setting (`data-motion`) or the system's reduced-motion
+    preference.
+  - Change view: rising / rising sharply / falling sharply / flood category
+    rose.
 - **The Eddy badge**, bottom right in Legend and Story (never Map only, which
   stays free of words and logos): the otter and wordmark, a QR code to Eddy's
   download page (`/app?ct=river_map_wall`, rendered on the server by

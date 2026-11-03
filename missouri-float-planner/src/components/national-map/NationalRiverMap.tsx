@@ -86,6 +86,7 @@ import { WallLegend } from './WallLegend';
 import { WallStory } from './WallStory';
 import { WallBrand } from './WallBrand';
 import { WallStats } from './WallStats';
+import { floodTransitions, flowTransitions } from '@/lib/national-map/band';
 import { RatedLegend } from './Legend';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
@@ -245,7 +246,11 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
   // view says when comparisons begin and draws no change marks.
   const frameHistory = useFrameHistory(view === 'change', frame?.capturedAt ?? null);
   // The national flooding trend: Explore's Flooding legend, and the wall's Story column.
-  const floodTrend = useFloodTrend(view === 'flooding' && (!fullscreen || wallText === 'story'), frame?.capturedAt ?? null, place?.key ?? null);
+  const floodTrend = useFloodTrend(
+    view === 'flooding' && (!fullscreen || wallText === 'story' || (portraitWall && wallText !== 'none')),
+    frame?.capturedAt ?? null,
+    place?.key ?? null,
+  );
   const windows = useMemo(() => (frameHistory ? availableWindows(frameHistory.oldest, frameHistory.newest) : []), [frameHistory]);
   const changeWindow: ChangeWindow | null = windows.includes(prefs.changeWindow) ? prefs.changeWindow : (windows[0] ?? null);
   const changePrior = usePriorFrame(view === 'change' && changeWindow !== null, frame, catalog, changeWindow ? WINDOW_MS[changeWindow] : 0, WINDOW_MIN_SHARE);
@@ -1051,6 +1056,14 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
       rated={story?.site.siteId ? ratedBySite.get(story.site.siteId) ?? null : null}
     />
   );
+  // The band's comparison with the earlier recorded snapshot (band.ts):
+  // real changes apart from reporting changes.
+  const bandTransitions = useMemo(() => {
+    if (!vertical || !prior) return null;
+    if (view === 'flooding') return floodTransitions(placeSites, prior, now, noaaOk);
+    if (view === 'flow') return flowTransitions(placeSites, prior, now);
+    return null;
+  }, [vertical, prior, view, placeSites, now, noaaOk]);
   const ratedStat = useMemo(() => {
     if (!rated) return null;
     const c = ratedCounts(rated);
@@ -1108,6 +1121,7 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
       data-theme={theme}
       data-presentation={fullscreen ? (wallText === 'none' ? 'map-only' : wallText === 'story' ? 'story' : 'legend') : 'explore'}
       data-format={vertical ? 'vertical' : undefined}
+      data-motion={motion ? 'on' : 'off'}
       data-fallback={fallback ? 'true' : undefined}
       className={`${styles.root} ${fallback ? styles.fallbackFullscreen : ''} ${fullscreen && cursorHidden && !trayOpen ? styles.hideCursor : ''}`}
       style={{ background: palette.background }}
@@ -1268,12 +1282,16 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
                 noaaOk={noaaOk}
                 windowLabel={changeCtx && changeWindow ? (changeWindow === '6h' ? '6 h' : '24 h') : null}
                 rated={ratedStat}
+                trend={floodTrend}
+                transitions={bandTransitions}
+                capturedAt={frame?.capturedAt ?? null}
+                now={now}
+                liveStatus={liveStatus}
               />
               <div ref={dockRef} className={styles.wallDock} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
                 <div className={styles.wallDockCol}>{wallText === 'story' ? storyEl : legendEl}</div>
                 <div className={styles.wallDockCol}>
                   {wallText === 'story' && legendEl}
-                  {wallText === 'story' && view === 'flooding' && <TrendStrip points={floodTrend} palette={palette} wall />}
                   <WallBrand qr={appQr} inline />
                 </div>
               </div>
