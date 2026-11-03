@@ -456,6 +456,32 @@ async function main() {
     await pl2.close();
     console.log('PASS Story mode opens on its story; a share link or the picker scopes the map to a place; rated rivers and river names in a state');
 
+    // ── 4b''''. Vertical format: a portrait wall ─────────────────────────
+    // Stats on top, the map between, the dock below with the Eddy card in
+    // the bottom-right corner.
+    const vt = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+    await vt.addInitScript(() => localStorage.setItem('eddy-river-map-prefs-v1', JSON.stringify({ view: 'flooding', motion: false, wallText: 'story' })));
+    await intercept(vt, 5 * 60_000);
+    await vt.goto(target, { waitUntil: 'domcontentloaded' });
+    await vt.getByText(/^Snapshot /).waitFor({ timeout: 120_000 });
+    await vt.getByRole('button', { name: 'Fullscreen map' }).click();
+    await vt.locator('[data-format="vertical"]').waitFor({ timeout: 15_000 });
+    const head = vt.getByRole('region', { name: 'Summary' });
+    await head.waitFor();
+    const headText = await head.innerText();
+    assert.match(headText, /United States[\s\S]*1\s*in flood of \d+/, `the stats band counts the flooding (${headText})`);
+    assert.equal(await vt.locator('[class*="wallHeadNumIn"]').count(), 0, 'numbers do not animate on first paint — only when a value changes');
+    const headBox = (await head.boundingBox())!;
+    assert.ok(headBox.y < 1920 * 0.1, 'the stats band sits at the top');
+    const eddyCard = (await vt.getByRole('complementary', { name: 'Get the Eddy app' }).boundingBox())!;
+    assert.ok(eddyCard.x + eddyCard.width > 1080 * 0.9 && eddyCard.y + eddyCard.height > 1920 * 0.9, `the Eddy card sits bottom right (${JSON.stringify(eddyCard)})`);
+    await vt.getByRole('region', { name: 'Featured event' }).waitFor({ timeout: 15_000 });
+    const geo = await geographyBox(vt);
+    assert.ok(geo[1] >= (headBox.y + headBox.height) / 1920 - 0.02 && geo[3] < 0.95, `the map sits between the band and the dock (${geo.map((v) => v.toFixed(2))})`);
+    await vt.screenshot({ path: `${OUT_DIR}/national-vertical.png` });
+    await vt.close();
+    console.log('PASS vertical format: stats on top, the map between, the dock and the Eddy card bottom right');
+
     // ── 4b''. Change: what moved since a recorded frame a window back ───
     // History reaches 26 h back (meta), the 24 h baseline has the Meramec
     // below flood stage and discharges scaled; then a young history (2 h)

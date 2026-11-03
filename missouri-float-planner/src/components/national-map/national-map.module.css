@@ -617,3 +617,227 @@
   width: 1.6em;
   height: 0.8em;
 }
+
+/* ── Vertical wall (portrait displays) ───────────────────────────────────
+   Stats band on top, the map full width in the middle, and a dock below:
+   the story (or legend) on the left; the legend, trend and the Eddy card on
+   the right, the card in the bottom-right corner. Room-distance type like
+   the other wall panels (vmin is the screen's width here). */
+.wallHead {
+  position: absolute;
+  z-index: 30;
+  top: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-top));
+  left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
+  right: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-right));
+  font-size: clamp(13px, 1.62vmin, 32px);
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  padding: 0.8em 1.1em 0.9em;
+  pointer-events: none;
+}
+.wallHeadTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  margin: 0 0 0.55em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.45em;
+  line-height: 1.1;
+}
+.wallHeadView {
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--nm-ink-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wallHeadTiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5em 1.2em;
+  margin: 0.7em 0 0;
+  padding: 0;
+  list-style: none;
+}
+.wallHeadTiles li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wallHeadValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.9em;
+  line-height: 1;
+}
+.wallHeadNum {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+/* A changed number crossfades once, then settles. */
+.wallHeadNumIn {
+  animation: wallHeadNumIn 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes wallHeadNumIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.18em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.root[data-motion='off'] .wallHeadNumIn {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wallHeadNumIn {
+    animation: none;
+  }
+}
+.wallHeadLeadRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 1.2em;
+}
+.wallHeadLeadNum {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wallHeadBig {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 3em;
+  line-height: 1;
+}
+.wallHeadLabel {
+  margin-top: 0.2em;
+  font-size: 0.82em;
+  color: var(--nm-ink-2);
+}
+.wallHeadChip {
+  display: inline-block;
+  margin-left: 0.3em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--nm-ink);
+  background: var(--nm-surface-2);
+  border: 1px solid var(--nm-hairline);
+  white-space: nowrap;
+}
+.wallHeadChipSince {
+  font-weight: 500;
+  color: var(--nm-ink-2);
+}
+.wallHeadWhy {
+  margin: 0.55em 0 0;
+  font-size: 0.9em;
+}
+.wallHeadTrend {
+  margin: 0;
+  min-width: 0;
+}
+.wallHeadTrend svg {
+  display: block;
+  width: 100%;
+  height: 3.6em;
+}
+.wallHeadTrend figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72em;
+  color: var(--nm-ink-2);
+}
+.wallHeadTrendNote {
+  margin: 0;
+  font-size: 0.82em;
+  color: var(--nm-ink-2);
+}
+/* Flow: the distribution strip, much lower → much higher. */
+.wallHeadDist {
+  margin: 0.6em 0 0;
+}
+.wallHeadDistBar {
+  display: flex;
+  height: 1.25em;
+  border-radius: 0.3em;
+  overflow: hidden;
+  border: 1px solid var(--nm-hairline);
+}
+.wallHeadDistBar span,
+.wallHeadDistLabels span {
+  flex-basis: 0;
+  min-width: 0;
+  transition: flex-grow 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.root[data-motion='off'] .wallHeadDistBar span,
+.root[data-motion='off'] .wallHeadDistLabels span {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wallHeadDistBar span,
+  .wallHeadDistLabels span {
+    transition: none;
+  }
+}
+.wallHeadDistLabels {
+  display: flex;
+  margin-top: 0.25em;
+  font-size: 0.8em;
+  color: var(--nm-ink-2);
+  white-space: nowrap;
+}
+.wallHeadDistLabels span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.wallHeadDistLabels strong {
+  color: var(--nm-ink);
+}
+.wallHeadFresh {
+  margin: 0.6em 0 0;
+  font-size: 0.74em;
+  color: var(--nm-ink-2);
+}
+.wallHeadNote {
+  margin: 0;
+  font-size: 1em;
+}
+.wallDock {
+  position: absolute;
+  z-index: 30;
+  left: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-left));
+  right: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-right));
+  bottom: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(8px, 1.4vmin, 24px);
+  font-size: clamp(13px, 1.62vmin, 32px);
+  pointer-events: none;
+}
+.wallDockCol {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vmin, 24px);
+  min-width: 0;
+}
+/* The Eddy card closes the right column: bottom-right corner of the screen. */
+.wallDockCol > .wallBrandInline {
+  align-self: flex-end;
+}
+.wallBrandInline {
+  position: static;
+}
