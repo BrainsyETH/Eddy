@@ -14,9 +14,13 @@ import styles from './national-map.module.css';
 
 export const EDDY_MARK = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
 
-export function WallBrand({ qr, bottom }: { qr: { href: string; src: string } | null; bottom?: number }) {
+export function WallBrand({ qr, bottom, inline = false }: { qr: { href: string; src: string } | null; bottom?: number; inline?: boolean }) {
   return (
-    <aside className={styles.wallBrand} aria-label="Get the Eddy app" style={bottom ? { bottom } : undefined}>
+    <aside
+      className={inline ? `${styles.wallBrand} ${styles.wallBrandInline}` : styles.wallBrand}
+      aria-label="Get the Eddy app"
+      style={!inline && bottom ? { bottom } : undefined}
+    >
       <p className={styles.wallBrandName}>
         <Image src={EDDY_MARK} alt="" width={64} height={64} className={styles.wallBrandMark} />
         <span>Eddy</span>

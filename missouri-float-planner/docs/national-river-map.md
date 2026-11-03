@@ -497,6 +497,19 @@ so thresholds and the legend still hold (`wallStyle`, `wallPalette`):
   journey. Same bands and thresholds; the legend adds a
   row for the rarest highs only when they have their own colour. Flooding
   keeps NWS colours in every set.
+- **Vertical format** (portrait walls: fullscreen, ≤ 4:5 and ≥ 700 px wide —
+  a vertically mounted TV or kiosk; phones keep the bottom strip;
+  `data-format="vertical"`): a **stats band** on top (`WallStats.tsx` — the
+  place and view, then a few large counts from the same summaries as the
+  Explore legend: Flooding "in flood of N" with major / moderate / minor /
+  action; Flow "% normal for the date" with much higher / much lower and,
+  in a state, Eddy-rated gauges floatable; Change rising / sharply / flood
+  category rose); the **map** full width between, in the wall's compact
+  composition (Alaska and Hawaii in the Pacific corner, not stacked
+  full-width as on a portrait phone); and a **dock** below — the story (or
+  the legend) on the left; the legend, the flooding trend and the **Eddy
+  card in the bottom-right corner** on the right. Both are measured, and
+  the map's fit keeps clear of them. Map only stays text-free.
 - **The Eddy badge**, bottom right in Legend and Story (never Map only, which
   stays free of words and logos): the otter and wordmark, a QR code to Eddy's
   download page (`/app?ct=river_map_wall`, rendered on the server by

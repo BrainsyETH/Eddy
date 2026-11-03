@@ -85,6 +85,7 @@ import { componentOf, inRegion, projectComponent, regionSpan, type Region } from
 import { WallLegend } from './WallLegend';
 import { WallStory } from './WallStory';
 import { WallBrand } from './WallBrand';
+import { WallStats } from './WallStats';
 import { RatedLegend } from './Legend';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
@@ -171,13 +172,18 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
   const narrow = useMedia('(max-width: 640px)');
   // The wall legend sits in the composition's left margin on wide screens;
   // narrower than ~1.45:1 there is no margin, so it becomes a bottom strip.
-  const legendStrip = useMedia('(max-aspect-ratio: 29/20)') || narrow;
+  const legendStripMedia = useMedia('(max-aspect-ratio: 29/20)') || narrow;
+  // Portrait walls (a vertically mounted TV or kiosk) get their own format:
+  // stats on top, the map full width, a dock below. Phones keep the strip.
+  const portraitWall = useMedia('(max-aspect-ratio: 4/5) and (min-width: 700px)');
   const finePointer = useMedia('(hover: hover) and (pointer: fine)');
   const theme: MapTheme = prefs.appearance === 'system' ? (systemDark ? 'dark' : 'light') : prefs.appearance;
   // Fullscreen is the wall: its own brightness tiers and mark hierarchy
   // (theme.ts wallPalette, marks.ts wallStyle). Explore keeps everything.
   const [presentation, setPresentation] = useState<Presentation>('explore');
   const fullscreen = presentation === 'fullscreen';
+  const vertical = fullscreen && portraitWall;
+  const legendStrip = legendStripMedia && !vertical;
   const wallText = prefs.wallText;
   // Measured boxes of the wall legend (strip height) and story column (width),
   // so the fit keeps geography out from under them.
@@ -200,6 +206,26 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
     if (el) ro.observe(el);
     return () => ro.disconnect();
   }, [fullscreen, wallText, legendStrip]);
+  // Vertical format: the stats band and the dock are measured so the map fits
+  // between them.
+  const headRef = useRef<HTMLElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [headHeight, setHeadHeight] = useState(0);
+  const [dockHeight, setDockHeight] = useState(0);
+  useEffect(() => {
+    if (!vertical) return;
+    const measure = () => {
+      setHeadHeight(Math.round(headRef.current?.getBoundingClientRect().bottom ?? 0));
+      const dock = dockRef.current?.getBoundingClientRect();
+      const root = rootRef.current?.getBoundingClientRect();
+      setDockHeight(dock && root ? Math.round(root.bottom - dock.top) : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (headRef.current) ro.observe(headRef.current);
+    if (dockRef.current) ro.observe(dockRef.current);
+    return () => ro.disconnect();
+  }, [vertical, wallText]);
   const palette = useMemo(
     () => withFlowColors(fullscreen ? wallPalette(theme) : PALETTES[theme], theme, prefs.flowColors),
     [fullscreen, theme, prefs.flowColors],
@@ -894,6 +920,12 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
     return () => ro.disconnect();
   }, [side, fullscreen]);
   const insets = useMemo(() => {
+    if (vertical) {
+      // Between the stats band and the dock; Map only has neither.
+      return wallText === 'none'
+        ? { top: 0, right: 0, bottom: 0, left: 0 }
+        : { top: headHeight ? headHeight + 10 : 0, right: 0, bottom: dockHeight ? dockHeight + 10 : 0, left: 0 };
+    }
     if (fullscreen) {
       // The side legend sits in the composition's open left margin (the
       // Pacific above Alaska), so it reserves nothing; a bottom strip does.
@@ -904,7 +936,7 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
     }
     if (side) return { top: 0, right: 64, bottom: 0, left: panelRight + 16 };
     return { top: panelBottom + 18, right: 0, bottom: 60, left: 0 };
-  }, [fullscreen, side, panelBottom, panelRight, wallText, legendStrip, legendHeight, storyWidth]);
+  }, [vertical, headHeight, dockHeight, fullscreen, side, panelBottom, panelRight, wallText, legendStrip, legendHeight, storyWidth]);
   const insetsTop = insets.top;
 
   // Phones: keep the selected gauge clear of the bottom sheet (measured).
@@ -988,6 +1020,44 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
   const loading = !data.geometry && !data.geometryError;
   const fatal = data.geometryError;
 
+  // The wall's panels, built once and arranged per format (column, strip, or
+  // the vertical dock).
+  const legendEl = (
+    <WallLegend
+      view={view}
+      palette={palette}
+      noaaOk={noaaOk}
+      capturedAt={frame?.capturedAt ?? null}
+      liveStatus={liveStatus}
+      pulses={motion && dataLive && view !== 'flow'}
+      journey={journeysOn}
+      strip={legendStrip}
+      changeWindow={changeCtx ? changeWindow : null}
+      place={vertical ? null : (place?.name ?? null)}
+      rated={!!rated}
+    />
+  );
+  const storyEl = (
+    <WallStory
+      story={story}
+      journey={storyJourney}
+      calm={calm}
+      view={view}
+      now={now}
+      palette={palette}
+      locator={locator}
+      regionStates={regionStates}
+      sequence={sequence}
+      rated={story?.site.siteId ? ratedBySite.get(story.site.siteId) ?? null : null}
+    />
+  );
+  const ratedStat = useMemo(() => {
+    if (!rated) return null;
+    const c = ratedCounts(rated);
+    const current = Object.entries(c).reduce((sum, [code, n]) => sum + (code === 'unknown' ? 0 : (n ?? 0)), 0);
+    return { floatable: (c.flowing ?? 0) + (c.good ?? 0), current };
+  }, [rated]);
+
   const stageEl = (
     <div
       className={`absolute inset-0 ${fullscreen && motion ? styles.drift : ''} ${frame && !dataLive ? styles.subdued : ''}`}
@@ -1027,6 +1097,7 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
         trailKeep={trailKeep}
         riverLabels={prefs.riverNames && (fullscreen ? !!place : true)}
         rated={rated}
+        wallComposition={vertical}
       />
     </div>
   );
@@ -1036,6 +1107,7 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
       ref={rootRef}
       data-theme={theme}
       data-presentation={fullscreen ? (wallText === 'none' ? 'map-only' : wallText === 'story' ? 'story' : 'legend') : 'explore'}
+      data-format={vertical ? 'vertical' : undefined}
       data-fallback={fallback ? 'true' : undefined}
       className={`${styles.root} ${fallback ? styles.fallbackFullscreen : ''} ${fullscreen && cursorHidden && !trayOpen ? styles.hideCursor : ''}`}
       style={{ background: palette.background }}
@@ -1180,7 +1252,34 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
 
       {fullscreen && (
         <>
-          {wallText !== 'none' && (
+          {vertical && wallText !== 'none' && (
+            // Vertical format (portrait walls): stats on top; below the map a
+            // dock — the story (or the legend) on the left; the legend, the
+            // trend and the Eddy card on the right, the card in the corner.
+            <>
+              <WallStats
+                ref={headRef}
+                view={view}
+                palette={palette}
+                place={place?.name ?? null}
+                flow={shownFlow}
+                flood={shownFlood}
+                change={shownChange}
+                noaaOk={noaaOk}
+                windowLabel={changeCtx && changeWindow ? (changeWindow === '6h' ? '6 h' : '24 h') : null}
+                rated={ratedStat}
+              />
+              <div ref={dockRef} className={styles.wallDock} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
+                <div className={styles.wallDockCol}>{wallText === 'story' ? storyEl : legendEl}</div>
+                <div className={styles.wallDockCol}>
+                  {wallText === 'story' && legendEl}
+                  {wallText === 'story' && view === 'flooding' && <TrendStrip points={floodTrend} palette={palette} wall />}
+                  <WallBrand qr={appQr} inline />
+                </div>
+              </div>
+            </>
+          )}
+          {!vertical && wallText !== 'none' && (
             // The key stays up while the controls come and go. Wide screens:
             // one left column (legend, and in Story mode the featured event).
             // Narrow: a bottom strip, which yields to the tray sharing its
@@ -1190,55 +1289,19 @@ export default function NationalRiverMap({ appQr = null }: { appQr?: { href: str
               className={legendStrip ? undefined : styles.wallColumn}
               style={{ visibility: trayOpen && legendStrip ? 'hidden' : 'visible' }}
             >
-              <WallLegend
-                view={view}
-                palette={palette}
-                noaaOk={noaaOk}
-                capturedAt={frame?.capturedAt ?? null}
-                liveStatus={liveStatus}
-                pulses={motion && dataLive && view !== 'flow'}
-                journey={journeysOn}
-                strip={legendStrip}
-                changeWindow={changeCtx ? changeWindow : null}
-                place={place?.name ?? null}
-                rated={!!rated}
-              />
+              {legendEl}
               {wallText === 'story' && !legendStrip && view === 'flooding' && <TrendStrip points={floodTrend} palette={palette} wall />}
-              {wallText === 'story' && !legendStrip && (
-                <WallStory
-                  story={story}
-                  journey={storyJourney}
-                  calm={calm}
-                  view={view}
-                  now={now}
-                  palette={palette}
-                  locator={locator}
-                  regionStates={regionStates}
-                  sequence={sequence}
-                  rated={story?.site.siteId ? ratedBySite.get(story.site.siteId) ?? null : null}
-                />
-              )}
+              {wallText === 'story' && !legendStrip && storyEl}
             </div>
           )}
-          {wallText !== 'none' && (
+          {!vertical && wallText !== 'none' && (
             // The Eddy badge: legend and story displays only — Map only stays
             // free of words and logos. Above the legend strip on narrow screens.
             <WallBrand qr={appQr} bottom={legendStrip && legendHeight ? legendHeight + 24 : undefined} />
           )}
-          {wallText === 'story' && legendStrip && (
+          {!vertical && wallText === 'story' && legendStrip && (
             <div className={styles.wallStoryTop} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
-              <WallStory
-                  story={story}
-                  journey={storyJourney}
-                  calm={calm}
-                  view={view}
-                  now={now}
-                  palette={palette}
-                  locator={locator}
-                  regionStates={regionStates}
-                  sequence={sequence}
-                  rated={story?.site.siteId ? ratedBySite.get(story.site.siteId) ?? null : null}
-                />
+              {storyEl}
             </div>
           )}
           <div

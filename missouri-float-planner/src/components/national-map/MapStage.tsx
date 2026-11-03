@@ -144,6 +144,8 @@ interface Props {
   riverLabels?: boolean;
   /** Eddy's rated rivers in condition-coloured sections (state view). */
   rated?: RatedSection[] | null;
+  /** A portrait wall: keep the wall's compact composition (insets in the Pacific corner). */
+  wallComposition?: boolean;
 }
 
 const DRAG_SLOP_PX = 5;
@@ -180,6 +182,7 @@ export default function MapStage(props: Props) {
     trailKeep = null,
     riverLabels = false,
     rated = null,
+    wallComposition = false,
   } = props;
   const hostRef = useRef<HTMLDivElement>(null);
   const renderer = useRef<NationalRenderer | null>(null);
@@ -233,8 +236,8 @@ export default function MapStage(props: Props) {
   const layout: Layout | null = useMemo(() => {
     if (!geometry || !vp) return null;
     const kind = layoutKindFor(vp.width, vp.height);
-    return buildLayout(wall && kind === 'landscape' ? 'wall' : kind, geometry.components);
-  }, [geometry, vp, wall]);
+    return buildLayout(wall && (kind === 'landscape' || wallComposition) ? 'wall' : kind, geometry.components);
+  }, [geometry, vp, wall, wallComposition]);
 
   useEffect(() => {
     if (layout) renderer.current?.setLayout(layout);
