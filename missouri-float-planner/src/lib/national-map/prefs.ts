@@ -78,6 +78,8 @@ export function parsePrefs(raw: string | null): MapPrefs {
 export interface SharedView {
   view: MapView | null;
   center: { lng: number; lat: number; zoom: number } | null;
+  /** A scoped place: a state ('MO') or a water-resources region ('huc05'). */
+  region: string | null;
 }
 
 export function parseSharedView(search: string): SharedView {
@@ -95,12 +97,15 @@ export function parseSharedView(search: string): SharedView {
       center = { lng, lat, zoom };
     }
   }
-  return { view, center };
+  const r = params.get('region');
+  const region = r && /^(?:[A-Za-z]{2}|huc\d{2})$/.test(r) ? (r.startsWith('huc') ? r : r.toUpperCase()) : null;
+  return { view, center, region };
 }
 
-export function sharedViewQuery(view: MapView, center: SharedView['center']): string {
+export function sharedViewQuery(view: MapView, center: SharedView['center'], region: string | null = null): string {
   const params = new URLSearchParams();
   if (view !== DEFAULT_PREFS.view) params.set('view', view);
+  if (region) params.set('region', region);
   // The national overview is the default; only a zoomed view earns a location.
   if (center && center.zoom > 1.15) {
     params.set('at', `${center.lng.toFixed(3)},${center.lat.toFixed(3)},${center.zoom.toFixed(1)}`);

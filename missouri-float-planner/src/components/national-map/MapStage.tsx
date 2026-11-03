@@ -24,7 +24,8 @@ import {
   type Insets,
   type Viewport,
 } from '@/lib/national-map/camera';
-import type { DecodedGeometry } from '@/lib/national-map/geometry';
+import type { DecodedGeometry, DecodedPolygon } from '@/lib/national-map/geometry';
+import type { PlaceExtent } from '@/lib/national-map/places';
 import type { Journey } from '@/lib/national-map/journeys';
 import type { ClassifiedSite, MarkStyle, Site } from '@/lib/national-map/marks';
 import {
@@ -126,6 +127,20 @@ interface Props {
   onHover: (event: StageEvent | null) => void;
   onCameraChange: () => void;
   onNeedDetail: () => void;
+  /**
+   * A scoped place's extent: the camera's HOME (reset, first fit, fullscreen)
+   * frames it instead of the country. Zoom stays relative to the national
+   * fit, so detail rivers, small streams and mark sizes behave as zoomed in.
+   */
+  home?: PlaceExtent[] | null;
+  /** Sites outside the place (1 = outside): drawn quieter, never pulsing or glowing. */
+  outside?: { mask: Uint8Array; alpha: number } | null;
+  /** A scoped state's outline: everything outside it is veiled. */
+  placePolys?: DecodedPolygon[] | null;
+  /** Trails only on these lines (a water-resources region's rivers). */
+  trailKeep?: { base: Uint8Array | null; detail: Uint8Array | null } | null;
+  /** River names at regional scale on the wall. */
+  riverLabels?: boolean;
 }
 
 const DRAG_SLOP_PX = 5;
@@ -156,6 +171,11 @@ export default function MapStage(props: Props) {
     onHover,
     onCameraChange,
     onNeedDetail,
+    home = null,
+    outside = null,
+    placePolys = null,
+    trailKeep = null,
+    riverLabels = false,
   } = props;
   const hostRef = useRef<HTMLDivElement>(null);
   const renderer = useRef<NationalRenderer | null>(null);
@@ -200,6 +220,9 @@ export default function MapStage(props: Props) {
   useEffect(() => renderer.current?.setWall(wall), [wall]);
   useEffect(() => renderer.current?.setJourney(journey), [journey]);
   useEffect(() => renderer.current?.setMotion(motion, dataLive), [motion, dataLive]);
+  useEffect(() => renderer.current?.setPlaceMask(placePolys), [placePolys]);
+  useEffect(() => renderer.current?.setTrailFilter(trailKeep), [trailKeep]);
+  useEffect(() => renderer.current?.setRiverLabels(riverLabels), [riverLabels]);
 
   // ── Layout (landscape / portrait) ───────────────────────────────────────
   const layout: Layout | null = useMemo(() => {
@@ -239,6 +262,40 @@ export default function MapStage(props: Props) {
     const pad = wall ? Math.max(8, Math.min(vp.width, vp.height) * 0.025) : Math.min(32, Math.max(12, vp.width * 0.02));
     return fitBounds(layout.bounds, vp, insets, pad);
   }, [layout, vp, insets, wall]);
+
+  /** The home camera: the scoped place framed, or the national fit. */
+  const homeBox = useMemo((): Bounds | null => {
+    if (!home?.length || !layout) return null;
+    const b: Bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    for (const e of home) {
+      const a = layout.affine[e.component];
+      for (const [x, y] of [
+        [e.bounds.minX, e.bounds.minY],
+        [e.bounds.maxX, e.bounds.maxY],
+      ]) {
+        const [lx, ly] = applyAffine(a, x, y);
+        b.minX = Math.min(b.minX, lx);
+        b.maxX = Math.max(b.maxX, lx);
+        b.minY = Math.min(b.minY, ly);
+        b.maxY = Math.max(b.maxY, ly);
+      }
+    }
+    return Number.isFinite(b.minX) ? b : null;
+  }, [home, layout]);
+  const homeCam = useCallback((): Camera | null => {
+    const f = fit();
+    if (!f || !vp) return null;
+    return homeBox ? frameBox(homeBox, vp, f, insets, 40) : f;
+  }, [fit, homeBox, vp, insets]);
+  // Choosing a place is an explicit action: the camera goes to it (and back to
+  // the country when the place is cleared). Not on first load — the first
+  // fit below frames it, and a shared ?at= view still wins.
+  const homeKey = home ? JSON.stringify(home.map((e) => [e.component, e.bounds.minX, e.bounds.minY])) : '';
+  const lastHomeKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastHomeKey.current !== null && lastHomeKey.current !== homeKey) userMoved.current = false;
+    lastHomeKey.current = homeKey;
+  }, [homeKey]);
 
   /**
    * The view as the reader sees it: the layout point at the centre of the
@@ -309,7 +366,8 @@ export default function MapStage(props: Props) {
   // Fit / refit on layout or viewport change.
   useEffect(() => {
     const f = fit();
-    if (!f || !vp) return;
+    const h = homeCam();
+    if (!f || !h || !vp) return;
     // A shared view (?at=) applies whenever it arrives, as long as the reader
     // has not moved the map yet: it is read from the URL in an effect, and
     // the first fit can land a render earlier (geometry and size ready first),
@@ -328,34 +386,37 @@ export default function MapStage(props: Props) {
     }
     if (!initialApplied.current) {
       initialApplied.current = true;
-      commit(f, false);
+      commit(h, false);
       return;
     }
     const v = lastView.current;
     if (!userMoved.current || !v || v.national) {
-      commit(f, false);
+      commit(h, false);
       return;
     }
     // Keep the same PLACE at the centre (through this layout's affine for its
     // component), at the same relative zoom.
     commit(cameraFor(v, f), false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fit, initialCenter]);
+  }, [fit, homeCam, initialCenter]);
 
   // ── Marks ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const still = new Map<MarkStyle, MarkStyle>();
     const quiet = (st: MarkStyle) => still.get(st) ?? still.set(st, { ...st, ring: false }).get(st)!;
+    const away = new Map<MarkStyle, MarkStyle>();
+    const dim = (st: MarkStyle) =>
+      away.get(st) ?? away.set(st, { ...st, ring: false, glow: 0, alpha: (st.alpha ?? 1) * (outside?.alpha ?? 1) }).get(st)!;
     const marks: RenderMark[] = classified.map((c) => ({
       x: positions.xs[c.index],
       y: positions.ys[c.index],
-      style: pulses && c.style.ring && !pulses.has(c.index) ? quiet(c.style) : c.style,
+      style: outside?.mask[c.index] ? dim(c.style) : pulses && c.style.ring && !pulses.has(c.index) ? quiet(c.style) : c.style,
       phase: ((c.index * 2654435761) >>> 0) / 4294967296,
     }));
     const fade = frameVersion !== lastFrameVersion.current;
     lastFrameVersion.current = frameVersion;
     renderer.current?.setMarks(marks, fade);
-  }, [classified, positions, frameVersion, pulses]);
+  }, [classified, positions, frameVersion, pulses, outside]);
 
   useEffect(() => {
     const pt = (i: number | null) => (i === null || i >= positions.xs.length ? null : { x: positions.xs[i], y: positions.ys[i] });
@@ -377,10 +438,10 @@ export default function MapStage(props: Props) {
     ref,
     () => ({
       fitNational: () => {
-        const f = fit();
-        if (!f) return;
+        const h = homeCam();
+        if (!h) return;
         userMoved.current = false;
-        commit(f, false);
+        commit(h, false);
       },
       frameSites: (indices) => {
         if (!indices.length) return;
@@ -443,9 +504,10 @@ export default function MapStage(props: Props) {
         lastView.current = v;
         userMoved.current = !v.national;
         const f = fit();
-        if (!f || !vp) return;
+        const h = homeCam();
+        if (!f || !h || !vp) return;
         if (v.national) {
-          commit(f, false);
+          commit(h, false);
           return;
         }
         commit(cameraFor(v, f), false);
@@ -475,7 +537,7 @@ export default function MapStage(props: Props) {
         return { x: positions.xs[i] * cam.scale + cam.tx, y: positions.ys[i] * cam.scale + cam.ty };
       },
     }),
-    [fit, commit, frameLaidBox, positions, geometry, layout, vp, insets, cameraFor],
+    [fit, homeCam, commit, frameLaidBox, positions, geometry, layout, vp, insets, cameraFor],
   );
 
   // The keyboard reticle: the centre of the unobstructed map area.
@@ -637,7 +699,7 @@ export default function MapStage(props: Props) {
         break;
       case '0':
         userMoved.current = false;
-        commit(f, false);
+        commit(homeCam() ?? f, false);
         e.preventDefault();
         return;
       default:

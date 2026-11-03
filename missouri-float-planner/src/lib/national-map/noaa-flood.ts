@@ -46,6 +46,8 @@ export interface ObservedPoint {
   observedValue: number | null;
   units: string | null;
   name: string;
+  /** NOAA's own state (postal code) — the region of a point no USGS gauge claims. */
+  state: string | null;
   ingestAt: number | null;
 }
 
@@ -89,6 +91,7 @@ export function parseObservedFeatures(features: ArcFeature[]): ObservedPoint[] {
       observedValue: parseNoaaNumber(a.observed),
       units: typeof a.units === 'string' && a.units.trim() ? a.units.trim() : null,
       name: nameOf(a),
+      state: state && /^[A-Z]{2}$/.test(state.trim().toUpperCase()) ? state.trim().toUpperCase() : null,
       ingestAt: ingest,
     });
   }
@@ -132,6 +135,7 @@ export function mergeNoaa(observed: ObservedPoint[], forecast: ForecastPoint[]):
       forecastValidAt: f?.validAt ?? null,
       forecastIssuedAt: f?.issuedAt ?? null,
       name: o.name,
+      state: o.state,
     };
   });
 }

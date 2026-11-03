@@ -18,6 +18,8 @@
 // stores at capture (`body->fc`; the NWS rows themselves are ~1.1 MB a frame).
 // Counting rules: src/lib/national-map/trend.ts. A capture whose NOAA read
 // failed is a gap; a frame recorded before `fc` existed is left out.
+// `&region=MO` (a state) or `&region=huc05` (a USGS water-resources region)
+// reads that region's count from `body->fcr` instead.
 //
 // FIRST DEPLOY: until the recorder has stored its first frame (within ~15
 // minutes of deploy), the newest-frame read builds one live with the same
@@ -76,6 +78,10 @@ async function _GET(request: NextRequest) {
   }
 
   if (request.nextUrl.searchParams.get('trend') === '1') {
+    const region = request.nextUrl.searchParams.get('region');
+    if (region !== null && !/^(?:[A-Z]{2}|huc\d{2})$/.test(region)) {
+      return NextResponse.json({ error: `Invalid 'region': ${region}` }, { status: 400 });
+    }
     try {
       const supabase = createAdminClient();
       const since = new Date(Date.now() - 25 * 3_600_000).toISOString();
@@ -96,11 +102,11 @@ async function _GET(request: NextRequest) {
         // ~45 ms a frame in production (2026-11-02): each body is detoasted to read two small keys.
         const { data, error } = await supabase
           .from('national_map_frames')
-          .select('captured_at, fc:body->fc, sources:body->sources')
+          .select(region ? 'captured_at, fcr:body->fcr, sources:body->sources' : 'captured_at, fc:body->fc, sources:body->sources')
           .in('captured_at', picked);
         if (error) throw new Error(error.message);
-        points = ((data ?? []) as Array<{ captured_at: string; fc: unknown; sources: { noaaOk?: unknown } | null }>)
-          .map((r) => trendPointFromFrame(Date.parse(r.captured_at), r.sources?.noaaOk === true, r.fc))
+        points = ((data ?? []) as Array<{ captured_at: string; fc?: unknown; fcr?: unknown; sources: { noaaOk?: unknown } | null }>)
+          .map((r) => trendPointFromFrame(Date.parse(r.captured_at), r.sources?.noaaOk === true, r.fc, r.fcr, region))
           .filter((p): p is TrendPoint => p !== null)
           .sort((a, b) => a.t - b.t);
       }

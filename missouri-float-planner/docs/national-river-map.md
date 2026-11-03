@@ -34,6 +34,8 @@ sync-gauge-latest (:05/:20/:35/:50)      NOAA riv_gauges layers 0 + 15
 | Composite projection (geoAlbersUsa parameters, geographic inset routing, portrait layout) | `src/lib/national-map/projection.ts` |
 | Change: classification against the frame a window back, provisional thresholds; calibration evidence | `src/lib/national-map/change.ts`, `change-calibration.ts`, `scripts/calibrate-change-thresholds.ts` |
 | Frame format, builder, decoder, retention | `src/lib/national-map/frame.ts` |
+| Places: states and USGS water-resources regions — membership, framing, outlines, river-line regions | `src/lib/national-map/places.ts` |
+| Story card: lead, standing against flood stage, calm summary; locator map | `src/lib/national-map/stories.ts`, `locator.ts`, `src/components/national-map/WallStory.tsx` |
 | National 24 h flooding trend (counted from recorded frames) | `src/lib/national-map/trend.ts`, `src/components/national-map/TrendStrip.tsx` |
 | River trails (particles bound to the river lines) | `src/components/national-map/trails.ts` |
 | NWS flood vocabulary (quoted, never computed) | `src/lib/national-map/flood-status.ts`, `noaa-flood.ts` |
@@ -112,7 +114,8 @@ Preferences (`eddy-river-map-prefs-v1`): view, appearance (default **system**),
 motion, what fullscreen shows (`wallText`: **legend** by default, story, or
 none — a stored `displayDetails: true` from before reads as story), Flow
 colours (default **Eddy**; Vivid is an opt-in prototype). Never fullscreen, a tour, location or replay.
-Share links carry `?view=` and `?at=lng,lat,zoom` only.
+Share links carry `?view=`, `?at=lng,lat,zoom` and `?region=` (a place —
+below) only; the place is not stored, so a fresh visit shows the country.
 
 ## Phase 1 coverage snapshot (production, 2026-11-02 ~04:40 UTC)
 
@@ -263,12 +266,31 @@ device results.
   flood stage, a stage or flow shift), freshness, variety (away from the last
   pick) and recency (just shown steps back), so a new crossing wins and an
   unchanged extreme gauge cannot win every turn. Nearby gauges with the same
-  development fold into one story. The spotlight ring marks it on the map; in
-  Story mode a card tells it: river and place, one observation, the 24-hour
-  water level. Headlines only when supported — "Still rising" / "Crest
-  passed" from the series (minimum sizes), "Now in … flooding" / "Rose to …"
-  / "Back below flood stage" from NWS categories in both frames. No older
-  frame recorded yet: no change is claimed.
+  development fold into one story. The spotlight ring marks it on the map.
+  No older frame recorded yet: no change is claimed.
+- **The story card** (Story mode, `WallStory.tsx`) is built to be read across
+  a room:
+  - **The lead is what the map shows**: the gauge's own mark (shape and NWS or
+    flow colour, `wallStyle`) and its category at title size — "◆ Moderate
+    flooding". The development sits above it in small capitals, only when
+    supported: "Now in" / "Rose to" / "Back below flood stage" from NWS
+    categories in both frames, "Still rising" / "Crest passed" from the
+    series (minimum sizes). It replaced a single phrase in a teal pill that
+    looked the same for every severity.
+  - Gauge, river and state, and a **locator**: the country (or the region's
+    states) with the gauge marked.
+  - **The reading as a number**, against NWS flood stage only where the
+    datums agree (`chartStages`) and only when the relation agrees with the
+    category NWS reports now — stored thresholds can lag NWS's own
+    (`storyStanding`). Flow: discharge, with the percentile claim only at or
+    beyond the published tails.
+  - The 24 hours, larger, with the latest value at the end of the line and
+    the water above flood stage shaded; dots show how many developments are
+    in rotation.
+  - **All quiet**: when nothing in view deserves a story, a calm card says so
+    with the counts — "No flooding in Missouri: all 113 NWS forecast points
+    with a current reading are below action stage"; Flow shows the band
+    shares — never a forced event (`calmSummary`).
 - **NWS flood stages on the story chart.** When the featured gauge's NWS
   forecast point defines them (`gauge_stations.nwps_*_stage_ft`), the 24-hour
   chart draws action / flood / moderate / major as dashed lines in NWS colours
@@ -279,7 +301,7 @@ device results.
   place flood stage feet away from the truth. Evidence, 2026-11-02 production:
   of 6,613 paired points, 6,367 agree within 0.5 ft and 134 differ by more
   than 2 ft.
-- **The national flooding trend** (`trend.ts`, `TrendStrip.tsx`). How many NWS
+- **The flooding trend** (`trend.ts`, `TrendStrip.tsx`; per place — see Places). How many NWS
   forecast points were in minor, moderate or major flood, hour by hour, over
   the last 24 h of recorded frames — stacked bars in NWS colours, newest at the
   right. The recorder stores each frame's count as `fc` ([major, moderate,
@@ -296,7 +318,9 @@ device results.
   pulse (`pickPulses`); every severity symbol stays drawn. The sequence
   alternates a river journey (which holds at its outlet so the connection
   reads) with a current story: discover a river → notice what is happening →
-  another place. The camera never moves.
+  another place. **Story mode opens on its story** (the card is the point of
+  that mode); the legend and map-only displays open on a journey. The camera
+  never moves.
 - **Follow the river.** With motion on and the view live, the wall alternates
   the spotlight with a journey: a highlight travels a real river network from
   a headwater line to its outlet, each tributary flashes as the head passes its
@@ -304,8 +328,16 @@ device results.
   come from the geometry's own From/To node topology (`d` links in
   `base.v2.json`); `pickJourneys` takes the longest walk to each outlet, then
   only routes that are mostly new, comparing lengths at true scale so Alaska's
-  Yukon competes. It is geometry, never measurement: the pace is presentation,
-  and the caption names rivers only. While it runs, a veil on the effects
+  Yukon competes. **Which journey runs**: right after a story, the water from
+  THAT gauge, downstream to its outlet ("Downstream from Meramec River near
+  Eureka, MO", `journeyFromSite`) — only when the gauge stands on a river of
+  the national network (within 1.2 frame px, or 4 px of a line whose name the
+  gauge carries); a gauge on a creek the network does not hold gets none,
+  never a neighbouring river's. Otherwise the next route in a rotation that
+  starts at a different route each hour and carries on across view changes
+  (the sequence once opened on the Mississippi every time). It is geometry,
+  never measurement: the pace is presentation, and the caption names rivers
+  only. While it runs, a veil on the effects
   layer and quieter trails let the route command the screen; flood marks and
   rings sit above the veil at full strength. Near-white is reserved for the
   journey (wall trails are a soft cyan). The stage exposes `data-act`
@@ -316,6 +348,40 @@ device results.
   journeys are clipped to the longest stretch of river inside the view
   (`visibleJourneys`) — the head enters where the river enters the screen.
   The national view keeps the national sequence.
+
+## Places: a state or a water-resources region
+
+The map can be scoped to a **state** or a **USGS water-resources region**
+(HUC2: Ohio, Missouri, Arkansas-White-Red…, which follow rivers rather than
+state lines): the Area picker in Explore and in the fullscreen tray, or
+`?region=MO` / `?region=huc05` (`places.ts`).
+
+- **Membership — one rule everywhere** (map, stories, counts, the recorder's
+  regional flood counts): a USGS gauge belongs to its own state and its HUC's
+  region (`gauge_stations.huc`, 99.5 % populated on 2026-11-03); an NWS point
+  no gauge claims belongs to NOAA's state for it (`riv_gauges.state`, carried
+  as the NWS row's optional 13th element) and to no region (NOAA reports none).
+- **Home camera.** The place is framed (a state's outline; a region's gauges,
+  1st–99th percentile so a mis-coded gauge cannot stretch the frame); reset,
+  first fit and fullscreen go there. Zoom stays relative to the national fit,
+  so detail rivers, every small stream's trail and mark sizes behave as
+  zoomed in. Choosing a place is an explicit action, so the camera moves.
+- **A state reads as a state map**: everything outside its outline is veiled
+  (72 % background) and its outline drawn firmly; river names label the
+  longest stretch of each named river on screen (also in Explore from 2.2×).
+- **A water-resources region** has no outline in the geometry: gauges outside
+  it drop to 30 %, and its trails and journeys stay on its own rivers (each
+  river line assigned the region of its nearest gauges, `lineRegions`).
+- **Scoped**: Explore counts and the notable list, the Change summary, the
+  wall's stories, pulses and journeys (clipped to the place, `clippedJourneys`
+  / `clipFromStart`), the legend (it names the place) and the flooding trend.
+  Liveness stays national: the data's freshness is national.
+- **Regional flooding trend.** The recorder stores per-region counts in each
+  frame as `fcr` (`{ MO: [major, moderate, minor, action], huc07: […] }`,
+  regions with any count only); `?trend=1&region=MO` reads them. A region
+  missing from a frame's `fcr` had nothing to count (zero); a frame recorded
+  before `fcr` existed is left out, so a region's strip fills in over the
+  first day after deploy.
 
 ## Change
 

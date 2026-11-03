@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FLOOD_CODE } from './flood-status';
-import { buildFrame } from './frame';
+import { buildFrame, decodeFrame } from './frame';
 import { floodTrendPoint, hourlyPicks, trendFlooding, trendPointFromFrame } from './trend';
 
 const T = Date.parse('2026-11-03T12:00:00Z');
@@ -61,4 +61,31 @@ test('the recorder stores the count in each frame, and the trend reads it back',
   assert.equal(trendPointFromFrame(T, false, undefined)?.ok, false, 'that capture is a gap');
   assert.equal(trendPointFromFrame(T, true, undefined), null, 'a frame from before the count existed is left out, not zero');
   assert.equal(trendPointFromFrame(T, true, [1, 2, 'x', 0]), null);
+});
+
+test('the recorder counts each region the map\'s way: a gauge in its state and HUC, a lone NWS point in NOAA\'s state', () => {
+  const nws = (lid: string, observed: 'major' | 'minor' | 'no_flooding', state: string | null) => ({
+    lid, lng: -90, lat: 38, observed, observedAt: Math.floor((T - H) / 1000), observedValue: 3, units: 'ft',
+    forecast: 'unknown' as const, forecastValidAt: null, forecastIssuedAt: null, name: lid, state,
+  });
+  const latest = [{ siteId: '07019000', dischargeCfs: 1, gaugeHeightFt: 1, readingTimestamp: new Date(T).toISOString(), suspect: false, flowPercentile: 50, fetchedAt: new Date(T).toISOString() }];
+  const frame = buildFrame({
+    capturedAt: new Date(T),
+    latest,
+    // EURM7 is the Meramec gauge (USGS, MO, HUC 07); LONE1 has no gauge, NOAA says IL.
+    nws: [nws('EURM7', 'major', 'MO'), nws('LONE1', 'minor', 'IL'), nws('QUIET', 'no_flooding', 'IL')],
+    lidToSite: new Map([['EURM7', '07019000']]),
+    siteRegions: new Map([['07019000', { state: 'MO', huc2: '07' }]]),
+    noaaOk: true,
+  });
+  assert.deepEqual(frame.fc, [1, 0, 1, 0]);
+  assert.deepEqual(frame.fcr, { MO: [1, 0, 0, 0], huc07: [1, 0, 0, 0], IL: [0, 0, 1, 0] });
+  const body = JSON.parse(JSON.stringify(frame));
+  assert.deepEqual(trendPointFromFrame(T, true, body.fc, body.fcr, 'IL'), { t: T, ok: true, major: 0, moderate: 0, minor: 1, action: 0 });
+  assert.deepEqual(trendPointFromFrame(T, true, body.fc, body.fcr, 'KS'), { t: T, ok: true, major: 0, moderate: 0, minor: 0, action: 0 }, 'a region with nothing to count is zero');
+  assert.equal(trendPointFromFrame(T, true, body.fc, undefined, 'KS'), null, 'a frame from before regional counts is left out');
+  // The lone point keeps NOAA's state on its row; the matched one is its gauge's.
+  const decoded = decodeFrame(body);
+  assert.equal(decoded.nws.find((p) => p.lid === 'LONE1')?.state, 'IL');
+  assert.equal(decoded.nws.find((p) => p.lid === 'EURM7')?.state, null);
 });

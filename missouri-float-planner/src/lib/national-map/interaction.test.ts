@@ -57,8 +57,12 @@ test('preferences are scoped to this page and never restore fullscreen or a tour
 });
 
 test('share links carry geography and view only', () => {
-  assert.deepEqual(parseSharedView('?view=flooding&at=-92.1,38.2,4.5'), { view: 'flooding', center: { lng: -92.1, lat: 38.2, zoom: 4.5 } });
-  assert.deepEqual(parseSharedView('?at=999,0,2&view=x'), { view: null, center: null });
+  assert.deepEqual(parseSharedView('?view=flooding&at=-92.1,38.2,4.5'), { view: 'flooding', center: { lng: -92.1, lat: 38.2, zoom: 4.5 }, region: null });
+  assert.deepEqual(parseSharedView('?at=999,0,2&view=x'), { view: null, center: null, region: null });
+  assert.equal(parseSharedView('?region=mo').region, 'MO', 'a state, by postal code');
+  assert.equal(parseSharedView('?region=huc05').region, 'huc05', 'a water-resources region');
+  assert.equal(parseSharedView('?region=../x').region, null);
+  assert.equal(sharedViewQuery('flooding', null, 'MO'), '?view=flooding&region=MO');
   assert.equal(sharedViewQuery('flow', { lng: -92.1, lat: 38.2, zoom: 1 }), '', 'the national overview needs no parameters');
   assert.equal(sharedViewQuery('flooding', { lng: -92.12345, lat: 38.2, zoom: 4.5 }), '?view=flooding&at=-92.123%2C38.200%2C4.5');
 });

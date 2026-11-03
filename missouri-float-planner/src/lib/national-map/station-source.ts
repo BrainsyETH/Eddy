@@ -28,6 +28,8 @@ export interface NationalStation {
   lat: number;
   /** NWS action / flood / moderate / major stages (ft, NWS stage datum), when published. */
   stages?: [number | null, number | null, number | null, number | null] | null;
+  /** USGS water-resources region (first two digits of the gauge's HUC), e.g. '05' Ohio. */
+  huc2?: string | null;
 }
 
 interface PointRow {
@@ -48,6 +50,13 @@ interface MetaRow {
   nwps_flood_stage_ft?: number | string | null;
   nwps_moderate_stage_ft?: number | string | null;
   nwps_major_stage_ft?: number | string | null;
+  huc?: string | null;
+}
+
+/** The 2-digit USGS water-resources region of a HUC (01–21), or null. */
+export function huc2(huc: string | null | undefined): string | null {
+  const m = typeof huc === 'string' ? /^(\d{2})\d*$/.exec(huc.trim()) : null;
+  return m && Number(m[1]) >= 1 && Number(m[1]) <= 21 ? m[1] : null;
 }
 
 const stage = (v: number | string | null | undefined): number | null => {
@@ -93,6 +102,7 @@ export function joinStations(points: PointRow[], meta: MetaRow[]): NationalStati
         ];
         return s.some((v) => v !== null) ? s : null;
       })(),
+      huc2: huc2(m.huc),
     });
   }
   return out;
@@ -115,7 +125,7 @@ export async function loadNationalStations(supabase: Client): Promise<NationalSt
       async (after) => {
         let q = supabase
           .from('gauge_stations')
-          .select('id, name, state_code, waterbody_name, nws_lid, nwps_action_stage_ft, nwps_flood_stage_ft, nwps_moderate_stage_ft, nwps_major_stage_ft')
+          .select('id, name, state_code, waterbody_name, nws_lid, nwps_action_stage_ft, nwps_flood_stage_ft, nwps_moderate_stage_ft, nwps_major_stage_ft, huc')
           .eq('provider', 'usgs')
           .eq('active', true)
           .order('id')

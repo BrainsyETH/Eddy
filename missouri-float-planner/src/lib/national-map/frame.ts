@@ -27,7 +27,7 @@
 // Pure: the recorder cron, the frame route and the browser decoder share it.
 
 import { FLOOD_CODE, floodStatusFromCode, type FloodStatus } from './flood-status';
-import { floodTrendPoint } from './trend';
+import { floodRowCategory, regionCountKey, type RegionCounts } from './trend';
 
 /** Bump on any tuple change. Recorded frames keep their version; decoders branch on it. */
 export const FRAME_VERSION = 1;
@@ -52,6 +52,8 @@ export type FrameGaugeRow = [
  *  usgsSiteId | null, name]
  *
  * `name` is '' for a matched point — it is named as its USGS gauge.
+ * An optional 13th element carries NOAA's state for an UNMATCHED point (a
+ * matched one takes its USGS gauge's state), so regions can claim it.
  * `usgsSiteId` is the crosswalk: gauge_stations.nws_lid. A matched point is the
  * SAME physical gauge as that USGS site and is drawn once, as the USGS gauge.
  */
@@ -68,6 +70,7 @@ export type FrameNwsRow = [
   number | null,
   string | null,
   string,
+  string?,
 ];
 
 export interface FrameSources {
@@ -91,6 +94,13 @@ export interface NationalFrame {
    * per frame instead of the ~1.1 MB `n` array.
    */
   fc?: [number, number, number, number];
+  /**
+   * The same count per region, regions with any count only: state codes
+   * ('MO') and USGS water-resources regions ('huc05'). A gauge counts in its
+   * USGS state and HUC; a point no gauge claims, in NOAA's state. Absent on
+   * frames recorded before it existed (the regional trend leaves those out).
+   */
+  fcr?: RegionCounts;
   g: FrameGaugeRow[];
   n: FrameNwsRow[];
 }
@@ -119,6 +129,8 @@ export interface NwsInput {
   forecastValidAt: number | null;
   forecastIssuedAt: number | null;
   name: string;
+  /** NOAA's state for the point (postal code), when it reports one. */
+  state?: string | null;
 }
 
 function round(value: number | null, places: number): number | null {
@@ -139,6 +151,8 @@ export function buildFrame(args: {
   noaaOk: boolean;
   noaaObservedIngestAt?: string | null;
   noaaForecastIngestAt?: string | null;
+  /** USGS site → its state and 2-digit HUC (the regions a matched point counts in). */
+  siteRegions?: Map<string, { state: string | null; huc2: string | null }>;
 }): NationalFrame {
   const g: FrameGaugeRow[] = [];
   const seen = new Set<string>();
@@ -171,7 +185,8 @@ export function buildFrame(args: {
     if (!Number.isFinite(row.lng) || !Number.isFinite(row.lat)) continue;
     lids.add(lid);
     const site = args.lidToSite.get(lid) ?? null;
-    n.push([
+    const matched = !!site && seen.has(site);
+    const tuple: FrameNwsRow = [
       lid,
       round(row.lng, 4)!,
       round(row.lat, 4)!,
@@ -187,10 +202,33 @@ export function buildFrame(args: {
       // carries that name), so only unmatched points spend bytes on a name —
       // names were ~40% of the NWS payload when every row carried one.
       site && seen.has(site) ? '' : row.name,
-    ]);
+    ];
+    if (!matched && row.state) tuple.push(row.state);
+    n.push(tuple);
   }
 
-  const counts = floodTrendPoint(args.capturedAt.getTime(), args.noaaOk, n);
+  // Flood counts at capture, national and per region (trend.ts rules).
+  const capturedMs = args.capturedAt.getTime();
+  const fc: [number, number, number, number] = [0, 0, 0, 0];
+  const fcr: RegionCounts = {};
+  if (args.noaaOk) {
+    const slot = { major: 0, moderate: 1, minor: 2, action: 3 } as const;
+    for (const row of n) {
+      const cat = floodRowCategory(capturedMs, row);
+      if (!cat) continue;
+      const k = slot[cat];
+      fc[k]++;
+      const usgs = row[10] && seen.has(row[10]) ? row[10] : null;
+      const regions = usgs ? args.siteRegions?.get(usgs) : undefined;
+      const state = usgs ? (regions?.state ?? null) : (row[12] ?? null);
+      const keys = [state ? regionCountKey('state', state) : null, regions?.huc2 ? regionCountKey('basin', regions.huc2) : null];
+      for (const key of keys) {
+        if (!key) continue;
+        (fcr[key] ??= [0, 0, 0, 0])[k]++;
+      }
+    }
+  }
+
   return {
     v: FRAME_VERSION,
     capturedAt: args.capturedAt.toISOString(),
@@ -200,7 +238,7 @@ export function buildFrame(args: {
       noaaForecastIngestAt: args.noaaForecastIngestAt ?? null,
       noaaOk: args.noaaOk,
     },
-    ...(counts.ok ? { fc: [counts.major, counts.moderate, counts.minor, counts.action] as [number, number, number, number] } : {}),
+    ...(args.noaaOk ? { fc, fcr } : {}),
     g,
     n,
   };
@@ -232,6 +270,8 @@ export interface DecodedNwsPoint {
   forecastIssuedAt: number | null;
   usgsSiteId: string | null;
   name: string;
+  /** NOAA's state, carried only for a point no USGS gauge claims. */
+  state: string | null;
 }
 
 export interface DecodedFrame {
@@ -298,6 +338,7 @@ export function decodeFrame(body: unknown): DecodedFrame {
       forecastIssuedAt: issued === null ? null : issued * 1000,
       usgsSiteId: str(r[10]),
       name: str(r[11]) ?? r[0],
+      state: typeof r[12] === 'string' && /^[A-Z]{2}$/.test(r[12]) ? r[12] : null,
     };
     nws.push(point);
     if (point.usgsSiteId && gauges.has(point.usgsSiteId)) nwsBySite.set(point.usgsSiteId, point);

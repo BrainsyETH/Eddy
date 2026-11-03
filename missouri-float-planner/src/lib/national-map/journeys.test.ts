@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { decodeGeometry, GEOMETRY_VERSION, type DecodedLine } from './geometry';
-import { journeyCaption, journeyHead, journeyTiming, pickJourneys, routePoints, traceDownstream, visibleJourneys } from './journeys';
+import { clipFromStart, journeyCaption, journeyFromSite, journeyHead, journeyTiming, pickJourneys, routePoints, traceDownstream, visibleJourneys } from './journeys';
 import { inRegion, project, type Bounds, type Region } from './projection';
 
 const line = (name: string | null, length: number, down = -1, downAt = 0, component: DecodedLine['component'] = 'l48'): DecodedLine => ({
@@ -116,4 +116,55 @@ test('a region with no river in it has no journeys', () => {
   const [px, py] = project(-116.5, 43.5); // high desert, between base rivers
   const tiny: Region = { l48: { minX: px - 2, maxX: px + 2, minY: py - 2, maxY: py + 2 }, ak: EMPTY, hi: EMPTY };
   assert.deepEqual(visibleJourneys(rivers, tiny), []);
+});
+
+test('a walk can begin part-way along its first line (a gauge)', () => {
+  const j = traceDownstream(NET, 1, 400, 0.6);
+  assert.deepEqual(j.steps.map((s) => [s.line, s.t0]), [[1, 0.6], [2, 0.4]]);
+  assert.ok(Math.abs(j.length - (80 + 300 * 0.6)) < 1e-9);
+  assert.deepEqual(j.tributaries, [], 'Side River joins Main at 50%, upstream of the gauge: not on this walk');
+});
+
+test('a featured gauge on a national river is followed downstream from where it stands', () => {
+  const mo = rivers.findIndex((l) => l.name === 'Missouri River' && l.length > 50);
+  assert.ok(mo >= 0);
+  const l = rivers[mo];
+  const mid = Math.floor(l.xy.length / 4) * 2;
+  const site = { component: l.component, x: l.xy[mid], y: l.xy[mid + 1], name: 'Missouri River at Somewhere, MO', waterbody: null };
+  const j = journeyFromSite(rivers, site);
+  assert.ok(j, 'a gauge on the Missouri gets a journey');
+  assert.equal(j!.names[0], 'Missouri River');
+  assert.ok(j!.names.includes('Mississippi River'), `the water reaches the Mississippi (${j!.names.join(' → ')})`);
+  assert.ok(j!.steps[0].t0 > 0, 'the walk starts at the gauge, not at the headwater');
+  // Off the network: a gauge far from any national river gets nothing, not a neighbour's river.
+  const distTo = (x: number, y: number) => {
+    let d = Infinity;
+    for (const r of rivers) {
+      if (r.component !== site.component) continue;
+      for (let i = 0; i + 1 < r.xy.length; i += 2) d = Math.min(d, Math.hypot(r.xy[i] - x, r.xy[i + 1] - y));
+    }
+    return d;
+  };
+  let far: [number, number] | null = null;
+  for (let dx = -60; dx <= 60 && !far; dx += 4) for (let dy = -60; dy <= 60 && !far; dy += 4) if (distTo(site.x + dx, site.y + dy) > 8) far = [site.x + dx, site.y + dy];
+  assert.ok(far, 'found a point away from the national network');
+  assert.equal(journeyFromSite(rivers, { ...site, x: far![0], y: far![1], name: 'Little Creek near Nowhere' }), null);
+  // 3 px off the river, across it: unnamed, no journey; with the river's name, allowed.
+  const dx = l.xy[mid + 2] - l.xy[mid];
+  const dy = l.xy[mid + 3] - l.xy[mid + 1];
+  const k = 3 / Math.hypot(dx, dy);
+  const off = { x: site.x - dy * k, y: site.y + dx * k };
+  if (distTo(off.x, off.y) > 1.5) {
+    assert.equal(journeyFromSite(rivers, { ...site, ...off, name: 'Some Creek near Town' }), null);
+    assert.ok(journeyFromSite(rivers, { ...site, ...off }));
+  }
+});
+
+test('a regional display follows the water only as far as the region goes', () => {
+  const j = traceDownstream(NET, 0);
+  const clipped = clipFromStart(j, NET, (p) => p.line !== 2);
+  assert.ok(clipped);
+  assert.ok(clipped!.end <= 300 + 1e-6, `stops before Trunk (${clipped!.end})`);
+  assert.deepEqual(clipped!.names, ['Upper River', 'Main River']);
+  assert.equal(clipFromStart(j, NET, () => false), null);
 });

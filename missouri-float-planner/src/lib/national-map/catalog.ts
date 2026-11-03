@@ -14,13 +14,16 @@ export const CATALOG_VERSION = 1;
 
 /**
  * [siteId, lng, lat, stateCode | '', curated (0|1), name, waterbody | '',
- *  stages?] — `stages` is [action, flood, moderate, major] in feet (NWS stage
- * datum; any may be null), present only when NWS publishes at least one.
- * Optional and trailing, so older clients read the row unchanged.
+ *  stages?, huc2?] — `stages` is [action, flood, moderate, major] in feet
+ * (NWS stage datum; any may be null) or null when NWS publishes none;
+ * `huc2` is the gauge's USGS water-resources region ('05' Ohio). Optional
+ * and trailing, so older clients read the row unchanged.
  */
+type Stages = [number | null, number | null, number | null, number | null];
 export type CatalogRow =
   | [string, number, number, string, 0 | 1, string, string]
-  | [string, number, number, string, 0 | 1, string, string, [number | null, number | null, number | null, number | null]];
+  | [string, number, number, string, 0 | 1, string, string, Stages | null]
+  | [string, number, number, string, 0 | 1, string, string, Stages | null, string];
 
 /** NWS flood-category stages for a gauge (ft, NWS stage datum). */
 export interface FloodStages {
@@ -52,6 +55,7 @@ export function buildCatalog(stations: NationalStation[], now = new Date()): Sta
         s.name,
         s.waterbody ?? '',
       ];
+      if (s.huc2) return [...base, s.stages ?? null, s.huc2];
       return s.stages ? [...base, s.stages] : base;
     }),
   };
@@ -67,6 +71,8 @@ export interface CatalogStation {
   waterbody: string | null;
   /** Absent or null: NWS publishes no flood stages for this gauge. */
   stages?: FloodStages | null;
+  /** USGS water-resources region ('05' Ohio), when the gauge has a HUC. */
+  huc2?: string | null;
 }
 
 function decodeStages(v: unknown): FloodStages | null {
@@ -98,6 +104,7 @@ export function decodeCatalog(body: unknown): CatalogStation[] {
       name: typeof r[5] === 'string' && r[5] ? r[5] : `USGS ${r[0]}`,
       waterbody: typeof r[6] === 'string' && r[6] ? r[6] : null,
       stages: decodeStages(r[7]),
+      huc2: typeof r[8] === 'string' && /^\d{2}$/.test(r[8]) ? r[8] : null,
     });
   }
   return out;
