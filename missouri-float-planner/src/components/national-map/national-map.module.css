@@ -546,3 +546,74 @@
   font-size: 12px;
   padding-top: 0.25rem;
 }
+
+/* The wall's Eddy badge (WallBrand): bottom right, room-distance type. */
+.wallBrand {
+  position: absolute;
+  z-index: 30;
+  right: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-right));
+  bottom: max(clamp(10px, 2vmin, 44px), env(safe-area-inset-bottom));
+  font-size: clamp(12px, 1.4vmin, 28px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.6em 0.7em 0.55em;
+  color: var(--nm-ink);
+  background: var(--nm-wall-panel);
+  border: 1.5px solid var(--nm-edge);
+  border-radius: 0.75em;
+  pointer-events: none;
+}
+.wallBrandName {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25em;
+  line-height: 1;
+  color: var(--color-accent-600);
+}
+.wallBrandMark {
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 0.25em;
+}
+.wallBrandQr {
+  display: block;
+  padding: 0.3em;
+  background: #fff;
+  border-radius: 0.4em;
+}
+.wallBrandQr img {
+  display: block;
+  width: 6.4em;
+  height: 6.4em;
+}
+.wallBrandUrl {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.95em;
+  letter-spacing: 0.02em;
+}
+
+.wallLegendSubtitle {
+  margin: 0 0 0.3em;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+/* The featured gauge's Eddy float condition, when Eddy rates it. */
+.wallStoryRated {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0.4em 0 0;
+}
+.wallStoryRated svg {
+  flex-shrink: 0;
+  width: 1.6em;
+  height: 0.8em;
+}

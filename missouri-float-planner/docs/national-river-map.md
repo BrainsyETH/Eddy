@@ -376,6 +376,40 @@ state lines): the Area picker in Explore and in the fullscreen tray, or
   wall's stories, pulses and journeys (clipped to the place, `clippedJourneys`
   / `clipFromStart`), the legend (it names the place) and the flooding trend.
   Liveness stays national: the data's freshness is national.
+- **Eddy's rated rivers (a state, Flow view)** (`rated.ts`): each river Eddy
+  rates is drawn in sections, one per rated gauge — boundaries halfway
+  between neighbouring gauges along the river — in Eddy's canonical
+  condition hues (`CONDITION_SYSTEM`; the app's chips and the planner agree),
+  graded as the planner grades (`classifyReading`, the gauge's own thresholds
+  and unit, flood stage overriding). Drawn in the map's own language, not
+  the planner's:
+  - **a channel** at major-river weight in the section's hue — lifted on the
+    dark displays by a soft underglow (`ratedGlow`, as the trunk rivers are),
+    held on parchment by a thin ink keyline (`ratedKeyline`);
+  - **trails** along it, tinted by the section's condition (lifted toward
+    white on dark, deepened toward ink on parchment), denser than the
+    network's — only where the line's downstream direction is confirmed by
+    the national network (`orientRivers`: points vote with the direction of
+    the nearest national line; a split or empty vote claims no direction and
+    runs no trail);
+  - **no current reading**: the section is plain river, never a guessed hue;
+  - **names**: each rated river labelled on its longest stretch on screen,
+    in neutral ink, ahead of the network's quieter water-coloured names; no
+    label overlaps another. One toggle — **River names** in Settings and in
+    the fullscreen tray of a scoped wall (`riverNames`, on by default) —
+    covers both;
+  - **the story card** adds "Eddy: Flowing on the Current River" when the
+    featured gauge is rated; the calm card counts the rated gauges by
+    condition; the legend draws each swatch the way the map draws it.
+
+  Geometry and thresholds come from the planner's dataset
+  (`/api/usgs/mo-dataset?slim=1`, ~90 KB, loaded only for a state); readings
+  from the national frame, so a section and its gauge mark always agree. A
+  river counts as in the state when any of it lies inside the outline (the
+  Buffalo appears in Arkansas; the White in both). Flow only: Eddy's orange
+  "High" and red "Flood" would read as NWS flood categories in Flooding, and
+  Change has its own scale. 2026-11-03: 28 rated rivers, 50 rated gauges, 49
+  of them in the national frame.
 - **Regional flooding trend.** The recorder stores per-region counts in each
   frame as `fcr` (`{ MO: [major, moderate, minor, action], huc07: […] }`,
   regions with any count only); `?trend=1&region=MO` reads them. A region
@@ -463,6 +497,12 @@ so thresholds and the legend still hold (`wallStyle`, `wallPalette`):
   journey. Same bands and thresholds; the legend adds a
   row for the rarest highs only when they have their own colour. Flooding
   keeps NWS colours in every set.
+- **The Eddy badge**, bottom right in Legend and Story (never Map only, which
+  stays free of words and logos): the otter and wordmark, a QR code to Eddy's
+  download page (`/app?ct=river_map_wall`, rendered on the server by
+  `src/lib/app-qr.ts` with a 2-module quiet zone, on a white tile in both
+  themes so phone cameras read it), and `eddy.guide` underneath. Above the
+  legend strip on narrow screens.
 - **The tray** stays open only while it has *keyboard* focus; a clicked button
   keeps focus, so pointer use no longer pins it open.
 

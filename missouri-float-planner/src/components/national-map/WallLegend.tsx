@@ -12,7 +12,7 @@
 import { EXTREME_HIGH, EXTREME_LOW, wallStyle, type FloodClass, type FlowClass, type MapView } from '@/lib/national-map/marks';
 import type { MapPalette } from '@/lib/national-map/theme';
 import { CHANGE_LEGEND, changeStyle, type ChangeWindow } from '@/lib/national-map/change';
-import { formatTime, MarkSymbol } from './Legend';
+import { formatTime, MarkSymbol, RatedLegend } from './Legend';
 import styles from './national-map.module.css';
 
 type Row = { cls: FlowClass | FloodClass; label: string; extreme?: boolean };
@@ -45,6 +45,7 @@ export function WallLegend({
   strip,
   changeWindow = null,
   place = null,
+  rated = false,
 }: {
   view: MapView;
   palette: MapPalette;
@@ -62,6 +63,8 @@ export function WallLegend({
   changeWindow?: ChangeWindow | null;
   /** The place on show ("Missouri"), or null for the whole country. */
   place?: string | null;
+  /** Eddy's rated rivers are drawn in float-condition sections (state view, Flow). */
+  rated?: boolean;
 }) {
   const symbol = (r: Row) => {
     const style = wallStyle(view, r.cls, r.extreme);
@@ -129,6 +132,11 @@ export function WallLegend({
             </span>
           </li>
         </ul>
+      )}
+      {rated && (
+        <div className={styles.wallLegendApart}>
+          <RatedLegend palette={palette} wall rowClass={styles.wallLegendRow} listClass={styles.wallLegendList} />
+        </div>
       )}
       {(pulses || journey) && (
         <ul className={`${styles.wallLegendList} ${styles.wallLegendApart} ${styles.wallLegendFine}`} aria-label="Motion">

@@ -65,6 +65,8 @@ import {
   placePolygons,
 } from '@/lib/national-map/places';
 import { buildLocator } from '@/lib/national-map/locator';
+import { orientRivers, ratedCounts, ratedSections, type RatedSection } from '@/lib/national-map/rated';
+import { useRatedRivers } from './useRatedRivers';
 import {
   availableWindows,
   biggestChanges,
@@ -79,9 +81,11 @@ import {
 } from '@/lib/national-map/change';
 import { usePriorFrame, useFrameHistory, useFloodTrend } from './usePriorFrame';
 import { TrendStrip } from './TrendStrip';
-import { inRegion, regionSpan, type Region } from '@/lib/national-map/projection';
+import { componentOf, inRegion, projectComponent, regionSpan, type Region } from '@/lib/national-map/projection';
 import { WallLegend } from './WallLegend';
 import { WallStory } from './WallStory';
+import { WallBrand } from './WallBrand';
+import { RatedLegend } from './Legend';
 import MapStage, { type StageEvent, type StageHandle, type StageView } from './MapStage';
 import SiteDetail from './SiteDetail';
 import {
@@ -119,7 +123,7 @@ function useMedia(query: string): boolean {
   return match;
 }
 
-export default function NationalRiverMap() {
+export default function NationalRiverMap({ appQr = null }: { appQr?: { href: string; src: string } | null } = {}) {
   const data = useNationalMapData();
   const stage = useRef<StageHandle>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -286,6 +290,35 @@ export default function NationalRiverMap() {
     [members, place],
   );
   const locator = useMemo(() => (data.geometry ? buildLocator(data.geometry) : null), [data.geometry]);
+  // Eddy's rated rivers in a state view: sections coloured by Eddy's float
+  // condition at their gauges (rated.ts). Flow only — Eddy's condition colours
+  // (orange "high", red "flood") would read as NWS flood categories in the
+  // Flooding view, and Change has its own scale.
+  const showRated = place?.kind === 'state' && view === 'flow';
+  const ratedRivers = useRatedRivers(showRated);
+  // Turned to run downstream once per dataset and network (not per reading):
+  // the national network (base + detail, digitized downstream) confirms the
+  // direction before trails claim one.
+  const orientedRated = useMemo(
+    () => (ratedRivers && data.geometry ? orientRivers(ratedRivers, [...data.geometry.rivers, ...(data.detail?.rivers ?? [])]) : null),
+    [ratedRivers, data.geometry, data.detail],
+  );
+  const rated = useMemo(() => {
+    if (!showRated || !orientedRated || !frame || !placePolys) return null;
+    const inState = orientedRated.filter((r) =>
+      r.coords.some(([lng, lat]) => {
+        const c = componentOf(lng, lat);
+        const [x, y] = projectComponent(c, lng, lat);
+        return inPolygons(placePolys, c, x, y);
+      }),
+    );
+    return inState.length ? ratedSections(inState, frame.gauges, now) : null;
+  }, [showRated, orientedRated, frame, placePolys, now]);
+  const ratedBySite = useMemo(() => {
+    const m = new Map<string, { river: string; code: RatedSection['code'] }>();
+    for (const sec of rated ?? []) if (sec.siteId && !m.has(sec.siteId)) m.set(sec.siteId, { river: sec.river, code: sec.code });
+    return m;
+  }, [rated]);
   const shownChange = useMemo(
     () => (changeResult ? (members ? summarizeChange(changeResult.changes.filter((_, i) => members[i])) : changeSummary) : null),
     [changeResult, members, changeSummary],
@@ -821,7 +854,14 @@ export default function NationalRiverMap() {
   // view deserves a story — a calm card that says so with the counts.
   const calm =
     fullscreen && wallText === 'story' && dataLive && !hasStories
-      ? calmSummary(view, { flow: shownFlow, flood: noaaOk ? shownFlood : null, change: shownChange, window: changeWindow, place: place?.name ?? null })
+      ? calmSummary(view, {
+          flow: shownFlow,
+          flood: noaaOk ? shownFlood : null,
+          change: shownChange,
+          window: changeWindow,
+          place: place?.name ?? null,
+          rated: rated ? ratedCounts(rated) : null,
+        })
       : null;
   const storyJourney =
     journey && !calm
@@ -985,7 +1025,8 @@ export default function NationalRiverMap() {
         outside={outside}
         placePolys={placePolys}
         trailKeep={trailKeep}
-        riverLabels={fullscreen && !!place}
+        riverLabels={prefs.riverNames && (fullscreen ? !!place : true)}
+        rated={rated}
       />
     </div>
   );
@@ -1024,6 +1065,7 @@ export default function NationalRiverMap() {
               infoColors={infoColors}
               floodTrend={view === 'flooding' ? <TrendStrip points={floodTrend} palette={palette} wall={false} /> : undefined}
               regionSelect={<RegionSelect place={place} onPlace={setPlaceKey} />}
+              ratedLegend={rated ? <RatedLegend palette={palette} /> : undefined}
               changePanel={
                 view === 'change' ? (
                   <ChangePanel
@@ -1068,6 +1110,8 @@ export default function NationalRiverMap() {
               onWallText={(t) => setPrefs({ wallText: t })}
               flowColors={prefs.flowColors}
               onFlowColors={(c) => setPrefs({ flowColors: c })}
+              riverNames={prefs.riverNames}
+              onRiverNames={(on) => setPrefs({ riverNames: on })}
               horizontal={!side}
               fullscreenRef={fullscreenButton}
             />
@@ -1157,6 +1201,7 @@ export default function NationalRiverMap() {
                 strip={legendStrip}
                 changeWindow={changeCtx ? changeWindow : null}
                 place={place?.name ?? null}
+                rated={!!rated}
               />
               {wallText === 'story' && !legendStrip && view === 'flooding' && <TrendStrip points={floodTrend} palette={palette} wall />}
               {wallText === 'story' && !legendStrip && (
@@ -1170,9 +1215,15 @@ export default function NationalRiverMap() {
                   locator={locator}
                   regionStates={regionStates}
                   sequence={sequence}
+                  rated={story?.site.siteId ? ratedBySite.get(story.site.siteId) ?? null : null}
                 />
               )}
             </div>
+          )}
+          {wallText !== 'none' && (
+            // The Eddy badge: legend and story displays only — Map only stays
+            // free of words and logos. Above the legend strip on narrow screens.
+            <WallBrand qr={appQr} bottom={legendStrip && legendHeight ? legendHeight + 24 : undefined} />
           )}
           {wallText === 'story' && legendStrip && (
             <div className={styles.wallStoryTop} style={{ visibility: trayOpen ? 'hidden' : 'visible' }}>
@@ -1186,6 +1237,7 @@ export default function NationalRiverMap() {
                   locator={locator}
                   regionStates={regionStates}
                   sequence={sequence}
+                  rated={story?.site.siteId ? ratedBySite.get(story.site.siteId) ?? null : null}
                 />
             </div>
           )}
@@ -1216,6 +1268,15 @@ export default function NationalRiverMap() {
               trayRef={trayRef}
               narrow={narrow}
               status={liveStatus}
+              riverNames={prefs.riverNames}
+              onRiverNames={
+                place
+                  ? (on) => {
+                      setPrefs({ riverNames: on });
+                      armTray();
+                    }
+                  : undefined
+              }
               regionSelect={
                 <RegionSelect
                   compact

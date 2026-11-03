@@ -34,6 +34,8 @@ export interface MapPrefs {
   wallText: WallText;
   flowColors: FlowColors;
   changeWindow: ChangeWindowPref;
+  /** Subtle river names at regional scale — rated rivers first (Settings / fullscreen tray). */
+  riverNames: boolean;
 }
 
 export const DEFAULT_PREFS: MapPrefs = {
@@ -43,6 +45,7 @@ export const DEFAULT_PREFS: MapPrefs = {
   wallText: 'legend',
   flowColors: 'eddy',
   changeWindow: '24h',
+  riverNames: true,
 };
 
 const VIEWS = new Set<MapView>(['flow', 'flooding', 'change']);
@@ -65,6 +68,7 @@ export function parsePrefs(raw: string | null): MapPrefs {
           : DEFAULT_PREFS.wallText,
       flowColors: v.flowColors === 'vivid' ? 'vivid' : 'eddy',
       changeWindow: v.changeWindow === '6h' ? '6h' : '24h',
+      riverNames: typeof v.riverNames === 'boolean' ? v.riverNames : DEFAULT_PREFS.riverNames,
     };
   } catch {
     return DEFAULT_PREFS;

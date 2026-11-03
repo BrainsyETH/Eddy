@@ -26,6 +26,7 @@ import {
 } from '@/lib/national-map/camera';
 import type { DecodedGeometry, DecodedPolygon } from '@/lib/national-map/geometry';
 import type { PlaceExtent } from '@/lib/national-map/places';
+import type { RatedSection } from '@/lib/national-map/rated';
 import type { Journey } from '@/lib/national-map/journeys';
 import type { ClassifiedSite, MarkStyle, Site } from '@/lib/national-map/marks';
 import {
@@ -141,6 +142,8 @@ interface Props {
   trailKeep?: { base: Uint8Array | null; detail: Uint8Array | null } | null;
   /** River names at regional scale on the wall. */
   riverLabels?: boolean;
+  /** Eddy's rated rivers in condition-coloured sections (state view). */
+  rated?: RatedSection[] | null;
 }
 
 const DRAG_SLOP_PX = 5;
@@ -176,6 +179,7 @@ export default function MapStage(props: Props) {
     placePolys = null,
     trailKeep = null,
     riverLabels = false,
+    rated = null,
   } = props;
   const hostRef = useRef<HTMLDivElement>(null);
   const renderer = useRef<NationalRenderer | null>(null);
@@ -223,6 +227,7 @@ export default function MapStage(props: Props) {
   useEffect(() => renderer.current?.setPlaceMask(placePolys), [placePolys]);
   useEffect(() => renderer.current?.setTrailFilter(trailKeep), [trailKeep]);
   useEffect(() => renderer.current?.setRiverLabels(riverLabels), [riverLabels]);
+  useEffect(() => renderer.current?.setRatedSections(rated), [rated]);
 
   // ── Layout (landscape / portrait) ───────────────────────────────────────
   const layout: Layout | null = useMemo(() => {

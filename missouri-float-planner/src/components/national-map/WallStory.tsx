@@ -33,6 +33,7 @@ import type { MapPalette } from '@/lib/national-map/theme';
 import type { MapView } from '@/lib/national-map/marks';
 import { locatorBox, locatorPoint, type Locator } from '@/lib/national-map/locator';
 import { formatAge, MarkSymbol } from './Legend';
+import { CONDITION_SYSTEM, type ConditionCode } from '@shared/condition-system';
 import { useHistory } from './SiteDetail';
 import styles from './national-map.module.css';
 
@@ -53,6 +54,7 @@ export function WallStory({
   locator,
   regionStates,
   sequence,
+  rated,
 }: {
   story: Story | null;
   journey: StoryJourney | null;
@@ -65,6 +67,8 @@ export function WallStory({
   regionStates: string[] | null;
   /** Developments in rotation, and which one this is. */
   sequence: { count: number; index: number } | null;
+  /** Eddy's float condition when the featured gauge is one Eddy rates. */
+  rated?: { river: string; code: ConditionCode } | null;
 }) {
   if (journey) {
     return (
@@ -85,6 +89,7 @@ export function WallStory({
         locator={locator}
         regionStates={regionStates}
         sequence={sequence}
+        rated={rated ?? null}
       />
     );
   }
@@ -100,6 +105,7 @@ function StoryBody({
   locator,
   regionStates,
   sequence,
+  rated,
 }: {
   story: Story;
   view: MapView;
@@ -108,6 +114,7 @@ function StoryBody({
   locator: Locator | null;
   regionStates: string[] | null;
   sequence: { count: number; index: number } | null;
+  rated: { river: string; code: ConditionCode } | null;
 }) {
   const site = story.site;
   const unit: 'ft' | 'cfs' = view === 'flow' ? 'cfs' : site.reading?.gaugeHeightFt != null || site.kind === 'nws' ? 'ft' : 'cfs';
@@ -137,6 +144,16 @@ function StoryBody({
         </div>
         {locator && <LocatorMap locator={locator} site={story.site} regionStates={regionStates} />}
       </div>
+      {rated && rated.code !== 'unknown' && (
+        <p className={styles.wallStoryRated}>
+          <svg viewBox="0 0 24 12" aria-hidden="true">
+            <path d="M2 8 C8 2, 14 10, 22 4" fill="none" stroke={CONDITION_SYSTEM[rated.code].solid} strokeWidth="3" strokeLinecap="round" />
+          </svg>
+          <span>
+            Eddy: <strong>{CONDITION_SYSTEM[rated.code].label}</strong> on the {rated.river}
+          </span>
+        </p>
+      )}
       {standing && (
         <p className={styles.wallStoryStanding}>
           <strong>{standing.value}</strong>

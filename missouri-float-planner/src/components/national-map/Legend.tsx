@@ -19,6 +19,7 @@ import {
   type FlowSummary,
   type MarkStyle,
 } from '@/lib/national-map/marks';
+import { RATED_LEGEND } from '@/lib/national-map/rated';
 import styles from './national-map.module.css';
 
 function resolve(p: MapPalette, key: string): string {
@@ -195,5 +196,39 @@ export function ChangeLegend({
       <Row style={changeStyle({ cls: 'no_compare', magnitude: 0 })} palette={palette} label="No comparison for this window" count={summary ? summary.counts.no_compare : null} />
       <Row style={changeStyle({ cls: 'unverified', magnitude: 0 })} palette={palette} label="Jump too large to trust (unverified)" count={summary ? summary.counts.unverified : null} />
     </ul>
+  );
+}
+
+/**
+ * Eddy's float conditions on rated rivers (a state, Flow): each swatch is a
+ * short stretch of river drawn the way the map draws it — the condition hue
+ * with its soft glow on the dark displays, on an ink keyline on parchment —
+ * and "No current reading" as plain river.
+ */
+export function RatedLegend({ palette, wall = false, rowClass, listClass }: { palette: MapPalette; wall?: boolean; rowClass?: string; listClass?: string }) {
+  return (
+    <>
+      <p className={wall ? styles.wallLegendSubtitle : 'pt-1 text-xs font-semibold'}>Eddy float conditions · rated rivers</p>
+      <ul className={listClass ?? 'space-y-0.5'} aria-label="Eddy float conditions on rated rivers">
+        {RATED_LEGEND.map((r) => {
+          const plain = r.code === 'unknown';
+          const color = plain ? palette.river : r.color;
+          return (
+            <li key={r.code} className={rowClass ?? 'flex items-center gap-2 text-sm'}>
+              <svg viewBox="0 0 24 12" aria-hidden="true" className="shrink-0" style={{ width: wall ? '1.6em' : 22, height: wall ? '0.8em' : 11 }}>
+                {!plain && palette.ratedGlow > 0 && (
+                  <path d="M2 8 C8 2, 14 10, 22 4" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity={palette.ratedGlow * 1.6} />
+                )}
+                {!plain && palette.ratedKeyline && (
+                  <path d="M2 8 C8 2, 14 10, 22 4" fill="none" stroke={palette.ratedKeyline} strokeWidth="4.2" strokeLinecap="round" />
+                )}
+                <path d="M2 8 C8 2, 14 10, 22 4" fill="none" stroke={color} strokeWidth="2.8" strokeLinecap="round" opacity={plain ? palette.riverAlpha[6] : 1} />
+              </svg>
+              <span>{r.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
