@@ -71,6 +71,13 @@ test('one painting at a time; the swap happens only under the full veil', () => 
   assert.equal(millMoment(0, 0), null);
 });
 
+test('each mill holds the screen for 30 seconds, journey included', () => {
+  assert.equal(MILL_PASS_FRAMES / 30, 30);
+  assert.equal(millDuration(MILL_SCENES.length) / 30, 300);
+  // The painting still gets most of the pass.
+  assert.ok(MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES >= 2 * MILL_INTERLUDE_FRAMES);
+});
+
 test('Next mill advances from the mill on screen, including mid-interlude', () => {
   assert.equal(nextMillFrame(0, 10), MILL_PASS_FRAMES);
   assert.equal(nextMillFrame(MILL_PASS_FRAMES - 10, 10), 2 * MILL_PASS_FRAMES);
@@ -82,7 +89,7 @@ test('Next mill advances from the mill on screen, including mid-interlude', () =
 test('landscape keeps the live board in frame; vertical fills the window and pans to the board', () => {
   for (const mill of MILL_SCENES) {
     const [left, top, width, height] = mill.board;
-    for (const frame of [0, 1200, MILL_PASS_FRAMES]) {
+    for (const frame of [0, MILL_PASS_FRAMES / 2, MILL_PASS_FRAMES]) {
       const { scale } = millCamera(mill, frame, 'landscape');
       const ox = (left + width / 2) * 19.2;
       const oy = (top + height / 2) * 10.8;

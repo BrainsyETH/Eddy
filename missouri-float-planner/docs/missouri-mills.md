@@ -6,8 +6,8 @@ channel. The Roku prompt supplied during design was a visual/motion reference.
 
 ## Interaction and data
 
-Each scene lasts 80 seconds at 30 fps: 73 seconds of the whole painting, then
-a seven-second journey to the next mill. Each 1920 × 1080 painting and its live
+Each scene lasts 30 seconds at 30 fps: 23 seconds of the whole painting, then
+a seven-second journey to the next mill (a five-minute loop for all ten). Each 1920 × 1080 painting and its live
 HTML sign share one transform. Only one painting is mounted; the next is
 decoded ahead. The artwork is a stylized reference illustration, not a survey
 or a representation of current water levels.

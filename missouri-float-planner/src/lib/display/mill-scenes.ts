@@ -79,7 +79,7 @@ export function parseMillFormat(value: string | null): MillFormat | null {
   return null;
 }
 
-export const MILL_PASS_FRAMES = 2400; // 80 seconds per mill at 30 fps.
+export const MILL_PASS_FRAMES = 900; // 30 seconds per mill at 30 fps.
 /** The last seven seconds of every pass travel to the next mill. */
 export const MILL_INTERLUDE_FRAMES = 210;
 const VEIL_FRAMES = 30;
