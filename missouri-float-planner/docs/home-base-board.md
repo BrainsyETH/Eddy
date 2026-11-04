@@ -34,7 +34,8 @@ From the top:
    doorstep river's rated reading is on the mill's own sign, using the board
    rectangle from `mill-scenes.ts`; it appears nowhere else on the hero.
    The painting's **water moves**: the millpond ripples with glints drifting
-   downstream, and the falls rush with foam.
+   downstream, the falls rush with foam, and where they land, rings spread
+   across the pool and mist rises.
 2. **At the door**: the doorstep river's name, condition badge, trend and
    other-unit reading; how today's flow compares with the same date in past
    years, and the water temperature; and **Eddy's take** in a small bubble
