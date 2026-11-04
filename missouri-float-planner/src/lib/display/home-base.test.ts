@@ -8,6 +8,13 @@ import { MILL_SCENES } from './mill-scenes';
 import {
   RAIN_EMPHASIS,
   advanceLoop,
+  parseGaugeExtras,
+  parseRiverLadders,
+  rateSeries,
+  risingAt,
+  storyCaption,
+  STORY_DEFAULT,
+  weekStory,
   artRegion,
   BOARD_HEIGHT,
   boardLayout,
@@ -256,4 +263,70 @@ test('the forecast starts today in Central time and drops malformed days', () =>
 
 test("the forecast's rain emphasis matches Eddy's rain-coming threshold", () => {
   assert.equal(RAIN_EMPHASIS, RAIN_CHANCE_THRESHOLD);
+});
+
+const thresholds = {
+  rivers: [
+    { riverSlug: 'jacks-fork', gauges: [
+      { usgsId: '07065495', isPrimary: true, unit: 'cfs', thresholds: { tooLow: 40, low: 60, optimalMin: 90, optimalMax: 300, high: 600, dangerous: 1500 } },
+      { usgsId: 'x', isPrimary: false, unit: 'ft', thresholds: { tooLow: 1, low: 2, optimalMin: 3, optimalMax: 4, high: 5, dangerous: 6 } },
+    ] },
+    { riverSlug: 'not-on-board', gauges: [{ isPrimary: true, unit: 'cfs', thresholds: {} }] },
+    { riverSlug: 'meramec', gauges: [{ isPrimary: true, unit: 'stage', thresholds: {} }] },
+  ],
+};
+
+test('ladders come from each river\'s primary gauge, in its own unit', () => {
+  const ladders = parseRiverLadders(thresholds, ['jacks-fork', 'meramec']);
+  assert.deepEqual([...ladders.keys()], ['jacks-fork'], 'unknown unit and other rivers are skipped');
+  assert.equal(ladders.get('jacks-fork')!.levelLow, 60);
+  assert.equal(ladders.get('jacks-fork')!.thresholdUnit, 'cfs');
+  assert.equal(parseRiverLadders(null, ['jacks-fork']).size, 0);
+});
+
+test('the week is rated with Eddy\'s ladder, and never across units', () => {
+  const ladder = parseRiverLadders(thresholds, ['jacks-fork']).get('jacks-fork');
+  // Eddy's ladder: at or above tooLow is Low, at or above low is Good.
+  assert.deepEqual(rateSeries([35, 45, null, 80, 120], 'cfs', ladder), ['too_low', 'low', null, 'good', 'flowing']);
+  assert.deepEqual(rateSeries([45, 80], 'ft', ladder), [null, null], 'a stage series is not rated on a discharge ladder');
+  assert.deepEqual(rateSeries([45], 'cfs', undefined), [null]);
+});
+
+test('the story tells each river\'s sharpest rise and latest change of condition once', () => {
+  const end = Date.UTC(2026, 10, 4, 0, 15);
+  const flat = Array.from({ length: SERIES_POINTS }, () => 50);
+  const jacks = [...flat];
+  jacks[SERIES_POINTS - 3] = 50; jacks[SERIES_POINTS - 2] = 60; jacks[SERIES_POINTS - 1] = 80;
+  const ratings = new Map([['jacks-fork', jacks.map((v) => (v >= 60 ? 'low' : 'too_low') as 'low' | 'too_low')]]);
+  const rivers = [
+    { slug: 'huzzah', name: 'Huzzah Creek', sharesGaugeWith: null },
+    { slug: 'courtois', name: 'Courtois Creek', sharesGaugeWith: 'Huzzah Creek' },
+    { slug: 'jacks-fork', name: 'Jacks Fork River', sharesGaugeWith: null },
+  ];
+  const series = new Map([['huzzah', flat], ['courtois', jacks], ['jacks-fork', jacks]]);
+  const story = weekStory(rivers, series, ratings, end);
+  assert.ok(story.events.every((e) => e.slug !== 'courtois'), 'a shared gauge is told once');
+  assert.ok(story.events.some((e) => /Jacks Fork up 60% in 6 hours$/.test(e.text)));
+  assert.ok(story.events.some((e) => /Jacks Fork turned Low$/.test(e.text)));
+  assert.equal(story.summary, 'This week: Jacks Fork rose 60%, the most on the board.');
+  assert.match(storyCaption(story, SERIES_POINTS - 1), /Jacks Fork/, 'the last moments are told, not hidden by the summary');
+  assert.equal(storyCaption(story, 3), STORY_DEFAULT);
+  const quiet = weekStory(rivers.slice(0, 1), new Map([['huzzah', flat]]), new Map(), end);
+  assert.deepEqual(quiet, { events: [], summary: 'A quiet week: every river within 5% of where it started.' });
+});
+
+test('a pulse runs only on a real rise', () => {
+  assert.equal(risingAt([50, 52], 1), true);
+  assert.equal(risingAt([50, 51], 1), false);
+  assert.equal(risingAt([null, 80], 1), false);
+  assert.equal(risingAt([50, 40], 1), false);
+});
+
+test('compared-with-usual uses Eddy\'s flow bands; stale water temperature is dropped', () => {
+  const now = Date.UTC(2026, 10, 4, 2, 0);
+  const detail = (observedAt: string) => ({ gauge: { seasonalContext: { percentile: 44, band: 'normal' }, waterTemperature: { valueF: 64.9, observedAt } } });
+  assert.deepEqual(parseGaugeExtras(detail('2026-11-04T01:30:00Z'), now), { band: 'normal', waterF: 65 });
+  assert.deepEqual(parseGaugeExtras(detail('2026-11-03T12:00:00Z'), now), { band: 'normal', waterF: null });
+  assert.deepEqual(parseGaugeExtras({ gauge: { seasonalContext: null } }, now), { band: null, waterF: null });
+  assert.deepEqual(parseGaugeExtras('nope', now), { band: null, waterF: null });
 });
