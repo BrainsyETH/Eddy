@@ -50,7 +50,7 @@ import {
   type LoopState,
 } from '@/lib/display/home-base';
 import { displayReadings } from '@/lib/embed/display-events';
-import { useDisplayContract } from './useDisplayContract';
+import { useDisplayContract, useHostActive } from './useDisplayContract';
 import styles from './home-base-board.module.css';
 
 const ART_WIDTH = 1080;
@@ -155,6 +155,7 @@ function Extras({ row, extras, fallback }: { row: BoardRow | null; extras: Retur
 }
 
 export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: string; riverQrs: Record<string, Qr>; appQr: Qr }) {
+  const hostActive = useHostActive();
   const config = homeBaseFor(boardId)!;
   const mill = MILL_SCENES.find((s) => s.id === config.millScene)!;
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
@@ -260,16 +261,17 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     motionOff.current = new URLSearchParams(window.location.search).get('motion') === 'off';
-    const sync = () => setReduceMotion(media.matches || motionOff.current);
+    const effectsOff = new URLSearchParams(window.location.search).get('effects') === 'off';
+    const sync = () => setReduceMotion(media.matches || motionOff.current || effectsOff);
     sync();
     media.addEventListener('change', sync);
     return () => media.removeEventListener('change', sync);
   }, []);
   useEffect(() => {
-    if (hidden || !order.length || motionOff.current) return;
+    if (!hostActive || hidden || !order.length || motionOff.current) return;
     const t = window.setTimeout(() => setLoop((s) => advanceLoop(s, order.length, steps, reduceMotion)), loopDelay(loop, reduceMotion));
     return () => window.clearTimeout(t);
-  }, [loop, hidden, order.length, steps, reduceMotion]);
+  }, [hostActive, loop, hidden, order.length, steps, reduceMotion]);
   // Display contract: ready/status for a framing host, and a break after each full loop.
   const postBreak = useDisplayContract(
     'board',
@@ -656,3 +658,4 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     </div>
   );
 }
+
