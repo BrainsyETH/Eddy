@@ -36,7 +36,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchRivers } from '@/api/client';
@@ -53,6 +53,8 @@ import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
 import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useDamRefresh } from '@/hooks/useDamRefresh';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -201,18 +203,7 @@ export default function DamDetailScreen() {
    * A minute is the resolution of every one of those claims; anything finer is
    * re-rendering to move nothing.
    */
-  const [, setTick] = useState(0);
-  // Focus-gated: a screen buried under another in the stack has nobody
-  // reading its tenses, and the river↔dam pair used to bury copies that all
-  // kept ticking. Blur tears the interval down; return restarts it, and the
-  // silent focus reload below re-renders with fresh data anyway, so the
-  // tenses are right again before the next tick is due.
-  useFocusEffect(
-    useCallback(() => {
-      const id = setInterval(() => setTick((n) => n + 1), 60_000);
-      return () => clearInterval(id);
-    }, []),
-  );
+  useObservationClock();
 
   /**
    * The dam whose first load has SETTLED, so a focus is not an arrival.
@@ -321,18 +312,14 @@ export default function DamDetailScreen() {
    * A payload that arrives once and never again is cached data with no cache
    * policy: a screen backgrounded and resumed hours later would re-render the
    * same numbers while the ages beside it, computed on this device, correctly
-   * read "9 hours ago". Every focus after the first is a SILENT refresh, so
+   * read "9 hours ago". Focus, foreground and five-minute boundaries silently refresh, so
    * coming back never flashes a spinner over data already on screen.
    */
-  useFocusEffect(
-    useCallback(() => {
-      const controller = new AbortController();
-      // Stamped by load() when the arrival settles, not here when it starts.
-      const arriving = loadedFor.current !== damId;
-      load(controller.signal, arriving);
-      return () => controller.abort();
-    }, [load, damId, reloadNonce])
-  );
+  useDamRefresh(useCallback((signal: AbortSignal) => {
+    load(signal, loadedFor.current !== damId);
+    // Retry changes the callback and starts a new request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, damId, reloadNonce]));
 
   // NOTHING AT ALL, and still asking: a dam this build does not carry, opened
   // before either request answered. The only case left where this screen is a

@@ -1,29 +1,54 @@
-import { useCallback, useState } from 'react';
-import { Text } from 'react-native';
+import { useCallback, useState, type ComponentProps } from 'react';
+import { Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { readOfflineBadges } from '../tripDownloads';
+import { TripDownloadCard } from '../TripDownloadCard';
+import { onForeground } from '@/lib/foreground';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card, TextButton, styles } from './ui';
 
-/** Readiness only displays an existing matching download; preparation lives in the planner. */
-export function OfflinePreparation({ tripKey, onBuild, disabled }: {
+/** New downloads live in the planner; an existing one can be checked or resumed here. */
+export function OfflinePreparation({ tripKey, onBuild, disabled, download }: {
   tripKey?: string; onBuild: () => void; disabled: boolean;
+  download?: Omit<ComponentProps<typeof TripDownloadCard>, 'tripKey'>;
 }) {
   const { colors } = useTheme();
-  const [readyKey, setReadyKey] = useState<string | null>(null);
+  const [answer, setAnswer] = useState<{ key: string; badge: string | null } | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [managing, setManaging] = useState(false);
   useFocusEffect(useCallback(() => {
-    let current = true;
-    if (tripKey) void readOfflineBadges([tripKey]).then(badges => {
-      if (current) setReadyKey(badges.get(tripKey) === 'Ready offline' ? tripKey : null);
-    }).catch(() => { if (current) setReadyKey(null); });
-    return () => { current = false; };
-  }, [tripKey]));
-  const ready = tripKey != null && readyKey === tripKey;
+    let ticket = 0;
+    let active = true;
+    const read = async () => {
+      if (!tripKey) return;
+      const request = ++ticket;
+      let badge: string | null;
+      try { badge = (await readOfflineBadges([tripKey])).get(tripKey) ?? null; }
+      catch { badge = 'Couldn’t check offline map'; }
+      if (active && request === ticket) setAnswer({ key: tripKey, badge });
+    };
+    void read();
+    const off = onForeground(() => void read());
+    return () => { active = false; off(); };
+    // Check again and Done re-read native completion counts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripKey, revision]));
+  const checking = tripKey != null && answer?.key !== tripKey;
+  const badge = answer?.key === tripKey ? answer?.badge : null;
+  const failed = badge === 'Couldn’t check offline map';
+  const action = badge === 'Map needs update' ? 'Update download'
+    : badge === 'Map partly saved' || badge === 'Download incomplete' ? 'Resume download'
+      : badge === 'Route saved' ? 'Download map' : 'Manage download';
   return <Card>
-    <Text style={[styles.label, { color: colors.text }]}>{ready ? 'Offline map ready' : 'Offline map · Optional'}</Text>
-    {!ready ? <>
-      <Text style={[styles.body, { color: colors.textMuted }]}>For an offline map, plan a float and download it before you go.</Text>
-      <TextButton label="Plan a float" disabled={disabled} onPress={onBuild} />
-    </> : null}
+    <Text style={[styles.label, { color: colors.text }]}>
+      {checking ? 'Checking offline map…' : badge ?? 'Offline map · Optional'}
+    </Text>
+    {failed ? <TextButton label="Check again" disabled={disabled} onPress={() => setRevision(n => n + 1)} /> : null}
+    {badge && download && tripKey ? <>
+      <TextButton label={managing ? 'Done' : action} disabled={disabled} onPress={() => {
+        setManaging(value => !value); setRevision(n => n + 1);
+      }} />
+      {managing ? <View><TripDownloadCard key={tripKey} {...download} tripKey={tripKey} compact /></View> : null}
+    </> : !checking ? <TextButton label="Plan a float to download" disabled={disabled} onPress={onBuild} /> : null}
   </Card>;
 }

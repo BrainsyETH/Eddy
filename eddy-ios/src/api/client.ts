@@ -1293,6 +1293,7 @@ export async function fetchFloatStartEstimate(params: {
   startRiverMile?: number | null;
   distanceMiles: number;
   floatTime: { movingSpeedMph?: number | null } | null;
+  floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
   estimateBasis: 'today' | 'typical';
   estimatedAt: string;
   /** The condition a float started now keeps in its recap; absent from older servers. */
@@ -1309,6 +1310,7 @@ export async function fetchFloatStartEstimate(params: {
   const result = await get<{
     startRiverMile?: number | null; distanceMiles: number;
     floatTime: { movingSpeedMph?: number | null } | null;
+    floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
     estimateBasis: 'today' | 'typical'; estimatedAt: string;
     condition?: import('@eddy/conditions/float-archive').StartCondition | null;
   }>(`/api/route-estimate?${query}`, signal);

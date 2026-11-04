@@ -1,44 +1,21 @@
-// src/components/dam/DamEddyRead.tsx
-// Eddy's Read on the dam screen. Premium in its entirety (ADR 0017).
-//
-// Two requests, kept apart the way the gauge screen keeps them: the public one
-// says whether a Read exists today and when it was written, which is all a
-// non-subscriber's locked card needs; the Premium one, sent only for an
-// entitlement verified for THIS session's user, carries the Read itself:
-// a short headline and one interpretation sentence. The schedule and pattern
-// chart around this card carry the data and its timing/freshness information.
-//
-// ── Refreshed with the screen ──────────────────────────────────────────────
-// Both requests run on every focus, not only on mount: the dam screen
-// re-reads its schedule each time it is focused, and a Read fetched once would
-// sit beside a newer schedule, or carry yesterday's "today" into the morning.
-// The server re-renders the rows against the schedule posted now, so a fresh
-// request is all it takes to keep the two in step.
-//
-// ── Every state is drawn ───────────────────────────────────────────────────
-// Non-member: the same locked presentation as the river and gauge Read
-// (PremiumLock.tsx) — frosted prose, then ONE lock row. No padlock in the
-// header and no second link: one lock per Read. Unknown account, or a member's
-// Read in flight: the loading skeleton, never a sales offer (the rules in
-// readPremiumAccess.ts) and never the frost, which means "locked". Member, Read
-// withheld since the public check (the schedule changed and the next hourly run
-// has not rewritten it): a plain "being updated" line, never an indefinite
-// placeholder. Failed request: retry.
-//
-// The measured pattern strip and the posted schedule on this screen stay free;
-// they are the whole of the data the Read interprets.
+// A concise interpretation, refreshed alongside the dam on focus, resume and
+// five-minute boundaries. Prose expires at the hour and Central midnight.
+// Members request their representation directly; no public-cache gate can
+// hide an entitled answer. Account, content and timestamp are held together.
 
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useDamRefresh } from '@/hooks/useDamRefresh';
+import { useObservationClock } from '@/hooks/useObservationClock';
+import { damReadFailure, damReadStillCurrent } from '@/lib/damReadFreshness';
 import type { DamReadResponse } from '@eddy/types';
-import { relativeAgeShort } from '@eddy/conditions/dam-schedule-copy';
+import { centralDayKey, relativeAgeShort } from '@eddy/conditions/dam-schedule-copy';
 import { ApiError, fetchDamRead } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { ReadHeading } from '@/components/ReadHeading';
 import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
 
 type Read = NonNullable<DamReadResponse['read']>;
@@ -59,59 +36,54 @@ export const DAM_READ_LOCKED_COPY = 'What stands out in today’s generation sch
 export const LOCKED_DAM_READ_SHAPE =
   'Today’s posted schedule starts at noon, about two hours earlier than recent weekdays.';
 
-/**
- * Both requests, re-run on every focus. `checked` is false until the public
- * request for THIS dam has answered, so a tab switch never shows the last
- * dam's state.
- */
 function useDamRead(damId: string, premiumUserId: string | null, revision: number) {
   const { getAccessToken } = useSession();
-  const [publicState, setPublicState] = useState<{ damId: string; generatedAt: string | null } | null>(null);
-  const [premium, setPremium] = useState<Premium | null>(null);
+  const clock = useObservationClock();
+  const [held, setHeld] = useState<{
+    key: string; generatedAt: string | null; renderedAt: number;
+    current: Premium | null; failed: boolean;
+  } | null>(null);
+  // A response can arrive between minute ticks; its receipt is already current.
+  const now = Math.max(clock, held?.renderedAt ?? 0);
+  const key = `${premiumUserId}:${damId}:${centralDayKey(now)}`;
   const [retry, setRetry] = useState(0);
-  // The user is part of the key: Premium prose never crosses accounts.
-  const key = `${premiumUserId}:${damId}`;
-
-  useFocusEffect(
-    useCallback(() => {
-      const controller = new AbortController();
-      void (async () => {
-        let available: string | null = null;
-        try {
-          const data = await fetchDamRead(damId, controller.signal);
-          available = data.available ? data.generatedAt : null;
-        } catch {
-          available = null;
+  useDamRefresh(useCallback((signal: AbortSignal) => {
+    void (async () => {
+      try {
+        const token = premiumUserId ? await getAccessToken() : null;
+        if (signal.aborted) return;
+        if (premiumUserId && !token) throw new ApiError('No active session', 401);
+        const data = await fetchDamRead(damId, signal, token);
+        if (signal.aborted) return;
+        const renderedAt = Date.now();
+        const available = data.available && data.generatedAt && damReadStillCurrent(data.generatedAt, renderedAt, renderedAt);
+        setHeld({ key, generatedAt: available ? data.generatedAt : null, renderedAt, failed: false,
+          current: premiumUserId ? available && data.read
+            ? { key, state: 'ready', read: data.read } : { key, state: 'unavailable' } : null });
+      } catch (error) {
+        if (signal.aborted) return;
+        const failure = damReadFailure(error instanceof ApiError ? error.status : undefined);
+        if (failure === 'unavailable') {
+          setHeld({ key, generatedAt: null, renderedAt: Date.now(), failed: false, current: { key, state: 'unavailable' } });
+          return;
         }
-        if (controller.signal.aborted) return;
-        setPublicState({ damId, generatedAt: available });
-        if (!available || !premiumUserId) return;
-
-        try {
-          const token = await getAccessToken();
-          if (!token) throw new ApiError('No active session', 401);
-          const data = await fetchDamRead(damId, controller.signal, token);
-          if (controller.signal.aborted) return;
-          setPremium(data.available && data.read
-            ? { key, state: 'ready', read: data.read }
-            : { key, state: 'unavailable' });
-        } catch {
-          if (!controller.signal.aborted) setPremium({ key, state: 'failed' });
-        }
-      })();
-      return () => controller.abort();
-    // `revision` and `retry` are re-run triggers: "Try again" and Retry refetch.
+        setHeld(previous => failure === 'retry' && previous?.key === key && previous.generatedAt &&
+          damReadStillCurrent(previous.generatedAt, previous.renderedAt, Date.now())
+          ? { ...previous, failed: true }
+          : { key, generatedAt: null, renderedAt: Date.now(), failed: true, current: { key, state: 'failed' } });
+      }
+    })();
+    // Revision and Retry explicitly ask for a new representation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [damId, getAccessToken, key, premiumUserId, revision, retry]),
-  );
-
-  const checked = publicState?.damId === damId;
+  }, [damId, getAccessToken, key, premiumUserId, revision, retry]));
+  const state = held?.key === key ? held : null;
+  const fresh = state?.generatedAt && damReadStillCurrent(state.generatedAt, state.renderedAt, now);
   return {
-    checked,
-    generatedAt: checked ? publicState?.generatedAt ?? null : null,
-    // Held across a refresh so a focus never blanks a Read already on screen.
-    current: premiumUserId && premium?.key === key ? premium : null,
-    retry: () => setRetry((n) => n + 1),
+    checked: Boolean(state),
+    generatedAt: fresh ? state.generatedAt : null,
+    current: state?.current?.state === 'ready' && !fresh ? null : state?.current ?? null,
+    failed: state?.failed ?? false,
+    retry: () => setRetry(n => n + 1),
   };
 }
 
@@ -167,19 +139,19 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
   revision?: number;
 }) {
   const { colors, elevation } = useTheme();
-  const { generatedAt, current, retry } = useDamRead(damId, premiumUserId, revision);
+  const { checked, generatedAt, current, failed, retry } = useDamRead(damId, premiumUserId, revision);
 
-  if (!generatedAt) return null;
-  const age = relativeAgeShort(generatedAt);
+  if (checked && !generatedAt && !failed && current?.state === 'unavailable') return null;
+  if (!premiumUserId && !generatedAt && !failed) return null;
+  const age = generatedAt ? relativeAgeShort(generatedAt) : null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <View style={styles.header}>
-        <Otter mood="favicon" size={28} />
-        <Text style={[styles.kicker, { color: colors.interactive }]}>Eddy&apos;s Read</Text>
-      </View>
+      <ReadHeading />
 
-      {premiumUserId ? (
+      {failed && !generatedAt ? (
+        <MemberRead current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />
+      ) : premiumUserId ? (
         <MemberRead current={current} onRetry={retry} loadingLabel={`Loading Eddy's Read for ${damName}`} />
       ) : canUnlock ? (
         <View>
@@ -195,6 +167,7 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
         <ReadSkeleton widths={[0.7, 1, 0.8]} label={`Loading Eddy's Read for ${damName}`} />
       )}
 
+      {failed && generatedAt ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.action, { color: colors.interactive }]}>Couldn’t refresh · Retry</Text></Pressable> : null}
       {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
     </View>
   );
@@ -211,10 +184,11 @@ export function DamReadInTake({ damId, premiumUserId, revision = 0 }: {
   revision?: number;
 }) {
   const { colors } = useTheme();
-  const { checked, generatedAt, current, retry } = useDamRead(damId, premiumUserId, revision);
+  const { checked, generatedAt, current, failed, retry } = useDamRead(damId, premiumUserId, revision);
 
   if (!checked) return <ReadSkeleton label="Loading Eddy's Read for this dam" />;
-  if (!generatedAt) {
+  if (failed && !generatedAt) return <MemberRead current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />;
+  if (!generatedAt && current?.state === 'unavailable') {
     // Not "unavailable for this river": the dam may have no Read yet today,
     // or the schedule changed and the next hourly run has not rewritten it.
     return (
@@ -223,10 +197,11 @@ export function DamReadInTake({ damId, premiumUserId, revision = 0 }: {
       </Text>
     );
   }
-  const age = relativeAgeShort(generatedAt);
+  const age = generatedAt ? relativeAgeShort(generatedAt) : null;
   return (
     <View style={styles.inTake}>
       <MemberRead current={current} onRetry={retry} loadingLabel="Loading Eddy's Read for this dam" />
+      {failed && generatedAt ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.action, { color: colors.interactive }]}>Couldn’t refresh · Retry</Text></Pressable> : null}
       {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
     </View>
   );
@@ -234,8 +209,6 @@ export function DamReadInTake({ damId, premiumUserId, revision = 0 }: {
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  kicker: { ...t.lg, fontFamily: fonts.display, flexShrink: 1 },
   read: { gap: 6 },
   headline: { ...t.lg, fontFamily: fonts.heading, lineHeight: 24 },
   body: { ...t.base },

@@ -37,8 +37,9 @@ export interface DamReleaseTabInput {
   /** True when the shown gauge has a condition ladder for this river. */
   rated: boolean;
   /**
-   * The dam whose snapshot the page or screen already holds — the river's own
-   * controlling dam. Only that dam can lead the card without another request.
+   * The snapshot available for this tab. Native selects it from the dam
+   * catalog; a page holding only its controlling dam may supply that id.
+   * Only a matching snapshot can lead the card.
    */
   heldDamId: string | null | undefined;
 }

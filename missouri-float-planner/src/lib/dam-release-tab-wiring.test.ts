@@ -36,8 +36,10 @@ test('the dam panel is inside the reading card, not a section of its own', () =>
   assert.match(detail, /footer=\{damFooter\}/);
 
   const ios = read(IOS_RIVER);
-  assert.match(ios, /\{damLeads \? \(\s*<RiverDamPanel dam=\{dam\} position="lead"/, 'on the dam tab the dam block is the whole card');
-  assert.match(ios, /position="footer"/);
+  assert.match(ios, /\{damLeads \? \(\s*<RiverDamPanel dam=\{selectedDam\} position="lead"/, 'on the dam tab the dam block is the whole card');
+  assert.match(ios, /!damTab \? <RiverDamPanel dam=\{dam\} position="footer"/, 'a dam tab never borrows the controlling dam footer');
+  assert.match(ios, /riverDams\.find\(item => item\.id === shownSiteId\)/);
+  assert.match(ios, /heldDamId: selectedDam\?\.id/);
 });
 
 test('the river card draws the dam the way the dam cards do', () => {

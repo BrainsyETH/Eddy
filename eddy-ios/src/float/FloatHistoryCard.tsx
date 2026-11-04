@@ -28,9 +28,9 @@ export function FloatHistoryCard({
 }) {
   const { colors, isDark } = useTheme();
   const card = historyCardModel(trip);
-  const { busy, share } = useFloatShare(trip);
+  const { busy, share, image } = useFloatShare(trip);
   return (
-    <Pressable
+    <><Pressable
       accessibilityRole="button"
       accessibilityLabel={card.accessibilityLabel}
       accessibilityHint="Opens the recap"
@@ -96,7 +96,7 @@ export function FloatHistoryCard({
             : <ControlIcon name="share-outline" size={18} color={colors.interactive} />}
         </Pressable>
       </View>
-    </Pressable>
+    </Pressable>{image}</>
   );
 }
 

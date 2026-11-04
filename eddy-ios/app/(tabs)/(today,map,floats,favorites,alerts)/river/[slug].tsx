@@ -104,7 +104,8 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver, damHasPanel, RiverDamPanel } from '@/components/dam/RiverDamPanel';
-import { DamReadInTake } from '@/components/dam/DamEddyRead';
+import { DamEddyRead, DamReadInTake } from '@/components/dam/DamEddyRead';
+import { useDamRefresh } from '@/hooks/useDamRefresh';
 import { damReleaseTab } from '@eddy/conditions/dam-release-tab';
 import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
 import { getSharedDams } from '@/hooks/useDams';
@@ -472,11 +473,12 @@ export default function RiverDetailScreen() {
   // previous river's dam for even one frame. Derived during render rather than
   // cleared in an effect: an effect runs one render too late, and this is the
   // case React's own guidance says to adjust state during render for.
-  const [damFor, setDamFor] = useState<{ slug: string; dam: DamSnapshot | null }>({
+  const [damFor, setDamFor] = useState<{ slug: string; dams: DamSnapshot[] }>({
     slug,
-    dam: null,
+    dams: [],
   });
-  const dam = damFor.slug === slug ? damFor.dam : null;
+  const riverDams = damFor.slug === slug ? damFor.dams : [];
+  const dam = damForRiver(riverDams, slug);
 
   /**
    * The controlling dam. This effect is its ONLY loader.
@@ -518,7 +520,7 @@ export default function RiverDetailScreen() {
         // and no signal is passed because the request is shared; the aborted
         // check below still keeps a late answer off an unfocused screen.
         const dams = await getSharedDams();
-        if (!signal.aborted) setDamFor({ slug, dam: damForRiver(dams, slug) });
+        if (!signal.aborted) setDamFor({ slug, dams });
       } catch {
         // Deliberately empty. See above: keep what is on screen and let the
         // row's own age carry the truth.
@@ -527,13 +529,9 @@ export default function RiverDetailScreen() {
     [slug],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      const controller = new AbortController();
-      void loadDam(controller.signal);
-      return () => controller.abort();
-    }, [loadDam]),
-  );
+  useDamRefresh(useCallback((signal: AbortSignal) => {
+    void loadDam(signal);
+  }, [loadDam]));
 
   /**
    * A minute's tick, so the row ages while the screen is open.
@@ -1330,13 +1328,15 @@ export default function RiverDetailScreen() {
   // dam-release-tab.ts): the river Read on such a tab can only say that no
   // assessment is available. Per TAB — a downstream gauge keeps its own
   // reading and Read, and the dam Read's times are at the dam (ADR 0017).
+  const selectedDam = chartProvider === 'usace'
+    ? riverDams.find(item => item.id === shownSiteId) ?? null : null;
   const damTab = damReleaseTab({
     siteId: shownSiteId,
     provider: chartProvider,
     rated: Boolean(scaleThresholds && hasLadder(scaleThresholds)),
-    heldDamId: dam?.id ?? null,
+    heldDamId: selectedDam?.id ?? null,
   });
-  const damLeads = Boolean(damTab?.leadsCard && damHasPanel(dam));
+  const damLeads = Boolean(damTab?.leadsCard && damHasPanel(selectedDam));
   // The dam Read's access rules, the dam screen's and the Today rail's
   // (readPremiumAccess.ts): Premium prose only for a verified member of THIS
   // session, an offer only to a settled non-member, a skeleton otherwise —
@@ -1411,7 +1411,7 @@ export default function RiverDetailScreen() {
             "Observed …" line, and "Not rated" beside a bare number said less
             than the schedule does. */}
         {damLeads ? (
-          <RiverDamPanel dam={dam} position="lead" now={now} />
+          <RiverDamPanel dam={selectedDam} position="lead" now={now} />
         ) : (
           <ReadingSummaryCard
             key={shownSiteId ?? slug}
@@ -1439,7 +1439,7 @@ export default function RiverDetailScreen() {
               </View>
             ) : null}
             {/* The dam closes the card on every tab it does not lead. */}
-            <RiverDamPanel dam={dam} position="footer" now={now} />
+            {!damTab ? <RiverDamPanel dam={dam} position="footer" now={now} /> : null}
           </ReadingSummaryCard>
         )}
 
@@ -1522,6 +1522,10 @@ export default function RiverDetailScreen() {
                 : null,
             } : null}
           />
+        ) : damTab ? (
+          <DamEddyRead key={damTab.damId} damId={damTab.damId} damName={selectedDam?.name ?? 'this dam'}
+            premiumUserId={damReadUserId} canUnlock={canOfferReadPremium(readAccess)}
+            onUnlock={() => setPaywallOpen(true)} revision={premiumRetry} />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.
           // This panel is absent on plenty of rivers, so the loading state has

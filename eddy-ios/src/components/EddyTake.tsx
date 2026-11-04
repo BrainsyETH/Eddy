@@ -102,6 +102,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
 import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
+import { ReadHeading } from '@/components/ReadHeading';
 import { Otter } from '@/components/Otter';
 import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
 import { LOCKED_DAM_READ_SHAPE } from '@/components/dam/DamEddyRead';
@@ -413,14 +414,7 @@ export function EddyTake({
                   the EDDY'S TAKE label, so there is nothing above it to divide
                   it from. The two sections below always separate themselves. */}
               <View>
-                <View style={styles.sectionHead}>
-                  {damRead ? <Otter mood="favicon" size={24} /> : <EddySymbol name="aiAssistant" size={17} />}
-                  <Text style={damRead
-                    ? [styles.damReadLabel, { color: colors.interactive }]
-                    : [styles.sectionLabel, { color: colors.textMuted }]}>
-                    {damRead ? 'Eddy’s Read' : 'EDDY’S READ'}
-                  </Text>
-                </View>
+                <ReadHeading />
                 {damRead ? (
                   locked ? (
                     <BlurredProse
@@ -582,7 +576,6 @@ const styles = StyleSheet.create({
   loadErrorAction: { ...t.sm, fontFamily: fonts.semibold },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
-  damReadLabel: { ...t.lg, fontFamily: fonts.display, flexShrink: 1 },
   sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: SECTION_TEXT_MARGIN_TOP },
   attribution: { ...t.xs, fontFamily: fonts.body, marginTop: 12, textAlign: 'right' },
 });

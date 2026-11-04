@@ -27,6 +27,7 @@
 // Ending a float, by any path, stops the native recorder here, so recording
 // can never outlive the float.
 
+import { savedReminderPreferences } from './reminderPreferences';
 import { pickupContact } from './pickupContactStore';
 import { floatArchive } from './floatArchive';
 import { recapFloat } from './floatRecap';
@@ -330,6 +331,9 @@ export async function discardFloat(): Promise<void> {
   await deleteAllFloatTracks();
   await store.discard();
   await pickupContact.clear();
+  await savedReminderPreferences.clear();
   void syncFloatActivity(null);
   void dismissFloatNotifications();
+  const { clearFloatShareImages } = await import('./shareImageCache');
+  clearFloatShareImages();
 }

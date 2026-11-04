@@ -137,8 +137,8 @@ tabs) and on the Black.
       card shows the dam's Read (member), or its frosted shape under one lock
       row (non-member), with Weather and no Bottom line.
 - [ ] **Norfork release tab on the White:** Eddy's take carries Norfork Dam's
-      Read, not Bull Shoals'; the card keeps the reading and closes with the
-      Bull Shoals panel.
+      Read and Norfork's live release, Today and Tomorrow schedules. Switching
+      back to Bull Shoals changes both. No Bull Shoals footer on the Norfork tab.
 - [ ] **Calico Rock and Norfork USGS tabs:** the river Read and Bottom line,
       as before, with the Bull Shoals panel closing the card.
 - [ ] **The Black:** Clearwater's rated card, river Read and the "controls
@@ -149,6 +149,34 @@ tabs) and on the Black.
       Favorites, and VoiceOver reads the flow, status and both days' schedules.
 - [ ] **Favorites dam card** is unchanged (Today only) after DamGlance moved
       out of it.
+
+### iOS flow consistency gates — November 4, 2026
+
+Implemented in JavaScript; the following physical-device checks are still open.
+
+- [ ] Leave a dam page foregrounded across a generation-window end and
+      Central midnight, then repeat after backgrounding. Schedule and Read
+      refresh; yesterday's or an earlier hour's prose does not persist. Test
+      a failed refresh, Retry, account switch and expired entitlement.
+- [ ] Ready to float distinguishes flood conditions, dam-controlled flow,
+      missing water data and a failed estimate. Retry recovers the request.
+- [ ] Existing offline maps retain partial, outdated, incomplete and failed
+      verification states. Check again recovers; Manage/Resume uses the
+      existing package. A new download still starts in the planner.
+- [ ] Trip options starts collapsed. Reminder defaults survive relaunch;
+      another river never inherits selected stops. Notification permission
+      remains visible when needed. Pickup contact, large text and VoiceOver
+      remain usable; account deletion clears the defaults.
+- [ ] Dam Favorites announces flow/status and remaining generation windows
+      concisely, including minimum flow and unavailable hours. The full
+      schedule still exposes individual hours with VoiceOver.
+- [ ] Share from a recap and History in airplane mode, once with a cached
+      server image and once without one. Check a slow connection, cancellation,
+      retry, long names, untracked/partial floats, Messages, Files and iPad.
+      Local export uses the standard otter and no condition stamp; no exact
+      time, account, GPS positions or start note appears in image or filename.
+- [ ] River, gauge and dam interpretations use the same otter/Fredoka Read
+      heading in light/dark mode and at the largest Dynamic Type size.
 
 ### October 13 freshness update candidate
 
@@ -500,8 +528,9 @@ are pending checks, not evidence of a device pass.
 - [ ] **Float share image rollout:** deploy `GET /api/share/float/image` before
       the app change reaches devices. Share a float from its recap and from a
       History card: Messages receives the image and the river page link;
-      cancelling the sheet is silent; offline, an older API, or a float whose
-      access point was removed reports "Image unavailable". VoiceOver reaches
+      cancelling the sheet is silent; offline uses the cached server image or a
+      basic local export. An older API or a float whose access point was
+      removed retains "Image unavailable". VoiceOver reaches
       a card's share as an action. Check an untracked float (standard otter,
       "GPS tracking unavailable") and a Flood float (Big water, "Flood stage",
       with the stamp drawn only when the gauge's readings that day bear it
