@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { existsSync } from 'node:fs';
-import { MILL_SCENES, MILL_RIVERS, MILL_PASS_FRAMES, millDuration, selectMillScenes, visibleMillPanels } from './mill-scenes';
+import {
+  MILL_INTERLUDE_FRAMES,
+  MILL_PASS_FRAMES,
+  MILL_RIVERS,
+  MILL_SCENES,
+  MILL_STAGE,
+  MILL_SWAP_FRAME,
+  VERTICAL_ART_HEIGHT,
+  millCamera,
+  millDuration,
+  millMoment,
+  millRoute,
+  mixHex,
+  nextMillFrame,
+  parseMillFormat,
+  selectMillScenes,
+} from './mill-scenes';
+import { MILL_MAP_HEIGHT, MILL_MAP_RIVERS, MILL_MAP_WIDTH, projectMap } from './mill-map';
 
 test('mill collection has ten unique real sites and locally shipped artwork', () => {
   assert.equal(MILL_SCENES.length, 10);
@@ -10,8 +27,10 @@ test('mill collection has ten unique real sites and locally shipped artwork', ()
     assert.ok(existsSync(`public/display/mills/${s.id}.webp`), s.id);
     const [x, y, w, h] = s.board;
     assert.ok(x >= 0 && y >= 0 && x + w < 100 && y + h < 100);
+    assert.match(s.tone, /^#[0-9a-f]{6}$/);
   }
-  assert.ok(existsSync('public/display/mills/transition.webp'));
+  // The repeated foreground tree is gone; joins are drawn, not covered.
+  assert.equal(existsSync('public/display/mills/transition.webp'), false);
 });
 
 test('river filters select associated mills without substituting another waterway', () => {
@@ -25,18 +44,74 @@ test('river filters select associated mills without substituting another waterwa
   assert.equal(MILL_SCENES.find((s) => s.id === 'greer')?.water, undefined);
 });
 
-test('every scene remains covered, closes its loop, and mounts only two panels', () => {
+test('one painting at a time; the swap happens only under the full veil', () => {
   for (const count of [1, 2, 3, 10]) {
-    for (let frame = 0; frame <= millDuration(count); frame += 37) {
-      const panels = visibleMillPanels(frame, count);
-      assert.equal(panels.length, 2);
-      assert.ok(panels[0].x <= 0 && panels[0].x > -1920);
-      assert.equal(panels[1].x - panels[0].x, 1920);
-      assert.ok(panels[1].x + 1920 >= 1920);
-      for (const p of panels) assert.ok(p.index >= 0 && p.index < count);
+    let previous = millMoment(0, count)!;
+    for (let frame = 0; frame <= millDuration(count); frame++) {
+      const m = millMoment(frame, count)!;
+      assert.ok(m.index >= 0 && m.index < count);
+      assert.ok(m.veil >= 0 && m.veil <= 1);
+      if (m.index !== previous.index) assert.equal(m.veil, 1, `swap at ${frame} must be hidden`);
+      if (!m.interlude) assert.equal(m.veil, 0);
+      previous = m;
     }
-    assert.deepEqual(visibleMillPanels(0, count), visibleMillPanels(millDuration(count), count));
-    assert.equal(visibleMillPanels(MILL_PASS_FRAMES, count)[0].index, 1 % count);
+    for (let i = 0; i < count; i++) {
+      // Seeking to a pass start (Mills picker) lands on the painting itself.
+      assert.deepEqual(millMoment(i * MILL_PASS_FRAMES, count), { index: i, sceneFrame: 0, veil: 0, interlude: null });
+    }
+    assert.deepEqual(millMoment(0, count), millMoment(millDuration(count), count));
+    const join = millMoment(MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES + MILL_SWAP_FRAME, count)!;
+    assert.deepEqual([join.index, join.interlude?.from, join.interlude?.to], [1 % count, 0, 1 % count]);
   }
-  assert.deepEqual(visibleMillPanels(0, 0), []);
+  assert.equal(millMoment(0, 0), null);
+});
+
+test('Next mill advances from the mill on screen, including mid-interlude', () => {
+  assert.equal(nextMillFrame(0, 10), MILL_PASS_FRAMES);
+  assert.equal(nextMillFrame(MILL_PASS_FRAMES - 10, 10), 2 * MILL_PASS_FRAMES);
+  assert.equal(nextMillFrame(MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES + 10, 10), MILL_PASS_FRAMES);
+  assert.equal(nextMillFrame(9 * MILL_PASS_FRAMES + 5, 10), 0);
+  assert.equal(nextMillFrame(500, 1), 0);
+});
+
+test('landscape keeps the live board in frame; vertical fills the window and pans to the board', () => {
+  for (const mill of MILL_SCENES) {
+    const [left, top, width, height] = mill.board;
+    for (const frame of [0, 1200, MILL_PASS_FRAMES]) {
+      const { scale } = millCamera(mill, frame, 'landscape');
+      const ox = (left + width / 2) * 19.2;
+      const oy = (top + height / 2) * 10.8;
+      const x1 = ox + (left * 19.2 - ox) * scale;
+      const x2 = ox + ((left + width) * 19.2 - ox) * scale;
+      const y2 = oy + ((top + height) * 10.8 - oy) * scale;
+      assert.ok(x1 >= 0 && x2 <= 1920 && y2 <= 1080, `${mill.id} board stays visible`);
+    }
+    const start = millCamera(mill, 0, 'vertical');
+    const end = millCamera(mill, MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES, 'vertical');
+    assert.ok(start.x <= 0);
+    assert.equal(1080 * start.scale, VERTICAL_ART_HEIGHT);
+    // Each pass opens with its mill in the window.
+    const focusX = (mill.focus / 100) * 1920 * start.scale + start.x;
+    assert.ok(focusX > 200 && focusX < MILL_STAGE.vertical.width - 120, `${mill.id} opens on its mill`);
+    // The pan ends exactly at the painting's right edge, with its board in view.
+    assert.ok(Math.abs(1920 * end.scale + end.x - MILL_STAGE.vertical.width) < 0.01);
+    assert.ok((left + width) * 19.2 * end.scale + end.x <= MILL_STAGE.vertical.width);
+  }
+});
+
+test('format parameter and route geometry', () => {
+  assert.equal(parseMillFormat('vertical'), 'vertical');
+  assert.equal(parseMillFormat('Portrait'), 'vertical');
+  assert.equal(parseMillFormat('landscape'), 'landscape');
+  assert.equal(parseMillFormat('sideways'), null);
+  assert.equal(parseMillFormat(null), null);
+  const [greer, turner, hodgson, rockbridge] = ['greer', 'turner', 'hodgson', 'rockbridge'].map((id) => MILL_SCENES.find((s) => s.id === id)!);
+  assert.deepEqual(millRoute(greer, turner), { miles: 4, direction: 'east' });
+  assert.equal(millRoute(hodgson, rockbridge).direction, 'northwest');
+  assert.equal(mixHex('#000000', '#ffffff', 0.5), '#808080');
+  for (const mill of MILL_SCENES) {
+    const [x, y] = projectMap(...mill.at);
+    assert.ok(x > 0 && x < MILL_MAP_WIDTH && y > 0 && y < MILL_MAP_HEIGHT, mill.id);
+  }
+  assert.deepEqual(Object.keys(MILL_MAP_RIVERS).sort(), [...MILL_RIVERS].sort());
 });
