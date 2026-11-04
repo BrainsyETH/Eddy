@@ -64,7 +64,8 @@ test('a dam Read expires at the next hour, Central midnight, and the repeated DS
 
 test('unsupported dam Reads stay absent and entitlement failures cannot retain prose', () => {
   assert.equal(damReadFailure(404), 'unavailable');
-  for (const status of [401, 402, 403]) assert.equal(damReadFailure(status), 'revoked');
+  assert.equal(damReadFailure(402), 'premium');
+  for (const status of [401, 403]) assert.equal(damReadFailure(status), 'sign-in');
   for (const status of [undefined, 429, 500, 503]) assert.equal(damReadFailure(status), 'retry');
 });
 

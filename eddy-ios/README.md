@@ -1665,6 +1665,10 @@ river. Account deletion clears these defaults. Missing arrival times explain
 flood/regulated water, missing current data or a failed request, with Retry for
 failures. Existing downloads keep their partial/incomplete/outdated/check-failed
 status and can be managed or resumed in setup; new downloads use the planner.
+A stretch with zero mapped hazards omits hazard reminders from the summary
+without changing the saved preference. Account cleanup attempts every step
+in order, then reports failures through Retry cleanup; a failed preferences
+or image-cache delete cannot skip history, reports or offline maps.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
@@ -2356,6 +2360,8 @@ generation windows, with individual hours in the full schedule. `ReadHeading`
 provides the shared otter/Fredoka label for river, gauge and dam interpretations.
 
 Float image sharing reuses successful server images and can produce a basic
-branded local PNG when reception fails. The local export uses saved trip facts
+branded local PNG when reception fails. An otter image that has not loaded
+after 1.5 seconds is omitted so sharing can continue with the Eddy wordmark.
+The local export uses saved trip facts
 without a condition stamp or private metadata. See ADR 0015 for cache bounds,
 privacy rules and the outstanding physical-device share gates.

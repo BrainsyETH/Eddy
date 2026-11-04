@@ -4,9 +4,10 @@ export const DAM_REFRESH_MS = 5 * 60_000;
 export const damRefreshSlot = (now: number) => Math.floor(now / DAM_REFRESH_MS);
 
 /** A non-pilot dam has no Read endpoint; it is not a retryable outage. */
-export function damReadFailure(status: number | undefined): 'unavailable' | 'revoked' | 'retry' {
+export function damReadFailure(status: number | undefined): 'unavailable' | 'sign-in' | 'premium' | 'retry' {
   if (status === 404) return 'unavailable';
-  return status != null && [401, 402, 403].includes(status) ? 'revoked' : 'retry';
+  if (status === 402) return 'premium';
+  return status === 401 || status === 403 ? 'sign-in' : 'retry';
 }
 
 /** Server prose can refer to ended hourly windows; never carry it past that hour. */

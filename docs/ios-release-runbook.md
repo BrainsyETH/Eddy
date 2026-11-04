@@ -157,7 +157,9 @@ Implemented in JavaScript; the following physical-device checks are still open.
 - [ ] Leave a dam page foregrounded across a generation-window end and
       Central midnight, then repeat after backgrounding. Schedule and Read
       refresh; yesterday's or an earlier hour's prose does not persist. Test
-      a failed refresh, Retry, account switch and expired entitlement.
+      a failed refresh, Retry and account switch. A 402 shows the Premium
+      action; 401/403 shows sign-in. Verify purchase/sign-in refreshes the Read
+      without navigating away. A token refresh failing offline stays retryable.
 - [ ] Ready to float distinguishes flood conditions, dam-controlled flow,
       missing water data and a failed estimate. Retry recovers the request.
 - [ ] Existing offline maps retain partial, outdated, incomplete and failed
@@ -166,12 +168,18 @@ Implemented in JavaScript; the following physical-device checks are still open.
 - [ ] Trip options starts collapsed. Reminder defaults survive relaunch;
       another river never inherits selected stops. Notification permission
       remains visible when needed. Pickup contact, large text and VoiceOver
-      remain usable; account deletion clears the defaults.
+      remain usable. On a stretch with zero mapped hazards, the collapsed summary
+      omits hazard reminders while preserving the preference for other trips.
+      Account deletion clears the defaults; inject preferences/cache deletion
+      failures and confirm history, reports and maps are still attempted, with
+      Retry cleanup offered for failures.
 - [ ] Dam Favorites announces flow/status and remaining generation windows
       concisely, including minimum flow and unavailable hours. The full
       schedule still exposes individual hours with VoiceOver.
-- [ ] Share from a recap and History in airplane mode, once with a cached
-      server image and once without one. Check a slow connection, cancellation,
+- [ ] Cold-launch in airplane mode and share an uncached float from both
+      Recap and History to exercise local rendering; then test a cached server
+      image separately. Suppress the otter load callback: after 1.5 seconds
+      export the wordmark and trip facts without the otter. Check a slow connection, cancellation,
       retry, long names, untracked/partial floats, Messages, Files and iPad.
       Local export uses the standard otter and no condition stamp; no exact
       time, account, GPS positions or start note appears in image or filename.

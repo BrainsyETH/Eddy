@@ -28,6 +28,7 @@
 // can never outlive the float.
 
 import { savedReminderPreferences } from './reminderPreferences';
+import { completeCleanup } from './completeCleanup';
 import { pickupContact } from './pickupContactStore';
 import { floatArchive } from './floatArchive';
 import { recapFloat } from './floatRecap';
@@ -327,13 +328,17 @@ export function setFloatReminders(update: (current: FloatReminderSettings) => Pi
 
 /** Account deletion also clears positions, every raw journal, and any pending end journal. */
 export async function discardFloat(): Promise<void> {
-  await stopRecordingNow(null);
-  await deleteAllFloatTracks();
-  await store.discard();
-  await pickupContact.clear();
-  await savedReminderPreferences.clear();
-  void syncFloatActivity(null);
-  void dismissFloatNotifications();
-  const { clearFloatShareImages } = await import('./shareImageCache');
-  clearFloatShareImages();
+  await completeCleanup([
+    () => stopRecordingNow(null),
+    deleteAllFloatTracks,
+    () => store.discard(),
+    () => pickupContact.clear(),
+    () => savedReminderPreferences.clear(),
+    () => syncFloatActivity(null),
+    dismissFloatNotifications,
+    async () => {
+      const { clearFloatShareImages } = await import('./shareImageCache');
+      clearFloatShareImages();
+    },
+  ]);
 }

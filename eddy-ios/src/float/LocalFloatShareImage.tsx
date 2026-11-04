@@ -12,20 +12,26 @@ function LocalFloatShareImage({ trip, ready, failed }: {
 }) {
   const svg = useRef<Svg>(null);
   const [laidOut, setLaidOut] = useState(false);
-  const [artLoaded, setArtLoaded] = useState(false);
+  const [art, setArt] = useState<'loading' | 'ready' | 'omit'>('loading');
   const model = localFloatShare(trip);
+  useEffect(() => {
+    if (art !== 'loading') return;
+    // The wordmark and trip facts can stand alone when decorative art fails.
+    const timeout = setTimeout(() => setArt('omit'), 1_500);
+    return () => clearTimeout(timeout);
+  }, [art]);
   useEffect(() => {
     const timeout = setTimeout(() => failed(new Error('Could not prepare the local image')), 10_000);
     return () => clearTimeout(timeout);
   }, [failed]);
   useEffect(() => {
-    if (!laidOut || !artLoaded) return;
+    if (!laidOut || art === 'loading') return;
     const frame = requestAnimationFrame(() => {
       try { svg.current?.toDataURL(data => data ? ready(data) : failed(new Error('Empty image')), { width: 1080, height: 1920 }); }
       catch { failed(new Error('Could not draw the float image')); }
     });
     return () => cancelAnimationFrame(frame);
-  }, [laidOut, artLoaded, ready, failed]);
+  }, [laidOut, art, ready, failed]);
   const lines = (value: string, y: number, size: number, family: string, color: string, limit = 28) =>
     shareTextLines(value, limit).map((line, i) => <SvgText key={`${y}-${i}`} x={90} y={y + i * (size + 12)}
       fill={color} fontFamily={family} fontSize={size}>{line}</SvgText>);
@@ -34,8 +40,8 @@ function LocalFloatShareImage({ trip, ready, failed }: {
       <Rect width={1080} height={1920} fill={ink.bg} />
       <SvgText x={90} y={190} fill={ink.interactive} fontFamily={fonts.display} fontSize={72}>Eddy</SvgText>
       <SvgText x={90} y={248} fill={ink.textMuted} fontFamily={fonts.body} fontSize={32}>A day on the river</SvgText>
-      <Image href={require('../../assets/otter/standard.png')} x={690} y={115} width={260} height={260}
-        onLoad={() => setArtLoaded(true)} />
+      {art !== 'omit' ? <Image href={require('../../assets/otter/standard.png')} x={690} y={115} width={260} height={260}
+        onLoad={() => setArt(current => current === 'loading' ? 'ready' : current)} /> : null}
       {lines(model.river, 470, 64, fonts.display, ink.text, 23)}
       <SvgText x={90} y={730} fill={ink.textMuted} fontFamily={fonts.body} fontSize={30}>{model.date}</SvgText>
       <Line x1={90} x2={990} y1={790} y2={790} stroke={ink.borderStrong} strokeWidth={2} />

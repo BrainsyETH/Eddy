@@ -16,13 +16,20 @@ import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { ReadHeading } from '@/components/ReadHeading';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
 
 type Read = NonNullable<DamReadResponse['read']>;
 type Premium =
   | { key: string; state: 'ready'; read: Read }
   | { key: string; state: 'unavailable' }
+  | { key: string; state: 'sign-in' | 'premium' }
   | { key: string; state: 'failed' };
+
+interface AccessActions {
+  onUnlock: () => void;
+  onRefreshAccount: () => Promise<void>;
+}
 
 /** The one-line pitch on the locked card. */
 export const DAM_READ_LOCKED_COPY = 'What stands out in today’s generation schedule.';
@@ -50,9 +57,10 @@ function useDamRead(damId: string, premiumUserId: string | null, revision: numbe
   useDamRefresh(useCallback((signal: AbortSignal) => {
     void (async () => {
       try {
-        const token = premiumUserId ? await getAccessToken() : null;
+        const token = premiumUserId ? await getAccessToken(premiumUserId) : null;
         if (signal.aborted) return;
-        if (premiumUserId && !token) throw new ApiError('No active session', 401);
+        // A failed token refresh can mean no reception, not a revoked session.
+        if (premiumUserId && !token) throw new ApiError('Could not reach your account');
         const data = await fetchDamRead(damId, signal, token);
         if (signal.aborted) return;
         const renderedAt = Date.now();
@@ -63,11 +71,11 @@ function useDamRead(damId: string, premiumUserId: string | null, revision: numbe
       } catch (error) {
         if (signal.aborted) return;
         const failure = damReadFailure(error instanceof ApiError ? error.status : undefined);
-        if (failure === 'unavailable') {
-          setHeld({ key, generatedAt: null, renderedAt: Date.now(), failed: false, current: { key, state: 'unavailable' } });
+        if (failure !== 'retry') {
+          setHeld({ key, generatedAt: null, renderedAt: Date.now(), failed: false, current: { key, state: failure } });
           return;
         }
-        setHeld(previous => failure === 'retry' && previous?.key === key && previous.generatedAt &&
+        setHeld(previous => previous?.key === key && previous.generatedAt &&
           damReadStillCurrent(previous.generatedAt, previous.renderedAt, Date.now())
           ? { ...previous, failed: true }
           : { key, generatedAt: null, renderedAt: Date.now(), failed: true, current: { key, state: 'failed' } });
@@ -88,12 +96,26 @@ function useDamRead(damId: string, premiumUserId: string | null, revision: numbe
 }
 
 /** A member's Read, or the state of fetching it. */
-function MemberRead({ current, onRetry, loadingLabel }: {
+function MemberRead({ current, onRetry, loadingLabel, onUnlock, onRefreshAccount }: {
   current: Premium | null;
   onRetry: () => void;
   loadingLabel: string;
-}) {
+} & AccessActions) {
   const { colors } = useTheme();
+
+  if (current?.state === 'premium') {
+    return <ReadOffer onUnlock={() => {
+      // Reconcile the page's held account state as the Premium sheet opens.
+      void onRefreshAccount().catch(() => {});
+      onUnlock();
+    }} />;
+  }
+  if (current?.state === 'sign-in') {
+    return <View style={styles.read}>
+      <Text style={[styles.body, { color: colors.textMuted }]}>Sign in again to read Eddy’s take.</Text>
+      <AppleSignInButton onSignedIn={() => { void onRefreshAccount().then(onRetry, onRetry); }} />
+    </View>;
+  }
 
   if (current?.state === 'ready') {
     // An older API still supplies its schedule sentence. Keep it as body copy
@@ -127,19 +149,30 @@ function MemberRead({ current, onRetry, loadingLabel }: {
   return <ReadSkeleton widths={[0.7, 1, 0.8]} label={loadingLabel} />;
 }
 
-export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, revision = 0 }: {
+function ReadOffer({ onUnlock }: Pick<AccessActions, 'onUnlock'>) {
+  const { colors } = useTheme();
+  return <View>
+    <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
+    <View style={styles.lockedProse}>
+      <BlurredProse text={LOCKED_DAM_READ_SHAPE} color={colors.textMuted} style={styles.body} lines={2} />
+    </View>
+    <PremiumLockRow onPress={onUnlock} />
+  </View>;
+}
+
+export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, onRefreshAccount, revision = 0 }: {
   damId: string;
   damName: string;
   /** premiumReadUserId(...): set only for a verified, current-session member. */
   premiumUserId: string | null;
   /** canOfferReadPremium(...): true only for a settled, non-member account. */
   canUnlock: boolean;
-  onUnlock: () => void;
   /** Bumped by the screen's "Try again". */
   revision?: number;
-}) {
+} & AccessActions) {
   const { colors, elevation } = useTheme();
   const { checked, generatedAt, current, failed, retry } = useDamRead(damId, premiumUserId, revision);
+  const accessActions = { onUnlock, onRefreshAccount };
 
   if (checked && !generatedAt && !failed && current?.state === 'unavailable') return null;
   if (!premiumUserId && !generatedAt && !failed) return null;
@@ -150,17 +183,11 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
       <ReadHeading />
 
       {failed && !generatedAt ? (
-        <MemberRead current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />
+        <MemberRead {...accessActions} current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />
       ) : premiumUserId ? (
-        <MemberRead current={current} onRetry={retry} loadingLabel={`Loading Eddy's Read for ${damName}`} />
+        <MemberRead {...accessActions} current={current} onRetry={retry} loadingLabel={`Loading Eddy's Read for ${damName}`} />
       ) : canUnlock ? (
-        <View>
-          <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
-          <View style={styles.lockedProse}>
-            <BlurredProse text={LOCKED_DAM_READ_SHAPE} color={colors.textMuted} style={styles.body} lines={2} />
-          </View>
-          <PremiumLockRow onPress={onUnlock} />
-        </View>
+        <ReadOffer onUnlock={onUnlock} />
       ) : (
         // An account not yet settled: reserve the space without either the
         // Read or an offer.
@@ -178,16 +205,17 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
  * dam-release tab (shared/dam-release-tab.ts). For a verified member only:
  * EddyTake draws the locked and unsettled states itself, under its one lock.
  */
-export function DamReadInTake({ damId, premiumUserId, revision = 0 }: {
+export function DamReadInTake({ damId, premiumUserId, onUnlock, onRefreshAccount, revision = 0 }: {
   damId: string;
   premiumUserId: string;
   revision?: number;
-}) {
+} & AccessActions) {
   const { colors } = useTheme();
   const { checked, generatedAt, current, failed, retry } = useDamRead(damId, premiumUserId, revision);
+  const accessActions = { onUnlock, onRefreshAccount };
 
   if (!checked) return <ReadSkeleton label="Loading Eddy's Read for this dam" />;
-  if (failed && !generatedAt) return <MemberRead current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />;
+  if (failed && !generatedAt) return <MemberRead {...accessActions} current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />;
   if (!generatedAt && current?.state === 'unavailable') {
     // Not "unavailable for this river": the dam may have no Read yet today,
     // or the schedule changed and the next hourly run has not rewritten it.
@@ -200,7 +228,7 @@ export function DamReadInTake({ damId, premiumUserId, revision = 0 }: {
   const age = generatedAt ? relativeAgeShort(generatedAt) : null;
   return (
     <View style={styles.inTake}>
-      <MemberRead current={current} onRetry={retry} loadingLabel="Loading Eddy's Read for this dam" />
+      <MemberRead {...accessActions} current={current} onRetry={retry} loadingLabel="Loading Eddy's Read for this dam" />
       {failed && generatedAt ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.action, { color: colors.interactive }]}>Couldn’t refresh · Retry</Text></Pressable> : null}
       {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
     </View>

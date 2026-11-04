@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatReminderChoices } from '@/lib/floatReminders';
+import { tripOptionsSummary } from '@/lib/tripOptionsSummary';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card, CardHeading, styles } from './ui';
 import { ReminderChoices } from './ReminderChoices';
@@ -14,8 +15,7 @@ export function TripOptions({ value, onChange, disabled, hazards }: {
 }) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
-  const summary = value.takeOut && value.hazards !== false ? 'Take-out and hazard reminders'
-    : value.takeOut ? 'Take-out reminder' : value.hazards !== false ? 'Hazard reminders' : 'Reminders off';
+  const summary = tripOptionsSummary(value, hazards);
   return <Card>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: open, disabled }} disabled={disabled}
       onPress={() => setOpen(v => !v)} style={local.toggle}>

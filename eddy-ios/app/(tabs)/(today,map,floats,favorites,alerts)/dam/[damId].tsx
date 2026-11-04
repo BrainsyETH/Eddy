@@ -482,7 +482,8 @@ export default function DamDetailScreen() {
             {/* Eddy's Read sits under the hero it interprets: the plan and the
                 measured pattern below are free; the Read of them is Premium. */}
             <View style={styles.section}>
-              <DamEddyRead damId={dam.id} damName={dam.name} premiumUserId={premiumUserId} canUnlock={canUnlockRead} onUnlock={() => setPaywallOpen(true)} revision={reloadNonce} />
+              <DamEddyRead damId={dam.id} damName={dam.name} premiumUserId={premiumUserId} canUnlock={canUnlockRead}
+                onUnlock={() => setPaywallOpen(true)} onRefreshAccount={refreshAccount} revision={reloadNonce} />
             </View>
           </>
         ) : detailPending || failed ? (
@@ -699,7 +700,7 @@ export default function DamDetailScreen() {
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
-        onPurchased={() => void refreshAccount()}
+        onPurchased={() => { void refreshAccount(); setReloadNonce(value => value + 1); }}
       />
     </SafeAreaView>
   );

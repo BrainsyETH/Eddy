@@ -1438,7 +1438,7 @@ export default function RiverDetailScreen() {
                 <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
               </View>
             ) : null}
-            {/* The dam closes the card on every tab it does not lead. */}
+            {/* The controlling dam closes the card only off a dam-release tab. */}
             {!damTab ? <RiverDamPanel dam={dam} position="footer" now={now} /> : null}
           </ReadingSummaryCard>
         )}
@@ -1518,14 +1518,15 @@ export default function RiverDetailScreen() {
             onRetry={() => setPremiumRetry((value) => value + 1)}
             damRead={damTab ? {
               content: damReadUserId
-                ? <DamReadInTake key={damTab.damId} damId={damTab.damId} premiumUserId={damReadUserId} revision={premiumRetry} />
+                ? <DamReadInTake key={damTab.damId} damId={damTab.damId} premiumUserId={damReadUserId} revision={premiumRetry}
+                    onUnlock={() => setPaywallOpen(true)} onRefreshAccount={refreshAccount} />
                 : null,
             } : null}
           />
-        ) : damTab ? (
+        ) : damTab && !outlookLoading ? (
           <DamEddyRead key={damTab.damId} damId={damTab.damId} damName={selectedDam?.name ?? 'this dam'}
             premiumUserId={damReadUserId} canUnlock={canOfferReadPremium(readAccess)}
-            onUnlock={() => setPaywallOpen(true)} revision={premiumRetry} />
+            onUnlock={() => setPaywallOpen(true)} onRefreshAccount={refreshAccount} revision={premiumRetry} />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.
           // This panel is absent on plenty of rivers, so the loading state has
@@ -1958,7 +1959,7 @@ export default function RiverDetailScreen() {
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
-        onPurchased={() => void refreshAccount()}
+        onPurchased={() => { void refreshAccount(); setPremiumRetry(value => value + 1); }}
       />
 
       <AlertSignInSheet

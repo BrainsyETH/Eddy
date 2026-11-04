@@ -172,12 +172,18 @@ and elapsed time. It states limited/unavailable tracking and unconfirmed
 arrival. It makes no condition, weather or mood claim, sends no exact time,
 coordinates, account or start note, and adds no unverified web destination.
 Saved names are local record text; they are not accepted by the public image
-endpoint. Long names wrap within a fixed image and then ellipsize.
+endpoint. Long names wrap within a fixed image and then ellipsize. Decorative
+otter loading has a 1.5-second budget; if its callback never arrives, remove
+the image and export the wordmark and trip facts. A late callback cannot
+restart that export. Layout and PNG rendering still have a ten-second deadline.
 
 Only successful server images enter the disposable cache, limited to 20
 images and 30 days. Its metadata verifies the exact request even if a file
 hash collides. Sharing copies to a temporary file; cancelling the sheet
-cannot delete the saved image. Account deletion clears the cache. No new
+cannot delete the saved image. Account deletion attempts every cleanup step
+in order, including the cache, and reports collected failures through the
+existing Retry cleanup action. A preferences/cache error cannot skip history,
+queued reports or offline maps. No new
 native dependency or configuration is introduced. Native export, image
 layout and destination delivery still require the device gates below.
 

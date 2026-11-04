@@ -85,7 +85,11 @@ Measured on that history (backtest in
    hides an earlier hour’s rendered prose and rejects a previous Central day
    while refreshing. Members request the entitled representation directly;
    a public CDN availability response cannot suppress it. A failed refresh
-   retains only a still-current Read and offers Retry.
+   retains only a still-current Read and offers Retry. A 402 response shows
+   the Premium action; 401/403 shows Apple sign-in, never an upgrade offer.
+   These actions refresh the held account state, and purchase/sign-in completion
+   retries the Read. A missing token during a failed network refresh remains a
+   connection failure, distinct from an explicit authentication rejection.
 7. **The whole Read is Premium.** A public caller of `/api/dam-update/[damId]`
    learns only that a Read exists and when it was written. The measured pattern
    strip, the posted schedule and the water readings on the dam page stay free;
@@ -119,6 +123,8 @@ Measured on that history (backtest in
    holds the dam catalog and selects the snapshot by the displayed USACE site
    id, so the White's Norfork release tab pairs Norfork's schedule and Read.
    It never substitutes the controlling dam's footer on another dam's tab.
+   The standalone Read fallback waits for the river outlook request to settle,
+   avoiding an initial card replacement and duplicate member request.
 
 ## Not decided here
 
