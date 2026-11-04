@@ -34,14 +34,14 @@ Measured on that history (backtest in
 1. **The dam Read may describe the recent pattern, labelled as one.** It
    reports the usual first start over the last 14 complete Central days,
    weekdays and weekends apart, and says "no consistent pattern" when the
-   middle half of starts is wider than 3 hours. The **earliest recent start is
-   always its own row** when one is known, pattern or no pattern, because an
-   early start is the miss that catches someone in rising water. A day whose
+   middle half of starts is wider than 3 hours. The earliest recent start
+   remains in the legacy report data when known; the compact card does not
+   repeat historical fact rows beside the generation-pattern section. A day whose
    first start could be hidden by missing observations has an unknown start
    and is left out of the pattern and the scoring; it never counts as a later
    start.
-2. **A posted schedule always outranks the pattern.** The headline and the
-   first row are today's posted schedule, re-read from the current snapshot
+2. **A posted schedule always outranks the pattern.** The takeaway interprets
+   today's posted schedule, re-read from the current snapshot
    each time the Read is served. All times are at the dam, in Central time;
    nothing estimates when water reaches a downstream access.
 3. **Code writes the whole Read, in Eddy's voice.** No model. Two earlier
@@ -55,13 +55,19 @@ Measured on that history (backtest in
    surprises first and plainly ("Heads up"), counts kept beside what they count.
    A test fails the build on "units", "first start", "came on", "accuracy",
    the company "we", promises and absolutes in any rendered Read.
-4. **Reading order:** a headline with today's posted generation and how it
-   compares with recent days of the same kind; two or three sentences, recent
-   surprises (early starts, generation with nothing posted) before the
-   pattern; the two or three facts behind them (tomorrow's posted generation,
-   the earliest start lately, the schedule track record); and "Recent pattern
-   details" collapsed underneath. Water temperature and the schedule itself
-   stay on the free dam page and are not repeated in the Read.
+4. **Compact reading order (2026-11-04):** the existing otter mark and a teal
+   Fredoka “Eddy's Read” label, a short Geist headline, one interpretation
+   sentence, and a quiet “Updated” timestamp. No fact rows, pattern disclosure,
+   full list of generation windows, or repeated freshness/downstream paragraphs.
+   The free schedule and generation-pattern section carry that context. Copy is
+   selected from the computed facts, never clipped or ellipsized; native text
+   can grow with Dynamic Type. The API adds `read.takeaway` and retains its
+   legacy report fields for released clients. New clients talking to an older
+   API use its headline as body copy under a short neutral heading. The web
+   teaser uses the same otter and concise pitch while remaining Premium-gated.
+   The compact copy handles unposted schedules, minimum flow, ended windows,
+   sparse/irregular history, and weekdays/weekends independently. A posted quiet
+   day with recent unposted generation keeps that exception in the one sentence.
 5. **Definitions:** a typical generating day is total hours and number of
    runs, not the first run; runs carrying past midnight are counted, never
    dropped from the end time; the track record scores only days where
