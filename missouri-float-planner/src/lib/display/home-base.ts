@@ -309,6 +309,12 @@ export function advanceLoop(state: LoopState, spots: number, steps: number, redu
   return { phase: 'spot', index: 0 };
 }
 
+/** The hold on the present just gave way to the first spotlight: one full
+ * loop is done, the board's natural cut point (docs/embeds.md#display-contract). */
+export function loopCompleted(prev: LoopState, next: LoopState): boolean {
+  return prev.phase === 'hold' && next.phase === 'spot';
+}
+
 export function loopDelay(state: LoopState, reduceMotion: boolean): number {
   if (state.phase === 'replay') return REPLAY_STEP_MS;
   if (state.phase === 'hold') return HOLD_MS;

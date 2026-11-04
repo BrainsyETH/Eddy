@@ -23,14 +23,18 @@ import {
   MILL_RIVERS,
   MILL_STAGE,
   VERTICAL_MEDIA,
+  millBreakBetween,
   verticalHeight,
   verticalLayout,
   millDuration,
+  millStartFrame,
   nextMillFrame,
   parseMillFormat,
   selectMillScenes,
   type MillFormat,
 } from '@/lib/display/mill-scenes';
+import { displayReadings } from '@/lib/embed/display-events';
+import { useDisplayContract } from './useDisplayContract';
 import styles from './river-window.module.css';
 
 export default function RiverWindow() {
@@ -56,6 +60,8 @@ export default function RiverWindow() {
   const [fullscreenError, setFullscreenError] = useState(false);
   const [assetError, setAssetError] = useState(false);
   const onAssetError = useCallback(() => setAssetError(true), []);
+  // ?start=<mill id> opens on that mill; read once, so the tour is not reset by later renders.
+  const [startFrame] = useState(() => (millMode ? millStartFrame(params.get('start'), mills) : 0));
 
   const query = useQuery({
     queryKey: ['river-window-snapshot'],
@@ -82,6 +88,29 @@ export default function RiverWindow() {
         : [],
     [query.data, requested, now, millMode]
   );
+  const postBreak = useDisplayContract(
+    millMode ? 'mills' : 'river-window',
+    format,
+    displayReadings({ isPending: query.isPending, isError: query.isError, hasData: !!query.data }),
+    assetError ? 'unavailable' : 'ok'
+  );
+
+  // Display contract: a framing host may cut away as each painting ends.
+  useEffect(() => {
+    const p = player.current;
+    if (!millMode || !p) return;
+    let last: number | null = null;
+    const onFrame = ({ detail }: { detail: { frame: number } }) => {
+      if (last != null) {
+        const pass = millBreakBetween(last, detail.frame, mills.length);
+        if (pass != null) postBreak(mills.length, mills[(pass + 1) % mills.length]?.id);
+      }
+      last = detail.frame;
+    };
+    p.addEventListener('frameupdate', onFrame);
+    return () => p.removeEventListener('frameupdate', onFrame);
+  }, [millMode, mills, format, postBreak]);
+
   const sceneProps = useMemo(() => ({ signs, loading: query.isPending }), [signs, query.isPending]);
   const millProps = useMemo(
     () => ({ ...sceneProps, mills, format, height: compositionHeight, onAssetError }),
@@ -176,6 +205,7 @@ export default function RiverWindow() {
           compositionWidth={MILL_STAGE[format].width}
           compositionHeight={compositionHeight}
           durationInFrames={duration}
+          initialFrame={startFrame}
           fps={WINDOW_FPS}
           loop
           style={{ width: '100%', height: '100%' }}

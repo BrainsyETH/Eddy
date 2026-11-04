@@ -35,6 +35,7 @@ import {
   homeBaseFor,
   isNight,
   linePath,
+  loopCompleted,
   loopDelay,
   parseGaugeHistory,
   project,
@@ -48,6 +49,8 @@ import {
   type BoardRow,
   type LoopState,
 } from '@/lib/display/home-base';
+import { displayReadings } from '@/lib/embed/display-events';
+import { useDisplayContract } from './useDisplayContract';
 import styles from './home-base-board.module.css';
 
 const ART_WIDTH = 1080;
@@ -267,6 +270,18 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     const t = window.setTimeout(() => setLoop((s) => advanceLoop(s, order.length, steps, reduceMotion)), loopDelay(loop, reduceMotion));
     return () => window.clearTimeout(t);
   }, [loop, hidden, order.length, steps, reduceMotion]);
+  // Display contract: ready/status for a framing host, and a break after each full loop.
+  const postBreak = useDisplayContract(
+    'board',
+    'vertical',
+    displayReadings({ isPending: rivers.isPending, isError: rivers.isError, hasData: !!rivers.data }),
+    'ok'
+  );
+  const lastLoop = useRef(loop);
+  useEffect(() => {
+    if (loopCompleted(lastLoop.current, loop)) postBreak(1);
+    lastLoop.current = loop;
+  }, [loop, postBreak]);
   const replay = loop.phase === 'replay' && steps ? loop.index : null;
   const spotlight = loop.phase === 'spot' ? order[loop.index % Math.max(order.length, 1)] : config.doorstep;
 

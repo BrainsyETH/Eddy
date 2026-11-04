@@ -8,6 +8,7 @@ import { MILL_SCENES } from './mill-scenes';
 import {
   RAIN_EMPHASIS,
   advanceLoop,
+  loopCompleted,
   parseGaugeExtras,
   parseRiverLadders,
   rateSeries,
@@ -135,6 +136,20 @@ test('the loop spotlights each river, replays the week, holds, and starts again'
   assert.deepEqual(advanceLoop({ phase: 'spot', index: 1 }, 2, 3, true), { phase: 'hold', index: 0 }, 'reduced motion skips the replay');
   assert.deepEqual(advanceLoop({ phase: 'spot', index: 1 }, 2, 0, false), { phase: 'hold', index: 0 }, 'no history, no replay');
   assert.ok(loopDelay({ phase: 'spot', index: 0 }, true) > loopDelay({ phase: 'spot', index: 0 }, false));
+});
+
+test('one full loop is one display-contract break, with or without the replay', () => {
+  for (const [steps, reduce] of [[3, false], [0, false], [3, true]] as const) {
+    let s: LoopState = { phase: 'spot', index: 0 };
+    let breaks = 0;
+    for (let i = 0; i < 40; i++) {
+      const next = advanceLoop(s, 2, steps, reduce);
+      if (loopCompleted(s, next)) breaks++;
+      s = next;
+    }
+    const loopLength = 2 + (steps && !reduce ? steps : 0) + 1;
+    assert.equal(breaks, Math.floor(40 / loopLength), `steps=${steps} reduce=${reduce}`);
+  }
 });
 
 test('gauge history parsing rejects malformed payloads and keeps order', () => {
