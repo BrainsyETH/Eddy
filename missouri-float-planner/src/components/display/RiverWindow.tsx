@@ -187,7 +187,7 @@ export default function RiverWindow() {
   }
 
   return (
-    <div className={styles.viewport}>
+    <div className={styles.viewport} data-theme={millMode ? 'mills' : 'river'}>
       <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} data-format={format}
         style={format === 'vertical' ? ({
           width: `min(100vw, ${(MILL_STAGE.vertical.width / compositionHeight) * 100}dvh)`,
