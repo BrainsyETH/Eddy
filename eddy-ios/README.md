@@ -1658,6 +1658,18 @@ The bottom-right info button lists each vessel's normal-water moving speed
 from the shared vessel API lookup, with a note that river flow adjusts the
 estimate and stops are excluded. It remains available before a route is chosen.
 
+Ready to float keeps reminders and pickup contact in collapsed **Trip options**.
+Notification permission remains visible when selected reminders need it. Take-out
+and hazard choices persist on the device; selected stops never carry to another
+river. Account deletion clears these defaults. Missing arrival times explain
+flood/regulated water, missing current data or a failed request, with Retry for
+failures. Existing downloads keep their partial/incomplete/outdated/check-failed
+status and can be managed or resumed in setup; new downloads use the planner.
+A stretch with zero mapped hazards omits hazard reminders from the summary
+without changing the saved preference. Account cleanup attempts every step
+in order, then reports failures through Retry cleanup; a failed preferences
+or image-cache delete cannot skip history, reports or offline maps.
+
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
 directly, without another confirmation screen. Setup is removed on success.
@@ -2339,3 +2351,17 @@ camera after multiple pan/select cycles, gauge continuity across zoom 5.5 and
 10.5, pan responsiveness and fast fling with Other USGS gauges on (fling beyond
 the padded area and check for briefly empty edges before the camera settles),
 failed-first-load/retry, VoiceOver list selection, and largest text sizes.
+
+Dam Reads and their schedules refresh on focus, foreground and five-minute
+boundaries. An earlier hour's Read or a previous Central day's response is not
+shown while refreshing. A dam release tab selects its own snapshot: Norfork's
+Read and schedule stay together on the White. Favorites announces remaining
+generation windows, with individual hours in the full schedule. `ReadHeading`
+provides the shared otter/Fredoka label for river, gauge and dam interpretations.
+
+Float image sharing reuses successful server images and can produce a basic
+branded local PNG when reception fails. An otter image that has not loaded
+after 1.5 seconds is omitted so sharing can continue with the Eddy wordmark.
+The local export uses saved trip facts
+without a condition stamp or private metadata. See ADR 0015 for cache bounds,
+privacy rules and the outstanding physical-device share gates.

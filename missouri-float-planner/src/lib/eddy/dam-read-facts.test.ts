@@ -306,14 +306,14 @@ test('a fragmented schedule yields one short takeaway, not a list of generation 
 
 test('compact comparisons keep weekdays and weekends apart and describe a posted plan', () => {
   const facts = buildDamReadFacts(inputs({
-    observed: fortnight((_, weekend) => weekend ? 15 : 8),
+    observed: fortnight((_, weekend) => weekend ? 15 : 8), scheduleVersions: [],
     schedule: [scheduleDay('2026-10-31', 18)],
   }));
   assert.deepEqual(damReadTakeaway(facts), {
     headline: 'A later start today',
     summary: 'Today’s posted schedule starts at 6 PM, about 3 hours later than recent weekends.',
   });
-  const normal = buildDamReadFacts(inputs({ observed: fortnight(() => 15) }));
+  const normal = buildDamReadFacts(inputs({ observed: fortnight(() => 15), scheduleVersions: [] }));
   assert.equal(damReadTakeaway(normal).headline, 'A familiar start time');
 });
 
@@ -339,10 +339,10 @@ test('missing, minimum-flow and zero-generation schedules stay distinct in the t
 });
 
 test('sparse, irregular and absent history never become a usual start in compact copy', () => {
-  const sparse = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 15 : null) })));
+  const sparse = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 15 : null), scheduleVersions: [] })));
   assert.match(sparse.summary, /generation ran on 1 of the last 4 weekend days/);
   const scattered: Record<string, number> = { '2026-10-17': 2, '2026-10-18': 8, '2026-10-24': 15, '2026-10-25': 21 };
-  const irregular = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => scattered[day] ?? 15) })));
+  const irregular = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => scattered[day] ?? 15), scheduleVersions: [] })));
   assert.equal(irregular.headline, 'Start times have varied lately');
   assert.match(irregular.summary, /recent weekend starts have been too scattered/);
   const absent = damReadTakeaway(buildDamReadFacts(inputs({ observed: [] })));
@@ -552,4 +552,21 @@ test('backtest: the stated pattern holds on most days at each tailwater', () => 
     assert.ok(r.hitRate >= floor.hit, `${damId}: hit ${r.hitRate.toFixed(2)}`);
     assert.ok(r.earlyRate <= floor.maxEarly, `${damId}: early ${r.earlyRate.toFixed(2)}`);
   }
+});
+
+
+test('short Reads prioritize early and unposted generation over a familiar start', () => {
+  const facts = buildDamReadFacts(inputs());
+  const read = damReadTakeaway(facts);
+  assert.equal(read.headline, 'Recent exceptions to the schedule');
+  assert.match(read.summary, /3 PM is posted today/);
+  assert.match(read.summary, /14 tracked days/);
+  assert.match(read.summary, /over an hour early once/);
+  assert.match(read.summary, /without a posted start once/);
+  assert.ok(read.summary.split(/\s+/).length <= 40);
+  assert.ok(facts.reliability);
+  const earlyOnly = damReadTakeaway({ ...facts, reliability: { ...facts.reliability, ranUnpostedDays: [] } });
+  assert.match(earlyOnly.summary, /over an hour early on 1 of 14/);
+  const unpostedOnly = damReadTakeaway({ ...facts, reliability: { ...facts.reliability, startedEarlyDays: [] } });
+  assert.match(unpostedOnly.summary, /without a posted start on 1 of 14/);
 });

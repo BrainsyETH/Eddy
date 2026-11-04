@@ -1,6 +1,6 @@
 import type { DamSnapshot } from '@eddy/types';
 import { damWidgetSnapshot } from '@eddy/conditions/dam-widget';
-import { nextDayKey, relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import { nextDayKey, relativeAge, hourEndingLabel } from '@eddy/conditions/dam-schedule-copy';
 
 type PacketHour = { megawatts: number | null; minimumFlow?: boolean };
 
@@ -15,6 +15,25 @@ export function packetHourGenerating(hour: PacketHour): boolean {
 }
 
 type PacketDay = ReturnType<typeof damWidgetSnapshot>['scheduleDays'][number];
+
+/** A glance-sized announcement. Individual hours remain in the full schedule. */
+export function spokenGeneration(day: PacketDay, label: string, currentHour = 1): string {
+  const windows: { start: number; end: number }[] = [];
+  for (const hour of day.hours) {
+    if (!packetHourGenerating(hour)) continue;
+    const previous = windows.at(-1);
+    if (previous?.end === hour.hourEnding - 1) previous.end = hour.hourEnding;
+    else windows.push({ start: hour.hourEnding - 1, end: hour.hourEnding });
+  }
+  const remaining = windows.filter(window => window.end >= currentHour);
+  const clock = (hour: number) => hourEndingLabel((hour % 24) + 1);
+  const schedule = remaining.length
+    ? `Generation scheduled ${remaining.slice(0, 3).map(w => `${clock(w.start)} to ${clock(w.end)}`).join(', ')}${remaining.length > 3 ? `, and ${remaining.length - 3} more windows` : ''}.`
+    : windows.length ? 'No more generation scheduled.'
+      : day.hours.some(h => h.megawatts === null) ? 'Generation schedule incomplete.'
+        : day.hours.some(h => h.minimumFlow) ? 'Only minimum flow scheduled.' : 'No generation scheduled.';
+  return `${label}, Central time. ${schedule}${remaining.length && day.hours.some(h => h.minimumFlow) ? ' Includes minimum-flow hours.' : ''}${windows.length && day.hours.some(h => h.megawatts === null) ? ' Some hours unavailable.' : ''}`;
+}
 
 /**
  * One day's chart: its peak of scheduled generation and the caption over it.
@@ -54,15 +73,10 @@ export function damFavoriteDisplay(dam: DamSnapshot, now: number) {
   const observedAge = moment.observedAt === null ? null
     : relativeAge(new Date(moment.observedAt).toISOString(), now);
   const scheduleDescription = schedule
-    ? `Today's posted schedule, Central time. ${schedule.hours.map((hour: PacketHour & { label: string; hourEnding: number }) =>
-      `${hour.label}: ${hour.megawatts === null ? 'unavailable'
-        : hour.minimumFlow === true ? 'minimum flow' : `${hour.megawatts} megawatts`}${hour.hourEnding === moment.scheduleHour ? ', current hour' : ''}`
-    ).join('; ')}`
+    ? spokenGeneration(schedule, 'Today', moment.scheduleHour ?? 1)
     : `Today's schedule, Central time: ${scheduleNotice}`;
   const tomorrowDescription = tomorrow
-    ? `Tomorrow's posted schedule, Central time. ${tomorrow.hours.map((hour: PacketHour & { label: string }) =>
-      `${hour.label}: ${hour.megawatts === null ? 'unavailable'
-        : hour.minimumFlow === true ? 'minimum flow' : `${hour.megawatts} megawatts`}`).join('; ')}`
+    ? spokenGeneration(tomorrow, 'Tomorrow')
     : null;
   return {
     moment, schedule, peak, scheduleCaption, status, scheduleNotice, observedAge, scheduleDescription,

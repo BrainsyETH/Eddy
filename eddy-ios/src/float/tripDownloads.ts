@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STYLE_URL, getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
 import { redactText } from '@/lib/redact';
-import { readStylePackStatus } from '../../modules/eddy-style-pack';
+import { readStylePackInspection } from '../../modules/eddy-style-pack';
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -206,7 +206,8 @@ export interface StoredTrip {
 export async function listTripDownloads(): Promise<StoredTrip[]> {
   try {
     const all = await statuses(await packs());
-    const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
+    const styleRead = await readStylePackInspection(TRIP_STYLE_URL);
+    const styleComplete = stylePackComplete(styleRead.kind === 'counts' ? styleRead.counts : null);
     const byTrip = new Map<string, number>();
     for (const pack of all) {
       const tripKey = pack.name.slice(TRIP_PACK_PREFIX.length).replace(/:\d+$/, '');
@@ -220,7 +221,7 @@ export async function listTripDownloads(): Promise<StoredTrip[]> {
       const own = all.filter(pack => isTripPack(pack.name, tripKey));
       const readiness = tripReadiness(pkg, TRIP_STYLE_URL, own, own.map(pack => pack.name), styleComplete);
       out.push({ tripKey, bytes, label: from && to ? `${from} → ${to}` : null,
-        status: offlineBadge(readiness, pkg != null) ?? 'Download incomplete' });
+        status: offlineBadge(readiness, pkg != null, styleRead) ?? 'Download incomplete' });
     }
     return out;
   } catch (error) {
@@ -238,12 +239,15 @@ export async function readOfflineBadges(tripKeys: readonly string[]): Promise<Ma
   const out = new Map<string, string>();
   if (tripKeys.length === 0) return out;
   let all: PackStatus[] = [];
+  let packsChecked = true;
   try {
     all = await statuses(await packs());
   } catch (error) {
+    packsChecked = false;
     warn('float', 'could not read trip downloads for the saved list', error);
   }
-  const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
+  const styleRead = await readStylePackInspection(TRIP_STYLE_URL);
+  const styleComplete = stylePackComplete(styleRead.kind === 'counts' ? styleRead.counts : null);
   await Promise.all(
     tripKeys.map(async (tripKey) => {
       const pkg = await readTripPackage(tripKey);
@@ -251,7 +255,7 @@ export async function readOfflineBadges(tripKeys: readonly string[]): Promise<Ma
       const readiness = pkg || own.length > 0
         ? tripReadiness(pkg, TRIP_STYLE_URL, own, own.map((pack) => pack.name), styleComplete)
         : null;
-      const badge = offlineBadge(readiness, pkg != null);
+      const badge = offlineBadge(readiness, pkg != null, styleRead, packsChecked);
       if (badge) out.set(tripKey, badge);
     }),
   );

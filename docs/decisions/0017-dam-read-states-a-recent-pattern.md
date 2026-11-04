@@ -68,6 +68,9 @@ Measured on that history (backtest in
    The compact copy handles unposted schedules, minimum flow, ended windows,
    sparse/irregular history, and weekdays/weekends independently. A posted quiet
    day with recent unposted generation keeps that exception in the one sentence.
+   When generation is posted, early or unposted runs in the tracked history
+   outrank a familiar/earlier/later-start comparison. Both exceptions fit in
+   one sentence with their counts; no pattern disclosure returns.
 5. **Definitions:** a typical generating day is total hours and number of
    runs, not the first run; runs carrying past midnight are counted, never
    dropped from the end time; the track record scores only days where
@@ -77,7 +80,16 @@ Measured on that history (backtest in
    runs hourly at :47 and rewrites a dam's Read when none exists for today,
    when the posted schedule changes, or when the last one is 6 hours old. A
    stored Read is served only on its own Central day and only if the posted
-   schedule still matches the one it was written against.
+   schedule still matches the one it was written against. Native refreshes on
+   focus, foreground and five-minute boundaries, aborting work on blur. It
+   hides an earlier hour’s rendered prose and rejects a previous Central day
+   while refreshing. Members request the entitled representation directly;
+   a public CDN availability response cannot suppress it. A failed refresh
+   retains only a still-current Read and offers Retry. A 402 response shows
+   the Premium action; 401/403 shows Apple sign-in, never an upgrade offer.
+   These actions refresh the held account state, and purchase/sign-in completion
+   retries the Read. A missing token during a failed network refresh remains a
+   connection failure, distinct from an explicit authentication rejection.
 7. **The whole Read is Premium.** A public caller of `/api/dam-update/[damId]`
    learns only that a Read exists and when it was written. The measured pattern
    strip, the posted schedule and the water readings on the dam page stay free;
@@ -107,7 +119,12 @@ Measured on that history (backtest in
    drawn as the dam cards draw it (the directory card's readings and hourly
    bars on web, the Favorites card's body on iOS): it is the whole card on
    that tab, with Tomorrow's bars and nothing of the gauge card after it, and
-   closes the reading card on every other tab with Today's.
+   closes the reading card on downstream USGS tabs with Today's. Native
+   holds the dam catalog and selects the snapshot by the displayed USACE site
+   id, so the White's Norfork release tab pairs Norfork's schedule and Read.
+   It never substitutes the controlling dam's footer on another dam's tab.
+   The standalone Read fallback waits for the river outlook request to settle,
+   avoiding an initial card replacement and duplicate member request.
 
 ## Not decided here
 

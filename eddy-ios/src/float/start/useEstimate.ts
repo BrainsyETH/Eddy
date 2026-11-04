@@ -12,6 +12,7 @@ export function useStartEstimate(request: Request | null, now: number) {
   const key = request ? JSON.stringify(request) : '';
   const freshness = Math.floor(now / (5 * 60_000));
   const [answer, setAnswer] = useState<{ key: string; freshness: number; receivedAt: number; result: Result | null } | null>(null);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!key || !focused) return;
     const controller = new AbortController();
@@ -26,12 +27,16 @@ export function useStartEstimate(request: Request | null, now: number) {
         });
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [key, freshness, focused]);
+  }, [key, freshness, focused, retry]);
   const current = answer?.key === key && answer.freshness === freshness ? answer : null;
   const at = Math.max(now, current?.receivedAt ?? 0);
   return {
     speed: currentMovingSpeed(current?.result ?? null, at),
     condition: currentStartCondition(current?.result ?? null, at),
     loading: Boolean(key && !current),
+    failed: Boolean(current && !current.result),
+    reason: current?.result?.floatTimeWithheldReason ?? null,
+    typical: current?.result?.estimateBasis === 'typical',
+    retry: () => { setAnswer(null); setRetry(n => n + 1); },
   };
 }

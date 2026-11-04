@@ -1,6 +1,6 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
-import { PickupContact } from '@/float/PickupContact';
-import { ReminderChoices } from '@/float/start/ReminderChoices';
+import { TripOptions } from '@/float/start/TripOptions';
+import { savedReminderPreferences } from '@/lib/reminderPreferences';
 import { DEFAULT_REMINDERS, isRemindedHazard, type FloatReminderChoices } from '@/lib/floatReminders';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -20,7 +20,7 @@ import { useGpsRiver } from '@/float/start/useGpsRiver';
 import { VesselPicker } from '@/components/VesselPicker';
 import { StartTiming } from '@/float/start/StartTiming';
 import { VesselSpeedTip } from '@/float/start/VesselSpeedTip';
-import { Card, CardHeading, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
+import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
@@ -100,7 +100,22 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const account = useSession();
   const { floats } = useSavedFloats();
   const [id] = useState(newSessionId);
+  const [reminderRevision] = useState(() => savedReminderPreferences.revision());
+  const [remindersReady, setRemindersReady] = useState(false);
+  const remindersEdited = useRef(false);
   const [reminders, setReminders] = useState<FloatReminderChoices>(() => ({ ...DEFAULT_REMINDERS }));
+  useEffect(() => {
+    let active = true;
+    void savedReminderPreferences.read().then(value => {
+      if (active && !remindersEdited.current) setReminders(value);
+    }).catch(() => {}).finally(() => { if (active) setRemindersReady(true); });
+    return () => { active = false; };
+  }, []);
+  const changeReminders = (value: FloatReminderChoices) => {
+    remindersEdited.current = true;
+    setReminders(value);
+    void savedReminderPreferences.save(value, reminderRevision).catch(() => {});
+  };
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
   const [boat, setBoat] = useState<FloatBoat>(() => floatVessel(initial.boatType));
   const boatChosen = useRef(isFloatVessel(initial.boatType));
@@ -220,7 +235,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         headerTransparent: false, headerBlurEffect: 'none', headerStyle: { backgroundColor: colors.bg },
         headerTintColor: colors.text, headerShadowVisible: true }} />
       <Shell footer={<>
-        <PrimaryButton label="Start a float" busy={start.busy} disabled={!start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        <PrimaryButton label="Start a float" busy={start.busy} disabled={!remindersReady || !start.canStart || !valid || location.state !== 'ready'} onPress={() => void start.run()} />
         {!start.canStart ? <Text style={[styles.body, { color: colors.textMuted }]}>{start.featuresReady
           ? 'Starting a new float is temporarily unavailable.' : 'Checking River Mode availability…'}</Text> : null}
         {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
@@ -266,10 +281,10 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
             void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, value).catch(() => {});
           }} />
           {valid && takeOut ? <StartTiming minutes={minutes} now={location.checkedAt}
-            at={takeOut.lngLat} loading={estimate.loading} />
+            at={takeOut.lngLat} loading={estimate.loading} failed={estimate.failed}
+            reason={estimate.reason} typical={estimate.typical} onRetry={estimate.retry} />
             : <View style={local.vesselTip}><VesselSpeedTip /></View>}
         </Card>
-        <Card><ReminderChoices value={reminders} onChange={setReminders} disabled={start.busy} hazards={stretchHazards} /></Card>
         {upstream ? <Text style={[styles.body, { color: colors.error }]}>This take-out is behind your start. Choose one downstream.</Text> : null}
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
@@ -285,12 +300,11 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         {takeOut?.offLineMeters != null ? <Text style={[styles.body, { color: colors.textMuted }]}>
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
-        <Card>
-          <CardHeading title="Pickup contact" />
-          <PickupContact compact disabled={start.busy} />
-        </Card>
         <OfflinePreparation tripKey={matchingDownloadKey} disabled={start.busy}
+          download={route && takeOut ? { route, fromId: draft.putInId ?? '', toId: takeOut.id,
+            fromLngLat: fromPoint ?? undefined } : undefined}
           onBuild={() => router.push({ pathname: '/plan-route', params: startPlannerParams(draft, boat) })} />
+        <TripOptions value={reminders} onChange={changeReminders} disabled={start.busy || !remindersReady} hazards={stretchHazards} />
       </Shell>
       {picker ? <RoutePicker field={picker} draft={draft} loaded={loaded} location={location}
         onSearchChange={stopDetection}

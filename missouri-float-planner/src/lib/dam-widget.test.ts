@@ -143,7 +143,7 @@ test('dam favorites show the widget turbine reading, not total release or estima
   assert.equal(display.observedAge, 'an hour ago');
   assert.equal(display.status, 'Generating');
   assert.equal(display.peak, 275);
-  assert.match(display.scheduleDescription, /12 PM: 275 megawatts, current hour/);
+  assert.match(display.scheduleDescription, /Generation scheduled 12 AM to 2 PM/);
   assert.match(display.scheduleDescription, /Central time/);
   assert.doesNotMatch(display.scheduleDescription, /subject to change/i);
 
@@ -162,7 +162,7 @@ test('dam favorites age observations without hiding today\'s schedule or borrowi
   assert.equal(older.moment.current, false);
   assert.equal(older.schedule?.date, '2026-10-17');
   assert.equal(older.moment.scheduleHour, 16);
-  assert.match(older.scheduleDescription, /100 megawatts/);
+  assert.match(older.scheduleDescription, /No more generation scheduled/);
   dam.schedule[0].scheduleDate = '2026-10-18';
   const tomorrowOnly = damFavoriteDisplay(dam, now);
   assert.equal(tomorrowOnly.schedule, null);
@@ -200,8 +200,8 @@ test('dam favorites find tomorrow by its Central day, never by packet position',
   assert.equal(display.tomorrow?.date, '2026-10-18');
   assert.equal(display.tomorrowPeak, 300, 'minimum-flow hours never set the scale');
   assert.equal(display.tomorrowCaption, '300 MW');
-  assert.match(display.tomorrowDescription ?? '', /Tomorrow's posted schedule, Central time/);
-  assert.match(display.tomorrowDescription ?? '', /minimum flow/);
+  assert.match(display.tomorrowDescription ?? '', /Tomorrow, Central time/);
+  assert.match(display.tomorrowDescription ?? '', /minimum.flow/);
   assert.doesNotMatch(display.tomorrowDescription ?? '', /current hour/, 'no hour of tomorrow is now');
 });
 
@@ -232,7 +232,7 @@ test('dam favorites preserve zero generation, unknown hours and projects without
   assert.equal(display.moment.turbineCfs, 0);
   assert.equal(display.schedule!.hours[5].megawatts, null);
   assert.equal(display.schedule!.hours[14].megawatts, 0);
-  assert.match(display.scheduleDescription, /5 AM: unavailable/);
+  assert.match(display.scheduleDescription, /Some hours unavailable/);
   dam.hasTurbines = false;
   assert.equal(damFavoriteDisplay(dam, now).status, 'No powerhouse');
 });
@@ -345,7 +345,7 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
   assert.doesNotMatch(text(), /Check schedule|Subject to change/);
   const details = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
   assert.ok(details);
-  assert.match(String(details.props.accessibilityLabel), /12 PM: 100 megawatts, current hour/);
+  assert.match(String(details.props.accessibilityLabel), /Generation scheduled 12 AM to 2 PM/);
   assert.doesNotMatch(String(details.props.accessibilityLabel), /subject to change/i);
 
   // Bull Shoals on a minimum-flow day: the card says "Minimum flow", never
@@ -365,7 +365,7 @@ test('Favorites renders release flow and age for Clearwater and Wappapello, turb
   assert.ok(heights.every(height => height === 3), `minimum-flow hours drew generation bars: ${heights}`);
   const minimumDetails = nodes.find(node => node.props.accessibilityHint === 'Opens dam details and the full schedule');
   assert.match(String(minimumDetails!.props.accessibilityLabel), /Minimum flow\./);
-  assert.match(String(minimumDetails!.props.accessibilityLabel), /12 PM: minimum flow, current hour/);
+  assert.match(String(minimumDetails!.props.accessibilityLabel), /Only minimum flow scheduled/);
 });
 
 /** Bull Shoals passing its minimum flow through a unit at low output. */
@@ -393,7 +393,7 @@ test('a minimum-flow day reads "Minimum flow" with no generation bars or peak, o
   assert.equal(display.scheduleCaption, 'Minimum flow');
   assert.ok(display.schedule!.hours.every(hour => !packetHourGenerating(hour)));
   assert.doesNotMatch(display.scheduleDescription, /megawatts|no generation/i);
-  assert.match(display.scheduleDescription, /12 PM: minimum flow, current hour/);
+  assert.match(display.scheduleDescription, /Only minimum flow scheduled/);
   // An older reading keeps its age wording; it never becomes "No generation".
   assert.equal(damFavoriteDisplay(dam, now + 3 * 3600_000).status, 'Older reading');
 });
@@ -408,7 +408,7 @@ test('a mixed day scales and captions only the scheduled generation', () => {
   assert.equal(display.peak, 200);
   assert.equal(display.scheduleCaption, '200 MW');
   assert.equal(display.schedule!.hours.filter(packetHourGenerating).length, 6);
-  assert.match(display.scheduleDescription, /9 AM: minimum flow; 10 AM: 200 megawatts/);
+  assert.match(display.scheduleDescription, /Generation scheduled 10 AM to 4 PM.*Includes minimum.flow hours/);
 });
 
 test('dams without minimum flow keep their packet shape, caption and status', () => {

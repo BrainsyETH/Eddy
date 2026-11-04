@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { floatArchive } from '@/lib/floatArchive';
 import { discardFloat } from '@/lib/floatSessionStore';
+import { completeCleanup } from '@/lib/completeCleanup';
 import { clearHazardReports } from '@/float/hazardReports';
 import { removeAllTripDownloads } from '@/float/tripDownloads';
 import { onForeground } from '@/lib/foreground';
@@ -94,10 +95,15 @@ export function FloatArchiveProvider({ children }: { children: ReactNode }) {
   // still be sent later, and the trip route packages with their map packs.
   const clear = useCallback(async () => {
     const deletingScope = scope === 'guest' ? snapshot.scopeToken : scope;
-    await discardFloat();
-    await floatArchive.clear(deletingScope);
-    await clearHazardReports();
-    await removeAllTripDownloads();
+    // Session finalization settles before history is removed, even on failure.
+    // A cache/preferences error must not skip the remaining stores. Propagate
+    // collected failures to Profile's existing Retry cleanup action.
+    await completeCleanup([
+      discardFloat,
+      () => floatArchive.clear(deletingScope),
+      clearHazardReports,
+      removeAllTripDownloads,
+    ]);
   }, [scope, snapshot.scopeToken]);
   const value = useMemo(
     () => ({

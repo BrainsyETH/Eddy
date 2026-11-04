@@ -679,6 +679,20 @@ export function damReadTakeaway(f: DamReadFacts): { headline: string; summary: s
   }
 
   const posted = `Today’s posted schedule starts at ${clockLabel(today.firstStartHour)}`;
+  const early = f.reliability?.startedEarlyDays.length ?? 0;
+  const unposted = f.reliability?.ranUnpostedDays.length ?? 0;
+  if (early || unposted) {
+    const days = f.reliability!.daysCompared;
+    const count = (n: number) => n === 1 ? 'once' : `${n} times`;
+    return {
+      headline: 'Recent exceptions to the schedule',
+      summary: early && unposted
+        ? `${clockLabel(today.firstStartHour)} is posted today; in ${days} tracked days, generation started over an hour early ${count(early)} and ran without a posted start ${count(unposted)}.`
+        : early
+          ? `${clockLabel(today.firstStartHour)} is posted today, but generation started over an hour early on ${early} of ${days} tracked days.`
+          : `${clockLabel(today.firstStartHour)} is posted today; generation ran without a posted start on ${unposted} of ${days} tracked days.`,
+    };
+  }
   if ((c?.versus === 'earlier' || c?.versus === 'later') && p?.rangeFromHour != null && p.rangeToHour !== null) {
     const earlier = c.versus === 'earlier';
     const low = earlier ? p.rangeFromHour - today.firstStartHour : today.firstStartHour - p.rangeToHour;
