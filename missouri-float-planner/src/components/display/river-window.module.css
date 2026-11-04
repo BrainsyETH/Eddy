@@ -337,8 +337,8 @@
 }
 
 /* Mill collection: all coordinates are in the 1920 × 1080 composition.
-   Theme: Eddy's own system (Organic Brutalist, .stitch/DESIGN.md): flat sand
-   cards, thick river-teal borders, chunky offset shadows, Fredoka display
+   Theme: Eddy's own system (Organic Brutalist, .stitch/DESIGN.md): flat
+   deep-teal panels, thick borders, chunky offset shadows, Fredoka display
    type, coral for Eddy's signature accents, condition colours from the shared
    chip helper. No gradients or glows. */
 .millScene {
@@ -346,6 +346,11 @@
   --teal-400: #4A9AAD; --teal-300: #72B5C4; --teal-100: #D4EAEF; --teal-50: #EBF5F7;
   --sand-50: #FAF8F4; --sand-100: #F4EFE7; --sand-200: #E8DFD0; --sand-700: #7A684B;
   --coral-500: #F07052; --coral-600: #E5573F; --coral-800: #A33122; --coral-100: #FDE7E1;
+  /* Deep river-teal surfaces (Eddy's dark surface), sand text, coral accents:
+     calm beside the paintings, bright only where it matters. */
+  --panel: var(--teal-800); --panel-deep: var(--teal-900); --panel-edge: #0A2228;
+  --ink: var(--sand-50); --ink-soft: var(--teal-100); --ink-muted: var(--teal-300);
+  --label: var(--teal-300); --rule: var(--teal-600); --drop: #071A1F;
   background: var(--teal-800); overflow: hidden; font-family: var(--font-body), sans-serif;
 }
 .millWindow { position: absolute; inset: 0; overflow: hidden; }
@@ -353,36 +358,36 @@
 .millArt { position: absolute; inset: 0; width: 1920px; height: 1080px; max-width: none !important; }
 .millWater { position: absolute; inset: 0; opacity: .3; pointer-events: none; }
 
-.builtBadge { align-self: flex-start; display: inline-block; padding: .2em .75em; border: 3px solid var(--coral-600); border-radius: 999px; background: var(--coral-100); color: var(--coral-800); font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: .04em; }
+.builtBadge { align-self: flex-start; display: inline-block; padding: .2em .75em; border: 3px solid var(--panel-edge); border-radius: 999px; background: var(--coral-500); color: var(--teal-900); font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: .04em; }
 
 /* Landscape card: lower left, outside the painting's own board. */
-.millCard { position: absolute; left: 77px; bottom: 54px; width: 660px; box-sizing: border-box; display: flex; flex-direction: column; padding: 28px 36px 30px; background: var(--sand-50); color: var(--teal-900); border: 4px solid var(--teal-800); border-radius: 24px; box-shadow: 10px 10px 0 var(--teal-900); }
-.cardName { font-family: var(--font-display); font-size: 60px; font-weight: 600; line-height: 1.02; margin-top: 14px; color: var(--teal-900); }
-.cardLocation { font-size: 24px; color: var(--sand-700); margin-top: 6px; }
-.cardFact { margin: 18px 0 0; min-height: 2.6em; font-size: 28px; line-height: 1.3; color: var(--teal-800); text-wrap: pretty; }
+.millCard { position: absolute; left: 77px; bottom: 54px; width: 660px; box-sizing: border-box; display: flex; flex-direction: column; padding: 28px 36px 30px; background: var(--panel); color: var(--ink); border: 4px solid var(--panel-edge); border-radius: 24px; box-shadow: 10px 10px 0 var(--drop); }
+.cardName { font-family: var(--font-display); font-size: 60px; font-weight: 600; line-height: 1.02; margin-top: 14px; color: var(--ink); }
+.cardLocation { font-size: 24px; color: var(--ink-muted); margin-top: 6px; }
+.cardFact { margin: 18px 0 0; min-height: 2.6em; font-size: 28px; line-height: 1.3; color: var(--ink-soft); text-wrap: pretty; }
 
 /* River note: condition first (a shared condition chip), reading as a footnote. */
 .riverNote { display: flex; flex-direction: column; gap: 10px; }
-.riverNoteLabel { font-family: var(--font-display); font-weight: 600; font-size: .85em; color: var(--teal-600); }
+.riverNoteLabel { font-family: var(--font-display); font-weight: 600; font-size: .85em; color: var(--label); }
 .riverNoteLine { display: flex; flex-wrap: wrap; align-items: center; column-gap: .6em; row-gap: 6px; }
-.riverNoteLine b { padding: .12em .65em; border: 2px solid; border-radius: 999px; font-weight: 700; }
-.riverNoteLine small { font-size: .8em; color: var(--sand-700); font-variant-numeric: tabular-nums; }
-.riverNote[data-variant='card'] { font-size: 24px; margin-top: 20px; padding-top: 18px; border-top: 3px dashed var(--sand-200); }
-.riverNote[data-variant='dock'] { font-size: 28px; margin-top: 22px; padding-top: 18px; border-top: 3px dashed var(--sand-200); }
-.riverNote[data-variant='journey'] { font-size: 30px; margin-top: 34px; padding: 22px 26px; background: var(--sand-50); border: 4px solid var(--teal-800); border-radius: 20px; box-shadow: 8px 8px 0 var(--teal-900); }
+.riverNoteLine b { padding: .12em .65em; border: 2px solid; border-radius: 999px; font-weight: 700; background-color: var(--sand-50); }
+.riverNoteLine small { font-size: .8em; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.riverNote[data-variant='card'] { font-size: 24px; margin-top: 20px; padding-top: 18px; border-top: 3px dashed var(--rule); }
+.riverNote[data-variant='dock'] { font-size: 28px; margin-top: 22px; padding-top: 18px; border-top: 3px dashed var(--rule); }
+.riverNote[data-variant='journey'] { font-size: 30px; margin-top: 34px; padding: 22px 26px; background: var(--panel); border: 4px solid var(--panel-edge); border-radius: 20px; box-shadow: 8px 8px 0 var(--drop); }
 
 /* Overlay chrome on the mills theme: sand pills instead of shadowed text. */
 .stage[data-theme='mills'] .brand,
-.stage[data-theme='mills'] .status { background: #FAF8F4; color: #0F2D35; border: 3px solid #163F4A; box-shadow: 4px 4px 0 #0F2D35; text-shadow: none; }
+.stage[data-theme='mills'] .status { background: #163F4A; color: #FAF8F4; border: 3px solid #0A2228; box-shadow: 4px 4px 0 #071A1F; text-shadow: none; }
 .stage[data-theme='mills'] .brand { padding: .35em 1em .35em .8em; border-radius: 999px; }
-.stage[data-theme='mills'] .brand b { font-family: var(--font-display); font-weight: 600; color: #E5573F; font-size: clamp(20px, 2.4vw, 40px); letter-spacing: 0; }
-.stage[data-theme='mills'] .brand span { font-family: var(--font-display); font-weight: 600; color: #256574; letter-spacing: 0; }
+.stage[data-theme='mills'] .brand b { font-family: var(--font-display); font-weight: 600; color: #F07052; font-size: clamp(20px, 2.4vw, 40px); letter-spacing: 0; }
+.stage[data-theme='mills'] .brand span { font-family: var(--font-display); font-weight: 600; color: #A3D1DB; letter-spacing: 0; }
 .stage[data-theme='mills'] .status { padding: .35em 1em; border-radius: 18px; }
 .stage[data-theme='mills'] .status time { font-family: var(--font-display); font-weight: 600; font-size: clamp(16px, 1.8vw, 30px); }
-.stage[data-theme='mills'] .warning { background: #FDE7E1; color: #7A2419; border: 3px solid #E5573F; border-radius: 14px; box-shadow: 4px 4px 0 #A33122; font-weight: 600; }
+.stage[data-theme='mills'] .warning { background: #FDE7E1; color: #7A2419; border: 3px solid #E5573F; border-radius: 14px; box-shadow: 4px 4px 0 #071A1F; font-weight: 600; }
 .stage[data-theme='mills'][data-format='landscape'] .warning { top: 13.5%; bottom: auto; left: 4%; }
 .stage[data-theme='mills'][data-format='landscape'] .controls { right: 4%; bottom: 5%; }
-.stage[data-theme='mills'] .controls button { background: #FAF8F4; color: #0F2D35; border: 2px solid #163F4A; border-radius: 10px; box-shadow: 3px 3px 0 #0F2D35; font-weight: 600; }
+.stage[data-theme='mills'] .controls button { background: #163F4A; color: #FAF8F4; border: 2px solid #0A2228; border-radius: 10px; box-shadow: 3px 3px 0 #071A1F; font-weight: 600; }
 .brand, .status, .warning { animation: ambientDrift 600s ease-in-out infinite alternate; }
 @keyframes ambientDrift { from { translate: -7px -5px; } to { translate: 7px 5px; } }
 .millPicker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(620px, 92%); }
@@ -400,12 +405,12 @@
    mill's story and the river note. */
 .stage[data-format='vertical'] { width: min(100vw, 56.25dvh); aspect-ratio: 9/16; }
 .millScene[data-format='vertical'] .millWindow { bottom: auto; }
-.millDock { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; padding: 44px 64px 0; box-sizing: border-box; background: var(--sand-50); color: var(--teal-900); border-top: 10px solid var(--teal-800); }
+.millDock { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; padding: 44px 64px 0; box-sizing: border-box; background: var(--panel); color: var(--ink); border-top: 10px solid var(--panel-edge); }
 .dockName { font-family: var(--font-display); font-size: 78px; font-weight: 600; line-height: 1.02; margin-top: 14px; }
-.dockLocation { font-size: 30px; color: var(--sand-700); margin-top: 6px; }
+.dockLocation { font-size: 30px; color: var(--ink-muted); margin-top: 6px; }
 .dockFacts { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
-.dockFacts p { margin: 0; font-size: 32px; line-height: 1.3; color: var(--teal-800); text-wrap: pretty; }
-.dockNext { margin-top: auto; padding: 14px 0 36px; font-family: var(--font-display); font-weight: 600; font-size: 26px; color: var(--teal-600); }
+.dockFacts p { margin: 0; font-size: 32px; line-height: 1.3; color: var(--ink-soft); text-wrap: pretty; }
+.dockNext { margin-top: auto; padding: 14px 0 36px; font-family: var(--font-display); font-weight: 600; font-size: 26px; color: var(--coral-500); }
 .stage[data-format='vertical'] .brand { top: 3.2%; left: 6%; }
 .stage[data-format='vertical'] .status { top: 3.2%; right: 6%; }
 .stage[data-format='vertical'] .warning { bottom: calc(100% - var(--dock-top, 63.3%) + 2%); left: 6%; max-width: 88%; }
@@ -419,46 +424,46 @@
 .stage[data-format='vertical'][data-theme='mills'] .status time { font-size: clamp(16px, 3.6vw, 36px); display: block; }
 
 /* Between mills: a light trail map. Coordinates are composition pixels. */
-.interlude { position: absolute; top: 0; left: 0; background: var(--teal-50); color: var(--teal-900); font-family: var(--font-body), sans-serif; }
+.interlude { position: absolute; top: 0; left: 0; background: var(--panel-deep); color: var(--ink); font-family: var(--font-body), sans-serif; }
 .interludeBody { position: absolute; inset: 0; }
 .interludeMap { position: absolute; width: auto; aspect-ratio: 830 / 1000; overflow: visible; }
 .interludeText { position: absolute; left: 974px; right: 170px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
 .interlude[data-format='vertical'] .interludeText { left: 64px; right: 64px; top: 1210px; bottom: auto; }
 .interludeKicker { align-self: flex-start; padding: .15em .8em; border-radius: 999px; background: var(--coral-500); color: var(--teal-900); font-family: var(--font-display); font-weight: 600; font-size: 30px; border: 3px solid var(--teal-900); }
 .interludeName { font-family: var(--font-display); font-size: 96px; font-weight: 600; line-height: 1.02; margin-top: 20px; }
-.interludeLocation { font-size: 32px; color: var(--sand-700); margin-top: 10px; }
-.interludeRoute { font-family: var(--font-display); font-weight: 600; font-size: 32px; color: var(--teal-600); margin-top: 26px; }
-.mapState { stroke: var(--teal-800); stroke-opacity: .35; stroke-width: 2.5; stroke-dasharray: 10 10; }
-.mapStateLabel { fill: var(--teal-700); fill-opacity: .6; font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: 5px; }
-.mapRiver { fill: none; stroke: var(--teal-300); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
-.mapRiverLit { fill: none; stroke: var(--teal-500); stroke-width: 7; stroke-linejoin: round; stroke-linecap: round; }
-.mapMill { fill: var(--sand-50); stroke: var(--teal-800); stroke-width: 3; }
+.interludeLocation { font-size: 32px; color: var(--ink-muted); margin-top: 10px; }
+.interludeRoute { font-family: var(--font-display); font-weight: 600; font-size: 32px; color: var(--teal-300); margin-top: 26px; }
+.mapState { stroke: var(--teal-300); stroke-opacity: .35; stroke-width: 2.5; stroke-dasharray: 10 10; }
+.mapStateLabel { fill: var(--teal-300); fill-opacity: .7; font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: 5px; }
+.mapRiver { fill: none; stroke: var(--teal-500); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.mapRiverLit { fill: none; stroke: var(--teal-300); stroke-width: 7; stroke-linejoin: round; stroke-linecap: round; }
+.mapMill { fill: var(--panel); stroke: var(--teal-100); stroke-width: 3; }
 .mapRoute { fill: none; stroke: var(--coral-500); stroke-width: 7; stroke-linecap: round; }
-.mapHead { fill: var(--coral-600); stroke: var(--teal-900); stroke-width: 3; }
-.mapFrom { fill: var(--sand-50); stroke: var(--teal-900); stroke-width: 5; }
-.mapTo { fill: var(--coral-500); stroke: var(--teal-900); stroke-width: 5; }
+.mapHead { fill: var(--coral-600); stroke: var(--panel-edge); stroke-width: 3; }
+.mapFrom { fill: var(--sand-50); stroke: var(--panel-edge); stroke-width: 5; }
+.mapTo { fill: var(--coral-500); stroke: var(--panel-edge); stroke-width: 5; }
 .mapPulse { fill: none; stroke: var(--coral-500); stroke-width: 4; }
-.mapLabel { fill: var(--teal-800); font-family: var(--font-display); font-weight: 500; font-size: 30px; paint-order: stroke; stroke: var(--teal-50); stroke-width: 8px; }
-.mapLabelStrong { fill: var(--teal-900); font-family: var(--font-display); font-weight: 600; font-size: 36px; paint-order: stroke; stroke: var(--teal-50); stroke-width: 8px; }
+.mapLabel { fill: var(--ink-soft); font-family: var(--font-display); font-weight: 500; font-size: 30px; paint-order: stroke; stroke: var(--panel-deep); stroke-width: 8px; }
+.mapLabelStrong { fill: var(--ink); font-family: var(--font-display); font-weight: 600; font-size: 36px; paint-order: stroke; stroke: var(--panel-deep); stroke-width: 8px; }
 
 /* Tour band (vertical screens taller than 9:16). */
-.millTour { position: absolute; left: 0; right: 0; padding: 32px 64px; box-sizing: border-box; background: var(--teal-50); color: var(--teal-900); border-top: 6px solid var(--teal-800); }
-.tourHead { display: flex; justify-content: space-between; align-items: baseline; height: 32px; margin-bottom: 32px; font-family: var(--font-display); font-weight: 600; font-size: 30px; color: var(--teal-700); }
+.millTour { position: absolute; left: 0; right: 0; padding: 32px 64px; box-sizing: border-box; background: var(--panel-deep); color: var(--ink); border-top: 6px solid var(--panel-edge); }
+.tourHead { display: flex; justify-content: space-between; align-items: baseline; height: 32px; margin-bottom: 32px; font-family: var(--font-display); font-weight: 600; font-size: 30px; color: var(--label); }
 .tourHead span:last-child { color: var(--coral-600); }
 .tourBody { display: flex; gap: 48px; align-items: stretch; }
 .tourMap { flex: none; width: auto; overflow: hidden; }
-.tourLeg { fill: none; stroke: var(--teal-800); stroke-linecap: round; }
+.tourLeg { fill: none; stroke: var(--teal-100); stroke-linecap: round; }
 .tourLeg[data-state='done'] { stroke-opacity: .7; }
 .tourLeg[data-state='ahead'] { stroke-opacity: .35; }
 .tourNext { fill: none; stroke: var(--coral-600); }
 .tourList { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; justify-content: center; }
-.tourList li { display: flex; align-items: center; gap: .7em; white-space: nowrap; color: var(--teal-800); }
+.tourList li { display: flex; align-items: center; gap: .7em; white-space: nowrap; color: var(--ink-soft); }
 .tourList li[data-state='done'] { opacity: .5; }
-.tourList li[data-state='now'] { font-family: var(--font-display); font-weight: 600; color: var(--teal-900); }
-.tourList b { width: 1.4em; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--teal-600); }
+.tourList li[data-state='now'] { font-family: var(--font-display); font-weight: 600; color: var(--ink); }
+.tourList b { width: 1.4em; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--teal-300); }
 .tourList li[data-state='now'] b { color: var(--coral-600); }
 .tourList span { overflow: hidden; text-overflow: ellipsis; }
-.tourList i { font-style: normal; color: var(--sand-700); font-weight: 400; }
+.tourList i { font-style: normal; color: var(--ink-muted); font-weight: 400; }
 .tourList em, .tourSummary em { font-style: normal; font-family: var(--font-display); font-weight: 600; font-size: .75em; color: var(--coral-600); }
 .tourList em { margin-left: auto; }
 .tourSummary { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 18px; font-size: 30px; }

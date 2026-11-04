@@ -17,7 +17,7 @@ toward the mill, and an info card in the lower left. Portrait walls (a TV
 or kiosk mounted on end, a phone held upright: any viewport at or taller than
 4:5) get the vertical format, a 1080 × 1920 composition: the painting fills the
 top window and drifts 240px across its mill (`focus` in the manifest), which
-stays in view throughout. Below it a sand dock holds the mill's name, year,
+stays in view throughout. Below it a teal dock holds the mill's name, year,
 two facts and the river note (below), plus the next stop and its distance.
 `?format=vertical` or `?format=landscape` overrides the automatic choice.
 `?start=<mill id>` opens on that mill. Framing hosts receive ready, status and
@@ -82,10 +82,14 @@ the disputed detail is left out, and so is the year (Greer, Turner).
 Locations are written out in plain words (no "ONSR" or "NF").
 
 **Theme.** Eddy's own design system (`.stitch/DESIGN.md`, Organic Brutalist):
-flat sand cards with thick river-teal borders and chunky offset shadows,
+flat deep river-teal panels (Eddy's dark surface, so the cards sit calmly
+beside the paintings) with thick borders and chunky offset shadows, sand text,
 Fredoka (`--font-display`) for names and labels, coral for Eddy's accents,
-sentence case throughout, and no gradients or glows. The between-mills map is
-a light trail map in the same palette. Overlays share one edge: 4% / 5% in
+sentence case throughout, and no gradients or glows. Condition chips keep the
+shared tint and ink over a sand base, so they read as they do in the app. The
+between-mills map is a dark trail map in the same palette. The tokens at the
+top of the mills section in `river-window.module.css` (`--panel`, `--ink`…)
+set how light or dark the whole theme is. Overlays share one edge: 4% / 5% in
 landscape, 64px (6%) in vertical. A unit test keeps every source listed below.
 
 ## Scene associations and reference sources

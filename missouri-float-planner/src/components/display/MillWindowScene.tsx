@@ -153,7 +153,9 @@ function RiverNote({ mill, sign, loading, variant }: { mill: MillScene; sign: Ri
     <div className={styles.riverNote} data-variant={variant}>
       <span className={styles.riverNoteLabel}>{riverLabel(mill)}</span>
       <span className={styles.riverNoteLine}>
-        <b style={{ background: chip.background, color: chip.color, borderColor: chip.borderColor }}>
+        {/* The shared tint is translucent: layer it over a sand base so the
+            chip keeps its app contrast on the dark teal panels. */}
+        <b style={{ backgroundImage: `linear-gradient(${chip.background}, ${chip.background})`, color: chip.color, borderColor: chip.borderColor }}>
           {sign ? sign.condition : loading ? 'Checking the river…' : 'Reading unavailable'}
         </b>
         {detail ? <small>{detail}</small> : null}
