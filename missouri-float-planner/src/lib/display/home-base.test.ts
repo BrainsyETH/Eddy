@@ -6,6 +6,7 @@ import type { RiverListItem } from '@/types/api';
 import { MILL_SCENES } from './mill-scenes';
 import {
   advanceLoop,
+  artRegion,
   boardRows,
   eddyTakeFor,
   formatReading,
@@ -187,4 +188,17 @@ test('unknown boards are not found, and river links use the state path', () => {
   assert.equal(homeBaseFor('nope'), null);
   assert.equal(homeBaseFor('constructor'), null);
   assert.equal(riverPageUrl(PINE_VALLEY, 'huzzah'), 'https://eddy.guide/rivers/missouri/huzzah');
+});
+
+test('water regions become small boxes with the polygon inside them', () => {
+  const r = artRegion('polygon(10% 50%, 20% 50%, 20% 60%)', { width: 1000, height: 600, offsetY: 60 });
+  assert.deepEqual({ left: r.left, top: r.top, width: r.width, height: r.height }, { left: 100, top: 240, width: 100, height: 60 });
+  assert.equal(r.clipPath, 'polygon(0.0px 0.0px, 100.0px 0.0px, 100.0px 60.0px)');
+  assert.throws(() => artRegion('inset(10%)', { width: 1, height: 1, offsetY: 0 }));
+  for (const config of Object.values(HOME_BASES)) {
+    for (const polygon of [config.water.pool, config.water.falls].filter((p): p is string => !!p)) {
+      const box = artRegion(polygon, { width: 1080, height: 607, offsetY: 60 });
+      assert.ok(box.width > 0 && box.height > 0 && box.left >= 0 && box.left + box.width <= 1080, `${config.id}: ${polygon}`);
+    }
+  }
 });

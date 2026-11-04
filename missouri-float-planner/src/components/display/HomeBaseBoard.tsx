@@ -15,6 +15,7 @@ import { parseRiverSnapshot, REFRESH_INTERVAL } from '@/lib/display/river-window
 import { MILL_SCENES, millAsset } from '@/lib/display/mill-scenes';
 import {
   advanceLoop,
+  artRegion,
   boardRows,
   clockLabel,
   eddyTakeFor,
@@ -226,6 +227,12 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
   };
   const halo = { paintOrder: 'stroke', stroke: '#F4EFE7', strokeWidth: 6, strokeLinejoin: 'round' } as const;
   const doorQr = riverQrs[config.doorstep];
+  const art = { width: ART_WIDTH, height: ART_HEIGHT, offsetY: ART_OFFSET };
+  const water = useMemo(
+    () => (['pool', 'falls'] as const).flatMap((kind) => (config.water[kind] ? [{ kind, ...artRegion(config.water[kind]!, art) }] : [])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- art is a constant
+    [config]
+  );
   const spotQr = (replay == null && spotRow ? riverQrs[spotRow.slug] : null) ?? doorQr;
 
   return (
@@ -235,6 +242,47 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
         style={{ transform: `translate(${scale.x}px, ${scale.y}px) scale(${scale.s})`, visibility: scale.s ? 'visible' : 'hidden' }}
       >
         <section className={styles.hero} style={{ backgroundImage: `url(${millAsset(mill.id)})` }} aria-label={`${mill.name} on ${mill.riverName}`}>
+          {/* Moving water: only inside the water polygons, so the rocks, mill
+              and sign stay still. An animated SVG displacement ripples the
+              painting itself; tiled glints (pool) and foam (falls) travel
+              with the current. Skipped entirely with reduced motion. */}
+          {!reduceMotion && (
+            <>
+              <svg className={styles.filters} width="0" height="0" aria-hidden="true">
+                <filter id="home-base-pool" x="-5%" y="-20%" width="110%" height="140%" colorInterpolationFilters="sRGB">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.008 0.07" numOctaves={2} seed={4} result="ripple">
+                    <animate attributeName="baseFrequency" dur="14s" values="0.008 0.07;0.011 0.088;0.008 0.07" repeatCount="indefinite" />
+                  </feTurbulence>
+                  <feDisplacementMap in="SourceGraphic" in2="ripple" scale={8} xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+                <filter id="home-base-falls" x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.07 0.012" numOctaves={2} seed={9} result="rush">
+                    <animate attributeName="baseFrequency" dur="2.4s" values="0.07 0.012;0.07 0.022;0.07 0.012" repeatCount="indefinite" />
+                  </feTurbulence>
+                  <feDisplacementMap in="SourceGraphic" in2="rush" scale={7} xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+              </svg>
+              {water.map((w) => (
+                <div
+                  key={w.kind}
+                  className={styles.water}
+                  aria-hidden="true"
+                  style={{
+                    left: w.left,
+                    top: w.top,
+                    width: w.width,
+                    height: w.height,
+                    clipPath: w.clipPath,
+                    filter: `url(#home-base-${w.kind})`,
+                    backgroundImage: `url(${millAsset(mill.id)})`,
+                    backgroundPosition: `${-w.left}px ${-ART_OFFSET - w.top}px`,
+                  }}
+                >
+                  <i className={w.kind === 'pool' ? styles.glints : styles.foam} />
+                </div>
+              ))}
+            </>
+          )}
           <div className={`${styles.plaque} ${styles.logo}`}>
             <Image src={config.logo.src} alt={config.logo.alt} width={config.logo.width} height={config.logo.height} />
           </div>

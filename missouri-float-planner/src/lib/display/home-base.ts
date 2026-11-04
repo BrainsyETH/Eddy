@@ -43,6 +43,13 @@ export type HomeBaseConfig = {
   doorstep: string;
   /** Mill scene from mill-scenes.ts whose board carries the doorstep reading. */
   millScene: string;
+  /**
+   * Water in that painting, as CSS polygons in % of the artwork: the board
+   * animates only inside them, so rocks, banks, the mill and its sign stay
+   * still. Kept here, not in mill-scenes.ts, because the Mills display uses
+   * its own subtler water region.
+   */
+  water: { pool: string; falls: string | null };
   rivers: HomeBaseRiver[];
   /** App Store campaign token for installs from this board. */
   campaign: string;
@@ -70,6 +77,12 @@ export const PINE_VALLEY: HomeBaseConfig = {
   logo: { src: '/display/pine-valley/logo.png', width: 500, height: 175, alt: 'Pine Valley · Lodging, Camping, & Events' },
   doorstep: 'huzzah',
   millScene: 'dillard',
+  water: {
+    // The millpond above the foreground rocks, stopping short of the sign post.
+    pool: 'polygon(4% 66.5%, 27% 67%, 40% 68%, 77% 68%, 77% 82%, 28% 84%, 27% 71%, 4% 70%)',
+    // The cascade over the dam, left of the mill.
+    falls: 'polygon(7.5% 52.5%, 15% 51.5%, 20% 54%, 20% 65%, 10% 66%, 7% 60%)',
+  },
   rivers: [
     { slug: 'huzzah', driveMinutes: 5, tip: 'The Dillard access is about half a mile from the cabin.' },
     { slug: 'courtois', driveMinutes: 50, tip: 'Joins the Huzzah just above the Meramec.' },
@@ -127,6 +140,28 @@ export function linePath(frame: MapFrame, coords: LngLat[]): string {
       return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
     })
     .join('');
+}
+
+// ── Artwork ──────────────────────────────────────────────────────────────────
+
+export type ArtRegion = { left: number; top: number; width: number; height: number; clipPath: string };
+
+/**
+ * A CSS polygon in % of the artwork, as a box in board pixels (the art drawn
+ * `width` wide, shifted up by `offsetY`) plus the same polygon in px relative
+ * to that box. Filtering only the box keeps the animated area small.
+ */
+export function artRegion(polygon: string, art: { width: number; height: number; offsetY: number }): ArtRegion {
+  const points = [...polygon.matchAll(/(-?[\d.]+)%\s+(-?[\d.]+)%/g)].map(([, x, y]) => [
+    (Number(x) / 100) * art.width,
+    (Number(y) / 100) * art.height - art.offsetY,
+  ]);
+  if (points.length < 3) throw new Error(`Not a polygon: ${polygon}`);
+  const xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
+  const left = Math.floor(Math.min(...xs)), top = Math.floor(Math.min(...ys));
+  const width = Math.ceil(Math.max(...xs)) - left, height = Math.ceil(Math.max(...ys)) - top;
+  const clipPath = `polygon(${points.map(([x, y]) => `${(x - left).toFixed(1)}px ${(y - top).toFixed(1)}px`).join(', ')})`;
+  return { left, top, width, height, clipPath };
 }
 
 // ── Rows ─────────────────────────────────────────────────────────────────────

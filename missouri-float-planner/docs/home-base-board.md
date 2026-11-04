@@ -22,6 +22,8 @@ From the top:
    partner's logo and the board's title sit on framed plaques over it. The
    doorstep river's rated reading is on the mill's own sign, using the board
    rectangle from `mill-scenes.ts`; it appears nowhere else on the hero.
+   The painting's **water moves**: the millpond ripples with glints drifting
+   downstream, and the falls rush with foam.
 2. **At the door**: the doorstep river's name, condition badge, trend and
    other-unit reading, and **Eddy's take** in a small bubble beside the otter.
 3. **The map**: the board's rivers in their condition colours with flow
@@ -62,15 +64,22 @@ embed data teal. The partner's brand appears only as their logo files.
   pages carry Apple's Smart App Banner, so an iPhone scan offers **Open** in
   the Eddy app or **Get** from the App Store. Universal links do not claim
   `/rivers/*` (see `apple-app-site-association.ts`).
+- **Moving water.** Only inside the board's water polygons (`water.pool`,
+  `water.falls` in the config, in % of the artwork), so rocks, banks, the mill
+  and its sign stay still. Each region is a small box (`artRegion`) holding a
+  copy of the painting run through an animated SVG displacement filter, with a
+  tiled glint or foam layer that slides exactly one tile per loop, so there is
+  no seam. Regions sit under the hero's fade. They are separate from the Mills
+  display's subtler `water` region in `mill-scenes.ts`.
 - **Always-on screen.** The canvas drifts a few pixels over ten minutes, and
   dims between sunset and sunrise at the place. Hidden tabs stop the loop.
-  Reduced motion (or `?motion=off`) skips the replay and stops the drift and
-  flow animation.
+  Reduced motion (or `?motion=off`) skips the replay, leaves the painting's
+  water still, and stops the drift and flow animation.
 
 ## Adding a board
 
 A board is one `HomeBaseConfig` in `src/lib/display/home-base.ts`: the place,
-its logo, its doorstep river and mill scene, the rivers with drive times and
+its logo, its doorstep river and mill scene with the painting's water polygons, the rivers with drive times and
 one factual tip each, the map frame, gauge tag sides, label positions and the
 divide. `home-base.test.ts` fails if a configured river has no line or label,
 if the mill scene does not exist, or if the logo or relief file is missing.
