@@ -133,10 +133,16 @@ try {
     const panel = page.locator(`[data-mill="${ids[i]}"]`).first();
     await panel.waitFor();
     await page.waitForFunction(() => [...document.querySelectorAll('img')].every(i => i.complete && i.naturalWidth > 0));
-    const sign = panel.locator('[data-river]');
-    assert.equal(await sign.getAttribute('data-river'), slugs[i]);
-    assert.ok((await sign.innerText()).includes(names[i]));
-    assert.equal(await sign.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} sign must fit`);
+    // Nothing is written on the painting's own board; the card carries it all.
+    assert.equal(await panel.innerText(), '', `${ids[i]} painting carries no text`);
+    const card = page.locator(`[data-card="${ids[i]}"]`);
+    assert.equal(await card.getAttribute('data-river'), slugs[i]);
+    const cardText = await card.innerText();
+    assert.ok(cardText.includes(names[i]), `${ids[i]} card names the mill`);
+    assert.match(cardText, /\b(ON|NEARBY)\b/i, `${ids[i]} card says On or Nearby`);
+    assert.doesNotMatch(cardText, /related/i);
+    const box = await card.boundingBox();
+    assert.ok(box && box.y >= 0 && box.y + box.height <= 1080 && box.x >= 0, `${ids[i]} card stays on screen`);
     await page.mouse.move(960, 540);
     await page.screenshot({ path: resolve(output, `mill-${ids[i]}.png`) });
   }
@@ -166,8 +172,8 @@ try {
     const text = await dock.innerText();
     assert.ok(text.includes(names[i]) && /\d/.test(text), `${ids[i]} dock names the mill and its reading`);
     assert.equal(await dock.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} dock must fit`);
-    const placard = page.locator(`[data-mill="${ids[i]}"] [data-river]`);
-    assert.equal(await placard.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} placard must fit`);
+    assert.equal(await page.locator(`[data-mill="${ids[i]}"]`).innerText(), '', `${ids[i]} painting carries no text`);
+    assert.doesNotMatch(text, /related/i);
     await page.mouse.move(540, 1500);
     await page.screenshot({ path: resolve(output, `mill-vertical-${ids[i]}.png`) });
   }
@@ -203,7 +209,7 @@ try {
   await page.getByText('No mill scenes match these rivers.').waitFor();
   await failure.goto(`${base}/embed/display?motion=off`);
   await failure.getByText('Readings unavailable · retrying automatically').waitFor({ timeout: 20_000 });
-  assert.match(await failure.locator('[data-mill="dillard"] [data-river]').first().innerText(), /Reading unavailable/);
+  assert.match(await failure.locator('[data-card="dillard"]').innerText(), /Reading unavailable/);
   assert.deepEqual(errors, [], 'No browser runtime errors');
   console.log(
     `PASS: route rendering, real asset loading, reduced motion, play/pause, next river, readable table, narrow viewport, invalid selection and unavailable API. Screenshots: ${output}`

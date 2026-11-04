@@ -336,18 +336,53 @@
   }
 }
 
-/* Mill collection: all coordinates are in the 1920 × 1080 composition. */
-.millScene { background: #1d3027; overflow: hidden; }
+/* Mill collection: all coordinates are in the 1920 × 1080 composition.
+   Theme: Eddy's own system (Organic Brutalist, .stitch/DESIGN.md): flat sand
+   cards, thick river-teal borders, chunky offset shadows, Fredoka display
+   type, coral for Eddy's signature accents, condition colours from the shared
+   chip helper. No gradients or glows. */
+.millScene {
+  --teal-900: #0F2D35; --teal-800: #163F4A; --teal-700: #1D525F; --teal-600: #256574; --teal-500: #2D7889;
+  --teal-400: #4A9AAD; --teal-300: #72B5C4; --teal-100: #D4EAEF; --teal-50: #EBF5F7;
+  --sand-50: #FAF8F4; --sand-100: #F4EFE7; --sand-200: #E8DFD0; --sand-700: #7A684B;
+  --coral-500: #F07052; --coral-600: #E5573F; --coral-800: #A33122; --coral-100: #FDE7E1;
+  background: var(--teal-800); overflow: hidden; font-family: var(--font-body), sans-serif;
+}
 .millWindow { position: absolute; inset: 0; overflow: hidden; }
 .millPanel { position: absolute; width: 1920px; height: 1080px; top: 0; left: 0; will-change: transform; }
 .millArt { position: absolute; inset: 0; width: 1920px; height: 1080px; max-width: none !important; }
 .millWater { position: absolute; inset: 0; opacity: .3; pointer-events: none; }
-.millSign { position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; padding: 4px 5px; box-sizing: border-box; color: #f6e9c8; text-align: center; text-shadow: 0 1px 2px #101b16; overflow: hidden; font-family: var(--font-body), sans-serif; }
-.millName { font-size: 1.5em; font-weight: 650; line-height: 1.08; }
-.millLocation { font-size: .875em; line-height: 1.12; color: #dfd4b9; }
-.millFact { font-size: .9em; line-height: 1.25; margin: 4px 0 3px; color: #f6e9c8; text-wrap: balance; }
+
+.builtBadge { align-self: flex-start; display: inline-block; padding: .2em .75em; border: 3px solid var(--coral-600); border-radius: 999px; background: var(--coral-100); color: var(--coral-800); font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: .04em; }
+
+/* Landscape card: lower left, outside the painting's own board. */
+.millCard { position: absolute; left: 77px; bottom: 54px; width: 660px; box-sizing: border-box; display: flex; flex-direction: column; padding: 28px 36px 30px; background: var(--sand-50); color: var(--teal-900); border: 4px solid var(--teal-800); border-radius: 24px; box-shadow: 10px 10px 0 var(--teal-900); }
+.cardName { font-family: var(--font-display); font-size: 60px; font-weight: 600; line-height: 1.02; margin-top: 14px; color: var(--teal-900); }
+.cardLocation { font-size: 24px; color: var(--sand-700); margin-top: 6px; }
+.cardFact { margin: 18px 0 0; min-height: 2.6em; font-size: 28px; line-height: 1.3; color: var(--teal-800); text-wrap: pretty; }
+
+/* River note: condition first (a shared condition chip), reading as a footnote. */
+.riverNote { display: flex; flex-direction: column; gap: 10px; }
+.riverNoteLabel { font-family: var(--font-display); font-weight: 600; font-size: .85em; color: var(--teal-600); }
+.riverNoteLine { display: flex; flex-wrap: wrap; align-items: center; column-gap: .6em; row-gap: 6px; }
+.riverNoteLine b { padding: .12em .65em; border: 2px solid; border-radius: 999px; font-weight: 700; }
+.riverNoteLine small { font-size: .8em; color: var(--sand-700); font-variant-numeric: tabular-nums; }
+.riverNote[data-variant='card'] { font-size: 24px; margin-top: 20px; padding-top: 18px; border-top: 3px dashed var(--sand-200); }
+.riverNote[data-variant='dock'] { font-size: 28px; margin-top: 22px; padding-top: 18px; border-top: 3px dashed var(--sand-200); }
+.riverNote[data-variant='journey'] { font-size: 30px; margin-top: 34px; padding: 22px 26px; background: var(--sand-50); border: 4px solid var(--teal-800); border-radius: 20px; box-shadow: 8px 8px 0 var(--teal-900); }
+
+/* Overlay chrome on the mills theme: sand pills instead of shadowed text. */
 .stage[data-theme='mills'] .brand,
-.stage[data-theme='mills'] .status { text-shadow: 0 2px 5px #0b201d, 0 0 18px #0b201d; }
+.stage[data-theme='mills'] .status { background: #FAF8F4; color: #0F2D35; border: 3px solid #163F4A; box-shadow: 4px 4px 0 #0F2D35; text-shadow: none; }
+.stage[data-theme='mills'] .brand { padding: .35em 1em .35em .8em; border-radius: 999px; }
+.stage[data-theme='mills'] .brand b { font-family: var(--font-display); font-weight: 600; color: #E5573F; font-size: clamp(20px, 2.4vw, 40px); letter-spacing: 0; }
+.stage[data-theme='mills'] .brand span { font-family: var(--font-display); font-weight: 600; color: #256574; letter-spacing: 0; }
+.stage[data-theme='mills'] .status { padding: .35em 1em; border-radius: 18px; }
+.stage[data-theme='mills'] .status time { font-family: var(--font-display); font-weight: 600; font-size: clamp(16px, 1.8vw, 30px); }
+.stage[data-theme='mills'] .warning { background: #FDE7E1; color: #7A2419; border: 3px solid #E5573F; border-radius: 14px; box-shadow: 4px 4px 0 #A33122; font-weight: 600; }
+.stage[data-theme='mills'][data-format='landscape'] .warning { top: 13.5%; bottom: auto; left: 4%; }
+.stage[data-theme='mills'][data-format='landscape'] .controls { right: 4%; bottom: 5%; }
+.stage[data-theme='mills'] .controls button { background: #FAF8F4; color: #0F2D35; border: 2px solid #163F4A; border-radius: 10px; box-shadow: 3px 3px 0 #0F2D35; font-weight: 600; }
 .brand, .status, .warning { animation: ambientDrift 600s ease-in-out infinite alternate; }
 @keyframes ambientDrift { from { translate: -7px -5px; } to { translate: 7px 5px; } }
 .millPicker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(620px, 92%); }
@@ -360,86 +395,71 @@
 @media (prefers-reduced-motion: reduce) { .brand, .status, .warning { animation: none; } }
 @media (max-width: 600px) { .millPicker { grid-template-columns: 1fr; } .millPicker button { padding: 8px; } }
 
-/* Vertical format: a 1080 × 1920 composition. The painting fills the top
-   window and pans; the dock below holds the reading at room distance. */
+/* Vertical format: a 1080 × 1920 (or taller) composition. The painting fills
+   the top window and drifts across its mill; the sand dock below holds the
+   mill's story and the river note. */
 .stage[data-format='vertical'] { width: min(100vw, 56.25dvh); aspect-ratio: 9/16; }
 .millScene[data-format='vertical'] .millWindow { bottom: auto; }
-.millFade { position: absolute; left: 0; right: 0; bottom: 0; height: 190px; pointer-events: none; }
-.millSign[data-placard] { gap: 8px; }
-.millSign[data-placard] .millName { font-size: 1.75em; }
-.millSign[data-placard] .millLocation { font-size: 1em; }
-.millDock { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; padding: 56px 84px 0; box-sizing: border-box; color: #f6e9c8; font-family: var(--font-body), sans-serif; border-top: 6px solid #5a4630; box-shadow: inset 0 1px 0 #8a6d4a; }
-.dockName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 82px; font-weight: 500; line-height: 1.05; letter-spacing: -1px; margin-top: 14px; }
-.dockLocation { font-size: 32px; color: #dfd4b9; margin-top: 6px; }
-.dockRule { height: 2px; background: linear-gradient(to right, #8a6d4a, transparent); margin: 30px 0 28px; }
-.dockFacts { display: flex; flex-direction: column; gap: 20px; }
-.dockFacts p { margin: 0; font-size: 36px; line-height: 1.3; color: #f6e9c8; text-wrap: pretty; }
-.dockNext { position: absolute; left: 84px; right: 84px; bottom: 54px; font-size: 26px; letter-spacing: 1px; color: #b9ad8f; }
+.millDock { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; padding: 44px 64px 0; box-sizing: border-box; background: var(--sand-50); color: var(--teal-900); border-top: 10px solid var(--teal-800); }
+.dockName { font-family: var(--font-display); font-size: 78px; font-weight: 600; line-height: 1.02; margin-top: 14px; }
+.dockLocation { font-size: 30px; color: var(--sand-700); margin-top: 6px; }
+.dockFacts { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
+.dockFacts p { margin: 0; font-size: 32px; line-height: 1.3; color: var(--teal-800); text-wrap: pretty; }
+.dockNext { margin-top: auto; padding: 14px 0 36px; font-family: var(--font-display); font-weight: 600; font-size: 26px; color: var(--teal-600); }
 .stage[data-format='vertical'] .brand { top: 3.2%; left: 6%; }
 .stage[data-format='vertical'] .status { top: 3.2%; right: 6%; }
 .stage[data-format='vertical'] .warning { bottom: calc(100% - var(--dock-top, 63.3%) + 2%); left: 6%; max-width: 88%; }
 /* Controls sit under the clock, over the painting, so touch and reduced-motion
-   viewers (who always see them) never lose the dock's reading behind them. */
-.stage[data-format='vertical'] .controls { left: 4%; right: 4%; top: 8.5%; bottom: auto; flex-wrap: wrap; justify-content: flex-end; }
-.stage[data-format='vertical'] .reader { left: 4%; right: 4%; max-width: none; bottom: 9%; }
-.stage[data-format='vertical'] .brand b { font-size: clamp(26px, 6.4vw, 56px); }
+   viewers (who always see them) never lose the dock behind them. */
+.stage[data-format='vertical'] .controls { left: 6%; right: 6%; top: 9.5%; bottom: auto; flex-wrap: wrap; justify-content: flex-end; }
+.stage[data-format='vertical'] .reader { left: 6%; right: 6%; max-width: none; bottom: 9%; }
+.stage[data-format='vertical'][data-theme='mills'] .brand b { font-size: clamp(22px, 5vw, 48px); }
 .stage[data-format='vertical'] .brand span,
 .stage[data-format='vertical'] .status { font-size: clamp(11px, 2.2vw, 22px); }
-.stage[data-format='vertical'] .status time { font-size: clamp(16px, 4vw, 40px); display: block; }
+.stage[data-format='vertical'][data-theme='mills'] .status time { font-size: clamp(16px, 3.6vw, 36px); display: block; }
 
-/* Between mills: the route card. Coordinates are composition pixels. */
-.interlude { position: absolute; top: 0; left: 0; color: #f4ead5; font-family: var(--font-body), sans-serif; }
+/* Between mills: a light trail map. Coordinates are composition pixels. */
+.interlude { position: absolute; top: 0; left: 0; background: var(--teal-50); color: var(--teal-900); font-family: var(--font-body), sans-serif; }
 .interludeBody { position: absolute; inset: 0; }
 .interludeMap { position: absolute; width: auto; aspect-ratio: 830 / 1000; overflow: visible; }
 .interludeText { position: absolute; left: 974px; right: 170px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
-.interlude[data-format='vertical'] .interludeText { left: 96px; right: 96px; top: 1210px; bottom: auto; }
-.interludeKicker { font-size: 26px; letter-spacing: 4px; text-transform: uppercase; color: #e8b46d; }
-.interludeName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 92px; font-weight: 500; line-height: 1.04; letter-spacing: -1px; margin-top: 14px; }
-.interludeLocation { font-size: 34px; color: #dfd4b9; margin-top: 8px; }
-.interludeRoute { font-size: 30px; color: #cdbf9e; margin-top: 30px; }
-/* River note: condition first, reading as a footnote. Board sizes are em
-   (the board scales its font); dock and journey sizes are composition px. */
-.riverNote { display: flex; flex-direction: column; gap: .15em; border-left: .18em solid #8fc3d6; padding-left: .5em; text-align: left; }
-.riverNote[data-warning] { border-left-color: #e8b46d; }
-.riverNoteLabel { font-size: .72em; letter-spacing: .12em; text-transform: uppercase; color: #cdbf9e; }
-.riverNoteLine { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .5em; }
-.riverNoteLine b { font-weight: 600; }
-.riverNote[data-warning] .riverNoteLine b { color: #ffd19b; }
-.riverNoteLine small { font-size: .8em; color: #dfd4b9; font-variant-numeric: tabular-nums; }
-.riverNote[data-variant='board'] { align-self: stretch; font-size: .85em; margin-top: 2px; }
-.riverNote[data-variant='dock'] { font-size: 30px; margin-top: 34px; padding-left: 18px; border-left-width: 4px; }
-.riverNote[data-variant='journey'] { font-size: 32px; margin-top: 34px; padding: 18px 24px; border-left-width: 4px; background: #00000026; }
-.mapState { stroke: #f4ead5; stroke-opacity: .28; stroke-width: 2; stroke-dasharray: 10 10; }
-.mapStateLabel { fill: #f4ead5; fill-opacity: .38; font-size: 22px; letter-spacing: 5px; }
-.mapRiver { fill: none; stroke: #8fc3d6; stroke-opacity: .42; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
-.mapRiverLit { fill: none; stroke: #8fc3d6; stroke-opacity: .9; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
-.mapMill { fill: #f4ead5; fill-opacity: .55; }
-.mapRoute { fill: none; stroke: #e8b46d; stroke-width: 5; stroke-linecap: round; }
-.mapHead { fill: #ffe3b6; }
-.mapFrom { fill: #f4ead5; stroke: #0c1511; stroke-width: 4; }
-.mapTo { fill: #e8b46d; stroke: #0c1511; stroke-width: 4; }
-.mapPulse { fill: none; stroke: #e8b46d; stroke-width: 3; }
-.mapLabel { fill: #f4ead5; fill-opacity: .75; font-size: 28px; paint-order: stroke; stroke: #0c1511; stroke-width: 6px; stroke-opacity: .6; }
-.mapLabelStrong { fill: #ffe3b6; font-size: 32px; font-weight: 600; paint-order: stroke; stroke: #0c1511; stroke-width: 6px; stroke-opacity: .6; }
+.interlude[data-format='vertical'] .interludeText { left: 64px; right: 64px; top: 1210px; bottom: auto; }
+.interludeKicker { align-self: flex-start; padding: .15em .8em; border-radius: 999px; background: var(--coral-500); color: var(--teal-900); font-family: var(--font-display); font-weight: 600; font-size: 30px; border: 3px solid var(--teal-900); }
+.interludeName { font-family: var(--font-display); font-size: 96px; font-weight: 600; line-height: 1.02; margin-top: 20px; }
+.interludeLocation { font-size: 32px; color: var(--sand-700); margin-top: 10px; }
+.interludeRoute { font-family: var(--font-display); font-weight: 600; font-size: 32px; color: var(--teal-600); margin-top: 26px; }
+.mapState { stroke: var(--teal-800); stroke-opacity: .35; stroke-width: 2.5; stroke-dasharray: 10 10; }
+.mapStateLabel { fill: var(--teal-700); fill-opacity: .6; font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: 5px; }
+.mapRiver { fill: none; stroke: var(--teal-300); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.mapRiverLit { fill: none; stroke: var(--teal-500); stroke-width: 7; stroke-linejoin: round; stroke-linecap: round; }
+.mapMill { fill: var(--sand-50); stroke: var(--teal-800); stroke-width: 3; }
+.mapRoute { fill: none; stroke: var(--coral-500); stroke-width: 7; stroke-linecap: round; }
+.mapHead { fill: var(--coral-600); stroke: var(--teal-900); stroke-width: 3; }
+.mapFrom { fill: var(--sand-50); stroke: var(--teal-900); stroke-width: 5; }
+.mapTo { fill: var(--coral-500); stroke: var(--teal-900); stroke-width: 5; }
+.mapPulse { fill: none; stroke: var(--coral-500); stroke-width: 4; }
+.mapLabel { fill: var(--teal-800); font-family: var(--font-display); font-weight: 500; font-size: 30px; paint-order: stroke; stroke: var(--teal-50); stroke-width: 8px; }
+.mapLabelStrong { fill: var(--teal-900); font-family: var(--font-display); font-weight: 600; font-size: 36px; paint-order: stroke; stroke: var(--teal-50); stroke-width: 8px; }
 
 /* Tour band (vertical screens taller than 9:16). */
-.millTour { position: absolute; left: 0; right: 0; padding: 32px 84px; box-sizing: border-box; color: #f4ead5; font-family: var(--font-body), sans-serif; border-top: 1px solid #f4ead51f; }
-.tourHead { display: flex; justify-content: space-between; align-items: baseline; height: 32px; margin-bottom: 32px; font-size: 24px; letter-spacing: 3px; text-transform: uppercase; color: #cdbf9e; }
-.tourHead span:last-child { color: #e8b46d; }
+.millTour { position: absolute; left: 0; right: 0; padding: 32px 64px; box-sizing: border-box; background: var(--teal-50); color: var(--teal-900); border-top: 6px solid var(--teal-800); }
+.tourHead { display: flex; justify-content: space-between; align-items: baseline; height: 32px; margin-bottom: 32px; font-family: var(--font-display); font-weight: 600; font-size: 30px; color: var(--teal-700); }
+.tourHead span:last-child { color: var(--coral-600); }
 .tourBody { display: flex; gap: 48px; align-items: stretch; }
 .tourMap { flex: none; width: auto; overflow: hidden; }
-.tourLeg { fill: none; stroke: #f4ead5; stroke-linecap: round; }
-.tourLeg[data-state='done'] { stroke-opacity: .55; }
-.tourLeg[data-state='ahead'] { stroke-opacity: .28; }
-.tourLegNow { fill: none; stroke: #e8b46d; stroke-linecap: round; }
-.tourNext { fill: none; stroke: #e8b46d; stroke-opacity: .8; }
+.tourLeg { fill: none; stroke: var(--teal-800); stroke-linecap: round; }
+.tourLeg[data-state='done'] { stroke-opacity: .7; }
+.tourLeg[data-state='ahead'] { stroke-opacity: .35; }
+.tourNext { fill: none; stroke: var(--coral-600); }
 .tourList { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; justify-content: center; }
-.tourList li { display: flex; align-items: center; gap: .7em; white-space: nowrap; color: #dfd4b9; }
+.tourList li { display: flex; align-items: center; gap: .7em; white-space: nowrap; color: var(--teal-800); }
 .tourList li[data-state='done'] { opacity: .5; }
-.tourList li[data-state='now'] { color: #ffe3b6; font-weight: 600; }
-.tourList b { width: 1.4em; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; color: #b9ad8f; }
+.tourList li[data-state='now'] { font-family: var(--font-display); font-weight: 600; color: var(--teal-900); }
+.tourList b { width: 1.4em; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--teal-600); }
+.tourList li[data-state='now'] b { color: var(--coral-600); }
 .tourList span { overflow: hidden; text-overflow: ellipsis; }
-.tourList em, .tourSummary em { font-style: normal; font-size: .62em; letter-spacing: 2px; text-transform: uppercase; color: #e8b46d; }
+.tourList i { font-style: normal; color: var(--sand-700); font-weight: 400; }
+.tourList em, .tourSummary em { font-style: normal; font-family: var(--font-display); font-weight: 600; font-size: .75em; color: var(--coral-600); }
 .tourList em { margin-left: auto; }
 .tourSummary { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 18px; font-size: 30px; }
 .tourSummary div { display: flex; align-items: baseline; gap: 16px; }
