@@ -36,7 +36,7 @@ From the top:
    The painting's **water moves**: the millpond ripples with glints drifting
    downstream, the falls rush with foam, and where they land, rings spread
    across the pool and mist rises.
-2. **At the door**: the doorstep river's name, condition badge, trend and
+2. **The doorstep river**: its name, condition badge, trend and
    other-unit reading; how today's flow compares with the same date in past
    years, and the water temperature; and **Eddy's take** in a small bubble
    beside the otter.
@@ -135,8 +135,8 @@ if the mill scene does not exist, or if the logo or relief file is missing.
 
 ## Open items
 
-- **Pine Valley's coordinates.** The board places the cabin at Dillard Mill
-  State Historic Site until the owners supply the cabin's location. The
+- **Pine Valley's coordinates.** The board places Pine Valley at Dillard Mill
+  State Historic Site until the owners supply its location. The
   marker, the distance rings and the drive times all follow from it.
 - **Drive times** came from the public OSRM demo router (car profile) on
   2026-11-04. They are longer than a local would quote for some rivers, as
