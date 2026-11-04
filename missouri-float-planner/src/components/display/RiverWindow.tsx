@@ -245,7 +245,7 @@ export default function RiverWindow() {
         )}
         <header className={styles.brand}>
           <b>eddy</b>
-          <span>{(params.get('name') || (millMode ? 'MISSOURI MILLS' : 'RIVER WINDOW')).slice(0, 50)}</span>
+          <span>{(params.get('name') || (millMode ? 'Missouri mills' : 'RIVER WINDOW')).slice(0, 50)}</span>
         </header>
         <div className={styles.status} role="status">
           <time dateTime={new Date(now).toISOString()}>
@@ -257,8 +257,8 @@ export default function RiverWindow() {
         </div>
         {warning.length ? (
           <div className={styles.warning} role="status">
-            {warning.map((s) => `${s.name}: ${s.condition}`).join(' · ')} · Check the river report
-            before launching.
+            {warning.map((s) => `${s.name} is ${s.code === 'dangerous' ? 'at flood level' : 'running high'}.`).join(' ')} Check
+            the river report before you go.
           </div>
         ) : null}
         {showMills ? (

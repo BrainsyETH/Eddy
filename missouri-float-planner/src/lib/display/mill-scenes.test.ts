@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   MILL_INTERLUDE_FRAMES,
   MILL_PASS_FRAMES,
@@ -19,7 +19,7 @@ import {
   millMoment,
   millRoute,
   millStartFrame,
-  mixHex,
+  riverLabel,
   nextMillFrame,
   parseMillFormat,
   selectMillScenes,
@@ -35,7 +35,7 @@ test('mill collection has ten unique real sites and locally shipped artwork', ()
     assert.ok(existsSync(`public/display/mills/${s.id}.webp`), s.id);
     const [x, y, w, h] = s.board;
     assert.ok(x >= 0 && y >= 0 && x + w < 100 && y + h < 100);
-    assert.match(s.tone, /^#[0-9a-f]{6}$/);
+    assert.ok(s.focus > 0 && s.focus < 100);
   }
   // The repeated foreground tree is gone; joins are drawn, not covered.
   assert.equal(existsSync('public/display/mills/transition.webp'), false);
@@ -48,7 +48,7 @@ test('river filters select associated mills without substituting another waterwa
   assert.deepEqual(selectMillScenes(['unknown']), []);
   assert.equal(selectMillScenes([]).length, 10);
   assert.equal(MILL_RIVERS.length, 6);
-  assert.equal(MILL_SCENES.find((s) => s.id === 'falling')?.context, 'Nearby river');
+  assert.equal(MILL_SCENES.find((s) => s.id === 'falling')?.context, 'Nearby');
   assert.equal(MILL_SCENES.find((s) => s.id === 'greer')?.water, undefined);
 });
 
@@ -89,29 +89,44 @@ test('Next mill advances from the mill on screen, including mid-interlude', () =
   assert.equal(nextMillFrame(500, 1), 0);
 });
 
-test('landscape keeps the live board in frame; vertical fills the window and pans to the board', () => {
+test('cameras stay on the mill, never the blank painted board', () => {
+  // Every point the mill should be visible across the whole scene, at every height.
+  const inWindow = (mill: (typeof MILL_SCENES)[number], art: number, frame: number) => {
+    const c = millCamera(mill, frame, 'vertical', art);
+    return (mill.focus / 100) * 1920 * c.scale + c.x;
+  };
   for (const mill of MILL_SCENES) {
-    const [left, top, width, height] = mill.board;
-    for (const frame of [0, MILL_PASS_FRAMES / 2, MILL_PASS_FRAMES]) {
-      const { scale } = millCamera(mill, frame, 'landscape');
-      const ox = (left + width / 2) * 19.2;
-      const oy = (top + height / 2) * 10.8;
-      const x1 = ox + (left * 19.2 - ox) * scale;
-      const x2 = ox + ((left + width) * 19.2 - ox) * scale;
-      const y2 = oy + ((top + height) * 10.8 - oy) * scale;
-      assert.ok(x1 >= 0 && x2 <= 1920 && y2 <= 1080, `${mill.id} board stays visible`);
+    const land = millCamera(mill, MILL_PASS_FRAMES / 2, 'landscape');
+    assert.equal(land.origin, `${mill.focus}% 42%`);
+    assert.ok(land.scale > 1 && land.scale <= 1.06);
+    for (const art of [VERTICAL_ART_HEIGHT, 1456, 1916]) {
+      const start = millCamera(mill, 0, 'vertical', art);
+      const end = millCamera(mill, MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES, 'vertical', art);
+      assert.equal(1080 * start.scale, art);
+      // A gentle drift, inside the painting, with the mill in view throughout.
+      assert.ok(Math.abs(start.x - end.x - 240) < 0.01, `${mill.id} drifts 240px`);
+      assert.ok(start.x <= 0 && 1920 * end.scale + end.x >= MILL_STAGE.vertical.width - 0.01);
+      for (const frame of [0, 300, MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES]) {
+        const x = inWindow(mill, art, frame);
+        assert.ok(x > 120 && x < MILL_STAGE.vertical.width - 120, `${mill.id} visible at ${art}/${frame}`);
+      }
     }
-    const start = millCamera(mill, 0, 'vertical');
-    const end = millCamera(mill, MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES, 'vertical');
-    assert.ok(start.x <= 0);
-    assert.equal(1080 * start.scale, VERTICAL_ART_HEIGHT);
-    // Each pass opens with its mill in the window.
-    const focusX = (mill.focus / 100) * 1920 * start.scale + start.x;
-    assert.ok(focusX > 200 && focusX < MILL_STAGE.vertical.width - 120, `${mill.id} opens on its mill`);
-    // The pan ends exactly at the painting's right edge, with its board in view.
-    assert.ok(Math.abs(1920 * end.scale + end.x - MILL_STAGE.vertical.width) < 0.01);
-    assert.ok((left + width) * 19.2 * end.scale + end.x <= MILL_STAGE.vertical.width);
   }
+});
+
+test('river labels say On or Nearby, never "related"', () => {
+  const by = (id: string) => MILL_SCENES.find((s) => s.id === id)!;
+  assert.equal(riverLabel(by('dillard')), 'On Huzzah Creek');
+  assert.equal(riverLabel(by('dawt')), 'On North Fork River');
+  assert.equal(riverLabel(by('hodgson')), 'On Bryant Creek');
+  assert.equal(riverLabel(by('alley')), 'Nearby: Jacks Fork');
+  assert.equal(riverLabel(by('rockbridge')), 'Nearby: Bryant Creek');
+  for (const mill of MILL_SCENES) {
+    assert.ok(['On', 'Nearby'].includes(mill.context));
+    if (mill.built) assert.match(mill.built, /\b1[89]\d\d\b/);
+  }
+  // Disputed construction dates stay off the screen.
+  assert.equal(by('greer').built, undefined);
 });
 
 test('format parameter and route geometry', () => {
@@ -123,7 +138,6 @@ test('format parameter and route geometry', () => {
   const [greer, turner, hodgson, rockbridge] = ['greer', 'turner', 'hodgson', 'rockbridge'].map((id) => MILL_SCENES.find((s) => s.id === id)!);
   assert.deepEqual(millRoute(greer, turner), { miles: 4, direction: 'east' });
   assert.equal(millRoute(hodgson, rockbridge).direction, 'northwest');
-  assert.equal(mixHex('#000000', '#ffffff', 0.5), '#808080');
   for (const mill of MILL_SCENES) {
     const [x, y] = projectMap(...mill.at);
     assert.ok(x > 0 && x < MILL_MAP_WIDTH && y > 0 && y < MILL_MAP_HEIGHT, mill.id);
@@ -177,13 +191,26 @@ test('tall portrait screens stretch the vertical stage: tour band first, then a 
     assert.ok(l.art >= VERTICAL_ART_HEIGHT);
     assert.ok(l.tour === 0 || l.tour >= TOUR_MIN_HEIGHT);
     for (const mill of MILL_SCENES) {
-      // A taller painting window still opens on the mill and ends at the board.
+      // A taller painting window still opens on the mill.
       const start = millCamera(mill, 0, 'vertical', l.art);
-      const end = millCamera(mill, MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES, 'vertical', l.art);
       const focusX = (mill.focus / 100) * 1920 * start.scale + start.x;
-      assert.ok(focusX > 200 && focusX < MILL_STAGE.vertical.width - 120, `${mill.id} at ${height}`);
-      assert.ok(Math.abs(1920 * end.scale + end.x - MILL_STAGE.vertical.width) < 0.01);
+      assert.ok(focusX > 120 && focusX < MILL_STAGE.vertical.width - 120, `${mill.id} at ${height}`);
     }
   }
   assert.equal(verticalLayout(2560).tour, 640);
+});
+
+test('every mill tells two short, sourced facts', () => {
+  const docs = readFileSync('docs/missouri-mills.md', 'utf8');
+  for (const mill of MILL_SCENES) {
+    assert.equal(mill.facts.length, 2);
+    for (const fact of mill.facts) {
+      // One fact must fit the landscape card in two lines at TV distance.
+      assert.ok(fact.length >= 30 && fact.length <= 90, `${mill.id}: ${fact.length} chars`);
+      assert.match(fact, /[.]$/);
+    }
+    assert.notEqual(mill.facts[0], mill.facts[1]);
+    assert.match(mill.source, /^https:\/\//);
+    assert.ok(docs.includes(mill.source), `${mill.id} source is listed in the docs`);
+  }
 });
