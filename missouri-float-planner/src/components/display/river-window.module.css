@@ -338,10 +338,10 @@
 
 /* Mill collection: all coordinates are in the 1920 × 1080 composition. */
 .millScene { background: #1d3027; overflow: hidden; }
+.millWindow { position: absolute; inset: 0; overflow: hidden; }
 .millPanel { position: absolute; width: 1920px; height: 1080px; top: 0; left: 0; will-change: transform; }
 .millArt { position: absolute; inset: 0; width: 1920px; height: 1080px; max-width: none !important; }
 .millWater { position: absolute; inset: 0; opacity: .3; pointer-events: none; }
-.millTransition { position: absolute; top: -6px; left: 0; width: 240px; height: 1092px; max-width: none !important; pointer-events: none; }
 .millSign { position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; padding: 4px 5px; box-sizing: border-box; color: #f6e9c8; text-align: center; text-shadow: 0 1px 2px #101b16; overflow: hidden; font-family: var(--font-body), sans-serif; }
 .millName { font-size: 1.5em; font-weight: 650; line-height: 1.08; }
 .millLocation { font-size: .875em; line-height: 1.12; color: #dfd4b9; }
@@ -364,3 +364,62 @@
 .millPicker span { margin-top: 4px; font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .brand, .status, .warning { animation: none; } }
 @media (max-width: 600px) { .millPicker { grid-template-columns: 1fr; } .millPicker button { padding: 8px; } }
+
+/* Vertical format: a 1080 × 1920 composition. The painting fills the top
+   window and pans; the dock below holds the reading at room distance. */
+.stage[data-format='vertical'] { width: min(100vw, 56.25dvh); aspect-ratio: 9/16; }
+.millScene[data-format='vertical'] .millWindow { bottom: auto; }
+.millFade { position: absolute; left: 0; right: 0; bottom: 0; height: 190px; pointer-events: none; }
+.millSign[data-placard] { gap: 8px; }
+.millSign[data-placard] .millName { font-size: 1.75em; }
+.millSign[data-placard] .millLocation { font-size: 1em; }
+.millDock { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; padding: 56px 84px 0; box-sizing: border-box; color: #f6e9c8; font-family: var(--font-body), sans-serif; border-top: 6px solid #5a4630; box-shadow: inset 0 1px 0 #8a6d4a; }
+.dockKicker { font-size: 26px; letter-spacing: 3px; text-transform: uppercase; color: #cdbf9e; }
+.dockName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 82px; font-weight: 500; line-height: 1.05; letter-spacing: -1px; margin-top: 14px; }
+.dockLocation { font-size: 32px; color: #dfd4b9; margin-top: 6px; }
+.dockRule { height: 2px; background: linear-gradient(to right, #8a6d4a, transparent); margin: 34px 0 26px; }
+.dockReading { font-size: 132px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
+.dockReading small { font-size: 50px; font-weight: 400; margin-left: 14px; letter-spacing: 0; }
+.dockCondition { font-size: 46px; line-height: 1.15; margin-top: 12px; }
+.dockCondition[data-warning='true'] { color: #ffd19b; }
+.dockAge { font-size: 30px; color: #dfd4b9; margin-top: 8px; }
+.dockNext { position: absolute; left: 84px; right: 84px; bottom: 54px; font-size: 26px; letter-spacing: 1px; color: #b9ad8f; }
+.stage[data-format='vertical'] .brand { top: 3.2%; left: 6%; }
+.stage[data-format='vertical'] .status { top: 3.2%; right: 6%; }
+.stage[data-format='vertical'] .warning { bottom: 38%; left: 6%; max-width: 88%; }
+/* Controls sit under the clock, over the painting, so touch and reduced-motion
+   viewers (who always see them) never lose the dock's reading behind them. */
+.stage[data-format='vertical'] .controls { left: 4%; right: 4%; top: 8.5%; bottom: auto; flex-wrap: wrap; justify-content: flex-end; }
+.stage[data-format='vertical'] .reader { left: 4%; right: 4%; max-width: none; bottom: 9%; }
+.stage[data-format='vertical'] .brand b { font-size: clamp(26px, 6.4vw, 56px); }
+.stage[data-format='vertical'] .brand span,
+.stage[data-format='vertical'] .status { font-size: clamp(11px, 2.2vw, 22px); }
+.stage[data-format='vertical'] .status time { font-size: clamp(16px, 4vw, 40px); display: block; }
+
+/* Between mills: the route card. Coordinates are composition pixels. */
+.interlude { position: absolute; top: 0; left: 0; color: #f4ead5; font-family: var(--font-body), sans-serif; }
+.interludeBody { position: absolute; inset: 0; }
+.interludeMap { position: absolute; width: auto; aspect-ratio: 830 / 1000; overflow: visible; }
+.interludeText { position: absolute; left: 974px; right: 170px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+.interlude[data-format='vertical'] .interludeText { left: 96px; right: 96px; top: 1210px; bottom: auto; }
+.interludeKicker { font-size: 26px; letter-spacing: 4px; text-transform: uppercase; color: #e8b46d; }
+.interludeName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 92px; font-weight: 500; line-height: 1.04; letter-spacing: -1px; margin-top: 14px; }
+.interludeLocation { font-size: 34px; color: #dfd4b9; margin-top: 8px; }
+.interludeRoute { font-size: 30px; color: #cdbf9e; margin-top: 30px; }
+.interludeReading { display: flex; flex-direction: column; gap: 6px; margin-top: 34px; padding: 18px 24px; border-left: 4px solid #8fc3d6; background: #00000026; }
+.interludeReading span { font-size: 24px; letter-spacing: 2px; text-transform: uppercase; color: #cdbf9e; }
+.interludeReading b { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.interludeReading[data-warning='true'] { border-left-color: #e8b46d; }
+.interludeReading[data-warning='true'] b { color: #ffd19b; }
+.mapState { stroke: #f4ead5; stroke-opacity: .28; stroke-width: 2; stroke-dasharray: 10 10; }
+.mapStateLabel { fill: #f4ead5; fill-opacity: .38; font-size: 22px; letter-spacing: 5px; }
+.mapRiver { fill: none; stroke: #8fc3d6; stroke-opacity: .42; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+.mapRiverLit { fill: none; stroke: #8fc3d6; stroke-opacity: .9; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
+.mapMill { fill: #f4ead5; fill-opacity: .55; }
+.mapRoute { fill: none; stroke: #e8b46d; stroke-width: 5; stroke-linecap: round; }
+.mapHead { fill: #ffe3b6; }
+.mapFrom { fill: #f4ead5; stroke: #0c1511; stroke-width: 4; }
+.mapTo { fill: #e8b46d; stroke: #0c1511; stroke-width: 4; }
+.mapPulse { fill: none; stroke: #e8b46d; stroke-width: 3; }
+.mapLabel { fill: #f4ead5; fill-opacity: .75; font-size: 28px; paint-order: stroke; stroke: #0c1511; stroke-width: 6px; stroke-opacity: .6; }
+.mapLabelStrong { fill: #ffe3b6; font-size: 32px; font-weight: 600; paint-order: stroke; stroke: #0c1511; stroke-width: 6px; stroke-opacity: .6; }

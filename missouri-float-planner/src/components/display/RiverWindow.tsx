@@ -18,7 +18,17 @@ import {
 } from '@/lib/display/river-window';
 import RiverWindowScene from './RiverWindowScene';
 import MillWindowScene from './MillWindowScene';
-import { MILL_PASS_FRAMES, MILL_RIVERS, millDuration, selectMillScenes } from '@/lib/display/mill-scenes';
+import {
+  MILL_PASS_FRAMES,
+  MILL_RIVERS,
+  MILL_STAGE,
+  VERTICAL_MEDIA,
+  millDuration,
+  nextMillFrame,
+  parseMillFormat,
+  selectMillScenes,
+  type MillFormat,
+} from '@/lib/display/mill-scenes';
 import styles from './river-window.module.css';
 
 export default function RiverWindow() {
@@ -28,7 +38,10 @@ export default function RiverWindow() {
   const requested = useMemo(() => parseRiverSelection(rawRivers), [rawRivers]);
   const mills = useMemo(() => selectMillScenes(requested), [requested]);
   const duration = millMode ? millDuration(mills.length) : WINDOW_FRAMES;
-  const stride = millMode ? MILL_PASS_FRAMES : SCENE_STRIDE;
+  const forcedFormat = parseMillFormat(params.get('format'));
+  const [portrait, setPortrait] = useState(() => window.matchMedia(VERTICAL_MEDIA).matches);
+  // Portrait walls get the vertical mills format; the classic River Window is landscape only.
+  const format: MillFormat = millMode ? (forcedFormat ?? (portrait ? 'vertical' : 'landscape')) : 'landscape';
   const player = useRef<PlayerRef>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(true);
@@ -65,7 +78,15 @@ export default function RiverWindow() {
     [query.data, requested, now, millMode]
   );
   const sceneProps = useMemo(() => ({ signs, loading: query.isPending }), [signs, query.isPending]);
-  const millProps = useMemo(() => ({ ...sceneProps, mills, onAssetError }), [sceneProps, mills, onAssetError]);
+  const millProps = useMemo(() => ({ ...sceneProps, mills, format, onAssetError }), [sceneProps, mills, format, onAssetError]);
+
+  useEffect(() => {
+    const media = window.matchMedia(VERTICAL_MEDIA);
+    const change = () => setPortrait(media.matches);
+    change();
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -97,7 +118,7 @@ export default function RiverWindow() {
     sync();
     document.addEventListener('visibilitychange', sync);
     return () => document.removeEventListener('visibilitychange', sync);
-  }, [paused, showReadings, showMills]);
+  }, [paused, showReadings, showMills, format]);
 
   const warning = signs.filter((s) => s.code === 'dangerous' || s.code === 'high');
   const connection = query.isError
@@ -124,14 +145,16 @@ export default function RiverWindow() {
 
   return (
     <div className={styles.viewport}>
-      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} aria-label="Eddy River Window">
+      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} data-format={format} aria-label="Eddy River Window">
         {millMode ? (
         <Player
+          // A rotated wall remounts at the new composition size.
+          key={format}
           ref={player}
           component={MillWindowScene}
           inputProps={millProps}
-          compositionWidth={WINDOW_WIDTH}
-          compositionHeight={WINDOW_HEIGHT}
+          compositionWidth={MILL_STAGE[format].width}
+          compositionHeight={MILL_STAGE[format].height}
           durationInFrames={duration}
           fps={WINDOW_FPS}
           loop
@@ -242,7 +265,9 @@ export default function RiverWindow() {
             onClick={() => {
               const frame = player.current?.getCurrentFrame() ?? 0;
               player.current?.seekTo(
-                (Math.floor(frame / stride) * stride + stride) % duration
+                millMode
+                  ? nextMillFrame(frame, mills.length)
+                  : (Math.floor(frame / SCENE_STRIDE) * SCENE_STRIDE + SCENE_STRIDE) % WINDOW_FRAMES
               );
             }}
           >
@@ -256,7 +281,7 @@ export default function RiverWindow() {
         </nav>
         {!millMode ? <AssetHealth onError={onAssetError} /> : null}
       </div>
-      <p className={styles.portraitNote}>Turn your screen sideways for the river window.</p>
+      {format === 'landscape' ? <p className={styles.portraitNote}>Turn your screen sideways for the river window.</p> : null}
     </div>
   );
 }

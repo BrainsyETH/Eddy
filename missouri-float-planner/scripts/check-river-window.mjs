@@ -153,6 +153,30 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, 'mill-mobile.png') });
+  // Vertical format: a portrait wall picks it automatically; ?format= overrides.
+  await page.setViewportSize({ width: 1080, height: 1920 });
+  await page.goto(`${base}/embed/display?motion=off`, { waitUntil: 'networkidle' });
+  await page.locator('[data-format="vertical"][aria-label="Eddy River Window"]').waitFor();
+  for (let i = 0; i < ids.length; i++) {
+    await page.getByRole('button', { name: 'Mills', exact: true }).click();
+    await page.getByRole('region', { name: 'Choose a mill' }).getByRole('button', { name: names[i], exact: false }).click();
+    const dock = page.locator(`[data-dock="${ids[i]}"]`);
+    await dock.waitFor();
+    await page.waitForFunction(() => [...document.querySelectorAll('img')].every(i => i.complete && i.naturalWidth > 0));
+    const text = await dock.innerText();
+    assert.ok(text.includes(names[i]) && /\d/.test(text), `${ids[i]} dock names the mill and its reading`);
+    assert.equal(await dock.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} dock must fit`);
+    const placard = page.locator(`[data-mill="${ids[i]}"] [data-river]`);
+    assert.equal(await placard.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, `${ids[i]} placard must fit`);
+    await page.mouse.move(540, 1500);
+    await page.screenshot({ path: resolve(output, `mill-vertical-${ids[i]}.png`) });
+  }
+  await page.goto(`${base}/embed/display?format=landscape&motion=off`);
+  await page.locator('[data-format="landscape"][aria-label="Eddy River Window"]').waitFor();
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(`${base}/embed/display?format=vertical&motion=off`);
+  await page.locator('[data-dock="dillard"]').waitFor();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.goto(`${base}/embed/display?rivers=huzzah&motion=off`);
   assert.equal(await page.locator('[data-mill="alley"]').count(), 0);
   await page.locator('[data-mill="dillard"]').first().waitFor();
