@@ -38,6 +38,8 @@ export type HomeBaseRiver = {
 export type HomeBaseConfig = {
   id: string;
   name: string;
+  /** How the board names the place in its own copy ("Rivers near Pine Valley"). */
+  placeName: string;
   /** URL segment of the rivers' state on eddy.guide, e.g. /rivers/missouri/… */
   state: string;
   home: { lat: number; lng: number };
@@ -78,8 +80,9 @@ export type HomeBaseConfig = {
 export const PINE_VALLEY: HomeBaseConfig = {
   id: 'pine-valley',
   name: 'Pine Valley at Dillard Mill',
+  placeName: 'Pine Valley',
   state: 'missouri',
-  // Placeholder: Dillard Mill State Historic Site. Replace with the cabin's
+  // Placeholder: Dillard Mill State Historic Site. Replace with Pine Valley's
   // own coordinates when the owners supply them (docs/home-base-board.md).
   home: { lat: 37.7216, lng: -91.2148 },
   logo: { src: '/display/pine-valley/logo.png', width: 500, height: 175, alt: 'Pine Valley · Lodging, Camping, & Events' },
@@ -92,9 +95,9 @@ export const PINE_VALLEY: HomeBaseConfig = {
     falls: 'polygon(7.5% 52.5%, 15% 51.5%, 20% 54%, 20% 65%, 10% 66%, 7% 60%)',
   },
   rivers: [
-    { slug: 'huzzah', driveMinutes: 5, tip: 'The Dillard access is about half a mile from the cabin.' },
+    { slug: 'huzzah', driveMinutes: 5, tip: 'The Dillard access is about half a mile from Pine Valley.' },
     { slug: 'courtois', driveMinutes: 50, tip: 'Joins the Huzzah just above the Meramec.' },
-    { slug: 'meramec', driveMinutes: 50, tip: 'The nearest access is on the upper river, west of the cabin.' },
+    { slug: 'meramec', driveMinutes: 50, tip: 'The nearest access is on the upper river, west of Pine Valley.' },
     { slug: 'black', driveMinutes: 80, tip: 'The nearest access is on the Lesterville stretch.' },
     { slug: 'current', driveMinutes: 110, tip: 'The upper river below Montauk is the closest put-in.' },
     { slug: 'jacks-fork', driveMinutes: 135, tip: 'The lower river near Eminence is the closest put-in.' },

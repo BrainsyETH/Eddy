@@ -393,7 +393,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
             <Image src={config.logo.src} alt={config.logo.alt} width={config.logo.width} height={config.logo.height} />
           </div>
           <div className={`${styles.plaque} ${styles.title}`}>
-            <strong>Rivers near the cabin</strong>
+            <strong>Rivers near {config.placeName}</strong>
             <span>{door ? `Huzzah reading ${door.age}` : 'Eddy river conditions'}</span>
           </div>
           {door && (
@@ -405,7 +405,6 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
           )}
           <div className={styles.door}>
             <div className={styles.doorText}>
-              <span className={styles.eyebrow}>At the door</span>
               <h1 className={styles.doorName}>{door?.name ?? mill.riverName}</h1>
               {door ? (
                 <div className={styles.facts}>
@@ -524,7 +523,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               </g>
             </svg>
             <div className={`${styles.mapTitle} ${replay != null ? styles.replayTitle : ''}`}>
-              {replay != null && seriesEnd != null ? `Past 7 days · ${stepLabel(seriesTime(seriesEnd, replay))}` : 'The rivers around the cabin'}
+              {replay != null && seriesEnd != null ? `Past 7 days · ${stepLabel(seriesTime(seriesEnd, replay))}` : `The rivers around ${config.placeName}`}
             </div>
             {/* The key names only the conditions the map can show right now. */}
             <div className={styles.key} style={{ top: KEY_TOP + layout.mapGrow / 2 }}>
@@ -603,7 +602,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
           <section className={`${styles.card} ${styles.forecast}`} aria-label="Weather forecast">
             <div className={styles.forecastLabel}>
               <span className={styles.eyebrow}>Forecast</span>
-              <b>{forecast.place ? `Near ${forecast.place}` : 'Near the cabin'}</b>
+              <b>{forecast.place ? `Near ${forecast.place}` : `Near ${config.placeName}`}</b>
               <span>Rain chance in coral when 40% or more</span>
             </div>
             {forecast.days.map((d) => {
