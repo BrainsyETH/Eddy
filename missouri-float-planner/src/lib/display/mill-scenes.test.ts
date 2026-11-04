@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   MILL_INTERLUDE_FRAMES,
   MILL_PASS_FRAMES,
@@ -186,4 +186,19 @@ test('tall portrait screens stretch the vertical stage: tour band first, then a 
     }
   }
   assert.equal(verticalLayout(2560).tour, 640);
+});
+
+test('every mill tells two short, sourced facts', () => {
+  const docs = readFileSync('docs/missouri-mills.md', 'utf8');
+  for (const mill of MILL_SCENES) {
+    assert.equal(mill.facts.length, 2);
+    for (const fact of mill.facts) {
+      // One fact must fit the smallest painted board at TV distance.
+      assert.ok(fact.length >= 30 && fact.length <= 90, `${mill.id}: ${fact.length} chars`);
+      assert.match(fact, /[.]$/);
+    }
+    assert.notEqual(mill.facts[0], mill.facts[1]);
+    assert.match(mill.source, /^https:\/\//);
+    assert.ok(docs.includes(mill.source), `${mill.id} source is listed in the docs`);
+  }
 });

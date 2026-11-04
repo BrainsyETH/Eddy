@@ -345,12 +345,7 @@
 .millSign { position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; padding: 4px 5px; box-sizing: border-box; color: #f6e9c8; text-align: center; text-shadow: 0 1px 2px #101b16; overflow: hidden; font-family: var(--font-body), sans-serif; }
 .millName { font-size: 1.5em; font-weight: 650; line-height: 1.08; }
 .millLocation { font-size: .875em; line-height: 1.12; color: #dfd4b9; }
-.millRiver { font-size: .9375em; line-height: 1.12; margin-top: 5px; }
-.millReading { font-size: 2em; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
-.millReading small { font-size: 1.125em; margin-left: 6px; font-weight: 400; }
-.millCondition { font-size: 1.0625em; line-height: 1.1; }
-.millCondition[data-warning='true'] { color: #ffd19b; }
-.millAge { font-size: .8125em; line-height: 1.1; color: #dfd4b9; }
+.millFact { font-size: .9em; line-height: 1.25; margin: 4px 0 3px; color: #f6e9c8; text-wrap: balance; }
 .stage[data-theme='mills'] .brand,
 .stage[data-theme='mills'] .status { text-shadow: 0 2px 5px #0b201d, 0 0 18px #0b201d; }
 .brand, .status, .warning { animation: ambientDrift 600s ease-in-out infinite alternate; }
@@ -374,15 +369,11 @@
 .millSign[data-placard] .millName { font-size: 1.75em; }
 .millSign[data-placard] .millLocation { font-size: 1em; }
 .millDock { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; padding: 56px 84px 0; box-sizing: border-box; color: #f6e9c8; font-family: var(--font-body), sans-serif; border-top: 6px solid #5a4630; box-shadow: inset 0 1px 0 #8a6d4a; }
-.dockKicker { font-size: 26px; letter-spacing: 3px; text-transform: uppercase; color: #cdbf9e; }
 .dockName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 82px; font-weight: 500; line-height: 1.05; letter-spacing: -1px; margin-top: 14px; }
 .dockLocation { font-size: 32px; color: #dfd4b9; margin-top: 6px; }
-.dockRule { height: 2px; background: linear-gradient(to right, #8a6d4a, transparent); margin: 34px 0 26px; }
-.dockReading { font-size: 132px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
-.dockReading small { font-size: 50px; font-weight: 400; margin-left: 14px; letter-spacing: 0; }
-.dockCondition { font-size: 46px; line-height: 1.15; margin-top: 12px; }
-.dockCondition[data-warning='true'] { color: #ffd19b; }
-.dockAge { font-size: 30px; color: #dfd4b9; margin-top: 8px; }
+.dockRule { height: 2px; background: linear-gradient(to right, #8a6d4a, transparent); margin: 30px 0 28px; }
+.dockFacts { display: flex; flex-direction: column; gap: 20px; }
+.dockFacts p { margin: 0; font-size: 36px; line-height: 1.3; color: #f6e9c8; text-wrap: pretty; }
 .dockNext { position: absolute; left: 84px; right: 84px; bottom: 54px; font-size: 26px; letter-spacing: 1px; color: #b9ad8f; }
 .stage[data-format='vertical'] .brand { top: 3.2%; left: 6%; }
 .stage[data-format='vertical'] .status { top: 3.2%; right: 6%; }
@@ -406,11 +397,18 @@
 .interludeName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 92px; font-weight: 500; line-height: 1.04; letter-spacing: -1px; margin-top: 14px; }
 .interludeLocation { font-size: 34px; color: #dfd4b9; margin-top: 8px; }
 .interludeRoute { font-size: 30px; color: #cdbf9e; margin-top: 30px; }
-.interludeReading { display: flex; flex-direction: column; gap: 6px; margin-top: 34px; padding: 18px 24px; border-left: 4px solid #8fc3d6; background: #00000026; }
-.interludeReading span { font-size: 24px; letter-spacing: 2px; text-transform: uppercase; color: #cdbf9e; }
-.interludeReading b { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.interludeReading[data-warning='true'] { border-left-color: #e8b46d; }
-.interludeReading[data-warning='true'] b { color: #ffd19b; }
+/* River note: condition first, reading as a footnote. Board sizes are em
+   (the board scales its font); dock and journey sizes are composition px. */
+.riverNote { display: flex; flex-direction: column; gap: .15em; border-left: .18em solid #8fc3d6; padding-left: .5em; text-align: left; }
+.riverNote[data-warning] { border-left-color: #e8b46d; }
+.riverNoteLabel { font-size: .72em; letter-spacing: .12em; text-transform: uppercase; color: #cdbf9e; }
+.riverNoteLine { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .5em; }
+.riverNoteLine b { font-weight: 600; }
+.riverNote[data-warning] .riverNoteLine b { color: #ffd19b; }
+.riverNoteLine small { font-size: .8em; color: #dfd4b9; font-variant-numeric: tabular-nums; }
+.riverNote[data-variant='board'] { align-self: stretch; font-size: .85em; margin-top: 2px; }
+.riverNote[data-variant='dock'] { font-size: 30px; margin-top: 34px; padding-left: 18px; border-left-width: 4px; }
+.riverNote[data-variant='journey'] { font-size: 32px; margin-top: 34px; padding: 18px 24px; border-left-width: 4px; background: #00000026; }
 .mapState { stroke: #f4ead5; stroke-opacity: .28; stroke-width: 2; stroke-dasharray: 10 10; }
 .mapStateLabel { fill: #f4ead5; fill-opacity: .38; font-size: 22px; letter-spacing: 5px; }
 .mapRiver { fill: none; stroke: #8fc3d6; stroke-opacity: .42; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }

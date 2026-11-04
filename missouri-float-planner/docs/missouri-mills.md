@@ -18,8 +18,8 @@ or kiosk mounted on end, a phone held upright: any viewport at or taller than
 4:5) get the vertical format, a 1080 × 1920 composition: the painting fills the
 top window, opens centred on its mill (`focus` in the manifest) and drifts to
 its board, which there carries only the mill's name. Below it a dock, tinted
-from the painting's own foreground colour, holds the reading at room
-distance, plus the distance to the next mill. `?format=vertical` or
+from the painting's own foreground colour, holds the mill's two facts and the
+river note (below), plus the distance to the next mill. `?format=vertical` or
 `?format=landscape` overrides the automatic choice. `?start=<mill id>` opens
 on that mill. Framing hosts receive ready, status and a break as each painting
 ends ([display contract](embeds.md#display-contract)).
@@ -39,7 +39,7 @@ The journey between mills covers the whole stage and stays centred. The classic 
 dims into a veil tinted from both scenes, and a route map draws the leg from
 this mill to the next over the six rivers the collection reports (Missouri /
 Arkansas line for orientation), with the next mill's name, distance, heading
-and its river's live reading. The next painting is swapped in only under the
+and its river note. The next painting is swapped in only under the
 opaque veil, then opens out of its own dot on the map as an iris until it
 fills the screen. Every join is therefore different: its own leg, rivers,
 reading and opening point. Nothing is mirrored, crossfaded or seamed. A
@@ -65,6 +65,18 @@ always names its river. Related river / Nearby river distinguishes a broader
 river report from a measurement of the pictured spring branch. No demo data
 is used at runtime. High/dangerous reports retain the persistent warning strip.
 
+**The mill first, the river second.** The display is about the places, so a
+river reading is never the headline. Each mill carries two short facts
+(`facts`, at most 90 characters, from its `source`). In landscape the painted
+board shows the name, location and one fact (the first for half the scene,
+then the second), with the river note beneath. The vertical dock shows both.
+The river note leads with the condition word (Good, High, Last reported
+reading…, highlighted for high/dangerous) under its "River report / Related
+river / Nearby river · name" label; value, unit, age and trend follow in small
+type. The Readings table remains the full numeric view. Facts come only from
+the cited pages; where they disagree (Greer's and Dawt's construction dates),
+the disputed detail is left out. A unit test keeps every source listed below.
+
 ## Scene associations and reference sources
 
 | Scene | Setting | Eddy report | Reference page |
@@ -76,7 +88,7 @@ is used at runtime. High/dangerous reports retain the persistent warning strip.
 | Falling Spring | Mark Twain NF, near Winona | eleven-point (nearby river, not a local spring measurement) | https://www.explorewestplains.com/falling-spring-mill/ |
 | Greer | Wooded ridge above Greer Spring, near Alton | eleven-point (related river) | https://www.explorewestplains.com/greer-mill/ |
 | Turner | Surviving wheel/site, Turner Spring | eleven-point (related river) | https://www.exploretheozarksonline.com/activities/parksnature/wildscenicrivers/elevenpoint/turnermillnorth.html |
-| Hodgson | Sycamore, Ozark County | bryant-creek (related river) | https://gregdisch.com/2019/07/05/hodgson-water-mill/ |
+| Hodgson | Sycamore, Ozark County | bryant-creek (related river) | https://www.explorewestplains.com/hodgson-mill/ (facts); https://gregdisch.com/2019/07/05/hodgson-water-mill/ |
 | Dawt | Near Tecumseh, North Fork | north-fork-white | https://www.explorewestplains.com/dawt-mill/ |
 | Rockbridge | Spring Creek, Rockbridge | bryant-creek (related river) | https://www.explorewestplains.com/rockbridge-mill/ |
 

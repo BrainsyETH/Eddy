@@ -69,7 +69,7 @@ export default function MillWindowScene({ mills, signs, loading, format, height,
   return (
     <AbsoluteFill className={styles.millScene} data-format={format}>
       <div className={styles.millWindow} style={vertical ? { height: layout.art } : undefined}>
-        <MillPainting mill={mill} sign={sign} loading={loading} frame={frame} camera={camera} placard={vertical} onAssetError={onAssetError} />
+        <MillPainting mill={mill} sign={sign} loading={loading} frame={frame} sceneFrame={moment.sceneFrame} camera={camera} placard={vertical} onAssetError={onAssetError} />
         {vertical ? <div className={styles.millFade} style={{ background: `linear-gradient(to bottom, transparent, ${mill.tone})` }} aria-hidden="true" /> : null}
       </div>
       {vertical ? <MillDock mill={mill} sign={sign} loading={loading} next={next} top={layout.dockTop} /> : null}
@@ -92,16 +92,22 @@ export default function MillWindowScene({ mills, signs, loading, format, height,
   );
 }
 
-function MillPainting({ mill, sign, loading, frame, camera, placard, onAssetError }: {
+function MillPainting({ mill, sign, loading, frame, sceneFrame, camera, placard, onAssetError }: {
   mill: MillScene;
   sign: RiverWindowSign | undefined;
   loading: boolean;
   frame: number;
+  sceneFrame: number;
   camera: ReturnType<typeof millCamera>;
   placard: boolean;
   onAssetError: () => void;
 }) {
   const [left, top, width, height, angle] = mill.board;
+  // The board has room for one fact: the first for half the scene, then the
+  // second, with a brief dip between so the text never jumps.
+  const p = sceneProgress(sceneFrame);
+  const fact = mill.facts[p < 0.5 ? 0 : 1];
+  const factOpacity = Math.min(1, Math.abs(p - 0.5) * 40);
   return (
     <div
       className={styles.millPanel}
@@ -114,8 +120,9 @@ function MillPainting({ mill, sign, loading, frame, camera, placard, onAssetErro
           <Img src={millAsset(mill.id)} className={styles.millArt} style={{ transform: `translateX(${Math.sin((frame * Math.PI) / 60) * 1.5}px)` }} />
         </div>
       ) : null}
-      {/* The painted board carries the full reading in landscape. In the
-          vertical format the dock carries it, and the board is a name placard. */}
+      {/* In landscape the painted board tells the mill's story, with the
+          river's condition as a footnote. In the vertical format the dock
+          carries both, and the board is a name placard. */}
       <div
         className={styles.millSign}
         data-river={mill.riverSlug}
@@ -126,19 +133,28 @@ function MillPainting({ mill, sign, loading, frame, camera, placard, onAssetErro
         <div className={styles.millLocation}>{mill.location}</div>
         {placard ? null : (
           <>
-            <div className={styles.millRiver}>{mill.context} · {mill.riverName}</div>
-            {sign ? (
-              <>
-                <div className={styles.millReading}>{sign.value}<small>{sign.unit}</small></div>
-                <div className={styles.millCondition} data-warning={sign.code === 'high' || sign.code === 'dangerous'}>{sign.condition}</div>
-                <div className={styles.millAge}>{sign.age}{sign.trend ? ` · ${sign.trend}` : ''}</div>
-              </>
-            ) : (
-              <div className={styles.millCondition}>{loading ? 'Checking the river…' : 'Reading unavailable'}</div>
-            )}
+            <div className={styles.millFact} style={{ opacity: factOpacity }}>{fact}</div>
+            <RiverNote mill={mill} sign={sign} loading={loading} variant="board" />
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The river, condition first: the reading is a footnote, not the headline.
+ * It always names the river and whether it is the mill's own, a related or a
+ * nearby river; stale or missing readings say so instead of a condition. */
+function RiverNote({ mill, sign, loading, variant }: { mill: MillScene; sign: RiverWindowSign | undefined; loading: boolean; variant: 'board' | 'dock' | 'journey' }) {
+  const warning = sign ? sign.code === 'high' || sign.code === 'dangerous' : false;
+  const detail = sign ? [sign.value !== '—' ? `${sign.value}${sign.unit ? ` ${sign.unit}` : ''}` : null, sign.age, sign.trend].filter(Boolean).join(' · ') : null;
+  return (
+    <div className={styles.riverNote} data-variant={variant} data-warning={warning || undefined}>
+      <span className={styles.riverNoteLabel}>{mill.context} · {mill.riverName}</span>
+      <span className={styles.riverNoteLine}>
+        <b>{sign ? sign.condition : loading ? 'Checking the river…' : 'Reading unavailable'}</b>
+        {detail ? <small>{detail}</small> : null}
+      </span>
     </div>
   );
 }
@@ -151,19 +167,13 @@ function MillDock({ mill, sign, loading, next, top }: { mill: MillScene; sign: R
       data-dock={mill.id}
       style={{ top, height: VERTICAL_DOCK_HEIGHT, background: `linear-gradient(to bottom, ${mill.tone}, ${mixHex(mill.tone, NIGHT, 0.6)})` }}
     >
-      <div className={styles.dockKicker}>{mill.context} · {mill.riverName}</div>
       <div className={styles.dockName}>{mill.name}</div>
       <div className={styles.dockLocation}>{mill.location}</div>
       <div className={styles.dockRule} aria-hidden="true" />
-      {sign ? (
-        <>
-          <div className={styles.dockReading}>{sign.value}<small>{sign.unit}</small></div>
-          <div className={styles.dockCondition} data-warning={sign.code === 'high' || sign.code === 'dangerous'}>{sign.condition}</div>
-          <div className={styles.dockAge}>{sign.age}{sign.trend ? ` · ${sign.trend}` : ''}</div>
-        </>
-      ) : (
-        <div className={styles.dockCondition}>{loading ? 'Checking the river…' : 'Reading unavailable'}</div>
-      )}
+      <div className={styles.dockFacts}>
+        {mill.facts.map((f) => <p key={f}>{f}</p>)}
+      </div>
+      <RiverNote mill={mill} sign={sign} loading={loading} variant="dock" />
       {next && route ? <div className={styles.dockNext}>Next · {next.name} · {route.miles} mi {route.direction}</div> : null}
     </div>
   );
@@ -336,10 +346,7 @@ function MillInterlude({ from, to, frame, veil, sign, loading, format, height }:
           <div className={styles.interludeName}>{to.name}</div>
           <div className={styles.interludeLocation}>{to.location}</div>
           {route ? <div className={styles.interludeRoute}>{route.miles} mi {route.direction} of {from.name}</div> : null}
-          <div className={styles.interludeReading} data-warning={sign ? sign.code === 'high' || sign.code === 'dangerous' : undefined}>
-            <span>{to.context} · {to.riverName}</span>
-            <b>{sign ? `${sign.value}${sign.unit ? ` ${sign.unit}` : ''} · ${sign.condition}` : loading ? 'Checking the river…' : 'Reading unavailable'}</b>
-          </div>
+          <RiverNote mill={to} sign={sign} loading={loading} variant="journey" />
         </div>
       </div>
     </div>
