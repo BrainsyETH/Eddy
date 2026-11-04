@@ -9,8 +9,11 @@ import {
   MILL_STAGE,
   MILL_BREAK_FRAME,
   MILL_SWAP_FRAME,
+  TOUR_MIN_HEIGHT,
   VERTICAL_ART_HEIGHT,
   millBreakBetween,
+  VERTICAL_DOCK_HEIGHT,
+  VERTICAL_MAX_HEIGHT,
   millCamera,
   millDuration,
   millMoment,
@@ -20,6 +23,8 @@ import {
   nextMillFrame,
   parseMillFormat,
   selectMillScenes,
+  verticalHeight,
+  verticalLayout,
 } from './mill-scenes';
 import { MILL_MAP_HEIGHT, MILL_MAP_RIVERS, MILL_MAP_WIDTH, projectMap } from './mill-map';
 
@@ -69,6 +74,13 @@ test('one painting at a time; the swap happens only under the full veil', () => 
   assert.equal(millMoment(0, 0), null);
 });
 
+test('each mill holds the screen for 30 seconds, journey included', () => {
+  assert.equal(MILL_PASS_FRAMES / 30, 30);
+  assert.equal(millDuration(MILL_SCENES.length) / 30, 300);
+  // The painting still gets most of the pass.
+  assert.ok(MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES >= 2 * MILL_INTERLUDE_FRAMES);
+});
+
 test('Next mill advances from the mill on screen, including mid-interlude', () => {
   assert.equal(nextMillFrame(0, 10), MILL_PASS_FRAMES);
   assert.equal(nextMillFrame(MILL_PASS_FRAMES - 10, 10), 2 * MILL_PASS_FRAMES);
@@ -80,7 +92,7 @@ test('Next mill advances from the mill on screen, including mid-interlude', () =
 test('landscape keeps the live board in frame; vertical fills the window and pans to the board', () => {
   for (const mill of MILL_SCENES) {
     const [left, top, width, height] = mill.board;
-    for (const frame of [0, 1200, MILL_PASS_FRAMES]) {
+    for (const frame of [0, MILL_PASS_FRAMES / 2, MILL_PASS_FRAMES]) {
       const { scale } = millCamera(mill, frame, 'landscape');
       const ox = (left + width / 2) * 19.2;
       const oy = (top + height / 2) * 10.8;
@@ -144,4 +156,34 @@ test('display contract: one break as each painting ends, none for seeks; ?start=
   assert.equal(millStartFrame('alley', selectMillScenes(['huzzah'])), 0, 'a filtered-out mill opens on the first');
   // Frame 0 of the start pass is the mill's own painting.
   assert.equal(millMoment(millStartFrame('greer', MILL_SCENES), count)!.index, MILL_SCENES.findIndex((m) => m.id === 'greer'));
+});
+
+test('tall portrait screens stretch the vertical stage: tour band first, then a taller painting', () => {
+  assert.equal(verticalHeight(1080, 1920), 1920);
+  assert.equal(verticalHeight(1440, 2560), 1920); // still 9:16
+  assert.equal(verticalHeight(1920, 1080), 1920); // forced vertical on a landscape screen letterboxes
+  assert.equal(verticalHeight(1080, 2560), 2560); // an ultrawide on end
+  assert.equal(verticalHeight(1080, 2563) % 8, 0);
+  assert.equal(verticalHeight(500, 5000), VERTICAL_MAX_HEIGHT);
+  assert.equal(verticalHeight(0, 0), 1920);
+  assert.deepEqual(verticalLayout(1920), { height: 1920, art: VERTICAL_ART_HEIGHT, dockTop: VERTICAL_ART_HEIGHT, tourTop: 1920, tour: 0 });
+  // Too little extra for a readable band: it all goes to the painting.
+  assert.equal(verticalLayout(1920 + TOUR_MIN_HEIGHT - 8).tour, 0);
+  assert.equal(verticalLayout(1920 + TOUR_MIN_HEIGHT - 8).art, VERTICAL_ART_HEIGHT + TOUR_MIN_HEIGHT - 8);
+  for (const height of [1920, 2160, 2224, 2336, 2560, 2880, VERTICAL_MAX_HEIGHT]) {
+    const l = verticalLayout(height);
+    assert.equal(l.height, height);
+    assert.equal(l.art + VERTICAL_DOCK_HEIGHT + l.tour, height);
+    assert.ok(l.art >= VERTICAL_ART_HEIGHT);
+    assert.ok(l.tour === 0 || l.tour >= TOUR_MIN_HEIGHT);
+    for (const mill of MILL_SCENES) {
+      // A taller painting window still opens on the mill and ends at the board.
+      const start = millCamera(mill, 0, 'vertical', l.art);
+      const end = millCamera(mill, MILL_PASS_FRAMES - MILL_INTERLUDE_FRAMES, 'vertical', l.art);
+      const focusX = (mill.focus / 100) * 1920 * start.scale + start.x;
+      assert.ok(focusX > 200 && focusX < MILL_STAGE.vertical.width - 120, `${mill.id} at ${height}`);
+      assert.ok(Math.abs(1920 * end.scale + end.x - MILL_STAGE.vertical.width) < 0.01);
+    }
+  }
+  assert.equal(verticalLayout(2560).tour, 640);
 });

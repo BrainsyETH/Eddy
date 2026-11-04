@@ -171,6 +171,25 @@ try {
     await page.mouse.move(540, 1500);
     await page.screenshot({ path: resolve(output, `mill-vertical-${ids[i]}.png`) });
   }
+  // Taller than 9:16 (an ultrawide on end): the stage fills the screen and the
+  // tour band takes the extra height instead of letterbox bands.
+  await page.setViewportSize({ width: 1080, height: 2560 });
+  await page.goto(`${base}/embed/display?motion=off`, { waitUntil: 'networkidle' });
+  const tour = page.locator('[data-tour="dillard"]');
+  await tour.waitFor();
+  const stageBox = await page.locator('[aria-label="Eddy River Window"]').boundingBox();
+  assert.ok(Math.abs(stageBox.height - 2560) <= 1 && Math.abs(stageBox.width - 1080) <= 1, 'Tall stage fills the screen');
+  assert.equal(await tour.locator('li').count(), 10);
+  assert.match(await tour.locator('[aria-current="step"]').innerText(), /Dillard Mill/);
+  assert.equal(await tour.evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'Tour band must fit');
+  await page.waitForFunction(() => [...document.querySelectorAll('img')].every(i => i.complete && i.naturalWidth > 0));
+  await page.mouse.move(540, 2000);
+  await page.screenshot({ path: resolve(output, 'mill-vertical-tall.png') });
+  await page.setViewportSize({ width: 1080, height: 2160 });
+  // Too little extra height for a band: the painting takes it.
+  await page.locator('[data-tour]').waitFor({ state: 'detached' });
+  await page.locator('[data-dock="dillard"]').waitFor();
+  await page.setViewportSize({ width: 1080, height: 1920 });
   await page.goto(`${base}/embed/display?format=landscape&motion=off`);
   await page.locator('[data-format="landscape"][aria-label="Eddy River Window"]').waitFor();
   await page.setViewportSize({ width: 1920, height: 1080 });

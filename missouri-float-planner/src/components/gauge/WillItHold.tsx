@@ -1,18 +1,8 @@
 'use client';
 
-import {
-  Cloud,
-  CloudFog,
-  CloudLightning,
-  CloudRain,
-  CloudSun,
-  Snowflake,
-  Sun,
-  Thermometer,
-  Waves,
-  type LucideIcon,
-} from 'lucide-react';
+import { CloudRain, Thermometer, Waves } from 'lucide-react';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import { weatherGlyph } from '@/components/ui/weather-glyph';
 import {
   HEAT_ADVISORY_TEMP_F,
   formatOutlookDay,
@@ -24,17 +14,6 @@ interface WillItHoldProps {
   outlook: RiverOutlookState;
   embedded?: boolean;
   className?: string;
-}
-
-function weatherGlyph(iconCode: string): LucideIcon {
-  if (iconCode.startsWith('01')) return Sun;
-  if (iconCode.startsWith('02')) return CloudSun;
-  if (iconCode.startsWith('03') || iconCode.startsWith('04')) return Cloud;
-  if (iconCode.startsWith('09') || iconCode.startsWith('10')) return CloudRain;
-  if (iconCode.startsWith('11')) return CloudLightning;
-  if (iconCode.startsWith('13')) return Snowflake;
-  if (iconCode.startsWith('50')) return CloudFog;
-  return CloudSun;
 }
 
 // Rain is a fact about the day, not a control. It reads as plain text, weighted

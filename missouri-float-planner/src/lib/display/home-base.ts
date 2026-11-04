@@ -7,6 +7,9 @@
 // the map projection, the rows the board shows, the self-running loop, and
 // the parsing of the network payloads it reads. The component only draws.
 
+import { classifyReading, type ConditionThresholds } from '@shared/condition-ladder';
+import { conditionDef, type ConditionCode } from '@shared/condition-system';
+import { flowBand, type FlowBand } from '@shared/flow-band';
 import { conditionSnapshotMatches } from '@/lib/condition-snapshot';
 import type { RiverListItem } from '@/types/api';
 import { toWindowSign, type RiverWindowSign } from './river-window';
@@ -54,6 +57,11 @@ export type HomeBaseConfig = {
   /** App Store campaign token for installs from this board. */
   campaign: string;
   map: MapFrame;
+  /**
+   * Relief and geometry extend this many px above and below the map frame,
+   * so the map can grow on a screen taller than 9:16 (see boardLayout).
+   */
+  reliefPad: number;
   lines: Record<string, LngLat[]>;
   /** USGS site → position and which side of the dot its reading tag sits. */
   gauges: Record<string, { at: LngLat; side: 'left' | 'right' }>;
@@ -93,6 +101,7 @@ export const PINE_VALLEY: HomeBaseConfig = {
   ],
   campaign: 'pine_valley',
   map: { lng0: -92.34, lat1: 38.06, refLat: 37.52, scale: 528, width: 978, height: 586 },
+  reliefPad: 260,
   lines: PINE_VALLEY_LINES,
   gauges: {
     '07013000': { at: [-91.3609, 37.9985], side: 'left' }, // Meramec River near Steelville
@@ -140,6 +149,69 @@ export function linePath(frame: MapFrame, coords: LngLat[]): string {
       return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
     })
     .join('');
+}
+
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+export const BOARD_WIDTH = 1080;
+export const BOARD_HEIGHT = 1920; // the 9:16 design height
+/** The forecast card and the gap above it. */
+export const FORECAST_BLOCK = 150 + 24;
+
+export type BoardLayout = { scale: number; x: number; y: number; height: number; forecast: boolean; mapGrow: number };
+
+/**
+ * Fit the board to a screen. On 9:16 or wider it is the 1080 x 1920 design,
+ * letterboxed at the sides. On a taller screen (a 21:9 monitor on its side)
+ * the board grows to fill the height instead of leaving bars: first room for
+ * the forecast, then the map, up to what the relief and geometry cover.
+ */
+export function boardLayout(viewportW: number, viewportH: number, config: HomeBaseConfig, hasForecast: boolean): BoardLayout {
+  if (viewportW <= 0 || viewportH <= 0) return { scale: 0, x: 0, y: 0, height: BOARD_HEIGHT, forecast: false, mapGrow: 0 };
+  if (viewportH / viewportW <= BOARD_HEIGHT / BOARD_WIDTH) {
+    const scale = viewportH / BOARD_HEIGHT;
+    return { scale, x: (viewportW - BOARD_WIDTH * scale) / 2, y: 0, height: BOARD_HEIGHT, forecast: false, mapGrow: 0 };
+  }
+  const scale = viewportW / BOARD_WIDTH;
+  const room = Math.floor(viewportH / scale) - BOARD_HEIGHT;
+  const forecast = hasForecast && room >= FORECAST_BLOCK;
+  const mapGrow = Math.min(Math.max(0, room - (forecast ? FORECAST_BLOCK : 0)), 2 * config.reliefPad);
+  const height = BOARD_HEIGHT + (forecast ? FORECAST_BLOCK : 0) + mapGrow;
+  return { scale, x: 0, y: (viewportH - height * scale) / 2, height, forecast, mapGrow };
+}
+
+/** The map frame grown by `grow` px, half above and half below. */
+export function growFrame(frame: MapFrame, grow: number): MapFrame {
+  return { ...frame, lat1: frame.lat1 + grow / 2 / frame.scale, height: frame.height + grow };
+}
+
+// ── Forecast ─────────────────────────────────────────────────────────────────
+
+/**
+ * A rain chance at or above this reads as "rain coming" across Eddy. Equal to
+ * RAIN_CHANCE_THRESHOLD in src/lib/weather/openweather.ts (a server module the
+ * board must not import); home-base.test.ts holds them equal.
+ */
+export const RAIN_EMPHASIS = 40;
+
+export type ForecastDay = { date: string; day: string; high: number; low: number; icon: string; rain: number };
+
+const CENTRAL_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' });
+
+/**
+ * /api/weather/<slug>/forecast → up to `count` days from today (Central).
+ * Malformed days are dropped; no days is "no forecast", not an error card.
+ */
+export function parseForecast(value: unknown, now: number, count = 4): { place: string | null; days: ForecastDay[] } {
+  const v = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const today = CENTRAL_DATE.format(new Date(now));
+  const days = (Array.isArray(v.forecast) ? v.forecast : []).flatMap((d): ForecastDay[] => {
+    if (!d || typeof d !== 'object') return [];
+    const { date, dayOfWeek, tempHigh, tempLow, conditionIcon, precipitation } = d as Record<string, unknown>;
+    if (typeof date !== 'string' || date < today || typeof dayOfWeek !== 'string' || !finite(tempHigh) || !finite(tempLow)) return [];
+    return [{ date, day: date === today ? 'Today' : dayOfWeek, high: Math.round(tempHigh), low: Math.round(tempLow), icon: typeof conditionIcon === 'string' ? conditionIcon : '', rain: finite(precipitation) ? Math.round(precipitation) : 0 }];
+  });
+  return { place: typeof v.location === 'string' ? v.location : null, days: days.slice(0, count) };
 }
 
 // ── Artwork ──────────────────────────────────────────────────────────────────
@@ -375,4 +447,154 @@ export function eddyTakeFor(value: unknown, river: RiverListItem | undefined): s
   );
   const text = u.summaryText.trim().replace(/^["“]|["”]$/g, '');
   return matches && text ? text : null;
+}
+
+// ── The week, rated ──────────────────────────────────────────────────────────
+
+/**
+ * /api/gauge-thresholds → each board river's primary-gauge ladder, keyed by
+ * river slug. Two rivers on one gauge can still carry their own ladders.
+ */
+export function parseRiverLadders(value: unknown, slugs: string[]): Map<string, ConditionThresholds> {
+  const out = new Map<string, ConditionThresholds>();
+  const rivers = value && typeof value === 'object' ? (value as { rivers?: unknown }).rivers : null;
+  if (!Array.isArray(rivers)) return out;
+  for (const river of rivers) {
+    if (!river || typeof river !== 'object') continue;
+    const { riverSlug, gauges } = river as { riverSlug?: unknown; gauges?: unknown };
+    if (typeof riverSlug !== 'string' || !slugs.includes(riverSlug) || !Array.isArray(gauges)) continue;
+    const primary = gauges.find((g) => g && typeof g === 'object' && (g as { isPrimary?: unknown }).isPrimary === true) as
+      | { unit?: unknown; thresholds?: Record<string, unknown> }
+      | undefined;
+    if (!primary || (primary.unit !== 'ft' && primary.unit !== 'cfs') || !primary.thresholds) continue;
+    const t = primary.thresholds;
+    const n = (v: unknown) => (finite(v) ? v : null);
+    out.set(riverSlug, {
+      levelTooLow: n(t.tooLow),
+      levelLow: n(t.low),
+      levelOptimalMin: n(t.optimalMin),
+      levelOptimalMax: n(t.optimalMax),
+      levelHigh: n(t.high),
+      levelDangerous: n(t.dangerous),
+      thresholdUnit: primary.unit,
+    });
+  }
+  return out;
+}
+
+/**
+ * Each point of a series rated with Eddy's own ladder (the shared classifier
+ * the app and the phone use), so the replay can colour the past honestly. A
+ * series in a different unit from its ladder is not rated (null throughout).
+ */
+export function rateSeries(series: (number | null)[], unit: string, ladder: ConditionThresholds | undefined): (ConditionCode | null)[] {
+  if (!ladder || ladder.thresholdUnit !== unit) return series.map(() => null);
+  return series.map((v) => {
+    if (v == null) return null;
+    const code = unit === 'cfs' ? classifyReading(null, ladder, v, { strictUnit: true }) : classifyReading(v, ladder, null, { strictUnit: true });
+    return code === 'unknown' ? null : code;
+  });
+}
+
+export type StoryEvent = { index: number; slug: string; text: string; weight: number };
+export type WeekStory = { events: StoryEvent[]; summary: string | null };
+
+export const shortName = (name: string) => name.replace(/ (River|Creek)$/, '');
+/** A rise worth a caption: 15% or more in six hours. */
+export const STORY_RISE = 0.15;
+/** A rise worth a pulse down the river: 3% or more in one step. */
+export const PULSE_RISE = 0.03;
+
+/**
+ * The week's moments, from the data: each river's sharpest six-hour rise and
+ * its latest change of condition, plus one summary line. Rivers that share
+ * another row's gauge are skipped so a moment is never told twice.
+ */
+export function weekStory(
+  rivers: { slug: string; name: string; sharesGaugeWith: string | null }[],
+  series: Map<string, (number | null)[]>,
+  ratings: Map<string, (ConditionCode | null)[]>,
+  end: number,
+): WeekStory {
+  const events: StoryEvent[] = [];
+  let biggest: { name: string; change: number } | null = null;
+  for (const river of rivers) {
+    if (river.sharesGaugeWith) continue;
+    const v = series.get(river.slug) ?? [];
+    const name = shortName(river.name);
+    let rise: StoryEvent | null = null;
+    for (let i = 2; i < v.length; i++) {
+      const a = v[i - 2], b = v[i];
+      if (a == null || b == null || a <= 0) continue;
+      const pct = (b - a) / a;
+      if (pct >= STORY_RISE && (!rise || pct > rise.weight)) {
+        rise = { index: i, slug: river.slug, weight: pct, text: `${stepLabel(seriesTime(end, i))}: ${name} up ${Math.round(pct * 100)}% in 6 hours` };
+      }
+    }
+    if (rise) events.push(rise);
+    const c = ratings.get(river.slug) ?? [];
+    for (let i = c.length - 1; i > 0; i--) {
+      if (c[i] && c[i - 1] && c[i] !== c[i - 1]) {
+        events.push({ index: i, slug: river.slug, weight: 2, text: `${stepLabel(seriesTime(end, i))}: ${name} turned ${conditionDef(c[i]!).label}` });
+        break;
+      }
+    }
+    const nums = v.filter(finite);
+    if (nums.length >= 2 && nums[0] > 0) {
+      const change = (nums[nums.length - 1] - nums[0]) / nums[0];
+      if (!biggest || Math.abs(change) > Math.abs(biggest.change)) biggest = { name, change };
+    }
+  }
+  // One caption per moment: at a shared step the heavier event wins.
+  const byIndex = new Map<number, StoryEvent>();
+  for (const e of events) if ((byIndex.get(e.index)?.weight ?? -1) < e.weight) byIndex.set(e.index, e);
+  const summary = !biggest
+    ? null
+    : Math.abs(biggest.change) < 0.05
+      ? 'A quiet week: every river within 5% of where it started.'
+      : `This week: ${biggest.name} ${biggest.change > 0 ? 'rose' : 'fell'} ${Math.round(Math.abs(biggest.change) * 100)}%, the most on the board.`;
+  return { events: [...byIndex.values()].sort((a, b) => a.index - b.index), summary };
+}
+
+export const STORY_DEFAULT = 'Each river is colored by its condition at that hour, rated by Eddy.';
+/** How long a moment stays up, in replay steps. */
+export const CAPTION_STEPS = 10;
+
+/**
+ * The caption at a replay step: the latest moment still within its window.
+ * The week's summary is not a caption; the board shows it during the hold
+ * that follows the replay, so it never hides the moments at the end.
+ */
+export function storyCaption(story: WeekStory, index: number): string {
+  const current = [...story.events].reverse().find((e) => e.index <= index && index - e.index < CAPTION_STEPS);
+  return current?.text ?? STORY_DEFAULT;
+}
+
+/** Did this river rise enough at this step to send a pulse downstream? */
+export function risingAt(series: (number | null)[], index: number): boolean {
+  const a = series[index - 1], b = series[index];
+  return a != null && b != null && a > 0 && (b - a) / a >= PULSE_RISE;
+}
+
+// ── Compared with usual, and water temperature ───────────────────────────────
+
+export type GaugeExtras = { band: FlowBand | null; waterF: number | null };
+
+/** Water temperature older than this is not shown. */
+export const WATER_TEMP_MAX_AGE_MS = 6 * 3_600_000;
+
+/**
+ * /api/gauges/<site>: the seasonal band (today's flow against the same date
+ * in past years) and the latest water temperature, if fresh.
+ */
+export function parseGaugeExtras(value: unknown, now: number): GaugeExtras {
+  const gauge = value && typeof value === 'object' ? (value as { gauge?: unknown }).gauge : null;
+  if (!gauge || typeof gauge !== 'object') return { band: null, waterF: null };
+  const g = gauge as Record<string, unknown>;
+  const seasonal = g.seasonalContext && typeof g.seasonalContext === 'object' ? (g.seasonalContext as Record<string, unknown>) : null;
+  const band = seasonal && finite(seasonal.percentile) ? flowBand(seasonal.percentile) : null;
+  const water = g.waterTemperature && typeof g.waterTemperature === 'object' ? (g.waterTemperature as Record<string, unknown>) : null;
+  const observed = water && typeof water.observedAt === 'string' ? Date.parse(water.observedAt) : NaN;
+  const waterF = water && finite(water.valueF) && Number.isFinite(observed) && now - observed <= WATER_TEMP_MAX_AGE_MS ? Math.round(water.valueF) : null;
+  return { band, waterF };
 }

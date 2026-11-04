@@ -5,16 +5,21 @@ import { AbsoluteFill, Img, useCurrentFrame } from 'remotion';
 import {
   MILL_STAGE,
   MILL_SCENES,
-  VERTICAL_ART_HEIGHT,
+  VERTICAL_DOCK_HEIGHT,
   millAsset,
   millCamera,
   millMoment,
   millRoute,
   mixHex,
+  sceneProgress,
+  verticalLayout,
   type MillFormat,
   type MillScene,
 } from '@/lib/display/mill-scenes';
-import { MILL_MAP_HEIGHT, MILL_MAP_RIVERS, MILL_MAP_WIDTH, STATE_LINE_LAT, projectMap, routeArc } from '@/lib/display/mill-map';
+import { MILL_MAP_HEIGHT, MILL_MAP_RIVERS, MILL_MAP_WIDTH, STATE_LINE_LAT, projectMap, routeArc, tourViewBox } from '@/lib/display/mill-map';
+
+// Always framed on all ten mills, so a filtered tour keeps its place in the Ozarks.
+const TOUR_VIEW = tourViewBox(MILL_SCENES.map((m) => projectMap(...m.at)));
 import type { RiverWindowSign } from '@/lib/display/river-window';
 import styles from './river-window.module.css';
 
@@ -23,14 +28,18 @@ export type MillWindowSceneProps = {
   signs: RiverWindowSign[];
   loading: boolean;
   format: MillFormat;
+  /** Composition height: 1080 in landscape; 1920 or more in vertical. */
+  height: number;
   onAssetError: () => void;
 };
 
 const NIGHT = '#0c1511';
 const span = (frame: number, from: number, to: number) => Math.min(1, Math.max(0, (frame - from) / (to - from)));
 const smooth = (t: number) => t * t * (3 - 2 * t);
+/** Legs alternate the side they bow to (shared by the journey and the tour band). */
+const legSide = (from: MillScene): 1 | -1 => (MILL_SCENES.findIndex((m) => m.id === from.id) % 2 ? 1 : -1);
 
-export default function MillWindowScene({ mills, signs, loading, format, onAssetError }: MillWindowSceneProps) {
+export default function MillWindowScene({ mills, signs, loading, format, height, onAssetError }: MillWindowSceneProps) {
   const frame = useCurrentFrame();
   const moment = millMoment(frame, mills.length);
   // Decode the next painting while this one plays. Only one full-size
@@ -52,17 +61,21 @@ export default function MillWindowScene({ mills, signs, loading, format, onAsset
   }
   const mill = mills[moment.index];
   const sign = signs.find((s) => s.slug === mill.riverSlug);
-  const camera = millCamera(mill, moment.sceneFrame, format);
   const vertical = format === 'vertical';
+  const layout = verticalLayout(vertical ? height : MILL_STAGE.vertical.height);
+  const camera = millCamera(mill, moment.sceneFrame, format, layout.art);
   const next = mills.length > 1 ? mills[(moment.index + 1) % mills.length] : null;
 
   return (
     <AbsoluteFill className={styles.millScene} data-format={format}>
-      <div className={styles.millWindow} style={vertical ? { height: VERTICAL_ART_HEIGHT } : undefined}>
+      <div className={styles.millWindow} style={vertical ? { height: layout.art } : undefined}>
         <MillPainting mill={mill} sign={sign} loading={loading} frame={frame} camera={camera} placard={vertical} onAssetError={onAssetError} />
         {vertical ? <div className={styles.millFade} style={{ background: `linear-gradient(to bottom, transparent, ${mill.tone})` }} aria-hidden="true" /> : null}
       </div>
-      {vertical ? <MillDock mill={mill} sign={sign} loading={loading} next={next} /> : null}
+      {vertical ? <MillDock mill={mill} sign={sign} loading={loading} next={next} top={layout.dockTop} /> : null}
+      {vertical && layout.tour ? (
+        <MillTour mills={mills} index={moment.index} progress={moment.interlude ? 1 : sceneProgress(moment.sceneFrame)} frame={frame} top={layout.tourTop} height={layout.tour} tone={mill.tone} />
+      ) : null}
       {moment.interlude ? (
         <MillInterlude
           from={mills[moment.interlude.from]}
@@ -72,6 +85,7 @@ export default function MillWindowScene({ mills, signs, loading, format, onAsset
           sign={signs.find((s) => s.slug === mills[moment.interlude!.to].riverSlug)}
           loading={loading}
           format={format}
+          height={vertical ? layout.height : MILL_STAGE.landscape.height}
         />
       ) : null}
     </AbsoluteFill>
@@ -129,13 +143,13 @@ function MillPainting({ mill, sign, loading, frame, camera, placard, onAssetErro
   );
 }
 
-function MillDock({ mill, sign, loading, next }: { mill: MillScene; sign: RiverWindowSign | undefined; loading: boolean; next: MillScene | null }) {
+function MillDock({ mill, sign, loading, next, top }: { mill: MillScene; sign: RiverWindowSign | undefined; loading: boolean; next: MillScene | null; top: number }) {
   const route = next && next.id !== mill.id ? millRoute(mill, next) : null;
   return (
     <div
       className={styles.millDock}
       data-dock={mill.id}
-      style={{ top: VERTICAL_ART_HEIGHT, background: `linear-gradient(to bottom, ${mill.tone}, ${mixHex(mill.tone, NIGHT, 0.6)})` }}
+      style={{ top, height: VERTICAL_DOCK_HEIGHT, background: `linear-gradient(to bottom, ${mill.tone}, ${mixHex(mill.tone, NIGHT, 0.6)})` }}
     >
       <div className={styles.dockKicker}>{mill.context} · {mill.riverName}</div>
       <div className={styles.dockName}>{mill.name}</div>
@@ -155,6 +169,79 @@ function MillDock({ mill, sign, loading, next }: { mill: MillScene; sign: RiverW
   );
 }
 
+/** Below the dock on screens taller than 9:16: the whole tour on the map,
+ * legs travelled, the leg under way filling in as the scene plays, and the
+ * stops in order. It is the same map the journey between mills draws on. */
+function MillTour({ mills, index, progress, frame, top, height, tone }: {
+  mills: MillScene[];
+  index: number;
+  progress: number;
+  frame: number;
+  top: number;
+  height: number;
+  tone: string;
+}) {
+  const count = mills.length;
+  const body = height - 64 - 64; // padding and header
+  const k = body / TOUR_VIEW.height;
+  const px = (v: number) => v / k; // screen pixels → map units
+  const points = mills.map((m) => projectMap(...m.at));
+  const next = count > 1 ? (index + 1) % count : null;
+  const rowHeight = body / count;
+  const list = count > 1 && rowHeight >= 40;
+  const route = next !== null ? millRoute(mills[index], mills[next]) : null;
+  const breathe = (Math.sin((frame * Math.PI) / 45) + 1) / 2;
+  const [cx, cy] = points[index];
+  return (
+    <div className={styles.millTour} data-tour={mills[index].id} style={{ top, height, background: mixHex(tone, NIGHT, 0.78) }}>
+      <div className={styles.tourHead}>
+        <span>The mill tour</span>
+        <span>Stop {index + 1} of {count}</span>
+      </div>
+      <div className={styles.tourBody} style={{ height: body }}>
+        <svg className={styles.tourMap} style={{ height: body, aspectRatio: `${TOUR_VIEW.width} / ${TOUR_VIEW.height}` }} viewBox={`${TOUR_VIEW.x} ${TOUR_VIEW.y} ${TOUR_VIEW.width} ${TOUR_VIEW.height}`} aria-hidden="true">
+          {Object.values(MILL_MAP_RIVERS).map((line, i) => (
+            <polyline key={i} points={line} className={styles.mapRiver} style={{ strokeWidth: px(1.5) }} />
+          ))}
+          {count > 1 ? mills.map((m, i) => {
+            const arc = routeArc(points[i], points[(i + 1) % count], legSide(m));
+            const done = i < index;
+            const current = i === index;
+            return (
+              <g key={m.id}>
+                <path d={arc.d} className={styles.tourLeg} data-state={done ? 'done' : 'ahead'} style={{ strokeWidth: px(done ? 2 : 1.5), strokeDasharray: done ? undefined : `${px(4)} ${px(5)}` }} />
+                {current ? <path d={arc.d} pathLength={1} className={styles.tourLegNow} style={{ strokeWidth: px(3), strokeDasharray: 1, strokeDashoffset: 1 - progress }} /> : null}
+              </g>
+            );
+          }) : null}
+          {points.map(([x, y], i) => (
+            <circle key={mills[i].id} cx={x} cy={y} r={px(i === index ? 0 : 4)} className={styles.mapMill} style={{ fillOpacity: i < index ? 0.75 : 0.45 }} />
+          ))}
+          {next !== null ? <circle cx={points[next][0]} cy={points[next][1]} r={px(7)} className={styles.tourNext} style={{ strokeWidth: px(2) }} /> : null}
+          <circle cx={cx} cy={cy} r={px(10 + breathe * 6)} className={styles.mapPulse} style={{ strokeWidth: px(2), opacity: 0.25 + (1 - breathe) * 0.45 }} />
+          <circle cx={cx} cy={cy} r={px(8)} className={styles.mapTo} style={{ strokeWidth: px(2.5) }} />
+        </svg>
+        {list ? (
+          <ol className={styles.tourList} style={{ fontSize: Math.min(28, rowHeight * 0.52) }}>
+            {mills.map((m, i) => (
+              <li key={m.id} style={{ height: Math.min(rowHeight, 64) }} data-state={i === index ? 'now' : i === next ? 'next' : i < index ? 'done' : 'ahead'} aria-current={i === index ? 'step' : undefined}>
+                <b>{i + 1}</b>
+                <span>{m.name}</span>
+                {i === index ? <em>Now</em> : i === next ? <em>Next</em> : null}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className={styles.tourSummary}>
+            <div><em>Now</em>{mills[index].name}</div>
+            {next !== null && route ? <div><em>Next</em>{mills[next].name} · {route.miles} mi {route.direction}</div> : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Where the route map sits in each composition, so the iris can open from the
 // destination dot's exact pixel. Text takes the remaining column or band.
 const MAP_BOX: Record<MillFormat, { left: number; top: number; height: number }> = {
@@ -167,7 +254,7 @@ const MAP_BOX: Record<MillFormat, { left: number; top: number; height: number }>
  * collection together. Then the next mill opens out of its own dot on the map,
  * an iris that grows until the place fills the screen. Each join is its own:
  * a different leg, river, reading and opening point, never a repeated prop. */
-function MillInterlude({ from, to, frame, veil, sign, loading, format }: {
+function MillInterlude({ from, to, frame, veil, sign, loading, format, height }: {
   from: MillScene;
   to: MillScene;
   frame: number;
@@ -175,21 +262,23 @@ function MillInterlude({ from, to, frame, veil, sign, loading, format }: {
   sign: RiverWindowSign | undefined;
   loading: boolean;
   format: MillFormat;
+  height: number;
 }) {
   const same = from.id === to.id;
   const route = same ? null : millRoute(from, to);
   const a = projectMap(...from.at);
   const b = projectMap(...to.at);
-  const side = MILL_SCENES.findIndex((m) => m.id === from.id) % 2 ? 1 : -1;
-  const arc = routeArc(a, b, side);
+  const arc = routeArc(a, b, legSide(from));
   const shown = smooth(span(frame, 24, 48)) * (1 - smooth(span(frame, 178, 200)));
   const draw = smooth(span(frame, 44, 130));
   const head = arc.at(draw);
   const arrived = span(frame, 120, 150);
   const tint = mixHex(mixHex(from.tone, to.tone, span(frame, 30, 150)), NIGHT, 0.45);
   const [, stateY] = projectMap(STATE_LINE_LAT, 0);
-  const { width, height } = MILL_STAGE[format];
-  const box = MAP_BOX[format];
+  const { width } = MILL_STAGE[format];
+  // A stretched vertical stage keeps the card centred in the extra height.
+  const lift = Math.max(0, (height - MILL_STAGE[format].height) / 2);
+  const box = { ...MAP_BOX[format], top: MAP_BOX[format].top + lift };
   const k = box.height / MILL_MAP_HEIGHT;
   const cx = box.left + b[0] * k;
   const cy = box.top + b[1] * k;
@@ -242,7 +331,7 @@ function MillInterlude({ from, to, frame, veil, sign, loading, format }: {
           <circle cx={b[0]} cy={b[1]} r={13} className={styles.mapTo} style={{ opacity: same ? 1 : 0.35 + arrived * 0.65 }} />
           {label(b, to.name, true)}
         </svg>
-        <div className={styles.interludeText}>
+        <div className={styles.interludeText} style={format === 'vertical' ? { top: 1210 + lift } : undefined}>
           <div className={styles.interludeKicker}>{same ? 'Once more at' : 'Next mill'}</div>
           <div className={styles.interludeName}>{to.name}</div>
           <div className={styles.interludeLocation}>{to.location}</div>

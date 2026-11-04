@@ -3,11 +3,25 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import type { RiverListItem } from '@/types/api';
+import { RAIN_CHANCE_THRESHOLD } from '@/lib/weather/openweather';
 import { MILL_SCENES } from './mill-scenes';
 import {
+  RAIN_EMPHASIS,
   advanceLoop,
   loopCompleted,
+  parseGaugeExtras,
+  parseRiverLadders,
+  rateSeries,
+  risingAt,
+  storyCaption,
+  STORY_DEFAULT,
+  weekStory,
   artRegion,
+  BOARD_HEIGHT,
+  boardLayout,
+  FORECAST_BLOCK,
+  growFrame,
+  parseForecast,
   boardRows,
   eddyTakeFor,
   formatReading,
@@ -216,4 +230,118 @@ test('water regions become small boxes with the polygon inside them', () => {
       assert.ok(box.width > 0 && box.height > 0 && box.left >= 0 && box.left + box.width <= 1080, `${config.id}: ${polygon}`);
     }
   }
+});
+
+test('a 9:16 or wider screen gets the design size; a taller one grows instead of letterboxing', () => {
+  const exact = boardLayout(1080, 1920, PINE_VALLEY, true);
+  assert.deepEqual(exact, { scale: 1, x: 0, y: 0, height: BOARD_HEIGHT, forecast: false, mapGrow: 0 });
+  const wide = boardLayout(1200, 1920, PINE_VALLEY, true);
+  assert.equal(wide.height, BOARD_HEIGHT);
+  assert.equal(wide.x, 60, 'side bars on a 16:10 screen');
+  const ultrawide = boardLayout(1080, 2560, PINE_VALLEY, true);
+  assert.equal(ultrawide.forecast, true);
+  assert.equal(ultrawide.height, 2560, 'fills a 21:9 screen turned on its side');
+  assert.equal(ultrawide.mapGrow, 2560 - BOARD_HEIGHT - FORECAST_BLOCK);
+  assert.equal(boardLayout(1440, 3413, PINE_VALLEY, false).forecast, false, 'no forecast data, no forecast card');
+  assert.equal(boardLayout(1080, 1990, PINE_VALLEY, true).forecast, false, 'not enough room for the card');
+  const extreme = boardLayout(1080, 5000, PINE_VALLEY, true);
+  assert.equal(extreme.mapGrow, 2 * PINE_VALLEY.reliefPad, 'never grows past the baked relief');
+  assert.ok(extreme.y > 0, 'beyond that, centred');
+  assert.equal(boardLayout(0, 0, PINE_VALLEY, true).scale, 0);
+});
+
+test('growing the map keeps the place where it was on the ground', () => {
+  const grown = growFrame(PINE_VALLEY.map, 200);
+  const [, y0] = project(PINE_VALLEY.map, PINE_VALLEY.home.lng, PINE_VALLEY.home.lat);
+  const [, y1] = project(grown, PINE_VALLEY.home.lng, PINE_VALLEY.home.lat);
+  assert.equal(grown.height, PINE_VALLEY.map.height + 200);
+  assert.ok(Math.abs(y1 - (y0 + 100)) < 1e-9);
+});
+
+test('the forecast starts today in Central time and drops malformed days', () => {
+  const now = Date.UTC(2026, 10, 4, 3); // Tue Nov 3, 9 pm CST
+  const { place, days } = parseForecast({
+    location: 'Steelville',
+    forecast: [
+      { date: '2026-11-02', dayOfWeek: 'Mon', tempHigh: 70, tempLow: 50, conditionIcon: '01d', precipitation: 0 },
+      { date: '2026-11-03', dayOfWeek: 'Tue', tempHigh: 66.4, tempLow: 60, conditionIcon: '10d', precipitation: 20 },
+      { date: '2026-11-04', dayOfWeek: 'Wed', tempHigh: 'warm', tempLow: 51 },
+      { date: '2026-11-05', dayOfWeek: 'Thu', tempHigh: 66, tempLow: 47, conditionIcon: '01d', precipitation: 44.4 },
+    ],
+  }, now);
+  assert.equal(place, 'Steelville');
+  assert.deepEqual(days.map((d) => d.day), ['Today', 'Thu']);
+  assert.equal(days[0].high, 66);
+  assert.equal(days[1].rain, 44);
+  assert.deepEqual(parseForecast({ error: 'Weather service not configured' }, now), { place: null, days: [] });
+});
+
+test("the forecast's rain emphasis matches Eddy's rain-coming threshold", () => {
+  assert.equal(RAIN_EMPHASIS, RAIN_CHANCE_THRESHOLD);
+});
+
+const thresholds = {
+  rivers: [
+    { riverSlug: 'jacks-fork', gauges: [
+      { usgsId: '07065495', isPrimary: true, unit: 'cfs', thresholds: { tooLow: 40, low: 60, optimalMin: 90, optimalMax: 300, high: 600, dangerous: 1500 } },
+      { usgsId: 'x', isPrimary: false, unit: 'ft', thresholds: { tooLow: 1, low: 2, optimalMin: 3, optimalMax: 4, high: 5, dangerous: 6 } },
+    ] },
+    { riverSlug: 'not-on-board', gauges: [{ isPrimary: true, unit: 'cfs', thresholds: {} }] },
+    { riverSlug: 'meramec', gauges: [{ isPrimary: true, unit: 'stage', thresholds: {} }] },
+  ],
+};
+
+test('ladders come from each river\'s primary gauge, in its own unit', () => {
+  const ladders = parseRiverLadders(thresholds, ['jacks-fork', 'meramec']);
+  assert.deepEqual([...ladders.keys()], ['jacks-fork'], 'unknown unit and other rivers are skipped');
+  assert.equal(ladders.get('jacks-fork')!.levelLow, 60);
+  assert.equal(ladders.get('jacks-fork')!.thresholdUnit, 'cfs');
+  assert.equal(parseRiverLadders(null, ['jacks-fork']).size, 0);
+});
+
+test('the week is rated with Eddy\'s ladder, and never across units', () => {
+  const ladder = parseRiverLadders(thresholds, ['jacks-fork']).get('jacks-fork');
+  // Eddy's ladder: at or above tooLow is Low, at or above low is Good.
+  assert.deepEqual(rateSeries([35, 45, null, 80, 120], 'cfs', ladder), ['too_low', 'low', null, 'good', 'flowing']);
+  assert.deepEqual(rateSeries([45, 80], 'ft', ladder), [null, null], 'a stage series is not rated on a discharge ladder');
+  assert.deepEqual(rateSeries([45], 'cfs', undefined), [null]);
+});
+
+test('the story tells each river\'s sharpest rise and latest change of condition once', () => {
+  const end = Date.UTC(2026, 10, 4, 0, 15);
+  const flat = Array.from({ length: SERIES_POINTS }, () => 50);
+  const jacks = [...flat];
+  jacks[SERIES_POINTS - 3] = 50; jacks[SERIES_POINTS - 2] = 60; jacks[SERIES_POINTS - 1] = 80;
+  const ratings = new Map([['jacks-fork', jacks.map((v) => (v >= 60 ? 'low' : 'too_low') as 'low' | 'too_low')]]);
+  const rivers = [
+    { slug: 'huzzah', name: 'Huzzah Creek', sharesGaugeWith: null },
+    { slug: 'courtois', name: 'Courtois Creek', sharesGaugeWith: 'Huzzah Creek' },
+    { slug: 'jacks-fork', name: 'Jacks Fork River', sharesGaugeWith: null },
+  ];
+  const series = new Map([['huzzah', flat], ['courtois', jacks], ['jacks-fork', jacks]]);
+  const story = weekStory(rivers, series, ratings, end);
+  assert.ok(story.events.every((e) => e.slug !== 'courtois'), 'a shared gauge is told once');
+  assert.ok(story.events.some((e) => /Jacks Fork up 60% in 6 hours$/.test(e.text)));
+  assert.ok(story.events.some((e) => /Jacks Fork turned Low$/.test(e.text)));
+  assert.equal(story.summary, 'This week: Jacks Fork rose 60%, the most on the board.');
+  assert.match(storyCaption(story, SERIES_POINTS - 1), /Jacks Fork/, 'the last moments are told, not hidden by the summary');
+  assert.equal(storyCaption(story, 3), STORY_DEFAULT);
+  const quiet = weekStory(rivers.slice(0, 1), new Map([['huzzah', flat]]), new Map(), end);
+  assert.deepEqual(quiet, { events: [], summary: 'A quiet week: every river within 5% of where it started.' });
+});
+
+test('a pulse runs only on a real rise', () => {
+  assert.equal(risingAt([50, 52], 1), true);
+  assert.equal(risingAt([50, 51], 1), false);
+  assert.equal(risingAt([null, 80], 1), false);
+  assert.equal(risingAt([50, 40], 1), false);
+});
+
+test('compared-with-usual uses Eddy\'s flow bands; stale water temperature is dropped', () => {
+  const now = Date.UTC(2026, 10, 4, 2, 0);
+  const detail = (observedAt: string) => ({ gauge: { seasonalContext: { percentile: 44, band: 'normal' }, waterTemperature: { valueF: 64.9, observedAt } } });
+  assert.deepEqual(parseGaugeExtras(detail('2026-11-04T01:30:00Z'), now), { band: 'normal', waterF: 65 });
+  assert.deepEqual(parseGaugeExtras(detail('2026-11-03T12:00:00Z'), now), { band: 'normal', waterF: null });
+  assert.deepEqual(parseGaugeExtras({ gauge: { seasonalContext: null } }, now), { band: null, waterF: null });
+  assert.deepEqual(parseGaugeExtras('nope', now), { band: null, waterF: null });
 });

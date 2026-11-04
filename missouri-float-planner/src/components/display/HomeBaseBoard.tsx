@@ -9,13 +9,25 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { conditionDef, conditionOtterMood } from '@shared/condition-system';
+import { CONDITION_ORDER, conditionDef, conditionOtterMood, type ConditionCode } from '@shared/condition-system';
+import { FLOW_BAND_SYSTEM } from '@shared/flow-band';
 import { EDDY_IMAGES } from '@/constants';
+import { weatherGlyph } from '@/components/ui/weather-glyph';
 import { parseRiverSnapshot, REFRESH_INTERVAL } from '@/lib/display/river-window';
 import { MILL_SCENES, millAsset } from '@/lib/display/mill-scenes';
 import {
+  RAIN_EMPHASIS,
   advanceLoop,
+  parseGaugeExtras,
+  parseRiverLadders,
+  rateSeries,
+  risingAt,
+  storyCaption,
+  weekStory,
   artRegion,
+  boardLayout,
+  growFrame,
+  parseForecast,
   boardRows,
   clockLabel,
   eddyTakeFor,
@@ -41,14 +53,17 @@ import { displayReadings } from '@/lib/embed/display-events';
 import { useDisplayContract } from './useDisplayContract';
 import styles from './home-base-board.module.css';
 
-const W = 1080;
-const H = 1920;
 const ART_WIDTH = 1080;
 const ART_HEIGHT = Math.round((1080 * 940) / 1672); // dillard.webp is 1672 x 940
 const ART_OFFSET = 60; // the painting is drawn 60px above the top edge
 const TAKE_REFRESH = 15 * 60_000;
+const FORECAST_REFRESH = 60 * 60_000;
 const HISTORY_REFRESH = 30 * 60_000;
-const WATER = '#2D7889'; // replay ink: flow only, never a condition colour
+const UNRATED = '#C2BAAC'; // a past reading with no rating: warm stone, never a condition colour
+const LADDER_REFRESH = 6 * 60 * 60_000;
+const PULSE_STEPS = 6; // a pulse runs for six replay steps (about 1.5 s)
+/** The key's top on the 586px design map; it moves down by half the growth. */
+const KEY_TOP = 130;
 const EDDY_MARK = EDDY_IMAGES.favicon;
 
 type Qr = { href: string; src: string };
@@ -69,34 +84,80 @@ function Badge({ row, long }: { row: Pick<BoardRow, 'code'>; long?: boolean }) {
   );
 }
 
-function Spark({ values, cursor }: { values: (number | null)[]; cursor: number | null }) {
-  const w = 216, h = 48;
+/**
+ * Seven days of flow over a strip of the condition Eddy rated at each step,
+ * so the week reads at a glance. During the replay the future is faded.
+ */
+function Spark({ values, ratings, cursor }: { values: (number | null)[]; ratings: (ConditionCode | null)[]; cursor: number | null }) {
+  const w = 216, h = 48, ribbon = 6;
   const nums = values.filter((v): v is number => v != null);
   if (nums.length < 2) return <svg width={w} height={h} aria-hidden="true" />;
   const min = Math.min(...nums), max = Math.max(...nums), span = max - min || 1;
-  const x = (i: number) => (i / (values.length - 1)) * (w - 8) + 4;
-  const y = (v: number) => h - 5 - ((v - min) / span) * (h - 12);
-  // Gaps break the line instead of being bridged.
-  let d = '';
-  values.forEach((v, i) => {
-    if (v == null) return;
-    d += `${i && values[i - 1] != null ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
-  });
+  const step = (w - 8) / (values.length - 1);
+  const x = (i: number) => i * step + 4;
+  const y = (v: number) => h - ribbon - 6 - ((v - min) / span) * (h - ribbon - 12);
   const at = cursor ?? values.length - 1;
+  // Gaps break the line instead of being bridged.
+  const line = (from: number, to: number) => {
+    let d = '';
+    for (let i = from; i <= to; i++) {
+      const v = values[i];
+      if (v == null) continue;
+      d += `${i > from && values[i - 1] != null ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+    }
+    return d;
+  };
   const end = values[at] ?? null;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-      <line x1={4} x2={w - 4} y1={h - 1} y2={h - 1} stroke="#DBD5CA" />
-      <path d={d} fill="none" stroke="#256574" strokeWidth={2.5} strokeLinejoin="round" />
+      {ratings.map((code, i) => (
+        <rect
+          key={i}
+          x={Math.max(4, x(i) - step / 2)}
+          y={h - ribbon}
+          width={Math.min(step, w - 4 - Math.max(4, x(i) - step / 2))}
+          height={ribbon}
+          fill={code ? conditionDef(code).solid : UNRATED}
+          opacity={cursor != null && i > cursor ? 0.3 : 1}
+        />
+      ))}
+      <path d={line(0, at)} fill="none" stroke="#256574" strokeWidth={2.5} strokeLinejoin="round" />
+      {at < values.length - 1 && <path d={line(at, values.length - 1)} fill="none" stroke="#256574" strokeOpacity={0.25} strokeWidth={2.5} strokeLinejoin="round" />}
       {end != null && <circle cx={x(at)} cy={y(end)} r={5} fill="#256574" stroke="#fff" strokeWidth={2} />}
     </svg>
   );
 }
 
+/** The conditions the map can show now: today's, plus the week's during the replay. */
+function keyCodes(rows: BoardRow[], ratings: Map<string, (ConditionCode | null)[]>, replaying: boolean): ConditionCode[] {
+  const present = new Set<ConditionCode>(rows.map((r) => r.code));
+  if (replaying) for (const codes of ratings.values()) for (const c of codes) if (c) present.add(c);
+  present.delete('unknown');
+  // Driest to wettest reads like the river itself.
+  return CONDITION_ORDER.filter((c) => present.has(c));
+}
+
+/**
+ * How today compares with the same date in past years (Eddy's flow bands:
+ * a comparison, never a verdict, and never in condition colours), the water
+ * temperature, and which gauge rates a river that has none of its own.
+ */
+function Extras({ row, extras, fallback }: { row: BoardRow | null; extras: ReturnType<typeof parseGaugeExtras>; fallback: string | null }) {
+  const parts: React.ReactNode[] = [];
+  if (extras.band) {
+    const band = FLOW_BAND_SYSTEM[extras.band];
+    parts.push(<span key="band" className={styles.band}><i style={{ background: band.solid }} />{band.sentence}</span>);
+  }
+  if (extras.waterF != null) parts.push(<span key="water" className={styles.mono}>Water {extras.waterF}°F</span>);
+  if (row?.sharesGaugeWith) parts.push(<span key="gauge">Rated from the {row.sharesGaugeWith} gauge</span>);
+  if (!parts.length) return fallback ? <span className={styles.extras}>{fallback}</span> : null;
+  return <span className={styles.extras}>{parts.flatMap((p, i) => (i ? [<span key={`dot${i}`} aria-hidden="true">·</span>, p] : [p]))}</span>;
+}
+
 export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: string; riverQrs: Record<string, Qr>; appQr: Qr }) {
   const config = homeBaseFor(boardId)!;
   const mill = MILL_SCENES.find((s) => s.id === config.millScene)!;
-  const [scale, setScale] = useState({ s: 0, x: 0, y: 0 });
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
   // 0 until mounted, so the server render and the first client render agree.
   const [now, setNow] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -123,6 +184,29 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     () => [...new Set((rivers.data?.rivers ?? []).filter((r) => config.rivers.some((c) => c.slug === r.slug)).map((r) => r.primaryGaugeSiteId).filter((s): s is string => !!s))].sort(),
     [rivers.data, config.rivers]
   );
+  const forecastQuery = useQuery({
+    queryKey: ['home-base-forecast', config.doorstep],
+    queryFn: ({ signal }) => getJson(`/api/weather/${config.doorstep}/forecast`, signal),
+    staleTime: FORECAST_REFRESH,
+    refetchInterval: FORECAST_REFRESH,
+    retry: 1,
+  });
+  const ladderQuery = useQuery({
+    queryKey: ['home-base-ladders'],
+    queryFn: ({ signal }) => getJson('/api/gauge-thresholds', signal),
+    staleTime: LADDER_REFRESH,
+    refetchInterval: LADDER_REFRESH,
+    retry: 1,
+  });
+  const details = useQueries({
+    queries: sites.map((site) => ({
+      queryKey: ['home-base-gauge', site],
+      queryFn: ({ signal }: { signal: AbortSignal }) => getJson(`/api/gauges/${site}`, signal),
+      staleTime: HISTORY_REFRESH,
+      refetchInterval: HISTORY_REFRESH,
+      retry: 1,
+    })),
+  });
   const histories = useQueries({
     queries: sites.map((site) => ({
       queryKey: ['home-base-history', site],
@@ -159,6 +243,15 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
       if (data && row.unit) series.set(row.slug, sevenDaySeries(data, row.unit, seriesEnd));
     }
   }
+
+  // The week rated with Eddy's own ladders, and the moments worth telling.
+  const ladders = useMemo(() => parseRiverLadders(ladderQuery.data, config.rivers.map((r) => r.slug)), [ladderQuery.data, config.rivers]);
+  const ratings = new Map(rows.map((row) => [row.slug, rateSeries(series.get(row.slug) ?? [], row.unit, ladders.get(row.slug))]));
+  const story = seriesEnd != null ? weekStory(rows, series, ratings, seriesEnd) : null;
+  const extrasFor = (row: BoardRow | null) => {
+    const i = row?.siteId ? sites.indexOf(row.siteId) : -1;
+    return i >= 0 && now ? parseGaugeExtras(details[i]?.data, now) : { band: null, waterF: null };
+  };
 
   // ── Loop ──
   const order = useMemo(() => spotlightOrder(config).filter((slug) => rows.some((r) => r.slug === slug)), [config, rows]);
@@ -207,19 +300,18 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     };
   }, []);
   useEffect(() => {
-    const fit = () => {
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const s = Math.min(vw / W, vh / H);
-      setScale({ s, x: (vw - W * s) / 2, y: (vh - H * s) / 2 });
-    };
+    const fit = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
   }, []);
 
-  // ── Static map geometry ──
-  const paths = useMemo(() => Object.fromEntries(Object.entries(config.lines).map(([slug, line]) => [slug, linePath(config.map, line)])), [config]);
-  const home = project(config.map, config.home.lng, config.home.lat);
+  // ── Layout: on a screen taller than 9:16 the board grows to fill it ──
+  const forecast = now ? parseForecast(forecastQuery.data, now) : { place: null, days: [] };
+  const layout = boardLayout(viewport.w, viewport.h, config, forecast.days.length > 0);
+  const frame = useMemo(() => growFrame(config.map, layout.mapGrow), [config.map, layout.mapGrow]);
+  const paths = useMemo(() => Object.fromEntries(Object.entries(config.lines).map(([slug, line]) => [slug, linePath(frame, line)])), [config, frame]);
+  const home = project(frame, config.home.lng, config.home.lat);
   const sun = now ? sunTimes(new Date(now + (config.home.lng / 15) * 3_600_000), config.home.lat, config.home.lng) : null;
   const night = now ? isNight(now, config.home.lat, config.home.lng) : false;
 
@@ -254,7 +346,12 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     <div className={styles.viewport}>
       <div
         className={`${styles.board} ${reduceMotion ? '' : styles.drift} ${night ? styles.night : ''}`}
-        style={{ transform: `translate(${scale.x}px, ${scale.y}px) scale(${scale.s})`, visibility: scale.s ? 'visible' : 'hidden' }}
+        style={{
+          height: layout.height,
+          gridTemplateRows: layout.forecast ? '622px auto auto auto 132px' : '622px auto 1fr 132px',
+          transform: `translate(${layout.x}px, ${layout.y}px) scale(${layout.scale})`,
+          visibility: layout.scale ? 'visible' : 'hidden',
+        }}
       >
         <section className={styles.hero} style={{ backgroundImage: `url(${millAsset(mill.id)})` }} aria-label={`${mill.name} on ${mill.riverName}`}>
           {/* Moving water: only inside the water polygons, so the rocks, mill
@@ -325,7 +422,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               ) : (
                 <div className={styles.facts}>{status ?? 'Reading unavailable'}</div>
               )}
-              <span className={styles.gauge}>{config.rivers.find((r) => r.slug === config.doorstep)?.tip}</span>
+              <Extras row={door} extras={extrasFor(door)} fallback={config.rivers.find((r) => r.slug === config.doorstep)?.tip ?? null} />
             </div>
             <div />
             {eddyTake && (
@@ -345,15 +442,23 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
         </section>
 
         <section className={styles.card}>
-          <div className={styles.map} style={{ backgroundImage: `url(/display/${config.id}/relief.jpg)` }}>
-            <svg viewBox={`0 0 ${config.map.width} ${config.map.height}`} role="img" aria-label={`Map of the rivers around ${config.name}`}>
+          <div
+            className={styles.map}
+            style={{
+              height: frame.height,
+              backgroundImage: `url(/display/${config.id}/relief.jpg)`,
+              // The relief is baked reliefPad taller at each end; show the middle.
+              backgroundPosition: `0 ${-(config.reliefPad - layout.mapGrow / 2)}px`,
+            }}
+          >
+            <svg viewBox={`0 0 ${frame.width} ${frame.height}`} role="img" aria-label={`Map of the rivers around ${config.name}`}>
               {[10, 20, 30, 40].map((mi) => (
-                <circle key={mi} cx={home[0]} cy={home[1]} r={(mi / 69) * config.map.scale} fill="none" stroke="#6B6459" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 7" />
+                <circle key={mi} cx={home[0]} cy={home[1]} r={(mi / 69) * frame.scale} fill="none" stroke="#6B6459" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 7" />
               ))}
-              <path d={linePath(config.map, config.divide)} fill="none" stroke="#524D43" strokeWidth={2} strokeDasharray="12 8" />
+              <path d={linePath(frame, config.divide)} fill="none" stroke="#524D43" strokeWidth={2} strokeDasharray="12 8" />
               {(() => {
-                const y = project(config.map, ...config.divide[config.divide.length - 1])[1];
-                const x = config.map.width - 28;
+                const y = project(frame, ...config.divide[config.divide.length - 1])[1];
+                const x = frame.width - 28;
                 return (
                   <g textAnchor="end" fontWeight={700} letterSpacing={1.5} fontSize={14} fill="#524D43" style={{ textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>
                     <text x={x} y={y - 16} {...halo}>{config.divideLabels.north}</text>
@@ -367,19 +472,33 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
                 const s = series.get(row.slug) ?? [];
                 const on = replay == null && row.slug === spotlight;
                 const w = replay == null ? (on ? 8 : 5.5) : 3.5 + 9 * relativeLevel(s, s[replay] ?? null);
-                const color = replay == null ? conditionDef(row.code).solid : WATER;
+                // In the replay each river wears the condition Eddy would have
+                // rated at that hour; a past reading without a rating is stone.
+                const rated = replay == null ? row.code : ratings.get(row.slug)?.[replay] ?? null;
+                const color = rated ? conditionDef(rated).solid : UNRATED;
+                // A rise sends a pulse downstream. Keyed by the start of the
+                // rising run so one pulse plays through instead of restarting.
+                let pulse: number | null = null;
+                if (replay != null && !row.sharesGaugeWith && risingAt(s, replay)) {
+                  let start = replay;
+                  while (start > 1 && risingAt(s, start - 1)) start--;
+                  pulse = start + PULSE_STEPS * Math.floor((replay - start) / PULSE_STEPS);
+                }
                 return (
                   <g key={row.slug} opacity={replay == null && !on ? 0.6 : 1}>
                     <path d={d} fill="none" stroke={on ? '#0F2D35' : '#FFFFFF'} strokeWidth={w + (on ? 6 : 4)} strokeLinecap="round" strokeLinejoin="round" />
                     <path d={d} fill="none" stroke={color} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
                     <path className={styles.flow} d={d} fill="none" stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={Math.max(2, w / 3)} strokeDasharray="2 30" strokeLinecap="round" />
+                    {pulse != null && !reduceMotion && (
+                      <path key={pulse} className={styles.pulse} d={d} pathLength={1} fill="none" stroke="#FFFFFF" strokeWidth={w + 3} strokeLinecap="round" strokeDasharray="0.07 1.2" />
+                    )}
                   </g>
                 );
               })}
               {rows.map((row) => {
                 const label = config.labels[row.slug];
                 if (!label) return null;
-                const [x, y] = project(config.map, label[0], label[1]);
+                const [x, y] = project(frame, label[0], label[1]);
                 const on = replay == null && row.slug === spotlight;
                 return (
                   <text key={row.slug} x={x} y={y} textAnchor={label[2]} fill="#0F2D35" fontSize={on ? 25 : 21} fontWeight={600} style={{ fontFamily: 'var(--font-display)' }} {...halo}>
@@ -390,7 +509,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               {Object.entries(config.gauges).map(([site, gauge]) => {
                 const row = rows.find((r) => r.siteId === site);
                 if (!row) return null;
-                const [x, y] = project(config.map, gauge.at[0], gauge.at[1]);
+                const [x, y] = project(frame, gauge.at[0], gauge.at[1]);
                 const text = `${valueAt(row)} ${row.unit}`.trim();
                 const tw = text.length * 9.6 + 18;
                 const left = gauge.side === 'left' ? x - 12 - tw : x + 12;
@@ -410,27 +529,39 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
                 <circle cx={home[0]} cy={home[1]} r={9} fill="#2F4A34" stroke="#F8F6F1" strokeWidth={3} />
               </g>
             </svg>
-            <div className={styles.mapTitle}>The rivers around the cabin</div>
-            <div className={styles.key}>
-              <span><i style={{ background: conditionDef('good').solid }} />Good</span>
-              <span><i style={{ background: conditionDef('low').solid }} />Low</span>
+            <div className={`${styles.mapTitle} ${replay != null ? styles.replayTitle : ''}`}>
+              {replay != null && seriesEnd != null ? `Past 7 days · ${stepLabel(seriesTime(seriesEnd, replay))}` : 'The rivers around the cabin'}
+            </div>
+            {/* The key names only the conditions the map can show right now. */}
+            <div className={styles.key} style={{ top: KEY_TOP + layout.mapGrow / 2 }}>
+              {keyCodes(rows, ratings, replay != null).map((code) => (
+                <span key={code}><i style={{ background: conditionDef(code).solid }} />{conditionDef(code).label}</span>
+              ))}
               <span><i style={{ background: 'repeating-linear-gradient(90deg,#524D43 0 8px,transparent 8px 13px)', height: 3 }} />Divide (approx.)</span>
               <span>Rings every 10 mi</span>
             </div>
           </div>
           <div className={styles.spot}>
-            {replay != null && seriesEnd != null ? (
+            {replay != null && seriesEnd != null && story ? (
               <>
-                <div className={styles.spotName}><b>Replaying the past 7 days</b></div>
+                <div className={styles.spotName}><b>The past 7 days</b></div>
                 <div className={`${styles.spotDrive} ${styles.mono}`}>{stepLabel(seriesTime(seriesEnd, replay))}</div>
+                <p className={styles.caption} aria-live="polite">{storyCaption(story, replay)}</p>
                 <div className={styles.bar}><i style={{ width: `${Math.round((replay / (SERIES_POINTS - 1)) * 100)}%` }} /></div>
+              </>
+            ) : loop.phase === 'hold' && story?.summary ? (
+              <>
+                <div className={styles.spotName}><b>This week</b></div>
+                <div />
+                <p className={styles.caption}>{story.summary}</p>
               </>
             ) : spotRow ? (
               <>
                 <div className={styles.spotName}><b>{spotRow.name}</b><Badge row={spotRow} long /></div>
                 <div className={`${styles.spotDrive} ${styles.mono}`}>~{spotRow.driveMinutes}<small>min drive</small></div>
-                <p>{spotRow.sharesGaugeWith ? `Rated from the ${spotRow.sharesGaugeWith} gauge. ` : ''}{spotRow.tip}</p>
+                <p>{spotRow.tip}</p>
                 <div className={styles.scan}>Scan to open in Eddy →</div>
+                <Extras row={spotRow} extras={extrasFor(spotRow)} fallback={null} />
               </>
             ) : (
               <div className={styles.spotName}><b>{status ?? 'No river readings available'}</b></div>
@@ -467,12 +598,33 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
                     seriesEnd != null && <small>at {stepLabel(seriesTime(seriesEnd, replay))}</small>
                   )}
                 </span>
-                <Spark values={series.get(row.slug) ?? []} cursor={replay} />
+                <Spark values={series.get(row.slug) ?? []} ratings={ratings.get(row.slug) ?? []} cursor={replay} />
                 <span className={`${styles.rowValue} ${styles.mono}`}>{valueAt(row)}<small>{row.unit}</small></span>
                 <span className={`${styles.rowValue} ${styles.mono}`}>~{row.driveMinutes}<small>min</small></span>
               </button>
             ))}
         </section>
+
+        {layout.forecast && (
+          <section className={`${styles.card} ${styles.forecast}`} aria-label="Weather forecast">
+            <div className={styles.forecastLabel}>
+              <span className={styles.eyebrow}>Forecast</span>
+              <b>{forecast.place ? `Near ${forecast.place}` : 'Near the cabin'}</b>
+              <span>Rain chance in coral when 40% or more</span>
+            </div>
+            {forecast.days.map((d) => {
+              const Glyph = weatherGlyph(d.icon);
+              return (
+                <div key={d.date} className={styles.forecastDay}>
+                  <span>{d.day}</span>
+                  <Glyph size={32} strokeWidth={1.75} aria-hidden="true" />
+                  <b className={styles.mono}>{d.high}°{d.low !== d.high && <small>/{d.low}°</small>}</b>
+                  <span className={d.rain >= RAIN_EMPHASIS ? styles.rainy : undefined}>Rain {d.rain}%</span>
+                </div>
+              );
+            })}
+          </section>
+        )}
 
         <footer className={styles.foot}>
           <div className={styles.sun}>

@@ -12,9 +12,20 @@ out for a widescreen monitor turned on its side.
 
 ## Layout
 
-One 1080 × 1920 canvas, scaled to fit the screen and letterboxed on anything
-that is not 9:16, so a 4K panel gets the same layout at 2×. Type sizes are
-wall-distance sizes at 1080 wide.
+A canvas 1080 wide, scaled to the screen, so a 4K panel gets the same layout
+at 2×. Type sizes are wall-distance sizes at 1080 wide. The height follows the
+screen (`boardLayout`):
+
+- **9:16, or wider** (1080 × 1920, 4K, a 16:10 panel): the 1920-tall design,
+  with bars at the sides on a wider screen.
+- **Taller than 9:16** (a 21:9 monitor on its side, e.g. 1080 × 2560): the
+  board grows to fill the height instead of leaving bars at the top and
+  bottom. The first 174px adds the **forecast** card (when a forecast is
+  available). The rest grows the **map**, half above and half below, so it
+  shows more of the region: the Meramec running to the Mississippi, and the
+  Current and Black heading south toward Arkansas. The map grows at most
+  `2 × reliefPad` (520px for Pine Valley), the extent of the baked relief and
+  geometry. Beyond that the board is centred.
 
 From the top:
 
@@ -25,15 +36,22 @@ From the top:
    The painting's **water moves**: the millpond ripples with glints drifting
    downstream, and the falls rush with foam.
 2. **At the door**: the doorstep river's name, condition badge, trend and
-   other-unit reading, and **Eddy's take** in a small bubble beside the otter.
+   other-unit reading; how today's flow compares with the same date in past
+   years, and the water temperature; and **Eddy's take** in a small bubble
+   beside the otter.
 3. **The map**: the board's rivers in their condition colours with flow
    animated downstream, gauge readings in framed tags, rings every 10 miles,
    an approximate drainage divide, and the place marked with the partner's
    logo. Below it, the **spotlight** strip: one river's condition, tip and
    drive time, with a QR code to that river's eddy.guide page.
 4. **Farther afield**: the other rivers, nearest first, with seven days of
-   flow, the rated reading and drive time.
-5. **Footer**: sunrise and sunset, the Eddy credit and a QR code to Eddy's app
+   flow over a strip of the condition at each step, the rated reading and
+   drive time.
+5. **Forecast** (tall screens only): four days from
+   `/api/weather/<doorstep>/forecast`, refreshed hourly, labelled with the
+   forecast's own place. A rain chance of 40% or more is in coral, Eddy's
+   rain-coming threshold.
+6. **Footer**: sunrise and sunset, the Eddy credit and a QR code to Eddy's app
    page tagged with the partner's campaign.
 
 Alignment: content placed directly on the page sits 48px from both edges;
@@ -47,12 +65,31 @@ embed data teal. The partner's brand appears only as their logo files.
 ## Behaviour
 
 - **Loop.** Spotlight each river for 9 seconds, nearest first; replay the past
-  seven days in about 15 seconds; hold on the present for 6 seconds; repeat.
-  During the replay every river line turns one water colour and its width
-  shows flow against that river's own week, so an old reading is never shown
-  as a current condition. Tapping a row (on a touchscreen) jumps the spotlight.
+  seven days in about 15 seconds; hold on the week's summary for 6 seconds;
+  repeat. Tapping a row (on a touchscreen) jumps the spotlight.
+- **The replay is rated.** Every past reading is classified with Eddy's own
+  ladder (`classifyReading` from `shared/condition-ladder.ts`, strict unit)
+  using each river's primary-gauge thresholds from `/api/gauge-thresholds`, so
+  each line wears the condition Eddy would have given it at that hour. A
+  reading with no rating is warm stone, never a condition colour. The map's
+  title turns into a coral-dotted "Past 7 days · <time>" chip, so the past is
+  never mistaken for the present, and the key lists only the conditions on
+  screen. Line width still shows flow against the river's own week.
+- **The week's moments** are written from the data (`weekStory`): each
+  river's sharpest six-hour rise of 15% or more, and its latest change of
+  condition. They play as captions at their moment ("Tue 3 pm: Huzzah up 21% in
+  6 hours"), and the summary ("This week: Jacks Fork rose 78%, the most on the
+  board") holds after the replay. A rise of 3% or more in a step sends a bright
+  pulse down the river. Rivers rated from another row's gauge are not told or
+  pulsed twice.
+- **Compared with usual** comes from `/api/gauges/<site>` (`seasonalContext`),
+  worded and coloured with Eddy's flow bands (`shared/flow-band.ts`): a
+  comparison, never a verdict, so never in condition colours. **Water
+  temperature** from the same payload is shown only if observed within six
+  hours. A river rated from another river's gauge says so.
 - **Data.** `/api/rivers` every 5 minutes, `/api/eddy-update/<doorstep>`
-  every 15, `/api/gauges/<site>/history?days=7` every 30. Readings use the
+  every 15, `/api/gauges/<site>/history?days=7` and `/api/gauges/<site>` every
+  30, the forecast hourly, `/api/gauge-thresholds` every 6 hours. Readings use the
   River Window's rules (`toWindowSign`): the rated unit, staleness that drops
   the condition, the last good snapshot kept and marked when a refresh fails.
   A river missing from the snapshot is left out; another river's reading is
@@ -88,9 +125,10 @@ if the mill scene does not exist, or if the logo or relief file is missing.
 
 - **River lines** live in a geometry module (`home-base-geometry.ts` for Pine
   Valley), generated from Eddy's river geometry with the read-only query in
-  its header.
+  its header. They must reach past the frame grown by `reliefPad`.
 - **Relief**: `npx tsx scripts/build-board-relief.ts <id>` writes
-  `public/display/<id>/relief.jpg` in the board's map frame from public SRTM
+  `public/display/<id>/relief.jpg` in the board's map frame, extended by
+  `reliefPad` above and below, from public SRTM
   terrain tiles, the same source as `scripts/build-mo-hillshade.ts`.
 - **Drive times**: road routing from the place to each river's nearest
   approved access point, rounded to 5 minutes, stored in the config. They do
