@@ -460,9 +460,6 @@ export interface DamReadResponse {
   available: boolean;
   generatedAt: string | null;
   read: {
-    /** Compact interpretation for current clients; optional during API rollout. */
-    takeaway?: { headline: string; summary: string };
-    /** Legacy report fields remain available to already-released app versions. */
     /** Today's posted generation and how it compares with recent days. */
     headline: string;
     /** Two or three sentences: recent surprises first, then the pattern. */

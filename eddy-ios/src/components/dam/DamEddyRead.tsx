@@ -5,8 +5,7 @@
 // says whether a Read exists today and when it was written, which is all a
 // non-subscriber's locked card needs; the Premium one, sent only for an
 // entitlement verified for THIS session's user, carries the Read itself:
-// a short headline and one interpretation sentence. The schedule and pattern
-// chart around this card carry the data and its timing/freshness information.
+// headline, story, the facts behind it, and the recent pattern details.
 //
 // ── Refreshed with the screen ──────────────────────────────────────────────
 // Both requests run on every focus, not only on mount: the dam screen
@@ -31,14 +30,14 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import type { DamReadResponse } from '@eddy/types';
-import { relativeAgeShort } from '@eddy/conditions/dam-schedule-copy';
+import type { DamReadResponse, DamReadRow } from '@eddy/types';
 import { ApiError, fetchDamRead } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
+import { writtenAge } from '@/lib/eddySays';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
-import { Otter } from '@/components/Otter';
+import { fonts, textStyles } from '@/theme/typography';
+import { ControlIcon } from '@/components/ControlIcon';
 import { BlurredProse, PremiumLockRow, ReadSkeleton } from '@/components/PremiumLock';
 
 type Read = NonNullable<DamReadResponse['read']>;
@@ -48,7 +47,7 @@ type Premium =
   | { key: string; state: 'failed' };
 
 /** The one-line pitch on the locked card. */
-export const DAM_READ_LOCKED_COPY = 'What stands out in today’s generation schedule.';
+export const DAM_READ_LOCKED_COPY = 'Today’s generation schedule, recent patterns, and how closely the schedule has held.';
 
 /**
  * What the frost covers on a locked card. LENGTH, not content: the public
@@ -57,7 +56,7 @@ export const DAM_READ_LOCKED_COPY = 'What stands out in today’s generation sch
  * shape on a river's dam-release tab.
  */
 export const LOCKED_DAM_READ_SHAPE =
-  'Today’s posted schedule starts at noon, about two hours earlier than recent weekdays.';
+  'Generation is scheduled through the afternoon, close to the last few days. The posted schedule has mostly held this week, so expect the water to rise on time.';
 
 /**
  * Both requests, re-run on every focus. `checked` is false until the public
@@ -122,18 +121,35 @@ function MemberRead({ current, onRetry, loadingLabel }: {
   loadingLabel: string;
 }) {
   const { colors } = useTheme();
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   if (current?.state === 'ready') {
-    // An older API still supplies its schedule sentence. Keep it as body copy
-    // while the server rolls out; never restore the oversized bold paragraph.
-    const takeaway = current.read.takeaway ?? {
-      headline: 'Today’s generation',
-      summary: current.read.headline,
-    };
     return (
       <View style={styles.read}>
-        <Text accessibilityRole="header" style={[styles.headline, { color: colors.text }]}>{takeaway.headline}</Text>
-        <Text style={[styles.body, { color: colors.textBody }]}>{takeaway.summary}</Text>
+        {/* Reading order (ADR 0017): today, then what it means, then the
+            evidence, then the full breakdown for anyone who wants it. */}
+        <Text style={[styles.headline, { color: colors.text }]}>{current.read.headline}</Text>
+        {current.read.mayBeOutdated ? (
+          <Text style={[styles.caveat, { color: colors.textMuted }]}>Eddy&apos;s copy of today&apos;s schedule may be out of date.</Text>
+        ) : null}
+        <Text style={[styles.body, { color: colors.text }]}>{current.read.story.join(' ')}</Text>
+        {current.read.keyRows.length ? <FactRows rows={current.read.keyRows} /> : null}
+        {current.read.detailRows.length ? (
+          <View style={styles.details}>
+            <Pressable
+              onPress={() => setDetailsOpen((open) => !open)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: detailsOpen }}
+              hitSlop={8}
+              style={styles.detailsToggle}
+            >
+              <Text style={[styles.action, { color: colors.interactive }]}>Recent pattern details</Text>
+              <ControlIcon name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
+            </Pressable>
+            {detailsOpen ? <FactRows rows={current.read.detailRows} /> : null}
+          </View>
+        ) : null}
+        <Text style={[styles.caveat, { color: colors.textMuted }]}>{current.read.caveat}</Text>
       </View>
     );
   }
@@ -152,7 +168,7 @@ function MemberRead({ current, onRetry, loadingLabel }: {
       </Pressable>
     );
   }
-  return <ReadSkeleton widths={[0.7, 1, 0.8]} label={loadingLabel} />;
+  return <ReadSkeleton label={loadingLabel} />;
 }
 
 export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock, revision = 0 }: {
@@ -170,14 +186,11 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
   const { generatedAt, current, retry } = useDamRead(damId, premiumUserId, revision);
 
   if (!generatedAt) return null;
-  const age = relativeAgeShort(generatedAt);
+  const age = writtenAge(generatedAt);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <View style={styles.header}>
-        <Otter mood="favicon" size={28} />
-        <Text style={[styles.kicker, { color: colors.interactive }]}>Eddy&apos;s Read</Text>
-      </View>
+      <Text style={[styles.kicker, { color: colors.textMuted }]}>EDDY&apos;S READ</Text>
 
       {premiumUserId ? (
         <MemberRead current={current} onRetry={retry} loadingLabel={`Loading Eddy's Read for ${damName}`} />
@@ -185,17 +198,17 @@ export function DamEddyRead({ damId, damName, premiumUserId, canUnlock, onUnlock
         <View>
           <Text style={[styles.body, { color: colors.text }]}>{DAM_READ_LOCKED_COPY}</Text>
           <View style={styles.lockedProse}>
-            <BlurredProse text={LOCKED_DAM_READ_SHAPE} color={colors.textMuted} style={styles.body} lines={2} />
+            <BlurredProse text={LOCKED_DAM_READ_SHAPE} color={colors.textMuted} style={styles.body} lines={3} />
           </View>
           <PremiumLockRow onPress={onUnlock} />
         </View>
       ) : (
         // An account not yet settled: reserve the space without either the
         // Read or an offer.
-        <ReadSkeleton widths={[0.7, 1, 0.8]} label={`Loading Eddy's Read for ${damName}`} />
+        <ReadSkeleton label={`Loading Eddy's Read for ${damName}`} />
       )}
 
-      {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
+      {age ? <Text style={[styles.age, { color: colors.textMuted }]}>{age}</Text> : null}
     </View>
   );
 }
@@ -223,25 +236,51 @@ export function DamReadInTake({ damId, premiumUserId, revision = 0 }: {
       </Text>
     );
   }
-  const age = relativeAgeShort(generatedAt);
+  const age = writtenAge(generatedAt);
   return (
     <View style={styles.inTake}>
       <MemberRead current={current} onRetry={retry} loadingLabel="Loading Eddy's Read for this dam" />
-      {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {age}</Text> : null}
+      {age ? <Text style={[styles.age, { color: colors.textMuted }]}>{age}</Text> : null}
+    </View>
+  );
+}
+
+/** Label on the left, value on the right, qualifier underneath. */
+function FactRows({ rows }: { rows: DamReadRow[] }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.rows}>
+      {rows.map((row) => (
+        <View key={row.key} style={styles.row} accessible accessibilityLabel={`${row.label}: ${row.value}${row.detail ? `. ${row.detail}` : ''}`}>
+          <View style={styles.rowLine}>
+            <Text style={[styles.rowLabel, { color: colors.textMuted }]}>{row.label}</Text>
+            <Text style={[styles.rowValue, { color: colors.text }]}>{row.value}</Text>
+          </View>
+          {row.detail ? <Text style={[styles.rowDetail, { color: colors.textSubtle }]}>{row.detail}</Text> : null}
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radii.card, padding: 16, gap: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  kicker: { ...t.lg, fontFamily: fonts.display, flexShrink: 1 },
-  read: { gap: 6 },
-  headline: { ...t.lg, fontFamily: fonts.heading, lineHeight: 24 },
-  body: { ...t.base },
+  card: { borderRadius: radii.card, padding: 16, gap: 10 },
+  kicker: { fontFamily: fonts.heading, fontSize: 12, letterSpacing: 0.7 },
+  read: { gap: 12 },
+  headline: { ...textStyles.cardTitle },
+  rows: { gap: 8 },
+  details: { gap: 8 },
+  detailsToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
+  row: { gap: 1 },
+  rowLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
+  rowLabel: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, flexShrink: 1 },
+  rowValue: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, textAlign: 'right', flexShrink: 1 },
+  rowDetail: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, textAlign: 'right' },
+  body: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
+  caveat: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
   lockedProse: { marginTop: 10 },
   inTake: { gap: 10, marginTop: 8 },
   retry: { gap: 4, minHeight: 44, justifyContent: 'center' },
   action: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
-  age: { ...t.xs },
+  age: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16 },
 });

@@ -17,12 +17,7 @@
 // outfitter at the counter, plain words, warnings direct). Nothing can say
 // something the numbers do not. ADR 0017.
 //
-// ── Current presentation ───────────────────────────────────────────────────
-// takeaway is one short headline and one interpretation sentence. The schedule
-// and generation-pattern chart already surround the Read. The full report
-// fields below remain for released clients during the mobile rollout.
-//
-// ── Legacy reading order ───────────────────────────────────────────────────
+// ── Reading order ──────────────────────────────────────────────────────────
 //   headline   today's posted generation and how it compares with recent days
 //   story      two or three sentences: surprises first, then the pattern
 //   keyRows    the two or three facts that back the story
@@ -629,89 +624,6 @@ function comparison(f: DamReadFacts, offset: 0 | 1): { versus: 'in-line' | 'earl
   return { versus: 'in-line', group };
 }
 
-/**
- * One takeaway, not a transcription of the schedule or the pattern chart.
- * Every time refers to the posted plan, never observed generation. Recomputed
- * at serve time, with no truncation or model-written claims.
- */
-export function damReadTakeaway(f: DamReadFacts): { headline: string; summary: string } {
-  const today = f.posted?.days.find((d) => d.dayOffset === 0);
-  const p = leadPattern(f);
-  const c = comparison(f, 0);
-  const usual = p?.consistent && mostlyGenerating(p) && p.rangeFromHour !== null && p.rangeToHour !== null
-    ? `Recent ${plural(p.group)} usually started ${rangePhrase(p.rangeFromHour, p.rangeToHour)}`
-    : null;
-
-  if (!today) {
-    return {
-      headline: 'Today’s schedule isn’t posted',
-      summary: usual
-        ? `${usual}; today’s timing is still unconfirmed.`
-        : 'There’s no posted start to compare with recent generation yet.',
-    };
-  }
-
-  if (today.firstStartHour === null) {
-    const minimum = today.minimumFlowOnly;
-    const unposted = f.reliability?.ranUnpostedDays.length ?? 0;
-    return {
-      headline: minimum ? 'Only minimum flow scheduled' : 'No generation scheduled today',
-      summary: unposted > 0
-        ? `${minimum ? 'Only minimum flow' : 'No generation'} is posted today, but generation ran without a posted start on ${unposted} of ${f.reliability!.daysCompared} recently tracked days.`
-        : c?.versus === 'quieter'
-          ? `Today’s posted schedule is quieter than recent ${plural(c.group)}, which had generation on ${p!.daysWithGeneration} of ${p!.days} days.`
-          : p
-            ? `Recent ${plural(p.group)} have also been quiet, with no generation on ${p.days - p.daysWithGeneration} of ${p.days} days.`
-            : 'Recent history is too limited to compare today’s schedule with a usual day.',
-    };
-  }
-
-  if (!today.windows.length) {
-    const tomorrow = f.posted?.days.find((d) => d.dayOffset === 1);
-    return {
-      headline: 'No more generation scheduled today',
-      summary: tomorrow?.firstStartHour != null
-        ? `Today’s posted windows have ended; tomorrow’s schedule starts at ${clockLabel(tomorrow.firstStartHour)}.`
-        : tomorrow
-          ? `Today’s posted windows have ended; tomorrow’s schedule lists ${tomorrow.minimumFlowOnly ? 'only minimum flow' : 'no generation'}.`
-          : 'Today’s posted windows have ended; tomorrow’s schedule isn’t available yet.',
-    };
-  }
-
-  const posted = `Today’s posted schedule starts at ${clockLabel(today.firstStartHour)}`;
-  if ((c?.versus === 'earlier' || c?.versus === 'later') && p?.rangeFromHour != null && p.rangeToHour !== null) {
-    const earlier = c.versus === 'earlier';
-    const low = earlier ? p.rangeFromHour - today.firstStartHour : today.firstStartHour - p.rangeToHour;
-    const high = earlier ? p.rangeToHour - today.firstStartHour : today.firstStartHour - p.rangeFromHour;
-    const difference = low === high ? `${low}` : `${low}–${high}`;
-    return {
-      headline: earlier ? 'An earlier start today' : 'A later start today',
-      summary: `${posted}, about ${difference} ${high === 1 ? 'hour' : 'hours'} ${c.versus} than recent ${plural(c.group)}.`,
-    };
-  }
-
-  if (c?.versus === 'in-line') {
-    return {
-      headline: 'A familiar start time',
-      summary: `${posted}, close to recent ${c.group} starts.`,
-    };
-  }
-
-  if (p && !mostlyGenerating(p)) {
-    return {
-      headline: 'Generation on today’s schedule',
-      summary: `${posted}; generation ran on ${p.daysWithGeneration} of the last ${p.days} ${daysNoun(p.group, p.days)}.`,
-    };
-  }
-
-  return {
-    headline: p && p.daysWithStart >= MIN_STARTS_FOR_PATTERN ? 'Start times have varied lately' : 'Generation on today’s schedule',
-    summary: p && p.daysWithStart >= MIN_STARTS_FOR_PATTERN
-      ? `${posted}; recent ${c?.group ?? f.todayGroup} starts have been too scattered for a usual time.`
-      : `${posted}; recent history is too limited for a comparison.`,
-  };
-}
-
 /** One sentence about today: what is posted, and how it compares. */
 export function damReadHeadline(f: DamReadFacts): string {
   const today = f.posted?.days.find((d) => d.dayOffset === 0);
@@ -914,7 +826,6 @@ export const AT_THE_DAM_CAVEAT =
 /** The whole Read, as the route serves it. */
 export function renderDamRead(f: DamReadFacts) {
   return {
-    takeaway: damReadTakeaway(f),
     headline: damReadHeadline(f),
     story: damReadStory(f),
     keyRows: damReadKeyRows(f),

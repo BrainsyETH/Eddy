@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   postDisplayEvent,
   type DisplayFormat,
@@ -48,4 +48,21 @@ export function useDisplayContract(
     },
     [display]
   );
+}
+
+
+/** A playlist may prepare a display without starting its content clock. */
+export function useHostActive() {
+  const [active, setActive] = useState(() => typeof window === 'undefined' || window.parent === window || new URLSearchParams(window.location.search).get('host') !== 'playlist');
+  useEffect(() => {
+    if (window.parent === window || new URLSearchParams(window.location.search).get('host') !== 'playlist') return;
+    let origin: string;
+    try { origin = new URL(document.referrer).origin; } catch { return; }
+    const receive = (event: MessageEvent) => {
+      if (event.source === window.parent && event.origin === origin && event.data?.type === 'eddy-display:active' && event.data?.v === 1 && typeof event.data.active === 'boolean') setActive(event.data.active);
+    };
+    window.addEventListener('message', receive);
+    return () => window.removeEventListener('message', receive);
+  }, []);
+  return active;
 }

@@ -34,10 +34,11 @@ import {
   type MillFormat,
 } from '@/lib/display/mill-scenes';
 import { displayReadings } from '@/lib/embed/display-events';
-import { useDisplayContract } from './useDisplayContract';
+import { useDisplayContract, useHostActive } from './useDisplayContract';
 import styles from './river-window.module.css';
 
 export default function RiverWindow() {
+  const hostActive = useHostActive();
   const params = useSearchParams();
   const rawRivers = params.get('rivers');
   const millMode = params.get('theme') !== 'river';
@@ -155,13 +156,13 @@ export default function RiverWindow() {
 
   useEffect(() => {
     const sync = () => {
-      if (paused || showReadings || showMills || document.hidden) player.current?.pause();
+      if (!hostActive || paused || showReadings || showMills || document.hidden) player.current?.pause();
       else player.current?.play();
     };
     sync();
     document.addEventListener('visibilitychange', sync);
     return () => document.removeEventListener('visibilitychange', sync);
-  }, [paused, showReadings, showMills, format]);
+  }, [hostActive, paused, showReadings, showMills, format]);
 
   const warning = signs.filter((s) => s.code === 'dangerous' || s.code === 'high');
   const connection = query.isError
@@ -353,3 +354,4 @@ function AssetHealth({ onError }: { onError: () => void }) {
   }, []);
   return null;
 }
+

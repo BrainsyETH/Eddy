@@ -13,7 +13,6 @@ import {
   damReadHeadline,
   damReadKeyRows,
   damReadStory,
-  damReadTakeaway,
   observedDays,
   postedSchedule,
   recentShape,
@@ -288,86 +287,6 @@ function inputs(overrides: Partial<DamReadInputs> = {}): DamReadInputs {
     ...overrides,
   };
 }
-
-test('a fragmented schedule yields one short takeaway, not a list of generation windows', () => {
-  const scheduled = scheduleDay('2026-10-31', null);
-  scheduled.hours = scheduled.hours.map((h) => ({ ...h, megawatts: [13, 16, 18, 20].includes(h.hourEnding) ? 50 : 0 }));
-  const facts = buildDamReadFacts(inputs({
-    schedule: [scheduled],
-    observed: fortnight((day) => day === '2026-10-17' ? 14 : 15),
-    scheduleVersions: [],
-  }));
-  assert.deepEqual(damReadTakeaway(facts), {
-    headline: 'An earlier start today',
-    summary: 'Today’s posted schedule starts at noon, about 2–3 hours earlier than recent weekends.',
-  });
-  assert.deepEqual(renderDamRead(facts).takeaway, damReadTakeaway(facts));
-});
-
-test('compact comparisons keep weekdays and weekends apart and describe a posted plan', () => {
-  const facts = buildDamReadFacts(inputs({
-    observed: fortnight((_, weekend) => weekend ? 15 : 8),
-    schedule: [scheduleDay('2026-10-31', 18)],
-  }));
-  assert.deepEqual(damReadTakeaway(facts), {
-    headline: 'A later start today',
-    summary: 'Today’s posted schedule starts at 6 PM, about 3 hours later than recent weekends.',
-  });
-  const normal = buildDamReadFacts(inputs({ observed: fortnight(() => 15) }));
-  assert.equal(damReadTakeaway(normal).headline, 'A familiar start time');
-});
-
-test('a finished schedule does not announce an upcoming start or claim the water is low', () => {
-  const facts = buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', 6, 2)] }));
-  assert.deepEqual(damReadTakeaway(facts), {
-    headline: 'No more generation scheduled today',
-    summary: 'Today’s posted windows have ended; tomorrow’s schedule isn’t available yet.',
-  });
-  const withTomorrow = withCurrentSchedule(facts, [scheduleDay('2026-10-31', 6, 2), scheduleDay('2026-11-01', 15)], NOW);
-  assert.equal(damReadTakeaway(withTomorrow).summary, 'Today’s posted windows have ended; tomorrow’s schedule starts at 3 PM.');
-});
-
-test('missing, minimum-flow and zero-generation schedules stay distinct in the takeaway', () => {
-  const missing = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [] })));
-  assert.equal(missing.headline, 'Today’s schedule isn’t posted');
-  assert.match(missing.summary, /Recent weekends usually started around 3 PM; today’s timing is still unconfirmed/);
-  for (const minimum of [false, true]) {
-    const read = damReadTakeaway(buildDamReadFacts(inputs({ schedule: [scheduleDay('2026-10-31', null, 4, minimum)] })));
-    assert.equal(read.headline, minimum ? 'Only minimum flow scheduled' : 'No generation scheduled today');
-    assert.match(read.summary, /generation ran without a posted start on 1 of 14 recently tracked days/);
-  }
-});
-
-test('sparse, irregular and absent history never become a usual start in compact copy', () => {
-  const sparse = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => day === '2026-10-17' ? 15 : null) })));
-  assert.match(sparse.summary, /generation ran on 1 of the last 4 weekend days/);
-  const scattered: Record<string, number> = { '2026-10-17': 2, '2026-10-18': 8, '2026-10-24': 15, '2026-10-25': 21 };
-  const irregular = damReadTakeaway(buildDamReadFacts(inputs({ observed: fortnight((day) => scattered[day] ?? 15) })));
-  assert.equal(irregular.headline, 'Start times have varied lately');
-  assert.match(irregular.summary, /recent weekend starts have been too scattered/);
-  const absent = damReadTakeaway(buildDamReadFacts(inputs({ observed: [] })));
-  assert.match(absent.summary, /recent history is too limited/);
-});
-
-test('compact copy stays concise and qualified even with old schedules or many historical exceptions', () => {
-  for (const shape of [
-    {},
-    { observed: fortnight(() => 6) },
-    { observed: fortnight(() => null) },
-    { schedule: [] },
-    { schedule: [scheduleDay('2026-10-31', null)] },
-    { schedule: [scheduleDay('2026-10-31', null, 4, true)] },
-    { schedule: [scheduleDay('2026-10-31', 6, 2)] },
-    { schedule: [{ ...scheduleDay('2026-10-31', 15), retrievedAt: new Date(NOW - 8 * HOUR).toISOString() }] },
-  ]) {
-    const read = renderDamRead(buildDamReadFacts(inputs(shape)));
-    const { headline, summary } = read.takeaway;
-    assert.ok(headline.length <= 45, headline);
-    assert.ok(summary.split(/\s+/).length <= 40, summary);
-    assert.equal(summary.split(/[.!?]/).filter(Boolean).length, 1, summary);
-    assert.doesNotMatch(`${headline} ${summary}`, /safe|will start|water is low|on time|units/i);
-  }
-});
 
 test('the Read leads with today, then surprises, then the pattern (Table Rock shape)', () => {
   const read = renderDamRead(buildDamReadFacts(inputs()));
