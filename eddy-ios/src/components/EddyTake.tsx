@@ -414,9 +414,11 @@ export function EddyTake({
                   it from. The two sections below always separate themselves. */}
               <View>
                 <View style={styles.sectionHead}>
-                  <EddySymbol name="aiAssistant" size={17} />
-                  <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                    EDDY&apos;S READ
+                  {damRead ? <Otter mood="favicon" size={24} /> : <EddySymbol name="aiAssistant" size={17} />}
+                  <Text style={damRead
+                    ? [styles.damReadLabel, { color: colors.interactive }]
+                    : [styles.sectionLabel, { color: colors.textMuted }]}>
+                    {damRead ? 'Eddy’s Read' : 'EDDY’S READ'}
                   </Text>
                 </View>
                 {damRead ? (
@@ -425,7 +427,7 @@ export function EddyTake({
                       text={LOCKED_DAM_READ_SHAPE}
                       color={colors.textMuted}
                       style={styles.sectionText}
-                      lines={4}
+                      lines={2}
                     />
                   ) : damRead.content ?? <ReadSkeleton label="Loading Eddy's Read for this dam" />
                 ) : locked ? (
@@ -580,6 +582,7 @@ const styles = StyleSheet.create({
   loadErrorAction: { ...t.sm, fontFamily: fonts.semibold },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sectionLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
+  damReadLabel: { ...t.lg, fontFamily: fonts.display, flexShrink: 1 },
   sectionText: { ...t.sm, fontFamily: fonts.body, marginTop: SECTION_TEXT_MARGIN_TOP },
   attribution: { ...t.xs, fontFamily: fonts.body, marginTop: 12, textAlign: 'right' },
 });
