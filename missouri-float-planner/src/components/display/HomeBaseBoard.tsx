@@ -347,16 +347,16 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
             <>
               <svg className={styles.filters} width="0" height="0" aria-hidden="true">
                 <filter id="home-base-pool" x="-5%" y="-20%" width="110%" height="140%" colorInterpolationFilters="sRGB">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.008 0.07" numOctaves={2} seed={4} result="ripple">
-                    <animate attributeName="baseFrequency" dur="14s" values="0.008 0.07;0.011 0.088;0.008 0.07" repeatCount="indefinite" />
+                  <feTurbulence type="fractalNoise" baseFrequency="0.008 0.07" numOctaves={3} seed={4} result="ripple">
+                    <animate attributeName="baseFrequency" dur="9s" values="0.008 0.07;0.013 0.1;0.008 0.07" repeatCount="indefinite" />
                   </feTurbulence>
-                  <feDisplacementMap in="SourceGraphic" in2="ripple" scale={8} xChannelSelector="R" yChannelSelector="G" />
+                  <feDisplacementMap in="SourceGraphic" in2="ripple" scale={13} xChannelSelector="R" yChannelSelector="G" />
                 </filter>
                 <filter id="home-base-falls" x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB">
                   <feTurbulence type="fractalNoise" baseFrequency="0.07 0.012" numOctaves={2} seed={9} result="rush">
-                    <animate attributeName="baseFrequency" dur="2.4s" values="0.07 0.012;0.07 0.022;0.07 0.012" repeatCount="indefinite" />
+                    <animate attributeName="baseFrequency" dur="1.6s" values="0.07 0.012;0.08 0.028;0.07 0.012" repeatCount="indefinite" />
                   </feTurbulence>
-                  <feDisplacementMap in="SourceGraphic" in2="rush" scale={7} xChannelSelector="R" yChannelSelector="G" />
+                  <feDisplacementMap in="SourceGraphic" in2="rush" scale={12} xChannelSelector="R" yChannelSelector="G" />
                 </filter>
               </svg>
               {water.map((w) => (
@@ -378,6 +378,15 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
                   <i className={w.kind === 'pool' ? styles.glints : styles.foam} />
                 </div>
               ))}
+              {/* Where the falls land: spreading rings and rising mist. */}
+              {water
+                .filter((w) => w.kind === 'falls')
+                .map((w) => (
+                  <div key="splash" className={styles.splash} aria-hidden="true" style={{ left: w.left + w.width * 0.5, top: w.top + w.height + 12 }}>
+                    <i /><i /><i />
+                    <b /><b /><b />
+                  </div>
+                ))}
             </>
           )}
           <div className={`${styles.plaque} ${styles.logo}`}>
