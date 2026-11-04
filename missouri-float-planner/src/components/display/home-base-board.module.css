@@ -116,8 +116,9 @@
 @keyframes bob { 50% { transform: translateY(-4px); } }
 
 /* ── Map card ── */
-.map { position: relative; height: 586px; background: var(--sand) no-repeat 0 0 / 978px 586px; }
-.map svg { position: absolute; inset: 0; width: 978px; height: 586px; }
+/* Height and relief offset come from boardLayout; 586px is the 9:16 design. */
+.map { position: relative; height: 586px; background: var(--sand) no-repeat 0 0 / 978px auto; }
+.map svg { position: absolute; inset: 0; width: 978px; height: 100%; }
 .mapTitle { position: absolute; right: 28px; top: 28px; background: var(--card); border: 2px solid var(--teal7); border-radius: 8px; box-shadow: 3px 3px 0 #a49c8e; padding: 7px 14px; font-size: 16px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--teal9); }
 .key { position: absolute; left: 28px; top: 352px; background: rgba(255, 255, 255, 0.92); border: 2px solid var(--rule); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink2); display: grid; gap: 4px; }
 .key span { display: inline-flex; align-items: center; gap: 6px; }
@@ -152,6 +153,17 @@
 .rowName .badge i { width: 10px; height: 10px; }
 .rowName small { margin-left: 0; }
 .rowValue { font-size: 26px; text-align: right; color: var(--ink); }
+
+/* ── Forecast (only when the screen is tall enough; see boardLayout) ── */
+.forecast { height: 150px; display: grid; grid-template-columns: 236px repeat(4, 1fr); align-items: stretch; padding: 0 28px; }
+.forecastLabel { display: grid; align-content: center; gap: 4px; padding-right: 20px; }
+.forecastLabel b { font-family: var(--font-display); font-weight: 600; font-size: 26px; line-height: 1.1; color: var(--teal9); }
+.forecastLabel span:last-child { font-size: 14px; color: var(--ink3); }
+.forecastDay { display: grid; justify-items: center; align-content: center; gap: 2px; line-height: 1.2; border-left: 1px solid var(--rule); font-size: 17px; color: var(--ink3); }
+.forecastDay svg { color: var(--teal6); }
+.forecastDay b { font-size: 28px; font-weight: 500; color: var(--ink); }
+.forecastDay b small { font-size: 18px; color: var(--ink3); margin-left: 2px; }
+.rainy { color: var(--coral6); font-weight: 700; }
 
 /* ── Footer ── */
 .foot { display: grid; grid-template-columns: 1fr auto 84px; gap: 24px; align-items: center; border-top: 2px solid var(--rule); padding: 14px 0 32px; }

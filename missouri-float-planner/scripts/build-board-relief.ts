@@ -7,7 +7,8 @@
  * (terrarium encoding, SRTM-derived, public domain), fetched once here so the
  * board never downloads elevation at runtime. The raster is rendered in the
  * board's own map frame (HOME_BASES[id].map in src/lib/display/home-base.ts),
- * so it drops under the SVG at 0,0 and lines up with the river geometry.
+ * extended by reliefPad above and below, so it lines up with the river
+ * geometry at any height the map grows to.
  *
  * Unlike the statewide hillshade, the board's map is always drawn on the same
  * paper, so the relief is composited onto that paper here and shipped as a
@@ -18,7 +19,7 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
-import { HOME_BASES, unproject } from '../src/lib/display/home-base';
+import { growFrame, HOME_BASES, unproject } from '../src/lib/display/home-base';
 
 const Z = 10;
 const SCALE = 1.5; // render above the 978px frame so it stays crisp on 4K panels
@@ -56,7 +57,9 @@ async function tile(x: number, y: number): Promise<Float64Array> {
 }
 
 async function main() {
-  const { map } = board;
+  // Bake the frame grown by reliefPad above and below, so the map can grow
+  // on a tall screen and the component shifts the image to match.
+  const map = growFrame(board.map, 2 * board.reliefPad);
   const nw = unproject(map, 0, 0);
   const se = unproject(map, map.width, map.height);
   const x0 = Math.floor(tileX(nw.lng)), x1 = Math.floor(tileX(se.lng));

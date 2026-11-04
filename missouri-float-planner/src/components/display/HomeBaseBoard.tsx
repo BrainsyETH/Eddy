@@ -11,11 +11,16 @@ import Image from 'next/image';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { conditionDef, conditionOtterMood } from '@shared/condition-system';
 import { EDDY_IMAGES } from '@/constants';
+import { weatherGlyph } from '@/components/ui/weather-glyph';
 import { parseRiverSnapshot, REFRESH_INTERVAL } from '@/lib/display/river-window';
 import { MILL_SCENES, millAsset } from '@/lib/display/mill-scenes';
 import {
+  RAIN_EMPHASIS,
   advanceLoop,
   artRegion,
+  boardLayout,
+  growFrame,
+  parseForecast,
   boardRows,
   clockLabel,
   eddyTakeFor,
@@ -38,12 +43,13 @@ import {
 } from '@/lib/display/home-base';
 import styles from './home-base-board.module.css';
 
-const W = 1080;
-const H = 1920;
 const ART_WIDTH = 1080;
 const ART_HEIGHT = Math.round((1080 * 940) / 1672); // dillard.webp is 1672 x 940
 const ART_OFFSET = 60; // the painting is drawn 60px above the top edge
 const TAKE_REFRESH = 15 * 60_000;
+const FORECAST_REFRESH = 60 * 60_000;
+/** The key sits below the divide on the 586px design map. */
+const KEY_TOP = 352;
 const HISTORY_REFRESH = 30 * 60_000;
 const WATER = '#2D7889'; // replay ink: flow only, never a condition colour
 const EDDY_MARK = EDDY_IMAGES.favicon;
@@ -93,7 +99,7 @@ function Spark({ values, cursor }: { values: (number | null)[]; cursor: number |
 export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: string; riverQrs: Record<string, Qr>; appQr: Qr }) {
   const config = homeBaseFor(boardId)!;
   const mill = MILL_SCENES.find((s) => s.id === config.millScene)!;
-  const [scale, setScale] = useState({ s: 0, x: 0, y: 0 });
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
   // 0 until mounted, so the server render and the first client render agree.
   const [now, setNow] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -120,6 +126,13 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     () => [...new Set((rivers.data?.rivers ?? []).filter((r) => config.rivers.some((c) => c.slug === r.slug)).map((r) => r.primaryGaugeSiteId).filter((s): s is string => !!s))].sort(),
     [rivers.data, config.rivers]
   );
+  const forecastQuery = useQuery({
+    queryKey: ['home-base-forecast', config.doorstep],
+    queryFn: ({ signal }) => getJson(`/api/weather/${config.doorstep}/forecast`, signal),
+    staleTime: FORECAST_REFRESH,
+    refetchInterval: FORECAST_REFRESH,
+    retry: 1,
+  });
   const histories = useQueries({
     queries: sites.map((site) => ({
       queryKey: ['home-base-history', site],
@@ -192,19 +205,18 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     };
   }, []);
   useEffect(() => {
-    const fit = () => {
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const s = Math.min(vw / W, vh / H);
-      setScale({ s, x: (vw - W * s) / 2, y: (vh - H * s) / 2 });
-    };
+    const fit = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
   }, []);
 
-  // ── Static map geometry ──
-  const paths = useMemo(() => Object.fromEntries(Object.entries(config.lines).map(([slug, line]) => [slug, linePath(config.map, line)])), [config]);
-  const home = project(config.map, config.home.lng, config.home.lat);
+  // ── Layout: on a screen taller than 9:16 the board grows to fill it ──
+  const forecast = now ? parseForecast(forecastQuery.data, now) : { place: null, days: [] };
+  const layout = boardLayout(viewport.w, viewport.h, config, forecast.days.length > 0);
+  const frame = useMemo(() => growFrame(config.map, layout.mapGrow), [config.map, layout.mapGrow]);
+  const paths = useMemo(() => Object.fromEntries(Object.entries(config.lines).map(([slug, line]) => [slug, linePath(frame, line)])), [config, frame]);
+  const home = project(frame, config.home.lng, config.home.lat);
   const sun = now ? sunTimes(new Date(now + (config.home.lng / 15) * 3_600_000), config.home.lat, config.home.lng) : null;
   const night = now ? isNight(now, config.home.lat, config.home.lng) : false;
 
@@ -239,7 +251,12 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
     <div className={styles.viewport}>
       <div
         className={`${styles.board} ${reduceMotion ? '' : styles.drift} ${night ? styles.night : ''}`}
-        style={{ transform: `translate(${scale.x}px, ${scale.y}px) scale(${scale.s})`, visibility: scale.s ? 'visible' : 'hidden' }}
+        style={{
+          height: layout.height,
+          gridTemplateRows: layout.forecast ? '622px auto auto auto 132px' : '622px auto 1fr 132px',
+          transform: `translate(${layout.x}px, ${layout.y}px) scale(${layout.scale})`,
+          visibility: layout.scale ? 'visible' : 'hidden',
+        }}
       >
         <section className={styles.hero} style={{ backgroundImage: `url(${millAsset(mill.id)})` }} aria-label={`${mill.name} on ${mill.riverName}`}>
           {/* Moving water: only inside the water polygons, so the rocks, mill
@@ -330,15 +347,23 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
         </section>
 
         <section className={styles.card}>
-          <div className={styles.map} style={{ backgroundImage: `url(/display/${config.id}/relief.jpg)` }}>
-            <svg viewBox={`0 0 ${config.map.width} ${config.map.height}`} role="img" aria-label={`Map of the rivers around ${config.name}`}>
+          <div
+            className={styles.map}
+            style={{
+              height: frame.height,
+              backgroundImage: `url(/display/${config.id}/relief.jpg)`,
+              // The relief is baked reliefPad taller at each end; show the middle.
+              backgroundPosition: `0 ${-(config.reliefPad - layout.mapGrow / 2)}px`,
+            }}
+          >
+            <svg viewBox={`0 0 ${frame.width} ${frame.height}`} role="img" aria-label={`Map of the rivers around ${config.name}`}>
               {[10, 20, 30, 40].map((mi) => (
-                <circle key={mi} cx={home[0]} cy={home[1]} r={(mi / 69) * config.map.scale} fill="none" stroke="#6B6459" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 7" />
+                <circle key={mi} cx={home[0]} cy={home[1]} r={(mi / 69) * frame.scale} fill="none" stroke="#6B6459" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 7" />
               ))}
-              <path d={linePath(config.map, config.divide)} fill="none" stroke="#524D43" strokeWidth={2} strokeDasharray="12 8" />
+              <path d={linePath(frame, config.divide)} fill="none" stroke="#524D43" strokeWidth={2} strokeDasharray="12 8" />
               {(() => {
-                const y = project(config.map, ...config.divide[config.divide.length - 1])[1];
-                const x = config.map.width - 28;
+                const y = project(frame, ...config.divide[config.divide.length - 1])[1];
+                const x = frame.width - 28;
                 return (
                   <g textAnchor="end" fontWeight={700} letterSpacing={1.5} fontSize={14} fill="#524D43" style={{ textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>
                     <text x={x} y={y - 16} {...halo}>{config.divideLabels.north}</text>
@@ -364,7 +389,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               {rows.map((row) => {
                 const label = config.labels[row.slug];
                 if (!label) return null;
-                const [x, y] = project(config.map, label[0], label[1]);
+                const [x, y] = project(frame, label[0], label[1]);
                 const on = replay == null && row.slug === spotlight;
                 return (
                   <text key={row.slug} x={x} y={y} textAnchor={label[2]} fill="#0F2D35" fontSize={on ? 25 : 21} fontWeight={600} style={{ fontFamily: 'var(--font-display)' }} {...halo}>
@@ -375,7 +400,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               {Object.entries(config.gauges).map(([site, gauge]) => {
                 const row = rows.find((r) => r.siteId === site);
                 if (!row) return null;
-                const [x, y] = project(config.map, gauge.at[0], gauge.at[1]);
+                const [x, y] = project(frame, gauge.at[0], gauge.at[1]);
                 const text = `${valueAt(row)} ${row.unit}`.trim();
                 const tw = text.length * 9.6 + 18;
                 const left = gauge.side === 'left' ? x - 12 - tw : x + 12;
@@ -396,7 +421,7 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               </g>
             </svg>
             <div className={styles.mapTitle}>The rivers around the cabin</div>
-            <div className={styles.key}>
+            <div className={styles.key} style={{ top: KEY_TOP + layout.mapGrow / 2 }}>
               <span><i style={{ background: conditionDef('good').solid }} />Good</span>
               <span><i style={{ background: conditionDef('low').solid }} />Low</span>
               <span><i style={{ background: 'repeating-linear-gradient(90deg,#524D43 0 8px,transparent 8px 13px)', height: 3 }} />Divide (approx.)</span>
@@ -458,6 +483,27 @@ export default function HomeBaseBoard({ boardId, riverQrs, appQr }: { boardId: s
               </button>
             ))}
         </section>
+
+        {layout.forecast && (
+          <section className={`${styles.card} ${styles.forecast}`} aria-label="Weather forecast">
+            <div className={styles.forecastLabel}>
+              <span className={styles.eyebrow}>Forecast</span>
+              <b>{forecast.place ? `Near ${forecast.place}` : 'Near the cabin'}</b>
+              <span>Rain chance in coral when 40% or more</span>
+            </div>
+            {forecast.days.map((d) => {
+              const Glyph = weatherGlyph(d.icon);
+              return (
+                <div key={d.date} className={styles.forecastDay}>
+                  <span>{d.day}</span>
+                  <Glyph size={32} strokeWidth={1.75} aria-hidden="true" />
+                  <b className={styles.mono}>{d.high}°{d.low !== d.high && <small>/{d.low}°</small>}</b>
+                  <span className={d.rain >= RAIN_EMPHASIS ? styles.rainy : undefined}>Rain {d.rain}%</span>
+                </div>
+              );
+            })}
+          </section>
+        )}
 
         <footer className={styles.foot}>
           <div className={styles.sun}>
