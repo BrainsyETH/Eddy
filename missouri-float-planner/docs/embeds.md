@@ -155,3 +155,35 @@ A referring site is not a confirmed embed. The beacon sends
 on that site or someone clicked a widget link there. Confirming embeds needs
 the beacon to record whether it loaded inside a frame. The dashboard holds 30
 days of daily rows, so "new" means first seen within that window.
+
+## Display contract
+
+The full-screen displays — the [Missouri mills collection](missouri-mills.md)
+and River Window at `/embed/display`, and the
+[home-base board](home-base-board.md) at `/embed/board/<id>` — are framed by
+wall hosts that rotate several displays on one screen (the Farmhouse
+dashboard's `/display` playlist is the first). Each posts these messages to
+its parent (`postMessage`, target `'*'`, nothing sent when not framed). The
+types and the host-side validator are `src/lib/embed/display-events.ts`;
+`isDisplayEvent` rejects any other version, so a breaking change means a new
+`v`, not a reshaped message.
+
+| Message | When | Payload |
+| --- | --- | --- |
+| `eddy-display:ready` | Once, after the display is drawn and its first readings request has settled, either way | `display` (`mills` / `river-window` / `board`), `format` (`landscape` / `vertical`) |
+| `eddy-display:status` | Right after ready, then whenever it changes | `readings`: `current`, `interrupted` (refresh failed, last good readings still shown and aging) or `unavailable`; `scenery`: `ok` / `unavailable` |
+| `eddy-display:break` | At each natural cut point | `completed` (breaks since load), `total` (breaks in one full loop), and `next` where the display can resume |
+
+Cut points: **Mills** breaks as each painting ends, on the frame the veil
+starts to fall (`MILL_BREAK_FRAME`), so `total` is the number of mills and
+`next` is the mill that would follow. **The board** breaks once per loop, as
+the hold on the present gives way to the first spotlight (`loopCompleted`).
+River Window sends ready and status only. A paused display (`motion=off`,
+reduced motion) sends no breaks; hosts fall back to their own timer.
+
+URL parameters a host may rely on: `format=vertical|landscape` and
+`rivers=` (Mills), `motion=off` (all), and `start=<mill id>` (Mills: opens on
+that mill, so a host can pass back a break's `next` and resume the tour; an
+unknown or filtered-out id opens on the first mill). These, and the message
+types above, are the contract: `display-events.test.ts` fails if this section
+stops naming them.

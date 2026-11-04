@@ -7,12 +7,15 @@ import {
   MILL_RIVERS,
   MILL_SCENES,
   MILL_STAGE,
+  MILL_BREAK_FRAME,
   MILL_SWAP_FRAME,
   VERTICAL_ART_HEIGHT,
+  millBreakBetween,
   millCamera,
   millDuration,
   millMoment,
   millRoute,
+  millStartFrame,
   mixHex,
   nextMillFrame,
   parseMillFormat,
@@ -114,4 +117,31 @@ test('format parameter and route geometry', () => {
     assert.ok(x > 0 && x < MILL_MAP_WIDTH && y > 0 && y < MILL_MAP_HEIGHT, mill.id);
   }
   assert.deepEqual(Object.keys(MILL_MAP_RIVERS).sort(), [...MILL_RIVERS].sort());
+});
+
+test('display contract: one break as each painting ends, none for seeks; ?start= resumes the tour', () => {
+  const count = MILL_SCENES.length;
+  const total = millDuration(count);
+  // Breaks land where the veil starts to fall, before the next mill swaps in.
+  assert.equal(millMoment(MILL_BREAK_FRAME - 1, count)!.veil, 0);
+  assert.ok(millMoment(MILL_BREAK_FRAME + 1, count)!.interlude);
+  // Playback at uneven frame steps (a slow wall drops frames) finds each break exactly once, including across the loop.
+  const found: number[] = [];
+  for (let f = 0, step = 1; f < total * 2; f += step, step = (step % 7) + 1) {
+    const pass = millBreakBetween(f, (f + step) % total, count);
+    if (pass != null) found.push(pass);
+  }
+  assert.deepEqual(found, [...MILL_SCENES.keys(), ...MILL_SCENES.keys()]);
+  // A seek (Next mill, the picker) is not playback.
+  assert.equal(millBreakBetween(MILL_BREAK_FRAME - 10, MILL_PASS_FRAMES * 3, count), null);
+  assert.equal(millBreakBetween(5, 5, count), null);
+  assert.equal(millBreakBetween(0, 10, 0), null);
+
+  assert.equal(millStartFrame('alley', MILL_SCENES), MILL_PASS_FRAMES);
+  assert.equal(millStartFrame(' Dawt ', MILL_SCENES), MILL_SCENES.findIndex((m) => m.id === 'dawt') * MILL_PASS_FRAMES);
+  assert.equal(millStartFrame('nowhere', MILL_SCENES), 0);
+  assert.equal(millStartFrame(null, MILL_SCENES), 0);
+  assert.equal(millStartFrame('alley', selectMillScenes(['huzzah'])), 0, 'a filtered-out mill opens on the first');
+  // Frame 0 of the start pass is the mill's own painting.
+  assert.equal(millMoment(millStartFrame('greer', MILL_SCENES), count)!.index, MILL_SCENES.findIndex((m) => m.id === 'greer'));
 });

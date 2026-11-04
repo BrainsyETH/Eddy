@@ -20,7 +20,9 @@ top window, opens centred on its mill (`focus` in the manifest) and drifts to
 its board, which there carries only the mill's name. Below it a dock, tinted
 from the painting's own foreground colour, holds the reading at room
 distance, plus the distance to the next mill. `?format=vertical` or
-`?format=landscape` overrides the automatic choice. The classic River Window
+`?format=landscape` overrides the automatic choice. `?start=<mill id>` opens
+on that mill. Framing hosts receive ready, status and a break as each painting
+ends ([display contract](embeds.md#display-contract)). The classic River Window
 (`?theme=river`) remains landscape only.
 
 **Between mills.** There is no foreground prop covering a seam. The painting

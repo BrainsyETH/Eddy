@@ -109,6 +109,33 @@ export function millMoment(frame: number, count: number): MillMoment | null {
     : { index: to, sceneFrame: 0, veil, interlude };
 }
 
+/** A framing host may cut away as each painting ends, on the frame the veil
+ * starts to fall (docs/embeds.md#display-contract). */
+export const MILL_BREAK_FRAME = SCENE_FRAMES;
+/** Frame updates further apart than this are seeks (Next mill, the picker), not playback. */
+const MAX_PLAYBACK_STEP = 45;
+
+/** The pass whose painting ended between two consecutive frame updates, or null. */
+export function millBreakBetween(prev: number, next: number, count: number): number | null {
+  if (!count) return null;
+  const total = millDuration(count);
+  const delta = (((next - prev) % total) + total) % total;
+  if (delta === 0 || delta > MAX_PLAYBACK_STEP) return null;
+  for (let pass = 0; pass < count; pass++) {
+    const ahead = (((pass * MILL_PASS_FRAMES + MILL_BREAK_FRAME - prev) % total) + total) % total;
+    if (ahead > 0 && ahead <= delta) return pass;
+  }
+  return null;
+}
+
+/** `?start=<mill id>` opens on that mill (so a host that cuts away can resume
+ * the tour where it left off); an unknown or filtered-out id opens on the first. */
+export function millStartFrame(start: string | null, mills: MillScene[]): number {
+  const id = start?.trim().toLowerCase();
+  const index = id ? mills.findIndex((m) => m.id === id) : -1;
+  return Math.max(0, index) * MILL_PASS_FRAMES;
+}
+
 /** The start of the mill after the one on screen (Next mill). */
 export function nextMillFrame(frame: number, count: number): number {
   const moment = millMoment(frame, count);

@@ -71,6 +71,8 @@ embed data teal. The partner's brand appears only as their logo files.
   tiled glint or foam layer that slides exactly one tile per loop, so there is
   no seam. Regions sit under the hero's fade. They are separate from the Mills
   display's subtler `water` region in `mill-scenes.ts`.
+- **Framed on a wall host.** The board posts ready, status and one break per
+  loop to a framing page ([display contract](embeds.md#display-contract)).
 - **Always-on screen.** The canvas drifts a few pixels over ten minutes, and
   dims between sunset and sunrise at the place. Hidden tabs stop the loop.
   Reduced motion (or `?motion=off`) skips the replay, leaves the painting's
