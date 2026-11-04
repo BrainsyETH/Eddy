@@ -373,7 +373,7 @@
 .millSign[data-placard] { gap: 8px; }
 .millSign[data-placard] .millName { font-size: 1.75em; }
 .millSign[data-placard] .millLocation { font-size: 1em; }
-.millDock { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; padding: 56px 84px 0; box-sizing: border-box; color: #f6e9c8; font-family: var(--font-body), sans-serif; border-top: 6px solid #5a4630; box-shadow: inset 0 1px 0 #8a6d4a; }
+.millDock { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; padding: 56px 84px 0; box-sizing: border-box; color: #f6e9c8; font-family: var(--font-body), sans-serif; border-top: 6px solid #5a4630; box-shadow: inset 0 1px 0 #8a6d4a; }
 .dockKicker { font-size: 26px; letter-spacing: 3px; text-transform: uppercase; color: #cdbf9e; }
 .dockName { font-family: 'Fredoka', var(--font-body), sans-serif; font-size: 82px; font-weight: 500; line-height: 1.05; letter-spacing: -1px; margin-top: 14px; }
 .dockLocation { font-size: 32px; color: #dfd4b9; margin-top: 6px; }
@@ -386,7 +386,7 @@
 .dockNext { position: absolute; left: 84px; right: 84px; bottom: 54px; font-size: 26px; letter-spacing: 1px; color: #b9ad8f; }
 .stage[data-format='vertical'] .brand { top: 3.2%; left: 6%; }
 .stage[data-format='vertical'] .status { top: 3.2%; right: 6%; }
-.stage[data-format='vertical'] .warning { bottom: 38%; left: 6%; max-width: 88%; }
+.stage[data-format='vertical'] .warning { bottom: calc(100% - var(--dock-top, 63.3%) + 2%); left: 6%; max-width: 88%; }
 /* Controls sit under the clock, over the painting, so touch and reduced-motion
    viewers (who always see them) never lose the dock's reading behind them. */
 .stage[data-format='vertical'] .controls { left: 4%; right: 4%; top: 8.5%; bottom: auto; flex-wrap: wrap; justify-content: flex-end; }
@@ -423,3 +423,26 @@
 .mapPulse { fill: none; stroke: #e8b46d; stroke-width: 3; }
 .mapLabel { fill: #f4ead5; fill-opacity: .75; font-size: 28px; paint-order: stroke; stroke: #0c1511; stroke-width: 6px; stroke-opacity: .6; }
 .mapLabelStrong { fill: #ffe3b6; font-size: 32px; font-weight: 600; paint-order: stroke; stroke: #0c1511; stroke-width: 6px; stroke-opacity: .6; }
+
+/* Tour band (vertical screens taller than 9:16). */
+.millTour { position: absolute; left: 0; right: 0; padding: 32px 84px; box-sizing: border-box; color: #f4ead5; font-family: var(--font-body), sans-serif; border-top: 1px solid #f4ead51f; }
+.tourHead { display: flex; justify-content: space-between; align-items: baseline; height: 32px; margin-bottom: 32px; font-size: 24px; letter-spacing: 3px; text-transform: uppercase; color: #cdbf9e; }
+.tourHead span:last-child { color: #e8b46d; }
+.tourBody { display: flex; gap: 48px; align-items: stretch; }
+.tourMap { flex: none; width: auto; overflow: hidden; }
+.tourLeg { fill: none; stroke: #f4ead5; stroke-linecap: round; }
+.tourLeg[data-state='done'] { stroke-opacity: .55; }
+.tourLeg[data-state='ahead'] { stroke-opacity: .28; }
+.tourLegNow { fill: none; stroke: #e8b46d; stroke-linecap: round; }
+.tourNext { fill: none; stroke: #e8b46d; stroke-opacity: .8; }
+.tourList { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; justify-content: center; }
+.tourList li { display: flex; align-items: center; gap: .7em; white-space: nowrap; color: #dfd4b9; }
+.tourList li[data-state='done'] { opacity: .5; }
+.tourList li[data-state='now'] { color: #ffe3b6; font-weight: 600; }
+.tourList b { width: 1.4em; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; color: #b9ad8f; }
+.tourList span { overflow: hidden; text-overflow: ellipsis; }
+.tourList em, .tourSummary em { font-style: normal; font-size: .62em; letter-spacing: 2px; text-transform: uppercase; color: #e8b46d; }
+.tourList em { margin-left: auto; }
+.tourSummary { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 18px; font-size: 30px; }
+.tourSummary div { display: flex; align-items: baseline; gap: 16px; }
+.tourSummary em { width: 3.6em; flex: none; }

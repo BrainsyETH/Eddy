@@ -20,7 +20,17 @@ top window, opens centred on its mill (`focus` in the manifest) and drifts to
 its board, which there carries only the mill's name. Below it a dock, tinted
 from the painting's own foreground colour, holds the reading at room
 distance, plus the distance to the next mill. `?format=vertical` or
-`?format=landscape` overrides the automatic choice. The classic River Window
+`?format=landscape` overrides the automatic choice.
+
+**Taller than 9:16.** An ultrawide monitor on end or a phone is taller than
+the 1080 × 1920 composition; instead of letterbox bands the composition
+stretches to the screen's shape (up to 1:3, in 8px steps). With at least 300
+extra pixels, a tour band below the dock shows the whole tour on the map,
+cropped to the mills: legs travelled, the leg to the next mill filling in as
+the scene plays, and the stops in order (Now / Next), or just Now and Next
+when there is no room for the list. The band tops out at 900 pixels; any
+further height, or extra too small for the band, goes to the painting window.
+The journey between mills covers the whole stage and stays centred. The classic River Window
 (`?theme=river`) remains landscape only.
 
 **Between mills.** There is no foreground prop covering a seam. The painting
@@ -117,7 +127,8 @@ spillway.
 
 Run `make check-web` and `node scripts/check-river-window.mjs`. The browser
 script intercepts data with fixtures and captures all ten signs in both
-formats (landscape boards; vertical docks and placards, each checked to fit),
+formats (landscape boards; vertical docks and placards, each checked to fit;
+the tall-screen tour band and the stage filling a 1080 × 2560 screen),
 the mobile reader, automatic and forced format selection, and checks the
 classic theme, filters, missing API, motion and picker. It does not wait out a
 full pass, so the between-mills journey is covered by the unit tests

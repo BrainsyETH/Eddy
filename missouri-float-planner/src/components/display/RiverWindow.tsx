@@ -23,6 +23,8 @@ import {
   MILL_RIVERS,
   MILL_STAGE,
   VERTICAL_MEDIA,
+  verticalHeight,
+  verticalLayout,
   millDuration,
   nextMillFrame,
   parseMillFormat,
@@ -42,6 +44,9 @@ export default function RiverWindow() {
   const [portrait, setPortrait] = useState(() => window.matchMedia(VERTICAL_MEDIA).matches);
   // Portrait walls get the vertical mills format; the classic River Window is landscape only.
   const format: MillFormat = millMode ? (forcedFormat ?? (portrait ? 'vertical' : 'landscape')) : 'landscape';
+  // Taller-than-9:16 portrait screens stretch the composition rather than letterbox.
+  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  const compositionHeight = format === 'vertical' ? verticalHeight(viewport.width, viewport.height) : MILL_STAGE[format].height;
   const player = useRef<PlayerRef>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(true);
@@ -78,7 +83,16 @@ export default function RiverWindow() {
     [query.data, requested, now, millMode]
   );
   const sceneProps = useMemo(() => ({ signs, loading: query.isPending }), [signs, query.isPending]);
-  const millProps = useMemo(() => ({ ...sceneProps, mills, format, onAssetError }), [sceneProps, mills, format, onAssetError]);
+  const millProps = useMemo(
+    () => ({ ...sceneProps, mills, format, height: compositionHeight, onAssetError }),
+    [sceneProps, mills, format, compositionHeight, onAssetError]
+  );
+
+  useEffect(() => {
+    const resize = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia(VERTICAL_MEDIA);
@@ -145,7 +159,13 @@ export default function RiverWindow() {
 
   return (
     <div className={styles.viewport}>
-      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} data-format={format} aria-label="Eddy River Window">
+      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} data-format={format}
+        style={format === 'vertical' ? ({
+          width: `min(100vw, ${(MILL_STAGE.vertical.width / compositionHeight) * 100}dvh)`,
+          aspectRatio: `${MILL_STAGE.vertical.width} / ${compositionHeight}`,
+          '--dock-top': `${(verticalLayout(compositionHeight).dockTop / compositionHeight) * 100}%`,
+        } as React.CSSProperties) : undefined}
+        aria-label="Eddy River Window">
         {millMode ? (
         <Player
           // A rotated wall remounts at the new composition size.
@@ -154,7 +174,7 @@ export default function RiverWindow() {
           component={MillWindowScene}
           inputProps={millProps}
           compositionWidth={MILL_STAGE[format].width}
-          compositionHeight={MILL_STAGE[format].height}
+          compositionHeight={compositionHeight}
           durationInFrames={duration}
           fps={WINDOW_FPS}
           loop

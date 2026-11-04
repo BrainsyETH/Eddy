@@ -38,3 +38,16 @@ export function routeArc(a: [number, number], b: [number, number], side: 1 | -1)
   ];
   return { d: `M${ax},${ay} Q${control[0]},${control[1]} ${bx},${by}`, at };
 }
+
+/** The tour band's crop: just around the ten mills (the full map keeps the
+ * upper Huzzah, which leaves a small band mostly empty). */
+export function tourViewBox(points: [number, number][], pad = 70): { x: number; y: number; width: number; height: number } {
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return {
+    x: Math.min(...xs) - pad,
+    y: Math.min(...ys) - pad,
+    width: Math.max(...xs) - Math.min(...xs) + 2 * pad,
+    height: Math.max(...ys) - Math.min(...ys) + 2 * pad,
+  };
+}
