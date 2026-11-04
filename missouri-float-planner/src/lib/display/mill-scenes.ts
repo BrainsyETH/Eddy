@@ -44,9 +44,33 @@ export const MILL_STAGE: Record<MillFormat, { width: number; height: number }> =
 };
 /** The painting window at the top of the vertical stage; the dock fills the rest. */
 export const VERTICAL_ART_HEIGHT = 1216;
+export const VERTICAL_DOCK_HEIGHT = 704;
+/** Portrait screens taller than 9:16 (an ultrawide on end, a phone) stretch the
+ * composition instead of letterboxing it, up to 1:3. */
+export const VERTICAL_MAX_HEIGHT = 3240;
+/** The tour band appears once there is this much extra height, and never
+ * grows past TOUR_MAX; any further height goes to the painting. */
+export const TOUR_MIN_HEIGHT = 300;
+const TOUR_MAX_HEIGHT = 900;
 const VERTICAL_MIN_DRIFT = 160;
 /** A viewport this tall or taller gets the vertical format unless `?format=` says otherwise. */
 export const VERTICAL_MEDIA = '(max-aspect-ratio: 4/5)';
+
+/** Composition height for a vertical viewport, in 8px steps so small resizes
+ * (a phone's address bar) do not re-lay the scene every frame. */
+export function verticalHeight(viewportWidth: number, viewportHeight: number): number {
+  if (!(viewportWidth > 0) || !(viewportHeight > 0)) return MILL_STAGE.vertical.height;
+  const fit = Math.floor((MILL_STAGE.vertical.width * viewportHeight) / viewportWidth / 8) * 8;
+  return Math.min(VERTICAL_MAX_HEIGHT, Math.max(MILL_STAGE.vertical.height, fit));
+}
+
+/** Painting window, then the reading dock, then (given room) the tour band. */
+export function verticalLayout(height: number) {
+  const extra = Math.max(0, height - MILL_STAGE.vertical.height);
+  const tour = extra >= TOUR_MIN_HEIGHT ? Math.min(extra, TOUR_MAX_HEIGHT) : 0;
+  const art = VERTICAL_ART_HEIGHT + extra - tour;
+  return { height: art + VERTICAL_DOCK_HEIGHT + tour, art, dockTop: art, tourTop: art + VERTICAL_DOCK_HEIGHT, tour };
+}
 
 export function parseMillFormat(value: string | null): MillFormat | null {
   const v = value?.trim().toLowerCase();
@@ -109,6 +133,11 @@ export function millMoment(frame: number, count: number): MillMoment | null {
     : { index: to, sceneFrame: 0, veil, interlude };
 }
 
+/** How far the current scene is toward its journey (0 → 1), for the tour band. */
+export function sceneProgress(sceneFrame: number): number {
+  return Math.min(1, sceneFrame / SCENE_FRAMES);
+}
+
 /** The start of the mill after the one on screen (Next mill). */
 export function nextMillFrame(frame: number, count: number): number {
   const moment = millMoment(frame, count);
@@ -119,12 +148,12 @@ export function nextMillFrame(frame: number, count: number): number {
  * board, which therefore never leaves the frame. Vertical: the painting fills
  * the window's height, opens centred on the mill and drifts (at least
  * VERTICAL_MIN_DRIFT px) across to its board at the painting's right edge. */
-export function millCamera(mill: MillScene, sceneFrame: number, format: MillFormat) {
+export function millCamera(mill: MillScene, sceneFrame: number, format: MillFormat, artHeight = VERTICAL_ART_HEIGHT) {
   if (format === 'landscape') {
     const [left, top, width, height] = mill.board;
     return { x: 0, scale: 1 + 0.06 * Math.min(1, sceneFrame / MILL_PASS_FRAMES), origin: `${left + width / 2}% ${top + height / 2}%` };
   }
-  const scale = VERTICAL_ART_HEIGHT / 1080;
+  const scale = artHeight / 1080;
   const travel = 1920 * scale - MILL_STAGE.vertical.width;
   const start = Math.min(Math.max(0, (mill.focus / 100) * 1920 * scale - MILL_STAGE.vertical.width / 2), travel - VERTICAL_MIN_DRIFT);
   return { x: 0 - (start + (travel - start) * ease(sceneFrame / SCENE_FRAMES)), scale, origin: '0 0' };
