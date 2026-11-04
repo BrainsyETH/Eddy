@@ -54,6 +54,11 @@ export type HomeBaseConfig = {
   /** App Store campaign token for installs from this board. */
   campaign: string;
   map: MapFrame;
+  /**
+   * Relief and geometry extend this many px above and below the map frame,
+   * so the map can grow on a screen taller than 9:16 (see boardLayout).
+   */
+  reliefPad: number;
   lines: Record<string, LngLat[]>;
   /** USGS site → position and which side of the dot its reading tag sits. */
   gauges: Record<string, { at: LngLat; side: 'left' | 'right' }>;
@@ -93,6 +98,7 @@ export const PINE_VALLEY: HomeBaseConfig = {
   ],
   campaign: 'pine_valley',
   map: { lng0: -92.34, lat1: 38.06, refLat: 37.52, scale: 528, width: 978, height: 586 },
+  reliefPad: 260,
   lines: PINE_VALLEY_LINES,
   gauges: {
     '07013000': { at: [-91.3609, 37.9985], side: 'left' }, // Meramec River near Steelville
@@ -140,6 +146,69 @@ export function linePath(frame: MapFrame, coords: LngLat[]): string {
       return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
     })
     .join('');
+}
+
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+export const BOARD_WIDTH = 1080;
+export const BOARD_HEIGHT = 1920; // the 9:16 design height
+/** The forecast card and the gap above it. */
+export const FORECAST_BLOCK = 150 + 24;
+
+export type BoardLayout = { scale: number; x: number; y: number; height: number; forecast: boolean; mapGrow: number };
+
+/**
+ * Fit the board to a screen. On 9:16 or wider it is the 1080 x 1920 design,
+ * letterboxed at the sides. On a taller screen (a 21:9 monitor on its side)
+ * the board grows to fill the height instead of leaving bars: first room for
+ * the forecast, then the map, up to what the relief and geometry cover.
+ */
+export function boardLayout(viewportW: number, viewportH: number, config: HomeBaseConfig, hasForecast: boolean): BoardLayout {
+  if (viewportW <= 0 || viewportH <= 0) return { scale: 0, x: 0, y: 0, height: BOARD_HEIGHT, forecast: false, mapGrow: 0 };
+  if (viewportH / viewportW <= BOARD_HEIGHT / BOARD_WIDTH) {
+    const scale = viewportH / BOARD_HEIGHT;
+    return { scale, x: (viewportW - BOARD_WIDTH * scale) / 2, y: 0, height: BOARD_HEIGHT, forecast: false, mapGrow: 0 };
+  }
+  const scale = viewportW / BOARD_WIDTH;
+  const room = Math.floor(viewportH / scale) - BOARD_HEIGHT;
+  const forecast = hasForecast && room >= FORECAST_BLOCK;
+  const mapGrow = Math.min(Math.max(0, room - (forecast ? FORECAST_BLOCK : 0)), 2 * config.reliefPad);
+  const height = BOARD_HEIGHT + (forecast ? FORECAST_BLOCK : 0) + mapGrow;
+  return { scale, x: 0, y: (viewportH - height * scale) / 2, height, forecast, mapGrow };
+}
+
+/** The map frame grown by `grow` px, half above and half below. */
+export function growFrame(frame: MapFrame, grow: number): MapFrame {
+  return { ...frame, lat1: frame.lat1 + grow / 2 / frame.scale, height: frame.height + grow };
+}
+
+// ── Forecast ─────────────────────────────────────────────────────────────────
+
+/**
+ * A rain chance at or above this reads as "rain coming" across Eddy. Equal to
+ * RAIN_CHANCE_THRESHOLD in src/lib/weather/openweather.ts (a server module the
+ * board must not import); home-base.test.ts holds them equal.
+ */
+export const RAIN_EMPHASIS = 40;
+
+export type ForecastDay = { date: string; day: string; high: number; low: number; icon: string; rain: number };
+
+const CENTRAL_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' });
+
+/**
+ * /api/weather/<slug>/forecast → up to `count` days from today (Central).
+ * Malformed days are dropped; no days is "no forecast", not an error card.
+ */
+export function parseForecast(value: unknown, now: number, count = 4): { place: string | null; days: ForecastDay[] } {
+  const v = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const today = CENTRAL_DATE.format(new Date(now));
+  const days = (Array.isArray(v.forecast) ? v.forecast : []).flatMap((d): ForecastDay[] => {
+    if (!d || typeof d !== 'object') return [];
+    const { date, dayOfWeek, tempHigh, tempLow, conditionIcon, precipitation } = d as Record<string, unknown>;
+    if (typeof date !== 'string' || date < today || typeof dayOfWeek !== 'string' || !finite(tempHigh) || !finite(tempLow)) return [];
+    return [{ date, day: date === today ? 'Today' : dayOfWeek, high: Math.round(tempHigh), low: Math.round(tempLow), icon: typeof conditionIcon === 'string' ? conditionIcon : '', rain: finite(precipitation) ? Math.round(precipitation) : 0 }];
+  });
+  return { place: typeof v.location === 'string' ? v.location : null, days: days.slice(0, count) };
 }
 
 // ── Artwork ──────────────────────────────────────────────────────────────────

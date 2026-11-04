@@ -12,9 +12,20 @@ out for a widescreen monitor turned on its side.
 
 ## Layout
 
-One 1080 × 1920 canvas, scaled to fit the screen and letterboxed on anything
-that is not 9:16, so a 4K panel gets the same layout at 2×. Type sizes are
-wall-distance sizes at 1080 wide.
+A canvas 1080 wide, scaled to the screen, so a 4K panel gets the same layout
+at 2×. Type sizes are wall-distance sizes at 1080 wide. The height follows the
+screen (`boardLayout`):
+
+- **9:16, or wider** (1080 × 1920, 4K, a 16:10 panel): the 1920-tall design,
+  with bars at the sides on a wider screen.
+- **Taller than 9:16** (a 21:9 monitor on its side, e.g. 1080 × 2560): the
+  board grows to fill the height instead of leaving bars at the top and
+  bottom. The first 174px adds the **forecast** card (when a forecast is
+  available). The rest grows the **map**, half above and half below, so it
+  shows more of the region: the Meramec running to the Mississippi, and the
+  Current and Black heading south toward Arkansas. The map grows at most
+  `2 × reliefPad` (520px for Pine Valley), the extent of the baked relief and
+  geometry. Beyond that the board is centred.
 
 From the top:
 
@@ -33,7 +44,11 @@ From the top:
    drive time, with a QR code to that river's eddy.guide page.
 4. **Farther afield**: the other rivers, nearest first, with seven days of
    flow, the rated reading and drive time.
-5. **Footer**: sunrise and sunset, the Eddy credit and a QR code to Eddy's app
+5. **Forecast** (tall screens only): four days from
+   `/api/weather/<doorstep>/forecast`, refreshed hourly, labelled with the
+   forecast's own place. A rain chance of 40% or more is in coral, Eddy's
+   rain-coming threshold.
+6. **Footer**: sunrise and sunset, the Eddy credit and a QR code to Eddy's app
    page tagged with the partner's campaign.
 
 Alignment: content placed directly on the page sits 48px from both edges;
@@ -86,9 +101,10 @@ if the mill scene does not exist, or if the logo or relief file is missing.
 
 - **River lines** live in a geometry module (`home-base-geometry.ts` for Pine
   Valley), generated from Eddy's river geometry with the read-only query in
-  its header.
+  its header. They must reach past the frame grown by `reliefPad`.
 - **Relief**: `npx tsx scripts/build-board-relief.ts <id>` writes
-  `public/display/<id>/relief.jpg` in the board's map frame from public SRTM
+  `public/display/<id>/relief.jpg` in the board's map frame, extended by
+  `reliefPad` above and below, from public SRTM
   terrain tiles, the same source as `scripts/build-mo-hillshade.ts`.
 - **Drive times**: road routing from the place to each river's nearest
   approved access point, rounded to 5 minutes, stored in the config. They do

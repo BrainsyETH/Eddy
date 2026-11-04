@@ -3,10 +3,17 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import type { RiverListItem } from '@/types/api';
+import { RAIN_CHANCE_THRESHOLD } from '@/lib/weather/openweather';
 import { MILL_SCENES } from './mill-scenes';
 import {
+  RAIN_EMPHASIS,
   advanceLoop,
   artRegion,
+  BOARD_HEIGHT,
+  boardLayout,
+  FORECAST_BLOCK,
+  growFrame,
+  parseForecast,
   boardRows,
   eddyTakeFor,
   formatReading,
@@ -201,4 +208,52 @@ test('water regions become small boxes with the polygon inside them', () => {
       assert.ok(box.width > 0 && box.height > 0 && box.left >= 0 && box.left + box.width <= 1080, `${config.id}: ${polygon}`);
     }
   }
+});
+
+test('a 9:16 or wider screen gets the design size; a taller one grows instead of letterboxing', () => {
+  const exact = boardLayout(1080, 1920, PINE_VALLEY, true);
+  assert.deepEqual(exact, { scale: 1, x: 0, y: 0, height: BOARD_HEIGHT, forecast: false, mapGrow: 0 });
+  const wide = boardLayout(1200, 1920, PINE_VALLEY, true);
+  assert.equal(wide.height, BOARD_HEIGHT);
+  assert.equal(wide.x, 60, 'side bars on a 16:10 screen');
+  const ultrawide = boardLayout(1080, 2560, PINE_VALLEY, true);
+  assert.equal(ultrawide.forecast, true);
+  assert.equal(ultrawide.height, 2560, 'fills a 21:9 screen turned on its side');
+  assert.equal(ultrawide.mapGrow, 2560 - BOARD_HEIGHT - FORECAST_BLOCK);
+  assert.equal(boardLayout(1440, 3413, PINE_VALLEY, false).forecast, false, 'no forecast data, no forecast card');
+  assert.equal(boardLayout(1080, 1990, PINE_VALLEY, true).forecast, false, 'not enough room for the card');
+  const extreme = boardLayout(1080, 5000, PINE_VALLEY, true);
+  assert.equal(extreme.mapGrow, 2 * PINE_VALLEY.reliefPad, 'never grows past the baked relief');
+  assert.ok(extreme.y > 0, 'beyond that, centred');
+  assert.equal(boardLayout(0, 0, PINE_VALLEY, true).scale, 0);
+});
+
+test('growing the map keeps the place where it was on the ground', () => {
+  const grown = growFrame(PINE_VALLEY.map, 200);
+  const [, y0] = project(PINE_VALLEY.map, PINE_VALLEY.home.lng, PINE_VALLEY.home.lat);
+  const [, y1] = project(grown, PINE_VALLEY.home.lng, PINE_VALLEY.home.lat);
+  assert.equal(grown.height, PINE_VALLEY.map.height + 200);
+  assert.ok(Math.abs(y1 - (y0 + 100)) < 1e-9);
+});
+
+test('the forecast starts today in Central time and drops malformed days', () => {
+  const now = Date.UTC(2026, 10, 4, 3); // Tue Nov 3, 9 pm CST
+  const { place, days } = parseForecast({
+    location: 'Steelville',
+    forecast: [
+      { date: '2026-11-02', dayOfWeek: 'Mon', tempHigh: 70, tempLow: 50, conditionIcon: '01d', precipitation: 0 },
+      { date: '2026-11-03', dayOfWeek: 'Tue', tempHigh: 66.4, tempLow: 60, conditionIcon: '10d', precipitation: 20 },
+      { date: '2026-11-04', dayOfWeek: 'Wed', tempHigh: 'warm', tempLow: 51 },
+      { date: '2026-11-05', dayOfWeek: 'Thu', tempHigh: 66, tempLow: 47, conditionIcon: '01d', precipitation: 44.4 },
+    ],
+  }, now);
+  assert.equal(place, 'Steelville');
+  assert.deepEqual(days.map((d) => d.day), ['Today', 'Thu']);
+  assert.equal(days[0].high, 66);
+  assert.equal(days[1].rain, 44);
+  assert.deepEqual(parseForecast({ error: 'Weather service not configured' }, now), { place: null, days: [] });
+});
+
+test("the forecast's rain emphasis matches Eddy's rain-coming threshold", () => {
+  assert.equal(RAIN_EMPHASIS, RAIN_CHANCE_THRESHOLD);
 });
