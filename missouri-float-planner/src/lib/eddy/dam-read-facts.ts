@@ -86,6 +86,8 @@ export const PLAN_CUTOFF_HOUR = 5;
 export const MORNING_ENDS_HOUR = 12;
 /** Mornings are called quiet only at or above this share of known mornings. */
 export const QUIET_MORNINGS_SHARE = 0.8;
+/** An isolated exception can qualify the compact Read for these complete Central days. */
+export const RECENT_EXCEPTION_DAYS = 3;
 
 const HOUR_MS = 3_600_000;
 
@@ -159,7 +161,8 @@ export function observedDays(
   return patternDayKeys(days, now).slice(0, -1).map((dayKey) => {
     const start = centralDayStart(dayKey);
     const length = centralDayHours(dayKey);
-    const morning: Array<boolean | null> = new Array(MORNING_ENDS_HOUR).fill(null);
+    let morningRan = false;
+    let morningGap = false;
     let coverage = 0;
     let generatingHours = 0;
     let peakCfs: number | null = null;
@@ -173,16 +176,18 @@ export function observedDays(
     for (let i = 0; i < length; i += 1) {
       const ms = start + i * HOUR_MS;
       const value = values.get(ms);
+      // Visit actual elapsed hours: both November 1 AMs count, and the absent
+      // March 2 AM is not a missing observation.
+      const morning = centralClock(ms).hoursElapsed < MORNING_ENDS_HOUR;
       if (value === undefined) {
+        if (morning) morningGap = true;
         gapSeen = true;
         previousOn = null;
         continue;
       }
       const on = value >= floorCfs;
       coverage += 1;
-      const hour = Math.floor(centralClock(ms).hoursElapsed);
-      // The repeated hour each November keeps its first occurrence.
-      if (hour < MORNING_ENDS_HOUR && morning[hour] === null) morning[hour] = on;
+      if (morning && on) morningRan = true;
       if (on && previousOn !== true) runs += 1;
       previousOn = on;
       if (!on) continue;
@@ -215,7 +220,7 @@ export function observedDays(
       firstStartHour: firstStartIndex === null ? null : hourOf(firstStartIndex),
       startUnknown,
       // An observed morning run settles it even with gaps.
-      morningOff: morning.some((h) => h === true) ? false : morning.some((h) => h === null) ? null : true,
+      morningOff: morningRan ? false : morningGap ? null : true,
       runs: fullyObserved ? runs : null,
       pastMidnight,
       endHour: fullyObserved && lastOnIndex !== null && !pastMidnight ? hourOf(lastOnIndex) + 1 : null,
@@ -485,6 +490,26 @@ export interface GenerationRef {
   fullGenerationCfs: number;
 }
 
+/**
+ * Advance the saved windows when no current snapshot is available. The saved
+ * schedule has already lost past windows, so it can only be used on its own
+ * Central day. Keep the whole-day start and tomorrow's windows unchanged.
+ * Advancing the clock cannot verify whether SWPA has revised this copy.
+ */
+export function advancePosted(posted: PostedSchedule | null, now = Date.now()): PostedSchedule | null {
+  const clock = centralClock(now);
+  const today = posted?.days.find((day) => day.dayOffset === 0 && day.scheduleDate === clock.dayKey);
+  if (!posted || !today) return null;
+  const currentHour = hourEndingNow(clock.hoursElapsed) - 1;
+  return {
+    ...posted,
+    days: posted.days.map((day) => day === today
+      ? { ...day, windows: day.windows.filter((window) => window.toHour > currentHour) }
+      : day),
+    mayBeOutdated: true,
+  };
+}
+
 export interface DamReadInputs {
   damId: string;
   damName: string;
@@ -529,18 +554,19 @@ export function buildDamReadFacts(input: DamReadInputs): DamReadFacts {
 }
 
 /**
- * The same facts with the posted schedule re-read from the current snapshot.
+ * Cached history with the schedule re-read from the current snapshot, or its
+ * saved windows advanced and marked unverified when that snapshot is missing.
  * The day type follows the serving clock too, so a Read is never framed
  * against yesterday's kind of day.
  */
 export function withCurrentSchedule(
   facts: DamReadFacts,
-  schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
+  schedule: ReadonlyArray<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>> | null,
   now = Date.now(),
 ): DamReadFacts {
   return {
     ...facts,
-    posted: postedSchedule(schedule, now),
+    posted: schedule === null ? advancePosted(facts.posted, now) : postedSchedule(schedule, now),
     todayGroup: isWeekendDay(centralClock(now).dayKey) ? 'weekend' : 'weekday',
     now,
   };
@@ -629,6 +655,36 @@ function comparison(f: DamReadFacts, offset: 0 | 1): { versus: 'in-line' | 'earl
   return { versus: 'in-line', group };
 }
 
+/** Eligible warnings can qualify today's news or replace a generic comparison. */
+function compactException(f: DamReadFacts): { headline: string; clause: string } | null {
+  const r = f.reliability;
+  if (!r) return null;
+  const tracked = patternDayKeys(PATTERN_WINDOW_DAYS, f.now).slice(0, -1);
+  const recent = new Set(tracked.slice(-RECENT_EXCEPTION_DAYS));
+  const eligible = (days: string[]) => {
+    const unique = [...new Set(days)].filter(day => tracked.includes(day)).sort();
+    return unique.length >= 2 || unique.some(day => recent.has(day)) ? unique : [];
+  };
+  const early = eligible(r.startedEarlyDays);
+  const unposted = eligible(r.ranUnpostedDays);
+  if (!early.length && !unposted.length) return null;
+  if (early.length && unposted.length) {
+    const count = (n: number) => n === 1 ? 'once' : `${n} times`;
+    return {
+      headline: 'Early and unposted generation lately',
+      clause: `in ${r.daysCompared} tracked days, generation started over an hour early ${count(early.length)} and ran without a posted start ${count(unposted.length)}`,
+    };
+  }
+  const days = early.length ? early : unposted;
+  const what = early.length ? 'generation started over an hour early' : 'generation ran without a posted start';
+  return {
+    headline: early.length ? 'Generation has started early' : 'Generation has run without a posted start',
+    clause: days.length === 1
+      ? `${what} on ${dayName(days[0])}`
+      : `${what} on ${days.length} of ${r.daysCompared} tracked days, most recently ${dayName(days.at(-1)!)}`,
+  };
+}
+
 /**
  * One takeaway, not a transcription of the schedule or the pattern chart.
  * Every time refers to the posted plan, never observed generation. Recomputed
@@ -679,20 +735,7 @@ export function damReadTakeaway(f: DamReadFacts): { headline: string; summary: s
   }
 
   const posted = `Today’s posted schedule starts at ${clockLabel(today.firstStartHour)}`;
-  const early = f.reliability?.startedEarlyDays.length ?? 0;
-  const unposted = f.reliability?.ranUnpostedDays.length ?? 0;
-  if (early || unposted) {
-    const days = f.reliability!.daysCompared;
-    const count = (n: number) => n === 1 ? 'once' : `${n} times`;
-    return {
-      headline: 'Recent exceptions to the schedule',
-      summary: early && unposted
-        ? `${clockLabel(today.firstStartHour)} is posted today; in ${days} tracked days, generation started over an hour early ${count(early)} and ran without a posted start ${count(unposted)}.`
-        : early
-          ? `${clockLabel(today.firstStartHour)} is posted today, but generation started over an hour early on ${early} of ${days} tracked days.`
-          : `${clockLabel(today.firstStartHour)} is posted today; generation ran without a posted start on ${unposted} of ${days} tracked days.`,
-    };
-  }
+  const exception = compactException(f);
   if ((c?.versus === 'earlier' || c?.versus === 'later') && p?.rangeFromHour != null && p.rangeToHour !== null) {
     const earlier = c.versus === 'earlier';
     const low = earlier ? p.rangeFromHour - today.firstStartHour : today.firstStartHour - p.rangeToHour;
@@ -700,8 +743,14 @@ export function damReadTakeaway(f: DamReadFacts): { headline: string; summary: s
     const difference = low === high ? `${low}` : `${low}–${high}`;
     return {
       headline: earlier ? 'An earlier start today' : 'A later start today',
-      summary: `${posted}, about ${difference} ${high === 1 ? 'hour' : 'hours'} ${c.versus} than recent ${plural(c.group)}.`,
+      summary: exception
+        ? `${clockLabel(today.firstStartHour)} is posted today, ${c.versus} than recent ${plural(c.group)}; ${exception.clause}.`
+        : `${posted}, about ${difference} ${high === 1 ? 'hour' : 'hours'} ${c.versus} than recent ${plural(c.group)}.`,
     };
+  }
+
+  if (exception) {
+    return { headline: exception.headline, summary: `${clockLabel(today.firstStartHour)} is posted today; ${exception.clause}.` };
   }
 
   if (c?.versus === 'in-line') {
