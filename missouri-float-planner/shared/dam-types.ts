@@ -473,7 +473,7 @@ export interface DamReadResponse {
     detailRows: DamReadRow[];
     /** The at-the-dam caveat, rendered under the Read. */
     caveat: string;
-    /** Eddy's copy of today's schedule is old enough that it may have been revised. */
+    /** Today's schedule copy is old or could not be checked against a current snapshot. */
     mayBeOutdated: boolean;
     sourcesUsed: string[];
   } | null;

@@ -128,13 +128,16 @@ function MemberRead({ current, onRetry, loadingLabel, onUnlock, onRefreshAccount
       <View style={styles.read}>
         <Text accessibilityRole="header" style={[styles.headline, { color: colors.text }]}>{takeaway.headline}</Text>
         <Text style={[styles.body, { color: colors.textBody }]}>{takeaway.summary}</Text>
+        {current.read.mayBeOutdated ? (
+          <Text style={[styles.age, { color: colors.textSubtle }]}>Schedule couldn’t be verified</Text>
+        ) : null}
       </View>
     );
   }
   if (current?.state === 'unavailable') {
     return (
       <Text style={[styles.body, { color: colors.textMuted }]}>
-        This Read is being updated for the latest schedule. Check back shortly.
+        Eddy’s Read isn’t available right now. Check back shortly.
       </Text>
     );
   }
@@ -217,8 +220,7 @@ export function DamReadInTake({ damId, premiumUserId, onUnlock, onRefreshAccount
   if (!checked) return <ReadSkeleton label="Loading Eddy's Read for this dam" />;
   if (failed && !generatedAt) return <MemberRead {...accessActions} current={{ key: '', state: 'failed' }} onRetry={retry} loadingLabel="Loading Eddy’s Read" />;
   if (!generatedAt && current?.state === 'unavailable') {
-    // Not "unavailable for this river": the dam may have no Read yet today,
-    // or the schedule changed and the next hourly run has not rewritten it.
+    // The dam may have no valid historical analysis for today yet.
     return (
       <Text style={[styles.body, { color: colors.textMuted }]}>
         Eddy&apos;s Read of this dam&apos;s schedule isn&apos;t ready right now. Check back shortly.
