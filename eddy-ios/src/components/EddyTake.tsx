@@ -376,8 +376,6 @@ export function EddyTake({
       {/* ── Eddy's take ─────────────────────────────────────── */}
       {sections ? (
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-          <Text style={[styles.takeHeading, { color: colors.textMuted }]}>EDDY&apos;S TAKE</Text>
-
           {/* THE WHOLE CARD IS THE GATE — see the header for what stays free
               and why that is enough to make this defensible.
 
@@ -389,7 +387,7 @@ export function EddyTake({
               retracting it leaks the paid thing; showing the lock and
               retracting it accuses a subscriber of not paying. */}
           {resolving ? (
-            <ReadSkeleton label="Loading Eddy's take" />
+            <ReadSkeleton label="Loading Eddy's Read" />
           ) : failed ? (
             <View style={[styles.loadError, { backgroundColor: colors.cardRaised }]}>
               <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
@@ -402,7 +400,7 @@ export function EddyTake({
                   onPress={onRetry}
                   hitSlop={8}
                   accessibilityRole="button"
-                  accessibilityLabel="Try loading Eddy's take again"
+                  accessibilityLabel="Try loading Eddy's Read again"
                 >
                   <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>Try again</Text>
                 </Pressable>
@@ -410,9 +408,7 @@ export function EddyTake({
             </View>
           ) : (
             <>
-              {/* NO top rule. This is the card's first section, directly under
-                  the EDDY'S TAKE label, so there is nothing above it to divide
-                  it from. The two sections below always separate themselves. */}
+              {/* The Read opens the card; subsequent sections add their own divider. */}
               <View>
                 <ReadHeading />
                 {damRead ? (
@@ -563,7 +559,6 @@ const styles = StyleSheet.create({
   forecastNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 14, paddingBottom: 12 },
   forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
   forecastCode: { ...t.xs, fontFamily: fonts.semibold, marginTop: 1 },
-  takeHeading: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 12 },
   // Nudged up so the mark sits on the label's cap height rather than its box —
   // the artwork carries its own margin, which a 13pt glyph does not.
   bottomLineOtter: { marginLeft: -2 },
