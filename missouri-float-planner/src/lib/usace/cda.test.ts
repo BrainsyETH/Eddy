@@ -4,6 +4,8 @@ import {
   bucketedNow,
   changeOver,
   fetchLatestValue,
+  fetchTimeseries,
+  isRetryableStatus,
   WINDOW_BUCKET_MS,
   type TimeseriesPoint,
 } from './cda';
@@ -176,4 +178,71 @@ test('skipCache asks for the real clock, not the bucket', () => {
     const begin = Date.parse(url.searchParams.get('begin')!);
     assert.equal(end - begin, 8 * 3_600_000, 'an 8-hour window, measured from the real end');
   });
+});
+
+// ── one retry for a transient failure ─────────────────────────────────────
+//
+// A null from fetchTimeseries reads downstream as "this series has nothing",
+// which on a dam page is "Release status unavailable". One blip from the Corps
+// should not be able to say that.
+
+type Step = Response | Error;
+
+async function withFetchSteps(steps: Step[], run: () => Promise<unknown>) {
+  const original = globalThis.fetch;
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    const step = steps[Math.min(calls, steps.length - 1)];
+    calls += 1;
+    if (step instanceof Error) throw step;
+    return step.clone();
+  }) as typeof fetch;
+  console.error = () => {};
+  console.warn = () => {};
+  try {
+    const result = await run();
+    return { result, calls };
+  } finally {
+    globalThis.fetch = original;
+    console.error = originalError;
+    console.warn = originalWarn;
+  }
+}
+
+const OK_BODY = () =>
+  new Response(JSON.stringify({ values: [[END, 646, 0]] }), { status: 200 });
+
+function read() {
+  return fetchTimeseries('SWL', 'Table_Rock_Dam.Flow-Plant.Ave.1Hour.1Hour.CCP-Comp', 'cfs', new Date(END - 8 * HOUR), new Date(END));
+}
+
+test('a dropped connection is tried once more and the reading survives', async () => {
+  const { result, calls } = await withFetchSteps([new TypeError('fetch failed'), OK_BODY()], read);
+  assert.equal(calls, 2);
+  assert.equal((result as Awaited<ReturnType<typeof read>>)?.points[0]?.value, 646);
+});
+
+test('a 503 is tried once more', async () => {
+  const { result, calls } = await withFetchSteps([new Response('busy', { status: 503 }), OK_BODY()], read);
+  assert.equal(calls, 2);
+  assert.ok(result);
+});
+
+test('the retry happens once, not forever', async () => {
+  const { result, calls } = await withFetchSteps([new Response('down', { status: 502 })], read);
+  assert.equal(calls, 2);
+  assert.equal(result, null);
+});
+
+test('a 404 is not retried — it is how a renamed series surfaces', async () => {
+  const { result, calls } = await withFetchSteps([new Response('nope', { status: 404 })], read);
+  assert.equal(calls, 1);
+  assert.equal(result, null);
+});
+
+test('only server trouble and rate limits count as transient', () => {
+  for (const status of [429, 500, 502, 503, 504]) assert.equal(isRetryableStatus(status), true, String(status));
+  for (const status of [200, 400, 401, 403, 404]) assert.equal(isRetryableStatus(status), false, String(status));
 });

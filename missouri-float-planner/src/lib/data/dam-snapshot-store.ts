@@ -41,12 +41,25 @@
 //
 // Reads and writes both go through the service client. The table carries no
 // anon or authenticated grant and no RLS policy (see the migration header): its
-// only readers are the two dam routes, and its only writer is
-// /api/cron/sync-dam-snapshots.
+// readers are server-side only — the dam routes, the dam page and embed (as the
+// net under a live read, see withStoredFallback), and the cron itself (to carry
+// a reading over a failed request, see carryFromPrevious) — and its only writer
+// is /api/cron/sync-dam-snapshots.
+//
+// ── Carrying a reading is not serving a stale row ─────────────────────────
+//
+// carryForwardMetrics copies individual OBSERVATIONS out of a fresh row, each
+// with its own timestamp and bounded by its own age (CARRY_FORWARD_MAX_HOURS).
+// It never reaches past MAX_AGE_MS for a row, and never carries a schedule.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
-import { declaresNoSources } from '@/lib/data/dams';
+import {
+  carryForwardMetrics,
+  declaresNoSources,
+  fetchDamDetail,
+  refreshStaleness,
+} from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import type { DamSnapshot } from '@shared/dam-types';
 
@@ -190,6 +203,50 @@ export function saysAnything(snapshot: DamSnapshot): boolean {
 }
 
 /**
+ * A live read, backed by the last stored snapshot where the live read fell short.
+ *
+ * Three cases, by what the live read managed:
+ *
+ *   nothing at all  → the stored snapshot, re-banded. A total upstream outage
+ *                     produces a well-formed EMPTY snapshot (see saysAnything),
+ *                     and serving that over a good row from this hour would
+ *                     tell a reader the Corps publishes nothing about the dam.
+ *   something       → the live snapshot, with any metric it dropped carried
+ *                     from the stored one by carryForwardMetrics — each with
+ *                     its own observation time, bounded by its own age.
+ *   no live result  → the stored snapshot, if any (unknown dam ids stay null).
+ *
+ * The stored side is only ever a FRESH row (readStoredSnapshot's MAX_AGE_MS),
+ * so a dead cron degrades to plain read-through rather than to an old schedule.
+ *
+ * Pure, so the rule is held by tests rather than by a database.
+ */
+export function withStoredFallback(
+  live: DamSnapshot | null,
+  stored: DamSnapshot | null,
+  now = Date.now(),
+): DamSnapshot | null {
+  if (!stored) return live;
+  if (!live || !saysAnything(live)) return refreshStaleness(stored, now);
+  return carryForwardMetrics(live, stored, now);
+}
+
+/**
+ * A dam page's read: live, with the stored snapshot as the safety net.
+ *
+ * The two reads run side by side, so the net costs one single-row query and
+ * no added latency.
+ */
+export async function fetchDamDetailWithFallback(damId: string): Promise<DamSnapshot | null> {
+  const now = Date.now();
+  const [live, stored] = await Promise.all([
+    fetchDamDetail(damId),
+    readStoredSnapshot(damId, { now }),
+  ]);
+  return withStoredFallback(live, stored, Date.now());
+}
+
+/**
  * Which of a pass's snapshots to write, and how many were held back.
  *
  * ── An empty snapshot is an OUTAGE unless the registry says otherwise ──────
@@ -243,6 +300,34 @@ export function decideWrites(
   }
 
   return { writable, keptOnOutage };
+}
+
+/**
+ * Carry each writable snapshot's dropped metrics forward from the row it is
+ * about to replace, and count the dams that needed it.
+ *
+ * Runs AFTER decideWrites, never before. A pass that read nothing for a dam is
+ * an outage and is not written at all, so the stored row stands whole — schedule
+ * included. Carrying first would turn that empty read into "something" and
+ * overwrite a good schedule with an empty one.
+ *
+ * Without this the stored row is only as good as the single CWMS request the
+ * cron made per series: one failed generationFlow request at :35 and every
+ * reader of /api/dams/[damId], the embed and the iOS app sees "Release status
+ * unavailable" for the next hour.
+ */
+export function carryFromPrevious(
+  snapshots: DamSnapshot[],
+  previous: Map<string, DamSnapshot>,
+  now = Date.now(),
+): { snapshots: DamSnapshot[]; carriedDams: number } {
+  let carriedDams = 0;
+  const out = snapshots.map((snapshot) => {
+    const merged = carryForwardMetrics(snapshot, previous.get(snapshot.id), now);
+    if (merged !== snapshot) carriedDams += 1;
+    return merged;
+  });
+  return { snapshots: out, carriedDams };
 }
 
 /** Write the snapshots decideWrites selected. Returns how many rows landed. */

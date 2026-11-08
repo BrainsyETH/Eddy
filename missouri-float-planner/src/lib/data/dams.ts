@@ -46,7 +46,7 @@ import {
 import { buildPatternDays, patternHasObservations } from '@/lib/data/dam-history';
 import { readPatternHours } from '@/lib/data/dam-history-store';
 import { fetchOsageReadings, fetchTrumanDaily } from '@/lib/ameren/osage';
-import { centralDayKey, nextDayKey } from '@shared/dam-schedule-copy';
+import { centralDayKey, nextDayKey, READING_STALE_AFTER_HOURS } from '@shared/dam-schedule-copy';
 
 /**
  * What a LIST surface needs, and nothing else.
@@ -876,6 +876,82 @@ export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSn
         value;
   }
   return { ...snapshot, metrics };
+}
+
+/**
+ * How old an observation may be and still be carried into a newer snapshot.
+ *
+ * The same line readingStaleness draws between 'lagging' and 'stale': past it a
+ * reading "describes a river that has since changed", and past it the honest
+ * answer to a failed read is "unavailable", not a number from this morning.
+ */
+export const CARRY_FORWARD_MAX_HOURS = READING_STALE_AFTER_HOURS;
+
+/**
+ * Fill the metrics a live read dropped with the same metrics from an earlier
+ * snapshot, each still wearing its own observation time.
+ *
+ * ── Why ────────────────────────────────────────────────────────────────────
+ * readMetrics drops a metric when its one request fails, and a dropped metric
+ * is indistinguishable on the wire from one the project never publishes. For
+ * generationFlow that is the hero: on 2026-11-08 a single failed CWMS request
+ * rendered "Release status unavailable" over Table Rock while the Corps was
+ * publishing the reading the whole time. An observation from the last good
+ * read, banded by its own `at`, is a true statement; the absence was not.
+ *
+ * ── Why this cannot overstate freshness ───────────────────────────────────
+ * A carried value keeps its ORIGINAL `at`, and `staleness` is re-banded from it
+ * against `now` — so a reading from ninety minutes ago still speaks for now
+ * (as it would have on the read that fetched it) and one from four hours ago
+ * renders "at last reading" with its age. Past CARRY_FORWARD_MAX_HOURS nothing
+ * is carried, so the chain of hourly snapshots cannot keep a reading alive by
+ * re-storing it.
+ *
+ * ── What is deliberately NOT carried ──────────────────────────────────────
+ *   - A metric the live read HAS. The newer reading always wins, even if it is
+ *     older than the stored one would be — it is what the source says now.
+ *   - A metric outside DETAIL_METRICS or suppressed in the registry: the
+ *     registry may have changed since the old snapshot was built.
+ *   - The `trend`. It measured movement over the hours before the OLD reading,
+ *     and a "rising" arrow beside an aged number reads as a current rise.
+ *   - Schedule, pattern and forecast. They date themselves and have their own
+ *     staleness rules; this is about observations only.
+ *
+ * `generating` and `sources` are re-derived by sending the result back through
+ * buildSnapshot, so they cannot disagree with the metrics they describe.
+ */
+export function carryForwardMetrics(
+  live: DamSnapshot,
+  previous: DamSnapshot | null | undefined,
+  now = Date.now()
+): DamSnapshot {
+  if (!previous || previous.id !== live.id) return live;
+  const dam = getUsaceDam(live.id);
+  if (!dam) return live;
+
+  const maxAgeMs = CARRY_FORWARD_MAX_HOURS * 3_600_000;
+  const merged: Partial<Record<UsaceMetric, DamMetricValue>> = { ...live.metrics };
+  let carried = 0;
+
+  for (const [metric, value] of Object.entries(previous.metrics ?? {}) as [
+    UsaceMetric,
+    DamMetricValue | undefined,
+  ][]) {
+    if (!value || merged[metric]) continue;
+    if (!DETAIL_METRICS.includes(metric) || dam.suppressMetrics?.includes(metric)) continue;
+    if (typeof value.value !== 'number' || !Number.isFinite(value.value)) continue;
+    const at = Date.parse(value.at);
+    // An undatable reading cannot be bounded, so it cannot be carried.
+    if (!Number.isFinite(at) || now - at > maxAgeMs) continue;
+
+    const copy: DamMetricValue = { ...value, staleness: stalenessOf(at, now) };
+    delete copy.trend;
+    merged[metric] = copy;
+    carried += 1;
+  }
+
+  if (carried === 0) return live;
+  return buildSnapshot(dam, merged, live.schedule, live.pattern, live.generationForecast);
 }
 
 /**
