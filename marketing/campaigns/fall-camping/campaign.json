@@ -1,0 +1,76 @@
+{
+  "id": "fall-camping-2026",
+  "title": "Your fall weekend by the river",
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "voice": {
+    "model": "gpt-4o-mini-tts-2025-12-15",
+    "voice": "marin",
+    "response_format": "wav",
+    "speed": 1,
+    "instructions": "Read the supplied script verbatim in a warm, casual, conversational brand voice. Sound clear and lightly enthusiastic. Deliver the opening directly as a helpful heads-up, not an alarm. Use natural contractions and brief breaths between ideas. Eddy sounds like Eddie; Pulltite sounds like pull tight; Recreation.gov is recreation dot gov. No announcer voice, fake personal testimonial, added words, music or sound effects. Read every sentence completely, including the closing instruction to use the link in our bio."
+  },
+  "scenes": [
+    {
+      "id": "opening",
+      "text": "Camping at Pulltite? You need a reservation.",
+      "onScreenText": "Camping at Pulltite? You need a reservation.",
+      "asset": "pulltite-opening.mov",
+      "visual": "Use the supplied Eddy Pulltite screen recording with the hook visible from frame one. Do not place the reservation claim over the supplied gravel-bar camping footage."
+    },
+    {
+      "id": "search",
+      "text": "See which campsites are open, right in Eddy.",
+      "asset": "pulltite-search.mov",
+      "visual": "Use the supplied Pulltite availability capture showing Tonight and Tomorrow. Preserve the selected day; do not imply a weekend or multi-night stay."
+    },
+    {
+      "id": "conditions",
+      "text": "You can check river levels in the same app.",
+      "asset": "river-level.mov",
+      "visual": "Show the Current River reading visible in the Pulltite header. This is a captured reading, not a live claim."
+    },
+    {
+      "id": "booking",
+      "text": "Then head to Recreation.gov to book.",
+      "asset": "booking-handoff.mov",
+      "visual": "Tap Book campsite and show the matching Recreation.gov destination before checkout."
+    },
+    {
+      "id": "closing",
+      "text": "Find your campsite in Eddy using the link in our bio.",
+      "asset": "river-closing.mov",
+      "visual": "Use the supplied riverside camping clip with Eddy and Link in bio. This is camping atmosphere, not an identified Pulltite campsite. Verify the profile link before posting."
+    }
+  ],
+  "pacePresets": {
+    "relaxed": {
+      "minWpm": 145,
+      "maxWpm": 155,
+      "reviewBelow": 130,
+      "reviewAbove": 180,
+      "instructions": "Use an unhurried delivery and a relaxed final sentence."
+    },
+    "brisk": {
+      "minWpm": 160,
+      "maxWpm": 175,
+      "reviewBelow": 145,
+      "reviewAbove": 190,
+      "instructions": "Keep a brisk conversational rhythm with short pauses and a clear, energetic final sentence. Do not rush campground names or the booking destination."
+    }
+  },
+  "shortScenes": [
+    "opening",
+    "search",
+    "conditions",
+    "booking",
+    "closing"
+  ],
+  "publication": {
+    "requiresVerifiedBioLink": true,
+    "aiVoiceDisclosureRequired": true
+  }
+}
