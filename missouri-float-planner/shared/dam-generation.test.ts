@@ -1468,3 +1468,23 @@ test('minimum flow is generating=false, as it always was, while fresh', () => {
   const bullShoals = { ...dam({ metrics: { generationFlow: reading(700, 10) }, generationFloorCfs: 850 }), minimumFlowThroughTurbine: true };
   assert.equal(generatingForNow(bullShoals, NOON_CENTRAL), false);
 });
+
+// ── A dam that never reports turbine flow is not an outage ─────────────────
+//
+// Bagnell's page was headed "Release status unavailable" directly above its
+// current release, on every visit. Ameren publishes total discharge only, as
+// Kansas City publishes nothing for Stockton, so there is no feed to be down.
+
+test('no floor and no turbine reading is "not reported", worded as a fact about the dam', () => {
+  const unreported = generationNow(dam({ metrics: {}, generationFloorCfs: undefined }), NOON_CENTRAL);
+  assert.deepEqual(unreported, { kind: 'unavailable', reason: 'not-reported' });
+  assert.equal(generationStatusLabel(unreported), 'Turbine flow not reported');
+  assert.equal(nowNextClauses(unreported, [], BULL_SHOALS, NOON_CENTRAL).observed, 'This dam does not report turbine flow.');
+  assert.equal(generationVoiceOver(unreported, BULL_SHOALS), 'This dam does not report turbine flow.');
+  assert.equal(generatingForNow(dam({ metrics: {}, generationFloorCfs: undefined }), NOON_CENTRAL), null);
+
+  // A dam whose turbine flow Eddy does read keeps the outage wording.
+  const outage = generationNow(dam({ metrics: {} }), NOON_CENTRAL);
+  assert.deepEqual(outage, { kind: 'unavailable', reason: 'not-published' });
+  assert.equal(generationStatusLabel(outage), 'Release status unavailable');
+});

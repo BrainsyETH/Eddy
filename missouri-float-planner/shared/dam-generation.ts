@@ -201,10 +201,14 @@ export type GenerationNow =
       kind: 'unavailable';
       /**
        * `no-powerhouse` — a flood-control project. Render no hero at all.
-       * `not-published` — a powerhouse whose turbine flow Eddy cannot read.
+       * `not-reported` — a powerhouse whose operator publishes no turbine
+       *   flow at all (Bagnell, Stockton, Truman, Mark Twain). A permanent fact
+       *   about the source, not an outage, and worded as one.
+       * `not-published` — a powerhouse whose turbine flow Eddy expected and
+       *   could not read this time.
        * `unreadable` — a reading arrived with a timestamp that will not parse.
        */
-      reason: 'no-powerhouse' | 'not-published' | 'unreadable';
+      reason: 'no-powerhouse' | 'not-reported' | 'not-published' | 'unreadable';
     };
 
 /**
@@ -228,7 +232,15 @@ export function generationNow(dam: GenerationInputs, now = Date.now()): Generati
 
   const reading = dam.metrics?.generationFlow;
   if (!reading || typeof reading.value !== 'number' || !Number.isFinite(reading.value)) {
-    return { kind: 'unavailable', reason: 'not-published' };
+    // The registry sets a generation floor for exactly the dams whose turbine
+    // flow it reads, and the floor rides the wire on every snapshot. No floor
+    // and no reading is therefore a dam that never reports turbine flow, which
+    // used to head its page "Release status unavailable" directly above a
+    // current release figure, on every visit, as though a feed were down.
+    return {
+      kind: 'unavailable',
+      reason: typeof dam.generationFloorCfs === 'number' ? 'not-published' : 'not-reported',
+    };
   }
 
   const age = readingStaleness(reading.at, now);
@@ -332,7 +344,8 @@ export function generationStatusLabel(state: GenerationNow): string | null {
     case 'unavailable':
       // A flood-control project has no powerhouse to report on, and a hero that
       // said anything at all here would invent one.
-      return state.reason === 'no-powerhouse' ? null : 'Release status unavailable';
+      if (state.reason === 'no-powerhouse') return null;
+      return state.reason === 'not-reported' ? 'Turbine flow not reported' : 'Release status unavailable';
   }
 }
 
@@ -702,8 +715,9 @@ function observedClause(
   now: number
 ): string {
   if (state.kind === 'unavailable') {
-    return state.reason === 'no-powerhouse'
-      ? 'This project has no powerhouse.'
+    if (state.reason === 'no-powerhouse') return 'This project has no powerhouse.';
+    return state.reason === 'not-reported'
+      ? 'This dam does not report turbine flow.'
       : 'Current turbine flow unavailable.';
   }
 
@@ -1323,7 +1337,10 @@ export function generationVoiceOver(
   ref: GenerationReference | null | undefined
 ): string | null {
   if (state.kind === 'unavailable') {
-    return state.reason === 'no-powerhouse' ? null : 'Current turbine flow is unavailable.';
+    if (state.reason === 'no-powerhouse') return null;
+    return state.reason === 'not-reported'
+      ? 'This dam does not report turbine flow.'
+      : 'Current turbine flow is unavailable.';
   }
   if (state.kind === 'not-generating') {
     const cfs = Math.round(state.turbineCfs).toLocaleString();
