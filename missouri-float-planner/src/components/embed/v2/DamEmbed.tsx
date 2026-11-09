@@ -326,7 +326,7 @@ function Card(props: Props) {
             <p className="ew-next">{next.text}</p>
           )
         ) : (
-          <p className="ew-support">Today's generation schedule is unavailable.</p>
+          <p className="ew-support">Today&apos;s generation schedule is unavailable.</p>
         )}
       </div>
 
