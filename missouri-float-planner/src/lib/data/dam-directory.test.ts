@@ -164,3 +164,58 @@ test('the /dams page renders per request, reads through the bounded source, and 
   assert.doesNotMatch(page, /<main\b/, 'the root layout already provides <main id="main-content">');
   assert.doesNotMatch(page, /toUpperCase\(\)/, 'filters go through the parser');
 });
+
+test('a read that ignores its abort and never settles does not trap later requests', async () => {
+  // The abandoned read used to stay `pending`, so every later request joined it
+  // and timed out too, until the server instance restarted.
+  let calls = 0;
+  const read = createDirectoryRowReader(() => {
+    calls += 1;
+    return calls === 1 ? new Promise<DirectoryRow[]>(() => {}) : Promise.resolve([row('swl-table-rock-dam', 5)]);
+  }, { timeoutMs: 30 });
+  assert.deepEqual(await read(), [], 'the stuck read is abandoned');
+  assert.equal((await read()).length, 1, 'the next request starts a fresh read and recovers');
+  assert.equal(calls, 2);
+});
+
+test('a read that finishes after its deadline still fills the cache for the next request', async () => {
+  let calls = 0;
+  const read = createDirectoryRowReader(() => {
+    calls += 1;
+    return new Promise<DirectoryRow[]>(resolve => setTimeout(() => resolve([row('swl-table-rock-dam', 5)]), 60));
+  }, { timeoutMs: 30 });
+  assert.deepEqual(await read(), []);
+  await new Promise(resolve => setTimeout(resolve, 80));
+  assert.equal((await read()).length, 1);
+  assert.equal(calls, 1, 'served from the late result, no second read');
+});
+
+// ── An open directory stays current ───────────────────────────────────────
+//
+// The Conditions explorer this page replaced refetched dam readings every five
+// minutes and on focus. The directory first shipped with only a moving clock:
+// opened at 9 AM, it showed the 9 AM schedule at noon while its now line moved.
+
+test('the open directory re-renders from the server on focus and every five minutes', () => {
+  const directory = readFileSync('src/components/dam/DamDirectory.tsx', 'utf8');
+  assert.match(directory, /useDamPageClock\(renderedAt\)/, 'the dam page\'s refresh, not a clock alone');
+  assert.doesNotMatch(directory, /setInterval\(/, 'no second, clock-only timer');
+  const hook = readFileSync('src/components/dam/useDamPageClock.ts', 'utf8');
+  assert.match(hook, /router\.refresh\(\)/);
+  assert.match(hook, /setInterval\(refresh, 5 \* 60_000\)/);
+  assert.match(hook, /addEventListener\('focus', refresh\)/);
+  assert.match(hook, /addEventListener\('visibilitychange', refresh\)/);
+});
+
+test('an outage says so and offers a retry instead of a page of silent blanks', () => {
+  assert.equal(conditionsDamCatalogue(directorySnapshotsFromRows([], NOW)).damsUnavailable, true);
+  assert.equal(conditionsDamCatalogue(directorySnapshotsFromRows([row('swl-table-rock-dam', 5)], NOW)).damsUnavailable, false,
+    'one dam with readings is not an outage; its neighbours show unavailable on their own cards');
+  assert.equal(conditionsDamCatalogue(directorySnapshotsFromRows([row('swl-table-rock-dam', MAX_AGE_MS / 60_000 + 1)], NOW)).damsUnavailable, true,
+    'every row expired is an outage too');
+  const page = readFileSync('src/app/dams/page.tsx', 'utf8');
+  assert.match(page, /readingsUnavailable=\{damsUnavailable\}/);
+  const directory = readFileSync('src/components/dam/DamDirectory.tsx', 'utf8');
+  assert.match(directory, /Dam readings couldn’t refresh\. You can still open individual dam reports\./);
+  assert.match(directory, /onClick=\{refreshNow\}/);
+});

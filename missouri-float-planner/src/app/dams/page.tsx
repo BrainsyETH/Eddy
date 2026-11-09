@@ -68,7 +68,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     getActiveRiverContexts().catch(() => []),
   ]);
   // The registry keeps all destinations navigable through data outages.
-  const { dams } = conditionsDamCatalogue(directorySnapshotsFromRows(rows, now));
+  // damsUnavailable: no dam had a usable stored row, whether the read failed,
+  // timed out, or every row expired. The directory says so and offers a retry.
+  const { dams, damsUnavailable } = conditionsDamCatalogue(directorySnapshotsFromRows(rows, now));
   const groups = buildDamDirectoryGroups(dams);
   const filters = parseDirectoryFilters({ q: params.q, state: params.state }, dams.map(dam => dam.state));
   const riverLinks = RELATED_RIVERS.flatMap(related => {
@@ -105,7 +107,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         </div>
       </nav>
 
-      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.query} initialState={filters.state} />
+      <DamDirectory groups={groups} renderedAt={now} initialQuery={filters.query} initialState={filters.state} readingsUnavailable={damsUnavailable} />
 
       <section aria-labelledby="schedule-help-heading" className="mt-12 max-w-4xl">
         <h2 id="schedule-help-heading" className="font-heading text-2xl font-bold text-primary-900">Understanding generation schedules</h2>

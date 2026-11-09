@@ -43,6 +43,8 @@ export interface DirectoryRow {
   schedule: unknown;
 }
 
+const TIMED_OUT = Symbol('timed out');
+
 /** Null means the read failed and must not be cached. */
 export type DirectoryRowFetcher = (signal: AbortSignal) => Promise<DirectoryRow[] | null>;
 
@@ -95,12 +97,22 @@ export function createDirectoryRowReader(
       });
     }
 
+    const joined = pending;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), timeoutMs);
+    const deadline = new Promise<typeof TIMED_OUT>((resolve) => {
+      timer = setTimeout(() => resolve(TIMED_OUT), timeoutMs);
     });
     try {
-      return (await Promise.race([pending, deadline])) ?? [];
+      const result = await Promise.race([joined, deadline]);
+      if (result === TIMED_OUT) {
+        // Release the read we waited on. A fetcher that ignores its abort
+        // signal and never settles would otherwise stay `pending` for good,
+        // and every later request would join it and time out in turn. If it
+        // does settle later, its rows still land in the cache.
+        if (pending === joined) pending = null;
+        return [];
+      }
+      return result ?? [];
     } finally {
       clearTimeout(timer);
     }

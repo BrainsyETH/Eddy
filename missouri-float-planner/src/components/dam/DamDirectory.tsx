@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import DamListCard from '@/components/dam/DamListCard';
+import { useDamPageClock } from '@/components/dam/useDamPageClock';
 import { stateName } from '@/lib/navigation/states';
 import { parseDirectoryFilters, type DirectoryDamGroup } from '@/lib/data/dam-directory';
 
@@ -15,26 +16,22 @@ export default function DamDirectory({
   renderedAt,
   initialQuery = '',
   initialState = 'all',
+  readingsUnavailable = false,
 }: {
   groups: DirectoryDamGroup[];
   renderedAt: number;
   initialQuery?: string;
   initialState?: string;
+  /** No dam had stored readings this render: the read failed, timed out, or every row expired. */
+  readingsUnavailable?: boolean;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [state, setState] = useState(initialState);
-  const [now, setNow] = useState(renderedAt);
-
-  useEffect(() => {
-    const tick = () => { if (document.visibilityState === 'visible') setNow(Date.now()); };
-    tick();
-    const interval = window.setInterval(tick, 60_000);
-    document.addEventListener('visibilitychange', tick);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', tick);
-    };
-  }, []);
+  // Not only a clock: this re-renders the page from the server on focus and
+  // every five minutes, so new readings and newly posted schedules arrive
+  // while the directory stays open. The search and state filter are client
+  // state and survive each refresh.
+  const { now, refreshing, refreshNow } = useDamPageClock(renderedAt);
 
 
   function filter(nextQuery: string, nextState: string) {
@@ -92,7 +89,9 @@ export default function DamDirectory({
     <section id="all-dams" aria-labelledby="all-dams-heading" className="scroll-mt-24">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="all-dams-heading" className="font-heading text-2xl font-bold tracking-tight text-primary-900">All dams</h2>
-        <span role="status" aria-live="polite" className="text-sm text-neutral-600">{count} of {total} dams</span>
+        <span role="status" aria-live="polite" className="text-sm text-neutral-600">
+          {count} of {total} dams{refreshing ? <> · Checking for updates…</> : null}
+        </span>
       </div>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -121,6 +120,20 @@ export default function DamDirectory({
           {states.map(code => <option key={code} value={code}>{stateName(code)}</option>)}
         </select>
       </div>
+
+      {/* Honest about an outage: the cards would otherwise show every reading
+          and schedule as unavailable with no reason given. The links still
+          work, because each dam report has its own live-read fallback. The
+          clock hook retries on focus and every five minutes; this is the
+          button for someone who does not want to wait. */}
+      {readingsUnavailable && (
+        <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-800">
+          <p className="py-2">Dam readings couldn’t refresh. You can still open individual dam reports.</p>
+          <button type="button" onClick={refreshNow} disabled={refreshing} className="inline-flex min-h-11 items-center font-semibold text-primary-800 underline underline-offset-4 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-primary-600">
+            {refreshing ? 'Trying again…' : 'Try again'}
+          </button>
+        </div>
+      )}
 
       {filtered.length > 0 ? (
         <div className="space-y-9">
