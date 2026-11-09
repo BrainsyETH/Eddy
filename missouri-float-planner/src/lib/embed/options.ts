@@ -123,6 +123,8 @@ export interface EmbedTokens {
    * campground's brand red would read as a warning.
    */
   data: string;
+  /** Coral/copper for measured upward movement; never a safety state. */
+  rise: string;
   shadow: string;
   skeleton: string;
 }
@@ -139,6 +141,7 @@ export const EMBED_LIGHT_TOKENS: EmbedTokens = {
   accent: '#F07052', // Sunset Coral — CTAs only
   focus: '#2D7889',
   data: '#256574',
+  rise: '#A8442C', // readable warm-coral ink on Eddy's white surface
   shadow: '#C2BAAC',
   skeleton: '#DBD5CA',
 };
@@ -155,6 +158,7 @@ export const EMBED_DARK_TOKENS: EmbedTokens = {
   accent: '#F07052',
   focus: '#A3D1DB',
   data: '#72B5C4', // primary-300, the iOS widget's dark water
+  rise: '#FFA58F', // high-contrast sunset-coral ink on dark teal
   shadow: 'rgba(0, 0, 0, 0.45)',
   skeleton: '#2D5660',
 };
@@ -180,6 +184,7 @@ function declarations(tokens: EmbedTokens, options: Pick<EmbedOptions, 'transpar
     `--ew-accent:${t.accent}`,
     `--ew-focus:${t.focus}`,
     `--ew-data:${t.data}`,
+    `--ew-rise:${t.rise}`,
     `--ew-shadow:${t.shadow}`,
     `--ew-skeleton:${t.skeleton}`,
     `--ew-logo-bg:${dark ? 'rgba(255,255,255,0.92)' : '#FFFFFF'}`,
