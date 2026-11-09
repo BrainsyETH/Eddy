@@ -451,7 +451,9 @@ without a reading or a reviewed launch. Elevation cautions stay off behind
 and even then require a pool younger than six hours (hourly) or thirty-six
 (daily). The cron calls a lake healthy only with a recent observation and
 takes `?backfillHours=` to fill the chart on its first run. Agency status
-lines wait for the status step (areas and links tables).*
+lines wait for the status step (areas and links tables). Previews of both
+pages from a production build are in `docs/visuals/lakes-pilot-2026-11-09/`,
+with what in them is real and what is fixture stated in its README.*
 
 Two lakes, chosen because together they exercise everything the first wave
 will meet. Table Rock has the busiest dam page, strong generation data, and
