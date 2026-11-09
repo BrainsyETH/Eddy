@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Search, X } from 'lucide-react';
+import { stateName } from '@/lib/navigation/states';
 import { readingStaleness, relativeAgeShort } from '@shared/dam-schedule-copy';
 import { scheduleOutlook, scheduledChangeSummary } from '@shared/dam-generation';
 import type { DirectoryDam, DirectoryDamGroup, DirectoryReading } from '@/lib/data/dam-directory';
@@ -107,7 +108,7 @@ export default function DamDirectory({ groups, renderedAt }: { groups: Directory
 
   const states = useMemo(() => {
     const all = groups.flatMap(group => group.dams);
-    return [...new Map(all.map(dam => [dam.state, dam.state])).values()];
+    return [...new Set(all.map(dam => dam.state))];
   }, [groups]);
 
   const filtered = useMemo(() => {
@@ -137,7 +138,7 @@ export default function DamDirectory({ groups, renderedAt }: { groups: Directory
       </div>
       <select value={state} onChange={e => setState(e.target.value)} aria-label="Filter dams by state" className="min-h-11 rounded-md border-2 border-neutral-300 bg-white px-3 text-sm text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-[3px] focus:ring-primary-100 sm:w-52">
         <option value="all">All states</option>
-        {states.map(code => <option key={code} value={code}>{({ MO: 'Missouri', AR: 'Arkansas', KY: 'Kentucky', OK: 'Oklahoma', TN: 'Tennessee', TX: 'Texas' } as Record<string, string>)[code] ?? code}</option>)}
+        {states.map(code => <option key={code} value={code}>{stateName(code)}</option>)}
       </select>
     </div>
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
