@@ -494,7 +494,7 @@ body {
   .ew-dam-details { grid-template-columns: minmax(0, 1fr); }
   .ew-dam-detail + .ew-dam-detail,
   .ew-dam-detail:nth-child(3) { border-left: 0; padding-left: 0; border-top: 1px solid var(--ew-border); padding-top: 9px; }
-  .ew-dam-header-age { flex-basis: 100%; margin-left: 0; text-align: left; }
+  .ew-dam-header-age { flex-basis: 100%; margin-left: auto; text-align: right; }
 }
 
 .ew-dam-spill { border-top: 1px solid var(--ew-border); padding-top: 8px; }
