@@ -652,7 +652,8 @@
       "https://nominatim.openstreetmap.org (GNIS-import access-area nodes; state/county reverse checks)",
       "https://www.kuaf.com/ozarks-at-large-stories/2020-11-04/new-whitewater-park-under-construction-on-illinois-river",
       "scripts/ingestion/dossiers/verified-identifiers-illinois-river.md (independent identifier and geometry check, 2026-11-02; gauge positionRiverMile measured on the TNM 11110103 dissolve, headwaters = 0)",
-      "https://apps.usgs.gov/hivis/camera/OK_Illinois_River_near_Moodys (NIMS camera API record, checked 2026-11-02)"
+      "https://apps.usgs.gov/hivis/camera/OK_Illinois_River_near_Moodys (NIMS camera API record, checked 2026-11-02)",
+      "scripts/ingestion/access-points/illinois-river.json + access-points/reviews/illinois-river-access-2026-11.md: the import source for access-point pins (GRDA, NBI, USACE, American Whitewater and owner-supplied pins of 2026-11-09). Where they differ from accessPoints[] here, the access-point file is current."
     ],
     "openQuestions": [
       "RATING: GRDA's binding Appendix A gives a trusted high/dangerous ladder in ft at polled gauges (Chewey 6.0/9.5; Tahlequah 6.5/9.5), corroborated by the IRA 1993 guidelines and Diamondhead (which says 9 ft = no floating at Chewey). No trusted low end exists. A high/dangerous-only ladder makes classifyReading return 'too_low' below `high`, so normal summer water would read Too Low. Owner decision: ship unrated now (recommended), or obtain a gauge-stated low/optimal anchor from GRDA or an outfitter and ship rated.",

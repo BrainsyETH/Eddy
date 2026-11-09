@@ -69,7 +69,7 @@
         "name": "Ables Sugar Island Camp"
       },
       "publishedLengthMiles": null,
-      "riverMileStart": 25.9,
+      "riverMileStart": 25.96,
       "riverMileEnd": 42.56,
       "representativeGauge": {
         "siteId": "07188653",
@@ -158,6 +158,11 @@
           "source": "search-result summary of https://www.forums.arkansascanoeclub.com/viewtopic.php?p=116800 (page unreachable from this session)",
           "confidence": "low",
           "note": "Unverified anecdote of unknown date; do not publish without a reachable source."
+        },
+        {
+          "value": "Creekside Rd low-water crossing at Eddy mile ~25.96, right at the Creekside Campground put-in. The roadside is posted 'No parking / Private property / No creek access'; launch from the campground only. No passage, portage side or safe level is claimed.",
+          "source": "Owner street-level photo and pin, 2026-11-09; USGS orthoimagery (basemap.nationalmap.gov USGSImageryOnly)",
+          "confidence": "medium"
         }
       ],
       "localKnowledge": [
@@ -266,13 +271,17 @@
     {
       "name": "Creekside Campground",
       "type": "gravel_bar",
-      "lat": null,
-      "lon": null,
+      "lat": 36.624242,
+      "lon": -94.1863,
       "ownership": "Private",
       "managingAgency": "Private",
-      "notes": "PRIVATE PUT-IN (owner-confirmed 2026-11-02); pin still needed: private campground at 274 Creekside Rd, Powell, MO 65730 (417-435-2274; email creeksidecampground1@yahoo.com, per NWA Democrat-Gazette 2017; Yellow Pages and Apple Maps carry the same address). The Census address point (36.624158, -94.185152, interpolated along the road) is ~100 m from the mainstem at Eddy mile ~25.9, about 0.6 mi below Powell Bridge. No published creek access, launch, rental or shuttle terms were found; its listed website (kccreeksidehaven.com) returned an empty page. Ask whether it allows launching/landing for non-guests and on what terms. A launch here would serve Powell-to-Cyclone trips.",
+      "notes": "PRIVATE PUT-IN (owner-confirmed 2026-11-02); pin supplied by the owner 2026-11-09: private campground at 274 Creekside Rd, Powell, MO 65730 (417-435-2274; email creeksidecampground1@yahoo.com, per NWA Democrat-Gazette 2017; Yellow Pages and Apple Maps carry the same address). The Census address point (36.624158, -94.185152, interpolated along the road) is ~100 m from the mainstem at Eddy mile ~25.9, about 0.6 mi below Powell Bridge. No published creek access, launch, rental or shuttle terms were found; its listed website (kccreeksidehaven.com) returned an empty page. Ask whether it allows launching/landing for non-guests and on what terms. A launch here would serve Powell-to-Cyclone trips.",
       "source": "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/ ; https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588 ; https://maps.apple.com/place?place-id=IABB92F072F3E6455",
-      "section": "big-sugar-main"
+      "section": "big-sugar-main",
+      "riverMile": 25.96,
+      "coordinateSource": "Owner-supplied pin 2026-11-09",
+      "coordinateConfidence": "medium",
+      "coordinateNote": "69 m from the creek line. Within ~25 m of the Creekside Rd low-water crossing, whose roadside is posted 'No parking / Private property / No creek access'; confirm the pin is on the campground beach."
     },
     {
       "name": "Big Rock Camp Grounds (Big Rock Park)",
@@ -354,7 +363,7 @@
       "HAZARDS: exact position, passage and portage side of Crag O' Lea low-water bridge (≈0.5 mi below Deep Ford) and the condition of the guide-mile 23.9 channel split. Any other low-water crossings between Deep Ford and Pineville? Overpass/OSM structure query could not complete.",
       "HYDROLOGY: sources disagree on character — MCFA calls it 'spring-fed', but Powell drops to ~5–11 cfs in autumn and crests above 30,000 cfs. Is there a losing reach (MoDNR losing-stream designation) between Powell and Pineville? Not researched.",
       "MILES: floatmissouri guide miles (0 = Roller Bridge) are not Eddy miles (0 = NHD headwaters). Do not copy guide miles into riverMile fields.",
-      "PRIVATE PUT-INS (owner-confirmed 2026-11-02): Creekside, Big Rock and Sugar Island. Still needed: a launch pin for Creekside (address point only; imagery shows two plausible spots near a low-water crossing); review the imagery-placed Sugar Island pin, and the operators' fees/terms for display."
+      "PRIVATE PUT-INS (owner-confirmed 2026-11-02): Creekside, Big Rock and Sugar Island. Still needed: review the owner-supplied Creekside pin (next to a posted low-water crossing) and the imagery-placed Sugar Island pin, and the operators' fees/terms for display."
     ],
     "toVerify": [
       "USGS 07188653 Big Sugar Creek near Powell, MO — confirm on https://waterdata.usgs.gov/monitoring-location/USGS-07188653/ : lat 36.6158611, lon -94.1822222, drainage 141 sq mi, params 00060 + 00065, discharge record from 2000-05-25; fresh at activation.",

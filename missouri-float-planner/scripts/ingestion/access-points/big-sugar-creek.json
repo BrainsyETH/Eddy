@@ -2,16 +2,16 @@
   {
     "name": "Creekside Campground",
     "kind": "gravel_bar",
-    "expected_mile": 25.9,
-    "lat": null,
-    "lon": null,
+    "expected_mile": 25.96,
+    "lat": 36.624242,
+    "lon": -94.1863,
     "is_public": false,
     "ownership": "Creekside Campground (private)",
     "managing_agency": "Private",
     "official_site_url": null,
     "facilities": "Private campground put-in. Check in with the operator for launch and parking arrangements.",
-    "description": "HELD for a pin: private campground put-in at 274 Creekside Rd, Powell, about 0.6 mi below Powell Bridge (Eddy mile ~25.9). The owner confirmed on 2026-11-02 that it is a private put-in. Only a Census address point (interpolated along the road, ~100 m from the creek) locates it; the launch needs a pin set from imagery or by the owner before import.",
-    "confidence": "medium for use (owner-confirmed private put-in 2026-11-02); no coordinate yet",
+    "description": "Private campground put-in on Creekside Rd, Powell, about 0.7 mi below Powell Bridge. The owner confirmed it as a private put-in on 2026-11-02 and supplied this pin on 2026-11-09; it is 69 m from the creek line at Eddy mile 25.96. Launch from the campground beach. The Creekside Rd low-water crossing is within about 25 m, and its roadside is posted 'No parking / Private property / No creek access' (owner's street-level photo), so do not park or launch from the road. Confirm in review that the pin sits on the campground side.",
+    "confidence": "medium (owner-confirmed private put-in; owner-supplied pin 2026-11-09)",
     "source_urls": [
       "https://mdcp.nwaonline.com/news/2017/feb/23/campgrounds-canoes-and-more-20170223/",
       "https://www.yellowpages.com/powell-mo/mip/creekside-campground-19129588",
@@ -23,7 +23,8 @@
       "campground"
     ],
     "fee_notes": "Private put-in. Arrange access with the operator; fees and terms are not published.",
-    "road_access": "274 Creekside Rd, Powell, MO 65730"
+    "road_access": "274 Creekside Rd, Powell, MO 65730",
+    "parking_info": "Campground parking only. The roadside at the Creekside Rd low-water crossing is posted no parking and no creek access."
   },
   {
     "name": "Big Rock Camp Grounds",
