@@ -17,7 +17,11 @@ export interface RouteStop {
   value: string | null;
   detail?: string;
   photo?: React.ReactNode;
-  status?: { label: string; ready: boolean; busy: boolean };
+  /**
+   * `action` sits under the status, beside the field it concerns ("GPS
+   * unavailable" / "Try again"), never in a paragraph elsewhere on the screen.
+   */
+  status?: { label: string; ready: boolean; busy: boolean; action?: { label: string; onPress: () => void } };
 }
 
 export interface TakeOutSuggestion { id: string; name: string; detail: string; photo?: React.ReactNode }
@@ -135,10 +139,17 @@ function Stop({ kind, label, stop, disabled, onPress }: {
   const line = <View style={[local.line, { backgroundColor: colors.border }]} />;
   const gap = <View style={local.grow} />;
   const value = stop.value ?? `Choose a ${label.toLocaleLowerCase()}`;
+  const action = stop.status?.action;
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button"
       accessibilityLabel={[label, value, stop.detail, stop.status?.label].filter(Boolean).join(', ')}
       accessibilityState={{ disabled, busy: stop.status?.busy }}
+      // The row reads as one element, so its retry is an action on it.
+      accessibilityActions={action ? [{ name: 'activate' }, { name: 'retry', label: action.label }] : undefined}
+      onAccessibilityAction={action ? (event) => {
+        if (event.nativeEvent.actionName === 'retry') action.onPress();
+        else onPress();
+      } : undefined}
       style={({ pressed }) => [local.stop, { opacity: pressed || disabled ? 0.6 : 1 }]}>
       <View style={local.rail}>
         {kind === 'start' ? gap : line}
@@ -158,6 +169,9 @@ function Stop({ kind, label, stop, disabled, onPress }: {
             <Text style={[t.sm, { color: colors.textMuted }]}>{stop.status.label}</Text>
           </View> : null}
         </View> : null}
+        {action ? <Pressable onPress={action.onPress} hitSlop={10} accessible={false} style={local.action}>
+          <Text style={[t.sm, local.actionText, { color: colors.interactive }]}>{action.label}</Text>
+        </Pressable> : null}
       </View>
       {stop.photo}
     </Pressable>
@@ -191,6 +205,8 @@ const local = StyleSheet.create({
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 2 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badgeDot: { width: 8, height: 8, borderRadius: 4 },
+  action: { alignSelf: 'flex-start', paddingVertical: 4 },
+  actionText: { fontFamily: fonts.semibold },
   spinner: { transform: [{ scale: 0.7 }], width: 8, height: 8 },
   leg: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 20 },
   legText: { fontFamily: fonts.semibold, paddingVertical: 2 },

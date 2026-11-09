@@ -86,13 +86,25 @@ test('card: never 0.0 mi; untracked and partly tracked say so', () => {
   assert.equal(none.moodLine, null);
   assert.equal(none.route, 'To Pulltite');
   assert.equal(none.startedOnWater, false, 'no river position was confirmed');
+  assert.equal(none.startLine, null);
   assert.match(none.accessibilityLabel, /^Current River\. To Pulltite\. October 26\. 4 hours 12 minutes\. GPS tracking unavailable\. High, 412 cfs\.$/);
   const partial = historyCardModel(trip({ movingMs: HOUR, stoppedMs: 0.2 * HOUR, unknownMs: 3 * HOUR }), NOW);
-  assert.equal(partial.trackingNote, 'Limited GPS tracking');
+  assert.equal(partial.trackingNote, 'GPS missed part of this float');
   assert.equal(partial.stats, '9.6 river mi · 4 hr 12 min');
   const onWater = historyCardModel(trip({ putInId: null, putInName: null }), NOW);
   assert.equal(onWater.route, 'To Pulltite');
   assert.equal(onWater.startedOnWater, true);
+  assert.equal(onWater.startLine, null, 'a generic start says nothing the card needs');
+});
+
+test('card: a start line only when it says where; VoiceOver hears it too', () => {
+  for (const startNote of ['On-river start', 'Distance tracking began on Eddy’s mapped river.', 'No distance recorded on Eddy’s mapped river.']) {
+    assert.equal(historyCardModel(trip({ putInId: null, putInName: null, startNote }), NOW).startLine, null, startNote);
+  }
+  const placed = historyCardModel(trip({ putInId: null, putInName: null, startNote: 'Recording started 1.2 mi below Dillard Mill' }), NOW);
+  assert.equal(placed.startLine, 'Recording started 1.2 mi below Dillard Mill');
+  assert.match(placed.accessibilityLabel, /To Pulltite\. Recording started 1\.2 mi below Dillard Mill\. /);
+  assert.equal(historyCardModel(trip(), NOW).startLine, null);
 });
 
 test('the stretch: river explored first; an older float keeps its tracked distance, named as such', () => {

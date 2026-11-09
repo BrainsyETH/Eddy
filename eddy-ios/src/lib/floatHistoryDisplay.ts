@@ -15,6 +15,7 @@
 // falls back to its tracked distance, named as such.
 
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
+import { GENERIC_START_NOTES } from './floatOrigin';
 import {
   exploredMiles,
   floatBadge,
@@ -138,10 +139,15 @@ export interface HistoryCardModel {
   route: string;
   /** "Started on the water": only when a river position was confirmed. */
   startedOnWater: boolean;
+  /**
+   * Where the float began, only when the recorded note says so ("1.2 mi
+   * below Dillard Mill"). Generic notes ("On-river start") are left out.
+   */
+  startLine: string | null;
   date: string;
   /** "9.6 river mi · 4 hr 12 min", or "4 hr 12 min" with no stretch to give. */
   stats: string;
-  /** "GPS tracking unavailable" or "Limited GPS tracking"; null when measured. */
+  /** "GPS tracking unavailable" or "GPS missed part of this float"; null when measured. */
   trackingNote: string | null;
   /** Only a current reading earns a badge on the card. */
   badge: (FloatBadge & { text: string }) | null;
@@ -149,6 +155,11 @@ export interface HistoryCardModel {
   moodLine: string | null;
   tracking: FloatTracking;
   accessibilityLabel: string;
+}
+
+function startLine(trip: CompletedFloat): string | null {
+  const note = trip.startNote?.trim() || null;
+  return note && !GENERIC_START_NOTES.has(note) ? note : null;
 }
 
 export function historyCardModel(trip: CompletedFloat, now = Date.now()): HistoryCardModel {
@@ -159,11 +170,13 @@ export function historyCardModel(trip: CompletedFloat, now = Date.now()): Histor
   const duration = recordedDuration(trip.elapsedMs);
   const stretch = floatStretch(trip);
   const trackingNote =
-    tracking === 'none' ? 'GPS tracking unavailable' : tracking === 'partial' ? 'Limited GPS tracking' : null;
+    tracking === 'none' ? 'GPS tracking unavailable' : tracking === 'partial' ? 'GPS missed part of this float' : null;
   const line = moodLine(mood, trip);
+  const start = startLine(trip);
   const spoken = [
     `${trip.riverName}.`,
     `${trip.putInName ? `${trip.putInName} to ${trip.takeOutName}` : `To ${trip.takeOutName}`}.`,
+    start ? `${start.replace(/\.$/, '')}.` : null,
     `${longDate(trip.startedAt, now)}.`,
     stretch ? `${stretch.spoken}, ${spokenDuration(trip.elapsedMs)}.` : `${spokenDuration(trip.elapsedMs)}.`,
     trackingNote ? `${trackingNote}.` : null,
@@ -174,6 +187,7 @@ export function historyCardModel(trip: CompletedFloat, now = Date.now()): Histor
     river: trip.riverName,
     route: routeTitle(trip),
     startedOnWater: !trip.putInName && tracking !== 'none',
+    startLine: start,
     date: shortDate(trip.startedAt, now),
     stats: stretch ? `${stretch.value} ${stretch.unit} · ${duration}` : duration,
     trackingNote,

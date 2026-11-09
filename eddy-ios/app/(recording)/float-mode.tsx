@@ -42,13 +42,14 @@ import {
   arrivalAnchor,
   arrivalCopy,
   arrivalOutlook,
+  formatBeyond,
   indexRoute,
   mapFeatures,
   remainingCopy,
   statusCopy,
   viewSession,
 } from '@/lib/floatSession';
-import { recordedOrigin } from '@/lib/floatOrigin';
+import { BARE_ON_RIVER_START, recordedOrigin } from '@/lib/floatOrigin';
 import { hazardAheadNote, hazardDataState } from '@/lib/floatHazardData';
 import { hazardTypeLabel } from '@eddy/hazards';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -135,15 +136,18 @@ export default function FloatModeScreen() {
   const displayed = session ? floatDisplayPosition(session, clock) : null;
   const recording = tracking.tracker.status === 'recording' && !tracking.tracker.servicesOff && !tracking.tracker.denied && !tracking.tracker.preciseOff && !tracking.tracker.notInUse;
   const fresh = recording && displayed != null && !displayed.dimmed;
-  const time = view ? remainingCopy(view.estimate, view.takeOutBeyondMeters != null) : null;
-  const anchor = view ? arrivalAnchor(view, clock) : null;
-  // No arrival to place on a clock for a float that began below its take-out:
-  // the panel hides the line, and VoiceOver must not hear a sunset warning for it.
-  const outlook = view && !view.startedPastTakeOut && anchor && ends ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
-  const arrival = outlook && view ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null, { paused: view.estimate.paused }) : null;
-  const hazard = view?.nextHazard ?? null;
   // At the take-out, or as close as the mapped river goes to one off it.
   const done = Boolean(view && (view.arrived || view.atRiverEnd));
+  // Once arrived, the time column says so instead of a pace still being
+  // learned or a time left that is now zero.
+  const time = view ? remainingCopy(done ? { ...view.estimate, minutes: 0 } : view.estimate, view.takeOutBeyondMeters != null) : null;
+  const anchor = view ? arrivalAnchor(view, clock) : null;
+  // No arrival to place on a clock for a float that began below its take-out,
+  // or one already at its take-out: the panel hides the line, and VoiceOver
+  // must not hear a sunset warning for it.
+  const outlook = view && !done && !view.startedPastTakeOut && anchor && ends ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut.lngLat) : null;
+  const arrival = outlook && view ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null, { paused: view.estimate.paused }) : null;
+  const hazard = view?.nextHazard ?? null;
   const weakGps = session ? gpsQualityNote(session, clock) : null;
   const attention = tracking.line && (tracking.line.action !== 'info' || !recording) ? tracking.line.text : null;
   useAnnounce(view && done ? statusCopy(view, clock) : null);
@@ -191,11 +195,19 @@ export default function FloatModeScreen() {
   const waitingAtLaunch = !view.confirmed && view.status === 'off-route' && session.last?.nearPutIn;
   const progress = progressLine(session, clock);
   const pace = paceLine(session, clock);
+  // Healthy tracking needs no status line ("Live"), and plain arrival is
+  // already the time column's headline. The line is for what needs saying.
   const status = waitingAtLaunch
     ? `At ${session.putIn?.name}. Push off when you’re ready.`
     : weakGps && (view.status === 'stale' || view.status === 'acquiring')
       ? 'Finding you on the river…'
+      : live && !view.atRiverEnd ? null
+      // The headline already says "At the river’s closest point"; the line
+      // adds only where the take-out is. VoiceOver still hears the full sentence.
+      : live && view.takeOutBeyondMeters != null
+        ? `${view.takeOutName} is about ${formatBeyond(view.takeOutBeyondMeters)} from here, off the mapped river.`
       : statusCopy(view, clock);
+  const originNote = recordedOrigin(session).note;
   // Finish could not read the whole track and the paddler stopped tracking
   // anyway (stopTracking): no GPS, and the recap is still owed.
   const stopped = session.trackingStoppedAt != null;
@@ -354,12 +366,13 @@ export default function FloatModeScreen() {
             <Text style={[styles.route, { color: colors.textMuted }]}>To {view.takeOutName}</Text>
           </View>
         </View>
-        <Text style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}>
+        {status ? <Text style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]}>
           {status}
-        </Text>
+        </Text> : null}
 
-        {recordedOrigin(session).note ? <Text style={[styles.note, { color: colors.textMuted }]}>
-          {recordedOrigin(session).note}
+        {/* The bare note repeats the tracking line; one that names a place stays. */}
+        {originNote && originNote !== BARE_ON_RIVER_START ? <Text style={[styles.note, { color: colors.textMuted }]}>
+          {originNote}
         </Text> : null}
         {view.startedPastTakeOut ? (
           <Text style={[styles.note, { color: colors.textMuted }]}>
