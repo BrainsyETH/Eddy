@@ -259,7 +259,8 @@ function Card(props: Props) {
   // Downstream changes come only from the dam's own dated stage series.
   // Do not infer movement from turbine flow or classify wading/float safety.
   const downstream = full ? dam.metrics.tailwaterElevation ?? null : null;
-  const downstreamChange = downstream && readingStaleness(downstream.at, now) === 'fresh'
+  const downstreamAge = downstream ? readingStaleness(downstream.at, now) : null;
+  const downstreamChange = downstream && downstreamAge === 'fresh'
     ? tailwaterMovementLabel(downstream.trend)
     : null;
   const downstreamDirection = downstreamChange && downstream?.trend
@@ -337,16 +338,22 @@ function Card(props: Props) {
         <section className="ew-dam-below" aria-label="Below the dam">
           <div className="ew-dam-below-head">
             <h2 className="ew-dam-below-title">Below the dam</h2>
-            <span className="ew-support">{formatObservedAge(downstream.at, now)}</span>
-          </div>
-          <div className="ew-dam-change">
-            <span className="ew-dam-change-value">
-              {downstreamChange ?? downstream.value.toFixed(1) + ' ' + downstream.unit}
+            <span className="ew-support">
+              {downstreamAge !== 'fresh' ? 'Older reading · ' : ''}{formatObservedAge(downstream.at, now)}
             </span>
-            {downstreamChange && downstreamDirection && (
-              <span className="ew-support">{downstreamDirection} · Stage {downstream.value.toFixed(1)} {downstream.unit}</span>
-            )}
           </div>
+          {downstreamAge === 'stale' || downstreamAge === null ? (
+            <p className="ew-support">No recent downstream level reading.</p>
+          ) : (
+            <div className="ew-dam-change">
+              <span className="ew-dam-change-value">
+                {downstreamChange ?? 'Water elevation ' + downstream.value.toFixed(1) + ' ' + downstream.unit}
+              </span>
+              {downstreamChange && downstreamDirection && (
+                <span className="ew-support">{downstreamDirection} · Water elevation {downstream.value.toFixed(1)} {downstream.unit}</span>
+              )}
+            </div>
+          )}
         </section>
       )}
 
