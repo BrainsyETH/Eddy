@@ -1,4 +1,4 @@
-import { selectWeekendReads, weekendReadExclusion, weekendReadText, weekendReadCaption } from './weekend-read';
+import { selectWeekendReads, weekendReadExclusion, weekendReadScenes, weekendReadCaption } from './weekend-read';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { shortSummary, reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
@@ -426,13 +426,15 @@ export async function buildPostContext(
     if (rows.length < 2) return null;
     const pinned = rows.map(u => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`).join(',');
     const readArt = illustrationArt(dayIndex(now), (await loadCoverHistory(supabase, now)).recentArt);
+    const readScenes = weekendReadScenes(rows, now, zone);
     return {
       postType,
       riverSlug: null,
       riverSlugs: rows.map(u => u.river_slug),
       renderData: {
         riverName: 'This weekend',
-        readingText: weekendReadText(rows, now, zone),
+        readingText: readScenes.map(scene => scene.text).join('\n\n'),
+        readScenes,
         dateLabel: `Prepared ${reportStamp(now)} · Current water`,
       },
       caption: () => ({ caption: weekendReadCaption(rows, now, zone), hashtags: [] }),

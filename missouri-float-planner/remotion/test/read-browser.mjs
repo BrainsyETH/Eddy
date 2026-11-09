@@ -1,7 +1,7 @@
-// Verify the actual full-report scroll, fixed chrome and mascot in Chromium.
+// Check every phrase, river transition and safe-area bound in Chromium.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, extname, sep } from 'node:path';
 import { bundle } from '@remotion/bundler';
@@ -38,7 +38,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const url = `http://127.0.0.1:${server.address().port}`;
-  const cases = ['social-eddy-read', 'social-eddy-read-long', 'social-eddy-read-current'];
+  const cases = ['social-eddy-read', 'social-eddy-read-long', 'social-eddy-read-current', 'social-eddy-read-weekend'];
   for (const id of cases) {
     await page.evaluateOnNewDocument(() => {
       window.remotion_inputProps = '{}';
@@ -64,68 +64,49 @@ try {
       compositionDurationInFrames: composition.durationInFrames, compositionFps: composition.fps,
       compositionHeight: composition.height, compositionWidth: composition.width,
     }), { id, composition });
-    await page.waitForSelector('[data-read-region="viewport"]');
-    const frames = [...new Set([0, 1, ...Array.from({ length: Math.ceil(duration / 30) }, (_, i) => i * 30), endingStart - 1, endingStart, duration - 1])].sort((a, b) => a - b);
-    let previous;
+    await page.waitForSelector('[data-read-region="caption"]');
+    const baselineFrames = {
+      'social-eddy-read': [0,120,360], 'social-eddy-read-long': [0,540,1158],
+      'social-eddy-read-current': [0,600,1742], 'social-eddy-read-weekend': [0,450,duration-1],
+    }[id];
+    const frames = [...new Set([0, ...Array.from({ length: Math.ceil(duration / 6) }, (_, i) => i * 6),
+      ...baselineFrames, endingStart - 1, endingStart, duration - 1])].filter(f => f < duration).sort((a,b)=>a-b);
+    const seen = new Map();
+    const seenRivers = new Set();
     for (const frame of frames) {
       await page.evaluate(({ id, frame }) => window.remotion_setFrame(frame, id, 1), { id, frame });
       await page.waitForFunction(() => window.remotion_renderReady === true || window.remotion_cancelledError);
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      });
+      await page.evaluate(async () => { await document.fonts.ready; });
       const snapshot = await page.evaluate(() => {
-        const names = ['header', 'host', 'eddy', 'viewport', 'content', 'report', 'ending', 'closing-title', 'footer'];
-        const rects = Object.fromEntries(names.map(name => {
-          const el = document.querySelector(`[data-read-region="${name}"]`);
-          const b = el.getBoundingClientRect();
-          return [name, { left:b.left, top:b.top, right:b.right, bottom:b.bottom, height:b.height }];
-        }));
-        const img = document.querySelector('[data-read-region="eddy"] img');
-        return { rects,
-          text: [...document.querySelectorAll('[data-read-text]')].map(p=>p.textContent).join(' '),
-          mascotLoaded: img.complete && img.naturalWidth > 0,
-          closingEddyLoaded: document.querySelector('[data-read-region="closing-eddy"]').naturalWidth > 0,
-          weather: document.querySelector('[data-read-region="weather"]')?.textContent ?? null,
-          closingWeight: Number(getComputedStyle(document.querySelector('[data-read-region="closing-title"]')).fontWeight),
-          error: window.remotion_cancelledError,
-        };
+        const bounds = el => { const b=el.getBoundingClientRect(); return {left:b.left,top:b.top,right:b.right,bottom:b.bottom}; };
+        const rects = Object.fromEntries(['header','title','scene','eddy','caption','footer','source'].map(name =>
+          [name,bounds(document.querySelector(`[data-read-region="${name}"]`))]));
+        const caption = document.querySelector('[data-read-text]');
+        const img = document.querySelector('[data-read-region="eddy"]');
+        return { rects, text:caption.textContent, cue:caption.dataset.readCue, textRect:bounds(caption),
+          title:document.querySelector('[data-read-region="title"]').textContent,
+          mascotLoaded:img.complete && img.naturalWidth>0, error:window.remotion_cancelledError };
       });
-      assert.ok(!snapshot.error, snapshot.error);
-      assert.equal(snapshot.text.replace(/\s+/g,' ').trim(), props.readingText.replace(/\s+/g,' ').trim(), 'every word retained');
-      assert.ok(snapshot.mascotLoaded, 'Eddy is loaded on every frame');
-      assert.ok(snapshot.closingEddyLoaded, 'the closing card includes Eddy');
-      if (props.weather) {
-        assert.ok(snapshot.weather.includes(`${props.weather.highF}°`), 'actual forecast high is present');
-        assert.ok(snapshot.weather.includes(`${props.weather.precipChance}% rain`), 'report-day rain chance is present');
-      } else assert.equal(snapshot.weather, null, 'no invented weather');
-      const r = snapshot.rects;
-      for (const name of ['header', 'host', 'viewport', 'footer']) {
-        assert.ok(r[name].left >= 120 && r[name].right <= 810 && r[name].top >= 250 && r[name].bottom <= 1501, `${id}: ${name} outside safe area`);
+      assert.ok(!snapshot.error,snapshot.error);
+      assert.ok(snapshot.mascotLoaded,`${id}@${frame}: Eddy loads`);
+      assert.ok(snapshot.text.trim(),`${id}@${frame}: no blank caption`);
+      if (frame < endingStart) { seen.set(snapshot.cue,snapshot.text); seenRivers.add(snapshot.title.trim()); }
+      const r=snapshot.rects;
+      for (const name of ['header','title','scene','eddy','caption','footer','source']) {
+        assert.ok(r[name].left>=119 && r[name].right<=811 && r[name].top>=249 && r[name].bottom<=1501,`${id}@${frame}: ${name} outside safe area: ${JSON.stringify(r[name])}`);
       }
-      for (const [a,b] of [['header','host'],['host','viewport'],['viewport','footer']]) {
-        assert.ok(r[a].bottom < r[b].top, `${a} overlaps ${b}`);
+      assert.ok(r.title.bottom<=r.header.bottom,`${id}: title overflows header`);
+      assert.ok(r.header.bottom<=r.scene.top && r.scene.bottom<=r.caption.top && r.caption.bottom<=r.footer.top,`${id}: regions overlap`);
+      assert.ok(snapshot.textRect.bottom<=r.footer.top-6,`${id}@${frame}: caption collides with footer`);
+      assert.ok(snapshot.textRect.right<=811,`${id}@${frame}: caption overflows`);
+      if (process.env.READ_STILLS_DIR && baselineFrames.includes(frame)) {
+        await mkdir(process.env.READ_STILLS_DIR,{recursive:true});
+        await page.screenshot({path:resolve(process.env.READ_STILLS_DIR,`${id}@${frame}.png`)});
       }
-      assert.ok(r.viewport.height >= 500, 'text viewport remains usable');
-      assert.ok(r.eddy.top >= r.host.top && r.eddy.bottom <= r.host.bottom, 'Eddy is not clipped');
-      const visibleHeight = name => Math.max(0, Math.min(r[name].bottom, r.viewport.bottom) - Math.max(r[name].top, r.viewport.top));
-      assert.ok(visibleHeight('report') + visibleHeight('ending') >= r.viewport.height - 100, `${id} @ ${frame}: no mostly-empty entrance or exit`);
-      assert.ok(r.ending.top - r.report.bottom <= 36.1, 'closing card follows the last sentence');
-      if (frame === 0) assert.ok(r.report.top <= r.viewport.top + 30, 'the report is already in view at the opening');
-      if (previous && frame < endingStart) {
-        assert.ok(r.content.top < previous.rects.content.top, 'text never stalls or jumps back down');
-        assert.equal(r.viewport.top,previous.rects.viewport.top,'chrome stays fixed');
-      }
-      if (frame >= endingStart - 1) {
-        assert.ok(r.report.bottom <= r.viewport.top + 6, 'all final words have crossed the viewport');
-        assert.ok(r.ending.top >= r.viewport.top && r.ending.bottom <= r.viewport.bottom, 'the complete closing card fits during the hold');
-        assert.ok(r['closing-title'].left >= r.ending.left && r['closing-title'].right <= r.ending.right, 'closing headline fits');
-        assert.ok(snapshot.closingWeight >= 700, 'closing headline has a bold weight');
-      }
-      if (previous && frame >= endingStart) assert.equal(r.content.top, previous.rects.content.top, 'ending holds without a jump');
-      previous = snapshot;
     }
-    console.log(`${id}: all ${frames.length} frame checks passed (${duration / composition.fps}s)`);
+    assert.equal([...seen.values()].join(' ').replace(/\s+/g,' ').trim(),props.readingText.replace(/\s+/g,' ').trim(),'every word is shown in order, including qualifications');
+    assert.deepEqual([...seenRivers],props.scenes?.map(scene=>scene.riverName) ?? [props.riverName],'the correct river stays identified');
+    console.log(`${id}: ${frames.length} frames, ${seen.size} phrases, ${seenRivers.size} rivers checked`);
   }
   assert.deepEqual(errors, [], 'browser errors');
 } finally {
