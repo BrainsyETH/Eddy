@@ -466,6 +466,8 @@ body {
 .ew-dam-metric { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border-top: 1px solid var(--ew-border); padding-top: 9px; min-width: 0; }
 .ew-dam-metric-value { font-size: 17px; line-height: 1.35; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ew-dam-spill { border-top: 1px solid var(--ew-border); padding-top: 8px; }
+.ew[data-eddy-embed-kind="dam"] .ew-credit { padding-top: 7px; }
+.ew[data-eddy-embed-kind="dam"] .ew-powered { font-weight: 500; }
 .ew-about summary { list-style: none; width: fit-content; font-size: 12px; }
 .ew-about summary::-webkit-details-marker { display: none; }
 .ew-about summary::after { content: '+'; margin-left: 6px; }
